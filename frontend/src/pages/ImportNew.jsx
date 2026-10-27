@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Badge, Button, Card, Checkbox, DateInput, Docs, Dropzone, Field, Foot, KV, Note, Segmented, Select, Table, Td, Th, inputCls } from '../components/ui'
 import { useModalParam } from '../components/Modal'
-import { useStore } from '../data/store'
+import { herdEntryApi } from '../api/herdEntryApi'
+import { useMutation } from '../hooks/useApi'
 import { CALF_BARN, PAY_METHODS, PURPOSES, SOURCES, initialCalves } from '../data/mock'
 import { IMPORT_BARNS, INITIAL_COWS, TODAY, ageOf, blankCow } from '../data/importsData'
 import { dmy, money } from '../data/format'
@@ -23,7 +24,7 @@ const barnLabel = (b) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` :
 const num = (v) => Number(v) || 0
 
 export default function ImportNew() {
-  const { imports, setImports } = useStore()
+  const { mutate: saveEntry } = useMutation(({ id, patch }) => herdEntryApi.update(id, patch))
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
@@ -92,8 +93,7 @@ export default function ImportNew() {
           debt: null,
           status,
         }
-    setImports((list) => list.map((r) => (r.id === recordId ? { ...r, ...patch } : r)))
-    nav('/herd-entry')
+    saveEntry({ id: recordId, patch }).then(() => nav('/herd-entry'))
   }
 
   const rowIndex = m && m.startsWith('row-') ? Number(m.slice(4)) - 1 : -1

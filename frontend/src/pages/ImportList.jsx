@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Button, Foot, PageHeader, Segmented, Select, StatusBadge, Table, Td, Th, Tile, inputCls } from '../components/ui'
-import { useStore } from '../data/store'
+import { herdEntryApi } from '../api/herdEntryApi'
+import { useQuery } from '../hooks/useApi'
 import { OLDER, SOURCE_FILTERS } from '../data/importsData'
 import { dmy, dm, kg, money } from '../data/format'
 
@@ -13,7 +14,10 @@ const DEFAULT_FROM = '2026-07-01'
 const DEFAULT_TO = '2026-10-22'
 
 export default function ImportList() {
-  const { imports } = useStore()
+  const { data, loading } = useQuery(() => herdEntryApi.list(), [])
+  const imports = data ?? []
+  const ready = Boolean(data)
+  const shown = (v) => (ready ? v : '—')
   const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [type, setType] = useState('')
@@ -99,18 +103,18 @@ export default function ImportList() {
         <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
           <Tile
             label={`Phiếu đã nhập (từ ${dm(from)})`}
-            value={OLDER.done + done.length}
+            value={shown(OLDER.done + done.length)}
             note={`${drafts} phiếu nháp chưa lưu`}
           />
           <Tile
             label="Số con đã nhập"
-            value={OLDER.cows + sum(done, (r) => r.count)}
+            value={shown(OLDER.cows + sum(done, (r) => r.count))}
             note={`Mua ngoài ${OLDER.buyCows + sum(bought, (r) => r.count)} · Bê sinh tại trại ${OLDER.calfCows + sum(calf, (r) => r.count)}`}
           />
-          <Tile label="Tiền mua bò" value={`${money(OLDER.buyMoney + sum(bought, (r) => r.total))} đ`} note="Gồm phí vận chuyển" />
+          <Tile label="Tiền mua bò" value={shown(`${money(OLDER.buyMoney + sum(bought, (r) => r.total))} đ`)} note="Gồm phí vận chuyển" />
           <Tile
             label="Còn nợ nguồn bán"
-            value={`${money(sum(owed, (r) => r.debt))} đ`}
+            value={shown(`${money(sum(owed, (r) => r.debt))} đ`)}
             note={owed.length ? `${owed.length} phiếu · ${owed[0].id}` : 'Không còn nợ'}
           />
         </div>
@@ -154,7 +158,7 @@ export default function ImportList() {
               ))}
               {!rows.length && (
                 <tr>
-                  <Td colSpan={11} className="text-center text-muted">Không có phiếu nhập</Td>
+                  <Td colSpan={11} className="text-center text-muted">{loading ? 'Đang tải phiếu nhập…' : 'Không có phiếu nhập'}</Td>
                 </tr>
               )}
             </tbody>

@@ -2,7 +2,8 @@ import { Link, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Button, Card, Docs, Foot, Info, Note, PageHeader, StatusBadge, Table, Td, Th } from '../components/ui'
 import { useModalParam } from '../components/Modal'
-import { useStore } from '../data/store'
+import { herdEntryApi } from '../api/herdEntryApi'
+import { useMutation, useQuery } from '../hooks/useApi'
 import { TODAY } from '../data/importsData'
 import { dm, dmy, kg, money } from '../data/format'
 import PayModal from './import/PayModal'
@@ -14,9 +15,18 @@ const nowHM = () => new Date().toTimeString().slice(0, 5)
 
 export default function ImportDetail() {
   const { id } = useParams()
-  const { imports, setImports } = useStore()
   const [m, openModal, closeModal] = useModalParam()
-  const r = imports.find((x) => x.id === id)
+  const query = useQuery(() => herdEntryApi.get(id), [id])
+  const { mutate: updateEntry } = useMutation(({ recordId, patch }) => herdEntryApi.update(recordId, patch))
+  const r = query.data
+
+  if (!r && query.loading) {
+    return (
+      <Layout title="Chi tiết phiếu nhập" user="manager">
+        <p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p>
+      </Layout>
+    )
+  }
 
   if (!r) {
     return (
@@ -31,30 +41,34 @@ export default function ImportDetail() {
   const canPay = Boolean(d) && r.debt > 0 && r.status === 'Đã nhập'
   const canCancel = r.status === 'Đã nhập'
 
-  // Mọi thay đổi của phiếu đi qua đây để danh sách nhập cập nhật cùng lúc.
-  const patchRecord = (fn) => setImports((list) => list.map((x) => (x.id === r.id ? fn(x) : x)))
-
-  const savePayment = (p) => {
-    patchRecord((x) => ({
-      ...x,
-      debt: Math.max(x.debt - p.amount, 0),
-      detail: {
-        ...x.detail,
-        payments: [...x.detail.payments, { date: p.date, by: p.by, method: p.method, ref: p.ref, amount: p.amount }],
-        history: [...x.detail.history, `${dm(TODAY)} ${nowHM()} · ${p.by} ghi nhận thanh toán ${money(p.amount)} đ`],
+  // Ghi thay đổi qua API, rồi tải lại phiếu và đóng modal.
+  const savePayment = async (p) => {
+    await updateEntry({
+      recordId: r.id,
+      patch: {
+        debt: Math.max(r.debt - p.amount, 0),
+        detail: {
+          ...d,
+          payments: [...d.payments, { date: p.date, by: p.by, method: p.method, ref: p.ref, amount: p.amount }],
+          history: [...d.history, `${dm(TODAY)} ${nowHM()} · ${p.by} ghi nhận thanh toán ${money(p.amount)} đ`],
+        },
       },
-    }))
+    })
+    await query.refetch()
     closeModal()
   }
 
-  const cancelRecord = (reason) => {
-    patchRecord((x) => ({
-      ...x,
-      status: 'Đã hủy',
-      cancelReason: reason,
-      source: `${x.source} · Hủy: ${reason}`,
-      detail: d && { ...d, history: [...d.history, `${dm(TODAY)} ${nowHM()} · T. Q. Long hủy phiếu: ${reason}`] },
-    }))
+  const cancelRecord = async (reason) => {
+    await updateEntry({
+      recordId: r.id,
+      patch: {
+        status: 'Đã hủy',
+        cancelReason: reason,
+        source: `${r.source} · Hủy: ${reason}`,
+        detail: d && { ...d, history: [...d.history, `${dm(TODAY)} ${nowHM()} · T. Q. Long hủy phiếu: ${reason}`] },
+      },
+    })
+    await query.refetch()
     closeModal()
   }
 
