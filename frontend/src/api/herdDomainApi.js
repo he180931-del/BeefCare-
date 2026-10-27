@@ -108,8 +108,33 @@ export async function cancelCattleExit(rows, voucherId) {
   }
 }
 
+export async function voidEntryCattle(rows, voucherId) {
+  const candidates = []
+  for (const input of rows) {
+    const cow = await maybeGet(cattle, input.code)
+    if (cow?.status === 'VOIDED' && cow.entryVoucherId === voucherId) continue
+    if (!cow || cow.entryVoucherId !== voucherId) throw new Error(`Entry cattle mismatch: ${input.code}`)
+    if (cow.status !== 'ACTIVE') throw new Error(`Cattle not active: ${input.code}`)
+    if ((cow.events ?? []).length) throw new Error(`Cattle has later events: ${input.code}`)
+    await pens.get(cow.barn)
+    candidates.push(cow)
+  }
+
+  for (const cow of candidates) {
+    await updatePenOccupancy(cow.barn, -1, cow, { remove: true })
+    await cattle.update(cow.code, {
+      status: 'VOIDED',
+      lastPen: cow.barn,
+      barn: null,
+      voidVoucherId: voucherId,
+      qrHistory: (cow.qrHistory ?? []).map((tag) => tag.status === 'ACTIVE' ? { ...tag, status: 'REVOKED' } : tag),
+    })
+  }
+}
+
 export async function moveCattle(code, { to, date, reason, by }) {
   const cow = await cattle.get(code)
+  if (cow.status !== 'ACTIVE') throw new Error(`Cattle not active: ${code}`)
   if (cow.barn === to) return cow
   const [fromPen, toPen] = await Promise.all([pens.get(cow.barn), pens.get(to)])
   if (toPen.status !== 'ACTIVE') throw new Error(`Pen inactive: ${to}`)
