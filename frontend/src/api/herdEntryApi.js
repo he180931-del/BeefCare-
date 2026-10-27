@@ -1,12 +1,14 @@
-import { createCollection } from './client'
-import { initialImports } from '../data/importsData'
+import { createCollection } from './client.js'
+import { initialImports } from '../data/importsData.js'
 
-// Phiếu nhập đàn: dữ liệu mẫu lấy từ importsData, lưu tạm trong localStorage qua lớp API giả lập.
-const herdEntries = createCollection('herdEntries', initialImports)
+// Phiếu nhập đàn: mã tiếp theo lấy từ dữ liệu đã lưu, không phụ thuộc mã mẫu cố định trên form.
+const nextEntryId = (rows) => `PN-2026-${String(Math.max(0, ...rows.map((row) => Number(row.id?.split('-')[2]) || 0)) + 1).padStart(4, '0')}`
+const herdEntries = createCollection('herdEntries', initialImports, { nextId: nextEntryId })
 
 export const herdEntryApi = {
   list: () => herdEntries.list(),
   get: (id) => herdEntries.get(id),
+  create: (record) => herdEntries.create(record),
   update: (id, patch) => herdEntries.update(id, patch),
   reset: () => herdEntries.reset(),
 }

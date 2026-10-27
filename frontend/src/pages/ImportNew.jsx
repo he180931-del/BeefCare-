@@ -4,7 +4,8 @@ import Layout from '../components/Layout'
 import { Badge, Button, Card, Checkbox, DateInput, Docs, Dropzone, Field, Foot, KV, Note, Segmented, Select, Table, Td, Th, inputCls } from '../components/ui'
 import { useModalParam } from '../components/Modal'
 import { herdEntryApi } from '../api/herdEntryApi'
-import { useMutation } from '../hooks/useApi'
+import { registerEntryCattle } from '../api/herdDomainApi'
+import { useMutation, useQuery } from '../hooks/useApi'
 import { CALF_BARN, PAY_METHODS, PURPOSES, SOURCES, initialCalves } from '../data/mock'
 import { IMPORT_BARNS, INITIAL_COWS, TODAY, ageOf, blankCow } from '../data/importsData'
 import { dmy, money } from '../data/format'
@@ -15,8 +16,6 @@ import ExcelModal from './import/ExcelModal'
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'
 const KIND_CALF = 'Bê sinh tại trại'
-const BUY_ID = 'PN-2026-0012'
-const CALF_ID = 'PN-2026-0013'
 const BARN_OPTIONS = IMPORT_BARNS.map((b) => ({ value: b.code, label: b.name }))
 const CALF_BARN_OPTIONS = [{ value: CALF_BARN.code, label: CALF_BARN.name }]
 const PURPOSE_CHOICES = PURPOSES.map((p) => ({ value: p, label: p }))
@@ -24,14 +23,26 @@ const barnLabel = (b) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` :
 const num = (v) => Number(v) || 0
 
 export default function ImportNew() {
-  const { mutate: saveEntry } = useMutation(({ id, patch }) => herdEntryApi.update(id, patch))
+  const [params] = useSearchParams()
+  const { data } = useQuery(() => herdEntryApi.list(), [])
+  if (!data) {
+    return <Layout title="Phiếu nhập mới" user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
+  }
+  return <ImportForm key={params.get('kind') === 'calf' ? 'calf' : 'buy'} imports={data} />
+}
+
+function ImportForm({ imports }) {
+  const { mutate: persistEntry } = useMutation(({ id, record, exists }) => (exists ? herdEntryApi.update(id, record) : herdEntryApi.create({ ...record, id })))
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
 
   const kind = params.get('kind') === 'calf' ? KIND_CALF : KIND_BUY
   const isBuy = kind === KIND_BUY
-  const recordId = isBuy ? BUY_ID : CALF_ID
+  const draftRow = imports.find((row) => row.status === 'Nháp' && row.type === kind)
+  const draft = draftRow?.draft
+  const nextNumber = Math.max(0, ...imports.map((row) => Number(row.id?.split('-')[2]) || 0)) + 1
+  const recordId = draftRow?.id ?? `PN-2026-${String(nextNumber).padStart(4, '0')}`
   const setKind = (next) => {
     const query = new URLSearchParams(params)
     if (next === KIND_CALF) query.set('kind', 'calf')
@@ -39,19 +50,19 @@ export default function ImportNew() {
     setParams(query)
   }
 
-  const [pricing, setPricing] = useState('kg')
-  const [sourceId, setSourceId] = useState(SOURCES[0].id)
-  const [date, setDate] = useState(TODAY)
-  const [quarantine, setQuarantine] = useState('KD-HN-2026-004512')
-  const [receiver, setReceiver] = useState('Anh A')
-  const [note, setNote] = useState('Khám ngoại hình bình thường, 1 con hơi gầy')
-  const [cows, setCows] = useState(INITIAL_COWS)
-  const [calves, setCalves] = useState(initialCalves)
-  const [freight, setFreight] = useState(1500000)
-  const [paid, setPaid] = useState(40000000)
-  const [method, setMethod] = useState(PAY_METHODS[0])
-  const [due, setDue] = useState('2026-11-05')
-  const [printQr, setPrintQr] = useState(true)
+  const [pricing, setPricing] = useState(draft?.pricing ?? 'kg')
+  const [sourceId, setSourceId] = useState(draft?.sourceId ?? SOURCES[0].id)
+  const [date, setDate] = useState(draft?.date ?? TODAY)
+  const [quarantine, setQuarantine] = useState(draft?.quarantine ?? '')
+  const [receiver, setReceiver] = useState(draft?.receiver ?? 'Anh A')
+  const [note, setNote] = useState(draft?.note ?? '')
+  const [cows, setCows] = useState(draft?.cows ?? INITIAL_COWS)
+  const [calves, setCalves] = useState(draft?.calves ?? initialCalves)
+  const [freight, setFreight] = useState(draft?.freight ?? 1500000)
+  const [paid, setPaid] = useState(draft?.paid ?? 40000000)
+  const [method, setMethod] = useState(draft?.method ?? PAY_METHODS[0])
+  const [due, setDue] = useState(draft?.due ?? '2026-11-05')
+  const [printQr, setPrintQr] = useState(draft?.printQr ?? true)
 
   const source = SOURCES.find((s) => s.id === sourceId)
   const cowsMoney = cows.reduce((s, c) => s + (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice), 0)
@@ -72,12 +83,18 @@ export default function ImportNew() {
   const patchCow = (i, p) => setCows(cows.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
   const patchCalf = (i, p) => setCalves(calves.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
 
-  // Lưu cập nhật đúng bản ghi nháp của phiếu này, không tạo phiếu mới.
-  const save = (status) => {
-    const patch = isBuy
+  const save = async (status) => {
+    const sourceText = isBuy
+      ? `${source.name}${quarantine ? ` · ${quarantine}` : ''}${estimatedCount ? ` · ${estimatedCount} con cân ước tính` : ''}`
+      : `Bê của ${[...new Set(picked.map((c) => c.mother))].join(', ')}`
+    const editableDraft = {
+      pricing, sourceId, date, quarantine, receiver, note, cows, calves, freight, paid, method, due, printQr,
+    }
+    const record = isBuy
       ? {
           date,
-          source: `${source.name} · ${quarantine}${estimatedCount ? ` · ${estimatedCount} con cân ước tính` : ''}`,
+          type: kind,
+          source: sourceText,
           count: n,
           weight: totalWeight,
           total,
@@ -86,14 +103,47 @@ export default function ImportNew() {
         }
       : {
           date,
-          source: `Bê của ${[...new Set(picked.map((c) => c.mother))].join(', ')}`,
+          type: kind,
+          source: sourceText,
           count: n,
           weight: calfWeight,
           total: null,
           debt: null,
           status,
         }
-    saveEntry({ id: recordId, patch }).then(() => nav('/herd-entry'))
+    if (status === 'Nháp') {
+      record.draft = editableDraft
+    } else {
+      const inputs = isBuy
+        ? cows.map((cow) => ({ ...cow, date }))
+        : picked.map((calf) => ({ ...calf, tag: calf.tag, ageMonths: 0, stage: 'Bê', group: 'Bê', date: calf.born }))
+      const registered = await registerEntryCattle(inputs, recordId)
+      record.detail = {
+        sourceName: isBuy ? source.name : sourceText,
+        quarantine: isBuy ? quarantine : '',
+        phone: isBuy ? source.phone : '',
+        plate: '',
+        by: `${receiver} · ${date}`,
+        note,
+        cows: registered.map((cow, index) => ({
+          code: cow.code,
+          tag: cow.tag || '—',
+          breed: `${cow.breed} · ${cow.sex}`,
+          weight: cow.weight,
+          barn: cow.barn,
+          current: `ACTIVE · ${cow.barn}`,
+          amount: isBuy ? (pricing === 'kg' ? cows[index].weight * cows[index].unitPrice : cows[index].unitPrice) : 0,
+        })),
+        cowsTotal: isBuy ? cowsMoney : 0,
+        freight: isBuy ? freight : 0,
+        payments: isBuy && paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: Math.min(paid, total) }] : [],
+        docs: isBuy ? [{ ext: 'PDF', name: 'giay-kiem-dich.pdf' }] : [],
+        history: [`${dmy(date)} · ${receiver} ${status === 'Đã nhập' ? 'lưu và xác nhận' : 'lưu'} phiếu ${recordId}`],
+      }
+      record.draft = undefined
+    }
+    await persistEntry({ id: recordId, record, exists: Boolean(draftRow) })
+    nav('/herd-entry')
   }
 
   const rowIndex = m && m.startsWith('row-') ? Number(m.slice(4)) - 1 : -1
