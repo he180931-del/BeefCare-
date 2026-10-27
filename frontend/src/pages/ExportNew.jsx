@@ -88,7 +88,7 @@ export default function ExportNew() {
     }
     if (draftRow) updateExport(draftRow.id, record)
     else addExport(record)
-    nav('/xuat')
+    nav('/herd-exit')
   }
 
   return (
@@ -270,7 +270,7 @@ export default function ExportNew() {
               Xác nhận xuất {picked.length} con
             </Button>
             <Button block onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
-            <Button variant="link" block onClick={() => nav('/xuat')}>Hủy</Button>
+            <Button variant="link" block onClick={() => nav('/herd-exit')}>Hủy</Button>
             <p className="m-0 text-[11px] text-muted">
               Khi xác nhận, mỗi con: chuyển ĐÃ XUẤT, đóng phân chuồng, hủy mũi tiêm / nhắc việc sau ngày xuất, đóng ca bệnh và thai đang mở (GBR-35). Hồ sơ chỉ còn xem.
             </p>

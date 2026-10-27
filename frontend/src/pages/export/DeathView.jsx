@@ -29,7 +29,7 @@ export default function DeathView({ row }) {
       ...extra,
       detail: { ...d, history: [...(d.history ?? []), `${dmy(date).slice(0, 5)} · N. V. Hùng ${status === 'Đã xuất' ? 'xác nhận xuất đàn' : 'bác đề xuất'}`] },
     })
-    nav('/xuat')
+    nav('/herd-exit')
   }
 
   return (
@@ -115,7 +115,7 @@ export default function DeathView({ row }) {
                 </Checkbox>
                 <Button variant="primary" block className="!border-0 !py-[9px]" disabled={!confirmed} onClick={() => resolve('Đã xuất')}>Xác nhận xuất đàn</Button>
                 <Button block onClick={() => openModal('reject')}>Bác đề xuất</Button>
-                <Button variant="link" block onClick={() => nav('/xuat')}>Đóng</Button>
+                <Button variant="link" block onClick={() => nav('/herd-exit')}>Đóng</Button>
                 <p className="m-0 text-[11px] text-muted">Bác đề xuất: bò vẫn ACTIVE, ca sức khỏe giữ nguyên kết quả; bắt buộc nhập lý do (GBR-34).</p>
               </>
             ) : (

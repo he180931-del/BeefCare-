@@ -4,7 +4,7 @@ import { useTopbarTitle } from './Layout'
 import { Button } from './ui'
 
 /**
- * Modal mở bằng query `?m=<tên>` để test/chụp ảnh trực tiếp (vd /nhap/moi?m=excel).
+ * Modal mở bằng query `?m=<tên>` để test/chụp ảnh trực tiếp (vd /herd-entry/new?m=excel).
  *   const [m, openModal, closeModal] = useModalParam()
  *   {m === 'excel' && <Modal ...onClose={closeModal} />}
  * Các query khác (vd ?tab=) được giữ nguyên.

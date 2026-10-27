@@ -20,7 +20,7 @@ export default function ExportDetail() {
   if (!r) {
     return (
       <Layout title="Chi tiết phiếu xuất">
-        <p>Không tìm thấy phiếu {id}. <Link to="/xuat" className="text-brand">Về danh sách</Link></p>
+        <p>Không tìm thấy phiếu {id}. <Link to="/herd-exit" className="text-brand">Về danh sách</Link></p>
       </Layout>
     )
   }

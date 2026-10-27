@@ -1,6 +1,6 @@
 // Chụp một route của app ở độ rộng 1440 (mặc định) → PNG.
 // Dùng: node tools/shot.mjs <route> <out.png> [--w 1440] [--h 1024] [--full] [--port 5199]
-// Modal mở bằng query: /nhap/moi?m=excel
+// Modal mở bằng query: /herd-entry/new?m=excel
 import { chromium } from 'playwright-core'
 import os from 'node:os'
 
