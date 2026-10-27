@@ -8,7 +8,7 @@ import wave from '../assets/wave.png'
 const item = (name, to) => ({ name, to })
 const NAV_COMMON = [
   { label: 'VẬN HÀNH', items: [item('Tổng quan', '/tong-quan'), item('Nhắc việc', '/nhac-viec'), item('Thông báo trại', '/thong-bao')] },
-  { label: 'ĐÀN BÒ', items: [item('Đàn bò', '/dan-bo'), item('Nhập đàn', '/nhap'), item('Chuồng trại', '/chuong-trai'), item('Xuất đàn', '/xuat')] },
+  { label: 'ĐÀN BÒ', items: [item('Đàn bò', '/cattle'), item('Nhập đàn', '/herd-entry'), item('Chuồng trại', '/pens'), item('Xuất đàn', '/herd-exit')] },
   {
     label: 'CHĂM SÓC',
     items: [item('Cân nặng & thể trạng', '/can-nang'), item('Tiêm phòng', '/tiem-phong'), item('Sức khỏe & Điều trị', '/suc-khoe'), item('Sinh sản', '/sinh-san'), item('Thức ăn', '/thuc-an')],

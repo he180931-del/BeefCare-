@@ -17,16 +17,16 @@ export default function App() {
   return (
     <Suspense fallback={null}>
       <Routes>
-        <Route path="/" element={<Navigate to="/nhap" replace />} />
-        <Route path="/nhap" element={<ImportList />} />
-        <Route path="/nhap/moi" element={<ImportNew />} />
-        <Route path="/nhap/:id" element={<ImportDetail />} />
-        <Route path="/xuat" element={<ExportList />} />
-        <Route path="/xuat/moi" element={<ExportNew />} />
-        <Route path="/xuat/:id" element={<ExportDetail />} />
-        <Route path="/chuong-trai" element={<BarnList />} />
-        <Route path="/dan-bo" element={<CowList />} />
-        <Route path="/dan-bo/:code" element={<CowProfile />} />
+        <Route path="/" element={<Navigate to="/herd-entry" replace />} />
+        <Route path="/herd-entry" element={<ImportList />} />
+        <Route path="/herd-entry/new" element={<ImportNew />} />
+        <Route path="/herd-entry/:id" element={<ImportDetail />} />
+        <Route path="/herd-exit" element={<ExportList />} />
+        <Route path="/herd-exit/new" element={<ExportNew />} />
+        <Route path="/herd-exit/:id" element={<ExportDetail />} />
+        <Route path="/pens" element={<BarnList />} />
+        <Route path="/cattle" element={<CowList />} />
+        <Route path="/cattle/:code" element={<CowProfile />} />
         <Route path="*" element={<Placeholder />} />
       </Routes>
     </Suspense>

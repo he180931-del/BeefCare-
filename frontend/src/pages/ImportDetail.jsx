@@ -13,7 +13,7 @@ export default function ImportDetail() {
   if (!r) {
     return (
       <Layout title="Chi tiết phiếu nhập" user="manager">
-        <p>Không tìm thấy phiếu {id}. <Link to="/nhap" className="text-brand">Về danh sách</Link></p>
+        <p>Không tìm thấy phiếu {id}. <Link to="/herd-entry" className="text-brand">Về danh sách</Link></p>
       </Layout>
     )
   }
@@ -26,7 +26,7 @@ export default function ImportDetail() {
       <PageHeader title={`Phiếu nhập ${r.id}`} badge={<StatusBadge status={r.status} />}>
         <Button onClick={() => window.print()}>In phiếu</Button>
         <Button disabled={r.status === 'Đã hủy'}>Hủy phiếu</Button>
-        <Button onClick={() => nav('/nhap')}>← Danh sách</Button>
+        <Button onClick={() => nav('/herd-entry')}>← Danh sách</Button>
       </PageHeader>
 
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
