@@ -1,19 +1,19 @@
-import { createCollection } from './client'
-import { BARNS0, MANAGER, TODAY, initialCows, newQrCode } from '../data/cowsData'
-import { dm, dmy } from '../data/format'
+import { createCollection } from './client.js'
+import { MANAGER, TODAY, initialCows, newQrCode } from '../data/cowsData.js'
+import { dm, dmy } from '../data/format.js'
+import { moveCattle, pens } from './herdDomainApi.js'
 
-// Hai collection: bò (khoá theo mã hiển thị) và chuồng (khoá theo mã chuồng).
+// Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
 const cattle = createCollection('cattle', initialCows, { idKey: 'code' })
-const barns = createCollection('barns', Object.values(BARNS0), { idKey: 'code' })
 
 const event = (cat, at, title, badge, detail, meta) => ({ id: `ev-${Date.now()}`, at, cat, title, badge, detail, meta })
 
 export const listCows = () => cattle.list()
-export const listBarns = () => barns.list()
+export const listBarns = () => pens.list()
 
 /** Hồ sơ một bò kèm danh sách chuồng (để hiển thị tiêu chí và sức chứa). */
 export async function loadProfile(code) {
-  const [cow, barnRows] = await Promise.all([cattle.get(code), barns.list()])
+  const [cow, barnRows] = await Promise.all([cattle.get(code), pens.list()])
   return { cow, barns: barnRows }
 }
 
@@ -29,16 +29,12 @@ export async function moveBarn(code, { to, date, reason, by }) {
   const cow = await cattle.get(code)
   const from = cow.barn
   if (from === to) return cow
-  const [fromBarn, toBarn] = await Promise.all([barns.get(from), barns.get(to)])
-  await barns.update(from, { count: fromBarn.count - 1 })
-  await barns.update(to, { count: toBarn.count + 1 })
+  const moved = await moveCattle(code, { to, date, reason, by })
   const d = dmy(date)
   const change = event('barn', `${date}T08:00`, `Chuyển chuồng ${from} → ${to}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(TODAY)} · ${by}`)
   return cattle.update(code, {
-    barn: to,
     barnSince: d,
-    barnTag: undefined,
-    barnHistory: [{ from: d, to: '—', barn: toBarn.name, reason, by }, ...cow.barnHistory.map((h, i) => (i === 0 ? { ...h, to: d } : h))],
+    barnHistory: moved.barnHistory.map((row, index) => index === 0 ? { ...row, from: d } : row.to === date ? { ...row, to: d } : row),
     events: [change, ...cow.events],
   })
 }

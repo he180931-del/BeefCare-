@@ -10,7 +10,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }) {
   const move = useMutation((payload) => moveBarn(cow.code, payload))
   const from = barns[cow.barn]
   const isDemo = cow.code === 'BC-000142'
-  const options = Object.values(barns).filter((b) => b.code !== cow.barn)
+  const options = Object.values(barns).filter((b) => b.code !== cow.barn && b.status === 'ACTIVE')
   const [to, setTo] = useState(options.find((b) => b.code === 'A1')?.code ?? options[0]?.code)
   const [date, setDate] = useState(TODAY)
   const [by, setBy] = useState(MANAGER)
@@ -18,7 +18,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }) {
 
   const dest = barns[to]
   const checks = [
-    ['Chuồng đích ACTIVE và còn chỗ', dest.count < dest.capacity],
+    ['Chuồng đích ACTIVE và còn chỗ', dest?.status === 'ACTIVE' && dest.count < dest.capacity],
     ['Mục đích nuôi khớp tiêu chí chuồng', cow.purpose === dest.purpose],
     [`Ngưỡng ≥ ${dest.minMonths} tháng và ≥ ${dest.minKg} kg`, cow.months >= dest.minMonths && cow.weight != null && cow.weight >= dest.minKg],
     ['Giai đoạn khớp tiêu chí chuồng', cow.stage === dest.stage],

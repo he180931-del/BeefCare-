@@ -1,3 +1,5 @@
+import { penMap } from './pensData.js'
+
 export const TODAY = '2026-10-20'
 export const MANAGER = 'Trần Quốc Long'
 export const OWNER = 'Nguyễn Văn Hùng'
@@ -5,17 +7,8 @@ export const STAGES = ['Bê', 'Bò tơ', 'Vỗ béo', 'Bò cái sinh sản', 'Đ
 export const PURPOSES = ['Sinh sản', 'Vỗ béo', 'Đực giống', 'Chưa xác định']
 export const BREEDS = ['Zebu đỏ', 'Lai Sind', 'Brahman đỏ']
 export const QR_REASONS = ['Thẻ bị hỏng', 'Thẻ bị mất', 'Mã mờ, không quét được', 'Khác']
-// Chuồng: tag = nhãn ngắn ở cột "Chuồng"; purpose + stage = "Tiêu chí tiếp nhận".
-export const BARNS0 = {
-  A1: { code: 'A1', name: 'A1 – Bò cái sinh sản', tag: 'Sinh sản', purpose: 'Sinh sản', stage: 'Bò cái sinh sản', count: 58, capacity: 64, minMonths: 13, minKg: 230 },
-  A2: { code: 'A2', name: 'A2 – Bò cái sinh sản', tag: 'Sinh sản', purpose: 'Sinh sản', stage: 'Bò cái sinh sản', count: 18, capacity: 30, minMonths: 13, minKg: 230 },
-  A3: { code: 'A3', name: 'A3 – Bê theo mẹ', tag: 'Bê theo mẹ', purpose: 'Sinh sản', stage: 'Bê', count: 6, capacity: 12, minMonths: 0, minKg: 0 },
-  B1: { code: 'B1', name: 'B1 – Vỗ béo', tag: 'Vỗ béo', purpose: 'Vỗ béo', stage: 'Vỗ béo', count: 46, capacity: 50, minMonths: 12, minKg: 250 },
-  B2: { code: 'B2', name: 'B2 – Đực giống', tag: 'Đực giống', purpose: 'Đực giống', stage: 'Đực giống', count: 6, capacity: 10, minMonths: 24, minKg: 400 },
-  C1: { code: 'C1', name: 'C1 – Bò tơ', tag: 'Bò tơ', purpose: 'Sinh sản', stage: 'Bò tơ', count: 37, capacity: 40, minMonths: 6, minKg: 120 },
-  C2: { code: 'C2', name: 'C2 – Bê cai sữa', tag: 'Bê cai sữa', purpose: 'Chưa xác định', stage: 'Bê', count: 30, capacity: 40, minMonths: 0, minKg: 0 },
-  D: { code: 'D', name: 'D – Chuồng đẻ', tag: 'Chuồng đẻ', purpose: 'Sinh sản', stage: 'Bò cái sinh sản', count: 4, capacity: 8, minMonths: 13, minKg: 230 },
-}
+// Backward-compatible name used by the screens; sourced from canonical pens.
+export const BARNS0 = penMap
 // Phần đàn KHÔNG nằm trong các bò mẫu: tổng 248 = 241 + 7 bò trong danh sách.
 export const BASELINE = { 'Bò cái sinh sản': 83, 'Bò tơ': 36, 'Vỗ béo': 45, 'Bê': 68, 'Đực giống': 9, 'Chưa xác định': 0 }
 export const EXPORTED_COUNT = 17
