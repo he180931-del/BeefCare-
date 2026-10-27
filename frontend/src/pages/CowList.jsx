@@ -83,7 +83,7 @@ export default function CowList() {
       <div className="flex flex-col gap-5 leading-[normal]">
         <PageHeader title="Đàn bò" sub={`${total} con đang nuôi · ${EXPORTED_COUNT} con đã xuất đàn`}>
           <Button className="leading-[normal]" onClick={() => searchRef.current?.focus()}>▣ Quét QR</Button>
-          <Button variant="primary" className="leading-[normal]" onClick={() => nav('/nhap/moi')}>+ Nhập đàn</Button>
+          <Button variant="primary" className="leading-[normal]" onClick={() => nav('/herd-entry/new')}>+ Nhập đàn</Button>
         </PageHeader>
 
         <div className="flex flex-wrap gap-2.5">
@@ -143,7 +143,7 @@ export default function CowList() {
             </thead>
             <tbody>
               {rows.map((c) => (
-                <CowRow key={c.code} c={c} barnTag={barnTagOf(c)} onOpen={(code) => nav(`/dan-bo/${code}`)} />
+                <CowRow key={c.code} c={c} barnTag={barnTagOf(c)} onOpen={(code) => nav(`/cattle/${code}`)} />
               ))}
               {rows.length === 0 && (
                 <tr>
