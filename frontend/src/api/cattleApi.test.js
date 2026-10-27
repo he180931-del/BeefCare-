@@ -21,3 +21,10 @@ test('every sample cow shown by a pen resolves to a cattle profile in that pen',
   }
   assert.equal(store.has('beefcare:barns'), false)
 })
+
+test('profile mutations reject cattle that are no longer ACTIVE', async () => {
+  const [{ updateIdentity }, { cattle }] = await Promise.all([import('./cattleApi.js'), import('./herdDomainApi.js')])
+  await cattle.update('BC-000125', { status: 'EXITED' })
+
+  await assert.rejects(updateIdentity('BC-000125', { name: 'Không được sửa' }), /not active/i)
+})

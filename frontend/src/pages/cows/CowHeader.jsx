@@ -19,13 +19,15 @@ export const cowDesc = (cow) =>
     cow.breed,
     cow.sex,
     cow.headerAge !== false && cow.ageLong,
-    `Chuồng ${cow.barn}`,
+    cow.barn && `Chuồng ${cow.barn}`,
   ]
     .filter(Boolean)
     .join(' · ')
 
 export default function CowHeader({ cow, tab, onTab, onOpenModal }) {
   const voided = cow.status === 'VOIDED'
+  const exited = cow.status === 'EXITED'
+  const active = cow.status === 'ACTIVE'
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-[18px] rounded-md border border-edge bg-white p-4">
@@ -36,17 +38,19 @@ export default function CowHeader({ cow, tab, onTab, onOpenModal }) {
           </div>
           <div className="text-xs leading-[normal] text-muted">{cowDesc(cow)}</div>
           <div className="flex flex-wrap gap-1.5">
-            {voided ? <Chip tone="err">VOIDED</Chip> : <Chip tone="ok">ACTIVE</Chip>}
-            {cow.headerBadges.map(([label, tone]) => (
+            {voided ? <Chip tone="err">VOIDED</Chip> : exited ? <Chip>EXITED</Chip> : <Chip tone="ok">ACTIVE</Chip>}
+            {active && cow.headerBadges.map(([label, tone]) => (
               <Chip key={label} tone={tone}>{label}</Chip>
             ))}
           </div>
         </div>
         <div className="flex-1" />
-        <div className="flex flex-wrap gap-2.5">
-          <Button className="leading-[normal]" onClick={() => onOpenModal('update')}>Cập nhật hồ sơ</Button>
-          <Button className="leading-[normal]" onClick={() => onOpenModal('qr-reissue')}>Cấp lại QR</Button>
-        </div>
+        {active && (
+          <div className="flex flex-wrap gap-2.5">
+            <Button className="leading-[normal]" onClick={() => onOpenModal('update')}>Cập nhật hồ sơ</Button>
+            <Button className="leading-[normal]" onClick={() => onOpenModal('qr-reissue')}>Cấp lại QR</Button>
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap gap-x-1">
         {COW_TABS.map(([v, l]) => (

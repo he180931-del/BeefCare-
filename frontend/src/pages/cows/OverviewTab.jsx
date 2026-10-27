@@ -23,7 +23,7 @@ export default function OverviewTab({ cow, onOpenModal }) {
           <Panel
             title="Thông tin cá thể"
             gap="gap-3.5"
-            action={cow.importRecord && <Button variant="link" small className="leading-[normal]" onClick={() => onOpenModal('record-edit')}>Sửa / hủy bản ghi nhập đàn</Button>}
+            action={cow.status === 'ACTIVE' && cow.importRecord && <Button variant="link" small className="leading-[normal]" onClick={() => onOpenModal('record-edit')}>Sửa / hủy bản ghi nhập đàn</Button>}
           >
             <Fields
               cols="grid-cols-2 sm:grid-cols-4"
@@ -35,7 +35,7 @@ export default function OverviewTab({ cow, onOpenModal }) {
                 ['Nguồn nhập đàn', cow.source],
                 ['Mục đích nuôi', `${cow.purpose} · từ ${cow.purposeSince}`],
                 ['Giai đoạn', cow.stage],
-                ['Chuồng hiện tại', `${cow.barn} · từ ${cow.barnSince}`],
+                ['Chuồng hiện tại', cow.barn ? `${cow.barn} · từ ${cow.barnSince}` : '—'],
                 ['Mẹ', cow.mother],
                 ['Bố', cow.father],
                 ['Tên gọi', cow.name],

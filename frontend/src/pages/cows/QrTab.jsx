@@ -10,7 +10,7 @@ export default function QrTab({ cow, onOpenModal }) {
       <Panel
         title="Thẻ hiện hành"
         gap="gap-4"
-        action={<Button className="leading-[normal]" onClick={() => onOpenModal('qr-reissue')}>Cấp lại QR</Button>}
+        action={cow.status === 'ACTIVE' && <Button className="leading-[normal]" onClick={() => onOpenModal('qr-reissue')}>Cấp lại QR</Button>}
       >
         <div className="flex flex-wrap items-center gap-6">
           <div className="size-[120px] shrink-0 rounded-md border border-edge bg-[#eef4ef]" aria-hidden="true" />

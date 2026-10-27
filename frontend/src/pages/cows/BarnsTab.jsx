@@ -8,7 +8,7 @@ export default function BarnsTab({ cow, barns, onOpenModal }) {
       <Panel
         title="Chuồng hiện tại"
         gap="gap-3"
-        action={<Button className="leading-[normal]" onClick={() => onOpenModal('move')}>Chuyển chuồng</Button>}
+        action={cow.status === 'ACTIVE' && <Button className="leading-[normal]" onClick={() => onOpenModal('move')}>Chuyển chuồng</Button>}
       >
         <Table>
           <thead>
@@ -20,12 +20,16 @@ export default function BarnsTab({ cow, barns, onOpenModal }) {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <Td className="font-medium">{cur.name}</Td>
-              <Td>{cow.barnSince}</Td>
-              <Td>{`${cur.count} / ${cur.capacity} con`}</Td>
-              <Td>{`${cur.purpose} · ${cur.stage}`}</Td>
-            </tr>
+            {cur ? (
+              <tr>
+                <Td className="font-medium">{cur.name}</Td>
+                <Td>{cow.barnSince}</Td>
+                <Td>{`${cur.count} / ${cur.capacity} con`}</Td>
+                <Td>{`${cur.purpose} · ${cur.stage}`}</Td>
+              </tr>
+            ) : (
+              <tr><Td colSpan={4}>Không có phân chuồng đang mở.</Td></tr>
+            )}
           </tbody>
         </Table>
       </Panel>

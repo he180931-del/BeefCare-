@@ -8,6 +8,12 @@ const cattle = createCollection('cattle', initialCows, { idKey: 'code' })
 
 const event = (cat, at, title, badge, detail, meta) => ({ id: `ev-${Date.now()}`, at, cat, title, badge, detail, meta })
 
+const getActiveCow = async (code) => {
+  const cow = await cattle.get(code)
+  if (cow.status !== 'ACTIVE') throw new Error(`Cattle not active: ${code}`)
+  return cow
+}
+
 export const listCows = () => cattle.list()
 export const listBarns = () => pens.list()
 
@@ -17,16 +23,19 @@ export async function loadProfile(code) {
   return { cow, barns: barnRows }
 }
 
-export const updateIdentity = (code, { name, tag, description }) => cattle.update(code, { name, tag, description })
+export const updateIdentity = async (code, { name, tag, description }) => {
+  await getActiveCow(code)
+  return cattle.update(code, { name, tag, description })
+}
 
 export async function updateStage(code, { stage, date, reason }) {
-  const cow = await cattle.get(code)
+  const cow = await getActiveCow(code)
   const change = event('stage', `${date}T08:00`, `Đổi giai đoạn: ${cow.stage} → ${stage}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(TODAY)} · ${MANAGER}`)
   return cattle.update(code, { stage, events: [change, ...cow.events] })
 }
 
 export async function moveBarn(code, { to, date, reason, by }) {
-  const cow = await cattle.get(code)
+  const cow = await getActiveCow(code)
   const from = cow.barn
   if (from === to) return cow
   const moved = await moveCattle(code, { to, date, reason, by })
@@ -40,7 +49,7 @@ export async function moveBarn(code, { to, date, reason, by }) {
 }
 
 export async function reissueQr(code, { reason, note, by }) {
-  const cow = await cattle.get(code)
+  const cow = await getActiveCow(code)
   const newCode = newQrCode(cow)
   const change = event('qr', `${TODAY}T08:00`, 'Cấp lại thẻ QR', { label: 'Thực tế', tone: 'ok' }, note || reason, `Hiệu lực ${dm(TODAY)} · ghi ${dm(TODAY)} · ${by}`)
   return cattle.update(code, {
@@ -54,7 +63,7 @@ export async function reissueQr(code, { reason, note, by }) {
 }
 
 export async function editImportRecord(code, { values, reason }) {
-  const cow = await cattle.get(code)
+  const cow = await getActiveCow(code)
   if (!cow.importRecord) return cow
   let weight = cow.weight
   const fields = cow.importRecord.fields.map(([key, label, current, next]) => {
