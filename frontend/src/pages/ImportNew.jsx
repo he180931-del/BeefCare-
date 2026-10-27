@@ -93,7 +93,7 @@ export default function ImportNew() {
           status,
         }
     setImports((list) => list.map((r) => (r.id === recordId ? { ...r, ...patch } : r)))
-    nav('/nhap')
+    nav('/herd-entry')
   }
 
   const rowIndex = m && m.startsWith('row-') ? Number(m.slice(4)) - 1 : -1
@@ -347,7 +347,7 @@ export default function ImportNew() {
                 {`Lưu & tạo hồ sơ ${n} con`}
               </Button>
               <Button block onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
-              <Button variant="link" block onClick={() => nav('/nhap')}>Hủy</Button>
+              <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
             </Card>
           </div>
         </div>

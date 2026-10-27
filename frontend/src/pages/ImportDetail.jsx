@@ -21,7 +21,7 @@ export default function ImportDetail() {
   if (!r) {
     return (
       <Layout title="Chi tiết phiếu nhập" user="manager">
-        <p>Không tìm thấy phiếu {id}. <Link to="/nhap" className="text-brand">Về danh sách</Link></p>
+        <p>Không tìm thấy phiếu {id}. <Link to="/herd-entry" className="text-brand">Về danh sách</Link></p>
       </Layout>
     )
   }
@@ -31,7 +31,7 @@ export default function ImportDetail() {
   const canPay = Boolean(d) && r.debt > 0 && r.status === 'Đã nhập'
   const canCancel = r.status === 'Đã nhập'
 
-  // Mọi thay đổi của phiếu đi qua đây để /nhap cập nhật cùng lúc.
+  // Mọi thay đổi của phiếu đi qua đây để danh sách nhập cập nhật cùng lúc.
   const patchRecord = (fn) => setImports((list) => list.map((x) => (x.id === r.id ? fn(x) : x)))
 
   const savePayment = (p) => {
