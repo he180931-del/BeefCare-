@@ -1,5 +1,8 @@
 import { createCollection } from './client.js'
 import { seedPens } from '../data/pensData.js'
+import { migrateHerdStorage } from './storageMigrations.js'
+
+migrateHerdStorage()
 
 export const cattle = createCollection('cattle', [], { idKey: 'code' })
 export const pens = createCollection('pens', seedPens, { idKey: 'code' })
