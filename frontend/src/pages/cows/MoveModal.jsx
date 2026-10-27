@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Field, DateInput, Select, Table } from '../../components/ui'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { MANAGER, OWNER, TODAY, useCowStore } from '../../data/cowsData'
+import { MANAGER, OWNER, TODAY } from '../../data/cowsData'
+import { moveBarn } from '../../api/cattleApi'
+import { useMutation } from '../../hooks/useApi'
 import { Chip, Td, Th, fieldCls } from './parts'
 
-export default function MoveModal({ cow, onClose }) {
-  const { barns, moveBarn } = useCowStore()
+export default function MoveModal({ cow, barns, onClose, onSaved }) {
+  const move = useMutation((payload) => moveBarn(cow.code, payload))
   const from = barns[cow.barn]
   const isDemo = cow.code === 'BC-000142'
   const options = Object.values(barns).filter((b) => b.code !== cow.barn)
@@ -79,9 +81,9 @@ export default function MoveModal({ cow, onClose }) {
         <ModalButton
           variant="primary"
           disabled={!canSave}
-          onClick={() => {
-            moveBarn(cow.code, { to, date, reason: reason.trim(), by })
-            onClose()
+          onClick={async () => {
+            await move.mutate({ to, date, reason: reason.trim(), by })
+            onSaved()
           }}
         >
           Xác nhận chuyển chuồng

@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Field, Note, Table, Textarea } from '../../components/ui'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { MANAGER, useCowStore } from '../../data/cowsData'
+import { MANAGER } from '../../data/cowsData'
+import { editImportRecord, voidImportRecord } from '../../api/cattleApi'
+import { useMutation } from '../../hooks/useApi'
 import { Td, Th, fieldCls } from './parts'
 
 const REASON_MAX = 500
 
-export default function RecordEditModal({ cow, onClose }) {
-  const { editImportRecord, voidImportRecord } = useCowStore()
+export default function RecordEditModal({ cow, onClose, onSaved }) {
+  const edit = useMutation((payload) => editImportRecord(cow.code, payload))
+  const voidRecord = useMutation((payload) => voidImportRecord(cow.code, payload))
   const record = cow.importRecord
   const [action, setAction] = useState('edit')
   const [drafts, setDrafts] = useState(() => Object.fromEntries(record.fields.map(([key, , , next]) => [key, next])))
@@ -22,10 +25,10 @@ export default function RecordEditModal({ cow, onClose }) {
   })
   const canSave = reason.trim() !== '' && (voiding || changed.length > 0)
 
-  const save = () => {
-    if (voiding) voidImportRecord(cow.code, { reason: reason.trim() })
-    else editImportRecord(cow.code, { values: drafts, reason: reason.trim() })
-    onClose()
+  const save = async () => {
+    if (voiding) await voidRecord.mutate({ reason: reason.trim() })
+    else await edit.mutate({ values: drafts, reason: reason.trim() })
+    onSaved()
   }
 
   return (

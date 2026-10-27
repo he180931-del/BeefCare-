@@ -1,6 +1,3 @@
-import { useSyncExternalStore } from 'react'
-import { dm, dmy } from './format'
-
 export const TODAY = '2026-10-20'
 export const MANAGER = 'Trần Quốc Long'
 export const OWNER = 'Nguyễn Văn Hùng'
@@ -125,7 +122,7 @@ const COW_240 = {
   care: { last: '352 kg · 02/10', adg: '—', bcs: '—', healthCase: 'Không có ca mở', repro: '—', vaccine: { label: 'Đủ mũi tiêm', tone: 'ok' }, reminders: [] },
 }
 
-const initialCows = [
+export const initialCows = [
   COW_125,
   auto({ code: 'BC-000087', name: 'Mận', tag: 'VN-BV-0311', breed: 'Lai Sind', sex: 'Cái', ageShort: '6t 2th', ageLong: '6 tuổi 2 tháng', months: 74, barn: 'D', purpose: 'Sinh sản', stage: 'Bò cái sinh sản', inList: true, weight: 365, weightDate: '08/10', health: { label: 'Theo dõi', tone: 'warn' }, repro: { label: 'Sắp đẻ', tone: 'warn' }, headerBadges: [['Theo dõi', 'warn'], ['Sắp đẻ', 'warn']], birth: '03/2020 · ước tính', qr: 'QR-3C9N-0087', care: { last: '365 kg · 08/10', adg: '0,18 kg/ngày', bcs: '3,0 / 5', healthCase: '1 ca đang theo dõi', repro: 'Sắp đẻ · DK đẻ 28/10/2026', vaccine: { label: 'Đủ mũi tiêm', tone: 'ok' }, reminders: [{ title: 'Theo dõi sau đẻ', due: { label: '28/10' } }] } }),
   auto({ code: 'BC-000203', name: 'Bão', tag: 'VN-0412', breed: 'Zebu đỏ', sex: 'Đực', ageShort: '2t 1th', ageLong: '2 tuổi 1 tháng', months: 25, barn: 'B1', purpose: 'Vỗ béo', stage: 'Vỗ béo', inList: true, weight: 318, weightEst: true, weightDate: '10/10', health: { label: 'Đang điều trị', tone: 'err' }, repro: null, headerBadges: [['Đang điều trị', 'err']], birth: '09/2024 · ước tính', qr: 'QR-6R1J-0203', care: { last: '318 kg* · 10/10', adg: '0,40 kg/ngày', bcs: '3,0 / 5', healthCase: '1 ca đang điều trị', repro: '—', vaccine: { label: 'Đủ mũi tiêm', tone: 'ok' }, reminders: [] } }),
@@ -136,126 +133,9 @@ const initialCows = [
   COW_240,
 ]
 
-const initialState = { cows: initialCows, barns: BARNS0 }
-let state = initialState
-const listeners = new Set()
-const setState = (fn) => {
-  state = fn(state)
-  listeners.forEach((l) => l())
-}
-const subscribe = (l) => {
-  listeners.add(l)
-  return () => listeners.delete(l)
-}
-
-export const getCow = (cows, code) => cows.find((c) => c.code === code)
+/** Mã QR kế tiếp theo số thẻ đã cấp (lần đầu của BC-000125 = QR-9M2D-0125). */
 export const newQrCode = (cow) => `QR-${['9M2D', '4K8P', '7X3Q', '2H6V'][(cow.qrHistory.length - 1) % 4]}-${cow.code.slice(-4)}`
+
+/** Số đếm một nhóm đàn = phần nền + bò đang nuôi trong danh sách ở giai đoạn đó. */
 export const groupCount = (cows, stage) =>
   BASELINE[stage] + cows.filter((c) => c.inList && c.status === 'ACTIVE' && c.stage === stage).length
-
-// Cập nhật một bò theo code (hàm thuần; không đổi bò khác).
-const patchCow = (s, code, fn) => ({ ...s, cows: s.cows.map((c) => (c.code === code ? fn(c) : c)) })
-
-const actions = {
-  updateIdentity(code, { name, tag, description }) {
-    setState((s) => patchCow(s, code, (c) => ({ ...c, name, tag, description })))
-  },
-  updateStage(code, { stage, date, reason }) {
-    setState((s) =>
-      patchCow(s, code, (c) => ({
-        ...c,
-        stage,
-        events: [
-          { id: `ev-${Date.now()}`, at: `${date}T08:00`, cat: 'stage', title: `Đổi giai đoạn: ${c.stage} → ${stage}`, badge: { label: 'Thực tế', tone: 'ok' }, detail: reason, meta: `Hiệu lực ${dm(date)} · ghi ${dm(TODAY)} · ${MANAGER}` },
-          ...c.events,
-        ],
-      })),
-    )
-  },
-  moveBarn(code, { to, date, reason, by }) {
-    setState((s) => {
-      const cow = getCow(s.cows, code)
-      if (!cow || cow.barn === to) return s
-      const from = cow.barn
-      const d = dmy(date)
-      const barns = {
-        ...s.barns,
-        [from]: { ...s.barns[from], count: s.barns[from].count - 1 },
-        [to]: { ...s.barns[to], count: s.barns[to].count + 1 },
-      }
-      const next = patchCow(s, code, (c) => {
-        const closed = c.barnHistory.map((h, i) => (i === 0 ? { ...h, to: d } : h))
-        return {
-          ...c,
-          barn: to,
-          barnSince: d,
-          barnTag: undefined,
-          barnHistory: [{ from: d, to: '—', barn: s.barns[to].name, reason, by }, ...closed],
-          events: [
-            { id: `ev-${Date.now()}`, at: `${date}T08:00`, cat: 'barn', title: `Chuyển chuồng ${from} → ${to}`, badge: { label: 'Thực tế', tone: 'ok' }, detail: reason, meta: `Hiệu lực ${dm(date)} · ghi ${dm(TODAY)} · ${by}` },
-            ...c.events,
-          ],
-        }
-      })
-      return { ...next, barns }
-    })
-  },
-  reissueQr(code, { reason, note, by }) {
-    setState((s) => {
-      const cow = getCow(s.cows, code)
-      if (!cow) return s
-      const newCode = newQrCode(cow)
-      return patchCow(s, code, (c) => ({
-        ...c,
-        qr: newCode,
-        qrHistory: [
-          { code: newCode, status: 'ACTIVE', from: '10/2026', to: '—', reason, by },
-          ...c.qrHistory.map((q) => (q.status === 'ACTIVE' ? { ...q, status: 'REPLACED', to: '10/2026' } : q)),
-        ],
-        events: [
-          { id: `ev-${Date.now()}`, at: `${TODAY}T08:00`, cat: 'qr', title: 'Cấp lại thẻ QR', badge: { label: 'Thực tế', tone: 'ok' }, detail: note || reason, meta: `Hiệu lực ${dm(TODAY)} · ghi ${dm(TODAY)} · ${by}` },
-          ...c.events,
-        ],
-      }))
-    })
-  },
-  editImportRecord(code, { values, reason }) {
-    setState((s) =>
-      patchCow(s, code, (c) => {
-        if (!c.importRecord) return c
-        let weight = c.weight
-        const fields = c.importRecord.fields.map(([key, label, current, next]) => {
-          const v = values[key]
-          if (!v || v === '—' || v === current) return [key, label, current, next]
-          if (key === 'weight') weight = parseFloat(v.replace(',', '.'))
-          return [key, label, v, next]
-        })
-        return {
-          ...c,
-          weight,
-          importRecord: { ...c.importRecord, fields },
-          events: [
-            { id: `ev-${Date.now()}`, at: `${TODAY}T08:00`, cat: 'barn', title: 'Sửa bản ghi nhập đàn', badge: { label: 'Thực tế', tone: 'ok' }, detail: reason, meta: `Ghi ${dm(TODAY)} · ${MANAGER}` },
-            ...c.events,
-          ],
-        }
-      }),
-    )
-  },
-  voidImportRecord(code, { reason }) {
-    setState((s) =>
-      patchCow(s, code, (c) => ({
-        ...c,
-        status: 'VOIDED',
-        qrHistory: c.qrHistory.map((q, i) => (i === 0 ? { ...q, status: 'REVOKED' } : q)),
-        events: [
-          { id: `ev-${Date.now()}`, at: `${TODAY}T08:00`, cat: 'barn', title: 'Hủy bản ghi nhập đàn', badge: { label: 'Thực tế', tone: 'err' }, detail: reason, meta: `Ghi ${dm(TODAY)} · ${MANAGER}` },
-          ...c.events,
-        ],
-      })),
-    )
-  },
-}
-
-/** Hook dùng chung cho danh sách và hồ sơ: trả { cows, barns, ...actions }. */
-export const useCowStore = () => ({ ...useSyncExternalStore(subscribe, () => state), ...actions })

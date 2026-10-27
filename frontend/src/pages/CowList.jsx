@@ -2,7 +2,9 @@ import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Button, PageHeader, Table, Foot, Select, inputCls } from '../components/ui'
-import { BARNS0, BREEDS, EXPORTED_COUNT, STAGES, groupCount, useCowStore } from '../data/cowsData'
+import { BARNS0, BREEDS, EXPORTED_COUNT, STAGES, groupCount } from '../data/cowsData'
+import { listBarns, listCows } from '../api/cattleApi'
+import { useQuery } from '../hooks/useApi'
 import { Chip, Panel, Th, Td } from './cows/parts'
 
 const TAB_STAGE = { 'Tất cả': '', 'Khác': 'Chưa xác định' }
@@ -35,7 +37,11 @@ function CowRow({ c, barnTag, onOpen }) {
 }
 
 export default function CowList() {
-  const { cows, barns } = useCowStore()
+  const cowsQuery = useQuery(listCows, [])
+  const barnsQuery = useQuery(listBarns, [])
+  const cows = cowsQuery.data ?? []
+  const barnsByCode = Object.fromEntries((barnsQuery.data ?? []).map((b) => [b.code, b]))
+  const loading = cowsQuery.loading
   const nav = useNavigate()
   const searchRef = useRef(null)
   const [q, setQ] = useState('')
@@ -76,12 +82,12 @@ export default function CowList() {
     )
   }, [cows, q, breed, sex, barn, stageSel, tab])
 
-  const barnTagOf = (c) => c.barnTag || barns[c.barn]?.tag || ''
+  const barnTagOf = (c) => c.barnTag || barnsByCode[c.barn]?.tag || ''
 
   return (
     <Layout title="Đàn bò – Danh sách" user="manager">
       <div className="flex flex-col gap-5 leading-[normal]">
-        <PageHeader title="Đàn bò" sub={`${total} con đang nuôi · ${EXPORTED_COUNT} con đã xuất đàn`}>
+        <PageHeader title="Đàn bò" sub={`${loading ? '…' : total} con đang nuôi · ${EXPORTED_COUNT} con đã xuất đàn`}>
           <Button className="leading-[normal]" onClick={() => searchRef.current?.focus()}>▣ Quét QR</Button>
           <Button variant="primary" className="leading-[normal]" onClick={() => nav('/herd-entry/new')}>+ Nhập đàn</Button>
         </PageHeader>
@@ -142,10 +148,15 @@ export default function CowList() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((c) => (
+              {loading && (
+                <tr>
+                  <Td colSpan={8} className="!py-6 text-center !text-[12px] text-muted">Đang tải dữ liệu…</Td>
+                </tr>
+              )}
+              {!loading && rows.map((c) => (
                 <CowRow key={c.code} c={c} barnTag={barnTagOf(c)} onOpen={(code) => nav(`/cattle/${code}`)} />
               ))}
-              {rows.length === 0 && (
+              {!loading && rows.length === 0 && (
                 <tr>
                   <Td colSpan={8} className="!py-6 text-center !text-[12px] text-muted">
                     Không có bò nào khớp bộ lọc

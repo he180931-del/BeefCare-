@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Field, Select, Textarea, DateInput, Note } from '../../components/ui'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { STAGES, TODAY, useCowStore } from '../../data/cowsData'
+import { STAGES, TODAY } from '../../data/cowsData'
+import { updateIdentity, updateStage } from '../../api/cattleApi'
+import { useMutation } from '../../hooks/useApi'
 import { Panel, Seg, fieldCls } from './parts'
 
 const TABS = [
@@ -10,8 +12,9 @@ const TABS = [
   ['stage', 'Giai đoạn'],
 ]
 
-export default function UpdateModal({ cow, onClose }) {
-  const { updateIdentity, updateStage } = useCowStore()
+export default function UpdateModal({ cow, onClose, onSaved }) {
+  const saveIdentity = useMutation((payload) => updateIdentity(cow.code, payload))
+  const saveStage = useMutation((payload) => updateStage(cow.code, payload))
   const isDemo = cow.code === 'BC-000142'
   const [tab, setTab] = useState('stage')
   const [identity, setIdentity] = useState({ name: cow.name, tag: cow.tag, description: cow.description })
@@ -20,10 +23,10 @@ export default function UpdateModal({ cow, onClose }) {
   const [reason, setReason] = useState(isDemo ? 'Đủ 13 tháng & 236 kg, đưa vào theo dõi sinh sản' : '')
   const [errors, setErrors] = useState({})
 
-  const save = () => {
+  const save = async () => {
     if (tab === 'identity') {
-      updateIdentity(cow.code, identity)
-      return onClose()
+      await saveIdentity.mutate(identity)
+      return onSaved()
     }
     if (tab === 'stage') {
       const e = {}
@@ -31,9 +34,9 @@ export default function UpdateModal({ cow, onClose }) {
       if (!reason.trim()) e.reason = 'Nhập lý do.'
       setErrors(e)
       if (Object.keys(e).length) return
-      updateStage(cow.code, { stage, date, reason: reason.trim() })
+      await saveStage.mutate({ stage, date, reason: reason.trim() })
     }
-    onClose()
+    onSaved()
   }
 
   return (

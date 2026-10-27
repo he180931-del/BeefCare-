@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Field, Note, Select, Textarea } from '../../components/ui'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { QR_REASONS, MANAGER, newQrCode, useCowStore } from '../../data/cowsData'
+import { QR_REASONS, MANAGER, newQrCode } from '../../data/cowsData'
+import { reissueQr } from '../../api/cattleApi'
+import { useMutation } from '../../hooks/useApi'
 import { fieldCls } from './parts'
 
-export default function QrReissueModal({ cow, onClose }) {
-  const { reissueQr } = useCowStore()
+export default function QrReissueModal({ cow, onClose, onSaved }) {
+  const reissue = useMutation((payload) => reissueQr(cow.code, payload))
   const cur = cow.qrHistory.find((q) => q.status === 'ACTIVE') || cow.qrHistory[0]
   const newCode = newQrCode(cow)
   const [reason, setReason] = useState('Thẻ bị hỏng')
@@ -34,9 +36,9 @@ export default function QrReissueModal({ cow, onClose }) {
         <ModalButton onClick={() => setPrintMsg(`Đã gửi lệnh in thử tem ${newCode}.`)}>In thẻ thử</ModalButton>
         <ModalButton
           variant="primary"
-          onClick={() => {
-            reissueQr(cow.code, { reason, note: note.trim(), by: MANAGER })
-            onClose()
+          onClick={async () => {
+            await reissue.mutate({ reason, note: note.trim(), by: MANAGER })
+            onSaved()
           }}
         >
           Xác nhận cấp thẻ mới
