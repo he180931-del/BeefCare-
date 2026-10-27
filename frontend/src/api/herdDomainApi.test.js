@@ -2,10 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 const memoryStorage = () => {
-  const values = new Map()
+  const values = new Map([['beefcare:latency', '0']])
   return {
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, String(value)),
+    removeItem: (key) => values.delete(key),
   }
 }
 
