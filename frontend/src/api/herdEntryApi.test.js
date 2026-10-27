@@ -6,6 +6,7 @@ const memoryStorage = () => {
   return {
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, String(value)),
+    removeItem: (key) => values.delete(key),
   }
 }
 
@@ -31,4 +32,19 @@ test('creating a second voucher never overwrites the previous draft', async () =
 
   assert.notEqual(first.id, second.id)
   assert.equal((await herdEntryApi.get(first.id)).draft.note, 'first')
+})
+
+test('voiding a posted entry updates its cattle and voucher together', async () => {
+  globalThis.localStorage = memoryStorage()
+  const [{ voidHerdEntry, herdEntryApi }, domain] = await Promise.all([
+    import(`./herdEntryApi.js?void=${Date.now()}`),
+    import(`./herdDomainApi.js?void=${Date.now()}`),
+  ])
+  const [cow] = await domain.registerEntryCattle([{ barn: 'A1', weight: 210 }], 'PN-VOID-API')
+  await herdEntryApi.create({ id: 'PN-VOID-API', type: 'Mua ngoài', status: 'Đã nhập' })
+
+  await voidHerdEntry('PN-VOID-API', [{ code: cow.code, barn: 'A1' }], { status: 'Đã hủy' })
+
+  assert.equal((await domain.cattle.get(cow.code)).status, 'VOIDED')
+  assert.equal((await herdEntryApi.get('PN-VOID-API')).status, 'Đã hủy')
 })

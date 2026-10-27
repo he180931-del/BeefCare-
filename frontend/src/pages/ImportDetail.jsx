@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Button, Card, Docs, Foot, Info, Note, PageHeader, StatusBadge, Table, Td, Th } from '../components/ui'
 import { useModalParam } from '../components/Modal'
-import { herdEntryApi } from '../api/herdEntryApi'
+import { herdEntryApi, voidHerdEntry } from '../api/herdEntryApi'
 import { useMutation, useQuery } from '../hooks/useApi'
 import { TODAY } from '../data/importsData'
 import { dm, dmy, kg, money } from '../data/format'
@@ -18,6 +18,7 @@ export default function ImportDetail() {
   const [m, openModal, closeModal] = useModalParam()
   const query = useQuery(() => herdEntryApi.get(id), [id])
   const { mutate: updateEntry } = useMutation(({ recordId, patch }) => herdEntryApi.update(recordId, patch))
+  const { mutate: voidEntry } = useMutation(({ recordId, cattleRows, patch }) => voidHerdEntry(recordId, cattleRows, patch))
   const r = query.data
 
   if (!r && query.loading) {
@@ -43,8 +44,9 @@ export default function ImportDetail() {
 
   // Ghi thay đổi qua API, rồi tải lại phiếu và đóng modal.
   const savePayment = async (p) => {
-    await updateEntry({
+    await voidEntry({
       recordId: r.id,
+      cattleRows: d?.cows ?? [],
       patch: {
         debt: Math.max(r.debt - p.amount, 0),
         detail: {
