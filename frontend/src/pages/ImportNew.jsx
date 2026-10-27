@@ -66,7 +66,7 @@ export default function ImportNew() {
       debt: isBuy ? debt : null,
       status,
     })
-    nav('/nhap')
+    nav('/herd-entry')
   }
 
   const summaryRow = (label, value) => (
@@ -329,7 +329,7 @@ export default function ImportNew() {
               Lưu & tạo hồ sơ {n} con
             </Button>
             <Button block onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
-            <Button variant="link" block onClick={() => nav('/nhap')}>Hủy</Button>
+            <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
           </Card>
         </div>
       </div>

@@ -13,7 +13,7 @@ export default function ExportDetail() {
   if (!r) {
     return (
       <Layout title="Chi tiết phiếu xuất">
-        <p>Không tìm thấy phiếu {id}. <Link to="/xuat" className="text-brand">Về danh sách</Link></p>
+        <p>Không tìm thấy phiếu {id}. <Link to="/herd-exit" className="text-brand">Về danh sách</Link></p>
       </Layout>
     )
   }
@@ -22,7 +22,7 @@ export default function ExportDetail() {
   const collected = d ? d.payments.reduce((s, p) => s + p.amount, 0) : r.total != null ? r.total - (r.due || 0) : 0
   const resolve = (status) => {
     updateExport(r.id, { status })
-    nav('/xuat')
+    nav('/herd-exit')
   }
 
   return (
@@ -36,7 +36,7 @@ export default function ExportDetail() {
         )}
         <Button onClick={() => window.print()}>In phiếu</Button>
         <Button disabled={r.status !== 'Đã xuất'} onClick={() => resolve('Đã hủy')}>Hủy phiếu</Button>
-        <Button onClick={() => nav('/xuat')}>← Danh sách</Button>
+        <Button onClick={() => nav('/herd-exit')}>← Danh sách</Button>
       </PageHeader>
 
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
