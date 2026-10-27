@@ -16,6 +16,7 @@ const full = args.includes('--full')
 const exe = `${os.homedir()}/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell`
 const browser = await chromium.launch({ executablePath: exe })
 const page = await browser.newPage({ viewport: { width: w, height: h } })
+await page.addInitScript(() => localStorage.setItem('beefcare:latency', '0'))
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 page.on('console', (m) => m.type() === 'error' && !m.text().includes('favicon') && errors.push(m.text()))
