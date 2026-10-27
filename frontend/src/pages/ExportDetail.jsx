@@ -1,47 +1,56 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { Badge, Button, Card, Docs, Foot, Info, PageHeader, PaymentTable, StatusBadge, Table, Td, Th } from '../components/ui'
-import { useStore } from '../data/store'
+import { Badge, Button, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../components/ui'
+import { useModalParam } from '../components/Modal'
 import { dmy, kg, money } from '../data/format'
+import { herdExitApi } from '../api/herdExitApi'
+import { useQuery } from '../hooks/useApi'
+import { Box, DocRow, TH } from './export/parts'
+import CancelModal from './export/CancelModal'
+import CollectModal from './export/CollectModal'
+import DeathView from './export/DeathView'
+
+const STATUS_TONE = { 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
 
 export default function ExportDetail() {
   const { id } = useParams()
-  const { exports, updateExport } = useStore()
-  const nav = useNavigate()
-  const r = exports.find((x) => x.id === id)
+  const { data: r, loading, refetch } = useQuery(() => herdExitApi.get(id), [id])
+  const [m, openModal, closeModal] = useModalParam()
 
   if (!r) {
     return (
       <Layout title="Chi tiết phiếu xuất">
-        <p>Không tìm thấy phiếu {id}. <Link to="/herd-exit" className="text-brand">Về danh sách</Link></p>
+        {loading ? <p className="m-0 text-xs text-muted">Đang tải…</p> : (
+          <p>Không tìm thấy phiếu {id}. <Link to="/herd-exit" className="text-brand">Về danh sách</Link></p>
+        )}
       </Layout>
     )
   }
+  if (r.detail?.death) return <DeathView row={r} />
 
   const d = r.detail
-  const collected = d ? d.payments.reduce((s, p) => s + p.amount, 0) : r.total != null ? r.total - (r.due || 0) : 0
-  const resolve = (status) => {
-    updateExport(r.id, { status })
-    nav('/herd-exit')
-  }
+  const collected = d ? d.payments.reduce((s, p) => s + p.amount, 0) : (r.total ?? 0) - (r.due ?? 0)
+  const owed = r.due ?? 0
+  const tone = STATUS_TONE[r.status]
+  const isSold = r.status === 'Đã xuất'
 
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
-      <PageHeader title={`Phiếu xuất ${r.id}`} badge={<StatusBadge status={r.status} />}>
-        {r.status === 'Chờ xác nhận' && (
-          <>
-            <Button variant="primary" onClick={() => resolve('Đã xuất')}>Xác nhận xuất</Button>
-            <Button onClick={() => resolve('Đã bác')}>Bác đề xuất</Button>
-          </>
-        )}
-        <Button onClick={() => window.print()}>In phiếu</Button>
-        <Button disabled={r.status !== 'Đã xuất'} onClick={() => resolve('Đã hủy')}>Hủy phiếu</Button>
-        <Button onClick={() => nav('/herd-exit')}>← Danh sách</Button>
-      </PageHeader>
+      <div className="flex flex-wrap items-start gap-3">
+        <div>
+          <h1 className="m-0 text-[22px] font-bold">Phiếu xuất {r.id}</h1>
+          <div className="mt-1"><Badge tone={tone} className={tone ? '!border-0' : undefined}>{r.status}</Badge></div>
+        </div>
+        <div className="flex-1" />
+        <div className="flex flex-wrap gap-2.5">
+          <Button onClick={() => window.print()}>In phiếu</Button>
+          <Button disabled={!isSold} onClick={() => openModal('cancel')}>Hủy phiếu</Button>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
+      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_354px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
-          <Card title="Thông tin phiếu">
+          <Box title="Thông tin phiếu" gap="gap-[14px]">
             <Info
               items={[
                 ['Ngày xuất', dmy(r.date)],
@@ -52,20 +61,27 @@ export default function ExportDetail() {
                 ['Biển số xe', d?.plate || '—'],
                 ['Người lập & xác nhận', d?.by || '—'],
                 ['Ghi chú', d?.note || r.sub],
+                ...(r.status === 'Đã hủy' ? [['Lý do hủy', r.cancelReason || '—']] : []),
               ]}
             />
-          </Card>
+          </Box>
 
-          <Card title="Bò trong phiếu" sub={`${r.count} con${r.weight ? ` · ${r.weight}` : ''}`}>
+          <Box title="Bò trong phiếu" sub={`${r.count} con${r.weight ? ` · ${r.weight}` : ''}`} gap="gap-3">
             <Table>
               <thead>
-                <tr><Th>Mã bò</Th><Th>Thẻ tai</Th><Th>Giống · giới tính</Th><Th>Cân xuất</Th><Th>Chuồng cuối</Th><Th>Trạng thái</Th><Th>Thành tiền</Th></tr>
+                <tr>
+                  <Th className={TH}>Mã bò</Th><Th className={TH}>Thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Cân xuất</Th>
+                  <Th className={TH}>Chuồng cuối</Th><Th className={TH}>Trạng thái</Th><Th className={TH}>Thành tiền</Th>
+                </tr>
               </thead>
               <tbody>
                 {d ? d.cows.map((c) => (
                   <tr key={c.code}>
-                    <Td className="font-medium">{c.code}</Td><Td>{c.tag}</Td><Td>{c.breed}</Td><Td>{kg(c.weight)}</Td>
-                    <Td>{c.barn}</Td><Td><Badge tone="ok">Đã xuất</Badge></Td><Td>{money(c.amount)}</Td>
+                    <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
+                    <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
+                    <Td className={`${TH} !py-3`}>{c.barn}</Td>
+                    <Td className={`${TH} !py-3`}><Badge tone="ok" className="!border-0">Đã xuất</Badge></Td>
+                    <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
                   </tr>
                 )) : (
                   <tr><Td colSpan={7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td></tr>
@@ -73,46 +89,47 @@ export default function ExportDetail() {
               </tbody>
               {d && (
                 <tfoot>
-                  <tr className="font-semibold"><Td>{r.count} con</Td><Td /><Td /><Td>{r.weight}</Td><Td /><Td /><Td>{money(d.cowsTotal)}</Td></tr>
+                  <tr className="font-semibold"><Td className={TH}>{r.count} con</Td><Td className={TH} /><Td className={TH} /><Td className={TH}>{r.weight}</Td><Td className={TH} /><Td className={TH} /><Td className={TH}>{money(d.cowsTotal)}</Td></tr>
                 </tfoot>
               )}
             </Table>
-            <div className="rounded-md bg-chip px-3 py-2.5 text-xs">
-              Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE (GBR-26).
-            </div>
-          </Card>
+            <Note>Bò đã xuất chỉ còn xem, hồ sơ giữ toàn bộ lịch sử. Hủy phiếu đưa cả {r.count} con về ACTIVE (GBR-26).</Note>
+          </Box>
 
-          <Card title="Chứng từ đính kèm">
-            {d ? <Docs docs={d.docs} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
-          </Card>
+          <Box title="Chứng từ đính kèm" gap="gap-[10px]">
+            {d ? d.docs.map((doc) => <DocRow key={doc.name} ext={doc.ext} name={doc.name} />) : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+          </Box>
         </div>
 
         <div className="flex flex-col gap-[18px]">
           {r.total != null && (
-            <Card title="Thanh toán">
+            <Box title="Thanh toán" gap="gap-3">
               <Info
                 cols={2}
                 items={[
-                  ['Tiền bò', d ? `${money(d.cowsTotal)} đ` : `${money(r.total)} đ`],
+                  ['Tiền bò', `${money(d ? d.cowsTotal : r.total)} đ`],
                   ['Khấu trừ', `${money(d?.deduction || 0)} đ`],
                   ['Tổng phải thu', `${money(r.total)} đ`],
                   ['Đã thu', `${money(collected)} đ`],
-                  ['Còn phải thu', `${money(r.due || 0)} đ`, r.due > 0],
+                  ['Còn phải thu', `${money(owed)} đ`, owed > 0],
                 ]}
               />
               {d && <PaymentTable payments={d.payments} />}
-              {r.status === 'Đã xuất' && r.due > 0 && <Button block>Ghi nhận thu tiền</Button>}
-            </Card>
+              {isSold && owed > 0 && <Button block onClick={() => openModal('collect')}>Ghi nhận thu tiền</Button>}
+            </Box>
           )}
-          <Card title="Lịch sử phiếu">
+          <Box title="Lịch sử phiếu" gap="gap-2">
             <div className="flex flex-col gap-2 text-xs">
               {(d?.history || [`${dmy(r.date)} · Phiếu ở trạng thái ${r.status}`]).map((h) => <span key={h}>{h}</span>)}
             </div>
-          </Card>
+          </Box>
         </div>
       </div>
 
       <Foot>Chủ trại in phiếu, ghi nhận thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot>
+
+      {m === 'cancel' && <CancelModal row={r} onClose={closeModal} onCancelled={() => { refetch(); closeModal() }} />}
+      {m === 'collect' && <CollectModal row={r} onClose={closeModal} onSaved={refetch} />}
     </Layout>
   )
 }

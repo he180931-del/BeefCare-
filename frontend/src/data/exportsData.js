@@ -1,7 +1,41 @@
-// Dữ liệu phiếu xuất (thuộc worker "Xuất đàn + Chuồng trại").
+// Dữ liệu phiếu xuất (thuộc luồng Xuất đàn).
+export const TODAY = '2026-10-22'
+
+// Bò có thể chọn vào phiếu xuất (thẻ tai, giống, tuổi, cân gần nhất + ghi chú cân, cảnh báo).
+export const EXPORT_HERD = [
+  { code: 'BC-000203', tag: 'VN-0412', breed: 'Zebu đỏ', sex: 'Đực', age: '24 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 322, weightNote: 'cân 22/10', estimated: false },
+  { code: 'BC-000205', tag: 'VN-0415', breed: 'Brahman lai', sex: 'Đực', age: '26 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 348, weightNote: 'cân 22/10', estimated: false, withdrawalUntil: '2026-10-25' },
+  { code: 'BC-000211', tag: 'VN-0431', breed: 'Lai Sind', sex: 'Đực', age: '24 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 332, weightNote: 'ước tính 15/10', estimated: true },
+  { code: 'BC-000214', tag: 'VN-0436', breed: 'Zebu đỏ', sex: 'Đực', age: '22 tháng', group: 'Vỗ béo', stage: 'Bò tơ', barn: 'B1', weight: 305, weightNote: 'cân 15/10', estimated: false },
+  { code: 'BC-000198', tag: 'VN-0402', breed: 'Lai Sind', sex: 'Đực', age: '28 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 356, weightNote: 'cân 15/10', estimated: false, openCase: 'HC-0415' },
+]
+
 export const initialExports = [
-  { id: 'PX-2026-0009', date: '2026-10-22', type: 'Bán', who: 'Thương lái Nguyễn Văn Phúc – Sơn Tây', sub: '3 con · chuồng B1', count: 3, weight: '1.002 kg', total: 92184000, due: 32184000, dueNote: '(nháp)', status: 'Nháp' },
-  { id: 'PX-2026-0008', date: '2026-10-21', type: 'Chết / mất', who: 'Từ ca HC-0418 · tiêu chảy cấp', sub: 'BC-000156 · A2', count: 1, weight: '~180 kg', total: null, due: null, status: 'Chờ xác nhận' },
+  {
+    id: 'PX-2026-0009', date: '2026-10-22', type: 'Bán', who: 'Thương lái Nguyễn Văn Phúc – Sơn Tây', sub: '3 con · chuồng B1', count: 3, weight: '1.002 kg', total: 92184000, due: 32184000, dueNote: '(nháp)', status: 'Nháp',
+    draft: {
+      date: '2026-10-22', buyerId: 'b1', quarantine: 'KD-HN-2026-005130', plate: '29H-456.78', note: 'Xuất bán vỗ béo đạt trọng lượng, cân tại trại trước khi lên xe',
+      pricing: 'kg',
+      cows: [
+        { code: 'BC-000203', weight: 322, unitPrice: 92000, estimated: false },
+        { code: 'BC-000205', weight: 348, unitPrice: 92000, estimated: false },
+        { code: 'BC-000211', weight: 332, unitPrice: 92000, estimated: true },
+      ],
+      deduction: 0, collected: 60000000, method: 'Chuyển khoản', dueDate: '2026-10-29',
+      docs: [{ ext: 'PDF', name: 'phieu-can-xuat-2210.pdf' }],
+    },
+  },
+  {
+    id: 'PX-2026-0008', date: '2026-10-21', type: 'Chết / mất', who: 'Từ ca HC-0418 · tiêu chảy cấp', sub: 'BC-000156 · A2', count: 1, weight: '~180 kg', total: null, due: null, status: 'Chờ xác nhận',
+    detail: {
+      death: true, lossType: 'Chết', date: '2026-10-21', source: 'Ca sức khỏe HC-0418 · đóng: Chết', reporter: 'Trần Quốc Long · 21/10/2026 17:20',
+      reason: 'Tiêu chảy cấp, điều trị 3 ngày không đáp ứng', disposal: 'Tiêu hủy / chôn lấp tại trại',
+      cow: { code: 'BC-000156', tag: 'VN-0377', breed: 'Lai Sind', sex: 'Cái', age: '14 tháng', barn: 'A2 – Bò cái', weight: 180, estimated: true, caseLine: ['HC-0418', 'đóng: Chết · 21/10'] },
+      barnShift: 'A2 – Bò cái (28 → 27)',
+      checks: [['Ca sức khỏe nguồn', 'HC-0418 đã đóng (Chết)'], ['Ca mở / mạn tính khác', 'Không có'], ['Mũi tiêm tương lai', '1 mũi – sẽ hủy'], ['Thai đang theo dõi', 'Không'], ['Bê nháp của bò mẹ', 'Không có']],
+      docs: [{ ext: 'JPG', name: 'anh-bo-chet-BC000156.jpg' }],
+    },
+  },
   {
     id: 'PX-2026-0007', date: '2026-10-15', type: 'Bán', who: 'Lò mổ Hà Đông', sub: 'KD-HN-2026-004402 · B1', count: 4, weight: '1.380 kg', total: 124200000, due: 12400000, status: 'Đã xuất',
     detail: {

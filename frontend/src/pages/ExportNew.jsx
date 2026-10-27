@@ -1,71 +1,108 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../components/ui'
-import { useStore } from '../data/store'
-import { BARNS, BUYERS, HERD, PAY_METHODS } from '../data/mock'
+import { Badge, Button, Checkbox, DateInput, Field, Foot, Note, Segmented, Select, Table, Td, Th, inputCls } from '../components/ui'
+import { useModalParam } from '../components/Modal'
+import { BARNS, BUYERS, PAY_METHODS } from '../data/mock'
+import { EXPORT_HERD, TODAY } from '../data/exportsData'
 import { dm, money } from '../data/format'
+import { getExitDraftState, herdExitApi, saveHerdExit } from '../api/herdExitApi'
+import { useMutation, useQuery } from '../hooks/useApi'
+import { Box, CheckList, DocRow, Drop, MoneyInput, SummaryCard, TH, cx } from './export/parts'
+import PickModal from './export/PickModal'
 
 const TYPES = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
-const num = (v) => (v === '' ? 0 : Number(v))
+const herdByCode = (code) => EXPORT_HERD.find((c) => c.code === code)
 
+// Tải danh sách phiếu trước, rồi mới dựng form (form lấy phiếu Nháp làm giá trị ban đầu).
 export default function ExportNew() {
-  const { exports, addExport } = useStore()
+  const { data } = useQuery(() => herdExitApi.list(), [])
+  if (!data) {
+    return (
+      <Layout title="Phiếu xuất mới">
+        <p className="m-0 text-xs text-muted">Đang tải…</p>
+      </Layout>
+    )
+  }
+  return <ExportForm herdExits={data} />
+}
+
+function ExportForm({ herdExits }) {
+  const { mutate: persistExit } = useMutation(saveHerdExit)
   const nav = useNavigate()
-  const [type, setType] = useState('Bán')
-  const [date, setDate] = useState('2026-10-22')
-  const [buyerId, setBuyerId] = useState(BUYERS[0].id)
-  const [quarantine, setQuarantine] = useState('KD-HN-2026-005130')
-  const [plate, setPlate] = useState('29H-456.78')
-  const [note, setNote] = useState('')
-  const [pricing, setPricing] = useState('kg')
-  const [picked, setPicked] = useState(() => HERD.slice(0, 3).map((c) => ({ ...c, unitPrice: 92000 })))
-  const [picker, setPicker] = useState(false)
-  const [deduction, setDeduction] = useState(0)
-  const [collected, setCollected] = useState(60000000)
-  const [method, setMethod] = useState(PAY_METHODS[0])
-  const [due, setDue] = useState('2026-10-29')
+  const [m, openModal, closeModal] = useModalParam()
+
+  // Phiếu Nháp còn dở được tiếp tục sửa; không có thì lập phiếu mới.
+  const draftState = getExitDraftState(herdExits)
+  const draftRow = draftState.row
+  const d = draftState
+  const nextId = `PX-2026-${String(Math.max(...herdExits.map((r) => Number(r.id.split('-')[2]))) + 1).padStart(4, '0')}`
+  const id = draftRow?.id ?? nextId
+
+  const [type, setType] = useState(d.type)
+  const [date, setDate] = useState(d?.date ?? TODAY)
+  const [buyerId, setBuyerId] = useState(d?.buyerId ?? BUYERS[0].id)
+  const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
+  const [plate, setPlate] = useState(d?.plate ?? '')
+  const [note, setNote] = useState(d?.note ?? '')
+  const [pricing, setPricing] = useState(d?.pricing ?? 'kg')
+  const [picked, setPicked] = useState(() => (d?.cows ?? []).map((c) => ({ ...herdByCode(c.code), ...c })))
+  const [deduction, setDeduction] = useState(d?.deduction ?? 0)
+  const [collected, setCollected] = useState(d?.collected ?? 0)
+  const [method, setMethod] = useState(d?.method ?? PAY_METHODS[0])
+  const [dueDate, setDueDate] = useState(d?.dueDate ?? TODAY)
   const [confirmed, setConfirmed] = useState(false)
+  const [menu, setMenu] = useState(null)
+  const [toast, setToast] = useState('')
 
-  const money$ = type === 'Bán' || type === 'Loại thải'
+  const isSale = type === 'Bán'
   const buyer = BUYERS.find((b) => b.id === buyerId)
-  const nextId = `PX-2026-${String(Math.max(...exports.map((r) => Number(r.id.split('-')[2]))) + 1).padStart(4, '0')}`
-
   const amount = (c) => (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice)
   const withdrawal = picked.filter((c) => c.withdrawalUntil && date < c.withdrawalUntil)
   const totalWeight = picked.reduce((s, c) => s + c.weight, 0)
   const estimated = picked.filter((c) => c.estimated).length
-  const cowsMoney = money$ ? picked.reduce((s, c) => s + amount(c), 0) : 0
+  const cowsMoney = isSale ? picked.reduce((s, c) => s + amount(c), 0) : 0
   const receivable = Math.max(cowsMoney - deduction, 0)
   const remaining = Math.max(receivable - collected, 0)
-
   const barnDelta = BARNS.map((b) => ({ ...b, out: picked.filter((c) => c.barn === b.code).length })).filter((b) => b.out)
 
   const patch = (code, p) => setPicked(picked.map((c) => (c.code === code ? { ...c, ...p } : c)))
-  const toggle = (c) =>
-    setPicked(picked.some((x) => x.code === c.code) ? picked.filter((x) => x.code !== c.code) : [...picked, { ...c, unitPrice: 92000 }])
+  const showToast = (msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2000)
+  }
 
-  const save = (status) => {
-    addExport({
+  const save = async (status) => {
+    const record = {
       date,
       type,
-      who: money$ ? `${type === 'Bán' ? 'Thương lái ' : ''}${buyer.name}` : note || type,
+      who: isSale ? buyer.name : note || type,
       sub: `${picked.length} con · chuồng ${[...new Set(picked.map((c) => c.barn))].join(', ')}`,
       count: picked.length,
       weight: `${money(totalWeight)} kg`,
-      total: money$ ? receivable : null,
-      due: money$ ? remaining : null,
+      total: isSale ? receivable : null,
+      due: isSale ? remaining : null,
+      dueNote: status === 'Nháp' && isSale ? '(nháp)' : undefined,
       status,
-    })
+      draft: {
+        type, date, buyerId, quarantine, plate, note, pricing, deduction, collected, method, dueDate, docs: [],
+        cows: picked.map((c) => ({ code: c.code, weight: c.weight, unitPrice: c.unitPrice, estimated: c.estimated })),
+      },
+    }
+    if (status === 'Đã xuất') {
+      record.draft = undefined
+      record.detail = {
+        quarantine, buyer: buyer.name, phone: buyer.phone, plate, by: `N. V. Hùng · ${date}`, note,
+        cows: picked.map((c) => ({ code: c.code, tag: c.tag, breed: `${c.breed} · ${c.sex}`, weight: c.weight, barn: c.barn, amount: amount(c) })),
+        cowsTotal: cowsMoney, deduction,
+        payments: collected ? [{ date, by: 'N. V. Hùng', method, ref: '', amount: collected }] : [],
+        docs: [{ ext: 'PDF', name: 'phieu-can-xuat-2210.pdf' }],
+        history: [`${date} · N. V. Hùng xác nhận xuất ${picked.length} con`],
+      }
+    }
+    await persistExit({ id, record, cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })) })
     nav('/herd-exit')
   }
-
-  const summaryRow = (label, value) => (
-    <div>
-      <dt className="mb-[3px] text-[11px] text-faint">{label}</dt>
-      <dd className="m-0 text-[13px] font-medium">{value}</dd>
-    </div>
-  )
 
   return (
     <Layout title={`Phiếu xuất mới – ${type}`}>
@@ -73,64 +110,58 @@ export default function ExportNew() {
         <h1 className="m-0 text-[22px] font-bold">Phiếu xuất mới</h1>
         <p className="mb-0 mt-1 text-xs text-muted">Chỉ Chủ trại xác nhận · bò chuyển ĐÃ XUẤT sau khi xác nhận.</p>
       </div>
-      <div><Segmented value={type} onChange={setType} options={TYPES.map((t) => ({ value: t, label: t }))} /></div>
+      <div>
+        <Segmented value={type} onChange={setType} options={TYPES.map((t) => ({ value: t, label: t }))} />
+      </div>
 
-      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
+      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_354px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
-          <Card title="1. Thông tin phiếu">
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Mã phiếu"><input className={inputCls} value={nextId} readOnly /></Field>
-              <Field label="Ngày xuất *"><input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          <Box title="1. Thông tin phiếu" gap="gap-[14px]">
+            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-3">
+              <Field label="Mã phiếu"><input className={inputCls} value={id} readOnly /></Field>
+              <Field label="Ngày xuất *"><DateInput value={date} onChange={setDate} /></Field>
               <Field label="Loại xuất"><input className={inputCls} value={type} readOnly /></Field>
-              {money$ && (
+              {isSale && (
                 <>
                   <Field label="Người mua / thương lái *" hint={`${buyer.phone} · + Thêm người mua`}>
-                    <select className={inputCls} value={buyerId} onChange={(e) => setBuyerId(e.target.value)}>
+                    <Select value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className="w-full">
                       {BUYERS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
+                    </Select>
                   </Field>
                   <Field label="Số giấy kiểm dịch vận chuyển"><input className={inputCls} value={quarantine} onChange={(e) => setQuarantine(e.target.value)} /></Field>
                   <Field label="Biển số xe"><input className={inputCls} value={plate} onChange={(e) => setPlate(e.target.value)} /></Field>
                 </>
               )}
             </div>
-            <Field label={money$ ? 'Ghi chú' : 'Lý do *'}>
-              <input className={inputCls} value={note} placeholder={money$ ? 'Xuất bán vỗ béo đạt trọng lượng...' : 'Nhập lý do xuất'} onChange={(e) => setNote(e.target.value)} />
+            <Field label={isSale ? 'Ghi chú' : 'Lý do *'}>
+              <input className={inputCls} value={note} placeholder={isSale ? '' : 'Nhập lý do xuất'} onChange={(e) => setNote(e.target.value)} />
             </Field>
-          </Card>
+          </Box>
 
-          <Card
+          <Box
             title={`2. Danh sách bò trong phiếu (${picked.length} con)`}
+            gap="gap-3"
             actions={
               <>
-                <Button small>Quét QR</Button>
-                <Button small onClick={() => setPicker(!picker)}>+ Chọn bò</Button>
+                <Button size="sm" onClick={() => showToast('Quét QR chưa hỗ trợ trong bản demo')}>Quét QR</Button>
+                <Button size="sm" onClick={() => openModal('pick')}>+ Chọn bò</Button>
               </>
             }
           >
-            {picker && (
-              <div className="flex flex-col gap-1.5 rounded-md border border-field bg-page p-3">
-                {HERD.map((c) => (
-                  <label key={c.code} className="flex items-center gap-2 text-xs">
-                    <input type="checkbox" checked={picked.some((x) => x.code === c.code)} onChange={() => toggle(c)} />
-                    {c.code} · {c.tag} · {c.breed} {c.sex} · {c.barn} · {c.weight} kg
-                  </label>
-                ))}
-              </div>
-            )}
-            {money$ && (
-              <div className="flex items-center gap-3">
+            {isSale && (
+              <div className="flex flex-wrap items-center gap-3">
                 <b className="text-xs">Cách tính giá *</b>
                 <Segmented value={pricing} onChange={setPricing} options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]} />
-                <span className="text-[11px] text-muted">Cân xuất mặc định = cân gần nhất (ước tính) · cân lại để ghi thực tế</span>
+                <span className="max-w-[330px] text-[11px] text-muted">Cân xuất mặc định = cân gần nhất (ước tính) · cân lại để ghi thực tế</span>
               </div>
             )}
-            <Table wide>
+            <Table>
               <thead>
                 <tr>
-                  <Th>#</Th><Th>Mã bò · thẻ tai</Th><Th>Giống · giới tính</Th><Th>Chuồng</Th><Th>Cân xuất</Th>
-                  {money$ && <><Th>{pricing === 'kg' ? 'Đơn giá/kg' : 'Giá/con'}</Th><Th>Thành tiền</Th></>}
-                  <Th>Kiểm tra</Th><Th />
+                  <Th className={TH}>#</Th><Th className={TH}>Mã bò · thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Chuồng</Th>
+                  <Th className={TH}>Cân xuất</Th>
+                  {isSale && <><Th className={TH}>{pricing === 'kg' ? 'Đơn giá/kg' : 'Giá/con'}</Th><Th className={TH}>Thành tiền</Th></>}
+                  <Th className={TH}>Kiểm tra</Th><Th className={TH} />
                 </tr>
               </thead>
               <tbody>
@@ -138,102 +169,117 @@ export default function ExportNew() {
                   const blocked = c.withdrawalUntil && date < c.withdrawalUntil
                   return (
                     <tr key={c.code}>
-                      <Td>{i + 1}</Td>
-                      <Td className="whitespace-nowrap">{c.code}<br />{c.tag}</Td>
-                      <Td>{c.breed} · {c.sex}<br />{c.age} · {c.group}</Td>
-                      <Td>{c.barn}</Td>
-                      <Td>
-                        <input className={`${smInputCls} w-16`} type="number" min="0" value={c.weight} onChange={(e) => patch(c.code, { weight: num(e.target.value), estimated: false })} />
-                        {c.estimated && <span className="ml-1 text-[11px] text-muted">UT</span>}
+                      <Td className={TH}>{i + 1}</Td>
+                      <Td className={cx(TH, 'whitespace-nowrap')}>{c.code}<br />{c.tag}</Td>
+                      <Td className={TH}>{c.breed} · {c.sex}<br />{c.age} · {c.group}</Td>
+                      <Td className={TH}>{c.barn}</Td>
+                      <Td className={TH}>
+                        <input
+                          inputMode="numeric"
+                          value={c.weight}
+                          onChange={(e) => patch(c.code, { weight: Number(e.target.value.replace(/\D/g, '')) || 0, estimated: false })}
+                          className="w-[4ch] border-0 bg-transparent p-0 text-xs outline-none focus:bg-chip"
+                        />
+                        {' kg'}{c.estimated && ' UT'}
                       </Td>
-                      {money$ && (
+                      {isSale && (
                         <>
-                          <Td><input className={`${smInputCls} w-20`} type="number" min="0" value={c.unitPrice} onChange={(e) => patch(c.code, { unitPrice: num(e.target.value) })} /></Td>
-                          <Td>{money(amount(c))}</Td>
+                          <Td className={TH}>
+                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[70px]" />
+                          </Td>
+                          <Td className={TH}>{money(amount(c))}</Td>
                         </>
                       )}
-                      <Td>{blocked ? <Badge tone="err">Ngưng GM → {dm(c.withdrawalUntil)}</Badge> : <Badge tone="ok">OK</Badge>}</Td>
-                      <Td><Button variant="link" small onClick={() => toggle(c)}>✕</Button></Td>
+                      <Td className={TH}>{blocked ? <Badge tone="err" className="!border-0">Ngưng GM → {dm(c.withdrawalUntil)}</Badge> : <Badge tone="ok" className="!border-0">OK</Badge>}</Td>
+                      <Td className={cx(TH, 'relative')}>
+                        <button type="button" className="cursor-pointer px-1 text-muted" onClick={() => setMenu(menu === c.code ? null : c.code)}>⋯</button>
+                        {menu === c.code && (
+                          <button
+                            type="button"
+                            className="absolute right-0 top-full z-10 cursor-pointer rounded border border-edge bg-white px-3 py-1.5 text-xs text-err-fg"
+                            onClick={() => { setPicked(picked.filter((x) => x.code !== c.code)); setMenu(null) }}
+                          >
+                            Bỏ khỏi phiếu
+                          </button>
+                        )}
+                      </Td>
                     </tr>
                   )
                 })}
               </tbody>
               <tfoot>
                 <tr className="font-semibold">
-                  <Td /><Td>{picked.length} con</Td><Td /><Td /><Td>{money(totalWeight)} kg</Td>
-                  {money$ && <><Td /><Td>{money(cowsMoney)}</Td></>}
-                  <Td /><Td />
+                  <Td className={TH} /><Td className={TH}>{picked.length} con</Td><Td className={TH} /><Td className={TH} />
+                  <Td className={TH}>{money(totalWeight)} kg</Td>
+                  {isSale && <><Td className={TH} /><Td className={TH}>{money(cowsMoney)}</Td></>}
+                  <Td className={TH} /><Td className={TH} />
                 </tr>
               </tfoot>
             </Table>
             {withdrawal.map((c) => (
               <Note tone="err" key={c.code}>
-                {c.code} đang trong thời gian ngưng giết mổ đến {dm(c.withdrawalUntil)}/2026. Bán để giết mổ trước ngày này vi phạm an toàn thực phẩm – nên dời ngày xuất hoặc bỏ con khỏi phiếu.
+                {c.code} đang trong thời gian ngưng giết mổ đến {dm(c.withdrawalUntil)}/2026{c.code === 'BC-000205' ? ' (điều trị kháng sinh 18/10)' : ''}. Bán để giết mổ trước ngày này vi phạm an toàn thực phẩm – nên dời ngày xuất hoặc bỏ con khỏi phiếu.
               </Note>
             ))}
-          </Card>
+          </Box>
 
-          <div className={`grid items-start gap-[18px] ${money$ ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1 lg:grid-cols-[300px]'}`}>
-            <Card title="3. Chứng từ đính kèm">
-              <Dropzone hint="Hợp đồng, phiếu cân, giấy kiểm dịch · PDF, JPG ≤ 10MB" />
-              <Docs docs={[{ ext: 'PDF', name: 'phieu-can-xuat-2210.pdf' }]} />
-            </Card>
-            {money$ && (
-              <Card title="4. Thanh toán">
-                <dl className="m-0 grid grid-cols-2 gap-3">
-                  {summaryRow('Tiền bò', `${money(cowsMoney)} đ`)}
-                  {summaryRow('Tổng phải thu', `${money(receivable)} đ`)}
-                </dl>
-                <div className="grid grid-cols-2 gap-3.5">
-                  <Field label="Khấu trừ (hao hụt, môi giới)"><input className={inputCls} type="number" min="0" value={deduction} onChange={(e) => setDeduction(num(e.target.value))} /></Field>
-                  <Field label="Đã thu (đặt cọc)"><input className={inputCls} type="number" min="0" value={collected} onChange={(e) => setCollected(num(e.target.value))} /></Field>
+          <div className={cx('grid items-start gap-[18px]', isSale ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1 lg:grid-cols-[300px]')}>
+            <Box title="3. Chứng từ đính kèm" gap="gap-[10px]">
+              <Drop hint="Hợp đồng, phiếu cân, giấy kiểm dịch · PDF, JPG ≤ 10MB" />
+              <DocRow ext="PDF" name="phieu-can-xuat-2210.pdf" />
+            </Box>
+            {isSale && (
+              <Box title="4. Thanh toán" gap="gap-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div><div className="mb-[3px] text-[11px] text-faint">Tiền bò</div><div className="text-[13px] font-medium">{money(cowsMoney)} đ</div></div>
+                  <div><div className="mb-[3px] text-[11px] text-faint">Tổng phải thu</div><div className="text-[13px] font-medium">{money(receivable)} đ</div></div>
                 </div>
-                {summaryRow('Còn phải thu', <span className="font-semibold text-warn-fg">{money(remaining)} đ</span>)}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <Field label="Khấu trừ (hao hụt, môi giới)"><MoneyInput value={deduction} onChange={setDeduction} suffix="đ" /></Field>
+                  <Field label="Đã thu (đặt cọc)"><MoneyInput value={collected} onChange={setCollected} suffix="đ" /></Field>
+                </div>
+                <div>
+                  <div className="mb-[3px] text-[11px] text-faint">Còn phải thu</div>
+                  <div className="text-[13px] font-semibold text-warn-fg">{money(remaining)} đ</div>
+                </div>
                 <div className="grid grid-cols-2 gap-3.5">
                   <Field label="Phương thức">
-                    <select className={inputCls} value={method} onChange={(e) => setMethod(e.target.value)}>
-                      {PAY_METHODS.map((m) => <option key={m}>{m}</option>)}
-                    </select>
+                    <Select value={method} onChange={(e) => setMethod(e.target.value)} className="w-full">
+                      {PAY_METHODS.map((p) => <option key={p}>{p}</option>)}
+                    </Select>
                   </Field>
-                  <Field label="Hạn thu phần còn lại"><input className={inputCls} type="date" value={due} onChange={(e) => setDue(e.target.value)} /></Field>
+                  <Field label="Hạn thu phần còn lại"><DateInput value={dueDate} onChange={setDueDate} /></Field>
                 </div>
-              </Card>
+              </Box>
             )}
           </div>
         </div>
 
         <div className="flex flex-col gap-[18px]">
-          <Card title="Tóm tắt phiếu xuất" actions={<Badge>Nháp</Badge>}>
-            <dl className="m-0 flex flex-col gap-3">
-              {summaryRow('Số con', picked.length)}
-              {summaryRow('Loại xuất', type)}
-              {summaryRow('Tổng cân xuất', `${money(totalWeight)} kg${estimated ? ` (${estimated} con ước tính)` : ''}`)}
-              {summaryRow('Chuồng giảm', barnDelta.length ? barnDelta.map((b) => `${b.name} (${b.count} → ${b.count - b.out})`).join(' · ') : '—')}
-              {money$ && summaryRow('Tổng phải thu', `${money(receivable)} đ`)}
-            </dl>
-          </Card>
-
-          <Card title="Kiểm tra trước khi xác nhận">
-            <Table stack={false}>
-              <thead><tr><Th>Mục</Th><Th>Kết quả</Th></tr></thead>
-              <tbody>
-                <tr>
-                  <Td>Ngưng giết mổ còn hiệu lực</Td>
-                  <Td className={withdrawal.length ? 'font-medium text-err-fg' : ''}>
-                    {withdrawal.length ? `${withdrawal.length} con · ${withdrawal.map((c) => c.code).join(', ')} đến ${dm(withdrawal[0].withdrawalUntil)}` : 'Không có'}
-                  </Td>
-                </tr>
-                <tr><Td>Ca sức khỏe mở / mạn tính</Td><Td>Không có</Td></tr>
-                <tr><Td>Mũi tiêm, nhắc việc tương lai</Td><Td>4 mục – sẽ hủy</Td></tr>
-                <tr><Td>Thai đang theo dõi</Td><Td>Không áp dụng</Td></tr>
-                <tr><Td>Bê nháp của bò mẹ</Td><Td>Không có</Td></tr>
-              </tbody>
-            </Table>
-            <label className="flex items-start gap-2 text-xs font-semibold">
-              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+          <SummaryCard
+            badge={<Badge>Nháp</Badge>}
+            rows={[
+              ['Số con', picked.length],
+              ['Loại xuất', type],
+              ['Tổng cân xuất', `${money(totalWeight)} kg${estimated ? ` (${estimated} con ước tính)` : ''}`],
+              ['Chuồng giảm', barnDelta.length ? barnDelta.map((b) => `${b.name} (${b.count} → ${b.count - b.out})`).join(' · ') : '—'],
+              ...(isSale ? [['Tổng phải thu', `${money(receivable)} đ`]] : []),
+            ]}
+          />
+          <Box title="Kiểm tra trước khi xác nhận" gap="gap-[10px]">
+            <CheckList
+              rows={[
+                ['Ngưng giết mổ còn hiệu lực', withdrawal.length ? `${withdrawal.length} con · ${withdrawal.map((c) => c.code).join(', ')} đến ${dm(withdrawal[0].withdrawalUntil)}` : 'Không có', withdrawal.length > 0],
+                ['Ca sức khỏe mở / mạn tính', 'Không có'],
+                ['Mũi tiêm, nhắc việc tương lai', '4 mục – sẽ hủy'],
+                ['Thai đang theo dõi', 'Không áp dụng'],
+                ['Bê nháp của bò mẹ', 'Không có'],
+              ]}
+            />
+            <Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="text-xs font-semibold">
               Tôi đã xem các mục trên và xác nhận xuất đàn *
-            </label>
-            <Button variant="primary" block disabled={!confirmed || !picked.length} onClick={() => save('Đã xuất')}>
+            </Checkbox>
+            <Button variant="primary" block className="!border-0 !py-[9px]" disabled={!confirmed || !picked.length} onClick={() => save('Đã xuất')}>
               Xác nhận xuất {picked.length} con
             </Button>
             <Button block onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
@@ -241,11 +287,16 @@ export default function ExportNew() {
             <p className="m-0 text-[11px] text-muted">
               Khi xác nhận, mỗi con: chuyển ĐÃ XUẤT, đóng phân chuồng, hủy mũi tiêm / nhắc việc sau ngày xuất, đóng ca bệnh và thai đang mở (GBR-35). Hồ sơ chỉ còn xem.
             </p>
-          </Card>
+          </Box>
         </div>
       </div>
 
       <Foot>Loại xuất cố định sau lần lưu đầu. Cân xuất mặc định là cân gần nhất (ước tính); cảnh báo không chặn lưu nháp nhưng phải xem lại trước khi xác nhận.</Foot>
+
+      {m === 'pick' && (
+        <PickModal id={id} herdExits={herdExits} picked={picked} setPicked={setPicked} onClose={closeModal} />
+      )}
+      {toast && <div className="fixed bottom-6 right-6 z-50 rounded-md bg-side px-4 py-2.5 text-xs text-white">{toast}</div>}
     </Layout>
   )
 }
