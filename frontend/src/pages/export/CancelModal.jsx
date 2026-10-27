@@ -1,22 +1,23 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
 import { Field, Note, Textarea } from '../../components/ui'
-import { updateHerdExit } from '../../api/herdExitApi'
+import { cancelHerdExit } from '../../api/herdExitApi'
 import { useMutation } from '../../hooks/useApi'
 import { money } from '../../data/format'
 
 const MAX_REASON = 500
 
 export default function CancelModal({ row, onClose, onCancelled }) {
-  const { mutate: updateExit, loading: saving } = useMutation(updateHerdExit)
+  const { mutate: cancelExit, loading: saving } = useMutation(({ id, cows, patch }) => cancelHerdExit(id, cows, patch))
   const [cancelReason, setCancelReason] = useState('Lò mổ trả lại 4 con do đổi lịch giết mổ')
   const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
   const barnCount = row.count
 
   const confirm = async () => {
     const time = new Date().toTimeString().slice(0, 5)
-    await updateExit({
+    await cancelExit({
       id: row.id,
+      cows: row.detail?.cows ?? [],
       patch: {
         status: 'Đã hủy',
         cancelReason,

@@ -6,7 +6,7 @@ import { useModalParam } from '../components/Modal'
 import { BARNS, BUYERS, PAY_METHODS } from '../data/mock'
 import { EXPORT_HERD, TODAY } from '../data/exportsData'
 import { dm, money } from '../data/format'
-import { createHerdExit, herdExitApi, updateHerdExit } from '../api/herdExitApi'
+import { getExitDraftState, herdExitApi, saveHerdExit } from '../api/herdExitApi'
 import { useMutation, useQuery } from '../hooks/useApi'
 import { Box, CheckList, DocRow, Drop, MoneyInput, SummaryCard, TH, cx } from './export/parts'
 import PickModal from './export/PickModal'
@@ -28,18 +28,18 @@ export default function ExportNew() {
 }
 
 function ExportForm({ herdExits }) {
-  const { mutate: createExit } = useMutation(createHerdExit)
-  const { mutate: updateExit } = useMutation(updateHerdExit)
+  const { mutate: persistExit } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
 
   // Phiếu Nháp còn dở được tiếp tục sửa; không có thì lập phiếu mới.
-  const draftRow = herdExits.find((r) => r.status === 'Nháp')
-  const d = draftRow?.draft
+  const draftState = getExitDraftState(herdExits)
+  const draftRow = draftState.row
+  const d = draftState
   const nextId = `PX-2026-${String(Math.max(...herdExits.map((r) => Number(r.id.split('-')[2]))) + 1).padStart(4, '0')}`
   const id = draftRow?.id ?? nextId
 
-  const [type, setType] = useState('Bán')
+  const [type, setType] = useState(d.type)
   const [date, setDate] = useState(d?.date ?? TODAY)
   const [buyerId, setBuyerId] = useState(d?.buyerId ?? BUYERS[0].id)
   const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
@@ -85,7 +85,7 @@ function ExportForm({ herdExits }) {
       dueNote: status === 'Nháp' && isSale ? '(nháp)' : undefined,
       status,
       draft: {
-        date, buyerId, quarantine, plate, note, pricing, deduction, collected, method, dueDate, docs: [],
+        type, date, buyerId, quarantine, plate, note, pricing, deduction, collected, method, dueDate, docs: [],
         cows: picked.map((c) => ({ code: c.code, weight: c.weight, unitPrice: c.unitPrice, estimated: c.estimated })),
       },
     }
@@ -100,8 +100,7 @@ function ExportForm({ herdExits }) {
         history: [`${date} · N. V. Hùng xác nhận xuất ${picked.length} con`],
       }
     }
-    if (draftRow) await updateExit({ id: draftRow.id, patch: record })
-    else await createExit(record)
+    await persistExit({ id, record, cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })) })
     nav('/herd-exit')
   }
 
