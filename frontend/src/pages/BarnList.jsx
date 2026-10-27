@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useModalParam } from '../components/Modal'
 import { Button, PageHeader, Select, inputCls } from '../components/ui'
-import { initialBarns } from '../data/barnsData'
+import { penApi } from '../api/penApi'
+import { useMutation, useQuery } from '../hooks/useApi'
 import BarnTable from './pens/BarnTable'
 import BarnPanel from './pens/BarnPanel'
 import EditModal from './pens/EditModal'
@@ -24,10 +25,14 @@ export default function BarnList() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const [modal, openModal, closeModal] = useModalParam()
-  const [barns, setBarns] = useState(initialBarns)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState(ALL_STATUS)
 
+  const { data, loading, refetch } = useQuery(() => penApi.list(), [])
+  const createPen = useMutation(penApi.create)
+  const updatePen = useMutation(penApi.update)
+
+  const barns = data ?? []
   const selected = barns.find((b) => b.code === params.get('barn')) ?? barns[0]
 
   const updateParams = (changes) => {
@@ -38,17 +43,16 @@ export default function BarnList() {
 
   const selectBarn = (code) => updateParams({ barn: code })
 
-  const saveBarn = (nextBarn) => {
-    setBarns((list) =>
-      list.some((b) => b.code === nextBarn.code)
-        ? list.map((b) => (b.code === nextBarn.code ? nextBarn : b))
-        : [...list, nextBarn],
-    )
-    updateParams({ barn: nextBarn.code, m: null })
+  const savePen = async (pen) => {
+    const exists = barns.some((b) => b.code === pen.code)
+    await (exists ? updatePen.mutate(pen) : createPen.mutate(pen))
+    await refetch()
+    updateParams({ barn: pen.code, m: null })
   }
 
-  const changeStatus = (status, note) => {
-    setBarns((list) => list.map((b) => (b.code === selected.code ? { ...b, status, statusNote: note } : b)))
+  const changePenStatus = async (status, note) => {
+    await updatePen.mutate({ ...selected, status, statusNote: note })
+    await refetch()
     updateParams({ m: null })
   }
 
@@ -84,16 +88,18 @@ export default function BarnList() {
 
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[560px_minmax(0,1fr)]">
         <div className="min-w-0 rounded-md border border-[#bdbdbd] bg-white p-2 xl:w-[560px]">
-          <BarnTable rows={visibleBarns} selected={selected.code} onSelect={selectBarn} />
+          <BarnTable rows={visibleBarns} selected={selected?.code} onSelect={selectBarn} loading={loading && !data} />
         </div>
         <div className="min-w-0">
-          <BarnPanel
-            barn={selected}
-            onEdit={() => openModal('edit')}
-            onToggle={() => openModal('disable')}
-            onMoveCow={(cowCode) => navigate(`/cattle/${cowCode}?m=move`)}
-            onViewAll={() => navigate('/cattle')}
-          />
+          {selected && (
+            <BarnPanel
+              barn={selected}
+              onEdit={() => openModal('edit')}
+              onToggle={() => openModal('disable')}
+              onMoveCow={(cowCode) => navigate(`/cattle/${cowCode}?m=move`)}
+              onViewAll={() => navigate('/cattle')}
+            />
+          )}
         </div>
       </div>
 
@@ -101,14 +107,10 @@ export default function BarnList() {
         Chọn một chuồng để xem sức chứa, tiêu chí tiếp nhận theo phiên bản và bò đang ở; chuồng ngừng sử dụng không nhận bò mới.
       </p>
 
-      {modal === 'edit' && <EditModal barn={selected} barns={barns} onSave={saveBarn} onClose={closeModal} />}
-      {modal === 'create' && <EditModal barn={null} barns={barns} onSave={saveBarn} onClose={closeModal} />}
-      {modal === 'disable' && (
-        <DisableModal
-          barn={selected}
-          onConfirm={(status, note) => changeStatus(status, note)}
-          onClose={closeModal}
-        />
+      {modal === 'edit' && selected && <EditModal barn={selected} barns={barns} onSave={savePen} onClose={closeModal} />}
+      {modal === 'create' && <EditModal barn={null} barns={barns} onSave={savePen} onClose={closeModal} />}
+      {modal === 'disable' && selected && (
+        <DisableModal barn={selected} onConfirm={changePenStatus} onClose={closeModal} />
       )}
     </Layout>
   )

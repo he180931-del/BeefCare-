@@ -1,5 +1,5 @@
 import { Badge, Button, KV, Table, Td, Th } from '../../components/ui'
-import { thresholdText } from '../../data/barnsData'
+import { thresholdText } from '../../data/penData'
 import { Box, TH } from './parts'
 
 export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll }) {

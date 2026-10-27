@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
 import { Field, Radio, Table, Td, Th, inputCls } from '../../components/ui'
-import { PURPOSES, STAGES } from '../../data/barnsData'
+import { PURPOSES, STAGES } from '../../data/penData'
 import { cx, TH } from './parts'
 
 const OPERATORS = ['≥', '≤']

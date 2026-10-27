@@ -3,7 +3,7 @@ import { cx, TH } from './parts'
 
 const HEAD = 'bg-[#f0f0f0] whitespace-nowrap'
 
-export default function BarnTable({ rows, selected, onSelect }) {
+export default function BarnTable({ rows, selected, onSelect, loading }) {
   return (
     <Table stack={false}>
       <thead>
@@ -18,7 +18,7 @@ export default function BarnTable({ rows, selected, onSelect }) {
       <tbody>
         {rows.length === 0 && (
           <tr>
-            <Td colSpan={5} className={cx(TH, 'text-muted')}>Không có chuồng phù hợp</Td>
+            <Td colSpan={5} className={cx(TH, 'text-muted')}>{loading ? 'Đang tải…' : 'Không có chuồng phù hợp'}</Td>
           </tr>
         )}
         {rows.map((barn) => (

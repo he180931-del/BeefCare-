@@ -1,5 +1,6 @@
+// Dữ liệu mẫu (seed) của chuồng trại; màn hình đọc qua src/api/penApi.js
 // code, name, count (đang có), capacity, accept (cột "Tiếp nhận"), status
-export const initialBarns = [
+export const seedPens = [
  { code:'A1', name:'Bò cái sinh sản', count:58, capacity:64, accept:'Sinh sản',       status:'ACTIVE',   purpose:'Sinh sản',         stage:'Bò cái sinh sản', minAge:13,   minWeight:230,  sex:'Cái',    version:'v2 từ 01/09/2026', desc:'Chuồng nền xi măng, khu cho ăn riêng',
    cows:[['BC-000125','Mang thai 5 tháng'],['BC-000154','Đã phối 12 ngày'],['BC-000131','Nhắc tiêm']] },
  { code:'A2', name:'Bò chửa',         count:22, capacity:30, accept:'Bò chửa',        status:'ACTIVE',   purpose:'Sinh sản',         stage:'Bò chửa',         minAge:null, minWeight:null, sex:'Cái',    version:'v1 từ 01/06/2026', desc:'Khu bò chửa, ít người qua lại',
