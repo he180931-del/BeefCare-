@@ -1,0 +1,54 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174022"
+  },
+  "applications": ["*"],
+  "documentation": "Bank Transfer Evidence (gộp Webhook Delivery, Canonical Bank Source)",
+  "fields": [
+    {
+      "fieldName": "providerTxnId",
+      "fieldType": "Long",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "amount",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "bankPaidAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "ERD: NOT NULL; để trống được vì SePay có thể gửi code = null",
+      "fieldName": "quoteRef",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "50"
+    },
+    {
+      "documentation": "ERD: delivery/auth outcome - tách 2 cột",
+      "fieldName": "deliveryOutcome",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "authOutcome",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "BankTransferEvidence",
+  "relationships": [
+    {
+      "otherEntityName": "payment",
+      "relationshipName": "payment",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no"
+}

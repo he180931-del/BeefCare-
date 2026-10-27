@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity ScheduledDose.
+    -->
+    <changeSet id="20261019174046-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="vaccination_id"
+                                 baseTableName="scheduled_dose"
+                                 constraintName="fk_scheduled_dose__vaccination_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="vaccination"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="schedule_id"
+                                 baseTableName="scheduled_dose"
+                                 constraintName="fk_scheduled_dose__schedule_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="vaccination_schedule"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="cattle_id"
+                                 baseTableName="scheduled_dose"
+                                 constraintName="fk_scheduled_dose__cattle_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="cattle"
+                                 />
+    </changeSet>
+</databaseChangeLog>

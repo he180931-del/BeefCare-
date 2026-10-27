@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <!--
+        Added the entity Vaccine.
+    -->
+    <changeSet id="20261019174040-1" author="jhipster">
+        <createTable tableName="vaccine">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="varchar(50)">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="disease_prevented" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="manufacturer" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="dose" type="varchar(255)" remarks="ERD: dose / route - tách 2 cột">
+                <constraints nullable="false" />
+            </column>
+            <column name="route" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="booster_interval" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="withdrawal_info" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="available" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="farm_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <!-- jhipster-needle-liquibase-add-column - JHipster will add columns here -->
+        </createTable>
+    </changeSet>
+
+    <!-- jhipster-needle-liquibase-add-changeset - JHipster will add changesets here -->
+
+    <!--
+        Load sample data generated with Faker.js
+        - This data can be easily edited using a CSV editor (or even MS Excel) and
+          is located in the 'src/main/resources/config/liquibase/fake-data' directory
+        - By default this data is applied when running with the JHipster 'dev' profile.
+          This can be customized by adding or removing 'faker' in the 'spring.liquibase.contexts'
+          Spring Boot configuration key.
+    -->
+    <changeSet id="20261019174040-1-data" author="jhipster" context="faker">
+        <loadData
+                  file="../fake-data/vaccine.csv"
+                  relativeToChangelogFile="true"
+                  separator=";"
+                  tableName="vaccine"
+                  usePreparedStatements="true">
+            <column name="id" type="numeric"/>
+            <column name="code" type="string"/>
+            <column name="name" type="string"/>
+            <column name="disease_prevented" type="string"/>
+            <column name="manufacturer" type="string"/>
+            <column name="dose" type="string"/>
+            <column name="route" type="string"/>
+            <column name="booster_interval" type="numeric"/>
+            <column name="withdrawal_info" type="string"/>
+            <column name="available" type="boolean"/>
+            <column name="farm_id" type="numeric"/>
+            <!-- jhipster-needle-liquibase-add-loadcolumn - JHipster (and/or extensions) can add load columns here -->
+        </loadData>
+    </changeSet>
+</databaseChangeLog>

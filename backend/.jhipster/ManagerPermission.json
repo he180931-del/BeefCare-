@@ -1,0 +1,31 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174016"
+  },
+  "applications": ["*"],
+  "documentation": "ERD: PK ghép membership_id + permission_code; JDL không hỗ trợ PK ghép nên dùng id và cần thêm unique(membership_id, permission_code)",
+  "fields": [
+    {
+      "fieldName": "permissionCode",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "50"
+    },
+    {
+      "fieldName": "enabled",
+      "fieldType": "Boolean",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "ManagerPermission",
+  "relationships": [
+    {
+      "otherEntityName": "farmMembership",
+      "relationshipName": "membership",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

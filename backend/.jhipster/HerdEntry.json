@@ -1,0 +1,45 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174035"
+  },
+  "applications": ["*"],
+  "documentation": "Herd Entry (gộp Entry History Declaration vào cột history_declarations)",
+  "fields": [
+    {
+      "documentation": "EXTERNAL | FARM_BORN",
+      "fieldName": "source",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "entryDate",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "historyDeclarations",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    }
+  ],
+  "name": "HerdEntry",
+  "relationships": [
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "cattle",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "pen",
+      "relationshipName": "initialPen",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

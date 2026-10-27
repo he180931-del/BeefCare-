@@ -1,0 +1,48 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174054"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "documentation": "LIVE | STILLBORN",
+      "fieldName": "outcome",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "sex",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "birthWeight",
+      "fieldType": "BigDecimal"
+    },
+    {
+      "fieldName": "registrationState",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "CalfOutcome",
+  "relationships": [
+    {
+      "otherEntityName": "calvingEvent",
+      "relationshipName": "calving",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "registeredCattle",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no"
+}

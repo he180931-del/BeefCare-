@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <property name="now" value="current_timestamp" dbms="postgresql"/>
+    <property name="floatType" value="float4" dbms="postgresql"/>
+    <property name="clobType" value="clob" dbms="postgresql"/>
+    <property name="blobType" value="blob" dbms="postgresql"/>
+    <property name="uuidType" value="uuid" dbms="postgresql"/>
+    <property name="datetimeType" value="datetime" dbms="postgresql"/>
+    <property name="timeType" value="time(6)" dbms="postgresql"/>
+
+    <include file="config/liquibase/changelog/00000000000000_initial_schema.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174012_added_entity_AppUser.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174013_added_entity_PlatformStaffAccess.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174014_added_entity_Farm.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174015_added_entity_FarmMembership.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174016_added_entity_ManagerPermission.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174017_added_entity_FarmInvitation.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174018_added_entity_AuditLog.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174019_added_entity_PlanVersion.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174020_added_entity_Subscription.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174021_added_entity_Payment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174022_added_entity_BankTransferEvidence.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174023_added_entity_EvidenceReview.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174024_added_entity_ManualFinanceRecord.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174025_added_entity_CashReportSnapshot.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174026_added_entity_SupportTicket.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174027_added_entity_TicketMessage.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174028_added_entity_InternalRequest.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174029_added_entity_SupportHistory.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174030_added_entity_Pen.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174031_added_entity_PenReceptionCriteria.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174032_added_entity_PenAssignment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174033_added_entity_Cattle.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174034_added_entity_CattleQrTag.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174035_added_entity_HerdEntry.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174036_added_entity_HerdExit.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174037_added_entity_CattleProfileChange.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174038_added_entity_Breed.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174039_added_entity_ProductionPurpose.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174040_added_entity_Vaccine.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174041_added_entity_Medicine.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174042_added_entity_ReminderParameter.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174043_added_entity_Growth.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174044_added_entity_Vaccination.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174045_added_entity_VaccinationSchedule.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174046_added_entity_ScheduledDose.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174047_added_entity_HealthCase.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174048_added_entity_Treatment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174049_added_entity_HealthObservation.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174050_added_entity_ReproductionEvent.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174051_added_entity_PregnancyEpisode.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174052_added_entity_PregnancyUpdate.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174053_added_entity_CalvingEvent.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174054_added_entity_CalfOutcome.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174055_added_entity_RecordRevision.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174056_added_entity_FarmAnnouncement.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174057_added_entity_AnnouncementVersion.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174058_added_entity_AnnouncementRecipient.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174059_added_entity_Reminder.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174100_added_entity_Notification.xml" relativeToChangelogFile="false"/>
+    <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
+    <include file="config/liquibase/changelog/20261019174013_added_entity_constraints_PlatformStaffAccess.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174015_added_entity_constraints_FarmMembership.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174016_added_entity_constraints_ManagerPermission.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174017_added_entity_constraints_FarmInvitation.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174018_added_entity_constraints_AuditLog.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174020_added_entity_constraints_Subscription.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174021_added_entity_constraints_Payment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174022_added_entity_constraints_BankTransferEvidence.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174023_added_entity_constraints_EvidenceReview.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174024_added_entity_constraints_ManualFinanceRecord.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174025_added_entity_constraints_CashReportSnapshot.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174026_added_entity_constraints_SupportTicket.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174027_added_entity_constraints_TicketMessage.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174028_added_entity_constraints_InternalRequest.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174029_added_entity_constraints_SupportHistory.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174030_added_entity_constraints_Pen.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174031_added_entity_constraints_PenReceptionCriteria.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174032_added_entity_constraints_PenAssignment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174033_added_entity_constraints_Cattle.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174034_added_entity_constraints_CattleQrTag.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174035_added_entity_constraints_HerdEntry.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174036_added_entity_constraints_HerdExit.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174037_added_entity_constraints_CattleProfileChange.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174038_added_entity_constraints_Breed.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174039_added_entity_constraints_ProductionPurpose.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174040_added_entity_constraints_Vaccine.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174041_added_entity_constraints_Medicine.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174042_added_entity_constraints_ReminderParameter.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174043_added_entity_constraints_Growth.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174044_added_entity_constraints_Vaccination.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174045_added_entity_constraints_VaccinationSchedule.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174046_added_entity_constraints_ScheduledDose.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174047_added_entity_constraints_HealthCase.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174048_added_entity_constraints_Treatment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174049_added_entity_constraints_HealthObservation.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174050_added_entity_constraints_ReproductionEvent.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174051_added_entity_constraints_PregnancyEpisode.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174052_added_entity_constraints_PregnancyUpdate.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174053_added_entity_constraints_CalvingEvent.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174054_added_entity_constraints_CalfOutcome.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174056_added_entity_constraints_FarmAnnouncement.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174057_added_entity_constraints_AnnouncementVersion.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174058_added_entity_constraints_AnnouncementRecipient.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174059_added_entity_constraints_Reminder.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261019174100_added_entity_constraints_Notification.xml" relativeToChangelogFile="false"/>
+    <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
+    <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
+</databaseChangeLog>

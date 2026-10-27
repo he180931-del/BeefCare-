@@ -1,0 +1,51 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174055"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "documentation": "ERD: source_type + source_id - tách 2 cột",
+      "fieldName": "sourceType",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "50"
+    },
+    {
+      "fieldName": "sourceId",
+      "fieldType": "Long",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "CORRECT | VOID",
+      "fieldName": "action",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "TextBlob"
+    },
+    {
+      "documentation": "ERD: before / after - tách 2 cột",
+      "fieldName": "beforeSnapshot",
+      "fieldType": "TextBlob",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "afterSnapshot",
+      "fieldType": "TextBlob",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "ERD: time",
+      "fieldName": "changedAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "RecordRevision",
+  "relationships": [],
+  "searchEngine": "no"
+}

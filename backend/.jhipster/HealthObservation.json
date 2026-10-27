@@ -1,0 +1,47 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174049"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "observedTime",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "entryTime",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "ERD: signs / progress",
+      "fieldName": "signsProgress",
+      "fieldType": "TextBlob",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "source",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "HealthObservation",
+  "relationships": [
+    {
+      "otherEntityName": "healthCase",
+      "relationshipName": "healthCase",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "vaccination",
+      "relationshipName": "vaccination",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no"
+}

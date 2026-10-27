@@ -1,0 +1,50 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174012"
+  },
+  "applications": ["*"],
+  "documentation": "User (gộp User Identity, Password Credential, Password Reset Token). Đặt tên AppUser để không trùng User có sẵn của JHipster.",
+  "fields": [
+    {
+      "fieldName": "email",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "unique", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "fullName",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "phone",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "accountStatus",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "documentation": "ERD: NOT NULL; để trống được vì tài khoản chỉ dùng mật khẩu không có Google subject",
+      "fieldName": "googleSubject",
+      "fieldType": "String",
+      "fieldValidateRules": ["unique", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "documentation": "ERD: NOT NULL; để trống được vì tài khoản chỉ dùng Google không có mật khẩu",
+      "fieldName": "passwordHash",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    }
+  ],
+  "name": "AppUser",
+  "relationships": [],
+  "searchEngine": "no"
+}

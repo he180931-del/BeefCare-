@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity EvidenceReview.
+    -->
+    <changeSet id="20261019174023-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="evidence_id"
+                                 baseTableName="evidence_review"
+                                 constraintName="fk_evidence_review__evidence_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="bank_transfer_evidence"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="pm_user_id"
+                                 baseTableName="evidence_review"
+                                 constraintName="fk_evidence_review__pm_user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="app_user"
+                                 />
+    </changeSet>
+</databaseChangeLog>

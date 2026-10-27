@@ -1,0 +1,51 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174029"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "eventType",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "documentation": "ERD: prior/new state - tách 2 cột; priorState để trống được cho sự kiện đầu tiên",
+      "fieldName": "priorState",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "newState",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "documentation": "ERD: time",
+      "fieldName": "occurredAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "SupportHistory",
+  "relationships": [
+    {
+      "otherEntityName": "supportTicket",
+      "relationshipName": "ticket",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "actor",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

@@ -1,0 +1,32 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174013"
+  },
+  "applications": ["*"],
+  "documentation": "Quyền nhân sự nền tảng (CS / PM / SA)",
+  "fields": [
+    {
+      "fieldName": "role",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "status",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "PlatformStaffAccess",
+  "relationships": [
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "user",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

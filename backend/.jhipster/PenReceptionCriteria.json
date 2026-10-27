@@ -1,0 +1,49 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174031"
+  },
+  "applications": ["*"],
+  "documentation": "ERD: PK ghép pen_id + version; dùng id và cần thêm unique(pen_id, version_no)",
+  "fields": [
+    {
+      "fieldName": "versionNo",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required", "min"],
+      "fieldValidateRulesMin": "1"
+    },
+    {
+      "fieldName": "acceptedPurposes",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "acceptedStages",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "thresholds",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "effectiveFrom",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "PenReceptionCriteria",
+  "relationships": [
+    {
+      "otherEntityName": "pen",
+      "relationshipName": "pen",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

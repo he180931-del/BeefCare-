@@ -1,0 +1,42 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174053"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "birthTime",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "course",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "damCondition",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "CalvingEvent",
+  "relationships": [
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "dam",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "pregnancyEpisode",
+      "relationshipName": "episode",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no"
+}

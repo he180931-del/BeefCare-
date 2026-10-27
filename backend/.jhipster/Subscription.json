@@ -1,0 +1,37 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174020"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "entitlementStatus",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "documentation": "ERD: varchar(255) NOT NULL; đổi sang thời điểm và để trống được vì farm mới chưa có kỳ đã trả",
+      "fieldName": "latestEnd",
+      "fieldType": "Instant"
+    }
+  ],
+  "name": "Subscription",
+  "relationships": [
+    {
+      "otherEntityName": "farm",
+      "relationshipName": "farm",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "planVersion",
+      "relationshipName": "planVersion",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}
