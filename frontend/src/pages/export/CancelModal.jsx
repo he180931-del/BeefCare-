@@ -1,25 +1,29 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
 import { Field, Note, Textarea } from '../../components/ui'
-import { useStore } from '../../data/store'
+import { updateHerdExit } from '../../api/herdExitApi'
+import { useMutation } from '../../hooks/useApi'
 import { money } from '../../data/format'
 
 const MAX_REASON = 500
 
 export default function CancelModal({ row, onClose, onCancelled }) {
-  const { updateExport } = useStore()
+  const { mutate: updateExit, loading: saving } = useMutation(updateHerdExit)
   const [cancelReason, setCancelReason] = useState('Lò mổ trả lại 4 con do đổi lịch giết mổ')
   const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
   const barnCount = row.count
 
-  const confirm = () => {
+  const confirm = async () => {
     const time = new Date().toTimeString().slice(0, 5)
-    updateExport(row.id, {
-      status: 'Đã hủy',
-      cancelReason,
-      detail: {
-        ...row.detail,
-        history: [...(row.detail?.history ?? []), `22/10 ${time} · N. V. Hùng hủy phiếu: ${cancelReason}`],
+    await updateExit({
+      id: row.id,
+      patch: {
+        status: 'Đã hủy',
+        cancelReason,
+        detail: {
+          ...row.detail,
+          history: [...(row.detail?.history ?? []), `22/10 ${time} · N. V. Hùng hủy phiếu: ${cancelReason}`],
+        },
       },
     })
     onCancelled()
@@ -50,7 +54,7 @@ export default function CancelModal({ row, onClose, onCancelled }) {
       <Note>Chỉ Chủ trại hủy được phiếu đã xuất. Nếu chuồng cuối ngưng sử dụng hoặc không đủ chỗ, hệ thống yêu cầu chọn chuồng khác cho từng con trước khi hủy (MSG-FE13-09).</Note>
       <ModalFooter>
         <ModalButton className="text-ink" onClick={onClose}>Đóng</ModalButton>
-        <ModalButton variant="danger" disabled={!cancelReason.trim()} onClick={confirm}>Hủy phiếu xuất</ModalButton>
+        <ModalButton variant="danger" disabled={!cancelReason.trim() || saving} onClick={confirm}>Hủy phiếu xuất</ModalButton>
       </ModalFooter>
     </Modal>
   )

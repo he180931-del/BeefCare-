@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../components/Layout'
 import { useModalParam } from '../../components/Modal'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Note, Radio, Segmented, Table, Td, Th, Textarea, inputCls } from '../../components/ui'
-import { useStore } from '../../data/store'
+import { updateHerdExit } from '../../api/herdExitApi'
+import { useMutation } from '../../hooks/useApi'
 import { dmy } from '../../data/format'
 import { Box, CheckList, DocRow, Drop, SummaryCard, TH } from './parts'
 import RejectModal from './RejectModal'
@@ -12,7 +13,7 @@ const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa
 
 // Phiếu xuất "Chết / mất" tạo từ ca sức khỏe, chờ Chủ trại xác nhận.
 export default function DeathView({ row }) {
-  const { updateExport } = useStore()
+  const { mutate: updateExit } = useMutation(updateHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
   const d = row.detail
@@ -23,11 +24,14 @@ export default function DeathView({ row }) {
   const [date, setDate] = useState(d.date)
   const [confirmed, setConfirmed] = useState(true)
 
-  const resolve = (status, extra = {}) => {
-    updateExport(row.id, {
-      status,
-      ...extra,
-      detail: { ...d, history: [...(d.history ?? []), `${dmy(date).slice(0, 5)} · N. V. Hùng ${status === 'Đã xuất' ? 'xác nhận xuất đàn' : 'bác đề xuất'}`] },
+  const resolve = async (status, extra = {}) => {
+    await updateExit({
+      id: row.id,
+      patch: {
+        status,
+        ...extra,
+        detail: { ...d, history: [...(d.history ?? []), `${dmy(date).slice(0, 5)} · N. V. Hùng ${status === 'Đã xuất' ? 'xác nhận xuất đàn' : 'bác đề xuất'}`] },
+      },
     })
     nav('/herd-exit')
   }

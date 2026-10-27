@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Badge, Button, Foot, PageHeader, Segmented, Select, Table, Td, Th, Tile } from '../components/ui'
-import { useStore } from '../data/store'
 import { dmy, money } from '../data/format'
+import { herdExitApi } from '../api/herdExitApi'
+import { useQuery } from '../hooks/useApi'
 import { TH, cx } from './export/parts'
 
 const TABS = [
@@ -31,7 +32,8 @@ const COLS = [
 ]
 
 export default function ExportList() {
-  const { exports } = useStore()
+  const { data, loading } = useQuery(() => herdExitApi.list(), [])
+  const herdExits = data ?? []
   const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [range, setRange] = useState('all')
@@ -39,10 +41,10 @@ export default function ExportList() {
 
   const current = TABS.find((t) => t.value === tab)
   const from = RANGES.find((r) => r.value === range).from
-  const rows = exports.filter((r) => current.match(r) && (!type || r.type === type) && r.date >= from)
-  const done = exports.filter((r) => r.status === 'Đã xuất')
+  const rows = herdExits.filter((r) => current.match(r) && (!type || r.type === type) && r.date >= from)
+  const done = herdExits.filter((r) => r.status === 'Đã xuất')
   const owed = done.filter((r) => r.due > 0)
-  const pending = exports.filter((r) => r.status === 'Chờ xác nhận')
+  const pending = herdExits.filter((r) => r.status === 'Chờ xác nhận')
   const byType = (t) => done.filter((r) => r.type === t).reduce((s, r) => s + r.count, 0)
 
   const action = (r) => {
@@ -61,7 +63,7 @@ export default function ExportList() {
         <Segmented
           value={tab}
           onChange={setTab}
-          options={TABS.map((t) => ({ value: t.value, label: `${t.value} (${exports.filter(t.match).length})` }))}
+          options={TABS.map((t) => ({ value: t.value, label: `${t.value} (${herdExits.filter(t.match).length})` }))}
         />
         <div className="flex-1" />
         <Select className="w-[220px]" value={range} onChange={(e) => setRange(e.target.value)} aria-label="Khoảng ngày">
@@ -106,7 +108,7 @@ export default function ExportList() {
                 </tr>
               )
             })}
-            {!rows.length && <tr><Td colSpan={10} className="text-center text-muted">Không có phiếu xuất</Td></tr>}
+            {!rows.length && <tr><Td colSpan={10} className="text-center text-muted">{loading ? 'Đang tải…' : 'Không có phiếu xuất'}</Td></tr>}
           </tbody>
         </Table>
       </div>

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
 import { Badge, Checkbox, Field, Note, Select, Table, Td, Th, inputCls } from '../../components/ui'
-import { useStore } from '../../data/store'
 import { EXPORT_HERD } from '../../data/exportsData'
 import { money } from '../../data/format'
 import { TH } from './parts'
@@ -10,8 +9,7 @@ const DEFAULT_PRICE = 92000
 // Bò đang nằm trong phiếu khác (Nháp / Chờ xác nhận / Đã xuất) thì không hiện để chọn.
 const ACTIVE_STATUSES = ['Nháp', 'Chờ xác nhận', 'Đã xuất']
 
-export default function PickModal({ id, picked, setPicked, onClose }) {
-  const { exports } = useStore()
+export default function PickModal({ id, herdExits, picked, setPicked, onClose }) {
   const [query, setQuery] = useState('')
   const [barn, setBarn] = useState('all')
   const [group, setGroup] = useState('all')
@@ -19,7 +17,7 @@ export default function PickModal({ id, picked, setPicked, onClose }) {
   const [selected, setSelected] = useState(() => new Set(picked.map((c) => c.code)))
 
   const busy = new Set(
-    exports
+    herdExits
       .filter((r) => r.id !== id && ACTIVE_STATUSES.includes(r.status))
       .flatMap((r) => (r.draft?.cows ?? r.detail?.cows ?? []).map((c) => c.code)),
   )

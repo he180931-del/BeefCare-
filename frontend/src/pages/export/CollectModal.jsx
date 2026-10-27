@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
 import { DateInput, Field, Info, Note, Radio, inputCls } from '../../components/ui'
-import { useStore } from '../../data/store'
+import { updateHerdExit } from '../../api/herdExitApi'
+import { useMutation } from '../../hooks/useApi'
 import { TODAY } from '../../data/exportsData'
 import { dmy, money } from '../../data/format'
 import { DocRow, MoneyInput } from './parts'
 
 const METHODS = ['Tiền mặt', 'Chuyển khoản']
 
-export default function CollectModal({ row, onClose }) {
-  const { updateExport } = useStore()
+export default function CollectModal({ row, onClose, onSaved }) {
+  const { mutate: updateExit, loading: saving } = useMutation(updateHerdExit)
   const payments = row.detail?.payments ?? []
   const collected = payments.reduce((s, p) => s + p.amount, 0)
   const total = row.total
@@ -24,23 +25,27 @@ export default function CollectModal({ row, onClose }) {
   const valid = amount > 0 && amount <= owed
   const left = owed - amount
 
-  const save = () => {
+  const save = async () => {
     const time = new Date().toTimeString().slice(0, 5)
-    updateExport(row.id, {
-      due: left,
-      detail: {
-        ...row.detail,
-        payments: [
-          ...payments,
-          {
-            date: dmy(date), by: 'N. V. Hùng', method,
-            ref: method === 'Tiền mặt' ? 'PT-2210-01' : reference,
-            amount, note,
-          },
-        ],
-        history: [...(row.detail?.history ?? []), `${dmy(date).slice(0, 5)} ${time} · N. V. Hùng ghi nhận thu ${money(amount)} đ`],
+    await updateExit({
+      id: row.id,
+      patch: {
+        due: left,
+        detail: {
+          ...row.detail,
+          payments: [
+            ...payments,
+            {
+              date: dmy(date), by: 'N. V. Hùng', method,
+              ref: method === 'Tiền mặt' ? 'PT-2210-01' : reference,
+              amount, note,
+            },
+          ],
+          history: [...(row.detail?.history ?? []), `${dmy(date).slice(0, 5)} ${time} · N. V. Hùng ghi nhận thu ${money(amount)} đ`],
+        },
       },
     })
+    onSaved?.()
     onClose()
   }
 
@@ -86,7 +91,7 @@ export default function CollectModal({ row, onClose }) {
       </Note>
       <ModalFooter>
         <ModalButton className="text-ink" onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={!valid} onClick={save}>Lưu khoản thu</ModalButton>
+        <ModalButton variant="primary" disabled={!valid || saving} onClick={save}>Lưu khoản thu</ModalButton>
       </ModalFooter>
     </Modal>
   )

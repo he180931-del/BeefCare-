@@ -2,8 +2,9 @@ import { Link, useParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Badge, Button, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../components/ui'
 import { useModalParam } from '../components/Modal'
-import { useStore } from '../data/store'
 import { dmy, kg, money } from '../data/format'
+import { herdExitApi } from '../api/herdExitApi'
+import { useQuery } from '../hooks/useApi'
 import { Box, DocRow, TH } from './export/parts'
 import CancelModal from './export/CancelModal'
 import CollectModal from './export/CollectModal'
@@ -13,14 +14,15 @@ const STATUS_TONE = { 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nh�
 
 export default function ExportDetail() {
   const { id } = useParams()
-  const { exports } = useStore()
+  const { data: r, loading, refetch } = useQuery(() => herdExitApi.get(id), [id])
   const [m, openModal, closeModal] = useModalParam()
-  const r = exports.find((x) => x.id === id)
 
   if (!r) {
     return (
       <Layout title="Chi tiết phiếu xuất">
-        <p>Không tìm thấy phiếu {id}. <Link to="/herd-exit" className="text-brand">Về danh sách</Link></p>
+        {loading ? <p className="m-0 text-xs text-muted">Đang tải…</p> : (
+          <p>Không tìm thấy phiếu {id}. <Link to="/herd-exit" className="text-brand">Về danh sách</Link></p>
+        )}
       </Layout>
     )
   }
@@ -126,8 +128,8 @@ export default function ExportDetail() {
 
       <Foot>Chủ trại in phiếu, ghi nhận thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot>
 
-      {m === 'cancel' && <CancelModal row={r} onClose={closeModal} onCancelled={closeModal} />}
-      {m === 'collect' && <CollectModal row={r} onClose={closeModal} />}
+      {m === 'cancel' && <CancelModal row={r} onClose={closeModal} onCancelled={() => { refetch(); closeModal() }} />}
+      {m === 'collect' && <CollectModal row={r} onClose={closeModal} onSaved={refetch} />}
     </Layout>
   )
 }

@@ -3,26 +3,40 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Note, Segmented, Select, Table, Td, Th, inputCls } from '../components/ui'
 import { useModalParam } from '../components/Modal'
-import { useStore } from '../data/store'
 import { BARNS, BUYERS, PAY_METHODS } from '../data/mock'
 import { EXPORT_HERD, TODAY } from '../data/exportsData'
 import { dm, money } from '../data/format'
+import { createHerdExit, herdExitApi, updateHerdExit } from '../api/herdExitApi'
+import { useMutation, useQuery } from '../hooks/useApi'
 import { Box, CheckList, DocRow, Drop, MoneyInput, SummaryCard, TH, cx } from './export/parts'
 import PickModal from './export/PickModal'
 
 const TYPES = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
-const PRICE = 92000
 const herdByCode = (code) => EXPORT_HERD.find((c) => c.code === code)
 
+// Tải danh sách phiếu trước, rồi mới dựng form (form lấy phiếu Nháp làm giá trị ban đầu).
 export default function ExportNew() {
-  const { exports, addExport, updateExport } = useStore()
+  const { data } = useQuery(() => herdExitApi.list(), [])
+  if (!data) {
+    return (
+      <Layout title="Phiếu xuất mới">
+        <p className="m-0 text-xs text-muted">Đang tải…</p>
+      </Layout>
+    )
+  }
+  return <ExportForm herdExits={data} />
+}
+
+function ExportForm({ herdExits }) {
+  const { mutate: createExit } = useMutation(createHerdExit)
+  const { mutate: updateExit } = useMutation(updateHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
 
   // Phiếu Nháp còn dở được tiếp tục sửa; không có thì lập phiếu mới.
-  const draftRow = exports.find((r) => r.status === 'Nháp')
+  const draftRow = herdExits.find((r) => r.status === 'Nháp')
   const d = draftRow?.draft
-  const nextId = `PX-2026-${String(Math.max(...exports.map((r) => Number(r.id.split('-')[2]))) + 1).padStart(4, '0')}`
+  const nextId = `PX-2026-${String(Math.max(...herdExits.map((r) => Number(r.id.split('-')[2]))) + 1).padStart(4, '0')}`
   const id = draftRow?.id ?? nextId
 
   const [type, setType] = useState('Bán')
@@ -58,7 +72,7 @@ export default function ExportNew() {
     setTimeout(() => setToast(''), 2000)
   }
 
-  const save = (status) => {
+  const save = async (status) => {
     const record = {
       date,
       type,
@@ -86,8 +100,8 @@ export default function ExportNew() {
         history: [`${date} · N. V. Hùng xác nhận xuất ${picked.length} con`],
       }
     }
-    if (draftRow) updateExport(draftRow.id, record)
-    else addExport(record)
+    if (draftRow) await updateExit({ id: draftRow.id, patch: record })
+    else await createExit(record)
     nav('/herd-exit')
   }
 
@@ -281,7 +295,7 @@ export default function ExportNew() {
       <Foot>Loại xuất cố định sau lần lưu đầu. Cân xuất mặc định là cân gần nhất (ước tính); cảnh báo không chặn lưu nháp nhưng phải xem lại trước khi xác nhận.</Foot>
 
       {m === 'pick' && (
-        <PickModal id={id} picked={picked} setPicked={setPicked} onClose={closeModal} />
+        <PickModal id={id} herdExits={herdExits} picked={picked} setPicked={setPicked} onClose={closeModal} />
       )}
       {toast && <div className="fixed bottom-6 right-6 z-50 rounded-md bg-side px-4 py-2.5 text-xs text-white">{toast}</div>}
     </Layout>
