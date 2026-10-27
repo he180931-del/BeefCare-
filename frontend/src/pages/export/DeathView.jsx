@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../components/Layout'
 import { useModalParam } from '../../components/Modal'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Note, Radio, Segmented, Table, Td, Th, Textarea, inputCls } from '../../components/ui'
-import { updateHerdExit } from '../../api/herdExitApi'
+import { saveHerdExit, updateHerdExit } from '../../api/herdExitApi'
 import { useMutation } from '../../hooks/useApi'
 import { dmy } from '../../data/format'
 import { Box, CheckList, DocRow, Drop, SummaryCard, TH } from './parts'
@@ -14,6 +14,7 @@ const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa
 // Phiếu xuất "Chết / mất" tạo từ ca sức khỏe, chờ Chủ trại xác nhận.
 export default function DeathView({ row }) {
   const { mutate: updateExit } = useMutation(updateHerdExit)
+  const { mutate: persistExit } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
   const d = row.detail
@@ -25,14 +26,17 @@ export default function DeathView({ row }) {
   const [confirmed, setConfirmed] = useState(true)
 
   const resolve = async (status, extra = {}) => {
-    await updateExit({
-      id: row.id,
-      patch: {
-        status,
-        ...extra,
-        detail: { ...d, history: [...(d.history ?? []), `${dmy(date).slice(0, 5)} · N. V. Hùng ${status === 'Đã xuất' ? 'xác nhận xuất đàn' : 'bác đề xuất'}`] },
-      },
-    })
+    const patch = {
+      status,
+      ...extra,
+      detail: { ...d, history: [...(d.history ?? []), `${dmy(date).slice(0, 5)} · N. V. Hùng ${status === 'Đã xuất' ? 'xác nhận xuất đàn' : 'bác đề xuất'}`] },
+    }
+    if (status === 'Đã xuất') {
+      const barn = String(d.cow.barn).split(/[\s–-]/)[0]
+      await persistExit({ id: row.id, record: patch, cattleRows: [{ ...d.cow, barn }] })
+    } else {
+      await updateExit({ id: row.id, patch })
+    }
     nav('/herd-exit')
   }
 
