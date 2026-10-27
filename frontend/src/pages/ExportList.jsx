@@ -27,15 +27,15 @@ export default function ExportList() {
   const byType = (t) => done.filter((r) => r.type === t).reduce((s, r) => s + r.count, 0)
 
   const action = (r) => {
-    if (r.status === 'Nháp') return ['Tiếp tục', '/xuat/moi']
-    if (r.status === 'Chờ xác nhận') return ['Xem & xác nhận', `/xuat/${r.id}`]
-    return ['Xem', `/xuat/${r.id}`]
+    if (r.status === 'Nháp') return ['Tiếp tục', '/herd-exit/new']
+    if (r.status === 'Chờ xác nhận') return ['Xem & xác nhận', `/herd-exit/${r.id}`]
+    return ['Xem', `/herd-exit/${r.id}`]
   }
 
   return (
     <Layout title="Phiếu xuất – Danh sách">
       <PageHeader title="Xuất đàn" sub="Chủ trại lập và xác nhận phiếu xuất · bò trong phiếu chuyển ĐÃ XUẤT khi xác nhận.">
-        <Button variant="primary" onClick={() => nav('/xuat/moi')}>+ Tạo phiếu xuất</Button>
+        <Button variant="primary" onClick={() => nav('/herd-exit/new')}>+ Tạo phiếu xuất</Button>
       </PageHeader>
 
       <div className="flex flex-wrap items-center gap-2.5">

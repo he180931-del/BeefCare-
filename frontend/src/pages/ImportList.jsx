@@ -24,7 +24,7 @@ export default function ImportList() {
     <Layout title="Phiếu nhập – Danh sách" user="manager">
       <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được tạo mã nội bộ cố định và thẻ QR khi lưu.">
         <Button>Bê chờ xác nhận (2)</Button>
-        <Button variant="primary" onClick={() => nav('/nhap/moi')}>+ Tạo phiếu nhập</Button>
+        <Button variant="primary" onClick={() => nav('/herd-entry/new')}>+ Tạo phiếu nhập</Button>
       </PageHeader>
 
       <div className="flex flex-wrap items-center gap-2.5">
@@ -73,7 +73,7 @@ export default function ImportList() {
                 <Td>{r.debt == null ? '—' : money(r.debt)}</Td>
                 <Td><StatusBadge status={r.status} /></Td>
                 <Td>
-                  <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? '/nhap/moi' : `/nhap/${r.id}`)}>
+                  <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? '/herd-entry/new' : `/herd-entry/${r.id}`)}>
                     {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
                   </Button>
                 </Td>
