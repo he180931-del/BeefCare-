@@ -5,7 +5,12 @@ const PREFIX = 'beefcare:'
 
 export type CollectionRow = Record<string, unknown>
 export type NewCollectionInput<T extends CollectionRow, K extends keyof T & string> = Omit<T, K> & Partial<Pick<T, K>>
-export type CollectionSchema<T extends CollectionRow, K extends keyof T & string> = { idKey: K; identity: string; parse: (value: unknown) => T }
+export type CollectionSchema<T extends CollectionRow, K extends keyof T & string> = {
+  idKey: K
+  identity: string
+  parse: (value: unknown) => T
+  facades: Map<string, CollectionApi<T, K>>
+}
 export type CollectionApi<T extends CollectionRow, K extends keyof T & string> = {
   list: (predicate?: (row: T) => boolean) => Promise<T[]>
   get: (id: unknown) => Promise<T>
@@ -16,8 +21,8 @@ export type CollectionApi<T extends CollectionRow, K extends keyof T & string> =
   reset: () => Promise<T[]>
 }
 
-type StoredSchema = { idKey: string; identity: string; parse: (value: unknown) => CollectionRow }
-type CollectionState = { schema: StoredSchema; facade: object; mergeSeed: (nextSeed: CollectionRow[]) => void }
+type StoredSchema = { idKey: string; identity: string; contract: object; parse: (value: unknown) => CollectionRow }
+type CollectionState = { schema: StoredSchema; mergeSeed: (nextSeed: CollectionRow[]) => void }
 const collections = new Map<string, CollectionState>()
 
 const latency = (): number => {
@@ -36,7 +41,7 @@ const cloneRow = (row: CollectionRow): CollectionRow => {
 const save = (name: string, rows: CollectionRow[]): void => { localStorage.setItem(`${PREFIX}${name}`, JSON.stringify(rows)) }
 
 const schemaForStorage = <T extends CollectionRow, K extends keyof T & string>(schema: CollectionSchema<T, K>): StoredSchema => ({
-  idKey: schema.idKey, identity: schema.identity, parse: schema.parse,
+  idKey: schema.idKey, identity: schema.identity, contract: schema, parse: schema.parse,
 })
 
 const validateRows = (value: unknown, schema: StoredSchema): CollectionRow[] | null => {
@@ -71,10 +76,10 @@ const mergeRows = (current: CollectionRow[], seed: CollectionRow[], idKey: strin
 }
 
 const recordWithId = <T extends CollectionRow, K extends keyof T & string>(data: NewCollectionInput<T, K>, idKey: K, id: T[K]): CollectionRow => ({ ...data, [idKey]: id })
-const schemaMismatch = (name: string, expected: StoredSchema, actual: StoredSchema): Error => new Error(`Collection ${name} schema mismatch: expected ${expected.identity}/${expected.idKey}, received ${actual.identity}/${actual.idKey}`)
+const schemaMismatch = (name: string, expected: StoredSchema, actual: StoredSchema): Error => new Error(`Collection ${name} schema contract mismatch: expected ${expected.identity}/${expected.idKey}, received ${actual.identity}/${actual.idKey}`)
 
 export function createCollectionSchema<T extends CollectionRow, K extends keyof T & string>(identity: string, idKey: K, parse: (value: unknown) => T): CollectionSchema<T, K> {
-  return { identity, idKey, parse }
+  return { identity, idKey, parse, facades: new Map() }
 }
 
 export function createCollection<T extends CollectionRow, K extends keyof T & string>(
@@ -85,11 +90,11 @@ export function createCollection<T extends CollectionRow, K extends keyof T & st
   const storedSchema = schemaForStorage(schema)
   const existing = collections.get(name)
   if (existing) {
-    if (existing.schema.identity !== storedSchema.identity || existing.schema.idKey !== storedSchema.idKey) throw schemaMismatch(name, existing.schema, storedSchema)
+    if (existing.schema.contract !== schema) throw schemaMismatch(name, existing.schema, storedSchema)
     existing.mergeSeed(seed.map((row) => schema.parse(row)))
-    // Safe after the schema identity and id key have been checked above. The
-    // registry keeps this first facade to preserve collection object identity.
-    return existing.facade as CollectionApi<T, K>
+    const facade = schema.facades.get(name)
+    if (!facade) throw new Error(`Collection ${name} schema contract has no facade`)
+    return facade
   }
 
   let rows = load(name, seed, storedSchema)
@@ -119,8 +124,9 @@ export function createCollection<T extends CollectionRow, K extends keyof T & st
       const id = row[schema.idKey]
       if (id == null) throw new Error(`Missing ${schema.idKey}: ${name}`)
       const index = rows.findIndex((item) => String(item[schema.idKey]) === String(id))
-      persist(index < 0 ? [row, ...rows] : rows.map((item, i) => i === index ? { ...item, ...row } : item))
-      return row
+      const merged = index < 0 ? row : parseRow({ ...rows[index], ...row })
+      persist(index < 0 ? [merged, ...rows] : rows.map((item, i) => i === index ? merged : item))
+      return merged
     }, parseRow),
     update: (id, patch) => run(() => {
       let updated: CollectionRow | undefined
@@ -140,9 +146,9 @@ export function createCollection<T extends CollectionRow, K extends keyof T & st
     }),
   }
 
+  schema.facades.set(name, typed)
   const state: CollectionState = {
     schema: storedSchema,
-    facade: typed,
     mergeSeed: (nextSeed) => {
       const merged = mergeRows(rows, nextSeed, schema.idKey)
       const validated = merged.map(schema.parse)

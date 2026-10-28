@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { createCollection, createCollectionSchema } from './client'
 import type { CollectionRow } from './client'
 import { MemoryStorage } from './testUtils'
+import { herdEntrySchema, herdExitSchema } from './collectionSchemas'
+import type { HerdEntry, HerdExit } from '../types'
 
 const memoryStorage = () => new MemoryStorage()
 type TestRow = CollectionRow & { id: string; count?: number; status?: string }
@@ -65,5 +67,36 @@ test('same collection name rejects an incompatible schema identity', () => {
   globalThis.localStorage = memoryStorage()
   createCollection<TestRow, 'id'>(name, [{ id: 'A1' }], { schema: testSchema })
   const incompatible = createCollectionSchema<TestRow, 'id'>('client-test-v2', 'id', parseTestRow)
-  assert.throws(() => createCollection<TestRow, 'id'>(name, [{ id: 'A1' }], { schema: incompatible }), /schema mismatch/)
+  assert.throws(() => createCollection<TestRow, 'id'>(name, [{ id: 'A1' }], { schema: incompatible }), /schema contract mismatch/)
+})
+
+test('upsert returns and persists the merged complete record', async () => {
+  const name = `upsert-merge-${Date.now()}`
+  const storage = memoryStorage()
+  globalThis.localStorage = storage
+  const rows = createCollection<TestRow, 'id'>(name, [{ id: 'A1', count: 3, status: 'OLD', retained: 'yes' }], { schema: testSchema })
+  const updated = await rows.upsert({ id: 'A1', count: 4, status: 'ACTIVE' })
+  assert.deepEqual(updated, { id: 'A1', count: 4, status: 'ACTIVE', retained: 'yes' })
+  assert.deepEqual(JSON.parse(storage.getItem(`beefcare:${name}`) ?? 'null'), [{ id: 'A1', count: 4, status: 'ACTIVE', retained: 'yes' }])
+})
+
+test('same identity and id key still reject a different schema contract object', () => {
+  const name = `schema-contract-${Date.now()}`
+  globalThis.localStorage = memoryStorage()
+  createCollection<TestRow, 'id'>(name, [{ id: 'A1' }], { schema: testSchema })
+  const differentParser = createCollectionSchema<TestRow, 'id'>('client-test-v1', 'id', parseTestRow)
+  assert.throws(() => createCollection<TestRow, 'id'>(name, [{ id: 'A1' }], { schema: differentParser }), /schema contract mismatch/)
+})
+
+test('malformed nested entry and exit JSON is repaired before UI consumers read it', async () => {
+  const entryName = `nested-entry-${Date.now()}`
+  const exitName = `nested-exit-${Date.now()}`
+  globalThis.localStorage = new MemoryStorage({
+    [`beefcare:${entryName}`]: JSON.stringify([{ id: 'BAD', status: 'Nháp', draft: { cows: [null] } }]),
+    [`beefcare:${exitName}`]: JSON.stringify([{ id: 'BAD', status: 'Đã xuất', detail: { payments: [null] } }]),
+  })
+  const entries = createCollection<HerdEntry, 'id'>(entryName, [{ id: 'SEED', status: 'Nháp' }], { schema: herdEntrySchema })
+  const exits = createCollection<HerdExit, 'id'>(exitName, [{ id: 'SEED', status: 'Nháp' }], { schema: herdExitSchema })
+  assert.deepEqual(await entries.list(), [{ id: 'SEED', status: 'Nháp' }])
+  assert.deepEqual(await exits.list(), [{ id: 'SEED', status: 'Nháp' }])
 })
