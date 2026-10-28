@@ -1,0 +1,67 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174021"
+  },
+  "applications": ["*"],
+  "documentation": "Payment (gộp Subscription Receipt)",
+  "fields": [
+    {
+      "fieldName": "quoteRef",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "unique", "maxlength"],
+      "fieldValidateRulesMaxlength": "50"
+    },
+    {
+      "documentation": "ERD: varchar(255); giá trị 1, 2 hoặc 3 năm",
+      "fieldName": "durationYears",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required", "min", "max"],
+      "fieldValidateRulesMax": "3",
+      "fieldValidateRulesMin": "1"
+    },
+    {
+      "fieldName": "amountVnd",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "PENDING | PAID | EXPIRED",
+      "fieldName": "state",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "expiresAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "ERD: purchased_start/end varchar(255) - tách 2 cột thời điểm, chỉ có khi PAID",
+      "fieldName": "purchasedStart",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "purchasedEnd",
+      "fieldType": "Instant"
+    }
+  ],
+  "name": "Payment",
+  "relationships": [
+    {
+      "otherEntityName": "subscription",
+      "relationshipName": "subscription",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "requestedBy",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

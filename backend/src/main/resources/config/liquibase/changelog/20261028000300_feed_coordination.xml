@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000300-feed-ledger" author="beefcare">
+        <addColumn tableName="feed_item"><column name="minimum_stock_kg" type="numeric(14,3)"/></addColumn>
+        <createTable tableName="feed_receipt">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_receipt_farm" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="supplier_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_receipt_supplier" referencedTableName="trading_partner" referencedColumnNames="id"/></column>
+            <column name="code" type="varchar(40)"><constraints nullable="false"/></column><column name="receipt_date" type="date"><constraints nullable="false"/></column>
+            <column name="invoice_number" type="varchar(50)"/><column name="received_by" type="varchar(100)"/><column name="storage_location" type="varchar(100)"/><column name="note" type="varchar(1000)"/>
+            <column name="transport_fee" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column><column name="total_payable" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="DRAFT"><constraints nullable="false"/></column><column name="void_reason" type="varchar(500)"/>
+            <column name="created_by_id" type="bigint"><constraints foreignKeyName="fk_feed_receipt_creator" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="created_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column><column name="posted_at" type="${datetimeType}"/>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="feed_receipt" columnNames="farm_id,code" constraintName="uq_feed_receipt_farm_code"/>
+        <addColumn tableName="voucher_payment"><column name="feed_receipt_id" type="bigint"/></addColumn>
+        <addForeignKeyConstraint baseTableName="voucher_payment" baseColumnNames="feed_receipt_id" constraintName="fk_voucher_payment_feed_receipt" referencedTableName="feed_receipt" referencedColumnNames="id"/>
+        <createTable tableName="feed_receipt_line">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="receipt_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_receipt_line_receipt" referencedTableName="feed_receipt" referencedColumnNames="id"/></column>
+            <column name="feed_item_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_receipt_line_feed" referencedTableName="feed_item" referencedColumnNames="id"/></column><column name="feed_code_snapshot" type="varchar(50)"><constraints nullable="false"/></column><column name="feed_name_snapshot" type="varchar(150)"><constraints nullable="false"/></column>
+            <column name="lot_number" type="varchar(30)"/><column name="expiry_date" type="date"/><column name="quantity_purchase" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="purchase_unit" type="varchar(30)"><constraints nullable="false"/></column><column name="kg_received" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="unit_price" type="bigint"><constraints nullable="false"/></column><column name="line_amount" type="bigint"><constraints nullable="false"/></column><column name="unit_cost_kg" type="numeric(14,2)"/>
+        </createTable>
+        <createTable tableName="feed_stock_movement">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_movement_farm" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="feed_item_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_movement_feed" referencedTableName="feed_item" referencedColumnNames="id"/></column>
+            <column name="movement_type" type="varchar(30)"><constraints nullable="false"/></column><column name="quantity_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="unit_cost" type="numeric(14,2)"><constraints nullable="false"/></column><column name="balance_after_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="source_type" type="varchar(30)"><constraints nullable="false"/></column><column name="source_id" type="bigint"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column><column name="recorded_by_id" type="bigint"><constraints foreignKeyName="fk_feed_movement_actor" referencedTableName="app_user" referencedColumnNames="id"/></column>
+        </createTable>
+        <createIndex tableName="feed_stock_movement" indexName="ix_feed_movement_farm_feed_time"><column name="farm_id"/><column name="feed_item_id"/><column name="occurred_at"/></createIndex>
+    </changeSet>
+    <changeSet id="20261028000300-rations-feeding" author="beefcare">
+        <createTable tableName="feed_ration_version">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column><column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_ration_farm" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="ration_code" type="varchar(30)"><constraints nullable="false"/></column><column name="version_no" type="integer"><constraints nullable="false"/></column><column name="name" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="herd_group" type="varchar(30)"/><column name="basis" type="varchar(500)"/><column name="effective_from" type="date"><constraints nullable="false"/></column><column name="effective_to" type="date"/>
+            <column name="status" type="varchar(20)" defaultValue="SCHEDULED"><constraints nullable="false"/></column><column name="sessions_per_day" type="integer"><constraints nullable="false"/></column><column name="session_times" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="created_by_id" type="bigint"><constraints foreignKeyName="fk_ration_creator" referencedTableName="app_user" referencedColumnNames="id"/></column><column name="created_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="feed_ration_version" columnNames="farm_id,ration_code,version_no" constraintName="uq_feed_ration_version"/>
+        <createTable tableName="feed_ration_pen"><column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column><column name="ration_version_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_ration_pen_version" referencedTableName="feed_ration_version" referencedColumnNames="id"/></column><column name="pen_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_ration_pen_pen" referencedTableName="pen" referencedColumnNames="id"/></column></createTable>
+        <addUniqueConstraint tableName="feed_ration_pen" columnNames="ration_version_id,pen_id" constraintName="uq_feed_ration_pen"/>
+        <createTable tableName="feed_ration_component"><column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column><column name="ration_version_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_ration_component_version" referencedTableName="feed_ration_version" referencedColumnNames="id"/></column><column name="feed_item_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_ration_component_feed" referencedTableName="feed_item" referencedColumnNames="id"/></column><column name="feed_code_snapshot" type="varchar(50)"><constraints nullable="false"/></column><column name="feed_name_snapshot" type="varchar(150)"><constraints nullable="false"/></column><column name="session_1_kg_per_head" type="numeric(12,3)" defaultValueNumeric="0"><constraints nullable="false"/></column><column name="session_2_kg_per_head" type="numeric(12,3)" defaultValueNumeric="0"><constraints nullable="false"/></column><column name="session_3_kg_per_head" type="numeric(12,3)" defaultValueNumeric="0"><constraints nullable="false"/></column></createTable>
+        <addUniqueConstraint tableName="feed_ration_component" columnNames="ration_version_id,feed_item_id" constraintName="uq_feed_ration_component"/>
+        <createTable tableName="feeding_record">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column><column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feeding_farm" referencedTableName="farm" referencedColumnNames="id"/></column><column name="pen_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feeding_pen" referencedTableName="pen" referencedColumnNames="id"/></column>
+            <column name="ration_version_id" type="bigint"><constraints foreignKeyName="fk_feeding_ration" referencedTableName="feed_ration_version" referencedColumnNames="id"/></column><column name="feeding_date" type="date"><constraints nullable="false"/></column><column name="session_no" type="integer"><constraints nullable="false"/></column><column name="head_count" type="integer"><constraints nullable="false"/></column>
+            <column name="fed_by" type="varchar(100)"/><column name="status" type="varchar(20)" defaultValue="VALID"><constraints nullable="false"/></column><column name="void_reason" type="varchar(500)"/><column name="recorded_by_id" type="bigint"><constraints foreignKeyName="fk_feeding_actor" referencedTableName="app_user" referencedColumnNames="id"/></column><column name="recorded_at" type="${datetimeType}"><constraints nullable="false"/></column><column name="voided_by_id" type="bigint"><constraints foreignKeyName="fk_feeding_void_actor" referencedTableName="app_user" referencedColumnNames="id"/></column><column name="voided_at" type="${datetimeType}"/><column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="feeding_record" columnNames="farm_id,pen_id,feeding_date,session_no" constraintName="uq_feeding_session"/>
+        <createTable tableName="feeding_record_line"><column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column><column name="feeding_record_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feeding_line_record" referencedTableName="feeding_record" referencedColumnNames="id"/></column><column name="feed_item_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feeding_line_feed" referencedTableName="feed_item" referencedColumnNames="id"/></column><column name="feed_code_snapshot" type="varchar(50)"><constraints nullable="false"/></column><column name="feed_name_snapshot" type="varchar(150)"><constraints nullable="false"/></column><column name="planned_kg" type="numeric(14,3)"><constraints nullable="false"/></column><column name="actual_kg" type="numeric(14,3)"><constraints nullable="false"/></column><column name="cost_per_kg" type="numeric(14,2)"><constraints nullable="false"/></column><column name="total_cost" type="bigint"><constraints nullable="false"/></column></createTable>
+        <addUniqueConstraint tableName="feeding_record_line" columnNames="feeding_record_id,feed_item_id" constraintName="uq_feeding_record_feed"/>
+    </changeSet>
+    <changeSet id="20261028000300-feed-payment-checks" author="beefcare">
+        <sql dbms="postgresql">ALTER TABLE voucher_payment DROP CONSTRAINT IF EXISTS ck_payment_one_voucher; ALTER TABLE voucher_payment DROP CONSTRAINT IF EXISTS ck_payment_direction;</sql>
+        <sql dbms="h2">ALTER TABLE voucher_payment DROP CONSTRAINT IF EXISTS ck_payment_one_voucher; ALTER TABLE voucher_payment DROP CONSTRAINT IF EXISTS ck_payment_direction;</sql>
+        <sql dbms="postgresql">ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_one_voucher CHECK (num_nonnulls(entry_voucher_id, exit_voucher_id, feed_receipt_id) = 1); ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_direction CHECK ((exit_voucher_id IS NOT NULL) = (direction = 'COLLECT'));</sql>
+        <sql dbms="h2">ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_one_voucher CHECK ((CASE WHEN entry_voucher_id IS NULL THEN 0 ELSE 1 END + CASE WHEN exit_voucher_id IS NULL THEN 0 ELSE 1 END + CASE WHEN feed_receipt_id IS NULL THEN 0 ELSE 1 END) = 1); ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_direction CHECK ((exit_voucher_id IS NOT NULL) = (direction = 'COLLECT'));</sql>
+    </changeSet>
+    <changeSet id="20261028000300-notification-display" author="beefcare">
+        <addColumn tableName="notification">
+            <column name="category" type="varchar(40)"/><column name="title" type="varchar(200)"/><column name="summary" type="varchar(500)"/><column name="event_key" type="varchar(120)"/>
+        </addColumn>
+        <createIndex tableName="notification" indexName="ix_notification_recipient_created"><column name="recipient_id"/><column name="created_time"/></createIndex>
+        <addUniqueConstraint tableName="notification" columnNames="event_key,recipient_id" constraintName="uq_notification_recipient_event"/>
+    </changeSet>
+    <changeSet id="20261028000300-announcement-workflow" author="beefcare">
+        <addColumn tableName="farm_announcement"><column name="draft_title" type="varchar(255)"/><column name="draft_body" type="clob"/><column name="recipient_roles" type="varchar(100)"/><column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column></addColumn>
+        <addColumn tableName="announcement_version"><column name="correction_reason" type="varchar(500)"/></addColumn>
+    </changeSet>
+</databaseChangeLog>

@@ -9,6 +9,31 @@ export type PenCode = string
 
 export type PenCowLink = [CattleCode, string]
 
+export type Tone = 'ok' | 'err' | 'warn' | 'info' | 'grey'
+export interface StatusChip { label: string; tone?: Tone }
+export interface CattleEvent {
+  id: string
+  at: string
+  cat: string
+  title: string
+  badge: StatusChip
+  detail: string
+  meta: string
+}
+export interface QrHistoryRow { code: string; status: string; from: string; to: string; reason: string; by: string }
+export interface BarnHistoryRow { from: string; to: string; barn: string; reason: string; by: string }
+export type ImportRecordField = [key: string, label: string, current: string, next: string]
+export interface ImportRecord { plan: string; date: string; by: string; onlyImportEvents?: boolean; fields: ImportRecordField[] }
+export interface CattleCare {
+  last: string
+  adg: string
+  bcs: string
+  healthCase: string
+  repro: string
+  vaccine: StatusChip
+  reminders: Array<{ title: string; due: { label: string; tone?: Tone } }>
+}
+
 export interface Cattle {
   code: CattleCode
   tag?: string
@@ -17,20 +42,64 @@ export interface Cattle {
   sex?: string
   barn: PenCode | null
   status: CattleStatus
-  events?: string[]
+  events?: CattleEvent[]
   entryVoucherId?: string
   entryLineNo?: number
   exitVoucherId?: string | null
   lastExitVoucherId?: string
   lastPen?: PenCode
-  qrHistory?: Array<{ status?: string; [key: string]: unknown }>
-  barnHistory?: Array<{ from?: string; to?: string; barn?: string; reason?: string; by?: string; [key: string]: unknown }>
+  qrHistory?: QrHistoryRow[]
+  barnHistory?: BarnHistoryRow[]
   withdrawalUntil?: string
+  group?: string
+  date?: string
+  estimated?: boolean
   ageMonths?: number
   weight?: number | null
+  weightEst?: boolean
+  weightDate?: string
+  ageShort?: string
+  ageLong?: string
+  months?: number
+  purpose?: string
+  purposeSince?: string
+  stage?: string
+  barnTag?: string
+  barnSince?: string
+  health?: StatusChip | null
+  repro?: StatusChip | null
+  headerBadges?: Array<[string, Tone]>
+  headerAge?: boolean
+  internalId?: string
+  birth?: string
+  source?: string
+  mother?: string
+  father?: string
+  description?: string
+  qr?: string
+  qrFrom?: string
+  qrFromWho?: string
+  care?: CattleCare
+  importRecord?: ImportRecord | null
+  inList?: boolean
   [key: string]: unknown
 }
-export type CattleInput = Partial<Cattle> & { code?: string; barn?: PenCode | null }
+export interface CattleInput {
+  code?: string
+  barn?: PenCode | null
+  tag?: string
+  breed?: string
+  sex?: string
+  ageMonths?: number
+  weight?: number | null
+  estimated?: boolean
+  purpose?: string
+  stage?: string
+  group?: string
+  date?: string
+  withdrawalUntil?: string
+  [key: string]: unknown
+}
 
 export interface Pen {
   code: PenCode
@@ -39,6 +108,19 @@ export interface Pen {
   capacity: number
   status: PenStatus
   cows: PenCowLink[]
+  accept?: string
+  purpose?: string
+  stage?: string
+  minAge?: number | null
+  minAgeOp?: string
+  minWeight?: number | null
+  minWeightOp?: string
+  minMonths?: number
+  minKg?: number
+  sex?: string
+  tag?: string
+  version?: string
+  desc?: string
   [key: string]: unknown
 }
 

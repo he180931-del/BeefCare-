@@ -1,0 +1,38 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174019"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "documentation": "ERD: price_1y / 2y / 3y - tách thành 3 cột",
+      "fieldName": "price1y",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "price2y",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "price3y",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "terms",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "effectiveAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "PlanVersion",
+  "relationships": [],
+  "searchEngine": "no"
+}

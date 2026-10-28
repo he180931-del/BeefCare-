@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- SRS SCR-79 / SCR-80: feed receipt and stock adjustment documents are PDF or JPG, at most 10 MB each.
+         The shared attachment table is unchanged; owner types FEED_RECEIPT and FEED_ADJUSTMENT are new values of owner_type.
+         ck_attachment_photo (photos, 5 MB) covers only CATTLE and HERD_ENTRY rows, so these rows get their own check. -->
+    <changeSet id="20261029003000-feed-document-check" author="beefcare">
+        <sql>ALTER TABLE attachment ADD CONSTRAINT ck_attachment_feed_document CHECK (owner_type NOT IN ('FEED_RECEIPT', 'FEED_ADJUSTMENT') OR (content_type IN ('image/jpeg', 'application/pdf') AND file_size BETWEEN 1 AND 10485760))</sql>
+        <rollback>ALTER TABLE attachment DROP CONSTRAINT ck_attachment_feed_document</rollback>
+    </changeSet>
+</databaseChangeLog>

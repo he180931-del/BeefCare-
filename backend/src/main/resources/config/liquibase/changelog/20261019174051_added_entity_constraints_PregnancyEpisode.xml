@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity PregnancyEpisode.
+    -->
+    <changeSet id="20261019174051-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="confirming_check_id"
+                                 baseTableName="pregnancy_episode"
+                                 constraintName="fk_pregnancy_episode__confirming_check_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="reproduction_event"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="cattle_id"
+                                 baseTableName="pregnancy_episode"
+                                 constraintName="fk_pregnancy_episode__cattle_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="cattle"
+                                 />
+    </changeSet>
+</databaseChangeLog>

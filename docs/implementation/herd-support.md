@@ -1,0 +1,23 @@
+# Herd and support implementation traceability
+
+Source: the supplied SRS dated 28 October 2026 and the ten-sheet conceptual ERD. The Word figure locations are placeholders; see decision D03. This page distinguishes source implementation from accepted feature completion.
+
+| Area | Implemented behavior | Remaining verification or scope |
+|---|---|---|
+| FE02 farm bootstrap | Register PENDING_PAYMENT farm, one Owner membership, independent starter catalogues (9 breeds, 4 purposes, 4 vaccines, 9 feeds), default parameter version, audit and outbox in one transaction; own-farm information and selector with service exceptions | FarmWorkspaceServiceTest has five integration cases; run again after new schema versions. Onboarding checklist still pending. |
+| FE05 profile and identification | Tenant-scoped list/search/filters, permanent ID and display code, versioned profile changes, Owner-only purpose change, QR issuance/replacement/history, safe cross-farm resolver, derived health/reproduction/growth fields | QR concurrent uniqueness and all source-display boundary tests still pending. Profile details still require full SCR19 field coverage review. |
+| FE08 growth | Manager-only weight/BCS, tape estimate, farm BCS scale, large-change acknowledgment, correction/exclusion with revisions; measured-weight priority, ADG and finishing projection; herd overview with pen comparisons | Four integrated rule tests passed in the first focused run. The herd overview needs further fixture coverage and larger-data query review. |
+| FE16 timeline | Read-only source projection, role-filtered entry/exit references, occurrence/recording times, corrected current values and before snapshots; no schedules or future reminders copied as events | Four growth tests include exclusion/timeline behavior. Reproduction/health/exit revision projection still needs combined workflow fixtures. |
+| FE18 breed and purpose | Farm-scoped list/create/update/deactivate, code uniqueness, optimistic version, immutable referenced codes and purpose types, active headcounts and receiving pens | Three integrated tests passed. No breed/purpose delete route, per SRS lifecycle. |
+| FE20 owner and CS | Own ticket/account/farm scope including suspended farms, queue, claim/handover/release, public replies, CS-only notes, explicit public question, immutable resolution, latest-version acknowledgment, reopen and review-before-close | Seven integration tests passed for ownership, audiences, latest acknowledgment, open-request blocking, named recipient, actual domain audit reference and unavailable-CS requeue. REST/security replay cases remain. |
+| FE20 internal requests | Named active PM/SA, one open request per ticket/target role, role-scoped references, reassignment/cancel, result visibility, PERFORMED requires actual related domain audit; completion leaves ticket processing state unchanged | Field-message mapping and external interface coverage still pending. Content sanitization means intentional user-authored summary plus scoped references, not automatic diagnosis or inference from free text. |
+| Shared local operation | PostgreSQL16 and Mailpit containers, environment-only local secrets, local Owner/Manager/Technician/cross-tenant and CS/PM/SA accounts; seed profile explicitly local | Actual PostgreSQL application startup and provider-switch validation pending. Local fixtures are not production account bootstrap. |
+
+FE04/06/13 existing team implementations are preserved and wrapped in shared durable commands/version checks. Their prior tests must be rerun after the full care/feed/subscription migrations; initial dev test success does not validate this expanded branch.
+
+The first focused run executed 41 tests: 40 passed and one notification Mockito fixture failed. Its fix is pending rerun; a subsequent compile encountered new SePay source changes. No aggregate green-build claim has been made. PostgreSQL validation, live browser workflows, the complete OpenAPI export and all external-provider live verification remain separate gates. Nothing has been pushed.
+
+
+## Update 2026-10-29
+
+The 120 failing tests of FE04/05/06/13 (pens, pen moves, entry/exit vouchers, voucher payments, trading partners) were stale fixtures, not business defects: they sent no record version (BR-D31) and expected EXPIRED farms to stay readable, which GBR-14 forbids (decision D11). They now pass; `HerdEntryPostRollbackTest` again exercises the real rollback. The FE-20 internal request reminder after 4 OPEN hours (JOB-07 step 4) was added without a dedicated test. A PostgreSQL smoke run covered pens, a posted entry voucher, cattle profile/timeline/QR and role isolation.

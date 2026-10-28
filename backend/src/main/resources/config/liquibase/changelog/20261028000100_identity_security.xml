@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000100-account-lockout" author="beefcare">
+        <addColumn tableName="jhi_user">
+            <column name="failed_password_attempts" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="password_locked_until" type="${datetimeType}"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="20261028000100-account-link-token" author="beefcare">
+        <createTable tableName="account_link_token">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="token_hash" type="varchar(64)"><constraints nullable="false" unique="true" uniqueConstraintName="ux_account_link_token_hash"/></column>
+            <column name="token_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="expires_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="used_at" type="${datetimeType}"/>
+            <column name="user_id" type="bigint"><constraints nullable="false" references="jhi_user(id)" foreignKeyName="fk_account_link_token_user"/></column>
+        </createTable>
+        <createIndex tableName="account_link_token" indexName="ix_account_link_token_user_type_created">
+            <column name="user_id"/><column name="token_type"/><column name="created_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

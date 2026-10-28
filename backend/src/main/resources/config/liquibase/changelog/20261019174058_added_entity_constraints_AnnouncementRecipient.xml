@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity AnnouncementRecipient.
+    -->
+    <changeSet id="20261019174058-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="version_id"
+                                 baseTableName="announcement_recipient"
+                                 constraintName="fk_announcement_recipient__version_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="announcement_version"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="membership_id"
+                                 baseTableName="announcement_recipient"
+                                 constraintName="fk_announcement_recipient__membership_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="farm_membership"
+                                 />
+    </changeSet>
+</databaseChangeLog>

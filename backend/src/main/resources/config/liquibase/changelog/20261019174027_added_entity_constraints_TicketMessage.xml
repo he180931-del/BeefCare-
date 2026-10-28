@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity TicketMessage.
+    -->
+    <changeSet id="20261019174027-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="ticket_id"
+                                 baseTableName="ticket_message"
+                                 constraintName="fk_ticket_message__ticket_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="support_ticket"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="author_id"
+                                 baseTableName="ticket_message"
+                                 constraintName="fk_ticket_message__author_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="app_user"
+                                 />
+    </changeSet>
+</databaseChangeLog>

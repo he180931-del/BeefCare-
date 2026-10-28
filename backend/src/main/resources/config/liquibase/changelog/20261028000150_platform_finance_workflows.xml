@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000150-finance-record-fields" author="beefcare">
+        <addColumn tableName="manual_finance_record">
+            <column name="record_code" type="varchar(30)"/>
+            <column name="scope" type="varchar(20)" defaultValue="GENERAL"><constraints nullable="false"/></column>
+            <column name="document_number" type="varchar(100)"/>
+            <column name="description" type="varchar(500)"/>
+            <column name="source_type" type="varchar(30)" defaultValue="MANUAL"><constraints nullable="false"/></column>
+            <column name="source_reference" type="varchar(255)"/>
+            <column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="created_at" type="timestamp with time zone"/>
+            <column name="created_by_id" type="bigint"/>
+            <column name="updated_at" type="timestamp with time zone"/>
+            <column name="posted_at" type="timestamp with time zone"/>
+            <column name="posted_by_id" type="bigint"/>
+            <column name="voided_at" type="timestamp with time zone"/>
+            <column name="voided_by_id" type="bigint"/>
+            <column name="void_reason" type="varchar(500)"/>
+            <column name="discarded_at" type="timestamp with time zone"/>
+            <column name="discarded_by_id" type="bigint"/>
+            <column name="replacement_record_id" type="bigint"/>
+        </addColumn>
+        <sql>UPDATE manual_finance_record SET record_code=CONCAT('FR-LEG-',id), created_at=CURRENT_TIMESTAMP WHERE record_code IS NULL</sql>
+        <addNotNullConstraint tableName="manual_finance_record" columnName="record_code" columnDataType="varchar(30)"/>
+        <addNotNullConstraint tableName="manual_finance_record" columnName="created_at" columnDataType="timestamp with time zone"/>
+        <addUniqueConstraint tableName="manual_finance_record" columnNames="record_code" constraintName="ux_manual_finance_record_code"/>
+        <addForeignKeyConstraint baseTableName="manual_finance_record" baseColumnNames="created_by_id" referencedTableName="app_user" referencedColumnNames="id" constraintName="fk_manual_finance_created_by"/>
+        <addForeignKeyConstraint baseTableName="manual_finance_record" baseColumnNames="posted_by_id" referencedTableName="app_user" referencedColumnNames="id" constraintName="fk_manual_finance_posted_by"/>
+        <addForeignKeyConstraint baseTableName="manual_finance_record" baseColumnNames="voided_by_id" referencedTableName="app_user" referencedColumnNames="id" constraintName="fk_manual_finance_voided_by"/>
+        <addForeignKeyConstraint baseTableName="manual_finance_record" baseColumnNames="discarded_by_id" referencedTableName="app_user" referencedColumnNames="id" constraintName="fk_manual_finance_discarded_by"/>
+        <addForeignKeyConstraint baseTableName="manual_finance_record" baseColumnNames="replacement_record_id" referencedTableName="manual_finance_record" referencedColumnNames="id" constraintName="fk_manual_finance_replacement"/>
+    </changeSet>
+    <changeSet id="20261028000150-finance-history-and-claims" author="beefcare">
+        <createTable tableName="manual_finance_history">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="record_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="actor_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="action" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="changed_at" type="timestamp with time zone"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"/>
+            <column name="before_json" type="text"/>
+            <column name="after_json" type="text"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="manual_finance_history" baseColumnNames="record_id" referencedTableName="manual_finance_record" referencedColumnNames="id" constraintName="fk_finance_history_record"/>
+        <addForeignKeyConstraint baseTableName="manual_finance_history" baseColumnNames="actor_id" referencedTableName="app_user" referencedColumnNames="id" constraintName="fk_finance_history_actor"/>
+        <createTable tableName="manual_finance_bank_claim">
+            <column name="source_reference" type="varchar(255)"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="record_id" type="bigint"><constraints nullable="false" unique="true"/></column>
+            <column name="claimed_at" type="timestamp with time zone"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="manual_finance_bank_claim" baseColumnNames="record_id" referencedTableName="manual_finance_record" referencedColumnNames="id" constraintName="fk_finance_claim_record"/>
+        <createTable tableName="manual_finance_code_counter">
+            <column name="id" type="integer"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="last_value" type="bigint"><constraints nullable="false"/></column>
+        </createTable>
+        <insert tableName="manual_finance_code_counter"><column name="id" valueNumeric="1"/><column name="last_value" valueNumeric="0"/></insert>
+    </changeSet>
+    <changeSet id="20261028000150-cash-report-snapshots" author="beefcare">
+        <addColumn tableName="cash_report_snapshot">
+            <column name="source_filter" type="varchar(20)" defaultValue="ALL"><constraints nullable="false"/></column>
+            <column name="criteria_json" type="text"/>
+            <column name="summary_json" type="text"/>
+            <column name="details_json" type="text"/>
+            <column name="expires_at" type="timestamp with time zone"/>
+        </addColumn>
+        <sql>UPDATE cash_report_snapshot SET source_filter='ALL', criteria_json='{}', summary_json='{}', details_json='[]', expires_at=as_of + INTERVAL '7' DAY WHERE criteria_json IS NULL</sql>
+        <addNotNullConstraint tableName="cash_report_snapshot" columnName="criteria_json" columnDataType="text"/>
+        <addNotNullConstraint tableName="cash_report_snapshot" columnName="summary_json" columnDataType="text"/>
+        <addNotNullConstraint tableName="cash_report_snapshot" columnName="details_json" columnDataType="text"/>
+        <addNotNullConstraint tableName="cash_report_snapshot" columnName="expires_at" columnDataType="timestamp with time zone"/>
+    </changeSet>
+</databaseChangeLog>

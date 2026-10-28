@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity FarmMembership.
+    -->
+    <changeSet id="20261019174015-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="farm_id"
+                                 baseTableName="farm_membership"
+                                 constraintName="fk_farm_membership__farm_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="farm"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="user_id"
+                                 baseTableName="farm_membership"
+                                 constraintName="fk_farm_membership__user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="app_user"
+                                 />
+    </changeSet>
+</databaseChangeLog>

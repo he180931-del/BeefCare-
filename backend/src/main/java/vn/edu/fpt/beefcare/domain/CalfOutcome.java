@@ -1,0 +1,260 @@
+package vn.edu.fpt.beefcare.domain;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import java.io.Serial;
+import java.io.Serializable;
+import java.math.BigDecimal;
+
+/**
+ * A CalfOutcome.
+ */
+@Entity
+@Table(name = "calf_outcome")
+@SuppressWarnings("common-java:DuplicatedBlocks")
+public class CalfOutcome implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "sequenceGenerator")
+    @SequenceGenerator(name = "sequenceGenerator")
+    @Column(name = "id")
+    private Long id;
+
+    /**
+     * LIVE | STILLBORN
+     */
+    @Schema(description = "LIVE | STILLBORN")
+    @Size(max = 30)
+    @Column(name = "outcome", length = 30)
+    private String outcome;
+
+    @Size(max = 30)
+    @Column(name = "sex", length = 30)
+    private String sex;
+
+    @Column(name = "birth_weight", precision = 21, scale = 2)
+    private BigDecimal birthWeight;
+
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "registration_state", length = 30, nullable = false)
+    private String registrationState;
+
+    @ManyToOne(optional = false)
+    @NotNull
+    @JsonIgnoreProperties(value = { "dam", "episode" }, allowSetters = true)
+    private CalvingEvent calving;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
+    private Cattle registeredCattle;
+
+    @Column(name = "tag_code", length = 50)
+    private String tagCode;
+
+    @Column(name = "died_reason", length = 500)
+    private String diedReason;
+
+    @Column(name = "calf_no")
+    private Integer calfNo;
+    @Size(max = 30)
+    @Column(name = "weight_unit", length = 30)
+    private String weightUnit;
+    @Size(max = 30)
+    @Column(name = "weight_basis", length = 30)
+    private String weightBasis;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean corrected = Boolean.FALSE;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "breed_id")
+    private Breed breed;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proposed_purpose_id")
+    private ProductionPurpose proposedPurpose;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proposed_pen_id")
+    private Pen proposedPen;
+
+    // jhipster-needle-entity-add-field - JHipster will add fields here
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public CalfOutcome id(Long id) {
+        this.setId(id);
+        return this;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getOutcome() {
+        return this.outcome;
+    }
+
+    public CalfOutcome outcome(String outcome) {
+        this.setOutcome(outcome);
+        return this;
+    }
+
+    public void setOutcome(String outcome) {
+        this.outcome = outcome;
+    }
+
+    public String getSex() {
+        return this.sex;
+    }
+
+    public CalfOutcome sex(String sex) {
+        this.setSex(sex);
+        return this;
+    }
+
+    public void setSex(String sex) {
+        this.sex = sex;
+    }
+
+    public BigDecimal getBirthWeight() {
+        return this.birthWeight;
+    }
+
+    public CalfOutcome birthWeight(BigDecimal birthWeight) {
+        this.setBirthWeight(birthWeight);
+        return this;
+    }
+
+    public void setBirthWeight(BigDecimal birthWeight) {
+        this.birthWeight = birthWeight;
+    }
+
+    public String getRegistrationState() {
+        return this.registrationState;
+    }
+
+    public CalfOutcome registrationState(String registrationState) {
+        this.setRegistrationState(registrationState);
+        return this;
+    }
+
+    public void setRegistrationState(String registrationState) {
+        this.registrationState = registrationState;
+    }
+
+    public CalvingEvent getCalving() {
+        return this.calving;
+    }
+
+    public void setCalving(CalvingEvent calvingEvent) {
+        this.calving = calvingEvent;
+    }
+
+    public CalfOutcome calving(CalvingEvent calvingEvent) {
+        this.setCalving(calvingEvent);
+        return this;
+    }
+
+    public Cattle getRegisteredCattle() {
+        return this.registeredCattle;
+    }
+
+    public void setRegisteredCattle(Cattle cattle) {
+        this.registeredCattle = cattle;
+    }
+
+    public CalfOutcome registeredCattle(Cattle cattle) {
+        this.setRegisteredCattle(cattle);
+        return this;
+    }
+
+    public String getTagCode() {
+        return tagCode;
+    }
+
+    public void setTagCode(String tagCode) {
+        this.tagCode = tagCode;
+    }
+
+    public String getDiedReason() {
+        return diedReason;
+    }
+
+    public void setDiedReason(String diedReason) {
+        this.diedReason = diedReason;
+    }
+
+    public Pen getProposedPen() {
+        return proposedPen;
+    }
+
+    public void setProposedPen(Pen proposedPen) {
+        this.proposedPen = proposedPen;
+    }
+    public Integer getCalfNo() { return calfNo; }
+    public void setCalfNo(Integer calfNo) { this.calfNo = calfNo; }
+    public String getWeightUnit() { return weightUnit; }
+    public void setWeightUnit(String weightUnit) { this.weightUnit = weightUnit; }
+    public String getWeightBasis() { return weightBasis; }
+    public void setWeightBasis(String weightBasis) { this.weightBasis = weightBasis; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getCorrected() { return corrected; }
+    public void setCorrected(Boolean corrected) { this.corrected = corrected; }
+    public Breed getBreed() { return breed; }
+    public void setBreed(Breed breed) { this.breed = breed; }
+    public ProductionPurpose getProposedPurpose() { return proposedPurpose; }
+    public void setProposedPurpose(ProductionPurpose proposedPurpose) { this.proposedPurpose = proposedPurpose; }
+
+    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof CalfOutcome)) {
+            return false;
+        }
+        return getId() != null && getId().equals(((CalfOutcome) o).getId());
+    }
+
+    @Override
+    public int hashCode() {
+        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
+        return getClass().hashCode();
+    }
+
+    // prettier-ignore
+    @Override
+    public String toString() {
+        return "CalfOutcome{" +
+            "id=" + getId() +
+            ", outcome='" + getOutcome() + "'" +
+            ", sex='" + getSex() + "'" +
+            ", birthWeight=" + getBirthWeight() +
+            ", registrationState='" + getRegistrationState() + "'" +
+            "}";
+    }
+}

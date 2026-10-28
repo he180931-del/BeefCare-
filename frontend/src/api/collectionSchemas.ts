@@ -84,6 +84,15 @@ const parseQrHistoryRecord = (value: unknown): CollectionRow => {
   return row
 }
 
+const parseCattleEvent = (value: unknown): CollectionRow => {
+  const row = asRecord(value, 'cattle event')
+  for (const key of ['id', 'at', 'cat', 'title', 'detail', 'meta']) requiredString(row, key, 'cattle event')
+  const badge = asRecord(row.badge, 'cattle event badge')
+  requiredString(badge, 'label', 'cattle event badge')
+  optionalString(badge, 'tone', 'cattle event badge')
+  return row
+}
+
 const optionalStringTupleArray = (row: CollectionRow, key: string, label: string): void => {
   if (row[key] === undefined) return
   if (!Array.isArray(row[key]) || row[key].some((item) => !Array.isArray(item) || item.length < 2 || typeof item[0] !== 'string' || typeof item[1] !== 'string')) throw new Error(`Invalid ${label}: ${key}`)
@@ -284,7 +293,7 @@ export const parseCattle = (value: unknown): Cattle => {
   optionalNumberOrNull(row, 'weight', 'cattle')
   optionalStringOrNull(row, 'exitVoucherId', 'cattle')
   for (const key of ['weightEst', 'estimated', 'inList']) optionalBoolean(row, key, 'cattle')
-  if (row.events !== undefined) stringArray(row.events, 'cattle events')
+  optionalArray(row, 'events', parseCattleEvent, 'cattle')
   optionalArray(row, 'barnHistory', (item) => parseHistoryRecord(item, 'cattle barn history'), 'cattle')
   optionalArray(row, 'qrHistory', parseQrHistoryRecord, 'cattle')
   optionalStringTupleArray(row, 'headerBadges', 'cattle')

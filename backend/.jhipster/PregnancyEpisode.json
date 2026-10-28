@@ -1,0 +1,43 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174051"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "expectedCalvingDate",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "parity",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "OPEN | CALVED | LOST",
+      "fieldName": "status",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "PregnancyEpisode",
+  "relationships": [
+    {
+      "otherEntityName": "reproductionEvent",
+      "relationshipName": "confirmingCheck",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "cattle",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

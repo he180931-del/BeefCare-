@@ -1,0 +1,50 @@
+# Explicit local-only fixtures. Never include this profile in a production deployment.
+spring:
+  config:
+    import: optional:file:../.env[.properties]
+  datasource:
+    url: ${BEEFCARE_DB_URL:jdbc:postgresql://localhost:15432/beefcare}
+    username: ${BEEFCARE_DB_USERNAME:beefcare}
+    password: ${BEEFCARE_DB_PASSWORD:}
+  liquibase:
+    contexts: local
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  docker:
+    compose:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: validate
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+application:
+  liquibase:
+    async-start: false
+beefcare:
+  local-seed:
+    enabled: true
+    password: ${BEEFCARE_DEV_PASSWORD:}
+  email:
+    provider: smtp
+    frontend-base-url: ${BEEFCARE_PUBLIC_URL:http://localhost:5173}
+    backend-base-url: ${BEEFCARE_BACKEND_URL:http://localhost:8080}
+    link-signing-key: ${BEEFCARE_LINK_SECRET}
+jhipster:
+  cors:
+    allowed-origins: ${BEEFCARE_CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allow-credentials: true
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: Accept,Content-Type,Idempotency-Key,X-XSRF-TOKEN,Accept-Language
+    exposed-headers: Location
+

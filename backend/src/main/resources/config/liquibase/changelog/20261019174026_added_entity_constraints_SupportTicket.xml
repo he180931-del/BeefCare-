@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity SupportTicket.
+    -->
+    <changeSet id="20261019174026-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="requester_id"
+                                 baseTableName="support_ticket"
+                                 constraintName="fk_support_ticket__requester_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="app_user"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="farm_id"
+                                 baseTableName="support_ticket"
+                                 constraintName="fk_support_ticket__farm_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="farm"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="assigned_cs_id"
+                                 baseTableName="support_ticket"
+                                 constraintName="fk_support_ticket__assigned_cs_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="app_user"
+                                 />
+    </changeSet>
+</databaseChangeLog>

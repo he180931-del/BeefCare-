@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000006-1" author="codex">
+        <createTable tableName="idempotency_record">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="actor_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="farm_scope" type="bigint"><constraints nullable="false"/></column>
+            <column name="action" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="idempotency_key" type="varchar(128)"><constraints nullable="false"/></column>
+            <column name="payload_hash" type="varchar(64)"><constraints nullable="false"/></column>
+            <column name="result_type" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="result_json" type="varchar(262144)"><constraints nullable="false"/></column>
+            <column name="created_at" type="timestamp"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="idempotency_record" columnNames="actor_id,farm_scope,action,idempotency_key" constraintName="ux_idempotency_scope_key"/>
+        <createIndex tableName="idempotency_record" indexName="ix_idempotency_created_at"><column name="created_at"/></createIndex>
+    </changeSet>
+    <changeSet id="20261028000006-2" author="codex">
+        <createTable tableName="outbox_event">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"/>
+            <column name="event_type" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="aggregate_type" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="aggregate_id" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="payload_json" type="varchar(262144)"><constraints nullable="false"/></column>
+            <column name="created_at" type="timestamp"><constraints nullable="false"/></column>
+            <column name="available_at" type="timestamp"><constraints nullable="false"/></column>
+            <column name="claimed_until" type="timestamp"/>
+            <column name="attempts" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="published_at" type="timestamp"/>
+            <column name="last_error" type="varchar(1000)"/>
+        </createTable>
+        <createIndex tableName="outbox_event" indexName="ix_outbox_due"><column name="published_at"/><column name="available_at"/><column name="claimed_until"/></createIndex>
+        <createIndex tableName="outbox_event" indexName="ix_outbox_farm"><column name="farm_id"/><column name="created_at"/></createIndex>
+    </changeSet>
+</databaseChangeLog>

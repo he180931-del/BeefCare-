@@ -1,0 +1,98 @@
+import { useState } from 'react'
+import { Field, DateInput, Select, Table } from '../../components/ui'
+import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
+import { MANAGER, OWNER, TODAY } from '../../data/cowsData'
+import { moveBarn } from '../../api/cattleApi'
+import { useMutation } from '../../hooks/useApi'
+import { Chip, Td, Th, fieldCls } from './parts'
+import type { CowSeed } from '../../data/cowsData'
+import type { Pen } from '../../types'
+
+type MovePayload = { to: string; date: string; reason: string; by: string }
+
+export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSeed; barns: Record<string, Pen>; onClose: () => void; onSaved: () => void }) {
+  const move = useMutation((payload: MovePayload) => moveBarn(cow.code, payload))
+  const from = barns[cow.barn]
+  const isDemo = cow.code === 'BC-000142'
+  const options = Object.values(barns).filter((b) => b.code !== cow.barn && b.status === 'ACTIVE')
+  const [to, setTo] = useState(options.find((b) => b.code === 'A1')?.code ?? options[0]?.code ?? '')
+  const [date, setDate] = useState(TODAY)
+  const [by, setBy] = useState(MANAGER)
+  const [reason, setReason] = useState(isDemo ? 'Đủ 13 tháng & 236 kg – chuẩn bị theo dõi sinh sản' : '')
+
+  const dest = barns[to]
+  const checks: Array<[string, boolean]> = [
+    ['Chuồng đích ACTIVE và còn chỗ', dest?.status === 'ACTIVE' && dest.count < dest.capacity],
+    ['Mục đích nuôi khớp tiêu chí chuồng', cow.purpose === dest?.purpose],
+    [`Ngưỡng ≥ ${dest?.minMonths ?? 0} tháng và ≥ ${dest?.minKg ?? 0} kg`, cow.months >= (dest?.minMonths ?? 0) && cow.weight != null && cow.weight >= (dest?.minKg ?? 0)],
+    ['Giai đoạn khớp tiêu chí chuồng', cow.stage === dest?.stage],
+  ]
+  const canSave = checks[0][1] && reason.trim() !== ''
+
+  return (
+    <Modal
+      title={`Chuyển chuồng – ${cow.code}`}
+      topTitle="Chuyển chuồng"
+      sub={`${cow.breed} · ${cow.sex} · ${cow.ageLong} · ${cow.weight != null ? `${cow.weight} kg` : '—'}`}
+      width={640}
+      onClose={onClose}
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Từ chuồng">
+          <input className={fieldCls} readOnly value={from ? `${from.name} · ${from.count}/${from.capacity}` : '—'} />
+        </Field>
+        <Field label="Chuồng đích *">
+          <Select className="[&_select]:!leading-[normal]" value={to} onChange={(e) => setTo(e.target.value)}>
+            {options.map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
+          </Select>
+        </Field>
+        <Field label="Ngày chuyển *">
+          <DateInput value={date} onChange={setDate} />
+        </Field>
+        <Field label="Người thực hiện">
+          <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
+            <option value={MANAGER}>{MANAGER}</option>
+            <option value={OWNER}>{OWNER}</option>
+          </Select>
+        </Field>
+        <div className="sm:col-span-2">
+          <Field label="Lý do *">
+            <input className={fieldCls} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </Field>
+        </div>
+      </div>
+
+      <p className="m-0 text-[14px] font-semibold leading-[normal] text-[#212121]">Kiểm tra tiếp nhận</p>
+      <Table stack={false}>
+        <thead>
+          <tr>
+            <Th className="w-[420px]">Điều kiện</Th>
+            <Th className="w-[120px]">Kết quả</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {checks.map(([label, ok]) => (
+            <tr key={label}>
+              <Td className="!h-9">{label}</Td>
+              <Td>{ok ? <Chip tone="ok">Đạt</Chip> : <Chip tone="warn">Chưa khớp</Chip>}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+
+      <ModalFooter>
+        <ModalButton onClick={onClose}>Hủy</ModalButton>
+        <ModalButton
+          variant="primary"
+          disabled={!canSave}
+          onClick={async () => {
+            await move.mutate({ to, date, reason: reason.trim(), by })
+            onSaved()
+          }}
+        >
+          Xác nhận chuyển chuồng
+        </ModalButton>
+      </ModalFooter>
+    </Modal>
+  )
+}

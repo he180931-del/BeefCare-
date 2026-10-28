@@ -1,0 +1,40 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174052"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "type",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "occurredTime",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "details",
+      "fieldType": "TextBlob"
+    }
+  ],
+  "name": "PregnancyUpdate",
+  "relationships": [
+    {
+      "otherEntityName": "pregnancyEpisode",
+      "relationshipName": "episode",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "healthCase",
+      "relationshipName": "healthCase",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no"
+}

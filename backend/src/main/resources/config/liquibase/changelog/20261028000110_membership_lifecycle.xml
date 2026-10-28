@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000110-membership-lifecycle" author="beefcare">
+        <addColumn tableName="farm_invitation">
+            <column name="created_at" type="${datetimeType}" defaultValueComputed="CURRENT_TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="last_sent_at" type="${datetimeType}" defaultValueComputed="CURRENT_TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="validity_days" type="int" defaultValueNumeric="7"><constraints nullable="false"/></column>
+            <column name="token_hash" type="varchar(64)"/>
+            <column name="invited_by_id" type="bigint"/>
+            <column name="accepted_at" type="${datetimeType}"/>
+            <column name="cancelled_at" type="${datetimeType}"/>
+            <column name="version" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="farm_invitation" baseColumnNames="invited_by_id"
+                                 constraintName="fk_farm_invitation_invited_by" referencedTableName="app_user" referencedColumnNames="id"/>
+        <createIndex tableName="farm_invitation" indexName="ix_farm_invite_farm_email_status">
+            <column name="farm_id"/><column name="invited_email"/><column name="status"/>
+        </createIndex>
+        <createIndex tableName="farm_invitation" indexName="ux_farm_invitation_token_hash" unique="true">
+            <column name="token_hash"/>
+        </createIndex>
+        <addColumn tableName="farm_membership">
+            <column name="effective_date" type="date" defaultValueComputed="CURRENT_DATE"><constraints nullable="false"/></column>
+            <column name="change_reason" type="varchar(500)"/>
+            <column name="version" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
