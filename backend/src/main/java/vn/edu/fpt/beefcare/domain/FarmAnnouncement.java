@@ -38,6 +38,11 @@ public class FarmAnnouncement implements Serializable {
     @JsonIgnoreProperties(value = { "farm", "user" }, allowSetters = true)
     private FarmMembership author;
 
+    @Size(max=255) @Column(name="draft_title",length=255) private String draftTitle;
+    @Column(name="draft_body",columnDefinition="text") private String draftBody;
+    @Size(max=100) @Column(name="recipient_roles",length=100) private String recipientRoles;
+    @Version @Column(name="version",nullable=false) private Integer version=0;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -82,6 +87,11 @@ public class FarmAnnouncement implements Serializable {
     public FarmMembership getAuthor() {
         return this.author;
     }
+
+    public String getDraftTitle(){return draftTitle;} public void setDraftTitle(String value){draftTitle=value;}
+    public String getDraftBody(){return draftBody;} public void setDraftBody(String value){draftBody=value;}
+    public String getRecipientRoles(){return recipientRoles;} public void setRecipientRoles(String value){recipientRoles=value;}
+    public Integer getVersion(){return version;}
 
     public void setAuthor(FarmMembership farmMembership) {
         this.author = farmMembership;

@@ -5,6 +5,10 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A Farm.
@@ -43,9 +47,69 @@ public class Farm implements Serializable {
     @Column(name = "service_status", length = 30, nullable = false)
     private String serviceStatus;
 
+    @NotNull
+    @Size(max = 80)
+    @Column(name = "time_zone", length = 80, nullable = false)
+    private String timeZone = "Asia/Ho_Chi_Minh";
+
+    @Size(max = 150)
+    @Column(name = "contact_person", length = 150)
+    private String contactPerson;
+
+    @Size(max = 30)
+    @Column(name = "contact_phone", length = 30)
+    private String contactPhone;
+
+    @Size(max = 150)
+    @Column(name = "province", length = 150)
+    private String province;
+
+    @Size(max = 150)
+    @Column(name = "commune", length = 150)
+    private String commune;
+
+    @Size(max = 255)
+    @Column(name = "detailed_address", length = 255)
+    private String detailedAddress;
+
+    @Size(max = 255)
+    @Column(name = "registration_certificate_info", length = 255)
+    private String registrationCertificateInfo;
+
+    @Size(max = 30)
+    @Column(name = "expected_herd_size", length = 30)
+    private String expectedHerdSize;
+
+    @Size(max = 1000)
+    @Column(name = "operating_notes", length = 1000)
+    private String operatingNotes;
+
+    @Column(name = "morning_shift_start")
+    private LocalTime morningShiftStart;
+
+    @Column(name = "onboarding_dismissed_at")
+    private Instant onboardingDismissedAt;
+
+    @Convert(converter = StringSetConverter.class)
+    @Column(name = "onboarding_steps_done")
+    private Set<String> onboardingStepsDone = new HashSet<>();
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+
     @JsonIgnoreProperties(value = { "farm", "planVersion" }, allowSetters = true)
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "farm")
     private Subscription subscription;
+
+    @ManyToMany
+    @JoinTable(
+        name = "farm_main_breed",
+        joinColumns = @JoinColumn(name = "farm_id"),
+        inverseJoinColumns = @JoinColumn(name = "breed_id")
+    )
+    @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
+    private Set<Breed> mainBreeds = new HashSet<>();
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -113,6 +177,35 @@ public class Farm implements Serializable {
     public void setServiceStatus(String serviceStatus) {
         this.serviceStatus = serviceStatus;
     }
+
+    public String getTimeZone() { return timeZone; }
+    public void setTimeZone(String timeZone) { this.timeZone = timeZone; }
+    public String getContactPerson() { return contactPerson; }
+    public void setContactPerson(String contactPerson) { this.contactPerson = contactPerson; }
+    public String getContactPhone() { return contactPhone; }
+    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+    public String getProvince() { return province; }
+    public void setProvince(String province) { this.province = province; }
+    public String getCommune() { return commune; }
+    public void setCommune(String commune) { this.commune = commune; }
+    public String getDetailedAddress() { return detailedAddress; }
+    public void setDetailedAddress(String detailedAddress) { this.detailedAddress = detailedAddress; }
+    public String getRegistrationCertificateInfo() { return registrationCertificateInfo; }
+    public void setRegistrationCertificateInfo(String registrationCertificateInfo) { this.registrationCertificateInfo = registrationCertificateInfo; }
+    public String getExpectedHerdSize() { return expectedHerdSize; }
+    public void setExpectedHerdSize(String expectedHerdSize) { this.expectedHerdSize = expectedHerdSize; }
+    public String getOperatingNotes() { return operatingNotes; }
+    public void setOperatingNotes(String operatingNotes) { this.operatingNotes = operatingNotes; }
+    public LocalTime getMorningShiftStart() { return morningShiftStart; }
+    public void setMorningShiftStart(LocalTime morningShiftStart) { this.morningShiftStart = morningShiftStart; }
+    public Instant getOnboardingDismissedAt() { return onboardingDismissedAt; }
+    public void setOnboardingDismissedAt(Instant onboardingDismissedAt) { this.onboardingDismissedAt = onboardingDismissedAt; }
+    public Set<String> getOnboardingStepsDone() { return onboardingStepsDone; }
+    public void setOnboardingStepsDone(Set<String> onboardingStepsDone) { this.onboardingStepsDone = onboardingStepsDone; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public Set<Breed> getMainBreeds() { return mainBreeds; }
+    public void setMainBreeds(Set<Breed> mainBreeds) { this.mainBreeds = mainBreeds == null ? new HashSet<>() : new HashSet<>(mainBreeds); }
 
     public Subscription getSubscription() {
         return this.subscription;

@@ -30,7 +30,7 @@ public class EvidenceReview implements Serializable {
     @Column(name = "decision", length = 30, nullable = false)
     private String decision;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "reason")
     private String reason;
 

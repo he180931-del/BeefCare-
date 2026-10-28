@@ -5,15 +5,19 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 public interface DatabaseTestcontainer {
     @Container
-    PostgreSQLContainer databaseContainer = new PostgreSQLContainer("postgres:18.4")
-        .withDatabaseName("beefcare")
+    PostgreSQLContainer<?> databaseContainer = createDatabaseContainer();
 
-        .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(DatabaseTestcontainer.class)))
-        .withReuse(true);
+    private static PostgreSQLContainer<?> createDatabaseContainer() {
+        PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:18.4");
+        container.withDatabaseName("beefcare");
+        container.withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(DatabaseTestcontainer.class)));
+        container.withReuse(true);
+        return container;
+    }
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {

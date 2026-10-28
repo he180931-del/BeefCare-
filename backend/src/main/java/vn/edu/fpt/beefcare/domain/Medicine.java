@@ -34,7 +34,7 @@ public class Medicine implements Serializable {
     @Column(name = "name", length = 255, nullable = false)
     private String name;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "description")
     private String description;
 
@@ -65,6 +65,11 @@ public class Medicine implements Serializable {
     @NotNull
     @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
     private Farm farm;
+    @Column(name = "withdrawal_days", nullable = false)
+    private Integer withdrawalDays = 0;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -175,6 +180,10 @@ public class Medicine implements Serializable {
     public Farm getFarm() {
         return this.farm;
     }
+    public Integer getWithdrawalDays() { return withdrawalDays; }
+    public void setWithdrawalDays(Integer withdrawalDays) { this.withdrawalDays = withdrawalDays; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public void setFarm(Farm farm) {
         this.farm = farm;

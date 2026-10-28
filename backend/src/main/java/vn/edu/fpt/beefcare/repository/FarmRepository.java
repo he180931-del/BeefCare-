@@ -12,7 +12,7 @@ import vn.edu.fpt.beefcare.domain.Farm;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface FarmRepository extends JpaRepository<Farm, Long> {
+public interface FarmRepository extends JpaRepository<Farm, Long>, JpaSpecificationExecutor<Farm> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select f from Farm f where f.id = :id")

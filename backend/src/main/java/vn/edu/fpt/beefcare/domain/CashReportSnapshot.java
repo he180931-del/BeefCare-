@@ -56,6 +56,26 @@ public class CashReportSnapshot implements Serializable {
     @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
     private Farm farm;
 
+    @NotNull
+    @Column(name = "source_filter", length = 20, nullable = false)
+    private String sourceFilter = "ALL";
+
+    @NotNull
+    @Column(name = "criteria_json", columnDefinition = "text", nullable = false)
+    private String criteriaJson = "{}";
+
+    @NotNull
+    @Column(name = "summary_json", columnDefinition = "text", nullable = false)
+    private String summaryJson = "{}";
+
+    @NotNull
+    @Column(name = "details_json", columnDefinition = "text", nullable = false)
+    private String detailsJson = "[]";
+
+    @NotNull
+    @Column(name = "expires_at", nullable = false)
+    private Instant expiresAt;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -143,6 +163,17 @@ public class CashReportSnapshot implements Serializable {
     public void setFarm(Farm farm) {
         this.farm = farm;
     }
+
+    public String getSourceFilter() { return sourceFilter; }
+    public void setSourceFilter(String sourceFilter) { this.sourceFilter = sourceFilter; }
+    public String getCriteriaJson() { return criteriaJson; }
+    public void setCriteriaJson(String criteriaJson) { this.criteriaJson = criteriaJson; }
+    public String getSummaryJson() { return summaryJson; }
+    public void setSummaryJson(String summaryJson) { this.summaryJson = summaryJson; }
+    public String getDetailsJson() { return detailsJson; }
+    public void setDetailsJson(String detailsJson) { this.detailsJson = detailsJson; }
+    public Instant getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
 
     public CashReportSnapshot farm(Farm farm) {
         this.setFarm(farm);

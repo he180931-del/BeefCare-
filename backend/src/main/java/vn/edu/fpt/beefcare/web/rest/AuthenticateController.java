@@ -1,125 +1,129 @@
 package vn.edu.fpt.beefcare.web.rest;
 
-import static vn.edu.fpt.beefcare.security.SecurityUtils.AUTHORITIES_CLAIM;
-import static vn.edu.fpt.beefcare.security.SecurityUtils.JWT_ALGORITHM;
-import static vn.edu.fpt.beefcare.security.SecurityUtils.USER_ID_CLAIM;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import java.security.Principal;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.web.bind.annotation.*;
-import vn.edu.fpt.beefcare.security.DomainUserDetailsService.UserWithId;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import vn.edu.fpt.beefcare.service.DomainException;
+import vn.edu.fpt.beefcare.service.FarmAccessService;
+import vn.edu.fpt.beefcare.service.IdentityService;
 import vn.edu.fpt.beefcare.web.rest.vm.LoginVM;
 
-/**
- * Controller to authenticate users.
- */
+/** Cookie session authentication. CSRF protection applies to login and every other state-changing request. */
 @RestController
-@RequestMapping("/api")
 public class AuthenticateController {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AuthenticateController.class);
+    private final AuthenticationManager authenticationManager;
+    private final FarmAccessService farmAccessService;
+    private final SessionRegistry sessionRegistry;
+    private final IdentityService identityService;
+    private final HttpSessionSecurityContextRepository contextRepository = new HttpSessionSecurityContextRepository();
 
-    private final JwtEncoder jwtEncoder;
+    @Value("${beefcare.security.session.timeout-seconds:28800}")
+    private int standardTimeoutSeconds;
 
-    @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds:0}")
-    private long tokenValidityInSeconds;
+    @Value("${beefcare.security.session.remember-me-timeout-seconds:2592000}")
+    private int rememberMeTimeoutSeconds;
 
-    @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds-for-remember-me:0}")
-    private long tokenValidityInSecondsForRememberMe;
+    @Value("${beefcare.security.cookie-secure:false}")
+    private boolean secureCookies;
 
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
-
-    public AuthenticateController(JwtEncoder jwtEncoder, AuthenticationManagerBuilder authenticationManagerBuilder) {
-        this.jwtEncoder = jwtEncoder;
-        this.authenticationManagerBuilder = authenticationManagerBuilder;
+    public AuthenticateController(
+        AuthenticationManager authenticationManager,
+        FarmAccessService farmAccessService,
+        SessionRegistry sessionRegistry,
+        IdentityService identityService
+    ) {
+        this.authenticationManager = authenticationManager;
+        this.farmAccessService = farmAccessService;
+        this.sessionRegistry = sessionRegistry;
+        this.identityService = identityService;
     }
 
-    @PostMapping("/authenticate")
-    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
-        var authenticationToken = new UsernamePasswordAuthenticationToken(loginVM.getUsername(), loginVM.getPassword());
-
-        var authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = this.createToken(authentication, loginVM.isRememberMe());
-        var httpHeaders = new HttpHeaders();
-        httpHeaders.setBearerAuth(jwt);
-        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+    /** Fetch this before login; send the returned value in X-XSRF-TOKEN and retain the XSRF-TOKEN cookie. */
+    @GetMapping("/api/csrf")
+    public CsrfToken csrf(CsrfToken token) {
+        return token;
     }
 
-    /**
-     * {@code GET /authenticate} : check if the user is authenticated.
-     *
-     * @return the {@link ResponseEntity} with status {@code 204 (No Content)},
-     * or with status {@code 401 (Unauthorized)} if not authenticated.
-     */
-    @GetMapping("/authenticate")
+    @PostMapping("/api/authenticate")
+    public ResponseEntity<Void> authorize(@Valid @RequestBody LoginVM loginVM, HttpServletRequest request, HttpServletResponse response) {
+        try {
+            identityService.checkPasswordSignInAllowed(loginVM.getUsername());
+        } catch (IdentityService.AccountSuspendedException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IdentityService.PasswordSignInDisabledException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IdentityService.AccountLoginLockedException ex) {
+            return ResponseEntity.status(HttpStatus.LOCKED).build();
+        }
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated(loginVM.getUsername(), loginVM.getPassword())
+            );
+        } catch (AuthenticationException ex) {
+            if (!(ex instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException)) {
+                identityService.recordFailedPasswordAttempt(loginVM.getUsername());
+            }
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        identityService.clearFailedPasswordAttempts(loginVM.getUsername());
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        if (request.getSession(false) != null) {
+            request.changeSessionId();
+        }
+        HttpSession session = request.getSession(true);
+        session.setMaxInactiveInterval(loginVM.isRememberMe() ? rememberMeTimeoutSeconds : standardTimeoutSeconds);
+        try {
+            farmAccessService.currentActiveUser();
+        } catch (DomainException ex) {
+            SecurityContextHolder.clearContext();
+            session.invalidate();
+            return ResponseEntity.status(ex.getStatus()).build();
+        }
+        contextRepository.saveContext(context, request, response);
+        sessionRegistry.registerNewSession(session.getId(), authentication.getName());
+        if (loginVM.isRememberMe()) {
+            response.addHeader(
+                HttpHeaders.SET_COOKIE,
+                ResponseCookie.from("JSESSIONID", session.getId())
+                    .httpOnly(true)
+                    .secure(secureCookies)
+                    .sameSite("Lax")
+                    .path("/")
+                    .maxAge(rememberMeTimeoutSeconds)
+                    .build()
+                    .toString()
+            );
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/api/authenticate")
     public ResponseEntity<Void> isAuthenticated(Principal principal) {
-        LOG.debug("REST request to check if the current user is authenticated");
-        return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.NO_CONTENT).build();
-    }
-
-    public String createToken(Authentication authentication, boolean rememberMe) {
-        String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
-
-        var now = Instant.now();
-        Instant validity;
-        if (rememberMe) {
-            validity = now.plus(this.tokenValidityInSecondsForRememberMe, ChronoUnit.SECONDS);
-        } else {
-            validity = now.plus(this.tokenValidityInSeconds, ChronoUnit.SECONDS);
-        }
-
-        // @formatter:off
-        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
-            .issuedAt(now)
-            .expiresAt(validity)
-            .subject(authentication.getName())
-            .claim(AUTHORITIES_CLAIM, authorities);
-        if (authentication.getPrincipal() instanceof UserWithId user) {
-            builder.claim(USER_ID_CLAIM, user.getId());
-        }
-
-        JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
-        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, builder.build())).getTokenValue();
-    }
-
-    /**
-     * Object to return as body in JWT Authentication.
-     */
-    static class JWTToken {
-
-        private String idToken;
-
-        JWTToken(String idToken) {
-            this.idToken = idToken;
-        }
-
-        @JsonProperty("id_token")
-        String getIdToken() {
-            return idToken;
-        }
-
-        void setIdToken(String idToken) {
-            this.idToken = idToken;
-        }
+        return principal == null ? ResponseEntity.status(HttpStatus.UNAUTHORIZED).build() : ResponseEntity.noContent().build();
     }
 }

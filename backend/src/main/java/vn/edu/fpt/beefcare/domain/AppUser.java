@@ -1,11 +1,13 @@
 package vn.edu.fpt.beefcare.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.Instant;
 
 /**
  * User (gộp User Identity, Password Credential, Password Reset Token). Đặt tên AppUser để không trùng User có sẵn của JHipster.
@@ -60,7 +62,23 @@ public class AppUser implements Serializable {
     @Schema(description = "ERD: NOT NULL; để trống được vì tài khoản chỉ dùng Google không có mật khẩu")
     @Size(max = 255)
     @Column(name = "password_hash", length = 255)
+    @JsonIgnore
     private String passwordHash;
+
+    @NotNull
+    @Column(name = "password_login_enabled", nullable = false)
+    private boolean passwordLoginEnabled;
+
+    @NotNull
+    @Column(name = "owner_registration_completed", nullable = false)
+    private boolean ownerRegistrationCompleted;
+
+    @Column(name = "owner_registration_completed_at")
+    private Instant ownerRegistrationCompletedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @JsonIgnoreProperties(value = { "user" }, allowSetters = true)
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "user")
@@ -159,6 +177,38 @@ public class AppUser implements Serializable {
         this.passwordHash = passwordHash;
     }
 
+    public boolean isPasswordLoginEnabled() {
+        return passwordLoginEnabled;
+    }
+
+    public void setPasswordLoginEnabled(boolean passwordLoginEnabled) {
+        this.passwordLoginEnabled = passwordLoginEnabled;
+    }
+
+    public boolean isOwnerRegistrationCompleted() {
+        return ownerRegistrationCompleted;
+    }
+
+    public void setOwnerRegistrationCompleted(boolean ownerRegistrationCompleted) {
+        this.ownerRegistrationCompleted = ownerRegistrationCompleted;
+    }
+
+    public Instant getOwnerRegistrationCompletedAt() {
+        return ownerRegistrationCompletedAt;
+    }
+
+    public void setOwnerRegistrationCompletedAt(Instant ownerRegistrationCompletedAt) {
+        this.ownerRegistrationCompletedAt = ownerRegistrationCompletedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
     public PlatformStaffAccess getPlatformStaffAccess() {
         return this.platformStaffAccess;
     }
@@ -206,8 +256,8 @@ public class AppUser implements Serializable {
             ", fullName='" + getFullName() + "'" +
             ", phone='" + getPhone() + "'" +
             ", accountStatus='" + getAccountStatus() + "'" +
-            ", googleSubject='" + getGoogleSubject() + "'" +
-            ", passwordHash='" + getPasswordHash() + "'" +
+            ", googleSubjectPresent=" + (getGoogleSubject() != null) +
+            ", passwordHashPresent=" + (getPasswordHash() != null) +
             "}";
     }
 }

@@ -27,6 +27,8 @@ import vn.edu.fpt.beefcare.service.HerdEntryCorrectionService;
 import vn.edu.fpt.beefcare.service.HerdEntryImportService;
 import vn.edu.fpt.beefcare.service.HerdEntryPostingService;
 import vn.edu.fpt.beefcare.service.HerdEntryVoucherService;
+import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
+import vn.edu.fpt.beefcare.service.FarmAction;
 import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.dto.EntryActionRequests;
 import vn.edu.fpt.beefcare.service.dto.EntryDtos;
@@ -40,6 +42,7 @@ public class HerdEntryVoucherResource {
     private static final MediaType XLSX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private final HerdEntryVoucherService vouchers;
+    private final IdempotencyCommandService commands;
     private final HerdEntryPostingService posting;
     private final HerdEntryCorrectionService corrections;
     private final HerdEntryImportService imports;
@@ -48,12 +51,14 @@ public class HerdEntryVoucherResource {
         HerdEntryVoucherService vouchers,
         HerdEntryPostingService posting,
         HerdEntryCorrectionService corrections,
-        HerdEntryImportService imports
+        HerdEntryImportService imports,
+        IdempotencyCommandService commands
     ) {
         this.vouchers = vouchers;
         this.posting = posting;
         this.corrections = corrections;
         this.imports = imports;
+        this.commands = commands;
     }
 
     @GetMapping
@@ -69,8 +74,8 @@ public class HerdEntryVoucherResource {
     }
 
     @PostMapping
-    public ResponseEntity<EntryDtos.Voucher> create(@PathVariable Long farmId, @Valid @RequestBody EntryVoucherRequest request) {
-        EntryDtos.Voucher created = vouchers.create(farmId, request);
+    public ResponseEntity<EntryDtos.Voucher> create(@PathVariable Long farmId, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody EntryVoucherRequest request) {
+        EntryDtos.Voucher created = commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "ENTRY_VOUCHER_CREATE", key, request, EntryDtos.Voucher.class, () -> vouchers.create(farmId, request));
         return ResponseEntity.created(URI.create("/api/farms/" + farmId + "/entry-vouchers/" + created.id())).body(created);
     }
 
@@ -99,13 +104,13 @@ public class HerdEntryVoucherResource {
     }
 
     @PutMapping("/{id}")
-    public EntryDtos.Voucher update(@PathVariable Long farmId, @PathVariable Long id, @Valid @RequestBody EntryVoucherRequest request) {
-        return vouchers.update(farmId, id, request);
+    public EntryDtos.Voucher update(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody EntryVoucherRequest request) {
+        return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "ENTRY_VOUCHER_UPDATE:" + id, key, request, EntryDtos.Voucher.class, () -> vouchers.update(farmId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> discard(@PathVariable Long farmId, @PathVariable Long id, @RequestParam(required = false) Integer expectedVersion) {
-        vouchers.discard(farmId, id, expectedVersion);
+    public ResponseEntity<Void> discard(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @RequestParam(required = false) Integer expectedVersion) {
+        commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "ENTRY_VOUCHER_DELETE:" + id, key, expectedVersion, Void.class, () -> { vouchers.discard(farmId, id, expectedVersion); return null; });
         return ResponseEntity.noContent().build();
     }
 
@@ -113,11 +118,17 @@ public class HerdEntryVoucherResource {
     public EntryDtos.ImportResult importLines(
         @PathVariable Long farmId,
         @PathVariable Long id,
+        @RequestHeader("Idempotency-Key") String key,
         @RequestParam("file") MultipartFile file,
         @RequestParam(defaultValue = "true") boolean commit
     ) {
         try {
-            return imports.importLines(farmId, id, file.getBytes(), commit);
+            byte[] content = file.getBytes();
+            String contentHash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content));
+            return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "ENTRY_VOUCHER_IMPORT:" + id, key, Map.of("sha256", contentHash, "commit", commit),
+                EntryDtos.ImportResult.class, () -> imports.importLines(farmId, id, content, commit));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
         } catch (IOException e) {
             throw DomainException.badRequest(MessageCodes.COM_10, "field", "file");
         }
@@ -128,15 +139,15 @@ public class HerdEntryVoucherResource {
         return vouchers.checks(farmId, id);
     }
 
-    /** Idempotent: posting an already POSTED voucher returns the first result. The Idempotency-Key header is optional. */
+    /** Posting replays the first result for this verified actor, farm, action and request key. */
     @PostMapping("/{id}/post")
     public EntryDtos.PostResult post(
         @PathVariable Long farmId,
         @PathVariable Long id,
-        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+        @RequestHeader("Idempotency-Key") String idempotencyKey,
         @RequestBody(required = false) EntryActionRequests.PostRequest request
     ) {
-        return posting.post(farmId, id, request);
+        return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "ENTRY_VOUCHER_POST:" + id, idempotencyKey, request, EntryDtos.PostResult.class, () -> posting.post(farmId, id, request));
     }
 
     @GetMapping("/{id}/void-check")
@@ -145,7 +156,7 @@ public class HerdEntryVoucherResource {
     }
 
     @PostMapping("/{id}/void")
-    public EntryDtos.VoidResult voidVoucher(@PathVariable Long farmId, @PathVariable Long id, @Valid @RequestBody EntryActionRequests.VoidRequest request) {
-        return corrections.voidVoucher(farmId, id, request);
+    public EntryDtos.VoidResult voidVoucher(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody EntryActionRequests.VoidRequest request) {
+        return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "ENTRY_VOUCHER_VOID:" + id, key, request, EntryDtos.VoidResult.class, () -> corrections.voidVoucher(farmId, id, request));
     }
 }

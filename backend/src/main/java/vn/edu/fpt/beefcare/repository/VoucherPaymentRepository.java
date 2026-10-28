@@ -15,6 +15,8 @@ public interface VoucherPaymentRepository extends JpaRepository<VoucherPayment, 
 
     List<VoucherPayment> findAllByExitVoucherIdOrderByPaymentDateAscIdAsc(Long voucherId);
 
+    List<VoucherPayment> findAllByFeedReceiptIdOrderByPaymentDateAscIdAsc(Long receiptId);
+
     Optional<VoucherPayment> findByIdAndFarmId(Long id, Long farmId);
 
     @Query("select coalesce(sum(p.amount), 0) from VoucherPayment p where p.entryVoucher.id = :voucherId and p.status = :status")
@@ -22,4 +24,7 @@ public interface VoucherPaymentRepository extends JpaRepository<VoucherPayment, 
 
     @Query("select coalesce(sum(p.amount), 0) from VoucherPayment p where p.exitVoucher.id = :voucherId and p.status = :status")
     long sumByExitVoucher(@Param("voucherId") Long voucherId, @Param("status") PaymentRecordStatus status);
+
+    @Query("select coalesce(sum(p.amount), 0) from VoucherPayment p where p.feedReceipt.id = :receiptId and p.status = :status")
+    long sumByFeedReceipt(@Param("receiptId") Long receiptId, @Param("status") PaymentRecordStatus status);
 }

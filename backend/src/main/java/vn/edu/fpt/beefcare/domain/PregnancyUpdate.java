@@ -29,11 +29,15 @@ public class PregnancyUpdate implements Serializable {
     @Column(name = "type", length = 30, nullable = false)
     private String type;
 
+    @Size(max = 30)
+    @Column(name = "source", length = 30)
+    private String source;
+
     @NotNull
     @Column(name = "occurred_time", nullable = false)
     private Instant occurredTime;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "details")
     private String details;
 
@@ -45,6 +49,26 @@ public class PregnancyUpdate implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnoreProperties(value = { "cattle" }, allowSetters = true)
     private HealthCase healthCase;
+
+    @Column(name = "recorded_at")
+    private Instant recordedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recorded_by_id")
+    private AppUser recordedBy;
+
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean corrected = Boolean.FALSE;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -73,6 +97,8 @@ public class PregnancyUpdate implements Serializable {
     public void setType(String type) {
         this.type = type;
     }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
 
     public Instant getOccurredTime() {
         return this.occurredTime;
@@ -120,6 +146,18 @@ public class PregnancyUpdate implements Serializable {
     public void setHealthCase(HealthCase healthCase) {
         this.healthCase = healthCase;
     }
+    public Instant getRecordedAt() { return recordedAt; }
+    public void setRecordedAt(Instant recordedAt) { this.recordedAt = recordedAt; }
+    public AppUser getRecordedBy() { return recordedBy; }
+    public void setRecordedBy(AppUser recordedBy) { this.recordedBy = recordedBy; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getCorrected() { return corrected; }
+    public void setCorrected(Boolean corrected) { this.corrected = corrected; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public PregnancyUpdate healthCase(HealthCase healthCase) {
         this.setHealthCase(healthCase);

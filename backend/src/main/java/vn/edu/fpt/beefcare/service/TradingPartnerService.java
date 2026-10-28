@@ -91,7 +91,7 @@ public class TradingPartnerService {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_SELLERS);
         TradingPartner p = load(farmId, id);
         requireRightsOn(farmId, p, req.buyer());
-        VersionGuard.check(p.getVersion(), req.expectedVersion());
+        VersionGuard.requireExpected(p.getVersion(), req.expectedVersion());
         apply(p, req);
         TradingPartner saved = save(farmId, p);
         audit.log(ctx, "PARTNER_UPDATE", "TradingPartner", saved.getId(), Map.of("name", saved.getName()));
@@ -106,7 +106,7 @@ public class TradingPartnerService {
         }
         TradingPartner p = load(farmId, id);
         requireRightsOn(farmId, p, null);
-        VersionGuard.check(p.getVersion(), req.expectedVersion());
+        VersionGuard.requireExpected(p.getVersion(), req.expectedVersion());
         p.setStatus(req.status());
         p.setUpdatedAt(clock.now());
         TradingPartner saved = repository.saveAndFlush(p);

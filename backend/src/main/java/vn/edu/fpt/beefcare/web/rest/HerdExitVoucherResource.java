@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.edu.fpt.beefcare.domain.enumeration.ExitType;
 import vn.edu.fpt.beefcare.domain.enumeration.ExitVoucherStatus;
 import vn.edu.fpt.beefcare.service.HerdExitVoucherService;
+import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
+import vn.edu.fpt.beefcare.service.FarmAction;
 import vn.edu.fpt.beefcare.service.dto.ExitVoucherDTO;
 import vn.edu.fpt.beefcare.service.dto.ExitVoucherRequests;
 
@@ -33,9 +35,11 @@ import vn.edu.fpt.beefcare.service.dto.ExitVoucherRequests;
 public class HerdExitVoucherResource {
 
     private final HerdExitVoucherService service;
+    private final IdempotencyCommandService commands;
 
-    public HerdExitVoucherResource(HerdExitVoucherService service) {
+    public HerdExitVoucherResource(HerdExitVoucherService service, IdempotencyCommandService commands) {
         this.service = service;
+        this.commands = commands;
     }
 
     @GetMapping("")
@@ -66,25 +70,25 @@ public class HerdExitVoucherResource {
     }
 
     @PostMapping("")
-    public ResponseEntity<ExitVoucherDTO.Detail> create(@PathVariable Long farmId, @Valid @RequestBody ExitVoucherRequests.Save request) {
-        ExitVoucherDTO.Detail created = service.create(farmId, request);
+    public ResponseEntity<ExitVoucherDTO.Detail> create(@PathVariable Long farmId, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody ExitVoucherRequests.Save request) {
+        ExitVoucherDTO.Detail created = commands.execute(farmId, FarmAction.MANAGE_EXIT_VOUCHERS, "EXIT_VOUCHER_CREATE", key, request, ExitVoucherDTO.Detail.class, () -> service.create(farmId, request));
         return ResponseEntity.created(URI.create("/api/farms/" + farmId + "/exit-vouchers/" + created.id())).body(created);
     }
 
     @PutMapping("/{id}")
-    public ExitVoucherDTO.Detail update(@PathVariable Long farmId, @PathVariable Long id, @Valid @RequestBody ExitVoucherRequests.Save request) {
-        return service.update(farmId, id, request);
+    public ExitVoucherDTO.Detail update(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody ExitVoucherRequests.Save request) {
+        return commands.execute(farmId, FarmAction.MANAGE_EXIT_VOUCHERS, "EXIT_VOUCHER_UPDATE:" + id, key, request, ExitVoucherDTO.Detail.class, () -> service.update(farmId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long farmId, @PathVariable Long id, @RequestParam(required = false) Integer expectedVersion) {
-        service.delete(farmId, id, expectedVersion);
+    public ResponseEntity<Void> delete(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @RequestParam(required = false) Integer expectedVersion) {
+        commands.execute(farmId, FarmAction.MANAGE_EXIT_VOUCHERS, "EXIT_VOUCHER_DELETE:" + id, key, expectedVersion, Void.class, () -> { service.delete(farmId, id, expectedVersion); return null; });
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/lines")
-    public ExitVoucherDTO.Detail addCattle(@PathVariable Long farmId, @PathVariable Long id, @Valid @RequestBody ExitVoucherRequests.AddCattle request) {
-        return service.addCattle(farmId, id, request);
+    public ExitVoucherDTO.Detail addCattle(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody ExitVoucherRequests.AddCattle request) {
+        return commands.execute(farmId, FarmAction.MANAGE_EXIT_VOUCHERS, "EXIT_VOUCHER_ADD_CATTLE:" + id, key, request, ExitVoucherDTO.Detail.class, () -> service.addCattle(farmId, id, request));
     }
 
     @GetMapping("/{id}/checks")
@@ -96,15 +100,15 @@ public class HerdExitVoucherResource {
     public ExitVoucherDTO.ConfirmResult confirm(
         @PathVariable Long farmId,
         @PathVariable Long id,
-        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+        @RequestHeader("Idempotency-Key") String idempotencyKey,
         @Valid @RequestBody ExitVoucherRequests.Confirm request
     ) {
-        return service.confirm(farmId, id, request, idempotencyKey);
+        return commands.execute(farmId, FarmAction.MANAGE_EXIT_VOUCHERS, "EXIT_VOUCHER_CONFIRM:" + id, idempotencyKey, request, ExitVoucherDTO.ConfirmResult.class, () -> service.confirm(farmId, id, request, idempotencyKey));
     }
 
     @PostMapping("/{id}/dismiss")
-    public ExitVoucherDTO.DismissResult dismiss(@PathVariable Long farmId, @PathVariable Long id, @Valid @RequestBody ExitVoucherRequests.Dismiss request) {
-        return service.dismiss(farmId, id, request);
+    public ExitVoucherDTO.DismissResult dismiss(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody ExitVoucherRequests.Dismiss request) {
+        return commands.execute(farmId, FarmAction.MANAGE_EXIT_VOUCHERS, "EXIT_VOUCHER_DISMISS:" + id, key, request, ExitVoucherDTO.DismissResult.class, () -> service.dismiss(farmId, id, request));
     }
 
     @GetMapping("/{id}/void-check")
@@ -113,7 +117,7 @@ public class HerdExitVoucherResource {
     }
 
     @PostMapping("/{id}/void")
-    public ExitVoucherDTO.VoidResult voidVoucher(@PathVariable Long farmId, @PathVariable Long id, @Valid @RequestBody ExitVoucherRequests.Void request) {
-        return service.voidVoucher(farmId, id, request);
+    public ExitVoucherDTO.VoidResult voidVoucher(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody ExitVoucherRequests.Void request) {
+        return commands.execute(farmId, FarmAction.MANAGE_EXIT_VOUCHERS, "EXIT_VOUCHER_VOID:" + id, key, request, ExitVoucherDTO.VoidResult.class, () -> service.voidVoucher(farmId, id, request));
     }
 }

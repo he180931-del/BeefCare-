@@ -56,10 +56,14 @@ public class SupportHistory implements Serializable {
     @JsonIgnoreProperties(value = { "requester", "farm", "assignedCs" }, allowSetters = true)
     private SupportTicket ticket;
 
-    @ManyToOne(optional = false)
-    @NotNull
+    @ManyToOne
     @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
     private AppUser actor;
+
+    @Column(name="reason",length=1000) private String reason;
+    @Column(name="details",length=2000) private String details;
+    public String getReason(){return reason;} public void setReason(String value){reason=value;}
+    public String getDetails(){return details;} public void setDetails(String value){details=value;}
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

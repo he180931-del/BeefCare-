@@ -59,6 +59,7 @@ public class PenService {
     private final PregnancyEpisodeRepository pregnancyRepository;
     private final ReminderRepository reminderRepository;
     private final AuditService audit;
+    private final OutboxService outbox;
 
     public PenService(
         FarmAccessService access,
@@ -71,7 +72,8 @@ public class PenService {
         CattleGuardService cattleGuard,
         PregnancyEpisodeRepository pregnancyRepository,
         ReminderRepository reminderRepository,
-        AuditService audit
+        AuditService audit,
+        OutboxService outbox
     ) {
         this.access = access;
         this.clock = clock;
@@ -84,6 +86,7 @@ public class PenService {
         this.pregnancyRepository = pregnancyRepository;
         this.reminderRepository = reminderRepository;
         this.audit = audit;
+        this.outbox = outbox;
     }
 
     // ---- queries -------------------------------------------------------------------------------------------
@@ -144,6 +147,7 @@ public class PenService {
         pen = saveUnique(pen, code);
         PenCriteriaVersion v = newVersion(pen, 1, request.criteria(), ctx.user());
         audit.log(ctx, ACTION_CREATE, "Pen", pen.getId(), Map.of("code", code, "capacity", pen.getCapacity(), "status", pen.getStatus(), "criteria", criteriaDto(v)));
+        outbox.enqueue(farmId, "PEN_CREATED", "Pen", pen.getId(), Map.of("code", code, "capacity", pen.getCapacity(), "status", pen.getStatus().name()));
         return detail(pen, saved(pen));
     }
 
@@ -152,7 +156,7 @@ public class PenService {
     public PenDTO update(Long farmId, Long penId, PenRequest request) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_PENS);
         Pen pen = occupancy.lockPens(farmId, List.of(requirePenId(farmId, penId))).get(penId);
-        VersionGuard.check(pen.getVersion(), request.expectedVersion());
+        VersionGuard.requireExpected(pen.getVersion(), request.expectedVersion());
         String code = request.code().trim();
         if (!code.equalsIgnoreCase(pen.getCode()) && penRepository.existsByFarmIdAndCodeIgnoreCase(farmId, code)) {
             throw DomainException.unprocessable(MessageCodes.FE04_02, "pen_code", code);
@@ -180,6 +184,7 @@ public class PenService {
             pen.getId(),
             Map.of("before", beforeSnapshot, "after", Map.of("code", code, "name", pen.getName(), "capacity", pen.getCapacity(), "criteria", criteriaDto(after)), "newCriteriaVersion", after != before)
         );
+        outbox.enqueue(farmId, "PEN_UPDATED", "Pen", pen.getId(), Map.of("code", code, "capacity", pen.getCapacity(), "version", pen.getVersion()));
         return detail(pen, saved(pen));
     }
 
@@ -188,7 +193,7 @@ public class PenService {
     public PenDTO changeAvailability(Long farmId, Long penId, PenAvailabilityRequest request) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_PENS);
         Pen pen = occupancy.lockPens(farmId, List.of(requirePenId(farmId, penId))).get(penId);
-        VersionGuard.check(pen.getVersion(), request.expectedVersion());
+        VersionGuard.requireExpected(pen.getVersion(), request.expectedVersion());
         if (request.reason() == null || request.reason().isBlank()) {
             throw DomainException.required("reason");
         }
@@ -209,6 +214,7 @@ public class PenService {
             pen.getId(),
             Map.of("from", previous, "to", request.status(), "effectiveDate", request.effectiveDate(), "reason", pen.getStatusReason())
         );
+        outbox.enqueue(farmId, "PEN_AVAILABILITY_CHANGED", "Pen", pen.getId(), Map.of("status", pen.getStatus().name(), "effectiveDate", pen.getStatusEffectiveDate().toString()));
         return detail(pen, new ApiMessage(MessageCodes.FE04_04, DomainException.params("pen_code", pen.getCode(), "status", pen.getStatus())));
     }
 

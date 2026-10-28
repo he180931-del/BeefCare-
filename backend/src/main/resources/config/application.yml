@@ -24,6 +24,35 @@ springdoc:
   api-docs:
     enabled: false
 ---
+server:
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        http-only: true
+        same-site: lax
+---
+beefcare:
+  security:
+    session:
+      timeout-seconds: 28800
+      remember-me-timeout-seconds: 2592000
+    cookie-secure: false
+    google:
+      enabled: ${BEEFCARE_GOOGLE_ENABLED:false}
+  public:
+    contact-email: ${BEEFCARE_CONTACT_EMAIL:}
+  sepay:
+    environment: ${BEEFCARE_SEPAY_ENVIRONMENT:MOCK}
+    account-namespace: ${BEEFCARE_SEPAY_ACCOUNT_NAMESPACE:LOCAL-MOCK}
+    account-number: ${BEEFCARE_SEPAY_ACCOUNT_NUMBER:}
+    account-name: ${BEEFCARE_SEPAY_ACCOUNT_NAME:}
+    bank-code: ${BEEFCARE_SEPAY_BANK_CODE:}
+    webhook-secret: ${BEEFCARE_SEPAY_WEBHOOK_SECRET:}
+    api-token: ${BEEFCARE_SEPAY_API_TOKEN:}
+    api-base-url: ${BEEFCARE_SEPAY_API_BASE_URL:https://my.sepay.vn/userapi}
+    api-timeout: ${BEEFCARE_SEPAY_API_TIMEOUT:5s}
+---
 management:
   endpoints:
     web:
@@ -139,7 +168,7 @@ spring:
       ddl-auto: none
       naming:
         physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
-        implicit-strategy: org.springframework.boot.hibernate.SpringImplicitNamingStrategy
+        implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
   messages:
     basename: i18n/messages
   main:

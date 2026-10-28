@@ -7,6 +7,9 @@ import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Set;
+import vn.edu.fpt.beefcare.domain.enumeration.EstrusSign;
 
 /**
  * Reproduction Event (gộp Estrus Event, Breeding Event, Pregnancy Check)
@@ -51,6 +54,49 @@ public class ReproductionEvent implements Serializable {
     @Size(max = 30)
     @Column(name = "source", length = 30)
     private String source;
+
+    @Convert(converter = EstrusSignSetConverter.class)
+    @Column(name = "signs", length = 100)
+    private Set<EstrusSign> signs;
+
+    @Min(1)
+    @Max(9)
+    @Column(name = "est_months_pregnant")
+    private Integer estMonthsPregnant;
+
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean corrected = Boolean.FALSE;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+    @Size(max = 1000)
+    @Column(name = "description", length = 1000)
+    private String description;
+    @Column(name = "recorded_at")
+    private Instant recordedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recorded_by_id")
+    private AppUser recordedBy;
+    @Size(max = 255) @Column(name = "performed_by", length = 255) private String performedBy;
+    @Size(max = 100) @Column(name = "observer", length = 100) private String observer;
+    @Size(max = 255) @Column(name = "examiner", length = 255) private String examiner;
+    @Size(max = 30) @Column(name = "sire_source", length = 30) private String sireSource;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "sire_id") private Cattle sire;
+    @Size(max = 255) @Column(name = "external_sire_name", length = 255) private String externalSireName;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "sire_breed_id") private Breed sireBreed;
+    @Size(max = 100) @Column(name = "semen_batch", length = 100) private String semenBatch;
+    @Size(max = 255) @Column(name = "supplier", length = 255) private String supplier;
+    @Column(name = "tentative_expected_calving_date") private LocalDate tentativeExpectedCalvingDate;
 
     @ManyToOne(optional = false)
     @NotNull
@@ -144,6 +190,51 @@ public class ReproductionEvent implements Serializable {
     public void setSource(String source) {
         this.source = source;
     }
+
+    public Set<EstrusSign> getSigns() { return signs; }
+    public void setSigns(Set<EstrusSign> signs) { this.signs = signs; }
+    public Integer getEstMonthsPregnant() { return estMonthsPregnant; }
+    public void setEstMonthsPregnant(Integer estMonthsPregnant) { this.estMonthsPregnant = estMonthsPregnant; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getCorrected() { return corrected; }
+    public void setCorrected(Boolean corrected) { this.corrected = corrected; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public Instant getRecordedAt() { return recordedAt; }
+    public void setRecordedAt(Instant recordedAt) { this.recordedAt = recordedAt; }
+    public AppUser getRecordedBy() { return recordedBy; }
+    public void setRecordedBy(AppUser recordedBy) { this.recordedBy = recordedBy; }
+    public String getPerformedBy() { return performedBy; }
+    public void setPerformedBy(String performedBy) { this.performedBy = performedBy; }
+    public String getObserver() { return observer; }
+    public void setObserver(String observer) { this.observer = observer; }
+    public String getExaminer() { return examiner; }
+    public void setExaminer(String examiner) { this.examiner = examiner; }
+    public String getSireSource() { return sireSource; }
+    public void setSireSource(String sireSource) { this.sireSource = sireSource; }
+    public Cattle getSire() { return sire; }
+    public void setSire(Cattle sire) { this.sire = sire; }
+    public String getExternalSireName() { return externalSireName; }
+    public void setExternalSireName(String externalSireName) { this.externalSireName = externalSireName; }
+    public Breed getSireBreed() { return sireBreed; }
+    public void setSireBreed(Breed sireBreed) { this.sireBreed = sireBreed; }
+    public String getSemenBatch() { return semenBatch; }
+    public void setSemenBatch(String semenBatch) { this.semenBatch = semenBatch; }
+    public String getSupplier() { return supplier; }
+    public void setSupplier(String supplier) { this.supplier = supplier; }
+    public LocalDate getTentativeExpectedCalvingDate() { return tentativeExpectedCalvingDate; }
+    public void setTentativeExpectedCalvingDate(LocalDate date) { this.tentativeExpectedCalvingDate = date; }
+
+    @PrePersist
+    @PreUpdate
+    void touch() { if (updatedAt == null || updatedAt.isBefore(eventTime)) updatedAt = Instant.now(); }
 
     public Cattle getCattle() {
         return this.cattle;

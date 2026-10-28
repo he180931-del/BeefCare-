@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000140-payment-price-quote" author="beefcare">
+        <addColumn tableName="payment">
+            <column name="price_version_id" type="bigint"/>
+            <column name="requested_at" type="timestamp with time zone"/>
+            <column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="receipt_code" type="varchar(40)"/>
+            <column name="receiving_account_namespace" type="varchar(100)"/>
+            <column name="receiving_environment" type="varchar(20)"/>
+            <column name="receiving_account" type="varchar(50)"/>
+            <column name="receiving_bank_code" type="varchar(30)"/>
+            <column name="receiving_account_name" type="varchar(150)"/>
+        </addColumn>
+        <sql>UPDATE payment SET price_version_id=(SELECT plan_version_id FROM subscription WHERE subscription.id=payment.subscription_id)</sql>
+        <sql>UPDATE payment SET requested_at=expires_at WHERE requested_at IS NULL</sql>
+        <sql>UPDATE payment SET receiving_account_namespace='LEGACY', receiving_environment='LEGACY' WHERE receiving_account_namespace IS NULL</sql>
+        <addNotNullConstraint tableName="payment" columnName="price_version_id" columnDataType="bigint"/>
+        <addNotNullConstraint tableName="payment" columnName="requested_at" columnDataType="timestamp with time zone"/>
+        <addForeignKeyConstraint baseTableName="payment" baseColumnNames="price_version_id" referencedTableName="plan_version" referencedColumnNames="id" constraintName="fk_payment_price_version"/>
+    </changeSet>
+    <changeSet id="20261028000140-evidence-namespace" author="beefcare">
+        <addColumn tableName="bank_transfer_evidence">
+            <column name="provider" type="varchar(20)"/>
+            <column name="environment" type="varchar(20)"/>
+            <column name="account_namespace" type="varchar(100)"/>
+            <column name="transfer_direction" type="varchar(20)"/>
+            <column name="receiving_account" type="varchar(50)"/>
+            <column name="transfer_content" type="varchar(255)"/>
+            <column name="gateway" type="varchar(100)"/>
+            <column name="reference_code" type="varchar(100)"/>
+            <column name="review_status" type="varchar(30)"/>
+            <column name="review_reason" type="varchar(500)"/>
+            <column name="locked_for_return" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="return_reference" type="varchar(255)"/>
+            <column name="return_result" type="varchar(500)"/>
+            <column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="payload_hash" type="varchar(64)"/>
+        </addColumn>
+        <sql>UPDATE bank_transfer_evidence SET provider='LEGACY',environment='LEGACY',account_namespace=CONCAT('legacy-',id),review_status='UNMATCHED' WHERE provider IS NULL</sql>
+        <addNotNullConstraint tableName="bank_transfer_evidence" columnName="provider" columnDataType="varchar(20)"/>
+        <addNotNullConstraint tableName="bank_transfer_evidence" columnName="environment" columnDataType="varchar(20)"/>
+        <addNotNullConstraint tableName="bank_transfer_evidence" columnName="account_namespace" columnDataType="varchar(100)"/>
+        <addNotNullConstraint tableName="bank_transfer_evidence" columnName="review_status" columnDataType="varchar(30)"/>
+        <addUniqueConstraint tableName="bank_transfer_evidence" columnNames="provider,environment,account_namespace,provider_txn_id" constraintName="ux_evidence_provider_env_account_txn"/>
+    </changeSet>
+    <changeSet id="20261028000140-platform-audit-system-actor" author="beefcare">
+        <dropNotNullConstraint tableName="audit_log" columnName="actor_id" columnDataType="bigint"/>
+    </changeSet>
+</databaseChangeLog>

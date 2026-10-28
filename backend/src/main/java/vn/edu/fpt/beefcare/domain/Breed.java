@@ -33,7 +33,7 @@ public class Breed implements Serializable {
     @Column(name = "name", length = 255, nullable = false)
     private String name;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "description")
     private String description;
 
@@ -45,6 +45,13 @@ public class Breed implements Serializable {
     @NotNull
     @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
     private Farm farm;
+
+    @Column(name="breed_group",length=50) private String breedGroup;
+    @Version @Column(name="version",nullable=false) private Integer version;
+    public String getBreedGroup() { return breedGroup; }
+    public void setBreedGroup(String value) { breedGroup=value; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer value) { version=value; }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

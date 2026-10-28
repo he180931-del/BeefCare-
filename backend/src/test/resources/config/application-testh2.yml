@@ -28,3 +28,11 @@ spring:
       hibernate.timezone.default_storage: NORMALIZE
   liquibase:
     contexts: test
+
+beefcare:
+  email:
+    poll-delay-ms: 60000
+    provider: mock
+    link-signing-key: beefcare-test-only-fixed-link-key-000000000000000000000000000000000000000000
+    frontend-base-url: http://127.0.0.1:8080
+    backend-base-url: http://127.0.0.1:8080

@@ -25,9 +25,12 @@ public class PregnancyEpisode implements Serializable {
     @Column(name = "id")
     private Long id;
 
-    @NotNull
-    @Column(name = "expected_calving_date", nullable = false)
+    @Column(name = "expected_calving_date")
     private LocalDate expectedCalvingDate;
+
+    @Size(max = 30)
+    @Column(name = "expected_basis", length = 30)
+    private String expectedBasis;
 
     @NotNull
     @Column(name = "parity", nullable = false)
@@ -43,8 +46,7 @@ public class PregnancyEpisode implements Serializable {
     private String status;
 
     @JsonIgnoreProperties(value = { "cattle", "linkedEvent", "pregnancyEpisode" }, allowSetters = true)
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @NotNull
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(unique = true)
     private ReproductionEvent confirmingCheck;
 
@@ -58,6 +60,14 @@ public class PregnancyEpisode implements Serializable {
 
     @Column(name = "closed_date")
     private LocalDate closedDate;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_breeding_id")
+    private ReproductionEvent linkedBreeding;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -86,6 +96,9 @@ public class PregnancyEpisode implements Serializable {
     public void setExpectedCalvingDate(LocalDate expectedCalvingDate) {
         this.expectedCalvingDate = expectedCalvingDate;
     }
+
+    public String getExpectedBasis() { return expectedBasis; }
+    public void setExpectedBasis(String expectedBasis) { this.expectedBasis = expectedBasis; }
 
     public Integer getParity() {
         return this.parity;
@@ -154,6 +167,10 @@ public class PregnancyEpisode implements Serializable {
     public void setClosedDate(LocalDate closedDate) {
         this.closedDate = closedDate;
     }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public ReproductionEvent getLinkedBreeding() { return linkedBreeding; }
+    public void setLinkedBreeding(ReproductionEvent linkedBreeding) { this.linkedBreeding = linkedBreeding; }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

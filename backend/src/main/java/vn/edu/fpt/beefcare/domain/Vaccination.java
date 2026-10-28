@@ -76,6 +76,28 @@ public class Vaccination implements Serializable {
     @Column(name = "information_source", length = 255)
     private String informationSource;
 
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean corrected = Boolean.FALSE;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+    @Column(name = "route", length = 255)
+    private String route;
+    @Column(name = "withdrawal_days")
+    private Integer withdrawalDays;
+    @Column(name = "vaccine_name_snapshot", length = 255)
+    private String vaccineNameSnapshot;
+    @Column(name = "administered_at")
+    private Instant administeredAt;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -229,6 +251,23 @@ public class Vaccination implements Serializable {
     public void setInformationSource(String informationSource) {
         this.informationSource = informationSource;
     }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getCorrected() { return corrected; }
+    public void setCorrected(Boolean corrected) { this.corrected = corrected; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public String getRoute() { return route; }
+    public void setRoute(String route) { this.route = route; }
+    public Integer getWithdrawalDays() { return withdrawalDays; }
+    public void setWithdrawalDays(Integer withdrawalDays) { this.withdrawalDays = withdrawalDays; }
+    public String getVaccineNameSnapshot() { return vaccineNameSnapshot; }
+    public void setVaccineNameSnapshot(String vaccineNameSnapshot) { this.vaccineNameSnapshot = vaccineNameSnapshot; }
+    public Instant getAdministeredAt() { return administeredAt; }
+    public void setAdministeredAt(Instant administeredAt) { this.administeredAt = administeredAt; }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

@@ -10,13 +10,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionInformation;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.security.RandomUtil;
 import vn.edu.fpt.beefcare.config.Constants;
 import vn.edu.fpt.beefcare.domain.Authority;
+import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.repository.AuthorityRepository;
+import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.UserRepository;
 import vn.edu.fpt.beefcare.security.AuthoritiesConstants;
 import vn.edu.fpt.beefcare.security.SecurityUtils;
@@ -37,11 +43,21 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     private final AuthorityRepository authorityRepository;
+    private final SessionRegistry sessionRegistry;
+    private final AppUserRepository appUserRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, AuthorityRepository authorityRepository) {
+    public UserService(
+        UserRepository userRepository,
+        PasswordEncoder passwordEncoder,
+        AuthorityRepository authorityRepository,
+        SessionRegistry sessionRegistry,
+        AppUserRepository appUserRepository
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authorityRepository = authorityRepository;
+        this.sessionRegistry = sessionRegistry;
+        this.appUserRepository = appUserRepository;
     }
 
     public Optional<User> activateRegistration(String key) {
@@ -174,7 +190,9 @@ public class UserService {
                 user.setFirstName(userDTO.getFirstName());
                 user.setLastName(userDTO.getLastName());
                 if (userDTO.getEmail() != null) {
-                    user.setEmail(userDTO.getEmail().toLowerCase());
+                    String normalizedEmail = userDTO.getEmail().trim().toLowerCase(Locale.ROOT);
+                    synchronizeAppUserEmail(user.getEmail(), normalizedEmail);
+                    user.setEmail(normalizedEmail);
                 }
                 user.setImageUrl(userDTO.getImageUrl());
                 user.setActivated(userDTO.isActivated());
@@ -218,13 +236,26 @@ public class UserService {
                 user.setFirstName(firstName);
                 user.setLastName(lastName);
                 if (email != null) {
-                    user.setEmail(email.toLowerCase());
+                    String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+                    synchronizeAppUserEmail(user.getEmail(), normalizedEmail);
+                    user.setEmail(normalizedEmail);
                 }
                 user.setLangKey(langKey);
                 user.setImageUrl(imageUrl);
                 userRepository.save(user);
                 LOG.debug("Changed Information for User: {}", user);
             });
+    }
+
+    private void synchronizeAppUserEmail(String oldEmail, String newEmail) {
+        Optional<AppUser> appUser = appUserRepository.findOneByEmailIgnoreCase(oldEmail);
+        appUserRepository
+            .findOneByEmailIgnoreCase(newEmail)
+            .filter(other -> appUser.isEmpty() || !other.getId().equals(appUser.get().getId()))
+            .ifPresent(other -> {
+                throw new EmailAlreadyUsedException();
+            });
+        appUser.ifPresent(projection -> projection.setEmail(newEmail));
     }
 
     @Transactional
@@ -238,8 +269,24 @@ public class UserService {
                 }
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
+                expireOtherSessions(user.getLogin());
                 LOG.debug("Changed password for User: {}", user);
             });
+    }
+
+    private void expireOtherSessions(String login) {
+        String currentSessionId = null;
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+            var session = attributes.getRequest().getSession(false);
+            if (session != null) {
+                currentSessionId = session.getId();
+            }
+        }
+        for (SessionInformation information : sessionRegistry.getAllSessions(login, false)) {
+            if (!information.getSessionId().equals(currentSessionId)) {
+                information.expireNow();
+            }
+        }
     }
 
     @Transactional(readOnly = true)

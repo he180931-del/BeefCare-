@@ -25,5 +25,5 @@ import vn.edu.fpt.beefcare.config.JacksonConfiguration;
     }
 )
 @ActiveProfiles("testh2")
-@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 public @interface ServiceIntegrationTest {}

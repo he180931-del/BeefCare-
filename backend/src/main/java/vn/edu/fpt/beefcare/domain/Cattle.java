@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.domain;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
@@ -31,8 +32,8 @@ public class Cattle implements Serializable {
     @Column(name = "display_code", length = 50, nullable = false)
     private String displayCode;
 
-    @Size(max = 50)
-    @Column(name = "ear_tag_number", length = 50)
+    @Size(max = 30)
+    @Column(name = "ear_tag_number", length = 30)
     private String earTagNumber;
 
     @Size(max = 50)
@@ -56,9 +57,21 @@ public class Cattle implements Serializable {
     @Column(name = "colour_markings", length = 255)
     private String colourMarkings;
 
+    @Size(max=1000)
+    @Column(name="notes",length=1000)
+    private String notes;
+
+    public String getNotes() { return notes; }
+    public void setNotes(String value) { notes=value; }
+
     @Size(max = 500)
     @Column(name = "photo_url", length = 500)
     private String photoUrl;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "photo_attachment_id")
+    @JsonIgnore
+    private Attachment photoAttachment;
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -199,6 +212,9 @@ public class Cattle implements Serializable {
     public void setPhotoUrl(String photoUrl) {
         this.photoUrl = photoUrl;
     }
+
+    public Attachment getPhotoAttachment() { return photoAttachment; }
+    public void setPhotoAttachment(Attachment photoAttachment) { this.photoAttachment = photoAttachment; }
 
     public LifeStage getLifeStage() {
         return lifeStage;

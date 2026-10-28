@@ -38,6 +38,34 @@ public class CalvingEvent implements Serializable {
     @Column(name = "dam_condition", length = 30, nullable = false)
     private String damCondition;
 
+    @NotNull
+    @Column(name = "retained_placenta", nullable = false)
+    private Boolean retainedPlacenta = Boolean.FALSE;
+
+    @NotNull
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean corrected = Boolean.FALSE;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+    @Size(max = 30)
+    @Column(name = "source", length = 30)
+    private String source;
+    @Size(max = 255)
+    @Column(name = "attendant", length = 255)
+    private String attendant;
+    @Column(name = "recorded_at")
+    private Instant recordedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recorded_by_id")
+    private AppUser recordedBy;
+
     @ManyToOne(optional = false)
     @NotNull
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
@@ -100,6 +128,25 @@ public class CalvingEvent implements Serializable {
     public void setDamCondition(String damCondition) {
         this.damCondition = damCondition;
     }
+
+    public Boolean getRetainedPlacenta() { return retainedPlacenta; }
+    public void setRetainedPlacenta(Boolean retainedPlacenta) { this.retainedPlacenta = retainedPlacenta; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getCorrected() { return corrected; }
+    public void setCorrected(Boolean corrected) { this.corrected = corrected; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+    public String getAttendant() { return attendant; }
+    public void setAttendant(String attendant) { this.attendant = attendant; }
+    public Instant getRecordedAt() { return recordedAt; }
+    public void setRecordedAt(Instant recordedAt) { this.recordedAt = recordedAt; }
+    public AppUser getRecordedBy() { return recordedBy; }
+    public void setRecordedBy(AppUser recordedBy) { this.recordedBy = recordedBy; }
 
     public Cattle getDam() {
         return this.dam;

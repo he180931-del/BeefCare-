@@ -166,7 +166,7 @@ public class PenMoveService {
         Map<Long, PenAssignment> current = new LinkedHashMap<>();
         for (Long id : ids) {
             Cattle c = cattleGuard.lockWritable(farmId, id);
-            VersionGuard.check(c.getVersion(), versions.get(id));
+            VersionGuard.requireExpected(c.getVersion(), versions.get(id));
             cattle.put(id, c);
             current.put(id, assignments.findOpen(id).orElseThrow(() -> DomainException.conflict(MessageCodes.COM_05, "cattle_code", c.getDisplayCode())));
         }

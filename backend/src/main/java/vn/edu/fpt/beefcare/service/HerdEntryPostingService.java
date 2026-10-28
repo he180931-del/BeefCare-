@@ -73,6 +73,7 @@ public class HerdEntryPostingService {
     private final AuditService audit;
     private final EntryVoucherMapper mapper;
     private final FarmClock clock;
+    private final AttachmentService attachments;
 
     public HerdEntryPostingService(
         HerdEntryVoucherRepository voucherRepository,
@@ -91,7 +92,8 @@ public class HerdEntryPostingService {
         EntryReminderService reminders,
         AuditService audit,
         EntryVoucherMapper mapper,
-        FarmClock clock
+        FarmClock clock,
+        AttachmentService attachments
     ) {
         this.voucherRepository = voucherRepository;
         this.entryRepository = entryRepository;
@@ -110,6 +112,7 @@ public class HerdEntryPostingService {
         this.audit = audit;
         this.mapper = mapper;
         this.clock = clock;
+        this.attachments = attachments;
     }
 
     /** POST /entry-vouchers/{id}/post. Idempotent: a POSTED voucher returns its first result and creates nothing. */
@@ -124,7 +127,7 @@ public class HerdEntryPostingService {
         if (v.getStatus() != EntryVoucherStatus.DRAFT) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
-        VersionGuard.check(v.getVersion(), req == null ? null : req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req == null ? null : req.expectedVersion());
         return postLocked(ctx, v, printQr);
     }
 
@@ -166,6 +169,7 @@ public class HerdEntryPostingService {
             line.setLineAmount(r.lineAmount());
             line.setDraftData(JsonSupport.toJson(r.data()));
             entryRepository.saveAndFlush(line);
+            attachments.transferEntryPhoto(farmId, line.getId(), cattle);
             cattleAmount += r.lineAmount();
 
             if (purchase) {

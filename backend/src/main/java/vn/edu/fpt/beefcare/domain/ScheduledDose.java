@@ -42,7 +42,7 @@ public class ScheduledDose implements Serializable {
     @Column(name = "status", length = 30, nullable = false)
     private String status;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "deferral_reason")
     private String deferralReason;
 
@@ -63,6 +63,15 @@ public class ScheduledDose implements Serializable {
     @NotNull
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
     private Cattle cattle;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deferred_by_id")
+    private AppUser deferredBy;
+    @Size(max = 500)
+    @Column(name = "deferral_note", length = 500)
+    private String deferralNote;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -177,6 +186,13 @@ public class ScheduledDose implements Serializable {
     public void setCattle(Cattle cattle) {
         this.cattle = cattle;
     }
+
+    public AppUser getDeferredBy() { return deferredBy; }
+    public void setDeferredBy(AppUser deferredBy) { this.deferredBy = deferredBy; }
+    public String getDeferralNote() { return deferralNote; }
+    public void setDeferralNote(String deferralNote) { this.deferralNote = deferralNote; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public ScheduledDose cattle(Cattle cattle) {
         this.setCattle(cattle);

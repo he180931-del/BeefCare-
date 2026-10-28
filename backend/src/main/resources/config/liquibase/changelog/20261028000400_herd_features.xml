@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <changeSet id="20261028000400-growth-complete" author="beefcare">
+    <dropNotNullConstraint tableName="growth" columnName="weight_kg" columnDataType="numeric(21,2)"/>
+    <dropNotNullConstraint tableName="growth" columnName="weight_type" columnDataType="varchar(30)"/>
+    <dropNotNullConstraint tableName="growth" columnName="bcs" columnDataType="integer"/>
+    <addColumn tableName="growth">
+      <column name="bcs_score" type="numeric(3,1)"/>
+      <column name="observed_at" type="${datetimeType}"/>
+      <column name="measured_by_id" type="bigint"><constraints foreignKeyName="fk_growth_measured_by" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="note" type="varchar(500)"/>
+      <column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <sql>UPDATE growth SET bcs_score=bcs WHERE bcs IS NOT NULL;</sql>
+    <sql dbms="postgresql,h2">ALTER TABLE growth ADD CONSTRAINT ck_growth_content CHECK (weight_kg IS NOT NULL OR bcs_score IS NOT NULL);</sql>
+    <addColumn tableName="cattle"><column name="notes" type="varchar(1000)"/></addColumn>
+    <createIndex tableName="growth" indexName="ix_growth_cattle_date"><column name="cattle_id"/><column name="check_date"/></createIndex>
+  </changeSet>
+</databaseChangeLog>

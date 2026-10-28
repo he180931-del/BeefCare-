@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.liquibase.autoconfigure.LiquibaseProperties;
+import org.springframework.boot.autoconfigure.liquibase.LiquibaseProperties;
 import org.springframework.core.env.Environment;
 import tech.jhipster.config.DefaultProfileUtil;
 import tech.jhipster.config.JHipsterConstants;
@@ -65,6 +65,8 @@ public class BeefcareApp {
      * @param args the command line arguments.
      */
     public static void main(String[] args) {
+        // Database/JDBC and internal timestamps use UTC; business dates use each farm's configured zone.
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
         var app = new SpringApplication(BeefcareApp.class);
         DefaultProfileUtil.addDefaultProfile(app);
         Environment env = app.run(args).getEnvironment();

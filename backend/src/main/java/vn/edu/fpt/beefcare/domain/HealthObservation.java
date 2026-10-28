@@ -37,7 +37,7 @@ public class HealthObservation implements Serializable {
      * ERD: signs / progress
      */
     @Schema(description = "ERD: signs / progress", required = true)
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "signs_progress", nullable = false)
     private String signsProgress;
 
@@ -53,6 +53,40 @@ public class HealthObservation implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnoreProperties(value = { "cattle", "vaccine", "scheduledDose" }, allowSetters = true)
     private Vaccination vaccination;
+
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
+
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean isCorrected = Boolean.FALSE;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Column(name = "temperature_c", precision = 4, scale = 1)
+    private java.math.BigDecimal temperatureC;
+    @Size(max = 30)
+    @Column(name = "progress", length = 30)
+    private String progress;
+    @Column(name = "is_opening", nullable = false)
+    private Boolean opening = Boolean.FALSE;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "observer_id")
+    private AppUser observer;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recorder_id")
+    private AppUser recorder;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -146,6 +180,31 @@ public class HealthObservation implements Serializable {
         this.setVaccination(vaccination);
         return this;
     }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getIsCorrected() { return isCorrected; }
+    public void setIsCorrected(Boolean isCorrected) { this.isCorrected = isCorrected; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public java.math.BigDecimal getTemperatureC() { return temperatureC; }
+    public void setTemperatureC(java.math.BigDecimal temperatureC) { this.temperatureC = temperatureC; }
+    public String getProgress() { return progress; }
+    public void setProgress(String progress) { this.progress = progress; }
+    public Boolean getOpening() { return opening; }
+    public void setOpening(Boolean opening) { this.opening = opening; }
+    public AppUser getObserver() { return observer; }
+    public void setObserver(AppUser observer) { this.observer = observer; }
+    public AppUser getRecorder() { return recorder; }
+    public void setRecorder(AppUser recorder) { this.recorder = recorder; }
+
+    @PrePersist
+    @PreUpdate
+    void touch() { updatedAt = Instant.now(); }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

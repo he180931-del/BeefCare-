@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -48,6 +49,40 @@ public class FarmInvitation implements Serializable {
     @NotNull
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "last_sent_at", nullable = false)
+    private Instant lastSentAt;
+
+    @NotNull
+    @Column(name = "validity_days", nullable = false)
+    private Integer validityDays = 7;
+
+    @JsonIgnore
+    @Size(max = 64)
+    @Column(name = "token_hash", length = 64, unique = true)
+    private String tokenHash;
+
+    @JsonIgnore
+    @Size(max = 64)
+    @Column(name = "token_nonce", length = 64)
+    private String tokenNonce;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "invited_by_id")
+    private AppUser invitedBy;
+
+    @Column(name = "accepted_at")
+    private Instant acceptedAt;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
 
     @ManyToOne(optional = false)
     @NotNull
@@ -133,6 +168,25 @@ public class FarmInvitation implements Serializable {
     public void setExpiresAt(Instant expiresAt) {
         this.expiresAt = expiresAt;
     }
+
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getLastSentAt() { return lastSentAt; }
+    public void setLastSentAt(Instant lastSentAt) { this.lastSentAt = lastSentAt; }
+    public Integer getValidityDays() { return validityDays; }
+    public void setValidityDays(Integer validityDays) { this.validityDays = validityDays; }
+    public String getTokenHash() { return tokenHash; }
+    public void setTokenHash(String tokenHash) { this.tokenHash = tokenHash; }
+    public String getTokenNonce() { return tokenNonce; }
+    public void setTokenNonce(String tokenNonce) { this.tokenNonce = tokenNonce; }
+    public AppUser getInvitedBy() { return invitedBy; }
+    public void setInvitedBy(AppUser invitedBy) { this.invitedBy = invitedBy; }
+    public Instant getAcceptedAt() { return acceptedAt; }
+    public void setAcceptedAt(Instant acceptedAt) { this.acceptedAt = acceptedAt; }
+    public Instant getCancelledAt() { return cancelledAt; }
+    public void setCancelledAt(Instant cancelledAt) { this.cancelledAt = cancelledAt; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public Farm getFarm() {
         return this.farm;

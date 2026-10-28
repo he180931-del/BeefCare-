@@ -19,6 +19,29 @@ logging:
     tech.jhipster: INFO
     vn.edu.fpt.beefcare: INFO
 
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+
+beefcare:
+  email:
+    provider: ${BEEFCARE_EMAIL_PROVIDER:smtp}
+    link-signing-key: ${BEEFCARE_LINK_SECRET}
+    frontend-base-url: ${BEEFCARE_PUBLIC_URL}
+    backend-base-url: ${BEEFCARE_BACKEND_URL}
+  security:
+    cookie-secure: true
+  sepay:
+    environment: ${BEEFCARE_SEPAY_ENVIRONMENT:LIVE}
+    account-namespace: ${BEEFCARE_SEPAY_ACCOUNT_NAMESPACE}
+    account-number: ${BEEFCARE_SEPAY_ACCOUNT_NUMBER}
+    account-name: ${BEEFCARE_SEPAY_ACCOUNT_NAME:}
+    bank-code: ${BEEFCARE_SEPAY_BANK_CODE}
+    webhook-secret: ${BEEFCARE_SEPAY_WEBHOOK_SECRET}
+    api-token: ${BEEFCARE_SEPAY_API_TOKEN:}
+
 management:
   prometheus:
     metrics:
@@ -41,8 +64,16 @@ spring:
   liquibase:
     contexts: prod
   mail:
-    host: localhost
-    port: 25
+    host: ${BEEFCARE_SMTP_HOST:localhost}
+    port: ${BEEFCARE_SMTP_PORT:25}
+    username: ${BEEFCARE_SMTP_USERNAME:}
+    password: ${BEEFCARE_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
   thymeleaf:
     cache: true
 

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <changeSet id="20261028000500-support" author="beefcare">
+    <addColumn tableName="support_ticket">
+      <column name="code" type="varchar(50)"/><column name="subject" type="varchar(150)"/>
+      <column name="created_at" type="${datetimeType}"/><column name="updated_at" type="${datetimeType}"/>
+      <column name="latest_resolution_version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addUniqueConstraint tableName="support_ticket" columnNames="code" constraintName="uq_ticket_code"/>
+    <addColumn tableName="ticket_message"><column name="created_at" type="${datetimeType}"/><column name="author_role" type="varchar(30)"/></addColumn>
+    <addColumn tableName="support_history"><column name="reason" type="varchar(1000)"/><column name="details" type="varchar(2000)"/></addColumn>
+    <dropNotNullConstraint tableName="support_history" columnName="actor_id" columnDataType="bigint"/>
+    <addColumn tableName="internal_request">
+      <column name="code" type="varchar(50)"/><column name="question" type="varchar(2000)"/>
+      <column name="context_json" type="text"/><column name="result_text" type="varchar(2000)"/>
+      <column name="created_at" type="${datetimeType}"/><column name="completed_at" type="${datetimeType}"/>
+      <column name="created_by_id" type="bigint"><constraints foreignKeyName="fk_internal_created_by" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="domain_audit_id" type="bigint"><constraints foreignKeyName="fk_internal_domain_audit" referencedTableName="audit_log" referencedColumnNames="id"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addUniqueConstraint tableName="internal_request" columnNames="code" constraintName="uq_internal_request_code"/>
+    <sql dbms="postgresql">CREATE UNIQUE INDEX ux_internal_open_per_role ON internal_request(ticket_id,target_role) WHERE state='OPEN';</sql>
+    <createTable tableName="ticket_resolution">
+      <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="ticket_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_resolution_ticket" referencedTableName="support_ticket" referencedColumnNames="id"/></column>
+      <column name="version_no" type="integer"><constraints nullable="false"/></column>
+      <column name="content" type="varchar(3000)"><constraints nullable="false"/></column>
+      <column name="resolved_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_resolution_actor" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="resolved_at" type="${datetimeType}"><constraints nullable="false"/></column>
+    </createTable>
+    <addUniqueConstraint tableName="ticket_resolution" columnNames="ticket_id,version_no" constraintName="uq_ticket_resolution_version"/>
+    <createTable tableName="resolution_acknowledgment">
+      <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="resolution_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_ack_resolution" referencedTableName="ticket_resolution" referencedColumnNames="id"/></column>
+      <column name="requester_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_ack_requester" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="confirmed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+      <column name="comment" type="varchar(1000)"/><column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+      <column name="reviewed_by_id" type="bigint"><constraints foreignKeyName="fk_ack_reviewer" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="reviewed_at" type="${datetimeType}"/>
+    </createTable>
+    <addUniqueConstraint tableName="resolution_acknowledgment" columnNames="resolution_id,requester_id" constraintName="uq_resolution_ack"/>
+  </changeSet>
+</databaseChangeLog>

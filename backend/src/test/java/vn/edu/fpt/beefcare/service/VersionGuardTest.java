@@ -21,6 +21,17 @@ class VersionGuardTest extends DomainTestSupport {
     void matchingOrAbsentExpectedVersionPasses() {
         assertThatCode(() -> VersionGuard.check(3, 3)).doesNotThrowAnyException();
         assertThatCode(() -> VersionGuard.check(3, null)).doesNotThrowAnyException();
+        assertThatCode(() -> VersionGuard.requireExpected(3, 3)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void missingUpdateVersionIsMsgCom05Conflict() {
+        assertThatThrownBy(() -> VersionGuard.requireExpected(4, null))
+            .isInstanceOfSatisfying(DomainException.class, e -> {
+                assertThat(e.getCode()).isEqualTo(MessageCodes.COM_05);
+                assertThat(e.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+                assertThat(e.getParams()).containsEntry("reason", "expected_version_required");
+            });
     }
 
     @Test

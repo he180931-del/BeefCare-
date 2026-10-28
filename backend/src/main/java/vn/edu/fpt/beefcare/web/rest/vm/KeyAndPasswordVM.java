@@ -9,6 +9,8 @@ public class KeyAndPasswordVM {
 
     private String newPassword;
 
+    private String confirmPassword;
+
     public String getKey() {
         return key;
     }
@@ -23,5 +25,13 @@ public class KeyAndPasswordVM {
 
     public void setNewPassword(String newPassword) {
         this.newPassword = newPassword;
+    }
+
+    public String getConfirmPassword() {
+        return confirmPassword;
+    }
+
+    public void setConfirmPassword(String confirmPassword) {
+        this.confirmPassword = confirmPassword;
     }
 }

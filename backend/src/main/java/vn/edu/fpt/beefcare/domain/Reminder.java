@@ -36,6 +36,24 @@ public class Reminder implements Serializable {
     private String sourceRecord;
 
     @NotNull
+    @Size(max = 40)
+    @Column(name = "source_type", length = 40, nullable = false)
+    private String sourceType = "LEGACY";
+
+    @NotNull
+    @Size(max = 255)
+    @Column(name = "source_id", length = 255, nullable = false)
+    private String sourceId;
+
+    @NotNull
+    @Size(max = 350)
+    @Column(name = "rule_key", length = 350, nullable = false, unique = true)
+    private String ruleKey;
+
+    @Column(name = "parameter_snapshot", columnDefinition = "text")
+    private String parameterSnapshot;
+
+    @NotNull
     @Column(name = "due_time", nullable = false)
     private Instant dueTime;
 
@@ -48,8 +66,7 @@ public class Reminder implements Serializable {
     @Column(name = "status", length = 30, nullable = false)
     private String status;
 
-    @ManyToOne(optional = false)
-    @NotNull
+    @ManyToOne(optional = true)
     @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
     private Farm farm;
 
@@ -99,6 +116,15 @@ public class Reminder implements Serializable {
         this.sourceRecord = sourceRecord;
     }
 
+    public String getSourceType() { return sourceType; }
+    public void setSourceType(String sourceType) { this.sourceType = sourceType; }
+    public String getSourceId() { return sourceId; }
+    public void setSourceId(String sourceId) { this.sourceId = sourceId; }
+    public String getRuleKey() { return ruleKey; }
+    public void setRuleKey(String ruleKey) { this.ruleKey = ruleKey; }
+    public String getParameterSnapshot() { return parameterSnapshot; }
+    public void setParameterSnapshot(String parameterSnapshot) { this.parameterSnapshot = parameterSnapshot; }
+
     public Instant getDueTime() {
         return this.dueTime;
     }
@@ -144,6 +170,18 @@ public class Reminder implements Serializable {
 
     public void setCattle(Cattle cattle) {
         this.cattle = cattle;
+    }
+
+    @PrePersist
+    private void completeSourceIdentity() {
+        if (sourceId == null) sourceId = sourceRecord;
+        if (sourceType == null || "LEGACY".equals(sourceType)) {
+            int separator = sourceRecord == null ? -1 : sourceRecord.indexOf(':');
+            if (separator > 0) sourceType = sourceRecord.substring(0, separator);
+        }
+        if (ruleKey == null && farm != null && ruleType != null && sourceType != null && sourceId != null) {
+            ruleKey = farm.getId() + ":" + ruleType + ":" + sourceType + ":" + sourceId;
+        }
     }
 
     public Reminder cattle(Cattle cattle) {

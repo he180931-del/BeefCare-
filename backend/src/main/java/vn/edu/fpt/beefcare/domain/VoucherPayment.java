@@ -37,6 +37,10 @@ public class VoucherPayment implements Serializable {
     @JoinColumn(name = "exit_voucher_id")
     private HerdExitVoucher exitVoucher;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "feed_receipt_id")
+    private FeedReceipt feedReceipt;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "direction", length = 30, nullable = false)
@@ -123,6 +127,9 @@ public class VoucherPayment implements Serializable {
     public void setExitVoucher(HerdExitVoucher exitVoucher) {
         this.exitVoucher = exitVoucher;
     }
+
+    public FeedReceipt getFeedReceipt() { return feedReceipt; }
+    public void setFeedReceipt(FeedReceipt feedReceipt) { this.feedReceipt = feedReceipt; }
 
     public PaymentDirection getDirection() {
         return direction;

@@ -56,6 +56,15 @@ public class VaccinationSchedule implements Serializable {
     @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
     private Vaccine vaccine;
 
+    @Size(max = 100)
+    @Column(name = "schedule_name", length = 100)
+    private String scheduleName;
+    @Column(name = "booster_interval_months")
+    private Integer boosterIntervalMonths;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -152,6 +161,13 @@ public class VaccinationSchedule implements Serializable {
     public Vaccine getVaccine() {
         return this.vaccine;
     }
+
+    public String getScheduleName() { return scheduleName; }
+    public void setScheduleName(String scheduleName) { this.scheduleName = scheduleName; }
+    public Integer getBoosterIntervalMonths() { return boosterIntervalMonths; }
+    public void setBoosterIntervalMonths(Integer boosterIntervalMonths) { this.boosterIntervalMonths = boosterIntervalMonths; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public void setVaccine(Vaccine vaccine) {
         this.vaccine = vaccine;

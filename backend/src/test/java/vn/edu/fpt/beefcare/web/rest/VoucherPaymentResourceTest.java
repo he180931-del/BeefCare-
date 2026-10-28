@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.ServiceIntegrationTest;
@@ -50,11 +51,26 @@ class VoucherPaymentResourceTest extends DomainTestSupport {
     }
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor as(String email) {
-        return org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(email);
+        return request -> {
+            MockHttpServletRequest processed = org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(email).postProcessRequest(request);
+            org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().postProcessRequest(processed);
+            if (processed.getHeader("Idempotency-Key") == null) processed.addHeader("Idempotency-Key", java.util.UUID.randomUUID().toString());
+            return processed;
+        };
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor as(String email, String key) {
+        return request -> {
+            org.springframework.mock.web.MockHttpServletRequest processed =
+                org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(email).postProcessRequest(request);
+            org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().postProcessRequest(processed);
+            processed.addHeader("Idempotency-Key", key);
+            return processed;
+        };
     }
 
     private String body(String date, String amount, String method) {
-        return "{\"paymentDate\":\"" + date + "\",\"amount\":" + amount + ",\"method\":" + method + ",\"reference\":\"ck\"}";
+        return "{\"paymentDate\":\"" + date + "\",\"amount\":" + amount + ",\"method\":" + method + ",\"reference\":\"ck\",\"voucherVersion\":" + entry.getVersion() + "}";
     }
 
     private String entryUrl() {
@@ -190,7 +206,7 @@ class VoucherPaymentResourceTest extends DomainTestSupport {
                 post("/api/farms/" + farm.getId() + "/payments/" + paymentId + "/void")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"reason\":\"entered twice\"}")
+                    .content("{\"reason\":\"entered twice\",\"version\":0}")
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.payment.status").value("VOIDED"))
@@ -201,7 +217,7 @@ class VoucherPaymentResourceTest extends DomainTestSupport {
                 post("/api/farms/" + farm.getId() + "/payments/" + paymentId + "/void")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"reason\":\"again\"}")
+                    .content("{\"reason\":\"again\",\"version\":0}")
             )
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("MSG-COM-05"));
@@ -211,8 +227,29 @@ class VoucherPaymentResourceTest extends DomainTestSupport {
                 post("/api/farms/" + farm.getId() + "/payments/" + paymentId + "/void")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"reason\":\"\"}")
+                    .content("{\"reason\":\"\",\"version\":0}")
             )
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void paymentRetryReplaysAndChangedPayloadConflicts() throws Exception {
+        String key = "payment-" + java.util.UUID.randomUUID();
+        String content = body("2026-10-28", "5000000", "\"CASH\"");
+        String first = mvc.perform(post(entryUrl()).with(as(owner.getEmail(), key)).contentType(MediaType.APPLICATION_JSON).content(content))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        int paymentId = com.jayway.jsonpath.JsonPath.read(first, "$.payment.id");
+        String replay = mvc.perform(post(entryUrl()).with(as(owner.getEmail(), key)).contentType(MediaType.APPLICATION_JSON).content(content))
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        org.assertj.core.api.Assertions.assertThat((Integer) com.jayway.jsonpath.JsonPath.read(replay, "$.payment.id")).isEqualTo(paymentId);
+
+        mvc.perform(post(entryUrl()).with(as(owner.getEmail(), key)).contentType(MediaType.APPLICATION_JSON).content(body("2026-10-28", "6000000", "\"CASH\"")))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-19"));
+        long paymentCount = ((Number) em.createNativeQuery("select count(*) from voucher_payment where entry_voucher_id = :voucherId")
+            .setParameter("voucherId", entry.getId()).getSingleResult()).longValue();
+        long recordCount = ((Number) em.createNativeQuery("select count(*) from idempotency_record where idempotency_key = :key")
+            .setParameter("key", key).getSingleResult()).longValue();
+        org.assertj.core.api.Assertions.assertThat(paymentCount).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(recordCount).isEqualTo(1);
     }
 }

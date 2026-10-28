@@ -9,4 +9,6 @@ import vn.edu.fpt.beefcare.domain.AnnouncementVersion;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface AnnouncementVersionRepository extends JpaRepository<AnnouncementVersion, Long> {}
+public interface AnnouncementVersionRepository extends JpaRepository<AnnouncementVersion, Long> {
+    java.util.List<AnnouncementVersion> findByAnnouncement_IdOrderByVersionNoDesc(Long announcementId);
+}

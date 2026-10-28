@@ -34,7 +34,7 @@ public class ProductionPurpose implements Serializable {
     @Column(name = "name", length = 255, nullable = false)
     private String name;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "description")
     private String description;
 
@@ -50,6 +50,10 @@ public class ProductionPurpose implements Serializable {
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose_type", length = 30, nullable = false)
     private PurposeType purposeType = PurposeType.UNDECIDED;
+
+    @Version @Column(name="version",nullable=false) private Integer version;
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer value) { version=value; }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

@@ -112,7 +112,7 @@ public class HerdEntryVoucherService {
     public EntryDtos.Voucher update(Long farmId, Long id, EntryVoucherRequest req) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS);
         HerdEntryVoucher v = lockDraft(farmId, id);
-        VersionGuard.check(v.getVersion(), req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req.expectedVersion());
         if (req.entryType() != null && req.entryType() != v.getEntryType()) {
             throw DomainException.invalid("entryType");
         }
@@ -128,7 +128,7 @@ public class HerdEntryVoucherService {
     public void discard(Long farmId, Long id, Integer expectedVersion) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS);
         HerdEntryVoucher v = lockDraft(farmId, id);
-        VersionGuard.check(v.getVersion(), expectedVersion);
+        VersionGuard.requireExpected(v.getVersion(), expectedVersion);
         entryRepository.deleteAll(entryRepository.findAllByVoucherIdOrderByLineNoAsc(v.getId()));
         entryRepository.flush();
         voucherRepository.delete(v);

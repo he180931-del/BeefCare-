@@ -8,14 +8,15 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collection;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 @AutoConfigureMockMvc
-@AuthenticationIntegrationTest
+@Disabled("Bearer-token tests were replaced by cookie-session coverage.")
 class TokenAuthenticationSecurityMetersIT {
 
     private static final String INVALID_TOKENS_METER_EXPECTED_NAME = "security.authentication.invalid-tokens";
@@ -86,3 +87,5 @@ class TokenAuthenticationSecurityMetersIT {
         return counters.stream().mapToDouble(Counter::count).sum();
     }
 }
+
+

@@ -38,6 +38,22 @@ public class Notification implements Serializable {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
+    @Size(max=40)
+    @Column(name="category",length=40)
+    private String category;
+
+    @Size(max=200)
+    @Column(name="title",length=200)
+    private String title;
+
+    @Size(max=500)
+    @Column(name="summary",length=500)
+    private String summary;
+
+    @Size(max=120)
+    @Column(name="event_key",length=120)
+    private String eventKey;
+
     @NotNull
     @Column(name = "created_time", nullable = false)
     private Instant createdTime;
@@ -85,6 +101,11 @@ public class Notification implements Serializable {
     public Long getTargetId() {
         return this.targetId;
     }
+
+    public String getCategory(){return category;} public void setCategory(String value){category=value;}
+    public String getTitle(){return title;} public void setTitle(String value){title=value;}
+    public String getSummary(){return summary;} public void setSummary(String value){summary=value;}
+    public String getEventKey(){return eventKey;} public void setEventKey(String value){eventKey=value;}
 
     public Notification targetId(Long targetId) {
         this.setTargetId(targetId);

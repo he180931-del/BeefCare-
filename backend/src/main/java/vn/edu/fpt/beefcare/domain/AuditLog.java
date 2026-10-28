@@ -21,8 +21,8 @@ public class AuditLog implements Serializable {
     private Long id;
 
     @NotNull
-    @Size(max = 30)
-    @Column(name = "action", length = 30, nullable = false)
+    @Size(max = 100)
+    @Column(name = "action", length = 100, nullable = false)
     private String action;
 
     @NotNull
@@ -41,8 +41,7 @@ public class AuditLog implements Serializable {
     @Column(name = "details")
     private String details;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_id")
     private AppUser actor;
 

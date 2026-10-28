@@ -78,6 +78,39 @@ public class Treatment implements Serializable {
     @Column(name = "status", length = 30, nullable = false)
     private String status = "VALID";
 
+    @NotNull
+    @Min(1)
+    @Max(30)
+    @Column(name = "course_days", nullable = false)
+    private Integer courseDays = 1;
+
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean isCorrected = Boolean.FALSE;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+
+    @Column(name = "withdrawal_days")
+    private Integer withdrawalDays;
+    @Size(max = 255)
+    @Column(name = "performer", length = 255)
+    private String performer;
+    @Size(max = 1000)
+    @Column(name = "veterinary_advice", length = 1000)
+    private String veterinaryAdvice;
+    @Size(max = 255)
+    @Column(name = "medicine_name_snapshot", length = 255)
+    private String medicineNameSnapshot;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -225,6 +258,29 @@ public class Treatment implements Serializable {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public Integer getCourseDays() { return courseDays; }
+    public void setCourseDays(Integer courseDays) { this.courseDays = courseDays; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getIsCorrected() { return isCorrected; }
+    public void setIsCorrected(Boolean isCorrected) { this.isCorrected = isCorrected; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public Integer getWithdrawalDays() { return withdrawalDays; }
+    public void setWithdrawalDays(Integer withdrawalDays) { this.withdrawalDays = withdrawalDays; }
+    public String getPerformer() { return performer; }
+    public void setPerformer(String performer) { this.performer = performer; }
+    public String getVeterinaryAdvice() { return veterinaryAdvice; }
+    public void setVeterinaryAdvice(String veterinaryAdvice) { this.veterinaryAdvice = veterinaryAdvice; }
+    public String getMedicineNameSnapshot() { return medicineNameSnapshot; }
+    public void setMedicineNameSnapshot(String medicineNameSnapshot) { this.medicineNameSnapshot = medicineNameSnapshot; }
+
+    @PrePersist
+    @PreUpdate
+    void touch() { updatedAt = Instant.now(); }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

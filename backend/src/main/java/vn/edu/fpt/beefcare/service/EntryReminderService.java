@@ -99,6 +99,14 @@ public class EntryReminderService {
         }
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void cancelCalfReminder(CalfOutcome calf) {
+        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatus(REM_09, calfSource(calf), OPEN)) {
+            r.setStatus(CANCELLED);
+            repository.save(r);
+        }
+    }
+
     private Instant dueAt(LocalDate date) {
         return date.atStartOfDay(clock.zone()).toInstant();
     }

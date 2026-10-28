@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000120-hmac-link-nonce" author="beefcare">
+        <addColumn tableName="account_link_token">
+            <column name="token_nonce" type="varchar(64)"/>
+        </addColumn>
+        <addColumn tableName="farm_invitation">
+            <column name="token_nonce" type="varchar(64)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="20261028000120-email-delivery-job" author="beefcare">
+        <createTable tableName="email_delivery_job">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="recipient" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="subject" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="template_key" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="link_source" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="link_source_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="display_name" type="varchar(255)"/>
+            <column name="context_name" type="varchar(255)"/>
+            <column name="context_role" type="varchar(30)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="available_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="lease_until" type="${datetimeType}"/>
+            <column name="status" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="attempts" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="last_error" type="varchar(80)"/>
+            <column name="sent_at" type="${datetimeType}"/>
+            <column name="version" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="email_delivery_job" indexName="ix_email_delivery_due">
+            <column name="status"/><column name="available_at"/><column name="lease_until"/>
+        </createIndex>
+        <createIndex tableName="email_delivery_job" indexName="ix_email_delivery_link_reference">
+            <column name="link_source"/><column name="link_source_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

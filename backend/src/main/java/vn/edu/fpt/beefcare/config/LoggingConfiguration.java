@@ -8,9 +8,9 @@ import java.util.Map;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import tech.jhipster.config.JHipsterProperties;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
 /*
  * Configures the console and Logstash log appenders from the app properties
@@ -23,7 +23,7 @@ public class LoggingConfiguration {
         @Value("${server.port}") String serverPort,
         JHipsterProperties jHipsterProperties,
         ObjectMapper mapper
-    ) throws JacksonException {
+    ) throws JsonProcessingException {
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
 
         Map<String, String> map = new HashMap<>();

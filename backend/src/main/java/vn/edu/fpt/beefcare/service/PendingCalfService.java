@@ -66,7 +66,7 @@ public class PendingCalfService {
         Long defaultPurpose = catalog.defaultUndecidedPurpose(farmId).map(p -> p.getId()).orElse(null);
         List<CalfOutcome> calves = em
             .createQuery(
-                "select o from CalfOutcome o where o.calving.dam.farm.id = :farm and upper(o.outcome) = 'LIVE' and o.registrationState = 'PENDING_CONFIRMATION' order by o.calving.birthTime, o.id",
+                "select o from CalfOutcome o where o.calving.dam.farm.id = :farm and upper(o.outcome) = 'LIVE' and o.registrationState = 'PENDING_CONFIRMATION' and upper(o.status)='VALID' order by o.calving.birthTime, o.id",
                 CalfOutcome.class
             )
             .setParameter("farm", farmId)
@@ -108,6 +108,7 @@ public class PendingCalfService {
             throw DomainException.invalid("reason");
         }
         CalfOutcome calf = catalog.lockCalf(farmId, calfId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "calf_id", calfId));
+        if (!"VALID".equalsIgnoreCase(calf.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         if ("REGISTERED".equalsIgnoreCase(calf.getRegistrationState())) {
             throw DomainException.conflict(MessageCodes.FE06_02, "cattle_code", calf.getRegisteredCattle() == null ? null : calf.getRegisteredCattle().getDisplayCode());
         }
@@ -150,6 +151,7 @@ public class PendingCalfService {
     public EntryDtos.RegisteredCalf registerCalfNow(Long farmId, Long calfId, Long penId, Long purposeId) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS);
         CalfOutcome calf = catalog.lockCalf(farmId, calfId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "calf_id", calfId));
+        if (!"VALID".equalsIgnoreCase(calf.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         EntryLineRequest line = new EntryLineRequest(null, null, null, null, null, null, null, null, null, null, purposeId, null, null, penId, null, null, null, null, null, null, calf.getId());
         EntryVoucherRequest req = new EntryVoucherRequest(
             EntryType.FARM_BORN,

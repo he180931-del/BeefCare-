@@ -47,6 +47,25 @@ public class InternalRequest implements Serializable {
     @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
     private AppUser recipient;
 
+    @Column(name="code",length=50,unique=true) private String code;
+    @Column(name="question",length=2000) private String question;
+    @Column(name="context_json",columnDefinition="text") private String contextJson;
+    @Column(name="result_text",length=2000) private String resultText;
+    @Column(name="created_at") private java.time.Instant createdAt;
+    @Column(name="completed_at") private java.time.Instant completedAt;
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="created_by_id") private AppUser createdBy;
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="domain_audit_id") private AuditLog domainAudit;
+    @Version @Column(name="version",nullable=false) private Integer version;
+    public String getCode(){return code;} public void setCode(String value){code=value;}
+    public String getQuestion(){return question;} public void setQuestion(String value){question=value;}
+    public String getContextJson(){return contextJson;} public void setContextJson(String value){contextJson=value;}
+    public String getResultText(){return resultText;} public void setResultText(String value){resultText=value;}
+    public java.time.Instant getCreatedAt(){return createdAt;} public void setCreatedAt(java.time.Instant value){createdAt=value;}
+    public java.time.Instant getCompletedAt(){return completedAt;} public void setCompletedAt(java.time.Instant value){completedAt=value;}
+    public AppUser getCreatedBy(){return createdBy;} public void setCreatedBy(AppUser value){createdBy=value;}
+    public AuditLog getDomainAudit(){return domainAudit;} public void setDomainAudit(AuditLog value){domainAudit=value;}
+    public Integer getVersion(){return version;} public void setVersion(Integer value){version=value;}
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {

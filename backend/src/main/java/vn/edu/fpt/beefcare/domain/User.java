@@ -61,6 +61,13 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     @Column(name = "activated", nullable = false)
     private boolean activated = false;
 
+    @NotNull
+    @Column(name = "failed_password_attempts", nullable = false)
+    private int failedPasswordAttempts;
+
+    @Column(name = "password_locked_until")
+    private Instant passwordLockedUntil;
+
     @Size(min = 2, max = 10)
     @Column(name = "lang_key", length = 10)
     private String langKey;
@@ -155,6 +162,22 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
 
     public void setActivated(boolean activated) {
         this.activated = activated;
+    }
+
+    public int getFailedPasswordAttempts() {
+        return failedPasswordAttempts;
+    }
+
+    public void setFailedPasswordAttempts(int failedPasswordAttempts) {
+        this.failedPasswordAttempts = failedPasswordAttempts;
+    }
+
+    public Instant getPasswordLockedUntil() {
+        return passwordLockedUntil;
+    }
+
+    public void setPasswordLockedUntil(Instant passwordLockedUntil) {
+        this.passwordLockedUntil = passwordLockedUntil;
     }
 
     public String getActivationKey() {

@@ -32,6 +32,21 @@ class FarmAccessServiceTest extends DomainTestSupport {
         Set<FarmRole> all = EnumSet.of(FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN);
         Set<FarmRole> ownerManager = EnumSet.of(FarmRole.OWNER, FarmRole.MANAGER);
         Set<FarmRole> ownerOnly = EnumSet.of(FarmRole.OWNER);
+        Set<FarmRole> managerOnly = EnumSet.of(FarmRole.MANAGER);
+        MATRIX.put(FarmAction.VIEW_FARM_INFORMATION, ownerOnly);
+        MATRIX.put(FarmAction.MANAGE_FARM_INFORMATION, ownerOnly);
+        MATRIX.put(FarmAction.VIEW_CATALOGUES, all);
+        MATRIX.put(FarmAction.VIEW_CATTLE, all);
+        MATRIX.put(FarmAction.MANAGE_CATTLE, ownerManager);
+        MATRIX.put(FarmAction.MANAGE_GROWTH, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_CATALOGUES, ownerManager);
+        MATRIX.put(FarmAction.MANAGE_CATTLE_PHOTOS, ownerManager);
+        MATRIX.put(FarmAction.VIEW_HEALTH, all);
+        MATRIX.put(FarmAction.MANAGE_HEALTH, managerOnly);
+        MATRIX.put(FarmAction.VIEW_REPRODUCTION, all);
+        MATRIX.put(FarmAction.MANAGE_REPRODUCTION, managerOnly);
+        MATRIX.put(FarmAction.VIEW_CARE_CATALOGUES, ownerManager);
+        MATRIX.put(FarmAction.MANAGE_CARE_CATALOGUES, ownerManager);
         MATRIX.put(FarmAction.VIEW_PENS, all); // view pens, headcount, pen history: technician read-only
         MATRIX.put(FarmAction.MANAGE_PENS, ownerManager); // create / edit / criteria / stop / resume
         MATRIX.put(FarmAction.MOVE_CATTLE, ownerManager);
@@ -44,6 +59,12 @@ class FarmAccessServiceTest extends DomainTestSupport {
         MATRIX.put(FarmAction.VIEW_PARTNERS, ownerManager);
         MATRIX.put(FarmAction.MANAGE_SELLERS, ownerManager);
         MATRIX.put(FarmAction.MANAGE_BUYERS, ownerOnly);
+        MATRIX.put(FarmAction.VIEW_FEED, all);
+        MATRIX.put(FarmAction.MANAGE_FEED, ownerManager);
+        MATRIX.put(FarmAction.MANAGE_FEEDING, managerOnly);
+        MATRIX.put(FarmAction.VIEW_ANNOUNCEMENTS, all);
+        MATRIX.put(FarmAction.MANAGE_ANNOUNCEMENTS, ownerManager);
+        MATRIX.put(FarmAction.VIEW_REPORTS, ownerManager);
     }
 
     @Test
@@ -120,13 +141,15 @@ class FarmAccessServiceTest extends DomainTestSupport {
     }
 
     @Test
-    void serviceNotActiveBlocksWritesButNotReads() {
+    void serviceNotActiveBlocksOperationalReadsAndWritesButAllowsOwnerFarmInformation() {
         for (String status : new String[] { "EXPIRED", "SUSPENDED", "SUSPENDED_FOR_NONPAYMENT" }) {
             Farm farm = farm(status);
             AppUser owner = memberWithRole(farm, FarmRole.OWNER);
             actAs(owner);
             for (FarmAction action : FarmAction.values()) {
-                if (action.isWrite()) {
+                if (action == FarmAction.VIEW_FARM_INFORMATION || action == FarmAction.MANAGE_FARM_INFORMATION) {
+                    assertThat(access.require(farm.getId(), action).farm().getId()).isEqualTo(farm.getId());
+                } else if (MATRIX.get(action).contains(FarmRole.OWNER)) {
                     assertThatThrownBy(() -> access.require(farm.getId(), action))
                         .as("%s on %s farm", action, status)
                         .isInstanceOfSatisfying(DomainException.class, e -> {
@@ -134,7 +157,7 @@ class FarmAccessServiceTest extends DomainTestSupport {
                             assertThat(e.getParams()).containsEntry("status", status).containsEntry("farm", farm.getName());
                         });
                 } else {
-                    assertThat(access.require(farm.getId(), action).farm().getId()).isEqualTo(farm.getId());
+                    assertForbidden(() -> access.require(farm.getId(), action));
                 }
             }
         }

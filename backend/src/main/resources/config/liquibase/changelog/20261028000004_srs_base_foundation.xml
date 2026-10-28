@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261028000004-farm-foundation" author="beefcare">
+        <addColumn tableName="farm">
+            <column name="time_zone" type="varchar(80)" defaultValue="Asia/Ho_Chi_Minh"><constraints nullable="false"/></column>
+            <column name="contact_person" type="varchar(150)"/>
+            <column name="contact_phone" type="varchar(30)"/>
+            <column name="province" type="varchar(100)"/>
+            <column name="commune" type="varchar(100)"/>
+            <column name="detailed_address" type="varchar(255)"/>
+            <column name="registration_certificate_info" type="varchar(255)"/>
+            <column name="expected_herd_size" type="varchar(30)"/>
+            <column name="operating_notes" type="varchar(1000)"/>
+            <column name="morning_shift_start" type="time(6)"/>
+            <column name="onboarding_dismissed_at" type="${datetimeType}"/>
+            <column name="onboarding_steps_done" type="varchar(255)"/>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000004-attachment" author="beefcare">
+        <createTable tableName="attachment">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_attachment__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="owner_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="owner_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="storage_key" type="varchar(500)"><constraints nullable="false" unique="true" uniqueConstraintName="uq_attachment_storage_key"/></column>
+            <column name="original_filename" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="content_type" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="file_size" type="bigint"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="removed_at" type="${datetimeType}"/>
+        </createTable>
+        <addUniqueConstraint tableName="attachment" columnNames="farm_id, id" constraintName="uq_attachment_farm_id_id"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-cattle-photo" author="beefcare">
+        <addColumn tableName="cattle">
+            <column name="photo_attachment_id" type="bigint"/>
+        </addColumn>
+        <sql dbms="postgresql">ALTER TABLE cattle ADD CONSTRAINT fk_cattle_photo_attachment_same_farm FOREIGN KEY (farm_id, photo_attachment_id) REFERENCES attachment (farm_id, id);</sql>
+        <sql dbms="h2">ALTER TABLE cattle ADD CONSTRAINT fk_cattle_photo_attachment_same_farm FOREIGN KEY (farm_id, photo_attachment_id) REFERENCES attachment (farm_id, id);</sql>
+    </changeSet>
+
+    <changeSet id="20261028000004-main-breeds" author="beefcare">
+        <addUniqueConstraint tableName="breed" columnNames="farm_id, id" constraintName="uq_breed_farm_id_id"/>
+        <createTable tableName="farm_main_breed">
+            <column name="farm_id" type="bigint"><constraints nullable="false" primaryKey="true" primaryKeyName="pk_farm_main_breed" foreignKeyName="fk_farm_main_breed__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="breed_id" type="bigint"><constraints nullable="false" primaryKey="true" primaryKeyName="pk_farm_main_breed"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="farm_main_breed" baseColumnNames="farm_id, breed_id" constraintName="fk_farm_main_breed__breed_same_farm" referencedTableName="breed" referencedColumnNames="farm_id, id"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-parameter-version" author="beefcare">
+        <createTable tableName="farm_parameter_version">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_farm_parameter_version__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="version_no" type="integer"><constraints nullable="false"/></column>
+            <column name="gestation_length_days" type="integer" defaultValueNumeric="283"><constraints nullable="false"/></column>
+            <column name="parameter_values" type="clob" defaultValue="{}"><constraints nullable="false"/></column>
+            <column name="effective_from" type="date"><constraints nullable="false"/></column>
+            <column name="source_note" type="varchar(500)"/>
+            <column name="changed_by_id" type="bigint"><constraints foreignKeyName="fk_farm_parameter_version__changed_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="created_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="farm_parameter_version" columnNames="farm_id, version_no" constraintName="uq_farm_parameter_version"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-feed-item" author="beefcare">
+        <createTable tableName="feed_item">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_item__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="code" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(150)"><constraints nullable="false"/></column>
+            <column name="feed_group" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="purchase_unit" type="varchar(30)"/>
+            <column name="kg_per_purchase_unit" type="numeric(12,3)"/>
+            <column name="stock_unit" type="varchar(30)" defaultValue="kg"><constraints nullable="false"/></column>
+            <column name="on_hand_kg" type="numeric(14,3)" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="avg_unit_cost" type="numeric(14,2)" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="available" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="feed_item" columnNames="farm_id, code" constraintName="uq_feed_item_farm_code"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-growth-tape" author="beefcare">
+        <addColumn tableName="growth">
+            <column name="method" type="varchar(30)" defaultValue="OTHER"><constraints nullable="false"/></column>
+            <column name="heart_girth_cm" type="numeric(5,1)"/>
+            <column name="body_length_cm" type="numeric(5,1)"/>
+        </addColumn>
+        <sql>UPDATE growth SET method = CASE WHEN weight_type = 'MEASURED' THEN 'SCALE' ELSE 'OTHER' END;</sql>
+        <dropDefaultValue tableName="growth" columnName="method" columnDataType="varchar(30)"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-health-case-suspected" author="beefcare">
+        <addColumn tableName="health_case">
+            <column name="suspected_diagnosis" type="varchar(100)"/>
+            <column name="is_suspected_contagious" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000004-health-observation-lifecycle" author="beefcare">
+        <addColumn tableName="health_observation">
+            <column name="status" type="varchar(30)" defaultValue="VALID"><constraints nullable="false"/></column>
+            <column name="status_reason" type="varchar(500)"/>
+            <column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000004-treatment-lifecycle" author="beefcare">
+        <addColumn tableName="treatment">
+            <column name="course_days" type="integer" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="status_reason" type="varchar(500)"/>
+            <column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000004-reproduction-fields" author="beefcare">
+        <addColumn tableName="reproduction_event">
+            <column name="signs" type="varchar(100)"/>
+            <column name="est_months_pregnant" type="integer"/>
+        </addColumn>
+        <addColumn tableName="pregnancy_episode">
+            <column name="expected_basis" type="varchar(30)"/>
+        </addColumn>
+        <dropNotNullConstraint tableName="pregnancy_episode" columnName="expected_calving_date" columnDataType="date"/>
+        <dropNotNullConstraint tableName="pregnancy_episode" columnName="confirming_check_id" columnDataType="bigint"/>
+        <sql>UPDATE pregnancy_episode SET expected_basis = 'CONFIRMED' WHERE expected_calving_date IS NOT NULL;</sql>
+        <addColumn tableName="calving_event">
+            <column name="retained_placenta" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000004-vaccine-reference-optional" author="beefcare">
+        <dropNotNullConstraint tableName="vaccine" columnName="manufacturer" columnDataType="varchar(255)"/>
+        <dropNotNullConstraint tableName="vaccine" columnName="dose" columnDataType="varchar(255)"/>
+        <dropNotNullConstraint tableName="vaccine" columnName="route" columnDataType="varchar(255)"/>
+        <dropNotNullConstraint tableName="vaccine" columnName="booster_interval" columnDataType="integer"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-legacy-ear-tag-length" author="beefcare">
+        <preConditions onFail="HALT" onError="HALT">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM cattle WHERE LENGTH(ear_tag_number) &gt; 30</sqlCheck>
+        </preConditions>
+        <modifyDataType tableName="cattle" columnName="ear_tag_number" newDataType="varchar(30)"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-membership-unique" author="beefcare">
+        <preConditions onFail="HALT" onError="HALT" onFailMessage="Duplicate farm membership rows exist for the same farm and user. Resolve those rows explicitly before upgrading; no memberships were changed.">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM (SELECT farm_id, user_id FROM farm_membership GROUP BY farm_id, user_id HAVING COUNT(*) &gt; 1) duplicate_memberships</sqlCheck>
+        </preConditions>
+        <addUniqueConstraint tableName="farm_membership" columnNames="farm_id, user_id" constraintName="uq_farm_membership_farm_user"/>
+    </changeSet>
+
+    <changeSet id="20261028000004-owner-membership-unique" author="beefcare" dbms="postgresql">
+        <preConditions onFail="HALT" onError="HALT" onFailMessage="More than one active OWNER membership exists for a farm. Resolve ownership explicitly before upgrading; no memberships were changed.">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM (SELECT farm_id FROM farm_membership WHERE role = 'OWNER' AND status = 'ACTIVE' GROUP BY farm_id HAVING COUNT(*) &gt; 1) duplicate_owners</sqlCheck>
+        </preConditions>
+        <sql>CREATE UNIQUE INDEX ux_farm_membership_active_owner ON farm_membership (farm_id) WHERE role = 'OWNER' AND status = 'ACTIVE';</sql>
+    </changeSet>
+
+    <changeSet id="20261028000004-checks" author="beefcare" dbms="postgresql">
+        <sql splitStatements="true">
+            ALTER TABLE growth ADD CONSTRAINT ck_growth_tape CHECK ((heart_girth_cm IS NULL AND body_length_cm IS NULL) OR (method = 'TAPE' AND heart_girth_cm IS NOT NULL AND body_length_cm IS NOT NULL AND weight_type = 'ESTIMATED')) NOT VALID;
+            ALTER TABLE health_observation ADD CONSTRAINT ck_observation_status CHECK (status IN ('VALID','VOIDED')) NOT VALID;
+            ALTER TABLE treatment ADD CONSTRAINT ck_treatment_course_days CHECK (course_days BETWEEN 1 AND 30) NOT VALID;
+            ALTER TABLE health_observation ADD CONSTRAINT ck_observation_void_reason CHECK (status &lt;&gt; 'VOIDED' OR NULLIF(TRIM(status_reason), '') IS NOT NULL) NOT VALID;
+            ALTER TABLE treatment ADD CONSTRAINT ck_treatment_void_reason CHECK (status &lt;&gt; 'VOIDED' OR NULLIF(TRIM(status_reason), '') IS NOT NULL) NOT VALID;
+            ALTER TABLE growth ADD CONSTRAINT ck_growth_method CHECK (method IN ('SCALE','TAPE','OTHER')) NOT VALID;
+            ALTER TABLE growth ADD CONSTRAINT ck_growth_tape_ranges CHECK ((heart_girth_cm IS NULL OR heart_girth_cm BETWEEN 50 AND 300) AND (body_length_cm IS NULL OR body_length_cm BETWEEN 30 AND 250)) NOT VALID;
+            ALTER TABLE attachment ADD CONSTRAINT ck_attachment_photo CHECK (owner_type NOT IN ('CATTLE','HERD_ENTRY') OR (farm_id IS NOT NULL AND content_type IN ('image/jpeg','image/png') AND file_size BETWEEN 1 AND 5242880)) NOT VALID;
+            ALTER TABLE pre_entry_history_declaration ADD CONSTRAINT ck_declaration_reproduction_fields CHECK ((earlier_calvings IS NULL AND pregnant_at_entry IS NULL AND est_months_pregnant IS NULL) OR (category = 'REPRODUCTION' AND status = 'KNOWN' AND (earlier_calvings IS NULL OR earlier_calvings BETWEEN 0 AND 15) AND (est_months_pregnant IS NULL OR (pregnant_at_entry = 'YES' AND est_months_pregnant BETWEEN 1 AND 9)))) NOT VALID;
+            ALTER TABLE reproduction_event ADD CONSTRAINT ck_reproduction_est_months CHECK (est_months_pregnant IS NULL OR (type = 'PREGNANCY_CHECK' AND result = 'PREGNANT' AND est_months_pregnant BETWEEN 1 AND 9)) NOT VALID;
+            ALTER TABLE pregnancy_episode ADD CONSTRAINT ck_episode_expected CHECK ((expected_calving_date IS NULL) = (expected_basis IS NULL)) NOT VALID;
+            ALTER TABLE pregnancy_episode ADD CONSTRAINT ck_episode_expected_basis CHECK (expected_basis IS NULL OR expected_basis IN ('CONFIRMED','ESTIMATED')) NOT VALID;
+            ALTER TABLE calf_outcome ADD CONSTRAINT ck_calf_birth_weight CHECK (birth_weight IS NULL OR (birth_weight BETWEEN 1 AND 80 AND birth_weight * 10 = trunc(birth_weight * 10))) NOT VALID;
+            ALTER TABLE calf_outcome ADD CONSTRAINT ck_calf_sex_unknown CHECK (sex &lt;&gt; 'UNKNOWN' OR outcome = 'STILLBORN') NOT VALID;
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261028000004-updated-at-triggers" author="beefcare" dbms="postgresql">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION fn_beefcare_touch_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+              NEW.updated_at = CURRENT_TIMESTAMP;
+              RETURN NEW;
+            END $$;
+        </sql>
+        <sql>
+            CREATE TRIGGER trg_treatment_updated_at BEFORE UPDATE ON treatment
+              FOR EACH ROW EXECUTE FUNCTION fn_beefcare_touch_updated_at();
+            CREATE TRIGGER trg_health_observation_updated_at BEFORE UPDATE ON health_observation
+              FOR EACH ROW EXECUTE FUNCTION fn_beefcare_touch_updated_at();
+        </sql>
+    </changeSet>
+</databaseChangeLog>

@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.HerdEntryVoucher;
 import vn.edu.fpt.beefcare.domain.HerdExitVoucher;
+import vn.edu.fpt.beefcare.domain.FeedReceipt;
 import vn.edu.fpt.beefcare.domain.VoucherPayment;
 import vn.edu.fpt.beefcare.domain.enumeration.EntryVoucherStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.ExitVoucherStatus;
@@ -17,6 +18,7 @@ import vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod;
 import vn.edu.fpt.beefcare.domain.enumeration.PaymentRecordStatus;
 import vn.edu.fpt.beefcare.repository.HerdEntryVoucherRepository;
 import vn.edu.fpt.beefcare.repository.HerdExitVoucherRepository;
+import vn.edu.fpt.beefcare.repository.FeedReceiptRepository;
 import vn.edu.fpt.beefcare.repository.VoucherPaymentRepository;
 import vn.edu.fpt.beefcare.service.dto.PaymentResultDTO;
 import vn.edu.fpt.beefcare.service.dto.PaymentSummaryDTO;
@@ -36,6 +38,7 @@ public class VoucherPaymentService {
     private final FarmClock clock;
     private final HerdEntryVoucherRepository entryRepository;
     private final HerdExitVoucherRepository exitRepository;
+    private final FeedReceiptRepository feedReceiptRepository;
     private final VoucherPaymentRepository paymentRepository;
     private final AuditService audit;
     private final RecordRevisionService revisions;
@@ -45,6 +48,7 @@ public class VoucherPaymentService {
         FarmClock clock,
         HerdEntryVoucherRepository entryRepository,
         HerdExitVoucherRepository exitRepository,
+        FeedReceiptRepository feedReceiptRepository,
         VoucherPaymentRepository paymentRepository,
         AuditService audit,
         RecordRevisionService revisions
@@ -53,6 +57,7 @@ public class VoucherPaymentService {
         this.clock = clock;
         this.entryRepository = entryRepository;
         this.exitRepository = exitRepository;
+        this.feedReceiptRepository = feedReceiptRepository;
         this.paymentRepository = paymentRepository;
         this.audit = audit;
         this.revisions = revisions;
@@ -67,6 +72,29 @@ public class VoucherPaymentService {
 
     // ------------------------------------------------------------------ REST-facing commands
 
+    /** Resolves the permission for replay authorization without exposing the payment outside the requested farm. */
+    public FarmAction permissionForPayment(Long farmId, Long paymentId) {
+        VoucherPayment payment = paymentRepository.findByIdAndFarmId(paymentId, farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        if (payment.getFeedReceipt() != null) return FarmAction.MANAGE_FEED;
+        return payment.getEntryVoucher() != null ? FarmAction.RECORD_ENTRY_PAYMENT : FarmAction.RECORD_EXIT_COLLECTION;
+    }
+
+    @Transactional
+    public PaymentResultDTO recordFeedReceiptPayment(Long farmId, Long receiptId, RecordPaymentRequest req) {
+        FarmContext ctx=access.require(farmId,FarmAction.MANAGE_FEED);
+        FeedReceipt receipt=feedReceiptRepository.lockByIdAndFarm(receiptId,farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
+        VersionGuard.requireExpected(receipt.getVersion(),req.voucherVersion());
+        if(!"POSTED".equals(receipt.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
+        long paid=paymentRepository.sumByFeedReceipt(receiptId,PaymentRecordStatus.RECORDED);
+        long outstanding=MoneyCalculator.outstanding(receipt.getTotalPayable(),paid);
+        if(req.amount()==null||req.amount()<=0||req.amount()>outstanding) throw DomainException.unprocessable(MessageCodes.COM_15,"outstanding",outstanding);
+        clock.assertNotFuture(req.paymentDate()); if(req.paymentDate().isBefore(receipt.getReceiptDate()))throw DomainException.unprocessable(MessageCodes.COM_15,"date",receipt.getReceiptDate());
+        VoucherPayment payment=new VoucherPayment();payment.setFarm(ctx.farm());payment.setFeedReceipt(receipt);payment.setDirection(PaymentDirection.PAY);payment.setPaymentDate(req.paymentDate());payment.setAmount(req.amount());payment.setMethod(req.method());payment.setReference(blankToNull(req.reference()));payment.setNote(blankToNull(req.note()));payment.setStatus(PaymentRecordStatus.RECORDED);payment.setRecordedBy(ctx.user());payment.setRecordedAt(clock.now());paymentRepository.saveAndFlush(payment);
+        long newPaid=paid+req.amount(); PaymentSummaryDTO summary=new PaymentSummaryDTO("FEED_RECEIPT",receiptId,receipt.getCode(),receipt.getTotalPayable(),newPaid,MoneyCalculator.outstanding(receipt.getTotalPayable(),newPaid),MoneyCalculator.overpaid(receipt.getTotalPayable(),newPaid),MoneyCalculator.paymentState(receipt.getTotalPayable(),newPaid),receipt.getVersion());
+        audit.log(ctx,"PAYMENT_RECORD","VoucherPayment",payment.getId(),Map.of("voucher",receipt.getCode(),"direction","PAY","amount",req.amount()));
+        return PaymentResultDTO.of(VoucherPaymentDTO.from(payment),summary);
+    }
+
     /** POST /api/farms/{farmId}/vouchers/{type}/{id}/payments: PAY = Owner or Manager, COLLECT = Owner. */
     @Transactional
     public PaymentResultDTO record(Long farmId, VoucherKind kind, Long voucherId, RecordPaymentRequest req) {
@@ -78,7 +106,7 @@ public class VoucherPaymentService {
         if (!open) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
-        VersionGuard.check(target.version(), req.voucherVersion());
+        VersionGuard.requireExpected(target.version(), req.voucherVersion());
         VoucherPayment payment = apply(ctx, target, req.amount(), req.paymentDate(), req.method(), req.reference(), req.note());
         return PaymentResultDTO.of(VoucherPaymentDTO.from(payment), summaryOf(target));
     }
@@ -87,11 +115,12 @@ public class VoucherPaymentService {
     @Transactional
     public PaymentResultDTO voidPayment(Long farmId, Long paymentId, VoidPaymentRequest req) {
         VoucherPayment found = paymentRepository.findByIdAndFarmId(paymentId, farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        if(found.getFeedReceipt()!=null) return voidFeedReceiptPayment(farmId,found,req);
         VoucherKind kind = found.getEntryVoucher() != null ? VoucherKind.ENTRY : VoucherKind.EXIT;
         FarmContext ctx = access.require(farmId, kind == VoucherKind.ENTRY ? FarmAction.RECORD_ENTRY_PAYMENT : FarmAction.RECORD_EXIT_COLLECTION);
         Target target = lockTarget(farmId, kind, kind == VoucherKind.ENTRY ? found.getEntryVoucher().getId() : found.getExitVoucher().getId());
         VoucherPayment payment = paymentRepository.findByIdAndFarmId(paymentId, farmId).orElseThrow();
-        VersionGuard.check(payment.getVersion(), req.version());
+        VersionGuard.requireExpected(payment.getVersion(), req.version());
         if (payment.getStatus() != PaymentRecordStatus.RECORDED) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
@@ -114,6 +143,30 @@ public class VoucherPaymentService {
         revisions.record(ctx, "VoucherPayment", payment.getId(), RecordRevisionService.VOID, req.reason(), before, snapshot(payment));
         audit.log(ctx, "PAYMENT_VOID", "VoucherPayment", payment.getId(), Map.of("voucher", target.code(), "amount", payment.getAmount()));
         return PaymentResultDTO.of(VoucherPaymentDTO.from(payment), summaryOf(target));
+    }
+
+    private PaymentResultDTO voidFeedReceiptPayment(Long farmId,VoucherPayment found,VoidPaymentRequest req) {
+        FarmContext ctx=access.require(farmId,FarmAction.MANAGE_FEED);
+        FeedReceipt receipt=feedReceiptRepository.lockByIdAndFarm(found.getFeedReceipt().getId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
+        VoucherPayment payment=paymentRepository.findByIdAndFarmId(found.getId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
+        VersionGuard.requireExpected(payment.getVersion(),req.version());
+        if(payment.getStatus()!=PaymentRecordStatus.RECORDED)throw DomainException.conflict(MessageCodes.COM_05);
+        if(req.reason()==null||req.reason().isBlank())throw DomainException.required("reason");
+        Map<String,Object> before=snapshot(payment); payment.setStatus(PaymentRecordStatus.VOIDED);payment.setVoidReason(req.reason().trim());payment.setVoidedBy(ctx.user());payment.setVoidedAt(clock.now());paymentRepository.saveAndFlush(payment);
+        revisions.record(ctx,"VoucherPayment",payment.getId(),RecordRevisionService.VOID,req.reason(),before,snapshot(payment));
+        audit.log(ctx,"PAYMENT_VOID","VoucherPayment",payment.getId(),Map.of("voucher",receipt.getCode(),"amount",payment.getAmount()));
+        long paid=paymentRepository.sumByFeedReceipt(receipt.getId(),PaymentRecordStatus.RECORDED);
+        PaymentSummaryDTO summary=new PaymentSummaryDTO("FEED_RECEIPT",receipt.getId(),receipt.getCode(),receipt.getTotalPayable(),paid,MoneyCalculator.outstanding(receipt.getTotalPayable(),paid),MoneyCalculator.overpaid(receipt.getTotalPayable(),paid),MoneyCalculator.paymentState(receipt.getTotalPayable(),paid),receipt.getVersion());
+        return PaymentResultDTO.of(VoucherPaymentDTO.from(payment),summary);
+    }
+
+    @Transactional(readOnly=true)
+    public PaymentResultDTO listFeedReceiptPayments(Long farmId,Long receiptId) {
+        access.require(farmId,FarmAction.MANAGE_FEED); FeedReceipt r=feedReceiptRepository.findByIdAndFarm_Id(receiptId,farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
+        List<VoucherPayment> values=paymentRepository.findAllByFeedReceiptIdOrderByPaymentDateAscIdAsc(receiptId);
+        long paid=paymentRepository.sumByFeedReceipt(receiptId,PaymentRecordStatus.RECORDED);
+        PaymentSummaryDTO summary=new PaymentSummaryDTO("FEED_RECEIPT",r.getId(),r.getCode(),r.getTotalPayable(),paid,MoneyCalculator.outstanding(r.getTotalPayable(),paid),MoneyCalculator.overpaid(r.getTotalPayable(),paid),MoneyCalculator.paymentState(r.getTotalPayable(),paid),r.getVersion());
+        return PaymentResultDTO.list(values.stream().map(VoucherPaymentDTO::from).toList(),summary);
     }
 
     /** GET /api/farms/{farmId}/vouchers/{type}/{id}/payments */

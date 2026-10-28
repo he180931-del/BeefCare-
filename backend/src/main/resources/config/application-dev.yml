@@ -37,8 +37,7 @@ spring:
       poolName: Hikari
       auto-commit: false
   liquibase:
-    # Remove 'faker' if you do not want the sample data to be loaded automatically
-    contexts: dev, faker
+    contexts: dev
   mail:
     host: localhost
     port: 25
@@ -46,6 +45,13 @@ spring:
     cache-duration: PT1S # 1 second, see the ISO 8601 standard
   thymeleaf:
     cache: false
+
+beefcare:
+  email:
+    provider: mock
+    link-signing-key: ${BEEFCARE_LINK_SECRET:beefcare-development-link-signing-key-rotate-before-live-0001}
+    frontend-base-url: ${BEEFCARE_PUBLIC_URL:http://127.0.0.1:8080}
+    backend-base-url: ${BEEFCARE_BACKEND_URL:http://127.0.0.1:8080}
 
 server:
   port: 8080

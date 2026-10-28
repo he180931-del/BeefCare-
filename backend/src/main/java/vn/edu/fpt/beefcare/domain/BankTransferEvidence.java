@@ -63,6 +63,69 @@ public class BankTransferEvidence implements Serializable {
     @JsonIgnoreProperties(value = { "subscription", "requestedBy" }, allowSetters = true)
     private Payment payment;
 
+    @NotNull
+    @Size(max = 20)
+    @Column(name = "provider", length = 20, nullable = false)
+    private String provider;
+
+    @NotNull
+    @Size(max = 20)
+    @Column(name = "environment", length = 20, nullable = false)
+    private String environment;
+
+    @NotNull
+    @Size(max = 100)
+    @Column(name = "account_namespace", length = 100, nullable = false)
+    private String accountNamespace;
+
+    @Size(max = 20)
+    @Column(name = "transfer_direction", length = 20)
+    private String transferDirection;
+
+    @Size(max = 50)
+    @Column(name = "receiving_account", length = 50)
+    private String receivingAccount;
+
+    @Size(max = 255)
+    @Column(name = "transfer_content", length = 255)
+    private String transferContent;
+
+    @Size(max = 100)
+    @Column(name = "gateway", length = 100)
+    private String gateway;
+
+    @Size(max = 100)
+    @Column(name = "reference_code", length = 100)
+    private String referenceCode;
+
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "review_status", length = 30, nullable = false)
+    private String reviewStatus;
+
+    @Size(max = 500)
+    @Column(name = "review_reason", length = 500)
+    private String reviewReason;
+
+    @Column(name = "locked_for_return", nullable = false)
+    private boolean lockedForReturn;
+
+    @Size(max = 255)
+    @Column(name = "return_reference", length = 255)
+    private String returnReference;
+
+    @Size(max = 500)
+    @Column(name = "return_result", length = 500)
+    private String returnResult;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
+    @Size(max = 64)
+    @Column(name = "payload_hash", length = 64)
+    private String payloadHash;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -168,6 +231,37 @@ public class BankTransferEvidence implements Serializable {
         this.setPayment(payment);
         return this;
     }
+
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
+    public String getEnvironment() { return environment; }
+    public void setEnvironment(String environment) { this.environment = environment; }
+    public String getAccountNamespace() { return accountNamespace; }
+    public void setAccountNamespace(String accountNamespace) { this.accountNamespace = accountNamespace; }
+    public String getTransferDirection() { return transferDirection; }
+    public void setTransferDirection(String transferDirection) { this.transferDirection = transferDirection; }
+    public String getReceivingAccount() { return receivingAccount; }
+    public void setReceivingAccount(String receivingAccount) { this.receivingAccount = receivingAccount; }
+    public String getTransferContent() { return transferContent; }
+    public void setTransferContent(String transferContent) { this.transferContent = transferContent; }
+    public String getGateway() { return gateway; }
+    public void setGateway(String gateway) { this.gateway = gateway; }
+    public String getReferenceCode() { return referenceCode; }
+    public void setReferenceCode(String referenceCode) { this.referenceCode = referenceCode; }
+    public String getReviewStatus() { return reviewStatus; }
+    public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+    public String getReviewReason() { return reviewReason; }
+    public void setReviewReason(String reviewReason) { this.reviewReason = reviewReason; }
+    public boolean isLockedForReturn() { return lockedForReturn; }
+    public void setLockedForReturn(boolean lockedForReturn) { this.lockedForReturn = lockedForReturn; }
+    public String getReturnReference() { return returnReference; }
+    public void setReturnReference(String returnReference) { this.returnReference = returnReference; }
+    public String getReturnResult() { return returnResult; }
+    public void setReturnResult(String returnResult) { this.returnResult = returnResult; }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
+    public String getPayloadHash() { return payloadHash; }
+    public void setPayloadHash(String payloadHash) { this.payloadHash = payloadHash; }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

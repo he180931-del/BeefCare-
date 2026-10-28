@@ -6,9 +6,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.edu.fpt.beefcare.service.PenMoveService;
+import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
+import vn.edu.fpt.beefcare.service.FarmAction;
 import vn.edu.fpt.beefcare.service.dto.PenHistoryDTO;
 import vn.edu.fpt.beefcare.service.dto.PenMoveCheckDTO;
 import vn.edu.fpt.beefcare.service.dto.PenMoveCheckRequest;
@@ -21,9 +24,11 @@ import vn.edu.fpt.beefcare.service.dto.PenMoveResultDTO;
 public class PenMoveResource {
 
     private final PenMoveService service;
+    private final IdempotencyCommandService commands;
 
-    public PenMoveResource(PenMoveService service) {
+    public PenMoveResource(PenMoveService service, IdempotencyCommandService commands) {
         this.service = service;
+        this.commands = commands;
     }
 
     @PostMapping("/pen-moves/check")
@@ -32,8 +37,8 @@ public class PenMoveResource {
     }
 
     @PostMapping("/pen-moves")
-    public ResponseEntity<PenMoveResultDTO> move(@PathVariable Long farmId, @Valid @RequestBody PenMoveRequest request) {
-        return ResponseEntity.ok(service.move(farmId, request));
+    public ResponseEntity<PenMoveResultDTO> move(@PathVariable Long farmId, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody PenMoveRequest request) {
+        return ResponseEntity.ok(commands.execute(farmId, FarmAction.MOVE_CATTLE, "PEN_MOVE", key, request, PenMoveResultDTO.class, () -> service.move(farmId, request)));
     }
 
     @GetMapping("/cattle/{cattleId}/pen-history")

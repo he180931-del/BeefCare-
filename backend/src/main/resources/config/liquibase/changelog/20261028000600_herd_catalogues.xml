@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <changeSet id="20261028000600-catalogue-versioning" author="beefcare">
+    <preConditions onFail="HALT"><and>
+      <sqlCheck expectedResult="0">SELECT COUNT(*) FROM (SELECT farm_id, upper(code) FROM breed GROUP BY farm_id,upper(code) HAVING COUNT(*)&gt;1) d</sqlCheck>
+      <sqlCheck expectedResult="0">SELECT COUNT(*) FROM (SELECT farm_id, upper(code) FROM production_purpose GROUP BY farm_id,upper(code) HAVING COUNT(*)&gt;1) d</sqlCheck>
+    </and></preConditions>
+    <addColumn tableName="breed"><column name="breed_group" type="varchar(50)"/><column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column></addColumn>
+    <addColumn tableName="production_purpose"><column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column></addColumn>
+    <sql dbms="postgresql">CREATE UNIQUE INDEX uq_breed_farm_code_ci ON breed(farm_id,upper(code)); CREATE UNIQUE INDEX uq_purpose_farm_code_ci ON production_purpose(farm_id,upper(code));</sql>
+    <sql dbms="h2">ALTER TABLE breed ADD CONSTRAINT uq_breed_farm_code UNIQUE(farm_id,code); ALTER TABLE production_purpose ADD CONSTRAINT uq_purpose_farm_code UNIQUE(farm_id,code);</sql>
+    <modifyDataType tableName="farm" columnName="province" newDataType="varchar(150)"/>
+    <modifyDataType tableName="farm" columnName="commune" newDataType="varchar(150)"/>
+  </changeSet>
+</databaseChangeLog>

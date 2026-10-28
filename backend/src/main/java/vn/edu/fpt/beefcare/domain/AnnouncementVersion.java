@@ -33,7 +33,7 @@ public class AnnouncementVersion implements Serializable {
     @Column(name = "title", length = 255, nullable = false)
     private String title;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "body", nullable = false)
     private String body;
 
@@ -45,6 +45,8 @@ public class AnnouncementVersion implements Serializable {
     @NotNull
     @JsonIgnoreProperties(value = { "farm", "author" }, allowSetters = true)
     private FarmAnnouncement announcement;
+
+    @Size(max=500) @Column(name="correction_reason",length=500) private String correctionReason;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -120,6 +122,8 @@ public class AnnouncementVersion implements Serializable {
     public void setAnnouncement(FarmAnnouncement farmAnnouncement) {
         this.announcement = farmAnnouncement;
     }
+
+    public String getCorrectionReason(){return correctionReason;} public void setCorrectionReason(String value){correctionReason=value;}
 
     public AnnouncementVersion announcement(FarmAnnouncement farmAnnouncement) {
         this.setAnnouncement(farmAnnouncement);

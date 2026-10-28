@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.context.annotation.Profile;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.ResponseUtil;
 import vn.edu.fpt.beefcare.domain.AnnouncementVersion;
@@ -24,6 +25,7 @@ import vn.edu.fpt.beefcare.web.rest.errors.BadRequestAlertException;
  * REST controller for managing {@link vn.edu.fpt.beefcare.domain.AnnouncementVersion}.
  */
 @RestController
+@Profile("legacy-generated-crud")
 @RequestMapping("/api/announcement-versions")
 @Transactional
 public class AnnouncementVersionResource {

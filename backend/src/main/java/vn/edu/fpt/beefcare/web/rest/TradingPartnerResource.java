@@ -10,11 +10,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus;
 import vn.edu.fpt.beefcare.service.TradingPartnerService;
+import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
+import vn.edu.fpt.beefcare.service.FarmAction;
 import vn.edu.fpt.beefcare.service.dto.EntryDtos;
 import vn.edu.fpt.beefcare.service.dto.TradingPartnerRequest;
 
@@ -24,9 +27,11 @@ import vn.edu.fpt.beefcare.service.dto.TradingPartnerRequest;
 public class TradingPartnerResource {
 
     private final TradingPartnerService service;
+    private final IdempotencyCommandService commands;
 
-    public TradingPartnerResource(TradingPartnerService service) {
+    public TradingPartnerResource(TradingPartnerService service, IdempotencyCommandService commands) {
         this.service = service;
+        this.commands = commands;
     }
 
     @GetMapping
@@ -45,18 +50,23 @@ public class TradingPartnerResource {
     }
 
     @PostMapping
-    public ResponseEntity<EntryDtos.Partner> create(@PathVariable Long farmId, @Valid @RequestBody TradingPartnerRequest request) {
-        EntryDtos.Partner created = service.create(farmId, request);
+    public ResponseEntity<EntryDtos.Partner> create(@PathVariable Long farmId, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody TradingPartnerRequest request) {
+        FarmAction permission = Boolean.TRUE.equals(request.buyer()) ? FarmAction.MANAGE_BUYERS : FarmAction.MANAGE_SELLERS;
+        EntryDtos.Partner created = commands.execute(farmId, permission, "TRADING_PARTNER_CREATE", key, request, EntryDtos.Partner.class, () -> service.create(farmId, request));
         return ResponseEntity.created(URI.create("/api/farms/" + farmId + "/trading-partners/" + created.id())).body(created);
     }
 
     @PutMapping("/{id}")
-    public EntryDtos.Partner update(@PathVariable Long farmId, @PathVariable Long id, @Valid @RequestBody TradingPartnerRequest request) {
-        return service.update(farmId, id, request);
+    public EntryDtos.Partner update(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody TradingPartnerRequest request) {
+        EntryDtos.Partner current = service.get(farmId, id);
+        FarmAction permission = current.buyer() || Boolean.TRUE.equals(request.buyer()) ? FarmAction.MANAGE_BUYERS : FarmAction.MANAGE_SELLERS;
+        return commands.execute(farmId, permission, "TRADING_PARTNER_UPDATE:" + id, key, request, EntryDtos.Partner.class, () -> service.update(farmId, id, request));
     }
 
     @PatchMapping("/{id}/status")
-    public EntryDtos.Partner changeStatus(@PathVariable Long farmId, @PathVariable Long id, @RequestBody TradingPartnerRequest.StatusRequest request) {
-        return service.changeStatus(farmId, id, request);
+    public EntryDtos.Partner changeStatus(@PathVariable Long farmId, @PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @RequestBody TradingPartnerRequest.StatusRequest request) {
+        EntryDtos.Partner current = service.get(farmId, id);
+        FarmAction permission = current.buyer() ? FarmAction.MANAGE_BUYERS : FarmAction.MANAGE_SELLERS;
+        return commands.execute(farmId, permission, "TRADING_PARTNER_STATUS:" + id, key, request, EntryDtos.Partner.class, () -> service.changeStatus(farmId, id, request));
     }
 }

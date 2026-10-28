@@ -9,4 +9,7 @@ import vn.edu.fpt.beefcare.domain.FarmAnnouncement;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface FarmAnnouncementRepository extends JpaRepository<FarmAnnouncement, Long> {}
+public interface FarmAnnouncementRepository extends JpaRepository<FarmAnnouncement, Long> {
+    java.util.List<FarmAnnouncement> findByFarm_IdOrderByIdDesc(Long farmId);
+    java.util.Optional<FarmAnnouncement> findByIdAndFarm_Id(Long id,Long farmId);
+}

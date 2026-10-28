@@ -16,6 +16,9 @@ public interface PenAssignmentRepository extends JpaRepository<PenAssignment, Lo
 
     long countByPenIdAndToDateIsNull(Long penId);
 
+    @Query("select count(a) from PenAssignment a where a.pen.id=:penId and a.fromDate<=:day and (a.toDate is null or a.toDate>=:day)")
+    long countAssignedAt(@Param("penId") Long penId,@Param("day") LocalDate day);
+
     boolean existsByPenId(Long penId);
 
     List<PenAssignment> findAllByCattleIdOrderByFromDateAscIdAsc(Long cattleId);

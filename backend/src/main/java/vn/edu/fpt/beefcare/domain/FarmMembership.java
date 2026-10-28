@@ -5,12 +5,13 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDate;
 
 /**
  * A FarmMembership.
  */
 @Entity
-@Table(name = "farm_membership")
+@Table(name = "farm_membership", uniqueConstraints = @UniqueConstraint(name = "uq_farm_membership_farm_user", columnNames = { "farm_id", "user_id" }))
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class FarmMembership implements Serializable {
 
@@ -32,6 +33,17 @@ public class FarmMembership implements Serializable {
     @Size(max = 30)
     @Column(name = "status", length = 30, nullable = false)
     private String status;
+
+    @NotNull
+    @Column(name = "effective_date", nullable = false)
+    private LocalDate effectiveDate = LocalDate.now();
+
+    @Column(name = "change_reason", length = 500)
+    private String changeReason;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
 
     @ManyToOne(optional = false)
     @NotNull
@@ -83,6 +95,13 @@ public class FarmMembership implements Serializable {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public LocalDate getEffectiveDate() { return effectiveDate; }
+    public void setEffectiveDate(LocalDate effectiveDate) { this.effectiveDate = effectiveDate; }
+    public String getChangeReason() { return changeReason; }
+    public void setChangeReason(String changeReason) { this.changeReason = changeReason; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public Farm getFarm() {
         return this.farm;

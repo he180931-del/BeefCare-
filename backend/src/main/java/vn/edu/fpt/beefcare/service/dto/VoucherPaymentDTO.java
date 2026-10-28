@@ -28,11 +28,15 @@ public record VoucherPaymentDTO(
 ) {
     public static VoucherPaymentDTO from(VoucherPayment p) {
         boolean entry = p.getEntryVoucher() != null;
+        boolean exit = p.getExitVoucher() != null;
+        String kind = entry ? "ENTRY" : exit ? "EXIT" : "FEED_RECEIPT";
+        Long voucherId = entry ? p.getEntryVoucher().getId() : exit ? p.getExitVoucher().getId() : p.getFeedReceipt().getId();
+        String voucherCode = entry ? p.getEntryVoucher().getCode() : exit ? p.getExitVoucher().getCode() : p.getFeedReceipt().getCode();
         return new VoucherPaymentDTO(
             p.getId(),
-            entry ? "ENTRY" : "EXIT",
-            entry ? p.getEntryVoucher().getId() : p.getExitVoucher().getId(),
-            entry ? p.getEntryVoucher().getCode() : p.getExitVoucher().getCode(),
+            kind,
+            voucherId,
+            voucherCode,
             p.getDirection(),
             p.getPaymentDate(),
             p.getAmount(),

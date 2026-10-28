@@ -35,22 +35,51 @@ public class Growth implements Serializable {
     @Column(name = "entry_time", nullable = false)
     private Instant entryTime;
 
-    @NotNull
-    @Column(name = "weight_kg", precision = 21, scale = 2, nullable = false)
+    @Column(name = "weight_kg", precision = 21, scale = 2)
     private BigDecimal weightKg;
 
     /**
      * MEASURED | ESTIMATED
      */
     @Schema(description = "MEASURED | ESTIMATED", required = true)
-    @NotNull
     @Size(max = 30)
-    @Column(name = "weight_type", length = 30, nullable = false)
+    @Column(name = "weight_type", length = 30)
     private String weightType;
 
     @NotNull
-    @Column(name = "bcs", nullable = false)
+    @Size(max = 30)
+    @Column(name = "method", length = 30, nullable = false)
+    private String method = "OTHER";
+
+    @Column(name = "bcs")
     private Integer bcs;
+
+    @Column(name="bcs_score",precision=3,scale=1)
+    private BigDecimal bcsScore;
+    @Column(name="observed_at")
+    private Instant observedAt;
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="measured_by_id")
+    private AppUser measuredBy;
+    @Column(name="note",length=500)
+    private String note;
+    @Column(name="is_corrected",nullable=false)
+    private boolean corrected;
+    @Version
+    @Column(name="version",nullable=false)
+    private Integer version;
+
+    @DecimalMin("50.0")
+    @DecimalMax("300.0")
+    @Digits(integer = 3, fraction = 1)
+    @Column(name = "heart_girth_cm", precision = 5, scale = 1)
+    private BigDecimal heartGirthCm;
+
+    @DecimalMin("30.0")
+    @DecimalMax("250.0")
+    @Digits(integer = 3, fraction = 1)
+    @Column(name = "body_length_cm", precision = 5, scale = 1)
+    private BigDecimal bodyLengthCm;
 
     /**
      * VALID | CORRECTED | EXCLUDED
@@ -61,7 +90,7 @@ public class Growth implements Serializable {
     @Column(name = "status", length = 30, nullable = false)
     private String status;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "correction_reason")
     private String correctionReason;
 
@@ -137,6 +166,9 @@ public class Growth implements Serializable {
         this.weightType = weightType;
     }
 
+    public String getMethod() { return method; }
+    public void setMethod(String method) { this.method = method; }
+
     public Integer getBcs() {
         return this.bcs;
     }
@@ -149,6 +181,23 @@ public class Growth implements Serializable {
     public void setBcs(Integer bcs) {
         this.bcs = bcs;
     }
+
+    public BigDecimal getHeartGirthCm() { return heartGirthCm; }
+    public BigDecimal getBcsScore() { return bcsScore==null && bcs!=null?BigDecimal.valueOf(bcs):bcsScore; }
+    public void setBcsScore(BigDecimal value) { bcsScore=value; }
+    public Instant getObservedAt() { return observedAt; }
+    public void setObservedAt(Instant value) { observedAt=value; }
+    public AppUser getMeasuredBy() { return measuredBy; }
+    public void setMeasuredBy(AppUser value) { measuredBy=value; }
+    public String getNote() { return note; }
+    public void setNote(String value) { note=value; }
+    public boolean isCorrected() { return corrected; }
+    public void setCorrected(boolean value) { corrected=value; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer value) { version=value; }
+    public void setHeartGirthCm(BigDecimal heartGirthCm) { this.heartGirthCm = heartGirthCm; }
+    public BigDecimal getBodyLengthCm() { return bodyLengthCm; }
+    public void setBodyLengthCm(BigDecimal bodyLengthCm) { this.bodyLengthCm = bodyLengthCm; }
 
     public String getStatus() {
         return this.status;

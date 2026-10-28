@@ -60,6 +60,34 @@ public class CalfOutcome implements Serializable {
     @Column(name = "died_reason", length = 500)
     private String diedReason;
 
+    @Column(name = "calf_no")
+    private Integer calfNo;
+    @Size(max = 30)
+    @Column(name = "weight_unit", length = 30)
+    private String weightUnit;
+    @Size(max = 30)
+    @Column(name = "weight_basis", length = 30)
+    private String weightBasis;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+    @NotNull
+    @Size(max = 30)
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private Boolean corrected = Boolean.FALSE;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "breed_id")
+    private Breed breed;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proposed_purpose_id")
+    private ProductionPurpose proposedPurpose;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proposed_pen_id")
     private Pen proposedPen;
@@ -180,6 +208,24 @@ public class CalfOutcome implements Serializable {
     public void setProposedPen(Pen proposedPen) {
         this.proposedPen = proposedPen;
     }
+    public Integer getCalfNo() { return calfNo; }
+    public void setCalfNo(Integer calfNo) { this.calfNo = calfNo; }
+    public String getWeightUnit() { return weightUnit; }
+    public void setWeightUnit(String weightUnit) { this.weightUnit = weightUnit; }
+    public String getWeightBasis() { return weightBasis; }
+    public void setWeightBasis(String weightBasis) { this.weightBasis = weightBasis; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getStatusReason() { return statusReason; }
+    public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
+    public Boolean getCorrected() { return corrected; }
+    public void setCorrected(Boolean corrected) { this.corrected = corrected; }
+    public Breed getBreed() { return breed; }
+    public void setBreed(Breed breed) { this.breed = breed; }
+    public ProductionPurpose getProposedPurpose() { return proposedPurpose; }
+    public void setProposedPurpose(ProductionPurpose proposedPurpose) { this.proposedPurpose = proposedPurpose; }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

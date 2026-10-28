@@ -16,7 +16,7 @@ import vn.edu.fpt.beefcare.security.SecurityUtils;
 
 /**
  * GBR-09: every protected request rechecks the account status, the current membership and role in the path farm,
- * and (for writes) the farm service status. Nothing sent by the client is trusted.
+ * and operational access requires an ACTIVE farm service. Only the owner's farm information actions are exempt.
  *
  * The signed-in JHipster login is mapped to the BeefCare {@link AppUser} by e-mail (login or account e-mail).
  */
@@ -53,7 +53,11 @@ public class FarmAccessService {
             throw DomainException.forbidden(MessageCodes.COM_01);
         }
         Farm farm = farmRepository.findById(farmId).orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
-        if (action.isWrite() && !ACTIVE.equalsIgnoreCase(farm.getServiceStatus())) {
+        if (
+            action != FarmAction.VIEW_FARM_INFORMATION &&
+            action != FarmAction.MANAGE_FARM_INFORMATION &&
+            !ACTIVE.equalsIgnoreCase(farm.getServiceStatus())
+        ) {
             throw DomainException.forbidden(MessageCodes.COM_12, "farm", farm.getName(), "status", farm.getServiceStatus());
         }
         return new FarmContext(farm, user, role);
@@ -63,11 +67,40 @@ public class FarmAccessService {
     public AppUser currentActiveUser() {
         String login = SecurityUtils.getCurrentUserLogin()
             .orElseThrow(() -> new DomainException(MessageCodes.COM_01, null, HttpStatus.UNAUTHORIZED));
-        AppUser user = findAppUser(login).orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
+        AppUser user = findAppUser(login).orElseGet(() -> provisionForAuthenticatedIdentity(login));
         if (!ACTIVE.equalsIgnoreCase(user.getAccountStatus())) {
             throw DomainException.forbidden(MessageCodes.COM_01);
         }
+        userRepository
+            .findOneByLogin(login.toLowerCase(Locale.ROOT))
+            .or(() -> userRepository.findOneByEmailIgnoreCase(login))
+            .filter(identity -> !identity.isActivated())
+            .ifPresent(identity -> {
+                throw DomainException.forbidden(MessageCodes.COM_01);
+            });
         return user;
+    }
+
+    /** Creates the BeefCare identity projection for an already activated JHipster credential on first sign-in. */
+    private AppUser provisionForAuthenticatedIdentity(String login) {
+        var identity = userRepository
+            .findOneByLogin(login.toLowerCase(Locale.ROOT))
+            .filter(vn.edu.fpt.beefcare.domain.User::isActivated)
+            .orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
+        if (identity.getEmail() == null || identity.getEmail().isBlank()) {
+            throw DomainException.forbidden(MessageCodes.COM_01);
+        }
+        String fullName = ((identity.getFirstName() == null ? "" : identity.getFirstName().trim()) + " " +
+            (identity.getLastName() == null ? "" : identity.getLastName().trim())).trim();
+        if (fullName.isBlank()) {
+            fullName = identity.getLogin();
+        }
+        AppUser appUser = new AppUser()
+            .email(identity.getEmail().trim().toLowerCase(Locale.ROOT))
+            .fullName(fullName)
+            .accountStatus(ACTIVE);
+        appUser.setPasswordLoginEnabled(true);
+        return appUserRepository.save(appUser);
     }
 
     private Optional<AppUser> findAppUser(String login) {

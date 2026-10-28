@@ -115,7 +115,28 @@
     <include file="config/liquibase/changelog/20261019174059_added_entity_constraints_Reminder.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261019174100_added_entity_constraints_Notification.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
+    <include file="config/liquibase/changelog/20261028000001_guard_herd_logic_drop.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261028000002_herd_logic_schema.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261028000003_herd_logic_postgres_constraints.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000004_srs_base_foundation.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000006_command_infrastructure.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000007_owner_registration.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000008_password_login_method.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000100_identity_security.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000110_membership_lifecycle.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000120_durable_mail_dispatch.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000130_platform_account_admin.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000140_subscription_payment_evidence.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000150_platform_finance_workflows.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000200_care_reproduction_schema.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000203_calf_outcome_lifecycle.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000204_reproduction_observer.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000300_feed_coordination.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000400_herd_features.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000500_support_workflows.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000600_herd_catalogues.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000700_reminder_reconciliation.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000800_feed_fefo.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261028000900_audit_action_length.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

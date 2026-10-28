@@ -40,6 +40,28 @@ public class HealthCase implements Serializable {
     @Column(name = "closed_date")
     private LocalDate closedDate;
 
+    @Size(max = 100)
+    @Column(name = "suspected_diagnosis", length = 100)
+    private String suspectedDiagnosis;
+
+    @NotNull
+    @Column(name = "is_suspected_contagious", nullable = false)
+    private Boolean isSuspectedContagious = Boolean.FALSE;
+
+    @Size(max = 30)
+    @Column(name = "case_code", length = 30)
+    private String caseCode;
+    @Size(max = 30)
+    @Column(name = "severity", length = 30)
+    private String severity;
+    @Column(name = "chronic_since")
+    private LocalDate chronicSince;
+    @Column(name = "closed_at")
+    private java.time.Instant closedAt;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
+
     @ManyToOne(optional = false)
     @NotNull
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
@@ -111,6 +133,21 @@ public class HealthCase implements Serializable {
     public void setClosedDate(LocalDate closedDate) {
         this.closedDate = closedDate;
     }
+
+    public String getSuspectedDiagnosis() { return suspectedDiagnosis; }
+    public void setSuspectedDiagnosis(String suspectedDiagnosis) { this.suspectedDiagnosis = suspectedDiagnosis; }
+    public Boolean getIsSuspectedContagious() { return isSuspectedContagious; }
+    public void setIsSuspectedContagious(Boolean isSuspectedContagious) { this.isSuspectedContagious = isSuspectedContagious; }
+    public String getCaseCode() { return caseCode; }
+    public void setCaseCode(String caseCode) { this.caseCode = caseCode; }
+    public String getSeverity() { return severity; }
+    public void setSeverity(String severity) { this.severity = severity; }
+    public LocalDate getChronicSince() { return chronicSince; }
+    public void setChronicSince(LocalDate chronicSince) { this.chronicSince = chronicSince; }
+    public java.time.Instant getClosedAt() { return closedAt; }
+    public void setClosedAt(java.time.Instant closedAt) { this.closedAt = closedAt; }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public Cattle getCattle() {
         return this.cattle;

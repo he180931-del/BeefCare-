@@ -35,7 +35,7 @@ public class TicketMessage implements Serializable {
     @Column(name = "audience", length = 30, nullable = false)
     private String audience;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
     @Column(name = "content", nullable = false)
     private String content;
 
@@ -48,6 +48,11 @@ public class TicketMessage implements Serializable {
     @NotNull
     @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
     private AppUser author;
+
+    @Column(name="created_at") private java.time.Instant createdAt;
+    @Column(name="author_role",length=30) private String authorRole;
+    public java.time.Instant getCreatedAt(){return createdAt;} public void setCreatedAt(java.time.Instant value){createdAt=value;}
+    public String getAuthorRole(){return authorRole;} public void setAuthorRole(String value){authorRole=value;}
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

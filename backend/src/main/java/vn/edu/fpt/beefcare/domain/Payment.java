@@ -79,6 +79,42 @@ public class Payment implements Serializable {
     @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
     private AppUser requestedBy;
 
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @NotNull
+    @JsonIgnoreProperties(value = {}, allowSetters = true)
+    private PlanVersion priceVersion;
+
+    @NotNull
+    @Column(name = "requested_at", nullable = false)
+    private Instant requestedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
+    @Size(max = 40)
+    @Column(name = "receipt_code", length = 40, unique = true)
+    private String receiptCode;
+
+    @Size(max = 100)
+    @Column(name = "receiving_account_namespace", length = 100)
+    private String receivingAccountNamespace;
+
+    @Column(name = "receiving_environment", length = 20)
+    private String receivingEnvironment;
+
+    @Size(max = 50)
+    @Column(name = "receiving_account", length = 50)
+    private String receivingAccount;
+
+    @Size(max = 30)
+    @Column(name = "receiving_bank_code", length = 30)
+    private String receivingBankCode;
+
+    @Size(max = 150)
+    @Column(name = "receiving_account_name", length = 150)
+    private String receivingAccountName;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -210,6 +246,25 @@ public class Payment implements Serializable {
         this.setRequestedBy(appUser);
         return this;
     }
+
+    public PlanVersion getPriceVersion() { return priceVersion; }
+    public void setPriceVersion(PlanVersion priceVersion) { this.priceVersion = priceVersion; }
+    public Instant getRequestedAt() { return requestedAt; }
+    public void setRequestedAt(Instant requestedAt) { this.requestedAt = requestedAt; }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
+    public String getReceiptCode() { return receiptCode; }
+    public void setReceiptCode(String receiptCode) { this.receiptCode = receiptCode; }
+    public String getReceivingAccountNamespace() { return receivingAccountNamespace; }
+    public void setReceivingAccountNamespace(String receivingAccountNamespace) { this.receivingAccountNamespace = receivingAccountNamespace; }
+    public String getReceivingEnvironment() { return receivingEnvironment; }
+    public void setReceivingEnvironment(String receivingEnvironment) { this.receivingEnvironment = receivingEnvironment; }
+    public String getReceivingAccount() { return receivingAccount; }
+    public void setReceivingAccount(String receivingAccount) { this.receivingAccount = receivingAccount; }
+    public String getReceivingBankCode() { return receivingBankCode; }
+    public void setReceivingBankCode(String receivingBankCode) { this.receivingBankCode = receivingBankCode; }
+    public String getReceivingAccountName() { return receivingAccountName; }
+    public void setReceivingAccountName(String receivingAccountName) { this.receivingAccountName = receivingAccountName; }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

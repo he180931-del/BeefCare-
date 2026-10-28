@@ -330,7 +330,7 @@ public class HerdExitVoucherService {
     public Detail update(Long farmId, Long id, ExitVoucherRequests.Save req) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
         HerdExitVoucher v = lock(farmId, id);
-        VersionGuard.check(v.getVersion(), req == null ? null : req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req == null ? null : req.expectedVersion());
         if (req == null) {
             throw DomainException.required("body");
         }
@@ -368,7 +368,7 @@ public class HerdExitVoucherService {
     public void delete(Long farmId, Long id, Integer expectedVersion) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
         HerdExitVoucher v = lock(farmId, id);
-        VersionGuard.check(v.getVersion(), expectedVersion);
+        VersionGuard.requireExpected(v.getVersion(), expectedVersion);
         if (v.getStatus() != ExitVoucherStatus.DRAFT) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
@@ -384,7 +384,7 @@ public class HerdExitVoucherService {
     public Detail addCattle(Long farmId, Long id, ExitVoucherRequests.AddCattle req) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
         HerdExitVoucher v = lock(farmId, id);
-        VersionGuard.check(v.getVersion(), req == null ? null : req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req == null ? null : req.expectedVersion());
         if (v.getStatus() != ExitVoucherStatus.DRAFT) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
@@ -437,7 +437,7 @@ public class HerdExitVoucherService {
         if (req == null || !Boolean.TRUE.equals(req.acknowledged())) {
             throw DomainException.badRequest(MessageCodes.COM_16);
         }
-        VersionGuard.check(v.getVersion(), req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req.expectedVersion());
         if (v.getStatus() != ExitVoucherStatus.DRAFT && v.getStatus() != ExitVoucherStatus.PENDING) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
@@ -572,7 +572,7 @@ public class HerdExitVoucherService {
     public DismissResult dismiss(Long farmId, Long id, ExitVoucherRequests.Dismiss req) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
         HerdExitVoucher v = lock(farmId, id);
-        VersionGuard.check(v.getVersion(), req == null ? null : req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req == null ? null : req.expectedVersion());
         if (v.getStatus() != ExitVoucherStatus.PENDING) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
@@ -617,7 +617,7 @@ public class HerdExitVoucherService {
     public VoidResult voidVoucher(Long farmId, Long id, ExitVoucherRequests.Void req) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
         HerdExitVoucher v = lock(farmId, id);
-        VersionGuard.check(v.getVersion(), req == null ? null : req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req == null ? null : req.expectedVersion());
         if (v.getStatus() != ExitVoucherStatus.CONFIRMED) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }

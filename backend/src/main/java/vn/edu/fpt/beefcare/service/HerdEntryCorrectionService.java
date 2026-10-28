@@ -190,7 +190,7 @@ public class HerdEntryCorrectionService {
         if (v.getStatus() != EntryVoucherStatus.POSTED) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
-        VersionGuard.check(v.getVersion(), req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req.expectedVersion());
         String reason = requireReason(req.reason());
 
         List<HerdEntry> valid = entryRepository.findAllByVoucherIdOrderByLineNoAsc(v.getId()).stream().filter(l -> l.getStatus() == EntryLineStatus.VALID).toList();
@@ -231,7 +231,7 @@ public class HerdEntryCorrectionService {
         if (v.getStatus() != EntryVoucherStatus.POSTED || entry.getStatus() != EntryLineStatus.VALID || entry.getCattle() == null) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
-        VersionGuard.check(entry.getVersion(), req.expectedVersion());
+        VersionGuard.requireExpected(entry.getVersion(), req.expectedVersion());
         String reason = requireReason(req.reason());
         Cattle cattle = guard.lockCattle(farmId, entry.getCattle().getId());
         guard.assertActive(cattle);
@@ -305,8 +305,8 @@ public class HerdEntryCorrectionService {
         if (v.getStatus() != EntryVoucherStatus.POSTED || entry.getStatus() != EntryLineStatus.VALID || entry.getCattle() == null) {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
-        VersionGuard.check(entry.getVersion(), req.expectedVersion());
-        VersionGuard.check(v.getVersion(), req.voucherVersion());
+        VersionGuard.requireExpected(entry.getVersion(), req.expectedVersion());
+        VersionGuard.requireExpected(v.getVersion(), req.voucherVersion());
         String reason = requireReason(req.reason());
         EntryActionRequests.Changes ch = req.changes();
         boolean purchase = v.getEntryType() == EntryType.PURCHASE;

@@ -10,6 +10,8 @@ import vn.edu.fpt.beefcare.domain.Reminder;
 @SuppressWarnings("unused")
 @Repository
 public interface ReminderRepository extends JpaRepository<Reminder, Long> {
+    java.util.List<Reminder> findAllByFarm_IdOrderByDueTimeAscIdAsc(Long farmId);
+    java.util.Optional<Reminder> findByRuleKey(String ruleKey);
     java.util.List<Reminder> findAllByFarmIdAndCattleIdInAndRuleTypeAndStatus(
         Long farmId,
         java.util.Collection<Long> cattleIds,

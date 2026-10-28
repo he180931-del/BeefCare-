@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- Explicit command names such as REPRODUCTION_PREGNANCY_CHECK_RECORD exceed the legacy 30 characters. -->
+    <changeSet id="20261028000900-audit-action-length" author="beefcare">
+        <modifyDataType tableName="audit_log" columnName="action" newDataType="varchar(100)"/>
+    </changeSet>
+</databaseChangeLog>

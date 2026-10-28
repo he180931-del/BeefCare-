@@ -26,6 +26,9 @@ tmp/
 *.swp
 *~.nib
 local.properties
+
+# Private local attachment bytes; metadata lives in the database.
+.local-storage/
 .classpath
 .settings/
 .loadpath

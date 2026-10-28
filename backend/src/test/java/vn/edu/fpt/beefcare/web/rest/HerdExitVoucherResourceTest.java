@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -34,7 +35,12 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
     }
 
     private static RequestPostProcessor as(String email) {
-        return SecurityMockMvcRequestPostProcessors.user(email);
+        return request -> {
+            MockHttpServletRequest processed = SecurityMockMvcRequestPostProcessors.user(email).postProcessRequest(request);
+            SecurityMockMvcRequestPostProcessors.csrf().postProcessRequest(processed);
+            if (processed.getHeader("Idempotency-Key") == null) processed.addHeader("Idempotency-Key", java.util.UUID.randomUUID().toString());
+            return processed;
+        };
     }
 
     private String base() {
@@ -127,7 +133,7 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
                     .header("Idempotency-Key", "k-1")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"acknowledged\":true}")
+                    .content("{\"acknowledged\":true,\"expectedVersion\":0}")
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.repeated").value(false))
@@ -139,7 +145,17 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
                     .header("Idempotency-Key", "k-1")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"acknowledged\":true}")
+                    .content("{\"acknowledged\":true,\"expectedVersion\":0}")
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.repeated").value(false));
+        mvc
+            .perform(
+                post(base() + "/" + id + "/confirm")
+                    .header("Idempotency-Key", "k-2")
+                    .with(as(owner.getEmail()))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"acknowledged\":true,\"expectedVersion\":0}")
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.repeated").value(true));
@@ -195,7 +211,7 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
         Cattle e = placed(penA, "300");
         Long id = createDraft(e);
         mvc
-            .perform(post(base() + "/" + id + "/dismiss").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}"))
+            .perform(post(base() + "/" + id + "/dismiss").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"x\",\"expectedVersion\":0}"))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("MSG-COM-05"));
     }
@@ -211,7 +227,7 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
         Long id = createDraft(c);
         mvc.perform(get(base() + "/" + id + "/void-check").with(as(owner.getEmail()))).andExpect(status().isOk()).andExpect(jsonPath("$.voidable").value(false));
         mvc
-            .perform(post(base() + "/" + id + "/lines").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"tagCode\":\"NOPE\"}"))
+            .perform(post(base() + "/" + id + "/lines").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"tagCode\":\"NOPE\",\"expectedVersion\":0}"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MSG-COM-08"));
         mvc.perform(delete(base() + "/" + id).with(as(owner.getEmail()))).andExpect(status().isNoContent());

@@ -51,6 +51,19 @@ public class SupportTicket implements Serializable {
     @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
     private AppUser assignedCs;
 
+    @Column(name="code",length=50,unique=true) private String code;
+    @Column(name="subject",length=150) private String subject;
+    @Column(name="created_at") private java.time.Instant createdAt;
+    @Column(name="updated_at") private java.time.Instant updatedAt;
+    @Column(name="latest_resolution_version",nullable=false) private Integer latestResolutionVersion=0;
+    @Version @Column(name="version",nullable=false) private Integer version;
+    public String getCode(){return code;} public void setCode(String value){code=value;}
+    public String getSubject(){return subject;} public void setSubject(String value){subject=value;}
+    public java.time.Instant getCreatedAt(){return createdAt;} public void setCreatedAt(java.time.Instant value){createdAt=value;}
+    public java.time.Instant getUpdatedAt(){return updatedAt;} public void setUpdatedAt(java.time.Instant value){updatedAt=value;}
+    public Integer getLatestResolutionVersion(){return latestResolutionVersion;} public void setLatestResolutionVersion(Integer value){latestResolutionVersion=value;}
+    public Integer getVersion(){return version;} public void setVersion(Integer value){version=value;}
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {

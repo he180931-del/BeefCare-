@@ -24,6 +24,11 @@ public final class MessageCodes {
     public static final String COM_16 = "MSG-COM-16";
     public static final String COM_17 = "MSG-COM-17";
     public static final String COM_18 = "MSG-COM-18";
+    public static final String COM_19 = "MSG-COM-19";
+
+    public static final String FE03_17 = "MSG-FE03-17";
+    public static final String FE03_18 = "MSG-FE03-18";
+    public static final String FE03_20 = "MSG-FE03-20";
 
     public static final String FE04_01 = "MSG-FE04-01";
     public static final String FE04_02 = "MSG-FE04-02";

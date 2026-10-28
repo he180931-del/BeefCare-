@@ -41,6 +41,10 @@ public class PlatformStaffAccess implements Serializable {
     @JoinColumn(unique = true)
     private AppUser user;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -93,6 +97,14 @@ public class PlatformStaffAccess implements Serializable {
     public PlatformStaffAccess user(AppUser appUser) {
         this.setUser(appUser);
         return this;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

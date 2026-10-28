@@ -39,27 +39,23 @@ public class Vaccine implements Serializable {
     @Column(name = "disease_prevented", length = 255, nullable = false)
     private String diseasePrevented;
 
-    @NotNull
     @Size(max = 255)
-    @Column(name = "manufacturer", length = 255, nullable = false)
+    @Column(name = "manufacturer", length = 255)
     private String manufacturer;
 
     /**
      * ERD: dose / route - tách 2 cột
      */
     @Schema(description = "ERD: dose / route - tách 2 cột", required = true)
-    @NotNull
     @Size(max = 255)
-    @Column(name = "dose", length = 255, nullable = false)
+    @Column(name = "dose", length = 255)
     private String dose;
 
-    @NotNull
     @Size(max = 255)
-    @Column(name = "route", length = 255, nullable = false)
+    @Column(name = "route", length = 255)
     private String route;
 
-    @NotNull
-    @Column(name = "booster_interval", nullable = false)
+    @Column(name = "booster_interval")
     private Integer boosterInterval;
 
     @NotNull
@@ -75,6 +71,9 @@ public class Vaccine implements Serializable {
     @NotNull
     @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
     private Farm farm;
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version = 0;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -198,6 +197,8 @@ public class Vaccine implements Serializable {
     public Boolean getAvailable() {
         return this.available;
     }
+    public Integer getVersion() { return version; }
+    public void setVersion(Integer version) { this.version = version; }
 
     public Vaccine available(Boolean available) {
         this.setAvailable(available);
