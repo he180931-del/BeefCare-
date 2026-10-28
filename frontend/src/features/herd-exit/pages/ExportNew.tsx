@@ -3,10 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
-import { BARNS, BUYERS, PAY_METHODS } from '../data/exitData'
+import { BARNS, PAY_METHODS } from '../data/exitData'
 import { EXPORT_HERD, TODAY } from '../data/exportsData'
 import { dm, money } from '../../../data/format'
-import { getExitDraftState, herdExitApi, saveHerdExit, pens } from '../api/index'
+import { getExitDraftState, herdExitApi, saveHerdExit, pens, listExitBuyers, listSelectableExitCattle } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { Box, CheckList, DocRow, Drop, MoneyInput, SummaryCard, TH, cx } from '../components/parts'
 import PickModal from '../components/PickModal'
@@ -40,17 +40,19 @@ const normalizeHerdCow = (cow: ExitDraftCow): HerdCow => {
 export default function ExportNew() {
   const [params] = useSearchParams()
   const { data: exports } = useQuery<HerdExit[]>(() => herdExitApi.list(), [])
-  if (!exports) {
+  const { data: selectableCattle } = useQuery(() => listSelectableExitCattle(), [])
+  const { data: buyers } = useQuery(() => listExitBuyers(), [])
+  if (!exports || !selectableCattle || !buyers) {
     return (
       <Layout title="Phiếu xuất mới">
         <p className="m-0 text-xs text-muted">Đang tải…</p>
       </Layout>
     )
   }
-  return <ExportForm key={params.get('id') ?? 'new'} draftId={params.get('id')} exports={exports} />
+  return <ExportForm key={params.get('id') ?? 'new'} draftId={params.get('id')} exports={exports} selectableCattle={selectableCattle} buyers={buyers} />
 }
 
-function ExportForm({ exports, draftId }: { exports: HerdExit[]; draftId: string | null }) {
+function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: HerdExit[]; draftId: string | null; selectableCattle: HerdCow[]; buyers: Array<{ id: string; name: string; phone: string }> }) {
   const { mutate: persistExit, error: saveError } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
@@ -64,7 +66,7 @@ function ExportForm({ exports, draftId }: { exports: HerdExit[]; draftId: string
 
   const [type, setType] = useState<ExitType>((d.type as ExitType | undefined) ?? 'Bán')
   const [date, setDate] = useState(d?.date ?? TODAY)
-  const [buyerId, setBuyerId] = useState(d?.buyerId ?? BUYERS[0].id)
+  const [buyerId, setBuyerId] = useState(d?.buyerId ?? buyers[0]?.id ?? '')
   const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
   const [plate, setPlate] = useState(d?.plate ?? '')
   const [note, setNote] = useState(d?.note ?? '')
@@ -79,7 +81,7 @@ function ExportForm({ exports, draftId }: { exports: HerdExit[]; draftId: string
   const [toast, setToast] = useState('')
 
   const isSale = type === 'Bán'
-  const buyer = BUYERS.find((b) => b.id === buyerId)
+  const buyer = buyers.find((b) => b.id === buyerId)
   const amount = (c: HerdCow) => (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice)
   const withdrawal = picked.filter((c) => c.withdrawalUntil && date < c.withdrawalUntil)
   const totalWeight = picked.reduce((s, c) => s + c.weight, 0)
@@ -148,7 +150,7 @@ function ExportForm({ exports, draftId }: { exports: HerdExit[]; draftId: string
                 <>
                   <Field label="Người mua / thương lái *" hint={`${buyer?.phone ?? ''} · + Thêm người mua`}>
                     <Select value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className="w-full">
-                      {BUYERS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      {buyers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </Select>
                   </Field>
                   <Field label="Số giấy kiểm dịch vận chuyển"><input className={inputCls} value={quarantine} onChange={(e) => setQuarantine(e.target.value)} /></Field>
@@ -318,7 +320,7 @@ function ExportForm({ exports, draftId }: { exports: HerdExit[]; draftId: string
       <Foot>Loại xuất cố định sau lần lưu đầu. Cân xuất mặc định là cân gần nhất (ước tính); cảnh báo không chặn lưu nháp nhưng phải xem lại trước khi xác nhận.</Foot>
 
       {m === 'pick' && (
-        <PickModal id={id} herdExits={exports} picked={picked} setPicked={(rows) => setPicked(rows)} onClose={closeModal} />
+        <PickModal id={id} herdExits={exports} candidates={selectableCattle} picked={picked} setPicked={(rows) => setPicked(rows)} onClose={closeModal} />
       )}
       {toast && <div className="fixed bottom-6 right-6 z-50 rounded-md bg-side px-4 py-2.5 text-xs text-white">{toast}</div>}
     </Layout>

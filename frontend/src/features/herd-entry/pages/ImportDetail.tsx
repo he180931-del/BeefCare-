@@ -21,7 +21,7 @@ export default function ImportDetail() {
   const [m, openModal, closeModal] = useModalParam()
   const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
   const cattleQuery = useQuery(() => cattle.list(), [])
-  const { mutate: updateEntry, error: updateError } = useMutation<{ recordId: string; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, patch }) => herdEntryApi.update(targetId, patch))
+  const { mutate: recordPayment, error: paymentError } = useMutation<{ recordId: string; payment: Payment & { note?: string } }, HerdEntry>(({ recordId: targetId, payment }) => herdEntryApi.recordPayment(targetId, payment))
   const { mutate: voidEntry, error: voidError } = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, cattleRows, patch }) => voidHerdEntry(targetId, cattleRows, patch))
   const r = query.data
 
@@ -48,16 +48,9 @@ export default function ImportDetail() {
 
   // Ghi thay đổi qua API, rồi tải lại phiếu và đóng modal.
   const savePayment = async (p: Payment) => {
-    await updateEntry({
+    await recordPayment({
       recordId: r.id,
-      patch: {
-        debt: Math.max((r.debt ?? 0) - p.amount, 0),
-        detail: {
-          ...d,
-          payments: [...(d.payments ?? []), { date: p.date, by: p.by, method: p.method, ref: p.ref, amount: p.amount }],
-          history: [...(d.history ?? []), `${dm(TODAY)} ${nowHM()} · ${p.by} ghi nhận thanh toán ${money(p.amount)} đ`],
-        },
-      },
+      payment: p,
     })
     await query.refetch()
     closeModal()
@@ -85,7 +78,7 @@ export default function ImportDetail() {
           <Button onClick={() => window.print()}>In phiếu</Button>
           <Button disabled={!canCancel} onClick={() => openModal('cancel')}>Hủy phiếu</Button>
         </PageHeader>
-        {Boolean(updateError || voidError) && <Note tone="err">{displayError(updateError || voidError)}</Note>}
+        {Boolean(paymentError || voidError) && <Note tone="err">{displayError(paymentError || voidError)}</Note>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
           <div className="flex min-w-0 flex-col gap-[18px]">

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, DateInput, Field, KV, Note, inputCls } from '../../../components/ui'
 import { TODAY } from '../data/importsData'
-import { dmy, money } from '../../../data/format'
+import { money } from '../../../data/format'
 import { RadioRow } from './parts'
 import type { HerdEntry, Payment } from '../../../types'
 
@@ -86,7 +86,7 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
 
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={invalid} onClick={() => onSave({ date: dmy(date), by: 'T. Q. Long', method, ref, amount, note })}>
+        <ModalButton variant="primary" disabled={invalid} onClick={() => onSave({ date, by: 'T. Q. Long', method, ref, amount, note })}>
           Lưu thanh toán
         </ModalButton>
       </ModalFooter>

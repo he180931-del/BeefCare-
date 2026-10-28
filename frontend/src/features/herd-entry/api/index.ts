@@ -7,4 +7,4 @@ export {
   registerEntryCattle,
   voidEntryCattle,
 } from '../../../api/herdDomainApi'
-export { getEntryDraftState, herdEntryApi, saveHerdEntry, voidHerdEntry } from './herdEntryApi'
+export { getEntryDraftState, herdEntryApi, listEntrySellers, listPendingEntryCalves, saveHerdEntry, voidHerdEntry } from './herdEntryApi'

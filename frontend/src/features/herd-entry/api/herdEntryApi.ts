@@ -1,140 +1,52 @@
-import { createCollection, type NewCollectionInput } from '../../../api/client'
-import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../api/herdDomainApi'
-import { initialImports } from '../data/importsData'
-import { errorMessage } from '../../../api/herdDomainApi'
-import { herdEntrySchema } from '../../../api/collectionSchemas'
-import type { CattleInput, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../../../types'
+import type { CattleInput, EntryCalf, HerdEntry, Payment } from '../../../types'
+import { backendFarmId, backendMode, backendTransport } from '../../../api/backendTransport'
+import { createHerdEntryBackendApi } from './herdEntryBackendApi'
+import { initialCalves, SOURCES } from '../data/entryData'
+import {
+  getEntryDraftState,
+  herdEntryApi as localApi,
+  saveHerdEntry as saveLocal,
+  voidHerdEntry as voidLocal,
+} from './herdEntryLocalApi'
 
-const nextEntryId = (rows: HerdEntry[]): string => {
-  const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))
-  return `PN-2026-${String(max + 1).padStart(4, '0')}`
-}
+const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: backendFarmId })
+const usingBackend = backendMode === 'backend'
 
-const herdEntries = createCollection('herdEntries', initialImports, { schema: herdEntrySchema, nextId: nextEntryId })
-const terminalStatuses = new Set(['Đã nhập', 'Đã hủy'])
-
-const getExisting = async (id: string): Promise<HerdEntry | null> => {
-  try {
-    return await herdEntries.get(id)
-  } catch (error) {
-    if (errorMessage(error).startsWith('Not found:')) return null
-    throw error
-  }
-}
+export { getEntryDraftState }
 
 export const herdEntryApi = {
-  list: (predicate?: (row: HerdEntry) => boolean) => herdEntries.list(predicate),
-  get: (id: string) => herdEntries.get(id),
-  create: (record: NewCollectionInput<HerdEntry, 'id'>) => herdEntries.create(record),
-  update: async (id: string, patch: Partial<HerdEntry>) => {
-    const current = await herdEntries.get(id)
-    if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {
-      throw new Error(`Entry voucher is terminal: ${id}`)
-    }
-    return herdEntries.update(id, patch)
+  list: async (predicate?: (row: HerdEntry) => boolean) => {
+    const rows = usingBackend ? await backendApi.list() : await localApi.list()
+    return predicate ? rows.filter(predicate) : rows
   },
-  reset: () => herdEntries.reset(),
+  get: (id: string) => usingBackend ? backendApi.get(id) : localApi.get(id),
+  create: (record: Omit<HerdEntry, 'id'> & Partial<Pick<HerdEntry, 'id'>>) => usingBackend
+    ? backendApi.save({ id: record.id, record })
+    : localApi.create(record),
+  update: async (id: string, patch: Partial<HerdEntry>) => {
+    if (!usingBackend) return localApi.update(id, patch)
+    const current = await backendApi.get(id)
+    return backendApi.save({ id, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.cows ?? current.draft?.cows ?? [] })
+  },
+  reset: () => usingBackend ? Promise.resolve([] as HerdEntry[]) : localApi.reset(),
+  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
+    ? backendApi.recordPayment(id, payment)
+    : localApi.get(id).then((row) => localApi.update(id, {
+      debt: Math.max((row.debt ?? 0) - payment.amount, 0),
+      detail: { ...row.detail, payments: [...(row.detail?.payments ?? []), { by: 'Người dùng hiện tại', ...payment }] },
+    })),
 }
 
-export const getEntryDraftState = (rows: HerdEntry[], id?: string): EntryDraft & { row?: HerdEntry } => {
-  const row = id ? rows.find((item) => item.id === id) : undefined
-  return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Mua ngoài', row }
-}
+export const saveHerdEntry = (input: { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[] }) => usingBackend
+  ? backendApi.save(input)
+  : saveLocal(input)
 
-type EntrySaveRecord = Partial<HerdEntry> & { status?: EntryStatus; type?: EntryType; detail?: EntryDetail; draft?: EntryDraft }
-export async function saveHerdEntry({ id, record, cattleRows = [] }: { id?: string; record: EntrySaveRecord; cattleRows?: CattleInput[] }): Promise<HerdEntry> {
-  const current = id ? await getExisting(id) : null
-  const voucherId = id ?? record.id ?? nextEntryId(await herdEntries.list())
-  if (current && terminalStatuses.has(current.status)) {
-    if (record.status === current.status) return current
-    throw new Error(`Entry voucher is terminal: ${voucherId}`)
-  }
-  let nextRecord = { ...record, id: voucherId }
-  if (record.status === 'Đã nhập') {
-    if (!record.date || !record.type || !cattleRows.length) throw new Error('Entry posting requires date, type and cattle')
-    await validateEntryCattle(cattleRows, voucherId, record)
-    const registered = await registerEntryCattle(cattleRows, voucherId)
-    const generatedCows = registered.map((cow, index) => {
-      const supplied = record.detail?.cows?.[index] ?? {}
-      return {
-        ...supplied,
-        code: cow.code,
-        tag: supplied.tag || cow.tag || '—',
-        breed: supplied.breed || `${cow.breed} · ${cow.sex}`,
-        weight: supplied.weight ?? cow.weight,
-        barn: cow.barn,
-        current: `${cow.status} · ${cow.barn}`,
-        amount: supplied.amount ?? 0,
-      }
-    })
-    nextRecord = {
-      ...nextRecord,
-      detail: {
-        ...(record.detail ?? {}),
-        cows: generatedCows,
-        cowsTotal: record.detail?.cowsTotal ?? 0,
-        payments: record.detail?.payments ?? [],
-        docs: record.detail?.docs ?? [],
-        history: record.detail?.history ?? [],
-      },
-    }
-  }
-  return current ? herdEntries.update(voucherId, nextRecord) : herdEntries.create(nextRecord)
-}
+export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }) => usingBackend
+  ? backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu nhập'))
+  : voidLocal(id, cattleRows, patch)
 
-const today = () => new Date().toISOString().slice(0, 10)
+export const listPendingEntryCalves = (): Promise<EntryCalf[]> => usingBackend
+  ? backendApi.pendingCalves()
+  : Promise.resolve(initialCalves)
 
-async function validateEntryCattle(rows: CattleInput[], voucherId: string, record: EntrySaveRecord): Promise<void> {
-  if (record.date && record.date > today()) throw new Error('Entry date cannot be in the future')
-  const quarantine = record.detail?.quarantine ?? record.draft?.quarantine ?? record.quarantine
-  if (record.type === 'Mua ngoài' && !String(quarantine ?? '').trim()) throw new Error('Entry requires quarantine document')
-
-  const existing = await cattle.list()
-  const existingLines = new Set(existing.filter((row) => row.entryVoucherId === voucherId).map((row) => row.entryLineNo))
-  const seenTags = new Set()
-  const seenCodes = new Set()
-  const additions = new Map()
-  for (const [index, row] of rows.entries()) {
-    if (existingLines.has(index + 1)) continue
-    if (!row.barn) throw new Error(`Entry cattle requires a pen: ${row.tag || index + 1}`)
-    if (row.code) {
-      if (seenCodes.has(row.code) || existing.some((item) => item.code === row.code)) throw new Error(`Duplicate cattle code: ${row.code}`)
-      seenCodes.add(row.code)
-    }
-    const tag = String(row.tag ?? '').trim()
-    if (tag) {
-      if (seenTags.has(tag)) throw new Error(`Duplicate ear tag: ${tag}`)
-      seenTags.add(tag)
-      if (existing.some((item) => item.tag === tag && item.status !== 'VOIDED' && item.entryVoucherId !== voucherId)) {
-        throw new Error(`Duplicate ear tag: ${tag}`)
-      }
-    }
-    let pen
-    try {
-      pen = await pens.get(row.barn)
-    } catch (error) {
-    if (errorMessage(error).startsWith('Not found:')) throw new Error(`Unknown pen: ${row.barn}`)
-      throw error
-    }
-    if (pen.status !== 'ACTIVE') throw new Error(`Pen inactive: ${row.barn}`)
-    additions.set(row.barn, (additions.get(row.barn) ?? 0) + 1)
-    if (pen.count + additions.get(row.barn) > pen.capacity) throw new Error(`Pen full: ${row.barn}`)
-  }
-}
-
-export async function voidHerdEntry(id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }): Promise<HerdEntry> {
-  const current = await herdEntries.get(id)
-  if (current.status === 'Đã hủy') return current
-  const linked = (await cattle.list()).filter((row) => row.entryVoucherId === id)
-  const providedCodes = [...new Set((cattleRows ?? []).map((row) => row.code).filter(Boolean))]
-  const linkedCodes = linked.map((row) => row.code)
-  const detailCodes = [...new Set((current.detail?.cows ?? []).map((row) => row?.code).filter(Boolean))]
-  if (!linked.length && !detailCodes.length) throw new Error(`Entry cancellation has no canonical cattle links: ${id}`)
-  const expectedCodes = linked.length ? linkedCodes : detailCodes
-  if (expectedCodes.length && (providedCodes.length !== expectedCodes.length || expectedCodes.some((code) => !providedCodes.includes(code)))) {
-    throw new Error(`Entry cancellation requires all linked cattle: ${id}`)
-  }
-  if (!linked.length && detailCodes.length) throw new Error(`Entry cancellation has no canonical cattle links: ${id}`)
-  if (linked.length) await voidEntryCattle(linked, id)
-  return herdEntries.update(id, { ...patch, status: 'Đã hủy' })
-}
+export const listEntrySellers = () => usingBackend ? backendApi.sellers() : Promise.resolve(SOURCES)

@@ -12,7 +12,7 @@ const METHODS = ['Tiền mặt', 'Chuyển khoản']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 
 export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit; onClose: () => void; onSaved?: () => void }) {
-  const { mutate: updateExit, loading: saving, error } = useMutation<{ id: string; patch: Partial<HerdExit> }, HerdExit>(({ id, patch }) => herdExitApi.update(id, patch))
+  const { mutate: recordPayment, loading: saving, error } = useMutation<{ id: string; payment: { date: string; amount: number; method: string; ref: string; note?: string } }, HerdExit>(({ id, payment }) => herdExitApi.recordPayment(id, payment))
   const payments = row.detail?.payments ?? []
   const collected = payments.reduce((s, p) => s + p.amount, 0)
   const total = row.total
@@ -28,24 +28,9 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
   const left = owed - amount
 
   const save = async () => {
-    const time = new Date().toTimeString().slice(0, 5)
-    await updateExit({
+    await recordPayment({
       id: row.id,
-      patch: {
-        due: left,
-        detail: {
-          ...row.detail,
-          payments: [
-            ...payments,
-            {
-              date: dmy(date), by: 'N. V. Hùng', method,
-              ref: method === 'Tiền mặt' ? 'PT-2210-01' : reference,
-              amount, note,
-            },
-          ],
-          history: [...(row.detail?.history ?? []), `${dmy(date).slice(0, 5)} ${time} · N. V. Hùng ghi nhận thu ${money(amount)} đ`],
-        },
-      },
+      payment: { date, method, ref: method === 'Tiền mặt' ? 'PT-2210-01' : reference, amount, note },
     })
     onSaved?.()
     onClose()

@@ -43,7 +43,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing, o
         </Field>
 
         <Field label="Giống *">
-          <Select value={c.breed} onChange={(e) => set({ breed: e.target.value })}>
+          <Select value={c.breed} onChange={(e) => set({ breed: e.target.value, breedId: null })}>
             <option value="">Chọn giống</option>
             {BREEDS.map((b) => <option key={b}>{b}</option>)}
           </Select>
@@ -73,7 +73,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing, o
           </Select>
         </Field>
         <Field label="Mục đích nuôi *">
-          <Select value={c.purpose} onChange={(e) => set({ purpose: e.target.value })}>
+          <Select value={c.purpose} onChange={(e) => set({ purpose: e.target.value, purposeId: null })}>
             {PURPOSE_OPTIONS.map((p) => <option key={p}>{p}</option>)}
           </Select>
         </Field>

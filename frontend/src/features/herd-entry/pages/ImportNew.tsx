@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, Checkbox, DateInput, Docs, Dropzone, Field, Foot, KV, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
-import { herdEntryApi, saveHerdEntry, pens, getEntryDraftState } from '../api/index'
+import { herdEntryApi, saveHerdEntry, pens, getEntryDraftState, listEntrySellers, listPendingEntryCalves } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
-import { PAY_METHODS, PURPOSES, SOURCES, initialCalves } from '../data/entryData'
+import { PAY_METHODS, PURPOSES } from '../data/entryData'
 import { INITIAL_COWS, TODAY, ageOf, blankCow } from '../data/importsData'
 import { dmy, money } from '../../../data/format'
 import { GhostMoney, GhostSelect, RadioRow } from '../components/parts'
@@ -27,13 +27,15 @@ export default function ImportNew() {
   const [params] = useSearchParams()
   const { data } = useQuery<HerdEntry[]>(() => herdEntryApi.list(), [])
   const { data: canonicalPens } = useQuery(() => pens.list(), [])
-  if (!data || !canonicalPens) {
+  const { data: pendingCalves } = useQuery(() => listPendingEntryCalves(), [])
+  const { data: sellers } = useQuery(() => listEntrySellers(), [])
+  if (!data || !canonicalPens || !pendingCalves || !sellers) {
     return <Layout title="Phiếu nhập mới" user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
   }
-  return <ImportForm key={`${params.get('id') ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}`} imports={data} canonicalPens={canonicalPens} />
+  return <ImportForm key={`${params.get('id') ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}`} imports={data} canonicalPens={canonicalPens} pendingCalves={pendingCalves} sellers={sellers} />
 }
 
-function ImportForm({ imports, canonicalPens }: { imports: HerdEntry[]; canonicalPens: Pen[] }) {
+function ImportForm({ imports, canonicalPens, pendingCalves, sellers }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }> }) {
   const { mutate: persistEntry, error: saveError } = useMutation(saveHerdEntry)
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -59,20 +61,20 @@ function ImportForm({ imports, canonicalPens }: { imports: HerdEntry[]; canonica
   }
 
   const [pricing, setPricing] = useState<'kg' | 'con'>(draft?.pricing ?? 'kg')
-  const [sourceId, setSourceId] = useState(draft?.sourceId ?? SOURCES[0].id)
+  const [sourceId, setSourceId] = useState(draft?.sourceId ?? sellers[0]?.id ?? '')
   const [date, setDate] = useState(draft?.date ?? TODAY)
   const [quarantine, setQuarantine] = useState(draft?.quarantine ?? '')
   const [receiver, setReceiver] = useState(draft?.receiver ?? 'Anh A')
   const [note, setNote] = useState(draft?.note ?? '')
   const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? INITIAL_COWS)
-  const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? initialCalves)
+  const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? pendingCalves)
   const [freight, setFreight] = useState(draft?.freight ?? 1500000)
   const [paid, setPaid] = useState(draft?.paid ?? 40000000)
   const [method, setMethod] = useState(draft?.method ?? PAY_METHODS[0])
   const [due, setDue] = useState(draft?.due ?? '2026-11-05')
   const [printQr, setPrintQr] = useState(draft?.printQr ?? true)
 
-  const source = SOURCES.find((s) => s.id === sourceId) ?? SOURCES[0]
+  const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
   const cowsMoney = cows.reduce((s, c) => s + (pricing === 'kg' ? c.weight * (c.unitPrice ?? 0) : (c.unitPrice ?? 0)), 0)
   const totalWeight = cows.reduce((s, c) => s + (c.weight ?? 0), 0)
   const total = cowsMoney + freight
@@ -188,7 +190,7 @@ function ImportForm({ imports, canonicalPens }: { imports: HerdEntry[]; canonica
                     <>
                       <Field label="Nguồn / chủ bò cũ *" hint={`${source.phone} · + Thêm nguồn mới`}>
                         <Select value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-                          {SOURCES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </Select>
                       </Field>
                       <Field label="Số giấy kiểm dịch *">

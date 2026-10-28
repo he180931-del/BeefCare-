@@ -1,67 +1,57 @@
-import { createCollection, type NewCollectionInput } from '../../../api/client'
-import { cancelCattleExit, confirmCattleExit } from '../../../api/herdDomainApi'
-import { initialExports } from '../data/exportsData'
-import { errorMessage } from '../../../api/herdDomainApi'
-import { herdExitSchema } from '../../../api/collectionSchemas'
-import type { CattleInput, ExitDraft, ExitStatus, ExitType, HerdExit } from '../../../types'
+import type { CattleInput, HerdExit, Payment } from '../../../types'
+import { backendFarmId, backendMode, backendTransport } from '../../../api/backendTransport'
+import { createHerdExitBackendApi, type ExitCandidate } from './herdExitBackendApi'
+import { EXPORT_HERD } from '../data/exportsData'
+import { BUYERS } from '../data/exitData'
+import {
+  cancelHerdExit as cancelLocal,
+  getExitDraftState,
+  herdExitApi as localApi,
+  saveHerdExit as saveLocal,
+} from './herdExitLocalApi'
 
-const nextExitId = (rows: HerdExit[]): string => {
-  const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))
-  return `PX-2026-${String(max + 1).padStart(4, '0')}`
-}
+const backendApi = createHerdExitBackendApi({ transport: backendTransport, farmId: backendFarmId })
+const usingBackend = backendMode === 'backend'
 
-const herdExits = createCollection('herdExits', initialExports, { schema: herdExitSchema, nextId: nextExitId })
-const terminalStatuses = new Set(['Đã xuất', 'Đã hủy', 'Đã bác'])
-
-const getExisting = async (id: string): Promise<HerdExit | null> => {
-  try {
-    return await herdExits.get(id)
-  } catch (error) {
-    if (errorMessage(error).startsWith('Not found:')) return null
-    throw error
-  }
-}
+export { getExitDraftState }
 
 export const herdExitApi = {
-  list: (predicate?: (row: HerdExit) => boolean) => herdExits.list(predicate),
-  get: (id: string) => herdExits.get(id),
-  create: (record: NewCollectionInput<HerdExit, 'id'>) => herdExits.create(record),
-  update: async (id: string, patch: Partial<HerdExit>) => {
-    const current = await herdExits.get(id)
-    if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {
-      throw new Error(`Exit voucher is terminal: ${id}`)
-    }
-    return herdExits.update(id, patch)
+  list: async (predicate?: (row: HerdExit) => boolean) => {
+    const rows = usingBackend ? await backendApi.list() : await localApi.list()
+    return predicate ? rows.filter(predicate) : rows
   },
-  reset: () => herdExits.reset(),
+  get: (id: string) => usingBackend ? backendApi.get(id) : localApi.get(id),
+  create: (record: Omit<HerdExit, 'id'> & Partial<Pick<HerdExit, 'id'>>) => usingBackend
+    ? backendApi.save({ id: record.id, record })
+    : localApi.create(record),
+  update: async (id: string, patch: Partial<HerdExit>) => {
+    if (!usingBackend) return localApi.update(id, patch)
+    const current = await backendApi.get(id)
+    return backendApi.save({ id, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.cows ?? current.draft?.cows ?? [] })
+  },
+  reset: () => usingBackend ? Promise.resolve([] as HerdExit[]) : localApi.reset(),
+  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
+    ? backendApi.recordPayment(id, payment)
+    : localApi.get(id).then((row) => localApi.update(id, {
+      due: Math.max((row.due ?? 0) - payment.amount, 0),
+      detail: { ...row.detail, payments: [...(row.detail?.payments ?? []), { by: 'Người dùng hiện tại', ...payment }] },
+    })),
 }
 
-export const getExitDraftState = (rows: HerdExit[], id?: string): ExitDraft & { row?: HerdExit } => {
-  const row = id ? rows.find((item) => item.id === id) : rows.find((item) => item.status === 'Nháp')
-  return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Bán', row }
-}
+export const saveHerdExit = (input: { id?: string; record: Partial<HerdExit>; cattleRows?: CattleInput[] }) => usingBackend
+  ? backendApi.save(input)
+  : saveLocal(input)
 
-type ExitSaveRecord = Partial<HerdExit> & { status?: ExitStatus; type?: ExitType }
-export async function saveHerdExit({ id, record, cattleRows = [] }: { id?: string; record: ExitSaveRecord; cattleRows?: CattleInput[] }): Promise<HerdExit> {
-  const current = id ? await getExisting(id) : null
-  const voucherId = id ?? record.id ?? nextExitId(await herdExits.list())
-  if (current && terminalStatuses.has(current.status)) {
-    if (record.status === current.status) return current
-    throw new Error(`Exit voucher is terminal: ${voucherId}`)
-  }
-  if (record.status === 'Đã xuất') {
-    if (!record.date || !record.type || !cattleRows.length) throw new Error('Exit confirmation requires date, type and cattle')
-    if (record.type !== 'Bán' && !(record.note || record.reason || record.who)) throw new Error('Exit confirmation requires a reason or note')
-    const blocked = cattleRows.find((row) => row.withdrawalUntil && record.date && record.date < row.withdrawalUntil)
-    if (blocked) throw new Error(`Withdrawal period active: ${blocked.code}`)
-    await confirmCattleExit(cattleRows, voucherId)
-  }
-  return current ? herdExits.update(voucherId, { ...record, id: voucherId }) : herdExits.create({ ...record, id: voucherId })
-}
+export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }) => usingBackend
+  ? backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu xuất'))
+  : cancelLocal(id, cattleRows, patch)
 
-export async function cancelHerdExit(id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }): Promise<HerdExit> {
-  const current = await herdExits.get(id)
-  if (current.status === 'Đã hủy' || current.status === 'Đã bác') return current
-  await cancelCattleExit(cattleRows, id)
-  return herdExits.update(id, { ...patch, status: 'Đã hủy' })
-}
+export const dismissHerdExit = (id: string, reason: string) => usingBackend
+  ? backendApi.dismissVoucher(id, reason)
+  : localApi.update(id, { status: 'Đã bác', reason })
+
+export const listSelectableExitCattle = (): Promise<ExitCandidate[]> => usingBackend
+  ? backendApi.selectableCattle()
+  : Promise.resolve(EXPORT_HERD.map((row) => ({ ...row, unitPrice: 92000 })))
+
+export const listExitBuyers = () => usingBackend ? backendApi.buyers() : Promise.resolve(BUYERS)

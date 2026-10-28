@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { useModalParam } from '../../../components/Modal'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Note, Radio, Segmented, Table, Td, Th, Textarea, inputCls } from '../../../components/ui'
-import { herdExitApi, saveHerdExit } from '../api/index'
+import { dismissHerdExit, saveHerdExit } from '../api/index'
 import { useMutation } from '../../../hooks/useApi'
 import { dmy } from '../../../data/format'
 import { Box, CheckList, DocRow, Drop, SummaryCard, TH } from './parts'
@@ -15,7 +15,7 @@ const displayError = (error: unknown): string => error instanceof Error ? error.
 
 // Phiếu xuất "Chết / mất" tạo từ ca sức khỏe, chờ Chủ trại xác nhận.
 export default function DeathView({ row }: { row: HerdExit }) {
-  const { mutate: updateExit, error: updateError } = useMutation<{ id: string; patch: Partial<HerdExit> }, HerdExit>(({ id, patch }) => herdExitApi.update(id, patch))
+  const { mutate: dismissExit, error: updateError } = useMutation<{ id: string; reason: string }, HerdExit>(({ id, reason: dismissReason }) => dismissHerdExit(id, dismissReason))
   const { mutate: persistExit, error: persistError } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
@@ -38,7 +38,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
       const barn = String(cow.barn ?? '').split(/[\s–-]/)[0]
       await persistExit({ id: row.id, record: patch, cattleRows: [{ ...cow, barn }] })
     } else {
-      await updateExit({ id: row.id, patch })
+      await dismissExit({ id: row.id, reason: String(extra.rejectReason ?? 'Bác đề xuất') })
     }
     nav('/herd-exit')
   }
