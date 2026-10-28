@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../components/Layout'
-import { Button, Foot, PageHeader, Segmented, StatusBadge, Table, Th, Td, Tile, inputCls } from '../components/ui'
-import { useStore } from '../data/store'
-import { dmy, kg, money } from '../data/format'
+import Layout from '../../../components/Layout'
+import { Button, Foot, PageHeader, Segmented, StatusBadge, Table, Th, Td, Tile, inputCls } from '../../../components/ui'
+import { useStore } from '../../../data/store'
+import { dmy, kg, money } from '../../../data/format'
 
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 

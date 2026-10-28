@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../components/Layout'
-import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../components/ui'
-import { useStore } from '../data/store'
-import { BARNS, CALF_BARN, GROUPS, PAY_METHODS, PURPOSES, SOURCES, initialCalves } from '../data/mock'
-import { dmy, money } from '../data/format'
+import Layout from '../../../components/Layout'
+import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
+import { useStore } from '../../../data/store'
+import { BARNS, CALF_BARN, GROUPS, PAY_METHODS, PURPOSES, SOURCES, initialCalves } from '../../../data/mock'
+import { dmy, money } from '../../../data/format'
 
 const blankCow = () => ({ tag: '', breed: '', sex: 'Cái', group: 'Chưa xác định', ageMonths: 12, weight: 0, estimated: false, barn: 'A1', unitPrice: 0 })
 const num = (v) => (v === '' ? 0 : Number(v))

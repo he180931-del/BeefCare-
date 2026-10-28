@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../components/Layout'
-import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../components/ui'
-import { useStore } from '../data/store'
-import { BARNS, BUYERS, HERD, PAY_METHODS } from '../data/mock'
-import { dm, money } from '../data/format'
+import Layout from '../../../components/Layout'
+import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
+import { useStore } from '../../../data/store'
+import { BARNS, BUYERS, HERD, PAY_METHODS } from '../../../data/mock'
+import { dm, money } from '../../../data/format'
 
 const TYPES = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const num = (v) => (v === '' ? 0 : Number(v))

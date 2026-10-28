@@ -1,8 +1,8 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import Layout from '../components/Layout'
-import { Badge, Button, Card, Docs, Foot, Info, PageHeader, PaymentTable, StatusBadge, Table, Td, Th } from '../components/ui'
-import { useStore } from '../data/store'
-import { dmy, kg, money } from '../data/format'
+import Layout from '../../../components/Layout'
+import { Badge, Button, Card, Docs, Foot, Info, PageHeader, PaymentTable, StatusBadge, Table, Td, Th } from '../../../components/ui'
+import { useStore } from '../../../data/store'
+import { dmy, kg, money } from '../../../data/format'
 
 export default function ExportDetail() {
   const { id } = useParams()

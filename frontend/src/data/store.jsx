@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react'
-import { initialExports } from './exportsData'
-import { initialImports } from './importsData'
+import { initialExports } from '../features/herd-exit/data/exportsData'
+import { initialImports } from '../features/herd-entry/data/importsData'
 
 const Store = createContext(null)
 
