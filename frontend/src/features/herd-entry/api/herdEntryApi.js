@@ -25,7 +25,7 @@ export const herdEntryApi = {
   create: (record) => herdEntries.create(record),
   update: async (id, patch) => {
     const current = await herdEntries.get(id)
-    if (terminalStatuses.has(current.status)) {
+    if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {
       throw new Error(`Entry voucher is terminal: ${id}`)
     }
     return herdEntries.update(id, patch)
@@ -50,12 +50,24 @@ export async function saveHerdEntry({ id, record, cattleRows = [] }) {
     if (!record.date || !record.type || !cattleRows.length) throw new Error('Entry posting requires date, type and cattle')
     await validateEntryCattle(cattleRows, voucherId, record)
     const registered = await registerEntryCattle(cattleRows, voucherId)
-    const generatedCows = registered.map((cow) => ({ code: cow.code, tag: cow.tag, breed: `${cow.breed} · ${cow.sex}`, weight: cow.weight, barn: cow.barn, current: `${cow.status} · ${cow.barn}`, amount: 0 }))
+    const generatedCows = registered.map((cow, index) => {
+      const supplied = record.detail?.cows?.[index] ?? {}
+      return {
+        ...supplied,
+        code: cow.code,
+        tag: supplied.tag || cow.tag || '—',
+        breed: supplied.breed || `${cow.breed} · ${cow.sex}`,
+        weight: supplied.weight ?? cow.weight,
+        barn: cow.barn,
+        current: `${cow.status} · ${cow.barn}`,
+        amount: supplied.amount ?? 0,
+      }
+    })
     nextRecord = {
       ...nextRecord,
       detail: {
         ...(record.detail ?? {}),
-        cows: record.detail?.cows?.length ? record.detail.cows : generatedCows,
+        cows: generatedCows,
         cowsTotal: record.detail?.cowsTotal ?? 0,
         payments: record.detail?.payments ?? [],
         docs: record.detail?.docs ?? [],
@@ -112,9 +124,13 @@ export async function voidHerdEntry(id, cattleRows, patch = { status: 'Đã hủ
   const linked = (await cattle.list()).filter((row) => row.entryVoucherId === id)
   const providedCodes = [...new Set((cattleRows ?? []).map((row) => row.code).filter(Boolean))]
   const linkedCodes = linked.map((row) => row.code)
-  if (linked.length && (providedCodes.length !== linkedCodes.length || linkedCodes.some((code) => !providedCodes.includes(code)))) {
+  const detailCodes = [...new Set((current.detail?.cows ?? []).map((row) => row?.code).filter(Boolean))]
+  if (!linked.length && !detailCodes.length) throw new Error(`Entry cancellation has no canonical cattle links: ${id}`)
+  const expectedCodes = linked.length ? linkedCodes : detailCodes
+  if (expectedCodes.length && (providedCodes.length !== expectedCodes.length || expectedCodes.some((code) => !providedCodes.includes(code)))) {
     throw new Error(`Entry cancellation requires all linked cattle: ${id}`)
   }
+  if (!linked.length && detailCodes.length) throw new Error(`Entry cancellation has no canonical cattle links: ${id}`)
   if (linked.length) await voidEntryCattle(linked, id)
   return herdEntries.update(id, { ...patch, status: 'Đã hủy' })
 }

@@ -1,10 +1,11 @@
 import { createCollection } from './client.js'
 import { seedPens } from '../data/pensData.js'
+import { canonicalCattle } from '../data/cattleData.js'
 import { migrateHerdStorage } from './storageMigrations.js'
 
 migrateHerdStorage()
 
-export const cattle = createCollection('cattle', [], { idKey: 'code' })
+export const cattle = createCollection('cattle', canonicalCattle, { idKey: 'code' })
 export const pens = createCollection('pens', seedPens, { idKey: 'code' })
 
 const maybeGet = async (collection, id) => {
@@ -129,7 +130,7 @@ export async function cancelCattleExit(rows, voucherId) {
     if (rawCodes.length === providedCodes.length && restored.length === providedCodes.length && restored.every((row) => providedCodes.includes(row.code))) return
     throw new Error(`Exit cancellation requires all linked cattle: ${voucherId}`)
   }
-  if (!linked.length && !providedCodes.length) return
+  if (!linked.length && !providedCodes.length) throw new Error(`Exit cancellation has no canonical cattle links: ${voucherId}`)
   if (rawCodes.length !== providedCodes.length) throw new Error(`Duplicate exit cattle: ${rawCodes[0]}`)
   if (linked.length !== providedCodes.length || linkedCodes.some((code) => !providedCodes.includes(code))) {
     throw new Error(`Exit cancellation requires all linked cattle: ${voucherId}`)

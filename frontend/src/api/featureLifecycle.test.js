@@ -34,6 +34,8 @@ test('entry posting allocates its ID before linking cattle when no ID is supplie
   assert.equal(saved.detail.cows.length, 1)
   const cattle = (await domain.cattle.list()).find((row) => row.tag === 'VN-GEN')
   assert.equal(cattle.entryVoucherId, saved.id)
+  assert.equal(saved.detail.cows[0].code, cattle.code)
+  assert.equal(saved.detail.cows[0].barn, cattle.barn)
 })
 
 test('exit API restores non-sale draft type and synchronizes confirm/cancel once', async () => {
@@ -168,6 +170,24 @@ test('voiding an entry requires every linked cattle row before canceling the vou
   assert.equal((await domain.cattle.get(detail[1].code)).status, 'ACTIVE')
 })
 
+test('entry void rejects detail rows that have no canonical cattle linkage', async () => {
+  globalThis.localStorage = memoryStorage()
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-detail-link=${Date.now()}`)
+  const row = await entries.herdEntryApi.create({ id: 'PN-DETAIL-ONLY', status: 'Đã nhập', type: 'Mua ngoài', detail: { cows: [{ code: 'BC-NOT-SEEDED', barn: 'A1' }] } })
+  await assert.rejects(entries.voidHerdEntry(row.id, [{ code: 'BC-NOT-SEEDED', barn: 'A1' }]), /canonical|linked|mismatch/i)
+  assert.equal((await entries.herdEntryApi.get(row.id)).status, 'Đã nhập')
+})
+
+test('empty-link cancellation never changes old posted entry or sold exit vouchers', async () => {
+  globalThis.localStorage = memoryStorage()
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?empty-link-entry=${Date.now()}`)
+  const exits = await import(`../features/herd-exit/api/herdExitApi.js?empty-link-exit=${Date.now()}`)
+  await assert.rejects(entries.voidHerdEntry('PN-2026-0010', []), /canonical|linked|cattle/i)
+  await assert.rejects(exits.cancelHerdExit('PX-2026-0005', []), /canonical|linked|cattle/i)
+  assert.equal((await entries.herdEntryApi.get('PN-2026-0010')).status, 'Đã nhập')
+  assert.equal((await exits.herdExitApi.get('PX-2026-0005')).status, 'Đã xuất')
+})
+
 test('entry posting preflights every row before mutating cattle', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-preflight=${Date.now()}`)
@@ -249,4 +269,30 @@ test('entry posting rejects inactive and full canonical pens', async () => {
   const pen = await domain.pens.get('C1')
   await domain.pens.update('C1', { count: pen.capacity })
   await assert.rejects(entries.saveHerdEntry({ record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-FULL' } }, cattleRows: [{ code: 'BC-FULL', barn: 'C1', weight: 100 }] }), /full|capacity/i)
+})
+
+test('rich seeded vouchers use canonical cattle for exit cancel, death confirm, and entry void', async () => {
+  globalThis.localStorage = memoryStorage()
+  const exits = await import(`../features/herd-exit/api/herdExitApi.js?rich-seed=${Date.now()}`)
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?rich-seed=${Date.now()}`)
+  const domain = await import(`../api/herdDomainApi.js?rich-seed=${Date.now()}`)
+  const soldRows = [
+    { code: 'BC-000188', barn: 'B1' }, { code: 'BC-000190', barn: 'B1' },
+    { code: 'BC-000193', barn: 'B1' }, { code: 'BC-000196', barn: 'B1' },
+  ]
+  await domain.confirmCattleExit(soldRows, 'PX-2026-0007')
+  await exits.cancelHerdExit('PX-2026-0007', soldRows)
+  for (const row of soldRows) assert.equal((await domain.cattle.get(row.code)).status, 'ACTIVE')
+  assert.equal((await exits.herdExitApi.get('PX-2026-0007')).status, 'Đã hủy')
+
+  await exits.saveHerdExit({
+    id: 'PX-2026-0008',
+    record: { date: '2026-10-21', type: 'Chết / mất', status: 'Đã xuất', reason: 'Tiêu chảy cấp' },
+    cattleRows: [{ code: 'BC-000156', barn: 'A2' }],
+  })
+  assert.equal((await domain.cattle.get('BC-000156')).status, 'EXITED')
+
+  await entries.voidHerdEntry('PN-2026-0011', [{ code: 'BC-000248', barn: 'A2' }])
+  assert.equal((await domain.cattle.get('BC-000248')).status, 'VOIDED')
+  assert.equal((await entries.herdEntryApi.get('PN-2026-0011')).status, 'Đã hủy')
 })

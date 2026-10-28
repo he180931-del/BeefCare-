@@ -25,7 +25,7 @@ export const herdExitApi = {
   create: (record) => herdExits.create(record),
   update: async (id, patch) => {
     const current = await herdExits.get(id)
-    if (terminalStatuses.has(current.status)) {
+    if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {
       throw new Error(`Exit voucher is terminal: ${id}`)
     }
     return herdExits.update(id, patch)
