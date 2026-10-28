@@ -86,6 +86,7 @@ test('exit confirmation preflights missing, inactive, and differently linked cat
   const exits = await import(`../features/herd-exit/api/herdExitApi.js?exit-preflight=${Date.now()}`)
   const domain = await import(`../api/herdDomainApi.js?exit-preflight=${Date.now()}`)
   await domain.cattle.upsert({ code: 'BC-EXIT-PREFLIGHT', barn: 'A1', status: 'ACTIVE', events: [] })
+  await domain.cattle.upsert({ code: 'BC-EXIT-INACTIVE', barn: 'A1', status: 'EXITED', events: [] })
   await domain.cattle.upsert({ code: 'BC-EXIT-DIFFERENT', barn: 'A1', status: 'EXITED', exitVoucherId: 'PX-OTHER', events: [] })
   const before = (await domain.pens.get('A1')).count
 
@@ -94,6 +95,13 @@ test('exit confirmation preflights missing, inactive, and differently linked cat
     cattleRows: [{ code: 'BC-EXIT-PREFLIGHT', barn: 'A1' }, { code: 'BC-EXIT-MISSING', barn: 'A1' }],
   }), /missing|not found/i)
   assert.equal((await domain.cattle.get('BC-EXIT-PREFLIGHT')).status, 'ACTIVE')
+  assert.equal((await domain.pens.get('A1')).count, before)
+
+  await assert.rejects(exits.saveHerdExit({
+    record: { date: '2026-10-28', type: 'Bán', status: 'Đã xuất' },
+    cattleRows: [{ code: 'BC-EXIT-INACTIVE', barn: 'A1' }],
+  }), /not active/i)
+  assert.equal((await domain.cattle.get('BC-EXIT-INACTIVE')).status, 'EXITED')
   assert.equal((await domain.pens.get('A1')).count, before)
 
   await assert.rejects(exits.saveHerdExit({
@@ -118,7 +126,7 @@ test('canceling an exit requires every linked cattle row and restores all exactl
   assert.equal((await exits.herdExitApi.get(saved.id)).status, 'Đã xuất')
   assert.equal((await domain.pens.get('A1')).count, before - 2)
   await exits.cancelHerdExit(saved.id, rows)
-  await exits.cancelHerdExit(saved.id, [])
+  await exits.cancelHerdExit(saved.id, rows)
   assert.equal((await domain.pens.get('A1')).count, before)
   assert.equal((await domain.cattle.get('BC-CANCEL-1')).status, 'ACTIVE')
   assert.equal((await domain.cattle.get('BC-CANCEL-2')).status, 'ACTIVE')

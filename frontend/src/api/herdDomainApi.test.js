@@ -30,7 +30,7 @@ test('registering, exiting and restoring cattle adjusts one shared pen count exa
   assert.equal((await domain.pens.get('A1')).count, before)
 
   await domain.cancelCattleExit([{ code: cow.code, barn: 'A1' }], 'PX-TEST-1')
-  await domain.cancelCattleExit([], 'PX-TEST-1')
+  await domain.cancelCattleExit([{ code: cow.code, barn: 'A1' }], 'PX-TEST-1')
   assert.equal((await domain.cattle.get(cow.code)).status, 'ACTIVE')
   assert.equal((await domain.pens.get('A1')).count, before + 1)
 })

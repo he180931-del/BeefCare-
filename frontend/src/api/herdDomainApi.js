@@ -124,6 +124,11 @@ export async function cancelCattleExit(rows, voucherId) {
   const rawCodes = (rows ?? []).map((row) => row?.code).filter(Boolean)
   const providedCodes = [...new Set(rawCodes)]
   const linkedCodes = linked.map((row) => row.code)
+  const restored = existingRows.filter((row) => row.lastExitVoucherId === voucherId)
+  if (!linked.length && restored.length) {
+    if (rawCodes.length === providedCodes.length && restored.length === providedCodes.length && restored.every((row) => providedCodes.includes(row.code))) return
+    throw new Error(`Exit cancellation requires all linked cattle: ${voucherId}`)
+  }
   if (!linked.length && !providedCodes.length) return
   if (rawCodes.length !== providedCodes.length) throw new Error(`Duplicate exit cattle: ${rawCodes[0]}`)
   if (linked.length !== providedCodes.length || linkedCodes.some((code) => !providedCodes.includes(code))) {
@@ -141,7 +146,7 @@ export async function cancelCattleExit(rows, voucherId) {
     plans.push({ cow, barn })
   }
   for (const { cow, barn } of plans) {
-    await cattle.update(cow.code, { status: 'ACTIVE', barn, exitVoucherId: null })
+    await cattle.update(cow.code, { status: 'ACTIVE', barn, exitVoucherId: null, lastExitVoucherId: voucherId })
     await updatePenOccupancy(barn, 1, { ...cow, barn })
   }
 }
