@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { createCollection, createCollectionSchema } from './client'
 import type { CollectionRow } from './client'
 import { MemoryStorage } from './testUtils'
-import { herdEntrySchema, herdExitSchema } from './collectionSchemas'
-import type { HerdEntry, HerdExit } from '../types'
+import { cattleSchema, herdEntrySchema, herdExitSchema, penSchema } from './collectionSchemas'
+import type { Cattle, HerdEntry, HerdExit, Pen } from '../types'
 
 const memoryStorage = () => new MemoryStorage()
 type TestRow = CollectionRow & { id: string; count?: number; status?: string }
@@ -99,4 +99,42 @@ test('malformed nested entry and exit JSON is repaired before UI consumers read 
   const exits = createCollection<HerdExit, 'id'>(exitName, [{ id: 'SEED', status: 'Nháp' }], { schema: herdExitSchema })
   assert.deepEqual(await entries.list(), [{ id: 'SEED', status: 'Nháp' }])
   assert.deepEqual(await exits.list(), [{ id: 'SEED', status: 'Nháp' }])
+})
+
+test('malformed cattle history containers and elements are repaired before lifecycle code reads them', async () => {
+  const seed: Cattle = { code: 'SEED-COW', barn: null, status: 'ACTIVE', events: [], barnHistory: [], qrHistory: [] }
+  const cases: CollectionRow[] = [
+    { events: {} },
+    { barnHistory: {} },
+    { barnHistory: [null] },
+    { barnHistory: [{ to: 42 }] },
+    { qrHistory: {} },
+    { qrHistory: [null] },
+    { qrHistory: [{ status: { value: 'ACTIVE' } }] },
+  ]
+  for (const [index, nested] of cases.entries()) {
+    const name = `malformed-cattle-${Date.now()}-${index}`
+    globalThis.localStorage = new MemoryStorage({ [`beefcare:${name}`]: JSON.stringify([{ ...seed, code: 'BAD-COW', ...nested }]) })
+    const cattle = createCollection<Cattle, 'code'>(name, [seed], { schema: cattleSchema })
+    assert.deepEqual(await cattle.list(), [seed])
+  }
+})
+
+test('malformed pen nested arrays and timeline fields are repaired before occupancy code reads them', async () => {
+  const seed: Pen = { code: 'SEED-PEN', name: 'Seed pen', count: 0, capacity: 10, status: 'ACTIVE', cows: [] }
+  const cases: CollectionRow[] = [
+    { cows: [['BC-1', {}]] },
+    { aliases: {} },
+    { aliases: [null] },
+    { samples: {} },
+    { samples: [null] },
+    { history: {} },
+    { history: [null] },
+  ]
+  for (const [index, nested] of cases.entries()) {
+    const name = `malformed-pen-${Date.now()}-${index}`
+    globalThis.localStorage = new MemoryStorage({ [`beefcare:${name}`]: JSON.stringify([{ ...seed, code: 'BAD-PEN', ...nested }]) })
+    const pens = createCollection<Pen, 'code'>(name, [seed], { schema: penSchema })
+    assert.deepEqual(await pens.list(), [seed])
+  }
 })

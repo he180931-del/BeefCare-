@@ -40,6 +40,11 @@ const optionalStringOrNull = (row: CollectionRow, key: string, label: string): v
   if (row[key] !== undefined && row[key] !== null && typeof row[key] !== 'string') throw new Error(`Invalid ${label}: ${key}`)
 }
 
+const optionalObjectOrNull = (row: CollectionRow, key: string, label: string): CollectionRow | null | undefined => {
+  if (row[key] === undefined || row[key] === null) return row[key] as null | undefined
+  return asRecord(row[key], label)
+}
+
 const enumValue = (row: CollectionRow, key: string, values: readonly string[], label: string): void => {
   if (row[key] !== undefined && (typeof row[key] !== 'string' || !values.includes(row[key]))) throw new Error(`Invalid ${label}: ${key}`)
 }
@@ -53,6 +58,35 @@ const optionalArray = <T>(row: CollectionRow, key: string, parse: (value: unknow
   if (row[key] === undefined) return undefined
   if (!Array.isArray(row[key])) throw new Error(`Invalid ${label}: ${key}`)
   return row[key].map(parse)
+}
+
+const parseHistoryRecord = (value: unknown, label: string): CollectionRow => {
+  const row = asRecord(value, label)
+  for (const key of ['from', 'to', 'barn', 'reason', 'by', 'date', 'type', 'note', 'label']) optionalString(row, key, label)
+  return row
+}
+
+const parseQrHistoryRecord = (value: unknown): CollectionRow => {
+  const row = asRecord(value, 'cattle QR history')
+  optionalString(row, 'status', 'cattle QR history')
+  return row
+}
+
+const optionalStringTupleArray = (row: CollectionRow, key: string, label: string): void => {
+  if (row[key] === undefined) return
+  if (!Array.isArray(row[key]) || row[key].some((item) => !Array.isArray(item) || item.length < 2 || typeof item[0] !== 'string' || typeof item[1] !== 'string')) throw new Error(`Invalid ${label}: ${key}`)
+}
+
+const validateCare = (value: unknown): void => {
+  const row = asRecord(value, 'cattle care')
+  for (const key of ['last', 'adg', 'bcs', 'healthCase', 'repro']) optionalString(row, key, 'cattle care')
+  if (row.vaccine !== undefined) {
+    const vaccine = asRecord(row.vaccine, 'cattle care vaccine')
+    optionalString(vaccine, 'label', 'cattle care vaccine')
+  }
+  if (row.reminders !== undefined) {
+    if (!Array.isArray(row.reminders) || row.reminders.some((item) => typeof item !== 'object' || item === null || Array.isArray(item))) throw new Error('Invalid cattle care reminders')
+  }
 }
 
 const parseDocument = (value: unknown): CollectionRow => {
@@ -177,6 +211,18 @@ export const parseCattle = (value: unknown): Cattle => {
   const status = row.status
   if (status !== 'ACTIVE' && status !== 'EXITED' && status !== 'VOIDED') throw new Error('Invalid cattle: status')
   if (row.barn !== null && row.barn !== undefined && typeof row.barn !== 'string') throw new Error('Invalid cattle: barn')
+  for (const key of ['tag', 'name', 'breed', 'sex', 'entryVoucherId', 'lastExitVoucherId', 'lastPen', 'withdrawalUntil', 'ageShort', 'ageLong', 'weightDate', 'purpose', 'stage', 'group', 'date', 'qr', 'barnSince', 'barnTag', 'voidVoucherId']) optionalString(row, key, 'cattle')
+  for (const key of ['entryLineNo', 'ageMonths', 'months']) optionalNumber(row, key, 'cattle')
+  optionalNumberOrNull(row, 'weight', 'cattle')
+  optionalStringOrNull(row, 'exitVoucherId', 'cattle')
+  for (const key of ['weightEst', 'estimated', 'inList']) optionalBoolean(row, key, 'cattle')
+  if (row.events !== undefined) stringArray(row.events, 'cattle events')
+  optionalArray(row, 'barnHistory', (item) => parseHistoryRecord(item, 'cattle barn history'), 'cattle')
+  optionalArray(row, 'qrHistory', parseQrHistoryRecord, 'cattle')
+  optionalStringTupleArray(row, 'headerBadges', 'cattle')
+  optionalObjectOrNull(row, 'health', 'cattle health')
+  optionalObjectOrNull(row, 'repro', 'cattle repro')
+  if (row.care !== undefined) validateCare(row.care)
   return { ...row, code, barn: row.barn === undefined ? null : row.barn, status } as Cattle
 }
 
@@ -187,6 +233,12 @@ export const parsePen = (value: unknown): Pen => {
   if (typeof row.count !== 'number' || typeof row.capacity !== 'number') throw new Error('Invalid pen: capacity/count')
   if (row.status !== 'ACTIVE' && row.status !== 'INACTIVE') throw new Error('Invalid pen: status')
   if (!Array.isArray(row.cows) || row.cows.some((link) => !Array.isArray(link) || link.length < 2 || typeof link[0] !== 'string' || typeof link[1] !== 'string')) throw new Error('Invalid pen: cows')
+  for (const key of ['accept', 'minAgeOp', 'minWeightOp', 'sex', 'tag', 'version', 'desc', 'purpose', 'stage']) optionalString(row, key, 'pen')
+  for (const key of ['minAge', 'minWeight', 'minMonths', 'minKg']) optionalNumberOrNull(row, key, 'pen')
+  if (row.aliases !== undefined) stringArray(row.aliases, 'pen aliases')
+  if (row.events !== undefined) stringArray(row.events, 'pen events')
+  optionalArray(row, 'samples', (item) => asRecord(item, 'pen sample'), 'pen')
+  optionalArray(row, 'history', (item) => parseHistoryRecord(item, 'pen history'), 'pen')
   return { ...row, code, name, count: row.count, capacity: row.capacity, status: row.status, cows: row.cows } as Pen
 }
 
