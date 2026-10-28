@@ -70,8 +70,8 @@ public class Reminder implements Serializable {
     @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
     private Farm farm;
 
-    @ManyToOne(optional = false)
-    @NotNull
+    /** Null for farm and pen reminders (REM-10 low stock, REM-11 feeding session); migration 20261028000700 dropped NOT NULL. */
+    @ManyToOne(optional = true)
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
     private Cattle cattle;
 

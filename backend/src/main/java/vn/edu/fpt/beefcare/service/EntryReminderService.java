@@ -24,6 +24,8 @@ public class EntryReminderService {
     public static final String OPEN = "OPEN";
     public static final String RESOLVED = "RESOLVED";
     public static final String CANCELLED = "CANCELLED";
+    /** The reconciliation job (JOB-01) writes ACTIVE; both spellings are an applicable reminder. */
+    private static final java.util.List<String> ACTIVE_STATES = java.util.List.of(OPEN, "ACTIVE");
 
     private final EntryReminderRepository repository;
     private final FarmClock clock;
@@ -43,9 +45,15 @@ public class EntryReminderService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Reminder pregnancyCheckAtEntry(HerdEntry entry, Cattle cattle) {
-        List<Reminder> open = repository.findAllByRuleTypeAndSourceRecordAndStatus(REM_03, entrySource(entry), OPEN);
+        List<Reminder> open = repository.findAllByRuleTypeAndSourceRecordAndStatusIn(REM_03, entrySource(entry), ACTIVE_STATES);
         if (!open.isEmpty()) {
             return open.get(0);
+        }
+        Reminder closed = repository.findFirstByRuleKey(entry.getFarm().getId() + ":" + REM_03 + ":" + entrySource(entry).substring(0, entrySource(entry).indexOf(':')) + ":" + entrySource(entry)).orElse(null);
+        if (closed != null) { // the rule key is unique: reopen instead of inserting a duplicate
+            closed.setStatus(OPEN);
+            closed.setDueTime(dueAt(entry.getEntryDate().plusDays(7)));
+            return repository.save(closed);
         }
         Reminder r = new Reminder();
         r.setFarm(entry.getFarm());
@@ -60,7 +68,7 @@ public class EntryReminderService {
     /** Moves the open REM-03 of the entry to its new due date (entry date corrected). */
     @Transactional(propagation = Propagation.MANDATORY)
     public void rescheduleEntryReminder(HerdEntry entry) {
-        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatus(REM_03, entrySource(entry), OPEN)) {
+        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatusIn(REM_03, entrySource(entry), ACTIVE_STATES)) {
             r.setDueTime(dueAt(entry.getEntryDate().plusDays(7)));
             repository.save(r);
         }
@@ -68,7 +76,7 @@ public class EntryReminderService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void cancelEntryReminders(HerdEntry entry) {
-        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatus(REM_03, entrySource(entry), OPEN)) {
+        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatusIn(REM_03, entrySource(entry), ACTIVE_STATES)) {
             r.setStatus(CANCELLED);
             repository.save(r);
         }
@@ -77,9 +85,15 @@ public class EntryReminderService {
     /** REM-09 for a draft calf; attached to the dam. */
     @Transactional(propagation = Propagation.MANDATORY)
     public Reminder raiseCalfReminder(CalfOutcome calf, Cattle dam) {
-        List<Reminder> open = repository.findAllByRuleTypeAndSourceRecordAndStatus(REM_09, calfSource(calf), OPEN);
+        List<Reminder> open = repository.findAllByRuleTypeAndSourceRecordAndStatusIn(REM_09, calfSource(calf), ACTIVE_STATES);
         if (!open.isEmpty()) {
             return open.get(0);
+        }
+        Reminder closed = repository.findFirstByRuleKey(dam.getFarm().getId() + ":" + REM_09 + ":" + calfSource(calf).substring(0, calfSource(calf).indexOf(':')) + ":" + calfSource(calf)).orElse(null);
+        if (closed != null) { // the rule key is unique: reopen instead of inserting a duplicate
+            closed.setStatus(OPEN);
+            closed.setDueTime(clock.now());
+            return repository.save(closed);
         }
         Reminder r = new Reminder();
         r.setFarm(dam.getFarm());
@@ -93,7 +107,7 @@ public class EntryReminderService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void resolveCalfReminder(CalfOutcome calf) {
-        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatus(REM_09, calfSource(calf), OPEN)) {
+        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatusIn(REM_09, calfSource(calf), ACTIVE_STATES)) {
             r.setStatus(RESOLVED);
             repository.save(r);
         }
@@ -101,7 +115,7 @@ public class EntryReminderService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void cancelCalfReminder(CalfOutcome calf) {
-        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatus(REM_09, calfSource(calf), OPEN)) {
+        for (Reminder r : repository.findAllByRuleTypeAndSourceRecordAndStatusIn(REM_09, calfSource(calf), ACTIVE_STATES)) {
             r.setStatus(CANCELLED);
             repository.save(r);
         }

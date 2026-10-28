@@ -9,6 +9,8 @@ import vn.edu.fpt.beefcare.domain.Reminder;
 @Repository
 public interface EntryReminderRepository extends JpaRepository<Reminder, Long> {
     List<Reminder> findAllByRuleTypeAndSourceRecordAndStatus(String ruleType, String sourceRecord, String status);
+    List<Reminder> findAllByRuleTypeAndSourceRecordAndStatusIn(String ruleType, String sourceRecord, java.util.Collection<String> statuses);
+    java.util.Optional<Reminder> findFirstByRuleKey(String ruleKey);
 
     List<Reminder> findAllByFarmIdAndRuleTypeAndStatus(Long farmId, String ruleType, String status);
 }

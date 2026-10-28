@@ -35,12 +35,12 @@ public class ReproductionReminderService {
     @Transactional(propagation=Propagation.MANDATORY)
     public void breedingRecorded(Cattle cow,ReproductionEvent event){
         supersede(cow,"REM-03","NEWER_BREEDING");
-        cancel(cow,"REM-07","BREEDING_RECORDED");
-        LocalDate due=clock.toFarmDate(event.getEventTime()).plusDays(parameter(cow,"PREGNANCY_CHECK_DAYS",28));
-        create(cow,"REM-03","REPRODUCTION_EVENT:"+event.getId(),due);
+        resolve(cow,"REM-07","BREEDING_RECORDED"); // Table III-3: REM-07 is resolved by an estrus or a breeding
+        Integer checkDays=parameter(cow,"PREGNANCY_CHECK_DAYS");
+        if(checkDays!=null)create(cow,"REM-03","REPRODUCTION_EVENT:"+event.getId(),clock.toFarmDate(event.getEventTime()).plusDays(checkDays));
         if(event.getTentativeExpectedCalvingDate()!=null){
-            cancel(cow,"REM-05","NEWER_BREEDING");
-            create(cow,"REM-05","REPRODUCTION_EVENT:"+event.getId(),event.getTentativeExpectedCalvingDate().minusDays(parameter(cow,"CALVING_LEAD_DAYS",30)));
+            supersede(cow,"REM-05","NEWER_BREEDING");
+            calvingReminder(cow,"REPRODUCTION_EVENT:"+event.getId(),event.getTentativeExpectedCalvingDate());
         }
     }
 
@@ -49,11 +49,11 @@ public class ReproductionReminderService {
         resolve(cow,"REM-03","PREGNANCY_CHECK");
         resolve(cow,"REM-04","PREGNANCY_CHECK");
         if("INCONCLUSIVE".equalsIgnoreCase(event.getResult())){
-            create(cow,"REM-04","REPRODUCTION_EVENT:"+event.getId(),clock.toFarmDate(event.getEventTime()).plusDays(parameter(cow,"PREGNANCY_RECHECK_DAYS",14)));
+            Integer recheckDays=parameter(cow,"PREGNANCY_RECHECK_DAYS");
+            if(recheckDays!=null)create(cow,"REM-04","REPRODUCTION_EVENT:"+event.getId(),clock.toFarmDate(event.getEventTime()).plusDays(recheckDays));
         }else if("PREGNANT".equalsIgnoreCase(event.getResult())&&episode!=null){
-            cancel(cow,"REM-05","CONFIRMED_PREGNANCY");
-            if(episode.getExpectedCalvingDate()!=null)
-                create(cow,"REM-05","PREGNANCY_EPISODE:"+episode.getId(),episode.getExpectedCalvingDate().minusDays(parameter(cow,"CALVING_LEAD_DAYS",30)));
+            supersede(cow,"REM-05","CONFIRMED_PREGNANCY"); // the tentative date is replaced by the confirmed episode
+            calvingReminder(cow,"PREGNANCY_EPISODE:"+episode.getId(),episode.getExpectedCalvingDate());
         }else if("NOT_PREGNANT".equalsIgnoreCase(event.getResult())){
             cancel(cow,"REM-05","NOT_PREGNANT");
         }
@@ -67,28 +67,27 @@ public class ReproductionReminderService {
     @Transactional(propagation=Propagation.MANDATORY)
     public void calvingRecorded(Cattle cow,Long calvingId,Instant birthTime){
         resolve(cow,"REM-03","CALVING_RECORDED");resolve(cow,"REM-04","CALVING_RECORDED");resolve(cow,"REM-05","CALVING_RECORDED");
-        LocalDate ready=clock.toFarmDate(birthTime).plusDays(parameter(cow,"POST_CALVING_DAYS",45));
-        create(cow,"REM-07","CALVING_EVENT:"+calvingId,ready);
+        Integer readiness=parameter(cow,"POST_CALVING_DAYS");
+        if(readiness!=null)create(cow,"REM-07","CALVING_EVENT:"+calvingId,clock.toFarmDate(birthTime).plusDays(readiness));
     }
 
     @Transactional(propagation=Propagation.MANDATORY)
     public void calvingCorrected(Cattle cow,Long calvingId,Instant birthTime){
         cancelSource(cow,"CALVING_EVENT:"+calvingId,"CALVING_CORRECTED");
-        create(cow,"REM-07","CALVING_EVENT:"+calvingId,clock.toFarmDate(birthTime).plusDays(parameter(cow,"POST_CALVING_DAYS",45)));
+        Integer readiness=parameter(cow,"POST_CALVING_DAYS");
+        if(readiness!=null)create(cow,"REM-07","CALVING_EVENT:"+calvingId,clock.toFarmDate(birthTime).plusDays(readiness));
     }
 
     @Transactional(propagation=Propagation.MANDATORY)
     public void pregnancyLossVoided(PregnancyEpisode episode){
-        if(episode.getExpectedCalvingDate()!=null)
-            create(episode.getCattle(),"REM-05","PREGNANCY_EPISODE:"+episode.getId(),episode.getExpectedCalvingDate().minusDays(parameter(episode.getCattle(),"CALVING_LEAD_DAYS",30)));
+        calvingReminder(episode.getCattle(),"PREGNANCY_EPISODE:"+episode.getId(),episode.getExpectedCalvingDate());
     }
 
     @Transactional(propagation=Propagation.MANDATORY)
     public void calvingVoided(Cattle cow,Long calvingId,PregnancyEpisode episode){
         cancelSource(cow,"CALVING_EVENT:"+calvingId,"CALVING_VOIDED");
         if(episode!=null){
-            if("OPEN".equalsIgnoreCase(episode.getStatus())&&episode.getExpectedCalvingDate()!=null)
-                create(cow,"REM-05","PREGNANCY_EPISODE:"+episode.getId(),episode.getExpectedCalvingDate().minusDays(parameter(cow,"CALVING_LEAD_DAYS",30)));
+            if("OPEN".equalsIgnoreCase(episode.getStatus()))calvingReminder(cow,"PREGNANCY_EPISODE:"+episode.getId(),episode.getExpectedCalvingDate());
             else if("LOST".equalsIgnoreCase(episode.getStatus()))pregnancyLost(episode);
         }
     }
@@ -111,13 +110,19 @@ public class ReproductionReminderService {
         return em.createQuery("select p from PregnancyEpisode p where p.cattle.id=:id and upper(p.status)='OPEN' order by p.id desc",PregnancyEpisode.class)
             .setParameter("id",cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
     }
+    /** REM-05 is due on the expected calving date; the lead parameter only opens its window and must exist (GBR-63). */
+    private void calvingReminder(Cattle cow,String source,LocalDate expected){
+        if(parameter(cow,"CALVING_LEAD_DAYS")!=null)create(cow,"REM-05",source,expected);
+    }
+    /** The rule key is unique per farm, rule and source: a cancelled or resolved row for the same source is reopened, never duplicated. */
     private void create(Cattle cow,String rule,String source,LocalDate date){
         if(date==null)return;
-        Long exists=em.createQuery("select count(r) from Reminder r where r.cattle.id=:c and r.ruleType=:rule and r.sourceRecord=:source and r.status in ('OPEN','ACTIVE')",Long.class)
-            .setParameter("c",cow.getId()).setParameter("rule",rule).setParameter("source",source).getSingleResult();
-        if(exists>0)return;
+        Instant due=date.atStartOfDay(zone(cow)).toInstant();
+        String key=cow.getFarm().getId()+":"+rule+":"+source.substring(0,source.indexOf(':'))+":"+source;
+        Reminder existing=em.createQuery("select r from Reminder r where r.ruleKey=:key",Reminder.class).setParameter("key",key).getResultStream().findFirst().orElse(null);
+        if(existing!=null){if(!"OPEN".equalsIgnoreCase(existing.getStatus())&&!"ACTIVE".equalsIgnoreCase(existing.getStatus()))existing.setStatus("ACTIVE");existing.setDueTime(due);return;}
         Reminder reminder=new Reminder();reminder.setFarm(cow.getFarm());reminder.setCattle(cow);reminder.setRuleType(rule);reminder.setSourceRecord(source);
-        reminder.setDueTime(date.atStartOfDay(zone(cow)).toInstant());reminder.setStatus("OPEN");em.persist(reminder);
+        reminder.setDueTime(due);reminder.setStatus("ACTIVE");em.persist(reminder);
     }
     private void resolve(Cattle cow,String rule,String why){transition(cow,rule,null,"RESOLVED",why);}
     private void cancel(Cattle cow,String rule,String why){transition(cow,rule,null,"CANCELLED",why);}
@@ -129,12 +134,12 @@ public class ReproductionReminderService {
         if(rule!=null)q.setParameter("rule",rule);if(source!=null)q.setParameter("source",source);
         for(Reminder r:q.getResultList())r.setStatus(status);
     }
-    private int parameter(Cattle cow,String key,int fallback){
+    private Integer parameter(Cattle cow,String key){
         List<FarmParameterVersion> found=em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm and p.effectiveFrom<=:date order by p.effectiveFrom desc,p.versionNo desc",FarmParameterVersion.class)
             .setParameter("farm",cow.getFarm().getId()).setParameter("date",clock.now().atZone(zone(cow)).toLocalDate()).setMaxResults(1).getResultList();
-        if(found.isEmpty())return fallback;
-        try{Object value=json.readValue(found.get(0).getParameterValues(),new TypeReference<Map<String,Object>>(){}).get(key);return value instanceof Number n?n.intValue():fallback;}
-        catch(Exception ignored){return fallback;}
+        if(found.isEmpty())return null;
+        try{Object value=json.readValue(found.get(0).getParameterValues(),new TypeReference<Map<String,Object>>(){}).get(key);return value instanceof Number n?n.intValue():null;}
+        catch(Exception ignored){return null;}
     }
     private ZoneId zone(Cattle cow){try{return ZoneId.of(cow.getFarm().getTimeZone());}catch(Exception ignored){return clock.zone();}}
 }

@@ -56,9 +56,27 @@ class ReminderReconciliationService {
         for(Reminder current:reminders.findAllByFarm_IdOrderByDueTimeAscIdAsc(farmId)){
             if(!RULES.contains(current.getRuleType())||!active(current.getStatus()))continue;
             String key=current.getRuleKey();if(desired.containsKey(key))continue;
-            current.setStatus(completed.contains(key)||resolvedBySource(current,zone,today)?"RESOLVED":superseded.contains(key)?"SUPERSEDED":"CANCELLED");
+            current.setStatus(staleStatus(current,desired,completed,superseded,zone,today));
         }
     }
+
+    /** Table III-3 "Resolved / cancelled when" for a reminder that no longer applies. */
+    private String staleStatus(Reminder r,Map<String,Desired> desired,Set<String> completed,Set<String> superseded,ZoneId zone,LocalDate today){
+        String key=r.getRuleKey(),rule=r.getRuleType();
+        if(completed.contains(key)||resolvedBySource(r,zone,today))return "RESOLVED";
+        if(superseded.contains(key))return "SUPERSEDED";
+        Cattle c=r.getCattle();if(c==null||!Set.of("REM-01","REM-08","REM-13").contains(rule))return "CANCELLED";
+        List<Desired> sameCattle=desired.values().stream().filter(d->d.rule().equals(rule)&&d.cattle()!=null&&d.cattle().getId().equals(c.getId())).toList();
+        boolean sameSource=sameCattle.stream().anyMatch(d->base(d.sourceId()).equals(base(r.getSourceId())));
+        if(sameSource)return "SUPERSEDED"; // same source re-evaluated under a newer parameter version (GBR-68)
+        return switch(rule){
+            case "REM-01"->sameCattle.isEmpty()?"CANCELLED":"RESOLVED"; // a newer valid weight resolves it; exit cancels it
+            case "REM-08"->c.getHerdStatus()==HerdStatus.ACTIVE?"RESOLVED":"CANCELLED"; // stage change, pen move or criteria met
+            default->c.getHerdStatus()==HerdStatus.EXITED||c.getPurpose()==null||c.getPurpose().getPurposeType()!=PurposeType.FATTENING?"RESOLVED" // REM-13: exit or purpose change
+                :sameCattle.isEmpty()?"CANCELLED":"SUPERSEDED";
+        };
+    }
+    private String base(String sourceId){return sourceId==null?"":sourceId.replaceFirst(":(P|PARAM:)\\d+$","");}
 
     private void weighing(List<Cattle> cattle,ParameterSnapshot params,ZoneId zone,Map<String,Desired> desired){
         Integer interval=integer(params.values().get("WEIGHING_INTERVAL_DAYS"));if(interval==null)return;
@@ -73,19 +91,39 @@ class ReminderReconciliationService {
         List<ReproductionEvent> events=em.createQuery("select e from ReproductionEvent e where e.cattle.farm.id=:farm and upper(e.status) in ('VALID','CORRECTED')",ReproductionEvent.class).setParameter("farm",farm).getResultList();
         for(ReproductionEvent e:events){Cattle c=e.getCattle();if(c.getHerdStatus()!=HerdStatus.ACTIVE)continue;String type=e.getType().toUpperCase(Locale.ROOT);String source="REPRODUCTION_EVENT:"+e.getId();
             if("ESTRUS".equals(type)&&c.getSex()==Sex.FEMALE){Integer start=integer(params.values().get("BREEDING_WINDOW_START_HOURS")),end=integer(params.values().get("BREEDING_WINDOW_END_HOURS"));if(start==null||end==null)continue;Instant from=e.getEventTime().plus(start,ChronoUnit.HOURS),until=e.getEventTime().plus(end,ChronoUnit.HOURS);boolean pregnant=em.createQuery("select count(p) from PregnancyEpisode p where p.cattle.id=:c and upper(p.status)='OPEN'",Long.class).setParameter("c",c.getId()).getSingleResult()>0;boolean bred=em.createQuery("select count(x) from ReproductionEvent x where x.cattle.id=:c and upper(x.type)='BREEDING' and upper(x.status) in ('VALID','CORRECTED') and x.eventTime>=:time",Long.class).setParameter("c",c.getId()).setParameter("time",e.getEventTime()).getSingleResult()>0;boolean newer=em.createQuery("select count(x) from ReproductionEvent x where x.cattle.id=:c and upper(x.type)='ESTRUS' and upper(x.status) in ('VALID','CORRECTED') and x.eventTime>:time",Long.class).setParameter("c",c.getId()).setParameter("time",e.getEventTime()).getSingleResult()>0;String key=key(farm,"REM-02","REPRODUCTION_EVENT",source);if(bred)completed.add(key);else if(newer)superseded.add(key);else if(!pregnant&&!now.isAfter(until))put(desired,farm,"REM-02","REPRODUCTION_EVENT",source,c,from,params.json());}
-            if("BREEDING".equals(type)){Integer checkDays=integer(params.values().get("PREGNANCY_CHECK_DAYS"));if(checkDays==null)continue;boolean checked=hasLaterCheck(c.getId(),e.getEventTime());boolean newer=em.createQuery("select count(x) from ReproductionEvent x where x.cattle.id=:c and upper(x.type)='BREEDING' and upper(x.status) in ('VALID','CORRECTED') and x.eventTime>:time",Long.class).setParameter("c",c.getId()).setParameter("time",e.getEventTime()).getSingleResult()>0;String key=key(farm,"REM-03","REPRODUCTION_EVENT",source);if(checked)completed.add(key);else if(newer)superseded.add(key);else put(desired,farm,"REM-03","REPRODUCTION_EVENT",source,c,e.getEventTime().plus(checkDays,ChronoUnit.DAYS),params.json());}
-            if("PREGNANCY_CHECK".equals(type)&&"INCONCLUSIVE".equalsIgnoreCase(e.getResult())){Integer recheckDays=integer(params.values().get("PREGNANCY_RECHECK_DAYS"));if(recheckDays==null)continue;boolean checked=hasLaterCheck(c.getId(),e.getEventTime());String key=key(farm,"REM-04","REPRODUCTION_EVENT",source);if(checked)completed.add(key);else put(desired,farm,"REM-04","REPRODUCTION_EVENT",source,c,e.getEventTime().plus(recheckDays,ChronoUnit.DAYS),params.json());}
+            if("BREEDING".equals(type)){Integer checkDays=integer(params.values().get("PREGNANCY_CHECK_DAYS"));boolean checked=hasLaterCheck(c.getId(),e.getEventTime())||calvedAfter(c.getId(),e.getEventTime());boolean newer=em.createQuery("select count(x) from ReproductionEvent x where x.cattle.id=:c and upper(x.type)='BREEDING' and upper(x.status) in ('VALID','CORRECTED') and x.eventTime>:time",Long.class).setParameter("c",c.getId()).setParameter("time",e.getEventTime()).getSingleResult()>0;String key=key(farm,"REM-03","REPRODUCTION_EVENT",source);if(checked)completed.add(key);else if(newer)superseded.add(key);else if(checkDays!=null)put(desired,farm,"REM-03","REPRODUCTION_EVENT",source,c,e.getEventTime().plus(checkDays,ChronoUnit.DAYS),params.json());
+                tentativeCalving(farm,c,e,source,checked,newer,params,zone,desired,completed,superseded);}
+            if("PREGNANCY_CHECK".equals(type)&&"INCONCLUSIVE".equalsIgnoreCase(e.getResult())){Integer recheckDays=integer(params.values().get("PREGNANCY_RECHECK_DAYS"));if(recheckDays==null)continue;boolean checked=hasLaterCheck(c.getId(),e.getEventTime())||calvedAfter(c.getId(),e.getEventTime());String key=key(farm,"REM-04","REPRODUCTION_EVENT",source);if(checked)completed.add(key);else put(desired,farm,"REM-04","REPRODUCTION_EVENT",source,c,e.getEventTime().plus(recheckDays,ChronoUnit.DAYS),params.json());}
         }
         List<CalvingEvent> calvings=em.createQuery("select c from CalvingEvent c where c.dam.farm.id=:farm and upper(c.status) in ('VALID','CORRECTED')",CalvingEvent.class).setParameter("farm",farm).getResultList();
-        for(CalvingEvent calving:calvings){Cattle dam=calving.getDam();if(dam.getSex()!=Sex.FEMALE||dam.getHerdStatus()!=HerdStatus.ACTIVE)continue;String source="CALVING:"+calving.getId();boolean bred=events.stream().anyMatch(e->e.getCattle().getId().equals(dam.getId())&&Set.of("ESTRUS","BREEDING").contains(e.getType().toUpperCase(Locale.ROOT))&&e.getEventTime().isAfter(calving.getBirthTime()));String key=key(farm,"REM-07","CALVING",source);if(bred)completed.add(key);else put(desired,farm,"REM-07","CALVING",source,dam,calving.getBirthTime().plus(45,ChronoUnit.DAYS),null);}
+        Integer readiness=integer(params.values().get("POST_CALVING_DAYS"));
+        for(CalvingEvent calving:calvings){Cattle dam=calving.getDam();if(dam.getSex()!=Sex.FEMALE||dam.getHerdStatus()!=HerdStatus.ACTIVE)continue;String source="CALVING_EVENT:"+calving.getId();boolean bred=events.stream().anyMatch(e->e.getCattle().getId().equals(dam.getId())&&Set.of("ESTRUS","BREEDING").contains(e.getType().toUpperCase(Locale.ROOT))&&e.getEventTime().isAfter(calving.getBirthTime()));String key=key(farm,"REM-07","CALVING_EVENT",source);if(bred)completed.add(key);else if(readiness!=null)put(desired,farm,"REM-07","CALVING_EVENT",source,dam,calving.getBirthTime().plus(readiness,ChronoUnit.DAYS),params.json());}
         // A newer estrus supersedes older windows; expired windows are cancelled by the stale pass.
+    }
+
+    /** REM-05 TENTATIVE: expected date from a breeding until a check confirms (episode-based REM-05) or rejects it. */
+    private void tentativeCalving(Long farm,Cattle c,ReproductionEvent breeding,String source,boolean checked,boolean newerBreeding,ParameterSnapshot params,ZoneId zone,Map<String,Desired> desired,Set<String> completed,Set<String> superseded){
+        LocalDate expected=breeding.getTentativeExpectedCalvingDate();Integer lead=integer(params.values().get("CALVING_LEAD_DAYS"));if(expected==null)return;
+        String key=key(farm,"REM-05","REPRODUCTION_EVENT",source);Instant time=breeding.getEventTime();
+        if(calvedAfter(c.getId(),time)){completed.add(key);return;}
+        boolean confirmed=em.createQuery("select count(x) from ReproductionEvent x where x.cattle.id=:c and upper(x.type)='PREGNANCY_CHECK' and upper(x.result)='PREGNANT' and upper(x.status) in ('VALID','CORRECTED') and x.eventTime>:time",Long.class).setParameter("c",c.getId()).setParameter("time",time).getSingleResult()>0;
+        if(newerBreeding||confirmed){superseded.add(key);return;}
+        boolean laterEstrus=em.createQuery("select count(x) from ReproductionEvent x where x.cattle.id=:c and upper(x.type)='ESTRUS' and upper(x.status) in ('VALID','CORRECTED') and x.eventTime>:time",Long.class).setParameter("c",c.getId()).setParameter("time",time).getSingleResult()>0;
+        if(hasLaterCheck(c.getId(),time)||laterEstrus||lead==null)return; // NOT_PREGNANT/INCONCLUSIVE check or a new estrus: the tentative date no longer applies
+        put(desired,farm,"REM-05","REPRODUCTION_EVENT",source,c,expected.atStartOfDay(zone).toInstant(),params.json());
     }
 
     private void pregnancyAndDoseRules(Long farm,List<Cattle> cattle,ParameterSnapshot params,ZoneId zone,Map<String,Desired> desired,Set<String> completed){
         List<PregnancyEpisode> episodes=em.createQuery("select p from PregnancyEpisode p where p.cattle.farm.id=:farm",PregnancyEpisode.class).setParameter("farm",farm).getResultList();
-        for(PregnancyEpisode p:episodes){String source="PREGNANCY_EPISODE:"+p.getId();String key=key(farm,"REM-05","PREGNANCY_EPISODE",source);if("CALVED".equalsIgnoreCase(p.getStatus())){completed.add(key);continue;}if(!"OPEN".equalsIgnoreCase(p.getStatus()))continue;if(p.getExpectedCalvingDate()==null)continue;Integer lead=integer(params.values().get("CALVING_LEAD_DAYS"));if(lead==null)continue;Instant due=p.getExpectedCalvingDate().minusDays(lead).atStartOfDay(zone).toInstant();put(desired,farm,"REM-05","PREGNANCY_EPISODE",source,p.getCattle(),due,params.json());}
+        // REM-05/REM-06 are due on the expected/planned date; the lead parameter only opens the window (FarmReminderQueryService).
+        Integer calvingLead=integer(params.values().get("CALVING_LEAD_DAYS"));
+        for(PregnancyEpisode p:episodes){String source="PREGNANCY_EPISODE:"+p.getId();String key=key(farm,"REM-05","PREGNANCY_EPISODE",source);if("CALVED".equalsIgnoreCase(p.getStatus())){completed.add(key);continue;}if(!"OPEN".equalsIgnoreCase(p.getStatus())||p.getCattle().getHerdStatus()!=HerdStatus.ACTIVE)continue;if(p.getExpectedCalvingDate()==null||calvingLead==null)continue;put(desired,farm,"REM-05","PREGNANCY_EPISODE",source,p.getCattle(),p.getExpectedCalvingDate().atStartOfDay(zone).toInstant(),params.json());}
         List<ScheduledDose> doses=em.createQuery("select d from ScheduledDose d where d.cattle.farm.id=:farm",ScheduledDose.class).setParameter("farm",farm).getResultList();
-        for(ScheduledDose d:doses){String src="SCHEDULED_DOSE:"+d.getId();String key=key(farm,"REM-06","SCHEDULED_DOSE",src);String state=Objects.toString(d.getStatus(),"").toUpperCase(Locale.ROOT);LocalDate date="DEFERRED".equals(state)&&d.getNewExpectedDate()!=null?d.getNewExpectedDate():d.getDueDate();if(d.getCattle().getHerdStatus()!=HerdStatus.ACTIVE||!"ACTIVE".equalsIgnoreCase(d.getSchedule().getStatus())||Set.of("CANCELLED","DONE","COMPLETED").contains(state))continue;if(d.getVaccination()!=null&&"VALID".equalsIgnoreCase(d.getVaccination().getStatus())){completed.add(key);continue;}Integer lead=integer(params.values().get("VACCINATION_LEAD_DAYS"));if(lead!=null&&Set.of("PLANNED","DEFERRED").contains(state))put(desired,farm,"REM-06","SCHEDULED_DOSE",src,d.getCattle(),date.minusDays(lead).atStartOfDay(zone).toInstant(),params.json());}
+        Integer doseLead=integer(params.values().get("VACCINATION_LEAD_DAYS"));
+        for(ScheduledDose d:doses){String src="SCHEDULED_DOSE:"+d.getId();String key=key(farm,"REM-06","SCHEDULED_DOSE",src);String state=Objects.toString(d.getStatus(),"").toUpperCase(Locale.ROOT);LocalDate date="DEFERRED".equals(state)&&d.getNewExpectedDate()!=null?d.getNewExpectedDate():d.getDueDate();
+            if("DONE".equals(state)||d.getVaccination()!=null&&"VALID".equalsIgnoreCase(d.getVaccination().getStatus())){completed.add(key);continue;} // resolved by the vaccination
+            if(d.getCattle().getHerdStatus()!=HerdStatus.ACTIVE||!"ACTIVE".equalsIgnoreCase(d.getSchedule().getStatus())||!Set.of("PLANNED","DEFERRED").contains(state)||doseLead==null||date==null)continue;
+            put(desired,farm,"REM-06","SCHEDULED_DOSE",src,d.getCattle(),date.atStartOfDay(zone).toInstant(),params.json());}
     }
 
     private void stageAndPenSuggestions(Long farm,List<Cattle> cattle,ParameterSnapshot params,ZoneId zone,LocalDate today,Map<String,Desired> desired,Set<String> completed){
@@ -99,12 +137,13 @@ class ReminderReconciliationService {
             if(c.getSex()==Sex.FEMALE&&c.getLifeStage()!=LifeStage.ADULT){Instant firstCalving=em.createQuery("select min(v.birthTime) from CalvingEvent v where v.dam.id=:id and upper(v.status) in ('VALID','CORRECTED')",Instant.class).setParameter("id",c.getId()).getSingleResult();if(firstCalving!=null)put(desired,farm,"REM-08","CATTLE","STAGE:ADULT_AFTER_FIRST_CALVING:"+c.getId(),c,firstCalving,null);}
             PenAssignment current=assignments.findFirstByCattleIdAndToDateIsNull(c.getId()).orElse(null);if(current!=null){ReceptionCriteriaService.ReceptionCheck check=reception.check(current.getPen(),c,today);if(!check.allMet()){String source="PEN_CRITERIA:"+current.getPen().getId()+":"+current.getId();put(desired,farm,"REM-08","CATTLE",source+":"+c.getId(),c,clock.now(),"{\"penCriteriaVersionId\":"+Objects.toString(check.criteriaVersionId(),"null")+"}");}}
         }
-        for(Reminder old:reminders.findAllByFarm_IdOrderByDueTimeAscIdAsc(farm))if("REM-08".equals(old.getRuleType())&&active(old.getStatus())&&old.getCattle()!=null&&cattle.stream().anyMatch(c->c.getId().equals(old.getCattle().getId()))&&!desired.containsKey(old.getRuleKey()))completed.add(old.getRuleKey());
     }
 
     private void draftCalves(Long farm,ZoneId zone,Map<String,Desired> desired,Set<String> completed){
-        List<CalfOutcome> calves=em.createQuery("select o from CalfOutcome o where o.calving.dam.farm.id=:farm",CalfOutcome.class).setParameter("farm",farm).getResultList();
-        for(CalfOutcome calf:calves){String source="CALF_OUTCOME:"+calf.getId();String key=key(farm,"REM-09","CALF_OUTCOME",source);if(!"PENDING_CONFIRMATION".equalsIgnoreCase(calf.getRegistrationState())){completed.add(key);continue;}put(desired,farm,"REM-09","CALF_OUTCOME",source,calf.getCalving().getDam(),clock.now(),null);}
+        // A voided calving or calf outcome drops out of this query, so its reminder is cancelled by the stale pass.
+        List<CalfOutcome> calves=em.createQuery("select o from CalfOutcome o where o.calving.dam.farm.id=:farm and upper(o.calving.status) in ('VALID','CORRECTED') and upper(o.status)<>'VOIDED'",CalfOutcome.class).setParameter("farm",farm).getResultList();
+        for(CalfOutcome calf:calves){String source="CALF_OUTCOME:"+calf.getId();String key=key(farm,"REM-09","CALF_OUTCOME",source);if(!"PENDING_CONFIRMATION".equalsIgnoreCase(calf.getRegistrationState())){completed.add(key);continue;}
+            CalvingEvent calving=calf.getCalving();put(desired,farm,"REM-09","CALF_OUTCOME",source,calving.getDam(),calving.getRecordedAt()==null?calving.getBirthTime():calving.getRecordedAt(),null);}
     }
 
     private void feedRules(Long farm,ZoneId zone,Map<String,Desired> desired){
@@ -127,6 +166,7 @@ class ReminderReconciliationService {
         for(Cattle c:cattle){List<Growth> weights=em.createQuery("select g from Growth g where g.cattle.id=:c and g.status in ('VALID','CORRECTED') and g.weightKg is not null order by g.checkDate desc,g.id desc",Growth.class).setParameter("c",c.getId()).setMaxResults(1).getResultList();if(weights.isEmpty())continue;Growth latest=weights.get(0);if(latest.getWeightKg().compareTo(target)>=0){String source="GROWTH:"+latest.getId()+":PARAM:"+params.id();put(desired,farm,"REM-13","CATTLE",source,c,latest.getCheckDate().atStartOfDay(zone).toInstant(),params.json());}}
     }
 
+    private boolean calvedAfter(Long cattle,Instant time){return em.createQuery("select count(v) from CalvingEvent v where v.dam.id=:c and upper(v.status) in ('VALID','CORRECTED') and v.birthTime>:time",Long.class).setParameter("c",cattle).setParameter("time",time).getSingleResult()>0;}
     private boolean hasLaterCheck(Long cattle,Instant time){return em.createQuery("select count(e) from ReproductionEvent e where e.cattle.id=:c and upper(e.type)='PREGNANCY_CHECK' and upper(e.status) in ('VALID','CORRECTED') and e.eventTime>:time",Long.class).setParameter("c",cattle).setParameter("time",time).getSingleResult()>0;}
     private boolean resolvedBySource(Reminder reminder,ZoneId zone,LocalDate today){
         if("REM-10".equals(reminder.getRuleType())&&reminder.getSourceId()!=null&&reminder.getSourceId().startsWith("FEED_ITEM:")){try{Long id=Long.valueOf(reminder.getSourceId().substring("FEED_ITEM:".length()));FeedItem feed=em.find(FeedItem.class,id);return feed!=null&&Boolean.TRUE.equals(feed.getAvailable())&&feed.getMinimumStockKg()!=null&&feed.getOnHandKg().compareTo(feed.getMinimumStockKg())>0;}catch(NumberFormatException ignored){return false;}}
@@ -145,8 +185,14 @@ class ReminderReconciliationService {
     }
     private void put(Map<String,Desired> desired,Long farm,String rule,String sourceType,String sourceId,Cattle cattle,Instant due,String snapshot){String stable=key(farm,rule,sourceType,sourceId);desired.put(stable,new Desired(stable,rule,sourceType,sourceId,cattle,due,snapshot));}
     private String key(Long farm,String rule,String sourceType,String sourceId){return farm+":"+rule+":"+sourceType+":"+sourceId;}
-    private void upsert(Farm farm,Desired d){Reminder row=reminders.findByRuleKey(d.key()).orElse(null);if(row!=null){if(active(row.getStatus())){row.setDueTime(d.due());row.setParameterSnapshot(d.snapshot());}return;}row=new Reminder();row.setFarm(farm);row.setCattle(d.cattle());row.setRuleType(d.rule());row.setSourceType(d.sourceType());row.setSourceId(d.sourceId());row.setSourceRecord((d.sourceType()+":"+d.sourceId()).substring(0,Math.min(255,(d.sourceType()+":"+d.sourceId()).length())));row.setRuleKey(d.key());row.setDueTime(d.due());row.setStatus("ACTIVE");row.setParameterSnapshot(d.snapshot());reminders.save(row);}
+    /**
+     * The rule key is unique, so a reminder whose condition applies again (low stock again, the resolving record voided,
+     * a newer estrus voided) is reopened rather than duplicated. "Immediately" rules keep the time they first became due.
+     */
+    private void upsert(Farm farm,Desired d){Reminder row=reminders.findByRuleKey(d.key()).orElse(null);
+        if(row!=null){boolean reopen=!active(row.getStatus());if(reopen)row.setStatus("ACTIVE");if(reopen||!keepsFirstDue(d))row.setDueTime(d.due());row.setParameterSnapshot(d.snapshot());return;}row=new Reminder();row.setFarm(farm);row.setCattle(d.cattle());row.setRuleType(d.rule());row.setSourceType(d.sourceType());row.setSourceId(d.sourceId());String record=d.sourceId().startsWith(d.sourceType()+":")?d.sourceId():d.sourceType()+":"+d.sourceId();row.setSourceRecord(record.substring(0,Math.min(255,record.length())));row.setRuleKey(d.key());row.setDueTime(d.due());row.setStatus("ACTIVE");row.setParameterSnapshot(d.snapshot());reminders.save(row);}
     private ParameterSnapshot parameters(Long farm,LocalDate date){List<FarmParameterVersion> rows=em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm and p.effectiveFrom<=:date order by p.effectiveFrom desc,p.versionNo desc",FarmParameterVersion.class).setParameter("farm",farm).setParameter("date",date).setMaxResults(1).getResultList();if(rows.isEmpty())return new ParameterSnapshot(farm,null,Map.of(),null);FarmParameterVersion v=rows.get(0);try{return new ParameterSnapshot(farm,v.getId(),json.readValue(v.getParameterValues(),new TypeReference<>(){}),"{\"id\":"+v.getId()+",\"versionNo\":"+v.getVersionNo()+",\"values\":"+v.getParameterValues()+"}");}catch(Exception ex){return new ParameterSnapshot(farm,v.getId(),Map.of(),null);}}
+    private boolean keepsFirstDue(Desired d){return "REM-10".equals(d.rule())||"REM-08".equals(d.rule())&&d.sourceId().startsWith("PEN_CRITERIA:");}
     private boolean active(String status){return "ACTIVE".equalsIgnoreCase(status)||"OPEN".equalsIgnoreCase(status);}
     private ZoneId zone(String value){try{return ZoneId.of(value);}catch(Exception ignored){return clock.zone();}}
     private Integer integer(Object value){return value instanceof Number n?n.intValue():null;}
