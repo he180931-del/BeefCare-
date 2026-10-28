@@ -79,5 +79,21 @@ public final class MessageCodes {
     public static final String FE23_05 = "MSG-FE23-05";
     public static final String FE23_08 = "MSG-FE23-08";
 
+    public static final String FE01_01 = "MSG-FE01-01";
+    public static final String FE01_02 = "MSG-FE01-02";
+    public static final String FE01_03 = "MSG-FE01-03";
+    public static final String FE01_06 = "MSG-FE01-06";
+    public static final String FE01_08 = "MSG-FE01-08";
+    public static final String FE01_09 = "MSG-FE01-09";
+    public static final String FE01_10 = "MSG-FE01-10";
+    public static final String FE01_11 = "MSG-FE01-11";
+    public static final String FE01_14 = "MSG-FE01-14";
+    public static final String FE01_16 = "MSG-FE01-16";
+    public static final String FE03_02 = "MSG-FE03-02";
+    public static final String FE03_03 = "MSG-FE03-03";
+    public static final String FE03_04 = "MSG-FE03-04";
+    public static final String FE03_08 = "MSG-FE03-08";
+    public static final String FE03_09 = "MSG-FE03-09";
+
     private MessageCodes() {}
 }

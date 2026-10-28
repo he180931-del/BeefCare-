@@ -72,7 +72,7 @@ class ManagerPermissionResourceIT {
         // Add required entity
         FarmMembership farmMembership;
         if (TestUtil.findAll(em, FarmMembership.class).isEmpty()) {
-            farmMembership = FarmMembershipResourceIT.createEntity(em);
+            farmMembership = EntityFactories.farmMembership(em, false);
             em.persist(farmMembership);
             em.flush();
         } else {
@@ -95,7 +95,7 @@ class ManagerPermissionResourceIT {
         // Add required entity
         FarmMembership farmMembership;
         if (TestUtil.findAll(em, FarmMembership.class).isEmpty()) {
-            farmMembership = FarmMembershipResourceIT.createUpdatedEntity(em);
+            farmMembership = EntityFactories.farmMembership(em, true);
             em.persist(farmMembership);
             em.flush();
         } else {

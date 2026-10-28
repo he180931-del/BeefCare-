@@ -41,7 +41,7 @@ class EmailActivationFlowIT {
         deliveryJobs.dispatchDueJobs();
 
         var message = inbox.findMessagesFor(email).stream().findFirst().orElseThrow();
-        assertThat(message.subject()).contains("xác minh");
+        assertThat(message.subject()).containsIgnoringCase("xác minh"); // the subject is "Xác minh email BeefCare"
         assertThat(message.content()).contains("Xin chào Mail Flow Owner");
         String token = tokenFrom(message.plainText());
         var link = links.findById(queued.getLinkSourceId()).orElseThrow();

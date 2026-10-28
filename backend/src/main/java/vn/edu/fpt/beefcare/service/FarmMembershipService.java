@@ -5,11 +5,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.FarmInvitation;
@@ -115,7 +113,7 @@ public class FarmMembershipService {
         if (existingInvite.isPresent()) {
             expireIfNecessary(existingInvite.get());
             if (PENDING.equalsIgnoreCase(existingInvite.get().getStatus())) {
-                throw DomainException.conflict("MSG-FE03-03", "invitationId", existingInvite.get().getId());
+                throw DomainException.conflict(MessageCodes.FE03_03, "invitationId", existingInvite.get().getId(), "email", email);
             }
         }
 
@@ -199,7 +197,7 @@ public class FarmMembershipService {
             throw DomainException.conflict(MessageCodes.COM_05);
         }
         if (!PENDING.equalsIgnoreCase(invitation.getStatus()) || !invitation.getExpiresAt().isAfter(clock.now())) {
-            throw invitationInvalid();
+            throw invitationInvalid(invitationStatus(invitation));
         }
         FarmMembership membership = new FarmMembership();
         membership.setFarm(farm);
@@ -241,15 +239,15 @@ public class FarmMembershipService {
             case "CHANGE_ROLE" -> {
                 FarmRole role = parseInviteRole(request.role());
                 if (role == null || role == FarmRole.OWNER) throw DomainException.invalid("role");
-                if (role.name().equalsIgnoreCase(membership.getRole())) throw DomainException.conflict("MSG-FE03-20");
+                if (role.name().equalsIgnoreCase(membership.getRole())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "role");
                 membership.setRole(role.name());
             }
             case "DEACTIVATE" -> {
-                if (!ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict("MSG-FE03-20");
+                if (!ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "status");
                 membership.setStatus("INACTIVE");
             }
             case "REACTIVATE" -> {
-                if (ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict("MSG-FE03-20");
+                if (ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "status");
                 membership.setStatus(ACTIVE);
             }
             default -> throw DomainException.invalid("action");
@@ -298,14 +296,14 @@ public class FarmMembershipService {
     }
 
     private FarmInvitation findInviteForCaller(String rawToken, boolean allowAccepted, boolean lock) {
-        if (rawToken == null || rawToken.isBlank()) throw invitationInvalid();
+        if (rawToken == null || rawToken.isBlank()) throw invitationInvalid("INVALID");
         String tokenHash = linkSigner.hash(rawToken);
-        FarmInvitation invitation = (lock ? invitations.lockByTokenHash(tokenHash) : invitations.findOneByTokenHash(tokenHash)).orElseThrow(FarmMembershipService::invitationInvalid);
+        FarmInvitation invitation = (lock ? invitations.lockByTokenHash(tokenHash) : invitations.findOneByTokenHash(tokenHash)).orElseThrow(() -> invitationInvalid("INVALID"));
         AppUser caller = access.currentActiveUser();
-        if (!invitation.getInvitedEmail().equalsIgnoreCase(caller.getEmail())) throw DomainException.forbidden("MSG-FE03-09");
-        if (!linkSigner.matchesHash(linkSigner.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce()), invitation.getTokenHash())) throw invitationInvalid();
+        if (!invitation.getInvitedEmail().equalsIgnoreCase(caller.getEmail())) throw DomainException.forbidden(MessageCodes.FE03_09);
+        if (!linkSigner.matchesHash(linkSigner.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce()), invitation.getTokenHash())) throw invitationInvalid("INVALID");
         boolean acceptedReplay = allowAccepted && "ACCEPTED".equalsIgnoreCase(invitation.getStatus());
-        if (!acceptedReplay && (!PENDING.equalsIgnoreCase(invitation.getStatus()) || !invitation.getExpiresAt().isAfter(clock.now()))) throw invitationInvalid();
+        if (!acceptedReplay && (!PENDING.equalsIgnoreCase(invitation.getStatus()) || !invitation.getExpiresAt().isAfter(clock.now()))) throw invitationInvalid(invitationStatus(invitation));
         return invitation;
     }
 
@@ -340,7 +338,8 @@ public class FarmMembershipService {
         try { return FarmRole.valueOf(role.trim().toUpperCase(Locale.ROOT)); } catch (IllegalArgumentException error) { return null; }
     }
 
-    private static ResponseStatusException invitationInvalid() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invitation is invalid, expired or already used");
+    /** MSG-FE03-08: the invitation is expired, cancelled, already used or the link is invalid ({@code status} is INVALID when unknown). */
+    private static DomainException invitationInvalid(String status) {
+        return DomainException.badRequest(MessageCodes.FE03_08, "status", status);
     }
 }

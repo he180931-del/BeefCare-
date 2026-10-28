@@ -34,7 +34,9 @@ class AuthenticateControllerIT {
     @Test
     void accountAndLegacyCrudRequireAuthentication() throws Exception {
         mockMvc.perform(get("/api/account")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/app-users")).andExpect(status().isForbidden());
+        // Closed generic CRUD: an anonymous caller is sent to sign in (401, the configured entry point); a signed-in caller gets 403
+        // (see unfinishedGenericEntityCrudIsDeniedEvenToSignedInUsers). The earlier 403 expectation predates the session entry point.
+        mockMvc.perform(get("/api/app-users")).andExpect(status().isUnauthorized());
     }
 
     @Test

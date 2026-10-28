@@ -22,16 +22,19 @@ import org.springframework.web.bind.annotation.*;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
+import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
 import vn.edu.fpt.beefcare.repository.UserRepository;
 import vn.edu.fpt.beefcare.security.SecurityUtils;
+import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.UserService;
 import vn.edu.fpt.beefcare.service.FarmAccessService;
+import vn.edu.fpt.beefcare.service.FarmWorkspaceService;
 import vn.edu.fpt.beefcare.service.IdentityService;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.dto.AdminUserDTO;
 import vn.edu.fpt.beefcare.service.dto.PasswordChangeDTO;
 import vn.edu.fpt.beefcare.web.rest.errors.*;
 import vn.edu.fpt.beefcare.web.rest.vm.KeyAndPasswordVM;
-import vn.edu.fpt.beefcare.web.rest.vm.ManagedUserVM;
 
 /**
  * REST controller for managing the current user's account.
@@ -56,6 +59,8 @@ public class AccountResource {
     private final IdentityService identityService;
     private final UserDetailsService userDetailsService;
     private final SessionRegistry sessionRegistry;
+    private final PlatformStaffAccessRepository platformStaffAccess;
+    private final FarmWorkspaceService workspace;
     private final HttpSessionSecurityContextRepository contextRepository = new HttpSessionSecurityContextRepository();
 
     @Value("${beefcare.email.frontend-base-url}")
@@ -71,7 +76,9 @@ public class AccountResource {
         FarmAccessService farmAccessService,
         IdentityService identityService,
         UserDetailsService userDetailsService,
-        SessionRegistry sessionRegistry
+        SessionRegistry sessionRegistry,
+        PlatformStaffAccessRepository platformStaffAccess,
+        FarmWorkspaceService workspace
     ) {
         this.userRepository = userRepository;
         this.userService = userService;
@@ -80,6 +87,8 @@ public class AccountResource {
         this.identityService = identityService;
         this.userDetailsService = userDetailsService;
         this.sessionRegistry = sessionRegistry;
+        this.platformStaffAccess = platformStaffAccess;
+        this.workspace = workspace;
     }
 
     /**
@@ -92,14 +101,12 @@ public class AccountResource {
      */
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public void registerAccount(@Valid @RequestBody ManagedUserVM managedUserVM) {
-        String fullName = managedUserVM.getFullName();
-        if (fullName == null || fullName.isBlank()) {
-            fullName = ((managedUserVM.getFirstName() == null ? "" : managedUserVM.getFirstName().trim()) + " " +
-                (managedUserVM.getLastName() == null ? "" : managedUserVM.getLastName().trim())).trim();
-        }
-        identityService.register(fullName, managedUserVM.getEmail(), managedUserVM.getPassword(), managedUserVM.getConfirmPassword(), managedUserVM.isTermsAccepted());
+    public void registerAccount(@RequestBody RegistrationRequest request) {
+        identityService.register(request.fullName(), request.email(), request.password(), request.confirmPassword(), request.termsAccepted());
     }
+
+    /** SCR-03 fields. Rules are enforced by {@link IdentityService} so each failure carries its MSG-FE01 / MSG-COM code. */
+    public record RegistrationRequest(String fullName, String email, String password, String confirmPassword, boolean termsAccepted) {}
 
     /**
      * {@code GET  /activate} : activate the registered user.
@@ -123,10 +130,13 @@ public class AccountResource {
         return ResponseEntity.status(HttpStatus.SEE_OTHER).location(URI.create(frontendBaseUrl.replaceAll("/+$", "") + "/owner-registration")).build();
     }
 
+    /** Same answer for every address (GBR-03). The body is a JSON object: a bare JSON string would arrive with its quotes. */
     @PostMapping("/account/verification/resend")
-    public void resendEmailVerification(@RequestBody String email) {
-        identityService.resendVerification(email);
+    public void resendEmailVerification(@RequestBody EmailRequest request) {
+        identityService.resendVerification(request.email());
     }
+
+    public record EmailRequest(String email) {}
 
     /**
      * {@code GET  /account} : get the current user.
@@ -144,57 +154,75 @@ public class AccountResource {
 
     /** Completes the personal Owner profile; it does not create a farm or grant farm/platform access. */
     @PostMapping("/account/owner-registration")
-    public OwnerRegistrationResponse completeOwnerRegistration(@Valid @RequestBody OwnerRegistrationRequest request) {
-        if (!request.termsAccepted()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Terms acceptance is required");
-        }
+    public OwnerRegistrationResponse completeOwnerRegistration(@RequestBody OwnerRegistrationRequest request) {
+        String name = fullName(request.fullName());
+        String phone = phone(request.phone());
+        if (!request.termsAccepted()) throw DomainException.badRequest(MessageCodes.FE01_14, "field", "termsAccepted");
         AppUser user = farmAccessService.currentActiveUser();
-        user.setFullName(request.fullName().trim());
-        user.setPhone(request.phone() == null || request.phone().isBlank() ? null : request.phone().trim());
+        user.setFullName(name);
+        user.setPhone(phone);
         user.setOwnerRegistrationCompleted(true);
         user.setOwnerRegistrationCompletedAt(Instant.now());
         appUserRepository.save(user);
         return new OwnerRegistrationResponse(user.getId(), user.getEmail(), user.getFullName(), user.getPhone(), true);
     }
 
-    public record OwnerRegistrationRequest(
-        @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 255) String fullName,
-        @jakarta.validation.constraints.Size(max = 255) String phone,
-        boolean termsAccepted
-    ) {}
+    public record OwnerRegistrationRequest(String fullName, String phone, boolean termsAccepted) {}
 
     public record OwnerRegistrationResponse(Long id, String email, String fullName, String phone, boolean completed) {}
 
     @GetMapping("/account/profile")
     public ProfileResponse getProfile() {
-        AppUser account = farmAccessService.currentActiveUser();
-        boolean verified = userRepository.findOneByEmailIgnoreCase(account.getEmail()).map(User::isActivated).orElse(false);
-        return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
-            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted());
+        return profile(farmAccessService.currentActiveUser());
     }
 
     @PostMapping("/account/profile")
-    public ProfileResponse updateProfile(@Valid @RequestBody ProfileUpdate request) {
+    public ProfileResponse updateProfile(@RequestBody ProfileUpdate request) {
+        String name = fullName(request.fullName());
+        String phone = phone(request.phone());
         AppUser account = farmAccessService.currentActiveUser();
-        account.setFullName(request.fullName().trim());
-        account.setPhone(request.phone() == null || request.phone().isBlank() ? null : request.phone().trim());
+        account.setFullName(name);
+        account.setPhone(phone);
         appUserRepository.save(account);
         userRepository.findOneByEmailIgnoreCase(account.getEmail()).ifPresent(identity -> {
-            identity.setFirstName(request.fullName().trim().substring(0, Math.min(50, request.fullName().trim().length())));
+            identity.setFirstName(name.substring(0, Math.min(50, name.length())));
             userRepository.save(identity);
         });
-        boolean verified = userRepository.findOneByEmailIgnoreCase(account.getEmail()).map(User::isActivated).orElse(false);
-        return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
-            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted());
+        return profile(account);
     }
 
-    public record ProfileUpdate(
-        @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 255) String fullName,
-        @jakarta.validation.constraints.Size(max = 255) String phone
-    ) {}
+    /** SCR-07 / SCR-08: full name 2-100 characters. */
+    private static String fullName(String value) {
+        if (value == null || value.isBlank()) throw DomainException.required("fullName");
+        String name = value.trim();
+        if (name.length() < 2 || name.length() > 100) throw DomainException.invalid("fullName");
+        return name;
+    }
 
+    /** SCR-07 / SCR-08: optional Vietnamese phone, 10 digits starting with 0 or +84 followed by 9 digits (MSG-COM-10). */
+    private static String phone(String value) {
+        if (value == null || value.isBlank()) return null;
+        String phone = value.trim();
+        if (!phone.matches("^(?:0[0-9]{9}|\\+84[0-9]{9})$")) throw DomainException.invalid("phone");
+        return phone;
+    }
+
+    private ProfileResponse profile(AppUser account) {
+        boolean verified = userRepository.findOneByEmailIgnoreCase(account.getEmail()).map(User::isActivated).orElse(false);
+        String platformRole = platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").map(access -> access.getRole()).orElse(null);
+        List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role())).toList();
+        return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
+            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), platformRole, farms);
+    }
+
+    public record ProfileUpdate(String fullName, String phone) {}
+
+    /** SCR-08 header: the platform role (staff) and the role in each available farm. The permission table per role is the fixed GBR-06 policy. */
     public record ProfileResponse(Long id, String email, String fullName, String phone, boolean emailVerified,
-        boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted) {}
+        boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted,
+        String platformRole, List<FarmRoleSummary> farms) {}
+
+    public record FarmRoleSummary(Long farmId, String farmName, String role) {}
 
     /**
      * {@code POST  /account} : update the current user information.
@@ -253,8 +281,8 @@ public class AccountResource {
      * @param mail the mail of the user.
      */
     @PostMapping(path = "/account/reset-password/init")
-    public void requestPasswordReset(@RequestBody String mail) {
-        identityService.requestPasswordReset(mail);
+    public void requestPasswordReset(@RequestBody EmailRequest request) {
+        identityService.requestPasswordReset(request.email());
     }
 
     @GetMapping(path = "/account/reset-password/validate")

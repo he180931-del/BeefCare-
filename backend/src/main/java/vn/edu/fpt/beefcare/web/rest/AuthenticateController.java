@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.FarmAccessService;
 import vn.edu.fpt.beefcare.service.IdentityService;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.web.rest.vm.LoginVM;
 
 /** Cookie session authentication. CSRF protection applies to login and every other state-changing request. */
@@ -67,25 +68,19 @@ public class AuthenticateController {
 
     @PostMapping("/api/authenticate")
     public ResponseEntity<Void> authorize(@Valid @RequestBody LoginVM loginVM, HttpServletRequest request, HttpServletResponse response) {
-        try {
-            identityService.checkPasswordSignInAllowed(loginVM.getUsername());
-        } catch (IdentityService.AccountSuspendedException ex) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        } catch (IdentityService.PasswordSignInDisabledException ex) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        } catch (IdentityService.AccountLoginLockedException ex) {
-            return ResponseEntity.status(HttpStatus.LOCKED).build();
-        }
+        identityService.checkPasswordSignInAllowed(loginVM.getUsername()); // suspended 403 MSG-FE01-03, locked 423 MSG-FE01-02
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
                 UsernamePasswordAuthenticationToken.unauthenticated(loginVM.getUsername(), loginVM.getPassword())
             );
         } catch (AuthenticationException ex) {
-            if (!(ex instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException)) {
-                identityService.recordFailedPasswordAttempt(loginVM.getUsername());
+            // DaoAuthenticationProvider wraps a UserDetailsService failure in InternalAuthenticationServiceException, so look at the cause too.
+            if (ex instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException || ex.getCause() instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException) {
+                throw new DomainException(MessageCodes.FE01_11, DomainException.params("email", loginVM.getUsername().trim()), HttpStatus.UNAUTHORIZED);
             }
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            identityService.recordFailedPasswordAttempt(loginVM.getUsername());
+            throw new DomainException(MessageCodes.FE01_01, null, HttpStatus.UNAUTHORIZED);
         }
         identityService.clearFailedPasswordAttempts(loginVM.getUsername());
 

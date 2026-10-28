@@ -69,11 +69,12 @@ public class IdentityService {
     @Transactional
     public void register(String fullName, String email, String password, String confirmation, boolean termsAccepted) {
         String normalizedEmail = normalizeEmail(email);
-        if (fullName == null || fullName.isBlank() || fullName.trim().length() > 255) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Full name is required");
+        if (fullName == null || fullName.isBlank()) throw DomainException.required("fullName");
+        if (fullName.trim().length() < 2 || fullName.trim().length() > 100) throw DomainException.invalid("fullName");
         validatePassword(password, normalizedEmail, confirmation);
-        if (!termsAccepted) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Terms acceptance is required");
+        if (!termsAccepted) throw DomainException.badRequest(MessageCodes.FE01_14, "field", "termsAccepted");
         if (userRepository.findOneByEmailIgnoreCase(normalizedEmail).isPresent() || appUserRepository.findOneByEmailIgnoreCase(normalizedEmail).isPresent()) {
-            throw new EmailAlreadyUsedException();
+            throw DomainException.conflict(MessageCodes.FE01_10, "email", normalizedEmail);
         }
 
         User identity = new User();
@@ -85,7 +86,7 @@ public class IdentityService {
         identity.setFirstName(fullName.trim().substring(0, Math.min(50, fullName.trim().length())));
         authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(identity.getAuthorities()::add);
         if (identity.getAuthorities().isEmpty()) throw new IllegalStateException("The standard user authority is not configured");
-        userRepository.save(identity);
+        identity = userRepository.save(identity);
 
         AppUser account = new AppUser();
         account.setEmail(normalizedEmail);
@@ -101,7 +102,7 @@ public class IdentityService {
         AccountLinkToken link = consume(token, EMAIL_VERIFICATION);
         User user = userRepository.findOneWithAuthoritiesByLogin(link.getUser().getLogin()).orElseThrow(IdentityService::invalidLink);
         AppUser projection = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow(IdentityService::invalidLink);
-        if (!"ACTIVE".equalsIgnoreCase(projection.getAccountStatus())) throw new AccountSuspendedException();
+        if (!"ACTIVE".equalsIgnoreCase(projection.getAccountStatus())) throw suspended(user.getEmail());
         if (user.isActivated()) return user;
         user.setActivated(true);
         user.setActivationKey(null);
@@ -112,13 +113,16 @@ public class IdentityService {
 
     @Transactional
     public void resendVerification(String email) {
-        findActivePasswordAccount(email).filter(user -> !user.isActivated()).ifPresent(user -> issueRateLimited(user, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL"));
+        findPasswordAccount(email, false).filter(user -> !user.isActivated()).ifPresent(user -> issueRateLimited(user, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL"));
     }
 
-    /** Always responds identically; unknown addresses and Google-only accounts cause no mail. */
+    /**
+     * Always responds identically; unknown addresses and Google-only accounts cause no mail. A SUSPENDED account can still
+     * reset its password while sign-in stays blocked (UC-FE01-05 E3, GBR-04).
+     */
     @Transactional
     public void requestPasswordReset(String email) {
-        findActivePasswordAccount(email).filter(User::isActivated).ifPresent(user -> issueRateLimited(user, PASSWORD_RESET, RESET_LIFETIME, "RESET_PASSWORD"));
+        findPasswordAccount(email, true).filter(User::isActivated).ifPresent(user -> issueRateLimited(user, PASSWORD_RESET, RESET_LIFETIME, "RESET_PASSWORD"));
     }
 
     @Transactional
@@ -127,7 +131,7 @@ public class IdentityService {
         return tokenRepository.findOneByTokenHashAndTokenType(linkSigner.hash(rawToken), PASSWORD_RESET)
             .filter(link -> link.getUsedAt() == null && link.getExpiresAt().isAfter(Instant.now()))
             .filter(link -> link.getUser().isActivated())
-            .filter(link -> appUserRepository.findOneByEmailIgnoreCase(link.getUser().getEmail()).filter(account -> "ACTIVE".equalsIgnoreCase(account.getAccountStatus())).isPresent())
+            .filter(link -> appUserRepository.findOneByEmailIgnoreCase(link.getUser().getEmail()).isPresent())
             .isPresent();
     }
 
@@ -141,28 +145,32 @@ public class IdentityService {
         user.setPasswordLockedUntil(null);
         user.setResetKey(null);
         user.setResetDate(null);
-        expireOtherSessions(user, null);
-        AppUser account = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).filter(value -> "ACTIVE".equalsIgnoreCase(value.getAccountStatus())).orElseThrow(IdentityService::invalidLink);
+        expireSessions(user, false); // UC-FE01-05 step 7: every session of the account ends, including one held by the requester
+        AppUser account = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow(IdentityService::invalidLink);
         account.setPasswordLoginEnabled(true);
         mailService.sendEmail(user.getEmail(), "Your BeefCare password changed", "Your password was changed. If you did not make this change, contact BeefCare support.", false, false);
         return user;
     }
 
-    @Transactional
+    /** The failed-attempt counter must survive the wrong-password rejection, so that exception does not roll the transaction back (GBR-02). */
+    @Transactional(noRollbackFor = DomainException.class)
     public void changePassword(String currentPassword, String newPassword, String confirmation) {
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         User user = findLogin(login).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         AppUser account = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow(IdentityService::invalidLink);
         if (!account.isPasswordLoginEnabled()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Google reauthentication is required before adding a password");
+        if (user.getPasswordLockedUntil() != null && user.getPasswordLockedUntil().isAfter(Instant.now())) {
+            throw locked(user.getPasswordLockedUntil());
+        }
         if (!passwordEncoder.matches(currentPassword == null ? "" : currentPassword, user.getPassword())) {
             recordFailedPasswordAttempt(login);
-            throw new InvalidPasswordException();
+            throw DomainException.badRequest(MessageCodes.FE01_16, "field", "currentPassword");
         }
         validatePassword(newPassword, user.getEmail(), confirmation);
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setFailedPasswordAttempts(0);
         user.setPasswordLockedUntil(null);
-        expireOtherSessions(user, null);
+        expireSessions(user, true);
         mailService.sendEmail(user.getEmail(), "Your BeefCare password changed", "Your password was changed. If you did not make this change, contact BeefCare support.", false, false);
     }
 
@@ -172,10 +180,11 @@ public class IdentityService {
         if (found.isEmpty()) return null;
         User user = found.get();
         AppUser account = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElse(null);
-        if (account != null && "SUSPENDED".equalsIgnoreCase(account.getAccountStatus())) throw new AccountSuspendedException();
-        if (account != null && !account.isPasswordLoginEnabled()) throw new PasswordSignInDisabledException();
+        if (account != null && "SUSPENDED".equalsIgnoreCase(account.getAccountStatus())) throw suspended(user.getEmail());
+        // A Google-only account has no password method: answered like any wrong credential so the form shows MSG-FE01-01.
+        if (account != null && !account.isPasswordLoginEnabled()) throw DomainException.forbidden(MessageCodes.FE01_01);
         if (user.getPasswordLockedUntil() != null && user.getPasswordLockedUntil().isAfter(Instant.now())) {
-            throw new AccountLoginLockedException(user.getPasswordLockedUntil());
+            throw locked(user.getPasswordLockedUntil());
         }
         if (user.getPasswordLockedUntil() != null) {
             user.setPasswordLockedUntil(null);
@@ -205,13 +214,13 @@ public class IdentityService {
         });
     }
 
-    private Optional<User> findActivePasswordAccount(String email) {
+    private Optional<User> findPasswordAccount(String email, boolean allowSuspended) {
         if (email == null || email.isBlank()) return Optional.empty();
         String normalized = email.trim().toLowerCase(Locale.ROOT);
         return userRepository.findOneByEmailIgnoreCase(normalized)
             .filter(user -> appUserRepository.findOneByEmailIgnoreCase(normalized)
                 .filter(AppUser::isPasswordLoginEnabled)
-                .filter(account -> "ACTIVE".equalsIgnoreCase(account.getAccountStatus()))
+                .filter(account -> allowSuspended || "ACTIVE".equalsIgnoreCase(account.getAccountStatus()))
                 .isPresent());
     }
 
@@ -254,27 +263,34 @@ public class IdentityService {
     }
 
     private static String normalizeEmail(String email) {
-        if (email == null || email.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
+        if (email == null || email.isBlank()) throw DomainException.required("email");
         String normalized = email.trim().toLowerCase(Locale.ROOT);
-        if (normalized.length() > 254 || !normalized.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email address is invalid");
-        }
+        if (normalized.length() > 254 || !normalized.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) throw DomainException.invalid("email");
         return normalized;
     }
 
+    /** GBR-02: 8-128 characters, not equal to the email (MSG-FE01-08); the confirmation must match (MSG-FE01-09). */
     private static void validatePassword(String password, String email, String confirmation) {
         if (password == null || password.length() < 8 || password.length() > 128 || password.equalsIgnoreCase(email)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password does not meet the required policy");
+            throw DomainException.badRequest(MessageCodes.FE01_08, "field", "password");
         }
-        if (!password.equals(confirmation)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password confirmation does not match");
+        if (!password.equals(confirmation)) throw DomainException.badRequest(MessageCodes.FE01_09, "field", "confirmPassword");
     }
 
-    private static ResponseStatusException invalidLink() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "This account link is invalid or expired");
+    /** MSG-FE01-06: the verification or reset link is unknown, expired or already used. */
+    private static DomainException invalidLink() {
+        return DomainException.badRequest(MessageCodes.FE01_06);
     }
 
-    private void expireOtherSessions(User user, String currentSessionId) {
-        if (currentSessionId == null && RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+    /** MSG-FE01-02 with the time at which password sign-in is available again (GBR-02). */
+    public static DomainException locked(Instant lockedUntil) {
+        return new DomainException(MessageCodes.FE01_02, DomainException.params("time", lockedUntil.toString()), HttpStatus.LOCKED);
+    }
+
+    /** Ends the account's sessions; the caller's own session is kept when {@code keepCurrent} (change password, UC-FE01-06 step 4). */
+    private void expireSessions(User user, boolean keepCurrent) {
+        String currentSessionId = null;
+        if (keepCurrent && RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
             var session = attributes.getRequest().getSession(false);
             if (session != null) currentSessionId = session.getId();
         }
@@ -288,13 +304,8 @@ public class IdentityService {
         }
     }
 
-    public static class AccountSuspendedException extends RuntimeException {}
-
-    public static class PasswordSignInDisabledException extends RuntimeException {}
-
-    public static class AccountLoginLockedException extends RuntimeException {
-        private final Instant lockedUntil;
-        public AccountLoginLockedException(Instant lockedUntil) { this.lockedUntil = lockedUntil; }
-        public Instant getLockedUntil() { return lockedUntil; }
+    /** MSG-FE01-03: the Account Suspended state; no session is created (GBR-04). */
+    public static DomainException suspended(String email) {
+        return DomainException.forbidden(MessageCodes.FE01_03, "email", email);
     }
 }
