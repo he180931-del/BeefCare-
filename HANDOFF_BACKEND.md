@@ -25,7 +25,7 @@ File Word được cung cấp còn “[Figure to be inserted]” tại các vị
 - Session cookie HttpOnly + CSRF cho trình duyệt. Không dùng JWT bearer/localStorage cho đăng nhập. `/api/csrf` trước login/lệnh, `/api/authenticate` trả204; logout POST.
 - Một tài khoản toàn cục, một vai trò trong mỗi trại, tối đa một vai trò nhân viên nền tảng. Kiểm tra lại account/membership/service mỗi request và quyền khi replay lệnh.
 - Owner không ghi sự kiện chăm sóc, sinh sản hay cho ăn; Manager thực hiện. Technician đọc theo phạm vi SRS. Chỉ Owner quyết định xuất đàn; chết/mất từ ca bệnh tạo đề nghị PENDING.
-- Chuẩn chung cho lệnh là idempotency key, observed version khi cập nhật, giao dịch, audit/revision/outbox. Một số command finance mới chưa nối idempotency; phải hoàn thiện trước khi FE tự retry. Không để raw entity CRUD thay thế luồng nghiệp vụ.
+- Chuẩn chung cho lệnh là idempotency key, observed version khi cập nhật, giao dịch, audit/revision/outbox. Các command finance FE-21 đã nối idempotency (phiên 28/10 tối). Không để raw entity CRUD thay thế luồng nghiệp vụ.
 - Các lịch sử sửa/hủy được giữ, trạng thái suy ra từ nguồn VALID. Xem một nhắc việc không tự hoàn tất nhắc việc hoặc thực hiện chăm sóc.
 - Provider email/SePay chạy mock/local trước; bí mật nằm ngoài Git. Có tài khoản thật vẫn cần kiểm thử tích hợp thực tế; chưa xác nhận live.
 - JVM nội bộ dùng UTC, ngày nghiệp vụ dùng múi giờ trại (mặc định Asia/Ho_Chi_Minh). PostgreSQL local không nhận alias Asia/Saigon từ Windows, nên main đặt UTC trước khởi tạo Spring.
@@ -38,7 +38,7 @@ File Word được cung cấp còn “[Figure to be inserted]” tại các vị
 | FE01–03 | Đăng ký/xác minh/reset/change password, Google OIDC tùy cấu hình, Owner profile, đăng ký trại/danh mục mặc định, lời mời/thành viên, SA quản trị tài khoản/platform access, PM đình chỉ/khôi phục trại | Nhiều nhánh auth/account/invitation chưa được chạy đầy đủ; profile permission summary còn thiếu. |
 | FE04–06/08/13/16 | Chuồng, phiếu nhập/xuất/thanh toán đối tác từ dev; hồ sơ/QR/ảnh, tăng trưởng/BCS, timeline và sửa/hủy | Test cũ của dev không chứng minh các tích hợp mới đúng. Cần chạy lại các luồng nhiều dòng/rollback/concurrent và DTO mới. |
 | FE09–12/18 care | Tiêm theo lịch/batch/hoãn/sửa/hủy; ca bệnh/điều trị/correction; động dục/phối/check/thai/đẻ/bê; worklist/history; tham số và vaccine/medicine catalogue | Xem care-reproduction.md cho các nhánh còn thiếu. Đã sửa các khoảng SCR56 và một số trạng thái sai; chưa nghiệm thu toàn bộ phụ thuộc sửa/hủy. |
-| FE07/14/15/23 | Thông báo theo người nhận; inbox; nguồn nhắc REM01–13 và job; dashboard/RPT01–07; nhập kho/giá bình quân/điều chỉnh/khẩu phần/cho ăn/sửa/hủy | Độ đúng các báo cáo/job còn cần kiểm thử sâu. FEFO chỉ có schema/entity, **chưa nối vào lệnh kho**; tệp đính kèm phiếu thức ăn chưa có. |
+| FE07/14/15/23 | Thông báo theo người nhận; inbox; nguồn nhắc REM01–13 và job; dashboard/RPT01–07; nhập kho/giá bình quân/điều chỉnh/khẩu phần/cho ăn/sửa/hủy | Độ đúng các báo cáo/job còn cần kiểm thử sâu. Không làm FEFO theo SRS (quyết định D04); phiếu điều chỉnh kho ĐCK đã có chứng từ DRAFT→POSTED; tệp đính kèm phiếu thức ăn chưa có. |
 | FE17/19/21/22 | Audit platform; bảng giá phiên bản, payment quote/snapshot, SePay HMAC và simulator, evidence/đối soát/lookup, expiry jobs, finance source/snapshot/XLSX, public landing/prices | Finance là source mới, còn thiếu kiểm thử và một số điều kiện/command idempotency; nội dung public hiện static. Không coi là chức năng đã nghiệm thu. |
 | FE20 | Owner ticket, CS queue/claim/handover/release/reply/note, resolution version/ack/reopen/close, internal PM/SA request/context/result và requeue | Có 7 ca test tích hợp luồng. Cần thêm kiểm thử REST/CSRF/replay, tiêu chí domain-result và các biên trạng thái. |
 
@@ -74,9 +74,9 @@ Không chạy nhiều Maven cùng một `target` khi dùng nhiều agent. Trên 
 
 1. Đọc kết quả chốt dưới đây và chạy lại build/test trên đúng commit đã pull. Phân biệt test lỗi do nghiệp vụ, fixture lỗi và generated CRUD tests đã lỗi thời. Không tắt/bỏ assertion chỉ để xanh.
 2. Rà traceability UC → command → quyền → trạng thái → migration → mã thông báo → test, tập trung các phần được đánh dấu partial/unverified trong ba file workstream. Các endpoint/report scaffold không tự được tính hoàn thành.
-3. Hoàn thiện FEFO thật: backfill tồn hiện có theo nguồn, receipt/adjustment/feeding/correction/void cập nhật lot và allocation nhất quán; xử lý hạn dùng, rollback và chống âm kho. Bảng00800 hiện không phải nguồn tính tồn.
+3. ~~FEFO~~: **bỏ theo SRS** (D04 trong docs/REQUIREMENT_DECISIONS.md, chủ dự án xác nhận 28/10). Lô chỉ để cảnh báo hạn dùng; bảng 00800 giữ nguyên, không dùng. Còn lại cho FE-23: tệp đính kèm phiếu nhập/điều chỉnh, test tích hợp nhập/hủy/cho ăn/sửa trên H2.
 4. Test thực tế REM01–13: tham số có hiệu lực, sửa/hủy nguồn, mất quyền, Owner/Manager/Technician, reminder không có cattle, job gửi lặp và chuyển RESOLVED/SUPERSEDED/CANCELLED. Rà chỉ số M09/RPT05/07 bằng bộ dữ liệu tính tay.
-5. Hoàn thiện và test finance: command idempotency, nguồn evidence đã claim/đã dùng cho payment, sửa/post/void/replacement, snapshot nhất quán/as-of/filter, expiry/cleanup, nội dung XLSX. Thêm test cạnh tranh duplicate webhook/manual lookup/reconciliation và đổi cấu hình môi trường.
+5. Finance: **đã xong** command idempotency và 12 test luồng (PlatformFinanceWorkflowTest). Còn: nguồn evidence đã claim/đã dùng cho payment, sửa/post/void/replacement, snapshot nhất quán/as-of/filter, expiry/cleanup, nội dung XLSX. Thêm test cạnh tranh duplicate webhook/manual lookup/reconciliation và đổi cấu hình môi trường.
 6. Hoàn thiện các trường/nhánh đọc và correction/dependency care/reproduction, kèm test cấm Owner/Technician ghi và lỗi khác trại. Rà historical unknown, calf pending/registered và exit-pending.
 7. Chạy auth/session/email/invitation cả REST và Mailpit; Google/SMTP/SePay live chỉ khi có cấu hình thật. FE prototype vẫn dùng phần lớn mock localStorage: nối từng màn hình qua adapter đúng DTO, không thực hiện giao dịch nghiệp vụ phía client.
 8. Regenerate `docs/api/openapi.json` qua OpenApiContractTest, cập nhật tài liệu chạy/giới hạn, rồi review chéo với nhóm theo TEAM_REVIEW.md. Chỉ khi đủ điều kiện mới tính là sản phẩm cuối.
@@ -100,4 +100,22 @@ Không commit `.env`, secret local, output build hay log runtime. Chỉ bàn gia
 Đọc toàn bộ HANDOFF_BACKEND.md, docs/REQUIREMENT_DECISIONS.md, các file docs/implementation và nguồn SRS/ERD trong docs/requirements trước khi sửa. Đây là bản backend đang làm, chưa hoàn tất. Chạy lại bộ kiểm tra ghi trong handoff; xác minh PostgreSQL migration và khởi động sau khi Docker hoạt động. Ưu tiên hoàn thiện các giới hạn đã liệt kê, đối chiếu từng UC và quyền với tài liệu, giữ lịch sử và dữ liệu. Không đổi ID sang UUID, không reset DB, không sửa changeSet đã áp dụng, không dùng entity CRUD thay command. Khi đổi API phải cập nhật DTO/test và regenerate docs/api/openapi.json. Frontend còn dùng mock, xem adapter trước khi nối màn hình. Báo cáo rõ đã kiểm chứng và chưa kiểm chứng. Chỉ push khi thành viên phụ trách yêu cầu; không thay đổi production.
 
 Kết quả cuối ngày 28/10/2026 lúc 20:27 (Asia/Ho_Chi_Minh): **79/79 test backend chọn lọc qua, 0 failure, 0 error, 0 skipped; BUILD SUCCESS**. H2 ở chế độ PostgreSQL, không phải kiểm thử PostgreSQL thật. OpenAPI regenerate từ cùng source: **196 paths / 270 schemas**, lưu docs/api/openapi.json. Frontend adapter **4/4 qua**. Chưa chạy full-suite generated, chưa kiểm thử end-to-end toàn bộ, chưa xác minh PostgreSQL cuối vì Docker socket, chưa kiểm thử provider live.
+
+## Phiên tiếp nối 28/10/2026 tối (Opus 5.5 + Sonnet 5.5)
+
+Chạy lại bộ test gốc trên máy Windows khác: 79/79 qua. Máy này chỉ có JDK 17, nên đã dùng Temurin 21 portable (`C:\Users\tkc25\.jdks\jdk-21.0.12.1+1`, đặt `JAVA_HOME` trong từng lệnh) và chạy `.\mvnw.cmd` thay cho `mvn`. Lưu ý: extension Java của VS Code cũng biên dịch vào `backend/target`; nếu Maven báo "Unresolved compilation problems" thì đó là lỗi biên dịch thật trong source, không phải lỗi Maven.
+
+Thay đổi:
+
+- **Lỗi `save()` với entity `@Version Integer version=0`.** Spring Data coi entity mới là đã tồn tại, nên `save` gọi `merge` và trả về bản sao. Code dùng tiếp object gốc (lúc này id null, vẫn transient). Đã sửa bằng cách gán lại kết quả `save` tại: tạo phiếu nhập thức ăn (trước đây lỗi trên DB thật), ghi cho ăn, nháp thông báo, gửi lời mời thành viên (trước đây ký token với id null và lưu thêm bản ghi thứ hai), chấp nhận lời mời. Test mới `FarmMembershipServiceTest.invitedPersonAccepts...` fail khi bỏ phần sửa và pass khi có. **Khi tạo entity mới có `version=0`, luôn dùng giá trị trả về của `save`.**
+- FE-23:
+  - Phiếu điều chỉnh kho theo SRS: entity, migration `20261029001000`, `FeedStockAdjustmentService`, API `/feed/adjustments` (list/get/create/draft/post). Route POST cũ ghi movement trực tiếp đã được thay.
+  - Mã phiếu PNK/ĐCK theo sequence năm (BR-D34).
+  - Mã lỗi MSG-FE23-03/05/08 và MSG-COM-08 theo SRS.
+  - Test cho "Lot near expiry".
+- FE-21 (Sonnet 5.5): idempotency cho create/update/discard/post/void/replacement/report; MSG-FE21-09/10; snapshot 30 ngày; kiểm tra nguồn ngân hàng trước khi lưu. Các điểm SRS còn mơ hồ ghi trong docs/implementation/platform.md: chiều liên kết replacement, sao chép nguồn ngân hàng khi tạo replacement, nhiều replacement cho một bản ghi, kỳ báo cáo trong tương lai, vai trò trong audit, trạng thái DISCARDED.
+
+Kết quả: **104/104 test qua** (bộ 21 lớp ở trên, cộng `PlatformFinanceWorkflowTest` và `FeedStockAdjustmentServiceIT`), BUILD SUCCESS, chỉ H2. Adapter frontend 4/4 qua. OpenAPI: **199 paths / 272 schemas** (copy từ `backend/target/beefcare-openapi.json`). Chưa xác minh trên PostgreSQL, gồm migration 00150 và 20261029001000. Các race giữa nhiều transaction chưa test.
+
+Lệnh test hiện tại: thêm `,PlatformFinanceWorkflowTest,FeedStockAdjustmentServiceIT` vào `-Dtest=` ở trên.
 

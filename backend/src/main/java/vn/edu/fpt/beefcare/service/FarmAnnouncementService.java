@@ -32,7 +32,7 @@ public class FarmAnnouncementService {
     @Transactional
     public AnnouncementView createDraft(Long farmId,DraftRequest request){
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_ANNOUNCEMENTS);List<String> roleNames=validateRecipients(ctx.role(),request.recipientRoles());FarmMembership author=membership(farmId,ctx.user().getId());
-        FarmAnnouncement a=new FarmAnnouncement();a.setFarm(ctx.farm());a.setAuthor(author);a.setState("DRAFT");a.setDraftTitle(request.title().trim());a.setDraftBody(request.body().trim());a.setRecipientRoles(String.join(",",roleNames));announcements.saveAndFlush(a);
+        FarmAnnouncement a=new FarmAnnouncement();a.setFarm(ctx.farm());a.setAuthor(author);a.setState("DRAFT");a.setDraftTitle(request.title().trim());a.setDraftBody(request.body().trim());a.setRecipientRoles(String.join(",",roleNames));a=announcements.saveAndFlush(a);
         return view(a,true,author);
     }
 

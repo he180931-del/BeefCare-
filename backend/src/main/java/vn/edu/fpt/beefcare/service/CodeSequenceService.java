@@ -57,6 +57,20 @@ public class CodeSequenceService {
         return String.format("PX-%d-%04d", year, next(farmId, CodeType.HERD_EXIT, year));
     }
 
+    /** PNK-YYYY-nnnn (feed receipt, BR-D34). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String nextFeedReceiptCode(Long farmId) {
+        int year = clock.today().getYear();
+        return String.format("PNK-%d-%04d", year, next(farmId, CodeType.FEED_RECEIPT, year));
+    }
+
+    /** ĐCK-YYYY-nnnn (stock adjustment, BR-D34). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String nextStockAdjustmentCode(Long farmId) {
+        int year = clock.today().getYear();
+        return String.format("ĐCK-%d-%04d", year, next(farmId, CodeType.STOCK_ADJUSTMENT, year));
+    }
+
     /** BC-nnnnnn (cattle display code, one farm sequence). */
     @Transactional(propagation = Propagation.MANDATORY)
     public String nextCattleCode(Long farmId) {

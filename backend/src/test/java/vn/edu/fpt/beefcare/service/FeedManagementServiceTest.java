@@ -20,6 +20,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import vn.edu.fpt.beefcare.domain.*;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 import vn.edu.fpt.beefcare.repository.*;
+import java.time.LocalDate;
+import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.CreateReceiptRequest;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.VoidReceiptRequest;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.UpdateDraftReceiptRequest;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.ReceiptLineRequest;
@@ -31,6 +33,7 @@ class FeedManagementServiceTest {
     @Mock OutboxService outbox; @Mock FeedRationVersionRepository rationVersions; @Mock FeedRationPenRepository rationPens;
     @Mock FeedRationComponentRepository rationComponents; @Mock PenRepository pens; @Mock PenAssignmentRepository assignments;
     @Mock FeedingRecordRepository feedingRecords; @Mock FeedingRecordLineRepository feedingLines; @Mock RecordRevisionService revisions;
+    @Mock CodeSequenceService codes;
     @InjectMocks FeedManagementService service;
     FarmContext context; FeedItem feed; FeedReceipt receipt; FeedReceiptLine line; TradingPartner supplier;
 
@@ -40,7 +43,7 @@ class FeedManagementServiceTest {
         supplier=new TradingPartner();supplier.setId(88L);supplier.setName("Supplier");
         receipt=new FeedReceipt();ReflectionTestUtils.setField(receipt,"id",77L);receipt.setFarm(farm);receipt.setSupplier(supplier);receipt.setCode("PNK-2026-000077");receipt.setReceiptDate(java.time.LocalDate.of(2026,10,28));receipt.setStatus("DRAFT");receipt.setTransportFee(0L);receipt.setCreatedAt(Instant.parse("2026-10-28T00:00:00Z"));receipt.setTotalPayable(1_000L);
         line=new FeedReceiptLine();line.setReceipt(receipt);line.setFeedItem(feed);line.setFeedCodeSnapshot("TA-01");line.setFeedNameSnapshot("Hay");line.setKgReceived(new BigDecimal("5.000"));line.setQuantityPurchase(new BigDecimal("5.000"));line.setPurchaseUnit("kg");line.setLineAmount(1_000L);line.setUnitPrice(200L);line.setUnitCostKg(new BigDecimal("200.00"));
-        when(access.require(12L,FarmAction.MANAGE_FEED)).thenReturn(context);
+        lenient().when(access.require(12L,FarmAction.MANAGE_FEED)).thenReturn(context);
     }
 
     @Test void postingReceiptUsesWeightedAverageAndWritesMovementAtomically(){
@@ -54,8 +57,57 @@ class FeedManagementServiceTest {
     @Test void voidReceiptRejectsAnyLineNotCoveredByCurrentStock(){
         when(receipts.lockByIdAndFarm(77L,12L)).thenReturn(Optional.of(receipt));receipt.setStatus("POSTED");
         when(lines.findByReceipt_IdOrderByIdAsc(77L)).thenReturn(List.of(line));feed.setOnHandKg(new BigDecimal("4.999"));when(feeds.lockByIdAndFarm(99L,12L)).thenReturn(Optional.of(feed));
-        assertThatThrownBy(()->service.voidReceipt(12L,77L,new VoidReceiptRequest("recorded twice",0))).isInstanceOf(DomainException.class);
+        assertThatThrownBy(()->service.voidReceipt(12L,77L,new VoidReceiptRequest("recorded twice",0))).isInstanceOfSatisfying(DomainException.class,e->{
+            assertThat(e.getCode()).isEqualTo(MessageCodes.FE23_05);
+            assertThat(e.getParams()).containsEntry("receipt_code","PNK-2026-000077").containsEntry("feed","Hay").containsEntry("stock",new BigDecimal("4.999"));});
         assertThat(feed.getOnHandKg()).isEqualByComparingTo("4.999");verify(movements,never()).save(any());
+    }
+
+    @Test void receiptLineExpiryMustBeAfterReceiptDate(){
+        activeSupplierAndFeed();
+        var request=receiptRequest(LocalDate.of(2026,10,28));
+        assertThatThrownBy(()->service.createReceipt(12L,request,true)).isInstanceOfSatisfying(DomainException.class,e->{
+            assertThat(e.getCode()).isEqualTo(MessageCodes.FE23_03);assertThat(e.getParams()).containsEntry("field","expiryDate");});
+        assertThat(feed.getOnHandKg()).isEqualByComparingTo("10.000");verify(movements,never()).save(any());
+    }
+
+    @Test void inactiveFeedOnReceiptIsReportedAsNoLongerAvailable(){
+        activeSupplierAndFeed();feed.setAvailable(false);
+        assertThatThrownBy(()->service.createReceipt(12L,receiptRequest(LocalDate.of(2026,11,30)),true)).isInstanceOfSatisfying(DomainException.class,e->{
+            assertThat(e.getCode()).isEqualTo(MessageCodes.COM_08);assertThat(e.getParams()).containsEntry("field","feedItemId");});
+        verify(movements,never()).save(any());
+    }
+
+    @Test void lotNearExpiryIsTheNearestPostedLotWithinThirtyDays(){
+        when(access.require(12L,FarmAction.VIEW_FEED)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
+        when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of(
+            lot("OLD","POSTED",LocalDate.of(2026,10,27)),lot("VOID","VOIDED",LocalDate.of(2026,11,1)),lot("DRAFT","DRAFT",LocalDate.of(2026,11,2)),
+            lot("LOT-A","POSTED",LocalDate.of(2026,11,5)),lot("LOT-B","POSTED",LocalDate.of(2026,11,10))));
+        var view=service.stock(12L).get(0);
+        assertThat(view.nearestLotNumber()).isEqualTo("LOT-A");assertThat(view.nearestLotExpiryDate()).isEqualTo(LocalDate.of(2026,11,5));
+    }
+
+    @Test void lotNearExpiryIsEmptyWhenNoPostedLotExpiresWithinThirtyDays(){
+        when(access.require(12L,FarmAction.VIEW_FEED)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
+        when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of(lot("LATER","POSTED",LocalDate.of(2026,11,28)),lot("NONE","POSTED",null)));
+        var view=service.stock(12L).get(0);
+        assertThat(view.nearestLotNumber()).isNull();assertThat(view.nearestLotExpiryDate()).isNull();
+    }
+
+    private void activeSupplierAndFeed(){
+        supplier.setSupplier(true);supplier.setStatus(vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus.ACTIVE);
+        when(partners.findByIdAndFarmId(88L,12L)).thenReturn(Optional.of(supplier));when(feeds.findByIdAndFarm_Id(99L,12L)).thenReturn(Optional.of(feed));
+        when(receipts.saveAndFlush(any(FeedReceipt.class))).thenAnswer(invocation->invocation.getArgument(0));
+    }
+
+    private CreateReceiptRequest receiptRequest(LocalDate expiry){
+        return new CreateReceiptRequest(LocalDate.of(2026,10,28),88L,"INV-1","Alex","Shed 1",null,0L,List.of(new ReceiptLineRequest(99L,"LOT-1",expiry,new BigDecimal("2"),"kg",250L)),true);
+    }
+
+    private FeedReceiptLine lot(String number,String status,LocalDate expiry){
+        FeedReceipt owner=new FeedReceipt();owner.setStatus(status);FeedReceiptLine l=new FeedReceiptLine();l.setReceipt(owner);l.setFeedItem(feed);l.setLotNumber(number);l.setExpiryDate(expiry);return l;
     }
 
     @Test void draftReceiptCanBeReplacedOnlyWithItsCurrentVersion(){

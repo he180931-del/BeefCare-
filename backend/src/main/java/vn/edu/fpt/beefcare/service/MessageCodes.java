@@ -75,5 +75,9 @@ public final class MessageCodes {
     public static final String FE13_08 = "MSG-FE13-08";
     public static final String FE13_09 = "MSG-FE13-09";
 
+    public static final String FE23_03 = "MSG-FE23-03";
+    public static final String FE23_05 = "MSG-FE23-05";
+    public static final String FE23_08 = "MSG-FE23-08";
+
     private MessageCodes() {}
 }

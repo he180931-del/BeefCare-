@@ -6,4 +6,6 @@ public enum CodeType {
     HERD_EXIT,
     QR_TAG,
     FEED_ITEM,
+    FEED_RECEIPT,
+    STOCK_ADJUSTMENT,
 }

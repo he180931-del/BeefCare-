@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.ServiceIntegrationTest;
 import vn.edu.fpt.beefcare.domain.Farm;
+import vn.edu.fpt.beefcare.domain.FarmInvitation;
 import vn.edu.fpt.beefcare.domain.FarmMembership;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 import vn.edu.fpt.beefcare.service.dto.MembershipDtos.MemberChange;
@@ -19,6 +20,33 @@ import vn.edu.fpt.beefcare.support.DomainTestSupport;
 class FarmMembershipServiceTest extends DomainTestSupport {
 
     @Autowired FarmMembershipService service;
+    @Autowired vn.edu.fpt.beefcare.service.email.ActionLinkSigner linkSigner;
+
+    @Test
+    void invitedPersonAcceptsTheSingleStoredInvitationAndBecomesMember() {
+        Farm farm = farm();
+        var owner = memberWithRole(farm, FarmRole.OWNER);
+        var invitee = user();
+        actAs(owner);
+
+        var sent = service.invite(farm.getId(), new vn.edu.fpt.beefcare.service.dto.MembershipDtos.InviteRequest(invitee.getEmail(), "MANAGER", 7));
+
+        assertThat(sent.id()).isNotNull();
+        FarmInvitation stored = em.createQuery("select i from FarmInvitation i where i.farm.id=:farm", FarmInvitation.class)
+            .setParameter("farm", farm.getId()).getSingleResult();
+        assertThat(stored.getId()).isEqualTo(sent.id());
+        String rawToken = linkSigner.bearer("FARM_INVITATION", stored.getId(), stored.getTokenNonce());
+        assertThat(linkSigner.matchesHash(rawToken, stored.getTokenHash())).isTrue();
+
+        actAs(invitee);
+        var member = service.accept(rawToken);
+
+        assertThat(member.id()).isNotNull();
+        assertThat(member.role()).isEqualTo("MANAGER");
+        assertThat(em.createQuery("select count(m) from FarmMembership m where m.farm.id=:farm and m.user.id=:user", Long.class)
+            .setParameter("farm", farm.getId()).setParameter("user", invitee.getId()).getSingleResult()).isEqualTo(1L);
+        assertThat(service.accept(rawToken).id()).isEqualTo(member.id());
+    }
 
     @Test
     void ownerCanChangeFixedRoleAndAuditOnlyAllowlistedMembershipState() {

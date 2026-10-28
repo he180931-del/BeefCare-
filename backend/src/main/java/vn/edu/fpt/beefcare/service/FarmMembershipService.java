@@ -133,10 +133,10 @@ public class FarmMembershipService {
         invitation.setExpiresAt(now.plusSeconds(validityDays * 86_400L));
         invitation.setTokenNonce(linkSigner.newNonce());
         invitation.setTokenHash(linkSigner.hash(linkSigner.newNonce())); // replaced atomically after the sequence id is assigned
-        invitations.saveAndFlush(invitation);
+        invitation = invitations.saveAndFlush(invitation);
         String rawToken = linkSigner.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce());
         invitation.setTokenHash(linkSigner.hash(rawToken));
-        invitations.saveAndFlush(invitation);
+        invitation = invitations.saveAndFlush(invitation);
         audit.log(owner, "MEMBER_INVITE", "FarmInvitation", invitation.getId(),
             java.util.Map.of("role", role.name(), "validityDays", validityDays));
         mail.queueActionLink(invitation.getInvitedEmail(), "FARM_INVITATION", "INVITATION", invitation.getId(), null, farm.getName(), role.name());
@@ -208,7 +208,7 @@ public class FarmMembershipService {
         membership.setStatus(ACTIVE);
         membership.setEffectiveDate(clock.today());
         membership.setChangeReason("Invitation accepted");
-        memberships.saveAndFlush(membership);
+        membership = memberships.saveAndFlush(membership);
         invitation.setStatus("ACCEPTED");
         invitation.setAcceptedAt(clock.now());
         mail.cancelActionLink("INVITATION", invitation.getId());

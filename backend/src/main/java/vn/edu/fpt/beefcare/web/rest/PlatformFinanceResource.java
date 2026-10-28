@@ -15,8 +15,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
+import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
 import vn.edu.fpt.beefcare.service.PlatformFinanceService;
 import vn.edu.fpt.beefcare.service.PlatformFinanceService.*;
 
@@ -25,7 +28,8 @@ import vn.edu.fpt.beefcare.service.PlatformFinanceService.*;
 @RequestMapping("/api/platform/finance")
 public class PlatformFinanceResource {
     private final PlatformFinanceService service;
-    public PlatformFinanceResource(PlatformFinanceService service) { this.service = service; }
+    private final IdempotencyCommandService commands;
+    public PlatformFinanceResource(PlatformFinanceService service, IdempotencyCommandService commands) { this.service = service; this.commands = commands; }
 
     @GetMapping("/records")
     public Page<RecordDTO> records(
@@ -49,28 +53,41 @@ public class PlatformFinanceResource {
     @GetMapping("/categories")
     public PlatformFinanceService.FinanceCategories categories() { return service.categories(); }
 
+    // Every changing command is a durable, replayable platform command (GBR-88): same key + same body returns the first result.
     @PostMapping("/records")
-    public ResponseEntity<RecordDTO> create(@RequestBody CreateRecord command) { return ResponseEntity.status(201).body(service.create(command)); }
+    public ResponseEntity<RecordDTO> create(@RequestBody CreateRecord command, @RequestHeader("Idempotency-Key") String key) {
+        return ResponseEntity.status(201).body(commands.executePlatform(PlatformRole.PM, "FINANCE_CREATE", key, command, RecordDTO.class, () -> service.create(command)));
+    }
 
     @PutMapping("/records/{id}")
-    public RecordDTO update(@PathVariable Long id, @RequestBody VersionedRecord command) { return service.update(id, command); }
+    public RecordDTO update(@PathVariable Long id, @RequestBody VersionedRecord command, @RequestHeader("Idempotency-Key") String key) {
+        return commands.executePlatform(PlatformRole.PM, "FINANCE_UPDATE:" + id, key, command, RecordDTO.class, () -> service.update(id, command));
+    }
 
     @PostMapping("/records/{id}/discard")
-    public RecordDTO discard(@PathVariable Long id, @RequestBody VersionedAction command) { return service.discard(id, command); }
+    public RecordDTO discard(@PathVariable Long id, @RequestBody VersionedAction command, @RequestHeader("Idempotency-Key") String key) {
+        return commands.executePlatform(PlatformRole.PM, "FINANCE_DISCARD:" + id, key, command, RecordDTO.class, () -> service.discard(id, command));
+    }
 
     @PostMapping("/records/{id}/post")
-    public RecordDTO post(@PathVariable Long id, @RequestBody VersionedAction command) { return service.post(id, command); }
+    public RecordDTO post(@PathVariable Long id, @RequestBody VersionedAction command, @RequestHeader("Idempotency-Key") String key) {
+        return commands.executePlatform(PlatformRole.PM, "FINANCE_POST:" + id, key, command, RecordDTO.class, () -> service.post(id, command));
+    }
 
     @PostMapping("/records/{id}/void")
-    public RecordDTO voidPosted(@PathVariable Long id, @RequestBody VersionedAction command) { return service.voidPosted(id, command); }
+    public RecordDTO voidPosted(@PathVariable Long id, @RequestBody VersionedAction command, @RequestHeader("Idempotency-Key") String key) {
+        return commands.executePlatform(PlatformRole.PM, "FINANCE_VOID:" + id, key, command, RecordDTO.class, () -> service.voidPosted(id, command));
+    }
 
     @PostMapping("/records/{id}/replacement")
-    public ResponseEntity<RecordDTO> replacement(@PathVariable Long id, @RequestBody(required = false) VersionedAction command) {
-        return ResponseEntity.status(201).body(service.createReplacement(id, command));
+    public ResponseEntity<RecordDTO> replacement(@PathVariable Long id, @RequestBody(required = false) VersionedAction command, @RequestHeader("Idempotency-Key") String key) {
+        return ResponseEntity.status(201).body(commands.executePlatform(PlatformRole.PM, "FINANCE_REPLACE:" + id, key, command, RecordDTO.class, () -> service.createReplacement(id, command)));
     }
 
     @PostMapping("/reports")
-    public ResponseEntity<CashReport> runReport(@RequestBody ReportRequest request) { return ResponseEntity.status(201).body(service.runReport(request)); }
+    public ResponseEntity<CashReport> runReport(@RequestBody ReportRequest request, @RequestHeader("Idempotency-Key") String key) {
+        return ResponseEntity.status(201).body(commands.executePlatform(PlatformRole.PM, "FINANCE_REPORT_RUN", key, request, CashReport.class, () -> service.runReport(request)));
+    }
 
     @GetMapping("/reports/{id}")
     public CashReport report(@PathVariable Long id) { return service.report(id); }

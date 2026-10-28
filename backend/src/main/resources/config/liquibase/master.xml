@@ -138,5 +138,6 @@
     <include file="config/liquibase/changelog/20261028000700_reminder_reconciliation.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261028000800_feed_fefo.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261028000900_audit_action_length.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261029001000_feed_stock_adjustment.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

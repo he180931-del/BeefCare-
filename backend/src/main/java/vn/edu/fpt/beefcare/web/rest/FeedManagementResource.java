@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.fpt.beefcare.service.FarmAction;
 import vn.edu.fpt.beefcare.service.FeedManagementService;
+import vn.edu.fpt.beefcare.service.FeedStockAdjustmentService;
 import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.*;
 
@@ -16,9 +17,12 @@ import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.*;
 @RequestMapping("/api/farms/{farmId}/feed")
 public class FeedManagementResource {
     private final FeedManagementService service;
+    private final FeedStockAdjustmentService adjustmentService;
     private final IdempotencyCommandService commands;
 
-    public FeedManagementResource(FeedManagementService service, IdempotencyCommandService commands) { this.service=service; this.commands=commands; }
+    public FeedManagementResource(FeedManagementService service, FeedStockAdjustmentService adjustmentService, IdempotencyCommandService commands) {
+        this.service=service; this.adjustmentService=adjustmentService; this.commands=commands;
+    }
 
     @GetMapping("/stock")
     public List<StockView> stock(@PathVariable Long farmId) { return service.stock(farmId); }
@@ -70,10 +74,27 @@ public class FeedManagementResource {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/adjustments")
+    public List<AdjustmentView> adjustments(@PathVariable Long farmId) { return adjustmentService.list(farmId); }
+
+    @GetMapping("/adjustments/{adjustmentId}")
+    public AdjustmentView adjustment(@PathVariable Long farmId,@PathVariable Long adjustmentId) { return adjustmentService.get(farmId,adjustmentId); }
+
     @PostMapping("/adjustments")
-    public ResponseEntity<StockAdjustmentResult> adjust(@PathVariable Long farmId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody StockAdjustmentRequest request) {
-        StockAdjustmentResult result=commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_STOCK_ADJUST",key,request,StockAdjustmentResult.class,()->new StockAdjustmentResult(service.adjust(farmId,request)));
-        return ResponseEntity.ok(result);
+    public ResponseEntity<AdjustmentView> createAdjustment(@PathVariable Long farmId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody StockAdjustmentRequest request) {
+        return ResponseEntity.ok(commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_ADJUSTMENT_CREATE",key,request,AdjustmentView.class,()->adjustmentService.create(farmId,request)));
+    }
+
+    @PutMapping("/adjustments/{adjustmentId}/draft")
+    public ResponseEntity<AdjustmentView> updateAdjustmentDraft(@PathVariable Long farmId,@PathVariable Long adjustmentId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody UpdateDraftAdjustmentRequest request) {
+        record Command(Long adjustmentId,UpdateDraftAdjustmentRequest body) {}
+        return ResponseEntity.ok(commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_ADJUSTMENT_DRAFT_UPDATE:"+adjustmentId,key,new Command(adjustmentId,request),AdjustmentView.class,()->adjustmentService.updateDraft(farmId,adjustmentId,request)));
+    }
+
+    @PostMapping("/adjustments/{adjustmentId}/post")
+    public ResponseEntity<AdjustmentView> postAdjustment(@PathVariable Long farmId,@PathVariable Long adjustmentId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody VersionRequest request) {
+        record Command(Long adjustmentId,Integer expectedVersion) {}
+        return ResponseEntity.ok(commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_ADJUSTMENT_POST:"+adjustmentId,key,new Command(adjustmentId,request.expectedVersion()),AdjustmentView.class,()->adjustmentService.post(farmId,adjustmentId,request.expectedVersion())));
     }
 
     @GetMapping("/rations")

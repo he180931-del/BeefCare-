@@ -26,15 +26,21 @@ public final class FeedManagementDtos {
     public record VoidReceiptRequest(@NotBlank @Size(max=500) String reason, @NotNull Integer expectedVersion) {}
     public record StockAdjustmentLine(@NotNull Long feedItemId, @NotNull @DecimalMin("0.0") BigDecimal countedKg,
         @Size(max=500) String reason) {}
+    /** postNow=false saves a DRAFT (no stock effect); true posts in the same command (SCR-80 "Post adjustment"). */
     public record StockAdjustmentRequest(@NotNull LocalDate countDate, @NotBlank @Size(max=30) String adjustmentType,
+        @Size(max=200) String countedBy, @NotEmpty List<@Valid StockAdjustmentLine> lines, boolean postNow) {}
+    public record UpdateDraftAdjustmentRequest(@NotNull Integer expectedVersion, @NotNull LocalDate countDate, @NotBlank @Size(max=30) String adjustmentType,
         @Size(max=200) String countedBy, @NotEmpty List<@Valid StockAdjustmentLine> lines) {}
+    public record AdjustmentLineView(Long feedItemId, String feedCode, String feedName, BigDecimal systemKg, BigDecimal countedKg,
+        BigDecimal differenceKg, String reason, BigDecimal unitCost, Long differenceValue) {}
+    public record AdjustmentView(Long id, String code, LocalDate countDate, String adjustmentType, String countedBy, String status,
+        BigDecimal totalDifferenceKg, Long totalValue, java.time.Instant postedAt, Integer version, List<AdjustmentLineView> lines) {}
     public record StockView(Long feedItemId, String code, String name, String group, BigDecimal onHandKg,
         BigDecimal minimumStockKg, BigDecimal averageDailyUseKg, BigDecimal daysOfCover, BigDecimal stockValue,
         String status, Integer version,String nearestLotNumber,LocalDate nearestLotExpiryDate) {}
     public record MovementView(Long id, Long feedItemId, String feedCode, String movementType, BigDecimal quantityKg,
         BigDecimal unitCost, BigDecimal balanceAfterKg, String sourceType, Long sourceId, java.time.Instant occurredAt) {}
     public record VersionRequest(@NotNull Integer expectedVersion) {}
-    public record StockAdjustmentResult(List<StockView> items) {}
     public record RationComponentRequest(@NotNull Long feedItemId,@NotNull @DecimalMin("0.0") BigDecimal session1Kg,
         @NotNull @DecimalMin("0.0") BigDecimal session2Kg,@NotNull @DecimalMin("0.0") BigDecimal session3Kg) {}
     public record SaveRationRequest(@Size(max=30) String rationCode,@NotBlank @Size(max=100) String name,

@@ -11,4 +11,5 @@ public interface FeedStockMovementRepository extends JpaRepository<FeedStockMove
     List<FeedStockMovement> findByFarm_IdAndFeedItem_IdOrderByOccurredAtDescIdDesc(Long farmId,Long feedItemId);
     boolean existsByFeedItem_Id(Long feedItemId);
     List<FeedStockMovement> findByFarm_IdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(Long farmId,Instant from,Instant to);
+    List<FeedStockMovement> findByFarm_IdAndFeedItem_IdAndOccurredAtGreaterThanEqual(Long farmId,Long feedItemId,Instant from);
 }

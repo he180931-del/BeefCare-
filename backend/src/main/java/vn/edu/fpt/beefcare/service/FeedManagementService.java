@@ -32,14 +32,16 @@ public class FeedManagementService {
     private final FeedingRecordRepository feedingRecords;
     private final FeedingRecordLineRepository feedingLines;
     private final RecordRevisionService revisions;
+    private final CodeSequenceService codes;
 
     public FeedManagementService(FarmAccessService access, FarmClock clock, FeedItemRepository feeds, TradingPartnerRepository partners,
         FeedReceiptRepository receipts, FeedReceiptLineRepository lines, FeedStockMovementRepository movements, OutboxService outbox,
         FeedRationVersionRepository rationVersions,FeedRationPenRepository rationPens,FeedRationComponentRepository rationComponents,
-        PenRepository pens,PenAssignmentRepository assignments,FeedingRecordRepository feedingRecords,FeedingRecordLineRepository feedingLines,RecordRevisionService revisions) {
+        PenRepository pens,PenAssignmentRepository assignments,FeedingRecordRepository feedingRecords,FeedingRecordLineRepository feedingLines,RecordRevisionService revisions,
+        CodeSequenceService codes) {
         this.access=access; this.clock=clock; this.feeds=feeds; this.partners=partners; this.receipts=receipts; this.lines=lines; this.movements=movements; this.outbox=outbox;
         this.rationVersions=rationVersions;this.rationPens=rationPens;this.rationComponents=rationComponents;this.pens=pens;this.assignments=assignments;this.feedingRecords=feedingRecords;this.feedingLines=feedingLines;
-        this.revisions=revisions;
+        this.revisions=revisions;this.codes=codes;
     }
 
     @Transactional(readOnly=true)
@@ -89,17 +91,17 @@ public class FeedManagementService {
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_FEED);
         clock.assertNotFuture(request.receiptDate());
         TradingPartner supplier=partners.findByIdAndFarmId(request.supplierId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
-        if (!supplier.isSupplier() || supplier.getStatus()!=ActiveStatus.ACTIVE) throw DomainException.unprocessable(MessageCodes.COM_10,"field","supplierId");
+        if (!supplier.isSupplier() || supplier.getStatus()!=ActiveStatus.ACTIVE) throw DomainException.unprocessable(MessageCodes.COM_08,"field","supplierId");
         FeedReceipt r=new FeedReceipt(); r.setFarm(ctx.farm()); r.setSupplier(supplier); r.setReceiptDate(request.receiptDate());
         r.setInvoiceNumber(trim(request.invoiceNumber())); r.setReceivedBy(trim(request.receivedBy())); r.setStorageLocation(trim(request.storageLocation()));
         r.setNote(trim(request.note())); r.setTransportFee(request.transportFee()==null?0:request.transportFee()); r.setCreatedBy(ctx.user()); r.setCreatedAt(clock.now());
-        r.setCode("TMP-"+java.util.UUID.randomUUID()); receipts.saveAndFlush(r); r.setCode(String.format("PNK-%d-%06d",request.receiptDate().getYear(),r.getId()));
+        r.setCode(codes.nextFeedReceiptCode(farmId)); r=receipts.saveAndFlush(r);
         long goods=0;
         for (ReceiptLineRequest input:request.lines()) {
             FeedItem feed=feeds.findByIdAndFarm_Id(input.feedItemId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
-            if (!Boolean.TRUE.equals(feed.getAvailable())) throw DomainException.unprocessable(MessageCodes.COM_10,"field","feedItemId");
+            if (!Boolean.TRUE.equals(feed.getAvailable())) throw DomainException.unprocessable(MessageCodes.COM_08,"field","feedItemId");
             BigDecimal kg=toKg(feed,input);
-            if (input.expiryDate()!=null&&!input.expiryDate().isAfter(request.receiptDate())) throw DomainException.unprocessable(MessageCodes.COM_10,"field","expiryDate");
+            if (input.expiryDate()!=null&&!input.expiryDate().isAfter(request.receiptDate())) throw DomainException.unprocessable(MessageCodes.FE23_03,"field","expiryDate");
             long amount=input.quantityPurchase().multiply(BigDecimal.valueOf(input.unitPrice())).setScale(0,RoundingMode.HALF_UP).longValueExact();
             FeedReceiptLine line=new FeedReceiptLine(); line.setReceipt(r); line.setFeedItem(feed);line.setFeedCodeSnapshot(feed.getCode());line.setFeedNameSnapshot(feed.getName()); line.setLotNumber(trim(input.lotNumber())); line.setExpiryDate(input.expiryDate());
             line.setQuantityPurchase(input.quantityPurchase()); line.setPurchaseUnit(trim(input.purchaseUnit())==null?feed.getStockUnit():input.purchaseUnit().trim()); line.setKgReceived(kg); line.setUnitPrice(input.unitPrice()); line.setLineAmount(amount); lines.save(line);
@@ -119,7 +121,7 @@ public class FeedManagementService {
         if(!"DRAFT".equals(receipt.getStatus()))throw DomainException.conflict(MessageCodes.COM_05,"reason","receipt_is_not_draft");
         clock.assertNotFuture(request.receiptDate());
         TradingPartner supplier=partners.findByIdAndFarmId(request.supplierId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
-        if(!supplier.isSupplier()||supplier.getStatus()!=ActiveStatus.ACTIVE)throw DomainException.unprocessable(MessageCodes.COM_10,"field","supplierId");
+        if(!supplier.isSupplier()||supplier.getStatus()!=ActiveStatus.ACTIVE)throw DomainException.unprocessable(MessageCodes.COM_08,"field","supplierId");
         receipt.setSupplier(supplier);receipt.setReceiptDate(request.receiptDate());receipt.setInvoiceNumber(trim(request.invoiceNumber()));
         receipt.setReceivedBy(trim(request.receivedBy()));receipt.setStorageLocation(trim(request.storageLocation()));receipt.setNote(trim(request.note()));
         receipt.setTransportFee(request.transportFee()==null?0:request.transportFee());
@@ -127,9 +129,9 @@ public class FeedManagementService {
         long goods=0;
         for(ReceiptLineRequest input:request.lines()){
             FeedItem feed=feeds.findByIdAndFarm_Id(input.feedItemId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
-            if(!Boolean.TRUE.equals(feed.getAvailable()))throw DomainException.unprocessable(MessageCodes.COM_10,"field","feedItemId");
+            if(!Boolean.TRUE.equals(feed.getAvailable()))throw DomainException.unprocessable(MessageCodes.COM_08,"field","feedItemId");
             BigDecimal kg=toKg(feed,input);
-            if(input.expiryDate()!=null&&!input.expiryDate().isAfter(request.receiptDate()))throw DomainException.unprocessable(MessageCodes.COM_10,"field","expiryDate");
+            if(input.expiryDate()!=null&&!input.expiryDate().isAfter(request.receiptDate()))throw DomainException.unprocessable(MessageCodes.FE23_03,"field","expiryDate");
             long amount=input.quantityPurchase().multiply(BigDecimal.valueOf(input.unitPrice())).setScale(0,RoundingMode.HALF_UP).longValueExact();
             FeedReceiptLine line=new FeedReceiptLine();line.setReceipt(receipt);line.setFeedItem(feed);line.setFeedCodeSnapshot(feed.getCode());line.setFeedNameSnapshot(feed.getName());
             line.setLotNumber(trim(input.lotNumber()));line.setExpiryDate(input.expiryDate());line.setQuantityPurchase(input.quantityPurchase());
@@ -152,7 +154,7 @@ public class FeedManagementService {
         if(receiptLines.isEmpty()) throw DomainException.required("lines");
         for(FeedReceiptLine line:receiptLines) {
             FeedItem feed=feeds.lockByIdAndFarm(line.getFeedItem().getId(),ctx.farmId()).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
-            if(!Boolean.TRUE.equals(feed.getAvailable())) throw DomainException.unprocessable(MessageCodes.COM_10,"field","feedItemId");
+            if(!Boolean.TRUE.equals(feed.getAvailable())) throw DomainException.unprocessable(MessageCodes.COM_08,"field","feedItemId");
             BigDecimal before=feed.getOnHandKg(); BigDecimal after=before.add(line.getKgReceived()).setScale(3,RoundingMode.HALF_UP);
             BigDecimal oldValue=before.multiply(feed.getAvgUnitCost()); BigDecimal receivedValue=BigDecimal.valueOf(line.getLineAmount());
             BigDecimal average=after.signum()==0?BigDecimal.ZERO:oldValue.add(receivedValue).divide(after,2,RoundingMode.HALF_UP);
@@ -171,7 +173,7 @@ public class FeedManagementService {
         if(!"POSTED".equals(r.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         List<FeedReceiptLine> receiptLines=lines.findByReceipt_IdOrderByIdAsc(r.getId()).stream().sorted(java.util.Comparator.comparing(l->l.getFeedItem().getId())).toList();
         List<FeedItem> locked=new ArrayList<>();
-        for(FeedReceiptLine l:receiptLines){FeedItem f=feeds.lockByIdAndFarm(l.getFeedItem().getId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));if(f.getOnHandKg().compareTo(l.getKgReceived())<0)throw DomainException.conflict(MessageCodes.COM_05,"reason","insufficient_stock");locked.add(f);}
+        for(FeedReceiptLine l:receiptLines){FeedItem f=feeds.lockByIdAndFarm(l.getFeedItem().getId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));if(f.getOnHandKg().compareTo(l.getKgReceived())<0)throw DomainException.unprocessable(MessageCodes.FE23_05,"receipt_code",r.getCode(),"feed",f.getName(),"stock",f.getOnHandKg());locked.add(f);}
         for(int i=0;i<receiptLines.size();i++){
             FeedReceiptLine l=receiptLines.get(i); FeedItem f=locked.get(i); BigDecimal after=f.getOnHandKg().subtract(l.getKgReceived());BigDecimal currentCost=f.getAvgUnitCost();
             // The SRS void gate is quantity coverage; reverse at current weighted average after subsequent consumption.
@@ -181,21 +183,6 @@ public class FeedManagementService {
         r.setStatus("VOIDED"); r.setVoidReason(request.reason().trim()); receipts.saveAndFlush(r);
         outbox.enqueue(ctx.farmId(),"FEED_RECEIPT_VOIDED","FeedReceipt",r.getId(),Map.of("receiptId",r.getId()));
         return view(r);
-    }
-
-    @Transactional
-    public List<StockView> adjust(Long farmId, StockAdjustmentRequest request) {
-        FarmContext ctx=access.require(farmId,FarmAction.MANAGE_FEED); clock.assertNotFuture(request.countDate());
-        List<StockView> result=new ArrayList<>();
-        for(StockAdjustmentLine l:request.lines().stream().sorted(java.util.Comparator.comparing(StockAdjustmentLine::feedItemId)).toList()){
-            FeedItem f=feeds.lockByIdAndFarm(l.feedItemId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
-            if(!Boolean.TRUE.equals(f.getAvailable())) throw DomainException.unprocessable(MessageCodes.COM_10,"field","feedItemId");
-            BigDecimal delta=l.countedKg().subtract(f.getOnHandKg()).setScale(3,RoundingMode.HALF_UP);
-            if(delta.signum()!=0){if(l.reason()==null||l.reason().isBlank())throw DomainException.required("reason"); if(f.getOnHandKg().add(delta).signum()<0)throw DomainException.unprocessable(MessageCodes.COM_10,"field","countedKg"); f.setOnHandKg(l.countedKg().setScale(3,RoundingMode.HALF_UP));feeds.saveAndFlush(f); movement(ctx,f,"ADJUSTMENT",delta,f.getAvgUnitCost(),"STOCK_ADJUSTMENT",null);}
-            result.add(stockProjection(farmId,f));
-        }
-        outbox.enqueue(ctx.farmId(),"FEED_STOCK_ADJUSTED","Farm",ctx.farmId(),Map.of("lineCount",request.lines().size()));
-        return List.copyOf(result);
     }
 
     @Transactional(readOnly=true)
@@ -254,7 +241,7 @@ public class FeedManagementService {
         var requestedIds=request.lines().stream().map(FeedingLineRequest::feedItemId).distinct().toList();
         if(requestedIds.size()!=request.lines().size()||!requestedIds.containsAll(components.stream().map(c->c.getFeedItem().getId()).toList()))throw DomainException.invalid("lines");
         List<Long> ids=requestedIds.stream().sorted().toList();List<FeedItem> locked=new ArrayList<>();for(Long id:ids)locked.add(feeds.lockByIdAndFarm(id,farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08)));
-        FeedingRecord record=new FeedingRecord();record.setFarm(ctx.farm());record.setPen(pen);record.setRationVersion(ration);record.setFeedingDate(request.feedingDate());record.setSessionNo(request.sessionNo());record.setHeadCount(headCount);record.setFedBy(trim(request.fedBy()));record.setRecordedBy(ctx.user());record.setRecordedAt(clock.now());feedingRecords.saveAndFlush(record);
+        FeedingRecord record=new FeedingRecord();record.setFarm(ctx.farm());record.setPen(pen);record.setRationVersion(ration);record.setFeedingDate(request.feedingDate());record.setSessionNo(request.sessionNo());record.setHeadCount(headCount);record.setFedBy(trim(request.fedBy()));record.setRecordedBy(ctx.user());record.setRecordedAt(clock.now());record=feedingRecords.saveAndFlush(record);
         List<FeedingLineView> result=new ArrayList<>();
         for(FeedRationComponent component:components){FeedItem feed=locked.stream().filter(f->f.getId().equals(component.getFeedItem().getId())).findFirst().orElseThrow();if(!Boolean.TRUE.equals(feed.getAvailable()))throw DomainException.unprocessable(MessageCodes.COM_10,"field","feedItemId");BigDecimal planned=component.sessionAmount(request.sessionNo()).multiply(BigDecimal.valueOf(headCount)).setScale(3,RoundingMode.HALF_UP);BigDecimal actual=request.lines().stream().filter(l->l.feedItemId().equals(feed.getId())).findFirst().orElseThrow().actualKg();if(feed.getOnHandKg().compareTo(actual)<0)throw DomainException.unprocessable(MessageCodes.COM_10,"field","actualKg");BigDecimal unitCost=feed.getAvgUnitCost();long cost=actual.multiply(unitCost).setScale(0,RoundingMode.HALF_UP).longValueExact();feed.setOnHandKg(feed.getOnHandKg().subtract(actual));feeds.saveAndFlush(feed);movement(ctx,feed,"FEEDING",actual.negate(),unitCost,"FEEDING_RECORD",record.getId());FeedingRecordLine line=new FeedingRecordLine();line.setFeedingRecord(record);line.setFeedItem(feed);line.setFeedCodeSnapshot(component.getFeedCodeSnapshot());line.setFeedNameSnapshot(component.getFeedNameSnapshot());line.setPlannedKg(planned);line.setActualKg(actual);line.setCostPerKg(unitCost);line.setTotalCost(cost);feedingLines.save(line);result.add(new FeedingLineView(feed.getId(),component.getFeedCodeSnapshot(),planned,actual,unitCost,cost));}
         outbox.enqueue(farmId,"FEEDING_RECORDED","FeedingRecord",record.getId(),Map.of("recordId",record.getId(),"penId",pen.getId()));

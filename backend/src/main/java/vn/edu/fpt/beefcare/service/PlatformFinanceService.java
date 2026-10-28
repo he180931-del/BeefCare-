@@ -49,6 +49,10 @@ import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.EvidenceDTO;
 public class PlatformFinanceService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+    /** SRS scheduled cleanup (daily 02:00, step 2): cash report snapshots are available for 30 days. */
+    private static final long SNAPSHOT_RETENTION_SECONDS = 30L * 24 * 3600;
+    private static final String MSG_FE21_09 = "MSG-FE21-09";
+    private static final String MSG_FE21_10 = "MSG-FE21-10";
     private final PlatformAccessService access;
     private final ManualFinanceRecordRepository records;
     private final ManualFinanceHistoryRepository history;
@@ -147,8 +151,9 @@ public class PlatformFinanceService {
         record.setCreatedAt(clock.now());
         record.setCreatedBy(actor);
         applyFields(record, request.fields());
+        resolveSource(record, request.sourceEvidenceId()); // reject a conflicting bank source before anything is persisted
         records.saveAndFlush(record);
-        claimSource(record, request.sourceEvidenceId());
+        claimSource(record);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
         writeHistory(record, actor, "CREATE", null, RecordDTO.from(record), null);
@@ -167,7 +172,8 @@ public class PlatformFinanceService {
         RecordDTO before = RecordDTO.from(record);
         String oldReference = record.getSourceReference();
         applyFields(record, request.fields());
-        claimSource(record, request.sourceEvidenceId());
+        resolveSource(record, request.sourceEvidenceId());
+        claimSource(record);
         if (oldReference != null && !oldReference.equals(record.getSourceReference())) claims.findById(oldReference).ifPresent(claims::delete);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
@@ -219,7 +225,8 @@ public class PlatformFinanceService {
     @Transactional
     public RecordDTO voidPosted(Long id, VersionedAction request) {
         var actor = access.requireRole(PlatformRole.PM).user();
-        if (request == null || !StringUtils.hasText(request.reason()) || request.reason().trim().length() > 500) throw DomainException.required("reason");
+        if (request == null || !StringUtils.hasText(request.reason())) throw DomainException.required("reason");
+        if (request.reason().trim().length() > 500) throw DomainException.invalid("reason");
         ManualFinanceRecord record = lock(id);
         requireVersion(record, request.version());
         if (!"POSTED".equalsIgnoreCase(record.getState())) throw DomainException.conflict(MessageCodes.COM_05);
@@ -285,7 +292,7 @@ public class PlatformFinanceService {
         snapshot.setCriteriaJson(json(new ReportCriteria(request.dateFrom(), request.dateTo(), selectedFarm == null ? null : selectedFarm.getId(), sourceFilter)));
         snapshot.setSummaryJson(json(summary));
         snapshot.setDetailsJson(json(lines));
-        snapshot.setExpiresAt(clock.now().plusSeconds(7 * 24 * 3600));
+        snapshot.setExpiresAt(clock.now().plusSeconds(SNAPSHOT_RETENTION_SECONDS));
         CashReportSnapshot saved = snapshots.saveAndFlush(snapshot);
         audit(actor, "CASH_REPORT_RUN", "CashReportSnapshot", saved.getId(), selectedFarm, Map.of("dateFrom", request.dateFrom(), "dateTo", request.dateTo(), "sourceFilter", sourceFilter));
         return report(saved);
@@ -393,9 +400,9 @@ public class PlatformFinanceService {
         if (!List.of("INCOME", "EXPENSE").contains(type)) throw DomainException.invalid("type");
         if (!StringUtils.hasText(r.getCategory())) throw DomainException.required("category");
         List<String> allowed = "INCOME".equals(type) ? incomeCategories : expenseCategories;
-        if (!allowed.contains(r.getCategory().trim().toUpperCase(Locale.ROOT))) throw DomainException.invalid("category");
+        if (!allowed.contains(r.getCategory().trim().toUpperCase(Locale.ROOT))) throw DomainException.badRequest(MSG_FE21_10, "field", "category", "category", r.getCategory().trim(), "type", type);
         BigDecimal amount = r.getAmountVnd();
-        if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) throw DomainException.invalid("amountVnd");
+        if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) throw DomainException.badRequest(MSG_FE21_09, "field", "amountVnd");
         if (r.getOccurredOn() == null || r.getOccurredOn().isAfter(clock.today())) throw DomainException.invalid("occurredOn");
         if (!StringUtils.hasText(r.getScope())) throw DomainException.required("scope");
         String scope = r.getScope().trim().toUpperCase(Locale.ROOT);
@@ -428,16 +435,21 @@ public class PlatformFinanceService {
         if ("EXPENSE".equalsIgnoreCase(record.getType()) && !"OUT".equalsIgnoreCase(item.getTransferDirection())) throw DomainException.conflict("MSG-FE21-08");
     }
 
-    private void claimSource(ManualFinanceRecord record, Long evidenceId) {
+    /** Copies amount and date from the selected bank transaction and rejects an unusable or already recognized one (GBR-84). */
+    private void resolveSource(ManualFinanceRecord record, Long evidenceId) {
         if (!"BANK_TRANSACTION".equalsIgnoreCase(record.getSourceType())) return;
         BankTransferEvidence item = evidence.findById(evidenceId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         record.setSourceReference(sourceReference(item));
         record.setAmountVnd(item.getAmount());
         record.setOccurredOn(item.getBankPaidAt().atZone(BUSINESS_ZONE).toLocalDate());
         validateSource(record, evidenceId);
+    }
+
+    private void claimSource(ManualFinanceRecord record) {
+        if (!"BANK_TRANSACTION".equalsIgnoreCase(record.getSourceType())) return;
         String reference = record.getSourceReference();
-        if (claims.existsById(reference)) {
-            ManualFinanceBankClaim existing = claims.findById(reference).orElseThrow();
+        ManualFinanceBankClaim existing = claims.findById(reference).orElse(null);
+        if (existing != null) {
             if (!record.getId().equals(existing.getRecord().getId())) throw DomainException.conflict("MSG-FE21-08");
         } else {
             ManualFinanceBankClaim claim = new ManualFinanceBankClaim();
