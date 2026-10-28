@@ -4,4 +4,3 @@ export const loadExportListPage = () => import('./pages/ExportList.jsx')
 export const loadExportNewPage = () => import('./pages/ExportNew.jsx')
 export const loadExportDetailPage = () => import('./pages/ExportDetail.jsx')
 export { herdExitApi, getExitDraftState, saveHerdExit, cancelHerdExit } from './api/index.js'
-

@@ -76,10 +76,15 @@ async function validateEntryCattle(rows, voucherId, record) {
   const existing = await cattle.list()
   const existingLines = new Set(existing.filter((row) => row.entryVoucherId === voucherId).map((row) => row.entryLineNo))
   const seenTags = new Set()
+  const seenCodes = new Set()
   const additions = new Map()
   for (const [index, row] of rows.entries()) {
     if (existingLines.has(index + 1)) continue
     if (!row.barn) throw new Error(`Entry cattle requires a pen: ${row.tag || index + 1}`)
+    if (row.code) {
+      if (seenCodes.has(row.code) || existing.some((item) => item.code === row.code)) throw new Error(`Duplicate cattle code: ${row.code}`)
+      seenCodes.add(row.code)
+    }
     const tag = String(row.tag ?? '').trim()
     if (tag) {
       if (seenTags.has(tag)) throw new Error(`Duplicate ear tag: ${tag}`)

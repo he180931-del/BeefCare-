@@ -88,21 +88,59 @@ export async function registerEntryCattle(rows, voucherId) {
 }
 
 export async function confirmCattleExit(rows, voucherId) {
+  const existingRows = await cattle.list()
+  const seen = new Set()
+  const plans = []
+  const penChanges = new Map()
   for (const input of rows) {
-    const existing = await maybeGet(cattle, input.code)
-    if (existing?.status === 'EXITED' && existing.exitVoucherId === voucherId) continue
-    const cow = cattleDefaults({ ...input, ...(existing ?? {}), exitVoucherId: voucherId }, input.code)
-    const barn = existing?.barn ?? input.barn
-    await cattle.upsert({ ...cow, barn, lastPen: barn, status: 'EXITED', exitVoucherId: voucherId })
-    await updatePenOccupancy(barn, -1, cow, { remove: true })
+    if (!input?.code || seen.has(input.code)) throw new Error(`Duplicate exit cattle: ${input?.code ?? 'missing code'}`)
+    seen.add(input.code)
+    const existing = existingRows.find((row) => row.code === input.code)
+    if (!existing) throw new Error(`Exit cattle not found: ${input.code}`)
+    if (existing.exitVoucherId && existing.exitVoucherId !== voucherId) throw new Error(`Cattle linked to another exit voucher: ${input.code}`)
+    if (existing.status === 'EXITED' && existing.exitVoucherId === voucherId) {
+      plans.push({ existing, idempotent: true })
+      continue
+    }
+    if (existing.status !== 'ACTIVE') throw new Error(`Cattle not active: ${input.code}`)
+    const pen = await pens.get(existing.barn)
+    const nextCount = (penChanges.get(existing.barn)?.nextCount ?? pen.count) - 1
+    if (nextCount < 0) throw new Error(`Pen occupancy violation: ${existing.barn}`)
+    penChanges.set(existing.barn, { nextCount, pen })
+    plans.push({ existing, input, barn: existing.barn })
+  }
+
+  for (const plan of plans) {
+    if (plan.idempotent) continue
+    const { existing, barn } = plan
+    await cattle.update(existing.code, { lastPen: barn, status: 'EXITED', exitVoucherId: voucherId })
+    await updatePenOccupancy(barn, -1, existing, { remove: true })
   }
 }
 
 export async function cancelCattleExit(rows, voucherId) {
-  for (const input of rows) {
-    const cow = await maybeGet(cattle, input.code)
-    if (!cow || cow.status !== 'EXITED' || cow.exitVoucherId !== voucherId) continue
-    const barn = cow.lastPen ?? input.barn
+  const existingRows = await cattle.list()
+  const linked = existingRows.filter((row) => row.exitVoucherId === voucherId)
+  const rawCodes = (rows ?? []).map((row) => row?.code).filter(Boolean)
+  const providedCodes = [...new Set(rawCodes)]
+  const linkedCodes = linked.map((row) => row.code)
+  if (!linked.length && !providedCodes.length) return
+  if (rawCodes.length !== providedCodes.length) throw new Error(`Duplicate exit cattle: ${rawCodes[0]}`)
+  if (linked.length !== providedCodes.length || linkedCodes.some((code) => !providedCodes.includes(code))) {
+    throw new Error(`Exit cancellation requires all linked cattle: ${voucherId}`)
+  }
+  const plans = []
+  const penChanges = new Map()
+  for (const cow of linked) {
+    if (cow.status !== 'EXITED') throw new Error(`Cattle not exited: ${cow.code}`)
+    const barn = cow.lastPen ?? cow.barn
+    const pen = await pens.get(barn)
+    const nextCount = (penChanges.get(barn)?.nextCount ?? pen.count) + 1
+    if (nextCount > pen.capacity) throw new Error(`Pen full: ${barn}`)
+    penChanges.set(barn, { nextCount, pen })
+    plans.push({ cow, barn })
+  }
+  for (const { cow, barn } of plans) {
     await cattle.update(cow.code, { status: 'ACTIVE', barn, exitVoucherId: null })
     await updatePenOccupancy(barn, 1, { ...cow, barn })
   }

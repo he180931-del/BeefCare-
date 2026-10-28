@@ -81,6 +81,49 @@ test('exit posting allocates its ID first and blocks withdrawal confirmation', a
   assert.equal((await domain.cattle.get('BC-GEN-EXIT')).exitVoucherId, null)
 })
 
+test('exit confirmation preflights missing, inactive, and differently linked cattle without side effects', async () => {
+  globalThis.localStorage = memoryStorage()
+  const exits = await import(`../features/herd-exit/api/herdExitApi.js?exit-preflight=${Date.now()}`)
+  const domain = await import(`../api/herdDomainApi.js?exit-preflight=${Date.now()}`)
+  await domain.cattle.upsert({ code: 'BC-EXIT-PREFLIGHT', barn: 'A1', status: 'ACTIVE', events: [] })
+  await domain.cattle.upsert({ code: 'BC-EXIT-DIFFERENT', barn: 'A1', status: 'EXITED', exitVoucherId: 'PX-OTHER', events: [] })
+  const before = (await domain.pens.get('A1')).count
+
+  await assert.rejects(exits.saveHerdExit({
+    record: { date: '2026-10-28', type: 'Bán', status: 'Đã xuất' },
+    cattleRows: [{ code: 'BC-EXIT-PREFLIGHT', barn: 'A1' }, { code: 'BC-EXIT-MISSING', barn: 'A1' }],
+  }), /missing|not found/i)
+  assert.equal((await domain.cattle.get('BC-EXIT-PREFLIGHT')).status, 'ACTIVE')
+  assert.equal((await domain.pens.get('A1')).count, before)
+
+  await assert.rejects(exits.saveHerdExit({
+    record: { date: '2026-10-28', type: 'Bán', status: 'Đã xuất' },
+    cattleRows: [{ code: 'BC-EXIT-DIFFERENT', barn: 'A1' }],
+  }), /different|voucher|active/i)
+  assert.equal((await domain.cattle.get('BC-EXIT-DIFFERENT')).exitVoucherId, 'PX-OTHER')
+})
+
+test('canceling an exit requires every linked cattle row and restores all exactly once', async () => {
+  globalThis.localStorage = memoryStorage()
+  const exits = await import(`../features/herd-exit/api/herdExitApi.js?exit-cancel-complete=${Date.now()}`)
+  const domain = await import(`../api/herdDomainApi.js?exit-cancel-complete=${Date.now()}`)
+  await domain.cattle.upsert({ code: 'BC-CANCEL-1', barn: 'A1', status: 'ACTIVE', events: [] })
+  await domain.cattle.upsert({ code: 'BC-CANCEL-2', barn: 'A1', status: 'ACTIVE', events: [] })
+  const before = (await domain.pens.get('A1')).count
+  const rows = [{ code: 'BC-CANCEL-1', barn: 'A1' }, { code: 'BC-CANCEL-2', barn: 'A1' }]
+  const saved = await exits.saveHerdExit({ id: 'PX-CANCEL-COMPLETE', record: { date: '2026-10-28', type: 'Bán', status: 'Đã xuất' }, cattleRows: rows })
+  assert.equal((await domain.pens.get('A1')).count, before - 2)
+
+  await assert.rejects(exits.cancelHerdExit(saved.id, [rows[0]]), /all|complete|linked/i)
+  assert.equal((await exits.herdExitApi.get(saved.id)).status, 'Đã xuất')
+  assert.equal((await domain.pens.get('A1')).count, before - 2)
+  await exits.cancelHerdExit(saved.id, rows)
+  await exits.cancelHerdExit(saved.id, [])
+  assert.equal((await domain.pens.get('A1')).count, before)
+  assert.equal((await domain.cattle.get('BC-CANCEL-1')).status, 'ACTIVE')
+  assert.equal((await domain.cattle.get('BC-CANCEL-2')).status, 'ACTIVE')
+})
+
 test('terminal entry and exit vouchers reject mutation through their save facades', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-terminal=${Date.now()}`)
@@ -152,6 +195,34 @@ test('entry posting validates quarantine, future dates, and duplicate ear tags',
     record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-EXISTING' } },
     cattleRows: [{ tag: 'VN-EXISTING', barn: 'A1', weight: 100 }],
   }), /duplicate|trùng/i)
+})
+
+test('entry posting rejects duplicate explicit cattle codes before overwriting or changing pens', async () => {
+  globalThis.localStorage = memoryStorage()
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-code-preflight=${Date.now()}`)
+  const domain = await import(`../api/herdDomainApi.js?entry-code-preflight=${Date.now()}`)
+  const before = (await domain.pens.get('A1')).count
+  await assert.rejects(entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-CODE-DUP' } },
+    cattleRows: [
+      { code: 'BC-EXPLICIT-DUP', tag: 'VN-CODE-1', barn: 'A1', weight: 100 },
+      { code: 'BC-EXPLICIT-DUP', tag: 'VN-CODE-2', barn: 'A1', weight: 110 },
+    ],
+  }), /duplicate|trùng|code/i)
+  assert.equal((await domain.cattle.get('BC-EXPLICIT-DUP').catch(() => null)), null)
+  assert.equal((await domain.pens.get('A1')).count, before)
+
+  await entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-CODE-OWNED' } },
+    cattleRows: [{ code: 'BC-EXPLICIT-OWNED', tag: 'VN-CODE-OWNED', barn: 'A1', weight: 100 }],
+  })
+  const ownedBefore = (await domain.pens.get('A1')).count
+  await assert.rejects(entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-CODE-REUSE' } },
+    cattleRows: [{ code: 'BC-EXPLICIT-OWNED', tag: 'VN-CODE-REUSE', barn: 'A1', weight: 110 }],
+  }), /duplicate|already|code/i)
+  assert.equal((await domain.cattle.get('BC-EXPLICIT-OWNED')).tag, 'VN-CODE-OWNED')
+  assert.equal((await domain.pens.get('A1')).count, ownedBefore)
 })
 
 test('posting APIs reject missing required fields before mutating cattle', async () => {
