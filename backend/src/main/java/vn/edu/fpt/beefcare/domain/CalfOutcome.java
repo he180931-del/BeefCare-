@@ -54,6 +54,16 @@ public class CalfOutcome implements Serializable {
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
     private Cattle registeredCattle;
 
+    @Column(name = "tag_code", length = 50)
+    private String tagCode;
+
+    @Column(name = "died_reason", length = 500)
+    private String diedReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proposed_pen_id")
+    private Pen proposedPen;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -145,6 +155,30 @@ public class CalfOutcome implements Serializable {
     public CalfOutcome registeredCattle(Cattle cattle) {
         this.setRegisteredCattle(cattle);
         return this;
+    }
+
+    public String getTagCode() {
+        return tagCode;
+    }
+
+    public void setTagCode(String tagCode) {
+        this.tagCode = tagCode;
+    }
+
+    public String getDiedReason() {
+        return diedReason;
+    }
+
+    public void setDiedReason(String diedReason) {
+        this.diedReason = diedReason;
+    }
+
+    public Pen getProposedPen() {
+        return proposedPen;
+    }
+
+    public void setProposedPen(Pen proposedPen) {
+        this.proposedPen = proposedPen;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

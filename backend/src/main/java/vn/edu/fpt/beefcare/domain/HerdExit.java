@@ -1,18 +1,16 @@
 package vn.edu.fpt.beefcare.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
-import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.time.Instant;
+import vn.edu.fpt.beefcare.domain.enumeration.ExitLineStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.WeightBasis;
 
-/**
- * A HerdExit.
- */
 @Entity
-@Table(name = "herd_exit")
+@Table(name = "herd_exit", uniqueConstraints = {@UniqueConstraint(name = "uq_exit_line", columnNames = {"voucher_id", "line_no"})})
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class HerdExit implements Serializable {
 
@@ -25,115 +23,198 @@ public class HerdExit implements Serializable {
     @Column(name = "id")
     private Long id;
 
-    /**
-     * SALE | DEATH | CULL | OTHER
-     */
-    @Schema(description = "SALE | DEATH | CULL | OTHER", required = true)
     @NotNull
-    @Size(max = 30)
-    @Column(name = "type", length = 30, nullable = false)
-    private String type;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "farm_id")
+    private Farm farm;
 
     @NotNull
-    @Column(name = "exit_date", nullable = false)
-    private LocalDate exitDate;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "voucher_id")
+    private HerdExitVoucher voucher;
 
-    @Lob
-    @Column(name = "reason")
-    private String reason;
-
-    @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
     @NotNull
-    @JoinColumn(unique = true)
+    @Column(name = "line_no", nullable = false)
+    private Integer lineNo;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "cattle_id")
     private Cattle cattle;
 
-    @ManyToOne(optional = false)
-    @NotNull
-    @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
-    private AppUser confirmedBy;
+    @Column(name = "exit_weight_kg", precision = 7, scale = 2)
+    private BigDecimal exitWeightKg;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @Enumerated(EnumType.STRING)
+    @Column(name = "weight_basis", length = 30)
+    private WeightBasis weightBasis;
+
+    @Column(name = "unit_price")
+    private Long unitPrice;
+
+    @NotNull
+    @Column(name = "line_amount", nullable = false)
+    private Long lineAmount = 0L;
+
+    @Column(name = "check_results")
+    private String checkResults;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_pen_id")
+    private Pen lastPen;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 30, nullable = false)
+    private ExitLineStatus status = ExitLineStatus.DRAFT;
+
+    @NotNull
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @NotNull
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     public Long getId() {
-        return this.id;
-    }
-
-    public HerdExit id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
         this.id = id;
     }
 
-    public String getType() {
-        return this.type;
+    public Farm getFarm() {
+        return farm;
     }
 
-    public HerdExit type(String type) {
-        this.setType(type);
-        return this;
+    public void setFarm(Farm farm) {
+        this.farm = farm;
     }
 
-    public void setType(String type) {
-        this.type = type;
+    public HerdExitVoucher getVoucher() {
+        return voucher;
     }
 
-    public LocalDate getExitDate() {
-        return this.exitDate;
+    public void setVoucher(HerdExitVoucher voucher) {
+        this.voucher = voucher;
     }
 
-    public HerdExit exitDate(LocalDate exitDate) {
-        this.setExitDate(exitDate);
-        return this;
+    public Integer getLineNo() {
+        return lineNo;
     }
 
-    public void setExitDate(LocalDate exitDate) {
-        this.exitDate = exitDate;
-    }
-
-    public String getReason() {
-        return this.reason;
-    }
-
-    public HerdExit reason(String reason) {
-        this.setReason(reason);
-        return this;
-    }
-
-    public void setReason(String reason) {
-        this.reason = reason;
+    public void setLineNo(Integer lineNo) {
+        this.lineNo = lineNo;
     }
 
     public Cattle getCattle() {
-        return this.cattle;
+        return cattle;
     }
 
     public void setCattle(Cattle cattle) {
         this.cattle = cattle;
     }
 
-    public HerdExit cattle(Cattle cattle) {
-        this.setCattle(cattle);
-        return this;
+    public BigDecimal getExitWeightKg() {
+        return exitWeightKg;
     }
 
-    public AppUser getConfirmedBy() {
-        return this.confirmedBy;
+    public void setExitWeightKg(BigDecimal exitWeightKg) {
+        this.exitWeightKg = exitWeightKg;
     }
 
-    public void setConfirmedBy(AppUser appUser) {
-        this.confirmedBy = appUser;
+    public WeightBasis getWeightBasis() {
+        return weightBasis;
     }
 
-    public HerdExit confirmedBy(AppUser appUser) {
-        this.setConfirmedBy(appUser);
-        return this;
+    public void setWeightBasis(WeightBasis weightBasis) {
+        this.weightBasis = weightBasis;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    public Long getUnitPrice() {
+        return unitPrice;
+    }
+
+    public void setUnitPrice(Long unitPrice) {
+        this.unitPrice = unitPrice;
+    }
+
+    public Long getLineAmount() {
+        return lineAmount;
+    }
+
+    public void setLineAmount(Long lineAmount) {
+        this.lineAmount = lineAmount;
+    }
+
+    public String getCheckResults() {
+        return checkResults;
+    }
+
+    public void setCheckResults(String checkResults) {
+        this.checkResults = checkResults;
+    }
+
+    public Pen getLastPen() {
+        return lastPen;
+    }
+
+    public void setLastPen(Pen lastPen) {
+        this.lastPen = lastPen;
+    }
+
+    public ExitLineStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ExitLineStatus status) {
+        this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -148,18 +229,11 @@ public class HerdExit implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "HerdExit{" +
-            "id=" + getId() +
-            ", type='" + getType() + "'" +
-            ", exitDate='" + getExitDate() + "'" +
-            ", reason='" + getReason() + "'" +
-            "}";
+        return "HerdExit{id=" + getId() + "}";
     }
 }

@@ -9,4 +9,6 @@ import vn.edu.fpt.beefcare.domain.PregnancyEpisode;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface PregnancyEpisodeRepository extends JpaRepository<PregnancyEpisode, Long> {}
+public interface PregnancyEpisodeRepository extends JpaRepository<PregnancyEpisode, Long> {
+    java.util.Optional<PregnancyEpisode> findFirstByCattleIdAndStatus(Long cattleId, String status);
+}

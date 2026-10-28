@@ -34,6 +34,9 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tech.jhipster.config.JHipsterConstants;
+import vn.edu.fpt.beefcare.service.DomainException;
+import vn.edu.fpt.beefcare.service.DomainMessages;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 import tech.jhipster.web.rest.errors.ProblemDetailWithCause;
 import tech.jhipster.web.rest.errors.ProblemDetailWithCause.ProblemDetailWithCauseBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -57,8 +60,11 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
 
     private final Environment env;
 
-    public ExceptionTranslator(Environment env) {
+    private final DomainMessages domainMessages;
+
+    public ExceptionTranslator(Environment env, DomainMessages domainMessages) {
         this.env = env;
+        this.domainMessages = domainMessages;
     }
 
     @ExceptionHandler
@@ -87,6 +93,9 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
     }
 
     private ProblemDetailWithCause getProblemDetailWithCause(Throwable ex) {
+        if (ex instanceof DomainException domainException) {
+            return domainProblem(domainException.getCode(), domainException.getParams(), domainException.getStatus());
+        }
         if (
             ex instanceof vn.edu.fpt.beefcare.service.UsernameAlreadyUsedException
         ) return (ProblemDetailWithCause) new LoginAlreadyUsedException().getBody();
@@ -101,6 +110,15 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
             ex instanceof ErrorResponseException exp && exp.getBody() instanceof ProblemDetailWithCause problemDetailWithCause
         ) return problemDetailWithCause;
         return ProblemDetailWithCauseBuilder.instance().withStatus(toStatus(ex).value()).build();
+    }
+
+    /** Error body required by the spec: {"code": "MSG-...", "params": {...}} plus status, title and a default message. */
+    private ProblemDetailWithCause domainProblem(String code, Map<String, Object> params, HttpStatus status) {
+        ProblemDetailWithCause problem = ProblemDetailWithCauseBuilder.instance().withStatus(status.value()).build();
+        problem.setProperty("code", code);
+        problem.setProperty("params", params);
+        problem.setProperty(MESSAGE_KEY, domainMessages.resolve(code, params));
+        return problem;
     }
 
     protected ProblemDetailWithCause customizeProblem(ProblemDetailWithCause problem, Throwable err, NativeWebRequest request) {
@@ -125,6 +143,16 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
             MESSAGE_KEY,
             getMappedMessageKey(err) != null ? getMappedMessageKey(err) : "error.http." + problem.getStatus()
         );
+
+        if (problemProperties == null || !problemProperties.containsKey("code")) {
+            if (err instanceof AccessDeniedException) {
+                problem.setProperty("code", MessageCodes.COM_01);
+                problem.setProperty("params", Map.of());
+            } else if (err instanceof ConcurrencyFailureException || err.getCause() instanceof ConcurrencyFailureException) {
+                problem.setProperty("code", MessageCodes.COM_05);
+                problem.setProperty("params", Map.of());
+            }
+        }
 
         if (problemProperties == null || !problemProperties.containsKey(PATH_KEY)) problem.setProperty(PATH_KEY, getPathValue(request));
 

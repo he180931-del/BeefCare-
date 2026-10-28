@@ -1,16 +1,11 @@
 package vn.edu.fpt.beefcare.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
 
-/**
- * A AuditLog.
- */
 @Entity
 @Table(name = "audit_log")
 @SuppressWarnings("common-java:DuplicatedBlocks")
@@ -30,10 +25,6 @@ public class AuditLog implements Serializable {
     @Column(name = "action", length = 30, nullable = false)
     private String action;
 
-    /**
-     * ERD: target_type/id - tách thành 2 cột
-     */
-    @Schema(description = "ERD: target_type/id - tách thành 2 cột", required = true)
     @NotNull
     @Size(max = 50)
     @Column(name = "target_type", length = 50, nullable = false)
@@ -43,32 +34,24 @@ public class AuditLog implements Serializable {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
-    /**
-     * ERD: time
-     */
-    @Schema(description = "ERD: time", required = true)
     @NotNull
     @Column(name = "logged_at", nullable = false)
     private Instant loggedAt;
 
-    @ManyToOne(optional = false)
+    @Column(name = "details")
+    private String details;
+
     @NotNull
-    @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "actor_id")
     private AppUser actor;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
+    @JoinColumn(name = "farm_id")
     private Farm farm;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
-
     public Long getId() {
-        return this.id;
-    }
-
-    public AuditLog id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
@@ -76,12 +59,7 @@ public class AuditLog implements Serializable {
     }
 
     public String getAction() {
-        return this.action;
-    }
-
-    public AuditLog action(String action) {
-        this.setAction(action);
-        return this;
+        return action;
     }
 
     public void setAction(String action) {
@@ -89,12 +67,7 @@ public class AuditLog implements Serializable {
     }
 
     public String getTargetType() {
-        return this.targetType;
-    }
-
-    public AuditLog targetType(String targetType) {
-        this.setTargetType(targetType);
-        return this;
+        return targetType;
     }
 
     public void setTargetType(String targetType) {
@@ -102,12 +75,7 @@ public class AuditLog implements Serializable {
     }
 
     public Long getTargetId() {
-        return this.targetId;
-    }
-
-    public AuditLog targetId(Long targetId) {
-        this.setTargetId(targetId);
-        return this;
+        return targetId;
     }
 
     public void setTargetId(Long targetId) {
@@ -115,45 +83,36 @@ public class AuditLog implements Serializable {
     }
 
     public Instant getLoggedAt() {
-        return this.loggedAt;
-    }
-
-    public AuditLog loggedAt(Instant loggedAt) {
-        this.setLoggedAt(loggedAt);
-        return this;
+        return loggedAt;
     }
 
     public void setLoggedAt(Instant loggedAt) {
         this.loggedAt = loggedAt;
     }
 
+    public String getDetails() {
+        return details;
+    }
+
+    public void setDetails(String details) {
+        this.details = details;
+    }
+
     public AppUser getActor() {
-        return this.actor;
+        return actor;
     }
 
-    public void setActor(AppUser appUser) {
-        this.actor = appUser;
-    }
-
-    public AuditLog actor(AppUser appUser) {
-        this.setActor(appUser);
-        return this;
+    public void setActor(AppUser actor) {
+        this.actor = actor;
     }
 
     public Farm getFarm() {
-        return this.farm;
+        return farm;
     }
 
     public void setFarm(Farm farm) {
         this.farm = farm;
     }
-
-    public AuditLog farm(Farm farm) {
-        this.setFarm(farm);
-        return this;
-    }
-
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
     public boolean equals(Object o) {
@@ -168,19 +127,11 @@ public class AuditLog implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "AuditLog{" +
-            "id=" + getId() +
-            ", action='" + getAction() + "'" +
-            ", targetType='" + getTargetType() + "'" +
-            ", targetId=" + getTargetId() +
-            ", loggedAt='" + getLoggedAt() + "'" +
-            "}";
+        return "AuditLog{id=" + getId() + "}";
     }
 }

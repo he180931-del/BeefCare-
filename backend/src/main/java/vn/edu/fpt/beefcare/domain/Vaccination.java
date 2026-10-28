@@ -70,6 +70,12 @@ public class Vaccination implements Serializable {
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "vaccination")
     private ScheduledDose scheduledDose;
 
+    @Column(name = "withdrawal_end_date")
+    private LocalDate withdrawalEndDate;
+
+    @Column(name = "information_source", length = 255)
+    private String informationSource;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -206,6 +212,22 @@ public class Vaccination implements Serializable {
     public Vaccination scheduledDose(ScheduledDose scheduledDose) {
         this.setScheduledDose(scheduledDose);
         return this;
+    }
+
+    public LocalDate getWithdrawalEndDate() {
+        return withdrawalEndDate;
+    }
+
+    public void setWithdrawalEndDate(LocalDate withdrawalEndDate) {
+        this.withdrawalEndDate = withdrawalEndDate;
+    }
+
+    public String getInformationSource() {
+        return informationSource;
+    }
+
+    public void setInformationSource(String informationSource) {
+        this.informationSource = informationSource;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

@@ -92,6 +92,10 @@ management:
 spring:
   application:
     name: beefcare
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   docker:
     compose:
       enabled: true

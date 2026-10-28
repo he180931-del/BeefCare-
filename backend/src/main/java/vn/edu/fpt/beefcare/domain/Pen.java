@@ -1,16 +1,13 @@
 package vn.edu.fpt.beefcare.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.Instant;
+import vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus;
 
-/**
- * Chuồng; code unique trong một farm -> cần thêm unique(farm_id, code)
- */
-@Schema(description = "Chuồng; code unique trong một farm -> cần thêm unique(farm_id, code)")
 @Entity
 @Table(name = "pen")
 @SuppressWarnings("common-java:DuplicatedBlocks")
@@ -36,33 +33,48 @@ public class Pen implements Serializable {
     private String name;
 
     @NotNull
-    @Min(value = 1)
     @Column(name = "capacity", nullable = false)
     private Integer capacity;
 
-    /**
-     * ACTIVE | INACTIVE
-     */
-    @Schema(description = "ACTIVE | INACTIVE", required = true)
-    @NotNull
-    @Size(max = 30)
-    @Column(name = "status", length = 30, nullable = false)
-    private String status;
+    @Size(max = 500)
+    @Column(name = "description", length = 500)
+    private String description;
 
-    @ManyToOne(optional = false)
     @NotNull
-    @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 30, nullable = false)
+    private ActiveStatus status;
+
+    @Column(name = "status_effective_date")
+    private LocalDate statusEffectiveDate;
+
+    @Size(max = 500)
+    @Column(name = "status_reason", length = 500)
+    private String statusReason;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "farm_id")
     private Farm farm;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
+    private AppUser createdBy;
+
+    @NotNull
+    @Column(name = "created_at")
+    private Instant createdAt;
+
+    @NotNull
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     public Long getId() {
-        return this.id;
-    }
-
-    public Pen id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
@@ -70,12 +82,7 @@ public class Pen implements Serializable {
     }
 
     public String getCode() {
-        return this.code;
-    }
-
-    public Pen code(String code) {
-        this.setCode(code);
-        return this;
+        return code;
     }
 
     public void setCode(String code) {
@@ -83,12 +90,7 @@ public class Pen implements Serializable {
     }
 
     public String getName() {
-        return this.name;
-    }
-
-    public Pen name(String name) {
-        this.setName(name);
-        return this;
+        return name;
     }
 
     public void setName(String name) {
@@ -96,45 +98,100 @@ public class Pen implements Serializable {
     }
 
     public Integer getCapacity() {
-        return this.capacity;
-    }
-
-    public Pen capacity(Integer capacity) {
-        this.setCapacity(capacity);
-        return this;
+        return capacity;
     }
 
     public void setCapacity(Integer capacity) {
         this.capacity = capacity;
     }
 
-    public String getStatus() {
-        return this.status;
+    public String getDescription() {
+        return description;
     }
 
-    public Pen status(String status) {
-        this.setStatus(status);
-        return this;
+    public void setDescription(String description) {
+        this.description = description;
     }
 
-    public void setStatus(String status) {
+    public ActiveStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ActiveStatus status) {
         this.status = status;
     }
 
+    public LocalDate getStatusEffectiveDate() {
+        return statusEffectiveDate;
+    }
+
+    public void setStatusEffectiveDate(LocalDate statusEffectiveDate) {
+        this.statusEffectiveDate = statusEffectiveDate;
+    }
+
+    public String getStatusReason() {
+        return statusReason;
+    }
+
+    public void setStatusReason(String statusReason) {
+        this.statusReason = statusReason;
+    }
+
     public Farm getFarm() {
-        return this.farm;
+        return farm;
     }
 
     public void setFarm(Farm farm) {
         this.farm = farm;
     }
 
-    public Pen farm(Farm farm) {
-        this.setFarm(farm);
-        return this;
+    public AppUser getCreatedBy() {
+        return createdBy;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    public void setCreatedBy(AppUser createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -149,19 +206,11 @@ public class Pen implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "Pen{" +
-            "id=" + getId() +
-            ", code='" + getCode() + "'" +
-            ", name='" + getName() + "'" +
-            ", capacity=" + getCapacity() +
-            ", status='" + getStatus() + "'" +
-            "}";
+        return "Pen{id=" + getId() + "}";
     }
 }

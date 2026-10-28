@@ -1,15 +1,11 @@
 package vn.edu.fpt.beefcare.domain;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
 
-/**
- * A RecordRevision.
- */
 @Entity
 @Table(name = "record_revision")
 @SuppressWarnings("common-java:DuplicatedBlocks")
@@ -24,10 +20,10 @@ public class RecordRevision implements Serializable {
     @Column(name = "id")
     private Long id;
 
-    /**
-     * ERD: source_type + source_id - tách 2 cột
-     */
-    @Schema(description = "ERD: source_type + source_id - tách 2 cột", required = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "farm_id")
+    private Farm farm;
+
     @NotNull
     @Size(max = 50)
     @Column(name = "source_type", length = 50, nullable = false)
@@ -37,61 +33,47 @@ public class RecordRevision implements Serializable {
     @Column(name = "source_id", nullable = false)
     private Long sourceId;
 
-    /**
-     * CORRECT | VOID
-     */
-    @Schema(description = "CORRECT | VOID", required = true)
     @NotNull
     @Size(max = 30)
     @Column(name = "action", length = 30, nullable = false)
     private String action;
 
-    @Lob
-    @Column(name = "reason")
+    @Size(max = 500)
+    @Column(name = "reason", length = 500)
     private String reason;
 
-    /**
-     * ERD: before / after - tách 2 cột
-     */
-    @Schema(description = "ERD: before / after - tách 2 cột", required = true)
-    @Lob
-    @Column(name = "before_snapshot", nullable = false)
+    @Column(name = "before_snapshot")
     private String beforeSnapshot;
 
-    @Lob
-    @Column(name = "after_snapshot", nullable = false)
+    @Column(name = "after_snapshot")
     private String afterSnapshot;
 
-    /**
-     * ERD: time
-     */
-    @Schema(description = "ERD: time", required = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "actor_id")
+    private AppUser actor;
+
     @NotNull
     @Column(name = "changed_at", nullable = false)
     private Instant changedAt;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
-
     public Long getId() {
-        return this.id;
-    }
-
-    public RecordRevision id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
         this.id = id;
     }
 
-    public String getSourceType() {
-        return this.sourceType;
+    public Farm getFarm() {
+        return farm;
     }
 
-    public RecordRevision sourceType(String sourceType) {
-        this.setSourceType(sourceType);
-        return this;
+    public void setFarm(Farm farm) {
+        this.farm = farm;
+    }
+
+    public String getSourceType() {
+        return sourceType;
     }
 
     public void setSourceType(String sourceType) {
@@ -99,12 +81,7 @@ public class RecordRevision implements Serializable {
     }
 
     public Long getSourceId() {
-        return this.sourceId;
-    }
-
-    public RecordRevision sourceId(Long sourceId) {
-        this.setSourceId(sourceId);
-        return this;
+        return sourceId;
     }
 
     public void setSourceId(Long sourceId) {
@@ -112,12 +89,7 @@ public class RecordRevision implements Serializable {
     }
 
     public String getAction() {
-        return this.action;
-    }
-
-    public RecordRevision action(String action) {
-        this.setAction(action);
-        return this;
+        return action;
     }
 
     public void setAction(String action) {
@@ -125,12 +97,7 @@ public class RecordRevision implements Serializable {
     }
 
     public String getReason() {
-        return this.reason;
-    }
-
-    public RecordRevision reason(String reason) {
-        this.setReason(reason);
-        return this;
+        return reason;
     }
 
     public void setReason(String reason) {
@@ -138,12 +105,7 @@ public class RecordRevision implements Serializable {
     }
 
     public String getBeforeSnapshot() {
-        return this.beforeSnapshot;
-    }
-
-    public RecordRevision beforeSnapshot(String beforeSnapshot) {
-        this.setBeforeSnapshot(beforeSnapshot);
-        return this;
+        return beforeSnapshot;
     }
 
     public void setBeforeSnapshot(String beforeSnapshot) {
@@ -151,32 +113,28 @@ public class RecordRevision implements Serializable {
     }
 
     public String getAfterSnapshot() {
-        return this.afterSnapshot;
-    }
-
-    public RecordRevision afterSnapshot(String afterSnapshot) {
-        this.setAfterSnapshot(afterSnapshot);
-        return this;
+        return afterSnapshot;
     }
 
     public void setAfterSnapshot(String afterSnapshot) {
         this.afterSnapshot = afterSnapshot;
     }
 
-    public Instant getChangedAt() {
-        return this.changedAt;
+    public AppUser getActor() {
+        return actor;
     }
 
-    public RecordRevision changedAt(Instant changedAt) {
-        this.setChangedAt(changedAt);
-        return this;
+    public void setActor(AppUser actor) {
+        this.actor = actor;
+    }
+
+    public Instant getChangedAt() {
+        return changedAt;
     }
 
     public void setChangedAt(Instant changedAt) {
         this.changedAt = changedAt;
     }
-
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
     public boolean equals(Object o) {
@@ -191,22 +149,11 @@ public class RecordRevision implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "RecordRevision{" +
-            "id=" + getId() +
-            ", sourceType='" + getSourceType() + "'" +
-            ", sourceId=" + getSourceId() +
-            ", action='" + getAction() + "'" +
-            ", reason='" + getReason() + "'" +
-            ", beforeSnapshot='" + getBeforeSnapshot() + "'" +
-            ", afterSnapshot='" + getAfterSnapshot() + "'" +
-            ", changedAt='" + getChangedAt() + "'" +
-            "}";
+        return "RecordRevision{id=" + getId() + "}";
     }
 }

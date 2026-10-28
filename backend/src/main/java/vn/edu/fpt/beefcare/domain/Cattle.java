@@ -1,16 +1,17 @@
 package vn.edu.fpt.beefcare.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.time.Instant;
+import vn.edu.fpt.beefcare.domain.enumeration.BirthDateAccuracy;
+import vn.edu.fpt.beefcare.domain.enumeration.ExitType;
+import vn.edu.fpt.beefcare.domain.enumeration.HerdStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.LifeStage;
+import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 
-/**
- * A Cattle.
- */
 @Entity
 @Table(name = "cattle")
 @SuppressWarnings("common-java:DuplicatedBlocks")
@@ -30,76 +31,105 @@ public class Cattle implements Serializable {
     @Column(name = "display_code", length = 50, nullable = false)
     private String displayCode;
 
-    @NotNull
     @Size(max = 50)
-    @Column(name = "ear_tag", length = 50, nullable = false)
-    private String earTag;
+    @Column(name = "ear_tag_number", length = 50)
+    private String earTagNumber;
 
-    /**
-     * MALE | FEMALE
-     */
-    @Schema(description = "MALE | FEMALE")
-    @Size(max = 30)
+    @Size(max = 50)
+    @Column(name = "name", length = 50)
+    private String name;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "sex", length = 30)
-    private String sex;
+    private Sex sex;
 
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
     @NotNull
-    @Size(max = 30)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "birth_date_accuracy", length = 30, nullable = false)
+    private BirthDateAccuracy birthDateAccuracy = BirthDateAccuracy.UNKNOWN;
+
+    @Size(max = 255)
+    @Column(name = "colour_markings", length = 255)
+    private String colourMarkings;
+
+    @Size(max = 500)
+    @Column(name = "photo_url", length = 500)
+    private String photoUrl;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "life_stage", length = 30, nullable = false)
-    private String lifeStage;
+    private LifeStage lifeStage;
 
-    /**
-     * ACTIVE | EXITED
-     */
-    @Schema(description = "ACTIVE | EXITED", required = true)
     @NotNull
-    @Size(max = 30)
+    @Enumerated(EnumType.STRING)
     @Column(name = "herd_status", length = 30, nullable = false)
-    private String herdStatus;
+    private HerdStatus herdStatus = HerdStatus.ACTIVE;
 
-    @ManyToOne(optional = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "exit_type", length = 30)
+    private ExitType exitType;
+
+    @Column(name = "exit_date")
+    private LocalDate exitDate;
+
+    @Size(max = 500)
+    @Column(name = "void_reason", length = 500)
+    private String voidReason;
+
+    @Size(max = 50)
+    @Column(name = "external_sire_code", length = 50)
+    private String externalSireCode;
+
     @NotNull
-    @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
+    @Column(name = "declared_parity")
+    private Integer declaredParity = 0;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "farm_id")
     private Farm farm;
 
-    @ManyToOne(optional = false)
     @NotNull
-    @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "breed_id")
     private Breed breed;
 
-    @ManyToOne(optional = false)
     @NotNull
-    @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "purpose_id")
     private ProductionPurpose purpose;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
+    @JoinColumn(name = "dam_id")
     private Cattle dam;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
+    @JoinColumn(name = "sire_id")
     private Cattle sire;
 
-    @JsonIgnoreProperties(value = { "cattle", "initialPen" }, allowSetters = true)
-    @OneToOne(fetch = FetchType.LAZY, mappedBy = "cattle")
-    private HerdEntry herdEntry;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
+    private AppUser createdBy;
 
-    @JsonIgnoreProperties(value = { "cattle", "confirmedBy" }, allowSetters = true)
-    @OneToOne(fetch = FetchType.LAZY, mappedBy = "cattle")
-    private HerdExit herdExit;
+    @NotNull
+    @Column(name = "created_at")
+    private Instant createdAt;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @NotNull
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     public Long getId() {
-        return this.id;
-    }
-
-    public Cattle id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
@@ -107,187 +137,212 @@ public class Cattle implements Serializable {
     }
 
     public String getDisplayCode() {
-        return this.displayCode;
-    }
-
-    public Cattle displayCode(String displayCode) {
-        this.setDisplayCode(displayCode);
-        return this;
+        return displayCode;
     }
 
     public void setDisplayCode(String displayCode) {
         this.displayCode = displayCode;
     }
 
-    public String getEarTag() {
-        return this.earTag;
+    public String getEarTagNumber() {
+        return earTagNumber;
     }
 
-    public Cattle earTag(String earTag) {
-        this.setEarTag(earTag);
-        return this;
+    public void setEarTagNumber(String earTagNumber) {
+        this.earTagNumber = earTagNumber;
     }
 
-    public void setEarTag(String earTag) {
-        this.earTag = earTag;
+    public String getName() {
+        return name;
     }
 
-    public String getSex() {
-        return this.sex;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public Cattle sex(String sex) {
-        this.setSex(sex);
-        return this;
+    public Sex getSex() {
+        return sex;
     }
 
-    public void setSex(String sex) {
+    public void setSex(Sex sex) {
         this.sex = sex;
     }
 
     public LocalDate getBirthDate() {
-        return this.birthDate;
-    }
-
-    public Cattle birthDate(LocalDate birthDate) {
-        this.setBirthDate(birthDate);
-        return this;
+        return birthDate;
     }
 
     public void setBirthDate(LocalDate birthDate) {
         this.birthDate = birthDate;
     }
 
-    public String getLifeStage() {
-        return this.lifeStage;
+    public BirthDateAccuracy getBirthDateAccuracy() {
+        return birthDateAccuracy;
     }
 
-    public Cattle lifeStage(String lifeStage) {
-        this.setLifeStage(lifeStage);
-        return this;
+    public void setBirthDateAccuracy(BirthDateAccuracy birthDateAccuracy) {
+        this.birthDateAccuracy = birthDateAccuracy;
     }
 
-    public void setLifeStage(String lifeStage) {
+    public String getColourMarkings() {
+        return colourMarkings;
+    }
+
+    public void setColourMarkings(String colourMarkings) {
+        this.colourMarkings = colourMarkings;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
+    }
+
+    public LifeStage getLifeStage() {
+        return lifeStage;
+    }
+
+    public void setLifeStage(LifeStage lifeStage) {
         this.lifeStage = lifeStage;
     }
 
-    public String getHerdStatus() {
-        return this.herdStatus;
+    public HerdStatus getHerdStatus() {
+        return herdStatus;
     }
 
-    public Cattle herdStatus(String herdStatus) {
-        this.setHerdStatus(herdStatus);
-        return this;
-    }
-
-    public void setHerdStatus(String herdStatus) {
+    public void setHerdStatus(HerdStatus herdStatus) {
         this.herdStatus = herdStatus;
     }
 
+    public ExitType getExitType() {
+        return exitType;
+    }
+
+    public void setExitType(ExitType exitType) {
+        this.exitType = exitType;
+    }
+
+    public LocalDate getExitDate() {
+        return exitDate;
+    }
+
+    public void setExitDate(LocalDate exitDate) {
+        this.exitDate = exitDate;
+    }
+
+    public String getVoidReason() {
+        return voidReason;
+    }
+
+    public void setVoidReason(String voidReason) {
+        this.voidReason = voidReason;
+    }
+
+    public String getExternalSireCode() {
+        return externalSireCode;
+    }
+
+    public void setExternalSireCode(String externalSireCode) {
+        this.externalSireCode = externalSireCode;
+    }
+
+    public Integer getDeclaredParity() {
+        return declaredParity;
+    }
+
+    public void setDeclaredParity(Integer declaredParity) {
+        this.declaredParity = declaredParity;
+    }
+
     public Farm getFarm() {
-        return this.farm;
+        return farm;
     }
 
     public void setFarm(Farm farm) {
         this.farm = farm;
     }
 
-    public Cattle farm(Farm farm) {
-        this.setFarm(farm);
-        return this;
-    }
-
     public Breed getBreed() {
-        return this.breed;
+        return breed;
     }
 
     public void setBreed(Breed breed) {
         this.breed = breed;
     }
 
-    public Cattle breed(Breed breed) {
-        this.setBreed(breed);
-        return this;
-    }
-
     public ProductionPurpose getPurpose() {
-        return this.purpose;
+        return purpose;
     }
 
-    public void setPurpose(ProductionPurpose productionPurpose) {
-        this.purpose = productionPurpose;
-    }
-
-    public Cattle purpose(ProductionPurpose productionPurpose) {
-        this.setPurpose(productionPurpose);
-        return this;
+    public void setPurpose(ProductionPurpose purpose) {
+        this.purpose = purpose;
     }
 
     public Cattle getDam() {
-        return this.dam;
+        return dam;
     }
 
-    public void setDam(Cattle cattle) {
-        this.dam = cattle;
-    }
-
-    public Cattle dam(Cattle cattle) {
-        this.setDam(cattle);
-        return this;
+    public void setDam(Cattle dam) {
+        this.dam = dam;
     }
 
     public Cattle getSire() {
-        return this.sire;
+        return sire;
     }
 
-    public void setSire(Cattle cattle) {
-        this.sire = cattle;
+    public void setSire(Cattle sire) {
+        this.sire = sire;
     }
 
-    public Cattle sire(Cattle cattle) {
-        this.setSire(cattle);
-        return this;
+    public AppUser getCreatedBy() {
+        return createdBy;
     }
 
-    public HerdEntry getHerdEntry() {
-        return this.herdEntry;
+    public void setCreatedBy(AppUser createdBy) {
+        this.createdBy = createdBy;
     }
 
-    public void setHerdEntry(HerdEntry herdEntry) {
-        if (this.herdEntry != null) {
-            this.herdEntry.setCattle(null);
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
         }
-        if (herdEntry != null) {
-            herdEntry.setCattle(this);
+        if (updatedAt == null) {
+            updatedAt = now;
         }
-        this.herdEntry = herdEntry;
     }
 
-    public Cattle herdEntry(HerdEntry herdEntry) {
-        this.setHerdEntry(herdEntry);
-        return this;
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
     }
-
-    public HerdExit getHerdExit() {
-        return this.herdExit;
-    }
-
-    public void setHerdExit(HerdExit herdExit) {
-        if (this.herdExit != null) {
-            this.herdExit.setCattle(null);
-        }
-        if (herdExit != null) {
-            herdExit.setCattle(this);
-        }
-        this.herdExit = herdExit;
-    }
-
-    public Cattle herdExit(HerdExit herdExit) {
-        this.setHerdExit(herdExit);
-        return this;
-    }
-
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
     public boolean equals(Object o) {
@@ -302,21 +357,11 @@ public class Cattle implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "Cattle{" +
-            "id=" + getId() +
-            ", displayCode='" + getDisplayCode() + "'" +
-            ", earTag='" + getEarTag() + "'" +
-            ", sex='" + getSex() + "'" +
-            ", birthDate='" + getBirthDate() + "'" +
-            ", lifeStage='" + getLifeStage() + "'" +
-            ", herdStatus='" + getHerdStatus() + "'" +
-            "}";
+        return "Cattle{id=" + getId() + "}";
     }
 }

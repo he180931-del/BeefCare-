@@ -1,17 +1,13 @@
 package vn.edu.fpt.beefcare.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.time.Instant;
+import vn.edu.fpt.beefcare.domain.enumeration.AssignmentSource;
 
-/**
- * Mỗi con tối đa 1 dòng có effective_to = null
- */
-@Schema(description = "Mỗi con tối đa 1 dòng có effective_to = null")
 @Entity
 @Table(name = "pen_assignment")
 @SuppressWarnings("common-java:DuplicatedBlocks")
@@ -27,128 +23,171 @@ public class PenAssignment implements Serializable {
     private Long id;
 
     @NotNull
-    @Column(name = "effective_from", nullable = false)
-    private LocalDate effectiveFrom;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "farm_id")
+    private Farm farm;
 
-    @Column(name = "effective_to")
-    private LocalDate effectiveTo;
-
-    /**
-     * HERD_ENTRY | MOVE
-     */
-    @Schema(description = "HERD_ENTRY | MOVE")
-    @Size(max = 30)
-    @Column(name = "source", length = 30)
-    private String source;
-
-    @Lob
-    @Column(name = "reason")
-    private String reason;
-
-    @ManyToOne(optional = false)
     @NotNull
-    @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "cattle_id")
     private Cattle cattle;
 
-    @ManyToOne(optional = false)
     @NotNull
-    @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "pen_id")
     private Pen pen;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @NotNull
+    @Column(name = "from_date", nullable = false)
+    private LocalDate fromDate;
+
+    @Column(name = "to_date")
+    private LocalDate toDate;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", length = 30, nullable = false)
+    private AssignmentSource source;
+
+    @Size(max = 500)
+    @Column(name = "reason", length = 500)
+    private String reason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "criteria_version_id")
+    private PenCriteriaVersion criteriaVersion;
+
+    @Column(name = "reception_check")
+    private String receptionCheck;
+
+    @Size(max = 500)
+    @Column(name = "warning_reason", length = 500)
+    private String warningReason;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "moved_by_id")
+    private AppUser movedBy;
+
+    @NotNull
+    @Column(name = "recorded_at", nullable = false)
+    private Instant recordedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     public Long getId() {
-        return this.id;
-    }
-
-    public PenAssignment id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
         this.id = id;
     }
 
-    public LocalDate getEffectiveFrom() {
-        return this.effectiveFrom;
+    public Farm getFarm() {
+        return farm;
     }
 
-    public PenAssignment effectiveFrom(LocalDate effectiveFrom) {
-        this.setEffectiveFrom(effectiveFrom);
-        return this;
-    }
-
-    public void setEffectiveFrom(LocalDate effectiveFrom) {
-        this.effectiveFrom = effectiveFrom;
-    }
-
-    public LocalDate getEffectiveTo() {
-        return this.effectiveTo;
-    }
-
-    public PenAssignment effectiveTo(LocalDate effectiveTo) {
-        this.setEffectiveTo(effectiveTo);
-        return this;
-    }
-
-    public void setEffectiveTo(LocalDate effectiveTo) {
-        this.effectiveTo = effectiveTo;
-    }
-
-    public String getSource() {
-        return this.source;
-    }
-
-    public PenAssignment source(String source) {
-        this.setSource(source);
-        return this;
-    }
-
-    public void setSource(String source) {
-        this.source = source;
-    }
-
-    public String getReason() {
-        return this.reason;
-    }
-
-    public PenAssignment reason(String reason) {
-        this.setReason(reason);
-        return this;
-    }
-
-    public void setReason(String reason) {
-        this.reason = reason;
+    public void setFarm(Farm farm) {
+        this.farm = farm;
     }
 
     public Cattle getCattle() {
-        return this.cattle;
+        return cattle;
     }
 
     public void setCattle(Cattle cattle) {
         this.cattle = cattle;
     }
 
-    public PenAssignment cattle(Cattle cattle) {
-        this.setCattle(cattle);
-        return this;
-    }
-
     public Pen getPen() {
-        return this.pen;
+        return pen;
     }
 
     public void setPen(Pen pen) {
         this.pen = pen;
     }
 
-    public PenAssignment pen(Pen pen) {
-        this.setPen(pen);
-        return this;
+    public LocalDate getFromDate() {
+        return fromDate;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    public void setFromDate(LocalDate fromDate) {
+        this.fromDate = fromDate;
+    }
+
+    public LocalDate getToDate() {
+        return toDate;
+    }
+
+    public void setToDate(LocalDate toDate) {
+        this.toDate = toDate;
+    }
+
+    public AssignmentSource getSource() {
+        return source;
+    }
+
+    public void setSource(AssignmentSource source) {
+        this.source = source;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public PenCriteriaVersion getCriteriaVersion() {
+        return criteriaVersion;
+    }
+
+    public void setCriteriaVersion(PenCriteriaVersion criteriaVersion) {
+        this.criteriaVersion = criteriaVersion;
+    }
+
+    public String getReceptionCheck() {
+        return receptionCheck;
+    }
+
+    public void setReceptionCheck(String receptionCheck) {
+        this.receptionCheck = receptionCheck;
+    }
+
+    public String getWarningReason() {
+        return warningReason;
+    }
+
+    public void setWarningReason(String warningReason) {
+        this.warningReason = warningReason;
+    }
+
+    public AppUser getMovedBy() {
+        return movedBy;
+    }
+
+    public void setMovedBy(AppUser movedBy) {
+        this.movedBy = movedBy;
+    }
+
+    public Instant getRecordedAt() {
+        return recordedAt;
+    }
+
+    public void setRecordedAt(Instant recordedAt) {
+        this.recordedAt = recordedAt;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -163,19 +202,11 @@ public class PenAssignment implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "PenAssignment{" +
-            "id=" + getId() +
-            ", effectiveFrom='" + getEffectiveFrom() + "'" +
-            ", effectiveTo='" + getEffectiveTo() + "'" +
-            ", source='" + getSource() + "'" +
-            ", reason='" + getReason() + "'" +
-            "}";
+        return "PenAssignment{id=" + getId() + "}";
     }
 }

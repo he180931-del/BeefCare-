@@ -53,6 +53,12 @@ public class PregnancyEpisode implements Serializable {
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
     private Cattle cattle;
 
+    @Column(name = "close_reason", length = 30)
+    private String closeReason;
+
+    @Column(name = "closed_date")
+    private LocalDate closedDate;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -131,6 +137,22 @@ public class PregnancyEpisode implements Serializable {
     public PregnancyEpisode cattle(Cattle cattle) {
         this.setCattle(cattle);
         return this;
+    }
+
+    public String getCloseReason() {
+        return closeReason;
+    }
+
+    public void setCloseReason(String closeReason) {
+        this.closeReason = closeReason;
+    }
+
+    public LocalDate getClosedDate() {
+        return closedDate;
+    }
+
+    public void setClosedDate(LocalDate closedDate) {
+        this.closedDate = closedDate;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

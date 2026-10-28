@@ -1,19 +1,18 @@
 package vn.edu.fpt.beefcare.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Instant;
+import vn.edu.fpt.beefcare.domain.enumeration.EntryLineStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.EntrySource;
+import vn.edu.fpt.beefcare.domain.enumeration.WeightBasis;
 
-/**
- * Herd Entry (gộp Entry History Declaration vào cột history_declarations)
- */
-@Schema(description = "Herd Entry (gộp Entry History Declaration vào cột history_declarations)")
 @Entity
-@Table(name = "herd_entry")
+@Table(name = "herd_entry", uniqueConstraints = {@UniqueConstraint(name = "uq_entry_line", columnNames = {"voucher_id", "line_no"})})
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class HerdEntry implements Serializable {
 
@@ -26,114 +25,258 @@ public class HerdEntry implements Serializable {
     @Column(name = "id")
     private Long id;
 
-    /**
-     * EXTERNAL | FARM_BORN
-     */
-    @Schema(description = "EXTERNAL | FARM_BORN")
-    @Size(max = 30)
-    @Column(name = "source", length = 30)
-    private String source;
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "farm_id")
+    private Farm farm;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "voucher_id")
+    private HerdEntryVoucher voucher;
+
+    @NotNull
+    @Column(name = "line_no", nullable = false)
+    private Integer lineNo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cattle_id")
+    private Cattle cattle;
+
+    @Column(name = "draft_data")
+    private String draftData;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", length = 30, nullable = false)
+    private EntrySource source;
 
     @NotNull
     @Column(name = "entry_date", nullable = false)
     private LocalDate entryDate;
 
-    @Size(max = 255)
-    @Column(name = "history_declarations", length = 255)
-    private String historyDeclarations;
+    @Column(name = "entry_weight_kg", precision = 7, scale = 2)
+    private BigDecimal entryWeightKg;
 
-    @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @NotNull
-    @JoinColumn(unique = true)
-    private Cattle cattle;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "weight_basis", length = 30)
+    private WeightBasis weightBasis;
 
-    @ManyToOne(optional = false)
+    @Column(name = "unit_price")
+    private Long unitPrice;
+
     @NotNull
-    @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
+    @Column(name = "line_amount", nullable = false)
+    private Long lineAmount = 0L;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "calf_outcome_id")
+    private CalfOutcome calfOutcome;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "initial_pen_id")
     private Pen initialPen;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 30, nullable = false)
+    private EntryLineStatus status = EntryLineStatus.DRAFT;
+
+    @NotNull
+    @Column(name = "is_corrected", nullable = false)
+    private boolean corrected = false;
+
+    @Column(name = "quarantine_until")
+    private LocalDate quarantineUntil;
+
+    @NotNull
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @NotNull
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     public Long getId() {
-        return this.id;
-    }
-
-    public HerdEntry id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
         this.id = id;
     }
 
-    public String getSource() {
-        return this.source;
+    public Farm getFarm() {
+        return farm;
     }
 
-    public HerdEntry source(String source) {
-        this.setSource(source);
-        return this;
+    public void setFarm(Farm farm) {
+        this.farm = farm;
     }
 
-    public void setSource(String source) {
-        this.source = source;
+    public HerdEntryVoucher getVoucher() {
+        return voucher;
     }
 
-    public LocalDate getEntryDate() {
-        return this.entryDate;
+    public void setVoucher(HerdEntryVoucher voucher) {
+        this.voucher = voucher;
     }
 
-    public HerdEntry entryDate(LocalDate entryDate) {
-        this.setEntryDate(entryDate);
-        return this;
+    public Integer getLineNo() {
+        return lineNo;
     }
 
-    public void setEntryDate(LocalDate entryDate) {
-        this.entryDate = entryDate;
-    }
-
-    public String getHistoryDeclarations() {
-        return this.historyDeclarations;
-    }
-
-    public HerdEntry historyDeclarations(String historyDeclarations) {
-        this.setHistoryDeclarations(historyDeclarations);
-        return this;
-    }
-
-    public void setHistoryDeclarations(String historyDeclarations) {
-        this.historyDeclarations = historyDeclarations;
+    public void setLineNo(Integer lineNo) {
+        this.lineNo = lineNo;
     }
 
     public Cattle getCattle() {
-        return this.cattle;
+        return cattle;
     }
 
     public void setCattle(Cattle cattle) {
         this.cattle = cattle;
     }
 
-    public HerdEntry cattle(Cattle cattle) {
-        this.setCattle(cattle);
-        return this;
+    public String getDraftData() {
+        return draftData;
+    }
+
+    public void setDraftData(String draftData) {
+        this.draftData = draftData;
+    }
+
+    public EntrySource getSource() {
+        return source;
+    }
+
+    public void setSource(EntrySource source) {
+        this.source = source;
+    }
+
+    public LocalDate getEntryDate() {
+        return entryDate;
+    }
+
+    public void setEntryDate(LocalDate entryDate) {
+        this.entryDate = entryDate;
+    }
+
+    public BigDecimal getEntryWeightKg() {
+        return entryWeightKg;
+    }
+
+    public void setEntryWeightKg(BigDecimal entryWeightKg) {
+        this.entryWeightKg = entryWeightKg;
+    }
+
+    public WeightBasis getWeightBasis() {
+        return weightBasis;
+    }
+
+    public void setWeightBasis(WeightBasis weightBasis) {
+        this.weightBasis = weightBasis;
+    }
+
+    public Long getUnitPrice() {
+        return unitPrice;
+    }
+
+    public void setUnitPrice(Long unitPrice) {
+        this.unitPrice = unitPrice;
+    }
+
+    public Long getLineAmount() {
+        return lineAmount;
+    }
+
+    public void setLineAmount(Long lineAmount) {
+        this.lineAmount = lineAmount;
+    }
+
+    public CalfOutcome getCalfOutcome() {
+        return calfOutcome;
+    }
+
+    public void setCalfOutcome(CalfOutcome calfOutcome) {
+        this.calfOutcome = calfOutcome;
     }
 
     public Pen getInitialPen() {
-        return this.initialPen;
+        return initialPen;
     }
 
-    public void setInitialPen(Pen pen) {
-        this.initialPen = pen;
+    public void setInitialPen(Pen initialPen) {
+        this.initialPen = initialPen;
     }
 
-    public HerdEntry initialPen(Pen pen) {
-        this.setInitialPen(pen);
-        return this;
+    public EntryLineStatus getStatus() {
+        return status;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    public void setStatus(EntryLineStatus status) {
+        this.status = status;
+    }
+
+    public boolean isCorrected() {
+        return corrected;
+    }
+
+    public void setCorrected(boolean corrected) {
+        this.corrected = corrected;
+    }
+
+    public LocalDate getQuarantineUntil() {
+        return quarantineUntil;
+    }
+
+    public void setQuarantineUntil(LocalDate quarantineUntil) {
+        this.quarantineUntil = quarantineUntil;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -148,18 +291,11 @@ public class HerdEntry implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "HerdEntry{" +
-            "id=" + getId() +
-            ", source='" + getSource() + "'" +
-            ", entryDate='" + getEntryDate() + "'" +
-            ", historyDeclarations='" + getHistoryDeclarations() + "'" +
-            "}";
+        return "HerdEntry{id=" + getId() + "}";
     }
 }

@@ -2,6 +2,7 @@ package vn.edu.fpt.beefcare.repository;
 
 import org.springframework.data.jpa.repository.*;
 import org.springframework.stereotype.Repository;
+import java.util.Optional;
 import vn.edu.fpt.beefcare.domain.AppUser;
 
 /**
@@ -9,4 +10,6 @@ import vn.edu.fpt.beefcare.domain.AppUser;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface AppUserRepository extends JpaRepository<AppUser, Long> {}
+public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+    Optional<AppUser> findOneByEmailIgnoreCase(String email);
+}

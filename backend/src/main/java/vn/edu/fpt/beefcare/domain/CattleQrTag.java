@@ -1,17 +1,15 @@
 package vn.edu.fpt.beefcare.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.Instant;
+import vn.edu.fpt.beefcare.domain.enumeration.QrTagStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.ReplacementReason;
 
-/**
- * A CattleQrTag.
- */
 @Entity
-@Table(name = "cattle_qr_tag")
+@Table(name = "cattle_qr_tag", uniqueConstraints = {@UniqueConstraint(name = "uq_cattle_qr_tag_code", columnNames = {"tag_code"})})
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class CattleQrTag implements Serializable {
 
@@ -25,79 +23,148 @@ public class CattleQrTag implements Serializable {
     private Long id;
 
     @NotNull
-    @Size(max = 50)
-    @Column(name = "tag_code", length = 50, nullable = false, unique = true)
-    private String tagCode;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "farm_id")
+    private Farm farm;
 
-    /**
-     * ACTIVE | REPLACED
-     */
-    @Schema(description = "ACTIVE | REPLACED", required = true)
     @NotNull
-    @Size(max = 30)
-    @Column(name = "status", length = 30, nullable = false)
-    private String status;
-
-    @ManyToOne(optional = false)
-    @NotNull
-    @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "cattle_id")
     private Cattle cattle;
 
-    // jhipster-needle-entity-add-field - JHipster will add fields here
+    @NotNull
+    @Size(max = 50)
+    @Column(name = "tag_code", length = 50, nullable = false)
+    private String tagCode;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 30, nullable = false)
+    private QrTagStatus status = QrTagStatus.ACTIVE;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "issued_by_id")
+    private AppUser issuedBy;
+
+    @NotNull
+    @Column(name = "issued_at", nullable = false)
+    private Instant issuedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "replacement_reason", length = 30)
+    private ReplacementReason replacementReason;
+
+    @Size(max = 500)
+    @Column(name = "note", length = 500)
+    private String note;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "replaced_by_tag_id")
+    private CattleQrTag replacedByTag;
+
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     public Long getId() {
-        return this.id;
-    }
-
-    public CattleQrTag id(Long id) {
-        this.setId(id);
-        return this;
+        return id;
     }
 
     public void setId(Long id) {
         this.id = id;
     }
 
-    public String getTagCode() {
-        return this.tagCode;
+    public Farm getFarm() {
+        return farm;
     }
 
-    public CattleQrTag tagCode(String tagCode) {
-        this.setTagCode(tagCode);
-        return this;
-    }
-
-    public void setTagCode(String tagCode) {
-        this.tagCode = tagCode;
-    }
-
-    public String getStatus() {
-        return this.status;
-    }
-
-    public CattleQrTag status(String status) {
-        this.setStatus(status);
-        return this;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
+    public void setFarm(Farm farm) {
+        this.farm = farm;
     }
 
     public Cattle getCattle() {
-        return this.cattle;
+        return cattle;
     }
 
     public void setCattle(Cattle cattle) {
         this.cattle = cattle;
     }
 
-    public CattleQrTag cattle(Cattle cattle) {
-        this.setCattle(cattle);
-        return this;
+    public String getTagCode() {
+        return tagCode;
     }
 
-    // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
+    public void setTagCode(String tagCode) {
+        this.tagCode = tagCode;
+    }
+
+    public QrTagStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(QrTagStatus status) {
+        this.status = status;
+    }
+
+    public AppUser getIssuedBy() {
+        return issuedBy;
+    }
+
+    public void setIssuedBy(AppUser issuedBy) {
+        this.issuedBy = issuedBy;
+    }
+
+    public Instant getIssuedAt() {
+        return issuedAt;
+    }
+
+    public void setIssuedAt(Instant issuedAt) {
+        this.issuedAt = issuedAt;
+    }
+
+    public ReplacementReason getReplacementReason() {
+        return replacementReason;
+    }
+
+    public void setReplacementReason(ReplacementReason replacementReason) {
+        this.replacementReason = replacementReason;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public CattleQrTag getReplacedByTag() {
+        return replacedByTag;
+    }
+
+    public void setReplacedByTag(CattleQrTag replacedByTag) {
+        this.replacedByTag = replacedByTag;
+    }
+
+    public Instant getClosedAt() {
+        return closedAt;
+    }
+
+    public void setClosedAt(Instant closedAt) {
+        this.closedAt = closedAt;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -112,17 +179,11 @@ public class CattleQrTag implements Serializable {
 
     @Override
     public int hashCode() {
-        // see https://vladmihalcea.com/how-to-implement-equals-and-hashcode-using-the-jpa-entity-identifier/
         return getClass().hashCode();
     }
 
-    // prettier-ignore
     @Override
     public String toString() {
-        return "CattleQrTag{" +
-            "id=" + getId() +
-            ", tagCode='" + getTagCode() + "'" +
-            ", status='" + getStatus() + "'" +
-            "}";
+        return "CattleQrTag{id=" + getId() + "}";
     }
 }

@@ -3,6 +3,7 @@ package vn.edu.fpt.beefcare.domain;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
@@ -70,6 +71,12 @@ public class Treatment implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnoreProperties(value = { "farm" }, allowSetters = true)
     private Medicine medicine;
+
+    @Column(name = "withdrawal_end_date")
+    private LocalDate withdrawalEndDate;
+
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "VALID";
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -201,6 +208,22 @@ public class Treatment implements Serializable {
     public Treatment medicine(Medicine medicine) {
         this.setMedicine(medicine);
         return this;
+    }
+
+    public LocalDate getWithdrawalEndDate() {
+        return withdrawalEndDate;
+    }
+
+    public void setWithdrawalEndDate(LocalDate withdrawalEndDate) {
+        this.withdrawalEndDate = withdrawalEndDate;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

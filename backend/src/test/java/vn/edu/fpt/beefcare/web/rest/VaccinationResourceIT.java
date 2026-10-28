@@ -95,7 +95,7 @@ class VaccinationResourceIT {
         // Add required entity
         Cattle cattle;
         if (TestUtil.findAll(em, Cattle.class).isEmpty()) {
-            cattle = CattleResourceIT.createEntity(em);
+            cattle = EntityFactories.cattle(em);
             em.persist(cattle);
             em.flush();
         } else {
@@ -132,7 +132,7 @@ class VaccinationResourceIT {
         // Add required entity
         Cattle cattle;
         if (TestUtil.findAll(em, Cattle.class).isEmpty()) {
-            cattle = CattleResourceIT.createUpdatedEntity(em);
+            cattle = EntityFactories.cattle(em);
             em.persist(cattle);
             em.flush();
         } else {

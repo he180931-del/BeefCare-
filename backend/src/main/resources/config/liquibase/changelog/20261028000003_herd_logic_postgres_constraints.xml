@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        PostgreSQL-only integrity layer for FE-04 / FE-06 / FE-13 (spec Appendix G, section 6).
+        The same invariants are enforced in the Java services; these objects are the last line of defence.
+        NOT executed on H2 (offline tests), so they are untested there.
+    -->
+
+    <changeSet id="20261028000003-indexes" author="beefcare" dbms="postgresql">
+        <sql>
+            CREATE UNIQUE INDEX ux_pen_assignment_open_per_cattle ON pen_assignment (cattle_id) WHERE to_date IS NULL;
+            CREATE UNIQUE INDEX ux_qr_tag_active_per_cattle ON cattle_qr_tag (cattle_id) WHERE status = 'ACTIVE';
+            CREATE UNIQUE INDEX ux_cattle_ear_tag_active ON cattle (farm_id, lower(ear_tag_number)) WHERE herd_status = 'ACTIVE' AND ear_tag_number IS NOT NULL;
+            CREATE UNIQUE INDEX ux_herd_entry_valid_per_cattle ON herd_entry (cattle_id) WHERE status = 'VALID';
+            CREATE UNIQUE INDEX ux_herd_exit_open_per_cattle ON herd_exit (cattle_id) WHERE status IN ('DRAFT','PENDING','CONFIRMED');
+            CREATE UNIQUE INDEX ux_herd_entry_calf_outcome ON herd_entry (calf_outcome_id) WHERE calf_outcome_id IS NOT NULL AND status &lt;&gt; 'VOID';
+            CREATE UNIQUE INDEX ux_trading_partner_name ON trading_partner (farm_id, lower(name));
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261028000003-overlap" author="beefcare" dbms="postgresql">
+        <sql>
+            CREATE EXTENSION IF NOT EXISTS btree_gist;
+            ALTER TABLE pen_assignment ADD CONSTRAINT ex_assignment_no_overlap
+                EXCLUDE USING gist (cattle_id WITH =, daterange(from_date, to_date, '[)') WITH &amp;&amp;);
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261028000003-capacity-trigger" author="beefcare" dbms="postgresql">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION fn_pen_capacity_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+            DECLARE cap int; cnt int;
+            BEGIN
+              IF NEW.to_date IS NOT NULL THEN RETURN NEW; END IF;
+              SELECT capacity INTO cap FROM pen WHERE id = NEW.pen_id FOR UPDATE;
+              SELECT count(*) INTO cnt FROM pen_assignment WHERE pen_id = NEW.pen_id AND to_date IS NULL AND id &lt;&gt; NEW.id;
+              IF cnt + 1 &gt; cap THEN
+                RAISE EXCEPTION 'Pen is full (% / %) (BR-D09)', cnt, cap USING ERRCODE = 'check_violation';
+              END IF;
+              RETURN NEW;
+            END $$;
+        </sql>
+        <sql>
+            CREATE TRIGGER trg_pen_capacity_guard BEFORE INSERT OR UPDATE OF pen_id, to_date ON pen_assignment
+              FOR EACH ROW EXECUTE FUNCTION fn_pen_capacity_guard();
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261028000003-checks" author="beefcare" dbms="postgresql">
+        <sql>
+            ALTER TABLE pen ADD CONSTRAINT ck_pen_capacity CHECK (capacity BETWEEN 1 AND 9999) NOT VALID;
+            ALTER TABLE pen ADD CONSTRAINT ck_pen_code CHECK (code ~ '^[A-Za-z0-9-]{1,20}$') NOT VALID;
+            ALTER TABLE pen_criteria_version ADD CONSTRAINT ck_pen_criteria_age CHECK (min_age_months IS NULL OR min_age_months BETWEEN 0 AND 240);
+            ALTER TABLE pen_criteria_version ADD CONSTRAINT ck_pen_criteria_weight CHECK (min_weight_kg IS NULL OR min_weight_kg BETWEEN 1 AND 1500);
+            ALTER TABLE pen_assignment ADD CONSTRAINT ck_assignment_dates CHECK (to_date IS NULL OR to_date &gt;= from_date);
+            ALTER TABLE cattle ADD CONSTRAINT ck_cattle_exit CHECK ((herd_status = 'EXITED') = (exit_type IS NOT NULL AND exit_date IS NOT NULL)) NOT VALID;
+            ALTER TABLE cattle ADD CONSTRAINT ck_cattle_void CHECK (herd_status &lt;&gt; 'VOIDED' OR void_reason IS NOT NULL) NOT VALID;
+            ALTER TABLE cattle ADD CONSTRAINT ck_cattle_parent CHECK (dam_id IS DISTINCT FROM id AND sire_id IS DISTINCT FROM id) NOT VALID;
+            ALTER TABLE cattle ADD CONSTRAINT ck_cattle_sire CHECK (sire_id IS NULL OR external_sire_code IS NULL) NOT VALID;
+            ALTER TABLE trading_partner ADD CONSTRAINT ck_partner_has_role CHECK (is_seller OR is_buyer OR is_supplier);
+            ALTER TABLE herd_entry_voucher ADD CONSTRAINT ck_entry_amounts CHECK (cattle_amount &gt;= 0 AND transport_fee &gt;= 0 AND amount_paid &gt;= 0);
+            ALTER TABLE herd_entry_voucher ADD CONSTRAINT ck_entry_purchase_seller CHECK (entry_type &lt;&gt; 'PURCHASE' OR seller_id IS NOT NULL OR status = 'DRAFT');
+            ALTER TABLE herd_entry_voucher ADD CONSTRAINT ck_entry_farm_born_no_amount CHECK (entry_type &lt;&gt; 'FARM_BORN' OR (cattle_amount = 0 AND transport_fee = 0 AND seller_id IS NULL));
+            ALTER TABLE herd_entry_voucher ADD CONSTRAINT ck_entry_voided CHECK (status &lt;&gt; 'VOIDED' OR (void_reason IS NOT NULL AND voided_at IS NOT NULL));
+            ALTER TABLE herd_exit_voucher ADD CONSTRAINT ck_exit_death CHECK (exit_type &lt;&gt; 'DEATH' OR (cattle_amount = 0 AND deductions = 0));
+            ALTER TABLE herd_exit_voucher ADD CONSTRAINT ck_exit_closed CHECK (status NOT IN ('DISMISSED','VOIDED') OR close_reason IS NOT NULL);
+            ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_amount CHECK (amount &gt; 0);
+            ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_one_voucher CHECK (num_nonnulls(entry_voucher_id, exit_voucher_id) = 1);
+            ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_direction CHECK ((exit_voucher_id IS NOT NULL) = (direction = 'COLLECT'));
+            ALTER TABLE voucher_payment ADD CONSTRAINT ck_payment_void CHECK (status = 'RECORDED' OR void_reason IS NOT NULL);
+            ALTER TABLE herd_entry ADD CONSTRAINT ck_entry_cattle CHECK (status = 'DRAFT' OR cattle_id IS NOT NULL);
+            ALTER TABLE pre_entry_history_declaration ADD CONSTRAINT ck_declaration_items CHECK (status &lt;&gt; 'KNOWN' OR items IS NOT NULL OR category = 'REPRODUCTION');
+        </sql>
+    </changeSet>
+</databaseChangeLog>

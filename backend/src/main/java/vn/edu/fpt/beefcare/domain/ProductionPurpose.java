@@ -2,6 +2,7 @@ package vn.edu.fpt.beefcare.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import vn.edu.fpt.beefcare.domain.enumeration.PurposeType;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
@@ -45,6 +46,10 @@ public class ProductionPurpose implements Serializable {
     @NotNull
     @JsonIgnoreProperties(value = { "subscription" }, allowSetters = true)
     private Farm farm;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose_type", length = 30, nullable = false)
+    private PurposeType purposeType = PurposeType.UNDECIDED;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -124,6 +129,14 @@ public class ProductionPurpose implements Serializable {
     public ProductionPurpose farm(Farm farm) {
         this.setFarm(farm);
         return this;
+    }
+
+    public PurposeType getPurposeType() {
+        return purposeType;
+    }
+
+    public void setPurposeType(PurposeType purposeType) {
+        this.purposeType = purposeType;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

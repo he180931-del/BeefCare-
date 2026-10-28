@@ -9,4 +9,11 @@ import vn.edu.fpt.beefcare.domain.Reminder;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface ReminderRepository extends JpaRepository<Reminder, Long> {}
+public interface ReminderRepository extends JpaRepository<Reminder, Long> {
+    java.util.List<Reminder> findAllByFarmIdAndCattleIdInAndRuleTypeAndStatus(
+        Long farmId,
+        java.util.Collection<Long> cattleIds,
+        String ruleType,
+        String status
+    );
+}

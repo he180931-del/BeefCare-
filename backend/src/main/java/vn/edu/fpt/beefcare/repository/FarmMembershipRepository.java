@@ -2,6 +2,7 @@ package vn.edu.fpt.beefcare.repository;
 
 import org.springframework.data.jpa.repository.*;
 import org.springframework.stereotype.Repository;
+import java.util.Optional;
 import vn.edu.fpt.beefcare.domain.FarmMembership;
 
 /**
@@ -9,4 +10,6 @@ import vn.edu.fpt.beefcare.domain.FarmMembership;
  */
 @SuppressWarnings("unused")
 @Repository
-public interface FarmMembershipRepository extends JpaRepository<FarmMembership, Long> {}
+public interface FarmMembershipRepository extends JpaRepository<FarmMembership, Long> {
+    Optional<FarmMembership> findFirstByFarmIdAndUserIdAndStatusIgnoreCase(Long farmId, Long userId, String status);
+}
