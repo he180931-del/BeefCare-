@@ -112,12 +112,12 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         assertThat(count("VoucherPayment")).isZero();
         assertThat(draft.payments()).isEmpty();
 
-        EntryDtos.Voucher updated = vouchers.update(farm.getId(), draft.id(), purchase(List.of(line("D1", penA, "310", 50_000)), 0L, 0L));
+        EntryDtos.Voucher updated = updateVoucher(draft.id(), purchase(List.of(line("D1", penA, "310", 50_000)), 0L, 0L));
         assertThat(updated.lines()).hasSize(1);
         assertThat(updated.cattleAmount()).isEqualTo(15_500_000L);
         assertThat(count("Cattle")).isZero();
 
-        vouchers.discard(farm.getId(), draft.id(), null);
+        discard(draft.id(), null);
         assertThat(count("HerdEntry")).isZero();
         assertThatThrownBy(() -> vouchers.get(farm.getId(), draft.id())).isInstanceOf(DomainException.class);
     }
@@ -125,7 +125,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
     @Test
     void discardedDraftCodeIsNeverReused() {
         EntryDtos.Voucher first = vouchers.create(farm.getId(), purchase(List.of(line("R1", penA, "300", 1)), 0L, 0L));
-        vouchers.discard(farm.getId(), first.id(), null);
+        discard(first.id(), null);
         EntryDtos.Voucher second = vouchers.create(farm.getId(), purchase(List.of(line("R1", penA, "300", 1)), 0L, 0L));
         assertThat(first.code()).isEqualTo("PN-2026-0001");
         assertThat(second.code()).isEqualTo("PN-2026-0002");
@@ -137,7 +137,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         EntryLineRequest sparse = new EntryLineRequest(null, null, null, null, null, null, null, null, null, null, null, null, null, penA.getId(), null, null, null, null, null, null, null);
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(List.of(sparse), 0L, 0L));
         assertThat(draft.lines()).hasSize(1);
-        DomainException e = thrown(() -> posting.post(farm.getId(), draft.id(), null));
+        DomainException e = thrown(() -> postDraft(farm.getId(), draft.id()));
         assertThat(e.getCode()).isEqualTo(MessageCodes.COM_06);
         assertThat(count("Cattle")).isZero();
         assertThat(vouchers.get(farm.getId(), draft.id()).status()).isEqualTo(EntryVoucherStatus.DRAFT);
@@ -153,7 +153,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
 
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(List.of(line("S1", small, "300", 1), line("S2", small, "300", 1)), 0L, 0L));
         long cattleBefore = count("Cattle");
-        DomainException e = thrown(() -> posting.post(farm.getId(), draft.id(), null));
+        DomainException e = thrown(() -> postDraft(farm.getId(), draft.id()));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_05);
         assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(e.getParams()).containsEntry("free", 1).containsEntry("count", 2);
@@ -166,7 +166,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
     void aggregateCapacityIsCheckedPerPen_notPerLine() {
         var two = pen(farm, "T" + next(), 2);
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(List.of(line("P1", two, "300", 1), line("P2", two, "300", 1), line("P3", two, "300", 1)), 0L, 0L));
-        DomainException e = thrown(() -> posting.post(farm.getId(), draft.id(), null));
+        DomainException e = thrown(() -> postDraft(farm.getId(), draft.id()));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_05);
         assertThat(e.getParams()).containsEntry("count", 3).containsEntry("free", 2);
         EntryDtos.Checks checks = vouchers.checks(farm.getId(), draft.id());
@@ -186,7 +186,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
             assertThat(o.willBeFull()).isTrue();
         });
         assertThat(checks.warnings()).extracting(EntryDtos.Issue::code).contains(MessageCodes.FE06_17);
-        EntryDtos.PostResult result = posting.post(farm.getId(), draft.id(), null);
+        EntryDtos.PostResult result = postDraft(farm.getId(), draft.id());
         assertThat(result.warnings()).extracting(EntryDtos.Issue::code).contains(MessageCodes.FE06_17);
     }
 
@@ -199,13 +199,13 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
 
         EntryLineRequest bull = line("B1", Sex.MALE, sire, fatteningOnly, "400", 1);
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(List.of(bull), 0L, 0L));
-        DomainException e = thrown(() -> posting.post(farm.getId(), draft.id(), null));
+        DomainException e = thrown(() -> postDraft(farm.getId(), draft.id()));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_06);
         assertThat(count("Cattle")).isZero();
 
-        EntryDtos.Voucher withReason = vouchers.update(farm.getId(), draft.id(), purchase(List.of(withReason(bull, "Bull kept apart")), 0L, 0L));
+        EntryDtos.Voucher withReason = updateVoucher(draft.id(), purchase(List.of(withReason(bull, "Bull kept apart")), 0L, 0L));
         vouchers.checks(farm.getId(), withReason.id());
-        posting.post(farm.getId(), withReason.id(), null);
+        postDraft(farm.getId(), withReason.id());
         PenAssignment a = em.createQuery("select a from PenAssignment a where a.farm.id = :f", PenAssignment.class).setParameter("f", farm.getId()).getSingleResult();
         assertThat(a.getWarningReason()).isEqualTo("Bull kept apart");
         assertThat(a.getCriteriaVersion()).isNotNull();
@@ -218,8 +218,8 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
     @Test
     void scenario4_postingTwiceCreatesOneSetOfData() {
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(List.of(line("X1", penA, "300", 50_000)), 0L, 5_000_000L));
-        EntryDtos.PostResult first = posting.post(farm.getId(), draft.id(), null);
-        EntryDtos.PostResult second = posting.post(farm.getId(), draft.id(), null);
+        EntryDtos.PostResult first = postDraft(farm.getId(), draft.id());
+        EntryDtos.PostResult second = postDraft(farm.getId(), draft.id());
         assertThat(first.alreadyPosted()).isFalse();
         assertThat(second.alreadyPosted()).isTrue();
         assertThat(second.cattleCodes()).isEqualTo(first.cattleCodes());
@@ -238,7 +238,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         EntryDtos.Checks checks = vouchers.checks(farm.getId(), draft.id());
         assertThat(checks.canPost()).isTrue();
         assertThat(checks.warnings()).extracting(EntryDtos.Issue::code).contains(MessageCodes.FE06_24);
-        EntryDtos.PostResult result = posting.post(farm.getId(), draft.id(), null);
+        EntryDtos.PostResult result = postDraft(farm.getId(), draft.id());
         assertThat(result.voucher().status()).isEqualTo(EntryVoucherStatus.POSTED);
         assertThat(result.warnings()).extracting(EntryDtos.Issue::code).contains(MessageCodes.FE06_24);
     }
@@ -336,23 +336,23 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
     void headerRules() {
         // no line
         EntryDtos.Voucher empty = vouchers.create(farm.getId(), purchase(List.of(), 0L, 0L));
-        assertThat(thrown(() -> posting.post(farm.getId(), empty.id(), null)).getCode()).isEqualTo(MessageCodes.FE06_16);
+        assertThat(thrown(() -> postDraft(farm.getId(), empty.id())).getCode()).isEqualTo(MessageCodes.FE06_16);
 
         // amount paid above total
         EntryDtos.Voucher over = vouchers.create(farm.getId(), purchase(List.of(line("H1", penA, "100", 1_000)), 0L, 200_000L));
-        DomainException e = thrown(() -> posting.post(farm.getId(), over.id(), null));
+        DomainException e = thrown(() -> postDraft(farm.getId(), over.id()));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_13);
         assertThat(e.getParams()).containsEntry("amount", 100_000L);
 
         // missing seller
         var noSeller = new vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest(vn.edu.fpt.beefcare.domain.enumeration.EntryType.PURCHASE, TODAY, null, null, null, null, null, null, 0L, 0L, null, null, List.of(line("H2", penA, "100", 1)), null);
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), noSeller);
-        assertThat(thrown(() -> posting.post(farm.getId(), draft.id(), null)).getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(thrown(() -> postDraft(farm.getId(), draft.id())).getCode()).isEqualTo(MessageCodes.COM_06);
 
         // payment method required when something is paid
         var noMethod = new vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest(vn.edu.fpt.beefcare.domain.enumeration.EntryType.PURCHASE, TODAY, seller.getId(), null, null, null, null, null, 0L, 10L, null, null, List.of(line("H3", penA, "100", 1_000)), null);
         EntryDtos.Voucher d2 = vouchers.create(farm.getId(), noMethod);
-        assertThat(thrown(() -> posting.post(farm.getId(), d2.id(), null)).getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(thrown(() -> postDraft(farm.getId(), d2.id())).getCode()).isEqualTo(MessageCodes.COM_06);
         assertThat(count("Cattle")).isZero();
     }
 
@@ -360,35 +360,35 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
     void entryDateCannotBeInTheFutureOrBeforeABirthDate() {
         var future = new vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest(vn.edu.fpt.beefcare.domain.enumeration.EntryType.PURCHASE, TODAY.plusDays(1), seller.getId(), null, null, null, null, null, 0L, 0L, null, null, List.of(line("E1", penA, "100", 1)), null);
         EntryDtos.Voucher d = vouchers.create(farm.getId(), future);
-        assertThat(thrown(() -> posting.post(farm.getId(), d.id(), null)).getCode()).isEqualTo(MessageCodes.FE06_03);
+        assertThat(thrown(() -> postDraft(farm.getId(), d.id())).getCode()).isEqualTo(MessageCodes.FE06_03);
 
         EntryLineRequest born = new EntryLineRequest("E2", null, null, null, breed.getId(), Sex.MALE, TODAY.plusDays(0), null, null, vn.edu.fpt.beefcare.domain.enumeration.LifeStage.ADULT, fattening.getId(), new BigDecimal("100"), vn.edu.fpt.beefcare.domain.enumeration.WeightBasis.MEASURED, penA.getId(), 1L, null, null, null, null, null, null);
         var early = new vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest(vn.edu.fpt.beefcare.domain.enumeration.EntryType.PURCHASE, TODAY.minusDays(5), seller.getId(), null, null, null, null, null, 0L, 0L, null, null, List.of(born), null);
         EntryDtos.Voucher d2 = vouchers.create(farm.getId(), early);
-        assertThat(thrown(() -> posting.post(farm.getId(), d2.id(), null)).getCode()).isEqualTo(MessageCodes.FE06_03);
+        assertThat(thrown(() -> postDraft(farm.getId(), d2.id())).getCode()).isEqualTo(MessageCodes.FE06_03);
     }
 
     @Test
     void lineRules() {
         // duplicate ear tag inside the voucher
         EntryDtos.Voucher dup = vouchers.create(farm.getId(), purchase(List.of(line("DUP", penA, "100", 1), line("dup", penA, "100", 1)), 0L, 0L));
-        assertThat(thrown(() -> posting.post(farm.getId(), dup.id(), null)).getCode()).isEqualTo(HerdEntryCodes.FE05_02);
+        assertThat(thrown(() -> postDraft(farm.getId(), dup.id())).getCode()).isEqualTo(HerdEntryCodes.FE05_02);
 
         // SIRE purpose for a female
         EntryDtos.Voucher sirePurpose = vouchers.create(farm.getId(), purchase(List.of(line("L1", Sex.FEMALE, sire, penA, "100", 1)), 0L, 0L));
-        assertThat(thrown(() -> posting.post(farm.getId(), sirePurpose.id(), null)).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        assertThat(thrown(() -> postDraft(farm.getId(), sirePurpose.id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
 
         // inactive breed
         breed.setAvailable(false);
         save(breed);
         EntryDtos.Voucher inactive = vouchers.create(farm.getId(), purchase(List.of(line("L2", penA, "100", 1)), 0L, 0L));
-        assertThat(thrown(() -> posting.post(farm.getId(), inactive.id(), null)).getCode()).isEqualTo(HerdEntryCodes.FE18_08);
+        assertThat(thrown(() -> postDraft(farm.getId(), inactive.id())).getCode()).isEqualTo(HerdEntryCodes.FE18_08);
         breed.setAvailable(true);
         save(breed);
 
         // per-kg pricing needs a weight
         EntryDtos.Voucher noWeight = vouchers.create(farm.getId(), purchase(List.of(line("L3", penA, null, 1)), 0L, 0L));
-        assertThat(thrown(() -> posting.post(farm.getId(), noWeight.id(), null)).getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(thrown(() -> postDraft(farm.getId(), noWeight.id())).getCode()).isEqualTo(MessageCodes.COM_06);
         assertThat(count("Cattle")).isZero();
     }
 
@@ -396,7 +396,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
     void earTagMustBeUniqueAmongActiveCattle_andIsFreedByAVoid() {
         createAndPost(List.of(line("TAG-1", penA, "100", 1), line("TAG-2", penA, "100", 1)), 0L, 0L);
         EntryDtos.Voucher again = vouchers.create(farm.getId(), purchase(List.of(line("tag-1", penA, "100", 1)), 0L, 0L));
-        assertThat(thrown(() -> posting.post(farm.getId(), again.id(), null)).getCode()).isEqualTo(HerdEntryCodes.FE05_02);
+        assertThat(thrown(() -> postDraft(farm.getId(), again.id())).getCode()).isEqualTo(HerdEntryCodes.FE05_02);
         EntryDtos.Checks checks = vouchers.checks(farm.getId(), again.id());
         assertThat(checks.errors()).extracting(EntryDtos.Issue::code).contains(HerdEntryCodes.FE05_02);
     }
@@ -431,12 +431,12 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         EntryDtos.PostResult result = createAndPost(List.of(line("N2", penA, "100", 1)), 0L, 0L);
         assertThat(result.voucher().status()).isEqualTo(EntryVoucherStatus.POSTED);
         actAs(technician);
-        assertThat(thrown(() -> posting.post(farm.getId(), result.voucher().id(), null)).getCode()).isEqualTo(MessageCodes.COM_01);
-        assertThat(thrown(() -> corrections.voidVoucher(farm.getId(), result.voucher().id(), new vn.edu.fpt.beefcare.service.dto.EntryActionRequests.VoidRequest("x", null))).getCode()).isEqualTo(MessageCodes.COM_01);
+        assertThat(thrown(() -> postDraft(farm.getId(), result.voucher().id())).getCode()).isEqualTo(MessageCodes.COM_01);
+        assertThat(thrown(() -> voidVoucher(result.voucher().id(), new vn.edu.fpt.beefcare.service.dto.EntryActionRequests.VoidRequest("x", null))).getCode()).isEqualTo(MessageCodes.COM_01);
     }
 
     @Test
-    void expiredFarmServiceBlocksWrites() {
+    void expiredFarmServiceBlocksWritesAndReads() {
         var expired = farm("EXPIRED");
         var o = memberWithRole(expired, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
         actAs(o);
@@ -444,7 +444,8 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         DomainException e = thrown(() -> vouchers.create(expired.getId(), req));
         assertThat(e.getCode()).isEqualTo(MessageCodes.COM_12);
         assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(vouchers.list(expired.getId(), null, null, null, null, null).items()).isEmpty();
+        // GBR-14 / MSG-COM-12: reads of farm operations are unavailable too while the service is not ACTIVE.
+        assertThat(thrown(() -> vouchers.list(expired.getId(), null, null, null, null, null)).getCode()).isEqualTo(MessageCodes.COM_12);
     }
 
     @Test
@@ -454,18 +455,18 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         var otherOwner = memberWithRole(other, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
         actAs(otherOwner);
         assertThat(thrown(() -> vouchers.get(other.getId(), draft.id())).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(thrown(() -> posting.post(other.getId(), draft.id(), null)).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(thrown(() -> postDraft(other.getId(), draft.id())).getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(thrown(() -> vouchers.get(farm.getId(), draft.id())).getCode()).isEqualTo(MessageCodes.COM_01);
     }
 
     @Test
     void staleDraftVersionIsRejected() {
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(List.of(line("VV", penA, "100", 1)), 0L, 0L));
-        vouchers.update(farm.getId(), draft.id(), purchase(List.of(line("VV", penA, "110", 1)), 0L, 0L));
+        updateVoucher(draft.id(), purchase(List.of(line("VV", penA, "110", 1)), 0L, 0L));
         var stale = new vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest(
             draft.entryType(), TODAY, seller.getId(), null, null, null, null, null, 0L, 0L, null, null, List.of(line("VV", penA, "120", 1)), draft.version()
         );
-        DomainException e = thrown(() -> vouchers.update(farm.getId(), draft.id(), stale));
+        DomainException e = thrown(() -> updateVoucher(draft.id(), stale));
         assertThat(e.getCode()).isEqualTo(MessageCodes.COM_05);
         assertThat(e.getStatus()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(thrown(() -> posting.post(farm.getId(), draft.id(), new vn.edu.fpt.beefcare.service.dto.EntryActionRequests.PostRequest(draft.version(), false))).getCode()).isEqualTo(MessageCodes.COM_05);
@@ -482,7 +483,7 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         assertThat(partner.isSeller()).isTrue();
         partner.setStatus(vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus.INACTIVE);
         save(partner);
-        assertThat(thrown(() -> posting.post(farm.getId(), draft.id(), null)).getCode()).isEqualTo(MessageCodes.COM_08);
+        assertThat(thrown(() -> postDraft(farm.getId(), draft.id())).getCode()).isEqualTo(MessageCodes.COM_08);
     }
 
     @Test

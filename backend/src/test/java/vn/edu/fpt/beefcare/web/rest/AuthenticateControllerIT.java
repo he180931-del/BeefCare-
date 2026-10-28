@@ -148,7 +148,8 @@ class AuthenticateControllerIT {
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
             .content(om.writeValueAsBytes(login("session-google-only", "secret"))))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("MSG-FE01-01"));
     }
 
     @Test

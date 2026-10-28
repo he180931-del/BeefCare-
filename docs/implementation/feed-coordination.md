@@ -71,3 +71,9 @@ Report inputs validate ordered dates and a maximum 24-month period. Missing deno
 
 Durable idempotency records are scoped by verified actor, farm/account scope, action and client key. Requests are hashed; bounded JSON response DTOs are stored with command writes and outbox rows in the same transaction. A replay rechecks current farm/platform permissions. `executePlatformAuthorized(...)` also rechecks mutable named assignments during replay and concurrent-key recovery. The outbox retries unhandled events rather than falsely acknowledging them; external provider handlers remain extension points.
 
+
+## Update 2026-10-29
+
+- FE-14: REM-08 (stage age, none for UNKNOWN birth dates, resolved by the stage change) and REM-12 (Owner/Manager only, resolved on dismissal) now have tests in `ReminderReconciliationIT`; REM-11 still has none. New notification producers: PM reconciliation, JOB-05 subscription notices, internal request reminder.
+- FE-15: SCR-48 "Getting started" panel (`FarmOnboardingService`, decision D10, `FarmOnboardingServiceIT`). RPT-01 is checked against hand counts and RPT-02/03/04/06 run with role and 24-month checks in `ReportsAndAuditIT`; hand-computed values for RPT-03/04/06 remain open.
+- Outbox: events are written but no handler consumes them; notifications and emails are created directly. Decide whether to add handlers or stop writing unused events.

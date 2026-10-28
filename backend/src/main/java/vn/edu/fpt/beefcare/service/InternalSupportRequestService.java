@@ -164,6 +164,18 @@ public class InternalSupportRequestService {
         }
         return false;
     }
+    /** JOB-07 step 4: the named recipient of a request OPEN for 4 hours gets one reminder notice (per recipient). */
+    public int remindLongOpenRequests() {
+        java.time.Instant cutoff = clock.now().minus(java.time.Duration.ofHours(4));
+        List<InternalRequest> open = em.createQuery("select r from InternalRequest r where r.state='OPEN' and r.createdAt <= :cutoff", InternalRequest.class)
+            .setParameter("cutoff", cutoff).getResultList();
+        for (InternalRequest ir : open) {
+            notifications.notify(ir.getRecipient(), "SUPPORT", "INTERNAL_REQUEST", ir.getId(), "Yêu cầu nội bộ " + ir.getCode() + " đang chờ xử lý",
+                "Yêu cầu đã mở hơn 4 giờ và đang chờ kết quả của bạn.", "internal:" + ir.getId() + ":open4h:" + ir.getRecipient().getId());
+        }
+        return open.size();
+    }
+
     private void notice(InternalRequest ir, AppUser recipient, String event) {
         notifications.notify(recipient, "SUPPORT", "INTERNAL_REQUEST", ir.getId(), "Cập nhật yêu cầu nội bộ " + ir.getCode(),
             "Trạng thái: " + ir.getState(), "internal:" + ir.getId() + ":" + event + ":" + ir.getVersion());

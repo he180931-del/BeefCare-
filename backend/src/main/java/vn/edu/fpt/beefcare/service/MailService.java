@@ -70,6 +70,8 @@ public class MailService {
             case "VERIFY_EMAIL" -> "Xác minh email BeefCare";
             case "RESET_PASSWORD" -> "Đặt lại mật khẩu BeefCare";
             case "FARM_INVITATION" -> "Lời mời tham gia trang trại BeefCare";
+            case "GOOGLE_SIGN_IN_ADVICE" -> "Đăng nhập BeefCare bằng Google";
+            case "SUBSCRIPTION_NOTICE" -> "Thông báo gói dịch vụ BeefCare";
             default -> throw new IllegalArgumentException("Unknown action email template");
         });
         job.setCreatedAt(java.time.Instant.now());

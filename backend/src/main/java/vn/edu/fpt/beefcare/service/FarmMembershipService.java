@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,8 @@ import vn.edu.fpt.beefcare.service.email.ActionLinkSigner;
 /** Owner-controlled invitation lifecycle and fixed farm-role membership changes (GBR-06, GBR-14, GBR-16–18). */
 @Service
 public class FarmMembershipService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FarmMembershipService.class);
 
     private static final String ACTIVE = "ACTIVE";
     private static final String PENDING = "PENDING";
@@ -285,10 +289,17 @@ public class FarmMembershipService {
         }
     }
 
-    @Scheduled(cron = "0 0 * * * ?")
+    /** JOB-02: every 15 minutes; acceptance and resend also check the expiry in real time. */
+    @Scheduled(cron = "${beefcare.jobs.invitation-expiry-cron:0 */15 * * * *}")
     @Transactional
     public void expirePendingInvitations() {
-        invitations.expirePending(clock.now());
+        List<FarmInvitation> expired = invitations.lockPendingExpiredBefore(clock.now());
+        for (FarmInvitation invitation : expired) {
+            invitation.setStatus("EXPIRED");
+            invitation.setTokenHash(null);
+            audit.log(invitation.getFarm(), null, "INVITE_EXPIRED", "FarmInvitation", invitation.getId(), java.util.Map.of("status", "EXPIRED"));
+        }
+        if (!expired.isEmpty()) LOG.info("Expired {} farm invitations", expired.size());
     }
 
     private FarmInvitation findValidInviteForCaller(String rawToken) {

@@ -67,6 +67,18 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         return new RecordPaymentRequest(TODAY, amount, PaymentMethod.BANK_TRANSFER, "ref-" + amount, null, null);
     }
 
+    // The payment dialog sends the voucher or payment version it read (BR-D31); a request that names one keeps it.
+    private PaymentResultDTO record(VoucherKind kind, Long voucherId, RecordPaymentRequest r) {
+        Integer version = r.voucherVersion() != null ? r.voucherVersion()
+            : versionOf(kind == VoucherKind.ENTRY ? HerdEntryVoucher.class : HerdExitVoucher.class, voucherId);
+        return payments.record(farm.getId(), kind, voucherId, new RecordPaymentRequest(r.paymentDate(), r.amount(), r.method(), r.reference(), r.note(), version));
+    }
+
+    private PaymentResultDTO voidPay(Long paymentId, VoidPaymentRequest r) {
+        Integer version = r.version() != null ? r.version() : versionOf(vn.edu.fpt.beefcare.domain.VoucherPayment.class, paymentId);
+        return payments.voidPayment(farm.getId(), paymentId, new VoidPaymentRequest(r.reason(), version));
+    }
+
     private void expect(Runnable call, String code) {
         assertThatThrownBy(call::run)
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).as(e.getMessage()).isEqualTo(code));
@@ -75,7 +87,7 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
     @Test
     void scenario9PaymentAboveOutstandingIsBlockedAndVoidRaisesOutstandingAgain() {
         actAs(owner);
-        PaymentResultDTO first = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(20_000_000L));
+        PaymentResultDTO first = record(VoucherKind.ENTRY, entry.getId(), pay(20_000_000L));
         assertThat(first.payment().direction()).isEqualTo(PaymentDirection.PAY);
         assertThat(first.summary().total()).isEqualTo(62_000_000L);
         assertThat(first.summary().paid()).isEqualTo(20_000_000L);
@@ -84,7 +96,7 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         assertThat(entry.getAmountPaid()).isEqualTo(20_000_000L);
 
         // exceeds the outstanding amount (BR-D39)
-        assertThatThrownBy(() -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(42_000_001L)))
+        assertThatThrownBy(() -> record(VoucherKind.ENTRY, entry.getId(), pay(42_000_001L)))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_13);
                 assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -93,13 +105,13 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         assertThat(entry.getAmountPaid()).isEqualTo(20_000_000L);
 
         // paying the exact rest settles the voucher
-        PaymentResultDTO rest = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(42_000_000L));
+        PaymentResultDTO rest = record(VoucherKind.ENTRY, entry.getId(), pay(42_000_000L));
         assertThat(rest.summary().state()).isEqualTo(PaymentState.PAID);
         assertThat(rest.summary().outstanding()).isZero();
-        expect(() -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1)), MessageCodes.FE06_13);
+        expect(() -> record(VoucherKind.ENTRY, entry.getId(), pay(1)), MessageCodes.FE06_13);
 
         // voiding a payment raises the outstanding amount again
-        PaymentResultDTO voided = payments.voidPayment(farm.getId(), first.payment().id(), new VoidPaymentRequest("wrong amount", null));
+        PaymentResultDTO voided = voidPay(first.payment().id(), new VoidPaymentRequest("wrong amount", null));
         assertThat(voided.payment().status()).isEqualTo(PaymentRecordStatus.VOIDED);
         assertThat(voided.payment().voidReason()).isEqualTo("wrong amount");
         assertThat(voided.summary().paid()).isEqualTo(42_000_000L);
@@ -108,44 +120,44 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         assertThat(entry.getAmountPaid()).isEqualTo(42_000_000L);
 
         // and the freed amount can be recorded again
-        PaymentResultDTO again = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(20_000_000L));
+        PaymentResultDTO again = record(VoucherKind.ENTRY, entry.getId(), pay(20_000_000L));
         assertThat(again.summary().state()).isEqualTo(PaymentState.PAID);
     }
 
     @Test
     void managerMayPaySellerButNotCollectFromBuyer() {
         actAs(manager);
-        assertThat(payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1_000_000L)).payment().recordedById()).isEqualTo(manager.getId());
-        expect(() -> payments.record(farm.getId(), VoucherKind.EXIT, exit.getId(), pay(1_000_000L)), MessageCodes.COM_01);
+        assertThat(record(VoucherKind.ENTRY, entry.getId(), pay(1_000_000L)).payment().recordedById()).isEqualTo(manager.getId());
+        expect(() -> record(VoucherKind.EXIT, exit.getId(), pay(1_000_000L)), MessageCodes.COM_01);
     }
 
     @Test
     void ownerCollectsFromBuyer() {
         actAs(owner);
-        PaymentResultDTO r = payments.record(farm.getId(), VoucherKind.EXIT, exit.getId(), pay(10_000_000L));
+        PaymentResultDTO r = record(VoucherKind.EXIT, exit.getId(), pay(10_000_000L));
         assertThat(r.payment().direction()).isEqualTo(PaymentDirection.COLLECT);
         assertThat(r.summary().total()).isEqualTo(59_000_000L);
         assertThat(r.summary().outstanding()).isEqualTo(49_000_000L);
         assertThat(exit.getAmountCollected()).isEqualTo(10_000_000L);
-        expect(() -> payments.record(farm.getId(), VoucherKind.EXIT, exit.getId(), pay(49_000_001L)), MessageCodes.FE06_13);
+        expect(() -> record(VoucherKind.EXIT, exit.getId(), pay(49_000_001L)), MessageCodes.FE06_13);
     }
 
     @Test
     void technicianCannotRecordOrVoid() {
         actAs(owner);
-        PaymentResultDTO r = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1_000_000L));
+        PaymentResultDTO r = record(VoucherKind.ENTRY, entry.getId(), pay(1_000_000L));
         actAs(technician);
-        expect(() -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1_000L)), MessageCodes.COM_01);
-        expect(() -> payments.voidPayment(farm.getId(), r.payment().id(), new VoidPaymentRequest("x", null)), MessageCodes.COM_01);
+        expect(() -> record(VoucherKind.ENTRY, entry.getId(), pay(1_000L)), MessageCodes.COM_01);
+        expect(() -> voidPay(r.payment().id(), new VoidPaymentRequest("x", null)), MessageCodes.COM_01);
         expect(() -> payments.list(farm.getId(), VoucherKind.ENTRY, entry.getId()), MessageCodes.COM_01);
     }
 
     @Test
     void managerCannotVoidACollection() {
         actAs(owner);
-        PaymentResultDTO r = payments.record(farm.getId(), VoucherKind.EXIT, exit.getId(), pay(1_000_000L));
+        PaymentResultDTO r = record(VoucherKind.EXIT, exit.getId(), pay(1_000_000L));
         actAs(manager);
-        expect(() -> payments.voidPayment(farm.getId(), r.payment().id(), new VoidPaymentRequest("x", null)), MessageCodes.COM_01);
+        expect(() -> voidPay(r.payment().id(), new VoidPaymentRequest("x", null)), MessageCodes.COM_01);
         // a manager can view the exit voucher payments (read-only)
         assertThat(payments.list(farm.getId(), VoucherKind.EXIT, exit.getId()).payments()).hasSize(1);
     }
@@ -155,33 +167,33 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         actAs(owner);
         LocalDate voucherDate = entry.getEntryDate();
         expect(
-            () -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY.plusDays(1), 1000L, PaymentMethod.CASH, null, null, null)),
+            () -> record(VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY.plusDays(1), 1000L, PaymentMethod.CASH, null, null, null)),
             MessageCodes.COM_07
         );
         expect(
-            () -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(voucherDate.minusDays(1), 1000L, PaymentMethod.CASH, null, null, null)),
+            () -> record(VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(voucherDate.minusDays(1), 1000L, PaymentMethod.CASH, null, null, null)),
             MessageCodes.COM_15
         );
         // the voucher date itself and today are both fine
-        payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(voucherDate, 1000L, PaymentMethod.CASH, null, null, null));
-        payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, 1000L, PaymentMethod.CASH, null, null, null));
+        record(VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(voucherDate, 1000L, PaymentMethod.CASH, null, null, null));
+        record(VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, 1000L, PaymentMethod.CASH, null, null, null));
     }
 
     @Test
     void amountMustBeAPositiveWholeNumberWithMethodAndShortTexts() {
         actAs(owner);
-        expect(() -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(0)), MessageCodes.COM_10);
-        expect(() -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(-5)), MessageCodes.COM_10);
+        expect(() -> record(VoucherKind.ENTRY, entry.getId(), pay(0)), MessageCodes.COM_10);
+        expect(() -> record(VoucherKind.ENTRY, entry.getId(), pay(-5)), MessageCodes.COM_10);
         expect(
-            () -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, null, PaymentMethod.CASH, null, null, null)),
+            () -> record(VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, null, PaymentMethod.CASH, null, null, null)),
             MessageCodes.COM_06
         );
         expect(
-            () -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, 100L, null, null, null, null)),
+            () -> record(VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, 100L, null, null, null, null)),
             MessageCodes.COM_06
         );
         expect(
-            () -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, 100L, PaymentMethod.CASH, "r".repeat(101), null, null)),
+            () -> record(VoucherKind.ENTRY, entry.getId(), new RecordPaymentRequest(TODAY, 100L, PaymentMethod.CASH, "r".repeat(101), null, null)),
             MessageCodes.COM_10
         );
     }
@@ -193,20 +205,20 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         HerdEntryVoucher voided = entryVoucher(farm, owner, seller, 1_000L, 0, EntryVoucherStatus.VOIDED);
         HerdExitVoucher pending = exitVoucher(farm, owner, null, 0, 0, ExitVoucherStatus.PENDING);
         for (HerdEntryVoucher v : new HerdEntryVoucher[] { draft, voided }) {
-            assertThatThrownBy(() -> payments.record(farm.getId(), VoucherKind.ENTRY, v.getId(), pay(100)))
+            assertThatThrownBy(() -> record(VoucherKind.ENTRY, v.getId(), pay(100)))
                 .isInstanceOfSatisfying(DomainException.class, e -> {
                     assertThat(e.getCode()).isEqualTo(MessageCodes.COM_05);
                     assertThat(e.getStatus()).isEqualTo(HttpStatus.CONFLICT);
                 });
         }
-        expect(() -> payments.record(farm.getId(), VoucherKind.EXIT, pending.getId(), pay(100)), MessageCodes.COM_05);
+        expect(() -> record(VoucherKind.EXIT, pending.getId(), pay(100)), MessageCodes.COM_05);
     }
 
     @Test
     void staleVoucherVersionIsAConflict() {
         actAs(owner);
         int version = entry.getVersion();
-        payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1_000L));
+        record(VoucherKind.ENTRY, entry.getId(), pay(1_000L));
         assertThat(entry.getVersion()).isGreaterThan(version);
         assertThatThrownBy(
             () ->
@@ -232,11 +244,11 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
     @Test
     void voidNeedsReasonAndWorksOnlyOnce() {
         actAs(owner);
-        Long id = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(5_000_000L)).payment().id();
-        expect(() -> payments.voidPayment(farm.getId(), id, new VoidPaymentRequest("  ", null)), MessageCodes.COM_06);
-        expect(() -> payments.voidPayment(farm.getId(), id, new VoidPaymentRequest(null, null)), MessageCodes.COM_06);
-        payments.voidPayment(farm.getId(), id, new VoidPaymentRequest("typo", null));
-        expect(() -> payments.voidPayment(farm.getId(), id, new VoidPaymentRequest("again", null)), MessageCodes.COM_05);
+        Long id = record(VoucherKind.ENTRY, entry.getId(), pay(5_000_000L)).payment().id();
+        expect(() -> voidPay(id, new VoidPaymentRequest("  ", null)), MessageCodes.COM_06);
+        expect(() -> voidPay(id, new VoidPaymentRequest(null, null)), MessageCodes.COM_06);
+        voidPay(id, new VoidPaymentRequest("typo", null));
+        expect(() -> voidPay(id, new VoidPaymentRequest("again", null)), MessageCodes.COM_05);
         // history kept: the voided payment is still listed
         PaymentResultDTO list = payments.list(farm.getId(), VoucherKind.ENTRY, entry.getId());
         assertThat(list.payments()).hasSize(1).first().satisfies(p -> assertThat(p.status()).isEqualTo(PaymentRecordStatus.VOIDED));
@@ -246,8 +258,8 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
     @Test
     void voidWithStalePaymentVersionIsAConflict() {
         actAs(owner);
-        Long id = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(5_000_000L)).payment().id();
-        expect(() -> payments.voidPayment(farm.getId(), id, new VoidPaymentRequest("typo", 99)), MessageCodes.COM_05);
+        Long id = record(VoucherKind.ENTRY, entry.getId(), pay(5_000_000L)).payment().id();
+        expect(() -> voidPay(id, new VoidPaymentRequest("typo", 99)), MessageCodes.COM_05);
     }
 
     @Test
@@ -255,9 +267,9 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         actAs(owner);
         long audits = auditLogs.count();
         long revs = revisions.count();
-        Long id = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(5_000_000L)).payment().id();
+        Long id = record(VoucherKind.ENTRY, entry.getId(), pay(5_000_000L)).payment().id();
         assertThat(auditLogs.count()).isEqualTo(audits + 1);
-        payments.voidPayment(farm.getId(), id, new VoidPaymentRequest("typo", null));
+        voidPay(id, new VoidPaymentRequest("typo", null));
         assertThat(auditLogs.count()).isEqualTo(audits + 2);
         assertThat(revisions.count()).isEqualTo(revs + 1);
         var rev = revisions.findAllBySourceTypeAndSourceIdOrderByChangedAtAscIdAsc("VoucherPayment", id).get(0);
@@ -270,11 +282,15 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
     @Test
     void writesAreBlockedWhenTheFarmServiceIsNotActive() {
         actAs(owner);
-        Long id = payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1_000L)).payment().id();
+        Long id = record(VoucherKind.ENTRY, entry.getId(), pay(1_000L)).payment().id();
         farm.setServiceStatus("EXPIRED");
         em.flush();
-        expect(() -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1_000L)), MessageCodes.COM_12);
-        expect(() -> payments.voidPayment(farm.getId(), id, new VoidPaymentRequest("x", null)), MessageCodes.COM_12);
+        expect(() -> record(VoucherKind.ENTRY, entry.getId(), pay(1_000L)), MessageCodes.COM_12);
+        expect(() -> voidPay(id, new VoidPaymentRequest("x", null)), MessageCodes.COM_12);
+        // GBR-14 / MSG-COM-12: the voucher screens, payment summary included, are unavailable until the service is ACTIVE.
+        expect(() -> payments.summary(farm.getId(), VoucherKind.ENTRY, entry.getId()), MessageCodes.COM_12);
+        farm.setServiceStatus("ACTIVE");
+        em.flush();
         assertThat(payments.summary(farm.getId(), VoucherKind.ENTRY, entry.getId()).paid()).isEqualTo(1_000L);
     }
 
@@ -293,7 +309,7 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
     @Test
     void overpaymentAfterACorrectionShowsZeroOutstandingAndBlocksNewPayments() {
         actAs(owner);
-        payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(60_000_000L));
+        record(VoucherKind.ENTRY, entry.getId(), pay(60_000_000L));
         // a line is corrected / voided: cattle amount falls, paid now exceeds the total (MSG-FE06-23)
         entry.setCattleAmount(50_000_000L);
         em.flush();
@@ -302,7 +318,7 @@ class VoucherPaymentServiceTest extends DomainTestSupport {
         assertThat(summary.outstanding()).isZero();
         assertThat(summary.overpaid()).isEqualTo(8_000_000L);
         assertThat(summary.state()).isEqualTo(PaymentState.PAID);
-        expect(() -> payments.record(farm.getId(), VoucherKind.ENTRY, entry.getId(), pay(1)), MessageCodes.FE06_13);
+        expect(() -> record(VoucherKind.ENTRY, entry.getId(), pay(1)), MessageCodes.FE06_13);
     }
 
     @Test

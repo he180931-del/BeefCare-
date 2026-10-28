@@ -273,11 +273,23 @@ class BrowserSessionFlowIT {
         projection.setAccountStatus("ACTIVE");
         projection.setPasswordLoginEnabled(false);
         accounts.saveAndFlush(projection);
-        guest.login(googleEmail, PASSWORD, false).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE01-01"));
-        // AF1 of UC-FE01-05: a Google-only account gets no reset mail and no password is created
+        // UC-FE01-02 E1: answered exactly like a wrong password, so the address is not revealed as a Google account
+        guest.login(googleEmail, PASSWORD, false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01"));
+        // AF1 of UC-FE01-05: a Google-only account gets an email advising Google sign-in, with no reset link and no password
+        String passwordBefore = users.findOneByEmailIgnoreCase(googleEmail).orElseThrow().getPassword();
         guest.post("/api/account/reset-password/init", Map.of("email", googleEmail)).andExpect(status().isOk());
         deliverAll();
-        assertThat(inbox.findMessagesFor(googleEmail)).isEmpty();
+        assertThat(inbox.findMessagesFor(googleEmail)).singleElement().satisfies(mail -> {
+            assertThat(mail.subject()).contains("Google");
+            assertThat(mail.plainText()).contains("/sign-in").doesNotContain("reset-password").doesNotContain("token=");
+        });
+        assertThat(links.countByUserIdAndTokenTypeAndCreatedAtAfter(identity.getId(), "PASSWORD_RESET", java.time.Instant.EPOCH)).isZero();
+        assertThat(users.findOneByEmailIgnoreCase(googleEmail).orElseThrow().getPassword()).isEqualTo(passwordBefore);
+        assertThat(accounts.findOneByEmailIgnoreCase(googleEmail).orElseThrow().isPasswordLoginEnabled()).isFalse();
+        // the advice mail shares the five-per-hour limit of the link mails
+        for (int i = 0; i < 6; i++) guest.post("/api/account/reset-password/init", Map.of("email", googleEmail)).andExpect(status().isOk());
+        deliverAll();
+        assertThat(inbox.findMessagesFor(googleEmail)).hasSize(5);
     }
 
     // ---------------------------------------------------------------- FE-01: change password

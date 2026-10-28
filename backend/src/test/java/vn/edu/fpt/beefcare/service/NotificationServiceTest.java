@@ -38,7 +38,7 @@ class NotificationServiceTest {
         AppUser recipient=new AppUser();recipient.setId(9L);when(access.currentActiveUser()).thenReturn(recipient);
         Notification n=new Notification();n.setId(1L);n.setRecipient(recipient);n.setTargetType("FARM");n.setTargetId(1L);
         when(repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(9L)).thenReturn(List.of(n));when(targetAccess.canOpen(recipient,n)).thenReturn(true);
-        assertThat(service.mine()).isEmpty();verify(repository).findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(9L);
+        assertThat(service.mine()).extracting(NotificationService.NotificationView::id).containsExactly(1L);verify(repository).findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(9L);
     }
 
     @Test void inboxHidesTargetWhenAuthorizationWasRevoked(){

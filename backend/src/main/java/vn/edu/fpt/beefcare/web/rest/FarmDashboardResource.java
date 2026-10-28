@@ -1,9 +1,11 @@
 package vn.edu.fpt.beefcare.web.rest;
 
+import vn.edu.fpt.beefcare.service.FarmOnboardingService;
 import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,7 +23,18 @@ import java.util.List;
 public class FarmDashboardResource {
     private final FarmDashboardService dashboards;
     private final FarmReportService reports;
-    public FarmDashboardResource(FarmDashboardService dashboards,FarmReportService reports){this.dashboards=dashboards;this.reports=reports;}
+    private final FarmOnboardingService onboarding;
+    public FarmDashboardResource(FarmDashboardService dashboards,FarmReportService reports,FarmOnboardingService onboarding){this.dashboards=dashboards;this.reports=reports;this.onboarding=onboarding;}
+
+    /** SCR-48 "Getting started" panel; marking a review step and dismissing are naturally idempotent. */
+    @GetMapping("/getting-started")
+    public FarmOnboardingService.GettingStarted gettingStarted(@PathVariable Long farmId){return onboarding.view(farmId);}
+
+    @PostMapping("/getting-started/steps/{step}/done")
+    public FarmOnboardingService.GettingStarted markStepDone(@PathVariable Long farmId,@PathVariable String step){return onboarding.markDone(farmId,step);}
+
+    @PostMapping("/getting-started/dismiss")
+    public FarmOnboardingService.GettingStarted dismissGettingStarted(@PathVariable Long farmId){return onboarding.dismiss(farmId);}
 
     @GetMapping
     public DashboardView getDashboard(

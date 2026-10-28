@@ -97,7 +97,7 @@ class PenResourceTest extends DomainTestSupport {
         String key = "pen-create-" + java.util.UUID.randomUUID();
         String first = mvc.perform(post(base() + "/pens").with(as(owner, key)).contentType(MediaType.APPLICATION_JSON).content(NEW_PEN))
             .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
-        long id = com.jayway.jsonpath.JsonPath.read(first, "$.id");
+        long id = ((Number) com.jayway.jsonpath.JsonPath.read(first, "$.id")).longValue();
 
         mvc.perform(post(base() + "/pens").with(as(owner, key)).contentType(MediaType.APPLICATION_JSON).content(NEW_PEN))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(id));
@@ -129,9 +129,9 @@ class PenResourceTest extends DomainTestSupport {
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("MSG-FE04-02"))
             .andExpect(jsonPath("$.params.pen_code").value("A-1"));
-        long commandRecords = ((Number) em.createNativeQuery("select count(*) from idempotency_record where idempotency_key = :key").setParameter("key", failedKey).getSingleResult()).longValue();
+        // The failed command's key reservation joins this test's transaction, so its rollback is not observable here;
+        // IdempotencyCommandServiceTest.callbackFailureRollsBackReservationAndNeverSavesResult covers it.
         long domainEvents = ((Number) em.createNativeQuery("select count(*) from outbox_event where event_type = 'PEN_CREATED' and farm_id = :farmId").setParameter("farmId", farm.getId()).getSingleResult()).longValue();
-        assertThat(commandRecords).isZero();
         assertThat(domainEvents).isEqualTo(1);
     }
 
@@ -219,7 +219,7 @@ class PenResourceTest extends DomainTestSupport {
         Cattle c2 = cattle(farm, breed(farm), purpose(farm, PurposeType.BREEDING), Sex.FEMALE, LifeStage.ADULT);
         assignments.openAssignment(c1, a, TODAY.minusDays(5), AssignmentSource.HERD_ENTRY, "r", null, null, owner);
         assignments.openAssignment(c2, a, TODAY.minusDays(5), AssignmentSource.HERD_ENTRY, "r", null, null, owner);
-        String two = "{\"cattleIds\":[" + c1.getId() + "," + c2.getId() + "],\"cattleVersions\":{" + c1.getId() + ":0," + c2.getId() + ":0},\"toPenId\":" + b.getId() + ",\"moveDate\":\"2026-10-28\",\"reason\":\"regroup\"}";
+        String two = "{\"cattleIds\":[" + c1.getId() + "," + c2.getId() + "],\"cattleVersions\":{\"" + c1.getId() + "\":" + c1.getVersion() + ",\"" + c2.getId() + "\":" + c2.getVersion() + "},\"toPenId\":" + b.getId() + ",\"moveDate\":\"2026-10-28\",\"reason\":\"regroup\"}";
         mvc
             .perform(post(base() + "/pen-moves/check").with(as(manager)).contentType(MediaType.APPLICATION_JSON).content(two))
             .andExpect(status().isOk())
@@ -232,7 +232,7 @@ class PenResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.code").value("MSG-FE04-05"))
             .andExpect(jsonPath("$.params.free").value(1))
             .andExpect(jsonPath("$.params.count").value(2));
-        String one = "{\"cattleIds\":[" + c1.getId() + "],\"cattleVersions\":{" + c1.getId() + ":0},\"toPenId\":" + b.getId() + ",\"moveDate\":\"2026-10-28\",\"reason\":\"regroup\"}";
+        String one = "{\"cattleIds\":[" + c1.getId() + "],\"cattleVersions\":{\"" + c1.getId() + "\":" + versionOf(Cattle.class, c1.getId()) + "},\"toPenId\":" + b.getId() + ",\"moveDate\":\"2026-10-28\",\"reason\":\"regroup\"}";
         mvc
             .perform(post(base() + "/pen-moves").with(as(technician)).contentType(MediaType.APPLICATION_JSON).content(one))
             .andExpect(status().isForbidden());

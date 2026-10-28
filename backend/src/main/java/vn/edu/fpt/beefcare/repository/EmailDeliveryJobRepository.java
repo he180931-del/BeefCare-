@@ -12,6 +12,11 @@ import vn.edu.fpt.beefcare.domain.EmailDeliveryJob;
 
 @Repository
 public interface EmailDeliveryJobRepository extends JpaRepository<EmailDeliveryJob, Long> {
+    long countByRecipientIgnoreCaseAndTemplateKeyAndCreatedAtAfter(String recipient, String templateKey, Instant after);
+
+    boolean existsByRecipientIgnoreCaseAndTemplateKeyAndLinkSourceIdAndContextRoleAndContextName(
+        String recipient, String templateKey, Long linkSourceId, String contextRole, String contextName);
+
     List<EmailDeliveryJob> findByStatusAndAvailableAtLessThanEqualOrderByCreatedAtAsc(String status, Instant now, Pageable pageable);
 
     @Modifying

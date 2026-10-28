@@ -16,3 +16,8 @@ Source: the supplied SRS dated 28 October 2026 and the ten-sheet conceptual ERD.
 FE04/06/13 existing team implementations are preserved and wrapped in shared durable commands/version checks. Their prior tests must be rerun after the full care/feed/subscription migrations; initial dev test success does not validate this expanded branch.
 
 The first focused run executed 41 tests: 40 passed and one notification Mockito fixture failed. Its fix is pending rerun; a subsequent compile encountered new SePay source changes. No aggregate green-build claim has been made. PostgreSQL validation, live browser workflows, the complete OpenAPI export and all external-provider live verification remain separate gates. Nothing has been pushed.
+
+
+## Update 2026-10-29
+
+The 120 failing tests of FE04/05/06/13 (pens, pen moves, entry/exit vouchers, voucher payments, trading partners) were stale fixtures, not business defects: they sent no record version (BR-D31) and expected EXPIRED farms to stay readable, which GBR-14 forbids (decision D11). They now pass; `HerdEntryPostRollbackTest` again exercises the real rollback. The FE-20 internal request reminder after 4 OPEN hours (JOB-07 step 4) was added without a dedicated test. A PostgreSQL smoke run covered pens, a posted entry voucher, cattle profile/timeline/QR and role isolation.

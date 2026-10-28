@@ -65,7 +65,11 @@ public class GoogleOidcSuccessHandler implements AuthenticationSuccessHandler {
             session.setMaxInactiveInterval(sessionTimeoutSeconds);
             contextRepository.saveContext(context, request, response);
             sessions.registerNewSession(session.getId(), beefCareAuthentication.getName());
-            String destination = linked.ownerRegistrationCompleted() ? "/select-farm" : "/owner-registration";
+            session.setAttribute(GoogleReauthentication.AUTHENTICATED_AT, java.time.Instant.now());
+            boolean reauthentication = Boolean.TRUE.equals(session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE));
+            session.removeAttribute(GoogleReauthentication.RETURN_TO_PROFILE);
+            String destination = reauthentication ? "/profile?googleReauthenticated=true"
+                : linked.ownerRegistrationCompleted() ? "/select-farm" : "/owner-registration";
             response.sendRedirect(frontendBaseUrl + destination);
         } catch (RuntimeException failure) {
             SecurityContextHolder.clearContext();

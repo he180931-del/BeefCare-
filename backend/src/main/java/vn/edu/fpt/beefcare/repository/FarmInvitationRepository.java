@@ -21,7 +21,15 @@ public interface FarmInvitationRepository extends JpaRepository<FarmInvitation, 
     @Query("select i from FarmInvitation i where i.tokenHash = :hash")
     Optional<FarmInvitation> lockByTokenHash(@Param("hash") String tokenHash);
     List<FarmInvitation> findByFarmIdOrderByCreatedAtDesc(Long farmId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from FarmInvitation i where upper(i.status) = 'PENDING' and i.expiresAt <= :now order by i.id")
+    List<FarmInvitation> lockPendingExpiredBefore(@Param("now") Instant now);
+
+    /** JOB-08: link hashes of finished invitations past expiry; the invitation records and statuses stay. */
+    @Query("select i.id from FarmInvitation i where i.expiresAt < :before and upper(i.status) <> 'PENDING' and (i.tokenHash is not null or i.tokenNonce is not null) order by i.id")
+    List<Long> findIdsWithLinkExpiredBefore(@Param("before") Instant before, org.springframework.data.domain.Pageable page);
+
     @Modifying
-    @Query("update FarmInvitation i set i.status = 'EXPIRED', i.tokenHash = null where upper(i.status) = 'PENDING' and i.expiresAt <= :now")
-    int expirePending(@Param("now") Instant now);
+    @Query("update FarmInvitation i set i.tokenHash = null, i.tokenNonce = null where i.id in :ids")
+    int clearLinks(@Param("ids") java.util.Collection<Long> ids);
 }

@@ -49,8 +49,9 @@ public class LocalDevelopmentSeeder implements ApplicationRunner {
             user.setLangKey("vi");user.setPassword(encoder.encode(password));user.setAuthorities(Set.of(role));em.persist(user);
         }
         List<AppUser> existing=em.createQuery("select u from AppUser u where lower(u.email)=:email",AppUser.class).setParameter("email",email).getResultList();
-        if(!existing.isEmpty()) return existing.get(0);
-        AppUser app=new AppUser();app.setEmail(email);app.setFullName(name);app.setPhone("0900000000");app.setAccountStatus("ACTIVE");
+        // Local accounts sign in with the shared local password; repair rows seeded before this flag was set.
+        if(!existing.isEmpty()){ if(!existing.get(0).isPasswordLoginEnabled()) existing.get(0).setPasswordLoginEnabled(true); return existing.get(0); }
+        AppUser app=new AppUser();app.setEmail(email);app.setFullName(name);app.setPhone("0900000000");app.setAccountStatus("ACTIVE");app.setPasswordLoginEnabled(true);
         app.setOwnerRegistrationCompleted(true);app.setOwnerRegistrationCompletedAt(clock.now());em.persist(app);return app;
     }
     private Farm farm(String name,AppUser owner) {

@@ -116,6 +116,7 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/platform/payments/**").authenticated()
                     .requestMatchers("/api/platform/finance/**").authenticated()
                     .requestMatchers("/api/platform/farms/**").authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/platform/subscriptions", "/api/platform/subscriptions/*").authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/public/prices").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/public/landing").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/webhooks/sepay").permitAll()

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.Breed;
 import vn.edu.fpt.beefcare.domain.Farm;
+import vn.edu.fpt.beefcare.domain.HerdEntry;
 import vn.edu.fpt.beefcare.domain.Pen;
 import vn.edu.fpt.beefcare.domain.ProductionPurpose;
 import vn.edu.fpt.beefcare.domain.TradingPartner;
@@ -22,6 +23,7 @@ import vn.edu.fpt.beefcare.domain.enumeration.WeightBasis;
 import vn.edu.fpt.beefcare.service.HerdEntryCorrectionService;
 import vn.edu.fpt.beefcare.service.HerdEntryPostingService;
 import vn.edu.fpt.beefcare.service.HerdEntryVoucherService;
+import vn.edu.fpt.beefcare.service.dto.EntryActionRequests;
 import vn.edu.fpt.beefcare.service.dto.EntryDtos;
 import vn.edu.fpt.beefcare.service.dto.EntryLineRequest;
 import vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest;
@@ -137,7 +139,42 @@ public abstract class HerdEntryTestBase extends DomainTestSupport {
 
     protected EntryDtos.PostResult createAndPost(List<EntryLineRequest> lines, Long fee, Long paid) {
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(lines, fee, paid));
-        return posting.post(farm.getId(), draft.id(), null);
+        return postDraft(farm.getId(), draft.id());
+    }
+
+    /** Posts a voucher with the version it has now, as the client form sends it (BR-D31). */
+    protected EntryDtos.PostResult postDraft(Long farmId, Long voucherId) {
+        return posting.post(farmId, voucherId, new EntryActionRequests.PostRequest(entryVoucherVersion(voucherId), false));
+    }
+
+    // The helpers below send the versions the form read unless the request names its own (BR-D31).
+
+    protected EntryDtos.Voucher updateVoucher(Long voucherId, EntryVoucherRequest r) {
+        Integer version = r.expectedVersion() != null ? r.expectedVersion() : entryVoucherVersion(voucherId);
+        return vouchers.update(farm.getId(), voucherId, new EntryVoucherRequest(r.entryType(), r.entryDate(), r.sellerId(), r.newSeller(),
+            r.quarantineCertNo(), r.vehiclePlate(), r.note(), r.pricingBasis(), r.transportFee(), r.amountPaid(), r.paymentMethod(),
+            r.paymentDueDate(), r.lines(), version));
+    }
+
+    protected void discard(Long voucherId, Integer expectedVersion) {
+        vouchers.discard(farm.getId(), voucherId, expectedVersion != null ? expectedVersion : entryVoucherVersion(voucherId));
+    }
+
+    protected EntryDtos.VoidResult voidVoucher(Long voucherId, EntryActionRequests.VoidRequest r) {
+        Integer version = r.expectedVersion() != null ? r.expectedVersion() : entryVoucherVersion(voucherId);
+        return corrections.voidVoucher(farm.getId(), voucherId, new EntryActionRequests.VoidRequest(r.reason(), version));
+    }
+
+    protected EntryDtos.EntryVoidResult voidEntry(Long entryId, EntryActionRequests.VoidRequest r) {
+        Integer version = r.expectedVersion() != null ? r.expectedVersion() : versionOf(HerdEntry.class, entryId);
+        return corrections.voidEntry(farm.getId(), entryId, new EntryActionRequests.VoidRequest(r.reason(), version));
+    }
+
+    protected EntryDtos.CorrectionResult correct(Long entryId, EntryActionRequests.CorrectEntryRequest r) {
+        HerdEntry entry = em.find(HerdEntry.class, entryId);
+        Integer version = r.expectedVersion() != null ? r.expectedVersion() : entry == null ? null : entry.getVersion();
+        Integer voucherVersion = r.voucherVersion() != null ? r.voucherVersion() : entry == null ? null : entry.getVoucher().getVersion();
+        return corrections.correct(farm.getId(), entryId, new EntryActionRequests.CorrectEntryRequest(r.reason(), version, voucherVersion, r.changes()));
     }
 
     protected long count(String entity) {

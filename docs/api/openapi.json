@@ -6557,6 +6557,67 @@
         }
       }
     },
+    "/api/farms/{farmId}/dashboard/getting-started/steps/{step}/done" : {
+      "post" : {
+        "tags" : [ "farm-dashboard-resource" ],
+        "operationId" : "markStepDone",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "step",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GettingStarted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/dashboard/getting-started/dismiss" : {
+      "post" : {
+        "tags" : [ "farm-dashboard-resource" ],
+        "operationId" : "dismissGettingStarted",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GettingStarted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/cattle/{id}/qr-tags" : {
       "get" : {
         "tags" : [ "cattle-profile-resource" ],
@@ -7885,6 +7946,17 @@
         }
       }
     },
+    "/api/account/google-reauthentication" : {
+      "post" : {
+        "tags" : [ "account-resource" ],
+        "operationId" : "startGoogleReauthentication",
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        }
+      }
+    },
     "/api/account/change-password" : {
       "post" : {
         "tags" : [ "account-resource" ],
@@ -8229,6 +8301,107 @@
         }
       }
     },
+    "/api/platform/subscriptions" : {
+      "get" : {
+        "tags" : [ "platform-subscription-resource" ],
+        "operationId" : "subscriptions",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "coverage",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "serviceStatus",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "endFrom",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "endTo",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageSubscriptionRow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/subscriptions/{farmId}" : {
+      "get" : {
+        "tags" : [ "platform-subscription-resource" ],
+        "operationId" : "subscription",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SubscriptionDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/platform/payments" : {
       "get" : {
         "tags" : [ "platform-payment-resource" ],
@@ -8250,6 +8423,20 @@
             "type" : "integer",
             "format" : "int32",
             "default" : 25
+          }
+        }, {
+          "name" : "state",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "responses" : {
@@ -8293,10 +8480,52 @@
         }
       }
     },
+    "/api/platform/payments/summary" : {
+      "get" : {
+        "tags" : [ "platform-payment-resource" ],
+        "operationId" : "summary",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentTiles"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/platform/payments/evidence" : {
       "get" : {
         "tags" : [ "platform-payment-resource" ],
         "operationId" : "evidence",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "bankFrom",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "bankTo",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8481,6 +8710,101 @@
                 "schema" : {
                   "type" : "string",
                   "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/finance/receipts" : {
+      "get" : {
+        "tags" : [ "platform-subscription-resource" ],
+        "operationId" : "receipts_1",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "farmId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "bankFrom",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "bankTo",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReceiptPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/finance/receipts/{paymentId}" : {
+      "get" : {
+        "tags" : [ "platform-subscription-resource" ],
+        "operationId" : "receipt",
+        "parameters" : [ {
+          "name" : "paymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReceiptDetail"
                 }
               }
             }
@@ -9922,6 +10246,33 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/DashboardView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/dashboard/getting-started" : {
+      "get" : {
+        "tags" : [ "farm-dashboard-resource" ],
+        "operationId" : "gettingStarted",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GettingStarted"
                 }
               }
             }
@@ -16316,6 +16667,43 @@
           }
         }
       },
+      "GettingStarted" : {
+        "type" : "object",
+        "properties" : {
+          "visible" : {
+            "type" : "boolean"
+          },
+          "dismissed" : {
+            "type" : "boolean"
+          },
+          "allDone" : {
+            "type" : "boolean"
+          },
+          "steps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StepView"
+            }
+          }
+        }
+      },
+      "StepView" : {
+        "type" : "object",
+        "properties" : {
+          "step" : {
+            "type" : "string"
+          },
+          "screen" : {
+            "type" : "string"
+          },
+          "done" : {
+            "type" : "boolean"
+          },
+          "markable" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "TagRequest" : {
         "type" : "object",
         "properties" : {
@@ -16970,6 +17358,12 @@
           },
           "role" : {
             "type" : "string"
+          },
+          "permissions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -17267,16 +17661,140 @@
           }
         }
       },
-      "PagePlatformPayment" : {
+      "PageSubscriptionRow" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SubscriptionRow"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
             "type" : "integer",
             "format" : "int32"
           },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "SubscriptionRow" : {
+        "type" : "object",
+        "properties" : {
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "ownerName" : {
+            "type" : "string"
+          },
+          "ownerEmail" : {
+            "type" : "string"
+          },
+          "serviceStatus" : {
+            "type" : "string"
+          },
+          "currentStart" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "currentEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "confirmedUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "paymentCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "PurchasedPeriod" : {
+        "type" : "object",
+        "properties" : {
+          "paymentId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "paymentCode" : {
+            "type" : "string"
+          },
+          "receiptCode" : {
+            "type" : "string"
+          },
+          "termYears" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "start" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "end" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "confirmedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SubscriptionDetail" : {
+        "type" : "object",
+        "properties" : {
+          "summary" : {
+            "$ref" : "#/components/schemas/SubscriptionRow"
+          },
+          "subscriptionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "suspended" : {
+            "type" : "boolean"
+          },
+          "renewalOpens" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "latestPurchase" : {
+            "$ref" : "#/components/schemas/PurchasedPeriod"
+          },
+          "periods" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PurchasedPeriod"
+            }
+          },
+          "emptyMessage" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PagePlatformPayment" : {
+        "type" : "object",
+        "properties" : {
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -17295,14 +17813,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -17323,19 +17841,19 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "unpaged" : {
             "type" : "boolean"
           },
           "paged" : {
             "type" : "boolean"
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -17400,11 +17918,32 @@
           "empty" : {
             "type" : "boolean"
           },
-          "unsorted" : {
-            "type" : "boolean"
-          },
           "sorted" : {
             "type" : "boolean"
+          },
+          "unsorted" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PaymentTiles" : {
+        "type" : "object",
+        "properties" : {
+          "pendingRequests" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "evidenceToReview" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hold" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lockedForReturn" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -17444,13 +17983,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -17469,14 +18008,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -17529,6 +18068,109 @@
           }
         }
       },
+      "ReceiptPage" : {
+        "type" : "object",
+        "properties" : {
+          "receiptsInPeriod" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalAmount" : {
+            "type" : "number"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReceiptRow"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ReceiptRow" : {
+        "type" : "object",
+        "properties" : {
+          "paymentId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "receiptCode" : {
+            "type" : "string"
+          },
+          "paymentCode" : {
+            "type" : "string"
+          },
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "termYears" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "bankPaidAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ReceiptDetail" : {
+        "type" : "object",
+        "properties" : {
+          "receipt" : {
+            "$ref" : "#/components/schemas/ReceiptRow"
+          },
+          "paymentState" : {
+            "type" : "string"
+          },
+          "priceVersionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "confirmedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "confirmationSource" : {
+            "type" : "string"
+          },
+          "confirmedByPm" : {
+            "type" : "string"
+          },
+          "purchasedStart" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "purchasedEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "evidenceId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maskedTransactionId" : {
+            "type" : "string"
+          }
+        }
+      },
       "FinanceCategories" : {
         "type" : "object",
         "properties" : {
@@ -17577,13 +18219,13 @@
       "PageFarmOverview" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -17602,14 +18244,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -17661,13 +18303,13 @@
       "PageAuditEntry" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -17686,14 +18328,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -17707,13 +18349,13 @@
       "PageAccountSummary" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -17732,14 +18374,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -18079,6 +18721,10 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "windowEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "lifecycleStatus" : {
             "type" : "string"
           },
@@ -18087,6 +18733,13 @@
           },
           "highlighted" : {
             "type" : "boolean"
+          },
+          "basisLabel" : {
+            "type" : "string"
+          },
+          "parameterVersion" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },

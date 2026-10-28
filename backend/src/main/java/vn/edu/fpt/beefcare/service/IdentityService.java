@@ -21,6 +21,7 @@ import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.repository.AccountLinkTokenRepository;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.AuthorityRepository;
+import vn.edu.fpt.beefcare.repository.EmailDeliveryJobRepository;
 import vn.edu.fpt.beefcare.repository.UserRepository;
 import vn.edu.fpt.beefcare.security.AuthoritiesConstants;
 import vn.edu.fpt.beefcare.security.SecurityUtils;
@@ -45,6 +46,7 @@ public class IdentityService {
     private final MailService mailService;
     private final ActionLinkSigner linkSigner;
     private final SessionRegistry sessionRegistry;
+    private final EmailDeliveryJobRepository emailJobs;
 
     public IdentityService(
         UserRepository userRepository,
@@ -54,7 +56,8 @@ public class IdentityService {
         PasswordEncoder passwordEncoder,
         MailService mailService,
         ActionLinkSigner linkSigner,
-        SessionRegistry sessionRegistry
+        SessionRegistry sessionRegistry,
+        EmailDeliveryJobRepository emailJobs
     ) {
         this.userRepository = userRepository;
         this.appUserRepository = appUserRepository;
@@ -64,6 +67,7 @@ public class IdentityService {
         this.mailService = mailService;
         this.linkSigner = linkSigner;
         this.sessionRegistry = sessionRegistry;
+        this.emailJobs = emailJobs;
     }
 
     @Transactional
@@ -117,12 +121,21 @@ public class IdentityService {
     }
 
     /**
-     * Always responds identically; unknown addresses and Google-only accounts cause no mail. A SUSPENDED account can still
-     * reset its password while sign-in stays blocked (UC-FE01-05 E3, GBR-04).
+     * Always responds identically; unknown addresses cause no mail. A SUSPENDED account can still reset its password while
+     * sign-in stays blocked (UC-FE01-05 E3, GBR-04). A Google-only account gets an email advising Google sign-in and no
+     * password is created (AF1); like the link mails it is limited to five per hour.
      */
     @Transactional
     public void requestPasswordReset(String email) {
-        findPasswordAccount(email, true).filter(User::isActivated).ifPresent(user -> issueRateLimited(user, PASSWORD_RESET, RESET_LIFETIME, "RESET_PASSWORD"));
+        Optional<User> passwordAccount = findPasswordAccount(email, true).filter(User::isActivated);
+        if (passwordAccount.isPresent()) {
+            issueRateLimited(passwordAccount.get(), PASSWORD_RESET, RESET_LIFETIME, "RESET_PASSWORD");
+            return;
+        }
+        findGoogleOnlyAccount(email).ifPresent(account -> {
+            if (emailJobs.countByRecipientIgnoreCaseAndTemplateKeyAndCreatedAtAfter(account.getEmail(), "GOOGLE_SIGN_IN_ADVICE", Instant.now().minus(Duration.ofHours(1))) >= MAX_LINK_EMAILS_PER_HOUR) return;
+            mailService.queueActionLink(account.getEmail(), "GOOGLE_SIGN_IN_ADVICE", "ACCOUNT", account.getId(), account.getFullName(), null, null);
+        });
     }
 
     @Transactional
@@ -152,24 +165,39 @@ public class IdentityService {
         return user;
     }
 
-    /** The failed-attempt counter must survive the wrong-password rejection, so that exception does not roll the transaction back (GBR-02). */
-    @Transactional(noRollbackFor = DomainException.class)
     public void changePassword(String currentPassword, String newPassword, String confirmation) {
+        changePassword(currentPassword, newPassword, confirmation, false);
+    }
+
+    /**
+     * UC-FE01-06. {@code googleReauthenticated} is a Google sign-in within the last 5 minutes in this session: it adds a
+     * first password to a Google-only account (AF1) or replaces the forgotten current password (AF2). The failed-attempt
+     * counter must survive the wrong-password rejection, so that exception does not roll the transaction back (GBR-02).
+     */
+    @Transactional(noRollbackFor = DomainException.class)
+    public void changePassword(String currentPassword, String newPassword, String confirmation, boolean googleReauthenticated) {
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         User user = findLogin(login).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         AppUser account = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow(IdentityService::invalidLink);
-        if (!account.isPasswordLoginEnabled()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Google reauthentication is required before adding a password");
-        if (user.getPasswordLockedUntil() != null && user.getPasswordLockedUntil().isAfter(Instant.now())) {
-            throw locked(user.getPasswordLockedUntil());
+        boolean google = googleReauthenticated && account.getGoogleSubject() != null;
+        if (!account.isPasswordLoginEnabled() && !google) {
+            throw new DomainException(MessageCodes.COM_01, DomainException.params("reason", "google_reauthentication_required"), HttpStatus.FORBIDDEN);
         }
-        if (!passwordEncoder.matches(currentPassword == null ? "" : currentPassword, user.getPassword())) {
-            recordFailedPasswordAttempt(login);
-            throw DomainException.badRequest(MessageCodes.FE01_16, "field", "currentPassword");
+        if (!google) {
+            if (user.getPasswordLockedUntil() != null && user.getPasswordLockedUntil().isAfter(Instant.now())) {
+                throw locked(user.getPasswordLockedUntil());
+            }
+            if (!passwordEncoder.matches(currentPassword == null ? "" : currentPassword, user.getPassword())) {
+                recordFailedPasswordAttempt(login);
+                throw DomainException.badRequest(MessageCodes.FE01_16, "field", "currentPassword");
+            }
         }
         validatePassword(newPassword, user.getEmail(), confirmation);
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setFailedPasswordAttempts(0);
         user.setPasswordLockedUntil(null);
+        // AF1: the email is already verified by Google, so the new password works at once; Google sign-in stays linked.
+        account.setPasswordLoginEnabled(true);
         expireSessions(user, true);
         mailService.sendEmail(user.getEmail(), "Your BeefCare password changed", "Your password was changed. If you did not make this change, contact BeefCare support.", false, false);
     }
@@ -181,8 +209,9 @@ public class IdentityService {
         User user = found.get();
         AppUser account = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElse(null);
         if (account != null && "SUSPENDED".equalsIgnoreCase(account.getAccountStatus())) throw suspended(user.getEmail());
-        // A Google-only account has no password method: answered like any wrong credential so the form shows MSG-FE01-01.
-        if (account != null && !account.isPasswordLoginEnabled()) throw DomainException.forbidden(MessageCodes.FE01_01);
+        // A Google-only account has no password method: answered exactly like a wrong credential (MSG-FE01-01, 401) so the
+        // answer does not reveal that the address has an account (UC-FE01-02 E1).
+        if (account != null && !account.isPasswordLoginEnabled()) throw new DomainException(MessageCodes.FE01_01, null, HttpStatus.UNAUTHORIZED);
         if (user.getPasswordLockedUntil() != null && user.getPasswordLockedUntil().isAfter(Instant.now())) {
             throw locked(user.getPasswordLockedUntil());
         }
@@ -212,6 +241,12 @@ public class IdentityService {
             user.setFailedPasswordAttempts(0);
             user.setPasswordLockedUntil(null);
         });
+    }
+
+    private Optional<AppUser> findGoogleOnlyAccount(String email) {
+        if (email == null || email.isBlank()) return Optional.empty();
+        return appUserRepository.findOneByEmailIgnoreCase(email.trim().toLowerCase(Locale.ROOT))
+            .filter(account -> !account.isPasswordLoginEnabled());
     }
 
     private Optional<User> findPasswordAccount(String email, boolean allowSuspended) {

@@ -197,4 +197,31 @@ class ReminderReconciliationIT extends DomainTestSupport {
         Farm other=farm();actAs(memberWithRole(other,FarmRole.OWNER));
         assertThatThrownBy(()->screen.mine(farm.getId())).isInstanceOf(DomainException.class);
     }
+
+    @Test void pendingDeathVoucherRemindsOwnerAndManagerUntilTheOwnerDismissesIt() {
+        Farm farm=farmWith(ALL_PARAMETERS);AppUser manager=memberWithRole(farm,FarmRole.MANAGER);AppUser technician=memberWithRole(farm,FarmRole.TECHNICIAN);
+        Cattle cow=cow(farm);
+        HerdExitVoucher pending=exitVoucher(farm,manager,null,0L,0L,ExitVoucherStatus.PENDING);pending.setExitType(ExitType.DEATH);exitLine(pending,cow,1,ExitLineStatus.PENDING);em.flush();
+        reconcile(farm);
+        // REM-12 (Table III-3): Owner and Manager, never a Technician
+        assertThat(rows(farm,"REM-12")).singleElement().satisfies(r->assertThat(r.getStatus()).isEqualTo("ACTIVE"));
+        assertThat(seenBy(farm,owner,"REM-12")).hasSize(1);
+        assertThat(seenBy(farm,manager,"REM-12")).hasSize(1);
+        assertThat(seenBy(farm,technician,"REM-12")).isEmpty();
+        pending.setStatus(ExitVoucherStatus.DISMISSED);em.flush();reconcile(farm);
+        assertThat(rows(farm,"REM-12")).singleElement().satisfies(r->assertThat(r.getStatus()).isEqualTo("RESOLVED"));
+    }
+
+    @Test void lifeStageSuggestionIsDueAtTheStageAgeAndResolvedByTheStageChange() {
+        Farm farm=farmWith(ALL_PARAMETERS.replace("{","{\"ADULT_AGE_MONTHS\":24,"));
+        Cattle heifer=cattle(farm,breed(farm),purpose(farm,PurposeType.BREEDING),Sex.FEMALE,LifeStage.YOUNG_STOCK);heifer.setBirthDate(TODAY.minusMonths(25));em.flush();
+        Cattle unknownAge=cattle(farm,breed(farm),purpose(farm,PurposeType.BREEDING),Sex.FEMALE,LifeStage.YOUNG_STOCK);unknownAge.setBirthDateAccuracy(BirthDateAccuracy.UNKNOWN);em.flush();
+        reconcile(farm);
+        // REM-08: Young stock reaches the adult age (24 months) a month ago; no suggestion when the birth date is UNKNOWN
+        assertThat(rows(farm,"REM-08")).filteredOn(r->r.getCattle().getId().equals(heifer.getId())).singleElement()
+            .satisfies(r->{assertThat(r.getStatus()).isEqualTo("ACTIVE");assertThat(r.getDueTime()).isEqualTo(day(TODAY.minusMonths(1)));});
+        assertThat(rows(farm,"REM-08")).noneMatch(r->r.getCattle().getId().equals(unknownAge.getId()));
+        heifer.setLifeStage(LifeStage.ADULT);em.flush();reconcile(farm);
+        assertThat(rows(farm,"REM-08")).filteredOn(r->r.getCattle().getId().equals(heifer.getId())).extracting(Reminder::getStatus).containsOnly("RESOLVED");
+    }
 }

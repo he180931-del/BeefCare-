@@ -30,3 +30,8 @@ Care/reproduction read access uses `VIEW_HEALTH`; the command paths use `MANAGE_
 ## Schema notes
 
 Care lifecycle changes are additive in `20261028000200_care_reproduction_schema.xml`, `20261028000203_calf_outcome_lifecycle.xml`, and `20261028000204_reproduction_observer.xml`. The parent owns `master.xml` wiring and the final migration order. No already-applied changeSet bodies should be changed. Parent reported that all 164 PostgreSQL changeSets applied successfully; its separate OID/TEXT mapping repair is in progress. Do not treat this workstream as complete until the parent’s current PostgreSQL startup, compilation and integration run finishes.
+
+
+## Update 2026-10-29
+
+`CareWorkflowIT` covers FE-10 case → follow-up → treatment with the GBR-46 withdrawal end (first day + course − 1 + withdrawal), the FE-10 reads (open tab, profile card and chronology), the void of a treatment recalculating the withdrawal, Owner/Technician write denial and other-farm isolation, closing a case as DIED creating a PENDING death voucher and blocking new events (GBR-26); FE-09 schedule → record → void restores the dose → defer → stop cancels the rest; FE-18 delete of an unused vaccine and refusal for a used one. `ReproductionWorkflowIT` covers estrus → breeding (no pregnancy) → PREGNANT check with the CONFIRMED expected date, `MSG-FE12-02` for a second PREGNANT, calving with a draft calf (`PENDING_CONFIRMATION`), role and other-farm denial, future/stale/male refusals. Still open: correction/void permutations of calving and calf outcomes, SCR-38/39 field review, JOB-01 recomputation directly on SCR-56 save.

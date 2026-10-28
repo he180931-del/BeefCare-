@@ -65,6 +65,7 @@ public class SePayWebhookService {
     private final EvidenceReviewRepository reviews;
     private final AuditLogRepository auditLogs;
     private final NotificationService notifications;
+    private final ReconciliationNoticeService reconciliationNotices;
     private final PlatformAccessService platformAccess;
     private final FarmClock clock;
     private final String environment;
@@ -85,6 +86,7 @@ public class SePayWebhookService {
         EvidenceReviewRepository reviews,
         AuditLogRepository auditLogs,
         NotificationService notifications,
+        ReconciliationNoticeService reconciliationNotices,
         PlatformAccessService platformAccess,
         FarmClock clock,
         @Value("$" + "{beefcare.sepay.environment:MOCK}") String environment,
@@ -104,6 +106,7 @@ public class SePayWebhookService {
         this.reviews = reviews;
         this.auditLogs = auditLogs;
         this.notifications = notifications;
+        this.reconciliationNotices = reconciliationNotices;
         this.platformAccess = platformAccess;
         this.clock = clock;
         this.environment = environment;
@@ -464,6 +467,7 @@ public class SePayWebhookService {
             "quoteRef", evidence.getQuoteRef() == null ? "" : evidence.getQuoteRef(),
             "reason", evidence.getReviewReason() == null ? "" : evidence.getReviewReason()
         ));
+        reconciliationNotices.evidenceNeedsReview(saved);
         return result(saved, false);
     }
 

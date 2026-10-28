@@ -119,3 +119,53 @@ Kết quả: **104/104 test qua** (bộ 21 lớp ở trên, cộng `PlatformFina
 
 Lệnh test hiện tại: thêm `,PlatformFinanceWorkflowTest,FeedStockAdjustmentServiceIT` vào `-Dtest=` ở trên.
 
+
+## Phiên 29/10/2026 (Opus 5.5, nhánh `backend-completion`)
+
+Làm trên nhánh `backend-completion` tách từ `main` tại `2623696`; chưa commit/push, chờ thành viên phụ trách review.
+
+### Kết quả kiểm chứng
+
+- **577/577 test H2/unit qua** (108 lớp: mọi lớp `*Test`/`*IT` không mang `@IntegrationTest`), BUILD SUCCESS. 46 lớp `@IntegrationTest` do JHipster sinh (Testcontainers, CRUD đã khóa `denyAll`) không chạy, như trước.
+- **PostgreSQL 16 thật (Docker, DB mới):** áp dụng đủ **171 changeSet**, 85 bảng, khởi động thành công. Smoke HTTP **73/73** qua: đăng nhập 7 vai trò seed, chuồng, phiếu nhập nháp → ghi sổ, bò/timeline/QR, Manager cân (Owner bị chặn), Technician chỉ đọc, Owner trại khác bị chặn, dashboard/báo cáo, ticket, màn PM/SA, các route mới, logout. JOB-02 và JOB-08 chạy trên PostgreSQL với dữ liệu thật (lời mời quá hạn → EXPIRED + audit; link hết hạn 8 ngày bị xóa); JOB-05 và nhắc yêu cầu nội bộ chạy không lỗi.
+- Frontend adapter 4/4 qua; **chưa màn hình nào import adapter** (FE vẫn mock).
+- OpenAPI regenerate: **212 paths / 284 schemas** (thêm 9 path, không bỏ path nào).
+
+### Đã sửa
+
+- 120 test đỏ của FE04/05/06/13 (chuồng, phiếu nhập/xuất, thanh toán phiếu, đối tác) và `NotificationServiceTest`. Không có lỗi nghiệp vụ: test cũ không gửi version (BR-D31), kỳ vọng trại EXPIRED vẫn đọc được (sai GBR-14, xem D11), JSON sai, ép kiểu sai, assertion sai. `HerdEntryPostRollbackTest` trước đây "qua" mà không thử rollback (lệnh bị chặn vì thiếu version); nay thử đúng. Helper `versionOf(...)` trong `DomainTestSupport`.
+- Seeder local không bật `passwordLoginEnabled` → mọi tài khoản demo không đăng nhập được trên DB thật (H2 không bắt được vì không chạy seeder).
+- D05: tài khoản chỉ dùng Google đăng nhập bằng mật khẩu trả 401 như sai mật khẩu. D06: email khuyên đăng nhập Google cho UC-FE01-05 AF1.
+- `MSG-FE21-12` cho snapshot báo cáo hết hạn (trước là 410 không mã).
+- Cron gửi mail trong test (`application-testh2.yml`) đặt rất dài: tác vụ theo lịch từng tranh job với test (`EmailActivationFlowIT` chập chờn).
+
+### Đã bổ sung
+
+| Hạng mục | Mã nguồn | Test |
+|---|---|---|
+| JOB-02 mỗi 15 phút, từng lời mời + audit `INVITE_EXPIRED` | `FarmMembershipService.expirePendingInvitations` | `PlatformJobsIT` |
+| JOB-05 thông báo gia hạn (trong app + email) | `payment/SubscriptionNoticeJob`, template `SUBSCRIPTION_NOTICE` | `PlatformJobsIT` |
+| JOB-06 bước 4 / UC-FE14-04 thông báo đối soát cho PM | `payment/ReconciliationNoticeService` | `SePayPaymentFlowTest` |
+| JOB-07 bước 4 nhắc yêu cầu nội bộ mở 4 giờ | `InternalSupportRequestService.remindLongOpenRequests`, `SupportMaintenanceJob` | chưa có test riêng |
+| JOB-08 dọn token/link/snapshot theo lô 5.000 | `DataRetentionJob` | `PlatformJobsIT` |
+| UC-FE19-04 SCR-61, UC-FE19-05 bộ lọc + tiles, UC-FE21-01 SCR-70 | `payment/PlatformSubscriptionQueryService`, `PlatformSubscriptionResource`, `PlatformPaymentResource` | `SePayPaymentFlowTest` |
+| UC-FE01-04 bảng quyền theo vai trò trong profile | `AccountResource.permissionsOf` | smoke PostgreSQL |
+| UC-FE01-06 AF1/AF2 xác thực lại Google 5 phút | `security/GoogleReauthentication`, `GoogleOidcSuccessHandler`, `IdentityService.changePassword` | `GoogleReauthenticationIT` |
+| SCR-48 "Getting started" | `FarmOnboardingService`, `FarmDashboardResource` | `FarmOnboardingServiceIT` |
+| Kiểm thử FE-09/10/18 (ca bệnh, điều trị, rút ngưng thịt, đọc ca bệnh, tiêm/hoãn/hủy/dừng lịch, xóa vaccine chưa dùng) | — | `CareWorkflowIT` |
+| Kiểm thử FE-11/12 (phối ≠ mang thai, MSG-FE12-02, đẻ → bê nháp, vai trò) | — | `ReproductionWorkflowIT` |
+| Kiểm thử RPT-01 (số tính tay), RPT-02/03/04/06, giới hạn 24 tháng; FE-17 audit SA + allowlist | — | `ReportsAndAuditIT` |
+| Kiểm thử REM-08 (tuổi chuyển giai đoạn, không gợi ý khi ngày sinh UNKNOWN), REM-12 | — | `ReminderReconciliationIT` |
+
+### Còn lại (chưa làm hoặc chưa kiểm chứng)
+
+1. **Frontend chưa nối backend**: đây là việc lớn nhất còn lại để có sản phẩm chạy được.
+2. Kiểm thử chưa có: REM-11 (cho ăn chưa ghi), JOB-07 bước 4, RPT-03/04/06 bằng số tính tay (hiện chỉ chạy được và đúng quyền), nội dung XLSX, race nhiều transaction (webhook trùng, cùng idempotency key), các nhánh sửa/hủy phụ thuộc của sinh sản (sửa/hủy đẻ, bê), FE22 quản trị nội dung landing (nội dung vẫn tĩnh).
+3. Outbox: sự kiện được ghi nhưng **chưa có handler nào**; thông báo trong app và email hiện tạo trực tiếp trong giao dịch. Cần quyết định có giữ outbox (thêm handler) hay bỏ ghi sự kiện không dùng.
+4. Provider thật (Google OIDC, SMTP, SePay LIVE) chưa cấu hình/kiểm thử. Mailpit/MOCK vẫn là adapter local.
+5. Các mục mơ hồ cần chủ dự án xác nhận: D08, D09, D10 trong `docs/REQUIREMENT_DECISIONS.md` và các điểm FE-21 ghi trong `docs/implementation/platform.md`.
+
+### Chạy lại
+
+- Test: tạo danh sách lớp không mang `@IntegrationTest` rồi chạy `mvn --batch-mode '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dcheckstyle.skip=true' '-Dsurefire.failIfNoSpecifiedTests=false' -Dtest=<danh sách> test` tại `backend`.
+- PostgreSQL: như phần "Chạy local". Trên máy có tiến trình khác giữ cổng 8080, thêm `'-Dspring-boot.run.arguments=--server.port=8090'` và đặt `BEEFCARE_BACKEND_URL`. Biểu thức cron có dấu cách phải truyền qua biến môi trường (ví dụ `BEEFCARE_JOBS_RETENTION_CRON`), không qua `spring-boot.run.arguments`. `-Dliquibase.analytics.enabled=false` tắt gửi analytics của Liquibase.

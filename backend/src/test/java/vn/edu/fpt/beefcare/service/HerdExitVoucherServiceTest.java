@@ -95,7 +95,38 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
     }
 
     private ExitVoucherDTO.ConfirmResult confirm(Long id) {
-        return service.confirm(farmId(), id, ack(), null);
+        return confirmWith(id, ack(), null);
+    }
+
+    // The client form sends the version it read (BR-D31); a request that names a version keeps it.
+    private Integer current(Long voucherId, Integer requested) {
+        return requested != null ? requested : versionOf(HerdExitVoucher.class, voucherId);
+    }
+
+    private ExitVoucherDTO.ConfirmResult confirmWith(Long id, ExitVoucherRequests.Confirm r, String key) {
+        return service.confirm(farmId(), id, new ExitVoucherRequests.Confirm(r.acknowledged(), current(id, r.expectedVersion())), key);
+    }
+
+    private ExitVoucherDTO.Detail update(Long id, ExitVoucherRequests.Save r) {
+        return service.update(farmId(), id, new ExitVoucherRequests.Save(r.exitType(), r.exitDate(), r.buyerId(), r.destination(), r.transportCertNo(),
+            r.vehiclePlate(), r.note(), r.lossKind(), r.deathCause(), r.carcassDisposal(), r.pricingBasis(), r.deductions(), r.depositCollected(),
+            r.paymentMethod(), r.collectionDueDate(), r.lines(), current(id, r.expectedVersion())));
+    }
+
+    private void delete(Long id, Integer expectedVersion) {
+        service.delete(farmId(), id, current(id, expectedVersion));
+    }
+
+    private ExitVoucherDTO.Detail addCattle(Long id, ExitVoucherRequests.AddCattle r) {
+        return service.addCattle(farmId(), id, new ExitVoucherRequests.AddCattle(r.cattleIds(), r.tagCode(), current(id, r.expectedVersion())));
+    }
+
+    private ExitVoucherDTO.DismissResult dismiss(Long id, ExitVoucherRequests.Dismiss r) {
+        return service.dismiss(farmId(), id, new ExitVoucherRequests.Dismiss(r.reason(), current(id, r.expectedVersion())));
+    }
+
+    private ExitVoucherDTO.VoidResult voidVoucher(Long id, ExitVoucherRequests.Void r) {
+        return service.voidVoucher(farmId(), id, new ExitVoucherRequests.Void(r.reason(), r.penOverrides(), r.warningReasons(), current(id, r.expectedVersion())));
     }
 
     private PenAssignment openAssignment(Cattle c) {
@@ -248,7 +279,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         Cattle d = placed(penA, "310");
         actAs(owner);
         ExitVoucherDTO.Detail first = service.create(farmId(), sale(TODAY, line(c, "300", 50_000L), line(d, "310", 50_000L)));
-        ExitVoucherDTO.Detail trimmed = service.update(farmId(), first.id(), sale(TODAY, line(d, "310", 50_000L)));
+        ExitVoucherDTO.Detail trimmed = update(first.id(), sale(TODAY, line(d, "310", 50_000L)));
         assertThat(trimmed.cattleCount()).isEqualTo(1);
         assertThat(trimmed.cattleAmount()).isEqualTo(15_500_000L);
         ExitVoucherDTO.Detail second = service.create(farmId(), sale(TODAY, line(c, "300", 50_000L)));
@@ -300,16 +331,16 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         ExitVoucherDTO.Detail draft = service.create(farmId(), sale(TODAY));
         assertThat(draft.cattleCount()).isZero();
 
-        ExitVoucherDTO.Detail scanned = service.addCattle(farmId(), draft.id(), new ExitVoucherRequests.AddCattle(null, tag.getTagCode(), null));
+        ExitVoucherDTO.Detail scanned = addCattle(draft.id(), new ExitVoucherRequests.AddCattle(null, tag.getTagCode(), null));
         assertThat(scanned.lines()).singleElement().satisfies(l -> {
             assertThat(l.cattleId()).isEqualTo(c.getId());
             assertThat(l.exitWeightKg()).isEqualByComparingTo("300");
             assertThat(l.weightBasis()).isEqualTo(WeightBasis.ESTIMATED);
             assertThat(l.estimated()).isTrue();
         });
-        ExitVoucherDTO.Detail again = service.addCattle(farmId(), draft.id(), new ExitVoucherRequests.AddCattle(List.of(c.getId(), d.getId()), null, null));
+        ExitVoucherDTO.Detail again = addCattle(draft.id(), new ExitVoucherRequests.AddCattle(List.of(c.getId(), d.getId()), null, null));
         assertThat(again.cattleCount()).isEqualTo(2);
-        expect(() -> service.addCattle(farmId(), draft.id(), new ExitVoucherRequests.AddCattle(null, "NO-SUCH-TAG", null)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
+        expect(() -> addCattle(draft.id(), new ExitVoucherRequests.AddCattle(null, "NO-SUCH-TAG", null)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
     }
 
     // ------------------------------------------------------------------ scenario 14: death / missing
@@ -346,13 +377,13 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         // the Manager sees it but cannot dismiss
         actAs(manager);
         assertThat(service.get(farmId(), pending.getId()).status()).isEqualTo(ExitVoucherStatus.PENDING);
-        expect(() -> service.dismiss(farmId(), pending.getId(), new ExitVoucherRequests.Dismiss("x", null)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
+        expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("x", null)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
 
         actAs(owner);
         // the reason is mandatory
-        expect(() -> service.dismiss(farmId(), pending.getId(), new ExitVoucherRequests.Dismiss(" ", null)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
-        expect(() -> service.dismiss(farmId(), pending.getId(), new ExitVoucherRequests.Dismiss("mistake", 99)), MessageCodes.COM_05, HttpStatus.CONFLICT);
-        ExitVoucherDTO.DismissResult dismissed = service.dismiss(farmId(), pending.getId(), new ExitVoucherRequests.Dismiss("Found alive", null));
+        expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss(" ", null)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
+        expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("mistake", 99)), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        ExitVoucherDTO.DismissResult dismissed = dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("Found alive", null));
         assertThat(dismissed.message().code()).isEqualTo("MSG-FE13-04");
         assertThat(dismissed.voucher().status()).isEqualTo(ExitVoucherStatus.DISMISSED);
         assertThat(dismissed.voucher().closeReason()).isEqualTo("Found alive");
@@ -363,7 +394,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         assertThat(em.createQuery("select r from Reminder r where r.cattle.id = :c and r.ruleType = 'REM-12'", Reminder.class).setParameter("c", c.getId()).getSingleResult().getStatus())
             .isEqualTo("RESOLVED");
         // a dismissed voucher cannot be dismissed or confirmed again
-        expect(() -> service.dismiss(farmId(), pending.getId(), new ExitVoucherRequests.Dismiss("again", null)), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("again", null)), MessageCodes.COM_05, HttpStatus.CONFLICT);
         expect(() -> confirm(pending.getId()), MessageCodes.COM_05, HttpStatus.CONFLICT);
     }
 
@@ -378,12 +409,12 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
 
         expect(() -> confirm(pending.getId()), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
         // cause given, disposal missing for a death
-        service.update(farmId(), pending.getId(), death(TODAY.minusDays(1), LossKind.DIED, "Bloat", null));
+        update(pending.getId(), death(TODAY.minusDays(1), LossKind.DIED, "Bloat", null));
         expect(() -> confirm(pending.getId()), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
         // acknowledgement is required first
-        expect(() -> service.confirm(farmId(), pending.getId(), new ExitVoucherRequests.Confirm(false, null), null), MessageCodes.COM_16, HttpStatus.BAD_REQUEST);
+        expect(() -> confirmWith(pending.getId(), new ExitVoucherRequests.Confirm(false, null), null), MessageCodes.COM_16, HttpStatus.BAD_REQUEST);
 
-        ExitVoucherDTO.Detail completed = service.update(farmId(), pending.getId(), death(TODAY.minusDays(1), LossKind.DIED, "Bloat", "Buried on the farm"));
+        ExitVoucherDTO.Detail completed = update(pending.getId(), death(TODAY.minusDays(1), LossKind.DIED, "Bloat", "Buried on the farm"));
         assertThat(completed.status()).isEqualTo(ExitVoucherStatus.PENDING);
         assertThat(completed.deathCause()).isEqualTo("Bloat");
         // a loss voucher never carries money, even when the request sends some
@@ -414,7 +445,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         assertThat(pending.getLossKind()).isEqualTo(LossKind.MISSING);
         assertThat(pending.getNotes()).isEqualTo("Missing");
         actAs(owner);
-        service.update(farmId(), pending.getId(), death(TODAY.minusDays(1), LossKind.MISSING, "Not found after a search", null));
+        update(pending.getId(), death(TODAY.minusDays(1), LossKind.MISSING, "Not found after a search", null));
         assertThat(confirm(pending.getId()).voucher().status()).isEqualTo(ExitVoucherStatus.CONFIRMED);
         assertThat(c.getExitType()).isEqualTo(ExitType.OTHER);
     }
@@ -483,17 +514,16 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         assertThat(pre.message().code()).isEqualTo("MSG-FE13-09");
         assertThat(pre.reviewList()).hasSize(2);
 
-        expect(() -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("buyer cancelled", null, null, null)), MessageCodes.FE13_09, HttpStatus.UNPROCESSABLE_ENTITY);
+        expect(() -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("buyer cancelled", null, null, null)), MessageCodes.FE13_09, HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(s.c1().getHerdStatus()).isEqualTo(HerdStatus.EXITED);
         // override of only one cattle is not enough
         expect(
-            () -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("buyer cancelled", Map.of(s.c1().getId(), penB.getId()), null, null)),
+            () -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("buyer cancelled", Map.of(s.c1().getId(), penB.getId()), null, null)),
             MessageCodes.FE13_09,
             HttpStatus.UNPROCESSABLE_ENTITY
         );
 
-        ExitVoucherDTO.VoidResult result = service.voidVoucher(
-            farmId(),
+        ExitVoucherDTO.VoidResult result = voidVoucher(
             s.voucher().id(),
             new ExitVoucherRequests.Void("buyer cancelled", Map.of(s.c1().getId(), penB.getId(), s.c2().getId(), penB.getId()), null, null)
         );
@@ -525,16 +555,16 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
     @Test
     void voidReturnsEachCattleToItsLastPenWhenItIsAvailableAndNeverTwice() {
         Confirmed s = confirmedSale();
-        expect(() -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void(" ", null, null, null)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
-        expect(() -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("x", null, null, 77)), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        expect(() -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void(" ", null, null, null)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
+        expect(() -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("x", null, null, 77)), MessageCodes.COM_05, HttpStatus.CONFLICT);
         assertThat(service.voidCheck(farmId(), s.voucher().id()).cattle()).allSatisfy(v -> assertThat(v.needsPenOverride()).isFalse());
 
-        ExitVoucherDTO.VoidResult result = service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("wrong buyer", null, null, null));
+        ExitVoucherDTO.VoidResult result = voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("wrong buyer", null, null, null));
         assertThat(openAssignment(s.c1()).getPen()).isEqualTo(penA);
         assertThat(openAssignment(s.c2()).getPen()).isEqualTo(penA);
         assertThat(result.voucher().status()).isEqualTo(ExitVoucherStatus.VOIDED);
         // never voided twice
-        expect(() -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("again", null, null, null)), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        expect(() -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("again", null, null, null)), MessageCodes.COM_05, HttpStatus.CONFLICT);
         assertThat(service.voidCheck(farmId(), s.voucher().id()).voidable()).isFalse();
         // and the cattle can be put on a new voucher
         assertThat(service.create(farmId(), sale(TODAY, line(s.c1(), "400", 1L))).cattleCount()).isEqualTo(1);
@@ -549,9 +579,9 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         }
         ExitVoucherDTO.VoidCheck pre = service.voidCheck(farmId(), s.voucher().id());
         assertThat(pre.cattle().stream().filter(ExitVoucherDTO.VoidCattle::needsPenOverride)).hasSize(1);
-        expect(() -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.FE13_09, HttpStatus.UNPROCESSABLE_ENTITY);
+        expect(() -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.FE13_09, HttpStatus.UNPROCESSABLE_ENTITY);
         // the second cattle goes to pen B, the first fits its last pen
-        service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("x", Map.of(s.c2().getId(), penB.getId()), null, null));
+        voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("x", Map.of(s.c2().getId(), penB.getId()), null, null));
         assertThat(openAssignment(s.c1()).getPen()).isEqualTo(penA);
         assertThat(openAssignment(s.c2()).getPen()).isEqualTo(penB);
     }
@@ -563,9 +593,8 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         Map<Long, Long> overrides = Map.of(s.c1().getId(), penB.getId(), s.c2().getId(), penB.getId());
         penA.setStatus(ActiveStatus.INACTIVE);
         em.flush();
-        expect(() -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("x", overrides, null, null)), MessageCodes.FE04_06, HttpStatus.UNPROCESSABLE_ENTITY);
-        service.voidVoucher(
-            farmId(),
+        expect(() -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("x", overrides, null, null)), MessageCodes.FE04_06, HttpStatus.UNPROCESSABLE_ENTITY);
+        voidVoucher(
             s.voucher().id(),
             new ExitVoucherRequests.Void("x", overrides, Map.of(s.c1().getId(), "no other pen", s.c2().getId(), "no other pen"), null)
         );
@@ -577,7 +606,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         Confirmed s = confirmedSale();
         HerdExitVoucher other = exitVoucher(farm, owner, buyer, 0, 0, ExitVoucherStatus.DRAFT);
         exitLine(other, s.c1(), 1, ExitLineStatus.DRAFT);
-        expect(() -> service.voidVoucher(farmId(), s.voucher().id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.FE13_08, HttpStatus.UNPROCESSABLE_ENTITY);
+        expect(() -> voidVoucher(s.voucher().id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.FE13_08, HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(s.c1().getHerdStatus()).isEqualTo(HerdStatus.EXITED);
     }
 
@@ -586,7 +615,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         Cattle c = placed(penA, "300");
         actAs(owner);
         ExitVoucherDTO.Detail draft = service.create(farmId(), sale(TODAY, line(c, "300", 1L)));
-        expect(() -> service.voidVoucher(farmId(), draft.id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        expect(() -> voidVoucher(draft.id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.COM_05, HttpStatus.CONFLICT);
     }
 
     // ------------------------------------------------------------------ scenarios 16, 17: permissions
@@ -604,9 +633,9 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         assertThat(service.voidCheck(farmId(), draft.id()).voidable()).isFalse();
         expect(() -> confirm(draft.id()), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
         expect(() -> service.create(farmId(), sale(TODAY)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
-        expect(() -> service.update(farmId(), draft.id(), sale(TODAY)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
-        expect(() -> service.delete(farmId(), draft.id(), null), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
-        expect(() -> service.voidVoucher(farmId(), draft.id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
+        expect(() -> update(draft.id(), sale(TODAY)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
+        expect(() -> delete(draft.id(), null), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
+        expect(() -> voidVoucher(draft.id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
         expect(() -> service.selectableCattle(farmId(), null, null, null, null), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
         assertThat(c.getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
 
@@ -629,7 +658,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
     }
 
     @Test
-    void scenario17ExpiredServiceBlocksEveryWriteButNotReads() {
+    void scenario17ExpiredServiceBlocksEveryOperationIncludingReads() {
         Cattle c = placed(penA, "300");
         Cattle d = placed(penA, "300");
         actAs(owner);
@@ -640,17 +669,17 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         em.flush();
 
         expect(() -> service.create(farmId(), sale(TODAY)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
-        expect(() -> service.update(farmId(), draft.id(), sale(TODAY)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
-        expect(() -> service.addCattle(farmId(), draft.id(), new ExitVoucherRequests.AddCattle(List.of(d.getId()), null, null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        expect(() -> update(draft.id(), sale(TODAY)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        expect(() -> addCattle(draft.id(), new ExitVoucherRequests.AddCattle(List.of(d.getId()), null, null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
         expect(() -> confirm(draft.id()), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
-        expect(() -> service.delete(farmId(), draft.id(), null), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
-        expect(() -> service.dismiss(farmId(), pending.getId(), new ExitVoucherRequests.Dismiss("x", null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
-        expect(() -> service.voidVoucher(farmId(), draft.id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        expect(() -> delete(draft.id(), null), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        expect(() -> dismiss(pending.getId(), new ExitVoucherRequests.Dismiss("x", null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        expect(() -> voidVoucher(draft.id(), new ExitVoucherRequests.Void("x", null, null, null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
         expect(() -> service.selectableCattle(farmId(), null, null, null, null), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
         assertThat(c.getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
-        // reads stay available
-        assertThat(service.get(farmId(), draft.id()).status()).isEqualTo(ExitVoucherStatus.DRAFT);
-        assertThat(service.list(farmId(), null, null, null, null).vouchers()).hasSize(2);
+        // GBR-14 / MSG-COM-12: farm operation screens, reads included, are unavailable while the service is not ACTIVE.
+        expect(() -> service.get(farmId(), draft.id()), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        expect(() -> service.list(farmId(), null, null, null, null), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
     }
 
     // ------------------------------------------------------------------ confirm rules
@@ -663,10 +692,10 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
             farmId(),
             saveReq(ExitType.SALE, TODAY, buyer.getId(), null, 0, 3_000_000L, PaymentMethod.BANK_TRANSFER, List.of(line(c, "300", 50_000L)))
         );
-        ExitVoucherDTO.ConfirmResult first = service.confirm(farmId(), draft.id(), ack(), "key-1");
+        ExitVoucherDTO.ConfirmResult first = confirmWith(draft.id(), ack(), "key-1");
         long audits = auditLogs.count();
         long payments = paymentRepository.count();
-        ExitVoucherDTO.ConfirmResult second = service.confirm(farmId(), draft.id(), ack(), "key-1");
+        ExitVoucherDTO.ConfirmResult second = confirmWith(draft.id(), ack(), "key-1");
 
         assertThat(second.repeated()).isTrue();
         assertThat(second.voucher().status()).isEqualTo(ExitVoucherStatus.CONFIRMED);
@@ -686,14 +715,14 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         expect(() -> confirm(empty.id()), MessageCodes.FE06_16, HttpStatus.UNPROCESSABLE_ENTITY);
 
         ExitVoucherDTO.Detail draft = service.create(farmId(), sale(TODAY, line(c, "300", 50_000L)));
-        expect(() -> service.confirm(farmId(), draft.id(), new ExitVoucherRequests.Confirm(false, null), null), MessageCodes.COM_16, HttpStatus.BAD_REQUEST);
-        expect(() -> service.confirm(farmId(), draft.id(), new ExitVoucherRequests.Confirm(null, null), null), MessageCodes.COM_16, HttpStatus.BAD_REQUEST);
-        expect(() -> service.confirm(farmId(), draft.id(), new ExitVoucherRequests.Confirm(true, 55), null), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        expect(() -> confirmWith(draft.id(), new ExitVoucherRequests.Confirm(false, null), null), MessageCodes.COM_16, HttpStatus.BAD_REQUEST);
+        expect(() -> confirmWith(draft.id(), new ExitVoucherRequests.Confirm(null, null), null), MessageCodes.COM_16, HttpStatus.BAD_REQUEST);
+        expect(() -> confirmWith(draft.id(), new ExitVoucherRequests.Confirm(true, 55), null), MessageCodes.COM_05, HttpStatus.CONFLICT);
         assertThat(c.getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
 
         // neither a buyer nor a destination
         ExitVoucherDTO.Detail noBuyer = service.create(farmId(), saveReq(ExitType.OTHER, TODAY, null, null, 0, 0, null, List.of()));
-        service.addCattle(farmId(), noBuyer.id(), new ExitVoucherRequests.AddCattle(List.of(placed(penA, "300").getId()), null, null));
+        addCattle(noBuyer.id(), new ExitVoucherRequests.AddCattle(List.of(placed(penA, "300").getId()), null, null));
         expect(() -> confirm(noBuyer.id()), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
     }
 
@@ -722,8 +751,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         assertThat(draft.lines().get(0).exitWeightKg()).isNull();
         expect(() -> confirm(draft.id()), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
         // per head needs no weight
-        ExitVoucherDTO.Detail perHead = service.update(
-            farmId(),
+        ExitVoucherDTO.Detail perHead = update(
             draft.id(),
             new ExitVoucherRequests.Save(
                 ExitType.SALE,
@@ -820,7 +848,7 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         expect(() -> service.create(farmId(), new ExitVoucherRequests.Save(null, TODAY, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
 
         ExitVoucherDTO.Detail draft = service.create(farmId(), sale(TODAY, line(c, "300", 1L)));
-        expect(() -> service.update(farmId(), draft.id(), saveReq(ExitType.CULL, TODAY, buyer.getId(), null, 0, 0, null, List.of(line(c, "300", 1L)))), MessageCodes.COM_10, HttpStatus.BAD_REQUEST);
+        expect(() -> update(draft.id(), saveReq(ExitType.CULL, TODAY, buyer.getId(), null, 0, 0, null, List.of(line(c, "300", 1L)))), MessageCodes.COM_10, HttpStatus.BAD_REQUEST);
         // an OTHER voucher may name a destination instead of a buyer
         ExitVoucherDTO.Detail other = service.create(farmId(), saveReq(ExitType.OTHER, TODAY, null, "Relative's farm", 0, 0, null, List.of()));
         assertThat(other.destination()).isEqualTo("Relative's farm");
@@ -853,15 +881,15 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         Cattle c = placed(penA, "300");
         actAs(owner);
         ExitVoucherDTO.Detail draft = service.create(farmId(), sale(TODAY, line(c, "300", 1L)));
-        expect(() -> service.delete(farmId(), draft.id(), 99), MessageCodes.COM_05, HttpStatus.CONFLICT);
-        service.delete(farmId(), draft.id(), null);
+        expect(() -> delete(draft.id(), 99), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        delete(draft.id(), null);
         expect(() -> service.get(farmId(), draft.id()), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
         assertThat(exitLines.findAllByVoucherIdOrderByLineNoAsc(draft.id())).isEmpty();
 
         ExitVoucherDTO.Detail again = service.create(farmId(), sale(TODAY, line(c, "300", 1L)));
         confirm(again.id());
-        expect(() -> service.delete(farmId(), again.id(), null), MessageCodes.COM_05, HttpStatus.CONFLICT);
-        expect(() -> service.update(farmId(), again.id(), sale(TODAY)), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        expect(() -> delete(again.id(), null), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        expect(() -> update(again.id(), sale(TODAY)), MessageCodes.COM_05, HttpStatus.CONFLICT);
     }
 
     @Test
@@ -870,8 +898,8 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
         actAs(owner);
         ExitVoucherDTO.Detail draft = service.create(farmId(), sale(TODAY, line(c, "300", 1L)));
         ExitVoucherRequests.Save stale = new ExitVoucherRequests.Save(ExitType.SALE, TODAY, buyer.getId(), null, null, null, null, null, null, null, null, 0L, 0L, null, null, null, draft.version() + 5);
-        expect(() -> service.update(farmId(), draft.id(), stale), MessageCodes.COM_05, HttpStatus.CONFLICT);
-        ExitVoucherDTO.Detail updated = service.update(farmId(), draft.id(), saveReq(ExitType.SALE, TODAY, buyer.getId(), null, 0, 0, null, null));
+        expect(() -> update(draft.id(), stale), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        ExitVoucherDTO.Detail updated = update(draft.id(), saveReq(ExitType.SALE, TODAY, buyer.getId(), null, 0, 0, null, null));
         assertThat(updated.cattleCount()).isEqualTo(1);
         assertThat(updated.version()).isGreaterThan(draft.version());
     }

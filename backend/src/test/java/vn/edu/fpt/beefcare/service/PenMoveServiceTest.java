@@ -88,6 +88,16 @@ class PenMoveServiceTest extends DomainTestSupport {
         return list;
     }
 
+    /** Moves with the cattle versions the dialog read unless the request names others (BR-D31). */
+    private PenMoveResultDTO move(PenMoveRequest r) {
+        Map<Long, Integer> versions = r.cattleVersions();
+        if (versions == null) {
+            versions = new java.util.HashMap<>();
+            for (Long id : r.cattleIds()) versions.put(id, versionOf(Cattle.class, id));
+        }
+        return moves.move(farm.getId(), new PenMoveRequest(r.cattleIds(), r.toPenId(), r.moveDate(), r.reason(), r.warningReasons(), versions, r.performedBy()));
+    }
+
     private PenMoveRequest req(Pen to, String reason, Map<Long, String> warnings, Cattle... cattle) {
         return new PenMoveRequest(java.util.Arrays.stream(cattle).map(Cattle::getId).toList(), to.getId(), TODAY, reason, warnings, null, null);
     }
@@ -109,7 +119,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen a = pen(farm, "A", 10);
         Pen b = pen(farm, "B", 10);
         Cattle c = cowIn(a, TODAY.minusDays(10));
-        PenMoveResultDTO r = moves.move(farm.getId(), req(b, "better feed", null, c));
+        PenMoveResultDTO r = move(req(b, "better feed", null, c));
         assertThat(r.moved()).hasSize(1);
         assertThat(r.moved().get(0).source()).isEqualTo("MOVE");
         assertThat(r.message().code()).isEqualTo(MessageCodes.FE04_08);
@@ -131,11 +141,11 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen b = pen(farm, "B", 10);
         Cattle c = cowIn(a, TODAY.minusDays(10));
         actAs(technician);
-        assertCode(() -> moves.move(farm.getId(), req(b, "x", null, c)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
+        assertCode(() -> move(req(b, "x", null, c)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
         assertCode(() -> moves.check(farm.getId(), new PenMoveCheckRequest(List.of(c.getId()), b.getId(), TODAY)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
         assertThat(currentPen(c).getId()).isEqualTo(a.getId());
         actAs(manager);
-        assertThat(moves.move(farm.getId(), req(b, "x", null, c)).moved()).hasSize(1);
+        assertThat(move(req(b, "x", null, c)).moved()).hasSize(1);
     }
 
     @Test
@@ -145,7 +155,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         Cattle c = cowIn(a, TODAY.minusDays(10));
         farm.setServiceStatus("EXPIRED");
         em.flush();
-        assertCode(() -> moves.move(farm.getId(), req(b, "x", null, c)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        assertCode(() -> move(req(b, "x", null, c)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
         assertThat(currentPen(c).getId()).isEqualTo(a.getId());
     }
 
@@ -156,7 +166,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         cowsIn(to, 6);
         List<Cattle> five = cowsIn(from, 5);
         PenMoveRequest request = new PenMoveRequest(five.stream().map(Cattle::getId).toList(), to.getId(), TODAY, "regroup", null, null, null);
-        assertThatThrownBy(() -> moves.move(farm.getId(), request))
+        assertThatThrownBy(() -> move(request))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_05);
                 assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
@@ -178,8 +188,8 @@ class PenMoveServiceTest extends DomainTestSupport {
         cowsIn(to, 2);
         Cattle first = cowIn(from, TODAY.minusDays(5));
         Cattle second = cowIn(from, TODAY.minusDays(5));
-        assertThat(moves.move(farm.getId(), req(to, "one", null, first)).moved()).hasSize(1);
-        assertThatThrownBy(() -> moves.move(farm.getId(), req(to, "two", null, second)))
+        assertThat(move(req(to, "one", null, first)).moved()).hasSize(1);
+        assertThatThrownBy(() -> move(req(to, "two", null, second)))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_05);
                 assertThat(e.getParams()).containsEntry("free", 0);
@@ -194,18 +204,18 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen b = pen(farm, "B", 10);
         Cattle c = cowIn(a, TODAY.minusDays(3));
         PenMoveRequest early = new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY.minusDays(4), "x", null, null, null);
-        assertThatThrownBy(() -> moves.move(farm.getId(), early))
+        assertThatThrownBy(() -> move(early))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_09);
                 assertThat(e.getParams()).containsEntry("start_date", TODAY.minusDays(3));
             });
         PenMoveRequest future = new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY.plusDays(1), "x", null, null, null);
-        assertCode(() -> moves.move(farm.getId(), future), MessageCodes.FE04_09, HttpStatus.UNPROCESSABLE_ENTITY);
+        assertCode(() -> move(future), MessageCodes.FE04_09, HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(currentPen(c).getId()).isEqualTo(a.getId());
         PenMoveCheckDTO check = moves.check(farm.getId(), new PenMoveCheckRequest(List.of(c.getId()), b.getId(), TODAY.minusDays(4)));
         assertThat(check.cattle().get(0).error().code()).isEqualTo(MessageCodes.FE04_09);
         PenMoveRequest sameDay = new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY.minusDays(3), "x", null, null, null);
-        assertThat(moves.move(farm.getId(), sameDay).moved()).hasSize(1);
+        assertThat(move(sameDay).moved()).hasSize(1);
     }
 
     @Test
@@ -219,14 +229,14 @@ class PenMoveServiceTest extends DomainTestSupport {
         assertThat(check.cattle().get(0).allMet()).isFalse();
         assertThat(check.cattle().get(0).warningReasonRequired()).isTrue();
         assertThat(check.cattle().get(0).warning().code()).isEqualTo(MessageCodes.FE04_06);
-        assertThatThrownBy(() -> moves.move(farm.getId(), req(b, "need space", null, c)))
+        assertThatThrownBy(() -> move(req(b, "need space", null, c)))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_06);
                 assertThat(e.getParams()).containsKey("criteria").containsEntry("pen_code", "B");
             });
         assertThat(currentPen(c).getId()).isEqualTo(a.getId());
-        assertCode(() -> moves.move(farm.getId(), req(b, "need space", Map.of(c.getId(), "   "), c)), MessageCodes.FE04_06, HttpStatus.UNPROCESSABLE_ENTITY);
-        moves.move(farm.getId(), req(b, "need space", Map.of(c.getId(), "only free pen"), c));
+        assertCode(() -> move(req(b, "need space", Map.of(c.getId(), "   "), c)), MessageCodes.FE04_06, HttpStatus.UNPROCESSABLE_ENTITY);
+        move(req(b, "need space", Map.of(c.getId(), "only free pen"), c));
         PenAssignment open = assignments.findOpen(c.getId()).orElseThrow();
         assertThat(open.getPen().getId()).isEqualTo(b.getId());
         assertThat(open.getWarningReason()).isEqualTo("only free pen");
@@ -243,9 +253,9 @@ class PenMoveServiceTest extends DomainTestSupport {
         Cattle cow = cowIn(a, TODAY.minusDays(10));
         Cattle bull = cattle(farm, breed, fattening, Sex.MALE, LifeStage.ADULT);
         assignments.openAssignment(bull, a, TODAY.minusDays(10), AssignmentSource.HERD_ENTRY, "entry", null, null, owner);
-        assertCode(() -> moves.move(farm.getId(), req(b, "r", null, cow, bull)), MessageCodes.FE04_06, HttpStatus.UNPROCESSABLE_ENTITY);
+        assertCode(() -> move(req(b, "r", null, cow, bull)), MessageCodes.FE04_06, HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(currentPen(cow).getId()).isEqualTo(a.getId());
-        assertThat(moves.move(farm.getId(), req(b, "r", Map.of(bull.getId(), "bull ok"), cow, bull)).moved()).hasSize(2);
+        assertThat(move(req(b, "r", Map.of(bull.getId(), "bull ok"), cow, bull)).moved()).hasSize(2);
         assertThat(assignments.findOpen(cow.getId()).orElseThrow().getWarningReason()).isNull();
     }
 
@@ -256,7 +266,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         b.setStatus(ActiveStatus.INACTIVE);
         em.flush();
         Cattle c = cowIn(a, TODAY.minusDays(10));
-        assertThatThrownBy(() -> moves.move(farm.getId(), req(b, "x", null, c)))
+        assertThatThrownBy(() -> move(req(b, "x", null, c)))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_05);
                 assertThat(e.getParams()).containsEntry("free", 0);
@@ -273,12 +283,12 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen b = pen(farm, "B", 10);
         Cattle inB = cowIn(b, TODAY.minusDays(10));
         Cattle inA = cowIn(a, TODAY.minusDays(10));
-        PenMoveResultDTO r = moves.move(farm.getId(), req(b, "x", null, inB, inA));
+        PenMoveResultDTO r = move(req(b, "x", null, inB, inA));
         assertThat(r.moved()).extracting(PenMoveResultDTO.Moved::cattleId).containsExactly(inA.getId());
         assertThat(r.skipped()).hasSize(1);
         assertThat(r.skipped().get(0).message().code()).isEqualTo(MessageCodes.FE04_07);
         assertThat(assignments.history(inB.getId())).hasSize(1);
-        PenMoveResultDTO none = moves.move(farm.getId(), req(b, "x", null, inB));
+        PenMoveResultDTO none = move(req(b, "x", null, inB));
         assertThat(none.moved()).isEmpty();
         assertThat(none.message()).isNull();
         assertThat(none.skipped()).hasSize(1);
@@ -291,8 +301,8 @@ class PenMoveServiceTest extends DomainTestSupport {
         Cattle one = cowIn(b, TODAY.minusDays(10));
         Cattle two = cowIn(b, TODAY.minusDays(10));
         Cattle three = cowIn(a, TODAY.minusDays(10));
-        assertCode(() -> moves.move(farm.getId(), req(b, "x", null, one, two, three)), MessageCodes.FE04_05, HttpStatus.UNPROCESSABLE_ENTITY);
-        assertThat(moves.move(farm.getId(), req(b, "x", null, one, two)).moved()).isEmpty();
+        assertCode(() -> move(req(b, "x", null, one, two, three)), MessageCodes.FE04_05, HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(move(req(b, "x", null, one, two)).moved()).isEmpty();
     }
 
     @Test
@@ -304,12 +314,12 @@ class PenMoveServiceTest extends DomainTestSupport {
         exited.setHerdStatus(HerdStatus.EXITED);
         exited.setExitDate(TODAY.minusDays(1));
         em.flush();
-        assertCode(() -> moves.move(farm.getId(), req(b, "x", null, ok, exited)), MessageCodes.COM_13, HttpStatus.UNPROCESSABLE_ENTITY);
+        assertCode(() -> move(req(b, "x", null, ok, exited)), MessageCodes.COM_13, HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(currentPen(ok).getId()).isEqualTo(a.getId());
         Cattle voided = cowIn(a, TODAY.minusDays(10));
         voided.setHerdStatus(HerdStatus.VOIDED);
         em.flush();
-        assertCode(() -> moves.move(farm.getId(), req(b, "x", null, voided)), MessageCodes.COM_18, HttpStatus.UNPROCESSABLE_ENTITY);
+        assertCode(() -> move(req(b, "x", null, voided)), MessageCodes.COM_18, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     @Test
@@ -319,7 +329,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         Cattle c = cowIn(a, TODAY.minusDays(10));
         var voucher = exitVoucher(farm, owner, null, 0, 0, ExitVoucherStatus.PENDING);
         exitLine(voucher, c, 1, ExitLineStatus.PENDING);
-        assertCode(() -> moves.move(farm.getId(), req(b, "x", null, c)), MessageCodes.COM_17, HttpStatus.UNPROCESSABLE_ENTITY);
+        assertCode(() -> move(req(b, "x", null, c)), MessageCodes.COM_17, HttpStatus.UNPROCESSABLE_ENTITY);
         PenMoveCheckDTO check = moves.check(farm.getId(), new PenMoveCheckRequest(List.of(c.getId()), b.getId(), TODAY));
         assertThat(check.cattle().get(0).error().code()).isEqualTo(MessageCodes.COM_17);
     }
@@ -329,11 +339,11 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen a = pen(farm, "A", 10);
         Pen b = pen(farm, "B", 10);
         Cattle c = cowIn(a, TODAY.minusDays(10));
-        assertCode(() -> moves.move(farm.getId(), req(b, "  ", null, c)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
-        assertCode(() -> moves.move(farm.getId(), req(b, null, null, c)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
-        assertCode(() -> moves.move(farm.getId(), req(b, "x".repeat(501), null, c)), MessageCodes.COM_10, HttpStatus.BAD_REQUEST);
-        moves.move(farm.getId(), req(b, "wrong pen", null, c));
-        PenMoveResultDTO back = moves.move(farm.getId(), req(a, "Correction", null, c));
+        assertCode(() -> move(req(b, "  ", null, c)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
+        assertCode(() -> move(req(b, null, null, c)), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
+        assertCode(() -> move(req(b, "x".repeat(501), null, c)), MessageCodes.COM_10, HttpStatus.BAD_REQUEST);
+        move(req(b, "wrong pen", null, c));
+        PenMoveResultDTO back = move(req(a, "Correction", null, c));
         assertThat(back.moved().get(0).source()).isEqualTo("CORRECTION");
         assertThat(currentPen(c).getId()).isEqualTo(a.getId());
         assertThat(assignments.history(c.getId())).hasSize(3);
@@ -360,7 +370,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         other.setDueTime(Instant.now());
         other.setStatus("ACTIVE");
         save(other);
-        moves.move(farm.getId(), req(b, "per suggestion", null, c));
+        move(req(b, "per suggestion", null, c));
         em.flush();
         em.refresh(r);
         em.refresh(other);
@@ -375,9 +385,9 @@ class PenMoveServiceTest extends DomainTestSupport {
         Cattle c = cowIn(a, TODAY.minusDays(10));
         AppUser outsider = user();
         PenMoveRequest bad = new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY, "x", null, null, outsider.getId());
-        assertCode(() -> moves.move(farm.getId(), bad), MessageCodes.COM_10, HttpStatus.BAD_REQUEST);
+        assertCode(() -> move(bad), MessageCodes.COM_10, HttpStatus.BAD_REQUEST);
         PenMoveRequest good = new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY, "x", null, null, technician.getId());
-        moves.move(farm.getId(), good);
+        move(good);
         assertThat(assignments.findOpen(c.getId()).orElseThrow().getMovedBy().getId()).isEqualTo(technician.getId());
     }
 
@@ -387,7 +397,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen b = pen(farm, "B", 10);
         Cattle c = cowIn(a, TODAY.minusDays(10));
         PenMoveRequest stale = new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY, "x", null, Map.of(c.getId(), c.getVersion() + 3), null);
-        assertCode(() -> moves.move(farm.getId(), stale), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        assertCode(() -> move(stale), MessageCodes.COM_05, HttpStatus.CONFLICT);
     }
 
     @Test
@@ -396,10 +406,10 @@ class PenMoveServiceTest extends DomainTestSupport {
         Cattle c = cowIn(a, TODAY.minusDays(10));
         Farm other = farm();
         Pen foreign = pen(other, "Z", 10);
-        assertCode(() -> moves.move(farm.getId(), req(foreign, "x", null, c)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
+        assertCode(() -> move(req(foreign, "x", null, c)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
         Cattle foreignCattle = cattle(other, breed(other), purpose(other, PurposeType.BREEDING), Sex.FEMALE, LifeStage.ADULT);
         Pen b = pen(farm, "B", 10);
-        assertCode(() -> moves.move(farm.getId(), req(b, "x", null, foreignCattle)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
+        assertCode(() -> move(req(b, "x", null, foreignCattle)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
     }
 
     @Test
@@ -424,7 +434,7 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen b = pen(farm, "B", 8);
         Cattle c = cowIn(a, TODAY.minusDays(10));
         clock.setFarmToday(TODAY);
-        moves.move(farm.getId(), new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY.minusDays(2), "moved out", null, null, manager.getId()));
+        move(new PenMoveRequest(List.of(c.getId()), b.getId(), TODAY.minusDays(2), "moved out", null, null, manager.getId()));
         PenHistoryDTO h = moves.history(farm.getId(), c.getId());
         assertThat(h.current().penCode()).isEqualTo("B");
         assertThat(h.current().since()).isEqualTo(TODAY.minusDays(2));
@@ -460,6 +470,6 @@ class PenMoveServiceTest extends DomainTestSupport {
         Pen b = pen(farm, "B", 1);
         Cattle c = cowIn(a, TODAY.minusDays(10));
         PenMoveRequest dup = new PenMoveRequest(List.of(c.getId(), c.getId()), b.getId(), TODAY, "x", null, null, null);
-        assertThat(moves.move(farm.getId(), dup).moved()).hasSize(1);
+        assertThat(move(dup).moved()).hasSize(1);
     }
 }

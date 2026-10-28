@@ -427,8 +427,12 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         pm();
         CashReport run = api().runReport(new ReportRequest(TODAY.minusDays(3), TODAY, null, "ALL"), key()).getBody();
         clock.set(run.expiresAt().plusSeconds(1));
-        assertThatThrownBy(() -> finance.report(run.id())).hasMessageContaining("410");
-        assertThatThrownBy(() -> finance.exportSnapshot(run.id())).hasMessageContaining("410");
+        // UC-FE21-08/09 E1: MSG-FE21-12, the PM must run the report again
+        assertThatThrownBy(() -> finance.report(run.id())).isInstanceOfSatisfying(DomainException.class, e -> {
+            assertThat(e.getCode()).isEqualTo("MSG-FE21-12");
+            assertThat(e.getStatus()).isEqualTo(org.springframework.http.HttpStatus.GONE);
+        });
+        assertThatThrownBy(() -> finance.exportSnapshot(run.id())).isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo("MSG-FE21-12"));
     }
 
     private static ScopeTotals totals(ReportSummary summary, String scope, Long farmId) {

@@ -121,6 +121,24 @@ public abstract class DomainTestSupport {
             .setAuthentication(new UsernamePasswordAuthenticationToken(user.getEmail(), "n/a", List.of(new SimpleGrantedAuthority("ROLE_USER"))));
     }
 
+    /** The version a client form holds for this record now; commands on existing records must send it (BR-D31). */
+    protected Integer versionOf(Class<?> type, Long id) {
+        Object entity = em.find(type, id);
+        return entity == null ? null : versionField(entity);
+    }
+
+    protected Integer entryVoucherVersion(Long voucherId) {
+        return versionOf(HerdEntryVoucher.class, voucherId);
+    }
+
+    private static Integer versionField(Object entity) {
+        try {
+            return (Integer) entity.getClass().getMethod("getVersion").invoke(entity);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(entity.getClass().getSimpleName() + " has no version", e);
+        }
+    }
+
     protected Pen pen(Farm farm, String code, int capacity) {
         Pen p = new Pen();
         p.setFarm(farm);

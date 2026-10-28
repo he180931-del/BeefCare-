@@ -33,7 +33,7 @@ beefcare:
   attachments:
     local-root: target/test-attachments
   email:
-    poll-delay-ms: 60000
+    poll-delay-ms: 86400000 # tests call dispatchDueJobs() themselves; a scheduled run would race them
     provider: mock
     link-signing-key: beefcare-test-only-fixed-link-key-000000000000000000000000000000000000000000
     frontend-base-url: http://127.0.0.1:8080

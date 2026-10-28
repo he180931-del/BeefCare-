@@ -111,7 +111,7 @@ class FarmBornEntryTest extends HerdEntryTestBase {
         assertThat(count("Cattle")).isEqualTo(1); // only the dam
         assertThat(calves.pending(farm.getId())).hasSize(1);
 
-        EntryDtos.PostResult result = posting.post(farm.getId(), draft.id(), null);
+        EntryDtos.PostResult result = postDraft(farm.getId(), draft.id());
         Cattle c = em.find(Cattle.class, result.voucher().lines().get(0).cattleId());
         assertThat(c.getDam().getId()).isEqualTo(dam.getId());
         assertThat(c.getSex()).isEqualTo(Sex.FEMALE);
@@ -140,7 +140,7 @@ class FarmBornEntryTest extends HerdEntryTestBase {
         assertThat(e.getStatus()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(e.getParams()).containsEntry("cattle_code", c.getDisplayCode());
         // and posting twice is idempotent
-        assertThat(posting.post(farm.getId(), draft.id(), null).alreadyPosted()).isTrue();
+        assertThat(postDraft(farm.getId(), draft.id()).alreadyPosted()).isTrue();
         assertThat(count("Cattle")).isEqualTo(2);
     }
 
@@ -155,16 +155,16 @@ class FarmBornEntryTest extends HerdEntryTestBase {
         dam.setExitType(vn.edu.fpt.beefcare.domain.enumeration.ExitType.SALE);
         dam.setExitDate(TODAY);
         save(dam);
-        assertThat(thrown(() -> posting.post(farm.getId(), draft.id(), null)).getCode()).isEqualTo(MessageCodes.COM_13);
+        assertThat(thrown(() -> postDraft(farm.getId(), draft.id())).getCode()).isEqualTo(MessageCodes.COM_13);
         assertThat(em.find(CalfOutcome.class, live.getId()).getRegistrationState()).isEqualTo("PENDING_CONFIRMATION");
     }
 
     @Test
     void purposeMustFitTheCalfsSex() {
         CalfOutcome heifer = calf("LIVE", "FEMALE", null);
-        assertThat(thrown(() -> posting.post(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(heifer, penA.getId(), sire.getId()))).id(), null)).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        assertThat(thrown(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(heifer, penA.getId(), sire.getId()))).id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
         CalfOutcome bull = calf("LIVE", "MALE", null);
-        assertThat(thrown(() -> posting.post(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(bull, penA.getId(), breeding.getId()))).id(), null)).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        assertThat(thrown(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(bull, penA.getId(), breeding.getId()))).id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
     }
 
     @Test
@@ -179,8 +179,8 @@ class FarmBornEntryTest extends HerdEntryTestBase {
     @Test
     void voidingTheVoucherReturnsTheCalfToPendingAndRaisesTheReminderAgain() {
         CalfOutcome calf = calf("LIVE", "MALE", null);
-        EntryDtos.PostResult posted = posting.post(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(calf, penA.getId(), null))).id(), null);
-        corrections.voidVoucher(farm.getId(), posted.voucher().id(), new EntryActionRequests.VoidRequest("calf entered by mistake", null));
+        EntryDtos.PostResult posted = postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(calf, penA.getId(), null))).id());
+        voidVoucher(posted.voucher().id(), new EntryActionRequests.VoidRequest("calf entered by mistake", null));
         CalfOutcome reloaded = em.find(CalfOutcome.class, calf.getId());
         assertThat(reloaded.getRegistrationState()).isEqualTo("PENDING_CONFIRMATION");
         assertThat(reloaded.getRegisteredCattle()).isNull();

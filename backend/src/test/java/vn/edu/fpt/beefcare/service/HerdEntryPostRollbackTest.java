@@ -30,6 +30,7 @@ import vn.edu.fpt.beefcare.domain.enumeration.QrTagStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 import vn.edu.fpt.beefcare.domain.enumeration.WeightBasis;
 import vn.edu.fpt.beefcare.repository.VoucherPaymentRepository;
+import vn.edu.fpt.beefcare.service.dto.EntryActionRequests;
 import vn.edu.fpt.beefcare.service.dto.EntryDtos;
 import vn.edu.fpt.beefcare.service.dto.EntryLineRequest;
 import vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest;
@@ -99,7 +100,7 @@ class HerdEntryPostRollbackTest extends DomainTestSupport {
         EntryVoucherRequest req = new EntryVoucherRequest(EntryType.PURCHASE, TODAY, seller.getId(), null, "Q", null, null, PricingBasis.PER_KG, 0L, 1_000_000L, PaymentMethod.CASH, null, List.of(l1, l2), null);
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), req);
 
-        assertThatThrownBy(() -> posting.post(farm.getId(), draft.id(), null)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> posting.post(farm.getId(), draft.id(), new EntryActionRequests.PostRequest(draft.version(), false))).isInstanceOf(RuntimeException.class);
 
         tx.executeWithoutResult(status -> {
             assertThat(count("Cattle", farm)).isEqualTo(1); // only the pre-existing one
@@ -122,7 +123,7 @@ class HerdEntryPostRollbackTest extends DomainTestSupport {
 
         // once the collision is gone the same draft posts, with the first free codes
         tx.executeWithoutResult(status -> em.remove(em.find(CattleQrTag.class, taken.getId())));
-        EntryDtos.PostResult ok = posting.post(farm.getId(), draft.id(), null);
+        EntryDtos.PostResult ok = posting.post(farm.getId(), draft.id(), new EntryActionRequests.PostRequest(draft.version(), false));
         assertThat(ok.cattleCodes()).containsExactly("BC-000001", "BC-000002");
         assertThat(ok.voucher().payments()).hasSize(1);
     }

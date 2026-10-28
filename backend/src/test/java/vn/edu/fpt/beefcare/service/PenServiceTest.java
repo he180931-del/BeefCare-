@@ -64,6 +64,17 @@ class PenServiceTest extends DomainTestSupport {
         return new PenRequest(code, "Pen " + code, capacity, "desc", criteria, null, null);
     }
 
+    /** Updates with the version the form read unless the request names one (BR-D31). */
+    private PenDTO update(Long penId, PenRequest r) {
+        Integer version = r.expectedVersion() != null ? r.expectedVersion() : versionOf(Pen.class, penId);
+        return pens.update(farm.getId(), penId, new PenRequest(r.code(), r.name(), r.capacity(), r.description(), r.criteria(), r.initialStatus(), version));
+    }
+
+    private PenDTO changeAvailability(Long penId, PenAvailabilityRequest r) {
+        Integer version = r.expectedVersion() != null ? r.expectedVersion() : versionOf(Pen.class, penId);
+        return pens.changeAvailability(farm.getId(), penId, new PenAvailabilityRequest(r.status(), r.effectiveDate(), r.reason(), version));
+    }
+
     private void assertCode(Runnable r, String code, HttpStatus status) {
         assertThatThrownBy(r::run)
             .isInstanceOfSatisfying(DomainException.class, e -> {
@@ -123,9 +134,9 @@ class PenServiceTest extends DomainTestSupport {
         PenDTO pen = pens.create(farm.getId(), request("A1", 5, null));
         actAs(technician);
         assertCode(() -> pens.create(farm.getId(), request("A2", 5, null)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
-        assertCode(() -> pens.update(farm.getId(), pen.id(), request("A1", 6, null)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
+        assertCode(() -> update(pen.id(), request("A1", 6, null)), MessageCodes.COM_01, HttpStatus.FORBIDDEN);
         assertCode(
-            () -> pens.changeAvailability(farm.getId(), pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY, "r", null)),
+            () -> changeAvailability(pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY, "r", null)),
             MessageCodes.COM_01,
             HttpStatus.FORBIDDEN
         );
@@ -140,25 +151,26 @@ class PenServiceTest extends DomainTestSupport {
     }
 
     @Test
-    void expiredServiceBlocksPenWritesButNotReads() {
+    void expiredServiceBlocksPenOperationsIncludingReads() {
         PenDTO pen = pens.create(farm.getId(), request("A1", 5, null));
         farm.setServiceStatus("EXPIRED");
         em.flush();
         assertCode(() -> pens.create(farm.getId(), request("A2", 5, null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
-        assertCode(() -> pens.update(farm.getId(), pen.id(), request("A1", 6, null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
-        assertThat(pens.list(farm.getId(), null, null).pens()).hasSize(1);
+        assertCode(() -> update(pen.id(), request("A1", 6, null)), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
+        // GBR-14 / MSG-COM-12: a farm that is not ACTIVE shows the banner on farm operation screens, reads included.
+        assertCode(() -> pens.list(farm.getId(), null, null), MessageCodes.COM_12, HttpStatus.FORBIDDEN);
     }
 
     @Test
     void capacityCannotDropBelowHeadcount() {
         PenDTO pen = pens.create(farm.getId(), request("A1", 10, null));
         placeCows(em.find(Pen.class, pen.id()), 4);
-        assertThatThrownBy(() -> pens.update(farm.getId(), pen.id(), request("A1", 3, null)))
+        assertThatThrownBy(() -> update(pen.id(), request("A1", 3, null)))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.FE04_03);
                 assertThat(e.getParams()).containsEntry("min_capacity", 4);
             });
-        PenDTO ok = pens.update(farm.getId(), pen.id(), request("A1", 4, null));
+        PenDTO ok = update(pen.id(), request("A1", 4, null));
         assertThat(ok.capacity()).isEqualTo(4);
         assertThat(ok.full()).isTrue();
         assertThat(ok.headcount()).isEqualTo(4);
@@ -168,7 +180,7 @@ class PenServiceTest extends DomainTestSupport {
     void changedCriteriaCreatesNewVersionAndKeepsTheOld() {
         PenDTO pen = pens.create(farm.getId(), request("A1", 10, criteria(Set.of(PurposeType.BREEDING), null, null, null, null)));
         clock.setFarmToday(TODAY.plusDays(5));
-        PenDTO v2 = pens.update(farm.getId(), pen.id(), request("A1", 10, criteria(Set.of(PurposeType.FATTENING), null, Sex.MALE, 6, "200")));
+        PenDTO v2 = update(pen.id(), request("A1", 10, criteria(Set.of(PurposeType.FATTENING), null, Sex.MALE, 6, "200")));
         assertThat(v2.currentCriteria().versionNo()).isEqualTo(2);
         assertThat(v2.currentCriteria().effectiveFrom()).isEqualTo(TODAY.plusDays(5));
         assertThat(v2.criteriaVersions()).extracting(v -> v.versionNo()).containsExactly(2, 1);
@@ -178,9 +190,9 @@ class PenServiceTest extends DomainTestSupport {
     @Test
     void unchangedCriteriaDoesNotCreateAVersion() {
         PenDTO pen = pens.create(farm.getId(), request("A1", 10, criteria(Set.of(PurposeType.BREEDING), null, null, 12, "250.0")));
-        PenDTO same = pens.update(farm.getId(), pen.id(), request("A1", 12, criteria(Set.of(PurposeType.BREEDING), null, null, 12, "250")));
+        PenDTO same = update(pen.id(), request("A1", 12, criteria(Set.of(PurposeType.BREEDING), null, null, 12, "250")));
         assertThat(same.criteriaVersions()).hasSize(1);
-        PenDTO untouched = pens.update(farm.getId(), pen.id(), request("A1", 13, null));
+        PenDTO untouched = update(pen.id(), request("A1", 13, null));
         assertThat(untouched.criteriaVersions()).hasSize(1);
         assertThat(untouched.capacity()).isEqualTo(13);
     }
@@ -192,7 +204,7 @@ class PenServiceTest extends DomainTestSupport {
         Breed breed = breed(farm);
         Cattle c = cattle(farm, breed, purpose(farm, PurposeType.BREEDING), Sex.FEMALE, LifeStage.ADULT);
         PenAssignment a = assignments.openAssignment(c, entity, TODAY.minusDays(3), AssignmentSource.HERD_ENTRY, "r", null, null, owner);
-        pens.update(farm.getId(), pen.id(), request("A1", 10, criteria(Set.of(PurposeType.SIRE), null, null, null, null)));
+        update(pen.id(), request("A1", 10, criteria(Set.of(PurposeType.SIRE), null, null, null, null)));
         em.flush();
         em.clear();
         assertThat(em.find(PenAssignment.class, a.getId()).getToDate()).isNull();
@@ -203,22 +215,22 @@ class PenServiceTest extends DomainTestSupport {
     void staleExpectedVersionGivesMsgCom05() {
         PenDTO pen = pens.create(farm.getId(), request("A1", 10, null));
         PenRequest stale = new PenRequest("A1", "n", 11, null, null, null, pen.version() + 5);
-        assertCode(() -> pens.update(farm.getId(), pen.id(), stale), MessageCodes.COM_05, HttpStatus.CONFLICT);
+        assertCode(() -> update(pen.id(), stale), MessageCodes.COM_05, HttpStatus.CONFLICT);
         PenRequest fresh = new PenRequest("A1", "n", 11, null, null, null, pen.version());
-        assertThat(pens.update(farm.getId(), pen.id(), fresh).version()).isGreaterThan(pen.version());
+        assertThat(update(pen.id(), fresh).version()).isGreaterThan(pen.version());
     }
 
     @Test
     void availabilityToggleKeepsCattleAndRecordsReason() {
         PenDTO pen = pens.create(farm.getId(), request("A1", 10, null));
         placeCows(em.find(Pen.class, pen.id()), 2);
-        PenDTO stopped = pens.changeAvailability(farm.getId(), pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY, "cleaning", null));
+        PenDTO stopped = changeAvailability(pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY, "cleaning", null));
         assertThat(stopped.status()).isEqualTo(ActiveStatus.INACTIVE);
         assertThat(stopped.statusReason()).isEqualTo("cleaning");
         assertThat(stopped.headcount()).isEqualTo(2);
         assertThat(stopped.cattle()).hasSize(2);
         assertThat(stopped.message().code()).isEqualTo(MessageCodes.FE04_04);
-        PenDTO resumed = pens.changeAvailability(farm.getId(), pen.id(), new PenAvailabilityRequest(ActiveStatus.ACTIVE, TODAY, "done", null));
+        PenDTO resumed = changeAvailability(pen.id(), new PenAvailabilityRequest(ActiveStatus.ACTIVE, TODAY, "done", null));
         assertThat(resumed.status()).isEqualTo(ActiveStatus.ACTIVE);
     }
 
@@ -226,17 +238,17 @@ class PenServiceTest extends DomainTestSupport {
     void availabilityRejectsFutureDateMissingReasonAndSameStatus() {
         PenDTO pen = pens.create(farm.getId(), request("A1", 10, null));
         assertCode(
-            () -> pens.changeAvailability(farm.getId(), pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY.plusDays(1), "x", null)),
+            () -> changeAvailability(pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY.plusDays(1), "x", null)),
             MessageCodes.COM_07,
             HttpStatus.UNPROCESSABLE_ENTITY
         );
         assertCode(
-            () -> pens.changeAvailability(farm.getId(), pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY, "  ", null)),
+            () -> changeAvailability(pen.id(), new PenAvailabilityRequest(ActiveStatus.INACTIVE, TODAY, "  ", null)),
             MessageCodes.COM_06,
             HttpStatus.BAD_REQUEST
         );
         assertCode(
-            () -> pens.changeAvailability(farm.getId(), pen.id(), new PenAvailabilityRequest(ActiveStatus.ACTIVE, TODAY, "x", null)),
+            () -> changeAvailability(pen.id(), new PenAvailabilityRequest(ActiveStatus.ACTIVE, TODAY, "x", null)),
             MessageCodes.COM_05,
             HttpStatus.CONFLICT
         );
@@ -263,7 +275,7 @@ class PenServiceTest extends DomainTestSupport {
         Farm other = farm();
         Pen foreign = pen(other, "Z1", 5);
         assertCode(() -> pens.get(farm.getId(), foreign.getId()), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
-        assertCode(() -> pens.update(farm.getId(), foreign.getId(), request("Z1", 5, null)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
+        assertCode(() -> update(foreign.getId(), request("Z1", 5, null)), MessageCodes.COM_08, HttpStatus.NOT_FOUND);
     }
 
     @Test

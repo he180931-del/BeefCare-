@@ -1,5 +1,8 @@
 package vn.edu.fpt.beefcare.web.rest;
 
+import vn.edu.fpt.beefcare.security.GoogleReauthentication;
+import vn.edu.fpt.beefcare.service.FarmAction;
+import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -210,19 +213,31 @@ public class AccountResource {
     private ProfileResponse profile(AppUser account) {
         boolean verified = userRepository.findOneByEmailIgnoreCase(account.getEmail()).map(User::isActivated).orElse(false);
         String platformRole = platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").map(access -> access.getRole()).orElse(null);
-        List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role())).toList();
+        List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role(), permissionsOf(farm.role()))).toList();
         return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
             account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), platformRole, farms);
     }
 
+    /** UC-FE01-04 / SCR-08: the fixed permissions of a farm role (GBR-06, Table III-2), as FarmAction codes. */
+    private static List<String> permissionsOf(String role) {
+        if (role == null) return List.of();
+        FarmRole farmRole;
+        try {
+            farmRole = FarmRole.valueOf(role.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException unknown) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(FarmAction.values()).filter(action -> action.allows(farmRole)).map(Enum::name).toList();
+    }
+
     public record ProfileUpdate(String fullName, String phone) {}
 
-    /** SCR-08 header: the platform role (staff) and the role in each available farm. The permission table per role is the fixed GBR-06 policy. */
+    /** SCR-08 header: the platform role (staff), and the role and its fixed GBR-06 permissions in each available farm. */
     public record ProfileResponse(Long id, String email, String fullName, String phone, boolean emailVerified,
         boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted,
         String platformRole, List<FarmRoleSummary> farms) {}
 
-    public record FarmRoleSummary(Long farmId, String farmName, String role) {}
+    public record FarmRoleSummary(Long farmId, String farmName, String role, List<String> permissions) {}
 
     /**
      * {@code POST  /account} : update the current user information.
@@ -271,8 +286,20 @@ public class AccountResource {
      * @throws InvalidPasswordException {@code 400 (Bad Request)} if the new password is incorrect.
      */
     @PostMapping(path = "/account/change-password")
-    public void changePassword(@RequestBody PasswordChangeDTO passwordChangeDto) {
-        identityService.changePassword(passwordChangeDto.getCurrentPassword(), passwordChangeDto.getNewPassword(), passwordChangeDto.getConfirmPassword());
+    public void changePassword(@RequestBody PasswordChangeDTO passwordChangeDto, jakarta.servlet.http.HttpServletRequest request) {
+        boolean googleReauthenticated = GoogleReauthentication.recent(request.getSession(false), java.time.Instant.now()) != null;
+        identityService.changePassword(passwordChangeDto.getCurrentPassword(), passwordChangeDto.getNewPassword(), passwordChangeDto.getConfirmPassword(), googleReauthenticated);
+    }
+
+    /**
+     * UC-FE01-06 AF1/AF2: the profile calls this, then sends the browser to {@code /oauth2/authorization/google}; after the
+     * Google sign-in the browser returns to {@code /profile?googleReauthenticated=true} and, for 5 minutes, change-password
+     * accepts the new password without the current one.
+     */
+    @PostMapping(path = "/account/google-reauthentication")
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
+    public void startGoogleReauthentication(jakarta.servlet.http.HttpServletRequest request) {
+        request.getSession(true).setAttribute(GoogleReauthentication.RETURN_TO_PROFILE, Boolean.TRUE);
     }
 
     /**

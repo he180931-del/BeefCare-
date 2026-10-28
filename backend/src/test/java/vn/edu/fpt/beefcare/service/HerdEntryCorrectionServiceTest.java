@@ -66,7 +66,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
     private EntryDtos.PostResult postOn(LocalDate date, List<EntryLineRequest> lines, long fee, long paid) {
         EntryVoucherRequest req = new EntryVoucherRequest(EntryType.PURCHASE, date, seller.getId(), null, "QC", null, null, PricingBasis.PER_KG, fee, paid, paid > 0 ? PaymentMethod.CASH : null, null, lines, null);
         EntryDtos.Voucher draft = vouchers.create(farm.getId(), req);
-        return posting.post(farm.getId(), draft.id(), null);
+        return postDraft(farm.getId(), draft.id());
     }
 
     private Long cattleId(EntryDtos.PostResult r, int index) {
@@ -91,7 +91,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         assertThat(check.canVoid()).isTrue();
         assertThat(check.eventsAfterEntry()).isEmpty();
 
-        EntryDtos.EntryVoidResult result = corrections.voidEntry(farm.getId(), entryId(posted, 2), new EntryActionRequests.VoidRequest("Registered by mistake", null));
+        EntryDtos.EntryVoidResult result = voidEntry(entryId(posted, 2), new EntryActionRequests.VoidRequest("Registered by mistake", null));
         assertThat(result.notice().code()).isEqualTo("MSG-FE06-12");
 
         Cattle voided = em.find(Cattle.class, cattleId(posted, 2));
@@ -123,7 +123,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
     void scenario7_cattleWithAWeighingCannotBeVoided() {
         EntryDtos.PostResult posted = postThree();
         weigh(cattleId(posted, 0), TODAY);
-        DomainException e = thrown(() -> corrections.voidEntry(farm.getId(), entryId(posted, 0), new EntryActionRequests.VoidRequest("oops", null)));
+        DomainException e = thrown(() -> voidEntry(entryId(posted, 0), new EntryActionRequests.VoidRequest("oops", null)));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_09);
         assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(e.getParams()).containsEntry("cattle_code", posted.cattleCodes().get(0));
@@ -160,7 +160,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
     @Test
     void lastValidLineMustBeVoidedWithTheWholeVoucher() {
         EntryDtos.PostResult posted = createAndPost(List.of(line("ONE", penA, "300", 50_000)), 0L, 0L);
-        DomainException e = thrown(() -> corrections.voidEntry(farm.getId(), entryId(posted, 0), new EntryActionRequests.VoidRequest("x", null)));
+        DomainException e = thrown(() -> voidEntry(entryId(posted, 0), new EntryActionRequests.VoidRequest("x", null)));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_20);
         assertThat(e.getParams()).containsEntry("action", "VOID_VOUCHER");
         assertThat(em.find(Cattle.class, cattleId(posted, 0)).getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
@@ -178,7 +178,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         assertThat(check.blocked().code()).isEqualTo("MSG-FE06-21");
         assertThat(check.confirm().code()).isEqualTo("MSG-FE06-20");
 
-        DomainException e = thrown(() -> corrections.voidVoucher(farm.getId(), posted.voucher().id(), new EntryActionRequests.VoidRequest("wrong supplier", null)));
+        DomainException e = thrown(() -> voidVoucher(posted.voucher().id(), new EntryActionRequests.VoidRequest("wrong supplier", null)));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_21);
         assertThat(e.getParams().get("cattle_codes")).isEqualTo(posted.cattleCodes().get(1));
         assertThat(e.getParams()).containsEntry("voucher_code", posted.voucher().code());
@@ -191,7 +191,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
     void voidingAWholeVoucher_effectsAndKeptPayments() {
         EntryDtos.PostResult posted = postThree();
         Long id = posted.voucher().id();
-        EntryDtos.VoidResult result = corrections.voidVoucher(farm.getId(), id, new EntryActionRequests.VoidRequest("Entered twice", null));
+        EntryDtos.VoidResult result = voidVoucher(id, new EntryActionRequests.VoidRequest("Entered twice", null));
         assertThat(result.notice().code()).isEqualTo("MSG-FE06-22");
         EntryDtos.Voucher v = result.voucher();
         assertThat(v.status()).isEqualTo(EntryVoucherStatus.VOIDED);
@@ -207,10 +207,10 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         assertThat(revisions.findAllBySourceTypeAndSourceIdOrderByChangedAtAscIdAsc("HerdEntryVoucher", id)).singleElement().satisfies(r -> assertThat(r.getAction()).isEqualTo("VOID"));
 
         // voiding twice, correcting or voiding a line afterwards is a state conflict
-        assertThat(thrown(() -> corrections.voidVoucher(farm.getId(), id, new EntryActionRequests.VoidRequest("again", null))).getCode()).isEqualTo(MessageCodes.COM_05);
-        assertThat(thrown(() -> corrections.voidEntry(farm.getId(), entryId(posted, 0), new EntryActionRequests.VoidRequest("again", null))).getStatus()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(thrown(() -> voidVoucher(id, new EntryActionRequests.VoidRequest("again", null))).getCode()).isEqualTo(MessageCodes.COM_05);
+        assertThat(thrown(() -> voidEntry(entryId(posted, 0), new EntryActionRequests.VoidRequest("again", null))).getStatus()).isEqualTo(HttpStatus.CONFLICT);
         // payments of a voided voucher are frozen
-        assertThat(thrown(() -> payments.record(farm.getId(), VoucherKind.ENTRY, id, new RecordPaymentRequest(TODAY, 1_000L, PaymentMethod.CASH, null, null, null))).getStatus()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(thrown(() -> payments.record(farm.getId(), VoucherKind.ENTRY, id, new RecordPaymentRequest(TODAY, 1_000L, PaymentMethod.CASH, null, null, entryVoucherVersion(id)))).getStatus()).isEqualTo(HttpStatus.CONFLICT);
 
         // codes of voided cattle are never reused
         EntryDtos.PostResult next = createAndPost(List.of(line("NEW", penA, "100", 1)), 0L, 0L);
@@ -220,9 +220,9 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
     @Test
     void voidNeedsReasonAndCurrentVersion() {
         EntryDtos.PostResult posted = postThree();
-        assertThat(thrown(() -> corrections.voidVoucher(farm.getId(), posted.voucher().id(), new EntryActionRequests.VoidRequest("  ", null))).getCode()).isEqualTo(MessageCodes.COM_06);
-        assertThat(thrown(() -> corrections.voidVoucher(farm.getId(), posted.voucher().id(), new EntryActionRequests.VoidRequest("x", posted.voucher().version() + 5))).getCode()).isEqualTo(MessageCodes.COM_05);
-        assertThat(thrown(() -> corrections.voidEntry(farm.getId(), entryId(posted, 0), new EntryActionRequests.VoidRequest("", null))).getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(thrown(() -> voidVoucher(posted.voucher().id(), new EntryActionRequests.VoidRequest("  ", null))).getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(thrown(() -> voidVoucher(posted.voucher().id(), new EntryActionRequests.VoidRequest("x", posted.voucher().version() + 5))).getCode()).isEqualTo(MessageCodes.COM_05);
+        assertThat(thrown(() -> voidEntry(entryId(posted, 0), new EntryActionRequests.VoidRequest("", null))).getCode()).isEqualTo(MessageCodes.COM_06);
     }
 
     // ---------------------------------------------------------------- scenario 9
@@ -232,13 +232,13 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         EntryDtos.PostResult posted = postThree();
         Long id = posted.voucher().id();
         long total = posted.voucher().totalPayable();
-        DomainException e = thrown(() -> payments.record(farm.getId(), VoucherKind.ENTRY, id, new RecordPaymentRequest(TODAY, total, PaymentMethod.CASH, null, null, null)));
+        DomainException e = thrown(() -> payments.record(farm.getId(), VoucherKind.ENTRY, id, new RecordPaymentRequest(TODAY, total, PaymentMethod.CASH, null, null, entryVoucherVersion(id))));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_13);
         long outstanding = total - 20_000_000L;
         assertThat(e.getParams()).containsEntry("amount", outstanding);
 
         Long paymentId = vouchers.get(farm.getId(), id).payments().get(0).id();
-        var voided = payments.voidPayment(farm.getId(), paymentId, new VoidPaymentRequest("Entered wrongly", null));
+        var voided = payments.voidPayment(farm.getId(), paymentId, new VoidPaymentRequest("Entered wrongly", versionOf(vn.edu.fpt.beefcare.domain.VoucherPayment.class, paymentId)));
         assertThat(voided.summary().outstanding()).isEqualTo(total);
         assertThat(vouchers.get(farm.getId(), id).outstanding()).isEqualTo(total);
     }
@@ -251,7 +251,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         assertThat(posted.voucher().totalPayable()).isEqualTo(25_000_000L);
         Long cattleId = cattleId(posted, 0);
         var changes = new EntryActionRequests.Changes(null, null, null, null, null, null, 40_000L, null, null, null, null, null, null, null, null);
-        EntryDtos.CorrectionResult result = corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("Price was 40k", posted.voucher().lines().get(0).version(), posted.voucher().version(), changes));
+        EntryDtos.CorrectionResult result = correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("Price was 40k", posted.voucher().lines().get(0).version(), posted.voucher().version(), changes));
 
         assertThat(result.notice().code()).isEqualTo("MSG-FE06-06");
         assertThat(result.line().unitPrice()).isEqualTo(40_000L);
@@ -278,17 +278,17 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         EntryDtos.PostResult posted = postThree();
         var price = new EntryActionRequests.Changes(null, null, null, null, null, null, 1L, null, null, null, null, null, null, null, null);
         var none = new EntryActionRequests.Changes(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest(" ", null, null, price))).getCode()).isEqualTo(MessageCodes.COM_06);
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("r", null, null, none))).getCode()).isEqualTo(MessageCodes.COM_06);
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("r", 99, null, price))).getCode()).isEqualTo(MessageCodes.COM_05);
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("r", null, 99, price))).getCode()).isEqualTo(MessageCodes.COM_05);
+        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest(" ", null, null, price))).getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("r", null, null, none))).getCode()).isEqualTo(MessageCodes.COM_06);
+        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("r", 99, null, price))).getCode()).isEqualTo(MessageCodes.COM_05);
+        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("r", null, 99, price))).getCode()).isEqualTo(MessageCodes.COM_05);
     }
 
     @Test
     void weightCorrectionKeepsTheBasisRule() {
         EntryDtos.PostResult posted = createAndPost(List.of(line("W1", penA, "300", 50_000), line("W2", penA, "200", 50_000)), 0L, 0L);
         var changes = new EntryActionRequests.Changes(null, null, null, null, new BigDecimal("320"), WeightBasis.ESTIMATED, null, null, null, null, null, null, null, null, null);
-        EntryDtos.CorrectionResult result = corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("Weighed again", null, null, changes));
+        EntryDtos.CorrectionResult result = correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("Weighed again", null, null, changes));
         assertThat(result.line().entryWeightKg()).isEqualByComparingTo("320");
         assertThat(result.line().estimatedWeight()).isTrue();
         assertThat(result.line().lineAmount()).isEqualTo(16_000_000L);
@@ -302,14 +302,14 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         // a weighing 8 days after entry: the entry date may not move past it
         weigh(cattleId(posted, 0), TODAY.minusDays(8));
         var later = new EntryActionRequests.Changes(TODAY.minusDays(5), null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        DomainException blocked = thrown(() -> corrections.correct(farm.getId(), entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("later", null, null, later)));
+        DomainException blocked = thrown(() -> correct(entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("later", null, null, later)));
         assertThat(blocked.getCode()).isEqualTo(MessageCodes.FE06_07);
         assertThat(blocked.getParams()).containsEntry("reason", "EVENT_BEFORE_ENTRY_DATE");
         var future = new EntryActionRequests.Changes(TODAY.plusDays(1), null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("future", null, null, future))).getCode()).isEqualTo(MessageCodes.FE06_03);
+        assertThat(thrown(() -> correct(entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("future", null, null, future))).getCode()).isEqualTo(MessageCodes.FE06_03);
 
         var earlier = new EntryActionRequests.Changes(TODAY.minusDays(12), null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        EntryDtos.CorrectionResult result = corrections.correct(farm.getId(), entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("typo", null, null, earlier));
+        EntryDtos.CorrectionResult result = correct(entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("typo", null, null, earlier));
         assertThat(result.voucher().entryDate()).isEqualTo(TODAY.minusDays(12));
         assertThat(result.voucher().lines()).allSatisfy(l -> assertThat(l.entryDate()).isEqualTo(TODAY.minusDays(12)));
         assertThat(em.createQuery("select a from PenAssignment a where a.farm.id = :f", PenAssignment.class).setParameter("f", farm.getId()).getResultList()).allSatisfy(a -> assertThat(a.getFromDate()).isEqualTo(TODAY.minusDays(12)));
@@ -319,9 +319,9 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
     void entryDateCannotMoveBeforeAPaymentDate() {
         LocalDate entry = TODAY.minusDays(10);
         EntryDtos.PostResult posted = postOn(entry, List.of(line("PD1", penA, "300", 1), line("PD2", penA, "300", 1)), 0, 0);
-        payments.record(farm.getId(), VoucherKind.ENTRY, posted.voucher().id(), new RecordPaymentRequest(TODAY.minusDays(9), 100L, PaymentMethod.CASH, null, null, null));
+        payments.record(farm.getId(), VoucherKind.ENTRY, posted.voucher().id(), new RecordPaymentRequest(TODAY.minusDays(9), 100L, PaymentMethod.CASH, null, null, entryVoucherVersion(posted.voucher().id())));
         var later = new EntryActionRequests.Changes(TODAY.minusDays(5), null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        DomainException e = thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("later", null, null, later)));
+        DomainException e = thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("later", null, null, later)));
         assertThat(e.getParams()).containsEntry("reason", "PAYMENT_BEFORE_ENTRY_DATE");
     }
 
@@ -330,9 +330,9 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         EntryDtos.PostResult posted = postThree();
         var changes = new EntryActionRequests.Changes(null, null, null, null, null, null, null, null, null, TODAY.plusDays(0).minusDays(0), null, null, null, null, null);
         // birth date = entry date is fine, a later date than the entry date is not
-        corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("born today", null, null, changes));
+        correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("born today", null, null, changes));
         var after = new EntryActionRequests.Changes(null, null, null, null, null, null, null, null, null, TODAY.plusDays(2), null, null, null, null, null);
-        DomainException e = thrown(() -> corrections.correct(farm.getId(), entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("later", null, null, after)));
+        DomainException e = thrown(() -> correct(entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("later", null, null, after)));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_07);
     }
 
@@ -346,7 +346,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         );
         var toMale = new EntryActionRequests.Changes(null, null, null, null, null, null, null, null, Sex.MALE, null, null, null, null, null, null);
         // declared reproduction history on a female cannot stay on a male
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale))).getCode()).isEqualTo(MessageCodes.COM_10);
+        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale))).getCode()).isEqualTo(MessageCodes.COM_10);
         // a reproductive event blocks the change
         ReproductionEvent ev = new ReproductionEvent();
         ev.setCattle(em.find(Cattle.class, cattleId(posted, 1)));
@@ -354,11 +354,11 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         ev.setEventTime(Instant.now());
         ev.setResult("OK");
         save(ev);
-        DomainException e = thrown(() -> corrections.correct(farm.getId(), entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale)));
+        DomainException e = thrown(() -> correct(entryId(posted, 1), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale)));
         assertThat(e.getCode()).isEqualTo(MessageCodes.FE06_07);
         assertThat(e.getParams()).containsEntry("reason", "SEX_CHANGE_WITH_REPRODUCTIVE_EVENTS");
         // without events it is allowed
-        EntryDtos.CorrectionResult ok = corrections.correct(farm.getId(), entryId(posted, 2), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale));
+        EntryDtos.CorrectionResult ok = correct(entryId(posted, 2), new EntryActionRequests.CorrectEntryRequest("x", null, null, toMale));
         assertThat(em.find(Cattle.class, cattleId(posted, 2)).getSex()).isEqualTo(Sex.MALE);
         assertThat(ok.line().cattleId()).isEqualTo(cattleId(posted, 2));
     }
@@ -371,7 +371,7 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         assertThat(cow.getDeclaredParity()).isEqualTo(2);
         var changed = new EntryLineRequest.ReproductionDeclaration(DeclarationStatus.KNOWN, 3, YesNoUnknown.NO, null, null);
         var changes = new EntryActionRequests.Changes(null, null, null, null, null, null, null, null, null, null, null, null, null, null, changed);
-        EntryDtos.CorrectionResult result = corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("calvings recounted", null, null, changes));
+        EntryDtos.CorrectionResult result = correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("calvings recounted", null, null, changes));
         assertThat(result.line().data().reproduction().earlierCalvings()).isEqualTo(3);
         assertThat(em.find(Cattle.class, cow.getId()).getDeclaredParity()).isEqualTo(3);
         List<Reminder> reminders = em.createQuery("select r from Reminder r where r.cattle.id = :c", Reminder.class).setParameter("c", cow.getId()).getResultList();
@@ -390,8 +390,8 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         sold.setExitDate(TODAY);
         save(sold);
         var price = new EntryActionRequests.Changes(null, null, null, null, null, null, 1L, null, null, null, null, null, null, null, null);
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, price))).getCode()).isEqualTo(MessageCodes.COM_13);
-        assertThat(thrown(() -> corrections.voidEntry(farm.getId(), entryId(posted, 0), new EntryActionRequests.VoidRequest("x", null))).getCode()).isEqualTo(MessageCodes.COM_13);
+        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, price))).getCode()).isEqualTo(MessageCodes.COM_13);
+        assertThat(thrown(() -> voidEntry(entryId(posted, 0), new EntryActionRequests.VoidRequest("x", null))).getCode()).isEqualTo(MessageCodes.COM_13);
         assertThat(corrections.voidCheck(farm.getId(), posted.voucher().id()).canVoid()).isFalse();
     }
 
@@ -400,10 +400,10 @@ class HerdEntryCorrectionServiceTest extends HerdEntryTestBase {
         EntryDtos.PostResult posted = postThree();
         var price = new EntryActionRequests.Changes(null, null, null, null, null, null, 1L, null, null, null, null, null, null, null, null);
         actAs(technician);
-        assertThat(thrown(() -> corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, price))).getCode()).isEqualTo(MessageCodes.COM_01);
-        assertThat(thrown(() -> corrections.voidEntry(farm.getId(), entryId(posted, 0), new EntryActionRequests.VoidRequest("x", null))).getCode()).isEqualTo(MessageCodes.COM_01);
+        assertThat(thrown(() -> correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("x", null, null, price))).getCode()).isEqualTo(MessageCodes.COM_01);
+        assertThat(thrown(() -> voidEntry(entryId(posted, 0), new EntryActionRequests.VoidRequest("x", null))).getCode()).isEqualTo(MessageCodes.COM_01);
         assertThat(thrown(() -> corrections.voidCheck(farm.getId(), posted.voucher().id())).getCode()).isEqualTo(MessageCodes.COM_01);
         actAs(manager);
-        corrections.correct(farm.getId(), entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("manager fixes", null, null, price));
+        correct(entryId(posted, 0), new EntryActionRequests.CorrectEntryRequest("manager fixes", null, null, price));
     }
 }

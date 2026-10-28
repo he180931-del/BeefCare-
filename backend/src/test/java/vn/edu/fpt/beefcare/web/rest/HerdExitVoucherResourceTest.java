@@ -127,13 +127,14 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
             .andExpect(jsonPath("$.cattle[0].hasWarnings").value(false))
             .andExpect(jsonPath("$.occupancy[0].before").value(1))
             .andExpect(jsonPath("$.occupancy[0].after").value(0));
+        String ackBody = "{\"acknowledged\":true,\"expectedVersion\":" + versionOf(vn.edu.fpt.beefcare.domain.HerdExitVoucher.class, id) + "}";
         mvc
             .perform(
                 post(base() + "/" + id + "/confirm")
                     .header("Idempotency-Key", "k-1")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"acknowledged\":true,\"expectedVersion\":0}")
+                    .content(ackBody)
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.repeated").value(false))
@@ -145,7 +146,7 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
                     .header("Idempotency-Key", "k-1")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"acknowledged\":true,\"expectedVersion\":0}")
+                    .content(ackBody)
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.repeated").value(false));
@@ -155,7 +156,7 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
                     .header("Idempotency-Key", "k-2")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"acknowledged\":true,\"expectedVersion\":0}")
+                    .content(ackBody)
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.repeated").value(true));
@@ -178,7 +179,7 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
                 post("/api/farms/" + farm.getId() + "/vouchers/exit/" + id + "/payments")
                     .with(as(owner.getEmail()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"paymentDate\":\"2026-10-28\",\"amount\":1000,\"method\":\"CASH\"}")
+                    .content("{\"paymentDate\":\"2026-10-28\",\"amount\":1000,\"method\":\"CASH\",\"voucherVersion\":" + versionOf(vn.edu.fpt.beefcare.domain.HerdExitVoucher.class, id) + "}")
             )
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.summary.paid").value(1000));
@@ -227,9 +228,9 @@ class HerdExitVoucherResourceTest extends ExitTestSupport {
         Long id = createDraft(c);
         mvc.perform(get(base() + "/" + id + "/void-check").with(as(owner.getEmail()))).andExpect(status().isOk()).andExpect(jsonPath("$.voidable").value(false));
         mvc
-            .perform(post(base() + "/" + id + "/lines").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"tagCode\":\"NOPE\",\"expectedVersion\":0}"))
+            .perform(post(base() + "/" + id + "/lines").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"tagCode\":\"NOPE\",\"expectedVersion\":" + versionOf(vn.edu.fpt.beefcare.domain.HerdExitVoucher.class, id) + "}"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MSG-COM-08"));
-        mvc.perform(delete(base() + "/" + id).with(as(owner.getEmail()))).andExpect(status().isNoContent());
+        mvc.perform(delete(base() + "/" + id).param("expectedVersion", String.valueOf(versionOf(vn.edu.fpt.beefcare.domain.HerdExitVoucher.class, id))).with(as(owner.getEmail()))).andExpect(status().isNoContent());
     }
 }

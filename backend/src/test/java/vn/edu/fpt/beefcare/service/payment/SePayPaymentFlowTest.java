@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ class SePayPaymentFlowTest extends DomainTestSupport {
     @Autowired SubscriptionRepository subscriptions;
     @Autowired BankTransferEvidenceRepository evidences;
     @Autowired SubscriptionLifecycleJob lifecycle;
+    @Autowired PlatformSubscriptionQueryService queries;
+    @Autowired vn.edu.fpt.beefcare.repository.NotificationRepository notifications;
+    @Autowired vn.edu.fpt.beefcare.service.NotificationService notificationService;
 
     @Test
     void authenticatedMockEventPaysOnceAndSameEventReplaysSuccessfully() {
@@ -120,6 +124,100 @@ class SePayPaymentFlowTest extends DomainTestSupport {
         var evidence = service.receiveMock(event(payment.getQuoteRef(), 81004L, "1200000", payment.getExpiresAt()));
         assertThat(evidence.reviewStatus()).isEqualTo("UNMATCHED");
         assertThat(payments.findById(payment.getId()).orElseThrow().getState()).isEqualTo("PENDING");
+
+        // UC-FE14-04 / JOB-06 step 4: every ACTIVE PM gets one reconciliation notice, bounded to id, amount and reason
+        AppUser pm = em.createQuery("select u from AppUser u where u.email = 'pm@beefcare.test'", AppUser.class).getSingleResult();
+        var notice = notifications.findByEventKeyAndRecipient_Id("EVIDENCE_REVIEW:" + evidence.evidenceId(), pm.getId()).orElseThrow();
+        assertThat(notice.getTargetType()).isEqualTo("BANK_TRANSFER_EVIDENCE");
+        assertThat(notice.getTargetId()).isEqualTo(evidence.evidenceId());
+        assertThat(notice.getSummary()).contains("81004").doesNotContain(payment.getQuoteRef());
+        assertThat(notificationService.mine()).extracting(n -> n.targetId()).contains(evidence.evidenceId());
+        // a replayed delivery creates no second notice
+        service.receiveMock(event(payment.getQuoteRef(), 81004L, "1200000", payment.getExpiresAt()));
+        assertThat(notifications.findAll()).filteredOn(n -> ("EVIDENCE_REVIEW:" + evidence.evidenceId()).equals(n.getEventKey())).hasSize(1);
+    }
+
+    @Test
+    void acceptedPaymentCreatesNoReconciliationNotice() {
+        Farm farm = farm("PENDING_PAYMENT");
+        AppUser owner = memberWithRole(farm, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
+        PlanVersion price = createPrice();
+        Payment payment = pendingPayment(owner, price, createSubscription(farm, price));
+        createPlatformManager();
+        actAsPlatformManager();
+        var paid = service.receiveMock(event(81005L, payment.getQuoteRef(), "1200000"));
+        assertThat(paid.reviewStatus()).isEqualTo("ACCEPTED");
+        assertThat(notifications.findAll()).noneMatch(n -> ("EVIDENCE_REVIEW:" + paid.evidenceId()).equals(n.getEventKey()));
+    }
+
+    @Test
+    void paidPaymentIsAReceiptAndACurrentSubscriptionInThePmViews() {
+        Farm farm = farm("PENDING_PAYMENT");
+        AppUser owner = memberWithRole(farm, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
+        PlanVersion price = createPrice();
+        Payment payment = pendingPayment(owner, price, createSubscription(farm, price));
+        createPlatformManager();
+        actAsPlatformManager();
+        var paid = service.receiveMock(event(81006L, payment.getQuoteRef(), "1200000"));
+        assertThat(paid.reviewStatus()).isEqualTo("ACCEPTED");
+
+        // SCR-70 / UC-FE21-01
+        var receipts = queries.receipts(null, farm.getId(), null, null, 0, 25);
+        assertThat(receipts.receiptsInPeriod()).isEqualTo(1);
+        assertThat(receipts.totalAmount()).isEqualByComparingTo("1200000");
+        assertThat(receipts.items()).singleElement().satisfies(r -> {
+            assertThat(r.paymentId()).isEqualTo(payment.getId());
+            assertThat(r.receiptCode()).startsWith("RC-");
+            assertThat(r.bankPaidAt()).isNotNull();
+        });
+        var receipt = queries.receipt(payment.getId());
+        assertThat(receipt.confirmationSource()).isEqualTo("SEPAY_AUTOMATIC");
+        assertThat(receipt.confirmedAt()).isNotNull();
+        assertThat(receipt.maskedTransactionId()).isEqualTo("****1006");
+        assertThat(receipt.purchasedEnd()).isAfter(receipt.purchasedStart());
+        LocalDate bankDay = receipts.items().get(0).bankPaidAt().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
+        assertThat(queries.receipts(null, farm.getId(), bankDay.plusDays(1), null, 0, 25).receiptsInPeriod()).isZero();
+        assertThat(queries.receipts(payment.getReceiptCode(), null, null, null, 0, 25).items()).extracting(r -> r.paymentId()).containsExactly(payment.getId());
+
+        // SCR-61 / UC-FE19-04
+        assertThat(queries.subscriptions(farm.getName(), "CURRENT", null, null, null, 0, 25).items()).extracting(r -> r.farmId()).containsExactly(farm.getId());
+        assertThat(queries.subscriptions(farm.getName(), "NONE", null, null, null, 0, 25).items()).isEmpty();
+        var detail = queries.subscription(farm.getId());
+        assertThat(detail.periods()).singleElement().satisfies(p -> assertThat(p.paymentCode()).isEqualTo(payment.getQuoteRef()));
+        assertThat(detail.renewalOpens()).isEqualTo(detail.summary().confirmedUntil().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).minusDays(90).toInstant());
+        assertThat(detail.summary().ownerEmail()).isEqualTo(owner.getEmail());
+
+        // a farm that never paid
+        Farm unpaid = farm("PENDING_PAYMENT");
+        memberWithRole(unpaid, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
+        assertThat(queries.subscriptions(unpaid.getName(), "NONE", null, null, null, 0, 25).items()).extracting(r -> r.farmId()).containsExactly(unpaid.getId());
+        assertThat(queries.subscription(unpaid.getId()).emptyMessage()).isEqualTo("No subscription yet: no period or end date.");
+
+        // only a PM sees these views
+        actAs(owner);
+        assertThatThrownBy(() -> queries.receipts(null, null, null, null, 0, 25)).isInstanceOf(vn.edu.fpt.beefcare.service.DomainException.class);
+        assertThatThrownBy(() -> queries.subscriptions(null, null, null, null, null, 0, 25)).isInstanceOf(vn.edu.fpt.beefcare.service.DomainException.class);
+    }
+
+    @Test
+    void evidenceFiltersAndTilesFollowTheReviewStatus() {
+        Farm farm = farm("ACTIVE");
+        AppUser owner = memberWithRole(farm, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
+        PlanVersion price = createPrice();
+        Payment payment = pendingPayment(owner, price, createSubscription(farm, price));
+        createPlatformManager();
+        actAsPlatformManager();
+        var unmatched = service.receiveMock(event(payment.getQuoteRef(), 81007L, "999", clock.instant()));
+        assertThat(unmatched.reviewStatus()).isEqualTo("UNMATCHED");
+
+        assertThat(queries.evidenceView("TO_REVIEW", null, null)).extracting(e -> e.id()).contains(unmatched.evidenceId());
+        assertThat(queries.evidenceView("ACCEPTED", null, null)).extracting(e -> e.id()).doesNotContain(unmatched.evidenceId());
+        LocalDate today = clock.instant().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
+        assertThat(queries.evidenceView("ALL", today.plusDays(1), null)).extracting(e -> e.id()).doesNotContain(unmatched.evidenceId());
+        assertThat(queries.paymentTiles().evidenceToReview()).isGreaterThanOrEqualTo(1);
+        assertThat(queries.paymentTiles().pendingRequests()).isGreaterThanOrEqualTo(1);
+        assertThat(queries.paymentView("PENDING", payment.getQuoteRef(), 0, 25).items()).extracting(p -> p.id()).containsExactly(payment.getId());
+        assertThatThrownBy(() -> queries.evidenceView("WHATEVER", null, null)).isInstanceOf(vn.edu.fpt.beefcare.service.DomainException.class);
     }
 
     private PlanVersion createPrice() {

@@ -52,6 +52,7 @@ public class PlatformFinanceService {
     /** SRS scheduled cleanup (daily 02:00, step 2): cash report snapshots are available for 30 days. */
     private static final long SNAPSHOT_RETENTION_SECONDS = 30L * 24 * 3600;
     private static final String MSG_FE21_09 = "MSG-FE21-09";
+    private static final String MSG_FE21_12 = "MSG-FE21-12";
     private static final String MSG_FE21_10 = "MSG-FE21-10";
     private final PlatformAccessService access;
     private final ManualFinanceRecordRepository records;
@@ -302,14 +303,19 @@ public class PlatformFinanceService {
     public CashReport report(Long id) {
         access.requireRole(PlatformRole.PM);
         return snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now())).map(this::report)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "Cash report snapshot expired or not found"));
+            .orElseThrow(PlatformFinanceService::snapshotExpired);
+    }
+
+    /** UC-FE21-08/09 E1: an expired (or purged by JOB-08) snapshot must be run again. */
+    private static DomainException snapshotExpired() {
+        return new DomainException(MSG_FE21_12, null, HttpStatus.GONE);
     }
 
     @Transactional(readOnly = true)
     public List<ReportLine> exportRows(Long id) {
         access.requireRole(PlatformRole.PM);
         CashReportSnapshot snapshot = snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now()))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "Cash report snapshot expired or not found"));
+            .orElseThrow(PlatformFinanceService::snapshotExpired);
         try { return mapper.readValue(snapshot.getDetailsJson(), new TypeReference<>() {}); }
         catch (Exception malformed) { throw new IllegalStateException("Stored cash report snapshot is invalid", malformed); }
     }
@@ -318,7 +324,7 @@ public class PlatformFinanceService {
     public List<RecordDTO> recordsForExport(Long id) {
         access.requireRole(PlatformRole.PM);
         CashReportSnapshot snapshot = snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now()))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "Cash report snapshot expired or not found"));
+            .orElseThrow(PlatformFinanceService::snapshotExpired);
         try { return mapper.readValue(snapshot.getDetailsJson(), new TypeReference<>() {}); }
         catch (Exception malformed) { throw new IllegalStateException("Stored cash report snapshot is invalid", malformed); }
     }
@@ -327,7 +333,7 @@ public class PlatformFinanceService {
     public ExportSnapshot exportSnapshot(Long id) {
         access.requireRole(PlatformRole.PM);
         CashReportSnapshot snapshot = snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now()))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "Cash report snapshot expired or not found"));
+            .orElseThrow(PlatformFinanceService::snapshotExpired);
         try {
             return new ExportSnapshot(snapshot.getId(), snapshot.getDateFrom(), snapshot.getDateTo(), snapshot.getAsOf(),
                 mapper.readValue(snapshot.getCriteriaJson(), ReportCriteria.class),

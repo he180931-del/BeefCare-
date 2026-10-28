@@ -75,7 +75,7 @@ class TradingPartnerServiceTest extends HerdEntryTestBase {
         assertThat(updated.supplier()).isTrue();
         assertThat(thrown(() -> partners.update(farm.getId(), p.id(), new TradingPartnerRequest("Cho Bo 3", true, false, false, null, null, null, p.version()))).getCode()).isEqualTo(MessageCodes.COM_05);
 
-        EntryDtos.Partner inactive = partners.changeStatus(farm.getId(), p.id(), new TradingPartnerRequest.StatusRequest(ActiveStatus.INACTIVE, null));
+        EntryDtos.Partner inactive = partners.changeStatus(farm.getId(), p.id(), new TradingPartnerRequest.StatusRequest(ActiveStatus.INACTIVE, updated.version()));
         assertThat(inactive.status()).isEqualTo("INACTIVE");
         List<EntryDtos.Partner> activeSellers = partners.list(farm.getId(), "SELLER", ActiveStatus.ACTIVE, null);
         assertThat(activeSellers).extracting(EntryDtos.Partner::id).doesNotContain(p.id()).contains(seller.getId());
@@ -86,7 +86,7 @@ class TradingPartnerServiceTest extends HerdEntryTestBase {
         // an inactive partner cannot be chosen as the seller of a new voucher
         var draft = vouchers.create(farm.getId(), new vn.edu.fpt.beefcare.service.dto.EntryVoucherRequest(
             vn.edu.fpt.beefcare.domain.enumeration.EntryType.PURCHASE, TODAY, p.id(), null, null, null, null, null, 0L, 0L, null, null, List.of(line("PT-1", penA, "100", 1)), null));
-        assertThat(thrown(() -> posting.post(farm.getId(), draft.id(), null)).getCode()).isEqualTo(MessageCodes.COM_08);
+        assertThat(thrown(() -> postDraft(farm.getId(), draft.id())).getCode()).isEqualTo(MessageCodes.COM_08);
     }
 
     @Test

@@ -87,7 +87,7 @@ class HerdEntryImportServiceTest extends HerdEntryTestBase {
         assertThat(count("Cattle")).isZero();
 
         // the imported lines can be posted; the unknown birth date is stored as UNKNOWN
-        EntryDtos.PostResult posted = posting.post(farm.getId(), draft.id(), null);
+        EntryDtos.PostResult posted = postDraft(farm.getId(), draft.id());
         Cattle second = em.find(Cattle.class, posted.voucher().lines().get(1).cattleId());
         assertThat(second.getBirthDateAccuracy()).isEqualTo(BirthDateAccuracy.UNKNOWN);
         assertThat(second.getBirthDate()).isNull();

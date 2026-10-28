@@ -15,14 +15,19 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import vn.edu.fpt.beefcare.domain.AccountLinkToken;
+import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.EmailDeliveryJob;
+import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.FarmInvitation;
 import vn.edu.fpt.beefcare.repository.AccountLinkTokenRepository;
+import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.EmailDeliveryJobRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
+import vn.edu.fpt.beefcare.repository.FarmRepository;
+import vn.edu.fpt.beefcare.service.payment.SubscriptionNoticeJob;
 import vn.edu.fpt.beefcare.repository.SupportTicketRepository;
 
-/** Durable, retryable dispatch for verification, reset and invitation links. Only a link-row reference is stored. */
+/** Durable, retryable dispatch for verification, reset and invitation links and account notices. Only a row reference is stored. */
 @Service
 public class EmailDeliveryJobService {
 
@@ -34,6 +39,8 @@ public class EmailDeliveryJobService {
     private final AccountLinkTokenRepository accountLinks;
     private final FarmInvitationRepository invitations;
     private final SupportTicketRepository supportTickets;
+    private final AppUserRepository accounts;
+    private final FarmRepository farms;
     private final ActionLinkSigner signer;
     private final EmailDelivery delivery;
     private final SpringTemplateEngine templates;
@@ -46,6 +53,8 @@ public class EmailDeliveryJobService {
         AccountLinkTokenRepository accountLinks,
         FarmInvitationRepository invitations,
         SupportTicketRepository supportTickets,
+        AppUserRepository accounts,
+        FarmRepository farms,
         ActionLinkSigner signer,
         EmailDelivery delivery,
         SpringTemplateEngine templates,
@@ -57,6 +66,8 @@ public class EmailDeliveryJobService {
         this.accountLinks = accountLinks;
         this.invitations = invitations;
         this.supportTickets = supportTickets;
+        this.accounts = accounts;
+        this.farms = farms;
         this.signer = signer;
         this.delivery = delivery;
         this.templates = templates;
@@ -114,6 +125,7 @@ public class EmailDeliveryJobService {
         Instant expiry;
         String expectedRecipient;
         String actionUrl;
+        Farm subscriptionFarm = null;
         if ("ACCOUNT_LINK".equals(job.getLinkSource())) {
             AccountLinkToken link = accountLinks.findById(job.getLinkSourceId()).orElse(null);
             if (link == null || link.getUsedAt() != null || link.getTokenNonce() == null || !link.getExpiresAt().isAfter(Instant.now())) return cancel(job);
@@ -133,6 +145,23 @@ public class EmailDeliveryJobService {
             expectedRecipient = invitation.getInvitedEmail();
             expiry = invitation.getExpiresAt();
             actionUrl = frontendBaseUrl + "/invitation/accept?token=" + bearer;
+        } else if ("ACCOUNT".equals(job.getLinkSource()) && "GOOGLE_SIGN_IN_ADVICE".equals(job.getTemplateKey())) {
+            // UC-FE01-05 AF1: no link or token, only advice; dropped if a password was added meanwhile.
+            AppUser account = accounts.findById(job.getLinkSourceId()).orElse(null);
+            if (account == null || account.isPasswordLoginEnabled()) return cancel(job);
+            expectedRecipient = account.getEmail();
+            expiry = Instant.now();
+            actionUrl = frontendBaseUrl + "/sign-in";
+            bearer = null;
+        } else if ("FARM_SUBSCRIPTION".equals(job.getLinkSource()) && "SUBSCRIPTION_NOTICE".equals(job.getTemplateKey())) {
+            // JOB-05: contextRole holds the notice type and contextName the period end it is about.
+            Farm farm = farms.findById(job.getLinkSourceId()).orElse(null);
+            if (farm == null) return cancel(job);
+            expectedRecipient = job.getRecipient();
+            expiry = Instant.parse(job.getContextName());
+            actionUrl = frontendBaseUrl + "/farms/" + farm.getId() + "/subscription";
+            bearer = null;
+            subscriptionFarm = farm;
         } else if ("SUPPORT_TICKET".equals(job.getLinkSource()) && "SUPPORT_TICKET_UPDATE".equals(job.getTemplateKey())) {
             var ticket = supportTickets.findById(job.getLinkSourceId()).orElse(null);
             if (ticket == null || !job.getRecipient().equalsIgnoreCase(ticket.getRequester().getEmail())) return cancel(job);
@@ -173,6 +202,21 @@ public class EmailDeliveryJobService {
                 title = "Lời mời tham gia trang trại";
                 button = "Xem lời mời";
                 expiryText = "Lời mời hết hạn lúc " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+            }
+            case "GOOGLE_SIGN_IN_ADVICE" -> {
+                title = "Đăng nhập bằng Google";
+                intro = "Tài khoản BeefCare của bạn đăng nhập bằng Google và chưa có mật khẩu, nên không có mật khẩu nào để đặt lại. Hãy chọn “Tiếp tục với Google” ở màn hình đăng nhập. Sau khi đăng nhập, bạn có thể thêm mật khẩu trong hồ sơ của mình.";
+                button = "Đăng nhập";
+                expiryText = "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.";
+            }
+            case "SUBSCRIPTION_NOTICE" -> {
+                SubscriptionNoticeJob.Notice notice;
+                try { notice = SubscriptionNoticeJob.Notice.valueOf(job.getContextRole()); } catch (RuntimeException unknown) { return cancel(job); }
+                title = notice == SubscriptionNoticeJob.Notice.RENEWAL_OPEN ? "Đã mở gia hạn gói dịch vụ"
+                    : notice == SubscriptionNoticeJob.Notice.EXPIRED ? "Thời hạn dịch vụ đã hết" : "Gói dịch vụ sắp hết hạn";
+                intro = SubscriptionNoticeJob.summary(notice, subscriptionFarm, expiry.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate());
+                button = "Xem gói dịch vụ";
+                expiryText = "BeefCare không tự động gia hạn; bạn tạo yêu cầu thanh toán khi muốn gia hạn.";
             }
             case "SUPPORT_TICKET_UPDATE" -> {
                 title = "Cập nhật yêu cầu hỗ trợ";

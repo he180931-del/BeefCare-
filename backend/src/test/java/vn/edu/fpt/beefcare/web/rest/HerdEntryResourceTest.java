@@ -85,10 +85,11 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
             .andReturn();
         long id = Long.parseLong(created.getResponse().getContentAsString().replaceAll(".*?\"id\":(\\d+).*", "$1"));
 
+        String postBody = "{\"expectedVersion\":" + entryVoucherVersion(id) + ",\"printQr\":true}";
         mvc.perform(get(base() + "/entry-vouchers/" + id + "/checks").with(as(manager.getEmail()))).andExpect(status().isOk()).andExpect(jsonPath("$.canPost").value(true)).andExpect(jsonPath("$.occupancy.length()").value(2));
 
         mvc
-            .perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(manager.getEmail())).header("Idempotency-Key", "abc").contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"printQr\":true}"))
+            .perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(manager.getEmail())).header("Idempotency-Key", "abc").contentType(MediaType.APPLICATION_JSON).content(postBody))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.cattleCodes.length()").value(2))
             .andExpect(jsonPath("$.alreadyPosted").value(false))
@@ -98,7 +99,7 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
             .andExpect(jsonPath("$.voucher.amountPaid").value(5_000_000))
             .andExpect(jsonPath("$.voucher.payments.length()").value(1));
 
-        mvc.perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(manager.getEmail())).header("Idempotency-Key", "abc").contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0,\"printQr\":true}")).andExpect(status().isOk()).andExpect(jsonPath("$.alreadyPosted").value(false));
+        mvc.perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(manager.getEmail())).header("Idempotency-Key", "abc").contentType(MediaType.APPLICATION_JSON).content(postBody)).andExpect(status().isOk()).andExpect(jsonPath("$.alreadyPosted").value(false));
 
         mvc
             .perform(get(base() + "/entry-vouchers").param("status", "POSTED").param("type", "PURCHASE").with(as(owner.getEmail())))
@@ -117,10 +118,10 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
     void updateAndDiscardADraft() throws Exception {
         long id = createDraft(voucherJson(lineJson("UD-1", penA.getId(), "300"), 0));
         mvc
-            .perform(put(base() + "/entry-vouchers/" + id).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content(withVersion(voucherJson(lineJson("UD-1", penA.getId(), "310") + "," + lineJson("UD-2", penA.getId(), "320"), 0), 0)))
+            .perform(put(base() + "/entry-vouchers/" + id).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content(withVersion(voucherJson(lineJson("UD-1", penA.getId(), "310") + "," + lineJson("UD-2", penA.getId(), "320"), 0), entryVoucherVersion(id))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.lines.length()").value(2));
-        mvc.perform(delete(base() + "/entry-vouchers/" + id).with(as(owner.getEmail()))).andExpect(status().isNoContent());
+        mvc.perform(delete(base() + "/entry-vouchers/" + id).param("expectedVersion", String.valueOf(entryVoucherVersion(id))).with(as(owner.getEmail()))).andExpect(status().isNoContent());
         mvc.perform(get(base() + "/entry-vouchers/" + id).with(as(owner.getEmail()))).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("MSG-COM-08"));
     }
 
@@ -130,7 +131,7 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
         var small = pen(farm, "R" + next(), 1);
         long id = createDraft(voucherJson(lineJson("ER-1", small.getId(), "300") + "," + lineJson("ER-2", small.getId(), "300"), 0));
         mvc
-            .perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0}"))
+            .perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":" + entryVoucherVersion(id) + "}"))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("MSG-FE04-05"))
             .andExpect(jsonPath("$.params.pen_code").value(small.getCode()))
@@ -154,7 +155,7 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
     @Test
     void correctVoidEntryAndVoidVoucher() throws Exception {
         long id = createDraft(voucherJson(lineJson("CV-1", penA.getId(), "300") + "," + lineJson("CV-2", penA.getId(), "200") + "," + lineJson("CV-3", penB.getId(), "100"), 0));
-        mvc.perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0}")).andExpect(status().isOk());
+        mvc.perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":" + entryVoucherVersion(id) + "}")).andExpect(status().isOk());
         actAs(owner);
         var voucher = vouchers.get(farm.getId(), id);
         long entry1 = voucher.lines().get(0).id();
@@ -162,20 +163,20 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
         int postedVersion = voucher.version();
 
         mvc
-            .perform(patch(base() + "/herd-entries/" + entry1).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"price fix\",\"expectedVersion\":0,\"voucherVersion\":" + postedVersion + ",\"changes\":{\"unitPrice\":60000}}"))
+            .perform(patch(base() + "/herd-entries/" + entry1).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"price fix\",\"expectedVersion\":" + versionOf(vn.edu.fpt.beefcare.domain.HerdEntry.class, entry1) + ",\"voucherVersion\":" + postedVersion + ",\"changes\":{\"unitPrice\":60000}}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.notice.code").value("MSG-FE06-06"))
             .andExpect(jsonPath("$.line.lineAmount").value(18_000_000))
             .andExpect(jsonPath("$.voucher.cattleAmount").value(18_000_000 + 10_000_000 + 5_000_000));
         mvc.perform(patch(base() + "/herd-entries/" + entry1).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"changes\":{\"unitPrice\":1}}")).andExpect(status().isBadRequest());
 
-        mvc.perform(post(base() + "/herd-entries/" + entry2 + "/void").with(as(manager.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"duplicate\",\"expectedVersion\":0}"))
+        mvc.perform(post(base() + "/herd-entries/" + entry2 + "/void").with(as(manager.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"duplicate\",\"expectedVersion\":" + versionOf(vn.edu.fpt.beefcare.domain.HerdEntry.class, entry2) + "}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.notice.code").value("MSG-FE06-12"));
 
         weight(em.find(vn.edu.fpt.beefcare.domain.Cattle.class, voucher.lines().get(0).cattleId()), TODAY, "301");
         mvc
-            .perform(post(base() + "/entry-vouchers/" + id + "/void").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"wrong\",\"expectedVersion\":" + vouchers.get(farm.getId(), id).version() + "}"))
+            .perform(post(base() + "/entry-vouchers/" + id + "/void").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"wrong\",\"expectedVersion\":" + entryVoucherVersion(id) + "}"))
             .andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("MSG-FE06-21"))
             .andExpect(jsonPath("$.params.cattle_codes").value(voucher.lines().get(0).cattleCode()));
@@ -185,9 +186,9 @@ class HerdEntryResourceTest extends HerdEntryTestBase {
     @Test
     void voidVoucherSucceeds() throws Exception {
         long id = createDraft(voucherJson(lineJson("VV-1", penA.getId(), "300"), 0));
-        mvc.perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":0}")).andExpect(status().isOk());
+        mvc.perform(post(base() + "/entry-vouchers/" + id + "/post").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":" + entryVoucherVersion(id) + "}")).andExpect(status().isOk());
         mvc
-            .perform(post(base() + "/entry-vouchers/" + id + "/void").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"wrong\",\"expectedVersion\":" + vouchers.get(farm.getId(), id).version() + "}"))
+            .perform(post(base() + "/entry-vouchers/" + id + "/void").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"wrong\",\"expectedVersion\":" + entryVoucherVersion(id) + "}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.voucher.status").value("VOIDED"))
             .andExpect(jsonPath("$.notice.code").value("MSG-FE06-22"));
