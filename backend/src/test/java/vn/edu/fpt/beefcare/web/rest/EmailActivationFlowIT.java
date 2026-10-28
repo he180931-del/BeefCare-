@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -32,6 +34,7 @@ class EmailActivationFlowIT {
     @Test
     void registeredEmailLinkDispatchesDurablyAndCreatesSessionAfterVerification() throws Exception {
         String email = "mail-flow@example.test";
+        drainQueue();
         identityService.register("Mail Flow Owner", email, "SomeStrongPass9", "SomeStrongPass9", true);
 
         var queued = jobs.findAll().stream().filter(job -> email.equalsIgnoreCase(job.getRecipient())).findFirst().orElseThrow();
@@ -62,6 +65,7 @@ class EmailActivationFlowIT {
     @Test
     void failedMailProviderDeliveryIsRetriedFromThePersistedJob() {
         String email = "mail-retry@example.test";
+        drainQueue();
         identityService.register("Retry Owner", email, "SomeStrongPass9", "SomeStrongPass9", true);
         inbox.failNextDeliveries(1);
         deliveryJobs.dispatchDueJobs();
@@ -79,6 +83,13 @@ class EmailActivationFlowIT {
         assertThat(delivered.getStatus()).isEqualTo("SENT");
         assertThat(delivered.getAttempts()).isEqualTo(2);
         assertThat(inbox.findMessagesFor(email)).hasSize(1);
+    }
+
+    /** Other classes share this database and may leave due jobs behind; dispatch takes the 25 oldest, so empty the queue first. */
+    private void drainQueue() {
+        for (int round = 0; round < 20 && !jobs.findByStatusAndAvailableAtLessThanEqualOrderByCreatedAtAsc("PENDING", Instant.now(), PageRequest.of(0, 1)).isEmpty(); round++) {
+            deliveryJobs.dispatchDueJobs();
+        }
     }
 
     private static String tokenFrom(String text) {
