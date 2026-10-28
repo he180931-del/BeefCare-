@@ -1,16 +1,17 @@
-// @ts-nocheck
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Checkbox, Field, Note, Select, Table, Td, Th, inputCls } from '../../../components/ui'
 import { EXPORT_HERD } from '../data/exportsData'
 import { money } from '../../../data/format'
 import { TH } from './parts'
+import type { HerdExit } from '../../../types'
+type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; stage: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string }
 
 const DEFAULT_PRICE = 92000
 // Bò đang nằm trong phiếu khác (Nháp / Chờ xác nhận / Đã xuất) thì không hiện để chọn.
 const ACTIVE_STATUSES = ['Nháp', 'Chờ xác nhận', 'Đã xuất']
 
-export default function PickModal({ id, herdExits, picked, setPicked, onClose }) {
+export default function PickModal({ id, herdExits, picked, setPicked, onClose }: { id: string; herdExits: HerdExit[]; picked: HerdCow[]; setPicked: (rows: HerdCow[]) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [barn, setBarn] = useState('all')
   const [group, setGroup] = useState('all')
@@ -22,7 +23,7 @@ export default function PickModal({ id, herdExits, picked, setPicked, onClose })
       .filter((r) => r.id !== id && ACTIVE_STATUSES.includes(r.status))
       .flatMap((r) => (r.draft?.cows ?? r.detail?.cows ?? []).map((c) => c.code)),
   )
-  const candidates = EXPORT_HERD.filter((c) => !busy.has(c.code))
+  const candidates: HerdCow[] = EXPORT_HERD.filter((c) => !busy.has(c.code)).map((c) => ({ ...c, unitPrice: 'unitPrice' in c && typeof c.unitPrice === 'number' ? c.unitPrice : DEFAULT_PRICE } as HerdCow))
   const rows = candidates.filter(
     (c) =>
       (!query || `${c.code} ${c.tag}`.toLowerCase().includes(query.toLowerCase())) &&
@@ -31,7 +32,7 @@ export default function PickModal({ id, herdExits, picked, setPicked, onClose })
       c.weight >= minWeight,
   )
 
-  const toggle = (code) => {
+  const toggle = (code: string) => {
     const next = new Set(selected)
     next.has(code) ? next.delete(code) : next.add(code)
     setSelected(next)
@@ -108,4 +109,3 @@ export default function PickModal({ id, herdExits, picked, setPicked, onClose })
     </Modal>
   )
 }
-// @ts-nocheck

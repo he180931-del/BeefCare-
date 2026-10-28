@@ -1,20 +1,20 @@
-// @ts-nocheck
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Button, Table, Td, Th, Note } from '../../../components/ui'
 import { EXCEL_ROWS, TODAY, blankCow } from '../data/importsData'
 import { kg } from '../../../data/format'
+import type { CattleDetail } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
 /** dob 'YYYY-MM' lùi 12 tháng so với ngày nhập (tuổi mặc định 12 tháng). */
-const dobFromAge12 = (dateIso) => {
+const dobFromAge12 = (dateIso: string): string => {
   const [y, m] = dateIso.split('-').map(Number)
   return `${y - 1}-${String(m).padStart(2, '0')}`
 }
 
 /** Nhập nhiều con từ tệp Excel. Chỉ các dòng ok/warn được thêm; onAdd(cows[]) nhận danh sách con. */
-export default function ExcelModal({ recordId, onAdd, onClose }) {
+export default function ExcelModal({ recordId, onAdd, onClose }: { recordId: string; onAdd: (cows: CattleDetail[]) => void; onClose: () => void }) {
   const [rows] = useState(EXCEL_ROWS)
   const valid = rows.filter((r) => r.result.tone !== 'err')
   const bad = rows.length - valid.length
@@ -102,5 +102,4 @@ export default function ExcelModal({ recordId, onAdd, onClose }) {
   )
 }
 
-const IMPORT_BARN_NAME = { A1: 'A1 – Bò cái', A2: 'A2 – Bò cái', B1: 'B1 – Vỗ béo' }
-// @ts-nocheck
+const IMPORT_BARN_NAME: Record<string, string> = { A1: 'A1 – Bò cái', A2: 'A2 – Bò cái', B1: 'B1 – Vỗ béo' }

@@ -1,12 +1,11 @@
-// @ts-nocheck
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import farm from '../assets/farm.png'
 import wave from '../assets/wave.png'
 
 // Menu theo Figma. Quản lý (manager) không có "Thông tin trại / Gói dịch vụ / Hỗ trợ".
-const item = (name, to) => ({ name, to })
+const item = (name: string, to: string) => ({ name, to })
 const NAV_COMMON = [
   { label: 'VẬN HÀNH', items: [item('Tổng quan', '/tong-quan'), item('Nhắc việc', '/nhac-viec'), item('Thông báo trại', '/thong-bao')] },
   { label: 'ĐÀN BÒ', items: [item('Đàn bò', '/cattle'), item('Nhập đàn', '/herd-entry'), item('Chuồng trại', '/pens'), item('Xuất đàn', '/herd-exit')] },
@@ -22,7 +21,7 @@ const FARM_OWNER = {
   items: [item('Thông tin trại', '/thong-tin-trai'), item('Thành viên & quyền', '/thanh-vien'), item('Gói dịch vụ', '/goi-dich-vu'), item('Hỗ trợ', '/ho-tro')],
 }
 export const NAV_GROUPS = [...NAV_COMMON, FARM_OWNER]
-export const pageName = (path) => NAV_GROUPS.flatMap((g) => g.items).find((i) => i.to === path)?.name
+export const pageName = (path: string) => NAV_GROUPS.flatMap((g) => g.items).find((i) => i.to === path)?.name
 
 const USERS = {
   manager: { initials: 'TL', name: 'Trần Quốc Long', role: 'Quản lý', groups: [...NAV_COMMON, FARM_MANAGER], gap: 'mt-[2px]' },
@@ -30,8 +29,8 @@ const USERS = {
 }
 
 // Modal đổi tiêu đề thanh trên (Figma: khi mở modal, tiêu đề topbar = tên modal).
-const TitleCtx = createContext(() => {})
-export const useTopbarTitle = (title) => {
+const TitleCtx = createContext<(title: string | null) => void>(() => undefined)
+export const useTopbarTitle = (title?: string) => {
   const set = useContext(TitleCtx)
   useEffect(() => {
     if (!title) return undefined
@@ -46,10 +45,10 @@ const NAV = 'mx-3.5 mb-px flex h-7 items-center gap-2.5 rounded-xl px-2.5 text-[
  * Khung trang. `user`: 'manager' | 'owner'. `dim` không cần: Modal tự phủ lớp mờ.
  * Nội dung (children) nằm trong <main> padding 32px, gap 20px, rộng 100% (không max-width).
  */
-export default function Layout({ title, user = 'owner', children }) {
+export default function Layout({ title, user = 'owner', children }: { title: string; user?: keyof typeof USERS; children: ReactNode }) {
   const u = USERS[user]
   const [open, setOpen] = useState(false)
-  const [override, setOverride] = useState(null)
+  const [override, setOverride] = useState<string | null>(null)
   return (
     <TitleCtx.Provider value={setOverride}>
       <div className="min-h-screen overflow-x-clip">
@@ -106,4 +105,3 @@ export default function Layout({ title, user = 'owner', children }) {
     </TitleCtx.Provider>
   )
 }
-// @ts-nocheck

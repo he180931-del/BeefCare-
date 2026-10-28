@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -9,32 +8,35 @@ import { useMutation } from '../../../hooks/useApi'
 import { dmy } from '../../../data/format'
 import { Box, CheckList, DocRow, Drop, SummaryCard, TH } from './parts'
 import RejectModal from './RejectModal'
+import type { HerdExit, ExitDetail } from '../../../types'
 
 const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa phương', 'Khác']
+const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 
 // Phiếu xuất "Chết / mất" tạo từ ca sức khỏe, chờ Chủ trại xác nhận.
-export default function DeathView({ row }) {
-  const { mutate: updateExit, error: updateError } = useMutation(({ id, patch }) => herdExitApi.update(id, patch))
+export default function DeathView({ row }: { row: HerdExit }) {
+  const { mutate: updateExit, error: updateError } = useMutation<{ id: string; patch: Partial<HerdExit> }, HerdExit>(({ id, patch }) => herdExitApi.update(id, patch))
   const { mutate: persistExit, error: persistError } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
-  const d = row.detail
+  const d: ExitDetail = { cows: [], docs: [], history: [], checks: [], cow: { code: '', tag: '', breed: '', sex: '', barn: '', weight: 0, caseLine: ['', ''] }, ...row.detail }
+  const cow = d.cow ?? { code: '', tag: '', breed: '', sex: '', barn: '', weight: 0, caseLine: ['', ''] }
   const pending = row.status === 'Chờ xác nhận'
   const [lossType, setLossType] = useState(d.lossType)
   const [reason, setReason] = useState(d.reason)
   const [disposal, setDisposal] = useState(d.disposal)
-  const [date, setDate] = useState(d.date)
+  const [date, setDate] = useState(d.date ?? '')
   const [confirmed, setConfirmed] = useState(true)
 
-  const resolve = async (status, extra = {}) => {
+  const resolve = async (status: 'Đã xuất' | 'Đã bác', extra: Record<string, unknown> = {}) => {
     const patch = {
       status,
       ...extra,
       detail: { ...d, history: [...(d.history ?? []), `${dmy(date).slice(0, 5)} · N. V. Hùng ${status === 'Đã xuất' ? 'xác nhận xuất đàn' : 'bác đề xuất'}`] },
     }
     if (status === 'Đã xuất') {
-      const barn = String(d.cow.barn).split(/[\s–-]/)[0]
-      await persistExit({ id: row.id, record: patch, cattleRows: [{ ...d.cow, barn }] })
+      const barn = String(cow.barn ?? '').split(/[\s–-]/)[0]
+      await persistExit({ id: row.id, record: patch, cattleRows: [{ ...cow, barn }] })
     } else {
       await updateExit({ id: row.id, patch })
     }
@@ -92,17 +94,17 @@ export default function DeathView({ row }) {
               </thead>
               <tbody>
                 <tr>
-                  <Td className={`${TH} font-medium`}>{d.cow.code}</Td><Td className={TH}>{d.cow.tag}</Td>
-                  <Td className={TH}>{d.cow.breed} · {d.cow.sex}</Td><Td className={TH}>{d.cow.age}</Td>
-                  <Td className={TH}>{d.cow.barn}</Td><Td className={TH}>{d.cow.weight} kg UT</Td>
-                  <Td className={TH}>{d.cow.caseLine[0]}<br />{d.cow.caseLine[1]}</Td>
+                  <Td className={`${TH} font-medium`}>{cow.code}</Td><Td className={TH}>{cow.tag}</Td>
+                  <Td className={TH}>{cow.breed} · {cow.sex}</Td><Td className={TH}>{cow.age}</Td>
+                  <Td className={TH}>{cow.barn}</Td><Td className={TH}>{cow.weight} kg UT</Td>
+                  <Td className={TH}>{(cow.caseLine ?? ['', ''])[0]}<br />{(cow.caseLine ?? ['', ''])[1]}</Td>
                 </tr>
               </tbody>
             </Table>
           </Box>
 
           <Box title="3. Chứng từ đính kèm" sub="Ảnh, biên bản tiêu hủy hoặc xác nhận của thú y" gap="gap-3">
-            {d.docs.map((doc) => <DocRow key={doc.name} ext={doc.ext} name={doc.name} />)}
+            {(d.docs ?? []).map((doc) => <DocRow key={doc.name} ext={doc.ext} name={doc.name} />)}
             <Drop hint="PDF, JPG ≤ 10MB" />
           </Box>
         </div>
@@ -116,8 +118,8 @@ export default function DeathView({ row }) {
           </SummaryCard>
 
           <Box title="Kiểm tra trước khi xác nhận" gap="gap-[10px]">
-            <CheckList rows={d.checks} />
-            {(updateError || persistError) && <Note tone="err">{(updateError || persistError).message}</Note>}
+            <CheckList rows={d.checks ?? []} />
+            {Boolean(updateError || persistError) && <Note tone="err">{displayError(updateError || persistError)}</Note>}
             {pending ? (
               <>
                 <Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="text-xs font-semibold">
@@ -138,9 +140,8 @@ export default function DeathView({ row }) {
       <Foot>Phiếu từ ca sức khỏe giữ bò ACTIVE đến khi Chủ trại xác nhận; "Xử lý xác" không hiện khi Loại mất = Mất tích.</Foot>
 
       {m === 'reject' && (
-        <RejectModal row={row} onClose={closeModal} onRejected={(rejectReason) => resolve('Đã bác', { rejectReason })} />
+        <RejectModal row={row} onClose={closeModal} onRejected={(rejectReason: string) => resolve('Đã bác', { rejectReason })} />
       )}
     </Layout>
   )
 }
-// @ts-nocheck

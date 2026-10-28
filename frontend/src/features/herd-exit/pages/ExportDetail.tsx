@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Link, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../../../components/ui'
@@ -10,13 +9,15 @@ import { Box, DocRow, TH } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
+import type { HerdExit, ExitDetail, Cattle } from '../../../types'
 
-const STATUS_TONE = { 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
+const STATUS_TONE: Record<string, 'ok' | 'err' | 'warn' | undefined> = { 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
 
 export default function ExportDetail() {
   const { id } = useParams()
-  const { data: r, loading, refetch } = useQuery(() => herdExitApi.get(id), [id])
-  const { data: cattleRows } = useQuery(() => cattle.list(), [])
+  const recordId = id ?? ''
+  const { data: r, loading, refetch } = useQuery<HerdExit>(() => herdExitApi.get(recordId), [recordId])
+  const { data: cattleRows } = useQuery<Cattle[]>(() => cattle.list(), [])
   const [m, openModal, closeModal] = useModalParam()
 
   if (!r) {
@@ -30,12 +31,12 @@ export default function ExportDetail() {
   }
   if (r.detail?.death) return <DeathView row={r} />
 
-  const d = r.detail
-  const collected = d ? d.payments.reduce((s, p) => s + p.amount, 0) : (r.total ?? 0) - (r.due ?? 0)
+  const d: ExitDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
+  const collected = d.payments?.reduce((s, p) => s + p.amount, 0) ?? (r.total ?? 0) - (r.due ?? 0)
   const owed = r.due ?? 0
   const tone = STATUS_TONE[r.status]
   const isSold = r.status === 'Đã xuất'
-  const canCancel = isSold && Boolean(d?.cows?.length) && Boolean(cattleRows) && d.cows.every((row) => cattleRows.some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
+  const canCancel = isSold && Boolean(d.cows?.length) && Boolean(cattleRows) && (d.cows ?? []).every((row) => (cattleRows ?? []).some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
 
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
@@ -78,7 +79,7 @@ export default function ExportDetail() {
                 </tr>
               </thead>
               <tbody>
-                {d ? d.cows.map((c) => (
+                {(d.cows ?? []).map((c) => (
                   <tr key={c.code}>
                     <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
                     <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
@@ -86,7 +87,8 @@ export default function ExportDetail() {
                     <Td className={`${TH} !py-3`}><Badge tone="ok" className="!border-0">Đã xuất</Badge></Td>
                     <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
                   </tr>
-                )) : (
+                ))}
+                {!(d.cows ?? []).length && (
                   <tr><Td colSpan={7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td></tr>
                 )}
               </tbody>
@@ -100,7 +102,7 @@ export default function ExportDetail() {
           </Box>
 
           <Box title="Chứng từ đính kèm" gap="gap-[10px]">
-            {d ? d.docs.map((doc) => <DocRow key={doc.name} ext={doc.ext} name={doc.name} />) : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+            {(d.docs ?? []).map((doc) => <DocRow key={doc.name} ext={doc.ext} name={doc.name} />)}
           </Box>
         </div>
 
@@ -117,7 +119,7 @@ export default function ExportDetail() {
                   ['Còn phải thu', `${money(owed)} đ`, owed > 0],
                 ]}
               />
-              {d && <PaymentTable payments={d.payments} />}
+              {d && <PaymentTable payments={d.payments ?? []} />}
               {isSold && owed > 0 && <Button block onClick={() => openModal('collect')}>Ghi nhận thu tiền</Button>}
             </Box>
           )}
@@ -136,4 +138,3 @@ export default function ExportDetail() {
     </Layout>
   )
 }
-// @ts-nocheck

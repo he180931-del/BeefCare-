@@ -1,14 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { MemoryStorage } from './testUtils'
 
-const memoryStorage = () => {
-  const values = new Map([['beefcare:latency', '0']])
-  return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, String(value)),
-    removeItem: (key) => values.delete(key),
-  }
-}
+const memoryStorage = () => new MemoryStorage({ 'beefcare:latency': '0' })
 
 test('registering, exiting and restoring cattle adjusts one shared pen count exactly once', async () => {
   globalThis.localStorage = memoryStorage()

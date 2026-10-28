@@ -1,5 +1,7 @@
+import type { BadgeTone } from '../../../components/ui'
+import type { HerdEntry } from '../../../types'
 // Dữ liệu phiếu nhập (thuộc worker "Nhập đàn").
-export const initialImports = [
+export const initialImports: HerdEntry[] = [
   { id: 'PN-2026-0012', date: '2026-10-22', type: 'Mua ngoài', source: 'Hộ ông Lê Văn C – Sơn Tây · 2 con cân ước tính', count: 3, weight: 719, total: 61625000, debt: 21625000, status: 'Nháp' },
   { id: 'PN-2026-0013', date: '2026-10-22', type: 'Bê sinh tại trại', source: 'Bê của BC-000093, BC-000108', count: 2, weight: 51, total: null, debt: null, status: 'Nháp' },
   {
@@ -90,10 +92,10 @@ export const ageOf = (dob: string, dateIso: string) => {
 }
 
 // Dữ liệu mẫu của file Excel (12 dòng; line = số dòng trong tệp, bắt đầu từ 2).
-export const EXCEL_ROWS = [
+export const EXCEL_ROWS: Array<{ line: number; tag: string; breed: string; sex: string; kg: number; barn: string; result: { tone: BadgeTone; text: string } }> = [
   { line: 2, tag: 'VN-0505', breed: 'Lai Sind', sex: 'Cái', kg: 241, barn: 'A1', result: { tone: 'ok', text: 'Hợp lệ' } },
   { line: 3, tag: 'VN-0506', breed: 'Zebu', sex: 'Cái', kg: 230, barn: 'A2', result: { tone: 'warn', text: 'Cảnh báo · thiếu ngày sinh → "Không rõ"' } },
   { line: 4, tag: 'VN-0498', breed: 'Brahman lai', sex: 'Đực', kg: 290, barn: 'B1', result: { tone: 'err', text: 'Lỗi · thẻ tai đã dùng cho BC-000231' } },
   { line: 5, tag: 'VN-0507', breed: 'Lai Sind', sex: 'Đực', kg: 265, barn: 'A1', result: { tone: 'err', text: 'Lỗi · A1 không nhận bò đực / đã đầy' } },
-  ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ line: 6 + i, tag: `VN-0${508 + i}`, breed: 'Lai Sind', sex: 'Cái', kg: 220 + (i + 1) * 5, barn: 'A2', result: { tone: 'ok', text: 'Hợp lệ' } })),
+  ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ line: 6 + i, tag: `VN-0${508 + i}`, breed: 'Lai Sind', sex: 'Cái', kg: 220 + (i + 1) * 5, barn: 'A2', result: { tone: 'ok' as const, text: 'Hợp lệ' } })),
 ]

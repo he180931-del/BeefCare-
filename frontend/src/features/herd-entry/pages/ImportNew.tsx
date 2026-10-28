@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -12,17 +11,21 @@ import { dmy, money } from '../../../data/format'
 import { GhostMoney, GhostSelect, RadioRow } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
+import type { HerdEntry, Pen } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'
 const KIND_CALF = 'Bê sinh tại trại'
 const PURPOSE_CHOICES = PURPOSES.map((p) => ({ value: p, label: p }))
-const barnLabel = (b) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` : b.code)
-const num = (v) => Number(v) || 0
+type EntryCow = { code?: string; tag: string; name?: string; breed?: string; sex: string; dob?: string; dobAccuracy?: string; stage?: string; group?: string; purpose?: string; ageMonths?: number; weight: number; estimated: boolean; barn: string; unitPrice?: number; hist?: { vaccine: string; vaccineNote?: string; disease: string; repro: string }; [key: string]: unknown }
+type Calf = { name: string; tag: string; mother: string; father: string; born: string; sex: string; weight: number; estimated: boolean; purpose: string; picked: boolean; barn: string }
+const barnLabel = (b: Pen & { showName?: boolean }) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` : b.code)
+const num = (v: unknown) => Number(v) || 0
+const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 
 export default function ImportNew() {
   const [params] = useSearchParams()
-  const { data } = useQuery(() => herdEntryApi.list(), [])
+  const { data } = useQuery<HerdEntry[]>(() => herdEntryApi.list(), [])
   const { data: canonicalPens } = useQuery(() => pens.list(), [])
   if (!data || !canonicalPens) {
     return <Layout title="Phiếu nhập mới" user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
@@ -30,7 +33,7 @@ export default function ImportNew() {
   return <ImportForm key={`${params.get('id') ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}`} imports={data} canonicalPens={canonicalPens} />
 }
 
-function ImportForm({ imports, canonicalPens }) {
+function ImportForm({ imports, canonicalPens }: { imports: HerdEntry[]; canonicalPens: Pen[] }) {
   const { mutate: persistEntry, error: saveError } = useMutation(saveHerdEntry)
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -39,39 +42,39 @@ function ImportForm({ imports, canonicalPens }) {
   const kind = params.get('kind') === 'calf' ? KIND_CALF : KIND_BUY
   const isBuy = kind === KIND_BUY
   const importBarns = canonicalPens.filter((pen) => ['A1', 'A2', 'B1', 'B2', 'C1'].includes(pen.code))
-  const calfBarn = canonicalPens.find((pen) => pen.code === 'A3') ?? { code: 'A3', name: 'A3 – Bê theo mẹ', count: 0, capacity: 0, status: 'INACTIVE' }
+  const calfBarn = canonicalPens.find((pen) => pen.code === 'A3') ?? { code: 'A3', name: 'A3 – Bê theo mẹ', count: 0, capacity: 0, status: 'INACTIVE' as const, cows: [] }
   const barnOptions = importBarns.map((barn) => ({ value: barn.code, label: barn.name }))
   const calfBarnOptions = [{ value: calfBarn.code, label: calfBarn.name }]
-  const draftId = params.get('id')
+  const draftId = params.get('id') ?? undefined
   const draftState = getEntryDraftState(imports, draftId)
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const draft = draftRow?.draft
   const nextNumber = Math.max(0, ...imports.map((row) => Number(row.id?.split('-')[2]) || 0)) + 1
   const recordId = draftRow?.id ?? `PN-2026-${String(nextNumber).padStart(4, '0')}`
-  const setKind = (next) => {
+  const setKind = (next: string) => {
     const query = new URLSearchParams(params)
     if (next === KIND_CALF) query.set('kind', 'calf')
     else query.delete('kind')
     setParams(query)
   }
 
-  const [pricing, setPricing] = useState(draft?.pricing ?? 'kg')
+  const [pricing, setPricing] = useState<'kg' | 'con'>(draft?.pricing ?? 'kg')
   const [sourceId, setSourceId] = useState(draft?.sourceId ?? SOURCES[0].id)
   const [date, setDate] = useState(draft?.date ?? TODAY)
   const [quarantine, setQuarantine] = useState(draft?.quarantine ?? '')
   const [receiver, setReceiver] = useState(draft?.receiver ?? 'Anh A')
   const [note, setNote] = useState(draft?.note ?? '')
-  const [cows, setCows] = useState(draft?.cows ?? INITIAL_COWS)
-  const [calves, setCalves] = useState(draft?.calves ?? initialCalves)
+  const [cows, setCows] = useState<EntryCow[]>((draft?.cows ?? INITIAL_COWS) as EntryCow[])
+  const [calves, setCalves] = useState<Calf[]>((draft?.calves ?? initialCalves) as Calf[])
   const [freight, setFreight] = useState(draft?.freight ?? 1500000)
   const [paid, setPaid] = useState(draft?.paid ?? 40000000)
   const [method, setMethod] = useState(draft?.method ?? PAY_METHODS[0])
   const [due, setDue] = useState(draft?.due ?? '2026-11-05')
   const [printQr, setPrintQr] = useState(draft?.printQr ?? true)
 
-  const source = SOURCES.find((s) => s.id === sourceId)
-  const cowsMoney = cows.reduce((s, c) => s + (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice), 0)
-  const totalWeight = cows.reduce((s, c) => s + c.weight, 0)
+  const source = SOURCES.find((s) => s.id === sourceId) ?? SOURCES[0]
+  const cowsMoney = cows.reduce((s, c) => s + (pricing === 'kg' ? c.weight * (c.unitPrice ?? 0) : (c.unitPrice ?? 0)), 0)
+  const totalWeight = cows.reduce((s, c) => s + (c.weight ?? 0), 0)
   const total = cowsMoney + freight
   const debt = Math.max(total - paid, 0)
   const estimatedCount = cows.filter((c) => c.estimated).length
@@ -85,17 +88,20 @@ function ImportForm({ imports, canonicalPens }) {
   const calfOver = calfBarn.status !== 'ACTIVE' || calfAfter > calfBarn.capacity
   const n = isBuy ? cows.length : picked.length
 
-  const patchCow = (i, p) => setCows(cows.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
-  const patchCalf = (i, p) => setCalves(calves.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
+  const patchCow = (i: number, p: Partial<EntryCow>) => setCows(cows.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
+  const patchCalf = (i: number, p: Partial<Calf>) => setCalves(calves.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
 
-  const save = async (status) => {
+  const save = async (status: 'Nháp' | 'Đã nhập') => {
     const sourceText = isBuy
       ? `${source.name}${quarantine ? ` · ${quarantine}` : ''}${estimatedCount ? ` · ${estimatedCount} con cân ước tính` : ''}`
       : `Bê của ${[...new Set(picked.map((c) => c.mother))].join(', ')}`
     const editableDraft = {
       pricing, sourceId, date, quarantine, receiver, note, cows, calves, freight, paid, method, due, printQr,
     }
-    const record = isBuy
+    const inputs: EntryCow[] = isBuy
+      ? cows.map((cow) => ({ ...cow, date }))
+      : picked.map((calf) => ({ ...calf, breed: calf.sex === 'Đực' ? 'Bê đực' : 'Bê cái', unitPrice: 0, ageMonths: 0, stage: 'Bê', group: 'Bê', date: calf.born }))
+    const record: Partial<HerdEntry> = isBuy
       ? {
           date,
           type: kind,
@@ -119,9 +125,6 @@ function ImportForm({ imports, canonicalPens }) {
     if (status === 'Nháp') {
       record.draft = editableDraft
     } else {
-      const inputs = isBuy
-        ? cows.map((cow) => ({ ...cow, date }))
-        : picked.map((calf) => ({ ...calf, tag: calf.tag, ageMonths: 0, stage: 'Bê', group: 'Bê', date: calf.born }))
       record.detail = {
         sourceName: isBuy ? source.name : sourceText,
         quarantine: isBuy ? quarantine : '',
@@ -136,7 +139,7 @@ function ImportForm({ imports, canonicalPens }) {
           weight: cow.weight,
           barn: cow.barn,
           current: `ACTIVE · ${cow.barn}`,
-          amount: isBuy ? (pricing === 'kg' ? cows[index].weight * cows[index].unitPrice : cows[index].unitPrice) : 0,
+          amount: isBuy ? (pricing === 'kg' ? cows[index].weight * (cows[index].unitPrice ?? 0) : (cows[index].unitPrice ?? 0)) : 0,
         })),
         cowsTotal: isBuy ? cowsMoney : 0,
         freight: isBuy ? freight : 0,
@@ -214,7 +217,7 @@ function ImportForm({ imports, canonicalPens }) {
               >
                 <div className="flex items-center gap-2.5">
                   <b className="text-xs">Cách tính giá</b>
-                  <Segmented value={pricing} onChange={setPricing} options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]} />
+                  <Segmented value={pricing} onChange={(value) => setPricing(value as 'kg' | 'con')} options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]} />
                 </div>
                 <Table wide>
                   <thead>
@@ -237,13 +240,13 @@ function ImportForm({ imports, canonicalPens }) {
                         <Td className={TH}>{i + 1}</Td>
                         <Td className={TH}>{c.tag || <span className="text-muted">Gắn sau</span>}</Td>
                         <Td className={TH}>{`${c.breed || '—'} · ${c.sex} · ${c.stage}`}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{`~${ageOf(c.dob, date)} th`}</Td>
+                        <Td className={`${TH} whitespace-nowrap`}>{`~${ageOf(c.dob ?? '', date)} th`}</Td>
                         <Td className={`${TH} whitespace-nowrap`}>{`${money(c.weight)} kg${c.estimated ? ' UT' : ''}`}</Td>
                         <Td className={TH}>
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
                         </Td>
-                        <Td className={TH}>{money(c.unitPrice)}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice)}</Td>
+                        <Td className={TH}>{money(c.unitPrice ?? 0)}</Td>
+                        <Td className={`${TH} whitespace-nowrap`}>{money(pricing === 'kg' ? c.weight * (c.unitPrice ?? 0) : (c.unitPrice ?? 0))}</Td>
                         <Td className={TH}>
                           <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}>✎</button>
                         </Td>
@@ -397,7 +400,7 @@ function ImportForm({ imports, canonicalPens }) {
               <Checkbox checked={printQr} onChange={(e) => setPrintQr(e.target.checked)}>
                 <span className="text-[13px]">{`In tem QR cho ${n} con sau khi lưu`}</span>
               </Checkbox>
-              {saveError && <Note tone="err">{saveError.message}</Note>}
+              {Boolean(saveError) && <Note tone="err">{displayError(saveError)}</Note>}
               <Button variant="primary" block disabled={!n || blocked} onClick={() => save('Đã nhập')}>
                 {`Lưu & tạo hồ sơ ${n} con`}
               </Button>
@@ -417,22 +420,21 @@ function ImportForm({ imports, canonicalPens }) {
       {isBuy && editing >= 0 && (
         <RowEditModal
           key={editing}
-          cow={cows[editing]}
+          cow={{ name: '', dob: '', dobAccuracy: 'Không rõ', stage: '', purpose: '', hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' }, unitPrice: 0, breed: '', ...cows[editing] }}
           index={editing}
           recordId={recordId}
           dateIso={date}
           pricing={pricing}
           pens={importBarns}
-          others={cows.filter((_, idx) => idx !== editing)}
+          others={cows.filter((_, idx) => idx !== editing).map((cow) => ({ name: '', dob: '', dobAccuracy: 'Không rõ', stage: '', purpose: '', hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' }, unitPrice: 0, breed: '', ...cow }))}
           onSave={(next) => { patchCow(editing, next); closeModal() }}
           onRemove={() => { setCows(cows.filter((_, idx) => idx !== editing)); closeModal() }}
           onClose={closeModal}
         />
       )}
       {isBuy && m === 'excel' && (
-        <ExcelModal recordId={recordId} onAdd={(added) => { setCows([...cows, ...added]); closeModal() }} onClose={closeModal} />
+        <ExcelModal recordId={recordId} onAdd={(added) => { setCows([...cows, ...added.map((cow) => ({ tag: cow.tag ?? '', name: cow.name ?? '', breed: cow.breed ?? '', sex: cow.sex ?? 'Cái', dob: cow.dob ?? '', dobAccuracy: cow.dobAccuracy ?? 'Không rõ', stage: cow.stage ?? '', purpose: cow.purpose ?? '', weight: cow.weight ?? 0, estimated: cow.estimated ?? false, barn: cow.barn ?? 'A1', unitPrice: cow.unitPrice ?? 0, hist: cow.hist ?? { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' } }))]); closeModal() }} onClose={closeModal} />
       )}
     </Layout>
   )
 }
-// @ts-nocheck

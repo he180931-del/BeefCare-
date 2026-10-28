@@ -1,22 +1,23 @@
-// @ts-nocheck
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Field, KV, Note, Radio, Select, Table, Td, Th, inputCls } from '../../../components/ui'
 import { BREEDS, PURPOSE_OPTIONS, STAGES, ageOf } from '../data/importsData'
 import { money } from '../../../data/format'
 import { RadioRow } from './parts'
+import type { Pen } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const HIST_OPTIONS = ['Có', 'Không', 'Không rõ']
 const ACCURACY = { 'Chính xác': 'Chính xác', 'Ước tính': 'Ước tính', 'Không rõ': 'Không rõ' }
+type EditCow = { tag: string; name: string; breed: string; sex: string; dob: string; dobAccuracy: string; stage: string; purpose: string; weight: number; estimated: boolean; barn: string; unitPrice: number; hist: { vaccine: string; vaccineNote?: string; disease: string; repro: string }; [key: string]: unknown }
 
 /**
  * Sửa một con trong phiếu nhập. `others` là các con khác trong phiếu (để kiểm tra sức chứa chuồng).
  * onSave(cow) ghi lại con; onRemove() xóa con khỏi phiếu.
  */
-export default function RowEditModal({ cow, index, recordId, dateIso, pricing, others, pens = [], onSave, onRemove, onClose }) {
+export default function RowEditModal({ cow, index, recordId, dateIso, pricing, others, pens = [], onSave, onRemove, onClose }: { cow: EditCow; index: number; recordId: string; dateIso: string; pricing: 'kg' | 'con'; others: EditCow[]; pens?: Pen[]; onSave: (cow: EditCow) => void; onRemove: () => void; onClose: () => void }) {
   const [c, setC] = useState(cow)
-  const set = (p) => setC((x) => ({ ...x, ...p }))
+  const set = (p: Partial<EditCow>) => setC((x) => ({ ...x, ...p }))
   const [y, mo] = c.dob ? c.dob.split('-') : []
   const barn = pens.find((b) => b.code === c.barn)
   const sameBarn = others.filter((o) => o.barn === c.barn).length
@@ -151,4 +152,3 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing, o
     </Modal>
   )
 }
-// @ts-nocheck

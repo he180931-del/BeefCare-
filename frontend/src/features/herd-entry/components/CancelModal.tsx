@@ -1,8 +1,8 @@
-// @ts-nocheck
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Field, Note, Table, Td, Textarea, Th } from '../../../components/ui'
 import { dmy, money } from '../../../data/format'
+import type { EntryDetail, HerdEntry } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
@@ -10,11 +10,11 @@ const TH = 'px-1! first:pl-3! last:pr-3!'
  * Hủy cả phiếu nhập. Chỉ hủy được khi không con nào có sự kiện khác sau nhập đàn (cow.events rỗng).
  * `onConfirm(reason)` do trang chi tiết xử lý (đổi trạng thái, ghi lịch sử).
  */
-export default function CancelModal({ record, onConfirm, onClose }) {
+export default function CancelModal({ record, onConfirm, onClose }: { record: HerdEntry; onConfirm: (reason: string) => void; onClose: () => void }) {
   // Phiếu không có chi tiết (phiếu cũ) vẫn hủy được; danh sách bò rỗng.
-  const d = record.detail ?? { cows: [], payments: [], sourceName: record.source }
-  const paid = d.payments.reduce((s, p) => s + p.amount, 0)
-  const blocked = d.cows.some((c) => c.events?.length)
+  const d: EntryDetail = { cows: [], payments: [], sourceName: record.source, ...record.detail }
+  const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
+  const blocked = (d.cows ?? []).some((c) => c.events?.length)
   const [reason, setReason] = useState('Ghi nhầm nguồn – bò thực tế mua của hộ ông Lê Văn C')
 
   return (
@@ -36,7 +36,7 @@ export default function CancelModal({ record, onConfirm, onClose }) {
             </tr>
           </thead>
           <tbody>
-            {d.cows.map((c) => (
+            {(d.cows ?? []).map((c) => (
               <tr key={c.code}>
                 <Td className={TH}>{c.code} · {c.tag}</Td>
                 <Td className={TH}>{c.events?.length ? c.events.join(', ') : 'Không có (chỉ nhập đàn và xếp chuồng)'}</Td>
@@ -50,8 +50,8 @@ export default function CancelModal({ record, onConfirm, onClose }) {
       <div className="flex flex-col gap-2">
         <h3 className="m-0 text-sm font-semibold">Khi xác nhận hủy</h3>
         <Note tone="ok">
-          <div>✓ Hồ sơ {d.cows.map((c) => c.code).join(', ')} chuyển ĐÃ HỦY; mã nội bộ và mã hiển thị không được dùng lại.</div>
-          <div>✓ Đóng phân chuồng {d.cows.map((c) => c.barn.split(' ')[0]).join(', ')}, giải phóng {d.cows.length} chỗ; thẻ QR bị thu hồi.</div>
+          <div>✓ Hồ sơ {(d.cows ?? []).map((c) => c.code).join(', ')} chuyển ĐÃ HỦY; mã nội bộ và mã hiển thị không được dùng lại.</div>
+          <div>✓ Đóng phân chuồng {(d.cows ?? []).map((c) => (c.barn ?? '').split(' ')[0]).join(', ')}, giải phóng {(d.cows ?? []).length} chỗ; thẻ QR bị thu hồi.</div>
         </Note>
         {paid > 0 && <Note tone="warn">! Khoản đã thanh toán {money(paid)} đ vẫn giữ trong lịch sử – việc đòi lại tiền xử lý ngoài hệ thống.</Note>}
       </div>
@@ -69,4 +69,3 @@ export default function CancelModal({ record, onConfirm, onClose }) {
     </Modal>
   )
 }
-// @ts-nocheck

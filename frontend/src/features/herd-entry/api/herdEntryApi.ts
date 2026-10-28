@@ -1,9 +1,10 @@
-// @ts-nocheck
 import { createCollection } from '../../../api/client'
 import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../api/herdDomainApi'
 import { initialImports } from '../data/importsData'
+import { errorMessage } from '../../../api/herdDomainApi'
+import type { CattleInput, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../../../types'
 
-const nextEntryId = (rows) => {
+const nextEntryId = (rows: HerdEntry[]): string => {
   const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))
   return `PN-2026-${String(max + 1).padStart(4, '0')}`
 }
@@ -11,20 +12,20 @@ const nextEntryId = (rows) => {
 const herdEntries = createCollection('herdEntries', initialImports, { nextId: nextEntryId })
 const terminalStatuses = new Set(['Đã nhập', 'Đã hủy'])
 
-const getExisting = async (id) => {
+const getExisting = async (id: string): Promise<HerdEntry | null> => {
   try {
     return await herdEntries.get(id)
   } catch (error) {
-    if (String(error.message).startsWith('Not found:')) return null
+    if (errorMessage(error).startsWith('Not found:')) return null
     throw error
   }
 }
 
 export const herdEntryApi = {
-  list: (predicate) => herdEntries.list(predicate),
-  get: (id) => herdEntries.get(id),
-  create: (record) => herdEntries.create(record),
-  update: async (id, patch) => {
+  list: (predicate?: (row: HerdEntry) => boolean) => herdEntries.list(predicate),
+  get: (id: string) => herdEntries.get(id),
+  create: (record: Partial<HerdEntry>) => herdEntries.create(record),
+  update: async (id: string, patch: Partial<HerdEntry>) => {
     const current = await herdEntries.get(id)
     if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {
       throw new Error(`Entry voucher is terminal: ${id}`)
@@ -34,12 +35,13 @@ export const herdEntryApi = {
   reset: () => herdEntries.reset(),
 }
 
-export const getEntryDraftState = (rows, id) => {
+export const getEntryDraftState = (rows: HerdEntry[], id?: string): EntryDraft & { row?: HerdEntry } => {
   const row = id ? rows.find((item) => item.id === id) : undefined
   return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Mua ngoài', row }
 }
 
-export async function saveHerdEntry({ id, record, cattleRows = [] }) {
+type EntrySaveRecord = Partial<HerdEntry> & { status?: EntryStatus; type?: EntryType; detail?: EntryDetail; draft?: EntryDraft }
+export async function saveHerdEntry({ id, record, cattleRows = [] }: { id?: string; record: EntrySaveRecord; cattleRows?: CattleInput[] }): Promise<HerdEntry> {
   const current = id ? await getExisting(id) : null
   const voucherId = id ?? record.id ?? nextEntryId(await herdEntries.list())
   if (current && terminalStatuses.has(current.status)) {
@@ -81,8 +83,8 @@ export async function saveHerdEntry({ id, record, cattleRows = [] }) {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-async function validateEntryCattle(rows, voucherId, record) {
-  if (record.date > today()) throw new Error('Entry date cannot be in the future')
+async function validateEntryCattle(rows: CattleInput[], voucherId: string, record: EntrySaveRecord): Promise<void> {
+  if (record.date && record.date > today()) throw new Error('Entry date cannot be in the future')
   const quarantine = record.detail?.quarantine ?? record.draft?.quarantine ?? record.quarantine
   if (record.type === 'Mua ngoài' && !String(quarantine ?? '').trim()) throw new Error('Entry requires quarantine document')
 
@@ -110,7 +112,7 @@ async function validateEntryCattle(rows, voucherId, record) {
     try {
       pen = await pens.get(row.barn)
     } catch (error) {
-      if (String(error.message).startsWith('Not found:')) throw new Error(`Unknown pen: ${row.barn}`)
+    if (errorMessage(error).startsWith('Not found:')) throw new Error(`Unknown pen: ${row.barn}`)
       throw error
     }
     if (pen.status !== 'ACTIVE') throw new Error(`Pen inactive: ${row.barn}`)
@@ -119,7 +121,7 @@ async function validateEntryCattle(rows, voucherId, record) {
   }
 }
 
-export async function voidHerdEntry(id, cattleRows, patch = { status: 'Đã hủy' }) {
+export async function voidHerdEntry(id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }): Promise<HerdEntry> {
   const current = await herdEntries.get(id)
   if (current.status === 'Đã hủy') return current
   const linked = (await cattle.list()).filter((row) => row.entryVoucherId === id)

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useLocation } from 'react-router-dom'
 import Layout, { pageName } from '../components/Layout'
 
@@ -14,4 +13,3 @@ export default function Placeholder() {
     </Layout>
   )
 }
-// @ts-nocheck

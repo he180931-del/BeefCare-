@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -7,6 +6,7 @@ import { herdEntryApi } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
 import { OLDER, SOURCE_FILTERS } from '../data/importsData'
 import { dmy, dm, kg, money } from '../../../data/format'
+import type { HerdEntry } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
@@ -15,10 +15,10 @@ const DEFAULT_FROM = '2026-07-01'
 const DEFAULT_TO = '2026-10-22'
 
 export default function ImportList() {
-  const { data, loading, error } = useQuery(() => herdEntryApi.list(), [])
+  const { data, loading, error } = useQuery<HerdEntry[]>(() => herdEntryApi.list(), [])
   const imports = data ?? []
   const ready = Boolean(data)
-  const shown = (v) => (ready ? v : '—')
+  const shown = (v: string | number) => (ready ? v : '—')
   const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [type, setType] = useState('')
@@ -29,20 +29,20 @@ export default function ImportList() {
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
 
-  const count = (t) => (t === 'Tất cả' ? imports.length : imports.filter((r) => r.status === t).length) + TAB_OLDER[t]
+  const count = (t: string) => (t === 'Tất cả' ? imports.length : imports.filter((r) => r.status === t).length) + (TAB_OLDER[t as keyof typeof TAB_OLDER] ?? 0)
   const rows = imports.filter(
     (r) =>
       (tab === 'Tất cả' || r.status === tab) &&
       (!type || r.type === type) &&
-      (!source || r.source.includes(source)) &&
-      r.date >= from &&
-      r.date <= to,
+      (!source || (r.source ?? '').includes(source)) &&
+      (r.date ?? '') >= from &&
+      (r.date ?? '') <= to,
   )
   const done = imports.filter((r) => r.status === 'Đã nhập')
   const bought = done.filter((r) => r.type === 'Mua ngoài')
   const calf = done.filter((r) => r.type !== 'Mua ngoài')
-  const owed = done.filter((r) => r.debt > 0)
-  const sum = (list, f) => list.reduce((s, r) => s + f(r), 0)
+  const owed = done.filter((r) => (r.debt ?? 0) > 0)
+  const sum = (list: HerdEntry[], f: (row: HerdEntry) => number) => list.reduce((s, r) => s + f(r), 0)
   const drafts = imports.filter((r) => r.status === 'Nháp').length
   const totalRows = imports.length + OLDER.total
 
@@ -109,13 +109,13 @@ export default function ImportList() {
           />
           <Tile
             label="Số con đã nhập"
-            value={shown(OLDER.cows + sum(done, (r) => r.count))}
-            note={`Mua ngoài ${OLDER.buyCows + sum(bought, (r) => r.count)} · Bê sinh tại trại ${OLDER.calfCows + sum(calf, (r) => r.count)}`}
+            value={shown(OLDER.cows + sum(done, (r) => r.count ?? 0))}
+            note={`Mua ngoài ${OLDER.buyCows + sum(bought, (r) => r.count ?? 0)} · Bê sinh tại trại ${OLDER.calfCows + sum(calf, (r) => r.count ?? 0)}`}
           />
-          <Tile label="Tiền mua bò" value={shown(`${money(OLDER.buyMoney + sum(bought, (r) => r.total))} đ`)} note="Gồm phí vận chuyển" />
+          <Tile label="Tiền mua bò" value={shown(`${money(OLDER.buyMoney + sum(bought, (r) => r.total ?? 0))} đ`)} note="Gồm phí vận chuyển" />
           <Tile
             label="Còn nợ nguồn bán"
-            value={shown(`${money(sum(owed, (r) => r.debt))} đ`)}
+            value={shown(`${money(sum(owed, (r) => r.debt ?? 0))} đ`)}
             note={owed.length ? `${owed.length} phiếu · ${owed[0].id}` : 'Không còn nợ'}
           />
         </div>
@@ -159,7 +159,7 @@ export default function ImportList() {
               ))}
               {!rows.length && (
                 <tr>
-                  <Td colSpan={11} className="text-center text-muted">{loading ? 'Đang tải phiếu nhập…' : error ? error.message : 'Không có phiếu nhập'}</Td>
+                  <Td colSpan={11} className="text-center text-muted">{loading ? 'Đang tải phiếu nhập…' : error ? String(error) : 'Không có phiếu nhập'}</Td>
                 </tr>
               )}
             </tbody>
@@ -179,4 +179,3 @@ export default function ImportList() {
     </Layout>
   )
 }
-// @ts-nocheck

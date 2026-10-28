@@ -1,7 +1,8 @@
+import type { Pen, PenCowLink, PenStatus } from '../types'
 // Canonical pen seed shared by Pen management, Cattle, Entry and Exit flows.
 type PenOptions = {
   accept?: string
-  status?: string
+  status?: PenStatus
   purpose?: string
   stage?: string
   minAge?: number | null
@@ -54,4 +55,3 @@ export const penMap = Object.fromEntries(seedPens.map((row) => [row.code, row]))
 export const PEN_PURPOSES = ['Sinh sản', 'Nuôi thương phẩm', 'Vỗ béo', 'Đực giống', 'Mọi mục đích']
 export const PEN_STAGES = ['Bò cái sinh sản', 'Bò chửa', 'Bê theo mẹ', 'Vỗ béo', 'Đực giống', 'Bò tơ', 'Bê', 'Bê cai sữa', 'Bò chửa cận đẻ', 'Mọi giai đoạn']
 export const thresholdText = (row: Pen) => [row.minAge != null && `${row.minAgeOp || '≥'} ${row.minAge} tháng`, row.minWeight != null && `${row.minWeightOp || '≥'} ${row.minWeight} kg`].filter(Boolean).join(' và ') || '—'
-import type { Pen, PenCowLink } from '../types'

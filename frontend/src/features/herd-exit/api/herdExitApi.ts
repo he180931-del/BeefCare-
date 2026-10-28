@@ -1,9 +1,10 @@
-// @ts-nocheck
 import { createCollection } from '../../../api/client'
 import { cancelCattleExit, confirmCattleExit } from '../../../api/herdDomainApi'
 import { initialExports } from '../data/exportsData'
+import { errorMessage } from '../../../api/herdDomainApi'
+import type { CattleInput, ExitDraft, ExitStatus, ExitType, HerdExit } from '../../../types'
 
-const nextExitId = (rows) => {
+const nextExitId = (rows: HerdExit[]): string => {
   const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))
   return `PX-2026-${String(max + 1).padStart(4, '0')}`
 }
@@ -11,20 +12,20 @@ const nextExitId = (rows) => {
 const herdExits = createCollection('herdExits', initialExports, { nextId: nextExitId })
 const terminalStatuses = new Set(['Đã xuất', 'Đã hủy', 'Đã bác'])
 
-const getExisting = async (id) => {
+const getExisting = async (id: string): Promise<HerdExit | null> => {
   try {
     return await herdExits.get(id)
   } catch (error) {
-    if (String(error.message).startsWith('Not found:')) return null
+    if (errorMessage(error).startsWith('Not found:')) return null
     throw error
   }
 }
 
 export const herdExitApi = {
-  list: (predicate) => herdExits.list(predicate),
-  get: (id) => herdExits.get(id),
-  create: (record) => herdExits.create(record),
-  update: async (id, patch) => {
+  list: (predicate?: (row: HerdExit) => boolean) => herdExits.list(predicate),
+  get: (id: string) => herdExits.get(id),
+  create: (record: Partial<HerdExit>) => herdExits.create(record),
+  update: async (id: string, patch: Partial<HerdExit>) => {
     const current = await herdExits.get(id)
     if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {
       throw new Error(`Exit voucher is terminal: ${id}`)
@@ -34,12 +35,13 @@ export const herdExitApi = {
   reset: () => herdExits.reset(),
 }
 
-export const getExitDraftState = (rows, id) => {
+export const getExitDraftState = (rows: HerdExit[], id?: string): ExitDraft & { row?: HerdExit } => {
   const row = id ? rows.find((item) => item.id === id) : rows.find((item) => item.status === 'Nháp')
   return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Bán', row }
 }
 
-export async function saveHerdExit({ id, record, cattleRows = [] }) {
+type ExitSaveRecord = Partial<HerdExit> & { status?: ExitStatus; type?: ExitType }
+export async function saveHerdExit({ id, record, cattleRows = [] }: { id?: string; record: ExitSaveRecord; cattleRows?: CattleInput[] }): Promise<HerdExit> {
   const current = id ? await getExisting(id) : null
   const voucherId = id ?? record.id ?? nextExitId(await herdExits.list())
   if (current && terminalStatuses.has(current.status)) {
@@ -49,14 +51,14 @@ export async function saveHerdExit({ id, record, cattleRows = [] }) {
   if (record.status === 'Đã xuất') {
     if (!record.date || !record.type || !cattleRows.length) throw new Error('Exit confirmation requires date, type and cattle')
     if (record.type !== 'Bán' && !(record.note || record.reason || record.who)) throw new Error('Exit confirmation requires a reason or note')
-    const blocked = cattleRows.find((row) => row.withdrawalUntil && record.date < row.withdrawalUntil)
+    const blocked = cattleRows.find((row) => row.withdrawalUntil && record.date && record.date < row.withdrawalUntil)
     if (blocked) throw new Error(`Withdrawal period active: ${blocked.code}`)
     await confirmCattleExit(cattleRows, voucherId)
   }
   return current ? herdExits.update(voucherId, { ...record, id: voucherId }) : herdExits.create({ ...record, id: voucherId })
 }
 
-export async function cancelHerdExit(id, cattleRows, patch = { status: 'Đã hủy' }) {
+export async function cancelHerdExit(id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }): Promise<HerdExit> {
   const current = await herdExits.get(id)
   if (current.status === 'Đã hủy' || current.status === 'Đã bác') return current
   await cancelCattleExit(cattleRows, id)

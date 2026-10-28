@@ -1,10 +1,10 @@
-// @ts-nocheck
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, DateInput, Field, KV, Note, inputCls } from '../../../components/ui'
 import { TODAY } from '../data/importsData'
 import { dmy, money } from '../../../data/format'
 import { RadioRow } from './parts'
+import type { HerdEntry, Payment } from '../../../types'
 
 const DEFAULT_REF = 'FT26295104721 · TT phieu PN-2026-0011'
 
@@ -12,11 +12,11 @@ const DEFAULT_REF = 'FT26295104721 · TT phieu PN-2026-0011'
  * Ghi nhận một khoản thanh toán cho phiếu nhập còn nợ. `record` là phiếu (có detail), `onSave(payment)`
  * nhận { date, by, method, ref, amount } để trang chi tiết ghi vào phiếu.
  */
-export default function PayModal({ record, onSave, onClose }) {
-  const d = record.detail
-  const total = record.total
-  const paid = d.payments.reduce((s, p) => s + p.amount, 0)
-  const debt = record.debt
+export default function PayModal({ record, onSave, onClose }: { record: HerdEntry; onSave: (payment: Payment & { note?: string }) => void; onClose: () => void }) {
+  const d = { sourceName: record.source, payments: [], ...record.detail }
+  const total = record.total ?? 0
+  const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
+  const debt = record.debt ?? 0
   const [date, setDate] = useState(TODAY)
   const [amount, setAmount] = useState(debt)
   const [method, setMethod] = useState('Chuyển khoản')
@@ -93,4 +93,3 @@ export default function PayModal({ record, onSave, onClose }) {
     </Modal>
   )
 }
-// @ts-nocheck

@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTopbarTitle } from './Layout'
 import { Button } from './ui'
@@ -13,7 +12,7 @@ import { Button } from './ui'
 export function useModalParam() {
   const [params, setParams] = useSearchParams()
   const m = params.get('m')
-  const openModal = (name) => {
+  const openModal = (name: string) => {
     const next = new URLSearchParams(params)
     next.set('m', name)
     setParams(next)
@@ -23,10 +22,10 @@ export function useModalParam() {
     next.delete('m')
     setParams(next)
   }
-  return [m, openModal, closeModal]
+  return [m, openModal, closeModal] as [string | null, (name: string) => void, () => void]
 }
 
-const WIDTH = { 560: 'w-[560px]', 600: 'w-[600px]', 640: 'w-[640px]', 700: 'w-[700px]', 720: 'w-[720px]', 760: 'w-[760px]', 820: 'w-[820px]' }
+const WIDTH: Record<number, string> = { 560: 'w-[560px]', 600: 'w-[600px]', 640: 'w-[640px]', 700: 'w-[700px]', 720: 'w-[720px]', 760: 'w-[760px]', 820: 'w-[820px]' }
 
 /**
  * Hộp thoại theo Figma: phủ mờ rgba(20,36,30,.32) toàn màn hình, căn giữa vùng nội dung
@@ -35,10 +34,10 @@ const WIDTH = { 560: 'w-[560px]', 600: 'w-[600px]', 640: 'w-[640px]', 700: 'w-[7
  * `width`: 560 | 600 | 640 | 700 | 720 | 760 | 820 (px, theo từng frame Figma).
  * Chân modal: dùng <ModalFooter> (nút cao 46px, bo 12px, căn phải).
  */
-export default function Modal({ title, sub, topTitle, width = 600, onClose, top, children }) {
+export default function Modal({ title, sub, topTitle, width = 600, onClose, top, children }: { title: string; sub?: ReactNode; topTitle?: string; width?: number; onClose: () => void; top?: number; children: ReactNode }) {
   useTopbarTitle(topTitle || title)
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose?.()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -58,10 +57,9 @@ export default function Modal({ title, sub, topTitle, width = 600, onClose, top,
   )
 }
 
-export function ModalFooter({ children }) {
+export function ModalFooter({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">{children}</div>
 }
 
 /** Nút trong modal (cao 46px). variant: default | primary | danger | link */
-export const ModalButton = ({ variant = 'default', ...p }) => <Button size="lg" variant={variant} {...p} />
-// @ts-nocheck
+export const ModalButton = ({ variant = 'default', ...p }: { variant?: 'default' | 'primary' | 'danger' | 'link'; children?: ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => <Button size="lg" variant={variant} {...p} />

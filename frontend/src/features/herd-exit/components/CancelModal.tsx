@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Field, Note, Textarea } from '../../../components/ui'
@@ -7,11 +6,12 @@ import { useMutation } from '../../../hooks/useApi'
 import { useQuery } from '../../../hooks/useApi'
 import { money } from '../../../data/format'
 import { penCode, restoreCounts } from '../data/occupancy'
+import type { HerdExit, CattleInput, Pen } from '../../../types'
 
 const MAX_REASON = 500
 
-export default function CancelModal({ row, onClose, onCancelled }) {
-  const { mutate: cancelExit, loading: saving } = useMutation(({ id, cows, patch }) => cancelHerdExit(id, cows, patch))
+export default function CancelModal({ row, onClose, onCancelled }: { row: HerdExit; onClose: () => void; onCancelled: () => void }) {
+  const { mutate: cancelExit, loading: saving } = useMutation<{ id: string; cows: CattleInput[]; patch: Partial<HerdExit> }, HerdExit>(({ id, cows, patch }) => cancelHerdExit(id, cows, patch))
   const { data: canonicalPens } = useQuery(() => pens.list(), [])
   const [cancelReason, setCancelReason] = useState('Lò mổ trả lại 4 con do đổi lịch giết mổ')
   const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
@@ -44,7 +44,7 @@ export default function CancelModal({ row, onClose, onCancelled }) {
   }
 
   return (
-    <Modal width={640} title={`Hủy phiếu xuất ${row.id}`} sub={`${row.type} · ${row.date.slice(8)}/${row.date.slice(5, 7)}/${row.date.slice(0, 4)} · ${barnCount} con · ${row.who}`} topTitle="Hủy phiếu xuất" onClose={onClose}>
+    <Modal width={640} title={`Hủy phiếu xuất ${row.id}`} sub={`${row.type} · ${(row.date ?? '').slice(8)}/${(row.date ?? '').slice(5, 7)}/${(row.date ?? '').slice(0, 4)} · ${barnCount ?? 0} con · ${row.who ?? ''}`} topTitle="Hủy phiếu xuất" onClose={onClose}>
       <div className="-mt-2 flex flex-col gap-2.5">
         <div className="text-sm font-semibold">Khi xác nhận hủy</div>
         <Note tone="ok">
@@ -73,4 +73,3 @@ export default function CancelModal({ row, onClose, onCancelled }) {
     </Modal>
   )
 }
-// @ts-nocheck

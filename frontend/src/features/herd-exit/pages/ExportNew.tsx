@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -11,14 +10,17 @@ import { getExitDraftState, herdExitApi, saveHerdExit, pens } from '../api/index
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { Box, CheckList, DocRow, Drop, MoneyInput, SummaryCard, TH, cx } from '../components/parts'
 import PickModal from '../components/PickModal'
+import type { HerdExit, ExitType } from '../../../types'
 
-const TYPES = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
-const herdByCode = (code) => EXPORT_HERD.find((c) => c.code === code)
+const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
+const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
+type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; stage: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string }
+const herdByCode = (code: string) => EXPORT_HERD.find((c) => c.code === code)
 
 // Tải danh sách phiếu trước, rồi mới dựng form (form lấy phiếu Nháp làm giá trị ban đầu).
 export default function ExportNew() {
   const [params] = useSearchParams()
-  const { data: exports } = useQuery(() => herdExitApi.list(), [])
+  const { data: exports } = useQuery<HerdExit[]>(() => herdExitApi.list(), [])
   if (!exports) {
     return (
       <Layout title="Phiếu xuất mới">
@@ -29,37 +31,37 @@ export default function ExportNew() {
   return <ExportForm key={params.get('id') ?? 'new'} draftId={params.get('id')} exports={exports} />
 }
 
-function ExportForm({ exports, draftId }) {
+function ExportForm({ exports, draftId }: { exports: HerdExit[]; draftId: string | null }) {
   const { mutate: persistExit, error: saveError } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
 
   // Phiếu Nháp còn dở được tiếp tục sửa; không có thì lập phiếu mới.
-  const draftState = draftId ? getExitDraftState(exports, draftId) : { type: 'Bán', row: undefined }
+  const draftState = draftId ? getExitDraftState(exports, draftId) : { type: 'Bán' as const, row: undefined }
   const draftRow = draftState.row
   const d = draftState
   const nextId = `PX-2026-${String(Math.max(0, ...exports.map((r) => Number(r.id.split('-')[2]) || 0)) + 1).padStart(4, '0')}`
   const id = draftRow?.id ?? nextId
 
-  const [type, setType] = useState(d.type)
+  const [type, setType] = useState<ExitType>((d.type as ExitType | undefined) ?? 'Bán')
   const [date, setDate] = useState(d?.date ?? TODAY)
   const [buyerId, setBuyerId] = useState(d?.buyerId ?? BUYERS[0].id)
   const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
   const [plate, setPlate] = useState(d?.plate ?? '')
   const [note, setNote] = useState(d?.note ?? '')
   const [pricing, setPricing] = useState(d?.pricing ?? 'kg')
-  const [picked, setPicked] = useState(() => (d?.cows ?? []).map((c) => ({ ...herdByCode(c.code), ...c })))
+  const [picked, setPicked] = useState<HerdCow[]>(() => (d?.cows ?? []).map((c) => ({ ...herdByCode(c.code ?? ''), ...c, unitPrice: c.unitPrice ?? 0 } as unknown as HerdCow)))
   const [deduction, setDeduction] = useState(d?.deduction ?? 0)
   const [collected, setCollected] = useState(d?.collected ?? 0)
   const [method, setMethod] = useState(d?.method ?? PAY_METHODS[0])
   const [dueDate, setDueDate] = useState(d?.dueDate ?? TODAY)
   const [confirmed, setConfirmed] = useState(false)
-  const [menu, setMenu] = useState(null)
+  const [menu, setMenu] = useState<string | null>(null)
   const [toast, setToast] = useState('')
 
   const isSale = type === 'Bán'
   const buyer = BUYERS.find((b) => b.id === buyerId)
-  const amount = (c) => (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice)
+  const amount = (c: HerdCow) => (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice)
   const withdrawal = picked.filter((c) => c.withdrawalUntil && date < c.withdrawalUntil)
   const totalWeight = picked.reduce((s, c) => s + c.weight, 0)
   const estimated = picked.filter((c) => c.estimated).length
@@ -68,17 +70,17 @@ function ExportForm({ exports, draftId }) {
   const remaining = Math.max(receivable - collected, 0)
   const barnDelta = BARNS.map((b) => ({ ...b, out: picked.filter((c) => c.barn === b.code).length })).filter((b) => b.out)
 
-  const patch = (code, p) => setPicked(picked.map((c) => (c.code === code ? { ...c, ...p } : c)))
-  const showToast = (msg) => {
+  const patch = (code: string, p: Partial<HerdCow>) => setPicked(picked.map((c) => (c.code === code ? { ...c, ...p } : c)))
+  const showToast = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(''), 2000)
   }
 
-  const save = async (status) => {
-    const record = {
+  const save = async (status: 'Nháp' | 'Đã xuất') => {
+    const record: Partial<HerdExit> = {
       date,
       type,
-      who: isSale ? buyer.name : note || type,
+      who: isSale ? (buyer?.name ?? '') : note || type,
       sub: `${picked.length} con · chuồng ${[...new Set(picked.map((c) => c.barn))].join(', ')}`,
       count: picked.length,
       weight: `${money(totalWeight)} kg`,
@@ -94,7 +96,7 @@ function ExportForm({ exports, draftId }) {
     if (status === 'Đã xuất') {
       record.draft = undefined
       record.detail = {
-        quarantine, buyer: buyer.name, phone: buyer.phone, plate, by: `N. V. Hùng · ${date}`, note,
+        quarantine, buyer: buyer?.name ?? '', phone: buyer?.phone ?? '', plate, by: `N. V. Hùng · ${date}`, note,
         cows: picked.map((c) => ({ code: c.code, tag: c.tag, breed: `${c.breed} · ${c.sex}`, weight: c.weight, barn: c.barn, amount: amount(c) })),
         cowsTotal: cowsMoney, deduction,
         payments: collected ? [{ date, by: 'N. V. Hùng', method, ref: '', amount: collected }] : [],
@@ -113,7 +115,7 @@ function ExportForm({ exports, draftId }) {
         <p className="mb-0 mt-1 text-xs text-muted">Chỉ Chủ trại xác nhận · bò chuyển ĐÃ XUẤT sau khi xác nhận.</p>
       </div>
       <div>
-        <Segmented value={type} onChange={setType} options={TYPES.map((t) => ({ value: t, label: t }))} />
+        <Segmented value={type} onChange={(value) => setType(value as ExitType)} options={TYPES.map((t) => ({ value: t, label: t }))} />
       </div>
 
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_354px]">
@@ -125,7 +127,7 @@ function ExportForm({ exports, draftId }) {
               <Field label="Loại xuất"><input className={inputCls} value={type} readOnly /></Field>
               {isSale && (
                 <>
-                  <Field label="Người mua / thương lái *" hint={`${buyer.phone} · + Thêm người mua`}>
+                  <Field label="Người mua / thương lái *" hint={`${buyer?.phone ?? ''} · + Thêm người mua`}>
                     <Select value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className="w-full">
                       {BUYERS.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </Select>
@@ -153,7 +155,7 @@ function ExportForm({ exports, draftId }) {
             {isSale && (
               <div className="flex flex-wrap items-center gap-3">
                 <b className="text-xs">Cách tính giá *</b>
-                <Segmented value={pricing} onChange={setPricing} options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]} />
+                  <Segmented value={pricing} onChange={(value) => setPricing(value as 'kg' | 'con')} options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]} />
                 <span className="max-w-[330px] text-[11px] text-muted">Cân xuất mặc định = cân gần nhất (ước tính) · cân lại để ghi thực tế</span>
               </div>
             )}
@@ -281,7 +283,7 @@ function ExportForm({ exports, draftId }) {
             <Checkbox checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="text-xs font-semibold">
               Tôi đã xem các mục trên và xác nhận xuất đàn *
             </Checkbox>
-            {saveError && <Note tone="err">{saveError.message}</Note>}
+      {Boolean(saveError) && <Note tone="err">{displayError(saveError)}</Note>}
             <Button variant="primary" block className="!border-0 !py-[9px]" disabled={!confirmed || !picked.length} onClick={() => save('Đã xuất')}>
               Xác nhận xuất {picked.length} con
             </Button>
@@ -297,10 +299,9 @@ function ExportForm({ exports, draftId }) {
       <Foot>Loại xuất cố định sau lần lưu đầu. Cân xuất mặc định là cân gần nhất (ước tính); cảnh báo không chặn lưu nháp nhưng phải xem lại trước khi xác nhận.</Foot>
 
       {m === 'pick' && (
-        <PickModal id={id} herdExits={exports} picked={picked} setPicked={setPicked} onClose={closeModal} />
+        <PickModal id={id} herdExits={exports} picked={picked} setPicked={(rows) => setPicked(rows)} onClose={closeModal} />
       )}
       {toast && <div className="fixed bottom-6 right-6 z-50 rounded-md bg-side px-4 py-2.5 text-xs text-white">{toast}</div>}
     </Layout>
   )
 }
-// @ts-nocheck

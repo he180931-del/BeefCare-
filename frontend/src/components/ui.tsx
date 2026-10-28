@@ -1,10 +1,10 @@
-// @ts-nocheck
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import type { DocumentRow, Payment } from '../types'
 
-const cx = (...c) => c.filter(Boolean).join(' ')
+const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 
 const BTN = 'whitespace-nowrap border font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45'
-const BTN_VARIANT = {
+const BTN_VARIANT: Record<ButtonVariant, string> = {
   default: 'border-edge bg-white text-[#212121]',
   primary: 'border-brand bg-brand text-white',
   danger: 'border-err-fg bg-err-fg text-white',
@@ -15,7 +15,9 @@ const BTN_VARIANT = {
  * variant: default | primary | danger | link.  size: (mặc định) trang 13px, rounded 4 · 'sm' 12px · 'lg' = nút modal Figma
  * (cao 46px, rounded 12, 14px, viền #dce6de). `small` = tương thích cũ (giống size="sm").
  */
-export function Button({ variant = 'default', size, small, block, className, ...props }) {
+type ButtonVariant = 'default' | 'primary' | 'danger' | 'link'
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> { variant?: ButtonVariant; size?: 'sm' | 'lg'; small?: boolean; block?: boolean }
+export function Button({ variant = 'default', size, small, block, className, ...props }: ButtonProps) {
   const lg = size === 'lg'
   const sm = small || size === 'sm'
   return (
@@ -43,18 +45,19 @@ const BADGE_TONE = {
 }
 
 /** tone: ok | err | warn | info | outline | (mặc định xám). Chữ 10px, bo 10px. */
-export function Badge({ tone, className, children }) {
+export type BadgeTone = 'ok' | 'err' | 'warn' | 'info' | 'outline'
+export function Badge({ tone, className, children }: { tone?: BadgeTone; className?: string; children?: ReactNode }) {
   return (
-    <span className={cx('inline-block whitespace-nowrap rounded-[10px] border px-2 py-[3px] text-[10px] font-medium', BADGE_TONE[tone] || 'border-edge bg-chip text-[#212121]', className)}>
+    <span className={cx('inline-block whitespace-nowrap rounded-[10px] border px-2 py-[3px] text-[10px] font-medium', tone ? BADGE_TONE[tone] : undefined, tone ? undefined : 'border-edge bg-chip text-[#212121]', className)}>
       {children}
     </span>
   )
 }
 
-const STATUS_TONE = { 'Đã nhập': 'ok', 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
-export const StatusBadge = ({ status }) => <Badge tone={STATUS_TONE[status]}>{status}</Badge>
+const STATUS_TONE: Record<string, BadgeTone | undefined> = { 'Đã nhập': 'ok', 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
+export const StatusBadge = ({ status }: { status: string }) => <Badge tone={STATUS_TONE[status]}>{status}</Badge>
 
-export function Segmented({ options, value, onChange }) {
+export function Segmented({ options, value, onChange }: { options: Array<{ value: string; label: ReactNode }>; value: string; onChange: (value: string) => void }) {
   return (
     <div className="inline-flex max-w-full flex-wrap gap-[3px] rounded-[5px] bg-chip p-[3px]">
       {options.map((o) => (
@@ -74,7 +77,7 @@ export function Segmented({ options, value, onChange }) {
   )
 }
 
-export function Card({ title, sub, actions, children }) {
+export function Card({ title, sub, actions, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
       {(title || actions) && (
@@ -92,7 +95,7 @@ export function Card({ title, sub, actions, children }) {
   )
 }
 
-export function Tile({ label, value, note, warn }) {
+export function Tile({ label, value, note, warn }: { label: ReactNode; value: ReactNode; note: ReactNode; warn?: boolean }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border border-edge bg-white p-4">
       <span className="text-xs text-muted">{label}</span>
@@ -107,7 +110,7 @@ export const inputCls =
 export const smInputCls =
   'rounded-lg border border-field bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand'
 
-export function Field({ label, hint, children }) {
+export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <label className="text-xs font-medium text-ink">{label}</label>
@@ -117,13 +120,13 @@ export function Field({ label, hint, children }) {
   )
 }
 
-export function Info({ items, cols = 3 }) {
+export function Info({ items, cols = 3 }: { items: Array<ReadonlyArray<unknown>>; cols?: 2 | 3 }) {
   return (
     <dl className={cx('m-0 grid gap-x-4 gap-y-3', cols === 2 ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')}>
       {items.map(([k, v, warn]) => (
-        <div key={k}>
-          <dt className="mb-[3px] text-[11px] text-faint">{k}</dt>
-          <dd className={cx('m-0 text-[13px]', warn ? 'font-semibold text-warn-fg' : 'font-medium')}>{v}</dd>
+        <div key={String(k)}>
+          <dt className="mb-[3px] text-[11px] text-faint">{String(k)}</dt>
+          <dd className={cx('m-0 text-[13px]', warn ? 'font-semibold text-warn-fg' : 'font-medium')}>{typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '')}</dd>
         </div>
       ))}
     </dl>
@@ -137,8 +140,8 @@ const STACK = {
   normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:flex @max-[640px]:[&_td]:items-center @max-[640px]:[&_td]:justify-between @max-[640px]:[&_td]:gap-4 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-[11px] @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
 }
 
-export function Table({ children, wide, scroll, stack = !scroll }) {
-  const ref = useRef(null)
+export function Table({ children, wide, scroll, stack = !scroll }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean }) {
+  const ref = useRef<HTMLTableElement>(null)
   useLayoutEffect(() => {
     const t = ref.current
     if (!t) return
@@ -158,14 +161,14 @@ export function Table({ children, wide, scroll, stack = !scroll }) {
     </div>
   )
 }
-export const Th = ({ className, ...p }) => (
+export const Th = ({ className, ...p }: ThHTMLAttributes<HTMLTableCellElement>) => (
   <th className={cx('bg-chip px-1.5 py-2.5 text-left text-[11px] font-semibold text-muted first:pl-3 last:pr-3', className)} {...p} />
 )
-export const Td = ({ className, ...p }) => (
+export const Td = ({ className, ...p }: TdHTMLAttributes<HTMLTableCellElement>) => (
   <td className={cx('border-b border-rule px-1.5 py-2.5 align-middle text-xs [overflow-wrap:anywhere] first:pl-3 last:pr-3', className)} {...p} />
 )
 
-export const Note = ({ tone = 'grey', children }) => (
+export const Note = ({ tone = 'grey', children }: { tone?: 'grey' | 'warn' | 'err' | 'ok' | 'info'; children: ReactNode }) => (
   <div
     className={cx(
       'rounded-md px-3 py-2.5 text-xs',
@@ -176,10 +179,10 @@ export const Note = ({ tone = 'grey', children }) => (
   </div>
 )
 
-export const Foot = ({ children }) => <p className="m-0 text-[11px] text-subtle">{children}</p>
+export const Foot = ({ children }: { children: ReactNode }) => <p className="m-0 text-[11px] text-subtle">{children}</p>
 
-export function Docs({ docs }) {
-  return docs.map((d) => (
+export function Docs({ docs }: { docs?: DocumentRow[] }) {
+  return (docs ?? []).map((d) => (
     <div className="flex items-center gap-2 text-xs" key={d.name}>
       <Badge>{d.ext}</Badge>
       <span>{d.name}</span>
@@ -189,7 +192,7 @@ export function Docs({ docs }) {
   ))
 }
 
-export function Dropzone({ hint }) {
+export function Dropzone({ hint }: { hint?: ReactNode }) {
   return (
     <div className="rounded-md border border-field bg-page p-4 text-center text-xs font-semibold text-brand">
       ⇪ Kéo thả tệp hoặc Chọn tệp
@@ -198,7 +201,7 @@ export function Dropzone({ hint }) {
   )
 }
 
-export function PaymentTable({ payments }) {
+export function PaymentTable({ payments }: { payments: Payment[] }) {
   return (
     <Table stack={false}>
       <thead>
@@ -217,7 +220,7 @@ export function PaymentTable({ payments }) {
   )
 }
 
-export function PageHeader({ title, sub, badge, children }) {
+export function PageHeader({ title, sub, badge, children }: { title: ReactNode; sub?: ReactNode; badge?: ReactNode; children?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div>
@@ -234,7 +237,7 @@ export function PageHeader({ title, sub, badge, children }) {
 // ---------- Ô nhập liệu theo Figma (cao 44px, bo 12, viền #dce6de, chữ 14px) ----------
 
 /** <select> có mũi tên ▾ nhỏ như Figma. Dùng thay <select className={inputCls}>. */
-export function Select({ className, children, ...p }) {
+export function Select({ className, children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <div className={cx('relative', className)}>
       <select className={cx(inputCls, 'cursor-pointer appearance-none pr-7')} {...p}>{children}</select>
@@ -244,8 +247,8 @@ export function Select({ className, children, ...p }) {
 }
 
 /** Ô ngày: hiện dd/mm/yyyy + ▾ (như Figma), bấm mở bộ chọn ngày. value/onChange dạng 'yyyy-mm-dd'. */
-export function DateInput({ value, onChange, className, readOnly }) {
-  const ref = useRef(null)
+export function DateInput({ value, onChange, className, readOnly }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean }) {
+  const ref = useRef<HTMLInputElement>(null)
   const [y, m, d] = value ? value.split('-') : []
   return (
     <div className={cx('relative', className)}>
@@ -258,7 +261,7 @@ export function DateInput({ value, onChange, className, readOnly }) {
           ref={ref}
           type="date"
           value={value || ''}
-          onChange={(e) => onChange?.(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onChange?.(e.target.value)}
           onClick={() => ref.current?.showPicker?.()}
           aria-label="Chọn ngày"
           className="absolute inset-0 size-full cursor-pointer opacity-0"
@@ -268,10 +271,10 @@ export function DateInput({ value, onChange, className, readOnly }) {
   )
 }
 
-export const Textarea = ({ className, rows = 2, ...p }) => <textarea rows={rows} className={cx(inputCls, 'resize-none leading-[1.4]', className)} {...p} />
+export const Textarea = ({ className, rows = 2, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea rows={rows} className={cx(inputCls, 'resize-none leading-[1.4]', className)} {...p} />
 
 /** Radio tròn đặc màu xanh khi chọn (như Figma). Dùng trong <label> riêng cho từng lựa chọn. */
-export function Radio({ checked, onChange, children, name, className }) {
+export function Radio({ checked, onChange, children, name, className }: { checked: boolean; onChange?: InputHTMLAttributes<HTMLInputElement>['onChange']; children: ReactNode; name?: string; className?: string }) {
   return (
     <label className={cx('inline-flex cursor-pointer items-center gap-2 text-sm text-ink', className)}>
       <input type="radio" name={name} checked={checked} onChange={onChange} className="peer sr-only" />
@@ -282,7 +285,7 @@ export function Radio({ checked, onChange, children, name, className }) {
 }
 
 /** Checkbox vuông 16px, đặc xanh khi chọn (Figma không vẽ dấu tick). */
-export function Checkbox({ checked, onChange, children, className, ...p }) {
+export function Checkbox({ checked, onChange, children, className, ...p }: { checked: boolean; onChange?: InputHTMLAttributes<HTMLInputElement>['onChange']; children?: ReactNode; className?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, 'checked' | 'onChange' | 'className'>) {
   return (
     <label className={cx('inline-flex cursor-pointer items-start gap-2', className)}>
       <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" {...p} />
@@ -293,7 +296,7 @@ export function Checkbox({ checked, onChange, children, className, ...p }) {
 }
 
 /** Tab gạch chân (hồ sơ bò): tab = [{value,label}]. Chọn = đậm + gạch 3px xanh. */
-export function Tabs({ tabs, value, onChange }) {
+export function Tabs({ tabs, value, onChange }: { tabs: Array<{ value: string; label: ReactNode }>; value: string; onChange: (value: string) => void }) {
   return (
     <div className="flex flex-wrap gap-x-0 border-b-0">
       {tabs.map((t) => (
@@ -306,10 +309,9 @@ export function Tabs({ tabs, value, onChange }) {
 }
 
 /** Hộp số liệu "nhãn nhỏ xám + giá trị" dùng trong modal/summary (11px #8f8f8f trên, 13px medium dưới). */
-export const KV = ({ k, children, className }) => (
+export const KV = ({ k, children, className }: { k: ReactNode; children: ReactNode; className?: string }) => (
   <div className={className}>
     <div className="mb-[3px] text-[11px] text-faint">{k}</div>
     <div className="text-[13px] font-medium">{children}</div>
   </div>
 )
-// @ts-nocheck

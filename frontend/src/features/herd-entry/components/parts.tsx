@@ -1,10 +1,9 @@
-// @ts-nocheck
-import { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { Radio } from '../../../components/ui'
 import { money } from '../../../data/format'
 
 /** <select> không viền, chỉ hiện chữ + ▾ (ô trong bảng của Figma). Đổi giá trị bằng <select> phủ trong suốt. */
-export function GhostSelect({ value, onChange, options, className }) {
+export function GhostSelect({ value, onChange, options, className }: { value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>; className?: string }) {
   const label = options.find((o) => o.value === value)?.label ?? value
   return (
     <span className={`relative inline-block whitespace-nowrap text-xs ${className || ''}`}>
@@ -17,7 +16,7 @@ export function GhostSelect({ value, onChange, options, className }) {
 }
 
 /** Số tiền dạng chữ trần: hiện "1.500.000 đ", khi bấm vào hiện số thô để sửa. */
-export function GhostMoney({ value, onChange }) {
+export function GhostMoney({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   const [focused, setFocused] = useState(false)
   return (
     <input
@@ -25,14 +24,14 @@ export function GhostMoney({ value, onChange }) {
       value={focused ? value : `${money(value)} đ`}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
-      onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, '')) || 0)}
+      onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(Number(e.target.value.replace(/\D/g, '')) || 0)}
       className="w-full bg-transparent p-0 text-[13px] font-medium text-ink outline-none focus:underline"
     />
   )
 }
 
 /** Hàng radio cách nhau 18px. */
-export function RadioRow({ name, value, options, onChange }) {
+export function RadioRow({ name, value, options, onChange }: { name: string; value: string; options: string[]; onChange: (value: string) => void }) {
   return (
     <div className="flex flex-wrap gap-[18px]">
       {options.map((o) => (
@@ -43,4 +42,3 @@ export function RadioRow({ name, value, options, onChange }) {
     </div>
   )
 }
-// @ts-nocheck

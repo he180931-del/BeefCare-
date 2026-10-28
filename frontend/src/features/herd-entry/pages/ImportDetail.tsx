@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Link, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Button, Card, Docs, Foot, Info, Note, PageHeader, StatusBadge, Table, Td, Th } from '../../../components/ui'
@@ -9,18 +8,21 @@ import { TODAY } from '../data/importsData'
 import { dm, dmy, kg, money } from '../../../data/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
+import type { CattleInput, EntryDetail, HerdEntry, Payment } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
 const nowHM = () => new Date().toTimeString().slice(0, 5)
+const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 
 export default function ImportDetail() {
   const { id } = useParams()
+  const recordId = id ?? ''
   const [m, openModal, closeModal] = useModalParam()
-  const query = useQuery(() => herdEntryApi.get(id), [id])
+  const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
   const cattleQuery = useQuery(() => cattle.list(), [])
-  const { mutate: updateEntry, error: updateError } = useMutation(({ recordId, patch }) => herdEntryApi.update(recordId, patch))
-  const { mutate: voidEntry, error: voidError } = useMutation(({ recordId, cattleRows, patch }) => voidHerdEntry(recordId, cattleRows, patch))
+  const { mutate: updateEntry, error: updateError } = useMutation<{ recordId: string; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, patch }) => herdEntryApi.update(targetId, patch))
+  const { mutate: voidEntry, error: voidError } = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, cattleRows, patch }) => voidHerdEntry(targetId, cattleRows, patch))
   const r = query.data
 
   if (!r && query.loading) {
@@ -39,21 +41,21 @@ export default function ImportDetail() {
     )
   }
 
-  const d = r.detail
-  const paid = d ? d.payments.reduce((s, p) => s + p.amount, 0) : r.total != null ? r.total - (r.debt || 0) : 0
-  const canPay = Boolean(d) && r.debt > 0 && r.status === 'Đã nhập'
-  const canCancel = r.status === 'Đã nhập' && Boolean(d?.cows?.length) && Boolean(cattleQuery.data) && d.cows.every((row) => cattleQuery.data.some((cow) => cow.code === row.code && cow.entryVoucherId === r.id))
+  const d: EntryDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
+  const paid = d.payments?.reduce((s, payment) => s + payment.amount, 0) ?? (r.total != null ? r.total - (r.debt || 0) : 0)
+  const canPay = (r.debt ?? 0) > 0 && r.status === 'Đã nhập'
+  const canCancel = r.status === 'Đã nhập' && Boolean(d.cows?.length) && Boolean(cattleQuery.data) && (d.cows ?? []).every((row) => (cattleQuery.data ?? []).some((cow) => cow.code === row.code && cow.entryVoucherId === r.id))
 
   // Ghi thay đổi qua API, rồi tải lại phiếu và đóng modal.
-  const savePayment = async (p) => {
+  const savePayment = async (p: Payment) => {
     await updateEntry({
       recordId: r.id,
       patch: {
-        debt: Math.max(r.debt - p.amount, 0),
+        debt: Math.max((r.debt ?? 0) - p.amount, 0),
         detail: {
           ...d,
-          payments: [...d.payments, { date: p.date, by: p.by, method: p.method, ref: p.ref, amount: p.amount }],
-          history: [...d.history, `${dm(TODAY)} ${nowHM()} · ${p.by} ghi nhận thanh toán ${money(p.amount)} đ`],
+          payments: [...(d.payments ?? []), { date: p.date, by: p.by, method: p.method, ref: p.ref, amount: p.amount }],
+          history: [...(d.history ?? []), `${dm(TODAY)} ${nowHM()} · ${p.by} ghi nhận thanh toán ${money(p.amount)} đ`],
         },
       },
     })
@@ -61,15 +63,15 @@ export default function ImportDetail() {
     closeModal()
   }
 
-  const cancelRecord = async (reason) => {
+  const cancelRecord = async (reason: string) => {
     await voidEntry({
       recordId: r.id,
-      cattleRows: d?.cows ?? [],
+      cattleRows: d.cows ?? [],
       patch: {
         status: 'Đã hủy',
         cancelReason: reason,
         source: `${r.source} · Hủy: ${reason}`,
-        detail: d && { ...d, history: [...d.history, `${dm(TODAY)} ${nowHM()} · T. Q. Long hủy phiếu: ${reason}`] },
+        detail: { ...d, history: [...(d.history ?? []), `${dm(TODAY)} ${nowHM()} · T. Q. Long hủy phiếu: ${reason}`] },
       },
     })
     await query.refetch()
@@ -83,7 +85,7 @@ export default function ImportDetail() {
           <Button onClick={() => window.print()}>In phiếu</Button>
           <Button disabled={!canCancel} onClick={() => openModal('cancel')}>Hủy phiếu</Button>
         </PageHeader>
-        {(updateError || voidError) && <Note tone="err">{(updateError || voidError).message}</Note>}
+        {Boolean(updateError || voidError) && <Note tone="err">{displayError(updateError || voidError)}</Note>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
           <div className="flex min-w-0 flex-col gap-[18px]">
@@ -117,7 +119,7 @@ export default function ImportDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {d ? d.cows.map((c) => (
+                  {(d.cows ?? []).map((c) => (
                     <tr key={c.code}>
                       <Td className={`${TH} font-medium`}>{c.code}</Td>
                       <Td className={TH}>{c.tag}</Td>
@@ -128,7 +130,8 @@ export default function ImportDetail() {
                       <Td className={TH}>{money(c.amount)}</Td>
                       <Td className={TH} />
                     </tr>
-                  )) : (
+                  ))}
+                  {!(d.cows ?? []).length && (
                     <tr>
                       <Td colSpan={8} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
                     </tr>
@@ -177,7 +180,7 @@ export default function ImportDetail() {
                       </tr>
                     </thead>
                     <tbody>
-                      {d.payments.map((p) => (
+                      {(d.payments ?? []).map((p) => (
                         <tr key={p.ref}>
                           <Td className={TH}>{p.date}<br />{p.by}</Td>
                           <Td className={TH}>{p.method}<br />{p.ref}</Td>
@@ -189,7 +192,7 @@ export default function ImportDetail() {
                 )}
                 {r.status === 'Đã hủy' && <Note>Phiếu đã hủy: {r.cancelReason}</Note>}
                 {r.status !== 'Đã hủy' && r.debt === 0 && <Note tone="ok">Đã thanh toán đủ – "Ghi nhận thanh toán" chỉ hiện khi còn nợ.</Note>}
-                {canPay && r.debt > 0 && (
+                {canPay && (r.debt ?? 0) > 0 && (
                   <Button block className="rounded-[4px] text-[13px] font-semibold" onClick={() => openModal('pay')}>
                     Ghi nhận thanh toán
                   </Button>
@@ -212,4 +215,3 @@ export default function ImportDetail() {
     </Layout>
   )
 }
-// @ts-nocheck

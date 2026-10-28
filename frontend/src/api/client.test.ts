@@ -1,15 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createCollection } from './client'
+import { MemoryStorage } from './testUtils'
 
-const memoryStorage = () => {
-  const values = new Map()
-  return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, String(value)),
-    removeItem: (key) => values.delete(key),
-  }
-}
+const memoryStorage = () => new MemoryStorage()
 
 test('same collection name shares state and enriches existing rows with later seed fields', async () => {
   globalThis.localStorage = memoryStorage()
@@ -24,13 +18,10 @@ test('same collection name shares state and enriches existing rows with later se
 
 test('mutation rejects when localStorage cannot persist the write', async () => {
   let failWrites = false
-  globalThis.localStorage = {
-    getItem: () => null,
-    setItem: () => {
-      if (failWrites) throw new Error('quota exceeded')
-    },
-  }
-  const rows = createCollection(`write-error-${Date.now()}`, [])
+  const storage = new MemoryStorage()
+  storage.setItem = () => { if (failWrites) throw new Error('quota exceeded') }
+  globalThis.localStorage = storage
+  const rows = createCollection<{ id: string }, 'id'>(`write-error-${Date.now()}`, [], { idKey: 'id' })
   failWrites = true
 
   await assert.rejects(rows.create({ id: '1' }), /quota exceeded/)

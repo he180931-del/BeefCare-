@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -7,10 +6,11 @@ import { dmy, money } from '../../../data/format'
 import { herdExitApi } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
 import { TH, cx } from '../components/parts'
+import type { HerdExit, ExitStatus } from '../../../types'
 
-const TABS = [
+const TABS: Array<{ value: string; match: (r: HerdExit) => boolean }> = [
   { value: 'Tất cả', match: () => true },
-  { value: 'Nháp', match: (r) => r.status === 'Nháp' },
+  { value: 'Nháp', match: (r: HerdExit) => r.status === 'Nháp' },
   { value: 'Chờ xác nhận', match: (r) => r.status === 'Chờ xác nhận' },
   { value: 'Đã xuất', match: (r) => r.status === 'Đã xuất' },
   { value: 'Đã hủy / bác', match: (r) => r.status === 'Đã hủy' || r.status === 'Đã bác' },
@@ -20,9 +20,9 @@ const RANGES = [
   { value: 'all', label: '01/07/2026 – 22/10/2026', from: '2026-07-01' },
   { value: 'oct', label: '01/10/2026 – 22/10/2026', from: '2026-10-01' },
 ]
-const TONE = { 'Chờ xác nhận': 'warn', 'Đã xuất': 'ok', 'Đã hủy': 'err' }
+const TONE: Record<string, 'warn' | 'ok' | 'err' | undefined> = { 'Chờ xác nhận': 'warn', 'Đã xuất': 'ok', 'Đã hủy': 'err' }
 
-const StatusTag = ({ status }) => {
+const StatusTag = ({ status }: { status: ExitStatus }) => {
   const tone = TONE[status]
   return <Badge tone={tone} className={tone ? '!border-0' : undefined}>{status}</Badge>
 }
@@ -33,7 +33,7 @@ const COLS = [
 ]
 
 export default function ExportList() {
-  const { data, loading, error } = useQuery(() => herdExitApi.list(), [])
+  const { data, loading, error } = useQuery<HerdExit[]>(() => herdExitApi.list(), [])
   const exports = data ?? []
   const herdExits = exports
   const nav = useNavigate()
@@ -42,14 +42,14 @@ export default function ExportList() {
   const [type, setType] = useState('')
 
   const current = TABS.find((t) => t.value === tab)
-  const from = RANGES.find((r) => r.value === range).from
-  const rows = herdExits.filter((r) => current.match(r) && (!type || r.type === type) && r.date >= from)
+  const from = RANGES.find((r) => r.value === range)?.from ?? RANGES[0].from
+  const rows = herdExits.filter((r) => (current?.match(r) ?? true) && (!type || r.type === type) && (r.date ?? '') >= from)
   const done = herdExits.filter((r) => r.status === 'Đã xuất')
-  const owed = done.filter((r) => r.due > 0)
+  const owed = done.filter((r) => (r.due ?? 0) > 0)
   const pending = herdExits.filter((r) => r.status === 'Chờ xác nhận')
-  const byType = (t) => done.filter((r) => r.type === t).reduce((s, r) => s + r.count, 0)
+  const byType = (t: string) => done.filter((r) => r.type === t).reduce((s, r) => s + (r.count ?? 0), 0)
 
-  const action = (r) => {
+  const action = (r: HerdExit): [string, string] => {
     if (r.status === 'Nháp') return ['Tiếp tục', `/herd-exit/new?id=${encodeURIComponent(r.id)}`]
     if (r.status === 'Chờ xác nhận') return ['Xem & xác nhận', `/herd-exit/${r.id}`]
     return ['Xem', `/herd-exit/${r.id}`]
@@ -78,9 +78,9 @@ export default function ExportList() {
       </div>
 
       <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
-        <Tile label="Con đã xuất (từ 01/07)" value={done.reduce((s, r) => s + r.count, 0)} note={`Bán ${byType('Bán')} · Loại thải ${byType('Loại thải')} · Chết ${byType('Chết / mất')}`} />
+        <Tile label="Con đã xuất (từ 01/07)" value={done.reduce((s, r) => s + (r.count ?? 0), 0)} note={`Bán ${byType('Bán')} · Loại thải ${byType('Loại thải')} · Chết ${byType('Chết / mất')}`} />
         <Tile label="Doanh thu bán bò" value={`${money(done.reduce((s, r) => s + (r.total || 0), 0))} đ`} note={`${done.length} phiếu đã xuất`} />
-        <Tile warn label="Còn phải thu" value={`${money(owed.reduce((s, r) => s + r.due, 0))} đ`} note={owed.length ? `${owed.length} phiếu · ${owed[0].id}` : 'Không còn nợ'} />
+        <Tile warn label="Còn phải thu" value={`${money(owed.reduce((s, r) => s + (r.due ?? 0), 0))} đ`} note={owed.length ? `${owed.length} phiếu · ${owed[0].id}` : 'Không còn nợ'} />
         <Tile label="Chờ chủ trại xác nhận" value={pending.length} note="Đề xuất từ ca sức khỏe" />
       </div>
 
@@ -110,7 +110,7 @@ export default function ExportList() {
                 </tr>
               )
             })}
-            {!rows.length && <tr><Td colSpan={10} className="text-center text-muted">{loading ? 'Đang tải…' : error ? error.message : 'Không có phiếu xuất'}</Td></tr>}
+            {!rows.length && <tr><Td colSpan={10} className="text-center text-muted">{loading ? 'Đang tải…' : error ? String(error) : 'Không có phiếu xuất'}</Td></tr>}
           </tbody>
         </Table>
       </div>
@@ -122,4 +122,3 @@ export default function ExportList() {
     </Layout>
   )
 }
-// @ts-nocheck

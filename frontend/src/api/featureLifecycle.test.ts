@@ -1,14 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { MemoryStorage } from './testUtils'
 
-const memoryStorage = () => {
-  const values = new Map([['beefcare:latency', '0']])
-  return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, String(value)),
-    removeItem: (key) => values.delete(key),
-  }
-}
+const memoryStorage = () => new MemoryStorage({ 'beefcare:latency': '0' })
 
 test('entry API generates IDs and preserves complete editable drafts', async () => {
   globalThis.localStorage = memoryStorage()
@@ -32,7 +26,7 @@ test('entry posting allocates its ID before linking cattle when no ID is supplie
   })
   assert.match(saved.id, /^PN-2026-\d{4}$/)
   assert.equal(saved.detail.cows.length, 1)
-  const cattle = (await domain.cattle.list()).find((row) => row.tag === 'VN-GEN')
+  const cattle = (await domain.cattle.list()).find((row: { tag?: string; entryVoucherId?: string; code?: string; barn?: string | null }) => row.tag === 'VN-GEN')!
   assert.equal(cattle.entryVoucherId, saved.id)
   assert.equal(saved.detail.cows[0].code, cattle.code)
   assert.equal(saved.detail.cows[0].barn, cattle.barn)
@@ -199,7 +193,7 @@ test('entry posting preflights every row before mutating cattle', async () => {
       { tag: 'VN-PREFLIGHT-2', barn: 'E', weight: 110 },
     ],
   }), /inactive/i)
-  assert.equal((await domain.cattle.list()).some((row) => row.tag === 'VN-PREFLIGHT-1'), false)
+  assert.equal((await domain.cattle.list()).some((row: { tag?: string }) => row.tag === 'VN-PREFLIGHT-1'), false)
 })
 
 test('entry posting validates quarantine, future dates, and duplicate ear tags', async () => {
