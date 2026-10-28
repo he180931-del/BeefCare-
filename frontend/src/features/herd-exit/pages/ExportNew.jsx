@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
-import { getExitDraftState, herdExitApi, saveHerdExit } from '../api/index.js'
+import { getExitDraftState, herdExitApi, pens, saveHerdExit } from '../api/index.js'
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { BARNS, BUYERS, HERD, PAY_METHODS } from '../data/exitData.js'
 import { dm, money } from '../../../data/format'
@@ -11,15 +11,20 @@ const TYPES = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const num = (v) => (v === '' ? 0 : Number(v))
 
 export default function ExportNew() {
-  const { data: exports = [], loading, error } = useQuery(() => herdExitApi.list(), [])
-  if (loading) return <Layout title="Phiếu xuất mới"><p className="text-xs text-muted">Đang tải phiếu xuất…</p></Layout>
-  if (error) return <Layout title="Phiếu xuất mới"><p className="text-xs text-err-fg">Không tải được phiếu xuất: {error.message}</p></Layout>
-  const draftState = getExitDraftState(exports)
-  return <ExportForm key={draftState.row?.id ?? 'new'} exports={exports} draftState={draftState} />
+  const [searchParams] = useSearchParams()
+  const draftId = searchParams.get('id')
+  const { data, loading, error } = useQuery(() => herdExitApi.list(), [])
+  const { data: penData, loading: pensLoading, error: pensError } = useQuery(() => pens.list(), [])
+  const exports = data ?? []
+  const barns = penData?.filter((pen) => pen.code !== 'A3') ?? BARNS
+  if (loading || pensLoading) return <Layout title="Phiếu xuất mới"><p className="text-xs text-muted">Đang tải phiếu xuất…</p></Layout>
+  if (error || pensError) return <Layout title="Phiếu xuất mới"><p className="text-xs text-err-fg">Không tải được dữ liệu phiếu xuất: {(error || pensError).message}</p></Layout>
+  const draftState = getExitDraftState(exports, draftId)
+  return <ExportForm key={draftState.row?.id ?? 'new'} exports={exports} draftState={draftState} barns={barns} />
 }
 
-function ExportForm({ exports, draftState }) {
-  const { mutate: persist } = useMutation(saveHerdExit)
+function ExportForm({ exports, draftState, barns }) {
+  const { mutate: persist, loading: saving, error: saveError } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const d = draftState
   const [type, setType] = useState(d.type)
@@ -50,7 +55,7 @@ function ExportForm({ exports, draftState }) {
   const receivable = Math.max(cowsMoney - deduction, 0)
   const remaining = Math.max(receivable - collected, 0)
 
-  const barnDelta = BARNS.map((b) => ({ ...b, out: picked.filter((c) => c.barn === b.code).length })).filter((b) => b.out)
+  const barnDelta = barns.map((b) => ({ ...b, out: picked.filter((c) => c.barn === b.code).length })).filter((b) => b.out)
 
   const patch = (code, p) => setPicked(picked.map((c) => (c.code === code ? { ...c, ...p } : c)))
   const toggle = (c) =>
@@ -73,8 +78,12 @@ function ExportForm({ exports, draftState }) {
       record.draft = undefined
       record.detail = { quarantine, buyer: buyer.name, phone: buyer.phone, plate, by: `Chủ trại · ${date}`, note, cows: picked.map((c) => ({ code: c.code, tag: c.tag, breed: `${c.breed} · ${c.sex}`, weight: c.weight, barn: c.barn, amount: amount(c) })), cowsTotal: cowsMoney, deduction, payments: collected ? [{ date, by: 'Chủ trại', method, ref: '', amount: collected }] : [], docs, history: [`${date} · Chủ trại xác nhận xuất ${picked.length} con`] }
     }
-    await persist({ id: d.row?.id, record, cattleRows: status === 'Đã xuất' ? picked : [] })
-    nav('/herd-exit')
+    try {
+      await persist({ id: d.row?.id, record, cattleRows: status === 'Đã xuất' ? picked : [] })
+      nav('/herd-exit')
+    } catch {
+      // The mutation error is rendered beside the actions below.
+    }
   }
 
   const summaryRow = (label, value) => (
@@ -231,6 +240,7 @@ function ExportForm({ exports, draftState }) {
           </Card>
 
           <Card title="Kiểm tra trước khi xác nhận">
+            {saveError && <p className="m-0 mb-2 text-xs text-err-fg">Không thể lưu phiếu: {saveError.message}</p>}
             <Table stack={false}>
               <thead><tr><Th>Mục</Th><Th>Kết quả</Th></tr></thead>
               <tbody>
@@ -250,10 +260,10 @@ function ExportForm({ exports, draftState }) {
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
               Tôi đã xem các mục trên và xác nhận xuất đàn *
             </label>
-            <Button variant="primary" block disabled={!confirmed || !picked.length || withdrawal.length > 0 || (!money$ && !note.trim())} onClick={() => save('Đã xuất')}>
+            <Button variant="primary" block disabled={saving || !confirmed || !picked.length || withdrawal.length > 0 || (!money$ && !note.trim())} onClick={() => save('Đã xuất')}>
               Xác nhận xuất {picked.length} con
             </Button>
-            <Button block onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
+            <Button block disabled={saving} onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
             <Button variant="link" block onClick={() => nav('/herd-exit')}>Hủy</Button>
             <p className="m-0 text-[11px] text-muted">
               Khi xác nhận, mỗi con: chuyển ĐÃ XUẤT, đóng phân chuồng, hủy mũi tiêm / nhắc việc sau ngày xuất, đóng ca bệnh và thai đang mở (GBR-35). Hồ sơ chỉ còn xem.

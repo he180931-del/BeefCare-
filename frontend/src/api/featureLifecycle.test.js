@@ -12,12 +12,14 @@ const memoryStorage = () => {
 
 test('entry API generates IDs and preserves complete editable drafts', async () => {
   globalThis.localStorage = memoryStorage()
-  const { herdEntryApi } = await import(`../features/herd-entry/api/herdEntryApi.js?entry-draft=${Date.now()}`)
+  const { getEntryDraftState, herdEntryApi } = await import(`../features/herd-entry/api/herdEntryApi.js?entry-draft=${Date.now()}`)
   const draft = { type: 'Mua ngoài', date: '2026-10-28', cows: [{ tag: 'VN-X', barn: 'A1', weight: 200 }], docs: [{ name: 'kd.pdf' }] }
 
   const created = await herdEntryApi.create({ type: 'Mua ngoài', status: 'Nháp', draft })
   assert.equal(created.id, 'PN-2026-0014')
   assert.deepEqual((await herdEntryApi.get(created.id)).draft, draft)
+  assert.equal(getEntryDraftState([created], created.id).row.id, created.id)
+  assert.equal(getEntryDraftState([created]).row, undefined)
 })
 
 test('entry posting allocates its ID before linking cattle when no ID is supplied', async () => {
@@ -25,7 +27,7 @@ test('entry posting allocates its ID before linking cattle when no ID is supplie
   const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-post=${Date.now()}`)
   const domain = await import(`../api/herdDomainApi.js?entry-post=${Date.now()}`)
   const saved = await entries.saveHerdEntry({
-    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập' },
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-GEN' } },
     cattleRows: [{ tag: 'VN-GEN', barn: 'C1', weight: 210, date: '2026-10-28' }],
   })
   assert.match(saved.id, /^PN-2026-\d{4}$/)
@@ -40,6 +42,8 @@ test('exit API restores non-sale draft type and synchronizes confirm/cancel once
   const domain = await import(`../api/herdDomainApi.js?exit-lifecycle=${Date.now()}`)
   const draft = { id: 'PX-DRAFT', type: 'Loại thải', status: 'Nháp', draft: { note: 'saved' } }
   assert.equal(exits.getExitDraftState([draft]).type, 'Loại thải')
+  assert.equal(exits.getExitDraftState([draft], draft.id).row.id, draft.id)
+  assert.equal(exits.getExitDraftState([draft], 'PX-MISSING').row, undefined)
 
   await domain.cattle.upsert({ code: 'BC-FEATURE-EXIT', barn: 'A1', status: 'ACTIVE', events: [] })
   const before = (await domain.pens.get('A1')).count
@@ -71,6 +75,10 @@ test('exit posting allocates its ID first and blocks withdrawal confirmation', a
     cattleRows: [{ code: 'BC-GEN-EXIT', barn: 'A1' }],
   })
   assert.match(saved.id, /^PX-2026-\d{4}$/)
+  assert.equal((await domain.cattle.get('BC-GEN-EXIT')).exitVoucherId, saved.id)
+  await exits.cancelHerdExit(saved.id, [{ code: 'BC-GEN-EXIT', barn: 'A1' }])
+  assert.equal((await domain.cattle.get('BC-GEN-EXIT')).status, 'ACTIVE')
+  assert.equal((await domain.cattle.get('BC-GEN-EXIT')).exitVoucherId, null)
 })
 
 test('terminal entry and exit vouchers reject mutation through their save facades', async () => {
@@ -81,6 +89,69 @@ test('terminal entry and exit vouchers reject mutation through their save facade
   const exit = await exits.herdExitApi.create({ id: 'PX-TERM', status: 'Đã bác', type: 'Bán' })
   await assert.rejects(entries.saveHerdEntry({ id: entry.id, record: { status: 'Nháp' } }), /terminal/i)
   await assert.rejects(exits.saveHerdExit({ id: exit.id, record: { status: 'Nháp' } }), /terminal/i)
+})
+
+test('canceled entry vouchers cannot be reopened through the save facade', async () => {
+  globalThis.localStorage = memoryStorage()
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-canceled-terminal=${Date.now()}`)
+  const entry = await entries.herdEntryApi.create({ id: 'PN-CANCELED', status: 'Đã hủy', type: 'Mua ngoài' })
+  await assert.rejects(entries.saveHerdEntry({ id: entry.id, record: { status: 'Nháp', draft: { note: 'reopen' } } }), /terminal/i)
+})
+
+test('voiding an entry requires every linked cattle row before canceling the voucher', async () => {
+  globalThis.localStorage = memoryStorage()
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-void-complete=${Date.now()}`)
+  const domain = await import(`../api/herdDomainApi.js?entry-void-complete=${Date.now()}`)
+  const saved = await entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-VOID' } },
+    cattleRows: [
+      { tag: 'VN-VOID-1', barn: 'A1', weight: 100 },
+      { tag: 'VN-VOID-2', barn: 'A1', weight: 110 },
+    ],
+  })
+  const detail = (await entries.herdEntryApi.get(saved.id)).detail.cows
+  await assert.rejects(entries.voidHerdEntry(saved.id, [detail[0]]), /all|complete|mismatch/i)
+  await assert.rejects(entries.voidHerdEntry(saved.id, []), /all|complete|mismatch/i)
+  assert.equal((await entries.herdEntryApi.get(saved.id)).status, 'Đã nhập')
+  assert.equal((await domain.cattle.get(detail[0].code)).status, 'ACTIVE')
+  assert.equal((await domain.cattle.get(detail[1].code)).status, 'ACTIVE')
+})
+
+test('entry posting preflights every row before mutating cattle', async () => {
+  globalThis.localStorage = memoryStorage()
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-preflight=${Date.now()}`)
+  const domain = await import(`../api/herdDomainApi.js?entry-preflight=${Date.now()}`)
+  await assert.rejects(entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-PREFLIGHT' } },
+    cattleRows: [
+      { tag: 'VN-PREFLIGHT-1', barn: 'A1', weight: 100 },
+      { tag: 'VN-PREFLIGHT-2', barn: 'E', weight: 110 },
+    ],
+  }), /inactive/i)
+  assert.equal((await domain.cattle.list()).some((row) => row.tag === 'VN-PREFLIGHT-1'), false)
+})
+
+test('entry posting validates quarantine, future dates, and duplicate ear tags', async () => {
+  globalThis.localStorage = memoryStorage()
+  const entries = await import(`../features/herd-entry/api/herdEntryApi.js?entry-validation=${Date.now()}`)
+  const domain = await import(`../api/herdDomainApi.js?entry-validation=${Date.now()}`)
+  await assert.rejects(entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập' },
+    cattleRows: [{ tag: 'VN-REQUIRED-KD', barn: 'A1', weight: 100 }],
+  }), /quarantine|kiểm dịch/i)
+  await assert.rejects(entries.saveHerdEntry({
+    record: { date: '2999-01-01', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-FUTURE' } },
+    cattleRows: [{ tag: 'VN-FUTURE', barn: 'A1', weight: 100 }],
+  }), /future|tương lai/i)
+  await assert.rejects(entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-DUP' } },
+    cattleRows: [{ tag: 'VN-DUP', barn: 'A1', weight: 100 }, { tag: 'VN-DUP', barn: 'A1', weight: 110 }],
+  }), /duplicate|trùng/i)
+  await domain.cattle.upsert({ code: 'BC-EXISTING-TAG', tag: 'VN-EXISTING', barn: 'A1', status: 'ACTIVE', events: [] })
+  await assert.rejects(entries.saveHerdEntry({
+    record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-EXISTING' } },
+    cattleRows: [{ tag: 'VN-EXISTING', barn: 'A1', weight: 100 }],
+  }), /duplicate|trùng/i)
 })
 
 test('posting APIs reject missing required fields before mutating cattle', async () => {
@@ -95,8 +166,8 @@ test('entry posting rejects inactive and full canonical pens', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../features/herd-entry/api/herdEntryApi.js?pen-validation=${Date.now()}`)
   const domain = await import(`../api/herdDomainApi.js?pen-validation=${Date.now()}`)
-  await assert.rejects(entries.saveHerdEntry({ record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập' }, cattleRows: [{ code: 'BC-INACTIVE', barn: 'E', weight: 100 }] }), /inactive/i)
+  await assert.rejects(entries.saveHerdEntry({ record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-INACTIVE' } }, cattleRows: [{ code: 'BC-INACTIVE', barn: 'E', weight: 100 }] }), /inactive/i)
   const pen = await domain.pens.get('C1')
   await domain.pens.update('C1', { count: pen.capacity })
-  await assert.rejects(entries.saveHerdEntry({ record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập' }, cattleRows: [{ code: 'BC-FULL', barn: 'C1', weight: 100 }] }), /full|capacity/i)
+  await assert.rejects(entries.saveHerdEntry({ record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-FULL' } }, cattleRows: [{ code: 'BC-FULL', barn: 'C1', weight: 100 }] }), /full|capacity/i)
 })

@@ -9,7 +9,8 @@ import { dmy, kg, money } from '../../../data/format'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 
 export default function ImportList() {
-  const { data: imports = [], loading, error } = useQuery(() => herdEntryApi.list(), [])
+  const { data, loading, error } = useQuery(() => herdEntryApi.list(), [])
+  const imports = data ?? []
   const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [type, setType] = useState('')
@@ -77,7 +78,7 @@ export default function ImportList() {
                 <Td>{r.debt == null ? '—' : money(r.debt)}</Td>
                 <Td><StatusBadge status={r.status} /></Td>
                 <Td>
-                  <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? '/herd-entry/new' : `/herd-entry/${r.id}`)}>
+                  <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}` : `/herd-entry/${r.id}`)}>
                     {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
                   </Button>
                 </Td>

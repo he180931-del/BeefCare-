@@ -26,16 +26,21 @@ export function useQuery(fetcher, deps = []) {
 /** Ghi dữ liệu: const { mutate, loading } = useMutation((payload) => api.create(payload)) */
 export function useMutation(mutator) {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const mutate = useCallback(
     async (payload) => {
       setLoading(true)
+      setError(null)
       try {
         return await mutator(payload)
+      } catch (nextError) {
+        setError(nextError)
+        throw nextError
       } finally {
         setLoading(false)
       }
     },
     [mutator],
   )
-  return { mutate, loading }
+  return { mutate, loading, error }
 }

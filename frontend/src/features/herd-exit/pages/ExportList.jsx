@@ -15,7 +15,8 @@ const TABS = [
 ]
 
 export default function ExportList() {
-  const { data: exports = [], loading, error } = useQuery(() => herdExitApi.list(), [])
+  const { data, loading, error } = useQuery(() => herdExitApi.list(), [])
+  const exports = data ?? []
   const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [type, setType] = useState('')
@@ -28,7 +29,7 @@ export default function ExportList() {
   const byType = (t) => done.filter((r) => r.type === t).reduce((s, r) => s + r.count, 0)
 
   const action = (r) => {
-    if (r.status === 'Nháp') return ['Tiếp tục', '/herd-exit/new']
+    if (r.status === 'Nháp') return ['Tiếp tục', `/herd-exit/new?id=${encodeURIComponent(r.id)}`]
     if (r.status === 'Chờ xác nhận') return ['Xem & xác nhận', `/herd-exit/${r.id}`]
     return ['Xem', `/herd-exit/${r.id}`]
   }

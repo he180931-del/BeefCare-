@@ -3,5 +3,4 @@
 export const loadImportListPage = () => import('./pages/ImportList.jsx')
 export const loadImportNewPage = () => import('./pages/ImportNew.jsx')
 export const loadImportDetailPage = () => import('./pages/ImportDetail.jsx')
-export { herdEntryApi, saveHerdEntry, voidHerdEntry } from './api/index.js'
-
+export { getEntryDraftState, herdEntryApi, saveHerdEntry, voidHerdEntry } from './api/index.js'

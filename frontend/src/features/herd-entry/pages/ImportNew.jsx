@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
-import { herdEntryApi, saveHerdEntry } from '../api/index.js'
+import { getEntryDraftState, herdEntryApi, pens, saveHerdEntry } from '../api/index.js'
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { BARNS, CALF_BARN, GROUPS, PAY_METHODS, PURPOSES, SOURCES, initialCalves, INITIAL_COWS } from '../data/entryData.js'
 import { dmy, money } from '../../../data/format'
@@ -11,15 +11,21 @@ const blankCow = () => ({ tag: '', breed: '', sex: 'Cái', group: 'Chưa xác đ
 const num = (v) => (v === '' ? 0 : Number(v))
 
 export default function ImportNew() {
-  const { data: imports = [], loading, error } = useQuery(() => herdEntryApi.list(), [])
-  if (loading) return <Layout title="Phiếu nhập mới" user="manager"><p className="text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
-  if (error) return <Layout title="Phiếu nhập mới" user="manager"><p className="text-xs text-err-fg">Không tải được phiếu nhập: {error.message}</p></Layout>
-  const draftRow = imports.find((row) => row.status === 'Nháp')
-  return <ImportForm key={draftRow?.id ?? 'new'} imports={imports} draftRow={draftRow} />
+  const [searchParams] = useSearchParams()
+  const draftId = searchParams.get('id')
+  const { data, loading, error } = useQuery(() => herdEntryApi.list(), [])
+  const { data: penData, loading: pensLoading, error: pensError } = useQuery(() => pens.list(), [])
+  const imports = data ?? []
+  const barns = penData?.filter((pen) => pen.code !== 'A3') ?? BARNS
+  const calfBarn = penData?.find((pen) => pen.code === 'A3') ?? CALF_BARN
+  if (loading || pensLoading) return <Layout title="Phiếu nhập mới" user="manager"><p className="text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
+  if (error || pensError) return <Layout title="Phiếu nhập mới" user="manager"><p className="text-xs text-err-fg">Không tải được dữ liệu phiếu nhập: {(error || pensError).message}</p></Layout>
+  const draftState = getEntryDraftState(imports, draftId)
+  return <ImportForm key={draftState.row?.id ?? 'new'} imports={imports} draftRow={draftState.row} barns={barns} calfBarn={calfBarn} />
 }
 
-function ImportForm({ imports, draftRow }) {
-  const { mutate: persist } = useMutation(saveHerdEntry)
+function ImportForm({ imports, draftRow, barns, calfBarn }) {
+  const { mutate: persist, loading: saving, error: saveError } = useMutation(saveHerdEntry)
   const nav = useNavigate()
   const draft = draftRow?.draft ?? {}
   const [kind, setKind] = useState(draft.type ?? draftRow?.type ?? 'Mua ngoài')
@@ -55,11 +61,11 @@ function ImportForm({ imports, draftRow }) {
   const patchCalf = (i, p) => setCalves(calves.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
   const calfWeight = picked.reduce((s, c) => s + c.weight, 0)
   const calfEstimated = picked.filter((c) => c.estimated).length
-  const calfAfter = CALF_BARN.count + picked.filter((c) => c.barn).length
-  const calfOver = calfAfter > CALF_BARN.capacity
+  const calfAfter = calfBarn.count + picked.filter((c) => c.barn).length
+  const calfOver = calfAfter > calfBarn.capacity
   const n = isBuy ? cows.length : picked.length
 
-  const barnAfter = BARNS.map((b) => ({ ...b, after: b.count + cows.filter((c) => c.barn === b.code).length })).filter((b) => b.after !== b.count)
+  const barnAfter = barns.map((b) => ({ ...b, after: b.count + cows.filter((c) => c.barn === b.code).length })).filter((b) => b.after !== b.count)
   const overflow = barnAfter.filter((b) => b.after > b.capacity)
 
   const save = async (status) => {
@@ -81,8 +87,12 @@ function ImportForm({ imports, draftRow }) {
       record.detail = { sourceName: isBuy ? source.name : record.source, quarantine, phone: isBuy ? source.phone : '', plate: '', by: `${receiver} · ${date}`, note, cows: [], cowsTotal: isBuy ? cowsMoney : 0, freight: isBuy ? freight : 0, payments: isBuy && paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: Math.min(paid, total) }] : [], docs, history: [`${dmy(date)} · ${receiver} lưu và xác nhận phiếu ${nextId}`] }
       record.draft = undefined
     }
-    await persist({ id: draftRow?.id, record, cattleRows: status === 'Đã nhập' ? cattleRows : [] })
-    nav('/herd-entry')
+    try {
+      await persist({ id: draftRow?.id, record, cattleRows: status === 'Đã nhập' ? cattleRows : [] })
+      nav('/herd-entry')
+    } catch {
+      // The mutation error is rendered beside the actions below.
+    }
   }
 
   const summaryRow = (label, value) => (
@@ -198,7 +208,7 @@ function ImportForm({ imports, draftRow }) {
                       </Td>
                       <Td className="whitespace-nowrap">
                         <select className="cursor-pointer rounded border border-transparent bg-transparent py-0.5 text-xs hover:border-field focus:border-brand" value={c.barn} onChange={(e) => patch(i, { barn: e.target.value })}>
-                          {BARNS.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
+                          {barns.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
                         </select>
                       </Td>
                       {isBuy && (
@@ -246,14 +256,14 @@ function ImportForm({ imports, draftRow }) {
                 {calves.map((c, i) => (
                   <tr key={c.name}>
                     <Td>
-                      <input type="checkbox" aria-label={`Chọn ${c.tag || c.name}`} className="h-4 w-4 cursor-pointer accent-brand" checked={c.picked} onChange={(e) => patchCalf(i, { picked: e.target.checked, barn: e.target.checked ? CALF_BARN.code : '' })} />
+                      <input type="checkbox" aria-label={`Chọn ${c.tag || c.name}`} className="h-4 w-4 cursor-pointer accent-brand" checked={c.picked} onChange={(e) => patchCalf(i, { picked: e.target.checked, barn: e.target.checked ? calfBarn.code : '' })} />
                     </Td>
                     <Td>{c.tag || 'Chưa gắn thẻ'}<br />{c.name}</Td>
                     <Td>{c.mother}<br />{c.father}</Td>
                     <Td className="whitespace-nowrap">{dmy(c.born)}</Td>
                     <Td>{c.sex}</Td>
                     <Td className="whitespace-nowrap">{money(c.weight)} kg{c.estimated ? ' UT' : ''}</Td>
-                    <Td className="whitespace-nowrap">{c.picked ? CALF_BARN.name : '—'}</Td>
+                    <Td className="whitespace-nowrap">{c.picked ? calfBarn.name : '—'}</Td>
                     <Td className="whitespace-nowrap">
                       {c.picked ? (
                         <select className="cursor-pointer rounded border border-transparent bg-transparent py-0.5 text-xs hover:border-field focus:border-brand" value={c.purpose} onChange={(e) => patchCalf(i, { purpose: e.target.value })}>
@@ -306,12 +316,12 @@ function ImportForm({ imports, draftRow }) {
               {summaryRow('Loại nhập', isBuy ? 'Mua ngoài · theo phiếu' : 'Bê sinh tại trại')}
               {summaryRow(isBuy ? 'Tổng cân nặng' : 'Tổng cân sơ sinh', isBuy ? `${money(totalWeight)} kg${estimatedCount ? ` (${estimatedCount} con ước tính)` : ''}` : `${money(calfWeight)} kg${calfEstimated ? ` (${calfEstimated} con ước tính)` : ''}`)}
               {isBuy && summaryRow('Tổng phải trả', `${money(total)} đ`)}
-              {!isBuy && summaryRow('Chuồng nhận', picked.length ? <span className="text-xs font-semibold">{`${CALF_BARN.name} (${CALF_BARN.count}/${CALF_BARN.capacity} → ${calfAfter}/${CALF_BARN.capacity})`}</span> : '—')}
+              {!isBuy && summaryRow('Chuồng nhận', picked.length ? <span className="text-xs font-semibold">{`${calfBarn.name} (${calfBarn.count}/${calfBarn.capacity} → ${calfAfter}/${calfBarn.capacity})`}</span> : '—')}
               {!isBuy && summaryRow('Giai đoạn sống', 'Bê theo mẹ')}
               {isBuy && summaryRow('Chuồng nhận', <span className="text-xs font-semibold">{barnAfter.length ? barnAfter.map((b) => `${b.code} (${b.count}/${b.capacity} → ${b.after}/${b.capacity})`).join(' · ') : '—'}</span>)}
             </dl>
             {!isBuy && <Note>Phiếu bê sinh tại trại không có giá và thanh toán.</Note>}
-            {!isBuy && calfOver && <Note tone="err">Chuồng {CALF_BARN.code} vượt sức chứa ({calfAfter}/{CALF_BARN.capacity}).</Note>}
+            {!isBuy && calfOver && <Note tone="err">Chuồng {calfBarn.code} vượt sức chứa ({calfAfter}/{calfBarn.capacity}).</Note>}
             {isBuy && estimatedCount > 0 && <Note tone="warn">Cân nặng {estimatedCount} con sẽ được lưu là ƯỚC TÍNH.</Note>}
             {isBuy && barnAfter.filter((b) => b.after === b.capacity).map((b) => <Note tone="warn" key={b.code}>Chuồng {b.code} sẽ đầy ({b.after}/{b.capacity}) sau khi nhập.</Note>)}
             {isBuy && overflow.map((b) => <Note tone="err" key={b.code}>Chuồng {b.code} vượt sức chứa ({b.after}/{b.capacity}).</Note>)}
@@ -328,7 +338,7 @@ function ImportForm({ imports, draftRow }) {
               : [
                 'Bê đang Chờ xác nhận, chưa được đăng ký',
                 'Thẻ tai không trùng trong trại',
-                calfOver ? 'Sức chứa chuồng chưa đủ' : `Chuồng ${CALF_BARN.code} đủ chỗ cho ${picked.length} con`,
+                calfOver ? 'Sức chứa chuồng chưa đủ' : `Chuồng ${calfBarn.code} đủ chỗ cho ${picked.length} con`,
                 'Bò mẹ đang ACTIVE trong trại',
               ]
             ).map((t) => (
@@ -337,14 +347,15 @@ function ImportForm({ imports, draftRow }) {
           </Card>
 
           <Card>
+            {saveError && <p className="m-0 mb-2 text-xs text-err-fg">Không thể lưu phiếu: {saveError.message}</p>}
             <label className="flex items-start gap-2 text-[13px]">
               <input type="checkbox" checked={printQr} onChange={(e) => setPrintQr(e.target.checked)} />
               In tem QR cho {n} con sau khi lưu
             </label>
-            <Button variant="primary" block disabled={!n || (isBuy ? overflow.length > 0 : calfOver)} onClick={() => save('Đã nhập')}>
+            <Button variant="primary" block disabled={saving || !n || (isBuy ? overflow.length > 0 : calfOver)} onClick={() => save('Đã nhập')}>
               Lưu & tạo hồ sơ {n} con
             </Button>
-            <Button block onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
+            <Button block disabled={saving} onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
             <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
           </Card>
         </div>
