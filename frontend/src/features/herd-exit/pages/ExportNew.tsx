@@ -16,6 +16,25 @@ const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; stage: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string }
 const herdByCode = (code: string) => EXPORT_HERD.find((c) => c.code === code)
+const normalizeHerdCow = (cow: NonNullable<NonNullable<HerdExit['draft']>['cows']>[number]): HerdCow => {
+  const base = herdByCode(cow.code ?? '')
+  return {
+    code: cow.code ?? '',
+    tag: cow.tag ?? base?.tag ?? '',
+    breed: cow.breed ?? base?.breed ?? '',
+    sex: cow.sex ?? base?.sex ?? '',
+    age: cow.age ?? base?.age ?? '',
+    group: base?.group ?? '',
+    stage: base?.stage ?? '',
+    barn: cow.barn ?? base?.barn ?? '',
+    weight: cow.weight ?? base?.weight ?? 0,
+    weightNote: base?.weightNote ?? '',
+    estimated: cow.estimated ?? base?.estimated ?? false,
+    unitPrice: cow.unitPrice ?? 0,
+    ...(base?.withdrawalUntil ? { withdrawalUntil: base.withdrawalUntil } : {}),
+    ...(base?.openCase ? { openCase: base.openCase } : {}),
+  }
+}
 
 // Tải danh sách phiếu trước, rồi mới dựng form (form lấy phiếu Nháp làm giá trị ban đầu).
 export default function ExportNew() {
@@ -50,7 +69,7 @@ function ExportForm({ exports, draftId }: { exports: HerdExit[]; draftId: string
   const [plate, setPlate] = useState(d?.plate ?? '')
   const [note, setNote] = useState(d?.note ?? '')
   const [pricing, setPricing] = useState(d?.pricing ?? 'kg')
-  const [picked, setPicked] = useState<HerdCow[]>(() => (d?.cows ?? []).map((c) => ({ ...herdByCode(c.code ?? ''), ...c, unitPrice: c.unitPrice ?? 0 } as unknown as HerdCow)))
+  const [picked, setPicked] = useState<HerdCow[]>(() => (d?.cows ?? []).map(normalizeHerdCow))
   const [deduction, setDeduction] = useState(d?.deduction ?? 0)
   const [collected, setCollected] = useState(d?.collected ?? 0)
   const [method, setMethod] = useState(d?.method ?? PAY_METHODS[0])

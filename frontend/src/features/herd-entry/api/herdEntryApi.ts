@@ -1,7 +1,8 @@
-import { createCollection } from '../../../api/client'
+import { createCollection, type NewCollectionInput } from '../../../api/client'
 import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../api/herdDomainApi'
 import { initialImports } from '../data/importsData'
 import { errorMessage } from '../../../api/herdDomainApi'
+import { herdEntrySchema } from '../../../api/collectionSchemas'
 import type { CattleInput, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../../../types'
 
 const nextEntryId = (rows: HerdEntry[]): string => {
@@ -9,7 +10,7 @@ const nextEntryId = (rows: HerdEntry[]): string => {
   return `PN-2026-${String(max + 1).padStart(4, '0')}`
 }
 
-const herdEntries = createCollection('herdEntries', initialImports, { nextId: nextEntryId })
+const herdEntries = createCollection('herdEntries', initialImports, { schema: herdEntrySchema, nextId: nextEntryId })
 const terminalStatuses = new Set(['Đã nhập', 'Đã hủy'])
 
 const getExisting = async (id: string): Promise<HerdEntry | null> => {
@@ -24,7 +25,7 @@ const getExisting = async (id: string): Promise<HerdEntry | null> => {
 export const herdEntryApi = {
   list: (predicate?: (row: HerdEntry) => boolean) => herdEntries.list(predicate),
   get: (id: string) => herdEntries.get(id),
-  create: (record: Partial<HerdEntry>) => herdEntries.create(record),
+  create: (record: NewCollectionInput<HerdEntry, 'id'>) => herdEntries.create(record),
   update: async (id: string, patch: Partial<HerdEntry>) => {
     const current = await herdEntries.get(id)
     if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {

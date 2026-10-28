@@ -11,6 +11,7 @@ const source = tsFiles.map((file) => readFileSync(join(srcDir, file), 'utf8')).j
 test('strict TypeScript migration boundary has no JavaScript or suppression escapes', () => {
   assert.equal(readdirSync(srcDir, { recursive: true }).some((file) => typeof file === 'string' && /\.(js|jsx)$/.test(file)), false)
   assert.doesNotMatch(source, /@ts-(?:no-check|ignore)|\bany\b/)
+  assert.doesNotMatch(source, /as\s+unknown\s+as/)
   const packageJson = JSON.parse(readFileSync(join(srcDir, '..', 'package.json'), 'utf8')) as { scripts?: Record<string, string> }
   assert.equal(typeof packageJson.scripts?.typecheck, 'string')
   const tsconfig = JSON.parse(readFileSync(join(srcDir, '..', 'tsconfig.json'), 'utf8')) as { exclude?: string[]; include?: string[] }

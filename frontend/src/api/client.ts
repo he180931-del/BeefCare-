@@ -1,58 +1,154 @@
-// Local collection adapter. The registry stores erased rows; createCollection is
-// the single typed boundary used by feature APIs.
+// Local collection adapter. Persistence is deliberately treated as an
+// untrusted JSON boundary: every row is validated by the schema supplied by
+// the caller before it enters the in-memory collection.
 const PREFIX = 'beefcare:'
+
 export type CollectionRow = Record<string, unknown>
-export type CollectionApi<T extends CollectionRow> = {
+export type NewCollectionInput<T extends CollectionRow, K extends keyof T & string> = Omit<T, K> & Partial<Pick<T, K>>
+export type CollectionSchema<T extends CollectionRow, K extends keyof T & string> = { idKey: K; identity: string; parse: (value: unknown) => T }
+export type CollectionApi<T extends CollectionRow, K extends keyof T & string> = {
   list: (predicate?: (row: T) => boolean) => Promise<T[]>
   get: (id: unknown) => Promise<T>
-  create: (data: Partial<T>) => Promise<T>
-  upsert: (data: Partial<T>) => Promise<T>
+  create: (data: NewCollectionInput<T, K>) => Promise<T>
+  upsert: (data: T) => Promise<T>
   update: (id: unknown, patch: Partial<T>) => Promise<T>
   remove: (id: unknown) => Promise<{ id: unknown }>
   reset: () => Promise<T[]>
 }
-type ErasedApi = CollectionApi<CollectionRow>
-type ErasedState = { idKey: string; api: ErasedApi; facade: CollectionApi<CollectionRow>; mergeSeed: (seed: CollectionRow[]) => void }
-const collections = new Map<string, ErasedState>()
-const latency = (): number => { try { const value = localStorage.getItem(`${PREFIX}latency`); return value === null ? 250 : Number(value) } catch { return 250 } }
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-// JSON persistence erases the concrete row type. This is the one boundary at
-// which the schema supplied to createCollection is restored.
-const decode = <T extends CollectionRow>(value: CollectionRow): T => value as T
-const load = <T>(name: string, seed: T[]): T[] => {
-  try { const raw = localStorage.getItem(`${PREFIX}${name}`); if (raw) return JSON.parse(raw) as T[] } catch { /* memory fallback */ }
-  return clone(seed)
+
+type StoredSchema = { idKey: string; identity: string; parse: (value: unknown) => CollectionRow }
+type CollectionState = { schema: StoredSchema; facade: object; mergeSeed: (nextSeed: CollectionRow[]) => void }
+const collections = new Map<string, CollectionState>()
+
+const latency = (): number => {
+  try {
+    const value = localStorage.getItem(`${PREFIX}latency`)
+    return value === null ? 250 : Number(value)
+  } catch { return 250 }
 }
-const save = <T>(name: string, rows: T[]) => localStorage.setItem(`${PREFIX}${name}`, JSON.stringify(rows))
-const mergeRows = <T extends CollectionRow>(current: T[], seed: T[], idKey: string): T[] => {
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+const cloneJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value))
+const cloneRow = (row: CollectionRow): CollectionRow => {
+  const cloned = cloneJson(row)
+  if (typeof cloned !== 'object' || cloned === null || Array.isArray(cloned)) throw new Error('Collection row is not JSON object data')
+  return Object.fromEntries(Object.entries(cloned))
+}
+const save = (name: string, rows: CollectionRow[]): void => { localStorage.setItem(`${PREFIX}${name}`, JSON.stringify(rows)) }
+
+const schemaForStorage = <T extends CollectionRow, K extends keyof T & string>(schema: CollectionSchema<T, K>): StoredSchema => ({
+  idKey: schema.idKey, identity: schema.identity, parse: schema.parse,
+})
+
+const validateRows = (value: unknown, schema: StoredSchema): CollectionRow[] | null => {
+  if (!Array.isArray(value)) return null
+  try { return value.map((row) => schema.parse(row)) } catch { return null }
+}
+
+const load = <T extends CollectionRow>(name: string, seed: T[], schema: StoredSchema): CollectionRow[] => {
+  try {
+    const raw = localStorage.getItem(`${PREFIX}${name}`)
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw)
+      const rows = validateRows(parsed, schema)
+      if (rows) return rows
+      try { localStorage.removeItem(`${PREFIX}${name}`) } catch { /* memory fallback */ }
+    }
+  } catch { /* memory fallback */ }
+  const fallback = seed.map((row) => schema.parse(row))
+  try { save(name, fallback) } catch { /* memory fallback */ }
+  return fallback
+}
+
+const mergeRows = (current: CollectionRow[], seed: CollectionRow[], idKey: string): CollectionRow[] => {
   const existing = new Map(current.map((row) => [String(row[idKey]), row]))
-  const seeded = seed.map((row) => { const saved = existing.get(String(row[idKey])); if (!saved) return clone(row); existing.delete(String(row[idKey])); return { ...clone(row), ...saved } })
+  const seeded = seed.map((row) => {
+    const saved = existing.get(String(row[idKey]))
+    if (!saved) return cloneRow(row)
+    existing.delete(String(row[idKey]))
+    return { ...cloneRow(row), ...saved }
+  })
   return [...seeded, ...existing.values()]
 }
 
-export function createCollection<T extends CollectionRow, K extends keyof T & string>(
-  name: string, seed: T[], { idKey = 'id' as K, nextId }: { idKey?: K; nextId?: (rows: T[]) => T[K] } = {},
-): CollectionApi<T> {
-  const existing = collections.get(name)
-  if (existing) { if (existing.idKey !== idKey) throw new Error(`Collection ${name} already uses idKey ${existing.idKey}`); existing.mergeSeed(seed); return existing.facade as unknown as CollectionApi<T> }
-  let rows = load(name, seed)
-  const persist = (nextRows: T[]) => { save(name, nextRows); rows = nextRows }
-  const run = async <R>(fn: () => R): Promise<R> => { await sleep(latency()); return clone(fn()) }
-  const typed: CollectionApi<T> = {
-    list: (predicate) => run(() => predicate ? rows.filter(predicate) : rows),
-    get: (id) => run(() => { const row = rows.find((item) => String(item[idKey]) === String(id)); if (!row) throw new Error(`Not found: ${name}/${id}`); return row }),
-    create: (data) => run(() => { const row = { ...data, [idKey]: data[idKey] ?? (nextId ? nextId(rows) : String(Date.now())) } as T; if (rows.some((item) => String(item[idKey]) === String(row[idKey]))) throw new Error(`Already exists: ${name}/${row[idKey]}`); persist([row, ...rows]); return row }),
-    upsert: (data) => run(() => { if (data[idKey] == null) throw new Error(`Missing ${idKey}: ${name}`); const index = rows.findIndex((item) => String(item[idKey]) === String(data[idKey])); const row = index < 0 ? { ...data } as T : { ...rows[index], ...data }; persist(index < 0 ? [row, ...rows] : rows.map((item, i) => i === index ? row : item)); return row }),
-    update: (id, patch) => run(() => { let updated: T | undefined; const nextRows = rows.map((row) => String(row[idKey]) === String(id) ? (updated = { ...row, ...patch }) : row); if (!updated) throw new Error(`Not found: ${name}/${id}`); persist(nextRows); return updated }),
-    remove: (id) => run(() => { persist(rows.filter((row) => String(row[idKey]) !== String(id))); return { id } }),
-    reset: () => run(() => { persist(clone(seed)); return rows }),
-  }
-  const facade = typed as unknown as CollectionApi<CollectionRow>
-  const erased: ErasedState = { idKey, api: facade, facade, mergeSeed: (nextSeed) => { const merged = mergeRows(rows, nextSeed as T[], idKey); if (JSON.stringify(merged) !== JSON.stringify(rows)) persist(merged) } }
-  collections.set(name, erased)
-  return typed
+const recordWithId = <T extends CollectionRow, K extends keyof T & string>(data: NewCollectionInput<T, K>, idKey: K, id: T[K]): CollectionRow => ({ ...data, [idKey]: id })
+const schemaMismatch = (name: string, expected: StoredSchema, actual: StoredSchema): Error => new Error(`Collection ${name} schema mismatch: expected ${expected.identity}/${expected.idKey}, received ${actual.identity}/${actual.idKey}`)
+
+export function createCollectionSchema<T extends CollectionRow, K extends keyof T & string>(identity: string, idKey: K, parse: (value: unknown) => T): CollectionSchema<T, K> {
+  return { identity, idKey, parse }
 }
-function typedApi<T extends CollectionRow>(api: ErasedApi): CollectionApi<T> {
-  return { list: (predicate) => api.list(predicate ? (row) => predicate(decode<T>(row)) : undefined).then((rows) => rows.map(decode<T>)), get: (id) => api.get(id).then(decode<T>), create: (data) => api.create(data).then(decode<T>), upsert: (data) => api.upsert(data).then(decode<T>), update: (id, patch) => api.update(id, patch).then(decode<T>), remove: api.remove, reset: () => api.reset().then((rows) => rows.map(decode<T>)) }
+
+export function createCollection<T extends CollectionRow, K extends keyof T & string>(
+  name: string,
+  seed: T[],
+  { schema, nextId }: { schema: CollectionSchema<T, K>; nextId?: (rows: T[]) => T[K] },
+): CollectionApi<T, K> {
+  const storedSchema = schemaForStorage(schema)
+  const existing = collections.get(name)
+  if (existing) {
+    if (existing.schema.identity !== storedSchema.identity || existing.schema.idKey !== storedSchema.idKey) throw schemaMismatch(name, existing.schema, storedSchema)
+    existing.mergeSeed(seed.map((row) => schema.parse(row)))
+    // Safe after the schema identity and id key have been checked above. The
+    // registry keeps this first facade to preserve collection object identity.
+    return existing.facade as CollectionApi<T, K>
+  }
+
+  let rows = load(name, seed, storedSchema)
+  const validatedSeed = seed.map((row) => schema.parse(row))
+  const persist = (nextRows: CollectionRow[]): void => { save(name, nextRows); rows = nextRows }
+  const run = async <R>(fn: () => unknown, parse: (value: unknown) => R): Promise<R> => { await sleep(latency()); return parse(cloneJson(fn())) }
+  const parseRow = (value: unknown): T => schema.parse(value)
+  const readRows = (): T[] => rows.map(parseRow)
+  const typed: CollectionApi<T, K> = {
+    list: (predicate) => run(() => { const result = readRows(); return predicate ? result.filter(predicate) : result }, (value) => {
+      if (!Array.isArray(value)) throw new Error(`Invalid collection result: ${name}`)
+      return value.map(parseRow)
+    }),
+    get: (id) => run(() => { const row = rows.find((item) => String(item[schema.idKey]) === String(id)); if (!row) throw new Error(`Not found: ${name}/${id}`); return row }, parseRow),
+    create: (data) => run(() => {
+      const typedRows = readRows()
+      const id: T[K] = data[schema.idKey] !== undefined
+        ? data[schema.idKey] as T[K]
+        : nextId ? nextId(typedRows) : String(Date.now()) as T[K]
+      const row = parseRow(recordWithId(data, schema.idKey, id))
+      if (rows.some((item) => String(item[schema.idKey]) === String(row[schema.idKey]))) throw new Error(`Already exists: ${name}/${row[schema.idKey]}`)
+      persist([row, ...rows])
+      return row
+    }, parseRow),
+    upsert: (data) => run(() => {
+      const row = parseRow(data)
+      const id = row[schema.idKey]
+      if (id == null) throw new Error(`Missing ${schema.idKey}: ${name}`)
+      const index = rows.findIndex((item) => String(item[schema.idKey]) === String(id))
+      persist(index < 0 ? [row, ...rows] : rows.map((item, i) => i === index ? { ...item, ...row } : item))
+      return row
+    }, parseRow),
+    update: (id, patch) => run(() => {
+      let updated: CollectionRow | undefined
+      const nextRows = rows.map((row) => {
+        if (String(row[schema.idKey]) !== String(id)) return row
+        updated = parseRow({ ...row, ...patch })
+        return updated
+      })
+      if (!updated) throw new Error(`Not found: ${name}/${id}`)
+      persist(nextRows)
+      return updated
+    }, parseRow),
+    remove: async (id) => { await sleep(latency()); persist(rows.filter((row) => String(row[schema.idKey]) !== String(id))); return { id } },
+    reset: () => run(() => { const resetRows = validatedSeed.map(cloneRow); persist(resetRows); return resetRows }, (value) => {
+      if (!Array.isArray(value)) throw new Error(`Invalid collection result: ${name}`)
+      return value.map(parseRow)
+    }),
+  }
+
+  const state: CollectionState = {
+    schema: storedSchema,
+    facade: typed,
+    mergeSeed: (nextSeed) => {
+      const merged = mergeRows(rows, nextSeed, schema.idKey)
+      const validated = merged.map(schema.parse)
+      if (JSON.stringify(validated) !== JSON.stringify(rows)) persist(validated)
+    },
+  }
+  collections.set(name, state)
+  return typed
 }

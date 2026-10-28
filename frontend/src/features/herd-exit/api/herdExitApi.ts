@@ -1,7 +1,8 @@
-import { createCollection } from '../../../api/client'
+import { createCollection, type NewCollectionInput } from '../../../api/client'
 import { cancelCattleExit, confirmCattleExit } from '../../../api/herdDomainApi'
 import { initialExports } from '../data/exportsData'
 import { errorMessage } from '../../../api/herdDomainApi'
+import { herdExitSchema } from '../../../api/collectionSchemas'
 import type { CattleInput, ExitDraft, ExitStatus, ExitType, HerdExit } from '../../../types'
 
 const nextExitId = (rows: HerdExit[]): string => {
@@ -9,7 +10,7 @@ const nextExitId = (rows: HerdExit[]): string => {
   return `PX-2026-${String(max + 1).padStart(4, '0')}`
 }
 
-const herdExits = createCollection('herdExits', initialExports, { nextId: nextExitId })
+const herdExits = createCollection('herdExits', initialExports, { schema: herdExitSchema, nextId: nextExitId })
 const terminalStatuses = new Set(['Đã xuất', 'Đã hủy', 'Đã bác'])
 
 const getExisting = async (id: string): Promise<HerdExit | null> => {
@@ -24,7 +25,7 @@ const getExisting = async (id: string): Promise<HerdExit | null> => {
 export const herdExitApi = {
   list: (predicate?: (row: HerdExit) => boolean) => herdExits.list(predicate),
   get: (id: string) => herdExits.get(id),
-  create: (record: Partial<HerdExit>) => herdExits.create(record),
+  create: (record: NewCollectionInput<HerdExit, 'id'>) => herdExits.create(record),
   update: async (id: string, patch: Partial<HerdExit>) => {
     const current = await herdExits.get(id)
     if (terminalStatuses.has(current.status) && patch.status && patch.status !== current.status) {

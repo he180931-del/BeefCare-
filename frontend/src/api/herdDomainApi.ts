@@ -2,12 +2,13 @@ import { createCollection, type CollectionApi } from './client'
 import { seedPens } from '../data/pensData'
 import { canonicalCattle } from '../data/cattleData'
 import { migrateHerdStorage } from './storageMigrations'
+import { cattleSchema, penSchema } from './collectionSchemas'
 import type { Cattle, Pen, PenCowLink, CattleInput } from '../types'
 
 migrateHerdStorage()
 
-export const cattle = createCollection<Cattle, 'code'>('cattle', canonicalCattle, { idKey: 'code' })
-export const pens = createCollection<Pen, 'code'>('pens', seedPens, { idKey: 'code' })
+export const cattle = createCollection<Cattle, 'code'>('cattle', canonicalCattle, { schema: cattleSchema })
+export const pens = createCollection<Pen, 'code'>('pens', seedPens, { schema: penSchema })
 
 export const errorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message
@@ -17,7 +18,7 @@ export const errorMessage = (error: unknown): string => {
   }
   return String(error)
 }
-const maybeGet = async <T extends Record<string, unknown>>(collection: Pick<CollectionApi<T>, 'get'>, id: unknown): Promise<T | null> => {
+const maybeGet = async <T extends Record<string, unknown>, K extends keyof T & string>(collection: Pick<CollectionApi<T, K>, 'get'>, id: unknown): Promise<T | null> => {
   try {
     return await collection.get(id)
   } catch (error) {
