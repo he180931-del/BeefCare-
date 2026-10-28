@@ -538,6 +538,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -1497,7 +1504,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/ManagedUserVM"
+                "$ref" : "#/components/schemas/RegistrationRequest"
               }
             }
           },
@@ -4246,6 +4253,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -4291,6 +4305,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -4335,6 +4356,13 @@
           "schema" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -5140,6 +5168,100 @@
         }
       }
     },
+    "/api/farms/{farmId}/feed/receipts/{receiptId}/attachments" : {
+      "get" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "listReceiptFiles",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "receiptId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AttachmentDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "uploadReceiptFile",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "receiptId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/feed/rations" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
@@ -5593,6 +5715,100 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/AdjustmentView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/feed/adjustments/{adjustmentId}/attachments" : {
+      "get" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "listAdjustmentFiles",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "adjustmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AttachmentDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "uploadAdjustmentFile",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "adjustmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
                 }
               }
             }
@@ -7542,7 +7758,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "type" : "string"
+                "$ref" : "#/components/schemas/EmailRequest"
               }
             }
           },
@@ -7563,7 +7779,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "type" : "string"
+                "$ref" : "#/components/schemas/EmailRequest"
               }
             }
           },
@@ -9148,6 +9364,98 @@
         }
       }
     },
+    "/api/farms/{farmId}/feed/receipts/{receiptId}/attachments/{attachmentId}" : {
+      "get" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "downloadReceiptFile",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "receiptId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "removeReceiptFile",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "receiptId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/feed/adjustments/{adjustmentId}" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
@@ -9176,6 +9484,98 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/AdjustmentView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/feed/adjustments/{adjustmentId}/attachments/{attachmentId}" : {
+      "get" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "downloadAdjustmentFile",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "adjustmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "feed-attachment-resource" ],
+        "operationId" : "removeAdjustmentFile",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "adjustmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
                 }
               }
             }
@@ -13041,85 +13441,23 @@
         },
         "required" : [ "expectedVersion", "resolutionVersion" ]
       },
-      "ManagedUserVM" : {
+      "RegistrationRequest" : {
         "type" : "object",
         "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "login" : {
-            "type" : "string",
-            "maxLength" : 50,
-            "minLength" : 1,
-            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
-          },
-          "firstName" : {
-            "type" : "string",
-            "maxLength" : 50,
-            "minLength" : 0
-          },
-          "lastName" : {
-            "type" : "string",
-            "maxLength" : 50,
-            "minLength" : 0
+          "fullName" : {
+            "type" : "string"
           },
           "email" : {
-            "type" : "string",
-            "maxLength" : 254,
-            "minLength" : 5
-          },
-          "imageUrl" : {
-            "type" : "string",
-            "maxLength" : 256,
-            "minLength" : 0
-          },
-          "activated" : {
-            "type" : "boolean"
-          },
-          "langKey" : {
-            "type" : "string",
-            "maxLength" : 10,
-            "minLength" : 2
-          },
-          "createdBy" : {
             "type" : "string"
-          },
-          "createdDate" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "lastModifiedBy" : {
-            "type" : "string"
-          },
-          "lastModifiedDate" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "authorities" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            },
-            "uniqueItems" : true
           },
           "password" : {
-            "type" : "string",
-            "maxLength" : 128,
-            "minLength" : 8
+            "type" : "string"
           },
           "confirmPassword" : {
-            "type" : "string",
-            "maxLength" : 128,
-            "minLength" : 8
+            "type" : "string"
           },
           "termsAccepted" : {
             "type" : "boolean"
-          },
-          "fullName" : {
-            "type" : "string",
-            "maxLength" : 255,
-            "minLength" : 0
           }
         }
       },
@@ -15193,6 +15531,29 @@
         },
         "required" : [ "expectedVersion" ]
       },
+      "AttachmentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "contentType" : {
+            "type" : "string"
+          },
+          "fileSize" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "originalFilename" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "RationComponentRequest" : {
         "type" : "object",
         "properties" : {
@@ -15914,29 +16275,6 @@
           }
         }
       },
-      "AttachmentDTO" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "contentType" : {
-            "type" : "string"
-          },
-          "fileSize" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "originalFilename" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
       "ReportView" : {
         "type" : "object",
         "properties" : {
@@ -16598,6 +16936,14 @@
           }
         }
       },
+      "EmailRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string"
+          }
+        }
+      },
       "KeyAndPasswordVM" : {
         "type" : "object",
         "properties" : {
@@ -16608,6 +16954,21 @@
             "type" : "string"
           },
           "confirmPassword" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FarmRoleSummary" : {
+        "type" : "object",
+        "properties" : {
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "role" : {
             "type" : "string"
           }
         }
@@ -16639,6 +17000,15 @@
           },
           "ownerRegistrationCompleted" : {
             "type" : "boolean"
+          },
+          "platformRole" : {
+            "type" : "string"
+          },
+          "farms" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FarmRoleSummary"
+            }
           }
         }
       },
@@ -16646,14 +17016,10 @@
         "type" : "object",
         "properties" : {
           "fullName" : {
-            "type" : "string",
-            "maxLength" : 255,
-            "minLength" : 0
+            "type" : "string"
           },
           "phone" : {
-            "type" : "string",
-            "maxLength" : 255,
-            "minLength" : 0
+            "type" : "string"
           },
           "termsAccepted" : {
             "type" : "boolean"
@@ -16929,6 +17295,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -16938,9 +17307,6 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -16961,14 +17327,14 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "paged" : {
-            "type" : "boolean"
-          },
           "pageNumber" : {
             "type" : "integer",
             "format" : "int32"
           },
           "unpaged" : {
+            "type" : "boolean"
+          },
+          "paged" : {
             "type" : "boolean"
           }
         }
@@ -17034,10 +17400,10 @@
           "empty" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           }
         }
@@ -17103,6 +17469,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -17112,9 +17481,6 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -17236,6 +17602,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -17245,9 +17614,6 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -17320,6 +17686,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -17329,9 +17698,6 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -17366,6 +17732,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -17375,9 +17744,6 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"

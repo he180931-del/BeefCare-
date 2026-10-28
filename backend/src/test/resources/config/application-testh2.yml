@@ -30,6 +30,8 @@ spring:
     contexts: test
 
 beefcare:
+  attachments:
+    local-root: target/test-attachments
   email:
     poll-delay-ms: 60000
     provider: mock

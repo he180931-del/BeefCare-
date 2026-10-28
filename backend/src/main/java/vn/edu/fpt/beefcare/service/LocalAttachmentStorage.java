@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class LocalAttachmentStorage implements AttachmentStorage {
 
-    private static final Pattern KEY = Pattern.compile("[a-f0-9]{2}/[a-f0-9-]{36}\\.(jpg|png)");
+    private static final Pattern KEY = Pattern.compile("[a-f0-9]{2}/[a-f0-9-]{36}\\.(jpg|png|pdf)");
     private final Path root;
 
     public LocalAttachmentStorage(@Value("${beefcare.attachments.local-root:.local-storage}") String root) {

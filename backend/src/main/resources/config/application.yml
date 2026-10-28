@@ -123,8 +123,9 @@ spring:
     name: beefcare
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 6MB
+      # Feed documents may be 10 MB (SCR-79/80); cattle photos are still limited to 5 MB by AttachmentService.
+      max-file-size: 10MB
+      max-request-size: 11MB
   docker:
     compose:
       enabled: true

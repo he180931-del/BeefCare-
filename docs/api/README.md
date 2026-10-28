@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **199 paths, 272 schemas** (regenerated 28 October 2026 evening). To regenerate, run from `backend/`:
+Current contract: **203 paths, 274 schemas** (regenerated 28 October 2026, late). To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -16,6 +16,10 @@ The test writes only to `backend/target/beefcare-openapi.json`; the copy step pu
 ## Browser authentication
 
 Use `credentials: 'include'` on calls. First GET `/api/csrf` and retain the response's `token` and `headerName`. POST JSON `{ "username": "account email", "password": "password", "rememberMe": false }` to `/api/authenticate` with that CSRF header. Success is HTTP 204 and a session cookie. Fetch a fresh CSRF token after login and after logout. Do not put credentials or bearer tokens in localStorage. POST `/api/logout` ends the server session and the frontend clears its selected farm.
+
+Registration is `POST /api/register` with `{ fullName, email, password, confirmPassword, termsAccepted }` (201, no body; the account stays unverified until the e-mailed link is opened, see `GET /api/activate?token=`, which answers 303 to the front end with a session). Forgotten password is `POST /api/account/reset-password/init` and `POST /api/account/verification/resend` with the JSON object `{ "email": "..." }` (always 200, same answer for every address), `GET /api/account/reset-password/validate?token=` (`{valid}`) and `POST /api/account/reset-password/finish` with `{ key, newPassword, confirmPassword }` where `key` is the token from the link. Change password is `POST /api/account/change-password` with `{ currentPassword, newPassword, confirmPassword }`.
+
+Sign-in and account failures carry the SRS code in the body (`{code, params, message, status}`), so the form can map them: `MSG-FE01-01` wrong or unknown e-mail/password (401, identical for both), `MSG-FE01-11` e-mail not verified (401), `MSG-FE01-02` password sign-in locked for 15 minutes after 5 failures (423, `params.time` = ISO instant), `MSG-FE01-03` suspended account (403, `params.email`), `MSG-FE01-06` link expired or used (400), `MSG-FE01-08` / `-09` password rules / confirmation (400, `params.field`), `MSG-FE01-10` e-mail already registered (409), `MSG-FE01-14` terms not accepted (400), `MSG-FE01-16` wrong current password (400). A request without the CSRF header is a bare 403 and an expired or ended session a bare 401 (no body).
 
 Local backend runs at `http://localhost:8080`; the allowed frontend origins are configured with `BEEFCARE_CORS_ORIGINS` (local defaults localhost:5173 and localhost:3000). Keep the hostname consistent; localhost and 127.0.0.1 have different cookies. Production cookies require HTTPS.
 
@@ -35,7 +39,8 @@ Path IDs are numeric internal IDs. Display codes such as `BC-000125`, pen codes 
 
 | Frontend area | API entry points |
 |---|---|
-| Sign in and profile | `/api/csrf`, `/api/authenticate`, `/api/account/**` |
+| Sign in and profile | `/api/csrf`, `/api/authenticate`, `/api/logout`, `/api/register`, `/api/activate`, `/api/account/**` (`profile` GET/POST, `owner-registration`, `change-password`, `reset-password/*`, `verification/resend`) |
+| Members and invitations (Owner) | `/api/farms/{farmId}/members`, `/api/farms/{farmId}/invitations` (+ `/{invitationId}/resend`, `/cancel`; each needs `Idempotency-Key`), `PUT /api/farms/{farmId}/members/{membershipId}`; invitee: `GET/POST /api/invitations/accept` (no key needed, a repeat returns the same membership) |
 | Farm selector and bootstrap | `/api/farms`, `/api/farms/{farmId}/context`, `/catalogues` |
 | Cattle and QR | `/api/farms/{farmId}/cattle`, `/{id}`, `/{id}/profile`, `/{id}/qr-tags`, `/resolve?code=` |
 | Growth | `/api/farms/{farmId}/growth`, `/cattle/{id}/growth` |
@@ -45,12 +50,18 @@ Path IDs are numeric internal IDs. Display codes such as `BC-000125`, pen codes 
 | CS support | `/api/platform/support/tickets` and explicit processing/resolution/closure commands |
 | PM/SA internal requests | `/api/platform/internal-requests`; recipient sees request context only |
 | Feed stock (SCR-77) | `/api/farms/{farmId}/feed/stock`, `/stock/{feedId}/movements`, `/feed/reminders` |
-| Feed receipts (SCR-78/79) | `/api/farms/{farmId}/feed/receipts`, `/{receiptId}/draft`, `/post`, `/void`, `/payments` |
-| Stock adjustment (SCR-80) | `/api/farms/{farmId}/feed/adjustments`, `/{adjustmentId}`, `/{adjustmentId}/draft`, `/{adjustmentId}/post` |
+| Feed receipts (SCR-78/79) | `/api/farms/{farmId}/feed/receipts`, `/{receiptId}/draft`, `/post`, `/void`, `/payments`; files: `/{receiptId}/attachments` (GET list, POST upload) and `/{receiptId}/attachments/{attachmentId}` (GET download, DELETE remove) |
+| Stock adjustment (SCR-80) | `/api/farms/{farmId}/feed/adjustments`, `/{adjustmentId}`, `/{adjustmentId}/draft`, `/{adjustmentId}/post`; files: `/{adjustmentId}/attachments` (GET list, POST upload) and `/{adjustmentId}/attachments/{attachmentId}` (GET download, DELETE remove) |
 | Rations and feeding (SCR-81–84) | `/api/farms/{farmId}/feed/rations`, `/feed/feeding-records`, `/{recordId}/correct`, `/{recordId}/void` |
 | Feed catalogue and report | `/api/farms/{farmId}/feed/catalogue`, `/feed/reports/consumption` |
 | Platform finance (PM) | `/api/platform/finance/records` (+ `/{id}/post`, `/void`, `/discard`, `/replacement`), `/bank-transactions`, `/categories`, `/reports`, `/reports/{id}/xlsx` |
 | Email preview | Mailpit local `http://localhost:8025`; SMTP on localhost:1025 |
+
+### Feed receipt and adjustment attachments
+
+SCR-79 (invoice, delivery note) and SCR-80 (count record, photos). Owner and Manager only; the files belong to a document that already exists, so the screen saves a draft first (`postNow: false`), uploads, then posts. `POST .../attachments` is `multipart/form-data` with one part named `file` and an `Idempotency-Key` header; it returns `AttachmentDTO { id, contentType, fileSize, originalFilename, createdAt }`. Keep the key for a retry of the same file. `GET .../attachments` lists the active files; `GET .../attachments/{id}` returns the bytes with the stored `Content-Type` and `Content-Disposition: attachment` (fetch it with the session cookie and show it through a blob URL); `DELETE .../attachments/{id}` (with `Idempotency-Key`) removes a file. Adding or removing is possible only while the document is a `DRAFT` (409 `MSG-COM-05`, `params.reason` `receipt_is_not_draft` / `adjustment_is_not_draft`); posted or voided documents are read-only but their files can still be listed and downloaded.
+
+Only PDF and JPEG, at most 10 MiB (10 485 760 bytes) per file, judged from the file content: `MSG-COM-10` with `params.field=file` and `params.reason` = `too_large` (HTTP 413), `unsupported_type` or `content_type_mismatch` (415); an empty file or missing part is `MSG-COM-06` (400). The `Content-Type` of the part must match the file (`application/pdf` or `image/jpeg`). The returned `originalFilename` is sanitized and always carries the right extension; display it, do not trust the name you sent. A Technician, another farm, or an id from another farm is `MSG-COM-01` (403) or `MSG-COM-08` (404).
 
 ### Feed stock adjustment flow
 
@@ -64,6 +75,9 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 
 | Date | Change | Frontend impact |
 |---|---|---|
+| 2026-10-28 (late) | New feed document routes: `GET/POST /api/farms/{farmId}/feed/receipts/{receiptId}/attachments`, `GET/DELETE .../receipts/{receiptId}/attachments/{attachmentId}` and the same four under `.../adjustments/{adjustmentId}/attachments` (PDF/JPEG, 10 MiB, DRAFT only for changes). Upload/remove require `Idempotency-Key`. Multipart limits are now 10 MB per file / 11 MB per request. | Additive. Build the SCR-79/80 attachment lists on these routes; do not use `/api/farms/{farmId}/attachments/{id}` for them (it serves only cattle and entry photos). |
+| 2026-10-28 (late) | Invitation and membership commands (`POST .../invitations`, `.../invitations/{id}/resend`, `.../cancel`, `PUT .../members/{id}`) require the `Idempotency-Key` header and replay on a retry. Invitation errors use `MSG-FE03-02/03/04/08/09/20` with params (`email`, `status`, `target`, `value`). | **Breaking** for callers without the header (generic 400). No screen calls these yet. |
+| 2026-10-28 (late) | `POST /api/register` takes `{fullName, email, password, confirmPassword, termsAccepted}` (the old `ManagedUserVM` schema also demanded a `login` name, so the SRS form could not register). `POST /api/account/reset-password/init` and `/api/account/verification/resend` take the JSON object `{email}` (a bare JSON string arrived with its quotes and never matched an account). `ProfileResponse` adds `platformRole` and `farms[{farmId,farmName,role}]`. Sign-in, registration and password failures return `MSG-FE01-xx` codes (see Browser authentication). A SUSPENDED account can now request and finish a password reset. | **Breaking** for the two JSON-string bodies and the register body; additive for the profile fields and error codes. |
 | 2026-10-28 (evening) | `POST /api/farms/{farmId}/feed/adjustments` now creates an adjustment document and returns `AdjustmentView`. It previously posted directly and returned `StockAdjustmentResult`, which is removed. The request adds `postNow` (default `false` = draft). New `GET /adjustments`, `GET/PUT /adjustments/{id}[/draft]`, `POST /adjustments/{id}/post`. | **Breaking.** Send `postNow: true` for the old one-step behaviour and read `AdjustmentView`. No current screen called the old route. |
 | 2026-10-28 (evening) | Platform finance commands require the `Idempotency-Key` header (create, update, discard, post, void, replacement, report run). The amount error is `MSG-FE21-09` and the category/type error is `MSG-FE21-10` (previously `MSG-COM-10`). Report snapshots are available for 30 days (previously 7). | **Breaking** for callers without the header: a missing header is a generic Spring 400 (not a domain message), a blank key is 400 `MSG-COM-19`. |
 | 2026-10-28 (evening) | Feed receipt codes are `PNK-YYYY-nnnn` from a yearly sequence (previously `PNK-YYYY-` + 6-digit database id). Feed errors use `MSG-FE23-03`, `MSG-FE23-05` and `MSG-COM-08` instead of generic codes. | Treat codes as opaque display text; map the new message codes. Existing receipts keep their old codes. |

@@ -130,12 +130,15 @@ public class AttachmentService {
                 .filter(attachmentId::equals)
                 .isPresent();
             if (!current) throw DomainException.notFound(MessageCodes.COM_08, "attachment_id", attachmentId);
-        } else {
+        } else if (attachment.getOwnerType() == AttachmentOwnerType.HERD_ENTRY) {
             access.require(farmId, FarmAction.VIEW_ENTRY_VOUCHERS);
             boolean draft = entryRepository.findByIdAndFarmId(attachment.getOwnerId(), farmId)
                 .filter(entry -> entry.getStatus() == EntryLineStatus.DRAFT)
                 .isPresent();
             if (!draft) throw DomainException.notFound(MessageCodes.COM_08, "attachment_id", attachmentId);
+        } else {
+            // Feed documents (and any later owner type) are served only by their own routes, with their own permission checks.
+            throw DomainException.notFound(MessageCodes.COM_08, "attachment_id", attachmentId);
         }
         try {
             return new StoredPhoto(attachment.getContentType(), storage.open(attachment.getStorageKey()));
@@ -164,9 +167,17 @@ public class AttachmentService {
     }
 
     private Attachment create(Long farmId, AttachmentOwnerType ownerType, Long ownerId, Photo photo) {
+        return store(farmId, ownerType, ownerId, photo.bytes, photo.contentType, photo.extension, photo.filename);
+    }
+
+    /**
+     * Writes already-validated bytes to the private store under an opaque key and records the metadata row. The stored file is
+     * removed again if the surrounding transaction rolls back. The caller owns type, size and authorization checks.
+     */
+    public Attachment store(Long farmId, AttachmentOwnerType ownerType, Long ownerId, byte[] bytes, String contentType, String extension, String filename) {
         String id = UUID.randomUUID().toString();
-        String key = id.substring(0, 2) + "/" + id + photo.extension;
-        try (var content = new ByteArrayInputStream(photo.bytes)) {
+        String key = id.substring(0, 2) + "/" + id + extension;
+        try (var content = new ByteArrayInputStream(bytes)) {
             storage.store(key, content);
         } catch (IOException error) {
             throw new IllegalStateException("Unable to store attachment content", error);
@@ -186,9 +197,9 @@ public class AttachmentService {
         attachment.setOwnerType(ownerType);
         attachment.setOwnerId(ownerId);
         attachment.setStorageKey(key);
-        attachment.setOriginalFilename(safeFilename(photo.filename));
-        attachment.setContentType(photo.contentType);
-        attachment.setFileSize((long) photo.bytes.length);
+        attachment.setOriginalFilename(safeFilename(filename));
+        attachment.setContentType(contentType);
+        attachment.setFileSize((long) bytes.length);
         attachment.setCreatedAt(Instant.now());
         attachments.save(attachment);
         return attachment;

@@ -44,13 +44,13 @@ public class Attachment implements Serializable {
 
     @NotNull
     @Size(max = 100)
-    @Pattern(regexp = "image/(jpeg|png)")
+    @Pattern(regexp = "image/(jpeg|png)|application/pdf") // photos: JPEG/PNG; feed documents (SCR-79/80): JPEG or PDF. Per-owner rules are in the services.
     @Column(name = "content_type", length = 100, nullable = false)
     private String contentType;
 
     @NotNull
     @Min(1)
-    @Max(5_242_880)
+    @Max(10_485_760) // photos stay at 5 MB in AttachmentService; feed documents may be 10 MB
     @Column(name = "file_size", nullable = false)
     private Long fileSize;
 
