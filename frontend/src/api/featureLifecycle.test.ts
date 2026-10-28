@@ -7,7 +7,16 @@ const memoryStorage = () => new MemoryStorage({ 'beefcare:latency': '0' })
 test('entry API generates IDs and preserves complete editable drafts', async () => {
   globalThis.localStorage = memoryStorage()
   const { getEntryDraftState, herdEntryApi } = await import(`../features/herd-entry/api/herdEntryApi.ts?entry-draft=${Date.now()}`)
-  const draft = { type: 'Mua ngoài', date: '2026-10-28', cows: [{ tag: 'VN-X', barn: 'A1', weight: 200 }], docs: [{ name: 'kd.pdf' }] }
+  const draft = {
+    type: 'Mua ngoài' as const,
+    date: '2026-10-28',
+    cows: [{
+      tag: 'VN-X', name: '', breed: 'Lai Sind', sex: 'Cái', dob: '2025-04', dobAccuracy: 'Ước tính',
+      stage: 'Bò tơ', purpose: 'Bò sinh sản · loại Sinh sản', weight: 200, estimated: false, barn: 'A1', unitPrice: 85000,
+      hist: { vaccine: 'Không rõ', vaccineNote: '', disease: 'Không rõ', repro: 'Không rõ' },
+    }],
+    docs: [{ name: 'kd.pdf' }],
+  }
 
   const created = await herdEntryApi.create({ type: 'Mua ngoài', status: 'Nháp', draft })
   assert.equal(created.id, 'PN-2026-0014')

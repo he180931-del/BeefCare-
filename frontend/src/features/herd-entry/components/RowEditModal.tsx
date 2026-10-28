@@ -4,12 +4,12 @@ import { Field, KV, Note, Radio, Select, Table, Td, Th, inputCls } from '../../.
 import { BREEDS, PURPOSE_OPTIONS, STAGES, ageOf } from '../data/importsData'
 import { money } from '../../../data/format'
 import { RadioRow } from './parts'
-import type { Pen } from '../../../types'
+import type { EntryCow, Pen } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const HIST_OPTIONS = ['Có', 'Không', 'Không rõ']
 const ACCURACY = { 'Chính xác': 'Chính xác', 'Ước tính': 'Ước tính', 'Không rõ': 'Không rõ' }
-type EditCow = { tag: string; name: string; breed: string; sex: string; dob: string; dobAccuracy: string; stage: string; purpose: string; weight: number; estimated: boolean; barn: string; unitPrice: number; hist: { vaccine: string; vaccineNote?: string; disease: string; repro: string }; [key: string]: unknown }
+type EditCow = EntryCow
 
 /**
  * Sửa một con trong phiếu nhập. `others` là các con khác trong phiếu (để kiểm tra sức chứa chuồng).

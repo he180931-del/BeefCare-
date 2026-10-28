@@ -3,7 +3,7 @@ import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Button, Table, Td, Th, Note } from '../../../components/ui'
 import { EXCEL_ROWS, TODAY, blankCow } from '../data/importsData'
 import { kg } from '../../../data/format'
-import type { CattleDetail } from '../../../types'
+import type { EntryCow } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
@@ -14,7 +14,7 @@ const dobFromAge12 = (dateIso: string): string => {
 }
 
 /** Nhập nhiều con từ tệp Excel. Chỉ các dòng ok/warn được thêm; onAdd(cows[]) nhận danh sách con. */
-export default function ExcelModal({ recordId, onAdd, onClose }: { recordId: string; onAdd: (cows: CattleDetail[]) => void; onClose: () => void }) {
+export default function ExcelModal({ recordId, onAdd, onClose }: { recordId: string; onAdd: (cows: EntryCow[]) => void; onClose: () => void }) {
   const [rows] = useState(EXCEL_ROWS)
   const valid = rows.filter((r) => r.result.tone !== 'err')
   const bad = rows.length - valid.length

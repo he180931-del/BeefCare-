@@ -65,6 +65,59 @@ export interface CattleDetail {
   [key: string]: unknown
 }
 
+export interface EntryCow {
+  code?: CattleCode
+  tag: string
+  name: string
+  breed: string
+  sex: string
+  dob: string
+  dobAccuracy: string
+  stage: string
+  group?: string
+  purpose: string
+  ageMonths?: number
+  weight: number
+  estimated: boolean
+  barn: PenCode
+  unitPrice: number
+  hist: { vaccine: string; vaccineNote?: string; disease: string; repro: string }
+  [key: string]: unknown
+}
+
+export interface EntryCalf {
+  name: string
+  tag: string
+  mother: string
+  father: string
+  born: string
+  sex: string
+  weight: number
+  estimated: boolean
+  purpose: string
+  picked: boolean
+  barn: string
+  [key: string]: unknown
+}
+
+export interface ExitDraftCow {
+  code: CattleCode
+  tag?: string
+  breed?: string
+  sex?: string
+  age?: string
+  group?: string
+  stage?: string
+  barn?: string
+  weightNote?: string
+  withdrawalUntil?: string
+  openCase?: string
+  weight: number
+  unitPrice: number
+  estimated: boolean
+  [key: string]: unknown
+}
+
 export interface DocumentRow { ext?: string; name: string; [key: string]: unknown }
 export interface Payment { date: string; by: string; method: string; ref: string; amount: number; [key: string]: unknown }
 
@@ -87,8 +140,8 @@ export interface EntryDetail {
 export interface EntryDraft {
   type?: EntryType
   date?: string
-  cows?: CattleDetail[]
-  calves?: Array<{ name: string; tag: string; mother: string; father: string; born: string; sex: string; weight: number; estimated: boolean; purpose: string; picked: boolean; barn: string }>
+  cows?: EntryCow[]
+  calves?: EntryCalf[]
   pricing?: 'kg' | 'con'
   sourceId?: string
   quarantine?: string
@@ -154,7 +207,7 @@ export interface ExitDraft {
   collected?: number
   method?: string
   dueDate?: string
-  cows?: Array<CattleDetail & { unitPrice?: number; estimated?: boolean }>
+  cows?: ExitDraftCow[]
   docs?: DocumentRow[]
   [key: string]: unknown
 }

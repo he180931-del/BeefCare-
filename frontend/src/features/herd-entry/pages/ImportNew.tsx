@@ -11,14 +11,14 @@ import { dmy, money } from '../../../data/format'
 import { GhostMoney, GhostSelect, RadioRow } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
-import type { HerdEntry, Pen } from '../../../types'
+import type { EntryCalf, EntryCow, HerdEntry, Pen } from '../../../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'
 const KIND_CALF = 'Bê sinh tại trại'
 const PURPOSE_CHOICES = PURPOSES.map((p) => ({ value: p, label: p }))
-type EntryCow = { code?: string; tag: string; name?: string; breed?: string; sex: string; dob?: string; dobAccuracy?: string; stage?: string; group?: string; purpose?: string; ageMonths?: number; weight: number; estimated: boolean; barn: string; unitPrice?: number; hist?: { vaccine: string; vaccineNote?: string; disease: string; repro: string }; [key: string]: unknown }
-type Calf = { name: string; tag: string; mother: string; father: string; born: string; sex: string; weight: number; estimated: boolean; purpose: string; picked: boolean; barn: string }
+type EntryInput = Pick<EntryCow, 'code' | 'tag' | 'breed' | 'sex' | 'weight' | 'barn'> & { [key: string]: unknown }
+type Calf = EntryCalf
 const barnLabel = (b: Pen & { showName?: boolean }) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` : b.code)
 const num = (v: unknown) => Number(v) || 0
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
@@ -64,8 +64,8 @@ function ImportForm({ imports, canonicalPens }: { imports: HerdEntry[]; canonica
   const [quarantine, setQuarantine] = useState(draft?.quarantine ?? '')
   const [receiver, setReceiver] = useState(draft?.receiver ?? 'Anh A')
   const [note, setNote] = useState(draft?.note ?? '')
-  const [cows, setCows] = useState<EntryCow[]>((draft?.cows ?? INITIAL_COWS) as EntryCow[])
-  const [calves, setCalves] = useState<Calf[]>((draft?.calves ?? initialCalves) as Calf[])
+  const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? INITIAL_COWS)
+  const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? initialCalves)
   const [freight, setFreight] = useState(draft?.freight ?? 1500000)
   const [paid, setPaid] = useState(draft?.paid ?? 40000000)
   const [method, setMethod] = useState(draft?.method ?? PAY_METHODS[0])
@@ -98,7 +98,7 @@ function ImportForm({ imports, canonicalPens }: { imports: HerdEntry[]; canonica
     const editableDraft = {
       pricing, sourceId, date, quarantine, receiver, note, cows, calves, freight, paid, method, due, printQr,
     }
-    const inputs: EntryCow[] = isBuy
+    const inputs: EntryInput[] = isBuy
       ? cows.map((cow) => ({ ...cow, date }))
       : picked.map((calf) => ({ ...calf, breed: calf.sex === 'Đực' ? 'Bê đực' : 'Bê cái', unitPrice: 0, ageMonths: 0, stage: 'Bê', group: 'Bê', date: calf.born }))
     const record: Partial<HerdEntry> = isBuy
@@ -420,13 +420,13 @@ function ImportForm({ imports, canonicalPens }: { imports: HerdEntry[]; canonica
       {isBuy && editing >= 0 && (
         <RowEditModal
           key={editing}
-          cow={{ name: '', dob: '', dobAccuracy: 'Không rõ', stage: '', purpose: '', hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' }, unitPrice: 0, breed: '', ...cows[editing] }}
+          cow={cows[editing]}
           index={editing}
           recordId={recordId}
           dateIso={date}
           pricing={pricing}
           pens={importBarns}
-          others={cows.filter((_, idx) => idx !== editing).map((cow) => ({ name: '', dob: '', dobAccuracy: 'Không rõ', stage: '', purpose: '', hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' }, unitPrice: 0, breed: '', ...cow }))}
+          others={cows.filter((_, idx) => idx !== editing)}
           onSave={(next) => { patchCow(editing, next); closeModal() }}
           onRemove={() => { setCows(cows.filter((_, idx) => idx !== editing)); closeModal() }}
           onClose={closeModal}

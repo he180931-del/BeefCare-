@@ -10,16 +10,16 @@ import { getExitDraftState, herdExitApi, saveHerdExit, pens } from '../api/index
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { Box, CheckList, DocRow, Drop, MoneyInput, SummaryCard, TH, cx } from '../components/parts'
 import PickModal from '../components/PickModal'
-import type { HerdExit, ExitType } from '../../../types'
+import type { ExitDraftCow, HerdExit, ExitType } from '../../../types'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; stage: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string }
 const herdByCode = (code: string) => EXPORT_HERD.find((c) => c.code === code)
-const normalizeHerdCow = (cow: NonNullable<NonNullable<HerdExit['draft']>['cows']>[number]): HerdCow => {
-  const base = herdByCode(cow.code ?? '')
+const normalizeHerdCow = (cow: ExitDraftCow): HerdCow => {
+  const base = herdByCode(cow.code)
   return {
-    code: cow.code ?? '',
+    code: cow.code,
     tag: cow.tag ?? base?.tag ?? '',
     breed: cow.breed ?? base?.breed ?? '',
     sex: cow.sex ?? base?.sex ?? '',

@@ -101,6 +101,31 @@ test('malformed nested entry and exit JSON is repaired before UI consumers read 
   assert.deepEqual(await exits.list(), [{ id: 'SEED', status: 'Nháp' }])
 })
 
+test('entry and exit draft cow rows require their exact form fields', async () => {
+  const entryCases: Array<{ name: string; bad: CollectionRow }> = [
+    { name: `entry-empty-cow-${Date.now()}`, bad: { id: 'BAD', status: 'Nháp', draft: { cows: [{}] } } },
+    { name: `entry-missing-hist-${Date.now()}`, bad: { id: 'BAD', status: 'Nháp', draft: { cows: [{ tag: '', name: '', breed: '', sex: '', dob: '', dobAccuracy: '', stage: '', purpose: '', weight: 0, estimated: false, barn: '', unitPrice: 0 }] } } },
+    { name: `entry-malformed-hist-${Date.now()}`, bad: { id: 'BAD', status: 'Nháp', draft: { cows: [{ tag: '', name: '', breed: '', sex: '', dob: '', dobAccuracy: '', stage: '', purpose: '', weight: 0, estimated: false, barn: '', unitPrice: 0, hist: { vaccine: 'Có', disease: 'Không rõ', repro: 7 } }] } } },
+    { name: `entry-bad-calf-${Date.now()}`, bad: { id: 'BAD', status: 'Nháp', draft: { calves: [{}] } } },
+  ]
+  for (const item of entryCases) {
+    const seed: HerdEntry = { id: 'SEED', status: 'Nháp' }
+    globalThis.localStorage = new MemoryStorage({ [`beefcare:${item.name}`]: JSON.stringify([item.bad]) })
+    const collection = createCollection(item.name, [seed], { schema: herdEntrySchema })
+    assert.deepEqual(await collection.list(), [seed], 'entry')
+  }
+  const exitCases: Array<{ name: string; bad: CollectionRow }> = [
+    { name: `exit-empty-cow-${Date.now()}`, bad: { id: 'BAD', status: 'Nháp', draft: { cows: [{}] } } },
+    { name: `exit-bad-cow-${Date.now()}`, bad: { id: 'BAD', status: 'Nháp', draft: { cows: [{ code: 'BC-1', weight: 1, unitPrice: {}, estimated: false }] } } },
+  ]
+  for (const item of exitCases) {
+    const seed: HerdExit = { id: 'SEED', status: 'Nháp' }
+    globalThis.localStorage = new MemoryStorage({ [`beefcare:${item.name}`]: JSON.stringify([item.bad]) })
+    const collection = createCollection(item.name, [seed], { schema: herdExitSchema })
+    assert.deepEqual(await collection.list(), [seed], 'exit')
+  }
+})
+
 test('malformed cattle history containers and elements are repaired before lifecycle code reads them', async () => {
   const seed: Cattle = { code: 'SEED-COW', barn: null, status: 'ACTIVE', events: [], barnHistory: [], qrHistory: [] }
   const cases: CollectionRow[] = [

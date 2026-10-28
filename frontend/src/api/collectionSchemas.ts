@@ -1,5 +1,5 @@
 import { createCollectionSchema, type CollectionRow, type CollectionSchema } from './client'
-import type { Cattle, HerdEntry, HerdExit, Pen } from '../types'
+import type { Cattle, DocumentRow, EntryCalf, EntryCow, EntryDraft, ExitDraft, ExitDraftCow, HerdEntry, HerdExit, Pen } from '../types'
 
 export const asRecord = (value: unknown, label: string): CollectionRow => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(`Invalid ${label}: expected object`)
@@ -14,6 +14,13 @@ const requiredString = (row: CollectionRow, key: string, label: string): string 
 const stringValue = (row: CollectionRow, key: string, label: string): string => {
   if (typeof row[key] !== 'string') throw new Error(`Invalid ${label}: ${key}`)
   return row[key]
+}
+
+const optionalStringValue = (row: CollectionRow, key: string, label: string): string | undefined => {
+  const value = row[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'string') throw new Error(`Invalid ${label}: ${key}`)
+  return value
 }
 
 const optionalString = (row: CollectionRow, key: string, label: string): void => {
@@ -45,8 +52,13 @@ const optionalObjectOrNull = (row: CollectionRow, key: string, label: string): C
   return asRecord(row[key], label)
 }
 
-const enumValue = (row: CollectionRow, key: string, values: readonly string[], label: string): void => {
-  if (row[key] !== undefined && (typeof row[key] !== 'string' || !values.includes(row[key]))) throw new Error(`Invalid ${label}: ${key}`)
+const enumValue = <T extends string>(row: CollectionRow, key: string, values: readonly T[], label: string): T | undefined => {
+  const value = row[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'string') throw new Error(`Invalid ${label}: ${key}`)
+  const match = values.find((candidate) => candidate === value)
+  if (match === undefined) throw new Error(`Invalid ${label}: ${key}`)
+  return match
 }
 
 const stringArray = (value: unknown, label: string): string[] => {
@@ -89,11 +101,11 @@ const validateCare = (value: unknown): void => {
   }
 }
 
-const parseDocument = (value: unknown): CollectionRow => {
+const parseDocument = (value: unknown): DocumentRow => {
   const row = asRecord(value, 'document')
-  requiredString(row, 'name', 'document')
+  const name = requiredString(row, 'name', 'document')
   optionalString(row, 'ext', 'document')
-  return row
+  return { ...row, name }
 }
 
 const parsePayment = (value: unknown): CollectionRow => {
@@ -148,26 +160,72 @@ const parseEntryDetail = (value: unknown): CollectionRow => {
   return row
 }
 
-const parseCalf = (value: unknown): CollectionRow => {
+const parseCalf = (value: unknown): EntryCalf => {
   const row = asRecord(value, 'entry draft calf')
-  for (const key of ['name', 'tag', 'mother', 'father', 'born', 'sex', 'purpose', 'barn']) stringValue(row, key, 'entry draft calf')
+  const name = stringValue(row, 'name', 'entry draft calf')
+  const tag = stringValue(row, 'tag', 'entry draft calf')
+  const mother = stringValue(row, 'mother', 'entry draft calf')
+  const father = stringValue(row, 'father', 'entry draft calf')
+  const born = stringValue(row, 'born', 'entry draft calf')
+  const sex = stringValue(row, 'sex', 'entry draft calf')
+  const purpose = stringValue(row, 'purpose', 'entry draft calf')
+  const barn = stringValue(row, 'barn', 'entry draft calf')
   if (typeof row.weight !== 'number') throw new Error('Invalid entry draft calf: weight')
   if (typeof row.estimated !== 'boolean') throw new Error('Invalid entry draft calf: estimated')
   if (typeof row.picked !== 'boolean') throw new Error('Invalid entry draft calf: picked')
-  return row
+  const parsed: EntryCalf = { ...row, name, tag, mother, father, born, sex, weight: row.weight, estimated: row.estimated, purpose, picked: row.picked, barn }
+  return parsed
 }
 
-const parseEntryDraft = (value: unknown): CollectionRow => {
+const parseEntryCow = (value: unknown): EntryCow => {
+  const row = asRecord(value, 'entry draft cow')
+  const tag = stringValue(row, 'tag', 'entry draft cow')
+  const name = stringValue(row, 'name', 'entry draft cow')
+  const breed = stringValue(row, 'breed', 'entry draft cow')
+  const sex = stringValue(row, 'sex', 'entry draft cow')
+  const dob = stringValue(row, 'dob', 'entry draft cow')
+  const dobAccuracy = stringValue(row, 'dobAccuracy', 'entry draft cow')
+  const stage = stringValue(row, 'stage', 'entry draft cow')
+  const purpose = stringValue(row, 'purpose', 'entry draft cow')
+  const barn = stringValue(row, 'barn', 'entry draft cow')
+  const code = optionalStringValue(row, 'code', 'entry draft cow')
+  optionalString(row, 'group', 'entry draft cow')
+  optionalNumber(row, 'ageMonths', 'entry draft cow')
+  if (typeof row.weight !== 'number') throw new Error('Invalid entry draft cow: weight')
+  if (typeof row.estimated !== 'boolean') throw new Error('Invalid entry draft cow: estimated')
+  if (typeof row.unitPrice !== 'number') throw new Error('Invalid entry draft cow: unitPrice')
+  const hist = asRecord(row.hist, 'entry draft cow hist')
+  const vaccineNote = optionalStringValue(hist, 'vaccineNote', 'entry draft cow hist')
+  const parsedHist = {
+    ...hist,
+    vaccine: requiredString(hist, 'vaccine', 'entry draft cow hist'),
+    disease: requiredString(hist, 'disease', 'entry draft cow hist'),
+    repro: requiredString(hist, 'repro', 'entry draft cow hist'),
+    ...(vaccineNote !== undefined ? { vaccineNote } : {}),
+  }
+  const parsed: EntryCow = { ...row, ...(code !== undefined ? { code } : {}), tag, name, breed, sex, dob, dobAccuracy, stage, purpose, weight: row.weight, estimated: row.estimated, barn, unitPrice: row.unitPrice, hist: parsedHist }
+  return parsed
+}
+
+const parseEntryDraft = (value: unknown): EntryDraft => {
   const row = asRecord(value, 'entry draft')
-  enumValue(row, 'type', ['Mua ngoài', 'Bê sinh tại trại'], 'entry draft')
-  enumValue(row, 'pricing', ['kg', 'con'], 'entry draft')
+  const type = enumValue(row, 'type', ['Mua ngoài', 'Bê sinh tại trại'] as const, 'entry draft')
+  const pricing = enumValue(row, 'pricing', ['kg', 'con'] as const, 'entry draft')
   for (const key of ['date', 'sourceId', 'quarantine', 'receiver', 'note', 'method', 'due']) optionalString(row, key, 'entry draft')
   for (const key of ['freight', 'paid']) optionalNumber(row, key, 'entry draft')
   optionalBoolean(row, 'printQr', 'entry draft')
-  optionalArray(row, 'cows', parseCattleDetail, 'entry draft')
-  optionalArray(row, 'calves', parseCalf, 'entry draft')
-  optionalArray(row, 'docs', parseDocument, 'entry draft')
-  return row
+  const cows = optionalArray(row, 'cows', parseEntryCow, 'entry draft')
+  const calves = optionalArray(row, 'calves', parseCalf, 'entry draft')
+  const docs = optionalArray(row, 'docs', parseDocument, 'entry draft')
+  const parsed: EntryDraft = {
+    ...row,
+    ...(type !== undefined ? { type } : {}),
+    ...(pricing !== undefined ? { pricing } : {}),
+    ...(cows !== undefined ? { cows } : {}),
+    ...(calves !== undefined ? { calves } : {}),
+    ...(docs !== undefined ? { docs } : {}),
+  }
+  return parsed
 }
 
 const parseExitDetail = (value: unknown): CollectionRow => {
@@ -187,22 +245,32 @@ const parseExitDetail = (value: unknown): CollectionRow => {
   return row
 }
 
-const parseExitDraftCow = (value: unknown): CollectionRow => {
-  const row = parseCattleDetail(value)
-  optionalNumber(row, 'unitPrice', 'exit draft cow')
-  optionalBoolean(row, 'estimated', 'exit draft cow')
-  return row
+const parseExitDraftCow = (value: unknown): ExitDraftCow => {
+  const row = asRecord(value, 'exit draft cow')
+  const code = requiredString(row, 'code', 'exit draft cow')
+  for (const key of ['tag', 'breed', 'sex', 'age', 'group', 'stage', 'barn', 'weightNote', 'withdrawalUntil', 'openCase']) optionalString(row, key, 'exit draft cow')
+  if (typeof row.weight !== 'number') throw new Error('Invalid exit draft cow: weight')
+  if (typeof row.unitPrice !== 'number') throw new Error('Invalid exit draft cow: unitPrice')
+  if (typeof row.estimated !== 'boolean') throw new Error('Invalid exit draft cow: estimated')
+  return { ...row, code, weight: row.weight, unitPrice: row.unitPrice, estimated: row.estimated }
 }
 
-const parseExitDraft = (value: unknown): CollectionRow => {
+const parseExitDraft = (value: unknown): ExitDraft => {
   const row = asRecord(value, 'exit draft')
-  enumValue(row, 'type', ['Bán', 'Chết / mất', 'Loại thải', 'Khác'], 'exit draft')
-  enumValue(row, 'pricing', ['kg', 'con'], 'exit draft')
+  const type = enumValue(row, 'type', ['Bán', 'Chết / mất', 'Loại thải', 'Khác'] as const, 'exit draft')
+  const pricing = enumValue(row, 'pricing', ['kg', 'con'] as const, 'exit draft')
   for (const key of ['date', 'buyerId', 'quarantine', 'plate', 'note', 'method', 'dueDate']) optionalString(row, key, 'exit draft')
   for (const key of ['deduction', 'collected']) optionalNumber(row, key, 'exit draft')
-  optionalArray(row, 'cows', parseExitDraftCow, 'exit draft')
-  optionalArray(row, 'docs', parseDocument, 'exit draft')
-  return row
+  const cows = optionalArray(row, 'cows', parseExitDraftCow, 'exit draft')
+  const docs = optionalArray(row, 'docs', parseDocument, 'exit draft')
+  const parsed: ExitDraft = {
+    ...row,
+    ...(type !== undefined ? { type } : {}),
+    ...(pricing !== undefined ? { pricing } : {}),
+    ...(cows !== undefined ? { cows } : {}),
+    ...(docs !== undefined ? { docs } : {}),
+  }
+  return parsed
 }
 
 export const parseCattle = (value: unknown): Cattle => {
