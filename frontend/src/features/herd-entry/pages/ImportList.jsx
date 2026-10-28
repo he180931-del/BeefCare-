@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Button, Foot, PageHeader, Segmented, StatusBadge, Table, Th, Td, Tile, inputCls } from '../../../components/ui'
-import { useStore } from '../../../data/store'
+import { herdEntryApi } from '../api/index.js'
+import { useQuery } from '../../../hooks/useApi'
 import { dmy, kg, money } from '../../../data/format'
 
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 
 export default function ImportList() {
-  const { imports } = useStore()
+  const { data: imports = [], loading, error } = useQuery(() => herdEntryApi.list(), [])
   const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [type, setType] = useState('')
@@ -19,6 +20,9 @@ export default function ImportList() {
   const bought = done.filter((r) => r.type === 'Mua ngoài')
   const owed = done.filter((r) => r.debt > 0)
   const sum = (list, f) => list.reduce((s, r) => s + f(r), 0)
+
+  if (loading) return <Layout title="Phiếu nhập – Danh sách" user="manager"><p className="text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
+  if (error) return <Layout title="Phiếu nhập – Danh sách" user="manager"><p className="text-xs text-err-fg">Không tải được phiếu nhập: {error.message}</p></Layout>
 
   return (
     <Layout title="Phiếu nhập – Danh sách" user="manager">

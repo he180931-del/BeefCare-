@@ -2,39 +2,46 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
-import { useStore } from '../../../data/store'
-import { BARNS, CALF_BARN, GROUPS, PAY_METHODS, PURPOSES, SOURCES, initialCalves } from '../../../data/mock'
+import { herdEntryApi, saveHerdEntry } from '../api/index.js'
+import { useMutation, useQuery } from '../../../hooks/useApi'
+import { BARNS, CALF_BARN, GROUPS, PAY_METHODS, PURPOSES, SOURCES, initialCalves, INITIAL_COWS } from '../data/entryData.js'
 import { dmy, money } from '../../../data/format'
 
 const blankCow = () => ({ tag: '', breed: '', sex: 'Cái', group: 'Chưa xác định', ageMonths: 12, weight: 0, estimated: false, barn: 'A1', unitPrice: 0 })
 const num = (v) => (v === '' ? 0 : Number(v))
 
 export default function ImportNew() {
-  const { imports, addImport } = useStore()
+  const { data: imports = [], loading, error } = useQuery(() => herdEntryApi.list(), [])
+  if (loading) return <Layout title="Phiếu nhập mới" user="manager"><p className="text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
+  if (error) return <Layout title="Phiếu nhập mới" user="manager"><p className="text-xs text-err-fg">Không tải được phiếu nhập: {error.message}</p></Layout>
+  const draftRow = imports.find((row) => row.status === 'Nháp')
+  return <ImportForm key={draftRow?.id ?? 'new'} imports={imports} draftRow={draftRow} />
+}
+
+function ImportForm({ imports, draftRow }) {
+  const { mutate: persist } = useMutation(saveHerdEntry)
   const nav = useNavigate()
-  const [kind, setKind] = useState('Mua ngoài')
-  const [pricing, setPricing] = useState('kg')
-  const [sourceId, setSourceId] = useState(SOURCES[0].id)
-  const [date, setDate] = useState('2026-10-22')
-  const [quarantine, setQuarantine] = useState('')
-  const [receiver, setReceiver] = useState('Anh A')
-  const [note, setNote] = useState('Bê đẻ tháng 10 – đã gắn thẻ tai tại chuồng A3')
+  const draft = draftRow?.draft ?? {}
+  const [kind, setKind] = useState(draft.type ?? draftRow?.type ?? 'Mua ngoài')
+  const [pricing, setPricing] = useState(draft.pricing ?? 'kg')
+  const [sourceId, setSourceId] = useState(draft.sourceId ?? SOURCES[0].id)
+  const [date, setDate] = useState(draft.date ?? '2026-10-22')
+  const [quarantine, setQuarantine] = useState(draft.quarantine ?? '')
+  const [receiver, setReceiver] = useState(draft.receiver ?? 'Anh A')
+  const [note, setNote] = useState(draft.note ?? 'Bê đẻ tháng 10 – đã gắn thẻ tai tại chuồng A3')
   const [editing, setEditing] = useState(null)
-  const [calves, setCalves] = useState(initialCalves)
-  const [cows, setCows] = useState([
-    { tag: 'VN-0503', breed: 'Lai Sind', sex: 'Cái', group: 'Bò tơ', ageMonths: 18, weight: 236, estimated: true, barn: 'A1', unitPrice: 85000 },
-    { tag: 'VN-0504', breed: 'Brahman lai', sex: 'Đực', group: 'Vỗ béo', ageMonths: 14, weight: 285, estimated: false, barn: 'B1', unitPrice: 85000 },
-    { tag: '', breed: 'Zebu', sex: 'Cái', group: 'Chưa xác định', ageMonths: 12, weight: 198, estimated: true, barn: 'C1', unitPrice: 80000 },
-  ])
-  const [freight, setFreight] = useState(1500000)
-  const [paid, setPaid] = useState(40000000)
-  const [method, setMethod] = useState(PAY_METHODS[0])
-  const [due, setDue] = useState('2026-11-05')
-  const [printQr, setPrintQr] = useState(true)
+  const [calves, setCalves] = useState(draft.calves ?? initialCalves)
+  const [cows, setCows] = useState(draft.cows ?? INITIAL_COWS)
+  const [freight, setFreight] = useState(draft.freight ?? 1500000)
+  const [paid, setPaid] = useState(draft.paid ?? 40000000)
+  const [method, setMethod] = useState(draft.method ?? PAY_METHODS[0])
+  const [due, setDue] = useState(draft.due ?? '2026-11-05')
+  const [printQr, setPrintQr] = useState(draft.printQr ?? true)
+  const [docs] = useState(draft.docs ?? [{ ext: 'PDF', name: 'giay-kiem-dich.pdf' }])
 
   const isBuy = kind === 'Mua ngoài'
   const source = SOURCES.find((s) => s.id === sourceId)
-  const nextId = `PN-2026-${String(Math.max(...imports.map((r) => Number(r.id.split('-')[2]))) + 1).padStart(4, '0')}`
+  const nextId = draftRow?.id ?? `PN-2026-${String(Math.max(0, ...imports.map((r) => Number(r.id.split('-')[2]) || 0)) + 1).padStart(4, '0')}`
 
   const patch = (i, p) => setCows(cows.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
   const amount = (c) => (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice)
@@ -55,8 +62,8 @@ export default function ImportNew() {
   const barnAfter = BARNS.map((b) => ({ ...b, after: b.count + cows.filter((c) => c.barn === b.code).length })).filter((b) => b.after !== b.count)
   const overflow = barnAfter.filter((b) => b.after > b.capacity)
 
-  const save = (status) => {
-    addImport({
+  const save = async (status) => {
+    const record = {
       date,
       type: kind,
       source: isBuy ? `${source.name}${quarantine ? ` · ${quarantine}` : ''}` : `Bê của ${[...new Set(picked.map((c) => c.mother))].join(', ')}`,
@@ -65,7 +72,16 @@ export default function ImportNew() {
       total: isBuy ? total : null,
       debt: isBuy ? debt : null,
       status,
-    })
+      draft: { type: kind, pricing, sourceId, date, quarantine, receiver, note, cows, calves, freight, paid, method, due, printQr, docs },
+    }
+    const cattleRows = isBuy
+      ? cows.map((cow) => ({ ...cow, date }))
+      : picked.map((calf) => ({ ...calf, ageMonths: 0, group: 'Bê', stage: 'Bê', date: calf.born }))
+    if (status === 'Đã nhập') {
+      record.detail = { sourceName: isBuy ? source.name : record.source, quarantine, phone: isBuy ? source.phone : '', plate: '', by: `${receiver} · ${date}`, note, cows: [], cowsTotal: isBuy ? cowsMoney : 0, freight: isBuy ? freight : 0, payments: isBuy && paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: Math.min(paid, total) }] : [], docs, history: [`${dmy(date)} · ${receiver} lưu và xác nhận phiếu ${nextId}`] }
+      record.draft = undefined
+    }
+    await persist({ id: draftRow?.id, record, cattleRows: status === 'Đã nhập' ? cattleRows : [] })
     nav('/herd-entry')
   }
 

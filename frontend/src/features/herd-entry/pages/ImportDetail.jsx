@@ -1,14 +1,21 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Button, Card, Docs, Foot, Info, Note, PageHeader, PaymentTable, StatusBadge, Table, Td, Th } from '../../../components/ui'
-import { useStore } from '../../../data/store'
+import { herdEntryApi, voidHerdEntry } from '../api/index.js'
+import { useMutation, useQuery } from '../../../hooks/useApi'
 import { dmy, kg, money } from '../../../data/format'
 
 export default function ImportDetail() {
   const { id } = useParams()
-  const { imports } = useStore()
   const nav = useNavigate()
-  const r = imports.find((x) => x.id === id)
+  const { data: r, loading, error } = useQuery(() => herdEntryApi.get(id), [id])
+  const { mutate: cancel, loading: cancelling } = useMutation(async (row) => {
+    const cattleRows = row.detail?.cows?.map((cow) => ({ code: cow.code, barn: String(cow.barn || '').split(' ')[0] })) ?? []
+    return voidHerdEntry(row.id, cattleRows)
+  })
+
+  if (loading) return <Layout title="Chi tiết phiếu nhập" user="manager"><p className="text-xs text-muted">Đang tải phiếu {id}…</p></Layout>
+  if (error && !String(error.message).startsWith('Not found:')) return <Layout title="Chi tiết phiếu nhập" user="manager"><p className="text-xs text-err-fg">Không tải được phiếu: {error.message}</p></Layout>
 
   if (!r) {
     return (
@@ -25,7 +32,7 @@ export default function ImportDetail() {
     <Layout title={`Chi tiết phiếu nhập – ${r.status}`} user="manager">
       <PageHeader title={`Phiếu nhập ${r.id}`} badge={<StatusBadge status={r.status} />}>
         <Button onClick={() => window.print()}>In phiếu</Button>
-        <Button disabled={r.status === 'Đã hủy'}>Hủy phiếu</Button>
+        <Button disabled={cancelling || r.status === 'Đã hủy'} onClick={async () => { await cancel(r); nav('/herd-entry') }}>Hủy phiếu</Button>
         <Button onClick={() => nav('/herd-entry')}>← Danh sách</Button>
       </PageHeader>
 

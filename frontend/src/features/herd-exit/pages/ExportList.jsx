@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Button, Foot, PageHeader, Segmented, StatusBadge, Table, Td, Th, Tile, inputCls } from '../../../components/ui'
-import { useStore } from '../../../data/store'
+import { herdExitApi } from '../api/index.js'
+import { useQuery } from '../../../hooks/useApi'
 import { dmy, money } from '../../../data/format'
 
 const TABS = [
@@ -14,7 +15,7 @@ const TABS = [
 ]
 
 export default function ExportList() {
-  const { exports } = useStore()
+  const { data: exports = [], loading, error } = useQuery(() => herdExitApi.list(), [])
   const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [type, setType] = useState('')
@@ -31,6 +32,9 @@ export default function ExportList() {
     if (r.status === 'Chờ xác nhận') return ['Xem & xác nhận', `/herd-exit/${r.id}`]
     return ['Xem', `/herd-exit/${r.id}`]
   }
+
+  if (loading) return <Layout title="Phiếu xuất – Danh sách"><p className="text-xs text-muted">Đang tải phiếu xuất…</p></Layout>
+  if (error) return <Layout title="Phiếu xuất – Danh sách"><p className="text-xs text-err-fg">Không tải được phiếu xuất: {error.message}</p></Layout>
 
   return (
     <Layout title="Phiếu xuất – Danh sách">

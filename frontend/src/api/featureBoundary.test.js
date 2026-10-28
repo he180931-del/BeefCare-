@@ -10,11 +10,13 @@ test('herd entry and exit own their pages, data, and API modules', () => {
   const required = [
     'features/herd-entry/api/index.js',
     'features/herd-entry/data/importsData.js',
+    'features/herd-entry/data/entryData.js',
     'features/herd-entry/pages/ImportList.jsx',
     'features/herd-entry/pages/ImportNew.jsx',
     'features/herd-entry/pages/ImportDetail.jsx',
     'features/herd-exit/api/index.js',
     'features/herd-exit/data/exportsData.js',
+    'features/herd-exit/data/exitData.js',
     'features/herd-exit/pages/ExportList.jsx',
     'features/herd-exit/pages/ExportNew.jsx',
     'features/herd-exit/pages/ExportDetail.jsx',
@@ -24,7 +26,7 @@ test('herd entry and exit own their pages, data, and API modules', () => {
     assert.equal(existsSync(resolve(root, relativePath)), true, `missing feature module: ${relativePath}`)
   }
 
-  for (const legacyPath of ['pages/ImportList.jsx', 'pages/ImportNew.jsx', 'pages/ImportDetail.jsx', 'pages/ExportList.jsx', 'pages/ExportNew.jsx', 'pages/ExportDetail.jsx', 'data/importsData.js', 'data/exportsData.js']) {
+  for (const legacyPath of ['pages/ImportList.jsx', 'pages/ImportNew.jsx', 'pages/ImportDetail.jsx', 'pages/ExportList.jsx', 'pages/ExportNew.jsx', 'pages/ExportDetail.jsx', 'data/importsData.js', 'data/exportsData.js', 'data/mock.js']) {
     assert.equal(existsSync(resolve(root, legacyPath)), false, `legacy feature module remains: ${legacyPath}`)
   }
 })

@@ -1,14 +1,22 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, Docs, Foot, Info, PageHeader, PaymentTable, StatusBadge, Table, Td, Th } from '../../../components/ui'
-import { useStore } from '../../../data/store'
+import { cancelHerdExit, herdExitApi, saveHerdExit } from '../api/index.js'
+import { useMutation, useQuery } from '../../../hooks/useApi'
 import { dmy, kg, money } from '../../../data/format'
 
 export default function ExportDetail() {
   const { id } = useParams()
-  const { exports, updateExport } = useStore()
   const nav = useNavigate()
-  const r = exports.find((x) => x.id === id)
+  const { data: r, loading, error } = useQuery(() => herdExitApi.get(id), [id])
+  const { mutate: persist, loading: persisting } = useMutation(async ({ row, status }) => {
+    const cattleRows = row.detail?.cows?.map((cow) => ({ code: cow.code, barn: String(cow.barn || '').split(' ')[0] })) ?? []
+    if (status === 'Đã hủy') return cancelHerdExit(row.id, cattleRows)
+    return saveHerdExit({ id: row.id, record: { ...row, status }, cattleRows })
+  })
+
+  if (loading) return <Layout title="Chi tiết phiếu xuất"><p className="text-xs text-muted">Đang tải phiếu {id}…</p></Layout>
+  if (error && !String(error.message).startsWith('Not found:')) return <Layout title="Chi tiết phiếu xuất"><p className="text-xs text-err-fg">Không tải được phiếu: {error.message}</p></Layout>
 
   if (!r) {
     return (
@@ -20,8 +28,8 @@ export default function ExportDetail() {
 
   const d = r.detail
   const collected = d ? d.payments.reduce((s, p) => s + p.amount, 0) : r.total != null ? r.total - (r.due || 0) : 0
-  const resolve = (status) => {
-    updateExport(r.id, { status })
+  const resolve = async (status) => {
+    await persist({ row: r, status })
     nav('/herd-exit')
   }
 
@@ -30,12 +38,12 @@ export default function ExportDetail() {
       <PageHeader title={`Phiếu xuất ${r.id}`} badge={<StatusBadge status={r.status} />}>
         {r.status === 'Chờ xác nhận' && (
           <>
-            <Button variant="primary" onClick={() => resolve('Đã xuất')}>Xác nhận xuất</Button>
-            <Button onClick={() => resolve('Đã bác')}>Bác đề xuất</Button>
+            <Button variant="primary" disabled={persisting || !d?.cows?.length} onClick={() => resolve('Đã xuất')}>Xác nhận xuất</Button>
+            <Button disabled={persisting} onClick={() => resolve('Đã bác')}>Bác đề xuất</Button>
           </>
         )}
         <Button onClick={() => window.print()}>In phiếu</Button>
-        <Button disabled={r.status !== 'Đã xuất'} onClick={() => resolve('Đã hủy')}>Hủy phiếu</Button>
+        <Button disabled={persisting || r.status !== 'Đã xuất'} onClick={() => resolve('Đã hủy')}>Hủy phiếu</Button>
         <Button onClick={() => nav('/herd-exit')}>← Danh sách</Button>
       </PageHeader>
 

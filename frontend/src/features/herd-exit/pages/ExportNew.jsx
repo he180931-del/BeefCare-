@@ -2,34 +2,45 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, Docs, Dropzone, Field, Foot, Note, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
-import { useStore } from '../../../data/store'
-import { BARNS, BUYERS, HERD, PAY_METHODS } from '../../../data/mock'
+import { getExitDraftState, herdExitApi, saveHerdExit } from '../api/index.js'
+import { useMutation, useQuery } from '../../../hooks/useApi'
+import { BARNS, BUYERS, HERD, PAY_METHODS } from '../data/exitData.js'
 import { dm, money } from '../../../data/format'
 
 const TYPES = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const num = (v) => (v === '' ? 0 : Number(v))
 
 export default function ExportNew() {
-  const { exports, addExport } = useStore()
+  const { data: exports = [], loading, error } = useQuery(() => herdExitApi.list(), [])
+  if (loading) return <Layout title="Phiếu xuất mới"><p className="text-xs text-muted">Đang tải phiếu xuất…</p></Layout>
+  if (error) return <Layout title="Phiếu xuất mới"><p className="text-xs text-err-fg">Không tải được phiếu xuất: {error.message}</p></Layout>
+  const draftState = getExitDraftState(exports)
+  return <ExportForm key={draftState.row?.id ?? 'new'} exports={exports} draftState={draftState} />
+}
+
+function ExportForm({ exports, draftState }) {
+  const { mutate: persist } = useMutation(saveHerdExit)
   const nav = useNavigate()
-  const [type, setType] = useState('Bán')
-  const [date, setDate] = useState('2026-10-22')
-  const [buyerId, setBuyerId] = useState(BUYERS[0].id)
-  const [quarantine, setQuarantine] = useState('KD-HN-2026-005130')
-  const [plate, setPlate] = useState('29H-456.78')
-  const [note, setNote] = useState('')
-  const [pricing, setPricing] = useState('kg')
-  const [picked, setPicked] = useState(() => HERD.slice(0, 3).map((c) => ({ ...c, unitPrice: 92000 })))
+  const d = draftState
+  const [type, setType] = useState(d.type)
+  const [date, setDate] = useState(d.date ?? '2026-10-22')
+  const [buyerId, setBuyerId] = useState(d.buyerId ?? BUYERS[0].id)
+  const [quarantine, setQuarantine] = useState(d.quarantine ?? 'KD-HN-2026-005130')
+  const [plate, setPlate] = useState(d.plate ?? '29H-456.78')
+  const [note, setNote] = useState(d.note ?? '')
+  const [pricing, setPricing] = useState(d.pricing ?? 'kg')
+  const [picked, setPicked] = useState(() => (d.cows?.length ? d.cows.map((row) => ({ ...HERD.find((c) => c.code === row.code), ...row })) : HERD.slice(0, 3).map((c) => ({ ...c, unitPrice: 92000 }))))
   const [picker, setPicker] = useState(false)
-  const [deduction, setDeduction] = useState(0)
-  const [collected, setCollected] = useState(60000000)
-  const [method, setMethod] = useState(PAY_METHODS[0])
-  const [due, setDue] = useState('2026-10-29')
+  const [deduction, setDeduction] = useState(d.deduction ?? 0)
+  const [collected, setCollected] = useState(d.collected ?? 60000000)
+  const [method, setMethod] = useState(d.method ?? PAY_METHODS[0])
+  const [due, setDue] = useState(d.dueDate ?? '2026-10-29')
   const [confirmed, setConfirmed] = useState(false)
+  const [docs] = useState(d.docs ?? [{ ext: 'PDF', name: 'phieu-can-xuat-2210.pdf' }])
 
   const money$ = type === 'Bán' || type === 'Loại thải'
   const buyer = BUYERS.find((b) => b.id === buyerId)
-  const nextId = `PX-2026-${String(Math.max(...exports.map((r) => Number(r.id.split('-')[2]))) + 1).padStart(4, '0')}`
+  const nextId = d.row?.id ?? `PX-2026-${String(Math.max(0, ...exports.map((r) => Number(r.id.split('-')[2]) || 0)) + 1).padStart(4, '0')}`
 
   const amount = (c) => (pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice)
   const withdrawal = picked.filter((c) => c.withdrawalUntil && date < c.withdrawalUntil)
@@ -45,8 +56,8 @@ export default function ExportNew() {
   const toggle = (c) =>
     setPicked(picked.some((x) => x.code === c.code) ? picked.filter((x) => x.code !== c.code) : [...picked, { ...c, unitPrice: 92000 }])
 
-  const save = (status) => {
-    addExport({
+  const save = async (status) => {
+    const record = {
       date,
       type,
       who: money$ ? `${type === 'Bán' ? 'Thương lái ' : ''}${buyer.name}` : note || type,
@@ -56,7 +67,13 @@ export default function ExportNew() {
       total: money$ ? receivable : null,
       due: money$ ? remaining : null,
       status,
-    })
+      draft: { type, date, buyerId, quarantine, plate, note, pricing, deduction, collected, method, dueDate: due, docs, cows: picked },
+    }
+    if (status === 'Đã xuất') {
+      record.draft = undefined
+      record.detail = { quarantine, buyer: buyer.name, phone: buyer.phone, plate, by: `Chủ trại · ${date}`, note, cows: picked.map((c) => ({ code: c.code, tag: c.tag, breed: `${c.breed} · ${c.sex}`, weight: c.weight, barn: c.barn, amount: amount(c) })), cowsTotal: cowsMoney, deduction, payments: collected ? [{ date, by: 'Chủ trại', method, ref: '', amount: collected }] : [], docs, history: [`${date} · Chủ trại xác nhận xuất ${picked.length} con`] }
+    }
+    await persist({ id: d.row?.id, record, cattleRows: status === 'Đã xuất' ? picked : [] })
     nav('/herd-exit')
   }
 
@@ -233,7 +250,7 @@ export default function ExportNew() {
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
               Tôi đã xem các mục trên và xác nhận xuất đàn *
             </label>
-            <Button variant="primary" block disabled={!confirmed || !picked.length} onClick={() => save('Đã xuất')}>
+            <Button variant="primary" block disabled={!confirmed || !picked.length || withdrawal.length > 0 || (!money$ && !note.trim())} onClick={() => save('Đã xuất')}>
               Xác nhận xuất {picked.length} con
             </Button>
             <Button block onClick={() => save('Nháp')}>Lưu nháp phiếu</Button>
