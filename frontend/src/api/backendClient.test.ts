@@ -29,6 +29,12 @@ test('login accepts a 204 session response and refreshes CSRF', async () => {
   await api.login('owner@example.test', 'secret')
   assert.equal(tokens, 2)
 })
+test('session check distinguishes an authenticated response from 401', async () => {
+  const authenticated = createBackendClient({ fetchImpl: async () => new Response(null, { status: 204 }) })
+  assert.equal(await authenticated.isAuthenticated(), true)
+  const anonymous = createBackendClient({ fetchImpl: async () => json({ message: 'unauthorized' }, 401) })
+  assert.equal(await anonymous.isAuthenticated(), false)
+})
 test('absolute external URLs cannot receive session headers', async () => {
   const api = createBackendClient({ fetchImpl: async () => { throw new Error('must not fetch') } })
   await assert.rejects(api.get('https://example.test/api/farms'), /relative/)

@@ -86,6 +86,15 @@ export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch
       await request('/api/logout', { method: 'POST' })
       csrfToken = undefined
     },
+    async isAuthenticated() {
+      try {
+        await request('/api/authenticate')
+        return true
+      } catch (error) {
+        if (error instanceof BackendError && error.status === 401) return false
+        throw error
+      }
+    },
     get: <T = unknown>(path: string, options?: RequestOptions) => request<T>(path, options),
     // Keep this key for a retry after a timeout; generate a new key only for a new user action.
     command: <T = unknown>(path: string, body: unknown, { method = 'POST', key = newKey(), ...options }: RequestOptions = {}) => request<T>(path, { ...options, method, body, key }),
