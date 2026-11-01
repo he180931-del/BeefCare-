@@ -92,3 +92,42 @@ wording in `RTK.md`:
 - Every handoff must distinguish manual runtime/side-by-side evidence from an
   automated visual test. Do not claim automated visual regression coverage
   unless an approved runner and test actually exist and ran successfully.
+
+## Mandatory contract and field-completeness audit
+
+For every Entry, Herd Entry, payment, or farm-born-calf change on `LamKD`, the
+assigned Luna must perform a contract audit before editing and include its
+result in the handoff. This audit is required even when the request appears to
+be UI-only.
+
+1. Read the routed context first, then inspect the applicable source-of-truth
+   documents: `docs/REQUIREMENT_DECISIONS.md`, the latest SRS/project document,
+   the relevant `docs/api/openapi.json` operation, and any linked design or
+   implementation document. Record which documents and sections were used.
+2. Trace every field through the complete stack: backend request/response DTOs,
+   entities and relationships, validators/rules, mapper, service/workflow,
+   REST resource, OpenAPI contract, frontend types, form state, validation,
+   payload adapter, response adapter, and persistence mapping.
+3. Build a field matrix for the affected form. For each field record its exact
+   name, type/unit, allowed values or range, whether it is required, optional,
+   or conditionally required, the condition that activates it, default value,
+   and the source of truth. Do not infer requiredness from labels or current UI
+   behavior; reconcile documentation, OpenAPI/DTO annotations, validators, and
+   tests. Any discrepancy must be reported and resolved before implementation
+   or explicitly handed back for a product decision.
+4. Verify the full round trip with evidence: frontend payload -> HTTP request
+   -> backend DTO/validator/service -> entity/database persistence -> HTTP
+   response -> frontend state. For fields that must persist, prove the stored
+   value by a repository/service assertion or an approved database/API readback;
+   a successful HTTP status alone is insufficient. Include conditional cases
+   (for example, vaccine/bệnh/sinh sản details, payment limits, and farm-born
+   dam/sire parentage) where applicable.
+5. Check quantity and completeness, not just presence: all documented fields
+   must appear exactly once in the intended UI, no backend field may be silently
+   dropped or forced to `null`, and no UI-only field may be claimed persisted
+   without a backend contract and storage path. Confirm whether each field is
+   per-voucher or per-cattle-line.
+6. Before reporting completion, run the focused contract/validation tests plus
+   typecheck/build as appropriate and state what was and was not verified.
+   Never report Entry as complete when the field matrix, conditional rules, or
+   database round-trip evidence is missing; report the exact remaining gap.
