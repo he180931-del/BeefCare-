@@ -7,4 +7,6 @@ public enum AttachmentOwnerType {
     FEED_RECEIPT,
     /** Count record or photos of a feed stock adjustment (SCR-80). */
     FEED_ADJUSTMENT,
+    HERD_ENTRY_VOUCHER,
+    HERD_EXIT_VOUCHER,
 }
