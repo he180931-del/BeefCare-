@@ -77,9 +77,9 @@ export const INITIAL_COWS = [
   { tag: '', name: '', breed: 'Zebu', sex: 'Cái', dob: '2025-10', dobAccuracy: 'Ước tính', stage: 'Chưa xác định', purpose: 'Chưa xác định', weight: 198, estimated: true, barn: 'C1', unitPrice: 80000, hist: { vaccine: 'Không rõ', vaccineNote: '', disease: 'Không rõ', repro: 'Không rõ' } },
 ]
 
-export const blankCow = () => ({
+export const blankCow = (defaultBarn = 'A1') => ({
   tag: '', name: '', breed: '', sex: 'Cái', dob: '2025-10', dobAccuracy: 'Không rõ', stage: 'Chưa xác định', purpose: 'Chưa xác định',
-  weight: 0, estimated: false, barn: 'A1', unitPrice: 85000,
+  weight: 0, estimated: false, barn: defaultBarn, unitPrice: 85000,
   hist: { vaccine: 'Không rõ', vaccineNote: '', disease: 'Không rõ', repro: 'Không rõ' },
 })
 

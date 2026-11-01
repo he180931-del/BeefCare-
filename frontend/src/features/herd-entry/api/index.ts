@@ -7,4 +7,20 @@ export {
   registerEntryCattle,
   voidEntryCattle,
 } from '../../../api/herdDomainApi'
-export { getEntryDraftState, herdEntryApi, listEntrySellers, listPendingEntryCalves, saveHerdEntry, voidHerdEntry } from './herdEntryApi'
+export {
+  commitEntryExcel,
+  discardHerdEntryDraft,
+  downloadEntryAttachment,
+  downloadEntryImportTemplate,
+  entryExcelBackendEnabled,
+  getEntryDraftState,
+  herdEntryApi,
+  listEntrySellers,
+  listEntryPens,
+  listPendingEntryCalves,
+  markCalfDiedBeforeRegistration,
+  previewEntryExcel,
+  removeEntryAttachment,
+  saveHerdEntry,
+  voidHerdEntry,
+} from './herdEntryApi'

@@ -1,8 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
 import Layout from '../../../components/Layout'
 import { Button, Card, Docs, Foot, Info, Note, PageHeader, StatusBadge, Table, Td, Th } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
-import { cattle, herdEntryApi, voidHerdEntry } from '../api/index'
+import { cattle, downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { TODAY } from '../data/importsData'
 import { dm, dmy, kg, money } from '../../../data/format'
@@ -19,6 +20,7 @@ export default function ImportDetail() {
   const { id } = useParams()
   const recordId = id ?? ''
   const [m, openModal, closeModal] = useModalParam()
+  const [documentError, setDocumentError] = useState<string | null>(null)
   const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
   const cattleQuery = useQuery(() => cattle.list(), [])
   const { mutate: recordPayment, error: paymentError } = useMutation<{ recordId: string; payment: Payment & { note?: string } }, HerdEntry>(({ recordId: targetId, payment }) => herdEntryApi.recordPayment(targetId, payment))
@@ -42,6 +44,23 @@ export default function ImportDetail() {
   }
 
   const d: EntryDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
+  const viewDocument = async (index: number) => {
+    const document = d.docs?.[index]
+    if (!document) return
+    const attachmentId = Number(document.id)
+    try {
+      const blob = Number.isFinite(attachmentId) && attachmentId > 0
+        ? await downloadEntryAttachment(recordId, attachmentId)
+        : null
+      const url = blob ? URL.createObjectURL(blob) : typeof document.url === 'string' ? document.url : null
+      if (!url) throw new Error('Không tìm thấy nội dung chứng từ')
+      window.open(url, '_blank', 'noopener,noreferrer')
+      if (blob) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      setDocumentError(null)
+    } catch (error) {
+      setDocumentError(displayError(error))
+    }
+  }
   const paid = d.payments?.reduce((s, payment) => s + payment.amount, 0) ?? (r.total != null ? r.total - (r.debt || 0) : 0)
   const canPay = (r.debt ?? 0) > 0 && r.status === 'Đã nhập'
   const canCancel = r.status === 'Đã nhập' && Boolean(d.cows?.length) && Boolean(cattleQuery.data) && (d.cows ?? []).every((row) => (cattleQuery.data ?? []).some((cow) => cow.code === row.code && cow.entryVoucherId === r.id))
@@ -79,6 +98,7 @@ export default function ImportDetail() {
           <Button disabled={!canCancel} onClick={() => openModal('cancel')}>Hủy phiếu</Button>
         </PageHeader>
         {Boolean(paymentError || voidError) && <Note tone="err">{displayError(paymentError || voidError)}</Note>}
+        {documentError && <Note tone="err">{documentError}</Note>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
           <div className="flex min-w-0 flex-col gap-[18px]">
@@ -146,7 +166,7 @@ export default function ImportDetail() {
             </Card>
 
             <Card title="Chứng từ đính kèm">
-              {d ? <Docs docs={d.docs} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+              {d ? <Docs docs={d.docs} onView={viewDocument} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
             </Card>
           </div>
 

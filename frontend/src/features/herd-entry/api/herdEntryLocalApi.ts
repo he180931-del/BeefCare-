@@ -86,9 +86,6 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 async function validateEntryCattle(rows: CattleInput[], voucherId: string, record: EntrySaveRecord): Promise<void> {
   if (record.date && record.date > today()) throw new Error('Entry date cannot be in the future')
-  const quarantine = record.detail?.quarantine ?? record.draft?.quarantine ?? record.quarantine
-  if (record.type === 'Mua ngoài' && !String(quarantine ?? '').trim()) throw new Error('Entry requires quarantine document')
-
   const existing = await cattle.list()
   const existingLines = new Set(existing.filter((row) => row.entryVoucherId === voucherId).map((row) => row.entryLineNo))
   const seenTags = new Set()

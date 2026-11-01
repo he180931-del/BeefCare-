@@ -17,6 +17,7 @@ type EditCow = EntryCow
  */
 export default function RowEditModal({ cow, index, recordId, dateIso, pricing, others, pens = [], onSave, onRemove, onClose }: { cow: EditCow; index: number; recordId: string; dateIso: string; pricing: 'kg' | 'con'; others: EditCow[]; pens?: Pen[]; onSave: (cow: EditCow) => void; onRemove: () => void; onClose: () => void }) {
   const [c, setC] = useState(cow)
+  const [weightInput, setWeightInput] = useState(String(cow.weight))
   const set = (p: Partial<EditCow>) => setC((x) => ({ ...x, ...p }))
   const [y, mo] = c.dob ? c.dob.split('-') : []
   const barn = pens.find((b) => b.code === c.barn)
@@ -24,17 +25,17 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing, o
   const full = barn && barn.count + sameBarn + 1 > barn.capacity
   const femaleOnly = (c.barn === 'A1' || c.barn === 'A2') && c.sex === 'Đực'
   const ok = !full && !femaleOnly
-  const amount = pricing === 'kg' ? c.weight * c.unitPrice : c.unitPrice
+  const amount = c.weight * c.unitPrice
 
   return (
     <Modal
-      width={700}
+      width={820}
       title={`Sửa con #${index + 1} trong phiếu ${recordId}`}
       sub={'Thông tin dùng để tạo hồ sơ bò khi lưu phiếu – chưa tạo hồ sơ cho đến khi bấm "Lưu & tạo hồ sơ".'}
       topTitle="Thêm / sửa con trong phiếu nhập"
       onClose={onClose}
     >
-      <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Số thẻ tai phụ" hint="Để trống nếu gắn thẻ sau">
           <input className={inputCls} value={c.tag} onChange={(e) => set({ tag: e.target.value })} />
         </Field>
@@ -79,20 +80,33 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing, o
         </Field>
 
         <Field label="Cân nhập (kg) *">
-          <input type="number" min="0" className={inputCls} value={c.weight} onChange={(e) => set({ weight: Number(e.target.value) || 0 })} />
+          <input
+            type="number"
+            min="0"
+            className={inputCls}
+            value={weightInput}
+            onChange={(e) => {
+              const value = e.target.value
+              setWeightInput(value)
+              set({ weight: value === '' ? 0 : Number(value) })
+            }}
+            onBlur={() => {
+              if (weightInput === '') setWeightInput('0')
+            }}
+          />
         </Field>
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-ink">Cơ sở cân</span>
           <RadioRow name="weigh" value={c.estimated ? 'Ước tính' : 'Cân thực tế'} options={['Cân thực tế', 'Ước tính']} onChange={(v) => set({ estimated: v === 'Ước tính' })} />
         </div>
 
-        <div className="col-span-2 grid grid-cols-3 gap-4">
+        <div className="col-span-1 grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-3 lg:col-span-4">
           <Field label="Chuồng nhận *">
             <Select value={c.barn} onChange={(e) => set({ barn: e.target.value })}>
               {pens.map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
             </Select>
           </Field>
-          <Field label={pricing === 'kg' ? 'Đơn giá (đ/kg)' : 'Giá/con (đ)'}>
+          <Field label="Đơn giá (đ/kg)">
             <input type="number" min="0" className={inputCls} value={c.unitPrice} onChange={(e) => set({ unitPrice: Number(e.target.value) || 0 })} />
           </Field>
           <KV k="Thành tiền">
@@ -100,7 +114,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing, o
           </KV>
         </div>
 
-        <div className="col-span-2 flex flex-col gap-2">
+        <div className="col-span-1 flex flex-col gap-2 sm:col-span-2 lg:col-span-4">
           <h4 className="m-0 text-sm font-semibold">Lịch sử trước nhập đàn</h4>
           <Table stack={false}>
             <thead>
@@ -130,7 +144,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing, o
           </Table>
         </div>
 
-        <div className="col-span-2">
+        <div className="col-span-1 sm:col-span-2 lg:col-span-4">
           {ok ? (
             <Note tone="ok">
               {`Tiêu chí chuồng ${c.barn}: Đạt.`}

@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, DateInput, Field, KV, Note, inputCls } from '../../../components/ui'
+import { backendMode } from '../../../api/backendTransport'
 import { TODAY } from '../data/importsData'
 import { money } from '../../../data/format'
 import { RadioRow } from './parts'
 import type { HerdEntry, Payment } from '../../../types'
 
 const DEFAULT_REF = 'FT26295104721 · TT phieu PN-2026-0011'
+const localIsoToday = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
 
 /**
  * Ghi nhận một khoản thanh toán cho phiếu nhập còn nợ. `record` là phiếu (có detail), `onSave(payment)`
@@ -17,12 +22,13 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
   const total = record.total ?? 0
   const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
   const debt = record.debt ?? 0
-  const [date, setDate] = useState(TODAY)
+  const isBackend = backendMode === 'backend'
+  const [date, setDate] = useState(isBackend ? localIsoToday() : TODAY)
   const [amount, setAmount] = useState(debt)
   const [method, setMethod] = useState('Chuyển khoản')
-  const [ref, setRef] = useState(DEFAULT_REF)
-  const [note, setNote] = useState('Thanh toán đủ phần còn lại')
-  const [file, setFile] = useState(true)
+  const [ref, setRef] = useState(isBackend ? '' : DEFAULT_REF)
+  const [note, setNote] = useState(isBackend ? '' : 'Thanh toán đủ phần còn lại')
+  const [file, setFile] = useState(!isBackend)
 
   const over = amount > debt
   const invalid = amount <= 0 || over || !date
@@ -86,7 +92,7 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
 
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={invalid} onClick={() => onSave({ date, by: 'T. Q. Long', method, ref, amount, note })}>
+        <ModalButton variant="primary" disabled={invalid} onClick={() => onSave({ date, by: isBackend ? '' : 'T. Q. Long', method, ref, amount, note })}>
           Lưu thanh toán
         </ModalButton>
       </ModalFooter>
