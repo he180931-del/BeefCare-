@@ -6,4 +6,4 @@ export {
   confirmCattleExit,
   cancelCattleExit,
 } from '../../../api/herdDomainApi'
-export { herdExitApi, getExitDraftState, saveHerdExit, cancelHerdExit, dismissHerdExit, listExitBuyers, listSelectableExitCattle } from './herdExitApi'
+export { herdExitApi, getExitDraftState, saveHerdExit, confirmHerdExit, downloadExitAttachment, removeExitAttachment, cancelHerdExit, dismissHerdExit, listExitBuyers, listSelectableExitCattle } from './herdExitApi'

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { DateInput, Field, Info, Note, Radio, inputCls } from '../../../components/ui'
+import { backendMode } from '../../../api/backendTransport'
 import { herdExitApi } from '../api/index'
 import { useMutation } from '../../../hooks/useApi'
 import { TODAY } from '../data/exportsData'
@@ -10,6 +11,10 @@ import type { HerdExit } from '../../../types'
 
 const METHODS = ['Tiền mặt', 'Chuyển khoản']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
+const localIsoToday = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
 
 export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit; onClose: () => void; onSaved?: () => void }) {
   const { mutate: recordPayment, loading: saving, error } = useMutation<{ id: string; payment: { date: string; amount: number; method: string; ref: string; note?: string } }, HerdExit>(({ id, payment }) => herdExitApi.recordPayment(id, payment))
@@ -17,12 +22,13 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
   const collected = payments.reduce((s, p) => s + p.amount, 0)
   const total = row.total
   const owed = row.due ?? 0
-  const [date, setDate] = useState(TODAY)
+  const isBackend = backendMode === 'backend'
+  const [date, setDate] = useState(isBackend ? localIsoToday() : TODAY)
   const [amount, setAmount] = useState(owed)
   const [method, setMethod] = useState('Chuyển khoản')
-  const [reference, setReference] = useState('MBVCB.8841207 · LO MO HA DONG TT PX-2026-0007')
-  const [showStatement, setShowStatement] = useState(true)
-  const [note, setNote] = useState('Thu đủ phần còn lại')
+  const [reference, setReference] = useState(isBackend ? '' : 'MBVCB.8841207 · LO MO HA DONG TT PX-2026-0007')
+  const [showStatement, setShowStatement] = useState(!isBackend)
+  const [note, setNote] = useState(isBackend ? '' : 'Thu đủ phần còn lại')
 
   const valid = amount > 0 && amount <= owed
   const left = owed - amount
@@ -30,7 +36,7 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
   const save = async () => {
     await recordPayment({
       id: row.id,
-      payment: { date, method, ref: method === 'Tiền mặt' ? 'PT-2210-01' : reference, amount, note },
+      payment: { date, method, ref: isBackend ? reference : method === 'Tiền mặt' ? 'PT-2210-01' : reference, amount, note },
     })
     onSaved?.()
     onClose()

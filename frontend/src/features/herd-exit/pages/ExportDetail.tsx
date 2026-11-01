@@ -1,11 +1,12 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Badge, Button, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../../../components/ui'
+import { Badge, Button, Docs, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
 import { dmy, kg, money } from '../../../data/format'
-import { cattle, herdExitApi } from '../api/index'
+import { cattle, downloadExitAttachment, herdExitApi } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
-import { Box, DocRow, TH } from '../components/parts'
+import { Box, TH } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
@@ -19,6 +20,7 @@ export default function ExportDetail() {
   const { data: r, loading, refetch } = useQuery<HerdExit>(() => herdExitApi.get(recordId), [recordId])
   const { data: cattleRows } = useQuery<Cattle[]>(() => cattle.list(), [])
   const [m, openModal, closeModal] = useModalParam()
+  const [documentError, setDocumentError] = useState('')
 
   if (!r) {
     return (
@@ -37,6 +39,23 @@ export default function ExportDetail() {
   const tone = STATUS_TONE[r.status]
   const isSold = r.status === 'Đã xuất'
   const canCancel = isSold && Boolean(d.cows?.length) && Boolean(cattleRows) && (d.cows ?? []).every((row) => (cattleRows ?? []).some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
+  const viewDocument = async (index: number) => {
+    const document = d.docs?.[index]
+    if (!document) return
+    try {
+      let url = typeof document.url === 'string' ? document.url : ''
+      if (typeof document.id === 'number' && document.id > 0) {
+        const blob = await downloadExitAttachment(recordId, document.id)
+        url = URL.createObjectURL(blob)
+      }
+      if (!url) return
+      window.open(url, '_blank', 'noopener,noreferrer')
+      if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      setDocumentError('')
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : 'Không thể mở chứng từ.')
+    }
+  }
 
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
@@ -102,7 +121,8 @@ export default function ExportDetail() {
           </Box>
 
           <Box title="Chứng từ đính kèm" gap="gap-[10px]">
-            {(d.docs ?? []).map((doc) => <DocRow key={doc.name} ext={doc.ext} name={doc.name} />)}
+            {documentError && <Note tone="err">{documentError}</Note>}
+            {(d.docs ?? []).length ? <Docs docs={d.docs} onView={viewDocument} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
           </Box>
         </div>
 

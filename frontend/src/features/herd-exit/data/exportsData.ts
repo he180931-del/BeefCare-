@@ -46,6 +46,12 @@ export const initialExports: HerdExit[] = [
   { id: 'PX-2026-0004', date: '2026-09-05', type: 'Chết / mất', who: 'Báo mất tích – đã tìm thấy bò', sub: 'Từ ca HC-0381 · Chủ trại bác', count: 1, weight: null, total: null, due: null, status: 'Đã bác' },
 ]
 
+export const todayIso = (now: Date = new Date()): string => {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+// Kept for the local demo data and collection form; new backend vouchers use todayIso() directly.
 export const TODAY = '2026-10-22'
 
 // Bò có thể chọn vào phiếu xuất (thẻ tai, giống, tuổi, cân gần nhất + ghi chú cân, cảnh báo).
