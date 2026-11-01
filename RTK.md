@@ -401,34 +401,23 @@ Use this order of priority:
 3. Reliable tests for important behavior and integration boundaries.
 4. Visual polish and optimization only when explicitly requested.
 
-## Multi-agent operating model
+## Optional multi-agent operating model
 
-Use this model whenever agent work is delegated. Roles are reusable task
-profiles, not long-running or persistent agents. A newly created agent has no
-guaranteed memory of earlier work, so every assignment must contain the context
-needed to finish its bounded task.
+The roles below are optional collaboration patterns, not mandatory assignments.
+The current agent may perform research, planning, implementation, testing,
+review, and runtime verification directly. Use delegation only when it helps
+parallelize independent work or obtain a useful second opinion.
 
 ### Decision and coordination roles
 
-- **Tera/primary (`gpt-5.6-terra`)** only reasons about the work: define scope,
-  prepare the plan, coordinate independent assignments, compare evidence,
-  identify contradictions and risks, and give the user the final conclusion.
-  Tera must not inspect or change workspace files, run commands, control the
-  browser, implement code, or execute tests. Conclusions must cite evidence
-  returned by operational agents.
-- **Sol (`gpt-5.6-sol`)** owns coordination architecture, analytical review,
-  and project-agent guidance. Sol may edit `AGENTS.md`, `RTK.md`, or other
-  agent/process documents only when the user asks for those documentation
-  changes. Sol must not edit production code or tests. Sol can challenge gaps
-  or contradictions in a Luna handoff before Tera concludes.
-
-Except for Sol's explicitly requested agent/process documentation edits, every
-workspace operation is performed by a Luna assignment.
+Tera, Sol, and Luna may be used according to the task. No role is required to
+edit, review, or operate the workspace, and the current agent may do those
+operations directly.
 
 ### Operational Luna roles
 
-Each Luna receives exactly one primary responsibility. More than one Luna of a
-given type may be used when their tasks are independent.
+When delegation is used, each delegated agent should have one clear primary
+responsibility and non-overlapping writable scope.
 
 | Role | Responsibility | Required evidence | Editing boundary |
 | --- | --- | --- | --- |
@@ -440,7 +429,7 @@ given type may be used when their tasks are independent.
 | **Luna Review** | Perform a read-only diff and behavior review for contract correctness, authorization/security, feature boundaries, hardcoded identifiers, localStorage/mock leakage, DTO mapping, concurrency/version handling, and cattle/pen/voucher state consistency. | Findings ordered by severity with exact file and line, impact, supporting contract, and recommended fix. | Strictly read-only. Does not fix its own findings. |
 | **Luna UI Control** | When the user requests runtime/UI verification, use `playwright-cli` to verify required services and exercise the agreed flows through browser control. Record navigation, responsive behavior, form behavior, screenshots, console errors, and relevant network requests/responses. | Named session, URL/route and viewport, reproducible steps, route before/after, screenshots/traces when relevant, console/network evidence, observed versus expected result, and cleanup status. | Read-only runtime control only. Does not edit code, tests, data, or configuration to hide a failure. A product finding goes first to Luna Testing under the defect-to-regression gate. |
 
-### Subagent skill loading policy and role-to-skill routing
+### Optional delegated-agent skill loading policy and role-to-skill routing
 
 Agents are stateless between assignments. Every delegated prompt must provide
 the exact ordered skill paths and the reason each skill applies. The assigned
@@ -732,8 +721,8 @@ If the repository later gains automated Playwright tests, run them with
 do not convert an exploratory runtime session into project test files without
 the separate Luna Testing assignment and user-approved scope.
 
-All operational Luna agents must read `AGENTS.md`, this file, and the relevant
-source-of-truth material before acting. A delegated prompt must state which
+Any delegated agent should read `AGENTS.md`, this file, and the relevant
+source-of-truth material before acting. A delegated prompt should state which
 sources are relevant instead of assuming the agent knows the earlier thread.
 
 ### Parallel assignment rules
@@ -809,10 +798,11 @@ file. For Testing and UI Control, include the exact command or reproduction
 steps. Tera uses this handoff to compare sources and must not silently fill
 missing evidence with assumptions.
 
-### Delivery workflow
+### Recommended delivery workflow
 
-Use this sequence for the cattle, cattle profile, herd entry, herd exit, and
-pen-management features:
+Use this sequence as a default for substantial cattle, cattle profile, herd
+entry, herd exit, and pen-management work. A smaller task may combine steps
+when the scope and risk are low.
 
 1. **Research:** Luna Figma and Luna Backend/Docs work in parallel on distinct
    read-only scopes.
