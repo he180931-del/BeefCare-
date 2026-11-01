@@ -4,8 +4,9 @@ import { canonicalCattle } from '../data/cattleData'
 import { migrateHerdStorage } from './storageMigrations'
 import { cattleSchema, penSchema } from './collectionSchemas'
 import type { Cattle, Pen, PenCowLink, CattleInput } from '../types'
+import { backendMode } from './backendTransport'
 
-migrateHerdStorage()
+if (backendMode !== 'backend') migrateHerdStorage()
 
 export const cattle = createCollection<Cattle, 'code'>('cattle', canonicalCattle, { schema: cattleSchema })
 export const pens = createCollection<Pen, 'code'>('pens', seedPens, { schema: penSchema })

@@ -2,6 +2,7 @@
 // untrusted JSON boundary: every row is validated by the schema supplied by
 // the caller before it enters the in-memory collection.
 const PREFIX = 'beefcare:'
+const persistenceEnabled = () => import.meta.env?.VITE_BEEFCARE_DATA_SOURCE !== 'backend'
 
 export type CollectionRow = Record<string, unknown>
 export type NewCollectionInput<T extends CollectionRow, K extends keyof T & string> = Omit<T, K> & Partial<Pick<T, K>>
@@ -38,7 +39,7 @@ const cloneRow = (row: CollectionRow): CollectionRow => {
   if (typeof cloned !== 'object' || cloned === null || Array.isArray(cloned)) throw new Error('Collection row is not JSON object data')
   return Object.fromEntries(Object.entries(cloned))
 }
-const save = (name: string, rows: CollectionRow[]): void => { localStorage.setItem(`${PREFIX}${name}`, JSON.stringify(rows)) }
+const save = (name: string, rows: CollectionRow[]): void => { if (persistenceEnabled()) localStorage.setItem(`${PREFIX}${name}`, JSON.stringify(rows)) }
 
 const schemaForStorage = <T extends CollectionRow, K extends keyof T & string>(schema: CollectionSchema<T, K>): StoredSchema => ({
   idKey: schema.idKey, identity: schema.identity, contract: schema, parse: schema.parse,
@@ -50,6 +51,7 @@ const validateRows = (value: unknown, schema: StoredSchema): CollectionRow[] | n
 }
 
 const load = <T extends CollectionRow>(name: string, seed: T[], schema: StoredSchema): CollectionRow[] => {
+  if (!persistenceEnabled()) return seed.map((row) => schema.parse(row))
   try {
     const raw = localStorage.getItem(`${PREFIX}${name}`)
     if (raw) {

@@ -57,16 +57,17 @@ export function Badge({ tone, className, children }: { tone?: BadgeTone; classNa
 const STATUS_TONE: Record<string, BadgeTone | undefined> = { 'Đã nhập': 'ok', 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
 export const StatusBadge = ({ status }: { status: string }) => <Badge tone={STATUS_TONE[status]}>{status}</Badge>
 
-export function Segmented({ options, value, onChange }: { options: Array<{ value: string; label: ReactNode }>; value: string; onChange: (value: string) => void }) {
+export function Segmented({ options, value, onChange }: { options: Array<{ value: string; label: ReactNode; disabled?: boolean }>; value: string; onChange: (value: string) => void }) {
   return (
     <div className="inline-flex max-w-full flex-wrap gap-[3px] rounded-[5px] bg-chip p-[3px]">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
+          disabled={o.disabled}
           onClick={() => onChange(o.value)}
           className={cx(
-            'cursor-pointer rounded px-3.5 py-[7px] text-xs border',
+            'cursor-pointer rounded px-3.5 py-[7px] text-xs border disabled:cursor-not-allowed disabled:opacity-50',
             o.value === value ? 'border-faint bg-white font-semibold text-[#212121]' : 'border-transparent text-muted',
           )}
         >
@@ -110,10 +111,12 @@ export const inputCls =
 export const smInputCls =
   'rounded-lg border border-field bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand'
 
-export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
+export function Field({ label, id, hint, children }: { label: ReactNode; id?: string; hint?: ReactNode; children: ReactNode }) {
+  const requiredLabel = typeof label === 'string' && label.endsWith(' *')
+  const accessibleLabel = requiredLabel && typeof label === 'string' ? label.slice(0, -2) : undefined
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <label className="text-xs font-medium text-ink">{label}</label>
+      <label htmlFor={id} aria-label={accessibleLabel} className="text-xs font-medium text-ink">{label}</label>
       {children}
       {hint && <span className="text-[11px] text-muted">{hint}</span>}
     </div>
@@ -181,20 +184,52 @@ export const Note = ({ tone = 'grey', children }: { tone?: 'grey' | 'warn' | 'er
 
 export const Foot = ({ children }: { children: ReactNode }) => <p className="m-0 text-[11px] text-subtle">{children}</p>
 
-export function Docs({ docs }: { docs?: DocumentRow[] }) {
-  return (docs ?? []).map((d) => (
-    <div className="flex items-center gap-2 text-xs" key={d.name}>
+export function Docs({ docs, onView, onRemove }: { docs?: DocumentRow[]; onView?: (index: number) => void; onRemove?: (index: number) => void }) {
+  return (docs ?? []).map((d, index) => (
+    <div className="flex items-center gap-2 text-xs" key={`${d.name}-${index}`}>
       <Badge>{d.ext}</Badge>
       <span>{d.name}</span>
       <span className="flex-1" />
-      <Button variant="link" small>Xem</Button>
+      {(onView || typeof d.url === 'string') && (
+        <Button
+          variant="link"
+          small
+          aria-label={`Xem ${d.name}`}
+          onClick={() => onView ? onView(index) : window.open(String(d.url), '_blank', 'noopener,noreferrer')}
+        >Xem</Button>
+      )}
+      {onRemove && <Button variant="link" small aria-label={`Xóa ${d.name}`} onClick={() => onRemove(index)}>Xóa</Button>}
     </div>
   ))
 }
 
-export function Dropzone({ hint }: { hint?: ReactNode }) {
+export function Dropzone({ hint, onFiles, accept = 'application/pdf,image/jpeg', multiple = true }: {
+  hint?: ReactNode
+  onFiles?: (files: File[]) => void
+  accept?: string
+  multiple?: boolean
+}) {
+  const input = useRef<HTMLInputElement>(null)
+  const send = (files: FileList | null) => onFiles?.(files ? Array.from(files) : [])
   return (
-    <div className="rounded-md border border-field bg-page p-4 text-center text-xs font-semibold text-brand">
+    <div
+      className="cursor-pointer rounded-md border border-field bg-page p-4 text-center text-xs font-semibold text-brand"
+      role="button"
+      tabIndex={0}
+      onClick={() => input.current?.click()}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') input.current?.click() }}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => { event.preventDefault(); send(event.dataTransfer.files) }}
+    >
+      <input
+        ref={input}
+        type="file"
+        className="sr-only"
+        aria-label="Chọn chứng từ đính kèm"
+        accept={accept}
+        multiple={multiple}
+        onChange={(event) => { send(event.target.files); event.target.value = '' }}
+      />
       ⇪ Kéo thả tệp hoặc Chọn tệp
       <small className="mt-1 block text-[11px] font-normal text-muted">{hint}</small>
     </div>
@@ -247,7 +282,7 @@ export function Select({ className, children, ...p }: SelectHTMLAttributes<HTMLS
 }
 
 /** Ô ngày: hiện dd/mm/yyyy + ▾ (như Figma), bấm mở bộ chọn ngày. value/onChange dạng 'yyyy-mm-dd'. */
-export function DateInput({ value, onChange, className, readOnly }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean }) {
+export function DateInput({ value, onChange, className, readOnly, id }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean; id?: string }) {
   const ref = useRef<HTMLInputElement>(null)
   const [y, m, d] = value ? value.split('-') : []
   return (
@@ -259,6 +294,7 @@ export function DateInput({ value, onChange, className, readOnly }: { value: str
       {!readOnly && (
         <input
           ref={ref}
+          id={id}
           type="date"
           value={value || ''}
           onChange={(e: ChangeEvent<HTMLInputElement>) => onChange?.(e.target.value)}

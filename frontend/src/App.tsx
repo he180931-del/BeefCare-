@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { loadImportDetailPage, loadImportListPage, loadImportNewPage } from './features/herd-entry'
 import { loadExportDetailPage, loadExportListPage, loadExportNewPage } from './features/herd-exit'
+import { loadCowListPage, loadCowProfilePage } from './features/cattle'
+import { loadPenListPage } from './features/pen-management'
 
 // Mỗi trang tải lazy: lỗi ở một trang không làm hỏng các trang khác.
 const ImportList = lazy(loadImportListPage)
@@ -10,9 +12,9 @@ const ImportDetail = lazy(loadImportDetailPage)
 const ExportList = lazy(loadExportListPage)
 const ExportNew = lazy(loadExportNewPage)
 const ExportDetail = lazy(loadExportDetailPage)
-const BarnList = lazy(() => import('./pages/BarnList'))
-const CowList = lazy(() => import('./pages/CowList'))
-const CowProfile = lazy(() => import('./pages/CowProfile'))
+const BarnList = lazy(loadPenListPage)
+const CowList = lazy(loadCowListPage)
+const CowProfile = lazy(loadCowProfilePage)
 const Placeholder = lazy(() => import('./pages/Placeholder'))
 
 export default function App() {

@@ -1,4 +1,4 @@
-export type CattleStatus = 'ACTIVE' | 'EXITED' | 'VOIDED'
+export type CattleStatus = 'ACTIVE' | 'EXIT_PENDING' | 'EXITED' | 'VOIDED'
 export type PenStatus = 'ACTIVE' | 'INACTIVE'
 export type EntryStatus = 'Nháp' | 'Đã nhập' | 'Đã hủy'
 export type ExitStatus = 'Nháp' | 'Chờ xác nhận' | 'Đã xuất' | 'Đã hủy' | 'Đã bác'
@@ -62,8 +62,16 @@ export interface Cattle {
   ageLong?: string
   months?: number
   purpose?: string
+  purposeId?: number
   purposeSince?: string
   stage?: string
+  /** Backend enum kept separately from the translated display label. */
+  lifeStage?: string
+  herdGroup?: string
+  exitPending?: boolean
+  birthDateAccuracy?: string
+  colourMarkings?: string
+  notes?: string
   barnTag?: string
   barnSince?: string
   health?: StatusChip | null
@@ -81,6 +89,13 @@ export interface Cattle {
   qrFromWho?: string
   care?: CattleCare
   importRecord?: ImportRecord | null
+  exitStatusLabel?: string
+  backendId?: number
+  backendVersion?: number
+  canUpdate?: boolean
+  canChangePurpose?: boolean
+  qrUnavailable?: boolean
+  timelineUnavailable?: boolean
   inList?: boolean
   [key: string]: unknown
 }
@@ -227,6 +242,7 @@ export interface EntryDraft {
   pricing?: 'kg' | 'con'
   sourceId?: string
   quarantine?: string
+  plate?: string
   receiver?: string
   note?: string
   freight?: number
