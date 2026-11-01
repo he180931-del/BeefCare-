@@ -4,3 +4,15 @@
 .run/
 *.local.log
 
+# Runtime files selected/uploaded while developing the frontend must never be committed.
+frontend/uploads/
+frontend/docs/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+.worktrees/
+playwright-report/
+test-results/
+*.auth-state.json
+storage-state-*.json
+.env.local
+.env.*.local
