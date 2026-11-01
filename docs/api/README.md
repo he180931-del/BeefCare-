@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **203 paths, 274 schemas** (regenerated 28 October 2026, late). To regenerate, run from `backend/`:
+Current contract: **212 paths, 284 schemas** (regenerated 29 October 2026 from `main` at `71ce2a3`, after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -41,11 +41,22 @@ Path IDs are numeric internal IDs. Display codes such as `BC-000125`, pen codes 
 |---|---|
 | Sign in and profile | `/api/csrf`, `/api/authenticate`, `/api/logout`, `/api/register`, `/api/activate`, `/api/account/**` (`profile` GET/POST, `owner-registration`, `change-password`, `reset-password/*`, `verification/resend`) |
 | Members and invitations (Owner) | `/api/farms/{farmId}/members`, `/api/farms/{farmId}/invitations` (+ `/{invitationId}/resend`, `/cancel`; each needs `Idempotency-Key`), `PUT /api/farms/{farmId}/members/{membershipId}`; invitee: `GET/POST /api/invitations/accept` (no key needed, a repeat returns the same membership) |
-| Farm selector and bootstrap | `/api/farms`, `/api/farms/{farmId}/context`, `/catalogues` |
-| Cattle and QR | `/api/farms/{farmId}/cattle`, `/{id}`, `/{id}/profile`, `/{id}/qr-tags`, `/resolve?code=` |
-| Growth | `/api/farms/{farmId}/growth`, `/cattle/{id}/growth` |
+| Farm selector and bootstrap | `/api/farms` (list, register a farm), `/api/farms/{farmId}`, `/{farmId}/context`, `/catalogues` |
+| Farm subscription (Owner, FE-19) | `/api/farms/{farmId}/subscription`, `/subscription/payments`, `/subscription/payments/{paymentId}` |
+| Dashboard and reports (FE-15) | `/api/farms/{farmId}/dashboard`, `POST /dashboard/reports` (RPT-01–07); SCR-48 `/dashboard/getting-started` (+ `/steps/{step}/done`, `/dismiss`) |
+| Reminders and notifications (FE-14) | `/api/farms/{farmId}/reminders` (SCR-44, see `ReminderView` below); `/api/notifications/mine`, `/{id}/read`, `/read-all` |
+| Farm announcements (FE-07) | `/api/farms/{farmId}/announcements` (+ `/drafts`, `/{id}/draft`, `/{id}/publish`, `/{id}/corrections`, `/recipients/{recipientId}/read`) |
+| Pens (FE-04) | `/api/farms/{farmId}/pens`, `/{penId}`, `/{penId}/availability`; moves `/pen-moves` (+ `/check`); history `/cattle/{id}/pen-history` |
+| Herd entry (FE-06) | `/api/farms/{farmId}/entry-vouchers` (+ `/import-template`, `/life-stage-proposal`, `/{id}/checks`, `/{id}/import`, `/{id}/post`, `/{id}/void-check`, `/{id}/void`), `/herd-entries/{entryId}` (+ `/void-check`, `/void`), line photo `/entry-lines/{entryId}/photo` |
+| Herd exit (FE-13) | `/api/farms/{farmId}/exit-vouchers` (+ `/selectable-cattle`, `/{id}/lines`, `/{id}/checks`, `/{id}/confirm`, `/{id}/dismiss`, `/{id}/void-check`, `/{id}/void`) |
+| Trading partners and voucher payments | `/api/farms/{farmId}/trading-partners` (+ `/{id}`, `/{id}/status`), `/vouchers/{type}/{voucherId}/payments`, `/payments/{paymentId}/void` |
+| Cattle and QR | `/api/farms/{farmId}/cattle`, `/{id}`, `/{id}/profile`, `/{id}/qr-tags`, `/{cattleId}/photo`, `/resolve?code=`; photos are served by `/api/farms/{farmId}/attachments/{attachmentId}` |
+| Growth | `/api/farms/{farmId}/growth`, `/cattle/{id}/growth`, `/cattle/{cattleId}/growth/{id}/correction` |
 | Timeline | `/api/farms/{farmId}/cattle/{id}/timeline` |
-| Catalogues | `/api/farms/{farmId}/catalogues/breeds`, `/catalogues/production-purposes`; care catalogue and parameter paths are in OpenAPI |
+| Vaccination (FE-09) | `/api/farms/{farmId}/vaccination-schedules` (+ `/{scheduleId}`, `/{scheduleId}/stop`), `/scheduled-doses/{doseId}/defer`, `/vaccinations` (+ `/history`, `/{id}/correction`, `/{id}/void`) |
+| Health cases (FE-10) | `/api/farms/{farmId}/health-cases` (+ `/cattle/{cattleId}`, `/{caseId}/observations`, `/{caseId}/treatments`, `/{caseId}/status`, `/{caseId}/closure-correction`), `/health-observations/{id}/correction` and `/void`, `/treatments/{id}/correction` and `/void` |
+| Reproduction (FE-11/12) | `/api/farms/{farmId}/cattle/{cattleId}/estrus-events`, `/breeding-events`, `/pregnancy-checks`, `/reproduction-history`; `/reproduction-worklist`; `/reproduction-events/{id}/correction` and `/void`; `/pregnancy-episodes/{id}/updates`, `/pregnancy-updates/{id}/correction` and `/void`; `/calvings` (+ `/{id}/correction`, `/void`), `/calf-outcomes/{calfId}/correction` and `/void`, `/pending-calves` (+ `/{calfId}/died-before-registration`) |
+| Catalogues and parameters (FE-18) | `/api/farms/{farmId}/catalogues/breeds`, `/catalogues/production-purposes`, `/vaccines`, `/medicines`; SCR-56 `/parameters/effective`, `/parameters/versions` |
 | Owner support | `/api/support/tickets` and ticket replies/acknowledgments/reopen |
 | CS support | `/api/platform/support/tickets` and explicit processing/resolution/closure commands |
 | PM/SA internal requests | `/api/platform/internal-requests`; recipient sees request context only |
@@ -54,7 +65,10 @@ Path IDs are numeric internal IDs. Display codes such as `BC-000125`, pen codes 
 | Stock adjustment (SCR-80) | `/api/farms/{farmId}/feed/adjustments`, `/{adjustmentId}`, `/{adjustmentId}/draft`, `/{adjustmentId}/post`; files: `/{adjustmentId}/attachments` (GET list, POST upload) and `/{adjustmentId}/attachments/{attachmentId}` (GET download, DELETE remove) |
 | Rations and feeding (SCR-81–84) | `/api/farms/{farmId}/feed/rations`, `/feed/feeding-records`, `/{recordId}/correct`, `/{recordId}/void` |
 | Feed catalogue and report | `/api/farms/{farmId}/feed/catalogue`, `/feed/reports/consumption` |
-| Platform finance (PM) | `/api/platform/finance/records` (+ `/{id}/post`, `/void`, `/discard`, `/replacement`), `/bank-transactions`, `/categories`, `/reports`, `/reports/{id}/xlsx` |
+| Platform finance (PM) | `/api/platform/finance/records` (+ `/{id}/post`, `/void`, `/discard`, `/replacement`), `/bank-transactions`, `/categories`, `/receipts`, `/reports`, `/reports/{id}/xlsx` |
+| Subscriptions and payments (PM) | `/api/platform/subscriptions` (+ `/{farmId}`), `/api/platform/payments` (+ `/summary`, `/{paymentId}`, `/lookup/{transactionId}`, `/evidence/**`), `/api/platform/plan-prices`, `/api/platform/farms` (+ `/{farmId}/suspend`, `/restore`) |
+| Accounts and audit (SA) | `/api/platform/accounts` (+ `/{id}`, `/{id}/history`, `/{id}/platform-access`, `/{id}/suspend`, `/{id}/restore`), `/api/platform/audit` (+ `/{id}`) |
+| Public pages (FE-22) | `/api/public/landing`, `/api/public/prices` (no session needed). `/api/webhooks/sepay` is server-to-server only. |
 | Email preview | Mailpit local `http://localhost:8025`; SMTP on localhost:1025 |
 
 ### Feed receipt and adjustment attachments
@@ -82,6 +96,7 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 | 2026-10-29 | An expired or purged cash report snapshot answers 410 with `MSG-FE21-12` (was a bare 410 text). | Show the MSG-FE21-12 banner and offer to run the report again. |
 | 2026-10-29 | SCR-48 "Getting started": `GET /api/farms/{farmId}/dashboard/getting-started`, `POST .../getting-started/steps/{step}/done` (only `REVIEW_BREEDS_AND_PURPOSES`, `CHECK_FARM_PARAMETERS`, `COMPLETE_VACCINE_DOSES`), `POST .../getting-started/dismiss`. Owner and Manager; the invite step is Owner only. | New panel. |
 | 2026-10-29 | New notifications: PM reconciliation notice per bank evidence that needs review (`targetType` `BANK_TRANSFER_EVIDENCE`, UC-FE14-04); Owner subscription notices from JOB-05 (`targetType` `SUBSCRIPTION`: renewal opening, 30/7/1 days before the end, expired) with an email each; a reminder to the named PM/SA of an internal request OPEN for 4 hours (`INTERNAL_REQUEST`). | Appear in `/api/notifications/mine`. |
+| 2026-10-28 (late) | `GET /api/farms/{farmId}/reminders` returns `ReminderView {id, ruleType, sourceRecord, cattleId, dueTime, windowEnd, lifecycleStatus, urgency, highlighted, basisLabel, parameterVersion}`. `urgency` is the SCR-44 group `OVERDUE` / `TODAY` / `UPCOMING` (`TODAY` is new; REM-13 no longer answers `DUE`). `UPCOMING` covers the next 7 days, or the open lead window of REM-05/06 when longer; later reminders are not listed. REM-05 and REM-06 `dueTime` is the expected calving date / planned dose date (the lead parameter only opens the window). New fields: `windowEnd` (REM-02 heat window end), `basisLabel` (`TENTATIVE` / `CONFIRMED` for REM-05), `parameterVersion` (farm parameter version the due date came from). Only `ACTIVE` reminders are listed; REM-10 is no longer shown to Technicians. | Group the screen by `urgency`, show `windowEnd` / `basisLabel` when present; treat `id: null` as a live suggestion that has no stored reminder yet. |
 | 2026-10-28 (late) | New feed document routes: `GET/POST /api/farms/{farmId}/feed/receipts/{receiptId}/attachments`, `GET/DELETE .../receipts/{receiptId}/attachments/{attachmentId}` and the same four under `.../adjustments/{adjustmentId}/attachments` (PDF/JPEG, 10 MiB, DRAFT only for changes). Upload/remove require `Idempotency-Key`. Multipart limits are now 10 MB per file / 11 MB per request. | Additive. Build the SCR-79/80 attachment lists on these routes; do not use `/api/farms/{farmId}/attachments/{id}` for them (it serves only cattle and entry photos). |
 | 2026-10-28 (late) | Invitation and membership commands (`POST .../invitations`, `.../invitations/{id}/resend`, `.../cancel`, `PUT .../members/{id}`) require the `Idempotency-Key` header and replay on a retry. Invitation errors use `MSG-FE03-02/03/04/08/09/20` with params (`email`, `status`, `target`, `value`). | **Breaking** for callers without the header (generic 400). No screen calls these yet. |
 | 2026-10-28 (late) | `POST /api/register` takes `{fullName, email, password, confirmPassword, termsAccepted}` (the old `ManagedUserVM` schema also demanded a `login` name, so the SRS form could not register). `POST /api/account/reset-password/init` and `/api/account/verification/resend` take the JSON object `{email}` (a bare JSON string arrived with its quotes and never matched an account). `ProfileResponse` adds `platformRole` and `farms[{farmId,farmName,role}]`. Sign-in, registration and password failures return `MSG-FE01-xx` codes (see Browser authentication). A SUSPENDED account can now request and finish a password reset. | **Breaking** for the two JSON-string bodies and the register body; additive for the profile fields and error codes. |

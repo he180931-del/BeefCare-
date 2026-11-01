@@ -1,5 +1,11 @@
 # Phân công review và kiểm thử backend cho 4 người
 
+**Yêu cầu mới nhất:** từng người BE tự kiểm cùng agent, không bắt buộc review chéo. Dùng [workflow HTML với tab phân công riêng](backend-workflow.html), [bảng API bàn giao](api-handoff.html) và `backend/AGENTS.md`. Các kế hoạch dưới đây giữ làm tham khảo lịch sử.
+
+Quy trình thực hiện hiện tại: [workflow BE từ UC tới bàn giao FE](BACKEND_REVIEW_WORKFLOW.md), kèm [template review UC](templates/BACKEND_UC_REVIEW_TEMPLATE.md). Thành viên FE phụ trách dựng và test giao diện; 4 người BE phụ trách kiểm chứng API/nghiệp vụ theo scope.
+
+**Cập nhật 29/10/2026:** dùng [kế hoạch review FE + BE hiện tại](REVIEW_PLAN_2026-10-29.md) làm phân công chính. Kế hoạch mới dựa trên `main` tại `6ccc3a8` và đã xem cả FE trên `origin/LamKD` tại `770ef6f`, gồm trạng thái mock/API thật, ranh giới file, các ca liên nhóm và tiêu chí bàn giao. Nội dung dưới đây giữ làm bản phân công tại mốc bàn giao trước.
+
 Áp dụng cho bản bàn giao đang làm theo yêu cầu mới nhất của chủ dự án. Đọc HANDOFF_BACKEND.md trước để biết phạm vi và kết quả kiểm tra cuối. Các nhóm chức năng còn đang hoàn thiện; bảng này không có nghĩa toàn bộ đã hoàn thành. Mỗi người phụ trách luồng xuyên suốt của nhóm mình, đối chiếu UC, quy tắc, quyền và dữ liệu trong SRS thay vì chia theo controller/service/repository.
 
 | Người | Phạm vi chính | Các luồng cần tự kiểm chứng |
