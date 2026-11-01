@@ -3,10 +3,13 @@ import { MANAGER, TODAY, initialCows, newQrCode, type CowSeed } from '../data/co
 import { dm, dmy } from '../data/format'
 import { moveCattle, pens } from './herdDomainApi'
 import { cattleSchema } from './collectionSchemas'
+import { backendFarmId, backendMode, backendTransport } from './backendTransport'
+import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
 import type { Cattle, CattleEvent, Pen, QrHistoryRow, Tone } from '../types'
 
 // Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
 const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
+const backendApi = createCattleBackendApi({ transport: backendTransport, farmId: backendFarmId })
 
 const isCowSeed = (cow: Cattle): cow is CowSeed => Boolean(cow.ageLong && cow.stage && cow.purpose && cow.qr && cow.care)
 const asCowSeed = (cow: Cattle): CowSeed => {
@@ -22,27 +25,75 @@ const getActiveCow = async (code: string): Promise<CowSeed> => {
   return cow
 }
 
-export const listCows = async (): Promise<CowSeed[]> => (await cattle.list()).filter(isCowSeed)
-export const listBarns = () => pens.list()
+export const listCows = async (): Promise<CowSeed[]> => backendMode === 'backend'
+  ? (await backendApi.listPage()).items
+  : (await cattle.list()).filter(isCowSeed)
+export const listCowsPage = (options: CattleListOptions = {}): Promise<CattlePage> => backendMode === 'backend'
+  ? backendApi.listPage(options)
+  : listCows().then((items) => ({ items, total: items.length, page: 0, size: items.length, counts: {} }))
+export const listPurposes = (): Promise<PurposeOption[]> => backendMode === 'backend' ? backendApi.purposes() : Promise.resolve([])
+export const listBreeds = (): Promise<Array<{ id: number; name: string; code: string }>> => backendMode === 'backend' ? backendApi.breeds() : Promise.resolve([])
+export const listBarns = () => backendMode === 'backend' ? backendApi.pens() : pens.list()
 
 /** Hồ sơ một bò kèm danh sách chuồng (để hiển thị tiêu chí và sức chứa). */
 export async function loadProfile(code: string): Promise<{ cow: CowSeed; barns: Pen[] }> {
+  if (backendMode === 'backend') return backendApi.profile(code)
   const [cow, barnRows] = await Promise.all([cattle.get(code), pens.list()])
   return { cow: asCowSeed(cow), barns: barnRows }
 }
 
-export const updateIdentity = async (code: string, { name, tag, description }: { name: string; tag?: string; description?: string }) => {
+type BackendMutationContext = {
+  backendId?: number; backendVersion?: number; effectiveDate?: string; reason?: string
+  currentProfile?: Partial<Pick<ProfileUpdateCommand, 'earTagNumber' | 'name' | 'colourMarkings' | 'notes' | 'productionPurposeId' | 'lifeStage'>>
+}
+const profileBody = (context: BackendMutationContext, overrides: Partial<ProfileUpdateCommand>): ProfileUpdateCommand => ({
+  // ProfileUpdate is a full snapshot command. Never let an omitted field from
+  // one tab turn into JSON null and erase a value changed in another tab.
+  earTagNumber: context.currentProfile?.earTagNumber ?? '',
+  name: context.currentProfile?.name ?? '',
+  colourMarkings: context.currentProfile?.colourMarkings ?? '',
+  notes: context.currentProfile?.notes ?? '',
+  productionPurposeId: context.currentProfile?.productionPurposeId,
+  lifeStage: context.currentProfile?.lifeStage,
+  effectiveDate: context.effectiveDate || new Date().toISOString().slice(0, 10),
+  reason: context.reason || 'Cập nhật hồ sơ',
+  expectedVersion: context.backendVersion as number,
+  acknowledgedReproductionChange: false,
+  ...overrides,
+})
+
+export const updateIdentity = async (code: string, { name, tag, description }: { name: string; tag?: string; description?: string }, context: BackendMutationContext = {}) => {
+  if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
+    return backendApi.updateProfile(context.backendId, profileBody({ ...context, reason: context.reason || 'Cập nhật định danh và mô tả' }, {
+      name,
+      earTagNumber: tag ?? context.currentProfile?.earTagNumber ?? '',
+      colourMarkings: description ?? context.currentProfile?.colourMarkings ?? '',
+    }))
+  }
   await getActiveCow(code)
   return cattle.update(code, { name, tag, description })
 }
 
-export async function updateStage(code: string, { stage, date, reason }: { stage: string; date: string; reason: string }) {
+export async function updateStage(code: string, { stage, date, reason, acknowledgedReproductionChange }: { stage: string; date: string; reason: string; acknowledgedReproductionChange?: boolean }, context: BackendMutationContext = {}) {
+  if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
+    return backendApi.updateProfile(context.backendId, profileBody({ ...context, effectiveDate: date, reason }, { lifeStage: lifeStageValue(stage), acknowledgedReproductionChange: acknowledgedReproductionChange === true }))
+  }
   const cow = await getActiveCow(code)
   const change = event('stage', `${date}T08:00`, `Đổi giai đoạn: ${cow.stage} → ${stage}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(TODAY)} · ${MANAGER}`)
   return cattle.update(code, { stage, events: [change, ...(cow.events ?? [])] })
 }
 
-export async function moveBarn(code: string, { to, date, reason, by }: { to: string; date: string; reason: string; by: string }) {
+export async function updatePurpose(code: string, purposeId: number, context: BackendMutationContext & { acknowledgedReproductionChange?: boolean } = {}) {
+  if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
+    return backendApi.updateProfile(context.backendId, profileBody({ ...context, reason: context.reason || 'Cập nhật mục đích nuôi' }, { productionPurposeId: purposeId, acknowledgedReproductionChange: context.acknowledgedReproductionChange === true }))
+  }
+  return getActiveCow(code)
+}
+
+export async function moveBarn(code: string, { to, date, reason, by }: { to: string; date: string; reason: string; by: string }, context: { backendId?: number; backendVersion?: number; toPenId?: number; warningReason?: string } = {}) {
+  if (backendMode === 'backend' && context.backendId != null && context.toPenId != null) {
+    return backendApi.movePen({ cattleId: context.backendId, toPenId: context.toPenId, moveDate: date, reason, warningReason: context.warningReason, cattleVersion: context.backendVersion })
+  }
   const cow = await getActiveCow(code)
   const from = cow.barn
   if (from === to) return cow
@@ -56,7 +107,16 @@ export async function moveBarn(code: string, { to, date, reason, by }: { to: str
   })
 }
 
-export async function reissueQr(code: string, { reason, note, by }: { reason: string; note: string; by: string }) {
+export const checkPenMove = (code: string, { date, toPenId }: { date: string; toPenId: number }, context: { backendId?: number } = {}): Promise<PenMoveCheck | null> => {
+  if (backendMode === 'backend' && context.backendId != null) return backendApi.checkPenMove({ cattleId: context.backendId, toPenId, moveDate: date })
+  return Promise.resolve(null)
+}
+
+export async function reissueQr(code: string, { reason, note, by }: { reason: string; note: string; by: string }, context: BackendMutationContext = {}) {
+  if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
+    const replacementReason = reason === 'Thẻ bị mất' ? 'LOST' : reason === 'Thẻ bị hỏng' ? 'DAMAGED' : 'OTHER'
+    return backendApi.issueQr(context.backendId, { reason: replacementReason, note, cattleVersion: context.backendVersion })
+  }
   const cow = await getActiveCow(code)
   const newCode = newQrCode({ code: cow.code, qrHistory: cow.qrHistory ?? [] })
   const change = event('qr', `${TODAY}T08:00`, 'Cấp lại thẻ QR', { label: 'Thực tế', tone: 'ok' }, note || reason, `Hiệu lực ${dm(TODAY)} · ghi ${dm(TODAY)} · ${by}`)

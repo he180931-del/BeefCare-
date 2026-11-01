@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Field, Note, Select, Textarea } from '../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { QR_REASONS, MANAGER, newQrCode } from '../../data/cowsData'
-import { reissueQr } from '../../api/cattleApi'
-import { useMutation } from '../../hooks/useApi'
+import { Field, Note, Select, Textarea } from '../../../components/ui'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { QR_REASONS, MANAGER, newQrCode } from '../../../data/cowsData'
+import { reissueQr } from '../api/cattleApi'
+import { useMutation } from '../../../hooks/useApi'
 import { fieldCls } from './parts'
-import type { CowSeed } from '../../data/cowsData'
+import type { CowSeed } from '../../../data/cowsData'
 
 type ReissuePayload = { reason: string; note: string; by: string }
 

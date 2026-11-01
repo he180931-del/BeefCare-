@@ -1,7 +1,7 @@
-import { Button, Foot, Table } from '../../components/ui'
+import { Button, Foot, Table } from '../../../components/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
-import type { CowSeed } from '../../data/cowsData'
-import type { Tone } from '../../types'
+import type { CowSeed } from '../../../data/cowsData'
+import type { Tone } from '../../../types'
 
 const QR_TONE: Record<string, Tone> = { ACTIVE: 'ok', REPLACED: 'grey', REVOKED: 'err' }
 

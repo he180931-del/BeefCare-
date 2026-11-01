@@ -1,6 +1,6 @@
-import { Button, Foot, Table } from '../../components/ui'
+import { Button, Foot, Table } from '../../../components/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
-import type { CowSeed } from '../../data/cowsData'
+import type { CowSeed } from '../../../data/cowsData'
 
 const ageFull = (cow: CowSeed) => cow.ageLong.replace('tuổi', 'năm')
 
@@ -17,7 +17,7 @@ export default function OverviewTab({ cow, onOpenModal }: { cow: CowSeed; onOpen
                 ['Mã nội bộ', cow.internalId],
                 ['Mã hiển thị', cow.code],
                 ['Số tai phụ', cow.tag],
-                ['Thẻ QR hiện hành', `${cow.qr} · ${cur.status}`],
+                ['Thẻ QR hiện hành', cur ? `${cow.qr} · ${cur.status}` : cow.qr || '—'],
               ]}
             />
           </Panel>

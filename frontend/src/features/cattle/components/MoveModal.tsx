@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Field, DateInput, Select, Table } from '../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { MANAGER, OWNER, TODAY } from '../../data/cowsData'
-import { moveBarn } from '../../api/cattleApi'
-import { useMutation } from '../../hooks/useApi'
+import { Field, DateInput, Select, Table } from '../../../components/ui'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { MANAGER, OWNER, TODAY } from '../../../data/cowsData'
+import { moveBarn } from '../api/cattleApi'
+import { useMutation } from '../../../hooks/useApi'
 import { Chip, Td, Th, fieldCls } from './parts'
-import type { CowSeed } from '../../data/cowsData'
-import type { Pen } from '../../types'
+import type { CowSeed } from '../../../data/cowsData'
+import type { Pen } from '../../../types'
 
 type MovePayload = { to: string; date: string; reason: string; by: string }
 

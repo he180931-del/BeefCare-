@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Foot } from '../../components/ui'
+import { Foot } from '../../../components/ui'
 import { Chip, Panel, Seg } from './parts'
-import type { CowSeed } from '../../data/cowsData'
-import type { CattleEvent } from '../../types'
+import type { CowSeed } from '../../../data/cowsData'
+import type { CattleEvent } from '../../../types'
 
 const FILTERS = [
   ['all', 'Tất cả'],

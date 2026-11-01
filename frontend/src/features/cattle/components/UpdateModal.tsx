@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Field, Select, Textarea, DateInput, Note } from '../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { STAGES, TODAY } from '../../data/cowsData'
-import { updateIdentity, updateStage } from '../../api/cattleApi'
-import { useMutation } from '../../hooks/useApi'
+import { Field, Select, Textarea, DateInput, Note } from '../../../components/ui'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { STAGES, TODAY } from '../../../data/cowsData'
+import { updateIdentity, updateStage } from '../api/cattleApi'
+import { useMutation } from '../../../hooks/useApi'
 import { Panel, Seg, fieldCls } from './parts'
-import type { CowSeed } from '../../data/cowsData'
+import type { CowSeed } from '../../../data/cowsData'
 
 const TABS = [
   ['identity', 'Định danh & mô tả'],

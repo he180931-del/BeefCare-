@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../components/Layout'
-import { Button, PageHeader, Table, Foot, Select, inputCls } from '../components/ui'
-import { BARNS0, BREEDS, EXPORTED_COUNT, STAGES, groupCount } from '../data/cowsData'
+import Layout from '../../../components/Layout'
+import { Button, PageHeader, Table, Foot, Select, inputCls } from '../../../components/ui'
+import { BARNS0, BREEDS, EXPORTED_COUNT, STAGES, groupCount } from '../../../data/cowsData'
 import { listBarns, listCows } from '../api/cattleApi'
-import { useQuery } from '../hooks/useApi'
-import { Chip, Panel, Th, Td } from './cows/parts'
-import type { StatusChip } from '../types'
-import type { CowSeed } from '../data/cowsData'
+import { useQuery } from '../../../hooks/useApi'
+import { Chip, Panel, Th, Td } from '../components/parts'
+import type { StatusChip } from '../../../types'
+import type { CowSeed } from '../../../data/cowsData'
 
 const TAB_STAGE: Record<string, string> = { 'Tất cả': '', 'Khác': 'Chưa xác định' }
 const SEX = ['Cái', 'Đực']

@@ -1,7 +1,7 @@
-import { Button, Foot, Table } from '../../components/ui'
+import { Button, Foot, Table } from '../../../components/ui'
 import { Panel, Td, Th } from './parts'
-import type { Pen } from '../../types'
-import type { CowSeed } from '../../data/cowsData'
+import type { Pen } from '../../../types'
+import type { CowSeed } from '../../../data/cowsData'
 
 export default function BarnsTab({ cow, barns, onOpenModal }: { cow: CowSeed; barns: Record<string, Pen>; onOpenModal: (name: string) => void }) {
   const cur = barns[cow.barn]

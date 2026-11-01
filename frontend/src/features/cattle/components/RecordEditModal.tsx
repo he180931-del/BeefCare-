@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Field, Note, Table, Textarea } from '../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { MANAGER } from '../../data/cowsData'
-import { editImportRecord, voidImportRecord } from '../../api/cattleApi'
-import { useMutation } from '../../hooks/useApi'
+import { Field, Note, Table, Textarea } from '../../../components/ui'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { MANAGER } from '../../../data/cowsData'
+import { editImportRecord, voidImportRecord } from '../api/cattleApi'
+import { useMutation } from '../../../hooks/useApi'
 import { Td, Th, fieldCls } from './parts'
-import type { CowSeed } from '../../data/cowsData'
-import type { ImportRecord } from '../../types'
+import type { CowSeed } from '../../../data/cowsData'
+import type { ImportRecord } from '../../../types'
 
 const REASON_MAX = 500
 

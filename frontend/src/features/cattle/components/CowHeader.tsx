@@ -1,6 +1,6 @@
-import { Button } from '../../components/ui'
+import { Button } from '../../../components/ui'
 import { Chip } from './parts'
-import type { CowSeed } from '../../data/cowsData'
+import type { CowSeed } from '../../../data/cowsData'
 
 export const COW_TABS = [
   ['', 'Tổng quan'],
