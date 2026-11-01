@@ -45,7 +45,7 @@ async function renderAuth(client: ReturnType<typeof fakeClient>) {
     '../../../src/features/authentication/AuthContext'
   )
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/dang-nhap']}>
       <AuthProvider client={client as never}>
         <div data-testid="protected">Protected content</div>
       </AuthProvider>
@@ -63,7 +63,7 @@ describe('TC-AUTH-U01: Empty form cannot be submitted', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     const emailInput = screen.getByLabelText(/email/i)
-    const passwordInput = screen.getByLabelText(/mật khẩu/i)
+    const passwordInput = screen.getByLabelText('Mật khẩu', { exact: true })
 
     expect(emailInput).toBeRequired()
     expect(passwordInput).toBeRequired()
@@ -83,7 +83,7 @@ describe('TC-AUTH-U02: Successful login flow', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), 'manager@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'beefcare-dev-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'beefcare-dev-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     await waitFor(() => {
@@ -108,7 +108,7 @@ describe('TC-AUTH-U03: Remember-me checkbox', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), 'owner@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'test-password-123')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'test-password-123')
     await user.click(screen.getByLabelText(/ghi nhớ/i))
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
@@ -138,7 +138,7 @@ describe('TC-AUTH-U04: Wrong credentials error', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), 'wrong@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'wrong-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'wrong-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     await waitFor(() => {
@@ -158,7 +158,7 @@ describe('TC-AUTH-U04: Wrong credentials error', () => {
     await renderAuth(client)
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
     await user.type(screen.getByLabelText(/email/i), 'wrong@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'wrong-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'wrong-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Email hoặc mật khẩu không đúng.')
@@ -172,7 +172,7 @@ describe('TC-AUTH-U04: Wrong credentials error', () => {
     await renderAuth(client)
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
     await user.type(screen.getByLabelText(/email/i), 'owner@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'wrong-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'wrong-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     const alert = await screen.findByRole('alert')
@@ -202,7 +202,7 @@ describe('TC-AUTH-U05: Account lockout (423)', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), 'locked@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'any-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'any-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     await waitFor(() => {
@@ -231,7 +231,7 @@ describe('TC-AUTH-U06: Suspended account (403)', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), 'suspended@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'any-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'any-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     await waitFor(() => {
@@ -252,7 +252,7 @@ describe('TC-AUTH-U07: Email trimming', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), '  manager@beefcare.local  ')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'beefcare-dev-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'beefcare-dev-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     await waitFor(() => {
@@ -279,7 +279,7 @@ describe('TC-AUTH-U08: Submit button disabled during login', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), 'owner@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'beefcare-dev-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'beefcare-dev-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     // While waiting, the button text changes and is disabled
@@ -312,7 +312,7 @@ describe('TC-AUTH-U09: Unverified email (MSG-FE01-11)', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
 
     await user.type(screen.getByLabelText(/email/i), 'unverified@beefcare.local')
-    await user.type(screen.getByLabelText(/mật khẩu/i), 'any-password')
+    await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'any-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
     await waitFor(() => {

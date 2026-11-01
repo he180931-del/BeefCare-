@@ -104,7 +104,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const { data: breeds } = useQuery(() => (editingIndex >= 0 || !isBuy) ? listEntryBreeds() : Promise.resolve([]), [editingIndex, isBuy])
   // All receiving pens come from the farm endpoint. Do not reserve or remove
   // a hard-coded A3: farms may name their pens differently and purchase entry
-  // must be able to select any active backend pen.
+  // must be able to select an active backend pen.
   const importBarns = canonicalPens
   const calfBarn = canonicalPens.find((pen) => pen.status === 'ACTIVE') ?? {
     code: '', name: 'Chưa chọn chuồng', count: 0, capacity: 0, status: 'INACTIVE' as const, cows: [],

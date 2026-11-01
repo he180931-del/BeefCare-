@@ -16,6 +16,7 @@ import MoveModal from '../components/MoveModal'
 import RecordEditModal from '../components/RecordEditModal'
 import { Panel } from '../components/parts'
 import type { ReactNode } from 'react'
+import { ReproductionProfileTab } from '../../reproduction'
 
 export default function CowProfile() {
   const { code } = useParams()
@@ -41,6 +42,7 @@ export default function CowProfile() {
       timeline: <TimelineTab cow={cow} />,
       barns: <BarnsTab cow={cow} barns={barns} onOpenModal={openModal} />,
       qr: <QrTab cow={cow} onOpenModal={openModal} />,
+      repro: <ReproductionProfileTab cattleCode={cow.code} />,
     }
     content = (
       <>

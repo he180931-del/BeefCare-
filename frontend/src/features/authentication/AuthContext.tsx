@@ -1,54 +1,53 @@
 import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { BackendError, createBackendClient } from '../../api/backendClient'
+import { useInRouterContext } from 'react-router-dom'
+import { BackendError } from '../../api/backendClient'
 import { userFacingError } from '../../api/userFacingError'
+import { defaultAuthClient } from './client'
+import { GuestAuthFlow } from './pages/GuestAuthFlow'
+import type { AuthClient } from './types'
 
-export type AuthClient = {
-  isAuthenticated: () => Promise<boolean>
-  login: (username: string, password: string, rememberMe?: boolean) => Promise<void>
-  logout: () => Promise<void>
-}
+export type { AuthClient } from './types'
 
-const defaultClient = createBackendClient({ baseUrl: import.meta.env.VITE_BEEFCARE_API_URL || '' })
-const AuthContext = createContext<{ authenticated: boolean; logout: () => Promise<void> } | null>(null)
+type AuthContextValue = { authenticated: boolean; mode: 'backend' | 'mock'; logout: () => Promise<void> }
+const AuthContext = createContext<AuthContextValue | null>(null)
 
 function loginErrorMessage(error: unknown): string {
   const backendError = error instanceof BackendError ? error : null
   const code = backendError?.code?.toLowerCase() || ''
   const message = backendError?.message?.toLowerCase() || (error instanceof Error ? error.message.toLowerCase() : '')
-
-  // Do not expose the backend validation key (or the credential details) on the sign-in form.
-  // FE01-01 is deliberately generic so the UI does not reveal whether an account exists.
+  if (code === 'msg-fe01-11') return 'Email chưa được xác minh. Vui lòng mở email xác minh hoặc gửi lại liên kết.'
   if (
     (backendError?.status === 401 && (!code || code === 'msg-fe01-01' || /bad credentials|invalid credentials|email.*mật khẩu|email.*password/.test(message)))
     || ((backendError?.status === 400 || backendError?.status === 422) && (code === 'error.validation' || message.includes('error.validation')))
     || message.includes('error.validation')
     || /bad credentials|invalid credentials|email.*mật khẩu|email.*password/.test(message)
-  ) {
-    return 'Email hoặc mật khẩu không đúng.'
-  }
-
+  ) return 'Email hoặc mật khẩu không đúng.'
   return userFacingError(error, 'Đăng nhập không thành công.')
 }
 
-export function AuthProvider({ client = defaultClient, children }: { client?: AuthClient; children: ReactNode }) {
+export function AuthProvider({ client = defaultAuthClient, children }: { client?: AuthClient; children: ReactNode }) {
   const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated'>('checking')
   const [error, setError] = useState<string | null>(null)
+  const hasRouter = useInRouterContext()
 
   useEffect(() => {
     let active = true
+    setStatus('checking')
+    setError(null)
     client.isAuthenticated().then((ok) => {
       if (active) setStatus(ok ? 'authenticated' : 'anonymous')
     }).catch(() => {
       if (active) {
-        setError('Không thể kết nối máy chủ xác thực.')
+        setError('Không thể kiểm tra phiên đăng nhập với máy chủ. Hãy thử đăng nhập lại hoặc kiểm tra kết nối.')
         setStatus('anonymous')
       }
     })
     return () => { active = false }
   }, [client])
 
-  const value = useMemo(() => ({
+  const value = useMemo<AuthContextValue>(() => ({
     authenticated: status === 'authenticated',
+    mode: client.mode ?? 'backend',
     logout: async () => {
       await client.logout()
       setStatus('anonymous')
@@ -56,7 +55,15 @@ export function AuthProvider({ client = defaultClient, children }: { client?: Au
   }), [client, status])
 
   if (status === 'checking') return <div className="grid min-h-screen place-items-center text-sm text-subtle">Đang kiểm tra phiên đăng nhập…</div>
-  return <AuthContext.Provider value={value}>{status === 'authenticated' ? children : <LoginForm client={client} initialError={error} onSuccess={() => setStatus('authenticated')} />}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {status === 'authenticated'
+        ? children
+        : hasRouter
+          ? <GuestAuthFlow client={client} initialError={error} onAuthenticated={() => setStatus('authenticated')} />
+          : <LegacyLoginForm client={client} initialError={error} onSuccess={() => setStatus('authenticated')} />}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
@@ -65,34 +72,23 @@ export function useAuth() {
   return value
 }
 
-function LoginForm({ client, initialError, onSuccess }: { client: AuthClient; initialError: string | null; onSuccess: () => void }) {
+/** Keeps headless provider integrations usable; the application itself is always mounted under BrowserRouter. */
+function LegacyLoginForm({ client, initialError, onSuccess }: { client: AuthClient; initialError: string | null; onSuccess: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState(initialError)
   const [submitting, setSubmitting] = useState(false)
-
   const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
-      await client.login(email.trim(), password, remember)
-      onSuccess()
-    } catch (reason) {
-      setError(loginErrorMessage(reason))
-    } finally {
-      setSubmitting(false)
-    }
+    event.preventDefault(); setError(null); setSubmitting(true)
+    try { await client.login(email.trim().toLocaleLowerCase('en-US'), password, remember); onSuccess() }
+    catch (reason) { setError(loginErrorMessage(reason)) }
+    finally { setSubmitting(false) }
   }
-
   return (
     <main className="grid min-h-screen place-items-center bg-page px-4">
       <form onSubmit={submit} className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-field bg-white p-8 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Đăng nhập BeefCare</h1>
-          <p className="mt-1 text-sm text-subtle">Đăng nhập để vào trang trại.</p>
-        </div>
+        <div><h1 className="text-2xl font-bold text-ink">Đăng nhập BeefCare</h1><p className="mt-1 text-sm text-subtle">Đăng nhập để vào trang trại.</p></div>
         {error && <div role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <label className="flex flex-col gap-1 text-sm font-medium text-ink">Email<input aria-label="Email" type="email" required autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} className="h-11 rounded-lg border border-field px-3 font-normal" /></label>
         <label className="flex flex-col gap-1 text-sm font-medium text-ink">Mật khẩu<input aria-label="Mật khẩu" type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 rounded-lg border border-field px-3 font-normal" /></label>

@@ -1,1 +1,5 @@
 export { AuthProvider, useAuth, type AuthClient } from './AuthContext'
+export { GuestAuthFlow, guestAuthPaths } from './pages/GuestAuthFlow'
+export { createBackendAuthClient, createMockAuthClient } from './client'
+export { validateSignIn, validateRegistration, validateReset, isValidEmail, normalizeEmail } from './validation'
+export type { RegistrationRequest, PasswordResetValidation } from './types'
