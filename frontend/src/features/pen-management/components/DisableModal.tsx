@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { Badge, DateInput, Field, KV, Note, Radio, Textarea } from '../../components/ui'
-import type { Pen, PenStatus } from '../../types'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { Badge, DateInput, Field, KV, Note, Radio, Textarea } from '../../../components/ui'
+import type { Pen, PenStatus } from '../../../types'
 
 export default function DisableModal({ barn, onConfirm, onClose }: { barn: Pen; onConfirm: (status: PenStatus, note: { date: string; reason: string }) => void | Promise<void>; onClose: () => void }) {
   const isInactive = barn.status === 'INACTIVE'

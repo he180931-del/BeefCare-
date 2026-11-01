@@ -5,7 +5,7 @@ import { MemoryStorage } from './testUtils'
 global.localStorage = new MemoryStorage({ 'beefcare:latency': '0' })
 
 test('pen edits use the shared pens collection and refresh cattle acceptance aliases', async () => {
-  const [{ penApi }, { pens }] = await Promise.all([import('./penApi'), import('./herdDomainApi')])
+  const [{ penApi }, { pens }] = await Promise.all([import('../features/pen-management/api/penApi'), import('./herdDomainApi')])
   const before = await pens.get('A1')
 
   await penApi.update({ ...before, minAge: 15, minWeight: 260, accept: 'Sinh sản nâng cao' })

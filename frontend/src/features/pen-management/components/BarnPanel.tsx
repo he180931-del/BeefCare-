@@ -1,7 +1,7 @@
-import { Badge, Button, KV, Table, Td, Th } from '../../components/ui'
-import { thresholdText } from '../../data/penData'
+import { Badge, Button, KV, Table, Td, Th } from '../../../components/ui'
+import { thresholdText } from '../../../data/penData'
 import { Box, TH } from './parts'
-import type { Pen } from '../../types'
+import type { Pen } from '../../../types'
 
 export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll }: { barn: Pen; onEdit: () => void; onToggle: () => void; onMoveCow: (code: string) => void; onViewAll: () => void }) {
   const active = barn.status === 'ACTIVE'

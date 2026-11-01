@@ -1,6 +1,6 @@
-import { Badge, Table, Td, Th } from '../../components/ui'
+import { Badge, Table, Td, Th } from '../../../components/ui'
 import { cx, TH } from './parts'
-import type { Pen } from '../../types'
+import type { Pen } from '../../../types'
 
 const HEAD = 'bg-[#f0f0f0] whitespace-nowrap'
 

@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../components/Modal'
-import { Field, Radio, Table, Td, Th, inputCls } from '../../components/ui'
-import { PURPOSES, STAGES } from '../../data/penData'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { Field, Radio, Table, Td, Th, inputCls } from '../../../components/ui'
+import { PURPOSES, STAGES } from '../../../data/penData'
 import { cx, TH } from './parts'
 import type { ReactNode } from 'react'
-import type { Pen, PenStatus } from '../../types'
+import type { Pen, PenStatus } from '../../../types'
 
 const OPERATORS = ['≥', '≤'] as const
 const TODAY_LABEL = '20/10/2026'
