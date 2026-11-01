@@ -32,6 +32,7 @@ export default function BarnList() {
   const { data, loading, refetch } = useQuery(() => penApi.list(), [])
   const createPen = useMutation(penApi.create)
   const updatePen = useMutation(penApi.update)
+  const [saveNotice, setSaveNotice] = useState<string | null>(null)
 
   const barns = data ?? []
   const selected = barns.find((b) => b.code === params.get('barn')) ?? barns[0]
@@ -45,14 +46,17 @@ export default function BarnList() {
   const selectBarn = (code: string) => updateParams({ barn: code })
 
   const savePen = async (pen: Pen) => {
+    setSaveNotice(null)
     const exists = barns.some((b) => b.code === pen.code)
     await (exists ? updatePen.mutate(pen) : createPen.mutate(pen))
     await refetch()
+    setSaveNotice(`Đã lưu chuồng ${pen.code}.`)
     updateParams({ barn: pen.code, m: null })
   }
 
   const changePenStatus = async (status: PenStatus, note: { date: string; reason: string }) => {
-    await updatePen.mutate({ ...selected, status, statusNote: note })
+    if (!selected) return
+    await penApi.changeAvailability(selected, status, note)
     await refetch()
     updateParams({ m: null })
   }
@@ -86,6 +90,7 @@ export default function BarnList() {
           {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </Select>
       </div>
+      {saveNotice && <div className="text-sm font-medium text-brand" role="status" aria-live="polite">{saveNotice}</div>}
 
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[560px_minmax(0,1fr)]">
         <div className="min-w-0 rounded-md border border-[#bdbdbd] bg-white p-2 xl:w-[560px]">
@@ -108,8 +113,8 @@ export default function BarnList() {
         Chọn một chuồng để xem sức chứa, tiêu chí tiếp nhận theo phiên bản và bò đang ở; chuồng ngừng sử dụng không nhận bò mới.
       </p>
 
-      {modal === 'edit' && selected && <EditModal barn={selected} barns={barns} onSave={savePen} onClose={closeModal} />}
-      {modal === 'create' && <EditModal barn={null} barns={barns} onSave={savePen} onClose={closeModal} />}
+      {modal === 'edit' && selected && <EditModal barn={selected} barns={barns} onSave={savePen} onClose={closeModal} saving={updatePen.loading} saveError={updatePen.error} />}
+      {modal === 'create' && <EditModal barn={null} barns={barns} onSave={savePen} onClose={closeModal} saving={createPen.loading} saveError={createPen.error} />}
       {modal === 'disable' && selected && (
         <DisableModal barn={selected} onConfirm={changePenStatus} onClose={closeModal} />
       )}

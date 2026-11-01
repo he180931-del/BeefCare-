@@ -32,7 +32,8 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
 
   const over = amount > debt
   const invalid = amount <= 0 || over || !date
-  const left = debt - amount
+  const projectedPaid = Math.min(total, paid + Math.max(amount, 0))
+  const remaining = Math.max(total - projectedPaid, 0)
 
   return (
     <Modal
@@ -45,14 +46,14 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
       <div className="grid grid-cols-3 gap-4">
         <KV k="Tổng phải trả">{money(total)} đ</KV>
         <KV k="Đã thanh toán">{money(paid)} đ</KV>
-        <KV k="Còn nợ">{money(debt)} đ</KV>
+        <KV k="Còn phải trả">{money(debt)} đ</KV>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Ngày thanh toán *">
           <DateInput value={date} onChange={setDate} />
         </Field>
-        <Field label="Số tiền (đ) *" hint={over ? <span className="text-err-fg">{`Vượt số còn nợ (${money(debt)} đ)`}</span> : 'Không vượt số còn nợ'}>
+        <Field label="Số tiền (đ) *" hint={over ? <span className="text-err-fg">{`Số tiền thanh toán vượt tổng phải trả (${money(debt)} đ còn lại)`}</span> : 'Không vượt số còn phải trả'}>
           <input
             inputMode="numeric"
             className={`${inputCls} ${over ? 'border-err-fg' : ''}`}
@@ -85,9 +86,10 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
       </Field>
 
       <Note tone="info">
-        {left > 0
-          ? `Sau khi lưu: Còn nợ = ${money(left)} đ, phiếu vẫn còn nợ. Khoản đã ghi chỉ sửa/hủy kèm lý do và giữ lịch sử.`
-          : 'Sau khi lưu: Còn nợ = 0 đ, phiếu hiện "Đã thanh toán đủ". Khoản đã ghi chỉ sửa/hủy kèm lý do và giữ lịch sử.'}
+        <span className="block font-semibold">Đã trả: {money(projectedPaid)} đ</span>
+        {remaining > 0
+          ? <span className="block">Còn phải trả: {money(remaining)} đ</span>
+          : <span className="block">Đã thanh toán đủ.</span>}
       </Note>
 
       <ModalFooter>

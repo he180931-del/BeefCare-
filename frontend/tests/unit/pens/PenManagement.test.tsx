@@ -134,7 +134,7 @@ describe('Pen Management Unit Tests (FE-04)', () => {
       )
     })
 
-    it('TC-PEN-U04: Updates acceptance criteria and increments version string', async () => {
+    it('TC-PEN-U04: Keeps the backend optimistic-lock version for update', async () => {
       const user = userEvent.setup()
       const onSave = vi.fn()
       const onClose = vi.fn()
@@ -144,11 +144,12 @@ describe('Pen Management Unit Tests (FE-04)', () => {
       const saveButton = screen.getByRole('button', { name: /Lưu chuồng/i })
       await user.click(saveButton)
 
-      // Version ban đầu là v1, sau khi lưu sửa đổi tiêu chí sẽ tăng lên v2 (GBR-21)
+      // The backend owns optimistic-lock increments. The form must send the
+      // version it loaded, not a locally incremented value.
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'A1',
-          version: expect.stringMatching(/^v2 từ /),
+          version: 'v1 · 15/01/2026',
         })
       )
     })

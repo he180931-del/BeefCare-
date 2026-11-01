@@ -71,4 +71,11 @@ public class HerdEntryResource {
     ) {
         return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "PENDING_CALF_DIED:" + calfId, key, request, EntryDtos.PendingCalf.class, () -> calves.diedBeforeRegistration(farmId, calfId, request.reason()));
     }
+
+    @PostMapping("/pending-calves/{calfId}/parentage")
+    public EntryDtos.PendingCalf assignParentage(@PathVariable Long farmId, @PathVariable Long calfId,
+        @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody EntryActionRequests.AssignCalfParentageRequest request) {
+        return commands.execute(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS, "PENDING_CALF_PARENTAGE:" + calfId, key, request,
+            EntryDtos.PendingCalf.class, () -> calves.assignParentage(farmId, calfId, request));
+    }
 }

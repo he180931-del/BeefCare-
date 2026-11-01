@@ -182,10 +182,12 @@ public class HerdEntryPostingService {
             }
             if (!purchase) {
                 CalfOutcome calf = r.calf();
-                calf.setRegistrationState("REGISTERED");
-                calf.setRegisteredCattle(cattle);
-                em.merge(calf);
-                reminders.resolveCalfReminder(calf);
+                if (calf != null) {
+                    calf.setRegistrationState("REGISTERED");
+                    calf.setRegisteredCattle(cattle);
+                    em.merge(calf);
+                    reminders.resolveCalfReminder(calf);
+                }
             }
         }
 
@@ -252,6 +254,8 @@ public class HerdEntryPostingService {
         c.setBreed(r.breed());
         c.setPurpose(r.purpose());
         c.setDam(r.dam());
+        c.setSire(r.sire());
+        c.setExternalSireCode(r.externalSireCode());
         c.setCreatedBy(ctx.user());
         c.setCreatedAt(clock.now());
         c.setUpdatedAt(clock.now());

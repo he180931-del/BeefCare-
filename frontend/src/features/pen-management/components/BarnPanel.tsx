@@ -25,6 +25,10 @@ export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll
       </div>
 
       <div>
+        <KV k="Mô tả">{barn.desc?.trim() || 'Chưa có mô tả'}</KV>
+      </div>
+
+      <div>
         <h4 className="m-0 text-[13px] font-semibold text-[#212121]">Tiêu chí tiếp nhận · {barn.version}</h4>
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
           <KV k="Mục đích">{barn.purpose}</KV>

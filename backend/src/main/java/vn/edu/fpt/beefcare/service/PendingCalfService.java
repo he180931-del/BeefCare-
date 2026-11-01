@@ -12,6 +12,7 @@ import vn.edu.fpt.beefcare.domain.HerdEntryVoucher;
 import vn.edu.fpt.beefcare.domain.enumeration.EntryLineStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.EntryType;
 import vn.edu.fpt.beefcare.domain.enumeration.HerdStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 import vn.edu.fpt.beefcare.repository.HerdEntryRepository;
 import vn.edu.fpt.beefcare.service.dto.EntryDtos;
 import vn.edu.fpt.beefcare.service.dto.EntryLineRequest;
@@ -74,7 +75,8 @@ public class PendingCalfService {
         return calves
             .stream()
             .map(c -> {
-                var dam = c.getCalving().getDam();
+                var dam = c.getAssignedDam() != null ? c.getAssignedDam() : c.getCalving().getDam();
+                Parentage parentage = parentage(c);
                 HerdEntry draft = entryRepository.findFirstByCalfOutcomeIdAndStatus(c.getId(), EntryLineStatus.DRAFT).orElse(null);
                 return new EntryDtos.PendingCalf(
                     c.getId(),
@@ -82,7 +84,12 @@ public class PendingCalfService {
                     dam.getId(),
                     dam.getDisplayCode(),
                     dam.getHerdStatus() == HerdStatus.ACTIVE,
-                    null,
+                    c.getAssignedSire() != null ? c.getAssignedSire().getId() : (c.getCalving().getEpisode() == null || c.getCalving().getEpisode().getLinkedBreeding() == null || c.getCalving().getEpisode().getLinkedBreeding().getSire() == null ? null : c.getCalving().getEpisode().getLinkedBreeding().getSire().getId()),
+                    parentage.sireCode(),
+                    parentage.sireSource(),
+                    parentage.externalSireName(),
+                    parentage.semenBatch(),
+                    parentage.sireBreedCode(),
                     c.getSex(),
                     clock.toFarmDate(c.getCalving().getBirthTime()),
                     c.getBirthWeight(),
@@ -95,6 +102,20 @@ public class PendingCalfService {
                 );
             })
             .toList();
+    }
+
+    private record Parentage(String sireCode, String sireSource, String externalSireName, String semenBatch, String sireBreedCode) {}
+
+    private static Parentage parentage(CalfOutcome calf) {
+        if (calf.getAssignedSire() != null) return new Parentage(calf.getAssignedSire().getDisplayCode(), "INTERNAL", null, null, calf.getAssignedSire().getBreed() == null ? null : calf.getAssignedSire().getBreed().getCode());
+        if (calf.getAssignedSireSource() != null && "AI".equalsIgnoreCase(calf.getAssignedSireSource())) return new Parentage(calf.getAssignedExternalSireCode(), "AI", calf.getAssignedExternalSireCode(), null, null);
+        var episode = calf.getCalving() == null ? null : calf.getCalving().getEpisode();
+        var breeding = episode == null ? null : episode.getLinkedBreeding();
+        if (breeding == null) return new Parentage("Không rõ", null, null, null, null);
+        String code = breeding.getSire() != null ? breeding.getSire().getDisplayCode()
+            : breeding.getExternalSireName() != null && !breeding.getExternalSireName().isBlank() ? breeding.getExternalSireName()
+            : breeding.getSemenBatch();
+        return new Parentage(code == null || code.isBlank() ? "Không rõ" : code, breeding.getSireSource(), breeding.getExternalSireName(), breeding.getSemenBatch(), breeding.getSireBreed() == null ? null : breeding.getSireBreed().getCode());
     }
 
     /** "Mark died before registration" (reason required): the calf leaves the pending list and REM-09 is resolved. */
@@ -130,6 +151,11 @@ public class PendingCalfService {
             calf.getCalving().getDam().getDisplayCode(),
             calf.getCalving().getDam().getHerdStatus() == HerdStatus.ACTIVE,
             null,
+            null,
+            null,
+            null,
+            null,
+            null,
             calf.getSex(),
             clock.toFarmDate(calf.getCalving().getBirthTime()),
             calf.getBirthWeight(),
@@ -140,6 +166,31 @@ public class PendingCalfService {
             calf.getRegistrationState(),
             null
         );
+    }
+
+    @Transactional
+    public EntryDtos.PendingCalf assignParentage(Long farmId, Long calfId, vn.edu.fpt.beefcare.service.dto.EntryActionRequests.AssignCalfParentageRequest req) {
+        FarmContext ctx = access.require(farmId, FarmAction.MANAGE_ENTRY_VOUCHERS);
+        if (req == null || req.damId() == null) throw DomainException.required("damId");
+        String source = req.sireSource() == null ? "NONE" : req.sireSource().trim().toUpperCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("NONE", "INTERNAL", "AI").contains(source)) throw DomainException.invalid("sireSource");
+        CalfOutcome calf = catalog.lockCalf(farmId, calfId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "calf_id", calfId));
+        if (!"LIVE".equalsIgnoreCase(calf.getOutcome()) || !"PENDING_CONFIRMATION".equalsIgnoreCase(calf.getRegistrationState())) throw DomainException.conflict(MessageCodes.COM_05);
+        var dam = em.createQuery("select c from Cattle c where c.id=:id and c.farm.id=:farm", vn.edu.fpt.beefcare.domain.Cattle.class)
+            .setParameter("id", req.damId()).setParameter("farm", farmId).getResultStream().findFirst().orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "damId", req.damId()));
+        if (dam.getSex() != Sex.FEMALE || dam.getHerdStatus() != HerdStatus.ACTIVE) throw DomainException.unprocessable(MessageCodes.COM_10, "field", "damId");
+        vn.edu.fpt.beefcare.domain.Cattle sire = null;
+        if ("INTERNAL".equals(source)) {
+            if (req.sireId() == null) throw DomainException.required("sireId");
+            sire = em.createQuery("select c from Cattle c where c.id=:id and c.farm.id=:farm", vn.edu.fpt.beefcare.domain.Cattle.class)
+                .setParameter("id", req.sireId()).setParameter("farm", farmId).getResultStream().findFirst().orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "sireId", req.sireId()));
+            if (sire.getSex() != Sex.MALE || sire.getHerdStatus() != HerdStatus.ACTIVE) throw DomainException.unprocessable(MessageCodes.COM_10, "field", "sireId");
+        } else if (req.sireId() != null) throw DomainException.invalid("sireId");
+        if ("AI".equals(source) && (req.externalSireCode() == null || req.externalSireCode().isBlank())) throw DomainException.required("externalSireCode");
+        calf.setAssignedDam(dam); calf.setAssignedSire(sire); calf.setAssignedSireSource(source); calf.setAssignedExternalSireCode(source.equals("AI") ? req.externalSireCode().trim() : null);
+        em.merge(calf); em.flush();
+        audit.log(ctx, "CALF_PARENTAGE_ASSIGN", "CalfOutcome", calf.getId(), Map.of("damId", dam.getId(), "sireSource", source));
+        return pending(farmId).stream().filter(x -> x.calfOutcomeId().equals(calf.getId())).findFirst().orElseThrow();
     }
 
     /**

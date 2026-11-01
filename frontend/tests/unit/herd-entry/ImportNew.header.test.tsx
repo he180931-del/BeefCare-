@@ -99,18 +99,14 @@ beforeEach(() => {
 })
 
 describe('Phiếu nhập mới — thông tin phiếu', () => {
-  it('supports per-kg and per-head pricing while recalculating line totals', async () => {
-    const user = userEvent.setup()
+  it('uses each cow line unit price per kg and removes the voucher-level pricing selector', async () => {
     renderPage()
     await waitForForm()
 
-    const pricing = controlInField('Cách tính giá')
-    expect(pricing).toHaveValue('kg')
+    expect(screen.queryByText('Cách tính giá')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Cách tính giá')).not.toBeInTheDocument()
     expect(screen.getByText('20.060.000')).toBeInTheDocument()
     expect(screen.getByText('24.225.000')).toBeInTheDocument()
-
-    await user.selectOptions(pricing, 'con')
-    expect(screen.getAllByText('85.000').length).toBeGreaterThanOrEqual(2)
   })
 
   it('tự sinh mã phiếu kế tiếp và không cho người dùng sửa mã', async () => {

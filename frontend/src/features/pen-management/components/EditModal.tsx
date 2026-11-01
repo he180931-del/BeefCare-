@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Field, Radio, Table, Td, Th, inputCls } from '../../../components/ui'
+import { userFacingError } from '../../../api/userFacingError'
 import { PURPOSES, STAGES } from '../../../data/penData'
 import { cx, TH } from './parts'
 import type { ReactNode } from 'react'
@@ -27,7 +28,7 @@ function ConditionSelect({ value, options, onChange }: { value: string; options:
 
 const ErrorText = ({ children }: { children: ReactNode }) => <span className="text-[11px] text-err-fg">{children}</span>
 
-export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen | null; barns: Pen[]; onSave: (pen: Pen) => void | Promise<void>; onClose: () => void }) {
+export default function EditModal({ barn, barns, onSave, onClose, saving = false, saveError }: { barn: Pen | null; barns: Pen[]; onSave: (pen: Pen) => void | Promise<void>; onClose: () => void; saving?: boolean; saveError?: unknown }) {
   const isNew = !barn
   const [code, setCode] = useState(barn?.code ?? '')
   const [name, setName] = useState(barn?.name ?? '')
@@ -37,7 +38,6 @@ export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen 
   const [stage, setStage] = useState(barn?.stage ?? STAGES[0])
   const [minAge, setMinAge] = useState(barn?.minAge != null ? String(barn.minAge) : '')
   const [minAgeOp, setMinAgeOp] = useState(barn?.minAgeOp ?? '≥')
-  const [hasWeight, setHasWeight] = useState(barn?.minWeight != null)
   const [minWeight, setMinWeight] = useState(barn?.minWeight != null ? String(barn.minWeight) : '')
   const [minWeightOp, setMinWeightOp] = useState(barn?.minWeightOp ?? '≥')
   const [status, setStatus] = useState<PenStatus>(barn?.status ?? 'ACTIVE')
@@ -57,7 +57,6 @@ export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen 
   const save = () => {
     setTried(true)
     if (invalid) return
-    const versionNumber = Number(barn?.version?.match(/^v(\d+)/)?.[1] ?? 0)
     const next: Pen = {
       ...(barn ?? { code: trimmedCode, count: 0, cows: [], sex: 'Cả hai', accept: stage }),
       code: barn?.code ?? trimmedCode,
@@ -69,9 +68,13 @@ export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen 
       stage,
       minAge: toNumber(minAge),
       minAgeOp,
-      minWeight: hasWeight ? toNumber(minWeight) : null,
+      minWeight: toNumber(minWeight),
       minWeightOp,
-      version: `v${versionNumber + 1} từ ${TODAY_LABEL}`,
+      // `version` is the backend optimistic-lock version.  It must remain the
+      // version read when the modal opened; the backend increments it after a
+      // successful update.  Incrementing it here made every edit send a stale
+      // (next) version and the PUT was rejected with a conflict.
+      version: barn?.version,
     }
     onSave(next)
   }
@@ -99,7 +102,7 @@ export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen 
           {tried && errors.code && <ErrorText>{errors.code}</ErrorText>}
         </Field>
         <Field label="Tên chuồng *">
-          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <input value={name} maxLength={100} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Tên chuồng (tối đa 100 ký tự)" />
           {tried && errors.name && <ErrorText>{errors.name}</ErrorText>}
         </Field>
         <Field label="Sức chứa *">
@@ -117,7 +120,8 @@ export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen 
       </div>
 
       <Field label="Mô tả">
-        <input value={desc} onChange={(e) => setDesc(e.target.value)} className={inputCls} />
+        <textarea value={desc} maxLength={500} onChange={(e) => setDesc(e.target.value)} className={`${inputCls} min-h-16 resize-y`} placeholder="Ghi chú về chuồng (tối đa 500 ký tự)" />
+        <span className="text-[11px] text-subtle">{desc.length}/500 ký tự</span>
       </Field>
 
       <div className="text-[13px] font-semibold text-[#212121]">Tiêu chí tiếp nhận · phiên bản mới từ {TODAY_LABEL}</div>
@@ -133,36 +137,57 @@ export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen 
           <tr>
             <Td className={TH}>Mục đích</Td>
             <Td className={TH}>{condition(purpose, withCurrent(PURPOSES, purpose), setPurpose)}</Td>
-            <Td className={TH}>—</Td>
+            <Td className={TH}>
+              <span className="font-medium text-ink">{purpose || 'Chưa chọn mục đích'}</span>
+            </Td>
           </tr>
           <tr>
             <Td className={TH}>Giai đoạn</Td>
             <Td className={TH}>{condition(stage, withCurrent(STAGES, stage), setStage)}</Td>
-            <Td className={TH}>—</Td>
+            <Td className={TH}>
+              <span className="font-medium text-ink">{stage || 'Chưa chọn giai đoạn'}</span>
+            </Td>
           </tr>
           <tr>
             <Td className={TH}>Tuổi tối thiểu (tháng)</Td>
             <Td className={TH}>{condition(minAgeOp, OPERATORS, setMinAgeOp)}</Td>
             <Td className={TH}>
-              <input type="number" value={minAge} onChange={(e) => setMinAge(e.target.value)} className="w-16 bg-transparent text-xs text-ink outline-none" />
+              <div className="relative w-[132px]">
+                <input
+                  type="number"
+                  min="0"
+                  max="240"
+                  value={minAge}
+                  onChange={(e) => setMinAge(e.target.value)}
+                  placeholder="Ví dụ: 12"
+                  aria-label="Tuổi tối thiểu theo tháng"
+                  className="w-full rounded border border-[#d8e4dd] bg-white px-2 py-1.5 pr-12 text-sm text-ink outline-none placeholder:text-subtle focus:border-brand"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-subtle">tháng</span>
+              </div>
             </Td>
           </tr>
-          {hasWeight && (
-            <tr>
-              <Td className={TH}>Cân tối thiểu (kg)</Td>
-              <Td className={TH}>{condition(minWeightOp, OPERATORS, setMinWeightOp)}</Td>
-              <Td className={TH}>
-                <input type="number" value={minWeight} onChange={(e) => setMinWeight(e.target.value)} className="w-16 bg-transparent text-xs text-ink outline-none" />
-              </Td>
-            </tr>
-          )}
+          <tr>
+            <Td className={TH}>Cân tối thiểu (kg)</Td>
+            <Td className={TH}>{condition(minWeightOp, OPERATORS, setMinWeightOp)}</Td>
+            <Td className={TH}>
+              <div className="relative w-[132px]">
+                <input
+                  type="number"
+                  min="1"
+                  max="1500"
+                  value={minWeight}
+                  onChange={(e) => setMinWeight(e.target.value)}
+                  placeholder="Ví dụ: 230"
+                  aria-label="Cân tối thiểu theo kg"
+                  className="w-full rounded border border-[#d8e4dd] bg-white px-2 py-1.5 pr-8 text-sm text-ink outline-none placeholder:text-subtle focus:border-brand"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-subtle">kg</span>
+              </div>
+            </Td>
+          </tr>
         </tbody>
       </Table>
-      {!hasWeight && (
-        <button type="button" onClick={() => setHasWeight(true)} className="-mt-2 cursor-pointer self-start p-1 text-xs font-semibold text-brand">
-          + Thêm tiêu chí
-        </button>
-      )}
 
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-ink">Tình trạng sử dụng</span>
@@ -173,8 +198,11 @@ export default function EditModal({ barn, barns, onSave, onClose }: { barn: Pen 
       </div>
 
       <ModalFooter>
-        <ModalButton className="text-ink" onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" onClick={save}>Lưu chuồng</ModalButton>
+        <div className="mr-auto min-w-0 flex-1" role="status" aria-live="polite">
+          {Boolean(saveError) && <span className="text-sm text-err-fg">{userFacingError(saveError, 'Không thể lưu chuồng. Vui lòng kiểm tra lại thông tin.')}</span>}
+        </div>
+        <ModalButton className="text-ink" onClick={onClose} disabled={saving}>Hủy</ModalButton>
+        <ModalButton variant="primary" onClick={save} disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu chuồng'}</ModalButton>
       </ModalFooter>
     </Modal>
   )

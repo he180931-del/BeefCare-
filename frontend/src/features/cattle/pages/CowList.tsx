@@ -91,7 +91,7 @@ export default function CowList() {
       <div className="flex flex-col gap-5 leading-[normal]">
         <PageHeader title="Đàn bò" sub={`${loading ? '…' : total} con đang nuôi · ${EXPORTED_COUNT} con đã xuất đàn`}>
           <Button className="leading-[normal]" onClick={() => searchRef.current?.focus()}>▣ Quét QR</Button>
-          <Button variant="primary" className="leading-[normal]" onClick={() => nav('/herd-entry/new')}>+ Nhập đàn</Button>
+          <Button variant="primary" className="leading-[normal]" onClick={() => nav('/herd-entry/new', { state: { from: '/cattle' } })}>+ Nhập đàn</Button>
         </PageHeader>
 
         <div className="flex flex-wrap gap-2.5">

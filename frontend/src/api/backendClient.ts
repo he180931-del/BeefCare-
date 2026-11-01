@@ -7,6 +7,7 @@ type ErrorBody = {
   errorKey?: string
   params?: Record<string, unknown>
   fieldErrors?: Array<{ field: string; message: string }>
+  violations?: Array<{ field?: string; propertyPath?: string; message?: string }>
 }
 
 const errorBody = (value: unknown): ErrorBody => typeof value === 'object' && value !== null ? value as ErrorBody : {}
@@ -16,6 +17,7 @@ export class BackendError extends Error {
   readonly code: string | null
   readonly params: Record<string, unknown>
   readonly fieldErrors: Array<{ field: string; message: string }>
+  readonly violations: Array<{ field?: string; propertyPath?: string; message?: string }>
 
   constructor(status: number, value: unknown = {}) {
     const body = errorBody(value)
@@ -25,6 +27,7 @@ export class BackendError extends Error {
     this.code = body.code || body.errorKey || null
     this.params = body.params || {}
     this.fieldErrors = body.fieldErrors || []
+    this.violations = body.violations || []
   }
 }
 

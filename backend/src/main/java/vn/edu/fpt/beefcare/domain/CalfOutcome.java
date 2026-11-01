@@ -54,6 +54,23 @@ public class CalfOutcome implements Serializable {
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
     private Cattle registeredCattle;
 
+    /** Optional parentage correction supplied while confirming a pending calf. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_dam_id")
+    private Cattle assignedDam;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_sire_id")
+    private Cattle assignedSire;
+
+    @Size(max = 30)
+    @Column(name = "assigned_sire_source", length = 30)
+    private String assignedSireSource;
+
+    @Size(max = 50)
+    @Column(name = "assigned_external_sire_code", length = 50)
+    private String assignedExternalSireCode;
+
     @Column(name = "tag_code", length = 50)
     private String tagCode;
 
@@ -179,6 +196,15 @@ public class CalfOutcome implements Serializable {
     public void setRegisteredCattle(Cattle cattle) {
         this.registeredCattle = cattle;
     }
+
+    public Cattle getAssignedDam() { return assignedDam; }
+    public void setAssignedDam(Cattle assignedDam) { this.assignedDam = assignedDam; }
+    public Cattle getAssignedSire() { return assignedSire; }
+    public void setAssignedSire(Cattle assignedSire) { this.assignedSire = assignedSire; }
+    public String getAssignedSireSource() { return assignedSireSource; }
+    public void setAssignedSireSource(String assignedSireSource) { this.assignedSireSource = assignedSireSource; }
+    public String getAssignedExternalSireCode() { return assignedExternalSireCode; }
+    public void setAssignedExternalSireCode(String assignedExternalSireCode) { this.assignedExternalSireCode = assignedExternalSireCode; }
 
     public CalfOutcome registeredCattle(Cattle cattle) {
         this.setRegisteredCattle(cattle);

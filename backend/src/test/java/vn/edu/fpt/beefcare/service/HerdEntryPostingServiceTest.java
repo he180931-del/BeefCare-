@@ -374,9 +374,8 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         EntryDtos.Voucher dup = vouchers.create(farm.getId(), purchase(List.of(line("DUP", penA, "100", 1), line("dup", penA, "100", 1)), 0L, 0L));
         assertThat(thrown(() -> postDraft(farm.getId(), dup.id())).getCode()).isEqualTo(HerdEntryCodes.FE05_02);
 
-        // SIRE purpose for a female
-        EntryDtos.Voucher sirePurpose = vouchers.create(farm.getId(), purchase(List.of(line("L1", Sex.FEMALE, sire, penA, "100", 1)), 0L, 0L));
-        assertThat(thrown(() -> postDraft(farm.getId(), sirePurpose.id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        // Purpose and sex are recorded independently; pen criteria remain the
+        // place to reject an incompatible placement when configured.
 
         // inactive breed
         breed.setAvailable(false);

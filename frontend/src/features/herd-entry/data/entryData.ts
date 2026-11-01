@@ -1,10 +1,4 @@
-import { seedPens } from '../../../data/pensData'
-
-const penByCode = Object.fromEntries(seedPens.map((pen) => [pen.code, pen]))
-const asBarn = (code: string) => ({ code, name: penByCode[code].name, count: penByCode[code].count, capacity: penByCode[code].capacity })
-export const BARNS = ['A1', 'A2', 'B1', 'B2', 'C1'].map(asBarn)
 export const GROUPS = ['Bò tơ', 'Vỗ béo', 'Bò cái', 'Đực giống', 'Chưa xác định']
-export const CALF_BARN = asBarn('A3')
 export const PURPOSES = ['Chưa xác định', 'Nuôi thương phẩm', 'Giữ giống']
 export const SOURCES = [
   { id: 's1', name: 'Hộ ông Lê Văn C – Sơn Tây', phone: '0912 345 678' },

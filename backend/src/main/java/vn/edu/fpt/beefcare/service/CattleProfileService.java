@@ -59,7 +59,10 @@ public class CattleProfileService {
         ProductionPurpose purpose=c.getPurpose();if(request.productionPurposeId()!=null&&!request.productionPurposeId().equals(purpose.getId())){
             if(!ctx.isOwner())throw DomainException.forbidden("MSG-FE05-03");purpose=em.find(ProductionPurpose.class,request.productionPurposeId());
             if(purpose==null||!farmId.equals(purpose.getFarm().getId())||!Boolean.TRUE.equals(purpose.getAvailable()))throw DomainException.invalid("productionPurposeId");
-            if(purpose.getPurposeType()==PurposeType.SIRE&&c.getSex()!=Sex.MALE || purpose.getPurposeType()==PurposeType.BREEDING&&c.getSex()!=Sex.FEMALE)throw DomainException.unprocessable("MSG-FE05-12","purpose",purpose.getName(),"purpose_type",purpose.getPurposeType(),"sex",c.getSex());
+            if((purpose.getPurposeType()==PurposeType.SIRE&&c.getSex()!=Sex.MALE)
+                || (purpose.getPurposeType()==PurposeType.BREEDING&&c.getSex()!=Sex.FEMALE)
+                || (purpose.getPurposeType()==PurposeType.FATTENING&&c.getSex()!=Sex.MALE))
+                throw DomainException.unprocessable("MSG-FE05-12","purpose",purpose.getName(),"purpose_type",purpose.getPurposeType(),"sex",c.getSex());
         }
         LifeStage stage=request.lifeStage()==null?c.getLifeStage():request.lifeStage();
         boolean wasApplicable=c.getSex()==Sex.FEMALE&&(c.getLifeStage()==LifeStage.YOUNG_STOCK||c.getLifeStage()==LifeStage.ADULT)&&Set.of(PurposeType.BREEDING,PurposeType.UNDECIDED).contains(c.getPurpose().getPurposeType());

@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.math.BigDecimal;
 import java.time.ZoneId;
@@ -71,6 +72,13 @@ class FarmBornEntryTest extends HerdEntryTestBase {
 
     private EntryLineRequest calfLine(CalfOutcome calf, Long penId, Long purposeId) {
         return new EntryLineRequest(null, null, null, null, null, null, null, null, null, null, purposeId, null, null, penId, null, null, null, null, null, null, calf.getId());
+    }
+
+    private EntryLineRequest calfLine(CalfOutcome calf, Long penId, Long purposeId, Long damId, Long sireId) {
+        return new EntryLineRequest(
+            null, null, null, null, null, null, null, null, null, null, purposeId, null, null, penId, null,
+            null, null, null, null, null, calf.getId(), damId, sireId, null
+        );
     }
 
     private static DomainException thrown(Runnable r) {
@@ -145,6 +153,24 @@ class FarmBornEntryTest extends HerdEntryTestBase {
     }
 
     @Test
+    void postingFarmBornVoucherPersistsSelectedDamAndSireOnTheCreatedCattle() {
+        Cattle selectedDam = dam;
+        Cattle selectedSire = cattle(farm, breed, breeding, Sex.MALE, LifeStage.ADULT);
+        CalfOutcome calf = calf("LIVE", "FEMALE", "QR-CALF-PARENTS");
+
+        EntryDtos.Voucher draft = vouchers.create(farm.getId(), farmBorn(calfLine(calf, penA.getId(), null, selectedDam.getId(), selectedSire.getId())));
+        EntryDtos.PostResult result = postDraft(farm.getId(), draft.id());
+
+        Cattle created = em.find(Cattle.class, result.voucher().lines().get(0).cattleId());
+        assertThat(created.getDam()).isNotNull();
+        assertThat(created.getDam().getId()).isEqualTo(selectedDam.getId());
+        assertThat(created.getSire()).isNotNull();
+        assertThat(created.getSire().getId()).isEqualTo(selectedSire.getId());
+        assertThat(result.voucher().lines().get(0).damId()).isEqualTo(selectedDam.getId());
+        assertThat(result.voucher().lines().get(0).sireId()).isEqualTo(selectedSire.getId());
+    }
+
+    @Test
     void onlyLiveCalvesWithAnActiveDamAreAccepted() {
         CalfOutcome stillborn = calf("STILLBORN", "MALE", null);
         assertThat(thrown(() -> vouchers.create(farm.getId(), farmBorn(calfLine(stillborn, penA.getId(), null)))).getCode()).isEqualTo(MessageCodes.FE06_04);
@@ -160,11 +186,11 @@ class FarmBornEntryTest extends HerdEntryTestBase {
     }
 
     @Test
-    void purposeMustFitTheCalfsSex() {
+    void purposeIsIndependentFromTheCalfsSex() {
         CalfOutcome heifer = calf("LIVE", "FEMALE", null);
-        assertThat(thrown(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(heifer, penA.getId(), sire.getId()))).id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        assertThatCode(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(heifer, penA.getId(), sire.getId()))).id())).doesNotThrowAnyException();
         CalfOutcome bull = calf("LIVE", "MALE", null);
-        assertThat(thrown(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(bull, penA.getId(), breeding.getId()))).id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        assertThatCode(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(bull, penA.getId(), breeding.getId()))).id())).doesNotThrowAnyException();
     }
 
     @Test

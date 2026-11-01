@@ -3,18 +3,19 @@ import { useState } from 'react'
 import Layout from '../../../components/Layout'
 import { Button, Card, Docs, Foot, Info, Note, PageHeader, StatusBadge, Table, Td, Th } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
-import { cattle, downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api/index'
+import { downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { TODAY } from '../data/importsData'
 import { dm, dmy, kg, money } from '../../../data/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
 import type { CattleInput, EntryDetail, HerdEntry, Payment } from '../../../types'
+import { userFacingError } from '../../../api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
 const nowHM = () => new Date().toTimeString().slice(0, 5)
-const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
+const displayError = userFacingError
 
 export default function ImportDetail() {
   const { id } = useParams()
@@ -22,7 +23,6 @@ export default function ImportDetail() {
   const [m, openModal, closeModal] = useModalParam()
   const [documentError, setDocumentError] = useState<string | null>(null)
   const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
-  const cattleQuery = useQuery(() => cattle.list(), [])
   const { mutate: recordPayment, error: paymentError } = useMutation<{ recordId: string; payment: Payment & { note?: string } }, HerdEntry>(({ recordId: targetId, payment }) => herdEntryApi.recordPayment(targetId, payment))
   const { mutate: voidEntry, error: voidError } = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, cattleRows, patch }) => voidHerdEntry(targetId, cattleRows, patch))
   const r = query.data
@@ -63,7 +63,7 @@ export default function ImportDetail() {
   }
   const paid = d.payments?.reduce((s, payment) => s + payment.amount, 0) ?? (r.total != null ? r.total - (r.debt || 0) : 0)
   const canPay = (r.debt ?? 0) > 0 && r.status === 'Đã nhập'
-  const canCancel = r.status === 'Đã nhập' && Boolean(d.cows?.length) && Boolean(cattleQuery.data) && (d.cows ?? []).every((row) => (cattleQuery.data ?? []).some((cow) => cow.code === row.code && cow.entryVoucherId === r.id))
+  const canCancel = r.status === 'Đã nhập' && Boolean(d.cows?.length)
 
   // Ghi thay đổi qua API, rồi tải lại phiếu và đóng modal.
   const savePayment = async (p: Payment) => {
@@ -172,7 +172,7 @@ export default function ImportDetail() {
 
           <div className="flex flex-col gap-[18px]">
             {r.total != null && (
-              <Card title="Thanh toán">
+              <Card title="Thông tin thanh toán">
                 <Info
                   cols={2}
                   items={[

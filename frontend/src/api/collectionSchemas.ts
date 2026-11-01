@@ -205,12 +205,24 @@ const parseEntryCow = (value: unknown): EntryCow => {
   if (typeof row.unitPrice !== 'number') throw new Error('Invalid entry draft cow: unitPrice')
   const hist = asRecord(row.hist, 'entry draft cow hist')
   const vaccineNote = optionalStringValue(hist, 'vaccineNote', 'entry draft cow hist')
+  const vaccineName = optionalStringValue(hist, 'vaccineName', 'entry draft cow hist')
+  const vaccineDate = optionalStringValue(hist, 'vaccineDate', 'entry draft cow hist')
+  const vaccineSource = optionalStringValue(hist, 'vaccineSource', 'entry draft cow hist')
+  const diseaseNote = optionalStringValue(hist, 'diseaseNote', 'entry draft cow hist')
+  const pregnantAtEntry = optionalStringValue(hist, 'pregnantAtEntry', 'entry draft cow hist')
+  const pregnancyMonths = optionalNumber(hist, 'pregnancyMonths', 'entry draft cow hist')
   const parsedHist = {
     ...hist,
     vaccine: requiredString(hist, 'vaccine', 'entry draft cow hist'),
     disease: requiredString(hist, 'disease', 'entry draft cow hist'),
     repro: requiredString(hist, 'repro', 'entry draft cow hist'),
     ...(vaccineNote !== undefined ? { vaccineNote } : {}),
+    ...(vaccineName !== undefined ? { vaccineName } : {}),
+    ...(vaccineDate !== undefined ? { vaccineDate } : {}),
+    ...(vaccineSource !== undefined ? { vaccineSource } : {}),
+    ...(diseaseNote !== undefined ? { diseaseNote } : {}),
+    ...(pregnantAtEntry !== undefined ? { pregnantAtEntry } : {}),
+    ...(pregnancyMonths !== undefined ? { pregnancyMonths } : {}),
   }
   const parsed: EntryCow = { ...row, ...(code !== undefined ? { code } : {}), tag, name, breed, sex, dob, dobAccuracy, stage, purpose, weight: row.weight, estimated: row.estimated, barn, unitPrice: row.unitPrice, hist: parsedHist }
   return parsed

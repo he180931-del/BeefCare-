@@ -143,7 +143,7 @@ const STACK = {
   normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:flex @max-[640px]:[&_td]:items-center @max-[640px]:[&_td]:justify-between @max-[640px]:[&_td]:gap-4 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-[11px] @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
 }
 
-export function Table({ children, wide, scroll, stack = !scroll }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean }) {
+export function Table({ children, wide, scroll, stack = !scroll, bordered = true }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean }) {
   const ref = useRef<HTMLTableElement>(null)
   useLayoutEffect(() => {
     const t = ref.current
@@ -154,7 +154,7 @@ export function Table({ children, wide, scroll, stack = !scroll }: { children: R
     )
   })
   return (
-    <div className={cx('@container rounded border border-edge bg-white', scroll ? 'overflow-x-auto' : 'overflow-hidden')}>
+    <div className={cx('@container bg-white', bordered && 'rounded border border-edge', scroll ? 'overflow-x-auto' : 'overflow-hidden')}>
       <table
         ref={ref}
         className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : 'normal'])}

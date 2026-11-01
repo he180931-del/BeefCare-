@@ -5,7 +5,7 @@ import RowEditModal from '../../../src/features/herd-entry/components/RowEditMod
 import type { EntryCow, Pen } from '../../../src/types'
 
 const cow: EntryCow = {
-  tag: '',
+  tag: 'TEST-ENTRY-002',
   name: '',
   breed: 'Lai Sind',
   sex: 'Cái',
@@ -69,4 +69,63 @@ it('đưa cân nặng về 0 khi người dùng để trống rồi rời khỏi
 
   await user.tab()
   expect(input).toHaveValue(0)
+})
+
+it('khóa đơn giá và tính thành tiền bằng 0 khi chưa chọn cơ sở cân', async () => {
+  const user = userEvent.setup()
+  const onSave = vi.fn()
+
+  render(
+    <RowEditModal
+      cow={{ ...cow, weight: 0, unitPrice: 85_000, weightBasis: null }}
+      index={0}
+      recordId="PN-2026-0014"
+      dateIso="2026-10-29"
+      others={[]}
+      pens={pens}
+      onSave={onSave}
+      onRemove={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  )
+
+  const weight = document.querySelector('#entry-cow-weight') as HTMLInputElement
+  expect(weight).toBeInTheDocument()
+  expect(weight).toHaveValue(0)
+  const unitPrice = document.querySelector('#entry-cow-unit-price') as HTMLInputElement
+  expect(unitPrice).toBeDisabled()
+  expect(unitPrice).toHaveValue(0)
+  expect(screen.getByText('0 đ')).toBeInTheDocument()
+
+  await user.click(screen.getByRole('radio', { name: 'Cân thực tế' }))
+  expect(unitPrice).toBeEnabled()
+  await user.clear(weight)
+  await user.type(weight, '236')
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+  expect(onSave).not.toHaveBeenCalled()
+
+  await user.clear(unitPrice)
+  await user.type(unitPrice, '85000')
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ weightBasis: 'MEASURED', weight: 236, unitPrice: 85000 }))
+})
+
+it('theo con vẫn hiển thị và cho nhập cân/cơ sở cân, chỉ tính tiền theo giá/con', async () => {
+  const user = userEvent.setup()
+  const onSave = vi.fn()
+  render(<RowEditModal cow={{ ...cow, pricing: 'con', weight: 236, unitPrice: 8500000, weightBasis: 'MEASURED' }} index={0} recordId="PN-2026-0014" dateIso="2026-10-29" others={[]} pens={pens} onSave={onSave} onRemove={vi.fn()} onClose={vi.fn()} />)
+  const weight = document.querySelector('#entry-cow-weight') as HTMLInputElement
+  expect(weight).toBeEnabled()
+  expect(weight).toHaveValue(236)
+  expect(screen.getByRole('radio', { name: 'Cân thực tế' })).toBeChecked()
+  const unitPrice = document.querySelector('#entry-cow-unit-price') as HTMLInputElement
+  expect(unitPrice).toBeDisabled()
+  expect(unitPrice).toHaveValue(8500000)
+  const totalAmount = document.querySelector('#entry-cow-total-amount') as HTMLInputElement
+  expect(totalAmount).toBeEnabled()
+  expect(totalAmount).toHaveValue(8500000)
+  await user.clear(weight)
+  await user.type(weight, '250')
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pricing: 'con', weight: 250, weightBasis: 'MEASURED', unitPrice: 8500000 }))
 })

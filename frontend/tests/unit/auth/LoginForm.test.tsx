@@ -144,8 +144,40 @@ describe('TC-AUTH-U04: Wrong credentials error', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toBeInTheDocument()
-      expect(alert.textContent).toContain('Email hoặc mật khẩu không đúng')
+      expect(alert.textContent).toBe('Email hoặc mật khẩu không đúng.')
+      expect(alert.textContent).not.toContain('error.validation')
     })
+  })
+
+  it('maps backend validation keys to the user-facing login message', async () => {
+    const user = userEvent.setup()
+    const client = fakeClient({
+      login: vi.fn().mockRejectedValue(new BackendError(400, { code: 'error.validation', message: 'error.validation' })),
+    })
+
+    await renderAuth(client)
+    await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
+    await user.type(screen.getByLabelText(/email/i), 'wrong@beefcare.local')
+    await user.type(screen.getByLabelText(/mật khẩu/i), 'wrong-password')
+    await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Email hoặc mật khẩu không đúng.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('error.validation')
+  })
+
+  it('keeps network failures in Vietnamese instead of exposing fetch details', async () => {
+    const user = userEvent.setup()
+    const client = fakeClient({ login: vi.fn().mockRejectedValue(new Error('Failed to fetch')) })
+
+    await renderAuth(client)
+    await waitFor(() => expect(screen.getByLabelText(/email/i)).toBeInTheDocument())
+    await user.type(screen.getByLabelText(/email/i), 'owner@beefcare.local')
+    await user.type(screen.getByLabelText(/mật khẩu/i), 'wrong-password')
+    await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Không thể kết nối máy chủ')
+    expect(alert).not.toHaveTextContent('Failed to fetch')
   })
 })
 
@@ -288,4 +320,3 @@ describe('TC-AUTH-U09: Unverified email (MSG-FE01-11)', () => {
     })
   })
 })
-

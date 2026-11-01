@@ -44,8 +44,23 @@ public record EntryLineRequest(
     @Valid VaccinationDeclaration vaccination,
     @Valid DiseaseDeclaration disease,
     @Valid ReproductionDeclaration reproduction,
-    Long calfOutcomeId
+    Long calfOutcomeId,
+    Long damId,
+    Long sireId,
+    @Size(max = 50) String externalSireCode
 ) {
+    /** Backwards-compatible constructor for existing PURCHASE callers. */
+    public EntryLineRequest(
+        String earTagNumber, String name, String photoUrl, String colourMarkings, Long breedId, Sex sex,
+        LocalDate birthDate, BirthDateAccuracy birthDateAccuracy, Integer ageMonths, LifeStage lifeStage,
+        Long purposeId, BigDecimal entryWeightKg, WeightBasis weightBasis, Long penId, Long unitPrice,
+        LocalDate quarantineUntil, String warningReason, VaccinationDeclaration vaccination,
+        DiseaseDeclaration disease, ReproductionDeclaration reproduction, Long calfOutcomeId
+    ) {
+        this(earTagNumber, name, photoUrl, colourMarkings, breedId, sex, birthDate, birthDateAccuracy, ageMonths,
+            lifeStage, purposeId, entryWeightKg, weightBasis, penId, unitPrice, quarantineUntil, warningReason,
+            vaccination, disease, reproduction, calfOutcomeId, null, null, null);
+    }
     public static EntryLineRequest blank() {
         return new EntryLineRequest(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }

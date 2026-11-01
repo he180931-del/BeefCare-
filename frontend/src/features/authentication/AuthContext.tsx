@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { BackendError, createBackendClient } from '../../api/backendClient'
+import { userFacingError } from '../../api/userFacingError'
 
 export type AuthClient = {
   isAuthenticated: () => Promise<boolean>
@@ -9,6 +10,25 @@ export type AuthClient = {
 
 const defaultClient = createBackendClient({ baseUrl: import.meta.env.VITE_BEEFCARE_API_URL || '' })
 const AuthContext = createContext<{ authenticated: boolean; logout: () => Promise<void> } | null>(null)
+
+function loginErrorMessage(error: unknown): string {
+  const backendError = error instanceof BackendError ? error : null
+  const code = backendError?.code?.toLowerCase() || ''
+  const message = backendError?.message?.toLowerCase() || (error instanceof Error ? error.message.toLowerCase() : '')
+
+  // Do not expose the backend validation key (or the credential details) on the sign-in form.
+  // FE01-01 is deliberately generic so the UI does not reveal whether an account exists.
+  if (
+    (backendError?.status === 401 && (!code || code === 'msg-fe01-01' || /bad credentials|invalid credentials|email.*mật khẩu|email.*password/.test(message)))
+    || ((backendError?.status === 400 || backendError?.status === 422) && (code === 'error.validation' || message.includes('error.validation')))
+    || message.includes('error.validation')
+    || /bad credentials|invalid credentials|email.*mật khẩu|email.*password/.test(message)
+  ) {
+    return 'Email hoặc mật khẩu không đúng.'
+  }
+
+  return userFacingError(error, 'Đăng nhập không thành công.')
+}
 
 export function AuthProvider({ client = defaultClient, children }: { client?: AuthClient; children: ReactNode }) {
   const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated'>('checking')
@@ -60,8 +80,7 @@ function LoginForm({ client, initialError, onSuccess }: { client: AuthClient; in
       await client.login(email.trim(), password, remember)
       onSuccess()
     } catch (reason) {
-      const message = reason instanceof BackendError ? reason.message : reason instanceof Error ? reason.message : 'Đăng nhập không thành công.'
-      setError(message || 'Đăng nhập không thành công.')
+      setError(loginErrorMessage(reason))
     } finally {
       setSubmitting(false)
     }
@@ -72,7 +91,7 @@ function LoginForm({ client, initialError, onSuccess }: { client: AuthClient; in
       <form onSubmit={submit} className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-field bg-white p-8 shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-ink">Đăng nhập BeefCare</h1>
-          <p className="mt-1 text-sm text-subtle">Đăng nhập để tiếp tục quản lý trang trại.</p>
+          <p className="mt-1 text-sm text-subtle">Đăng nhập để vào trang trại.</p>
         </div>
         {error && <div role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         <label className="flex flex-col gap-1 text-sm font-medium text-ink">Email<input aria-label="Email" type="email" required autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} className="h-11 rounded-lg border border-field px-3 font-normal" /></label>

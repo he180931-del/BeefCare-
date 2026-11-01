@@ -1,35 +1,49 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Button, Foot, PageHeader, Segmented, Select, StatusBadge, Table, Td, Th, Tile, inputCls } from '../../../components/ui'
+import { Button, Foot, Note, PageHeader, Segmented, Select, StatusBadge, Table, Td, Th, Tile, inputCls } from '../../../components/ui'
 import { herdEntryApi } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
-import { OLDER, SOURCE_FILTERS } from '../data/importsData'
+import { SOURCE_FILTERS } from '../data/importsData'
 import { dmy, dm, kg, money } from '../../../data/format'
 import type { HerdEntry } from '../../../types'
+import { userFacingError } from '../../../api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
-const TAB_OLDER = { 'Tất cả': OLDER.total, Nháp: OLDER.drafts, 'Đã nhập': OLDER.done, 'Đã hủy': OLDER.cancelled }
-const DEFAULT_FROM = '2026-07-01'
-const DEFAULT_TO = '2026-10-22'
+// Keep the initial filter aligned with the actual current date.  The previous
+// fixed 2026-10-22 end date made a newly posted voucher disappear from the
+// list when the entry date was today (and made it look as if saving failed).
+const localToday = () => {
+  const date = new Date()
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+const DEFAULT_TO = localToday()
+const DEFAULT_FROM = `${DEFAULT_TO.slice(0, 4)}-01-01`
 
 export default function ImportList() {
-  const { data, loading, error } = useQuery<HerdEntry[]>(() => herdEntryApi.list(), [])
-  const imports = data ?? []
-  const ready = Boolean(data)
-  const shown = (v: string | number) => (ready ? v : '—')
-  const nav = useNavigate()
   const [tab, setTab] = useState('Tất cả')
   const [type, setType] = useState('')
   const [source, setSource] = useState('')
   const [from, setFrom] = useState(DEFAULT_FROM)
   const [to, setTo] = useState(DEFAULT_TO)
+  const { data, loading, error } = useQuery(() => herdEntryApi.listView({
+    ...(type ? { type: type === 'Bê sinh tại trại' ? 'FARM_BORN' : 'PURCHASE' } : {}),
+    from,
+    to,
+  }), [type, from, to])
+  const view = data
+  const imports = view?.rows ?? []
+  const tiles = view?.tiles ?? {}
+  const counts = view?.counts ?? {}
+  const ready = Boolean(view)
+  const shown = (v: string | number) => (ready ? v : '—')
+  const nav = useNavigate()
   const [dateOpen, setDateOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
 
-  const count = (t: string) => (t === 'Tất cả' ? imports.length : imports.filter((r) => r.status === t).length) + (TAB_OLDER[t as keyof typeof TAB_OLDER] ?? 0)
+  const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? imports.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
   const rows = imports.filter(
     (r) =>
       (tab === 'Tất cả' || r.status === tab) &&
@@ -38,13 +52,7 @@ export default function ImportList() {
       (r.date ?? '') >= from &&
       (r.date ?? '') <= to,
   )
-  const done = imports.filter((r) => r.status === 'Đã nhập')
-  const bought = done.filter((r) => r.type === 'Mua ngoài')
-  const calf = done.filter((r) => r.type !== 'Mua ngoài')
-  const owed = done.filter((r) => (r.debt ?? 0) > 0)
-  const sum = (list: HerdEntry[], f: (row: HerdEntry) => number) => list.reduce((s, r) => s + f(r), 0)
-  const drafts = imports.filter((r) => r.status === 'Nháp').length
-  const totalRows = imports.length + OLDER.total
+  const totalRows = imports.length
 
   const applyDate = () => {
     setFrom(draftFrom)
@@ -55,9 +63,9 @@ export default function ImportList() {
   return (
     <Layout title="Phiếu nhập – Danh sách" user="manager">
       <div className="contents leading-[normal]">
+        {Boolean(error) && <Note tone="err">{userFacingError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
         <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được tạo mã nội bộ cố định và thẻ QR khi lưu.">
-          <Button onClick={() => nav('/herd-entry/new?kind=calf')}>Bê chờ xác nhận (2)</Button>
-          <Button variant="primary" onClick={() => nav('/herd-entry/new')}>+ Tạo phiếu nhập</Button>
+            <Button variant="primary" onClick={() => nav('/herd-entry/new', { state: { from: '/herd-entry' } })}>+ Tạo phiếu nhập</Button>
         </PageHeader>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -104,19 +112,19 @@ export default function ImportList() {
         <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
           <Tile
             label={`Phiếu đã nhập (từ ${dm(from)})`}
-            value={shown(OLDER.done + done.length)}
-            note={`${drafts} phiếu nháp chưa lưu`}
+            value={shown(Number(tiles.postedVouchers ?? 0))}
+            note={`${Number(tiles.draftVouchers ?? 0)} phiếu nháp chưa lưu`}
           />
           <Tile
             label="Số con đã nhập"
-            value={shown(OLDER.cows + sum(done, (r) => r.count ?? 0))}
-            note={`Mua ngoài ${OLDER.buyCows + sum(bought, (r) => r.count ?? 0)} · Bê sinh tại trại ${OLDER.calfCows + sum(calf, (r) => r.count ?? 0)}`}
+            value={shown(Number(tiles.cattleEntered ?? 0))}
+            note={`Mua ngoài ${Number(tiles.cattlePurchased ?? 0)} · Bê sinh tại trại ${Number(tiles.cattleFarmBorn ?? 0)}`}
           />
-          <Tile label="Tiền mua bò" value={shown(`${money(OLDER.buyMoney + sum(bought, (r) => r.total ?? 0))} đ`)} note="Gồm phí vận chuyển" />
+          <Tile label="Tiền mua bò" value={shown(`${money(Number(tiles.purchaseAmount ?? 0))} đ`)} note="Gồm phí vận chuyển" />
           <Tile
             label="Còn nợ nguồn bán"
-            value={shown(`${money(sum(owed, (r) => r.debt ?? 0))} đ`)}
-            note={owed.length ? `${owed.length} phiếu · ${owed[0].id}` : 'Không còn nợ'}
+            value={shown(`${money(Number(tiles.owedToSellers ?? 0))} đ`)}
+            note={Number(tiles.owedToSellers ?? 0) > 0 ? 'Theo dữ liệu backend' : 'Không còn nợ'}
           />
         </div>
 

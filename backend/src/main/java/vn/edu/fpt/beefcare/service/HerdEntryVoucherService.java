@@ -373,7 +373,7 @@ public class HerdEntryVoucherService {
                 throw r.firstError().toException();
             }
             EntryLineValidator.Resolved res = r.resolved();
-            if (!purchase && !calves.add(res.calf().getId())) {
+            if (!purchase && res.calf() != null && !calves.add(res.calf().getId())) {
                 throw DomainException.invalid("calfOutcomeId");
             }
             HerdEntry e = new HerdEntry();

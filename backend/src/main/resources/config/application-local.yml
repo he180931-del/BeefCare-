@@ -42,9 +42,8 @@ beefcare:
     link-signing-key: ${BEEFCARE_LINK_SECRET}
 jhipster:
   cors:
-    allowed-origins: ${BEEFCARE_CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-origins: ${BEEFCARE_CORS_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000}
     allow-credentials: true
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
     allowed-headers: Accept,Content-Type,Idempotency-Key,X-XSRF-TOKEN,Accept-Language
     exposed-headers: Location
-

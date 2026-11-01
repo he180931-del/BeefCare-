@@ -1,12 +1,5 @@
-// Entry-specific façade. Cross-feature cattle/pen consistency lives in the
-// shared domain API; pages import this module so the feature boundary remains
-// explicit and replaceable when the backend is connected.
-export {
-  cattle,
-  pens,
-  registerEntryCattle,
-  voidEntryCattle,
-} from '../../../api/herdDomainApi'
+// Entry-specific façade. Entry data is backend-owned; do not expose the
+// localStorage-backed domain collections through this feature boundary.
 export {
   commitEntryExcel,
   discardHerdEntryDraft,
@@ -17,10 +10,19 @@ export {
   herdEntryApi,
   listEntrySellers,
   listEntryPens,
+  listEntryVaccines,
+  listEntryBreeds,
+  listEntryParentCattle,
   listPendingEntryCalves,
   markCalfDiedBeforeRegistration,
+  assignCalfParentage,
   previewEntryExcel,
   removeEntryAttachment,
   saveHerdEntry,
   voidHerdEntry,
 } from './herdEntryApi'
+
+// Kept as a compatibility façade for existing Entry tests/components. Its
+// implementation is the backend pen endpoint, never the local collection.
+import { listEntryPens } from './herdEntryApi'
+export const pens = { list: listEntryPens }

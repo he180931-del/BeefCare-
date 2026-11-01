@@ -190,9 +190,36 @@ public class EntryVoucherMapper {
             }
         }
         String earTag = cattle != null ? cattle.getEarTagNumber() : data.earTagNumber();
-        String damCode = l.getCalfOutcome() != null && l.getCalfOutcome().getCalving() != null && l.getCalfOutcome().getCalving().getDam() != null
-            ? l.getCalfOutcome().getCalving().getDam().getDisplayCode()
-            : null;
+        // Keep a farm-born line's explicitly selected parentage when reopening a
+        // draft.  The calving relation remains the fallback for legacy drafts and
+        // for the normal "inherit from calving" flow.
+        Long damId = data.damId();
+        String damCode = null;
+        if (damId != null) {
+            damCode = data.damId() != null && l.getCalfOutcome() != null && l.getCalfOutcome().getCalving() != null
+                && l.getCalfOutcome().getCalving().getDam() != null && l.getCalfOutcome().getCalving().getDam().getId().equals(damId)
+                ? l.getCalfOutcome().getCalving().getDam().getDisplayCode() : null;
+        }
+        if (damId == null && l.getCalfOutcome() != null && l.getCalfOutcome().getCalving() != null && l.getCalfOutcome().getCalving().getDam() != null) {
+            damId = l.getCalfOutcome().getCalving().getDam().getId();
+            damCode = l.getCalfOutcome().getCalving().getDam().getDisplayCode();
+        }
+        String sireCode = null;
+        Long sireId = data.sireId();
+        if (l.getCalfOutcome() != null && l.getCalfOutcome().getCalving() != null) {
+            var episode = l.getCalfOutcome().getCalving().getEpisode();
+            var breeding = episode == null ? null : episode.getLinkedBreeding();
+            if (breeding != null) {
+                if (sireId == null) sireId = breeding.getSire() == null ? null : breeding.getSire().getId();
+                sireCode = sireId != null && breeding.getSire() != null && breeding.getSire().getId().equals(sireId)
+                    ? breeding.getSire().getDisplayCode()
+                    : breeding.getExternalSireName() != null ? breeding.getExternalSireName()
+                    : breeding.getSemenBatch();
+            }
+        }
+        if (sireId != null && sireCode == null) {
+            sireCode = data.externalSireCode();
+        }
         return new EntryDtos.Line(
             l.getId(),
             l.getLineNo(),
@@ -214,7 +241,10 @@ public class EntryVoucherMapper {
             EntryLineValidator.proposeLifeStage(birth, l.getEntryDate()),
             l.isCorrected(),
             l.getCalfOutcome() == null ? null : l.getCalfOutcome().getId(),
+            damId,
             damCode,
+            sireId,
+            l.getCalfOutcome() == null ? null : (sireCode == null || sireCode.isBlank() ? "Không rõ" : sireCode),
             currentStatus,
             currentPenId,
             currentPenCode,

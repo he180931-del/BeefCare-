@@ -1,84 +1,68 @@
 import type { CattleInput, EntryCalf, HerdEntry, Payment } from '../../../types'
-import { backendFarmId, backendMode, backendTransport } from '../../../api/backendTransport'
-import { createHerdEntryBackendApi } from './herdEntryBackendApi'
-import { initialCalves, SOURCES } from '../data/entryData'
-import { pens } from '../../../api/herdDomainApi'
-import {
-  getEntryDraftState,
-  herdEntryApi as localApi,
-  saveHerdEntry as saveLocal,
-  voidHerdEntry as voidLocal,
-} from './herdEntryLocalApi'
+import { backendFarmId, backendTransport } from '../../../api/backendTransport'
+import { createHerdEntryBackendApi, type EntryListFilters } from './herdEntryBackendApi'
 
 const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: backendFarmId })
-const usingBackend = backendMode === 'backend'
 
-export { getEntryDraftState }
+// Entry is backend-owned. Do not switch this feature to the local prototype
+// collection when the global data-source flag is omitted or misconfigured.
+const usingBackend = true
+
+export const getEntryDraftState = (rows: HerdEntry[], id?: string) => {
+  const row = id ? rows.find((item) => item.id === id) : undefined
+  return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Mua ngoài', row }
+}
+
+const backendOnlyError = (operation: string): never => {
+  throw new Error(`Entry ${operation} yêu cầu kết nối backend; dữ liệu localStorage không được hỗ trợ`)
+}
 
 export const herdEntryApi = {
   list: async (predicate?: (row: HerdEntry) => boolean) => {
-    const rows = usingBackend ? await backendApi.list() : await localApi.list()
+    const rows = await backendApi.list()
     return predicate ? rows.filter(predicate) : rows
   },
-  get: (id: string) => usingBackend ? backendApi.get(id) : localApi.get(id),
-  create: (record: Omit<HerdEntry, 'id'> & Partial<Pick<HerdEntry, 'id'>>) => usingBackend
-    ? backendApi.save({ id: record.id, record })
-    : localApi.create(record),
+  listView: (filters?: EntryListFilters) => backendApi.listView(filters),
+  get: (id: string) => backendApi.get(id),
+  create: (record: Omit<HerdEntry, 'id'> & Partial<Pick<HerdEntry, 'id'>>) => backendApi.save({ id: record.id, record }),
   update: async (id: string, patch: Partial<HerdEntry>) => {
-    if (!usingBackend) return localApi.update(id, patch)
     const current = await backendApi.get(id)
     return backendApi.save({ id, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.calves ?? patch.draft?.cows ?? current.draft?.calves ?? current.draft?.cows ?? [] })
   },
-  reset: () => usingBackend ? Promise.resolve([] as HerdEntry[]) : localApi.reset(),
-  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
-    ? backendApi.recordPayment(id, payment)
-    : localApi.get(id).then((row) => localApi.update(id, {
-      debt: Math.max((row.debt ?? 0) - payment.amount, 0),
-      detail: { ...row.detail, payments: [...(row.detail?.payments ?? []), { by: 'Người dùng hiện tại', ...payment }] },
-    })),
+  reset: () => backendOnlyError('reset'),
+  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => backendApi.recordPayment(id, payment),
 }
 
-export const saveHerdEntry = (input: { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }) => usingBackend
-  ? backendApi.save(input)
-  : saveLocal({ id: input.id, record: input.record, cattleRows: input.cattleRows })
+export const saveHerdEntry = (input: { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }) => backendApi.save(input)
 
-export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }) => usingBackend
-  ? backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu nhập'))
-  : voidLocal(id, cattleRows, patch)
+export const voidHerdEntry = (id: string, _cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }) => backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu nhập'))
 
-export const discardHerdEntryDraft = (id: string) => usingBackend
-  ? backendApi.discard(id)
-  : localApi.update(id, { status: 'Đã hủy', cancelReason: 'Hủy nháp' }).then(() => undefined)
+export const discardHerdEntryDraft = (id: string) => backendApi.discard(id)
 
-export const listPendingEntryCalves = (): Promise<EntryCalf[]> => usingBackend
-  ? backendApi.pendingCalves()
-  : Promise.resolve(initialCalves)
+export const listPendingEntryCalves = (): Promise<EntryCalf[]> => backendApi.pendingCalves()
 
-export const markCalfDiedBeforeRegistration = (calfOutcomeId: number, reason: string): Promise<EntryCalf> => usingBackend
-  ? backendApi.diedBeforeRegistration(calfOutcomeId, reason)
-  : Promise.reject(new Error('Đánh dấu bê chết trước đăng ký chỉ khả dụng khi kết nối backend'))
+export const markCalfDiedBeforeRegistration = (calfOutcomeId: number, reason: string): Promise<EntryCalf> => backendApi.diedBeforeRegistration(calfOutcomeId, reason)
+export const assignCalfParentage = (calfOutcomeId: number, parentage: { damId: number; sireId?: number; sireSource: 'NONE' | 'INTERNAL' | 'AI'; externalSireCode?: string }): Promise<EntryCalf> => backendApi.assignCalfParentage(calfOutcomeId, parentage)
 
-export const listEntrySellers = () => usingBackend ? backendApi.sellers() : Promise.resolve(SOURCES)
-export const listEntryPens = () => usingBackend ? backendApi.listPens() : pens.list()
+export const listEntrySellers = () => backendApi.sellers()
+export const listEntryPens = () => backendApi.listPens()
+export const listEntryVaccines = () => backendApi.vaccines()
+export const listEntryBreeds = () => backendApi.breeds()
+export const listEntryParentCattle = () => backendApi.parentCattle()
 
 export const entryExcelBackendEnabled = usingBackend
 export const downloadEntryAttachment = (id: string, attachmentId: number) => {
-  if (!usingBackend) return Promise.reject(new Error('Chứng từ backend không khả dụng ở chế độ dữ liệu cục bộ'))
   return backendApi.downloadAttachment(id, attachmentId)
 }
 export const removeEntryAttachment = (id: string, attachmentId: number) => {
-  if (!usingBackend) return Promise.reject(new Error('Xóa chứng từ backend không khả dụng ở chế độ dữ liệu cục bộ'))
   return backendApi.removeAttachment(id, attachmentId)
 }
 export const downloadEntryImportTemplate = () => {
-  if (!usingBackend) return Promise.reject(new Error('Mẫu Excel backend không khả dụng ở chế độ dữ liệu cục bộ'))
   return backendApi.downloadImportTemplate()
 }
 export const previewEntryExcel = (id: string, file: File) => {
-  if (!usingBackend) return Promise.reject(new Error('Nhập Excel backend không khả dụng ở chế độ dữ liệu cục bộ'))
   return backendApi.previewExcel(id, file)
 }
 export const commitEntryExcel = (id: string, file: File) => {
-  if (!usingBackend) return Promise.reject(new Error('Nhập Excel backend không khả dụng ở chế độ dữ liệu cục bộ'))
   return backendApi.commitExcel(id, file)
 }

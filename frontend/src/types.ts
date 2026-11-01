@@ -117,6 +117,7 @@ export interface CattleInput {
 }
 
 export interface Pen {
+  id?: number
   code: PenCode
   name: string
   count: number
@@ -136,6 +137,14 @@ export interface Pen {
   tag?: string
   version?: string
   desc?: string
+  /** Reception constraints returned by the backend pen catalogue. */
+  receptionCriteria?: {
+    purposeTypes?: string[]
+    lifeStages?: string[]
+    sex?: string
+    minAgeMonths?: number | null
+    minWeightKg?: number | null
+  }
   [key: string]: unknown
 }
 
@@ -155,7 +164,7 @@ export interface CattleDetail {
   purpose?: string
   estimated?: boolean
   unitPrice?: number
-  hist?: { vaccine: string; vaccineNote?: string; disease: string; repro: string }
+  hist?: { vaccine: string; vaccineNote?: string; vaccineName?: string; vaccineDate?: string; vaccineSource?: string; disease: string; diseaseNote?: string; repro: string; pregnantAtEntry?: string; pregnancyMonths?: number }
   events?: string[]
   age?: string
   caseLine?: string[]
@@ -176,9 +185,29 @@ export interface EntryCow {
   ageMonths?: number
   weight: number
   estimated: boolean
+  /** Backend weight-basis selection; null means the user has not selected a weighing basis yet. */
+  weightBasis?: 'MEASURED' | 'ESTIMATED' | null
   barn: PenCode
   unitPrice: number
-  hist: { vaccine: string; vaccineNote?: string; disease: string; repro: string }
+  /** Pricing basis selected for this cattle line. Backend currently stores voucher-level basis. */
+  pricing?: 'kg' | 'con'
+  hist: {
+    vaccine: string
+    vaccineNote?: string
+    vaccineId?: number
+    vaccineName?: string
+    vaccineDate?: string
+    vaccineSource?: string
+    vaccineItems?: Array<{ vaccineId?: number; vaccineName?: string; vaccineDate?: string; vaccineSource?: string }>
+    disease: string
+    diseaseNote?: string
+    /** Backend stores one disease.description string (max 1,000 chars). */
+    repro: string
+    earlierCalvings?: number
+    pregnantAtEntry?: string
+    pregnancyMonths?: number
+    reproductionNote?: string
+  }
   [key: string]: unknown
 }
 
@@ -187,6 +216,12 @@ export interface EntryCalf {
   tag: string
   mother: string
   father: string
+  damId?: number
+  sireId?: number
+  sireSource?: string
+  externalSireName?: string
+  semenBatch?: string
+  sireBreed?: string
   born: string
   sex: string
   weight: number

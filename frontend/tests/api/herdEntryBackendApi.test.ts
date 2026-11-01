@@ -54,6 +54,85 @@ test('entry backend saves a purchase draft then posts the same versioned voucher
   assert.deepEqual(calls.at(-1), { method: 'POST', path: '/api/farms/9/entry-vouchers/41/post', body: { expectedVersion: 3, printQr: false } })
 })
 
+test('entry backend resolves the editor purpose label for a female young-stock cow', async () => {
+  let request: any
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => {
+      if (path.endsWith('/pens')) return { pens: [{ id: 11, code: 'A1', name: 'Chuồng A1' }] }
+      if (path.endsWith('/catalogues/breeds')) return [{ id: 21, name: 'Lai Sind' }]
+      if (path.endsWith('/catalogues/production-purposes')) return [{ id: 32, code: 'BREEDING', name: 'Bò cái sinh sản', purposeType: 'BREEDING', available: true }]
+      if (path.includes('/trading-partners')) return []
+      throw new Error(`Unexpected GET ${path}`)
+    },
+    command: async (_path, body) => { request = body; return voucher('DRAFT') },
+  }
+  const api = createHerdEntryBackendApi({ transport, farmId: 9 })
+
+  await api.save({
+    record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Nháp', source: 'Nguồn mới' },
+    cattleRows: [{
+      tag: 'VN-YOUNG-F-001', breed: 'Lai Sind', sex: 'Cái', stage: 'Bò tơ',
+      purpose: 'Bò sinh sản · loại Sinh sản', weight: 236, weightBasis: 'MEASURED',
+      barn: 'A1', unitPrice: 85000, hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' },
+    }],
+  })
+
+  assert.equal(request.lines[0].lifeStage, 'YOUNG_STOCK')
+  assert.equal(request.lines[0].purposeId, 32)
+})
+
+test('entry backend resolves the selected breed label to its farm catalogue id', async () => {
+  let request: any
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => {
+      if (path.endsWith('/pens')) return { pens: [{ id: 11, code: 'A1', name: 'Chuồng A1' }] }
+      if (path.endsWith('/catalogues/breeds')) return [{ id: 87, code: 'BRAHMAN-D', name: 'Brahman đỏ', available: true }]
+      if (path.endsWith('/catalogues/production-purposes')) return [{ id: 32, name: 'Bò cái sinh sản', purposeType: 'BREEDING', available: true }]
+      if (path.includes('/trading-partners')) return []
+      throw new Error(`Unexpected GET ${path}`)
+    },
+    command: async (_path, body) => { request = body; return voucher('DRAFT') },
+  }
+  const api = createHerdEntryBackendApi({ transport, farmId: 9 })
+
+  await api.save({
+    record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Nháp', source: 'Nguồn mới' },
+    cattleRows: [{
+      tag: 'VN-BREED-001', breed: 'Brahman đỏ', sex: 'Cái', stage: 'Bò tơ',
+      purpose: 'Bò sinh sản · loại Sinh sản', weight: 236, weightBasis: 'MEASURED',
+      barn: 'A1', unitPrice: 85000, hist: { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' },
+    }],
+  })
+
+  assert.equal(request.lines[0].breedId, 87)
+})
+
+test('entry backend round-trips complete pre-entry history fields', async () => {
+  let request: any
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => {
+      if (path.endsWith('/pens')) return { pens: [{ id: 11, code: 'A1', name: 'Chuồng A1' }] }
+      if (path.endsWith('/catalogues/breeds')) return [{ id: 21, name: 'Brahman' }]
+      if (path.endsWith('/catalogues/production-purposes')) return [{ id: 31, name: 'Nuôi thịt' }]
+      if (path.includes('/trading-partners')) return []
+      throw new Error(`Unexpected GET ${path}`)
+    },
+    command: async (_path, body) => { request = body; return voucher('DRAFT') },
+  }
+  const api = createHerdEntryBackendApi({ transport, farmId: 9 })
+  await api.save({ record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Nháp', source: 'Nguồn mới' }, cattleRows: [{
+    tag: 'VN502', breed: 'Brahman', sex: 'Cái', weight: 320, barn: 'A1', purpose: 'Nuôi thịt', unitPrice: 80000,
+    hist: { vaccine: 'Có', vaccineId: 55, vaccineName: 'LMLM', vaccineDate: '2026-03-01', vaccineSource: 'Sổ tiêm cũ', disease: 'Có', diseaseNote: 'Viêm móng cũ', repro: 'Có', earlierCalvings: 3, pregnantAtEntry: 'YES', pregnancyMonths: 4, reproductionNote: 'Theo người bán' },
+  }] })
+  const line = request.lines[0]
+  assert.deepEqual(line.vaccination, { status: 'KNOWN', informationSource: 'Sổ tiêm cũ', items: [{ vaccineId: 55, vaccineName: 'LMLM', date: '2026-03-01', informationSource: 'Sổ tiêm cũ' }] })
+  assert.deepEqual(line.disease, { status: 'KNOWN', description: 'Viêm móng cũ' })
+  assert.deepEqual(line.reproduction, { status: 'KNOWN', earlierCalvings: 3, pregnantAtEntry: 'YES', estMonthsPregnant: 4, description: 'Theo người bán' })
+})
+
 test('entry backend discards a temporary draft without posting or changing cattle', async () => {
   const calls: Array<{ method: string; path: string; body?: unknown }> = []
   const transport: BackendTransport = {
@@ -265,7 +344,7 @@ test('entry backend reads private attachments and imports the same xlsx through 
   assert.equal((multipartBodies[1] as FormData).get('file'), file)
 })
 
-test('entry backend serializes the selected pricing basis', async () => {
+test('entry backend serializes per-cow pricing basis and line fields', async () => {
   let body: any
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
@@ -283,18 +362,21 @@ test('entry backend serializes the selected pricing basis', async () => {
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
   await api.save({
-    record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Nháp', pricing: 'con', source: 'Nguồn mới', draft: { pricing: 'con' } },
-    cattleRows: [{ tag: 'VN501', breed: 'Brahman', sex: 'Cái', weight: 320, barn: 'A1', unitPrice: 80000 }],
-  })
-
-  assert.equal(body.pricingBasis, 'PER_HEAD')
-  assert.equal(body.lines[0].unitPrice, 80000)
-
-  await api.save({
     record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Nháp', pricing: 'kg', source: 'Nguồn mới', draft: { pricing: 'kg' } },
     cattleRows: [{ tag: 'VN501', breed: 'Brahman', sex: 'Cái', weight: 320, barn: 'A1', unitPrice: 80000 }],
   })
+
   assert.equal(body.pricingBasis, 'PER_KG')
+  assert.equal(body.lines[0].unitPrice, 80000)
+
+  await api.save({
+    record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Nháp', pricing: 'con', source: 'Nguồn mới', draft: { pricing: 'con' } },
+    cattleRows: [{ tag: 'VN501', breed: 'Brahman', sex: 'Cái', weight: 320, barn: 'A1', unitPrice: 8500000, pricing: 'con', weightBasis: null }],
+  })
+  assert.equal(body.pricingBasis, 'PER_HEAD')
+  assert.equal(body.lines[0].entryWeightKg, null)
+  assert.equal(body.lines[0].weightBasis, null)
+  assert.equal(body.lines[0].unitPrice, 8500000)
 })
 
 test('entry backend preserves the stored draft type and version when updating a partial draft', async () => {
@@ -343,12 +425,14 @@ test('entry backend serializes FARM_BORN calves without purchase pricing or paym
 
   await api.save({
     record: { date: '2026-10-28', type: 'Bê sinh tại trại', status: 'Nháp', source: 'Bê của DAM-001' },
-    cattleRows: [{ tag: 'CALF-0007', mother: 'DAM-001', sex: 'Cái', born: '2026-10-28', stage: 'Bê', purposeId: 2, penId: 3, calfOutcomeId: 17, weight: 34, barn: 'A3', unitPrice: 0 }],
+    cattleRows: [{ tag: 'CALF-0007', mother: 'DAM-001', damId: 125, sireId: 126, sex: 'Cái', born: '2026-10-28', stage: 'Bê', purposeId: 2, penId: 3, calfOutcomeId: 17, weight: 34, barn: 'A3', unitPrice: 0 }],
   })
 
   assert.equal(body.entryType, 'FARM_BORN')
   assert.equal(body.sellerId, null)
   assert.equal(body.lines[0].calfOutcomeId, 17)
+  assert.equal(body.lines[0].damId, 125)
+  assert.equal(body.lines[0].sireId, 126)
   assert.equal(body.lines[0].penId, 3)
   assert.equal(body.lines[0].purposeId, 2)
   assert.equal(body.lines[0].lifeStage, 'UNWEANED_CALF')

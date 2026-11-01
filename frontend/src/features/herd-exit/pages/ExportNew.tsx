@@ -12,10 +12,11 @@ import { useMutation, useQuery } from '../../../hooks/useApi'
 import { Box, CheckList, MoneyInput, SummaryCard, TH, cx } from '../components/parts'
 import PickModal from '../components/PickModal'
 import type { ExitDraftCow, HerdExit, ExitType } from '../../../types'
+import { userFacingError } from '../../../api/userFacingError'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
-const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
+const displayError = userFacingError
 type HerdCow = { code: string; backendId?: number; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number }
 const normalizeHerdCow = (cow: ExitDraftCow, source?: HerdCow): HerdCow => {
   return {

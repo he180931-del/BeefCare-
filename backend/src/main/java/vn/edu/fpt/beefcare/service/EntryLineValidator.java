@@ -73,6 +73,8 @@ public class EntryLineValidator {
         String warningReason,
         CalfOutcome calf,
         Cattle dam,
+        Cattle sire,
+        String externalSireCode,
         LocalDate entryDate
     ) {}
 
@@ -199,9 +201,6 @@ public class EntryLineValidator {
                 issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE18_08, "purposeId", "field", "productionPurpose"));
             }
         }
-        if (full && purpose != null && sex != null && purposeSexConflict(purpose.getPurposeType(), sex)) {
-            issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE05_12, "purposeId"));
-        }
 
         // birth date / age (GBR-23, SCR-24: either a date or an age in months)
         LocalDate birthDate = null;
@@ -325,7 +324,7 @@ public class EntryLineValidator {
             null
         );
         long amount = MoneyCalculator.lineAmount(h.pricing(), price, weight);
-        Resolved resolved = new Resolved(lineNo, data, breed, purpose, pen, sex, birthDate, accuracy, lifeStage, tag, weight, basis, price, amount, r.quarantineUntil(), check, warningReason, null, null, entryDate);
+        Resolved resolved = new Resolved(lineNo, data, breed, purpose, pen, sex, birthDate, accuracy, lifeStage, tag, weight, basis, price, amount, r.quarantineUntil(), check, warningReason, null, null, null, null, entryDate);
         return new Result(resolved, issues);
     }
 
@@ -337,8 +336,36 @@ public class EntryLineValidator {
 
         CalfOutcome calf = null;
         Cattle dam = null;
+        Cattle sire = null;
+        String externalSireCode = null;
         if (r.calfOutcomeId() == null) {
-            issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "calfOutcomeId", "field", "calf"));
+            // Direct farm-born entry: the calving event is optional when the
+            // manager is registering a newborn directly from this voucher.
+            // In that case all identity facts normally inherited from a
+            // CalfOutcome must be supplied explicitly by the request.
+            if (r.damId() == null) {
+                issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "damId", "field", "dam"));
+            } else {
+                dam = cattleRepository.findByIdAndFarmId(r.damId(), farmId).orElse(null);
+                if (dam == null || dam.getSex() != Sex.FEMALE) {
+                    issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, MessageCodes.COM_10, "damId", "field", "dam"));
+                    dam = null;
+                }
+            }
+            if (r.sireId() != null) {
+                sire = cattleRepository.findByIdAndFarmId(r.sireId(), farmId).orElse(null);
+                if (sire == null || sire.getSex() != Sex.MALE) {
+                    issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, MessageCodes.COM_10, "sireId", "field", "sire"));
+                    sire = null;
+                }
+            }
+            externalSireCode = clean(r.externalSireCode());
+            try {
+                if (dam != null) guard.assertActive(dam);
+                if (sire != null) guard.assertActive(sire);
+            } catch (DomainException e) {
+                issues.add(new Issue(lineNo, Severity.ERROR, e.getCode(), "dam", e.getParams(), e.getStatus()));
+            }
         } else {
             calf = catalog.calf(farmId, r.calfOutcomeId()).orElse(null);
             if (calf == null) {
@@ -352,9 +379,44 @@ public class EntryLineValidator {
             } else if (!"PENDING_CONFIRMATION".equalsIgnoreCase(calf.getRegistrationState())) {
                 issues.add(error(lineNo, HttpStatus.CONFLICT, MessageCodes.COM_05, "calfOutcomeId"));
             } else {
-                dam = calf.getCalving().getDam();
+                // FARM_BORN normally inherits the dam/sire from the calving event,
+                // but the entry form may explicitly select a parent for this line.
+                // Resolve those ids farm-scoped so the selected relation is what is
+                // persisted when the voucher is posted.
+                dam = calf.getAssignedDam() != null ? calf.getAssignedDam() : calf.getCalving().getDam();
+                var episode = calf.getCalving().getEpisode();
+                var breeding = episode == null ? null : episode.getLinkedBreeding();
+                if (breeding != null) {
+                    sire = calf.getAssignedSire() != null ? calf.getAssignedSire() : breeding.getSire();
+                    externalSireCode = breeding.getExternalSireName() != null && !breeding.getExternalSireName().isBlank()
+                        ? breeding.getExternalSireName() : breeding.getSemenBatch();
+                }
+                if (calf.getAssignedSireSource() != null && "AI".equalsIgnoreCase(calf.getAssignedSireSource())) {
+                    sire = null;
+                    externalSireCode = calf.getAssignedExternalSireCode();
+                }
+                if (r.damId() != null) {
+                    Cattle selectedDam = cattleRepository.findByIdAndFarmId(r.damId(), farmId).orElse(null);
+                    if (selectedDam == null || selectedDam.getSex() != Sex.FEMALE) {
+                        issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, MessageCodes.COM_10, "damId", "field", "dam"));
+                    } else {
+                        dam = selectedDam;
+                    }
+                }
+                if (r.sireId() != null) {
+                    Cattle selectedSire = cattleRepository.findByIdAndFarmId(r.sireId(), farmId).orElse(null);
+                    if (selectedSire == null || selectedSire.getSex() != Sex.MALE) {
+                        issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, MessageCodes.COM_10, "sireId", "field", "sire"));
+                    } else {
+                        sire = selectedSire;
+                    }
+                }
+                if (r.externalSireCode() != null && !r.externalSireCode().isBlank()) {
+                    externalSireCode = clean(r.externalSireCode());
+                }
                 try {
                     guard.assertActive(dam);
+                    if (sire != null) guard.assertActive(sire);
                 } catch (DomainException e) {
                     issues.add(new Issue(lineNo, Severity.ERROR, e.getCode(), "dam", e.getParams(), e.getStatus()));
                 }
@@ -376,6 +438,23 @@ public class EntryLineValidator {
             }
             birth = clock.toFarmDate(calf.getCalving().getBirthTime());
             weight = calf.getBirthWeight();
+        } else if (calf == null) {
+            breed = catalog.breed(farmId, r.breedId()).orElse(null);
+            if (breed == null) {
+                issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "breedId", "field", "breed"));
+            }
+            sex = r.sex();
+            if (sex == null) {
+                issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "sex", "field", "sex"));
+            }
+            birth = r.birthDate();
+            if (birth == null) {
+                issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "birthDate", "field", "birthDate"));
+            }
+            weight = r.entryWeightKg();
+            if (weight == null || weight.signum() <= 0) {
+                issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "entryWeightKg", "field", "entryWeightKg"));
+            }
         }
 
         ProductionPurpose purpose = null;
@@ -389,12 +468,14 @@ public class EntryLineValidator {
             if (purpose == null) {
                 issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, MessageCodes.COM_08, "purposeId", "field", "productionPurpose"));
             }
+        } else {
+            purpose = catalog.defaultUndecidedPurpose(farmId).orElse(null);
+            if (purpose == null) {
+                issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, MessageCodes.COM_08, "purposeId", "field", "productionPurpose"));
+            }
         }
         if (purpose != null && full && !Boolean.TRUE.equals(purpose.getAvailable())) {
             issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE18_08, "purposeId", "field", "productionPurpose"));
-        }
-        if (full && purpose != null && sex != null && purposeSexConflict(purpose.getPurposeType(), sex)) {
-            issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE05_12, "purposeId"));
         }
 
         Pen pen = null;
@@ -449,9 +530,12 @@ public class EntryLineValidator {
             null,
             null,
             null,
-            r.calfOutcomeId()
+            r.calfOutcomeId(),
+            dam == null ? r.damId() : dam.getId(),
+            sire == null ? r.sireId() : sire.getId(),
+            externalSireCode
         );
-        Resolved resolved = new Resolved(lineNo, data, breed, purpose, pen, sex, birth, BirthDateAccuracy.EXACT, LifeStage.UNWEANED_CALF, tag, weight, weight == null ? null : WeightBasis.MEASURED, null, 0L, null, check, warningReason, calf, dam, birth);
+        Resolved resolved = new Resolved(lineNo, data, breed, purpose, pen, sex, birth, BirthDateAccuracy.EXACT, LifeStage.UNWEANED_CALF, tag, weight, weight == null ? null : WeightBasis.MEASURED, null, 0L, null, check, warningReason, calf, dam, sire, externalSireCode, birth);
         return new Result(resolved, issues);
     }
 
@@ -459,6 +543,7 @@ public class EntryLineValidator {
 
     private void checkTag(List<Issue> issues, int lineNo, Long farmId, String tag, Set<String> tagsSeen, boolean full) {
         if (tag == null) {
+            issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "earTagNumber", "field", "earTagNumber"));
             return;
         }
         if (tag.length() > 30) {
@@ -473,10 +558,6 @@ public class EntryLineValidator {
         if (usedByCattle || usedInVoucher) {
             issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE05_02, "earTagNumber", "ear_tag", tag));
         }
-    }
-
-    static boolean purposeSexConflict(PurposeType type, Sex sex) {
-        return (type == PurposeType.SIRE && sex == Sex.FEMALE) || (type == PurposeType.BREEDING && sex == Sex.MALE);
     }
 
     private EntryLineRequest.VaccinationDeclaration normaliseVaccination(
