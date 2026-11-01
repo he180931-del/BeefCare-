@@ -46,7 +46,7 @@ public class FeedManagementService {
 
     @Transactional(readOnly=true)
     public List<StockView> stock(Long farmId) {
-        access.require(farmId,FarmAction.VIEW_FEED);
+        access.require(farmId,FarmAction.VIEW_FEED_STOCK);
         return feeds.findByFarm_IdOrderByNameAsc(farmId).stream().map(f->stockProjection(farmId,f)).toList();
     }
 
@@ -79,7 +79,7 @@ public class FeedManagementService {
 
     @Transactional(readOnly=true)
     public List<MovementView> movements(Long farmId, Long feedId) {
-        access.require(farmId,FarmAction.VIEW_FEED);
+        access.require(farmId,FarmAction.VIEW_FEED_STOCK);
         feeds.findByIdAndFarm_Id(feedId,farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
         return movements.findByFarm_IdAndFeedItem_IdOrderByOccurredAtDescIdDesc(farmId,feedId).stream().map(m ->
             new MovementView(m.getId(),feedId,m.getFeedItem().getCode(),m.getMovementType(),m.getQuantityKg(),m.getUnitCost(),m.getBalanceAfterKg(),m.getSourceType(),m.getSourceId(),m.getOccurredAt())

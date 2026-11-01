@@ -79,7 +79,7 @@ class FeedManagementServiceTest {
     }
 
     @Test void lotNearExpiryIsTheNearestPostedLotWithinThirtyDays(){
-        when(access.require(12L,FarmAction.VIEW_FEED)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
         when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
         when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of(
             lot("OLD","POSTED",LocalDate.of(2026,10,27)),lot("VOID","VOIDED",LocalDate.of(2026,11,1)),lot("DRAFT","DRAFT",LocalDate.of(2026,11,2)),
@@ -89,11 +89,64 @@ class FeedManagementServiceTest {
     }
 
     @Test void lotNearExpiryIsEmptyWhenNoPostedLotExpiresWithinThirtyDays(){
-        when(access.require(12L,FarmAction.VIEW_FEED)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
         when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
         when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of(lot("LATER","POSTED",LocalDate.of(2026,11,28)),lot("NONE","POSTED",null)));
         var view=service.stock(12L).get(0);
         assertThat(view.nearestLotNumber()).isNull();assertThat(view.nearestLotExpiryDate()).isNull();
+    }
+
+    @Test void stockRequiresTheOwnerManagerStockPermission(){
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of());
+        assertThat(service.stock(12L)).isEmpty();
+        verify(access).require(12L,FarmAction.VIEW_FEED_STOCK);
+    }
+
+    @Test void movementHistoryRequiresTheOwnerManagerStockPermission(){
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);
+        when(feeds.findByIdAndFarm_Id(99L,12L)).thenReturn(Optional.of(feed));
+        when(movements.findByFarm_IdAndFeedItem_IdOrderByOccurredAtDescIdDesc(12L,99L)).thenReturn(List.of());
+        assertThat(service.movements(12L,99L)).isEmpty();
+        verify(access).require(12L,FarmAction.VIEW_FEED_STOCK);
+    }
+
+    @Test void stockProjectionUsesValidFeedingFromTheSevenDayWindow(){
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);
+        when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
+        when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of());
+        FeedingRecord valid=feedingRecord(1L,"VALID");
+        FeedingRecord voided=feedingRecord(2L,"VOIDED");
+        when(feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(12L,LocalDate.of(2026,10,22),LocalDate.of(2026,10,28)))
+            .thenReturn(List.of(valid,voided));
+        when(feedingLines.findByFeedingRecord_Id(1L)).thenReturn(List.of(feedingLine(feed,"14.000")));
+
+        var view=service.stock(12L).get(0);
+
+        assertThat(view.averageDailyUseKg()).isEqualByComparingTo("2.000");
+        assertThat(view.daysOfCover()).isEqualByComparingTo("5.0");
+        assertThat(view.stockValue()).isEqualByComparingTo("1000");
+        assertThat(view.status()).isEqualTo("SUFFICIENT");
+        verify(feedingRecords).findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(12L,LocalDate.of(2026,10,22),LocalDate.of(2026,10,28));
+        verify(feedingLines,never()).findByFeedingRecord_Id(2L);
+    }
+
+    @Test void zeroUseHasNoDaysOfCoverAndStockStatusUsesTheMinimumBoundary(){
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);
+        when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        FeedItem empty=stockItem(100L,"0.000","1.000");
+        FeedItem low=stockItem(101L,"1.000","1.000");
+        FeedItem sufficient=stockItem(102L,"1.001","1.000");
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(empty,low,sufficient));
+        when(lines.findByFeedItem_IdOrderByExpiryDateAsc(any())).thenReturn(List.of());
+        when(feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(12L,LocalDate.of(2026,10,22),LocalDate.of(2026,10,28)))
+            .thenReturn(List.of());
+
+        var rows=service.stock(12L);
+
+        assertThat(rows.stream().map(row->row.daysOfCover()).toList()).containsExactly(null,null,null);
+        assertThat(rows.stream().map(row->row.status()).toList()).containsExactly("OUT_OF_STOCK","LOW","SUFFICIENT");
     }
 
     private void activeSupplierAndFeed(){
@@ -109,6 +162,10 @@ class FeedManagementServiceTest {
     private FeedReceiptLine lot(String number,String status,LocalDate expiry){
         FeedReceipt owner=new FeedReceipt();owner.setStatus(status);FeedReceiptLine l=new FeedReceiptLine();l.setReceipt(owner);l.setFeedItem(feed);l.setLotNumber(number);l.setExpiryDate(expiry);return l;
     }
+
+    private static FeedingRecord feedingRecord(Long id,String status){FeedingRecord record=new FeedingRecord();ReflectionTestUtils.setField(record,"id",id);record.setStatus(status);return record;}
+    private static FeedingRecordLine feedingLine(FeedItem item,String actual){FeedingRecordLine line=new FeedingRecordLine();line.setFeedItem(item);line.setActualKg(new BigDecimal(actual));return line;}
+    private FeedItem stockItem(Long id,String stock,String minimum){FeedItem item=new FeedItem();ReflectionTestUtils.setField(item,"id",id);item.setFarm(feed.getFarm());item.setCode("TA-"+id);item.setName("Feed "+id);item.setAvailable(true);item.setOnHandKg(new BigDecimal(stock));item.setAvgUnitCost(new BigDecimal("100.00"));item.setMinimumStockKg(new BigDecimal(minimum));return item;}
 
     @Test void draftReceiptCanBeReplacedOnlyWithItsCurrentVersion(){
         ReflectionTestUtils.setField(receipt,"version",0);supplier.setSupplier(true);supplier.setStatus(vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus.ACTIVE);

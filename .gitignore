@@ -3,4 +3,5 @@
 !.env.example
 .run/
 *.local.log
+/.local/be4-tracker/
 

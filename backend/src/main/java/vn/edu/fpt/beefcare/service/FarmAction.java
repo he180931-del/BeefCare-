@@ -56,6 +56,8 @@ public enum FarmAction {
     /** Buyers: Owner only. */
     MANAGE_BUYERS(true, FarmRole.OWNER),
     VIEW_FEED(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
+    /** View feed stock and movement history; the SRS limits these screens to Owner and Manager. */
+    VIEW_FEED_STOCK(false, FarmRole.OWNER, FarmRole.MANAGER),
     MANAGE_FEED(true, FarmRole.OWNER, FarmRole.MANAGER),
     MANAGE_FEEDING(true, FarmRole.MANAGER),
     VIEW_ANNOUNCEMENTS(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
