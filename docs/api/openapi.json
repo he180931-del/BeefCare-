@@ -5262,6 +5262,220 @@
         }
       }
     },
+    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments" : {
+    "get" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "listEntry",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      ],
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "post" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "uploadEntry",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "requestBody" : {
+        "content" : {
+          "multipart/form-data" : {
+            "schema" : {
+              "type" : "object",
+              "properties" : {
+                "file" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              },
+              "required" : [
+                "file"
+              ]
+            }
+          }
+        }
+      },
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AttachmentDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments" : {
+    "get" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "listExit",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      ],
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "post" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "uploadExit",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "requestBody" : {
+        "content" : {
+          "multipart/form-data" : {
+            "schema" : {
+              "type" : "object",
+              "properties" : {
+                "file" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              },
+              "required" : [
+                "file"
+              ]
+            }
+          }
+        }
+      },
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AttachmentDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
     "/api/farms/{farmId}/feed/rations" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
@@ -9780,6 +9994,280 @@
         }
       }
     },
+    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments/{attachmentId}" : {
+    "get" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "readEntry",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      ],
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "headers" : {
+            "Content-Type" : {
+              "description" : "Stored attachment media type.",
+              "schema" : {
+                "type" : "string",
+                "enum" : [
+                  "application/pdf",
+                  "image/jpeg"
+                ]
+              }
+            },
+            "Content-Disposition" : {
+              "description" : "Attachment disposition with the sanitized original filename.",
+              "schema" : {
+                "type" : "string"
+              }
+            },
+            "Cache-Control" : {
+              "description" : "Response is not cacheable.",
+              "schema" : {
+                "type" : "string",
+                "example" : "no-store"
+              }
+            },
+            "X-Content-Type-Options" : {
+              "description" : "Prevents MIME sniffing.",
+              "schema" : {
+                "type" : "string",
+                "example" : "nosniff"
+              }
+            }
+          },
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "removeEntry",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AttachmentDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments/{attachmentId}" : {
+    "get" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "readExit",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      ],
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "headers" : {
+            "Content-Type" : {
+              "description" : "Stored attachment media type.",
+              "schema" : {
+                "type" : "string",
+                "enum" : [
+                  "application/pdf",
+                  "image/jpeg"
+                ]
+              }
+            },
+            "Content-Disposition" : {
+              "description" : "Attachment disposition with the sanitized original filename.",
+              "schema" : {
+                "type" : "string"
+              }
+            },
+            "Cache-Control" : {
+              "description" : "Response is not cacheable.",
+              "schema" : {
+                "type" : "string",
+                "example" : "no-store"
+              }
+            },
+            "X-Content-Type-Options" : {
+              "description" : "Prevents MIME sniffing.",
+              "schema" : {
+                "type" : "string",
+                "example" : "nosniff"
+              }
+            }
+          },
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "delete" : {
+      "tags" : [
+        "voucher-attachment-resource"
+      ],
+      "operationId" : "removeExit",
+      "parameters" : [
+        {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      ],
+      "responses" : {
+        "200" : {
+          "description" : "OK",
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AttachmentDTO"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
     "/api/farms/{farmId}/feed/adjustments/{adjustmentId}" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
