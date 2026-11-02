@@ -57,7 +57,7 @@ describe('herd-exit new voucher backend picker and pricing flow', () => {
     expect(screen.getByDisplayValue('Tự động khi lưu')).toBeInTheDocument()
     expect(screen.getAllByLabelText('Chọn ngày')[0]).toHaveValue(todayIso())
     expect(screen.queryByRole('button', { name: 'Quét QR' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '+ Chọn bò' }))
+    await user.click(screen.getByRole('button', { name: 'Chọn bò' }))
     expect(screen.getByText('Chuồng C9: 7/10 con')).toBeInTheDocument()
     expect(screen.queryByText('BC-000203')).not.toBeInTheDocument()
     expect(screen.getByText('Bò cái sinh sản')).toBeInTheDocument()

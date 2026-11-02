@@ -6,7 +6,7 @@ import { Badge, Button, Checkbox, DateInput, Docs, Field, Foot, Note, Radio, Seg
 import { confirmHerdExit, dismissHerdExit, downloadExitAttachment, herdExitApi, saveHerdExit } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { dmy } from '../../../data/format'
-import { Box, CheckList, SummaryCard, TH } from './parts'
+import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, useIsOwner } from './parts'
 import RejectModal from './RejectModal'
 import type { HerdExit, ExitDetail } from '../../../types'
 import type { ExitChecks } from '../api/herdExitBackendApi'
@@ -19,10 +19,12 @@ export default function DeathView({ row }: { row: HerdExit }) {
   const { mutate: dismissExit, error: updateError } = useMutation<{ id: string; reason: string; expectedVersion: number }, HerdExit>(({ id, reason, expectedVersion }) => dismissHerdExit(id, reason, expectedVersion))
   const { mutate: persistExit, error: persistError } = useMutation(saveHerdExit)
   const nav = useNavigate()
+  const isOwner = useIsOwner()
   const [m, openModal, closeModal] = useModalParam()
   const d: ExitDetail = { cows: [], docs: [], history: [], checks: [], cow: { code: '', tag: '', breed: '', sex: '', barn: '', weight: 0, caseLine: ['', ''] }, ...row.detail }
   const cow = d.cow ?? { code: '', tag: '', breed: '', sex: '', barn: '', weight: 0, caseLine: ['', ''] }
   const pending = row.status === 'Chờ xác nhận'
+  const canAct = pending && isOwner
   const { data: liveChecks, error: checksError } = useQuery<ExitChecks | null>(() => pending ? herdExitApi.checks(row.id) : Promise.resolve(null), [row.id, pending])
   const [lossType, setLossType] = useState(d.lossType)
   const [reason, setReason] = useState(d.reason)
@@ -110,7 +112,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
       <div>
         <h1 className="m-0 text-[22px] font-bold">Phiếu xuất {row.id}</h1>
         <p className="mb-0 mt-1 text-xs text-muted">Tạo tự động khi ca sức khỏe đóng với kết quả Chết / Mất tích.</p>
-        <div className="mt-1"><Badge tone={pending ? 'warn' : undefined} className={pending ? '!border-0' : undefined}>{row.status}</Badge></div>
+        <div className="mt-1"><ExitStatusBadge status={row.status} /></div>
       </div>
       <div><Segmented value="Chết / mất" onChange={() => {}} options={[{ value: 'Bán', label: 'Bán', disabled: true }, { value: 'Loại thải', label: 'Loại thải', disabled: true }, { value: 'Chết / mất', label: 'Chết / mất' }, { value: 'Khác', label: 'Khác', disabled: true }]} /></div>
 
@@ -147,16 +149,16 @@ export default function DeathView({ row }: { row: HerdExit }) {
           </Box>
 
           <Box title="2. Bò trong phiếu" sub="1 con" gap="gap-3">
-            <Table>
+            <Table scroll>
               <thead>
                 <tr>
-                  <Th className={TH}>Mã bò</Th><Th className={TH}>Thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Tuổi</Th>
+                  <Th className={TH}>Mã bò · thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Tuổi</Th>
                   <Th className={TH}>Chuồng</Th><Th className={TH}>Cân gần nhất</Th><Th className={TH}>Ca sức khỏe</Th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <Td className={`${TH} font-medium`}>{cow.code}</Td><Td className={TH}>{cow.tag}</Td>
+                  <Td className={`${TH} font-medium`}>{cow.code} / {cow.tag}</Td>
                   <Td className={TH}>{cow.breed} · {cow.sex}</Td><Td className={TH}>{cow.age}</Td>
                   <Td className={TH}>{cow.barn}</Td><Td className={TH}>{cow.weight} kg UT</Td>
                   <Td className={TH}>{(cow.caseLine ?? ['', ''])[0]}<br />{(cow.caseLine ?? ['', ''])[1]}</Td>
@@ -174,7 +176,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
 
         <div className="flex flex-col gap-[18px]">
           <SummaryCard
-            badge={<Badge tone="warn" className="!border-0">Chờ xác nhận</Badge>}
+            badge={<ExitStatusBadge status={row.status} />}
             rows={[['Số con', 1], ['Loại xuất', 'Chết / mất'], ['Chuồng giảm', d.barnShift]]}
           >
             <Note>Phiếu chết / mất không có giá và thanh toán.</Note>
@@ -188,19 +190,22 @@ export default function DeathView({ row }: { row: HerdExit }) {
             ] : pending ? [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : 'Đang tải kiểm tra…', true]] : (d.checks ?? [])} />
             {checks && !checksCurrent && <Note tone="warn">Thông tin phiếu đã thay đổi; cần lưu và kiểm tra lại trước khi xác nhận.</Note>}
             {Boolean(updateError || persistError) && <Note tone="err">{displayError(updateError || persistError)}</Note>}
-            {pending ? (
+            {canAct ? (
               <>
                 <Checkbox checked={confirmed} disabled={!checksCurrent} onChange={(e) => setConfirmed(e.target.checked)} className="text-xs font-semibold">
                   Tôi đã xem các mục trên và xác nhận xuất đàn *
                 </Checkbox>
                 {checks && !checksCurrent && <Button block disabled={Boolean(persistError)} onClick={() => { void refreshChecks() }}>Kiểm tra lại</Button>}
-                <Button variant="primary" block className="!border-0 !py-[9px]" disabled={!confirmed || !checksCurrent || Boolean(persistError)} onClick={() => { void resolve('Đã xuất').catch(() => undefined) }}>Xác nhận xuất đàn</Button>
+                <Button variant="primary" block className="!py-[9px]" disabled={!confirmed || !checksCurrent || Boolean(persistError)} onClick={() => { void resolve('Đã xuất').catch(() => undefined) }}>Xác nhận xuất đàn</Button>
                 <Button block disabled={!checksCurrent} onClick={() => openModal('reject')}>Bác đề xuất</Button>
                 <Button variant="link" block onClick={() => nav('/herd-exit')}>Đóng</Button>
                 <p className="m-0 text-[11px] text-muted">Bác đề xuất: bò vẫn ACTIVE, ca sức khỏe giữ nguyên kết quả; bắt buộc nhập lý do (GBR-34).</p>
               </>
             ) : (
-              <p className="m-0 text-xs text-muted">Phiếu đã {row.status.toLowerCase()}; chỉ còn xem.</p>
+              <>
+                <p className="m-0 text-xs text-muted">{pending ? 'Chỉ Chủ trại xác nhận hoặc bác đề xuất; Quản lý chỉ xem.' : `Phiếu đã ${row.status.toLowerCase()}; chỉ còn xem.`}</p>
+                <Button variant="link" block onClick={() => nav('/herd-exit')}>Đóng</Button>
+              </>
             )}
           </Box>
         </div>

@@ -23,8 +23,8 @@ const RANGES = [
 ]
 
 const COLS = [
-  ['Mã phiếu', 'w-[116px]'], ['Ngày xuất', 'w-[86px]'], ['Loại xuất', 'w-[78px]'], ['Người mua / lý do', 'w-[220px]'],
-  ['Số con', 'w-[56px]'], ['Tổng cân', 'w-[78px]'], ['Tổng tiền (đ)', 'w-[100px]'], ['Còn phải thu (đ)', 'w-[100px]'], ['Trạng thái', 'w-[108px]'],
+  ['Mã phiếu', 'min-w-[116px]'], ['Ngày xuất', 'min-w-[86px]'], ['Loại xuất', 'min-w-[78px]'], ['Người mua / lý do', 'min-w-[220px]'],
+  ['Số con', 'min-w-[56px]'], ['Tổng cân', 'min-w-[78px]'], ['Tổng tiền (đ)', 'min-w-[100px]'], ['Còn phải thu (đ)', 'min-w-[100px]'], ['Trạng thái', 'min-w-[108px]'],
 ]
 
 export default function ExportList() {
@@ -101,7 +101,7 @@ export default function ExportList() {
                   <Td className={TH}>{r.count}</Td>
                   <Td className={cx(TH, 'whitespace-nowrap')}>{r.weight || '—'}</Td>
                   <Td className={cx(TH, 'whitespace-nowrap')}>{r.total == null ? '—' : money(r.total)}</Td>
-                  <Td className={TH}>{r.due == null ? '—' : money(r.due)}{r.dueNote && <><br />{r.dueNote}</>}</Td>
+                  <Td className={cx(TH, 'whitespace-nowrap')}>{r.due == null ? '—' : money(r.due)}{r.dueNote && <><br />{r.dueNote}</>}</Td>
                   <Td className={TH}><ExitStatusBadge status={r.status} /></Td>
                   <Td className={TH}><Button variant="link" small onClick={() => nav(to)}>{label}</Button></Td>
                 </tr>
