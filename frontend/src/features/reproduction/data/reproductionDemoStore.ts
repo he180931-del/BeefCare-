@@ -14,6 +14,7 @@ import type {
   ReproductionRole,
 } from '../types'
 import { REPRODUCTION_DEMO, REPRODUCTION_SIRES, REPRODUCTION_USED_TAGS } from './reproductionMock'
+import { reproductionNow } from '../domain/reproductionClock'
 
 export interface ReproductionDemoStore {
   list(): Promise<ReproductionFemale[]>
@@ -29,11 +30,6 @@ export interface ReproductionDemoStore {
 }
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
-const localNow = () => {
-  const date = new Date()
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
 // Local date-times are plain strings; shift them in UTC arithmetic so the machine time zone never changes them.
 const shift = (value: string, ms: number): string => new Date(Date.parse(`${value.slice(0, 16)}:00Z`) + ms).toISOString().slice(0, 16)
 const addDays = (value: string, days: number): string => shift(value, days * 86_400_000)
@@ -138,7 +134,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.dueAt = addDays(latestBreeding.occurredAt, 30)
   } else if (status === 'PREGNANT') {
     profile.breedingWindow = null
-    profile.nextAction = isDueSoon(profile, localNow()) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
+    profile.nextAction = isDueSoon(profile, reproductionNow()) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
     profile.dueAt = profile.openPregnancy?.expectedCalvingAt ?? null
   } else if (status === 'POST_CALVING' && profile.lastCalvingAt) {
     profile.breedingWindow = null
@@ -150,7 +146,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.dueAt = null
   }
   profile.indicators.daysSinceLastCalving = profile.lastCalvingAt && status !== 'PREGNANT'
-    ? Math.max(0, Math.floor((Date.now() - new Date(profile.lastCalvingAt).getTime()) / 86_400_000))
+    ? Math.max(0, Math.floor((Date.parse(reproductionNow()) - new Date(profile.lastCalvingAt).getTime()) / 86_400_000))
     : null
   profile.events.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   profile.calvings.sort((a, b) => b.birthAt.localeCompare(a.birthAt))
@@ -167,7 +163,7 @@ function actionFor(command: ReproductionCommand): 'RECORD_ESTRUS' | 'RECORD_BREE
 
 export function createReproductionDemoStore(
   seed: readonly ReproductionFemale[] = REPRODUCTION_DEMO,
-  clock: () => string = localNow,
+  clock: () => string = reproductionNow,
 ): ReproductionDemoStore {
   let rows = clone([...seed])
   const parityBaselines = new Map(rows.map((profile) => [

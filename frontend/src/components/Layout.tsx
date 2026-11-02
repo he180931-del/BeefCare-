@@ -103,7 +103,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   const [query, setQuery] = useState('')
   const [override, setOverride] = useState<string | null>(null)
   const location = useLocation()
-  const careNav = location.pathname.startsWith('/cattle/') ? CARE_TAB_NAV[new URLSearchParams(location.search).get('tab') ?? ''] : undefined
+  const careNav = !location.pathname.startsWith('/cattle/') ? undefined : location.pathname.includes('/sinh-san/') ? '/sinh-san' : CARE_TAB_NAV[new URLSearchParams(location.search).get('tab') ?? '']
   const lit = (to: string, isActive: boolean) => (careNav ? to === careNav : isActive)
   const search = (event: FormEvent) => {
     event.preventDefault()

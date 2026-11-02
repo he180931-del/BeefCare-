@@ -8,6 +8,7 @@ import type {
   ReproductionFemale,
   WorklistFilters,
 } from '../types'
+import { reproductionNow } from './reproductionClock'
 
 export type ReproductionAction =
   | 'RECORD_ESTRUS'
@@ -29,18 +30,14 @@ export function actionsForStatus(status: ReproductiveStatus | null): Reproductio
 }
 
 const DAY_MS = 86_400_000
-const localNowText = () => {
-  const now = new Date()
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
-}
 
 /** Pregnant female whose expected calving date is within the next 30 days (tab "Sắp đẻ"). */
-export function isDueSoon(row: ReproductionFemale, now: string = localNowText()): boolean {
+export function isDueSoon(row: ReproductionFemale, now: string = reproductionNow()): boolean {
   const expected = row.openPregnancy?.expectedCalvingAt
   return row.status === 'PREGNANT' && !!expected && Date.parse(expected) <= Date.parse(now) + 30 * DAY_MS
 }
 
-export function filterWorklist(rows: readonly ReproductionFemale[], filters: WorklistFilters, now: string = localNowText()): ReproductionFemale[] {
+export function filterWorklist(rows: readonly ReproductionFemale[], filters: WorklistFilters, now: string = reproductionNow()): ReproductionFemale[] {
   const query = filters.query?.trim().toLocaleLowerCase('vi')
   return rows.filter((row) => {
     if (!row.applicable || row.herdStatus !== 'ACTIVE' || !row.status) return false
@@ -241,7 +238,7 @@ export function breedingDetails(event: { method?: string; sireLabel?: string; se
 
 export type WorklistTab = ReproductiveStatus | 'DUE_SOON'
 
-export function tabCounts(rows: readonly ReproductionFemale[], now: string = localNowText()): Record<WorklistTab, number> {
+export function tabCounts(rows: readonly ReproductionFemale[], now: string = reproductionNow()): Record<WorklistTab, number> {
   return { ...statusCounts(rows), DUE_SOON: filterWorklist(rows, { status: 'DUE_SOON' }, now).length }
 }
 
@@ -301,7 +298,7 @@ const STATUS_NOUN: Record<ReproductiveStatus, string> = {
   AWAITING_BREEDING: 'chờ phối', IN_ESTRUS: 'động dục', BRED: 'đã phối', PREGNANT: 'mang thai', POST_CALVING: 'sau sinh',
 }
 
-export function technicianRowInfo(row: ReproductionFemale, now: string = localNowText()): { subtitle: string; badge: { label: string; tone: 'ok' | 'warn' | 'err' | 'info' | 'outline' } } {
+export function technicianRowInfo(row: ReproductionFemale, now: string = reproductionNow()): { subtitle: string; badge: { label: string; tone: 'ok' | 'warn' | 'err' | 'info' | 'outline' } } {
   const base = `${row.breed} · ${row.penCode}`
   if (row.eligibility?.status === 'NOT_MET' && row.status === 'IN_ESTRUS') {
     return { subtitle: `${base} · ${row.latestWeightKg ?? '—'} kg`, badge: { label: 'Chưa đủ điều kiện', tone: 'err' } }

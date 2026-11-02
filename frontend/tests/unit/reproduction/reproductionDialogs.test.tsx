@@ -37,6 +37,8 @@ describe('record dialogs follow the Figma frames', () => {
     await user.selectOptions(within(dialog).getByRole('combobox', { name: 'Người quan sát' }), 'Lê Thị Mai')
     await user.click(within(dialog).getByRole('checkbox', { name: 'Đứng yên cho nhảy' }))
     await user.click(within(dialog).getByRole('checkbox', { name: 'Chảy dịch nhờn trong' }))
+    // Outside the 12-hour duplicate window of the seeded estrus events.
+    fireEvent.change(within(dialog).getByLabelText('Thời điểm quan sát', { selector: 'input' }), { target: { value: '2026-10-18T09:00' } })
     await user.click(within(dialog).getByRole('button', { name: 'Lưu động dục' }))
 
     expect(onRecord).toHaveBeenCalledWith(expect.objectContaining({

@@ -106,6 +106,8 @@ export default function TechnicianProfile() {
               <button
                 key={v}
                 type="button"
+                // Tab mở từ liên kết ?tab= có thể nằm ngoài vùng cuộn ngang trên điện thoại.
+                ref={v === tab ? (el) => el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }) : undefined}
                 onClick={() => setParams(v ? { tab: v } : {})}
                 className={`flex shrink-0 cursor-pointer items-center gap-1 rounded px-2.5 py-1.5 text-[11px] ${v === tab ? 'bg-ok-bg font-semibold text-brand-dark' : 'text-muted'}`}
               >

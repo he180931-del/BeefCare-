@@ -9,6 +9,7 @@ import { useSession } from '../../authorization'
 import { reproductionApi } from '../api/reproductionApi'
 import { dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
 import type { ReproductionRole, ReproductiveStatus, WorklistFilters } from '../types'
+import { reproductionNow } from '../domain/reproductionClock'
 
 const TABS: Array<{ value: WorklistTab; label: string }> = [
   { value: 'AWAITING_BREEDING', label: 'Chờ phối' },
@@ -36,7 +37,7 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
   const setFilter = (patch: Partial<WorklistFilters>) => setFilters((current) => ({ ...current, ...patch }))
   const open = (code: string) => navigate(`/cattle/${encodeURIComponent(code)}?tab=repro`)
 
-  const now = Date.now()
+  const now = Date.parse(reproductionNow())
   const notMet = (status: string | null) => ['AWAITING_BREEDING', 'IN_ESTRUS', 'POST_CALVING'].includes(status ?? '')
   const tiles = [
     { label: 'Đang động dục', value: counts.IN_ESTRUS },

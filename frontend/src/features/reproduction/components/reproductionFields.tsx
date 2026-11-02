@@ -3,6 +3,7 @@ import { Icon } from '../../../components/Icon'
 import { Field, Radio, Select, inputCls } from '../../../components/ui'
 import { REPRODUCTION_EXTERNAL_PEOPLE, REPRODUCTION_MEMBERS } from '../data/reproductionMock'
 import type { DataSource } from '../types'
+import { reproductionNow } from '../domain/reproductionClock'
 
 export const SOURCE_OPTIONS: Array<[DataSource, string]> = [
   ['DIRECT_OBSERVATION', 'Quan sát trực tiếp'], ['FARM_NOTEBOOK', 'Sổ trại'], ['EXTERNAL_REPORT', 'Báo cáo bên ngoài'],
@@ -16,10 +17,7 @@ export const COURSE_OPTIONS: Array<[string, string]> = [['NORMAL', 'Bình thư�
 export const DAM_CONDITION_OPTIONS: Array<[string, string]> = [['GOOD', 'Tốt'], ['MONITORING', 'Cần theo dõi'], ['CRITICAL', 'Nguy kịch']]
 export const SIGNS = ['Đứng yên cho nhảy', 'Chảy dịch nhờn trong', 'Nhảy lên con khác', 'Kêu rống', 'Âm hộ sưng đỏ']
 
-export const nowLocal = (): string => {
-  const now = new Date()
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
-}
+export const nowLocal = reproductionNow
 
 /** Label without the required marker, used as the control's accessible name. */
 export const plain = (label: string): string => label.replace(/ \*$/, '')
