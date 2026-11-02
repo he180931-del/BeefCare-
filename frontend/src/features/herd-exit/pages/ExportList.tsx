@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Badge, Button, Foot, PageHeader, Segmented, Select, Table, Td, Th, Tile } from '../../../components/ui'
+import { Button, FilterSelect, Foot, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
 import { dmy, money } from '../../../data/format'
 import { herdExitApi } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
-import { TH, cx } from '../components/parts'
-import type { HerdExit, ExitStatus } from '../../../types'
+import { ExitStatusBadge, TH, cx, useIsOwner } from '../components/parts'
+import type { HerdExit } from '../../../types'
 
 const TABS: Array<{ value: string; match: (r: HerdExit) => boolean }> = [
   { value: 'Tất cả', match: () => true },
@@ -20,12 +21,6 @@ const RANGES = [
   { value: 'all', label: '01/07/2026 – 22/10/2026', from: '2026-07-01' },
   { value: 'oct', label: '01/10/2026 – 22/10/2026', from: '2026-10-01' },
 ]
-const TONE: Record<string, 'warn' | 'ok' | 'err' | undefined> = { 'Chờ xác nhận': 'warn', 'Đã xuất': 'ok', 'Đã hủy': 'err' }
-
-const StatusTag = ({ status }: { status: ExitStatus }) => {
-  const tone = TONE[status]
-  return <Badge tone={tone} className={tone ? '!border-0' : undefined}>{status}</Badge>
-}
 
 const COLS = [
   ['Mã phiếu', 'w-[116px]'], ['Ngày xuất', 'w-[86px]'], ['Loại xuất', 'w-[78px]'], ['Người mua / lý do', 'w-[220px]'],
@@ -37,6 +32,7 @@ export default function ExportList() {
   const exports = data ?? []
   const herdExits = exports
   const nav = useNavigate()
+  const isOwner = useIsOwner()
   const [tab, setTab] = useState('Tất cả')
   const [range, setRange] = useState('all')
   const [type, setType] = useState('')
@@ -50,6 +46,7 @@ export default function ExportList() {
   const byType = (t: string) => done.filter((r) => r.type === t).reduce((s, r) => s + (r.count ?? 0), 0)
 
   const action = (r: HerdExit): [string, string] => {
+    if (!isOwner) return ['Xem', `/herd-exit/${r.id}`]
     if (r.status === 'Nháp') return ['Tiếp tục', `/herd-exit/new?id=${encodeURIComponent(r.id)}`]
     if (r.status === 'Chờ xác nhận') return ['Xem & xác nhận', `/herd-exit/${r.id}`]
     return ['Xem', `/herd-exit/${r.id}`]
@@ -58,7 +55,7 @@ export default function ExportList() {
   return (
     <Layout title="Phiếu xuất – Danh sách">
       <PageHeader title="Xuất đàn" sub="Chủ trại lập và xác nhận phiếu xuất · bò trong phiếu chuyển ĐÃ XUẤT khi xác nhận.">
-        <Button variant="primary" className="!border-0" onClick={() => nav('/herd-exit/new')}>+ Tạo phiếu xuất</Button>
+        {isOwner && <Button variant="primary" onClick={() => nav('/herd-exit/new')}><Icon name="circle-plus" />Tạo phiếu xuất</Button>}
       </PageHeader>
 
       <div className="flex flex-wrap items-center gap-2.5">
@@ -68,13 +65,13 @@ export default function ExportList() {
           options={TABS.map((t) => ({ value: t.value, label: `${t.value} (${herdExits.filter(t.match).length})` }))}
         />
         <div className="flex-1" />
-        <Select className="w-[220px]" value={range} onChange={(e) => setRange(e.target.value)} aria-label="Khoảng ngày">
+        <FilterSelect className="w-[220px]" value={range} onChange={(e) => setRange(e.target.value)} aria-label="Khoảng ngày">
           {RANGES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </Select>
-        <Select className="w-[170px]" value={type} onChange={(e) => setType(e.target.value)} aria-label="Loại xuất">
+        </FilterSelect>
+        <FilterSelect className="w-[170px]" value={type} onChange={(e) => setType(e.target.value)} aria-label="Loại xuất">
           <option value="">Loại xuất: Tất cả</option>
           <option>Bán</option><option>Loại thải</option><option>Chết / mất</option><option>Khác</option>
-        </Select>
+        </FilterSelect>
       </div>
 
       <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
@@ -85,7 +82,7 @@ export default function ExportList() {
       </div>
 
       <div className="rounded-md border border-edge bg-white p-2">
-        <Table wide>
+        <Table scroll>
           <thead>
             <tr>
               {COLS.map(([label, w]) => <Th key={label} className={cx(TH, w)}>{label}</Th>)}
@@ -97,15 +94,15 @@ export default function ExportList() {
               const [label, to] = action(r)
               return (
                 <tr key={r.id}>
-                  <Td className={cx(TH, 'font-medium')}>{r.id}</Td>
-                  <Td className={TH}>{dmy(r.date)}</Td>
-                  <Td className={TH}>{r.type}</Td>
+                  <Td className={cx(TH, 'whitespace-nowrap font-medium')}>{r.id}</Td>
+                  <Td className={cx(TH, 'whitespace-nowrap')}>{dmy(r.date)}</Td>
+                  <Td className={cx(TH, 'whitespace-nowrap')}>{r.type}</Td>
                   <Td className={TH}>{r.who}<br />{r.sub}</Td>
                   <Td className={TH}>{r.count}</Td>
-                  <Td className={TH}>{r.weight || '—'}</Td>
-                  <Td className={TH}>{r.total == null ? '—' : money(r.total)}</Td>
+                  <Td className={cx(TH, 'whitespace-nowrap')}>{r.weight || '—'}</Td>
+                  <Td className={cx(TH, 'whitespace-nowrap')}>{r.total == null ? '—' : money(r.total)}</Td>
                   <Td className={TH}>{r.due == null ? '—' : money(r.due)}{r.dueNote && <><br />{r.dueNote}</>}</Td>
-                  <Td className={TH}><StatusTag status={r.status} /></Td>
+                  <Td className={TH}><ExitStatusBadge status={r.status} /></Td>
                   <Td className={TH}><Button variant="link" small onClick={() => nav(to)}>{label}</Button></Td>
                 </tr>
               )
