@@ -6,6 +6,7 @@ import { Badge, Button, Checkbox, DateInput, Docs, Field, Foot, Note, Radio, Seg
 import { confirmHerdExit, dismissHerdExit, downloadExitAttachment, herdExitApi, saveHerdExit } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
 import { dmy } from '../../../data/format'
+import { backendMode } from '../../../api/backendTransport'
 import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, useIsOwner } from './parts'
 import RejectModal from './RejectModal'
 import type { HerdExit, ExitDetail } from '../../../types'
@@ -183,7 +184,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
           </SummaryCard>
 
           <Box title="Kiểm tra trước khi xác nhận" gap="gap-[10px]">
-            <CheckList rows={checks ? [
+            <CheckList rows={backendMode !== 'backend' && (d.checks ?? []).length ? (d.checks ?? []) : checks ? [
               ['Tổng quan', checks.cattle.some((check) => check.hasWarnings) ? `${checks.cattle.filter((check) => check.hasWarnings).length} mục có cảnh báo` : 'Không có cảnh báo', checks.cattle.some((check) => check.hasWarnings)],
               ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ') || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, string, boolean?]),
               ...checks.occupancy.map((pen) => [`Chuồng ${pen.penCode}`, `${pen.before} → ${pen.after} / ${pen.capacity}`, false] as [string, string, boolean?]),

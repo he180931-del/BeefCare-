@@ -358,7 +358,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                       {hasPricing && (
                         <>
                           <Td className={TH}>
-                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[70px]" />
+                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[96px]" />
                           </Td>
                           <Td className={TH}>{money(amount(c))}</Td>
                         </>
