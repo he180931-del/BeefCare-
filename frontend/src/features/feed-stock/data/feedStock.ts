@@ -3,6 +3,8 @@ import { FEED_STOCK_MOCK } from './feedStockMock'
 
 export { FEED_STOCK_MOCK }
 
+export { LOW_COVER_DAYS, deriveFeedStockStatus } from '../domain/feedStockStatus'
+
 export type FeedStockFilters = {
   query?: string
   status?: FeedStockStatus | 'ALL'

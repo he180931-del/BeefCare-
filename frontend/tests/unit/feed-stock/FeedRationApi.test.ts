@@ -39,7 +39,7 @@ describe('SCR-81/82 ration API boundary and demo store', () => {
     const transport = makeTransport()
     vi.mocked(transport.get).mockRejectedValueOnce(new Error('backend unavailable'))
     const demoStore: FeedRationDemoStore = {
-      list: vi.fn(async () => []), get: vi.fn(), saveVersion: vi.fn(), reset: vi.fn(),
+      list: vi.fn(async () => []), get: vi.fn(), saveVersion: vi.fn(), cancelVersion: vi.fn(), stop: vi.fn(), reset: vi.fn(),
     }
     const api = createFeedRationApi({ mode: 'backend', farmId: 32, transport, demoStore })
 
@@ -53,7 +53,7 @@ describe('SCR-81/82 ration API boundary and demo store', () => {
     const transport = makeTransport()
     const getFeedStock = vi.fn(async () => FEED_STOCK_MOCK)
     const demoStore: FeedRationDemoStore = {
-      list: vi.fn(async () => []), get: vi.fn(), saveVersion: vi.fn(), reset: vi.fn(),
+      list: vi.fn(async () => []), get: vi.fn(), saveVersion: vi.fn(), cancelVersion: vi.fn(), stop: vi.fn(), reset: vi.fn(),
     }
     const api = createFeedRationApi({ mode: 'backend', farmId: 32, transport, demoStore, getFeedStock })
 

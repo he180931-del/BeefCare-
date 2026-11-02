@@ -1,5 +1,5 @@
 import { createCollection, createCollectionSchema } from '../../../api/client'
-import { seedPens } from '../../../data/pensData'
+import { FEED_DEMO_PENS } from './feedPenMock'
 import { FEED_RATION_MOCK, rationStatusForDate } from './feedRationMock'
 import type { FeedStockRow } from '../types'
 import type { FeedRation, FeedRationDemoStore, FeedRationPenOption, SaveFeedRationInput } from '../types/feedRation'
@@ -9,13 +9,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const isText = (value: unknown): value is string => typeof value === 'string'
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 
-export const FEED_RATION_DEMO_PENS: FeedRationPenOption[] = seedPens.map((pen, index) => ({
-  id: index + 1,
-  code: pen.code,
-  name: pen.name,
-  headcount: pen.count,
-  status: pen.status ?? 'ACTIVE',
-}))
+export const FEED_RATION_DEMO_PENS: FeedRationPenOption[] = FEED_DEMO_PENS
 
 function parseRation(value: unknown): FeedRation {
   if (!isRecord(value) || !isNumber(value.id) || !isText(value.rationCode) || !isNumber(value.versionNo)
@@ -72,8 +66,8 @@ function parseState(value: unknown): DemoState {
   return { ...value, id: 'feed-rations', rations: value.rations.map(parseRation) }
 }
 
-const schema = createCollectionSchema<DemoState, 'id'>('feed-rations-demo-v1', 'id', parseState)
-const states = createCollection('feedRationsDemo', [{ id: 'feed-rations', rations: FEED_RATION_MOCK }], { schema })
+const schema = createCollectionSchema<DemoState, 'id'>('feed-rations-demo-v2', 'id', parseState)
+const states = createCollection('feedRationsDemoV2', [{ id: 'feed-rations', rations: FEED_RATION_MOCK }], { schema })
 
 const localToday = () => {
   const now = new Date()
@@ -194,6 +188,46 @@ async function saveVersion(input: SaveFeedRationInput, currentStock: readonly Fe
   })
 }
 
+async function cancelVersion(id: number): Promise<FeedRation> {
+  return serializeMutation(async () => {
+    const state = await states.get('feed-rations')
+    const current = state.rations.find((row) => row.id === id)
+    if (!current) throw new Error('Không tìm thấy phiên bản khẩu phần.')
+    const today = localToday()
+    if (rationStatusForDate(current, today) !== 'SCHEDULED') throw new Error('Chỉ hủy được phiên bản chưa có hiệu lực.')
+    const dayBefore = addDays(current.effectiveFrom, -1)
+    // The version this one replaced ended the day before: give its end date back so it stays effective.
+    const rations = state.rations.filter((row) => row.id !== id).map((row) => {
+      const replaced = row.rationCode === current.rationCode && row.effectiveTo === dayBefore
+        && row.penIds.some((penId) => current.penIds.includes(penId))
+      if (!replaced) return row
+      return { ...row, effectiveTo: current.effectiveTo, status: rationStatusForDate({ effectiveFrom: row.effectiveFrom, effectiveTo: current.effectiveTo }, today) }
+    })
+    await states.update(state.id, { rations })
+    return { ...current, penIds: [...current.penIds], components: current.components.map((component) => ({ ...component })) }
+  })
+}
+
+async function stopRation(id: number, endDate: string): Promise<FeedRation> {
+  return serializeMutation(async () => {
+    const state = await states.get('feed-rations')
+    const current = state.rations.find((row) => row.id === id)
+    if (!current) throw new Error('Không tìm thấy khẩu phần.')
+    const today = localToday()
+    if (rationStatusForDate(current, today) !== 'EFFECTIVE') throw new Error('Chỉ ngừng được khẩu phần đang áp dụng.')
+    if (current.effectiveTo) throw new Error('Khẩu phần này đã có ngày kết thúc.')
+    if (!isCalendarDate(endDate)) throw new Error('Ngày kết thúc không hợp lệ.')
+    if (endDate < addDays(today, 1)) throw new Error('Ngày kết thúc phải từ ngày mai trở đi.')
+    const nextStart = state.rations
+      .filter((row) => row.id !== id && row.penIds.some((penId) => current.penIds.includes(penId)) && row.effectiveFrom > current.effectiveFrom)
+      .map((row) => row.effectiveFrom).sort()[0]
+    if (nextStart && endDate >= nextStart) throw new Error('Ngày kết thúc phải trước ngày phiên bản kế tiếp có hiệu lực.')
+    const next = { ...current, effectiveTo: endDate, status: rationStatusForDate({ effectiveFrom: current.effectiveFrom, effectiveTo: endDate }, today) }
+    await states.update(state.id, { rations: state.rations.map((row) => row.id === id ? next : row) })
+    return { ...next, penIds: [...next.penIds], components: next.components.map((component) => ({ ...component })) }
+  })
+}
+
 const demoStore: FeedRationDemoStore = {
   list: async () => (await states.get('feed-rations')).rations.map((row) => ({
     ...row,
@@ -207,6 +241,8 @@ const demoStore: FeedRationDemoStore = {
     return { ...row, status: rationStatusForDate(row), penIds: [...row.penIds], components: row.components.map((component) => ({ ...component })) }
   },
   saveVersion,
+  cancelVersion,
+  stop: stopRation,
   reset: async () => { await serializeMutation(async () => { await states.reset() }) },
 }
 
@@ -214,4 +250,6 @@ export const feedRationDemoStore = demoStore
 export const listFeedRationDemo = () => demoStore.list()
 export const getFeedRationDemo = (id: string) => demoStore.get(id)
 export const saveFeedRationDemoVersion = (input: SaveFeedRationInput, currentStock: readonly FeedStockRow[]) => demoStore.saveVersion(input, currentStock)
+export const cancelFeedRationDemoVersion = (id: number) => demoStore.cancelVersion(id)
+export const stopFeedRationDemo = (id: number, endDate: string) => demoStore.stop(id, endDate)
 export const resetFeedRationDemoStore = () => demoStore.reset()

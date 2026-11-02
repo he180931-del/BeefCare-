@@ -1,8 +1,9 @@
 import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport, asRecord, asRows, numberValue, textValue } from '../../../api/backendTransport'
-import { seedPens } from '../../../data/pensData'
+import { FEED_DEMO_PENS } from '../data/feedPenMock'
 import type { FeedStockRow } from '../types'
 import type { FeedRation, FeedRationDemoStore, FeedRationPenOption, SaveFeedRationInput } from '../types/feedRation'
 import { listFeedStock } from './feedStockApi'
+import { backendPending } from '../../../api/backendPending'
 import {
   feedRationDemoStore,
   resetFeedRationDemoStore as resetDemoStore,
@@ -54,6 +55,16 @@ export function createFeedRationApi({
       const currentStock = await getFeedStock()
       return demoStore.saveVersion(input, currentStock)
     },
+    // chưa có API: OpenAPI has no route to cancel a scheduled ration version.
+    async cancelVersion(id: number) {
+      if (mode === 'backend') throw backendPending('hủy phiên bản khẩu phần')
+      return demoStore.cancelVersion(id)
+    },
+    // chưa có API: OpenAPI has no route to stop an effective ration from a future date.
+    async stop(id: number, endDate: string) {
+      if (mode === 'backend') throw backendPending('ngừng khẩu phần')
+      return demoStore.stop(id, endDate)
+    },
   }
 }
 
@@ -63,6 +74,8 @@ const feedRationApi = createFeedRationApi({ mode: backendMode, farmId: backendFa
 export const listFeedRations = () => feedRationApi.list()
 export const getFeedRation = (id: string) => feedRationApi.get(id)
 export const saveFeedRationVersion = (input: SaveFeedRationInput) => feedRationApi.saveVersion(input)
+export const cancelFeedRationVersion = (id: number) => feedRationApi.cancelVersion(id)
+export const stopFeedRation = (id: number, endDate: string) => feedRationApi.stop(id, endDate)
 export const saveFeedRationDemoVersion = (input: SaveFeedRationInput) => feedRationApi.saveVersion(input)
 export const resetFeedRationDemoStore = () => resetDemoStore()
 
@@ -70,7 +83,7 @@ export async function listFeedRationPens(): Promise<FeedRationPenOption[]> {
   if (backendMode === 'backend') {
     return backendPens(await backendTransport.get(backendTransport.farmPath(backendFarmId, '/pens')))
   }
-  return seedPens.map((pen, index) => ({ id: index + 1, code: pen.code, name: pen.name, headcount: pen.count, status: pen.status ?? 'ACTIVE' }))
+  return FEED_DEMO_PENS.map((pen) => ({ ...pen }))
 }
 
 export const listFeedRationFeeds = (): Promise<FeedStockRow[]> => listFeedStock()

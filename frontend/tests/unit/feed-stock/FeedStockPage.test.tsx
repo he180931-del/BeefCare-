@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import FeedStockPage from '../../../src/features/feed-stock/pages/FeedStockPage'
@@ -48,16 +48,21 @@ describe('SCR-77 Feed Stock page', () => {
     expect(screen.getByText('Sắp hết / hết')).toBeInTheDocument()
     expect(screen.getByText('Giá trị tồn kho')).toBeInTheDocument()
     expect(screen.getByText('Tiêu thụ TB 7 ngày')).toBeInTheDocument()
-    expect(screen.getByText(/14\.940\.000\s*₫/)).toBeInTheDocument()
-    expect(screen.getByText('190 kg/ngày')).toBeInTheDocument()
-    expect(screen.queryByText('38.450.000')).not.toBeInTheDocument()
+    // Value and daily use are summed from the rows (Σ stock × Giá BQ), not typed in.
+    expect(screen.getByText('28.247.000 đ')).toBeInTheDocument()
+    expect(screen.getByText('1.213 kg/ngày')).toBeInTheDocument()
+    expect(screen.getByText('Thô 3 · Tinh 2 · TMR 1 · Khoáng 1 · Sữa 1')).toBeInTheDocument()
+    expect(screen.getByText('Cỏ voi · Cám ngô · Sữa thay thế')).toBeInTheDocument()
+    expect(screen.queryByText('38.450.000 đ')).not.toBeInTheDocument()
 
     expect(screen.getByRole('searchbox', { name: /Tìm mã, tên thức ăn/i })).toBeInTheDocument()
     expect(screen.getByRole('table')).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Đủ dùng' })).toBeInTheDocument()
-    expect(screen.getByRole('row', { name: /TA-01 Bắp ủ chua/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Nhập kho Bắp ủ chua' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Xem biến động Bắp ủ chua' })).toBeDisabled()
+    expect(screen.getByRole('row', { name: /TA-01 Cỏ voi/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nhập kho Cỏ voi' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Xem biến động Cỏ voi' })).toBeEnabled()
+    // Only low or empty feeds offer a quick receipt action, as in the frame.
+    expect(screen.queryByRole('button', { name: 'Nhập kho Rơm khô' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Kiểm kê / điều chỉnh' }))
     expect(await screen.findByRole('heading', { name: 'Tạo phiếu kiểm kê / điều chỉnh' })).toBeInTheDocument()
@@ -68,13 +73,27 @@ describe('SCR-77 Feed Stock page', () => {
     renderPage()
     await screen.findByRole('table')
 
-    await user.type(screen.getByRole('searchbox', { name: /Tìm mã, tên thức ăn/i }), 'TA-02')
+    await user.type(screen.getByRole('searchbox', { name: /Tìm mã, tên thức ăn/i }), 'TA-06')
     await user.selectOptions(screen.getByRole('combobox', { name: 'Nhóm thức ăn' }), 'CONCENTRATE')
     await user.selectOptions(screen.getByRole('combobox', { name: 'Trạng thái tồn kho' }), 'LOW')
 
-    expect(screen.getByRole('row', { name: /TA-02 Cám hỗn hợp bò thịt/i })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: /TA-06 Cám ngô/i })).toBeInTheDocument()
     expect(screen.queryByRole('row', { name: /TA-01/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('row', { name: /TA-03/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: /TA-05/i })).not.toBeInTheDocument()
+  })
+
+  it('opens the stock movement history of a feed from the Xem action and closes it', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Xem biến động Cỏ voi' }))
+    const dialog = await screen.findByRole('dialog', { name: /Biến động tồn kho TA-01/ })
+    expect(await within(dialog).findByRole('columnheader', { name: 'Tồn sau' })).toBeInTheDocument()
+    // The newest movement ends at the stock shown in the list.
+    expect((await within(dialog).findAllByRole('row'))[1]).toHaveTextContent('1.850 kg')
+    await user.click(within(dialog).getAllByRole('button', { name: 'Đóng' })[1])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('shows a distinct empty inventory and no-results state', async () => {

@@ -1,50 +1,36 @@
 import type { FeedStockRow } from '../types'
+import { FEED_CATALOGUE_MOCK } from './feedCatalogueMock'
+import { daysFromToday } from './feedDemoDates'
+import { deriveFeedStockStatus } from '../domain/feedStockStatus'
 
-// Synthetic local-demo rows shaped after StockView; none represent live farm data.
-export const FEED_STOCK_MOCK: FeedStockRow[] = [
-  {
-    feedItemId: 101,
-    code: 'TA-01',
-    name: 'Bắp ủ chua',
-    group: 'GREEN_ROUGHAGE',
-    onHandKg: 1840,
-    minimumStockKg: 500,
-    averageDailyUseKg: 120,
-    daysOfCover: 15.3,
-    stockValue: 11040000,
-    status: 'SUFFICIENT',
-    version: 3,
-    nearestLotNumber: 'LO-2026-018',
-    nearestLotExpiryDate: '2026-11-20',
-  },
-  {
-    feedItemId: 102,
-    code: 'TA-02',
-    name: 'Cám hỗn hợp bò thịt',
-    group: 'CONCENTRATE',
-    onHandKg: 260,
-    minimumStockKg: 300,
-    averageDailyUseKg: 52,
-    daysOfCover: 5,
-    stockValue: 3900000,
-    status: 'LOW',
-    version: 1,
-    nearestLotNumber: null,
-    nearestLotExpiryDate: null,
-  },
-  {
-    feedItemId: 103,
-    code: 'TA-03',
-    name: 'Bã đậu nành',
-    group: 'CONCENTRATE',
-    onHandKg: 0,
-    minimumStockKg: 100,
-    averageDailyUseKg: 18,
-    daysOfCover: 0,
-    stockValue: 0,
-    status: 'OUT_OF_STOCK',
-    version: 0,
-    nearestLotNumber: null,
-    nearestLotExpiryDate: null,
-  },
-]
+// Synthetic local-demo rows shaped after StockView; quantities follow the Figma stock frame (TA-01 … TA-08).
+type Seed = { onHandKg: number; averageDailyUseKg: number; lot?: [string, number] }
+const SEEDS: Record<number, Seed> = {
+  101: { onHandKg: 1850, averageDailyUseKg: 573 },
+  102: { onHandKg: 4200, averageDailyUseKg: 68 },
+  103: { onHandKg: 120, averageDailyUseKg: 12 },
+  104: { onHandKg: 2300, averageDailyUseKg: 460, lot: ['L0922', 8] },
+  105: { onHandKg: 1120, averageDailyUseKg: 50, lot: ['L2409', 14] },
+  106: { onHandKg: 30, averageDailyUseKg: 46 },
+  107: { onHandKg: 18, averageDailyUseKg: 0.5 },
+  108: { onHandKg: 0, averageDailyUseKg: 3 },
+}
+
+export const FEED_STOCK_MOCK: FeedStockRow[] = FEED_CATALOGUE_MOCK.map((item) => {
+  const seed = SEEDS[item.id]
+  return {
+    feedItemId: item.id,
+    code: item.code,
+    name: item.name,
+    group: item.group as FeedStockRow['group'],
+    onHandKg: seed.onHandKg,
+    minimumStockKg: item.minimumStockKg,
+    averageDailyUseKg: seed.averageDailyUseKg,
+    daysOfCover: Math.round((seed.onHandKg / seed.averageDailyUseKg) * 10) / 10,
+    stockValue: Math.round(seed.onHandKg * item.unitCost),
+    status: deriveFeedStockStatus(seed.onHandKg, item.minimumStockKg, seed.averageDailyUseKg),
+    version: item.version,
+    nearestLotNumber: seed.lot ? seed.lot[0] : null,
+    nearestLotExpiryDate: seed.lot ? daysFromToday(seed.lot[1]) : null,
+  }
+})

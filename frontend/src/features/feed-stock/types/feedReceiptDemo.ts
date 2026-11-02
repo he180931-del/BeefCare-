@@ -15,6 +15,8 @@ export type FeedReceiptDemoRecord = Omit<FeedReceipt, 'lines'> & {
   paymentMethod: 'CASH' | 'BANK_TRANSFER' | null
   paymentDate: string
   balanceDueDate: string
+  /** Reason entered when the receipt was voided (ReceiptView has no field for it yet). */
+  voidReason?: string
   lines: FeedReceiptDemoLine[]
   [key: string]: unknown
 }
@@ -54,8 +56,12 @@ export type FeedReceiptDemoStore = {
   get: (id: string) => Promise<FeedReceiptDemoRecord>
   saveDraft: (input: FeedReceiptDraftInput) => Promise<FeedReceiptDemoRecord>
   post: (id: number) => Promise<FeedReceiptDemoRecord>
+  void: (id: number, reason: string) => Promise<FeedReceiptDemoRecord>
+  voidCheck: (id: number) => Promise<FeedReceiptVoidCheckRow[]>
   reset: () => Promise<void>
 }
+
+export type FeedReceiptVoidCheckRow = { feedItemId: number; code: string; name: string; onHandKg: number; neededKg: number; ok: boolean }
 
 export type FeedReceiptDemoStockStore = {
   list: () => Promise<FeedStockRow[]>

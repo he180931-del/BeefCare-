@@ -86,7 +86,7 @@ describe('SCR-77 route', () => {
     )
 
     await screen.findByRole('table')
-    await user.click(screen.getByRole('button', { name: 'Nhập kho Bắp ủ chua' }))
+    await user.click(screen.getByRole('button', { name: 'Nhập kho Cỏ voi' }))
     expect(await screen.findByRole('heading', { name: 'Tạo phiếu nhập kho thức ăn' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Thức ăn dòng 1' })).toHaveValue('101')
   })

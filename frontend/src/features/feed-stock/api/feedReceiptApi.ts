@@ -62,6 +62,19 @@ export function createFeedReceiptApi({
       if (mode === 'backend') throw new Error(backendMutationMessage)
       return demoStore.saveDraft(input)
     },
+    /** Preview of POST .../receipts/{id}/void: which feeds still cover the received quantity (GBR-99). */
+    async voidCheck(id: number) {
+      if (mode === 'backend') throw new Error(backendMutationMessage)
+      return demoStore.voidCheck(id)
+    },
+    // POST /api/farms/{farmId}/feed/receipts/{receiptId}/void
+    async void(id: number, reason: string, expectedVersion: number) {
+      if (mode === 'backend') {
+        await transport.command(transport.farmPath(farmId, `/feed/receipts/${id}/void`), { reason, expectedVersion })
+        return null
+      }
+      return demoStore.void(id, reason)
+    },
     async post(id: number) {
       if (mode === 'backend') throw new Error(backendMutationMessage)
       return demoStore.post(id)
@@ -76,4 +89,6 @@ export const listFeedReceipts = () => feedReceiptApi.list()
 export const getFeedReceiptDemo = (id: string) => feedReceiptApi.get(id)
 export const saveFeedReceiptDemoDraft = (input: FeedReceiptDraftInput) => feedReceiptApi.saveDraft(input)
 export const postFeedReceiptDemo = (id: number) => feedReceiptApi.post(id)
+export const voidFeedReceipt = (id: number, reason: string, expectedVersion: number) => feedReceiptApi.void(id, reason, expectedVersion)
+export const checkFeedReceiptVoid = (id: number) => feedReceiptApi.voidCheck(id)
 export const resetFeedReceiptDemoStore = () => feedReceiptDemoStore.reset()

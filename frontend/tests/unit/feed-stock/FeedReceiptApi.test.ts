@@ -45,6 +45,8 @@ describe('SCR-78 feed receipt API boundary', () => {
       get: vi.fn(),
       saveDraft: vi.fn(),
       post: vi.fn(),
+      void: vi.fn(),
+      voidCheck: vi.fn(),
       reset: vi.fn(),
     }
     const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport, demoStore })
@@ -75,10 +77,10 @@ describe('SCR-78 feed receipt API boundary', () => {
       && beforeStock.nearestLotExpiryDate! <= formatDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30))
 
     const draft = await saveFeedReceiptDemoDraft({
-      receiptDate: formatDate(today), supplierId: 201, supplierName: 'Nông sản Ba Vì',
+      receiptDate: formatDate(today), supplierId: 201, supplierName: 'Đại lý TACN Hưng Thịnh – Sơn Tây',
       invoiceNumber: '', receivedBy: '', storageLocation: '', note: '', transportFee: 0,
       amountPaid: 0, paymentMethod: null, paymentDate: '', balanceDueDate: '',
-      lines: [{ feedItemId: 101, feedCode: 'TA-01', feedName: 'Bắp ủ chua', lotNumber: 'LO-FAR', expiryDate: formatDate(expiry), quantityPurchase: 5, purchaseUnit: 'kg', kgPerPurchaseUnit: 1, unitPrice: 1000 }],
+      lines: [{ feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ voi', lotNumber: 'LO-FAR', expiryDate: formatDate(expiry), quantityPurchase: 5, purchaseUnit: 'kg', kgPerPurchaseUnit: 1, unitPrice: 1000 }],
     })
     await postFeedReceiptDemo(draft.id)
 

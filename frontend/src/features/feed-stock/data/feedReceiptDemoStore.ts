@@ -1,8 +1,14 @@
 import { createCollection, createCollectionSchema, type CollectionRow } from '../../../api/client'
 import { FEED_STOCK_MOCK } from './feedStockMock'
-import { FEED_RECEIPT_MOCK } from './feedReceiptMock'
+import { FEED_RECEIPT_DEMO_EXTRAS, FEED_RECEIPT_MOCK } from './feedReceiptMock'
+import { FEED_CATALOGUE_MOCK } from './feedCatalogueMock'
+import { buildFeedFeedingSeed } from './feedFeedingMock'
+import { buildMovementSeed } from './feedMovementSeed'
+import { daysFromToday } from './feedDemoDates'
+import { deriveFeedStockStatus } from '../domain/feedStockStatus'
+import type { FeedMovement } from '../types/feedMovement'
 import { FEED_RECEIPT_DEMO_SUPPLIERS } from './feedReceiptDemoSuppliers'
-import { FEED_RATION_DEMO_PENS } from './feedRationDemoStore'
+import { FEED_DEMO_PENS as FEED_RATION_DEMO_PENS } from './feedPenMock'
 import type { FeedGroup, FeedStockRow, FeedStockStatus } from '../types'
 import type { FeedReceiptDemoRecord, FeedReceiptDraftInput, FeedReceiptDemoStore } from '../types/feedReceiptDemo'
 import type { FeedStockAdjustmentDemoRecord, FeedStockAdjustmentDemoStore, FeedStockAdjustmentDraftInput } from '../types/feedStockAdjustment'
@@ -14,6 +20,7 @@ type FeedReceiptDemoState = {
   receipts: FeedReceiptDemoRecord[]
   adjustments: FeedStockAdjustmentDemoRecord[]
   feedings: FeedFeedingRecord[]
+  movements: FeedMovement[]
   stocks: Array<FeedStockRow & CollectionRow>
   catalogue: FeedCatalogueItem[]
   suppliers: FeedSupplier[]
@@ -281,6 +288,20 @@ function parseFeedingRecord(value: unknown): FeedFeedingRecord {
   }
 }
 
+function parseMovement(value: unknown): FeedMovement {
+  if (!isRecord(value) || !isNumber(value.id) || !isNumber(value.feedItemId) || !isText(value.feedCode) || !isText(value.movementType)
+    || !isNumber(value.quantityKg) || (value.unitCost !== null && !isNumber(value.unitCost)) || !isNumber(value.balanceAfterKg)
+    || !isText(value.sourceType) || (value.sourceId !== null && !isNumber(value.sourceId)) || !isText(value.occurredAt)
+    || (value.sourceCode !== undefined && value.sourceCode !== null && !isText(value.sourceCode))) {
+    throw new Error('Invalid demo feed movement')
+  }
+  return {
+    id: value.id, feedItemId: value.feedItemId, feedCode: value.feedCode, movementType: value.movementType, quantityKg: value.quantityKg,
+    unitCost: value.unitCost, balanceAfterKg: value.balanceAfterKg, sourceType: value.sourceType, sourceId: value.sourceId,
+    sourceCode: isText(value.sourceCode) ? value.sourceCode : null, occurredAt: value.occurredAt,
+  }
+}
+
 function parseDemoState(value: unknown): FeedReceiptDemoState {
   if (!isRecord(value) || value.id !== 'feed-receipts' || !Array.isArray(value.receipts) || !Array.isArray(value.stocks)
     || (value.adjustments !== undefined && !Array.isArray(value.adjustments))
@@ -316,6 +337,7 @@ function parseDemoState(value: unknown): FeedReceiptDemoState {
     receipts: value.receipts.map(parseDemoReceipt),
     adjustments: (value.adjustments ?? []).map(parseDemoAdjustment),
     feedings: (value.feedings ?? []).map(parseFeedingRecord),
+    movements: (Array.isArray(value.movements) ? value.movements : []).map(parseMovement),
     catalogue,
     suppliers,
     stocks: stocks.map((stock) => {
@@ -334,47 +356,49 @@ function parseDemoState(value: unknown): FeedReceiptDemoState {
   }
 }
 
-const initialReceipts: FeedReceiptDemoRecord[] = FEED_RECEIPT_MOCK.map((row) => ({
-  ...row,
-  invoiceNumber: '',
-  receivedBy: 'Nhân viên kho (demo)',
-  storageLocation: 'Kho thức ăn (demo)',
-  note: '',
-  amountPaid: 0,
-  paymentMethod: null,
-  paymentDate: '',
-  balanceDueDate: '',
-  lines: row.lines.map((line) => ({ ...line, kgPerPurchaseUnit: 1 })),
-}))
+const initialReceipts: FeedReceiptDemoRecord[] = FEED_RECEIPT_MOCK.map((row) => {
+  const extra = FEED_RECEIPT_DEMO_EXTRAS[row.id]
+  const method = extra?.paymentMethod ?? null
+  return {
+    ...row,
+    invoiceNumber: extra?.invoiceNumber ?? '',
+    receivedBy: extra?.receivedBy ?? '',
+    storageLocation: extra?.storageLocation ?? '',
+    note: extra?.note ?? '',
+    amountPaid: extra?.amountPaid ?? 0,
+    paymentMethod: method,
+    paymentDate: method ? row.receiptDate : '',
+    balanceDueDate: extra?.balanceDueDays != null ? daysFromToday(extra.balanceDueDays) : '',
+    ...(extra?.voidReason ? { voidReason: extra.voidReason } : {}),
+    lines: row.lines.map((line) => ({
+      ...line,
+      kgPerPurchaseUnit: line.quantityPurchase > 0 ? line.kgReceived / line.quantityPurchase : 1,
+    })),
+  }
+})
 
-const initialCatalogue: FeedCatalogueItem[] = FEED_STOCK_MOCK.map((row) => ({
-  id: row.feedItemId,
-  code: row.code,
-  name: row.name,
-  group: row.group,
-  stockUnit: 'kg',
-  purchaseUnit: 'kg',
-  kgPerPurchaseUnit: 1,
-  minimumStockKg: row.minimumStockKg ?? 0,
-  nutritionNote: '',
-  available: true,
-  version: row.version,
-}))
+const initialCatalogue: FeedCatalogueItem[] = FEED_CATALOGUE_MOCK.map(({ unitCost: _unitCost, ...item }) => item)
 const initialSuppliers: FeedSupplier[] = FEED_RECEIPT_DEMO_SUPPLIERS.map((supplier) => ({
-  ...supplier, phone: '', area: '', note: '', active: true, version: 0,
+  ...supplier, note: '', active: true, version: 0,
 }))
+const initialStocks = FEED_STOCK_MOCK.map((row) => {
+  const item = FEED_CATALOGUE_MOCK.find((entry) => entry.id === row.feedItemId)
+  return { ...row, available: true, purchaseUnit: item?.purchaseUnit ?? 'kg', kgPerPurchaseUnit: item?.kgPerPurchaseUnit ?? 1 }
+}) as Array<FeedStockRow & CollectionRow>
+const initialFeedings = buildFeedFeedingSeed()
 
 const stateSchema = createCollectionSchema<FeedReceiptDemoState, 'id'>(
-  'feed-receipt-state-demo-v1',
+  'feed-receipt-state-demo-v2',
   'id',
   parseDemoState,
 )
-const states = createCollection('feedReceiptStateDemo', [{
+const states = createCollection('feedReceiptStateDemoV2', [{
   id: 'feed-receipts',
   receipts: initialReceipts,
   adjustments: [],
-  feedings: [],
-  stocks: FEED_STOCK_MOCK.map((row) => ({ ...row })) as Array<FeedStockRow & CollectionRow>,
+  feedings: initialFeedings,
+  movements: buildMovementSeed(initialStocks, initialReceipts, initialFeedings),
+  stocks: initialStocks.map((row) => ({ ...row })),
   catalogue: initialCatalogue.map((row) => ({ ...row })),
   suppliers: initialSuppliers.map((row) => ({ ...row })),
 }], { schema: stateSchema })
@@ -540,7 +564,7 @@ async function postAdjustment(id: number): Promise<FeedStockAdjustmentDemoRecord
       const line = changedLines.get(stock.feedItemId)
       if (!line) return stock
       const onHandKg = Math.round((stock.onHandKg + line.differenceKg) * 1000) / 1000
-      const status = feedStockStatus(onHandKg, stock.minimumStockKg)
+      const status = feedStockStatus(onHandKg, stock.minimumStockKg, stock.averageDailyUseKg)
       const daysOfCover = stock.averageDailyUseKg === 0
         ? null
         : Math.round((onHandKg / stock.averageDailyUseKg) * 10) / 10
@@ -560,9 +584,27 @@ async function postAdjustment(id: number): Promise<FeedStockAdjustmentDemoRecord
       version: current.version + 1,
     }
     const adjustments = state.adjustments.map((row) => row.id === id ? posted : row)
-    await states.update(state.id, { adjustments, stocks })
+    const movements = appendMovements(state, [...changedLines.values()].map((line) => ({
+      feedItemId: line.feedItemId, movementType: 'ADJUSTMENT', quantityKg: line.differenceKg, unitCost: line.unitCost,
+      sourceType: 'ADJUSTMENT', sourceId: current.id, sourceCode: current.code,
+    })), stocks)
+    await states.update(state.id, { adjustments, stocks, movements })
     return posted
   })
+}
+
+type MovementEntry = Pick<FeedMovement, 'feedItemId' | 'movementType' | 'quantityKg' | 'unitCost' | 'sourceType' | 'sourceId' | 'sourceCode'>
+/** One movement per feed and operation, with the balance read from the updated stock rows. */
+function appendMovements(state: FeedReceiptDemoState, entries: readonly MovementEntry[], stocks: readonly FeedStockRow[]): FeedMovement[] {
+  let id = Math.max(0, ...state.movements.map((row) => row.id))
+  const occurredAt = new Date().toISOString()
+  const added = entries.filter((entry) => entry.quantityKg !== 0).flatMap((entry) => {
+    const stock = stocks.find((row) => row.feedItemId === entry.feedItemId)
+    if (!stock) return []
+    id += 1
+    return [{ ...entry, id, feedCode: stock.code, balanceAfterKg: stock.onHandKg, occurredAt }]
+  })
+  return [...state.movements, ...added]
 }
 
 let mutationQueue = Promise.resolve()
@@ -575,11 +617,7 @@ function serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
 const roundKg = (value: number) => Math.round(value * 1000) / 1000
 const roundMoney = (value: number) => Math.round(value)
 const isOneDecimal = (value: number) => Math.abs(value * 10 - Math.round(value * 10)) < 0.000001
-const feedStockStatus = (onHandKg: number, minimumStockKg: number | null): FeedStockRow['status'] => onHandKg <= 0
-  ? 'OUT_OF_STOCK'
-  : minimumStockKg !== null && onHandKg <= minimumStockKg
-    ? 'LOW'
-    : 'SUFFICIENT'
+const feedStockStatus = deriveFeedStockStatus
 
 function feedHasMovements(state: FeedReceiptDemoState, id: number) {
   const stock = state.stocks.find((row) => row.feedItemId === id)
@@ -646,7 +684,7 @@ async function saveCatalogueFeed(input: FeedCatalogueInput): Promise<FeedCatalog
       name: next.name,
       group: parseFeedGroup(next.group),
       minimumStockKg: next.minimumStockKg,
-      status: feedStockStatus(previous?.onHandKg ?? 0, next.minimumStockKg),
+      status: feedStockStatus(previous?.onHandKg ?? 0, next.minimumStockKg, previous?.averageDailyUseKg ?? 0),
       version: previous ? previous.version + 1 : 0,
       available: next.available,
       purchaseUnit: next.purchaseUnit,
@@ -785,7 +823,7 @@ function updateStockForFeeding(
     if (onHandKg < -0.0005) throw new Error(`Tồn kho ${stock.code} không đủ để cập nhật cữ.`)
     const unitCost = stock.onHandKg > 0 ? stock.stockValue / stock.onHandKg : fallbackCosts.get(stock.feedItemId) ?? null
     const stockValue = unitCost === null ? stock.stockValue : Math.max(0, roundMoney(stock.stockValue - delta * unitCost))
-    const status = feedStockStatus(onHandKg, stock.minimumStockKg)
+    const status = feedStockStatus(onHandKg, stock.minimumStockKg, stock.averageDailyUseKg)
     const daysOfCover = stock.averageDailyUseKg === 0 ? null : Math.round((onHandKg / stock.averageDailyUseKg) * 10) / 10
     return { ...stock, onHandKg: Math.max(0, onHandKg), stockValue, status, daysOfCover, version: stock.version + 1 }
   })
@@ -825,7 +863,11 @@ async function recordFeeding(input: FeedFeedingDraftInput): Promise<FeedFeedingR
       lines,
       revisions: [],
     }
-    await states.update(state.id, { feedings: [record, ...state.feedings], stocks })
+    const movements = appendMovements(state, lines.map((line) => ({
+      feedItemId: line.feedItemId, movementType: 'FEEDING', quantityKg: -line.actualKg, unitCost: line.unitCost,
+      sourceType: 'FEEDING', sourceId: record.id, sourceCode: `${record.penCode} · cữ ${record.sessionNo}`,
+    })), stocks)
+    await states.update(state.id, { feedings: [record, ...state.feedings], stocks, movements })
     return record
   })
 }
@@ -873,7 +915,11 @@ async function correctFeeding(id: number, input: FeedFeedingCorrectionInput): Pr
       lines,
       revisions: [...current.revisions, revision],
     }
-    await states.update(state.id, { feedings: state.feedings.map((row) => row.id === id ? updated : row), stocks })
+    const movements = appendMovements(state, [...deltas.entries()].map(([feedItemId, delta]) => ({
+      feedItemId, movementType: 'FEEDING_CORRECTION', quantityKg: -delta, unitCost: fallbackCosts.get(feedItemId) ?? null,
+      sourceType: 'FEEDING', sourceId: id, sourceCode: `${current.penCode} · cữ ${current.sessionNo}`,
+    })), stocks)
+    await states.update(state.id, { feedings: state.feedings.map((row) => row.id === id ? updated : row), stocks, movements })
     return updated
   })
 }
@@ -889,7 +935,60 @@ async function voidFeeding(id: number, reason: string): Promise<FeedFeedingRecor
     const stocks = updateStockForFeeding(state.stocks, deltas, fallbackCosts)
     const revision = { action: 'VOIDED' as const, reason: reason.trim(), changedAt: new Date().toISOString(), lines: current.lines.map((line) => ({ ...line })) }
     const voided: FeedFeedingRecord = { ...current, status: 'VOIDED', version: current.version + 1, revisions: [...current.revisions, revision] }
-    await states.update(state.id, { feedings: state.feedings.map((row) => row.id === id ? voided : row), stocks })
+    const movements = appendMovements(state, current.lines.map((line) => ({
+      feedItemId: line.feedItemId, movementType: 'FEEDING_VOID', quantityKg: line.actualKg, unitCost: line.unitCost,
+      sourceType: 'FEEDING', sourceId: id, sourceCode: `${current.penCode} · cữ ${current.sessionNo}`,
+    })), stocks)
+    await states.update(state.id, { feedings: state.feedings.map((row) => row.id === id ? voided : row), stocks, movements })
+    return voided
+  })
+}
+
+/** GBR-99: a posted receipt is voided with a reason only while the stock of every feed covers what it received. */
+function receiptVoidCheck(state: FeedReceiptDemoState, receipt: FeedReceiptDemoRecord) {
+  const needed = new Map<number, number>()
+  receipt.lines.forEach((line) => needed.set(line.feedItemId, (needed.get(line.feedItemId) ?? 0) + line.kgReceived))
+  return [...needed.entries()].map(([feedItemId, kg]) => {
+    const stock = state.stocks.find((row) => row.feedItemId === feedItemId)
+    return { feedItemId, code: stock?.code ?? '', name: stock?.name ?? '', onHandKg: stock?.onHandKg ?? 0, neededKg: kg, ok: (stock?.onHandKg ?? 0) + 0.0005 >= kg }
+  })
+}
+
+async function voidReceipt(id: number, reason: string): Promise<FeedReceiptDemoRecord> {
+  return serializeMutation(async () => {
+    const state = await states.get('feed-receipts')
+    const current = state.receipts.find((row) => row.id === id)
+    if (!current || current.status !== 'POSTED') throw new Error('Chỉ có thể hủy phiếu đã ghi nhận.')
+    if (!reason.trim()) throw new Error('Nhập lý do hủy phiếu.')
+    if (reason.trim().length > 500) throw new Error('Lý do tối đa 500 ký tự.')
+    const blocked = receiptVoidCheck(state, current).find((row) => !row.ok)
+    if (blocked) {
+      throw new Error(`Phiếu ${current.code} không thể hủy: tồn kho ${blocked.name} (${roundKg(blocked.onHandKg)} kg) ít hơn số đã nhập. Hãy lập phiếu điều chỉnh kho.`)
+    }
+    const kgByFeed = new Map<number, number>()
+    current.lines.forEach((line) => kgByFeed.set(line.feedItemId, (kgByFeed.get(line.feedItemId) ?? 0) + line.kgReceived))
+    const unitCosts = new Map<number, number | null>()
+    const stocks = state.stocks.map((stock) => {
+      const kg = kgByFeed.get(stock.feedItemId)
+      if (!kg) return stock
+      const unitCost = stock.onHandKg > 0 ? stock.stockValue / stock.onHandKg : 0
+      unitCosts.set(stock.feedItemId, unitCost ? Math.round(unitCost) : null)
+      const onHandKg = roundKg(stock.onHandKg - kg)
+      return {
+        ...stock,
+        onHandKg,
+        stockValue: Math.max(0, roundMoney(stock.stockValue - kg * unitCost)),
+        status: feedStockStatus(onHandKg, stock.minimumStockKg, stock.averageDailyUseKg),
+        daysOfCover: stock.averageDailyUseKg === 0 ? null : Math.round((onHandKg / stock.averageDailyUseKg) * 10) / 10,
+        version: stock.version + 1,
+      }
+    })
+    const voided: FeedReceiptDemoRecord = { ...current, status: 'VOIDED', version: current.version + 1, voidReason: reason.trim() }
+    const movements = appendMovements(state, [...kgByFeed.entries()].map(([feedItemId, kg]) => ({
+      feedItemId, movementType: 'RECEIPT_VOID', quantityKg: -kg, unitCost: unitCosts.get(feedItemId) ?? null,
+      sourceType: 'RECEIPT', sourceId: current.id, sourceCode: current.code,
+    })), stocks)
+    await states.update(state.id, { receipts: state.receipts.map((row) => row.id === id ? voided : row), stocks, movements })
     return voided
   })
 }
@@ -967,7 +1066,7 @@ async function postDraft(id: number): Promise<FeedReceiptDemoRecord> {
       const receivedKg = lines.reduce((total, line) => total + line.kgReceived, 0)
       const addedValue = lines.reduce((total, line) => total + line.lineAmount, 0)
       const onHandKg = Math.round((stock.onHandKg + receivedKg) * 1000) / 1000
-      const status = feedStockStatus(onHandKg, stock.minimumStockKg)
+      const status = feedStockStatus(onHandKg, stock.minimumStockKg, stock.averageDailyUseKg)
       const daysOfCover = stock.averageDailyUseKg === 0
         ? null
         : Math.round((onHandKg / stock.averageDailyUseKg) * 10) / 10
@@ -990,7 +1089,14 @@ async function postDraft(id: number): Promise<FeedReceiptDemoRecord> {
     })
     const posted: FeedReceiptDemoRecord = { ...current, status: 'POSTED', version: current.version + 1 }
     const receipts = state.receipts.map((row) => row.id === id ? posted : row)
-    await states.update(state.id, { receipts, stocks })
+    const movements = appendMovements(state, [...byFeed.entries()].map(([feedItemId, lines]) => {
+      const kg = lines.reduce((total, line) => total + line.kgReceived, 0)
+      return {
+        feedItemId, movementType: 'RECEIPT', quantityKg: kg, unitCost: kg ? Math.round(lines.reduce((total, line) => total + line.lineAmount, 0) / kg) : null,
+        sourceType: 'RECEIPT', sourceId: current.id, sourceCode: current.code,
+      }
+    }), stocks)
+    await states.update(state.id, { receipts, stocks, movements })
     return posted
   })
 }
@@ -1005,6 +1111,13 @@ const demoStore: FeedReceiptDemoStore = {
   },
   saveDraft,
   post: postDraft,
+  void: voidReceipt,
+  voidCheck: async (id) => {
+    const state = await states.get('feed-receipts')
+    const current = state.receipts.find((row) => row.id === id)
+    if (!current) throw new Error('Không tìm thấy phiếu nhập kho.')
+    return receiptVoidCheck(state, current)
+  },
   reset: async () => { await serializeMutation(async () => { await states.reset() }) },
 }
 
@@ -1051,6 +1164,11 @@ const catalogueDemoStore: FeedCatalogueDemoStore = {
   reset: async () => { await serializeMutation(async () => { await states.reset() }) },
 }
 
+export const listFeedMovementsDemo = async (feedItemId: number): Promise<FeedMovement[]> => (await states.get('feed-receipts')).movements
+  .filter((row) => row.feedItemId === feedItemId)
+  .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt) || right.id - left.id)
+export const latestFeedMovementDemo = async (): Promise<string | null> => (await states.get('feed-receipts')).movements
+  .reduce<string | null>((latest, row) => !latest || row.occurredAt > latest ? row.occurredAt : latest, null)
 export const listFeedReceiptDemo = () => demoStore.list()
 export const getFeedReceiptDemo = (id: string) => demoStore.get(id)
 export const saveFeedReceiptDemoDraft = (input: FeedReceiptDraftInput) => demoStore.saveDraft(input)
