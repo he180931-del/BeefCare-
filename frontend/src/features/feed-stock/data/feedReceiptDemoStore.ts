@@ -4,7 +4,7 @@ import { FEED_RECEIPT_DEMO_EXTRAS, FEED_RECEIPT_MOCK } from './feedReceiptMock'
 import { FEED_CATALOGUE_MOCK } from './feedCatalogueMock'
 import { buildFeedFeedingHistory, buildFeedFeedingSeed } from './feedFeedingMock'
 import { buildMovementSeed } from './feedMovementSeed'
-import { daysFromToday } from './feedDemoDates'
+import { daysFromToday, localNowIso } from './feedDemoDates'
 import { deriveFeedStockStatus } from '../domain/feedStockStatus'
 import type { FeedMovement } from '../types/feedMovement'
 import { FEED_RECEIPT_DEMO_SUPPLIERS } from './feedReceiptDemoSuppliers'
@@ -582,7 +582,7 @@ async function postAdjustment(id: number): Promise<FeedStockAdjustmentDemoRecord
     const posted: FeedStockAdjustmentDemoRecord = {
       ...current,
       status: 'POSTED',
-      postedAt: new Date().toISOString(),
+      postedAt: localNowIso(),
       version: current.version + 1,
     }
     const adjustments = state.adjustments.map((row) => row.id === id ? posted : row)
@@ -599,7 +599,7 @@ type MovementEntry = Pick<FeedMovement, 'feedItemId' | 'movementType' | 'quantit
 /** One movement per feed and operation, with the balance read from the updated stock rows. */
 function appendMovements(state: FeedReceiptDemoState, entries: readonly MovementEntry[], stocks: readonly FeedStockRow[]): FeedMovement[] {
   let id = Math.max(0, ...state.movements.map((row) => row.id))
-  const occurredAt = new Date().toISOString()
+  const occurredAt = localNowIso()
   const added = entries.filter((entry) => entry.quantityKg !== 0).flatMap((entry) => {
     const stock = stocks.find((row) => row.feedItemId === entry.feedItemId)
     if (!stock) return []
@@ -858,7 +858,7 @@ async function recordFeeding(input: FeedFeedingDraftInput): Promise<FeedFeedingR
       status: 'VALID',
       version: 0,
       fedBy: input.fedBy.trim(),
-      recordedAt: new Date().toISOString(),
+      recordedAt: localNowIso(),
       leftoverKg: input.leftoverKg,
       note: input.note.trim(),
       plannedTotalKg: roundKg(lines.reduce((sum, line) => sum + line.plannedKg, 0)),
@@ -905,7 +905,7 @@ async function correctFeeding(id: number, input: FeedFeedingCorrectionInput): Pr
     const deltas = new Map([...ids].map((feedItemId) => [feedItemId, roundKg((nextQuantities.get(feedItemId) ?? 0) - (priorQuantities.get(feedItemId) ?? 0))]))
     const fallbackCosts = new Map(current.lines.map((line) => [line.feedItemId, line.unitCost]))
     const stocks = updateStockForFeeding(state.stocks, deltas, fallbackCosts)
-    const revision = { action: 'CORRECTED' as const, reason: input.reason.trim(), changedAt: new Date().toISOString(), lines: current.lines.map((line) => ({ ...line })) }
+    const revision = { action: 'CORRECTED' as const, reason: input.reason.trim(), changedAt: localNowIso(), lines: current.lines.map((line) => ({ ...line })) }
     const updated: FeedFeedingRecord = {
       ...current,
       time: input.time ?? current.time,
@@ -936,7 +936,7 @@ async function voidFeeding(id: number, reason: string): Promise<FeedFeedingRecor
     const deltas = new Map(current.lines.map((line) => [line.feedItemId, -line.actualKg]))
     const fallbackCosts = new Map(current.lines.map((line) => [line.feedItemId, line.unitCost]))
     const stocks = updateStockForFeeding(state.stocks, deltas, fallbackCosts)
-    const revision = { action: 'VOIDED' as const, reason: reason.trim(), changedAt: new Date().toISOString(), lines: current.lines.map((line) => ({ ...line })) }
+    const revision = { action: 'VOIDED' as const, reason: reason.trim(), changedAt: localNowIso(), lines: current.lines.map((line) => ({ ...line })) }
     const voided: FeedFeedingRecord = { ...current, status: 'VOIDED', version: current.version + 1, revisions: [...current.revisions, revision] }
     const movements = appendMovements(state, current.lines.map((line) => ({
       feedItemId: line.feedItemId, movementType: 'FEEDING_VOID', quantityKg: line.actualKg, unitCost: line.unitCost,

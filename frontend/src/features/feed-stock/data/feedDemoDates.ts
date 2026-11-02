@@ -11,3 +11,9 @@ export const today = () => daysFromToday(0)
 export function isoAt(offset: number, time: string) {
   return `${daysFromToday(offset)}T${time}:00`
 }
+
+/** Current local time as `yyyy-mm-ddThh:mm:ss`, the same shape as the seeded timestamps (no timezone suffix). */
+export function localNowIso() {
+  const now = new Date()
+  return `${isoDate(now)}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+}
