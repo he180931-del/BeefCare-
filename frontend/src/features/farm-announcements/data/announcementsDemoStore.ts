@@ -104,8 +104,8 @@ export function createAnnouncementsDemoStore(seed: AnnouncementsSeed = ANNOUNCEM
       const active = state.members.filter((m) => m.active && m.id !== me.id)
       return structuredClone({
         members: active.filter((m) => roles.includes(m.role)),
-        managerCount: active.filter((m) => m.role === 'MANAGER').length,
-        technicianCount: active.filter((m) => m.role === 'TECHNICIAN').length,
+        managerCount: state.members.filter((m) => m.active && m.role === 'MANAGER').length,
+        technicianCount: state.members.filter((m) => m.active && m.role === 'TECHNICIAN').length,
       })
     },
 
