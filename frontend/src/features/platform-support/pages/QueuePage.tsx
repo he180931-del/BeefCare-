@@ -95,7 +95,7 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
                   const lost = t.assignedCsId !== null && !t.assignedAvailable
                   return (
                     <tr key={t.code}>
-                      <Td className="font-semibold text-brand"><Link to={`/nen-tang/ho-tro/${t.code}`}>{t.code}</Link></Td>
+                      <Td className="whitespace-nowrap font-semibold text-brand"><Link to={`/nen-tang/ho-tro/${t.code}`}>{t.code}</Link></Td>
                       <Td><div className="font-medium text-ink">{t.subject}</div><div className="text-[11px] text-muted">{t.requester} · {t.farmName}</div></Td>
                       <Td>{CATEGORY_LABEL[t.category]}</Td>
                       <Td><PriorityBadge priority={t.priority} /></Td>

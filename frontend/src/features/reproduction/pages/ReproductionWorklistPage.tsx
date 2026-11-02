@@ -86,7 +86,7 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
                   const latest = row.events.find((event) => event.status === 'VALID')
                   return (
                     <tr key={row.cattleCode} className="cursor-pointer hover:bg-page" onClick={() => open(row.cattleCode)}>
-                      <Td><div className="font-medium text-ink">{row.cattleCode}{row.name !== '—' ? ` · ${row.name}` : ''}</div><div className="text-[11px] text-muted">Số tai {row.earTag}</div></Td>
+                      <Td><div className="font-medium text-ink"><span className="whitespace-nowrap">{row.cattleCode}</span>{row.name !== '—' ? ` · ${row.name}` : ''}</div><div className="text-[11px] text-muted">Số tai {row.earTag}</div></Td>
                       <Td>{row.breed}</Td>
                       <Td>{row.penCode}</Td>
                       <Td><div className="font-medium">{row.status ? STATUS_LABEL[row.status] : '—'}</div><div className="text-[11px] text-muted">từ {formatShort(row.statusAt)}</div></Td>

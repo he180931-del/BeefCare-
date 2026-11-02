@@ -2,6 +2,8 @@
 
 Thay thế phần "chưa có màn hình" của `FRONTEND_SCREEN_INVENTORY_2026-11-01.md`, vốn được khảo sát trước commit `3c2b917`.
 
+**Cập nhật:** cả 256 frame đã có màn trên mock. Mục 2 và 3 mô tả lúc bắt đầu; trạng thái hiện tại, chỗ lệch với SRS và phần backend còn thiếu nằm ở mục 7 đến 11.
+
 ## 1. Nguồn đã đối chiếu
 
 - **Figma:** [BEEFCARE-1](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ/BEEFCARE-1), đọc trực tiếp bằng script chỉ đọc. Lưu ý các tài liệu cũ trỏ tới bản sao `BmFA2ndWI434UHS38zRr3A`.
@@ -194,3 +196,101 @@ Tab 18: `2616:4109`, `2616:4352`, `2616:4658`, `2617:4108`, `2617:4335`, `2617:9
 FE-23 · SCR-77–86 · OpenAPI: `feed-management-resource`, `feed-attachment-resource`.
 Route: `/thuc-an*`, `/kt/thuc-an`.
 Tab 21: `2621:4113`, `2621:4459`, `2623:4108`, `2623:4482`, `2705:593`, `2705:1083`, `2625:4117`, `2625:4400`, `2626:4112`, `2626:4493`, `2626:4719`, `2627:4110`, `2627:4468`, `2627:4756`.
+
+## 7. Trạng thái sau khi xây (cập nhật 02/11/2026)
+
+Cả 15 phần đã có màn và nằm trên mock, không còn màn tạm. Chạy thử: `cd frontend && npm run dev:mock`, chọn vai trò ở trang đăng nhập.
+
+| Phần | Frame | Trạng thái | Còn lệch |
+| --- | --- | --- | --- |
+| S1 Tổng quan, nhắc việc, thông báo, báo cáo | 12 | Xong | `/bao-cao` có RPT-01 đến RPT-07 theo SRS, frame vẽ 4 báo cáo |
+| S2 Tăng trưởng, tiêm phòng | 13 | Xong | Ngày giờ ở màn ghi tiêm dùng ô của trình duyệt nên hiện theo ngôn ngữ máy |
+| S3 Sức khỏe | 9 | Xong | Xem mục 8 về ngày hết ngưng thịt và đóng ca chết |
+| S4 Danh mục | 6 | Xong | Xem mục 8 |
+| S5 Gói dịch vụ | 16 | Xong | Mã QR là ảnh minh họa, có ghi rõ là demo |
+| S6 Hỗ trợ, thông báo của tôi | 20 | 18 xong, 2 một phần | `2637:17815`, `2637:17930` hiển thị trên hộp thoại của TK-1031 vì TK-1042 đang "Đang xử lý" như frame danh sách |
+| S7 CS, yêu cầu nội bộ | 28 | 25 xong, 3 chưa đủ | `2637:11824` nút về danh sách được giao vì PM/SA không mở được ticket CS; `2637:12135` dùng chung hộp thoại đóng; `2637:12570` gộp vào trang danh sách |
+| S8 PM dịch vụ, đối soát, bảng giá | 23 | Xong | Hộp thoại cần bản ghi đã chọn sẽ lấy bản ghi đầu khi mở thẳng bằng URL |
+| S9 PM biên nhận, thu chi, dòng tiền | 34 | 33 xong, 1 một phần | `2638:4239` báo cáo trên điện thoại dùng trang responsive, không có thanh riêng; xuất XLSX trên mock chỉ trả tên file |
+| S10 SA | 6 | Xong | Danh sách `/nen-tang/quyen` tự thiết kế vì frame để trống |
+| S11 Công khai, đăng nhập, hồ sơ, trại | 25 | 24 xong, 1 một phần | `2435:4352` theo SRS: không có số điện thoại, có xác nhận mật khẩu |
+| S12 Đàn bò, chuồng | 17 | Xong phần lớn | Thiếu ô "Khai báo khi nhập", ảnh bò, ghi chú trong form cập nhật; chuồng A1 chỉ có 1 bò mẫu vì bò hiển thị phải có hồ sơ thật; chưa có "Thêm tiêu chí" ở form chuồng |
+| S13 Nhập đàn, xuất đàn | 16 | 12 xong, 4 một phần | `2588:4785` thiếu ảnh bò, ngày sinh thay cho tuổi tháng; `2591:4403` thiếu quét QR và kết quả kiểm tra chỉ có sau khi lưu; `2592:4108` thiếu ô tải tệp; `2590:5356` thiếu icon bút chì |
+| S14 Sinh sản | 17 | 10 xong, 6 một phần, 1 ở S12 | Dữ liệu mẫu 7 bò so với 42 của frame; huy hiệu "Đã phối – chờ khám" ở đầu hồ sơ chưa có; `2617:12067` quét QR thuộc S12 |
+| S15 Thức ăn | 14 | 12 xong, 2 một phần | `2625:4117` mặc định ẩn khẩu phần đã ngừng theo SRS; `2627:4468` số liệu lấy từ dữ liệu mẫu nên khác frame |
+
+Thay đổi dùng chung so với lúc bắt đầu:
+
+- Đầu hồ sơ bò có icon và nút chính đổi theo tab. Nút ở tab tăng trưởng và sức khỏe mở hộp thoại, vì hai phần này không có trang ghi riêng; tab tiêm phòng mở trang ghi nhận.
+- Menu trái sáng mục chăm sóc tương ứng khi đang ở tab chăm sóc của hồ sơ bò.
+- `Table` với `wide` chỉ xếp thành thẻ khi khung dưới 720px (trước là 900px), nên màn 1180 vẫn là bảng.
+- `Button` có sẵn khoảng cách giữa icon và chữ; `Info` nhận được React node; nút X của `Modal` không còn bị đầu hộp thoại che.
+- `userFacingError` không còn coi "upload failed" là mất kết nối.
+
+Mốc thời gian của mock khác nhau theo phần vì bám theo frame: tổng quan, sức khỏe, sinh sản là 20/10/2026; hỗ trợ, thông báo, SA là 18/10/2026; PM tài chính là 19/10/2026; nhập, xuất đàn là 22/10/2026. Thức ăn tính theo ngày thật nên ngày trên màn khác frame.
+
+## 8. Figma khác SRS và cách đã xử lý
+
+Theo SRS trừ khi ghi khác. Nhóm cần xác nhận các điểm này.
+
+| Chủ đề | Figma | SRS | Đã làm |
+| --- | --- | --- | --- |
+| Hết ngưng thịt (`2613:4281`) | Liều đầu + 28 ngày: 17/11 | GBR-46: liều cuối + số ngày ngưng: 19/11 | SRS |
+| Đóng ca chết | Bò rời đàn khi lưu | GBR-47, GBR-95: vẫn ACTIVE đến khi Chủ trại xác nhận | SRS |
+| Cân xuất mục tiêu ở danh mục | Bắt buộc | Không bắt buộc | SRS |
+| Ngày dự kiến ở tăng trưởng | 10/03/2027 | GBR-107: 04/03/2027 | SRS |
+| Giới hạn thông báo trại | OpenAPI: tiêu đề 255, nội dung 10000 | Tiêu đề 150, nội dung 5000 | SRS |
+| Thời hạn gói mặc định | Chọn sẵn 1 năm | Không có mặc định | SRS; `?term=1` ra đúng frame |
+| Mã audit đổi vai trò | `MEMBERSHIP_PERMISSION_CHANGED` | `MEMBERSHIP_ROLE_CHANGED` | SRS, giữ nhãn của frame |
+| Đăng ký tài khoản | Có số điện thoại, không xác nhận mật khẩu | Ngược lại | SRS |
+| Xã/phường | Danh sách chọn | Ô nhập chữ | SRS |
+| Bảng giá không tải được | Vẫn hiện giá tháng, % tiết kiệm | GBR-87: không được tự suy giá | SRS, ẩn cả hai |
+| Chấp nhận mã gõ sai | "Chưa thể Chấp nhận" | GBR-72: được sau khi chọn đúng ứng viên duy nhất | Khóa đến khi PM chọn ứng viên |
+| Trả ticket về hàng đợi | Về "Đang mở" | AF3: giữ trạng thái | SRS |
+| Xuất đàn | Vẽ màn Chủ trại | GBR-07, GBR-94: chỉ Chủ trại | SRS, Quản lý chỉ xem |
+| Giống bố | Luôn bắt buộc | Chỉ khi bố ngoài trại | SRS |
+| Thẻ tai bê | Bắt buộc khi "Đăng ký ngay" | Không bắt buộc | **Figma** |
+| Trạng thái "Sắp hết" của thức ăn | Tính cả khi đủ dưới 4 ngày | Tồn ≤ tối thiểu | **Figma** trên mock, SRS ở chế độ backend |
+| Giá trị tồn kho | 38.450.000 đ | Tồn × giá bình quân: 28.247.000 đ | SRS |
+
+## 9. Frame tự mâu thuẫn
+
+- Mục menu tăng trưởng: tab 16, 17, 18 ghi "Cân nặng & thể trạng", một số frame tab 13 ghi "Tăng trưởng & thể vóc". Đã dùng "Cân nặng & thể trạng".
+- Thứ tự tab hồ sơ của Kỹ thuật viên: tab 16 và tab 18 vẽ khác nhau. Đã theo tab 16.
+- `2473:7619` không có yêu cầu đang chờ, trong khi `7788`, `7880`, `8047` cần BCF7K2Q9 đang chờ. Đã cho đang chờ. Biên nhận PM lại ghi mã này đã thanh toán.
+- `2703:25000` ghi tên Ngô Minh Khang nhưng email và vai trò của Phạm Thu Hà. Đã dùng dữ liệu của Hà.
+- `2637:15005` ghi loại của FR-0103, FR-0101 ngược với danh sách. Đã theo danh sách.
+- `2473:8496` có 6 dòng nhưng bộ đếm 9/5/4. Đã thêm 3 thông báo cũ để số đếm đúng.
+- `2705:1083` có dòng "đóng phân chuồng A2 / thẻ QR" chép từ phân hệ khác. Đã bỏ.
+- TK-1025 chưa có người nhận nhưng có IR-081, trong khi SRS chỉ cho có yêu cầu nội bộ lúc ticket đang xử lý. Đã giữ như frame.
+
+## 10. Backend còn thiếu
+
+Mỗi phương thức API có chú thích route thật hoặc `// chưa có API`. Ở chế độ backend, các phần chưa nối sẽ báo lỗi rõ ràng và không dùng dữ liệu mock.
+
+| Phần | Chưa có route | Thiếu trường hoặc sai mô tả |
+| --- | --- | --- |
+| Tổng quan, thông báo | Lựa chọn chuồng, tóm tắt trang chủ Kỹ thuật viên, lấy thông báo theo id, danh sách thành viên, xem trước công bố | `DraftRequest` chỉ có `recipientRoles`, frame cần người nhận đích danh |
+| Tăng trưởng | Bộ lọc, lựa chọn form | Model `Page` và `Summary` trong OpenAPI giống của ticket hỗ trợ, cần kiểm tra lại |
+| Tiêm phòng | Lựa chọn form, danh sách mũi, xem trước đối tượng và kế hoạch, ngữ cảnh ghi nhận | |
+| Sức khỏe | Lựa chọn thuốc, thành viên, gợi ý chẩn đoán, phiếu chết chờ xác nhận, số đếm tab | Đóng ca chết hoặc mất phải tự tạo phiếu ở server |
+| Danh mục | Lọc `q`, `status` cho vắc-xin và thuốc | `CatalogueItem` thiếu số lượng đang dùng; `ParameterVersionResult` thiếu `sourceNote`, `savedBy`, nội dung thay đổi; command thiếu `expectedVersion` |
+| Gói dịch vụ | | Request cần `expectedPriceVersionId` (GBR-70); `PaymentDTO` thiếu `bankPaidAt`, `receivedAt`, `confirmedAt`; `SubscriptionOverview` thiếu tên trại, cờ và ngày tạm ngừng, các kỳ đã mua, số ngày còn lại; danh sách thanh toán thiếu lọc và sắp xếp |
+| Hỗ trợ của Chủ trại | Danh sách trại cho form tạo ticket | `Message` thiếu `author`, `authorRole`, `createdAt`, `kind` |
+| CS | Danh sách trại, CS, thông báo CS | `processing.action` chỉ khai báo là string, tên hành động đang là phỏng đoán |
+| PM dịch vụ | `getEvidence`, bản nháp bảng giá, thu hồi bảng giá | |
+| PM tài chính | Danh sách trại, danh sách và chi tiết biên nhận, báo cáo mới nhất | Tải XLSX chưa nối vì route trả về bytes |
+| SA | Danh sách người thao tác audit, xuất CSV, kiểm tra lại khi mở thông báo, lọc theo vai trò nền tảng | `AccountSummary`, `AuditEntry` thiếu `emailVerified`, ngày tạo, đăng nhập gần nhất, số trại, vai trò người thao tác, nhãn đối tượng |
+| Tài khoản, trại | | `POST /api/account/profile` mô tả thành `ProfileUpdate` có trường của bò, đang gửi `{ fullName, phone }` theo SCR-08; thiếu ngày tham gia, `invitedBy`, `farmId` của lời mời |
+| Đàn bò | Ảnh bò | Kiểm tra chuyển chuồng không có kết quả theo từng tiêu chí |
+| Nhập, xuất đàn | Ảnh, quét QR, số bê chờ xác nhận, gán bố mẹ cho bê, danh sách vắc-xin, giống, bò bố mẹ | `colourMarkings` gửi đi nhưng không đọc lại được |
+| Sinh sản | Thành viên, bò đực, chuồng và giống, mục đích, ca sức khỏe, tra thẻ tai đã dùng | DTO sửa bản ghi phối thiếu bò đực, tinh, động dục liên kết. Route đã có nhưng màn chưa nối, đang báo chưa tích hợp |
+| Thức ăn | Hủy phiên bản và ngừng khẩu phần, ghi trả nhà cung cấp, `GET /receipts/{id}` | Không có giờ cập nhật tồn kho. Tạo, sửa danh mục, kiểm kê, khẩu phần vẫn bị khóa ở chế độ backend |
+
+## 11. Giới hạn của đợt kiểm tra
+
+Chưa chạy với backend thật: mọi kiểm tra đều trên mock và test có giả lập transport.
+
+Lần kiểm tra trên trình duyệt mở 260 khung nhìn của mọi vai trò ở 1440x900, 1180x820 và 390x844, tự phát hiện lỗi console, request hỏng, tràn ngang, màn tạm, bảng vỡ thành thẻ và mã bị xuống dòng. Lần này không so sánh hình ảnh với Figma. Việc so ảnh do từng phần tự làm trên các màn chính; một số trạng thái lỗi và hộp thoại chỉ có test. Các frame sau chỉ đối chiếu qua code: `2591:4780`, `2592:4672`, `2592:4997`, `2617:10722`, `2617:11533`, `2705:593`.
+
+Test viết trước code không được làm đều ở mọi phần: S1, S4, S5, S8, S12, S15 viết test cùng lúc hoặc sau code. Một số test cũ được sửa cho đúng chữ và bố cục mới của Figma; không có test nào bị xóa hoặc bỏ qua.

@@ -56,8 +56,9 @@ export default function TicketDetailPage() {
         <PageHeader
           title={`${ticket.code} · ${ticket.subject}`}
           sub={`${categoryLabel(ticket.category)} · ${ticket.farmName ?? 'Không gắn trang trại'} · tạo ${formatDate(ticket.createdAt)}`}
-          badge={<TicketStatusBadge ticket={ticket} />}
-        />
+        >
+          <TicketStatusBadge ticket={ticket} />
+        </PageHeader>
         {actions.notice && (
           <Note tone="err">
             {actions.notice}{' '}

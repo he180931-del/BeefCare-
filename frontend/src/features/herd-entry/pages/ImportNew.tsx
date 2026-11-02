@@ -544,10 +544,10 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                             onChange={(e) => patchCalf(i, { picked: e.target.checked, barn: e.target.checked ? calfBarn.code : '' })}
                           />
                         </Td>
-                        <Td className={TH}>{c.tag || 'Chưa gắn thẻ'}<br />{c.name}</Td>
+                        <Td className={TH}><span className="whitespace-nowrap">{c.tag || 'Chưa gắn thẻ'}</span><br />{c.name}</Td>
                         <Td className={TH}>
                           {c.calfOutcomeId != null && c.mother ? (
-                            <span>{c.mother}</span>
+                            <span className="whitespace-nowrap">{c.mother}</span>
                           ) : (
                             <>
                           <select aria-label={`Bò mẹ của bê ${i + 1}`} className="w-full min-w-[150px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={String(c.damId ?? '')} disabled={!parentCattle.some((row) => row.sex === 'FEMALE')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = { damId: option?.id, mother: option?.code ?? '' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>

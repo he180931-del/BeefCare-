@@ -209,7 +209,7 @@ export function Info({ items, cols = 3 }: { items: Array<ReadonlyArray<unknown>>
 // Bảng không cuộn ngang: khi khung chứa hẹp hơn ngưỡng, mỗi dòng chuyển thành thẻ xếp dọc
 // (nhãn lấy từ tiêu đề cột). Ngưỡng theo container, không theo màn hình.
 const STACK = {
-  wide: '@max-[900px]:block @max-[900px]:[&_thead]:hidden @max-[900px]:[&_tbody]:block @max-[900px]:[&_tfoot]:block @max-[900px]:[&_tr]:block @max-[900px]:[&_tr]:border-b @max-[900px]:[&_tr]:border-rule @max-[900px]:[&_td]:flex @max-[900px]:[&_td]:items-center @max-[900px]:[&_td]:justify-between @max-[900px]:[&_td]:gap-4 @max-[900px]:[&_td]:border-b-0 @max-[900px]:[&_td]:before:content-[attr(data-label)] @max-[900px]:[&_td]:before:text-[11px] @max-[900px]:[&_td]:before:font-semibold @max-[900px]:[&_td]:before:text-muted @max-[900px]:[&_td:empty]:hidden',
+  wide: '@max-[720px]:block @max-[720px]:[&_thead]:hidden @max-[720px]:[&_tbody]:block @max-[720px]:[&_tfoot]:block @max-[720px]:[&_tr]:block @max-[720px]:[&_tr]:border-b @max-[720px]:[&_tr]:border-rule @max-[720px]:[&_td]:flex @max-[720px]:[&_td]:items-center @max-[720px]:[&_td]:justify-between @max-[720px]:[&_td]:gap-4 @max-[720px]:[&_td]:border-b-0 @max-[720px]:[&_td]:before:content-[attr(data-label)] @max-[720px]:[&_td]:before:text-[11px] @max-[720px]:[&_td]:before:font-semibold @max-[720px]:[&_td]:before:text-muted @max-[720px]:[&_td:empty]:hidden',
   normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:flex @max-[640px]:[&_td]:items-center @max-[640px]:[&_td]:justify-between @max-[640px]:[&_td]:gap-4 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-[11px] @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
 }
 
@@ -224,7 +224,7 @@ export function Table({ children, wide, scroll, stack = !scroll, bordered = true
     )
   })
   return (
-    <div className={cx('@container bg-white', bordered && 'rounded border border-edge', scroll ? 'overflow-x-auto' : 'overflow-hidden')}>
+    <div className={cx('@container bg-white', bordered && 'rounded border border-edge', scroll || wide ? 'overflow-x-auto' : 'overflow-hidden')}>
       <table
         ref={ref}
         className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : 'normal'])}
@@ -317,7 +317,7 @@ export function PaymentTable({ payments }: { payments: Payment[] }) {
           <tr key={p.ref}>
             <Td>{p.date}<br />{p.by}</Td>
             <Td>{p.method}<br />{p.ref}</Td>
-            <Td>{Number(p.amount).toLocaleString('vi-VN')}</Td>
+            <Td className="whitespace-nowrap">{Number(p.amount).toLocaleString('vi-VN')}</Td>
           </tr>
         ))}
       </tbody>

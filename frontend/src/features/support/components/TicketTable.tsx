@@ -22,7 +22,7 @@ export function TicketTable({ items }: { items: Ticket[] }) {
       <tbody>
         {items.map((t) => (
           <tr key={t.id} onClick={() => navigate(`/ho-tro/${t.id}`)} className="cursor-pointer hover:bg-page">
-            <Td className="font-medium">
+            <Td className="whitespace-nowrap font-medium">
               <Link to={`/ho-tro/${t.id}`} onClick={(e) => e.stopPropagation()} className="text-ink hover:underline">
                 {t.code}
               </Link>

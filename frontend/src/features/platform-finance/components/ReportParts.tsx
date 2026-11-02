@@ -20,7 +20,7 @@ export function IncomeChart({ days }: { days: CashReport['summary']['dailyIncome
 export function ScopeTable({ scopes, onFarm }: { scopes: ScopeTotals[]; onFarm: (row: ScopeTotals) => void }) {
   return (
     <Card title="Dòng tiền theo phạm vi">
-      <Table stack={false}>
+      <Table scroll>
         <thead><tr><Th>Phạm vi</Th><Th>Gói đăng ký</Th><Th>Thu khác</Th><Th>Chi</Th><Th>Ròng</Th></tr></thead>
         <tbody>
           {scopes.map((s) => {
@@ -29,10 +29,10 @@ export function ScopeTable({ scopes, onFarm }: { scopes: ScopeTotals[]; onFarm: 
             return (
               <tr key={`${s.scope}-${s.farmId ?? s.farmName}`} className={total ? 'font-semibold' : ''}>
                 <Td>{s.scope === 'FARM' ? <button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-left text-[12px] font-medium text-brand" onClick={() => onFarm(s)}>{s.farmName}</button> : <span className="font-medium">{s.farmName}</span>}</Td>
-                <Td>{formatVnd(s.subscriptionReceipts)}</Td>
-                <Td>{formatVnd(s.otherIncome)}</Td>
-                <Td>{formatVnd(s.expense)}</Td>
-                <Td><span className={net < 0 ? 'font-medium text-err-fg' : ''}>{formatMoney(net)}</span></Td>
+                <Td className="whitespace-nowrap">{formatVnd(s.subscriptionReceipts)}</Td>
+                <Td className="whitespace-nowrap">{formatVnd(s.otherIncome)}</Td>
+                <Td className="whitespace-nowrap">{formatVnd(s.expense)}</Td>
+                <Td className="whitespace-nowrap"><span className={net < 0 ? 'font-medium text-err-fg' : ''}>{formatMoney(net)}</span></Td>
               </tr>
             )
           })}
