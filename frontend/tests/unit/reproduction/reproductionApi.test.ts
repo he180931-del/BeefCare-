@@ -58,7 +58,8 @@ describe('reproduction mock API boundary', () => {
     expect(after.calvings[0]?.calves[0]?.registrationStatus).toBe('PENDING_CONFIRMATION')
 
     const corrected = await api.correctCalving('BC-000087', after.calvings[0]!.id, { course: 'ASSISTED' }, 'Bổ sung diễn biến đẻ', 'MANAGER')
-    expect(corrected.events.find((event) => event.id === after.calvings[0]!.id)?.details).toContain('ASSISTED')
+    expect(corrected.calvings[0]?.course).toBe('ASSISTED')
+    expect(corrected.events.find((event) => event.id === after.calvings[0]!.id)?.corrected).toBe(true)
     const voided = await api.voidCalving('BC-000087', after.calvings[0]!.id, 'Ghi nhầm sự kiện', 'MANAGER')
     expect(voided.status).toBe('PREGNANT')
     expect(voided.parity).toBe(2)
@@ -136,7 +137,7 @@ describe('reproduction mock API boundary', () => {
       list: vi.fn(async () => REPRODUCTION_DEMO),
       get: vi.fn(async () => REPRODUCTION_DEMO[0]),
       recordEvent: vi.fn(), recordCalving: vi.fn(), correctEvent: vi.fn(), voidEvent: vi.fn(),
-      correctCalving: vi.fn(), voidCalving: vi.fn(), reset: vi.fn(),
+      correctCalving: vi.fn(), voidCalving: vi.fn(), voidCalf: vi.fn(), reset: vi.fn(),
     }
     const api = createReproductionApi({ mode: 'backend', farmId: 1, transport, store })
 

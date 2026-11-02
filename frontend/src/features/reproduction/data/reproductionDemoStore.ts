@@ -1,4 +1,7 @@
-import { actionsForStatus, validateCalving, validateReproductionCommand } from '../domain/reproductionRules'
+import {
+  ReproductionValidationError, actionsForStatus, isDueSoon, breedingDetails, calvingIssues, calvingSummary, expectedCalvingDate,
+  validateReproductionCommand,
+} from '../domain/reproductionRules'
 import type {
   CalfOutcome,
   CalvingCommand,
@@ -10,7 +13,7 @@ import type {
   ReproductionRevision,
   ReproductionRole,
 } from '../types'
-import { REPRODUCTION_DEMO } from './reproductionMock'
+import { REPRODUCTION_DEMO, REPRODUCTION_SIRES, REPRODUCTION_USED_TAGS } from './reproductionMock'
 
 export interface ReproductionDemoStore {
   list(): Promise<ReproductionFemale[]>
@@ -21,6 +24,7 @@ export interface ReproductionDemoStore {
   voidEvent(cattleCode: string, eventId: string, reason: string, role: ReproductionRole): Promise<ReproductionFemale>
   correctCalving(cattleCode: string, calvingId: string, patch: Partial<CalvingRecord>, reason: string, role: ReproductionRole): Promise<ReproductionFemale>
   voidCalving(cattleCode: string, calvingId: string, reason: string, role: ReproductionRole): Promise<ReproductionFemale>
+  voidCalf(cattleCode: string, calvingId: string, calfId: string, reason: string, role: ReproductionRole): Promise<ReproductionFemale>
   reset(): Promise<ReproductionFemale[]>
 }
 
@@ -43,8 +47,28 @@ const requiredReason = (reason: string) => {
   if (reason.length > 500) throw new Error('Lý do tối đa 500 ký tự.')
 }
 
-function calculateExpectedDate(bredAt: string): string {
-  return addDays(bredAt, 283)
+const calculateExpectedDate = expectedCalvingDate
+const RESULT_TEXT = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' } as const
+const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OTHER: 'Khác' }
+const UPDATE_TEXT = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' } as const
+/** "Có thai · Siêu âm · BS Trần Văn Bình" */
+const checkDetails = (event: ReproductionEvent) => [event.result ? RESULT_TEXT[event.result] : null, event.method ? CHECK_METHOD_TEXT[event.method] ?? event.method : null, event.examiner].filter(Boolean).join(' · ')
+/** "Biến chứng · Phù chân sau, đi lại chậm · ca HC-0415" */
+const updateDetails = (event: ReproductionEvent) => [event.updateType ? UPDATE_TEXT[event.updateType] : null, event.description, event.linkedHealthCaseId ? `ca ${event.linkedHealthCaseId}` : null].filter(Boolean).join(' · ')
+
+/** Every VALID or VOIDED calving shows on the timeline as one CALVING row that follows the calving record. */
+function syncCalvingEvents(profile: ReproductionFemale): void {
+  for (const calving of profile.calvings) {
+    let row = profile.events.find((event) => event.id === calving.id)
+    if (!row) {
+      row = { id: calving.id, type: 'CALVING', occurredAt: calving.birthAt, recordedAt: calving.recordedAt, recorder: calving.recorder, status: calving.status, summary: 'Sự kiện đẻ', version: calving.version }
+      profile.events.push(row)
+    }
+    Object.assign(row, {
+      occurredAt: calving.birthAt, status: calving.status, dataSource: calving.dataSource, pregnancyId: calving.pregnancyId,
+      details: calvingSummary(calving.calves), corrected: calving.corrected, voidReason: calving.voidReason,
+    })
+  }
 }
 
 function makeOpenPregnancy(event: ReproductionEvent, profile: ReproductionFemale): OpenPregnancy {
@@ -63,14 +87,8 @@ function makeOpenPregnancy(event: ReproductionEvent, profile: ReproductionFemale
 function deriveState(profile: ReproductionFemale, parityBaseline: number): void {
   const validCalvings = profile.calvings.filter((item) => item.status === 'VALID')
   profile.parity = parityBaseline + validCalvings.length
-  const history = [
-    ...profile.events,
-    ...profile.calvings.map((calving): ReproductionEvent => ({
-      id: calving.id, type: 'CALVING', occurredAt: calving.birthAt, recordedAt: calving.recordedAt,
-      recorder: calving.recorder, status: calving.status, summary: 'Sự kiện đẻ',
-      pregnancyId: calving.pregnancyId, version: calving.version,
-    })),
-  ].filter((item) => item.status === 'VALID').sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
+  syncCalvingEvents(profile)
+  const history = profile.events.filter((item) => item.status === 'VALID').sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
 
   let status: ReproductionFemale['status'] = 'AWAITING_BREEDING'
   let openPregnancy: OpenPregnancy | null = null
@@ -112,15 +130,15 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
   const latestBreeding = history.filter((item) => item.type === 'BREEDING').slice(-1)[0]
   if (status === 'IN_ESTRUS' && latestEstrus) {
     profile.breedingWindow = { from: addHours(latestEstrus.occurredAt, 8), to: addHours(latestEstrus.occurredAt, 12) }
-    profile.nextAction = 'Theo dõi cửa sổ phối giống'
+    profile.nextAction = profile.eligibility?.status === 'NOT_MET' ? (profile.eligibility.minimumWeightMet ? 'Xem xét điều kiện phối' : 'Theo dõi cân nặng') : 'Xem xét phối giống'
     profile.dueAt = profile.breedingWindow.from
   } else if (status === 'BRED' && latestBreeding) {
     profile.breedingWindow = null
-    profile.nextAction = 'Chờ đến ngày khám thai'
-    profile.dueAt = addDays(latestBreeding.occurredAt, 28)
+    profile.nextAction = 'Kiểm tra có thai'
+    profile.dueAt = addDays(latestBreeding.occurredAt, 30)
   } else if (status === 'PREGNANT') {
     profile.breedingWindow = null
-    profile.nextAction = 'Theo dõi thai kỳ và ngày đẻ dự kiến'
+    profile.nextAction = isDueSoon(profile, localNow()) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
     profile.dueAt = profile.openPregnancy?.expectedCalvingAt ?? null
   } else if (status === 'POST_CALVING' && profile.lastCalvingAt) {
     profile.breedingWindow = null
@@ -131,7 +149,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.nextAction = 'Theo dõi chu kỳ động dục'
     profile.dueAt = null
   }
-  profile.indicators.daysSinceLastCalving = profile.lastCalvingAt
+  profile.indicators.daysSinceLastCalving = profile.lastCalvingAt && status !== 'PREGNANT'
     ? Math.max(0, Math.floor((Date.now() - new Date(profile.lastCalvingAt).getTime()) / 86_400_000))
     : null
   profile.events.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
@@ -166,6 +184,22 @@ export function createReproductionDemoStore(
     return profile
   }
   const copy = (profile: ReproductionFemale) => clone(profile)
+  /** Lower-cased tag -> who uses it. Voided calvings and calves free their tag. */
+  const tagUsage = (exceptCalving?: string): Record<string, string> => {
+    const owners: Record<string, string> = {}
+    const add = (tag: string | null | undefined, who: string) => { if (tag?.trim()) owners[tag.trim().toLocaleLowerCase('vi')] = who }
+    for (const [tag, who] of Object.entries(REPRODUCTION_USED_TAGS)) add(tag, who)
+    for (const row of rows) {
+      add(row.earTag, `bò ${row.cattleCode}`)
+      for (const record of row.calvings) {
+        if (record.status !== 'VALID' || record.id === exceptCalving) continue
+        for (const calf of record.calves.filter((item) => item.status !== 'VOIDED')) {
+          add(calf.earTag, calf.registrationStatus === 'REGISTERED' ? `bò ${calf.earTag}` : `bê nháp của ${row.cattleCode}`)
+        }
+      }
+    }
+    return owners
+  }
   const addRevision = (
     profile: ReproductionFemale,
     eventId: string,
@@ -203,26 +237,30 @@ export function createReproductionDemoStore(
       let nextStatus = profile.status
       if (command.type === 'ESTRUS') {
         base.summary = 'Động dục'
-        base.details = command.signs?.join(' · ') || command.description || 'Chưa có mô tả dấu hiệu'
+        base.details = command.description?.trim() || command.signs?.join(', ') || 'Chưa có mô tả dấu hiệu'
+        base.signs = command.signs
         base.observer = command.observer
         nextStatus = 'IN_ESTRUS'
       } else if (command.type === 'BREEDING') {
-        const sire = command.sireSource === 'FARM' ? command.farmSireId : command.externalSireBreed
-        base.summary = command.method === 'NATURAL_SERVICE' ? 'Phối giống · tự nhiên' : 'Phối giống · thụ tinh nhân tạo'
-        base.details = [sire, command.semenCode && `Lô tinh ${command.semenCode}`, command.note].filter(Boolean).join(' · ')
+        const farmSire = REPRODUCTION_SIRES.find((item) => item.id === command.farmSireId)
+        const sire = command.sireSource === 'FARM' ? farmSire?.label.split(' · ').slice(0, 2).join(' · ') ?? command.farmSireId : command.externalSireBreed
+        base.summary = `Phối giống · lần ${profile.servicesInCurrentCycle + 1}`
         base.method = command.method
         base.performer = command.performer
         base.sireLabel = sire
+        base.semenCode = command.semenCode || undefined
+        base.semenSupplier = command.semenSupplier || undefined
+        base.details = breedingDetails(base)
         base.linkedEstrusId = command.linkedEstrusId ?? null
         base.expectedCalvingAt = calculateExpectedDate(command.occurredAt)
         base.expectedDateBasis = 'TENTATIVE'
         nextStatus = 'BRED'
       } else if (command.type === 'PREGNANCY_CHECK') {
-        base.summary = `Khám thai · ${{ PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa kết luận' }[command.result]}`
-        base.details = [command.method, command.examiner, command.note].filter(Boolean).join(' · ')
+        base.summary = `Khám thai · ${{ PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' }[command.result]}`
         base.result = command.result
         base.method = command.method
         base.examiner = command.examiner
+        base.details = checkDetails(base)
         base.linkedBreedingId = command.linkedBreedingId ?? null
         base.estimatedMonths = command.estimatedMonths ?? null
         if (command.result === 'PREGNANT') {
@@ -240,11 +278,12 @@ export function createReproductionDemoStore(
           nextStatus = 'AWAITING_BREEDING'
         }
       } else {
-        base.summary = `Diễn biến thai · ${{ OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Mất thai' }[command.updateType]}`
-        base.details = command.details
+        base.summary = `Diễn biến thai · ${{ OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' }[command.updateType]}`
+        base.description = command.details
         base.updateType = command.updateType
         base.pregnancyId = profile.openPregnancy?.id ?? null
         base.linkedHealthCaseId = command.linkedHealthCaseId ?? null
+        base.details = updateDetails(base)
         if (command.updateType === 'LOSS') nextStatus = 'AWAITING_BREEDING'
       }
       profile.events.unshift(base)
@@ -262,15 +301,12 @@ export function createReproductionDemoStore(
       if (profile.status !== 'BRED' && profile.status !== 'PREGNANT' && !['YOUNG_STOCK', 'ADULT'].includes(profile.lifeStage)) {
         throw new Error('Không thể ghi sự kiện đẻ cho bò này.')
       }
-      const tags = [
-        ...rows.map((row) => row.earTag),
-        ...rows.flatMap((row) => row.calvings.flatMap((calving) => calving.calves.map((calf) => calf.earTag ?? ''))),
-      ]
-      const errors = validateCalving(command, {
-        today: clock(), existingEarTags: tags, openPregnancyId: profile.openPregnancy?.id,
-        openPregnancyConfirmedAt: profile.openPregnancy?.confirmedAt,
+      const usage = tagUsage()
+      const issues = calvingIssues(command, {
+        today: clock(), existingEarTags: Object.keys(usage), tagOwners: usage,
+        openPregnancyId: profile.openPregnancy?.id, openPregnancyConfirmedAt: profile.openPregnancy?.confirmedAt,
       })
-      if (errors.length) throw new Error(errors[0])
+      if (issues.length) throw new ReproductionValidationError(issues)
       const now = clock()
       const id = makeId('calving', ++sequence)
       const calves: CalfOutcome[] = command.calves.map((calf, index): CalfOutcome => {
@@ -296,7 +332,7 @@ export function createReproductionDemoStore(
       profile.events.unshift({
         id, type: 'CALVING', occurredAt: command.birthAt, recordedAt: now, recorder: 'Trần Quốc Long',
         status: 'VALID', dataSource: command.dataSource ?? 'DIRECT_OBSERVATION', summary: 'Sự kiện đẻ',
-        details: `${command.course} · ${calves.filter((calf) => calf.outcome === 'LIVE').length} bê sống · ${calves.filter((calf) => calf.outcome === 'STILLBORN').length} thai chết lưu`,
+        details: calvingSummary(calves),
         pregnancyId: command.pregnancyId ?? null, version: 1,
       })
       profile.openPregnancy = null
@@ -327,13 +363,14 @@ export function createReproductionDemoStore(
       Object.assign(item, patch, { corrected: true, version: item.version + 1 })
       if (item.type === 'ESTRUS') item.summary = 'Động dục'
       if (item.type === 'BREEDING') {
-        item.summary = item.method === 'NATURAL_SERVICE' ? 'Phối giống · tự nhiên' : 'Phối giống · thụ tinh nhân tạo'
+        item.details = breedingDetails(item)
         item.expectedCalvingAt = calculateExpectedDate(item.occurredAt)
         item.expectedDateBasis = 'TENTATIVE'
       }
       if (item.type === 'PREGNANCY_CHECK') {
-        const resultLabel = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa kết luận' }
-        item.summary = `Khám thai · ${item.result ? resultLabel[item.result] : 'Chưa kết luận'}`
+        const resultLabel = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' }
+        item.summary = `Khám thai · ${item.result ? resultLabel[item.result] : 'Chưa xác định'}`
+        item.details = checkDetails(item)
         if (item.result === 'PREGNANT') {
           item.pregnancyId ??= `pregnancy-${item.id}`
           const linkedBreeding = profile.events.find((event) => event.id === item.linkedBreedingId && event.type === 'BREEDING' && event.status === 'VALID')
@@ -349,8 +386,9 @@ export function createReproductionDemoStore(
         }
       }
       if (item.type === 'PREGNANCY_UPDATE') {
-        const updateLabel = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Mất thai' }
+        const updateLabel = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' }
         item.summary = `Diễn biến thai · ${item.updateType ? updateLabel[item.updateType] : 'Theo dõi'}`
+        item.details = updateDetails(item)
       }
       addRevision(profile, eventId, before, clone(item), reason, role)
       deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
@@ -399,10 +437,7 @@ export function createReproductionDemoStore(
         : undefined
       if (pregnancyCheck && nextBirthAt < pregnancyCheck.occurredAt) throw new Error('Thời điểm đẻ không được trước ngày xác nhận có thai.')
       if (patch.calves) {
-        const existingTags = rows.flatMap((row) => [
-          row.earTag,
-          ...row.calvings.filter((item) => item.id !== calvingId).flatMap((item) => item.calves.map((calf) => calf.earTag ?? '')),
-        ])
+        const usage = tagUsage(calvingId)
         const command: CalvingCommand = {
           birthAt: nextBirthAt,
           pregnancyId: patch.pregnancyId === undefined ? calving.pregnancyId : patch.pregnancyId,
@@ -422,8 +457,8 @@ export function createReproductionDemoStore(
             productionPurpose: calf.productionPurpose ?? undefined,
           })),
         }
-        const errors = validateCalving(command, { today: clock(), existingEarTags: existingTags })
-        if (errors.length) throw new Error(errors[0])
+        const issues = calvingIssues(command, { today: clock(), existingEarTags: Object.keys(usage), tagOwners: usage })
+        if (issues.length) throw new ReproductionValidationError(issues)
       }
       const before = clone(calving)
       Object.assign(calving, patch, { corrected: true, version: calving.version + 1 })
@@ -432,7 +467,7 @@ export function createReproductionDemoStore(
         if (patch.birthAt) timeline.occurredAt = patch.birthAt
         if (patch.dataSource) timeline.dataSource = patch.dataSource
         if (patch.pregnancyId !== undefined) timeline.pregnancyId = patch.pregnancyId
-        timeline.details = `${calving.course} · ${calving.calves.filter((calf) => calf.outcome === 'LIVE').length} bê sống · ${calving.calves.filter((calf) => calf.outcome === 'STILLBORN').length} thai chết lưu`
+        timeline.details = calvingSummary(calving.calves)
         timeline.corrected = true
         timeline.version++
       }
@@ -443,6 +478,25 @@ export function createReproductionDemoStore(
     },
     async voidCalving(cattleCode, calvingId, reason, role) {
       return this.voidEvent(cattleCode, calvingId, reason, role)
+    },
+    async voidCalf(cattleCode, calvingId, calfId, reason, role) {
+      requireManager(role)
+      requiredReason(reason)
+      const profile = find(cattleCode)
+      const calving = profile.calvings.find((row) => row.id === calvingId)
+      if (!calving || calving.status !== 'VALID') throw new Error('Không tìm thấy sự kiện đẻ.')
+      const calf = calving.calves.find((item) => item.id === calfId && item.status !== 'VOIDED')
+      if (!calf) throw new Error('Không tìm thấy kết quả bê cần hủy.')
+      if (calf.registrationStatus === 'REGISTERED') throw new Error('Không thể hủy kết quả bê đã đăng ký thành bò; hãy xử lý hồ sơ bê trước.')
+      if (calving.calves.filter((item) => item.status !== 'VOIDED').length <= 1) throw new Error('Đây là kết quả bê cuối cùng; hãy hủy cả sự kiện đẻ.')
+      const before = clone(calving)
+      calf.status = 'VOIDED'
+      calf.voidReason = reason.trim()
+      calving.version++
+      addRevision(profile, calvingId, before, clone(calving), reason, role)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      profile.version++
+      return copy(profile)
     },
     async reset() {
       rows = clone([...seed])

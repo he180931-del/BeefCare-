@@ -1,5 +1,8 @@
 import type {
+  BreedingEligibility,
+  CalfOutcome,
   CalvingCommand,
+  ReproductionIssue,
   ReproductiveStatus,
   ReproductionCommand,
   ReproductionFemale,
@@ -127,43 +130,112 @@ export function validateReproductionCommand(
   return errors
 }
 
-export function validateCalving(
-  command: CalvingCommand,
-  context: { today: string; existingEarTags: readonly string[]; openPregnancyId?: string | null; openPregnancyConfirmedAt?: string | null },
-): string[] {
-  const errors: string[] = []
+export class ReproductionValidationError extends Error {
+  readonly issues: ReproductionIssue[]
+  constructor(issues: ReproductionIssue[]) {
+    super(issues[0]?.message ?? 'Dữ liệu sinh sản chưa hợp lệ.')
+    this.name = 'ReproductionValidationError'
+    this.issues = issues
+  }
+}
+
+export interface CalvingContext {
+  today: string
+  existingEarTags: readonly string[]
+  /** Lower-cased tag -> who uses it, e.g. "bò BC-000112" (MSG-FE12-08 names the owner). */
+  tagOwners?: Readonly<Record<string, string>>
+  openPregnancyId?: string | null
+  openPregnancyConfirmedAt?: string | null
+}
+
+const SEX_NOUN = { MALE: 'đực', FEMALE: 'cái' } as const
+
+/** Field-level problems of a calving (GBR-57, GBR-58, MSG-FE12-06/07/08, MSG-FE05-12). */
+export function calvingIssues(command: CalvingCommand, context: CalvingContext): ReproductionIssue[] {
+  const issues: ReproductionIssue[] = []
   const dateError = occurredAtError(command.birthAt, context.today)
-  if (dateError) errors.push(dateError)
+  if (dateError) issues.push({ field: 'birthAt', message: dateError })
   if (context.openPregnancyId && command.pregnancyId && context.openPregnancyId !== command.pregnancyId) {
-    errors.push('Thai kỳ đã thay đổi. Tải lại hồ sơ trước khi lưu.')
+    issues.push({ field: 'pregnancyId', message: 'Thai kỳ đã thay đổi. Tải lại hồ sơ trước khi lưu.' })
   }
   if (context.openPregnancyId && context.openPregnancyConfirmedAt && command.birthAt < context.openPregnancyConfirmedAt) {
-    errors.push('Thời điểm đẻ không được trước ngày xác nhận có thai.')
+    issues.push({ field: 'birthAt', message: 'Thời điểm đẻ không được trước ngày xác nhận có thai.' })
   }
-  if (command.calves.length < 1 || command.calves.length > 4) errors.push('Sự kiện đẻ cần từ 1 đến 4 bê.')
+  if (command.calves.length < 1 || command.calves.length > 4) issues.push({ message: 'Sự kiện đẻ cần từ 1 đến 4 bê.' })
 
-  const knownTags = new Set(context.existingEarTags.map((tag) => tag.trim().toLocaleLowerCase('vi')).filter(Boolean))
+  const normalize = (tag: string) => tag.trim().toLocaleLowerCase('vi')
+  const knownTags = new Set(context.existingEarTags.map(normalize).filter(Boolean))
   for (const [index, calf] of command.calves.entries()) {
-    const calfNo = index + 1
+    const label = `Bê số ${index + 1}`
+    const add = (field: string, message: string) => issues.push({ calf: index, field, message })
     if (calf.outcome === 'LIVE') {
-      if (calf.sex === 'UNKNOWN') errors.push(`Bê sống ${calfNo}: chọn giới tính.`)
-      if (!calf.penId) errors.push(`Bê sống ${calfNo}: chọn chuồng nuôi đầu tiên.`)
-      if (!calf.registration) errors.push(`Bê sống ${calfNo}: chọn cách đăng ký.`)
-      if (calf.registration === 'REGISTER_NOW' && !calf.productionPurpose) errors.push(`Bê sống ${calfNo}: chọn mục đích nuôi.`)
-      const tag = calf.earTag?.trim()
+      const registerNow = calf.registration === 'REGISTER_NOW'
+      if (calf.sex === 'UNKNOWN') add('sex', `${label}: chọn giới tính.`)
+      if (!calf.penId) add('penId', `${label}: chọn chuồng ban đầu.`)
+      if (!calf.registration) add('registration', `${label}: chọn cách đăng ký.`)
+      if (registerNow && !calf.productionPurpose) add('purpose', `${label}: chọn mục đích nuôi.`)
+      if (registerNow && ((calf.productionPurpose === 'SIRE' && calf.sex === 'FEMALE') || (calf.productionPurpose === 'BREEDING' && calf.sex === 'MALE'))) {
+        const sex = SEX_NOUN[calf.sex === 'FEMALE' ? 'FEMALE' : 'MALE']
+        const other = calf.sex === 'FEMALE' ? 'đực' : 'cái'
+        add('purpose', `${label}: mục đích này chỉ dành cho bò ${other}, còn bê là bò ${sex}. Chọn Vỗ béo, Chưa xác định hoặc mục đích hợp giới tính.`)
+      }
+      const tag = calf.earTag?.trim() ?? ''
+      if (!tag && registerNow) add('earTag', `${label}: nhập mã thẻ tai / QR để đăng ký ngay.`)
       if (tag) {
-        if (tag.length > 50) errors.push(`Số tai bê ${calfNo}: tối đa 50 ký tự.`)
-        const normalized = tag.toLocaleLowerCase('vi')
-        if (knownTags.has(normalized)) errors.push(`Số tai ${tag} đã được sử dụng.`)
-        knownTags.add(normalized)
+        if (tag.length > 50) add('earTag', `Mã thẻ tai ${label.toLocaleLowerCase('vi')}: tối đa 50 ký tự.`)
+        const owner = context.tagOwners?.[normalize(tag)]
+        if (knownTags.has(normalize(tag))) add('earTag', owner ? `Mã ${tag} đã dùng cho ${owner}` : `Số tai ${tag} đã được sử dụng.`)
+        knownTags.add(normalize(tag))
       }
     }
     if (calf.weightKg != null) {
-      if (!Number.isFinite(calf.weightKg) || calf.weightKg < 1 || calf.weightKg > 80) errors.push(`Bê ${calfNo}: cân nặng phải từ 1 đến 80 kg.`)
-      if (!calf.weightBasis) errors.push(`Bê ${calfNo}: chọn cơ sở cân.`)
+      if (!Number.isFinite(calf.weightKg) || calf.weightKg < 1 || calf.weightKg > 80) add('weight', `${label}: cân nặng phải từ 1 đến 80 kg.`)
+      if (!calf.weightBasis) add('weightBasis', `${label}: chọn cơ sở cân.`)
     }
   }
-  return errors
+  return issues
+}
+
+export function validateCalving(command: CalvingCommand, context: CalvingContext): string[] {
+  return calvingIssues(command, context).map((issue) => issue.message)
+}
+
+/** "2 bê: Sống · Đực · 25 kg · BC-000198; Chết lúc sinh · Cái · 19 kg" (voided outcomes are left out). */
+export function calvingSummary(calves: readonly CalfOutcome[]): string {
+  const valid = calves.filter((calf) => calf.status !== 'VOIDED')
+  const describe = (calf: CalfOutcome) => [
+    calf.outcome === 'LIVE' ? 'Sống' : 'Chết lúc sinh',
+    calf.sex === 'MALE' ? 'Đực' : calf.sex === 'FEMALE' ? 'Cái' : null,
+    calf.weightKg != null ? `${calf.weightKg} kg` : null,
+    calf.earTag,
+  ].filter(Boolean).join(' · ')
+  return `${valid.length} bê: ${valid.map(describe).join('; ')}`
+}
+
+export const GESTATION_DAYS = 283
+/** Tentative (breeding) expected calving date, GBR-53. */
+export const expectedCalvingDate = (bredAt: string, days: number = GESTATION_DAYS): string => addDaysText(bredAt, days)
+
+/** Breeding eligibility as "met / 3" over age, weight and open health case (GBR-55), advisory only. */
+export function eligibilityScore(eligibility: BreedingEligibility): { met: number; total: 3; label: string; failed: string[]; badge: string } {
+  const checks: Array<[boolean, string]> = [
+    [eligibility.minimumAgeMet, 'tuổi'], [eligibility.minimumWeightMet, 'cân nặng'], [eligibility.noOpenHealthCase, 'sức khỏe'],
+  ]
+  const failed = checks.filter(([ok]) => !ok).map(([, name]) => name)
+  const met = 3 - failed.length
+  const label = failed.length ? `Chưa đạt ${met}/3` : 'Đạt 3/3'
+  return { met, total: 3, label, failed, badge: `${label} · ${failed.length ? failed.join(', ') : 'tuổi, cân nặng, sức khỏe'}` }
+}
+
+export const METHOD_TEXT = { NATURAL_SERVICE: 'Phối tự nhiên', ARTIFICIAL_INSEMINATION: 'Thụ tinh nhân tạo' } as const
+
+/** Timeline line of a breeding: method · sire + semen code · performer. */
+export function breedingDetails(event: { method?: string; sireLabel?: string; semenCode?: string; performer?: string }): string {
+  return [
+    event.method ? METHOD_TEXT[event.method as keyof typeof METHOD_TEXT] ?? event.method : null,
+    [event.sireLabel, event.semenCode].filter(Boolean).join(' ') || null,
+    event.performer,
+  ].filter(Boolean).join(' · ')
 }
 
 

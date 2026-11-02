@@ -19,6 +19,7 @@ export interface ReproductionApi {
   voidEvent(cattleCode: string, eventId: string, reason: string, role: ReproductionRole): Promise<Awaited<ReturnType<ReproductionDemoStore['get']>>>
   correctCalving(cattleCode: string, calvingId: string, patch: Partial<CalvingRecord>, reason: string, role: ReproductionRole): Promise<Awaited<ReturnType<ReproductionDemoStore['get']>>>
   voidCalving(cattleCode: string, calvingId: string, reason: string, role: ReproductionRole): Promise<Awaited<ReturnType<ReproductionDemoStore['get']>>>
+  voidCalf(cattleCode: string, calvingId: string, calfId: string, reason: string, role: ReproductionRole): Promise<Awaited<ReturnType<ReproductionDemoStore['get']>>>
   resetDemo(): Promise<Awaited<ReturnType<ReproductionDemoStore['list']>>>
 }
 
@@ -44,38 +45,52 @@ export function createReproductionApi({
   }
 
   return {
+    // GET /api/farms/{farmId}/reproduction-worklist
     async listWorklist(filters = {}) {
       requireLocal()
       return filterWorklist(await store.list(), filters)
     },
+    // GET /api/farms/{farmId}/cattle/{cattleId}/reproduction-history
     async getProfile(cattleCode) {
       requireLocal()
       return store.get(cattleCode)
     },
+    // POST /api/farms/{farmId}/cattle/{cattleId}/estrus-events | breeding-events | pregnancy-checks; pregnancy update: POST /api/farms/{farmId}/pregnancy-episodes/{episodeId}/updates
     async recordEvent(cattleCode, command, role) {
       requireLocal()
       return store.recordEvent(cattleCode, command, role)
     },
+    // POST /api/farms/{farmId}/calvings
     async recordCalving(cattleCode, command, role) {
       requireLocal()
       return store.recordCalving(cattleCode, command, role)
     },
+    // POST /api/farms/{farmId}/reproduction-events/{eventId}/correction; pregnancy update: /pregnancy-updates/{updateId}/correction
     async correctEvent(cattleCode, eventId, patch, reason, role) {
       requireLocal()
       return store.correctEvent(cattleCode, eventId, patch, reason, role)
     },
+    // POST /api/farms/{farmId}/reproduction-events/{eventId}/void; pregnancy update: /pregnancy-updates/{updateId}/void
     async voidEvent(cattleCode, eventId, reason, role) {
       requireLocal()
       return store.voidEvent(cattleCode, eventId, reason, role)
     },
+    // POST /api/farms/{farmId}/calvings/{calvingId}/correction; calf outcome: /calf-outcomes/{calfId}/correction
     async correctCalving(cattleCode, calvingId, patch, reason, role) {
       requireLocal()
       return store.correctCalving(cattleCode, calvingId, patch, reason, role)
     },
+    // POST /api/farms/{farmId}/calvings/{calvingId}/void
     async voidCalving(cattleCode, calvingId, reason, role) {
       requireLocal()
       return store.voidCalving(cattleCode, calvingId, reason, role)
     },
+    // POST /api/farms/{farmId}/calf-outcomes/{calfId}/void
+    async voidCalf(cattleCode, calvingId, calfId, reason, role) {
+      requireLocal()
+      return store.voidCalf(cattleCode, calvingId, calfId, reason, role)
+    },
+    // chưa có API (chỉ dùng cho dữ liệu minh họa)
     async resetDemo() {
       requireLocal()
       return store.reset()
