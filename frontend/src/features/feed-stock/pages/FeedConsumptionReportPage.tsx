@@ -38,7 +38,12 @@ function calendarDays(from: string, to: string) {
 }
 
 const currency = (value: number | null) => value === null ? '—' : formatNumber(value, 0)
-const percent = (value: number | null) => value === null ? '—' : `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value) * 100)}%`
+const oneDecimal = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+function percent(value: number | null) {
+  if (value === null) return '—'
+  const text = oneDecimal.format(Math.abs(value) * 100)
+  return `${text === '0,0' ? '' : value > 0 ? '+' : '−'}${text}%`
+}
 
 export default function FeedConsumptionReportPage() {
   const period = useMemo(initialPeriod, [])

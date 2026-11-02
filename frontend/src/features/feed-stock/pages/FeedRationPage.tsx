@@ -125,7 +125,7 @@ export default function FeedRationPage() {
           <div className="flex flex-col gap-2 rounded-md border border-edge bg-white p-px">
             <Table scroll stack={false}>
               <thead><tr>
-                <Th>Khẩu phần</Th><Th>Áp dụng cho</Th><Th>Số con</Th><Th>Thành phần (kg/con/ngày)</Th><Th>kg/con/ngày</Th><Th>đ/con/ngày</Th><Th>Hiệu lực</Th><Th>Trạng thái</Th><Th><span className="sr-only">Thao tác</span></Th>
+                <Th>Khẩu phần</Th><Th>Áp dụng cho</Th><Th>Số con</Th><Th>Thành phần (kg/con/ngày)</Th><Th>kg/con/ngày</Th><Th>đ/con/ngày</Th><Th>Hiệu lực</Th><Th>Trạng thái</Th><Th aria-label="Thao tác" />
               </tr></thead>
               <tbody>
                 {visibleRows.map((row) => {
@@ -133,8 +133,8 @@ export default function FeedRationPage() {
                   const badge = STATUS_BADGES[row.status]
                   return (
                     <tr key={row.id} className={`${row.status === 'SCHEDULED' ? 'bg-[#eef4ef]' : ''} ${row.status === 'ENDED' ? 'opacity-60' : ''}`}>
-                      <Td className="min-w-[200px]">
-                        <Link to={`/thuc-an/khau-phan/${row.id}`} className="font-semibold text-brand no-underline hover:underline">
+                      <Td>
+                        <Link to={`/thuc-an/khau-phan/${row.id}`} className="whitespace-nowrap font-semibold text-brand no-underline hover:underline">
                           {row.rationCode} · {row.name}{versionCount(row.rationCode) > 1 ? ` (v${row.versionNo})` : ''}
                         </Link>
                         <div className="text-[11px] text-muted">{rationGroupLabel(row.herdGroup)}</div>

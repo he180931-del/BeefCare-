@@ -254,7 +254,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
               <thead><tr>
                 <Th>Thức ăn</Th>
                 {sessionCols.map((index) => <Th key={index} className="whitespace-nowrap">{SESSION_NAMES[index]}</Th>)}
-                <Th className="whitespace-nowrap">Tổng/con/ngày</Th><Th className="whitespace-nowrap">Đơn giá BQ</Th><Th className="whitespace-nowrap">đ/con/ngày</Th><Th><span className="sr-only">Xóa</span></Th>
+                <Th className="whitespace-nowrap">Tổng/con/ngày</Th><Th className="whitespace-nowrap">Đơn giá BQ</Th><Th className="whitespace-nowrap">đ/con/ngày</Th><Th aria-label="Xóa" />
               </tr></thead>
               <tbody>
                 {values.components.map((component, index) => {

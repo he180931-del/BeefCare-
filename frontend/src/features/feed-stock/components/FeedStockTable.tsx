@@ -30,7 +30,7 @@ export default function FeedStockTable({ rows, onView }: { rows: readonly FeedSt
           <Th>Đủ dùng</Th>
           <Th>Lô gần hết hạn</Th>
           <Th>Trạng thái</Th>
-          <Th><span className="sr-only">Thao tác</span></Th>
+          <Th aria-label="Thao tác" />
         </tr>
       </thead>
       <tbody>

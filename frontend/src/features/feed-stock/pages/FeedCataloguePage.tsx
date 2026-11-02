@@ -176,7 +176,7 @@ export default function FeedCataloguePage() {
 
           {!query.loading && !errorMessage && section === 'suppliers' && filteredSuppliers.length > 0 && (
             <Table scroll stack={false}>
-              <thead><tr><Th>Nhà cung cấp</Th><Th>Điện thoại</Th><Th>Khu vực / địa chỉ</Th><Th>Ghi chú</Th><Th>Trạng thái</Th><Th><span className="sr-only">Thao tác</span></Th></tr></thead>
+              <thead><tr><Th>Nhà cung cấp</Th><Th>Điện thoại</Th><Th>Khu vực / địa chỉ</Th><Th>Ghi chú</Th><Th>Trạng thái</Th><Th aria-label="Thao tác" /></tr></thead>
               <tbody>{filteredSuppliers.map((supplier) => (
                 <tr key={supplier.id}>
                   <Td className="font-semibold">{supplier.name}</Td><Td className="whitespace-nowrap">{supplier.phone || '—'}</Td><Td>{supplier.area || '—'}</Td><Td>{supplier.note || '—'}</Td>

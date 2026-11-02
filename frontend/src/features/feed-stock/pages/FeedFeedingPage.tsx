@@ -53,6 +53,9 @@ function daysBetween(from: string, to: string, until: string) {
   return days
 }
 
+/** Whole kilograms from 10 kg up, one decimal below ("158 → 155 kg", "7,5 → 6 kg"). */
+const kgCell = (value: number) => formatNumber(value, value >= 10 ? 0 : 1)
+
 type CellInfo = { text: string; tone?: 'err' }
 /** Small line under a recorded cell: time and who fed, the shortfall note, or what was corrected. */
 function cellNotes(record: FeedFeedingRecord): CellInfo[] {
@@ -224,7 +227,7 @@ export default function FeedFeedingPage() {
             <Card title={`Tiêu thụ theo thức ăn ${periodWord}`} sub="Đã trừ kho theo các cữ đã ghi">
               {!usageByFeed.length ? <p className="m-0 text-xs text-muted">Chưa có lượng tiêu thụ trong khoảng này.</p> : (
                 <Table scroll stack={false}>
-                  <thead><tr><Th>Thức ăn</Th><Th>Thực tế</Th><Th>Tồn còn lại</Th><Th><span className="sr-only">Cảnh báo</span></Th></tr></thead>
+                  <thead><tr><Th>Thức ăn</Th><Th>Thực tế</Th><Th>Tồn còn lại</Th><Th aria-label="Cảnh báo" /></tr></thead>
                   <tbody>
                     {usageByFeed.map(({ feed, usedKg }) => (
                       <tr key={feed.feedItemId}>
@@ -294,7 +297,7 @@ function DailyTable({ date, pens, records, rations, sessionNos, canRecord, onRec
           <tr>
             <Th>Chuồng</Th><Th>Khẩu phần</Th>
             {sessionNos.map((sessionNo) => <Th key={sessionNo} className="whitespace-nowrap">Cữ {SESSION_NAMES[sessionNo]} {sessionTimeFor(rations, sessionNo)} · KH → TT</Th>)}
-            <Th className="whitespace-nowrap">Cả ngày TT / KH</Th><Th>Người ghi</Th><Th><span className="sr-only">Thao tác</span></Th>
+            <Th className="whitespace-nowrap">Cả ngày TT / KH</Th><Th>Người ghi</Th><Th aria-label="Thao tác" />
           </tr>
         </thead>
         <tbody>
@@ -317,12 +320,12 @@ function DailyTable({ date, pens, records, rations, sessionNos, canRecord, onRec
                 }
                 return (
                   <Td key={sessionNo} className="min-w-[150px]">
-                    <div className="whitespace-nowrap font-medium">{formatNumber(record.plannedTotalKg, 0)} → {formatNumber(record.actualTotalKg)} kg</div>
+                    <div className="whitespace-nowrap font-medium">{kgCell(record.plannedTotalKg)} → {kgCell(record.actualTotalKg)} kg</div>
                     {cellNotes(record).map((note, index) => <div key={index} className={`text-[11px] ${note.tone === 'err' ? 'text-err-fg' : 'text-muted'}`}>{note.text}</div>)}
                   </Td>
                 )
               })}
-              <Td className="whitespace-nowrap">{formatNumber(dayActual)} / {formatNumber(dayPlan)} kg</Td>
+              <Td className="whitespace-nowrap">{kgCell(dayActual)} / {kgCell(dayPlan)} kg</Td>
               <Td className="whitespace-nowrap">{penRecords.length ? shortPersonName(penRecords[0].recordedBy ?? penRecords[0].fedBy) : '—'}</Td>
               <Td>
                 {canRecord && penRecords.length > 0 && (
@@ -362,7 +365,7 @@ function WeeklyTable({ records, feeds, canEdit, onEdit }: {
   return (
     <div className="rounded-md border border-edge bg-white p-px">
       <Table scroll stack={false}>
-        <thead><tr><Th>Ngày / chuồng</Th><Th>Cữ</Th><Th>Thức ăn thực tế</Th><Th>Giờ / người cho ăn</Th><Th>Trạng thái</Th><Th><span className="sr-only">Thao tác</span></Th></tr></thead>
+        <thead><tr><Th>Ngày / chuồng</Th><Th>Cữ</Th><Th>Thức ăn thực tế</Th><Th>Giờ / người cho ăn</Th><Th>Trạng thái</Th><Th aria-label="Thao tác" /></tr></thead>
         <tbody>
           {records.map((record) => (
             <tr key={record.id}>

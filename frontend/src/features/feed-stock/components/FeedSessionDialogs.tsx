@@ -116,7 +116,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, onClose, onSave
       {selectedPen && !ration && <Note tone="warn">Chuồng {selectedPen.code} chưa có khẩu phần hiệu lực vào ngày {formatDate(date)}. Chỉ nhập thức ăn thực tế.</Note>}
       <h3 className="m-0 text-[13px] font-semibold">Thức ăn đã cho (kế hoạch = khẩu phần × {selectedPen?.headcount ?? 0} con)</h3>
       <Table scroll stack={false}>
-        <thead><tr><Th>Thức ăn</Th><Th>Kế hoạch</Th><Th>Thực tế *</Th><Th>Tồn kho hiện có</Th><Th><span className="sr-only">Xóa</span></Th></tr></thead>
+        <thead><tr><Th>Thức ăn</Th><Th>Kế hoạch</Th><Th>Thực tế *</Th><Th>Tồn kho hiện có</Th><Th aria-label="Xóa" /></tr></thead>
         <tbody>
           {lines.map((line, index) => {
             const feed = data.feeds.find((row) => row.feedItemId === Number(line.feedItemId))
@@ -319,7 +319,7 @@ export function FeedQuickFillDialog({ data, date, missing, onClose, onSaved }: {
       {error && <div role="alert" className="rounded-md bg-err-bg px-3 py-2.5 text-xs text-err-fg">{error}</div>}
       {rows.length === 0 ? <Note tone="info">Mọi cữ hôm nay đã được ghi.</Note> : (
         <Table scroll stack={false}>
-          <thead><tr><Th><span className="sr-only">Chọn</span></Th><Th>Chuồng</Th><Th>Cữ</Th><Th>Thức ăn theo kế hoạch</Th><Th>Tổng</Th></tr></thead>
+          <thead><tr><Th aria-label="Chọn" /><Th>Chuồng</Th><Th>Cữ</Th><Th>Thức ăn theo kế hoạch</Th><Th>Tổng</Th></tr></thead>
           <tbody>
             {rows.map((row) => (
               <tr key={key(row)}>

@@ -32,7 +32,7 @@ export function nextRationCode(rows: readonly FeedRation[]) {
 
 export function initialFeedRationForm(record: FeedRation | null): FeedRationFormValues {
   const next = localRationDate(1)
-  // A scheduled version is edited in place (saving replaces it); any other version starts from tomorrow.
+  // A scheduled version is edited in place (saving replaces it); every other version starts from tomorrow.
   const afterRecord = record?.effectiveFrom && record.effectiveFrom >= next ? record.effectiveFrom : next
   return {
     name: record?.name ?? '',

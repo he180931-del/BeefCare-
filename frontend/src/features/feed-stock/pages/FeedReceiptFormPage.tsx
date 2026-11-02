@@ -312,7 +312,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialFeedItemI
           >
             <Table scroll stack={false}>
               <thead>
-                <tr><Th>#</Th><Th>Thức ăn</Th><Th className="whitespace-nowrap">Số lô · HSD</Th><Th className="whitespace-nowrap">Số lượng</Th><Th className="whitespace-nowrap">Đơn vị</Th><Th className="whitespace-nowrap">Quy đổi</Th><Th className="whitespace-nowrap">Đơn giá</Th><Th className="whitespace-nowrap">Thành tiền</Th>{!readOnly && <Th><span className="sr-only">Xóa</span></Th>}</tr>
+                <tr><Th>#</Th><Th>Thức ăn</Th><Th className="whitespace-nowrap">Số lô · HSD</Th><Th className="whitespace-nowrap">Số lượng</Th><Th className="whitespace-nowrap">Đơn vị</Th><Th className="whitespace-nowrap">Quy đổi</Th><Th className="whitespace-nowrap">Đơn giá</Th><Th className="whitespace-nowrap">Thành tiền</Th>{!readOnly && <Th aria-label="Xóa" />}</tr>
               </thead>
               <tbody>
                 {values.lines.map((line, index) => {

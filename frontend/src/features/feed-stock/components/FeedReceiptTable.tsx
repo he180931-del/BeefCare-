@@ -23,7 +23,7 @@ export default function FeedReceiptTable({ rows }: { rows: readonly FeedReceipt[
           <Th>Tổng tiền (đ)</Th>
           <Th>Còn nợ (đ)</Th>
           <Th>Trạng thái</Th>
-          <Th><span className="sr-only">Thao tác</span></Th>
+          <Th aria-label="Thao tác" />
         </tr>
       </thead>
       <tbody>
