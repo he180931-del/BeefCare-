@@ -48,7 +48,7 @@ test('list pages normalize the initial null query data before filtering', () => 
   const exitList = readFileSync(resolve(root, 'features/herd-exit/pages/ExportList.tsx'), 'utf8')
 
   assert.match(entryList, /const \{ data, loading, error \} = useQuery/)
-  assert.match(entryList, /const imports = data \?\? \[\]/)
+  assert.match(entryList, /const imports = view\?\.rows \?\? \[\]/)
   assert.match(exitList, /const \{ data, loading, error \} = useQuery/)
   assert.match(exitList, /const exports = data \?\? \[\]/)
 })
