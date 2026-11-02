@@ -76,13 +76,13 @@ export default function RecordListPage() {
                 <tbody>
                   {data.rows.map((r) => (
                     <tr key={r.recordCode} className={r.state === 'VOID' ? 'opacity-60' : ''}>
-                      <Td><button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-[12px] font-semibold text-brand" onClick={() => openRow(r.recordCode, r.state)}>{r.recordCode}</button></Td>
-                      <Td>{formatDate(r.occurredOn)}</Td>
+                      <Td><button type="button" className="cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 text-[12px] font-semibold text-brand" onClick={() => openRow(r.recordCode, r.state)}>{r.recordCode}</button></Td>
+                      <Td><span className="whitespace-nowrap">{formatDate(r.occurredOn)}</span></Td>
                       <Td>{r.type === 'INCOME' ? 'Thu' : 'Chi'}</Td>
                       <Td>{r.category}</Td>
                       <Td>{r.description}</Td>
                       <Td>{r.scope === 'GENERAL' ? 'Chung' : r.farmName}</Td>
-                      <Td><span className={`font-semibold ${r.state === 'VOID' ? 'text-muted' : r.type === 'INCOME' ? 'text-ok-fg' : 'text-err-fg'}`}>{formatSigned(signedAmount(r))}</span></Td>
+                      <Td><span className={`whitespace-nowrap font-semibold ${r.state === 'VOID' ? 'text-muted' : r.type === 'INCOME' ? 'text-ok-fg' : 'text-err-fg'}`}>{formatSigned(signedAmount(r))}</span></Td>
                       <Td><StateBadge state={r.state} /></Td>
                     </tr>
                   ))}
