@@ -5,7 +5,7 @@ import { Icon, type IconName } from './Icon'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 
-const BTN = 'whitespace-nowrap border font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45'
+const BTN = 'inline-flex items-center justify-center gap-1.5 whitespace-nowrap border font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45'
 const BTN_VARIANT: Record<ButtonVariant, string> = {
   default: 'border-edge bg-white text-[#212121]',
   primary: 'border-brand bg-brand text-white',

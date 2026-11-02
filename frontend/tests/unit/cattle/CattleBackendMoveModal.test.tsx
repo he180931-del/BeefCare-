@@ -1,5 +1,5 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -52,8 +52,8 @@ describe('Cattle profile backend move pen flow', () => {
     await user.type(screen.getAllByRole('textbox')[1], 'Đủ điều kiện')
     await user.click(screen.getByRole('button', { name: 'Xác nhận chuyển chuồng' }))
 
+    await waitFor(() => expect(requests.some((request) => request.path === '/api/farms/9/pen-moves')).toBe(true))
     const moveRequest = requests.find((request) => request.path === '/api/farms/9/pen-moves')
-    expect(moveRequest).toBeTruthy()
     const checkRequest = requests.find((request) => request.path === '/api/farms/9/pen-moves/check')
     expect(checkRequest).toBeTruthy()
     expect(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves/check')).toBeLessThan(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves'))

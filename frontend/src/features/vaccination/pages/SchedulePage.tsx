@@ -50,9 +50,9 @@ export default function SchedulePage() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-5">
         <PageHeader title={TITLE} sub={`${list.length} lịch đang chạy · chọn mũi để ghi nhận hàng loạt`}>
-          <Button onClick={() => navigate('/tiem-phong/lich-su')}><Icon name="history" className="mr-1.5 align-[-3px]" />Lịch sử tiêm</Button>
+          <Button onClick={() => navigate('/tiem-phong/lich-su')}><Icon name="history" />Lịch sử tiêm</Button>
           {canWrite && <Button onClick={() => navigate('/tiem-phong/quan-ly')}>Quản lý lịch</Button>}
-          {canWrite && <Button variant="primary" onClick={recordPicked}><Icon name="circle-plus" className="mr-1.5 align-[-3px]" />Ghi nhận tiêm</Button>}
+          {canWrite && <Button variant="primary" onClick={recordPicked}><Icon name="circle-plus" />Ghi nhận tiêm</Button>}
         </PageHeader>
         {notice && <Note tone="ok">{notice}</Note>}
         {hint && <Note tone="warn">Chọn ít nhất một mũi trong danh sách để ghi nhận.</Note>}

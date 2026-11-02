@@ -65,7 +65,7 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
         <div className="flex-1" />
         {canWrite && (
           <div className="flex flex-wrap gap-2.5">
-            {action && <Button variant="primary" className="leading-[normal]" onClick={() => (action.page ? nav(action.page(cow.code)) : onOpenModal(action.modal ?? ''))}><Icon name="circle-plus" className="mr-1.5 align-[-3px]" />{action.label}</Button>}
+            {action && <Button variant="primary" className="leading-[normal]" onClick={() => (action.page ? nav(action.page(cow.code)) : onOpenModal(action.modal ?? ''))}><Icon name="circle-plus" size={16} />{action.label}</Button>}
             <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('update')}><Icon name="edit" />Cập nhật hồ sơ</Button>
             <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('qr-reissue')}><Icon name="qrcode" />Cấp lại QR</Button>
           </div>

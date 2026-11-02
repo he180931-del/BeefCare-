@@ -78,7 +78,7 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged }: 
         {backendMode === 'local' && hasPassword && <p className="m-0 text-[11px] text-subtle">Bản mô phỏng: mật khẩu hiện tại là {MOCK_PASSWORD}.</p>}
         <ModalFooter compact>
           <Button size="lg" onClick={onClose}>Hủy</Button>
-          <Button size="lg" variant="primary" type="submit" disabled={saving || needsReauth}><Icon name="lock" size={16} className="mr-1.5" />{saving ? 'Đang lưu…' : hasPassword ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button>
+          <Button size="lg" variant="primary" type="submit" disabled={saving || needsReauth}><Icon name="lock" size={16} />{saving ? 'Đang lưu…' : hasPassword ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button>
         </ModalFooter>
       </form>
     </Modal>

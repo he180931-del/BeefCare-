@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Icon } from '../../../components/Icon'
 import Layout from '../../../components/Layout'
 import { useModalParam } from '../../../components/Modal'
 import { Button, PageHeader, Select, inputCls } from '../../../components/ui'
@@ -76,7 +77,7 @@ export default function BarnList() {
   return (
     <Layout title="Chuồng trại – danh sách & chi tiết" user="manager">
       <PageHeader title="Chuồng trại" sub={`${barns.length} chuồng · ${totalCount}/${totalCapacity} chỗ đang sử dụng`}>
-        <Button variant="primary" className="!border-0" onClick={() => openModal('create')}>+ Tạo chuồng</Button>
+        <Button variant="primary" className="!border-0" onClick={() => openModal('create')}><Icon name="circle-plus" size={16} />Tạo chuồng</Button>
       </PageHeader>
 
       <div className="flex flex-wrap gap-2.5">
@@ -84,7 +85,7 @@ export default function BarnList() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm mã / tên chuồng"
-          className={cx(inputCls, 'w-[300px] placeholder:text-muted')}
+          className={cx(inputCls, 'max-w-[300px] placeholder:text-muted')}
         />
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[200px]">
           {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -92,8 +93,8 @@ export default function BarnList() {
       </div>
       {saveNotice && <div className="text-sm font-medium text-brand" role="status" aria-live="polite">{saveNotice}</div>}
 
-      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[640px_minmax(0,1fr)]">
-        <div className="min-w-0 rounded-md border border-[#bdbdbd] bg-white p-2 xl:w-[640px]">
+      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[560px_minmax(0,1fr)]">
+        <div className="min-w-0 rounded-md border border-[#bdbdbd] bg-white p-2 xl:w-[560px]">
           <BarnTable rows={visibleBarns} selected={selected?.code} onSelect={selectBarn} loading={loading && !data} />
         </div>
         <div className="min-w-0">

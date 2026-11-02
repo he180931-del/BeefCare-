@@ -37,8 +37,8 @@ export default function TechnicianAccountPage() {
         </section>
       )}
       <div className="flex flex-col gap-2">
-        {data && <Button block onClick={() => openModal('doi-mat-khau')}><Icon name="lock" size={16} className="mr-1.5" />{data.passwordSignInEnabled ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button>}
-        <Button block variant="danger" onClick={signOut} disabled={signingOut || !session}><Icon name="logout" size={16} className="mr-1.5" />Đăng xuất</Button>
+        {data && <Button block onClick={() => openModal('doi-mat-khau')}><Icon name="lock" size={16} />{data.passwordSignInEnabled ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button>}
+        <Button block variant="danger" onClick={signOut} disabled={signingOut || !session}><Icon name="logout" size={16} />Đăng xuất</Button>
       </div>
       {m === 'doi-mat-khau' && data && <ChangePasswordDialog identity={identity} profile={data} onClose={closeModal} onChanged={(message) => { setNotice(message); closeModal(); void refetch() }} />}
     </TechnicianLayout>

@@ -39,7 +39,7 @@ export function ProfileCard({ profile, headline, values, onChange, errors, onSub
           <Field label="Điện thoại liên hệ" id="profile-phone"><input id="profile-phone" type="tel" autoComplete="tel" value={values.phone} onChange={(event) => onChange({ ...values, phone: event.target.value })} className={inputCls} aria-invalid={Boolean(errors.phone)} /><Err>{errors.phone}</Err></Field>
         </div>
       </form>
-      <div><Button onClick={onPassword}><Icon name="lock" size={16} className="mr-1.5" />{profile.passwordSignInEnabled ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button></div>
+      <div><Button onClick={onPassword}><Icon name="lock" size={16} />{profile.passwordSignInEnabled ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button></div>
     </Card>
   )
 }

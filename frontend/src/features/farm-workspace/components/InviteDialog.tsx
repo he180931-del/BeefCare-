@@ -60,7 +60,7 @@ export function InviteDialog({ farmId, farmName, active, onClose, onSent }: {
         </Field>
         <ModalFooter compact>
           <Button size="lg" onClick={onClose}>Hủy</Button>
-          <Button size="lg" variant="primary" type="submit" disabled={saving || !role || !active} title={role ? undefined : `Chọn vai trò ${roleLabel('MANAGER')} hoặc ${roleLabel('TECHNICIAN')} trước`}><Icon name="send" size={16} className="mr-1.5" />{saving ? 'Đang gửi…' : 'Gửi lời mời'}</Button>
+          <Button size="lg" variant="primary" type="submit" disabled={saving || !role || !active} title={role ? undefined : `Chọn vai trò ${roleLabel('MANAGER')} hoặc ${roleLabel('TECHNICIAN')} trước`}><Icon name="send" size={16} />{saving ? 'Đang gửi…' : 'Gửi lời mời'}</Button>
         </ModalFooter>
       </form>
     </Modal>

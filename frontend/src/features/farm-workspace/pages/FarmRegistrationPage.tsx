@@ -66,8 +66,8 @@ export default function FarmRegistrationPage() {
             <Field label="Giống chủ lực" id="farm-breeds" hint="Chọn nhiều từ danh mục giống có sẵn · giống được chọn bật sẵn cho trại"><BreedMultiSelect id="farm-breeds" value={form.mainBreedCodes ?? []} onChange={(codes) => set('mainBreedCodes', codes)} /></Field>
           </div>
           <div className="flex flex-wrap justify-between gap-3">
-            <Button size="lg" onClick={() => navigate(-1)}><Icon name="arrow-left" size={16} className="mr-1.5" />Quay lại</Button>
-            <Button type="submit" variant="primary" size="lg" disabled={saving}><Icon name="circle-plus" size={16} className="mr-1.5" />{saving ? 'Đang tạo trại…' : 'Tạo trang trại và tiếp tục'}</Button>
+            <Button size="lg" onClick={() => navigate(-1)}><Icon name="arrow-left" size={16} />Quay lại</Button>
+            <Button type="submit" variant="primary" size="lg" disabled={saving}><Icon name="circle-plus" size={16} />{saving ? 'Đang tạo trại…' : 'Tạo trang trại và tiếp tục'}</Button>
           </div>
         </form>
       </Card>

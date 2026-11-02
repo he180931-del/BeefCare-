@@ -2,7 +2,7 @@ import { Badge, Table, Td, Th } from '../../../components/ui'
 import { cx, TH } from './parts'
 import type { Pen } from '../../../types'
 
-export const penName = (b: { code: string; name: string }) => b.name.replace(new RegExp('^' + b.code + '\s*[–-]\s*'), '')
+export const penName = (b: { code: string; name: string }) => b.name.startsWith(b.code) ? b.name.slice(b.code.length).replace(/^\s*[–-]\s*/, '') : b.name
 const HEAD = 'bg-[#f0f0f0] whitespace-nowrap'
 
 export default function BarnTable({ rows, selected, onSelect, loading }: { rows: Pen[]; selected?: string; onSelect: (code: string) => void; loading: boolean }) {
@@ -34,7 +34,7 @@ export default function BarnTable({ rows, selected, onSelect, loading }: { rows:
             <Td className={TH}>{barn.count} / {barn.capacity}</Td>
             <Td className={TH}>{barn.accept || barn.purpose || '—'}</Td>
             <Td className={TH}>
-              {barn.status === 'ACTIVE' ? <Badge tone="ok" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>}
+              {barn.status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>}
             </Td>
           </tr>
         ))}
