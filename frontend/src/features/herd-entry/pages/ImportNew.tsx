@@ -559,7 +559,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                         </Td>
                         <Td className={TH}>
                           {c.calfOutcomeId != null && c.mother ? (
-                            <span>{c.father || 'Không rõ'}</span>
+                            <span className="whitespace-nowrap">{c.father || 'Không rõ'}</span>
                           ) : (
                             <>
                           <select aria-label={`Bò bố của bê ${i + 1}`} className="w-full min-w-[190px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={c.sireSource === 'AI' ? 'AI' : String(c.sireId ?? '')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = e.target.value === 'AI' ? { sireId: undefined, sireSource: 'AI', father: 'Thụ tinh nhân tạo' } : { sireId: option?.id, sireSource: option ? 'INTERNAL' : 'NONE', father: option?.code ?? 'Không rõ' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>
