@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Checkbox, Field, Note, Select, Textarea, inputCls } from '../../../components/ui'
-import type { ReproductionAction } from '../domain/reproductionRules'
+import { findNearbyEvent, formatDateTime, type ReproductionAction } from '../domain/reproductionRules'
+import { REPRODUCTION_SIRES } from '../data/reproductionMock'
 import type {
   CalfOutcome,
   CalvingRecord,
@@ -87,6 +88,7 @@ export default function ReproductionActionDialog({
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [duplicate, setDuplicate] = useState('')
   const [calves, setCalves] = useState<CalfOutcome[]>(target.mode === 'correct-calving' ? structuredClone(target.calving.calves) : [])
   const change = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }))
   const isRecording = target.mode === 'record'
@@ -98,8 +100,16 @@ export default function ReproductionActionDialog({
     RECORD_PREGNANCY_CHECK: 'Ghi khám thai', RECORD_PREGNANCY_UPDATE: 'Ghi diễn biến thai',
   }[action!]) : isCorrection ? 'Sửa bản ghi sinh sản' : 'Hủy bản ghi sinh sản'
 
-  const submit = async () => {
-    setBusy(true); setError('')
+  const submit = async (confirmed = false) => {
+    setError('')
+    if (!confirmed && target.mode === 'record' && (action === 'RECORD_ESTRUS' || action === 'RECORD_BREEDING')) {
+      const near = findNearbyEvent(profile, action === 'RECORD_ESTRUS' ? 'ESTRUS' : 'BREEDING', values.occurredAt)
+      if (near) {
+        setDuplicate(`${action === 'RECORD_ESTRUS' ? 'Động dục' : 'Phối giống'} của ${profile.cattleCode} đã có lúc ${formatDateTime(near.occurredAt)}. Vẫn lưu?`)
+        return
+      }
+    }
+    setDuplicate(''); setBusy(true)
     try {
       if (target.mode === 'record' && action === 'RECORD_ESTRUS') {
         await onRecord({ type: 'ESTRUS', occurredAt: values.occurredAt, observer: values.observer, signs: values.signs.split('|').filter(Boolean), description: values.details, dataSource: values.dataSource as DataSource })
@@ -161,7 +171,7 @@ export default function ReproductionActionDialog({
   const reasonField = () => <Field label="Lý do *" id="repro-reason"><Textarea id="repro-reason" rows={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
   const sourceAndTime = (timeLabel: string) => <div className="grid gap-3 sm:grid-cols-2">{renderTime(timeLabel)}{renderDataSource()}</div>
   const futureSireFields = values.sireSource === 'FARM'
-    ? <Field label="Bò đực trong trại *" id="repro-sire"><Select id="repro-sire" value={values.sireId} onChange={(event) => change('sireId', event.target.value)}><option value="">Chọn bò đực</option><option value="sire-1">Sắm · VN-BV-0101</option></Select></Field>
+    ? <Field label="Bò đực trong trại *" id="repro-sire"><Select id="repro-sire" value={values.sireId} onChange={(event) => change('sireId', event.target.value)}><option value="">Chọn bò đực</option>{REPRODUCTION_SIRES.map((sire) => <option key={sire.id} value={sire.id}>{sire.label}</option>)}</Select></Field>
     : textField('externalSireBreed', 'Giống bò đực / giống tinh *', 100)
 
   let body: ReactNode
@@ -185,17 +195,19 @@ export default function ReproductionActionDialog({
   }
 
   const disableSubmit = busy || ((isVoid || isCorrection) && !reason.trim())
-  const submitLabel = busy ? 'Đang lưu…' : isVoid ? 'Hủy sự kiện' : isCorrection ? 'Lưu chỉnh sửa' : 'Lưu sự kiện'
+  const saveLabel = action ? { RECORD_ESTRUS: 'Lưu động dục', RECORD_BREEDING: 'Lưu phối giống', RECORD_PREGNANCY_CHECK: 'Lưu kết quả khám', RECORD_PREGNANCY_UPDATE: 'Lưu diễn biến' }[action] : ''
+  const submitLabel = busy ? 'Đang lưu…' : isVoid ? 'Hủy bản ghi' : isCorrection ? 'Lưu chỉnh sửa' : saveLabel
 
   return (
     <Modal width={760} maxHeight="calc(100vh - 2rem)" title={title} sub={`${profile.cattleCode} · ${profile.name}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
         {target.mode !== 'record' && <div className="flex flex-wrap items-center gap-2 text-xs text-muted"><span>{'event' in target ? target.event.summary : 'Sự kiện đẻ'}</span><Badge>{'event' in target ? target.event.status : target.calving.status}</Badge></div>}
         {error && <Note tone="err">{error}</Note>}
+        {duplicate && <Note tone="warn"><div className="flex flex-wrap items-center gap-2"><span>{duplicate}</span><ModalButton onClick={() => void submit(true)}>Vẫn lưu</ModalButton><ModalButton onClick={() => setDuplicate('')}>Không</ModalButton></div></Note>}
         {body}
       </div>
       <ModalFooter compact className="-mx-6 mt-2 border-t border-rule px-0">
-        <ModalButton disabled={busy} onClick={onClose}>Đóng</ModalButton>
+        <ModalButton disabled={busy} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={isVoid ? 'danger' : 'primary'} disabled={disableSubmit} onClick={() => void submit()}>{submitLabel}</ModalButton>
       </ModalFooter>
     </Modal>

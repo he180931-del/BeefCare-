@@ -61,7 +61,7 @@ describe('reproduction mock API boundary', () => {
     expect(corrected.events.find((event) => event.id === after.calvings[0]!.id)?.details).toContain('ASSISTED')
     const voided = await api.voidCalving('BC-000087', after.calvings[0]!.id, 'Ghi nhầm sự kiện', 'MANAGER')
     expect(voided.status).toBe('PREGNANT')
-    expect(voided.parity).toBe(3)
+    expect(voided.parity).toBe(2)
     expect(voided.calvings[0]?.voidReason).toBe('Ghi nhầm sự kiện')
   })
 

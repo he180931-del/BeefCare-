@@ -30,16 +30,10 @@ const localNow = () => {
   const offset = date.getTimezoneOffset() * 60_000
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
 }
-const addDays = (value: string, days: number): string => {
-  const date = new Date(value)
-  date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 16)
-}
-const addHours = (value: string, hours: number): string => {
-  const date = new Date(value)
-  date.setHours(date.getHours() + hours)
-  return date.toISOString().slice(0, 16)
-}
+// Local date-times are plain strings; shift them in UTC arithmetic so the machine time zone never changes them.
+const shift = (value: string, ms: number): string => new Date(Date.parse(`${value.slice(0, 16)}:00Z`) + ms).toISOString().slice(0, 16)
+const addDays = (value: string, days: number): string => shift(value, days * 86_400_000)
+const addHours = (value: string, hours: number): string => shift(value, hours * 3_600_000)
 const makeId = (kind: string, n: number) => `${kind}-${Date.now().toString(36)}-${n.toString(36)}`
 const requireManager = (role: ReproductionRole) => {
   if (role !== 'MANAGER') throw new Error('Chỉ Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')

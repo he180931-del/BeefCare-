@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Button, Card, Note, Table, Td, Th } from '../../../components/ui'
 import { backendMode } from '../../../api/backendTransport'
 import { reproductionApi } from '../api/reproductionApi'
-import { actionsForStatus, type ReproductionAction } from '../domain/reproductionRules'
+import { useModalParam } from '../../../components/Modal'
+import { useSession } from '../../authorization'
+import { ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, primaryActionFor, windowBar, type ReproductionAction } from '../domain/reproductionRules'
 import type { ReproductionFemale, ReproductionRole } from '../types'
 import ReproductionActionDialog, { type ReproductionDialogTarget } from './ReproductionActionDialog'
 
@@ -21,13 +23,24 @@ const dateTime = (value: string | null | undefined) => value ? new Date(value).t
 const dateOnly = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString('vi-VN') : '—'
 const dayCount = (value: string | null) => value ? Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000)) : null
 
-export default function ReproductionProfileTab({ cattleCode, role = 'TECHNICIAN' }: { cattleCode: string; role?: ReproductionRole }) {
+export default function ReproductionProfileTab({ cattleCode, role: roleProp }: { cattleCode: string; role?: ReproductionRole }) {
   const navigate = useNavigate()
+  const session = useSession()
+  const role: ReproductionRole = roleProp ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
+  const [modal, openModal, closeModal] = useModalParam()
   const [profile, setProfile] = useState<ReproductionFemale | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [dialog, setDialog] = useState<ReproductionDialogTarget | null>(null)
+  const [localDialog, setLocalDialog] = useState<ReproductionDialogTarget | null>(null)
   const canManage = role === 'MANAGER'
+  // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only a Manager gets it.
+  const modalAction = modal ? ACTION_FOR_MODAL[modal] : undefined
+  const dialog: ReproductionDialogTarget | null = localDialog ?? (canManage && modalAction ? { mode: 'record', action: modalAction } : null)
+  const setDialog = (next: ReproductionDialogTarget | null) => {
+    setLocalDialog(next && next.mode !== 'record' ? next : null)
+    if (next?.mode === 'record') openModal(MODAL_FOR_ACTION[next.action])
+    else if (!next && modal) closeModal()
+  }
 
   const refresh = async () => {
     setError('')
@@ -95,7 +108,7 @@ export default function ReproductionProfileTab({ cattleCode, role = 'TECHNICIAN'
               <div><div className="text-[11px] text-muted">Số ngày mang thai</div><div className="mt-1 text-sm font-medium">{profile.openPregnancy ? `${dayCount(profile.openPregnancy.confirmedAt) ?? '—'} ngày từ lần khám xác nhận` : '—'}</div></div>
             </div>
             <div className="flex min-w-[220px] flex-col gap-2">
-              {managerActions.map((action) => <Button key={action} variant={action === 'RECORD_CALVING' ? 'primary' : 'default'} onClick={() => void run(action)}>{actionLabel[action]}</Button>)}
+              {managerActions.map((action) => <Button key={action} variant={action === primaryActionFor(profile.status) ? 'primary' : 'default'} onClick={() => void run(action)}>{actionLabel[action]}</Button>)}
               {moreActions.length > 0 && <details className="rounded-md border border-edge px-3 py-2 text-xs"><summary className="cursor-pointer font-semibold">Thêm thao tác</summary><div className="mt-2 flex flex-col gap-2">{moreActions.map((action) => <Button key={action} size="sm" onClick={() => action === 'RECORD_CALVING' ? openCalving() : void run(action)}>{actionLabel[action]}</Button>)}</div></details>}
             </div>
           </div>
@@ -110,7 +123,9 @@ export default function ReproductionProfileTab({ cattleCode, role = 'TECHNICIAN'
         </div>
       </Card>}
 
-      {profile.breedingWindow && profile.status === 'IN_ESTRUS' && <Card title="Cửa sổ phối giống" sub="Được tính từ thời điểm động dục; không phải bằng chứng đã phối."><div className="flex flex-wrap items-center gap-3"><Badge tone="warn">Động dục</Badge><span className="text-sm">{dateTime(profile.breedingWindow.from)} – {dateTime(profile.breedingWindow.to)}</span></div></Card>}
+      {profile.breedingWindow && profile.status === 'IN_ESTRUS' && <Card title="Cửa sổ phối giống" sub="Được tính từ thời điểm động dục; không phải bằng chứng đã phối."><div className="flex flex-wrap items-center gap-3"><Badge tone="warn">Động dục</Badge><span className="text-sm">{dateTime(profile.breedingWindow.from)} – {dateTime(profile.breedingWindow.to)}</span></div>
+        {(() => { const bar = windowBar(profile.breedingWindow, new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16)); return <div className="mt-3" aria-hidden="true"><div className="relative h-2.5 rounded-full bg-chip"><div className="absolute h-full rounded-full bg-brand" style={{ left: `${bar.left}%`, width: `${bar.width}%` }} /><div className="absolute -top-1 h-[18px] w-0.5 bg-err-fg" style={{ left: `${bar.now}%` }} /></div><div className="mt-1 flex justify-between text-[10px] text-muted">{['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'].map((tick) => <span key={tick}>{tick}</span>)}</div></div> })()}
+        <p className="m-0 mt-2 text-[11px] text-muted">Vạch đỏ: bây giờ</p></Card>}
 
       {profile.openPregnancy && <Card title="Thai kỳ hiện tại" sub="Kết quả khám thai thực tế mở thai kỳ; thời điểm dự kiến luôn đi kèm căn cứ.">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -154,7 +169,6 @@ export default function ReproductionProfileTab({ cattleCode, role = 'TECHNICIAN'
             {!profile.calvings.length && <tr><Td colSpan={5} className="py-8 text-center text-muted">Chưa có sự kiện đẻ được ghi.</Td></tr>}
           </tbody>
         </Table>
-        {canManage && profile.herdStatus === 'ACTIVE' && <Button variant="primary" onClick={openCalving}>Ghi sự kiện đẻ</Button>}
       </Card>
 
       {profile.revisions.length > 0 && <Card title="Lịch sử chỉnh sửa"><div className="flex flex-col gap-2">{profile.revisions.map((revision) => <div key={revision.id} className="rounded border border-edge p-3 text-xs"><b>{revision.changedBy}</b> · {dateTime(revision.changedAt)} · {revision.reason}</div>)}</div></Card>}
