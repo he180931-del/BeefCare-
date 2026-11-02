@@ -64,10 +64,10 @@ export default function GrowthHerdPage() {
           </FilterSelect>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric compact warn label="Quá hạn cân" value={tiles.overdue} note="chu kỳ cân 30 ngày" />
-          <Metric compact warn label="ADG thấp hơn TB chuồng" value={tiles.lowAdg} note={`trong kỳ ${windowDays} ngày`} />
-          <Metric compact label={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>BCS &lt; 2,5</span>} value={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>{tiles.lowBcs}</span>} note="theo lần đo gần nhất" />
-          <Metric compact label="Lượt cân 30 ngày" value={tiles.weighings30} note="bản ghi hợp lệ" />
+          <Metric compact warn label="Quá hạn cân" value={tiles.overdue} sub="chu kỳ cân 30 ngày" />
+          <Metric compact warn label="ADG thấp hơn TB chuồng" value={tiles.lowAdg} sub={`trong kỳ ${windowDays} ngày`} />
+          <Metric compact label={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>BCS &lt; 2,5</span>} value={<span className={tiles.lowBcs ? 'text-err-fg' : undefined}>{tiles.lowBcs}</span>} sub="theo lần đo gần nhất" />
+          <Metric compact label="Lượt cân 30 ngày" value={tiles.weighings30} sub="bản ghi hợp lệ" />
         </div>
         {rows.length === 0 ? (
           <EmptyBlock title="Không có bò phù hợp" sub="Thử đổi bộ lọc hoặc từ khóa tìm kiếm." />

@@ -68,11 +68,11 @@ function Summary({ profile }: { profile: GrowthProfile }) {
   const { latest, adg90, latestBcs, count, correctedCount, nextWeighingDate } = profile
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-      <Metric compact label="Cân gần nhất" value={latest ? `${fmtKg(latest.kg)} kg` : '—'} note={latest ? `${fmtDayMonth(latest.at)} · ${BASIS_LABEL[latest.basis]}` : 'Chưa có lần cân'} />
-      <Metric compact label="ADG 90 ngày" value={adg90 === undefined ? '—' : fmtDec(adg90, 2)} note={adg90 === undefined ? 'Chưa đủ 2 lần cân hợp lệ' : 'kg/ngày'} />
-      <Metric compact label="BCS gần nhất" value={latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`} note="thang trại v1" />
-      <Metric compact label="Số lần đo" value={count} note={correctedCount ? `${correctedCount} bản ghi đã sửa` : 'Chưa có bản ghi sửa'} />
-      <Metric compact label="Lần cân tới" value={nextWeighingDate ? fmtDate(nextWeighingDate) : '—'} note="chu kỳ 30 ngày" />
+      <Metric compact label="Cân gần nhất" value={latest ? `${fmtKg(latest.kg)} kg` : '—'} sub={latest ? `${fmtDayMonth(latest.at)} · ${BASIS_LABEL[latest.basis]}` : 'Chưa có lần cân'} />
+      <Metric compact label="ADG 90 ngày" value={adg90 === undefined ? '—' : fmtDec(adg90, 2)} sub={adg90 === undefined ? 'Chưa đủ 2 lần cân hợp lệ' : 'kg/ngày'} />
+      <Metric compact label="BCS gần nhất" value={latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`} sub="thang trại v1" />
+      <Metric compact label="Số lần đo" value={count} sub={correctedCount ? `${correctedCount} bản ghi đã sửa` : 'Chưa có bản ghi sửa'} />
+      <Metric compact label="Lần cân tới" value={nextWeighingDate ? fmtDate(nextWeighingDate) : '—'} sub="chu kỳ 30 ngày" />
     </div>
   )
 }
