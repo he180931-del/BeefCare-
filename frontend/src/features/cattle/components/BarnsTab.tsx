@@ -1,16 +1,17 @@
 import { Button, Foot, Table } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
 import { Panel, Td, Th } from './parts'
 import type { Pen } from '../../../types'
 import type { CowSeed } from '../../../data/cowsData'
 
-export default function BarnsTab({ cow, barns, onOpenModal }: { cow: CowSeed; barns: Record<string, Pen>; onOpenModal: (name: string) => void }) {
+export default function BarnsTab({ cow, barns, canWrite, onOpenModal }: { cow: CowSeed; barns: Record<string, Pen>; canWrite: boolean; onOpenModal: (name: string) => void }) {
   const cur = barns[cow.barn]
   return (
     <>
       <Panel
         title="Chuồng hiện tại"
         gap="gap-3"
-        action={cow.status === 'ACTIVE' && <Button className="leading-[normal]" onClick={() => onOpenModal('move')}>Chuyển chuồng</Button>}
+        action={canWrite && <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('move')}><Icon name="arrows-exchange" />Chuyển chuồng</Button>}
       >
         <Table>
           <thead>

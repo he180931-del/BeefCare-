@@ -1,5 +1,12 @@
-import { ScreenStub } from '../../../components/ScreenStub'
+import { Route, Routes } from 'react-router-dom'
+import TechnicianHerd from '../components/TechnicianHerd'
+import TechnicianProfile from '../components/TechnicianProfile'
 
 export default function TechnicianCattleRoutes() {
-  return <ScreenStub title="Đàn bò" technician />
+  return (
+    <Routes>
+      <Route index element={<TechnicianHerd />} />
+      <Route path=":code" element={<TechnicianProfile />} />
+    </Routes>
+  )
 }
