@@ -106,6 +106,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
   const [checks, setChecks] = useState<ExitChecks | null>(null)
   const [checksError, setChecksError] = useState<unknown>(null)
+  const [checking, setChecking] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState<unknown>(null)
 
@@ -195,7 +196,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       ['Tổng quan', warningChecks.length ? `${warningChecks.length} con có cảnh báo` : 'Không có cảnh báo', warningChecks.length > 0],
       ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? checkMessages(check) || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, ReactNode, boolean?]),
     ]
-    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : 'Đang tải kết quả kiểm tra…', true]]
+    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : checking ? 'Đang tải kết quả kiểm tra…' : 'Chưa kiểm tra. Lưu phiếu để xem kết quả.', true]]
   const checksReady = Boolean(checks)
 
   const buildDraftRecord = (): Partial<HerdExit> => ({
@@ -229,6 +230,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     const snapshot = formSnapshot()
     const isCurrentForm = () => revision === formRevision.current && snapshot === formSnapshot()
     savingRef.current = true
+    setChecking(true)
     setChecks(null)
     setChecksError(null)
     setConfirmed(false)
@@ -246,6 +248,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       // selected files mounted so the user can retry without losing the draft.
       if (revision === formRevision.current) setChecksError(error)
     } finally {
+      setChecking(false)
       savingRef.current = false
     }
   }
