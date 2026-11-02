@@ -1,48 +1,92 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Badge, Button, Card, Note } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
+import { Icon } from '../../../components/Icon'
+import { Badge, Button, Foot, LoadingBlock, Note } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
+import { useSession } from '../../authorization'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
-import { ROLE_PERMISSION_ROWS } from '../types'
-import { farmWorkspaceError, roleLabel, formatDateTime } from '../components/WorkspaceUi'
+import { RoleSummary } from '../components/PermissionChecklist'
+import SetupLayout from '../components/SetupLayout'
+import { farmWorkspaceError, formatDateTime, inviteStatusLabel, roleLabel } from '../components/WorkspaceUi'
+import type { InvitationPreview } from '../types'
 
+const SUPPORT_EMAIL = 'tuanpqhe181869@fpt.edu.vn'
+const Fact = ({ label, children }: { label: string; children: ReactNode }) => <div><dt className="text-[11px] text-subtle">{label}</dt><dd className="m-0 mt-0.5 text-[13px] font-medium text-ink">{children}</dd></div>
+const Panel = ({ title, badge, children }: { title: string; badge: ReactNode; children: ReactNode }) => (
+  <section className="flex flex-col gap-4 rounded-2xl border border-field bg-white p-6">
+    <div className="flex items-center justify-between gap-3"><h1 className="m-0 text-sm font-semibold text-ink">{title}</h1>{badge}</div>
+    {children}
+  </section>
+)
+
+/** SCR-15 (UC-FE03-04): người được mời xem trại, vai trò, quyền rồi chấp nhận; liên kết sai hoặc hết hạn hiện trạng thái "không còn hiệu lực". */
 export default function AcceptInvitationPage() {
   const navigate = useNavigate()
+  const session = useSession()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const query = useQuery(async () => {
-    if (!token) throw new Error('Liên kết lời mời không hợp lệ.')
-    const [profile, invitation] = await Promise.all([farmWorkspaceApi.getProfile(), farmWorkspaceApi.previewInvitation(token)])
+    const [profile, invitation] = await Promise.all([farmWorkspaceApi.getProfile(), token ? farmWorkspaceApi.previewInvitation(token).catch(() => null) : null])
     return { profile, invitation }
   }, [token])
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const invite = query.data?.invitation
-  const profile = query.data?.profile
-  const emailMatches = Boolean(invite && profile && invite.email.toLowerCase() === profile.email.toLowerCase())
-  const invalid = Boolean(query.error || (invite && invite.status !== 'PENDING'))
+  const invite: InvitationPreview | null | undefined = query.data?.invitation
+  const signedIn = session?.email ?? query.data?.profile.email ?? ''
+  const matches = Boolean(invite && signedIn.toLowerCase() === invite.email.toLowerCase())
   const accept = async () => {
-    setSaving(true); setError(null); setNotice(null)
-    try { await farmWorkspaceApi.acceptInvitation(token); setNotice('Đã tham gia trang trại. Chọn trang trại để tiếp tục.'); setTimeout(() => navigate('/chon-trai', { replace: true }), 700) }
-    catch (reason) { setError(farmWorkspaceError(reason, 'Không thể chấp nhận lời mời.')) }
+    if (!invite) return
+    setSaving(true); setError(null)
+    try {
+      await farmWorkspaceApi.acceptInvitation(token, signedIn)
+      setNotice(`Bạn đã tham gia ${invite.farmName} với vai trò ${roleLabel(invite.role)}.`)
+      window.setTimeout(() => navigate(invite.role === 'TECHNICIAN' ? '/kt' : '/tong-quan', { replace: true }), 700)
+    } catch (reason) { setError(farmWorkspaceError(reason, 'Không thể chấp nhận lời mời.')) }
     finally { setSaving(false) }
   }
-  return <main className="grid min-h-screen place-items-center bg-page px-4 py-8 text-ink"><section className="w-full max-w-[760px] rounded-2xl border border-field bg-white p-6 shadow-sm sm:p-10">
-    <a href="/" className="text-sm font-bold text-brand no-underline">BeefCare</a>
-    <h1 className="mb-0 mt-5 text-2xl font-bold">Chấp nhận lời mời</h1>
-    <p className="mb-6 mt-2 text-sm text-subtle">Xem thông tin và quyền của bạn trước khi tham gia trang trại.</p>
-    {backendMode === 'local' && <Note tone="info">Bản mô phỏng dùng liên kết thử nghiệm, không tạo tài khoản thật.</Note>}
-    {query.loading && <Note>Đang kiểm tra lời mời…</Note>}
-    {invalid && <Card title="Lời mời không còn hiệu lực"><p className="m-0 text-sm text-subtle">Không thể mở thông tin lời mời. Liên kết có thể đã hết hạn, bị hủy, đã được sử dụng hoặc email đăng nhập không khớp.</p><div className="flex flex-wrap gap-2"><Button variant="primary" onClick={() => navigate('/')}>Về trang chủ</Button><Button onClick={() => navigate('/ho-tro')}>Liên hệ BeefCare</Button></div></Card>}
-    {invite && !invalid && <div className="mt-5 flex flex-col gap-5">
-      {emailMatches ? <><Card title="Thông tin lời mời" actions={<Badge tone="warn">Đang chờ</Badge>}>
-        <dl className="m-0 grid gap-4 sm:grid-cols-2 text-sm"><div><dt className="text-xs text-faint">Trang trại</dt><dd className="m-0 mt-1 font-semibold">{invite.farmName}</dd></div><div><dt className="text-xs text-faint">Vai trò</dt><dd className="m-0 mt-1 font-semibold">{roleLabel(invite.role)}</dd></div><div><dt className="text-xs text-faint">Người mời</dt><dd className="m-0 mt-1">{invite.invitedBy ?? 'Máy chủ chưa cung cấp thông tin'}</dd></div><div><dt className="text-xs text-faint">Gửi lúc</dt><dd className="m-0 mt-1">{formatDateTime(invite.invitedAt)}</dd></div><div><dt className="text-xs text-faint">Hết hạn</dt><dd className="m-0 mt-1">{formatDateTime(invite.expiresAt)}</dd></div><div><dt className="text-xs text-faint">Email được mời / đang đăng nhập</dt><dd className="m-0 mt-1">{invite.email} · {profile?.email}</dd></div></dl>
-      </Card><Card title={`Quyền của ${roleLabel(invite.role).toLowerCase()}`}><div className="max-h-72 overflow-y-auto text-xs">{ROLE_PERMISSION_ROWS.map((row) => <div key={row.area} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 border-b border-rule py-2"><span>{row.area}</span><span>{invite.role === 'MANAGER' ? row.MANAGER : row.TECHNICIAN}</span></div>)}</div></Card>
-      </> : <Note tone="err">Tài khoản đang đăng nhập ({profile?.email}) không trùng email được mời. Hãy đăng nhập bằng {invite.email}. Thông tin trại đã được ẩn.</Note>}
+  const shell = (children: ReactNode, foot: string) => (
+    <SetupLayout narrow eyebrow="Trước khi tham gia" heading="Xem rõ trại và vai trò trước khi vào." lines={['Xem người mời, quyền và Thư điện tử đăng nhập. Tư cách thành viên chỉ được tạo khi bạn chấp nhận.', 'Thư điện tử đăng nhập phải trùng Thư điện tử được mời.']}>
+      {children}<Foot>{foot}</Foot>
+    </SetupLayout>
+  )
+
+  if (query.loading && !query.data) return shell(<LoadingBlock />, 'Đang kiểm tra lời mời…')
+  if (!invite || invite.status !== 'PENDING') {
+    return shell(
+      <Panel title="Lời mời không còn hiệu lực" badge={<Badge tone="err">{invite ? (invite.status === 'EXPIRED' ? 'Đã hết hạn' : inviteStatusLabel(invite.status)) : 'Liên kết không hợp lệ'}</Badge>}>
+        {invite && <dl className="m-0 grid gap-3 sm:grid-cols-2"><Fact label="Trang trại">{invite.farmName}</Fact><Fact label="Vai trò">{roleLabel(invite.role)}</Fact><Fact label="Hết hạn lúc">{formatDateTime(invite.expiresAt)}</Fact><Fact label="Thư điện tử được mời">{invite.email}</Fact></dl>}
+        <p className="m-0 text-xs text-subtle">Lời mời này không còn dùng được. Chưa có tư cách thành viên nào được tạo; hãy liên hệ Chủ trại để được mời lại.</p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button size="lg" onClick={() => navigate('/')}><Icon name="arrow-left" size={16} className="mr-1.5" />Về trang chủ</Button>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex h-[46px] items-center gap-1.5 rounded-xl border border-brand bg-brand px-4 text-sm font-semibold text-white no-underline"><Icon name="send" size={16} />Gửi yêu cầu hỗ trợ</a>
+        </div>
+      </Panel>,
+      'Thẻ nêu trạng thái và thời điểm hết hạn; khi liên kết không còn hiệu lực, chưa tạo tư cách thành viên và cần liên hệ chủ trại.',
+    )
+  }
+  return shell(
+    <Panel title="Lời mời tham gia trang trại" badge={<Badge tone="warn">Chờ bạn chấp nhận</Badge>}>
+      {matches ? (
+        <>
+          <dl className="m-0 grid gap-3 sm:grid-cols-2">
+            <Fact label="Trang trại">{invite.farmName}</Fact><Fact label="Vai trò">{roleLabel(invite.role)}</Fact>
+            <Fact label="Mời bởi">{invite.invitedBy ?? 'Máy chủ chưa cung cấp thông tin'}</Fact><Fact label="Gửi lúc">{formatDateTime(invite.invitedAt)}</Fact>
+            <Fact label="Thư điện tử được mời">{invite.email}</Fact><Fact label="Hết hạn">{formatDateTime(invite.expiresAt)}</Fact>
+            <Fact label="Thư điện tử đang đăng nhập">{signedIn}</Fact>
+          </dl>
+          <div className="flex flex-col gap-2"><span className="text-xs font-medium text-ink">Quyền của vai trò</span><RoleSummary role={invite.role} /></div>
+        </>
+      ) : (
+        <Note tone="err">Lời mời này được gửi tới thư điện tử khác ({signedIn} không trùng thư điện tử được mời). Hãy đăng nhập bằng thư điện tử được mời để chấp nhận; thông tin trang trại được ẩn.</Note>
+      )}
       {notice && <Note tone="ok">{notice}</Note>}{error && <Note tone="err">{error}</Note>}
-      <div className="flex flex-wrap justify-end gap-2 border-t border-rule pt-4"><Button onClick={() => navigate('/chon-trai')}>Để sau</Button><Button variant="primary" disabled={!emailMatches || saving} onClick={accept}>{saving ? 'Đang tham gia…' : 'Chấp nhận và vào trại'}</Button></div>
-    </div>}
-  </section></main>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button size="lg" onClick={() => navigate('/chon-trai')}>Từ chối sau</Button>
+        {!matches && session && <Button size="lg" onClick={() => void session.logout()}>Đăng xuất để đổi tài khoản</Button>}
+        <Button size="lg" variant="primary" disabled={!matches || saving} onClick={accept}>{saving ? 'Đang tham gia…' : 'Chấp nhận & vào trại'}</Button>
+      </div>
+    </Panel>,
+    'Kiểm tra trại, vai trò, người mời, quyền và thời hạn. Thư điện tử đăng nhập phải trùng Thư điện tử nhận lời mời; chọn để sau sẽ giữ lời mời đang chờ.',
+  )
 }

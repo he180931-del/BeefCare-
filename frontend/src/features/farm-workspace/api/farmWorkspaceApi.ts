@@ -161,9 +161,9 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
         farmId: typeof value.farmId === 'number' ? value.farmId : undefined,
       }
     },
-    acceptInvitation: async (token: string) => mode === 'backend'
+    acceptInvitation: async (token: string, signedInEmail?: string) => mode === 'backend'
       ? member(await command('/api/invitations/accept', { token }, 'POST'))
-      : demoStore.acceptInvitation(token),
+      : demoStore.acceptInvitation(token, signedInEmail),
   }
 }
 
