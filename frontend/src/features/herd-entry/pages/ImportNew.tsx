@@ -150,7 +150,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
   const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
   // Pricing is selected per cattle line: by kg or per head.
-  const lineAmount = (c: EntryCow) => c.pricing === 'con' ? (c.unitPrice ?? 0) : (c.weightBasis ? (c.weight ?? 0) * (c.unitPrice ?? 0) : 0)
+  const lineAmount = (c: EntryCow) => c.pricing === 'con' ? (c.unitPrice ?? 0) : (c.weight ?? 0) * (c.unitPrice ?? 0)
   const cowsMoney = cows.reduce((s, c) => s + lineAmount(c), 0)
   const totalWeight = cows.reduce((s, c) => s + (c.weight ?? 0), 0)
   const total = cowsMoney + freight
@@ -429,7 +429,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                       </Field>
                     </>
                   )}
-                  <Field id="entry-receiver" label="Người nhập *"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
+                  <Field id="entry-receiver" label="Người nhập"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
                 </div>
                 <Field id="entry-note" label={isBuy ? 'Ghi chú khi nhận bò' : 'Ghi chú'}>
                   <input id="entry-note" maxLength={1000} className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -667,6 +667,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               <Button variant="primary" block disabled={!n || blocked || loading} onClick={() => { void save('Đã nhập').catch(() => undefined) }}>
                 {`Lưu & tạo hồ sơ ${n} con`}
               </Button>
+              <Button block disabled={loading} onClick={() => { void save('Nháp').catch(() => undefined) }}>Lưu nháp phiếu</Button>
               <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
             </Card>
           </div>

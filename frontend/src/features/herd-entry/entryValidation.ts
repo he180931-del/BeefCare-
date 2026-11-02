@@ -24,11 +24,11 @@ export function validateEntryForPost(input: ValidationInput): string | null {
   if (!cows.length) return 'Phiếu nhập phải có ít nhất một con bò.'
   for (const [index, cow] of cows.entries()) {
     const line = `Con #${index + 1}`
-    if (!String(cow.tag ?? '').trim()) return `${line}: vui lòng nhập số thẻ tai.`
+    // Ear tag may stay empty (SRS: tag later); the line still gets a cattle code and QR.
     if (!String(cow.breed ?? '').trim()) return `${line}: vui lòng chọn giống.`
     if (!String(cow.sex ?? '').trim()) return `${line}: giới tính là bắt buộc.`
-    if (!String(cow.purpose ?? '').trim() || cow.purpose === 'Chưa xác định') return `${line}: vui lòng chọn mục đích nuôi.`
-    if (!String(cow.stage ?? '').trim() || cow.stage === 'Chưa xác định') return `${line}: vui lòng chọn giai đoạn sinh trưởng.`
+    if (!String(cow.purpose ?? '').trim()) return `${line}: vui lòng chọn mục đích nuôi.`
+    if (!String(cow.stage ?? '').trim()) return `${line}: vui lòng chọn giai đoạn sinh trưởng.`
     if (!String(cow.barn ?? '').trim()) return `${line}: vui lòng chọn chuồng nhận.`
     const linePricing = cow.pricing ?? input.pricing ?? 'kg'
     if (linePricing === 'kg') {
