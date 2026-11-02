@@ -56,7 +56,7 @@ export const TODAY = '2026-10-22'
 
 // Bò có thể chọn vào phiếu xuất (thẻ tai, giống, tuổi, cân gần nhất + ghi chú cân, cảnh báo).
 export const EXPORT_HERD = [
-  { code: 'BC-000203', tag: 'VN-0412', breed: 'Zebu đỏ', sex: 'Đực', age: '24 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 322, weightNote: 'cân 22/10', estimated: false },
+  { code: 'BC-000203', tag: 'VN-BV-0512', breed: 'Zebu đỏ', sex: 'Đực', age: '24 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 322, weightNote: 'cân 22/10', estimated: false },
   { code: 'BC-000205', tag: 'VN-0415', breed: 'Brahman lai', sex: 'Đực', age: '26 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 348, weightNote: 'cân 22/10', estimated: false, withdrawalUntil: '2026-10-25' },
   { code: 'BC-000211', tag: 'VN-0431', breed: 'Lai Sind', sex: 'Đực', age: '24 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 332, weightNote: 'ước tính 15/10', estimated: true },
   { code: 'BC-000214', tag: 'VN-0436', breed: 'Zebu đỏ', sex: 'Đực', age: '22 tháng', group: 'Vỗ béo', stage: 'Bò tơ', barn: 'B1', weight: 305, weightNote: 'cân 15/10', estimated: false },
