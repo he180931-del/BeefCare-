@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, KV, Note, Select, Table, Td, Th } from '../../../components/ui'
+import { DateInput, Field, KV, Note, Select, Table, Td, Th } from '../../../components/ui'
 import { BREEDS, PURPOSE_OPTIONS, STAGES } from '../data/importsData'
 import { money } from '../../../data/format'
 import { RadioRow } from './parts'
@@ -12,7 +12,7 @@ const compactInputCls = 'box-border min-w-0 w-full rounded-lg border border-fiel
 const compactSelectCls = '[&_select]:min-w-0 [&_select]:rounded-lg [&_select]:px-1.5 [&_select]:py-1.5 [&_select]:text-[12px] sm:[&_select]:px-2 sm:[&_select]:py-2 sm:[&_select]:text-[13px]'
 const HIST_OPTIONS = ['Có', 'Không', 'Không rõ']
 const ACCURACY = { 'Chính xác': 'Chính xác', 'Ước tính': 'Ước tính', 'Không rõ': 'Không rõ' }
-type EditCow = EntryCow
+type EditCow = EntryCow & { colourMarkings?: string; quarantineUntil?: string }
 type HistoryDetail = 'vaccine' | 'disease' | 'repro'
 
 /**
@@ -145,35 +145,36 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
   return (
     <>
     <Modal
-      width={1040}
+      width={720}
       maxHeight="calc(100vh - 1rem)"
       title={`Sửa con #${index + 1} trong phiếu ${recordId}`}
       sub={'Thông tin dùng để tạo hồ sơ bò khi lưu phiếu – chưa tạo hồ sơ cho đến khi bấm "Lưu & tạo hồ sơ".'}
       topTitle="Thêm / sửa con trong phiếu nhập"
       onClose={onClose}
     >
-      <div className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-4 min-[768px]:grid-cols-2 min-[1180px]:gap-x-8 min-[1180px]:gap-y-5">
-        <section className="min-w-0 pb-1">
-          <h3 className="mb-3 text-sm font-semibold text-ink">Nhận diện bò</h3>
-          <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 min-[768px]:grid-cols-2 min-[1180px]:gap-x-4 min-[1180px]:gap-y-2.5">
-            <Field label="Số thẻ tai *">
-              <input id="entry-cow-tag" className={compactInputCls} value={c.tag} placeholder="Nhập số thẻ tai" onChange={(e) => set({ tag: e.target.value })} />
-            </Field>
-            <Field label="Tên gọi">
-              <input id="entry-cow-name" className={compactInputCls} value={c.name} placeholder="Không bắt buộc" onChange={(e) => set({ name: e.target.value })} />
-            </Field>
-            <Field label="Giống *">
-              <Select className={compactSelectCls} id="entry-cow-breed" value={c.breed} onChange={(e) => {
-                const breed = e.target.value
-                const selected = breeds.find((option) => option.name === breed)
-                set({ breed, breedId: selected?.id ?? null })
-              }}>
-                <option value="">Chọn giống</option>
-                {(breeds.length ? breeds.map((option) => option.name) : BREEDS).map((b) => <option key={b}>{b}</option>)}
-              </Select>
-            </Field>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-xs font-medium text-ink">Giới tính *</span>
+      <div className="flex min-w-0 flex-col gap-3.5">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+          <Field label="Số thẻ tai *" hint="Để trống nếu gắn thẻ sau">
+            <input id="entry-cow-tag" className={compactInputCls} value={c.tag} placeholder="Nhập số thẻ tai" onChange={(e) => set({ tag: e.target.value })} />
+          </Field>
+          <Field label="Tên gọi">
+            <input id="entry-cow-name" className={compactInputCls} value={c.name} placeholder="Không bắt buộc" onChange={(e) => set({ name: e.target.value })} />
+          </Field>
+          <div className="sm:col-span-2"><Field label="Màu lông & đặc điểm" hint="Nên nhập khi chưa có thẻ tai để phân biệt trong lô">
+            <input id="entry-cow-colour" maxLength={255} className={compactInputCls} value={String(c.colourMarkings ?? '')} placeholder="Vàng, khoang trắng bụng, sừng ngắn" onChange={(e) => set({ colourMarkings: e.target.value })} />
+          </Field></div>
+          <Field label="Giống *">
+            <Select className={compactSelectCls} id="entry-cow-breed" value={c.breed} onChange={(e) => {
+              const breed = e.target.value
+              const selected = breeds.find((option) => option.name === breed)
+              set({ breed, breedId: selected?.id ?? null })
+            }}>
+              <option value="">Chọn giống</option>
+              {(breeds.length ? breeds.map((option) => option.name) : BREEDS).map((b) => <option key={b}>{b}</option>)}
+            </Select>
+          </Field>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-xs font-medium text-ink">Giới tính *</span>
               <RadioRow name="sex" value={c.sex} options={['Đực', 'Cái']} onChange={(sex) => {
                 const nextStages = stagesForSex(sex)
                 const nextPurposes = purposesForSex(sex)
@@ -191,82 +192,86 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
                     ? 'Mục đích nuôi hiện tại không phù hợp với giới tính đã chọn. Vui lòng chọn lại.'
                     : null)
               }} />
-            </div>
           </div>
-        </section>
-
-        <section className="min-w-0 pb-1">
-          <h3 className="mb-3 text-sm font-semibold text-ink">Thông tin chăn nuôi</h3>
-          <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 min-[768px]:grid-cols-2 min-[1180px]:gap-x-4 min-[1180px]:gap-y-2.5">
-            <Field label="Ngày sinh">
-              <input
-                id="entry-cow-dob"
-                type="date"
-                aria-label="Ngày sinh"
-                value={dobInputValue}
-                max={dateIso || undefined}
-                onChange={(e) => set({ dob: e.target.value })}
-                className={`${compactInputCls} cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
-              />
-            </Field>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-xs font-medium text-ink">Độ chính xác ngày sinh</span>
-              <RadioRow name="accuracy" value={c.dobAccuracy} options={Object.keys(ACCURACY)} onChange={(dobAccuracy) => set({ dobAccuracy })} />
-            </div>
-            <Field label="Giai đoạn sinh trưởng *">
-              <Select className={compactSelectCls} id="entry-cow-stage" value={c.stage} disabled={!c.sex.trim()} aria-describedby={!c.sex.trim() ? 'entry-cow-sex-hint' : undefined} onChange={(e) => set({ stage: e.target.value })}>
-                <option value="">{c.sex.trim() ? 'Chọn giai đoạn sinh trưởng' : 'Chọn giới tính trước'}</option>
-                {availableStages.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </Select>
-            </Field>
-            <Field label="Mục đích nuôi *">
-              <Select className={compactSelectCls} id="entry-cow-purpose" value={c.purpose} disabled={!c.sex.trim()} aria-describedby={!c.sex.trim() ? 'entry-cow-sex-hint' : undefined} onChange={(e) => {
-                const purpose = e.target.value
-                set({ purpose, purposeId: null })
-              }}>
-                <option value="">{c.sex.trim() ? 'Chọn mục đích nuôi' : 'Chọn giới tính trước'}</option>
-                {availablePurposes.map((p) => <option key={p}>{p}</option>)}
-              </Select>
-            </Field>
-            {!c.sex.trim() && <span id="entry-cow-sex-hint" className="text-[11px] text-muted min-[768px]:col-span-2">Chọn giới tính trước để mở danh sách giai đoạn sinh trưởng và mục đích nuôi.</span>}
+          <Field label="Ngày sinh" hint="Chọn ngày sinh hoặc ngày ước tính; độ chính xác chọn bên cạnh">
+            <input
+              id="entry-cow-dob"
+              type="date"
+              aria-label="Ngày sinh"
+              value={dobInputValue}
+              max={dateIso || undefined}
+              onChange={(e) => set({ dob: e.target.value })}
+              className={`${compactInputCls} cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
+            />
+          </Field>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-xs font-medium text-ink">Độ chính xác ngày sinh</span>
+            <RadioRow name="accuracy" value={c.dobAccuracy} options={Object.keys(ACCURACY)} onChange={(dobAccuracy) => set({ dobAccuracy })} />
           </div>
-        </section>
-
-        <section className="min-w-0 pb-1">
-          <h3 className="mb-3 text-sm font-semibold text-ink">Chuồng, cân và giá</h3>
-          <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 min-[768px]:grid-cols-2 min-[1180px]:grid-cols-3 min-[1180px]:gap-x-4 min-[1180px]:gap-y-2.5">
-            <Field label="Chuồng nhận *">
-              <Select className={compactSelectCls} id="entry-cow-barn" value={c.barn} onChange={(e) => set({ barn: e.target.value })}>
-                {pens.map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
-              </Select>
-            </Field>
-            <Field label="Cân nhập (kg) *">
-              <input
-                id="entry-cow-weight"
-                type="number"
-                min="0"
-                className={compactInputCls}
-                value={weightInput}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setWeightInput(value)
-                  set({ weight: value === '' ? 0 : Number(value) })
-                }}
-                onBlur={() => {
-                  if (weightInput === '') setWeightInput('0')
-                }}
-              />
-            </Field>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="text-xs font-medium text-ink">Cơ sở cân *</span>
+          <Field label="Giai đoạn sống *" hint="Đề xuất theo tuổi, sửa được">
+            <Select className={compactSelectCls} id="entry-cow-stage" value={c.stage} disabled={!c.sex.trim()} aria-describedby={!c.sex.trim() ? 'entry-cow-sex-hint' : undefined} onChange={(e) => set({ stage: e.target.value })}>
+              <option value="">{c.sex.trim() ? 'Chọn giai đoạn sinh trưởng' : 'Chọn giới tính trước'}</option>
+              {availableStages.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </Select>
+          </Field>
+          <Field label="Mục đích nuôi *">
+            <Select className={compactSelectCls} id="entry-cow-purpose" value={c.purpose} disabled={!c.sex.trim()} aria-describedby={!c.sex.trim() ? 'entry-cow-sex-hint' : undefined} onChange={(e) => {
+              const purpose = e.target.value
+              set({ purpose, purposeId: null })
+            }}>
+              <option value="">{c.sex.trim() ? 'Chọn mục đích nuôi' : 'Chọn giới tính trước'}</option>
+              {availablePurposes.map((p) => <option key={p}>{p}</option>)}
+            </Select>
+          </Field>
+          {!c.sex.trim() && <span id="entry-cow-sex-hint" className="text-[11px] text-muted sm:col-span-2">Chọn giới tính trước để mở danh sách giai đoạn sinh trưởng và mục đích nuôi.</span>}
+          <Field label="Cân nhập (kg) *">
+            <input
+              id="entry-cow-weight"
+              type="number"
+              min="0"
+              className={compactInputCls}
+              value={weightInput}
+              onChange={(e) => {
+                const value = e.target.value
+                setWeightInput(value)
+                set({ weight: value === '' ? 0 : Number(value) })
+              }}
+              onBlur={() => {
+                if (weightInput === '') setWeightInput('0')
+              }}
+            />
+          </Field>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-xs font-medium text-ink">Cơ sở cân *</span>
               <RadioRow name="weigh" value={weightBasis === 'ESTIMATED' ? 'Ước tính' : weightBasis === 'MEASURED' ? 'Cân thực tế' : ''} options={['Cân thực tế', 'Ước tính']} onChange={(v) => {
                 const next = v === 'Ước tính' ? 'ESTIMATED' : 'MEASURED'
                 setWeightBasis(next)
                 set({ estimated: next === 'ESTIMATED', weightBasis: next })
               }} />
-            </div>
-            <div className="flex min-w-0 flex-col gap-1.5 min-[768px]:col-span-2 min-[1180px]:col-span-1">
-              <span className="text-xs font-medium text-ink">Cách tính giá *</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-3">
+          <Field label="Chuồng nhận *">
+            <Select className={compactSelectCls} id="entry-cow-barn" value={c.barn} onChange={(e) => set({ barn: e.target.value })}>
+              {pens.map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
+            </Select>
+          </Field>
+          <Field label="Đơn giá (đ/kg) *">
+            <input id="entry-cow-unit-price" type="number" min="0" disabled={pricing === 'con' || (pricing === 'kg' && !hasWeightBasis)} className={`${compactInputCls} disabled:cursor-not-allowed disabled:bg-page disabled:text-muted`} value={c.unitPrice} onChange={(e) => set({ unitPrice: Number(e.target.value) || 0 })} />
+          </Field>
+          <Field label={pricing === 'con' ? 'Thành tiền *' : 'Thành tiền'}>
+            {pricing === 'con' ? (
+              <div className="relative">
+                <input id="entry-cow-total-amount" type="number" min="0" className={compactInputCls} value={c.unitPrice || ''} onChange={(e) => set({ unitPrice: Number(e.target.value) || 0 })} />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted">đ</span>
+              </div>
+            ) : (
+              <span className={`${compactInputCls} block bg-page text-muted`}>{money(amount)} đ</span>
+            )}
+          </Field>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-ink">Cách tính giá *</span>
               <div className="flex items-center gap-4" role="radiogroup" aria-label="Cách tính giá">
                 {(['kg', 'con'] as const).map((basis) => <label key={basis} className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-ink">
                   <input
@@ -280,31 +285,14 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
                   {basis === 'kg' ? 'Theo cân' : 'Theo con'}
                 </label>)}
               </div>
-            </div>
-            <div className="min-w-0">
-              <Field label="Đơn giá (đ/kg) *">
-                <input id="entry-cow-unit-price" type="number" min="0" disabled={pricing === 'con' || (pricing === 'kg' && !hasWeightBasis)} className={`${compactInputCls} disabled:cursor-not-allowed disabled:bg-page disabled:text-muted`} value={c.unitPrice} onChange={(e) => set({ unitPrice: Number(e.target.value) || 0 })} />
-              </Field>
-            </div>
-            <div className="min-w-0">
-              <Field label={pricing === 'con' ? 'Thành tiền *' : 'Thành tiền'}>
-                {pricing === 'con' ? (
-                  <div className="relative">
-                    <input id="entry-cow-total-amount" type="number" min="0" className={compactInputCls} value={c.unitPrice || ''} onChange={(e) => set({ unitPrice: Number(e.target.value) || 0 })} />
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted">đ</span>
-                  </div>
-                ) : (
-                  <span className="block rounded-lg border border-field bg-white px-2 py-2 text-[13px] font-semibold text-ink">{money(amount)} đ</span>
-                )}
-              </Field>
-            </div>
-          </div>
-        </section>
-
-        <section className="flex min-h-0 min-w-0 max-w-full flex-col gap-2 overflow-hidden pb-3 min-[768px]:h-full">
-          <h3 className="text-sm font-semibold text-ink">Lịch sử trước nhập đàn</h3>
-          <div className="mb-1 flex min-h-0 h-full max-w-full flex-1 flex-col overflow-hidden rounded border border-edge pb-1">
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        </div>
+        <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+          <Field label="Cách ly đến" hint="Không bắt buộc · hiện trên hồ sơ đến hết ngày">
+            <DateInput id="entry-cow-quarantine" value={String(c.quarantineUntil ?? '')} onChange={(quarantineUntil) => set({ quarantineUntil })} />
+          </Field>
+        </div>
+        <h3 className="m-0 text-sm font-semibold text-ink">Lịch sử trước nhập đàn</h3>
+        <div className="overflow-hidden rounded border border-edge">
           <Table bordered={false} stack={false}>
             <thead>
               <tr>
@@ -325,7 +313,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
                 <Td className={`${TH} max-w-[150px]`}><button type="button" aria-label="Chi tiết bệnh đã biết" disabled={c.hist.disease !== 'Có'} onClick={() => openDetail('disease')} className="w-full max-w-[150px] cursor-pointer truncate rounded-lg border border-field bg-white px-3 py-2 text-left text-[12px] text-ink transition-colors hover:border-brand hover:bg-page disabled:cursor-not-allowed disabled:text-muted disabled:hover:border-field disabled:hover:bg-white">{c.hist.disease === 'Có' && c.hist.diseaseNote?.trim() ? 'Chi tiết (đã nhập)' : 'Chi tiết'}</button></Td>
               </tr>
               <tr>
-                <Td className={TH}>Sinh sản</Td>
+                <Td className={TH}>{c.sex === 'Cái' ? 'Sinh sản (bò cái)' : 'Sinh sản'}</Td>
                 <Td className={TH}><RadioRow name="repro" value={c.hist.repro} options={HIST_OPTIONS} onChange={(v) => {
                   if (v === 'Có') {
                     setHist({ repro: v, pregnantAtEntry: c.hist.pregnantAtEntry ?? 'UNKNOWN' })
@@ -339,10 +327,8 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
               </tr>
             </tbody>
           </Table>
-          </div>
-          </div>
-        </section>
-
+        </div>
+        {barn && !receptionError && criterionIssues.length === 0 && <Note tone="ok">{`Tiêu chí chuồng ${barn.code}: Đạt. Tiêm phòng "Có" được lưu là bản ghi tiêm LỊCH SỬ, không tạo mũi trong lịch tiêm.`}</Note>}
       </div>
 
       <ModalFooter compact className="min-[768px]:!px-3">
