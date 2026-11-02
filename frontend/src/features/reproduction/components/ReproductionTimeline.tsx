@@ -3,7 +3,7 @@ import { Badge, Card, Select, Table, Td, Th, inputCls } from '../../../component
 import { Icon } from '../../../components/Icon'
 import { formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalvingRecord, ReproductionEvent, ReproductionEventType, ReproductionFemale } from '../types'
-import { SOURCE_LABEL } from './reproductionFields'
+import { SOURCE_LABEL, nowLocal } from './reproductionFields'
 
 export type TimelineRecord = { kind: 'event'; event: ReproductionEvent } | { kind: 'calving'; calving: CalvingRecord }
 
@@ -39,7 +39,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise }: {
   const range = custom ?? { from: auto.from, to: '' }
   const label = custom
     ? custom.from || custom.to ? `${custom.from ? `${shortDate(custom.from)}/${custom.from.slice(0, 4)}` : '…'} – ${custom.to ? `${shortDate(custom.to)}/${custom.to.slice(0, 4)}` : '…'}` : 'Tất cả thời gian'
-    : `${shortDate(auto.from)} – ${formatDate(auto.to)}`
+    : `${shortDate(auto.from)} – ${formatDate(auto.to > nowLocal() ? auto.to : nowLocal())}`
   const rows = profile.events
     .filter((event) => (!type || event.type === type)
       && (!range.from || event.occurredAt.slice(0, 10) >= range.from) && (!range.to || event.occurredAt.slice(0, 10) <= range.to))
@@ -59,9 +59,11 @@ export default function ReproductionTimeline({ profile, canManage, onRevise }: {
           <Select aria-label="Loại sự kiện" className="w-[150px]" value={type} onChange={(event) => setType(event.target.value as ReproductionEventType | '')}>
             {TYPE_OPTIONS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
           </Select>
-          <button type="button" aria-label="Khoảng thời gian" aria-expanded={picker} onClick={() => setPicker((value) => !value)} className={`${inputCls} flex w-[190px] cursor-pointer items-center gap-1.5 text-left`}>
-            <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span><Icon name="calendar-event" className="text-muted" />
-          </button>
+          <div className="w-[190px]">
+            <button type="button" aria-label="Khoảng thời gian" aria-expanded={picker} onClick={() => setPicker((value) => !value)} className={`${inputCls} flex cursor-pointer items-center gap-1.5 text-left`}>
+              <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span><Icon name="calendar-event" className="text-muted" />
+            </button>
+          </div>
           {picker && (
             <div className="absolute right-0 top-12 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-edge bg-white p-3 shadow-md">
               <input type="date" aria-label="Từ ngày" className={`${inputCls} w-[150px]`} value={custom ? custom.from : auto.from} onChange={(event) => setCustom({ from: event.target.value, to: custom?.to ?? '' })} />

@@ -5,8 +5,8 @@ import { REPRODUCTION_HEALTH_CASES } from '../data/reproductionMock'
 import { METHOD_TEXT, formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalfOutcome, CalvingRecord, ReproductionEvent, ReproductionFemale } from '../types'
 import {
-  CHECK_METHOD_OPTIONS, COURSE_OPTIONS, DAM_CONDITION_OPTIONS, MemberSelect, PersonInput, RESULT_OPTIONS, RadioRow,
-  SOURCE_LABEL, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS, nowLocal,
+  CHECK_METHOD_OPTIONS, COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeInput, MemberSelect, PersonInput, RESULT_OPTIONS, RadioRow,
+  SOURCE_LABEL, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS,
 } from './reproductionFields'
 
 export type RevisedRecord = { kind: 'event'; event: ReproductionEvent } | { kind: 'calving'; calving: CalvingRecord }
@@ -217,7 +217,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
   const control = (row: Row): ReactNode => {
     const value = get(row.key)
     const common = { 'aria-label': row.label, disabled: row.disabled }
-    if (row.control === 'datetime') return <input {...common} type="datetime-local" max={nowLocal()} className={inputCls} value={value} onChange={(event) => set(row.key, event.target.value)} />
+    if (row.control === 'datetime') return <DateTimeInput label={row.label} value={value} onChange={(next) => set(row.key, next)} />
     if (row.control === 'textarea') return <Textarea {...common} rows={2} maxLength={1000} value={value} onChange={(event) => set(row.key, event.target.value)} />
     if (row.control === 'number') return <input {...common} type="number" min="1" max="80" step="0.1" className={inputCls} value={value} onChange={(event) => set(row.key, event.target.value)} />
     if (row.control === 'member') return <MemberSelect label={row.label} value={value} onChange={(next) => set(row.key, next)} />

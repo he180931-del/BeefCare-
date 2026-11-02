@@ -113,7 +113,7 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
   const invalid = (message?: string) => (message ? 'border-err-fg' : '')
 
   return (
-    <Layout title="Ghi sự kiện đẻ" user={role === 'OWNER' ? 'owner' : 'manager'}>
+    <Layout title="Hồ sơ bò › Ghi sự kiện đẻ" user={role === 'OWNER' ? 'owner' : 'manager'}>
       <div className="flex flex-col gap-4 leading-[normal]">
         <PageHeader title="Ghi sự kiện đẻ" sub={subtitle} badge={backendMode === 'backend' ? <Badge tone="warn">Chưa nối backend</Badge> : undefined}>
           <Link className={backLink} to={back}><Icon name="arrow-left" size={16} />Quay lại hồ sơ</Link>

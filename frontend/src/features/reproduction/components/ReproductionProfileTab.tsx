@@ -63,11 +63,9 @@ function StatusCard({ profile, canManage, onAction }: { profile: ReproductionFem
   const dash = (value: number | null, unit: string) => (value == null ? '—' : `${value} ${unit}`)
   return (
     <Card
-      title="Trạng thái sinh sản"
+      title={<span className="flex flex-wrap items-center gap-2.5">Trạng thái sinh sản<StatusBadge profile={profile} />{profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn phối</Badge>}</span>}
       actions={
         <div className="flex flex-wrap items-center justify-end gap-2.5">
-          <StatusBadge profile={profile} />
-          {profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn phối</Badge>}
           {shown.map((action) => (
             <Button key={action} variant={action === primary ? 'primary' : 'default'} onClick={() => onAction(action)}><Icon name={ACTION_ICON[action]} size={16} />{ACTION_LABEL[action]}</Button>
           ))}

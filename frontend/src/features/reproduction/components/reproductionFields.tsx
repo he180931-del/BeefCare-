@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
+import { Icon } from '../../../components/Icon'
 import { Field, Radio, Select, inputCls } from '../../../components/ui'
 import { REPRODUCTION_EXTERNAL_PEOPLE, REPRODUCTION_MEMBERS } from '../data/reproductionMock'
 import type { DataSource } from '../types'
@@ -31,10 +32,30 @@ export function ReadOnlyField({ label, value, hint }: { label: string; value: st
   )
 }
 
-export function DateTimeField({ label, value, onChange, hint, max = nowLocal() }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string }) {
+const formatLocal = (value: string) => (value ? `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)} ${value.slice(11, 16)}` : 'dd/mm/yyyy hh:mm')
+
+/** Shows "dd/mm/yyyy hh:mm" with the calendar icon like the frames; the native picker sits invisibly on top. */
+export function DateTimeInput({ label, value, onChange, max = nowLocal(), disabled, id }: { label: string; value: string; onChange: (value: string) => void; max?: string; disabled?: boolean; id?: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  return (
+    <div className="relative">
+      <div className={`${inputCls} flex items-center gap-1.5 ${disabled ? 'opacity-60' : ''}`}>
+        <span className="min-w-0 flex-1 whitespace-nowrap">{formatLocal(value)}</span>
+        <Icon name="calendar-event" className="text-muted" />
+      </div>
+      <input
+        ref={ref} id={id} aria-label={label} type="datetime-local" disabled={disabled} value={value} max={max}
+        onChange={(event) => onChange(event.target.value)} onClick={() => ref.current?.showPicker?.()}
+        className="absolute inset-0 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+      />
+    </div>
+  )
+}
+
+export function DateTimeField({ label, value, onChange, hint, max }: { label: string; value: string; onChange: (value: string) => void; hint?: ReactNode; max?: string }) {
   return (
     <Field label={label} id={`dt-${plain(label)}`} hint={hint}>
-      <input id={`dt-${plain(label)}`} aria-label={plain(label)} type="datetime-local" className={inputCls} value={value} max={max} onChange={(event) => onChange(event.target.value)} />
+      <DateTimeInput id={`dt-${plain(label)}`} label={plain(label)} value={value} onChange={onChange} max={max} />
     </Field>
   )
 }
@@ -42,7 +63,7 @@ export function DateTimeField({ label, value, onChange, hint, max = nowLocal() }
 /** A row of radio options; `name` groups them. */
 export function RadioRow({ name, value, options, onChange, disabled }: { name: string; value: string; options: Array<[string, string]>; onChange: (value: string) => void; disabled?: boolean }) {
   return (
-    <div role="radiogroup" aria-label={name} className="flex min-h-[44px] flex-wrap items-center gap-x-5 gap-y-2">
+    <div role="radiogroup" aria-label={name} className="flex min-h-5 flex-wrap items-center gap-x-5 gap-y-2 py-0.5">
       {options.map(([optionValue, label]) => (
         <Radio key={optionValue} name={`${name}-${disabled ? 'off' : 'on'}`} checked={value === optionValue} onChange={() => !disabled && onChange(optionValue)} className="text-[13px]">{label}</Radio>
       ))}
