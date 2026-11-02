@@ -13,7 +13,7 @@ const NAV_COMMON = [
   { label: 'ĐÀN BÒ', items: [item('Đàn bò', '/cattle', 'zebu-silhouette'), item('Nhập đàn', '/herd-entry', 'file-import'), item('Chuồng trại', '/pens', 'fence'), item('Xuất đàn', '/herd-exit', 'file-export')] },
   {
     label: 'CHĂM SÓC',
-    items: [item('Tăng trưởng & thể vóc', '/can-nang', 'scale'), item('Tiêm phòng', '/tiem-phong', 'vaccine'), item('Sức khỏe & Điều trị', '/suc-khoe', 'stethoscope'), item('Sinh sản', '/sinh-san', 'dna'), item('Thức ăn', '/thuc-an', 'grain')],
+    items: [item('Cân nặng & thể trạng', '/can-nang', 'scale'), item('Tiêm phòng', '/tiem-phong', 'vaccine'), item('Sức khỏe & Điều trị', '/suc-khoe', 'stethoscope'), item('Sinh sản', '/sinh-san', 'dna'), item('Thức ăn', '/thuc-an', 'grain')],
   },
   { label: 'QUẢN TRỊ', items: [item('Báo cáo', '/bao-cao', 'report-analytics'), item('Danh mục & Tham số', '/danh-muc', 'adjustments')] },
 ]

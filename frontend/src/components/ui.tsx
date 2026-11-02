@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { isValidElement, useLayoutEffect, useRef, type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { Link } from 'react-router-dom'
 import type { DocumentRow, Payment } from '../types'
 import { Icon, type IconName } from './Icon'
@@ -199,7 +199,7 @@ export function Info({ items, cols = 3 }: { items: Array<ReadonlyArray<unknown>>
       {items.map(([k, v, warn]) => (
         <div key={String(k)}>
           <dt className="mb-[3px] text-[11px] text-faint">{String(k)}</dt>
-          <dd className={cx('m-0 text-[13px]', warn ? 'font-semibold text-warn-fg' : 'font-medium')}>{typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '')}</dd>
+          <dd className={cx('m-0 text-[13px]', warn ? 'font-semibold text-warn-fg' : 'font-medium')}>{isValidElement(v) ? v : typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '')}</dd>
         </div>
       ))}
     </dl>

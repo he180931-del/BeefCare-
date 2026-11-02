@@ -52,7 +52,7 @@ export default function CaseCard({ card, rows, canAdd, canEdit, onAction, onEdit
         <Meta label="Ngưng thịt đến">{fmtDate(card.withdrawalEndDate)}</Meta>
       </div>
       {canAdd && (
-        <div className="flex flex-wrap justify-end gap-2.5">
+        <div className="flex flex-wrap gap-2.5">
           <Button type="button" onClick={() => onAction('follow-up', card.caseCode)}><Icon name="eye" size={16} /> Ghi theo dõi</Button>
           <Button type="button" onClick={() => onAction('treatment', card.caseCode)}><Icon name="pill" size={16} /> Ghi điều trị</Button>
           <Button type="button" variant="primary" onClick={() => onAction('update-status', card.caseCode)}><Icon name="edit" size={16} /> Cập nhật trạng thái</Button>
