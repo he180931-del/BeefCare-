@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import readXlsxFile from 'read-excel-file'
+import { Icon } from '../../../components/Icon'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Button, Table, Td, Th, Note } from '../../../components/ui'
 import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../data/entryExcel'
@@ -155,15 +156,15 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
   }
 
   return (
-    <Modal top={24} width={840} maxHeight="calc(100vh - 3rem)" title="Nhập danh sách bò từ Excel" sub={`Thêm nhiều con vào phiếu ${recordId} · chỉ dòng hợp lệ được thêm`} onClose={onClose}>
+    <Modal top={24} width={760} maxHeight="calc(100vh - 3rem)" title="Nhập danh sách bò từ Excel" sub={`Thêm nhiều con vào phiếu ${recordId} · chỉ dòng hợp lệ được thêm`} onClose={onClose}>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="m-0 text-[13px] font-semibold">1. Tải file mẫu</h3>
-          {onDownloadTemplate ? <Button small disabled={loading} onClick={downloadTemplate}>Tải mẫu .xlsx</Button> : <a
+          {onDownloadTemplate ? <Button small disabled={loading} onClick={downloadTemplate}><Icon name="download" />Tải mẫu .xlsx</Button> : <a
             href="/templates/beefcare-herd-entry-template.xlsx"
             download
-            className="whitespace-nowrap rounded border border-edge bg-white px-4 py-[9px] text-xs font-semibold text-[#212121]"
-          >Tải mẫu .xlsx</a>}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded border border-edge bg-white px-4 py-[9px] text-xs font-semibold text-[#212121]"
+          ><Icon name="download" />Tải mẫu .xlsx</a>}
           <span className="max-w-[380px] text-[11px] text-muted">Cột: Số thẻ tai · Giống · Giới tính · Ngày sinh · Độ chính xác · Cân · Cơ sở cân · Chuồng · Mục đích · Đơn giá</span>
         </div>
       </div>
@@ -212,7 +213,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
                 <Td className={TH}>{`${r.breed} · ${r.sex}`}</Td>
                 <Td className={`${TH} whitespace-nowrap`}>{kg(r.kg)}</Td>
                 <Td className={`${TH} whitespace-nowrap`}>{IMPORT_BARN_NAME[r.barn]}</Td>
-                <Td className={TH}><Badge tone={r.result.tone}>{r.result.text}</Badge></Td>
+                <Td className={TH}><Badge tone={r.result.tone} icon={r.result.tone === 'ok' ? 'circle-check' : undefined}>{r.result.text}</Badge></Td>
               </tr>
             ))}
           </tbody>
@@ -230,7 +231,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
 
       <ModalFooter>
         <ModalButton disabled={loading} onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={!valid.length || loading} onClick={add}>{`Thêm ${valid.length} con vào phiếu`}</ModalButton>
+        <ModalButton variant="primary" disabled={!valid.length || loading} onClick={add}><Icon name="circle-plus" />{`Thêm ${valid.length} con vào phiếu`}</ModalButton>
       </ModalFooter>
     </Modal>
   )
