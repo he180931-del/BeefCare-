@@ -34,14 +34,14 @@ export function fmtDate(d: string | null | undefined) {
 }
 export function fmtDateTime(iso: string | null | undefined) {
   if (!iso) return '—'
-  return `${iso.slice(11, 16)} ${fmtDate(iso)}`
+  return `${fmtDate(iso)} ${iso.slice(11, 16)}`
 }
 export function fmtShort(iso: string) {
   return `${iso.slice(11, 16)} ${fmtDate(iso).slice(0, 5)}`
 }
 export function fmtSeconds(iso: string | null | undefined) {
   if (!iso) return '—'
-  return `${iso.slice(11, 19)} ${fmtDate(iso)}`
+  return `${fmtDate(iso)} ${iso.slice(11, 19)}`
 }
 export function fmtMoney(n: number) {
   return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')

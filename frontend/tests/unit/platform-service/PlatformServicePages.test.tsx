@@ -57,7 +57,7 @@ describe('SCR-61 gói đăng ký', () => {
     await user.click(screen.getByRole('button', { name: /Trại bò Yên Bài/ }))
     await user.click(await screen.findByRole('button', { name: 'Kỳ hiện tại / tương lai' }))
     expect(await screen.findByText('Các kỳ đã mua của Yên Bài')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('BCA9X2M1 · 09:31 10/11/2025')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('BCA9X2M1 · 10/11/2025 09:31')).toBeInTheDocument()
   })
 })
 

@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Info, Note, Radio } from '../../../components/ui'
 import type { Evidence, PlatformPayment, ReviewDecision } from '../types'
-import { fmtDateTime, fmtMoney, fmtSeconds } from '../domain/dates'
+import { fmtMoney, fmtSeconds, fmtShort } from '../domain/dates'
 import { evidenceCode, evidenceStatusLabel } from '../domain/reconciliation'
 import { ReasonField } from './common'
 
@@ -35,7 +35,7 @@ export default function EvidencePanel({ ev, cand, decision, setDecision, reason,
         ['Tài khoản nhận', `${ev.receivingAccount} ✓`],
         ['Ngân hàng ghi nhận', fmtSeconds(ev.bankPaidAt)],
         ['Nội dung CK', ev.content],
-        ['Ứng viên khớp', cand ? `${cand.code} · ${fmtMoney(cand.amount)} · hạn ${fmtDateTime(cand.expiresAt).slice(0, 5)} ${fmtDateTime(cand.expiresAt).slice(6, 11)}` : 'Chưa có ứng viên'],
+        ['Ứng viên khớp', cand ? `${cand.code} · ${fmtMoney(cand.amount)} · hạn ${fmtShort(cand.expiresAt)}` : 'Chưa có ứng viên'],
       ]} />
       <fieldset className="mt-3" disabled={disabled}>
         <legend className="mb-1 text-[12px] font-medium text-ink">Quyết định *</legend>

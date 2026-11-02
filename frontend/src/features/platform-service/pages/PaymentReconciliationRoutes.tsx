@@ -127,8 +127,8 @@ export default function PaymentReconciliationRoutes() {
                   <tbody>
                     {list.data.map((e) => (
                       <tr key={e.id} aria-selected={e.id === selectedId} className={`cursor-pointer ${e.id === selectedId ? 'bg-[#eef4ef]' : ''}`} onClick={() => select(e.id)}>
-                        <Td><button type="button" className="font-semibold text-brand" onClick={() => select(e.id)}>{maskTransaction(e.transactionId)}</button></Td>
-                        <Td>{fmtMoney(e.amount)}</Td>
+                        <Td><button type="button" className="whitespace-nowrap font-semibold text-brand" onClick={() => select(e.id)}>{maskTransaction(e.transactionId)}</button></Td>
+                        <Td><span className="whitespace-nowrap">{fmtMoney(e.amount)}</span></Td>
                         <Td>{e.content}</Td>
                         <Td>{fmtShort(e.bankPaidAt)}</Td>
                         <Td><Badge tone={MATCH_TONE[e.matchResult]}>{MATCH_LABEL[e.matchResult]}</Badge></Td>

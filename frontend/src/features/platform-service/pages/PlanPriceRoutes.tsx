@@ -8,7 +8,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { platformServiceApi } from '../api/platformServiceApi'
 import { ReadField, ReasonField, useAction, usePmAccess } from '../components/common'
 import type { PriceDraft, PriceStatus, PriceVersionView, PublishPriceCommand } from '../types'
-import { fmtDateTime, fmtMoney, vnNow } from '../domain/dates'
+import { fmtDate, fmtDateTime, fmtMoney, vnNow } from '../domain/dates'
 import { PAST_ERROR, PRICE_ERROR, parseVnd, validPrice, validateEffective } from '../domain/pricing'
 import { validateReason } from '../domain/servicePeriods'
 
@@ -218,7 +218,7 @@ export default function PlanPriceRoutes() {
                 <span className="text-[14px] font-bold text-brand">v{v.version}</span>
                 <div className="min-w-0 flex-1">
                   <div className="text-[12px] font-medium text-ink">{summary(v)}</div>
-                  <div className="text-[11px] text-muted">Hiệu lực {fmtDateTime(v.effectiveAt).slice(6)}</div>
+                  <div className="text-[11px] text-muted">Hiệu lực {fmtDate(v.effectiveAt)}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <Badge tone={STATUS[v.status].tone}>{STATUS[v.status].label}</Badge>
