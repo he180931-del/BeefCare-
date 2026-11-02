@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock --host 127.0.0.1 --port 5174",
     "build": "vite build",
     "test": "npm run test:api && npm run test:unit:run && npm run test:integration",
     "test:api": "node --import tsx --test tests/api/*.test.ts",

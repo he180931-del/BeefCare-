@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BackendError } from '../../../api/backendClient'
 import { userFacingError } from '../../../api/userFacingError'
+import { DEMO_USERS } from '../demoUsers'
 import type { AuthClient, PasswordResetValidation, RegistrationRequest } from '../types'
 import { isValidEmail, normalizeEmail, validateRegistration, validateReset, validateSignIn } from '../validation'
 import { Alert, AuthShell, Brand, Form, FormField, primaryButtonClass, secondaryButtonClass } from '../components/AuthShell'
@@ -132,6 +133,16 @@ function SignInPage({ client, onAuthenticated, initialError }: { client: AuthCli
           </div>
           <button type="submit" disabled={submitting} className={primaryButtonClass}>{submitting ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>
         </Form>
+        {client.mode === 'mock' && (
+          <div className="rounded-lg bg-page p-3 text-xs text-subtle">
+            <p className="m-0 mb-2 font-semibold text-ink">Tài khoản mock theo vai trò</p>
+            <div className="flex flex-wrap gap-1.5">
+              {DEMO_USERS.map((user) => (
+                <button key={user.email} type="button" title={user.email} onClick={() => { setEmail(user.email); setPassword('mock-demo') }} className="cursor-pointer rounded-md border border-field bg-white px-2 py-1 font-medium text-brand-dark">{user.label}</button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AuthShell>
   )

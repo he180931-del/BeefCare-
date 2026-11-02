@@ -8,3 +8,5 @@ export { REPRODUCTION_DEMO } from './data/reproductionMock'
 export { createReproductionDemoStore, reproductionDemoStore } from './data/reproductionDemoStore'
 export * from './types'
 
+export const loadTechnicianReproductionPage = () => import('./pages/TechnicianReproductionPage')
+export { default as ReproductionTechnicianTab } from './components/ReproductionTechnicianTab'

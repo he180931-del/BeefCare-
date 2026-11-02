@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { Link } from 'react-router-dom'
 import type { DocumentRow, Payment } from '../types'
+import { Icon, type IconName } from './Icon'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 
@@ -44,11 +46,12 @@ const BADGE_TONE = {
   outline: 'border-edge bg-white text-[#212121]',
 }
 
-/** tone: ok | err | warn | info | outline | (mặc định xám). Chữ 10px, bo 10px. */
+/** tone: ok | err | warn | info | outline | (mặc định xám). Chữ 10px, bo 10px. `icon`: icon 12px đứng trước chữ như Figma. */
 export type BadgeTone = 'ok' | 'err' | 'warn' | 'info' | 'outline'
-export function Badge({ tone, className, children }: { tone?: BadgeTone; className?: string; children?: ReactNode }) {
+export function Badge({ tone, icon, className, children }: { tone?: BadgeTone; icon?: IconName; className?: string; children?: ReactNode }) {
   return (
-    <span className={cx('inline-block whitespace-nowrap rounded-[10px] border px-2 py-[3px] text-[10px] font-medium', tone ? BADGE_TONE[tone] : undefined, tone ? undefined : 'border-edge bg-chip text-[#212121]', className)}>
+    <span className={cx('whitespace-nowrap rounded-[10px] border px-2 py-[3px] text-[10px] font-medium', icon ? 'inline-flex items-center gap-1' : 'inline-block', tone ? BADGE_TONE[tone] : undefined, tone ? undefined : 'border-edge bg-chip text-[#212121]', className)}>
+      {icon && <Icon name={icon} size={12} />}
       {children}
     </span>
   )
@@ -102,6 +105,71 @@ export function Tile({ label, value, note, warn }: { label: ReactNode; value: Re
       <span className="text-xs text-muted">{label}</span>
       <span className={cx('text-xl font-bold', warn && 'text-warn-fg')}>{value}</span>
       <span className="text-[11px] font-semibold text-brand">{note}</span>
+    </div>
+  )
+}
+
+/**
+ * Thẻ chỉ số của Redesign (Tổng quan, Hàng đợi...). `dot`: mã màu chấm trước nhãn; `compact`: số 20px thay vì 28px;
+ * `sub`: dòng phụ xám; `link`: liên kết cuối thẻ.
+ */
+export function Metric({ label, value, note, sub, dot, compact, warn, link }: { label: ReactNode; value: ReactNode; note?: ReactNode; sub?: ReactNode; dot?: string; compact?: boolean; warn?: boolean; link?: { label: ReactNode; to: string } }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-md border border-edge bg-white px-[18px] py-4">
+      <div className="flex items-center gap-2 text-xs text-[#66756b]">
+        {dot && <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />}
+        {label}
+      </div>
+      <div className={cx('font-bold', compact ? 'text-xl leading-[25px]' : 'text-[28px] leading-[35px]', warn ? 'text-warn-fg' : 'text-[#173629]')}>{value}</div>
+      {sub && <div className="text-[11px] text-[#66756b]">{sub}</div>}
+      {note && <div className="text-[11px] font-bold text-[#08734f]">{note}</div>}
+      {link && <Link to={link.to} className="text-[11px] font-bold text-[#08734f] no-underline hover:underline">{link.label}</Link>}
+    </div>
+  )
+}
+
+/** Phân trang "‹ 1 2 3 … 36 ›" dưới bảng. `summary`: dòng "Hiển thị 1–7 trong 248". */
+export function Pagination({ page, pageCount, onChange, summary }: { page: number; pageCount: number; onChange: (page: number) => void; summary?: ReactNode }) {
+  const shown = [...new Set([1, page - 1, page, page + 1, pageCount])].filter((value) => value >= 1 && value <= pageCount).sort((a, b) => a - b)
+  const arrow = 'grid cursor-pointer place-items-center disabled:cursor-not-allowed disabled:opacity-40'
+  return (
+    <nav aria-label="Phân trang" className="flex flex-wrap items-center gap-3 text-[11px] text-muted">
+      {summary && <span>{summary}</span>}
+      <span className="flex-1" />
+      <div className="flex items-center gap-2 text-xs font-medium text-brand">
+        <button type="button" aria-label="Trang trước" disabled={page <= 1} onClick={() => onChange(page - 1)} className={arrow}><Icon name="chevron-left" size={14} /></button>
+        {shown.map((value, index) => (
+          <span key={value} className="flex items-center gap-2">
+            {index > 0 && value - shown[index - 1] > 1 && <span aria-hidden="true" className="text-muted">…</span>}
+            <button type="button" aria-current={value === page ? 'page' : undefined} onClick={() => onChange(value)} className={cx('cursor-pointer', value === page ? 'font-bold text-ink' : '')}>{value}</button>
+          </span>
+        ))}
+        <button type="button" aria-label="Trang sau" disabled={page >= pageCount} onClick={() => onChange(page + 1)} className={arrow}><Icon name="chevron-right" size={14} /></button>
+      </div>
+    </nav>
+  )
+}
+
+export const LoadingBlock = ({ children = 'Đang tải…' }: { children?: ReactNode }) => (
+  <div role="status" className="rounded-md border border-edge bg-white py-10 text-center text-sm text-muted">{children}</div>
+)
+
+export function EmptyBlock({ title, sub, action }: { title: ReactNode; sub?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-md border border-edge bg-white px-4 py-10 text-center">
+      <p className="m-0 text-sm font-semibold text-ink">{title}</p>
+      {sub && <p className="m-0 max-w-[520px] text-xs text-muted">{sub}</p>}
+      {action}
+    </div>
+  )
+}
+
+export function ErrorBlock({ message, onRetry }: { message: ReactNode; onRetry?: () => void }) {
+  return (
+    <div role="alert" className="flex flex-col items-center gap-3 rounded-md border border-edge bg-white px-4 py-10 text-center">
+      <Icon name="alert-triangle" size={24} className="text-err-fg" />
+      <p className="m-0 max-w-[520px] text-sm text-err-fg">{message}</p>
+      {onRetry && <Button onClick={onRetry}>Thử lại</Button>}
     </div>
   )
 }
@@ -271,17 +339,37 @@ export function PageHeader({ title, sub, badge, children }: { title: ReactNode; 
 
 // ---------- Ô nhập liệu theo Figma (cao 44px, bo 12, viền #dce6de, chữ 14px) ----------
 
-/** <select> có mũi tên ▾ nhỏ như Figma. Dùng thay <select className={inputCls}>. */
+/** <select> có mũi tên như Figma. Dùng thay <select className={inputCls}>. */
 export function Select({ className, children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <div className={cx('relative', className)}>
-      <select className={cx(inputCls, 'cursor-pointer appearance-none pr-7')} {...p}>{children}</select>
-      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted">▾</span>
+      <select className={cx(inputCls, 'cursor-pointer appearance-none pr-8')} {...p}>{children}</select>
+      <Icon name="chevron-down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
     </div>
   )
 }
 
-/** Ô ngày: hiện dd/mm/yyyy + ▾ (như Figma), bấm mở bộ chọn ngày. value/onChange dạng 'yyyy-mm-dd'. */
+/** Ô lọc đầu bảng của Redesign (cao 38px, bo 6, viền xám, chữ 12px). */
+export function FilterSelect({ className, children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className={cx('relative inline-block max-w-full', className)}>
+      <select className="h-[38px] w-full cursor-pointer appearance-none rounded-md border border-edge bg-white pl-[15px] pr-8 text-xs text-[#173629] outline-none focus:border-brand" {...p}>{children}</select>
+      <Icon name="chevron-down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#66756b]" />
+    </div>
+  )
+}
+
+/** Ô tìm kiếm trong trang, có icon kính lúp. */
+export function SearchInput({ className, ...p }: InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className={cx('relative', className)}>
+      <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+      <input type="search" className={cx(inputCls, 'pl-9')} {...p} />
+    </div>
+  )
+}
+
+/** Ô ngày: hiện dd/mm/yyyy + icon lịch (như Figma), bấm mở bộ chọn ngày. value/onChange dạng 'yyyy-mm-dd'. */
 export function DateInput({ value, onChange, className, readOnly, id }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean; id?: string }) {
   const ref = useRef<HTMLInputElement>(null)
   const [y, m, d] = value ? value.split('-') : []
@@ -289,7 +377,7 @@ export function DateInput({ value, onChange, className, readOnly, id }: { value:
     <div className={cx('relative', className)}>
       <div className={cx(inputCls, 'flex items-center gap-1.5')}>
         <span className="min-w-0 flex-1">{value ? `${d}/${m}/${y}` : 'dd/mm/yyyy'}</span>
-        <span className="text-[10px] text-muted">▾</span>
+        <Icon name="calendar-event" className="text-muted" />
       </div>
       {!readOnly && (
         <input

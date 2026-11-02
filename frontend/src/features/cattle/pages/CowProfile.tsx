@@ -17,6 +17,9 @@ import RecordEditModal from '../components/RecordEditModal'
 import { Panel } from '../components/parts'
 import type { ReactNode } from 'react'
 import { ReproductionProfileTab } from '../../reproduction'
+import { GrowthProfileTab } from '../../growth'
+import { VaccinationProfileTab } from '../../vaccination'
+import { HealthProfileTab } from '../../health'
 
 export default function CowProfile() {
   const { code } = useParams()
@@ -42,6 +45,9 @@ export default function CowProfile() {
       timeline: <TimelineTab cow={cow} />,
       barns: <BarnsTab cow={cow} barns={barns} onOpenModal={openModal} />,
       qr: <QrTab cow={cow} onOpenModal={openModal} />,
+      growth: <GrowthProfileTab cattleCode={cow.code} />,
+      vaccine: <VaccinationProfileTab cattleCode={cow.code} />,
+      health: <HealthProfileTab cattleCode={cow.code} />,
       repro: <ReproductionProfileTab cattleCode={cow.code} />,
     }
     content = (

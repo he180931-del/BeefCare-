@@ -1,4 +1,5 @@
 import { createBackendClient } from '../../api/backendClient'
+import { readMockUserEmail, writeMockUserEmail } from './demoUsers'
 import type { AuthClient, RegistrationRequest } from './types'
 
 export function createBackendAuthClient(): AuthClient {
@@ -20,17 +21,16 @@ export function createBackendAuthClient(): AuthClient {
   }
 }
 
-/** Explicit local-only client. State exists only in this closure and the current page memory. */
+/** Explicit local-only client. Only the chosen demo email is kept, in sessionStorage, so a reload stays signed in. */
 export function createMockAuthClient(): AuthClient {
-  let authenticated = false
   return {
     mode: 'mock',
-    isAuthenticated: async () => authenticated,
+    isAuthenticated: async () => Boolean(readMockUserEmail()),
     login: async (email, password) => {
       if (!email || !password) throw new Error('Email hoặc mật khẩu không đúng.')
-      authenticated = true
+      writeMockUserEmail(email)
     },
-    logout: async () => { authenticated = false },
+    logout: async () => { writeMockUserEmail(null) },
     register: async () => undefined,
     resendVerification: async () => undefined,
     requestPasswordReset: async () => undefined,
