@@ -45,7 +45,7 @@ describe('SCR-77 route', () => {
 
     await screen.findByRole('heading', { name: 'Quản lý thức ăn' })
     await user.click(screen.getByRole('tab', { name: 'Phiếu nhập kho' }))
-    expect(await screen.findByRole('heading', { name: 'Phiếu nhập kho thức ăn' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Phiếu nhập kho' })).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Tồn kho' }))
     expect(await screen.findByRole('heading', { name: 'Quản lý thức ăn' })).toBeInTheDocument()
   })
@@ -57,7 +57,7 @@ describe('SCR-77 route', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('heading', { name: 'Phiếu nhập kho thức ăn' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Phiếu nhập kho' })).toBeInTheDocument()
   })
 
   it('opens the feed catalogue from the enabled management tab and direct route', async () => {
@@ -69,12 +69,12 @@ describe('SCR-77 route', () => {
     )
     await screen.findByRole('heading', { name: 'Quản lý thức ăn' })
     await user.click(screen.getByRole('tab', { name: /Danh mục/ }))
-    expect(await screen.findByRole('heading', { name: 'Danh mục thức ăn & nhà cung cấp' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Danh mục thức ăn' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Danh mục' })).toHaveAttribute('aria-selected', 'true')
 
     unmount()
     render(<MemoryRouter initialEntries={['/thuc-an/danh-muc']}><App /></MemoryRouter>)
-    expect(await screen.findByRole('heading', { name: 'Danh mục thức ăn & nhà cung cấp' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Danh mục thức ăn' })).toBeInTheDocument()
   })
 
   it('opens new receipts from stock actions and carries the selected feed into the form', async () => {
@@ -87,7 +87,7 @@ describe('SCR-77 route', () => {
 
     await screen.findByRole('table')
     await user.click(screen.getByRole('button', { name: 'Nhập kho Cỏ voi' }))
-    expect(await screen.findByRole('heading', { name: 'Tạo phiếu nhập kho thức ăn' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Phiếu nhập kho mới' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Thức ăn dòng 1' })).toHaveValue('101')
   })
 })

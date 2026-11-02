@@ -12,9 +12,11 @@ export type FeedCatalogueItem = {
   nutritionNote: string
   available: boolean
   version: number
+  /** FeedItemView.averageUnitCost: weighted average cost per kg, when the source provides it. */
+  averageUnitCost?: number | null
 }
 
-export type FeedCatalogueInput = Omit<FeedCatalogueItem, 'id' | 'stockUnit' | 'version'> & { id?: number }
+export type FeedCatalogueInput = Omit<FeedCatalogueItem, 'id' | 'stockUnit' | 'version' | 'averageUnitCost'> & { id?: number }
 
 export type FeedSupplier = {
   id: number

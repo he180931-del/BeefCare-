@@ -1,6 +1,7 @@
 import { FEED_UNIT_COST } from './feedCatalogueMock'
 import { FEED_DEMO_PENS } from './feedPenMock'
-import { isoAt, today } from './feedDemoDates'
+import { daysFromToday, isoAt, today } from './feedDemoDates'
+import { FEED_RATION_MOCK } from './feedRationMock'
 import type { FeedFeedingLine, FeedFeedingRecord } from '../types/feedFeeding'
 
 // Today's sessions as drawn in the Nhật ký cho ăn frame: 8 of 10 sessions recorded, 1.010,5 kg actual.
@@ -44,4 +45,42 @@ export function buildFeedFeedingSeed(): FeedFeedingRecord[] {
     record(4, 2, '16:40', 'KP-02', 1, 'Trần Quốc Long', [line(104, 230, 233), line(106, 23, 23)]),
     record(5, 1, '06:50', 'KP-03', 1, 'Trần Quốc Long', [line(101, 30, 30), line(105, 5, 5), line(107, 0.3, 0)]),
   ]
+}
+
+// Feeding history of the 21 days before today so the consumption report has a period to summarise.
+// Each pen is fed 2 sessions a day at a fixed share of the plan (Bò cái 96 %, bê 88 % and no milk replacer
+// from 7 days ago, matching the "hết kho" note of the report frame).
+const HISTORY_SHARE: Record<number, number> = { 1: 0.96, 2: 0.96, 3: 0.88, 4: 1, 5: 1 }
+const HISTORY_PENS = [1, 2, 3, 4, 5]
+let historyId = 5000
+
+export function buildFeedFeedingHistory(): FeedFeedingRecord[] {
+  const rows: FeedFeedingRecord[] = []
+  for (let day = 21; day >= 1; day -= 1) {
+    const date = daysFromToday(-day)
+    for (const penId of HISTORY_PENS) {
+      const pen = FEED_DEMO_PENS.find((row) => row.id === penId)!
+      const ration = FEED_RATION_MOCK.filter((row) => row.penIds.includes(penId) && row.effectiveFrom <= date && (!row.effectiveTo || row.effectiveTo >= date))
+        .sort((left, right) => right.versionNo - left.versionNo)[0]
+      if (!ration) continue
+      for (const sessionNo of [1, 2]) {
+        const lines = ration.components.map((component) => {
+          const perHead = sessionNo === 1 ? component.session1Kg : component.session2Kg
+          const plannedKg = Math.round(perHead * pen.headcount * 10) / 10
+          const milkOut = component.feedItemId === 108 && day <= 7
+          const actualKg = milkOut ? 0 : Math.round(plannedKg * HISTORY_SHARE[penId] * 10) / 10
+          return line(component.feedItemId, plannedKg, actualKg)
+        }).filter((row) => row.plannedKg > 0)
+        const time = sessionNo === 1 ? '06:40' : '16:35'
+        const sum = (key: 'plannedKg' | 'actualKg') => Math.round(lines.reduce((total, row) => total + row[key], 0) * 10) / 10
+        rows.push({
+          id: ++historyId, penId, penCode: pen.code, penName: pen.name, feedingDate: date, sessionNo, time, headCount: pen.headcount,
+          rationCode: ration.rationCode, rationVersion: ration.versionNo, status: 'VALID', version: 0, fedBy: 'Trần Quốc Long',
+          recordedAt: `${date}T${time}:00`, leftoverKg: null, note: null, plannedTotalKg: sum('plannedKg'), actualTotalKg: sum('actualKg'),
+          lines, revisions: [], recordedBy: 'Trần Quốc Long',
+        })
+      }
+    }
+  }
+  return rows
 }

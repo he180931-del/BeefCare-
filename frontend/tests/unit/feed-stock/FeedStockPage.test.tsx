@@ -65,7 +65,7 @@ describe('SCR-77 Feed Stock page', () => {
     expect(screen.queryByRole('button', { name: 'Nhập kho Rơm khô' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Kiểm kê / điều chỉnh' }))
-    expect(await screen.findByRole('heading', { name: 'Tạo phiếu kiểm kê / điều chỉnh' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Phiếu điều chỉnh kho' })).toBeInTheDocument()
   })
 
   it('combines text, group, and status filters', async () => {

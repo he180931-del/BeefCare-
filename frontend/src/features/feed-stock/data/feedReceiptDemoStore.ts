@@ -2,7 +2,7 @@ import { createCollection, createCollectionSchema, type CollectionRow } from '..
 import { FEED_STOCK_MOCK } from './feedStockMock'
 import { FEED_RECEIPT_DEMO_EXTRAS, FEED_RECEIPT_MOCK } from './feedReceiptMock'
 import { FEED_CATALOGUE_MOCK } from './feedCatalogueMock'
-import { buildFeedFeedingSeed } from './feedFeedingMock'
+import { buildFeedFeedingHistory, buildFeedFeedingSeed } from './feedFeedingMock'
 import { buildMovementSeed } from './feedMovementSeed'
 import { daysFromToday } from './feedDemoDates'
 import { deriveFeedStockStatus } from '../domain/feedStockStatus'
@@ -152,6 +152,7 @@ function parseCatalogueItem(value: unknown): FeedCatalogueItem {
     nutritionNote: value.nutritionNote,
     available: value.available,
     version: value.version,
+    ...(isNumber(value.averageUnitCost) ? { averageUnitCost: value.averageUnitCost } : {}),
   }
 }
 
@@ -377,7 +378,7 @@ const initialReceipts: FeedReceiptDemoRecord[] = FEED_RECEIPT_MOCK.map((row) => 
   }
 })
 
-const initialCatalogue: FeedCatalogueItem[] = FEED_CATALOGUE_MOCK.map(({ unitCost: _unitCost, ...item }) => item)
+const initialCatalogue: FeedCatalogueItem[] = FEED_CATALOGUE_MOCK.map(({ unitCost, ...item }) => ({ ...item, averageUnitCost: unitCost }))
 const initialSuppliers: FeedSupplier[] = FEED_RECEIPT_DEMO_SUPPLIERS.map((supplier) => ({
   ...supplier, note: '', active: true, version: 0,
 }))
@@ -385,7 +386,8 @@ const initialStocks = FEED_STOCK_MOCK.map((row) => {
   const item = FEED_CATALOGUE_MOCK.find((entry) => entry.id === row.feedItemId)
   return { ...row, available: true, purchaseUnit: item?.purchaseUnit ?? 'kg', kgPerPurchaseUnit: item?.kgPerPurchaseUnit ?? 1 }
 }) as Array<FeedStockRow & CollectionRow>
-const initialFeedings = buildFeedFeedingSeed()
+const todayFeedings = buildFeedFeedingSeed()
+const initialFeedings = [...todayFeedings, ...buildFeedFeedingHistory()]
 
 const stateSchema = createCollectionSchema<FeedReceiptDemoState, 'id'>(
   'feed-receipt-state-demo-v2',
@@ -397,7 +399,7 @@ const states = createCollection('feedReceiptStateDemoV2', [{
   receipts: initialReceipts,
   adjustments: [],
   feedings: initialFeedings,
-  movements: buildMovementSeed(initialStocks, initialReceipts, initialFeedings),
+  movements: buildMovementSeed(initialStocks, initialReceipts, todayFeedings),
   stocks: initialStocks.map((row) => ({ ...row })),
   catalogue: initialCatalogue.map((row) => ({ ...row })),
   suppliers: initialSuppliers.map((row) => ({ ...row })),
@@ -666,6 +668,7 @@ async function saveCatalogueFeed(input: FeedCatalogueInput): Promise<FeedCatalog
       nutritionNote: input.nutritionNote.trim(),
       available: input.available,
       version: existing ? existing.version + 1 : 0,
+      ...(existing?.averageUnitCost != null ? { averageUnitCost: existing.averageUnitCost } : {}),
     }
     const stockIndex = state.stocks.findIndex((row) => row.feedItemId === id)
     const previous = stockIndex >= 0 ? state.stocks[stockIndex] : null

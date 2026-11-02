@@ -1,4 +1,4 @@
-import { asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRows, backendFarmId, backendMode, backendTransport, nullableNumber, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import type { FeedCatalogueDemoStore, FeedCatalogueInput, FeedCatalogueItem, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
 import { feedCatalogueDemoStore } from '../data/feedReceiptDemoStore'
 
@@ -18,6 +18,7 @@ function backendFeeds(value: unknown): FeedCatalogueItem[] {
     nutritionNote: '',
     available: row.available === true,
     version: numberValue(row.version),
+    averageUnitCost: nullableNumber(row.averageUnitCost),
   }))
 }
 
