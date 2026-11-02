@@ -20,13 +20,16 @@ export function Avatar({ name, system }: { name: string; system?: boolean }) {
   )
 }
 
-export function PersonCell({ name, sub, system }: { name: string; sub?: string; system?: boolean }) {
+export const ICON_BUTTON = 'inline-flex items-center justify-center gap-2'
+
+export function PersonCell({ name, sub, system, wrap }: { name: string; sub?: string; system?: boolean; wrap?: boolean }) {
+  const clip = wrap ? 'break-words' : 'truncate'
   return (
     <div className="flex min-w-0 items-center gap-2">
       <Avatar name={name} system={system} />
       <div className="min-w-0 text-left">
-        <div className="truncate text-xs font-medium text-ink">{name}</div>
-        {sub && <div className="truncate text-[11px] text-muted">{sub}</div>}
+        <div className={`${clip} text-xs font-medium text-ink`}>{name}</div>
+        {sub && <div className={`${clip} text-[11px] text-muted`}>{sub}</div>}
       </div>
     </div>
   )

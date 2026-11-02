@@ -9,7 +9,7 @@ import { useDemoState } from '../../../hooks/useDemoState'
 import { platformAdminApi } from '../api/platformAdminApi'
 import AccessDialog from '../components/AccessDialog'
 import PickAccountDialog from '../components/PickAccountDialog'
-import { AccessStatusBadge, PersonCell, SaPage, Toast, errorMessage, restPathId } from '../components/common'
+import { AccessStatusBadge, ICON_BUTTON, PersonCell, SaPage, Toast, errorMessage, restPathId } from '../components/common'
 import { ROLE_LABEL } from '../domain/platformRules'
 
 const TITLE = 'Quyền nhân sự nền tảng'
@@ -42,7 +42,7 @@ function StaffContent() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <PageHeader title={TITLE}>
-        <Button variant="primary" onClick={() => navigate('/nen-tang/quyen?m=access')}>
+        <Button variant="primary" className={ICON_BUTTON} onClick={() => navigate('/nen-tang/quyen?m=access')}>
           <Icon name="user-plus" size={16} />
           Cấp quyền nền tảng
         </Button>

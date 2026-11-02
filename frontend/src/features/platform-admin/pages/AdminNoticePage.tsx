@@ -6,7 +6,7 @@ import { Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHea
 import { useQuery } from '../../../hooks/useApi'
 import { useDemoState } from '../../../hooks/useDemoState'
 import { platformAdminApi } from '../api/platformAdminApi'
-import { SaPage, Toast, errorMessage } from '../components/common'
+import { ICON_BUTTON, SaPage, Toast, errorMessage } from '../components/common'
 import { formatNoticeTime, noticeActionLabel } from '../domain/platformRules'
 import type { NotificationView } from '../types'
 
@@ -50,7 +50,7 @@ function NoticeContent() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <PageHeader title={TITLE} sub="Chỉ yêu cầu nội bộ được CS giao đích danh cho bạn · mở thông báo sẽ kiểm tra lại quyền">
-        <Button onClick={markAll} disabled={unread === 0}>
+        <Button className={ICON_BUTTON} onClick={markAll} disabled={unread === 0}>
           <Icon name="checks" size={16} />
           Đánh dấu đã đọc tất cả
         </Button>

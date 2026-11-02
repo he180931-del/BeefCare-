@@ -6,7 +6,7 @@ import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, In
 import { useQuery } from '../../../hooks/useApi'
 import { useDemoState } from '../../../hooks/useDemoState'
 import { platformAdminApi } from '../api/platformAdminApi'
-import { PersonCell, SaPage, Toast, downloadTextFile, errorMessage, restPathId, searchWithoutModal } from '../components/common'
+import { ICON_BUTTON, PersonCell, SaPage, Toast, downloadTextFile, errorMessage, restPathId, searchWithoutModal } from '../components/common'
 import {
   AUDIT_ACTIONS, AUDIT_TARGET_TYPES, auditActionLabel, formatDateTime, formatShortDateTime, targetTypeLabel, validateAuditRange,
 } from '../domain/platformRules'
@@ -86,7 +86,7 @@ function AuditContent() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <PageHeader title={TITLE} sub="Chỉ siêu dữ liệu audit được phép xem – không hiển thị dữ liệu chăm sóc bò, nội dung ticket riêng tư hay chứng từ tài chính">
-        <Button onClick={exportCsv} disabled={!!rangeError}>
+        <Button className={ICON_BUTTON} onClick={exportCsv} disabled={!!rangeError}>
           <Icon name="table-export" size={16} />
           Xuất CSV
         </Button>

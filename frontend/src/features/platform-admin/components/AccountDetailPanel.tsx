@@ -6,7 +6,7 @@ import { Button, Card, Field, Info, Note, Textarea } from '../../../components/u
 import { REASON_MAX, formatDate, formatDateTime, validateReason, verificationText } from '../domain/platformRules'
 import type { AccountSummary } from '../types'
 import AccountStatusDialog from './AccountStatusDialog'
-import { AccountStatusBadge, PersonCell } from './common'
+import { AccountStatusBadge, ICON_BUTTON, PersonCell } from './common'
 
 export default function AccountDetailPanel({ account, onChanged, onReload }: {
   account: AccountSummary
@@ -31,9 +31,9 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
   return (
     <Card>
       <div className="flex min-w-0 flex-col gap-3.5">
-        <div className="flex items-center justify-between gap-2">
-          <PersonCell name={account.fullName} sub={`${account.email} · ${verificationText(account)}`} />
-          <AccountStatusBadge status={account.accountStatus} />
+        <div className="flex items-start justify-between gap-2">
+          <PersonCell wrap name={account.fullName} sub={`${account.email} · ${verificationText(account)}`} />
+          <span className="shrink-0"><AccountStatusBadge status={account.accountStatus} /></span>
         </div>
         <Info cols={2} items={[
           ['Tạo lúc', formatDateTime(account.createdAt)],
@@ -53,11 +53,11 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
           />
         </Field>
         {reasonError && <p role="alert" className="m-0 -mt-2 text-xs text-err-fg">{reasonError}</p>}
-        <Button variant={suspended ? 'primary' : 'danger'} block onClick={requestChange}>
+        <Button variant={suspended ? 'primary' : 'danger'} block className={ICON_BUTTON} onClick={requestChange}>
           <Icon name={suspended ? 'circle-check' : 'player-pause'} size={16} />
           {suspended ? 'Mở khóa tài khoản' : 'Tạm khóa tài khoản'}
         </Button>
-        <Button block onClick={() => navigate(`/nen-tang/quyen/${account.id}?m=access`)}>
+        <Button block className={ICON_BUTTON} onClick={() => navigate(`/nen-tang/quyen/${account.id}?m=access`)}>
           <Icon name="shield-lock" size={16} />
           Quyền nền tảng
         </Button>
