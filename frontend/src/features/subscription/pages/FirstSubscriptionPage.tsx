@@ -26,20 +26,43 @@ function Stepper() {
   )
 }
 
+const SIDE_STEPS = [
+  ['Hồ sơ chủ trại', 'Thông tin người chịu trách nhiệm'],
+  ['Thông tin trại', 'Địa chỉ và đặc điểm đàn'],
+  ['Dịch vụ', 'Chọn kỳ và xem giá'],
+]
+
+/** Khung thiết lập trại (panel xanh + thanh người dùng) như frame 2473:6931; panel ẩn khi màn hình hẹp. */
 function OnboardingShell({ children }: { children: ReactNode }) {
   const session = useSession()
   return (
-    <div className="min-h-screen bg-page">
-      <header className="flex h-[72px] items-center border-b border-rule bg-white px-6">
-        <div className="flex items-center gap-2.5">
-          <span className="grid size-8 place-items-center rounded-full bg-[#bdbdbd] text-white"><Icon name="user-circle" size={20} /></span>
-          <div className="leading-tight">
-            <div className="text-[13px] font-semibold text-ink">{session?.fullName ?? 'Nguyễn Văn Hùng'}</div>
-            <div className="text-[11px] text-muted">{session?.email ?? 'hung.nv@gmail.com'}</div>
+    <div className="flex min-h-screen bg-page">
+      <aside className="hidden w-[263px] shrink-0 flex-col gap-5 bg-[#0b563c] p-6 text-white lg:flex">
+        <div className="flex items-center gap-2.5 text-lg font-bold"><span className="size-6 rounded-md bg-[#08a15f]" aria-hidden /> BeefCare</div>
+        <div className="mt-4 text-[10px] font-semibold uppercase tracking-wide text-white/70">Thiết lập trại</div>
+        <h2 className="m-0 text-xl font-bold leading-snug">Mỗi trại một hồ sơ rõ ràng.</h2>
+        <p className="m-0 text-xs text-white/70">Thông tin, quyền truy cập và dịch vụ được quản lý riêng cho từng trại.</p>
+        <ol className="m-0 mt-6 flex list-none flex-col gap-2 p-0">
+          {SIDE_STEPS.map(([name, sub], i) => (
+            <li key={name} className={`flex items-center gap-3 rounded-lg px-3 py-3 ${i === 2 ? 'bg-white/10' : ''}`}>
+              <span className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${i === 2 ? 'bg-white text-[#0b563c]' : 'bg-white/20'}`}>{i + 1}</span>
+              <span><span className="block text-[13px] font-semibold">{name}</span><span className="block text-[11px] text-white/70">{sub}</span></span>
+            </li>
+          ))}
+        </ol>
+      </aside>
+      <div className="min-w-0 flex-1">
+        <header className="flex h-[72px] items-center justify-end border-b border-rule bg-white px-6">
+          <div className="flex items-center gap-2.5">
+            <span className="grid size-8 place-items-center rounded-full bg-[#bdbdbd] text-white"><Icon name="user-circle" size={20} /></span>
+            <div className="leading-tight">
+              <div className="text-[13px] font-semibold text-ink">{session?.fullName ?? 'Nguyễn Văn Hùng'}</div>
+              <div className="text-[11px] text-muted">{session?.email ?? 'hung.nv@gmail.com'}</div>
+            </div>
           </div>
-        </div>
-      </header>
-      <main className="mx-auto flex w-full max-w-[720px] flex-col gap-4 px-4 py-6">{children}</main>
+        </header>
+        <main className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-4 py-6">{children}</main>
+      </div>
     </div>
   )
 }
@@ -92,7 +115,7 @@ export default function FirstSubscriptionPage() {
             ]} />
           </Card>
           {saveError && <Note tone="err">{saveError}</Note>}
-          <div className="flex flex-wrap justify-between gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button size="lg" onClick={() => navigate('/chon-trai')}>Để sau</Button>
             <Button size="lg" variant="primary" className={ICON_BTN} disabled={!term || !price || saving} onClick={submit}>
               <Icon name="circle-plus" size={16} /> {saving ? 'Đang tạo yêu cầu…' : 'Tạo yêu cầu thanh toán'}

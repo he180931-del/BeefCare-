@@ -82,8 +82,8 @@ export default function HistoryPage() {
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} sub={farmName} />
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="w-full sm:w-[260px]"><SearchInput placeholder="Tìm mã thanh toán" aria-label="Tìm mã thanh toán" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-          <div className="w-full sm:w-[180px]">
+          <div className="w-full sm:w-[220px]"><SearchInput placeholder="Tìm mã thanh toán" aria-label="Tìm mã thanh toán" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <div className="w-full sm:w-[170px]">
             <FilterSelect aria-label="Trạng thái" value={state} onChange={(e) => setState(e.target.value as PaymentState | '')}>
               <option value="">Trạng thái: Tất cả</option>
               <option value="PENDING">Đang chờ</option>
@@ -91,8 +91,8 @@ export default function HistoryPage() {
               <option value="EXPIRED">Đã hết hạn</option>
             </FilterSelect>
           </div>
-          <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo từ <div className="w-[160px]"><DateInput id="from" value={from} onChange={setFrom} /></div></div>
-          <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo đến <div className="w-[160px]"><DateInput id="until" value={until} onChange={setUntil} /></div></div>
+          <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo từ <div className="w-[150px]"><DateInput id="from" value={from} onChange={setFrom} /></div></div>
+          <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo đến <div className="w-[150px]"><DateInput id="until" value={until} onChange={setUntil} /></div></div>
         </div>
         {id && detail.error ? <Note tone="err">{userFacingError(detail.error, 'Không tìm thấy thanh toán.')}</Note> : null}
         {list.loading && !list.data ? (
@@ -104,21 +104,21 @@ export default function HistoryPage() {
             <Table wide stack={phone} scroll={!phone}>
               <thead>
                 <tr>
-                  <Th>Mã</Th><Th>Thời hạn</Th><Th>Số tiền</Th>
-                  <Th><SortHead label="Tạo lúc" active={sort === 'requestedAt'} dir={dir} onClick={() => toggleSort('requestedAt')} /></Th>
-                  <Th><SortHead label="Hết hạn" active={sort === 'expiresAt'} dir={dir} onClick={() => toggleSort('expiresAt')} /></Th>
-                  <Th>Trạng thái</Th><Th>Xác nhận lúc · Kỳ</Th><Th>Thao tác</Th>
+                  <Th className="whitespace-nowrap">Mã</Th><Th className="whitespace-nowrap">Thời hạn</Th><Th className="whitespace-nowrap">Số tiền</Th>
+                  <Th className="whitespace-nowrap"><SortHead label="Tạo lúc" active={sort === 'requestedAt'} dir={dir} onClick={() => toggleSort('requestedAt')} /></Th>
+                  <Th className="whitespace-nowrap"><SortHead label="Hết hạn" active={sort === 'expiresAt'} dir={dir} onClick={() => toggleSort('expiresAt')} /></Th>
+                  <Th className="whitespace-nowrap">Trạng thái</Th><Th>Xác nhận lúc · Kỳ</Th><Th className="whitespace-nowrap">Thao tác</Th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.quoteRef}>
-                    <Td className="font-medium">{p.quoteRef}</Td>
-                    <Td>{termLabel(p.durationYears)}</Td>
-                    <Td>{fmtVnd(p.amountVnd)}</Td>
-                    <Td>{fmtDateTime(p.requestedAt)}</Td>
-                    <Td>{fmtDateTime(p.expiresAt)}</Td>
-                    <Td><PaymentBadge state={p.state} /></Td>
+                    <Td className="whitespace-nowrap font-medium">{p.quoteRef}</Td>
+                    <Td className="whitespace-nowrap">{termLabel(p.durationYears)}</Td>
+                    <Td className="whitespace-nowrap">{fmtVnd(p.amountVnd)}</Td>
+                    <Td className="whitespace-nowrap">{fmtDateTime(p.requestedAt)}</Td>
+                    <Td className="whitespace-nowrap">{fmtDateTime(p.expiresAt)}</Td>
+                    <Td className="whitespace-nowrap"><PaymentBadge state={p.state} /></Td>
                     <Td>{p.confirmedAt && p.purchasedStart && p.purchasedEnd ? `${fmtDateTime(p.confirmedAt)} · ${fmtPeriod(p.purchasedStart, p.purchasedEnd)}` : '—'}</Td>
                     <Td>
                       {p.state === 'PENDING'
