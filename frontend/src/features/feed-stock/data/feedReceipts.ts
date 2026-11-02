@@ -22,18 +22,33 @@ export function getDefaultFeedReceiptPeriod(today = new Date()) {
   return { from: iso(start), to: iso(end) }
 }
 
+const isoOf = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+/** Tiles of SCR-78: posted receipts of the last 30 days, what is still owed, and status counts for the tabs. */
 export function summarizeFeedReceipts(rows: readonly FeedReceipt[], today = new Date()) {
-  const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  const postedThisMonth = rows.filter((row) => row.status === 'POSTED' && row.receiptDate.startsWith(`${month}-`))
+  const to = isoOf(today)
+  const from = isoOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29))
+  const posted = rows.filter((row) => row.status === 'POSTED')
+  const recent = posted.filter((row) => row.receiptDate >= from && row.receiptDate <= to)
+  // Backend ReceiptView has no paid amount, so debt is only reported when every posted row carries it.
+  const debtKnown = posted.every((row) => row.amountPaid !== undefined)
+  const owing = debtKnown ? posted.filter((row) => row.totalPayable - (row.amountPaid ?? 0) > 0) : []
   return {
-    receivedKg: postedThisMonth.flatMap((row) => row.lines).reduce((total, line) => total + line.kgReceived, 0),
-    receiptCount: postedThisMonth.length,
-    totalPayable: postedThisMonth.reduce((total, row) => total + row.totalPayable, 0),
+    receivedKg: recent.flatMap((row) => row.lines).reduce((total, line) => total + line.kgReceived, 0),
+    receiptCount: recent.length,
+    totalPayable: recent.reduce((total, row) => total + row.totalPayable, 0),
+    owedAmount: debtKnown ? owing.reduce((total, row) => total + row.totalPayable - (row.amountPaid ?? 0), 0) : null,
+    owingCodes: owing.map((row) => row.code),
     counts: {
       all: rows.length,
       draft: rows.filter((row) => row.status === 'DRAFT').length,
-      posted: rows.filter((row) => row.status === 'POSTED').length,
+      posted: posted.length,
       voided: rows.filter((row) => row.status === 'VOIDED').length,
     },
   }
+}
+
+/** "Đại lý TACN Hưng Thịnh – Sơn Tây" -> "Hưng Thịnh"; keeps other names as they are. */
+export function shortSupplierName(name: string) {
+  return name.replace(/^(Đại lý TACN|Công ty|Cty)\s+/i, '').replace(/\s+[–-]\s+.*$/, '').trim()
 }

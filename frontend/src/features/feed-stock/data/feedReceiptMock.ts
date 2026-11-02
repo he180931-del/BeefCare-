@@ -24,7 +24,7 @@ function receipt(id: number, code: string, daysAgo: number, supplierId: number, 
   return { id, code, receiptDate: daysFromToday(-daysAgo), supplierId, supplierName, status, goodsAmount, transportFee, totalPayable: goodsAmount + transportFee, version, lines }
 }
 
-export const FEED_RECEIPT_MOCK: FeedReceipt[] = [
+const FEED_RECEIPT_BASE: FeedReceipt[] = [
   receipt(8131, 'PNK-2026-0031', 0, 201, 'Đại lý TACN Hưng Thịnh – Sơn Tây', 'DRAFT', 300_000, 0, [
     line(105, 'TA-05', 'Cám hỗn hợp', 20, 'Bao', 25, 290_000, ['L2410', 85]),
     line(106, 'TA-06', 'Cám ngô', 40, 'Bao', 25, 165_000, ['L1022', 59]),
@@ -36,8 +36,8 @@ export const FEED_RECEIPT_MOCK: FeedReceipt[] = [
     line(101, 'TA-01', 'Cỏ voi', 5000, 'kg', 1, 700, null),
     line(103, 'TA-03', 'Cỏ non', 400, 'kg', 1, 1000, null),
   ]),
-  receipt(8127, 'PNK-2026-0027', 35, 201, 'Đại lý TACN Hưng Thịnh – Sơn Tây', 'VOIDED', 0, 2, [line(105, 'TA-05', 'Cám hỗn hợp', 40, 'Bao', 25, 290_000, null)]),
-  receipt(8126, 'PNK-2026-0026', 35, 201, 'Đại lý TACN Hưng Thịnh – Sơn Tây', 'POSTED', 0, 1, [
+  receipt(8127, 'PNK-2026-0027', 31, 201, 'Đại lý TACN Hưng Thịnh – Sơn Tây', 'VOIDED', 0, 2, [line(105, 'TA-05', 'Cám hỗn hợp', 40, 'Bao', 25, 290_000, null)]),
+  receipt(8126, 'PNK-2026-0026', 31, 201, 'Đại lý TACN Hưng Thịnh – Sơn Tây', 'POSTED', 0, 1, [
     line(105, 'TA-05', 'Cám hỗn hợp', 40, 'Bao', 25, 290_000, ['L2409', 14]),
     line(108, 'TA-08', 'Sữa thay thế', 50, 'kg', 1, 31_000, null),
   ]),
@@ -52,3 +52,9 @@ export const FEED_RECEIPT_DEMO_EXTRAS: Record<number, { invoiceNumber: string; r
   8127: { invoiceNumber: '', receivedBy: 'Trần Quốc Long', storageLocation: 'Kho cám – dãy A', note: '', amountPaid: 0, paymentMethod: null, balanceDueDays: null, voidReason: 'nhập trùng PNK-0026' },
   8126: { invoiceNumber: 'HĐ 0004390', receivedBy: 'Trần Quốc Long', storageLocation: 'Kho cám – dãy A', note: '', amountPaid: 13_150_000, paymentMethod: 'CASH', balanceDueDays: null },
 }
+
+/** List rows as the receipts page shows them: ReceiptView plus the demo invoice, paid amount and void reason. */
+export const FEED_RECEIPT_MOCK: FeedReceipt[] = FEED_RECEIPT_BASE.map((row) => {
+  const extra = FEED_RECEIPT_DEMO_EXTRAS[row.id]
+  return { ...row, invoiceNumber: extra.invoiceNumber, amountPaid: extra.amountPaid, ...(extra.voidReason ? { voidReason: extra.voidReason } : {}) }
+})

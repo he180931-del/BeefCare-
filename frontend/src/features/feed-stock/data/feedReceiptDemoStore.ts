@@ -993,6 +993,23 @@ async function voidReceipt(id: number, reason: string): Promise<FeedReceiptDemoR
   })
 }
 
+/** SRS GBR-91: a later payment is a positive whole-VND amount, not in the future, never above the outstanding amount. */
+async function recordPayment(id: number, amount: number, method: 'CASH' | 'BANK_TRANSFER', date: string): Promise<FeedReceiptDemoRecord> {
+  return serializeMutation(async () => {
+    const state = await states.get('feed-receipts')
+    const current = state.receipts.find((row) => row.id === id)
+    if (!current || current.status !== 'POSTED') throw new Error('Chỉ ghi trả được cho phiếu đã ghi nhận.')
+    if (!Number.isInteger(amount) || amount <= 0) throw new Error('Số tiền phải là số nguyên lớn hơn 0.')
+    if (!isIsoCalendarDate(date) || date > localToday()) throw new Error('Ngày trả không hợp lệ hoặc ở tương lai.')
+    if (date < current.receiptDate) throw new Error('Ngày trả không được trước ngày nhập.')
+    const outstanding = current.totalPayable - current.amountPaid
+    if (amount > outstanding) throw new Error(`Số tiền không được vượt quá ${roundMoney(outstanding).toLocaleString('vi-VN')} đ.`)
+    const next: FeedReceiptDemoRecord = { ...current, amountPaid: current.amountPaid + amount, paymentMethod: method, paymentDate: date, version: current.version + 1 }
+    await states.update(state.id, { receipts: state.receipts.map((row) => row.id === id ? next : row) })
+    return next
+  })
+}
+
 async function saveDraft(input: FeedReceiptDraftInput): Promise<FeedReceiptDemoRecord> {
   return serializeMutation(async () => {
     const state = await states.get('feed-receipts')
@@ -1112,6 +1129,7 @@ const demoStore: FeedReceiptDemoStore = {
   saveDraft,
   post: postDraft,
   void: voidReceipt,
+  recordPayment,
   voidCheck: async (id) => {
     const state = await states.get('feed-receipts')
     const current = state.receipts.find((row) => row.id === id)

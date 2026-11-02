@@ -47,6 +47,7 @@ describe('SCR-78 feed receipt API boundary', () => {
       post: vi.fn(),
       void: vi.fn(),
       voidCheck: vi.fn(),
+      recordPayment: vi.fn(),
       reset: vi.fn(),
     }
     const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport, demoStore })
@@ -58,6 +59,10 @@ describe('SCR-78 feed receipt API boundary', () => {
     })).rejects.toThrow(/bản demo/i)
     await expect(api.post(8101)).rejects.toThrow(/bản demo/i)
     await expect(api.get('8101')).rejects.toThrow(/bản demo/i)
+    await expect(api.voidCheck(8101)).rejects.toThrow(/bản demo/i)
+    await expect(api.recordPayment(8101, 1000, 'CASH', '2026-11-01')).rejects.toThrow(/Chưa tích hợp/)
+    expect(demoStore.recordPayment).not.toHaveBeenCalled()
+    expect(demoStore.void).not.toHaveBeenCalled()
     expect(demoStore.saveDraft).not.toHaveBeenCalled()
     expect(demoStore.post).not.toHaveBeenCalled()
     expect(demoStore.get).not.toHaveBeenCalled()
@@ -90,5 +95,43 @@ describe('SCR-78 feed receipt API boundary', () => {
     await expect(postFeedReceiptDemo(draft.id)).rejects.toThrow('Chỉ có thể ghi nhận phiếu nháp.')
     expect((await listFeedStock()).find((row) => row.feedItemId === 101)?.onHandKg).toBe(changedStock.onHandKg)
     expect((await listFeedReceipts()).find((row) => row.id === draft.id)?.status).toBe('POSTED')
+  })
+
+  it('voids a posted receipt through POST .../void in backend mode without touching the demo store', async () => {
+    const transport = makeTransport()
+    const demoStore = { void: vi.fn() } as unknown as FeedReceiptDemoStore
+    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport, demoStore })
+
+    await api.void(8130, 'Nhập trùng', 1)
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/32/feed/receipts/8130/void', { reason: 'Nhập trùng', expectedVersion: 1 })
+    expect(demoStore.void).not.toHaveBeenCalled()
+  })
+
+  it('voids a posted receipt only while stock covers it, removes the stock and keeps the reason (GBR-99)', async () => {
+    localStorage.clear()
+    localStorage.setItem('beefcare:latency', '0')
+    await resetFeedReceiptDemoStore()
+    const api = createFeedReceiptApi({ mode: 'local', farmId: 1, transport: makeTransport() })
+    const before = (await listFeedStock()).find((row) => row.feedItemId === 101)!
+
+    // PNK-0030 received 6.000 kg of Cỏ voi but only 1.850 kg are left: the void is refused and nothing changes.
+    expect((await api.voidCheck(8130)).find((row) => row.feedItemId === 101)).toMatchObject({ onHandKg: 1850, neededKg: 6000, ok: false })
+    await expect(api.void(8130, 'Nhập nhầm', 1)).rejects.toThrow('không thể hủy')
+    expect((await listFeedStock()).find((row) => row.feedItemId === 101)?.onHandKg).toBe(before.onHandKg)
+
+    // A receipt created and posted now can be voided again: the stock is taken back and the reason is kept.
+    const day = new Date()
+    const draft = await saveFeedReceiptDemoDraft({
+      receiptDate: `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`, supplierId: 201, supplierName: 'Đại lý TACN Hưng Thịnh – Sơn Tây',
+      invoiceNumber: '', receivedBy: '', storageLocation: '', note: '', transportFee: 0, amountPaid: 0, paymentMethod: null, paymentDate: '', balanceDueDate: '',
+      lines: [{ feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ voi', lotNumber: null, expiryDate: null, quantityPurchase: 100, purchaseUnit: 'kg', kgPerPurchaseUnit: 1, unitPrice: 700 }],
+    })
+    await postFeedReceiptDemo(draft.id)
+    expect((await listFeedStock()).find((row) => row.feedItemId === 101)?.onHandKg).toBe(before.onHandKg + 100)
+    await expect(api.void(draft.id, '  ', 1)).rejects.toThrow('Nhập lý do')
+    const voided = await api.void(draft.id, 'Nhập trùng phiếu', 1)
+    expect(voided).toMatchObject({ status: 'VOIDED', voidReason: 'Nhập trùng phiếu' })
+    expect((await listFeedStock()).find((row) => row.feedItemId === 101)?.onHandKg).toBe(before.onHandKg)
+    await expect(api.void(draft.id, 'Lần hai', 2)).rejects.toThrow('Chỉ có thể hủy phiếu đã ghi nhận')
   })
 })

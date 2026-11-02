@@ -57,6 +57,7 @@ export type FeedReceiptDemoStore = {
   saveDraft: (input: FeedReceiptDraftInput) => Promise<FeedReceiptDemoRecord>
   post: (id: number) => Promise<FeedReceiptDemoRecord>
   void: (id: number, reason: string) => Promise<FeedReceiptDemoRecord>
+  recordPayment: (id: number, amount: number, method: 'CASH' | 'BANK_TRANSFER', date: string) => Promise<FeedReceiptDemoRecord>
   voidCheck: (id: number) => Promise<FeedReceiptVoidCheckRow[]>
   reset: () => Promise<void>
 }
