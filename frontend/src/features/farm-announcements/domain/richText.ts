@@ -1,7 +1,8 @@
 // Nội dung thông báo lưu dạng văn bản có đánh dấu: **đậm**, _nghiêng_, "- " danh sách, "1. " danh sách số, [chữ](liên kết).
 export type Inline =
   | { type: 'text'; text: string }
-  | { type: 'bold' | 'italic'; children: Inline[] }
+  | { type: 'bold'; children: Inline[] }
+  | { type: 'italic'; children: Inline[] }
   | { type: 'link'; href: string; text: string }
 export type Block = { type: 'p'; inline: Inline[] } | { type: 'ul' | 'ol'; items: Inline[][] }
 
