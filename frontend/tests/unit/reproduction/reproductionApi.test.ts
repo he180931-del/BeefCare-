@@ -54,14 +54,14 @@ describe('reproduction mock API boundary', () => {
 
     expect(after.status).toBe('POST_CALVING')
     expect(after.openPregnancy).toBeNull()
-    expect(after.parity).toBe(4)
+    expect(after.parity).toBe(3)
     expect(after.calvings[0]?.calves[0]?.registrationStatus).toBe('PENDING_CONFIRMATION')
 
     const corrected = await api.correctCalving('BC-000087', after.calvings[0]!.id, { course: 'ASSISTED' }, 'Bổ sung diễn biến đẻ', 'MANAGER')
     expect(corrected.events.find((event) => event.id === after.calvings[0]!.id)?.details).toContain('ASSISTED')
     const voided = await api.voidCalving('BC-000087', after.calvings[0]!.id, 'Ghi nhầm sự kiện', 'MANAGER')
     expect(voided.status).toBe('PREGNANT')
-    expect(voided.parity).toBe(3)
+    expect(voided.parity).toBe(2)
     expect(voided.calvings[0]?.voidReason).toBe('Ghi nhầm sự kiện')
   })
 

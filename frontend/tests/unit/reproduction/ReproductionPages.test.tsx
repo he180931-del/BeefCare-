@@ -5,6 +5,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { resetReproductionDemo, reproductionApi } from '../../../src/features/reproduction/api/reproductionApi'
 import ReproductionActionDialog from '../../../src/features/reproduction/components/ReproductionActionDialog'
 import ReproductionWorklistPage from '../../../src/features/reproduction/pages/ReproductionWorklistPage'
+import TechnicianReproductionPage from '../../../src/features/reproduction/pages/TechnicianReproductionPage'
+import ReproductionProfileTab from '../../../src/features/reproduction/components/ReproductionProfileTab'
+import { SessionContext } from '../../../src/features/authorization/sessionContext'
 import CalvingPage from '../../../src/features/reproduction/pages/CalvingPage'
 import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
 
@@ -17,6 +20,8 @@ describe('reproduction screens', () => {
     render(<MemoryRouter><ReproductionWorklistPage /></MemoryRouter>)
     await screen.findByRole('row', { name: /BC-000142/ })
 
+    expect(screen.queryByRole('row', { name: /BC-000061/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Đã phối – chờ khám \(1\)/ }))
     fireEvent.change(screen.getByRole('textbox', { name: 'Tìm bò' }), { target: { value: 'Nâu' } })
     expect(screen.getByRole('row', { name: /BC-000061.*Nâu/ })).toBeInTheDocument()
     expect(screen.queryByRole('row', { name: /BC-000142/ })).not.toBeInTheDocument()
@@ -37,7 +42,7 @@ describe('reproduction screens', () => {
     /></MemoryRouter>)
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Bò đực trong trại' }), 'sire-1')
-    await user.click(screen.getByRole('button', { name: 'Lưu sự kiện' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu phối giống' }))
 
     expect(onRecord).toHaveBeenCalledWith(expect.objectContaining({
       type: 'BREEDING', method: 'NATURAL_SERVICE', sireSource: 'FARM', farmSireId: 'sire-1',
@@ -101,5 +106,28 @@ describe('reproduction screens', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu chỉnh sửa' }))
 
     expect(onCorrectCalving).toHaveBeenCalledWith(calving.id, expect.not.objectContaining({ calves: expect.anything() }), 'Bổ sung diễn biến')
+  })
+
+  it('lists estrus females on the technician phone page and shows the window badge', async () => {
+    render(<SessionContext.Provider value={{ role: 'TECHNICIAN', fullName: 'Lê Thị Mai', email: 'mai@x.vn', farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì', logout: async () => undefined }}><MemoryRouter><TechnicianReproductionPage /></MemoryRouter></SessionContext.Provider>)
+    expect(await screen.findByText('BC-000142')).toBeInTheDocument()
+    expect(screen.getByText('Phối 14:30–18:30')).toBeInTheDocument()
+    expect(screen.getByText('Chưa đủ điều kiện')).toBeInTheDocument()
+    expect(screen.getByText('Kỹ thuật viên chỉ xem; báo Quản lý để ghi nhận.')).toBeInTheDocument()
+  })
+
+  it('opens the estrus dialog from ?m= for a manager and saves it', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter initialEntries={['/cattle/BC-000240?tab=repro&m=ghi-dong-duc']}><ReproductionProfileTab cattleCode="BC-000240" role="MANAGER" /></MemoryRouter>)
+    await screen.findByText('Ghi động dục', { selector: 'h2, h3, div, span' }).catch(() => undefined)
+    await user.click(await screen.findByRole('button', { name: 'Lưu động dục' }))
+    expect((await reproductionApi.getProfile('BC-000240')).status).toBe('IN_ESTRUS')
+  })
+
+  it('hides recording buttons from the owner', async () => {
+    render(<MemoryRouter initialEntries={['/cattle/BC-000240?tab=repro&m=ghi-dong-duc']}><ReproductionProfileTab cattleCode="BC-000240" role="OWNER" /></MemoryRouter>)
+    await screen.findByText('Trạng thái sinh sản')
+    expect(screen.queryByRole('button', { name: 'Lưu động dục' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ghi động dục' })).not.toBeInTheDocument()
   })
 })

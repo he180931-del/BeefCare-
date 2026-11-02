@@ -138,7 +138,7 @@ export interface ReproductionFemale {
 }
 
 export interface WorklistFilters {
-  status?: ReproductiveStatus | 'ALL'
+  status?: ReproductiveStatus | 'DUE_SOON' | 'ALL'
   query?: string
   penCode?: string
   breed?: string
