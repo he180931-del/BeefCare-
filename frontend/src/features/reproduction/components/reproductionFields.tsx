@@ -32,6 +32,8 @@ export function ReadOnlyField({ label, value, hint }: { label: string; value: st
   )
 }
 
+// Not inputCls: its read-only: variant would grey out a div.
+const BOX = 'w-full rounded-xl border border-field bg-white px-2.5 py-3 text-sm text-ink'
 const formatLocal = (value: string) => (value ? `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)} ${value.slice(11, 16)}` : 'dd/mm/yyyy hh:mm')
 
 /** Shows "dd/mm/yyyy hh:mm" with the calendar icon like the frames; the native picker sits invisibly on top. */
@@ -39,7 +41,7 @@ export function DateTimeInput({ label, value, onChange, max = nowLocal(), disabl
   const ref = useRef<HTMLInputElement>(null)
   return (
     <div className="relative">
-      <div className={`${inputCls} flex items-center gap-1.5 ${disabled ? 'opacity-60' : ''}`}>
+      <div className={`${BOX} flex items-center gap-1.5 ${disabled ? 'opacity-60' : ''}`}>
         <span className="min-w-0 flex-1 whitespace-nowrap">{formatLocal(value)}</span>
         <Icon name="calendar-event" className="text-muted" />
       </div>

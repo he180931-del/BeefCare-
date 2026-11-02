@@ -57,4 +57,13 @@ describe('calving through the mock API', () => {
     const corrected = await api.correctEvent('BC-000061', breeding.id, { sireLabel: 'Brahman đỏ', semenCode: 'BRD-204' }, 'Nhập nhầm mã tinh', 'MANAGER')
     expect(corrected.events.find((event) => event.id === breeding.id)?.details).toBe('Thụ tinh nhân tạo · Brahman đỏ BRD-204 · Nguyễn Văn Tâm')
   })
+
+  it('words the worklist next action from status and eligibility', async () => {
+    const rows = await setup().listWorklist()
+    const action = (code: string) => rows.find((row) => row.cattleCode === code)?.nextAction
+    expect(action('BC-000142')).toBe('Xem xét phối giống')
+    expect(action('BC-000188')).toBe('Theo dõi cân nặng')
+    expect(action('BC-000061')).toBe('Kiểm tra có thai')
+    expect(action('BC-000087')).toBe('Chuẩn bị chuồng đẻ')
+  })
 })

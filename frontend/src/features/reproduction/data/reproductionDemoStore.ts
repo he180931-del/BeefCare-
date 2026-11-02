@@ -1,5 +1,5 @@
 import {
-  ReproductionValidationError, actionsForStatus, breedingDetails, calvingIssues, calvingSummary, expectedCalvingDate,
+  ReproductionValidationError, actionsForStatus, isDueSoon, breedingDetails, calvingIssues, calvingSummary, expectedCalvingDate,
   validateReproductionCommand,
 } from '../domain/reproductionRules'
 import type {
@@ -130,15 +130,15 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
   const latestBreeding = history.filter((item) => item.type === 'BREEDING').slice(-1)[0]
   if (status === 'IN_ESTRUS' && latestEstrus) {
     profile.breedingWindow = { from: addHours(latestEstrus.occurredAt, 8), to: addHours(latestEstrus.occurredAt, 12) }
-    profile.nextAction = 'Theo dõi cửa sổ phối giống'
+    profile.nextAction = profile.eligibility?.status === 'NOT_MET' ? (profile.eligibility.minimumWeightMet ? 'Xem xét điều kiện phối' : 'Theo dõi cân nặng') : 'Xem xét phối giống'
     profile.dueAt = profile.breedingWindow.from
   } else if (status === 'BRED' && latestBreeding) {
     profile.breedingWindow = null
-    profile.nextAction = 'Chờ đến ngày khám thai'
-    profile.dueAt = addDays(latestBreeding.occurredAt, 28)
+    profile.nextAction = 'Kiểm tra có thai'
+    profile.dueAt = addDays(latestBreeding.occurredAt, 30)
   } else if (status === 'PREGNANT') {
     profile.breedingWindow = null
-    profile.nextAction = 'Theo dõi thai kỳ và ngày đẻ dự kiến'
+    profile.nextAction = isDueSoon(profile, localNow()) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
     profile.dueAt = profile.openPregnancy?.expectedCalvingAt ?? null
   } else if (status === 'POST_CALVING' && profile.lastCalvingAt) {
     profile.breedingWindow = null
