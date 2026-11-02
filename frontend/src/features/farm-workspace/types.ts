@@ -55,6 +55,7 @@ export interface FarmDetails extends FarmSummary {
   mainBreedCodes: string[]
   suspendedAt?: string | null
   daysRemaining?: number | null
+  ownerName?: string
 }
 
 export interface FarmRegistrationInput {

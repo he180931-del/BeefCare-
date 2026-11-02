@@ -1,5 +1,5 @@
-import { ScreenStub } from '../../../components/ScreenStub'
+import { ProfileScreen } from '../components/ProfileScreen'
 
 export default function ProfilePage() {
-  return <ScreenStub title="Hồ sơ & quyền của tôi" />
+  return <ProfileScreen title="Hồ sơ & quyền của tôi" />
 }

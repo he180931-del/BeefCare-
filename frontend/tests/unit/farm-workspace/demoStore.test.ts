@@ -45,10 +45,10 @@ describe('farm workspace local demo store', () => {
     expect(preview.farmName).toBe('Trại bò Yên Bài – Ba Vì')
     await expect(owner.acceptInvitation(token)).rejects.toThrow('Email đăng nhập không khớp')
 
-    const invitee = createFarmWorkspaceDemoStore({ profile: { email: 'manager@beefcare.local' } })
+    const invitee = createFarmWorkspaceDemoStore({ profile: { email: 'technician@beefcare.local' } })
     const accepted = await invitee.acceptInvitation(token)
     expect(accepted.status).toBe('ACTIVE')
-    expect((await invitee.listFarms()).some((farm) => farm.name === 'Trại bò Yên Bài – Ba Vì' && farm.role === 'MANAGER')).toBe(true)
+    expect((await invitee.listFarms()).some((farm) => farm.name === 'Trại bò Yên Bài – Ba Vì' && farm.role === 'TECHNICIAN')).toBe(true)
   })
 
   it('updates farm information without changing service or owner status', async () => {

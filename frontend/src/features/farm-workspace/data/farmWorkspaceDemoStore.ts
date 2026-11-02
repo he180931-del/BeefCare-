@@ -2,6 +2,7 @@ import type {
   ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
   FarmRole, FarmWorkspaceProfile, Invitation, InvitationPreview, InviteMemberInput, Membership, UpdateProfileInput,
 } from '../types'
+import { EXPIRED_TOKEN, FIRST_NEW_FARM_ID, INVITED_FARM_ID, SAMPLE_TOKEN, samplePreview, seedFarms, seedYenBaiInvitations, seedYenBaiMembers, YEN_BAI } from './farmWorkspaceSeed'
 
 export interface FarmWorkspaceDemoStore {
   getProfile(): Promise<FarmWorkspaceProfile>
@@ -18,7 +19,8 @@ export interface FarmWorkspaceDemoStore {
   resendInvitation(farmId: number, invitationId: number): Promise<Invitation>
   cancelInvitation(farmId: number, invitationId: number): Promise<Invitation>
   previewInvitation(token: string): Promise<InvitationPreview>
-  acceptInvitation(token: string): Promise<Membership>
+  /** `signedInEmail`: thư điện tử của phiên đang đăng nhập (chế độ mô phỏng); mặc định là hồ sơ của kho. */
+  acceptInvitation(token: string, signedInEmail?: string): Promise<Membership>
 }
 
 export type FarmUpdateInput = Omit<FarmInfoInput, 'expectedVersion' | 'mainBreedIds'> & Partial<Pick<FarmInfoInput, 'expectedVersion' | 'mainBreedIds'>>
@@ -28,37 +30,19 @@ const cloneFarm = (farm: FarmDetails): FarmDetails => ({ ...farm, mainBreedIds: 
 const cloneMember = (member: Membership): Membership => ({ ...member })
 const cloneInvitation = (invitation: Invitation): Invitation => ({ ...invitation })
 
-function seedFarm(id = 1): FarmDetails {
-  return {
-    id, name: 'Trại bò Yên Bài – Ba Vì', role: 'OWNER', serviceStatus: 'ACTIVE', version: 1,
-    province: 'Hà Nội', commune: 'Xã Yên Bài', detailedAddress: 'Ba Vì, Hà Nội',
-    contactPerson: 'Nguyễn Văn Hùng', contactPhone: '0912345678', registrationCertificateInfo: '',
-    expectedHerdSize: '150_300', timeZone: 'Asia/Ho_Chi_Minh', morningShiftStart: '06:00', operatingNotes: '',
-    mainBreedIds: [1], mainBreedCodes: ['VANG'], serviceUntil: null, renewalOpensAt: null, activeCattleCount: 126,
-  }
-}
-
 export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWorkspaceProfile> } = {}): FarmWorkspaceDemoStore {
   const defaultProfile: FarmWorkspaceProfile = {
-    id: 1, email: 'owner@beefcare.local', fullName: 'Nguyễn Văn Hùng', phone: '0912345678', emailVerified: true,
-    passwordSignInEnabled: true, googleSignInLinked: false, ownerRegistrationCompleted: true, platformRole: null,
-    farms: [{ farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì', role: 'OWNER', permissions: ['MANAGE_FARM_INFORMATION'] }],
+    id: 1, email: 'owner@beefcare.local', fullName: 'Nguyễn Văn Hùng', phone: '0912 345 678', emailVerified: true,
+    passwordSignInEnabled: true, googleSignInLinked: true, ownerRegistrationCompleted: true, platformRole: null,
+    farms: seedFarms().map((farm) => ({ farmId: farm.id, farmName: farm.name, role: farm.role, permissions: [] })),
   }
   let profile = { ...defaultProfile, ...options.profile, farms: options.profile?.farms ?? defaultProfile.farms }
-  const farms = new Map<number, FarmDetails>([[1, seedFarm()]])
-  const members = new Map<number, Membership[]>([[1, [
-    { id: 1, userId: 1, fullName: profile.fullName, email: profile.email, role: 'OWNER', status: 'ACTIVE', effectiveDate: '2026-01-01', reason: '', version: 1, joinedAt: '2026-01-01' },
-    { id: 2, userId: 2, fullName: 'Trần Quốc Long', email: 'manager@beefcare.local', role: 'MANAGER', status: 'ACTIVE', effectiveDate: '2026-02-01', reason: '', version: 1, joinedAt: '2026-02-01' },
-    { id: 3, userId: 3, fullName: 'Lê Minh Tâm', email: 'technician@beefcare.local', role: 'TECHNICIAN', status: 'ACTIVE', effectiveDate: '2026-03-01', reason: '', version: 1, joinedAt: '2026-03-01' },
-  ]]])
-  const invitations = new Map<number, Invitation[]>([[1, [
-    { id: 1, email: 'tech.new@beefcare.local', role: 'TECHNICIAN', status: 'PENDING', createdAt: '2026-10-29T02:00:00.000Z', lastSentAt: '2026-10-29T02:00:00.000Z', expiresAt: '2026-11-05T02:00:00.000Z', validityDays: 7, version: 1, accountHint: 'HAS_ACCOUNT' },
-  ]]])
-  let nextFarmId = 2
-  let nextMemberId = 4
-  let nextInvitationId = 2
-  const sampleToken = 'mock-invitation-token'
-  const samplePreview: InvitationPreview = { farmName: 'Trại bò Yên Bài – Ba Vì', email: 'manager@beefcare.local', role: 'MANAGER', invitedAt: '2026-10-29T02:00:00.000Z', expiresAt: '2026-11-05T02:00:00.000Z', status: 'PENDING', invitedBy: 'Nguyễn Văn Hùng', farmId: 2 }
+  const farms = new Map<number, FarmDetails>(seedFarms().map((farm) => [farm.id, farm]))
+  const members = new Map<number, Membership[]>([[1, seedYenBaiMembers()]])
+  const invitations = new Map<number, Invitation[]>([[1, seedYenBaiInvitations()]])
+  let nextFarmId = FIRST_NEW_FARM_ID
+  let nextMemberId = 100
+  let nextInvitationId = 100
   let previewStatus: InvitationPreview['status'] = 'PENDING'
 
   const getFarm = (farmId: number) => {
@@ -66,14 +50,8 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
     if (!farm) throw new Error('Không tìm thấy trang trại.')
     return farm
   }
-  const getMembers = (farmId: number) => {
-    getFarm(farmId)
-    return members.get(farmId) ?? []
-  }
-  const getInvitations = (farmId: number) => {
-    getFarm(farmId)
-    return invitations.get(farmId) ?? []
-  }
+  const getMembers = (farmId: number) => { getFarm(farmId); return members.get(farmId) ?? [] }
+  const getInvitations = (farmId: number) => { getFarm(farmId); return invitations.get(farmId) ?? [] }
   const getInvitation = (farmId: number, invitationId: number) => {
     const invitation = getInvitations(farmId).find((item) => item.id === invitationId)
     if (!invitation) throw new Error('Không tìm thấy lời mời.')
@@ -101,7 +79,7 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
         contactPerson: input.contactPerson ?? profile.fullName, contactPhone: input.contactPhone ?? profile.phone,
         registrationCertificateInfo: input.registrationCertificateInfo ?? '', expectedHerdSize: input.expectedHerdSize,
         timeZone: 'Asia/Ho_Chi_Minh', morningShiftStart: '', operatingNotes: '', mainBreedIds: [], mainBreedCodes: [...(input.mainBreedCodes ?? [])],
-        activeCattleCount: 0, serviceUntil: null, renewalOpensAt: null,
+        activeCattleCount: 0, serviceUntil: null, renewalOpensAt: null, ownerName: profile.fullName, ownerEmail: profile.email,
       }
       farms.set(id, farm)
       members.set(id, [{ id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email: profile.email, role: 'OWNER', status: 'ACTIVE', effectiveDate: new Date().toISOString().slice(0, 10), reason: '', version: 1, joinedAt: stamp() }])
@@ -153,20 +131,21 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
       return cloneInvitation(updated)
     },
     async previewInvitation(token) {
-      if (token !== sampleToken) throw new Error('Lời mời không còn hiệu lực.')
+      if (token === EXPIRED_TOKEN) return { ...samplePreview, status: 'EXPIRED' }
+      if (token !== SAMPLE_TOKEN) throw new Error('Lời mời không còn hiệu lực.')
       return { ...samplePreview, status: previewStatus }
     },
-    async acceptInvitation(token) {
+    async acceptInvitation(token, signedInEmail) {
       const preview = await this.previewInvitation(token)
       if (preview.status !== 'PENDING') throw new Error('Lời mời không còn hiệu lực.')
-      if (profile.email.toLowerCase() !== preview.email.toLowerCase()) throw new Error('Email đăng nhập không khớp với email được mời.')
-      const farmId = preview.farmId ?? 1
+      const email = signedInEmail ?? profile.email
+      if (email.toLowerCase() !== preview.email.toLowerCase()) throw new Error('Email đăng nhập không khớp với email được mời.')
+      const farmId = preview.farmId ?? INVITED_FARM_ID
       const role = preview.role
-      const created: Membership = { id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email: profile.email, role, status: 'ACTIVE', effectiveDate: new Date().toISOString().slice(0, 10), reason: '', version: 1, joinedAt: stamp() }
+      const created: Membership = { id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email, role, status: 'ACTIVE', effectiveDate: new Date().toISOString().slice(0, 10), reason: '', version: 1, joinedAt: stamp() }
       if (!farms.has(farmId)) {
-        const invitedFarm = seedFarm(farmId)
-        invitedFarm.name = preview.farmName
-        invitedFarm.role = role
+        const invitedFarm = cloneFarm(farms.get(1)!)
+        Object.assign(invitedFarm, { id: farmId, name: preview.farmName || YEN_BAI, role, ownerEmail: undefined })
         farms.set(farmId, invitedFarm)
         members.set(farmId, [])
         invitations.set(farmId, [])

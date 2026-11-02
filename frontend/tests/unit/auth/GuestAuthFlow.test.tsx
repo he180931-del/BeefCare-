@@ -24,12 +24,12 @@ describe('guest authentication pages', () => {
     await user.click(screen.getByRole('checkbox'))
     await user.click(screen.getByRole('button', { name: 'Tạo tài khoản' }))
 
-    expect(await screen.findByRole('heading', { name: 'Kiểm tra email của bạn' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
     expect(screen.getByText('owner@beefcare.vn')).toBeInTheDocument()
     expect(await mock.isAuthenticated()).toBe(false)
 
     await user.click(screen.getByRole('link', { name: 'Quay lại đăng nhập' }))
-    await screen.findByRole('heading', { name: 'Đăng nhập BeefCare' })
+    await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
@@ -48,7 +48,7 @@ describe('guest authentication pages', () => {
     }
     renderAuth(client, '/dang-nhap')
 
-    await screen.findByRole('heading', { name: 'Đăng nhập BeefCare' })
+    await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
@@ -69,7 +69,7 @@ describe('guest authentication pages', () => {
       logout: vi.fn().mockResolvedValue(undefined),
     }
     renderAuth(client, '/dang-nhap')
-    await screen.findByRole('heading', { name: 'Đăng nhập BeefCare' })
+    await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
@@ -87,14 +87,14 @@ describe('guest authentication pages', () => {
       resendVerification: vi.fn().mockResolvedValue(undefined),
     }
     renderAuth(client, '/dang-nhap')
-    await screen.findByRole('heading', { name: 'Đăng nhập BeefCare' })
+    await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Email chưa được xác minh')
-    expect(screen.getByRole('alert')).not.toHaveTextContent('Email hoặc mật khẩu không đúng')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Email hoặc mật khẩu chưa chính xác')
     await user.click(screen.getByRole('link', { name: 'Gửi lại email xác minh' }))
-    expect(await screen.findByRole('heading', { name: 'Kiểm tra email của bạn' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
     expect(screen.getByText('owner@beefcare.vn')).toBeInTheDocument()
   })
 })
