@@ -251,7 +251,7 @@ export function validateAuditRange({ from, to }: { from: string; to: string }): 
   return null
 }
 
-export function filterAudit(entries: AuditEntry[], { from, to, action = '', targetType = '', actorId = '' }: AuditFilters) {
+export function filterAudit<T extends Omit<AuditEntry, 'details'>>(entries: T[], { from, to, action = '', targetType = '', actorId = '' }: AuditFilters) {
   return entries
     .filter((e) => {
       const day = toYmd(new Date(e.loggedAt))

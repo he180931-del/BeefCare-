@@ -87,7 +87,7 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
       requireSa()
       const error = validateAuditRange(filters)
       if (error) throw new PlatformAdminError('VALIDATION', error)
-      const rows = filterAudit(state.audit as unknown as AuditEntry[], filters).map((e) => view(e as unknown as RawAuditEntry))
+      const rows = filterAudit(state.audit, filters).map((e) => view(e))
       return paginate(rows, filters.page ?? 1, filters.size ?? AUDIT_PAGE_SIZE)
     },
     async getAuditEntry(id: number) {

@@ -26,7 +26,7 @@ export const FieldError = ({ children }: { children?: ReactNode }) => (children 
 export function UnitInput({ unit, className = '', ...props }: { unit: string } & InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="relative">
-      <input type="number" step="any" className={`${inputCls} pr-12 ${className}`} {...props} />
+      <input type="number" step="0.01" className={`${inputCls} pr-12 ${className}`} {...props} />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">{unit}</span>
     </div>
   )

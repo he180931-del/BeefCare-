@@ -174,8 +174,10 @@ export function ErrorBlock({ message, onRetry }: { message: ReactNode; onRetry?:
   )
 }
 
-export const inputCls =
-  'w-full rounded-xl border border-field bg-white px-2.5 py-3 text-sm text-ink outline-none focus:border-brand read-only:bg-page read-only:text-muted'
+const fieldCls =
+  'w-full rounded-xl border border-field bg-white px-2.5 py-3 text-sm text-ink outline-none focus:border-brand'
+
+export const inputCls = `${fieldCls} read-only:bg-page read-only:text-muted`
 export const smInputCls =
   'rounded-lg border border-field bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand'
 
@@ -343,7 +345,7 @@ export function PageHeader({ title, sub, badge, children }: { title: ReactNode; 
 export function Select({ className, children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <div className={cx('relative', className)}>
-      <select className={cx(inputCls, 'cursor-pointer appearance-none pr-8')} {...p}>{children}</select>
+      <select className={cx(fieldCls, 'cursor-pointer appearance-none pr-8')} {...p}>{children}</select>
       <Icon name="chevron-down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
     </div>
   )

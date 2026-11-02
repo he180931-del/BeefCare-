@@ -5,12 +5,12 @@ import App from '../../../src/App'
 
 const routeCases = [
   ['/owner-registration', 'Hoàn tất hồ sơ chủ trại'],
-  ['/chon-trai', 'Trang trại của tôi'],
+  ['/chon-trai', 'Chọn trang trại'],
   ['/dang-ky-trai', 'Đăng ký trang trại'],
-  ['/thong-tin-trai?farmId=1', 'Thông tin trang trại'],
+  ['/thong-tin-trai?farmId=1', 'Thông tin trại'],
   ['/thanh-vien?farmId=1', 'Thành viên & vai trò'],
   ['/loi-moi?farmId=1', 'Lời mời thành viên'],
-  ['/chap-nhan-loi-moi?token=route-smoke', 'Chấp nhận lời mời'],
+  ['/chap-nhan-loi-moi?token=route-smoke', 'Lời mời không còn hiệu lực'],
   ['/sinh-san', 'Sinh sản'],
   ['/cattle/BC-000087/sinh-san/de', 'Ghi sự kiện đẻ · BC-000087'],
   ['/thuc-an/hom-nay', 'Khẩu phần hôm nay'],
