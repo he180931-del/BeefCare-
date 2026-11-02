@@ -43,6 +43,9 @@ export interface ReproductionEvent {
   observer?: string
   performer?: string
   sireLabel?: string
+  semenCode?: string
+  semenSupplier?: string
+  signs?: string[]
   examiner?: string
   updateType?: 'OBSERVATION' | 'COMPLICATION' | 'LOSS'
   linkedHealthCaseId?: string | null
@@ -74,6 +77,8 @@ export interface CalfOutcome {
   registrationChoice: CalfRegistrationChoice | null
   registrationStatus: 'PENDING_CONFIRMATION' | 'REGISTERED' | null
   productionPurpose: string | null
+  status?: ReproductionEventStatus
+  voidReason?: string
 }
 
 export interface CalvingRecord {
@@ -131,6 +136,7 @@ export interface ReproductionFemale {
     daysSinceLastCalving: number | null
     daysOpen: number | null
     conceptionSummary: string
+    conceptionDetail?: string
     overdueForConception: boolean
   }
   declaredPregnancyAtEntryMonths: number | null
@@ -220,3 +226,10 @@ export interface ReproductionRevision {
   after: Partial<ReproductionEvent | CalvingRecord>
 }
 
+
+/** One validation problem; `calf` (0-based) and `field` point at the input to mark red, none means the whole form. */
+export interface ReproductionIssue {
+  calf?: number
+  field?: string
+  message: string
+}

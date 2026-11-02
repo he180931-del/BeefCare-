@@ -32,8 +32,36 @@ const liveCalf = (id: string, number: number, sex: 'MALE' | 'FEMALE', weightKg: 
   registrationChoice: 'REGISTER_NOW', registrationStatus: 'REGISTERED', productionPurpose: 'Chưa xác định',
 })
 
-/** Members offered as observer / performer. There is no member API for this feature yet (chưa có API). */
-export const REPRODUCTION_MEMBERS = ['Trần Quốc Long', 'Lê Thị Mai', 'Nguyễn Văn Tâm', 'BS Trần Văn Bình']
+export interface ReproductionMember { name: string; role: string }
+/** ACTIVE farm members offered as observer / performer. There is no member API for this feature yet (chưa có API). */
+export const REPRODUCTION_MEMBERS: ReproductionMember[] = [
+  { name: 'Trần Quốc Long', role: 'Quản lý' },
+  { name: 'Lê Thị Mai', role: 'Kỹ thuật viên' },
+  { name: 'Nguyễn Văn Tâm', role: 'Dẫn tinh viên' },
+]
+/** People outside the farm who can still be typed as examiner / performer. */
+export const REPRODUCTION_EXTERNAL_PEOPLE = ['BS Trần Văn Bình']
+export const REPRODUCTION_BREEDS = ['Zebu đỏ', 'Lai Sind', 'Brahman đỏ']
+export const REPRODUCTION_PENS = [
+  { id: 'pen-a1', code: 'A1', label: 'A1 – Sinh sản' },
+  { id: 'pen-a2', code: 'A2', label: 'A2 – Bò cái sinh sản' },
+  { id: 'pen-b1', code: 'B1', label: 'B1 – Sinh sản' },
+  { id: 'pen-c1', code: 'C1', label: 'C1 – Bò tơ' },
+  { id: 'pen-d', code: 'D', label: 'D – Chuồng đẻ' },
+]
+/** Production purposes of the farm catalogue: SIRE only for males, BREEDING only for females (GBR-25). */
+export const REPRODUCTION_PURPOSES = [
+  { value: 'UNDECIDED', label: 'Chưa xác định' },
+  { value: 'BREEDING', label: 'Sinh sản' },
+  { value: 'FATTENING', label: 'Vỗ béo' },
+  { value: 'SIRE', label: 'Đực giống' },
+]
+/** Tags and codes already used in the farm by cattle outside this feature's seed (MSG-FE12-08). */
+export const REPRODUCTION_USED_TAGS: Record<string, string> = { 'QR-6701-0001': 'bò BC-000112' }
+/** Health cases a pregnancy complication can link to, by cattle code. */
+export const REPRODUCTION_HEALTH_CASES: Record<string, Array<{ id: string; label: string }>> = {
+  'BC-000087': [{ id: 'HC-0415', label: 'HC-0415 · Phù chân sau – cận đẻ' }],
+}
 /** Male ACTIVE cattle of the farm offered as farm sire. */
 export const REPRODUCTION_SIRES = [{ id: 'sire-1', label: 'Sắm · BC-000301 · VN-BV-0101' }, { id: 'sire-2', label: 'Đại Hùng · BC-000302 · VN-BV-0118' }]
 
@@ -86,7 +114,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
     breedingWindow: null, nextAction: 'Kiểm tra có thai', dueAt: '2026-10-20T07:00',
     eligibility: eligible(60, 338), openHealthCase: false, openPregnancy: null,
     events: [
-      event('re-061-b1', 'BREEDING', '2026-09-20T07:00', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-118 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ · BRD-118', performer: 'Nguyễn Văn Tâm' }),
+      event('re-061-b1', 'BREEDING', '2026-09-20T07:00', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-118 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ', semenCode: 'BRD-118', performer: 'Nguyễn Văn Tâm', linkedEstrusId: 're-061-e1' }),
       event('re-061-e1', 'ESTRUS', '2026-09-19T18:00', 'Động dục', 'Đứng yên cho nhảy, chảy nhớt trong', { observer: 'Lê Thị Mai', recorder: 'Lê Thị Mai' }),
       event('calv-061-3', 'CALVING', '2026-02-02T03:40', 'Sự kiện đẻ', '1 bê: Sống · Đực · 25 kg · BC-000198', { pregnancyId: 'preg-061-3' }),
     ],
@@ -109,7 +137,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
       event('re-087-pu1', 'PREGNANCY_UPDATE', '2026-10-15T07:00', 'Diễn biến thai · Biến chứng', 'Biến chứng · Phù chân sau, đi lại chậm · ca HC-0415', { updateType: 'COMPLICATION', pregnancyId: 'preg-087-3', linkedHealthCaseId: 'HC-0415' }),
       event('re-087-pc4', 'PREGNANCY_CHECK', '2026-03-12T09:00', 'Khám thai · Có thai', 'Có thai · Siêu âm · BS Trần Văn Bình', { result: 'PREGNANT', method: 'ULTRASOUND', examiner: 'BS Trần Văn Bình', linkedBreedingId: 're-087-b4', pregnancyId: 'preg-087-3', expectedCalvingAt: '2026-10-22T07:30', expectedDateBasis: 'CONFIRMED' }),
       event('re-087-pc3', 'PREGNANCY_CHECK', '2026-02-20T08:30', 'Khám thai · Chưa kết luận', 'Chưa xác định · Khám trực tràng · BS Trần Văn Bình', { result: 'INCONCLUSIVE', method: 'RECTAL', examiner: 'BS Trần Văn Bình', linkedBreedingId: 're-087-b4' }),
-      event('re-087-b4', 'BREEDING', '2026-01-12T07:30', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-204 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ · BRD-204', performer: 'Nguyễn Văn Tâm' }),
+      event('re-087-b4', 'BREEDING', '2026-01-12T07:30', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-204 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ', semenCode: 'BRD-204', performer: 'Nguyễn Văn Tâm' }),
     ],
     calvings: [
       { id: 'calv-087-2', birthAt: '2024-12-12T03:10', recordedAt: '2024-12-12T05:00', recorder: 'Trần Quốc Long', dataSource: 'DIRECT_OBSERVATION', pregnancyId: 'preg-087-2', course: 'NORMAL', damCondition: 'GOOD', retainedPlacenta: false, status: 'VALID', version: 1,
@@ -117,7 +145,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
       { id: 'calv-087-1', birthAt: '2023-11-05T04:00', recordedAt: '2023-11-05T06:00', recorder: 'Trần Quốc Long', dataSource: 'DIRECT_OBSERVATION', pregnancyId: 'preg-087-1', course: 'NORMAL', damCondition: 'GOOD', retainedPlacenta: false, status: 'VALID', version: 1,
         calves: [liveCalf('calf-087-1-1', 1, 'MALE', 24, 'BC-000120', 'D', 'Lai Sind')] },
     ],
-    revisions: [], indicators: { ageAtFirstCalvingMonths: 27, lastCalvingIntervalDays: 403, daysSinceLastCalving: null, daysOpen: 29, conceptionSummary: '3 thai / 4 lần phối', overdueForConception: false },
+    revisions: [], indicators: { ageAtFirstCalvingMonths: 27, lastCalvingIntervalDays: 403, daysSinceLastCalving: null, daysOpen: 29, conceptionSummary: '3 thai / 4 lần phối', conceptionDetail: '3 lần đậu / 5 lần phối', overdueForConception: false },
     declaredPregnancyAtEntryMonths: null, version: 3,
   },
   {
@@ -130,7 +158,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
     openPregnancy: { id: 'preg-125-3', pregnancyNumber: 3, linkedBreedingId: 're-125-b3', confirmedAt: '2026-06-10T09:00', expectedCalvingAt: '2027-02-19T09:00', expectedDateBasis: 'CONFIRMED', estimatedMonths: null, status: 'OPEN' },
     events: [
       event('re-125-pc3', 'PREGNANCY_CHECK', '2026-06-10T09:00', 'Khám thai · Có thai', 'Có thai · Siêu âm · BS Trần Văn Bình', { result: 'PREGNANT', method: 'ULTRASOUND', examiner: 'BS Trần Văn Bình', linkedBreedingId: 're-125-b3', pregnancyId: 'preg-125-3', expectedCalvingAt: '2027-02-19T09:00', expectedDateBasis: 'CONFIRMED' }),
-      event('re-125-b3', 'BREEDING', '2026-05-12T07:30', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-118 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ · BRD-118', performer: 'Nguyễn Văn Tâm' }),
+      event('re-125-b3', 'BREEDING', '2026-05-12T07:30', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-118 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ', semenCode: 'BRD-118', performer: 'Nguyễn Văn Tâm' }),
     ],
     calvings: [], revisions: [], indicators: { ageAtFirstCalvingMonths: 28, lastCalvingIntervalDays: null, daysSinceLastCalving: 141, daysOpen: null, conceptionSummary: '2 thai kỳ từ 3 lần phối', overdueForConception: false },
     declaredPregnancyAtEntryMonths: null, version: 1,
