@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ErrorBlock, EmptyBlock, Button, Card, Foot, Info, LoadingBlock, Note, Table, Td, Th } from '../../../components/ui'
+import { ErrorBlock, EmptyBlock, Button, Card, Foot, LoadingBlock, Note, Table, Td, Th } from '../../../components/ui'
 import { Icon } from '../../../components/Icon'
 import { userFacingError } from '../../../api/userFacingError'
 import { useDemoState } from '../../../hooks/useDemoState'
@@ -12,7 +12,7 @@ import CaseCard from './CaseCard'
 import CorrectRecordDialog from './CorrectRecordDialog'
 import DeathNoticeDialog from './DeathNoticeDialog'
 import FollowUpDialog from './FollowUpDialog'
-import { HealthStateBadge, useCanRecord, useHealthDialog, useToast } from './healthUi'
+import { HealthStateBadge, Meta, useCanRecord, useHealthDialog, useToast } from './healthUi'
 import OpenCaseDialog from './OpenCaseDialog'
 import TreatmentDialog from './TreatmentDialog'
 import UpdateStatusDialog from './UpdateStatusDialog'
@@ -64,12 +64,12 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
         </div>
         <div className="flex min-w-0 flex-col gap-4">
           <Card title="Tình trạng sức khỏe" actions={openCaseButton || undefined}>
-            <Info cols={2} items={[
-              ['Hiện tại', <HealthStateBadge key="s" state={profile.healthState} />],
-              ['Ca đang mở', activeCases.filter((c) => c.status === 'OPEN').length],
-              ['Ngưng sử dụng thịt đến', withdrawing ? fmtDate(profile.withdrawalEndDate) : '—'],
-              ['Ca mạn tính', activeCases.filter((c) => c.status === 'CHRONIC').length],
-            ]} />
+            <div className="grid grid-cols-2 gap-3">
+              <Meta label="Hiện tại"><HealthStateBadge state={profile.healthState} /></Meta>
+              <Meta label="Ca đang mở">{activeCases.filter((c) => c.status === 'OPEN').length}</Meta>
+              <Meta label="Ngưng sử dụng thịt đến">{withdrawing ? fmtDate(profile.withdrawalEndDate) : '—'}</Meta>
+              <Meta label="Ca mạn tính">{activeCases.filter((c) => c.status === 'CHRONIC').length}</Meta>
+            </div>
             {withdrawing && <Note tone="warn">Không xuất bán trước ngày hết ngưng sử dụng thịt.</Note>}
           </Card>
           <Card title="Các ca trước">

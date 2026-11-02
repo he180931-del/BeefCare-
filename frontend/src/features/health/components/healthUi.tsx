@@ -76,6 +76,13 @@ export function RadioGroup<T extends string>({ name, value, options, onChange }:
   )
 }
 
+export const Meta = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="flex min-w-0 flex-col gap-0.5">
+    <span className="text-[11px] text-faint">{label}</span>
+    <span className="text-[13px] font-medium text-ink">{children}</span>
+  </div>
+)
+
 export const toIntOrNull = (text: string) => (text.trim() === '' ? null : Number(text))
 
 export function cattleLine(c: HealthCattle): string {

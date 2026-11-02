@@ -1,16 +1,8 @@
-import type { ReactNode } from 'react'
 import { Badge, Button, Card } from '../../../components/ui'
 import { Icon } from '../../../components/Icon'
 import { fmtDate, fmtDateTime } from '../domain/healthFormat'
 import type { HealthCaseCard, HealthTimelineRow } from '../types'
-import { CaseStatusBadge, EntryBadge, SeverityBadge } from './healthUi'
-
-const Meta = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="flex min-w-0 flex-col gap-0.5">
-    <span className="text-[11px] text-faint">{label}</span>
-    <span className="text-[13px] font-medium text-ink">{children}</span>
-  </div>
-)
+import { CaseStatusBadge, EntryBadge, Meta, SeverityBadge } from './healthUi'
 
 function TimelineRow({ row, first, canEdit, onEdit }: { row: HealthTimelineRow; first: boolean; canEdit: boolean; onEdit: (row: HealthTimelineRow) => void }) {
   const voided = row.status === 'VOIDED'
