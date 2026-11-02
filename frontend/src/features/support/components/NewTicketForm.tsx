@@ -47,7 +47,7 @@ export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
             </Select>
             <FieldError>{errors.category}</FieldError>
           </Field>
-          <Field label="Ưu tiên" id="tk-priority" hint="Do bộ phận hỗ trợ gán sau khi nhận phiếu.">
+          <Field label="Ưu tiên" id="tk-priority">
             <Select id="tk-priority" value="NORMAL" disabled>
               <option value="NORMAL">Bình thường</option>
             </Select>
