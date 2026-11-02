@@ -1,6 +1,7 @@
 import { Badge, Button, KV, Table, Td, Th } from '../../../components/ui'
 import { thresholdText } from '../../../data/penData'
 import { Box, TH } from './parts'
+import { penName } from './BarnTable'
 import type { Pen } from '../../../types'
 
 export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll }: { barn: Pen; onEdit: () => void; onToggle: () => void; onMoveCow: (code: string) => void; onViewAll: () => void }) {
@@ -8,7 +9,7 @@ export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll
   return (
     <Box>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="m-0 text-sm font-semibold text-[#212121]">{barn.code} – {barn.name}</h3>
+        <h3 className="m-0 text-sm font-semibold text-[#212121]">{barn.code} – {penName(barn)}</h3>
         <div className="flex shrink-0 gap-2">
           <Button onClick={onEdit}>Sửa</Button>
           <Button onClick={onToggle}>{active ? 'Ngừng sử dụng' : 'Mở lại sử dụng'}</Button>
