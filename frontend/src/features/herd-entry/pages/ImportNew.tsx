@@ -35,6 +35,7 @@ import { validateEntryForPost } from '../entryValidation'
 import type { DocumentRow, EntryCalf, EntryCow, HerdEntry, Pen } from '../../../types'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
 import { userFacingError } from '../../../api/userFacingError'
+import { useSession } from '../../authorization'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'
@@ -89,6 +90,7 @@ export default function ImportNew() {
 function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCattle }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[] }) {
   const { mutate: persistEntry, loading, error: saveError } = useMutation(saveHerdEntry)
   const nav = useNavigate()
+  const sessionName = useSession()?.fullName ?? ''
   const location = useLocation()
   const [params, setParams] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
@@ -126,9 +128,10 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const [date, setDate] = useState(draft?.date ?? (entryExcelBackendEnabled ? localToday() : TODAY))
   const [quarantine, setQuarantine] = useState(draft?.quarantine ?? '')
   const [plate, setPlate] = useState(draft?.plate ?? '')
-  const [receiver, setReceiver] = useState(draft?.receiver ?? (entryExcelBackendEnabled ? '' : 'Anh A'))
+  const [receiver, setReceiver] = useState(draft?.receiver ?? (entryExcelBackendEnabled ? sessionName : 'Anh A'))
   const [note, setNote] = useState(draft?.note ?? '')
   const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? (entryExcelBackendEnabled ? [] : INITIAL_COWS))
+  const [pricing, setPricing] = useState<'kg' | 'con'>(() => (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
   const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? pendingCalves)
   const [directCalfCount, setDirectCalfCount] = useState(0)
   const [freight, setFreight] = useState(draft?.freight ?? (entryExcelBackendEnabled ? 0 : 1500000))
@@ -149,8 +152,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
   const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
-  // Pricing is selected per cattle line: by kg or per head.
-  const lineAmount = (c: EntryCow) => c.pricing === 'con' ? (c.unitPrice ?? 0) : (c.weight ?? 0) * (c.unitPrice ?? 0)
+  // GBR-92: one pricing basis (per kg or per head) for every line of the voucher.
+  const lineAmount = (c: EntryCow) => pricing === 'con' ? (c.unitPrice ?? 0) : (c.weight ?? 0) * (c.unitPrice ?? 0)
   const cowsMoney = cows.reduce((s, c) => s + lineAmount(c), 0)
   const totalWeight = cows.reduce((s, c) => s + (c.weight ?? 0), 0)
   const total = cowsMoney + freight
@@ -444,10 +447,18 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                 actions={
                   <>
                     <Button small onClick={() => openModal('excel')}>Nhập từ Excel</Button>
-                    <Button small onClick={() => { setCows([...cows, blankCow(importBarns[0]?.code ?? '')]); openModal(`row-${cows.length + 1}`) }}>+ Thêm con</Button>
+                    <Button small onClick={() => { setCows([...cows, { ...blankCow(importBarns[0]?.code ?? ''), pricing }]); openModal(`row-${cows.length + 1}`) }}>+ Thêm con</Button>
                   </>
                 }
               >
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold">Cách tính giá</span>
+                  <Segmented
+                    value={pricing}
+                    onChange={(next) => { setPricing(next as 'kg' | 'con'); setCows(cows.map((c) => ({ ...c, pricing: next as 'kg' | 'con' }))) }}
+                    options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]}
+                  />
+                </div>
                 <div className="max-h-[420px] overflow-auto rounded-md">
                 <Table wide>
                   <thead>
@@ -475,7 +486,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                         <Td className={TH}>
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
                         </Td>
-                        <Td className={TH}>{money(c.unitPrice ?? 0)} <span className="text-[10px] text-muted">đ/{c.pricing === 'con' ? 'con' : 'kg'}</span></Td>
+                        <Td className={TH}>{money(c.unitPrice ?? 0)} <span className="text-[10px] text-muted">đ/{pricing === 'con' ? 'con' : 'kg'}</span></Td>
                         <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c))}</Td>
                         <Td className={TH}>
                           <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}>✎</button>
@@ -539,12 +550,22 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                         </Td>
                         <Td className={TH}>{c.tag || 'Chưa gắn thẻ'}<br />{c.name}</Td>
                         <Td className={TH}>
+                          {c.calfOutcomeId != null && c.mother ? (
+                            <span>{c.mother}</span>
+                          ) : (
+                            <>
                           <select aria-label={`Bò mẹ của bê ${i + 1}`} className="w-full min-w-[150px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={String(c.damId ?? '')} disabled={!parentCattle.some((row) => row.sex === 'FEMALE')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = { damId: option?.id, mother: option?.code ?? '' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>
                             <option value="">{c.mother ? `Đang chọn: ${c.mother}` : 'Chọn bò mẹ trong đàn'}</option>
                             {parentCattle.filter((row) => row.sex === 'FEMALE').map((row) => <option key={row.id} value={row.id}>{row.code}{row.name ? ` · ${row.name}` : ''}</option>)}
                           </select>
+                            </>
+                          )}
                         </Td>
                         <Td className={TH}>
+                          {c.calfOutcomeId != null && c.mother ? (
+                            <span>{c.father || 'Không rõ'}</span>
+                          ) : (
+                            <>
                           <select aria-label={`Bò bố của bê ${i + 1}`} className="w-full min-w-[190px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={c.sireSource === 'AI' ? 'AI' : String(c.sireId ?? '')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = e.target.value === 'AI' ? { sireId: undefined, sireSource: 'AI', father: 'Thụ tinh nhân tạo' } : { sireId: option?.id, sireSource: option ? 'INTERNAL' : 'NONE', father: option?.code ?? 'Không rõ' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>
                             <option value="">{c.sireId ? `Đang chọn: ${c.father}` : (c.father && c.father !== 'Không rõ' ? c.father : 'Chọn bò bố hoặc thụ tinh nhân tạo')}</option>
                             <option value="AI">Thụ tinh nhân tạo</option>
@@ -554,6 +575,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                           {(c.sireSource || c.externalSireName || c.semenBatch || c.sireBreed) && <small className="block text-[10px] text-muted">
                             {[c.sireSource, c.externalSireName, c.semenBatch, c.sireBreed ? `Giống ${c.sireBreed}` : ''].filter(Boolean).join(' · ')}
                           </small>}
+                            </>
+                          )}
                         </Td>
                         <Td className={`${TH} whitespace-nowrap`}>{dmy(c.born)}</Td>
                         <Td className={TH}>{c.sex}</Td>
@@ -691,7 +714,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           vaccines={vaccines ?? []}
           breeds={breeds ?? []}
           others={cows.filter((_, idx) => idx !== editing)}
-          onSave={(next) => { patchCow(editing, next); closeModal() }}
+          onSave={(next) => { patchCow(editing, { ...next, pricing }); closeModal() }}
           onRemove={() => { setCows(cows.filter((_, idx) => idx !== editing)); closeModal() }}
           onClose={closeModal}
         />
