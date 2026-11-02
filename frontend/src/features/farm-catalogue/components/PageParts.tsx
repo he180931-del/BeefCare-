@@ -4,7 +4,7 @@ import { Button, Note } from '../../../components/ui'
 import { HeaderActions } from './CatalogueShell'
 
 export const SplitLayout = ({ children }: { children: ReactNode }) => (
-  <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,650fr)_minmax(0,446fr)]">{children}</div>
+  <div className="grid items-start gap-4 min-[1360px]:grid-cols-[minmax(675px,1fr)_minmax(340px,410px)]">{children}</div>
 )
 
 export const SavedNotice = ({ text }: { text: string | null }) =>
