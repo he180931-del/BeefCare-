@@ -68,7 +68,7 @@ export default function MembersPage() {
           <MemberTable members={visible} owner={owner} farmActive={farmActive} onChange={(member, action) => openChange(member.id, action)} />
         </div>
         <Card title="Quyền theo vai trò">
-          <Segmented value={permissionRole} onChange={(value) => setPermissionRole(value as 'MANAGER' | 'TECHNICIAN')} options={[{ value: 'MANAGER', label: 'Quản lý' }, { value: 'TECHNICIAN', label: 'Kỹ thuật viên' }]} />
+          <div className="[&>div]:flex [&>div]:w-full [&_button]:flex-1"><Segmented value={permissionRole} onChange={(value) => setPermissionRole(value as 'MANAGER' | 'TECHNICIAN')} options={[{ value: 'MANAGER', label: 'Quản lý' }, { value: 'TECHNICIAN', label: 'Kỹ thuật viên' }]} /></div>
           <PermissionChecklist role={permissionRole} />
         </Card>
       </div>

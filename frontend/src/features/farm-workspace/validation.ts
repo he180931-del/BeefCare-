@@ -8,7 +8,10 @@ import type {
 
 export type FormErrors<T extends object> = Partial<Record<keyof T, string>>
 
-const PHONE = /^(?:0\d{9}|\+84\d{9})$/
+const PHONE_PATTERN = /^(?:0\d{9}|\+84\d{9})$/
+/** Số điện thoại có thể gõ kèm dấu cách, chấm hoặc gạch ("0912 345 678"); chỉ kiểm tra và gửi dạng đã bỏ ký tự phân tách. */
+export const compactPhone = (value: string) => value.replace(/[\s.-]/g, '')
+const PHONE = { test: (value: string) => PHONE_PATTERN.test(compactPhone(value)) }
 const NAME = (value: unknown, min: number, max: number) => typeof value === 'string' && value.trim().length >= min && value.trim().length <= max
 const optionalText = (value: unknown, max: number) => value == null || (typeof value === 'string' && value.length <= max)
 

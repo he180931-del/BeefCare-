@@ -5,6 +5,7 @@ import type {
   Invitation, InvitationPreview, InvitationStatus, InviteMemberInput, Membership, MemberStatus,
   UpdateProfileInput,
 } from '../types'
+import { compactPhone } from '../validation'
 import { farmWorkspaceDemoStore, type FarmUpdateInput, type FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
 
 const oneOf = <T extends string>(value: unknown, values: readonly T[], fallback: T): T =>
@@ -104,11 +105,11 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
     getProfile: async () => mode === 'backend' ? profile(await transport.get('/api/account/profile')) : demoStore.getProfile(),
     completeOwnerRegistration: async (input: CompleteOwnerProfileInput) => {
       if (mode !== 'backend') return demoStore.completeOwnerRegistration(input)
-      const result = asRecord(await command('/api/account/owner-registration', input, 'POST'))
+      const result = asRecord(await command('/api/account/owner-registration', { ...input, phone: compactPhone(input.phone) }, 'POST'))
       return profile({ ...result, ownerRegistrationCompleted: result.completed === true, farms: [] })
     },
     updateProfile: async (input: UpdateProfileInput) => mode === 'backend'
-      ? profile(await command('/api/account/profile', input, 'POST'))
+      ? profile(await command('/api/account/profile', { ...input, phone: compactPhone(input.phone) }, 'POST'))
       : demoStore.updateProfile(input),
     listFarms: async () => mode === 'backend'
       ? asRows(await transport.get('/api/farms')).map(farmSummary)
@@ -119,14 +120,14 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
       return farmDetails(details, farmSummary(context).role)
     },
     registerFarm: async (input: FarmRegistrationInput) => mode === 'backend'
-      ? farmDetails(await command('/api/farms', input, 'POST'), 'OWNER')
+      ? farmDetails(await command('/api/farms', { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'POST'), 'OWNER')
       : demoStore.registerFarm(input),
     updateFarm: async (id: number, input: FarmUpdateInput) => {
       if (mode !== 'backend') return demoStore.updateFarm(id, input)
       if (input.expectedVersion == null || !input.mainBreedIds) throw new Error('Thiếu phiên bản hoặc danh sách giống để lưu thông tin trại.')
       const context = await transport.get(path(id, '/context'))
       const role = farmSummary(context).role
-      const updated = await command(path(id, ''), input, 'PUT')
+      const updated = await command(path(id, ''), { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'PUT')
       return farmDetails(updated, role)
     },
     listMembers: async (id: number) => mode === 'backend'

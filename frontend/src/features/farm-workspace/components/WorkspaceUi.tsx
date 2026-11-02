@@ -3,7 +3,7 @@ import { BackendError } from '../../../api/backendClient'
 import { Icon } from '../../../components/Icon'
 
 /** Ô nhập của trang thường theo Figma (cao 36px, bo 4, viền xám); hộp thoại và trang thiết lập dùng `inputCls` (44px). */
-export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted read-only:bg-chip read-only:text-muted'
+export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted'
 
 export function PageSelect({ children, className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
@@ -71,7 +71,9 @@ export function formatDate(value?: string | null) {
 export function formatMonth(value?: string | null) {
   if (!value) return MISSING
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? MISSING : new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, month: '2-digit', year: 'numeric' }).format(date)
+  if (Number.isNaN(date.getTime())) return MISSING
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, month: '2-digit', year: 'numeric' }).formatToParts(date).map((part) => [part.type, part.value]))
+  return `${parts.month}/${parts.year}`
 }
 
 export const initialsOf = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(-2).map((word) => word[0]).join('').toUpperCase() || '?'

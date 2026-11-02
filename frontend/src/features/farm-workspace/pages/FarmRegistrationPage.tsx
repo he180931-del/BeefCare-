@@ -52,7 +52,7 @@ export default function FarmRegistrationPage() {
           {error && <Note tone="err">{error}</Note>}
           <Field label="Tên trại *" id="farm-name"><input id="farm-name" autoComplete="organization" maxLength={150} placeholder="Trại Tản Lĩnh" value={form.name} onChange={(event) => set('name', event.target.value)} className={inputCls} /><FieldError>{errors.name}</FieldError></Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Tỉnh/Thành *" id="farm-province"><Select id="farm-province" value={form.province} onChange={(event) => set('province', event.target.value)}><option value="">Chọn tỉnh/thành</option>{PROVINCES.map((name) => <option key={name} value={name}>{name}</option>)}</Select><FieldError>{errors.province}</FieldError></Field>
+            <Field label="Tỉnh/Thành *" id="farm-province"><Select className="[&_select]:!bg-white" id="farm-province" value={form.province} onChange={(event) => set('province', event.target.value)}><option value="">Chọn tỉnh/thành</option>{PROVINCES.map((name) => <option key={name} value={name}>{name}</option>)}</Select><FieldError>{errors.province}</FieldError></Field>
             <Field label="Xã/Phường *" id="farm-commune"><input id="farm-commune" autoComplete="address-level2" maxLength={150} placeholder="Xã Tản Lĩnh, Ba Vì" value={form.commune} onChange={(event) => set('commune', event.target.value)} className={inputCls} /><FieldError>{errors.commune}</FieldError></Field>
           </div>
           <Field label="Địa chỉ chi tiết (không bắt buộc)" id="farm-address"><input id="farm-address" autoComplete="street-address" maxLength={255} placeholder="Thôn Bơn, xã Tản Lĩnh" value={form.detailedAddress} onChange={(event) => set('detailedAddress', event.target.value)} className={inputCls} /><FieldError>{errors.detailedAddress}</FieldError></Field>
@@ -62,7 +62,7 @@ export default function FarmRegistrationPage() {
           </div>
           <Field label="Thông tin giấy chứng nhận" id="farm-certificate"><input id="farm-certificate" maxLength={255} placeholder="Số 01/GCN-TT – UBND huyện Ba Vì" value={form.registrationCertificateInfo} onChange={(event) => set('registrationCertificateInfo', event.target.value)} className={inputCls} /><FieldError>{errors.registrationCertificateInfo}</FieldError></Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Quy mô dự kiến *" id="farm-herd-size"><Select id="farm-herd-size" value={form.expectedHerdSize} onChange={(event) => set('expectedHerdSize', event.target.value as ExpectedHerdSize)}><option value="">Chọn quy mô</option>{HERD_SIZES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><FieldError>{errors.expectedHerdSize}</FieldError></Field>
+            <Field label="Quy mô dự kiến *" id="farm-herd-size"><Select className="[&_select]:!bg-white" id="farm-herd-size" value={form.expectedHerdSize} onChange={(event) => set('expectedHerdSize', event.target.value as ExpectedHerdSize)}><option value="">Chọn quy mô</option>{HERD_SIZES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><FieldError>{errors.expectedHerdSize}</FieldError></Field>
             <Field label="Giống chủ lực" id="farm-breeds" hint="Chọn nhiều từ danh mục giống có sẵn · giống được chọn bật sẵn cho trại"><BreedMultiSelect id="farm-breeds" value={form.mainBreedCodes ?? []} onChange={(codes) => set('mainBreedCodes', codes)} /></Field>
           </div>
           <div className="flex flex-wrap justify-between gap-3">

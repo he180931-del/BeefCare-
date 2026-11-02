@@ -54,7 +54,7 @@ export function InviteDialog({ farmId, farmName, active, onClose, onSent }: {
             : <p className="m-0 flex items-center gap-2 text-[13px] text-ink"><input type="checkbox" disabled aria-hidden="true" className="size-3.5" />Chọn vai trò để xem các quyền cố định.</p>}
         </Field>
         <Field label="Hết hạn sau" id="invite-validity">
-          <Select id="invite-validity" value={validityDays} onChange={(event) => setValidityDays(Number(event.target.value) as 3 | 7 | 14)}>
+          <Select className="[&_select]:!bg-white" id="invite-validity" value={validityDays} onChange={(event) => setValidityDays(Number(event.target.value) as 3 | 7 | 14)}>
             <option value={3}>3 ngày</option><option value={7}>7 ngày</option><option value={14}>14 ngày</option>
           </Select>
         </Field>
