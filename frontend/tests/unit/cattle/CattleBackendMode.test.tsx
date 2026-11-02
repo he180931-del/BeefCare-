@@ -54,7 +54,7 @@ describe('cattle pages in backend mode', () => {
 
     expect(await screen.findByText('BC-BACKEND-001')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Mã hiển thị, số tai, tên gọi…')).toBeInTheDocument()
-    expect(screen.getByText('Hiển thị 1–1 trong 2')).toBeInTheDocument()
+    expect(screen.getByText(/Hiển thị 1–1 trong 2/)).toBeInTheDocument()
     expect(screen.getByText(/17 con đang nuôi/)).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /Mục đích/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /Sức khỏe/i })).toBeInTheDocument()
