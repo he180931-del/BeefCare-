@@ -54,6 +54,8 @@ export type SaveFeedRationInput = {
   sessionTimes: string[]
   penIds: number[]
   components: FeedRationDraftComponentInput[]
+  /** Local demo: id of a scheduled version this save replaces (it is cancelled in the same step). */
+  replacesId?: number
 }
 
 export type FeedRationDemoStore = {

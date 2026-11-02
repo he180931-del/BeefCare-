@@ -69,7 +69,7 @@ export function filterFeedRations(rows: readonly FeedRation[], filters: FeedRati
   })
 }
 
-export function summarizeFeedRations(rows: readonly FeedRation[], pens: readonly { id: number; headcount: number; status: string }[]) {
+export function summarizeFeedRations(rows: readonly FeedRation[], pens: readonly { id: number; name: string; headcount: number; status: string }[]) {
   const effective = rows.filter((row) => row.status === 'EFFECTIVE')
   const activePens = pens.filter((pen) => pen.status === 'ACTIVE')
   const effectiveByPen = new Map<number, FeedRation>()
@@ -93,6 +93,7 @@ export function summarizeFeedRations(rows: readonly FeedRation[], pens: readonly
     plannedKgPerHead: headCovered === 0 ? null : plannedDailyKg / headCovered,
     plannedDailyCost,
     plannedCostPerHead: headCovered === 0 || plannedDailyCost === null ? null : plannedDailyCost / headCovered,
-    pensWithoutRation: activePens.filter((pen) => pen.headcount > 0 && !effectiveByPen.has(pen.id)).length,
+    pensWithoutRation: activePens.filter((pen) => !effectiveByPen.has(pen.id)).length,
+    pensWithoutRationNames: activePens.filter((pen) => !effectiveByPen.has(pen.id)).map((pen) => pen.headcount > 0 ? pen.name : `${pen.name} (đang trống)`),
   }
 }

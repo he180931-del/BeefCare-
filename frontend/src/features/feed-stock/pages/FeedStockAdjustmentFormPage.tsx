@@ -1,68 +1,84 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Badge, Button, Card, Field, Note, PageHeader, Select, Table, Td, Th, Tile, Textarea, inputCls } from '../../../components/ui'
+import { Badge, Button, Card, DateInput, Docs, Dropzone, Field, Foot, Info, Note, PageHeader, Select, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
 import { backendMode } from '../../../api/backendTransport'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { listFeedStock } from '../api/feedStockApi'
-import { getFeedStockAdjustment, postFeedStockAdjustmentDemo, saveFeedStockAdjustmentDemoDraft } from '../api/feedStockAdjustmentApi'
+import { getFeedStockAdjustment, listFeedStockAdjustments, postFeedStockAdjustmentDemo, saveFeedStockAdjustmentDemoDraft } from '../api/feedStockAdjustmentApi'
 import {
   initialFeedStockAdjustmentForm,
-  localFeedDate,
+  nextFeedAdjustmentCode,
   previewFeedStockAdjustment,
   toFeedStockAdjustmentDraftInput,
   validateFeedStockAdjustmentForm,
 } from '../data/feedStockAdjustmentForm'
+import { formatKg, formatMoney, formatNumber } from '../domain/feedLabels'
 import type { FeedStockAdjustment, FeedStockAdjustmentFormValues, FeedStockAdjustmentType } from '../types/feedStockAdjustment'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 
-const quantityFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
-const currencyFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
+const TITLE = 'Thức ăn › Kiểm kê'
 const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
   PERIODIC_COUNT: 'Kiểm kê định kỳ',
   LOSS: 'Thất thoát',
   SPOILAGE: 'Hư hỏng',
   OTHER: 'Khác',
 }
-const STATUS_LABELS: Record<string, string> = { DRAFT: 'Nháp', POSTED: 'Đã ghi nhận' }
+const REASON_SUGGESTIONS = ['Hao hụt (héo, rơi vãi)', 'Ẩm mốc – hủy bỏ', 'Đếm lại, sai lệch sổ sách', 'Thất thoát']
+const FOOT = 'Phiếu điều chỉnh kho khi kiểm kê hoặc hao hụt (Chủ trại, Quản lý). Nhập tồn thực tế; chênh lệch và giá trị tự tính theo giá nhập bình quân. Dòng có chênh lệch được tô nền và bắt buộc có lý do.'
+
+const signed = (value: number, digits = 3) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)}`
+
+type Line = {
+  code: string
+  name: string
+  systemKg: number
+  countedKg: number | null
+  differenceKg: number | null
+  reason: string
+  differenceValue: number | null
+  feedItemId?: number
+}
 
 export default function FeedStockAdjustmentFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const query = useQuery(async () => {
     if (backendMode === 'backend') {
-      return { stock: [], record: id ? await getFeedStockAdjustment(id) : null }
+      return { stock: [], record: id ? await getFeedStockAdjustment(id) : null, nextCode: '' }
     }
-    const [stock, record] = await Promise.all([
+    const [stock, record, adjustments] = await Promise.all([
       listFeedStock(),
       id ? getFeedStockAdjustment(id) : Promise.resolve(null),
+      id ? Promise.resolve([]) : listFeedStockAdjustments(),
     ])
-    return { stock, record }
+    return { stock, record, nextCode: nextFeedAdjustmentCode(adjustments.map((row) => row.code)) }
   }, [id])
 
   if (query.error) {
     return (
-      <Layout title="Thức ăn – Kiểm kê" user="manager">
+      <Layout title={TITLE} user="manager">
         <PageHeader title="Không thể mở phiếu kiểm kê" />
         <div role="alert" className="mb-4 text-sm text-err-fg">{userFacingError(query.error, 'Không thể mở phiếu kiểm kê.')}</div>
-        <Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>
+        <div><Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button></div>
       </Layout>
     )
   }
 
   if (query.loading || !query.data) {
-    return <Layout title="Thức ăn – Kiểm kê" user="manager"><p role="status" className="m-0 text-xs text-muted">Đang tải phiếu kiểm kê…</p></Layout>
+    return <Layout title={TITLE} user="manager"><p role="status" className="m-0 text-xs text-muted">Đang tải phiếu kiểm kê…</p></Layout>
   }
 
   if (backendMode === 'backend') {
     if (!query.data.record) {
       return (
-        <Layout title="Thức ăn – Kiểm kê" user="manager">
-          <PageHeader title="Kiểm kê / điều chỉnh tồn kho" sub="Một số thông tin chưa sẵn sàng." />
+        <Layout title={TITLE} user="manager">
+          <PageHeader title="Phiếu điều chỉnh kho" sub="Một số thông tin chưa sẵn sàng." />
           <FeedManagementTabs />
           <Note tone="warn">Lưu nháp và ghi nhận kiểm kê hiện chỉ hoạt động trong bản demo.</Note>
-          <Button className="mt-4" onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>
+          <div><Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button></div>
         </Layout>
       )
     }
@@ -71,9 +87,9 @@ export default function FeedStockAdjustmentFormPage() {
 
   if (id && !query.data.record) {
     return (
-      <Layout title="Thức ăn – Kiểm kê" user="manager">
+      <Layout title={TITLE} user="manager">
         <PageHeader title="Không tìm thấy phiếu kiểm kê" />
-        <Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>
+        <div><Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button></div>
       </Layout>
     )
   }
@@ -83,6 +99,7 @@ export default function FeedStockAdjustmentFormPage() {
       key={id ?? 'new-adjustment'}
       record={query.data.record}
       stockRows={query.data.stock}
+      nextCode={query.data.nextCode}
     />
   )
 }
@@ -90,8 +107,8 @@ export default function FeedStockAdjustmentFormPage() {
 function BackendAdjustmentDetail({ record }: { record: FeedStockAdjustment }) {
   const navigate = useNavigate()
   return (
-    <Layout title="Thức ăn – Kiểm kê" user="manager">
-      <PageHeader title="Chi tiết phiếu kiểm kê / điều chỉnh" sub={record.code}>
+    <Layout title={TITLE} user="manager">
+      <PageHeader title={`Phiếu điều chỉnh kho ${record.code}`} sub="Phiếu đang ở chế độ chỉ xem.">
         <Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>
       </PageHeader>
       <FeedManagementTabs />
@@ -100,37 +117,44 @@ function BackendAdjustmentDetail({ record }: { record: FeedStockAdjustment }) {
           <div><dt className="text-muted">Ngày kiểm kê</dt><dd className="m-0 font-medium">{record.countDate}</dd></div>
           <div><dt className="text-muted">Loại</dt><dd className="m-0 font-medium">{TYPE_LABELS[record.adjustmentType as FeedStockAdjustmentType] ?? record.adjustmentType}</dd></div>
           <div><dt className="text-muted">Người kiểm kê</dt><dd className="m-0 font-medium">{record.countedBy || '—'}</dd></div>
-          <div><dt className="text-muted">Trạng thái</dt><dd className="m-0 font-medium">{STATUS_LABELS[record.status] ?? record.status}</dd></div>
+          <div><dt className="text-muted">Trạng thái</dt><dd className="m-0 font-medium">{record.status}</dd></div>
         </dl>
       </Card>
-      <div className="mt-4">
-        <AdjustmentLinesTable lines={record.lines.map((line) => ({
-          code: line.feedCode,
-          name: line.feedName,
-          systemKg: line.systemKg,
-          countedKg: line.countedKg,
-          differenceKg: line.differenceKg,
-          reason: line.reason ?? '',
-          differenceValue: line.differenceValue,
-        }))} readOnly />
-      </div>
-      <Note tone="warn">Phiếu đang ở chế độ chỉ xem. Ghi nhận và lưu nháp hiện chỉ hoạt động trong bản demo.</Note>
+      <Card title="Đối chiếu tồn kho">
+        <AdjustmentLinesTable
+          totalDifferenceKg={record.totalDifferenceKg}
+          totalValue={record.totalValue}
+          readOnly
+          lines={record.lines.map((line) => ({
+            code: line.feedCode,
+            name: line.feedName,
+            systemKg: line.systemKg,
+            countedKg: line.countedKg,
+            differenceKg: line.differenceKg,
+            reason: line.reason ?? '',
+            differenceValue: line.differenceValue,
+          }))}
+        />
+      </Card>
+      <Foot>{FOOT}</Foot>
     </Layout>
   )
 }
 
-function FeedStockAdjustmentForm({ record, stockRows }: {
+function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
   record: FeedStockAdjustment | null
   stockRows: Awaited<ReturnType<typeof listFeedStock>>
+  nextCode: string
 }) {
   const navigate = useNavigate()
   const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows))
   const [currentRecord, setCurrentRecord] = useState(record)
+  const [docs, setDocs] = useState<Array<{ name: string; ext: string }>>([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
   const readOnly = currentRecord?.status !== undefined && currentRecord.status !== 'DRAFT'
-  const title = !currentRecord ? 'Tạo phiếu kiểm kê / điều chỉnh' : readOnly ? 'Chi tiết phiếu kiểm kê / điều chỉnh' : 'Sửa phiếu kiểm kê / điều chỉnh'
+  const title = !currentRecord ? 'Phiếu điều chỉnh kho' : `Phiếu điều chỉnh kho ${currentRecord.code} · ${readOnly ? 'Đã ghi' : 'Nháp'}`
   const preview = useMemo(() => previewFeedStockAdjustment(values, stockRows), [values, stockRows])
   const changedFeeds = readOnly && currentRecord
     ? currentRecord.lines.filter((line) => Math.abs(line.differenceKg) > 0.0005).length
@@ -165,9 +189,9 @@ function FeedStockAdjustmentForm({ record, stockRows }: {
       setCurrentRecord(saved)
       if (postNow) {
         await postFeedStockAdjustmentDemo(saved.id)
-        navigate('/thuc-an', { state: { feedStockMessage: `Đã ghi nhận phiếu ${saved.code} trong bản demo.` } })
+        navigate('/thuc-an', { state: { feedStockMessage: `Phiếu điều chỉnh ${saved.code} đã ghi: ${formatNumber(saved.totalDifferenceKg)} kg (${saved.totalValue === null ? '—' : formatMoney(saved.totalValue)} đ).` } })
       } else {
-        navigate('/thuc-an/kiem-ke', { state: { adjustmentMessage: `Đã lưu nháp phiếu ${saved.code} trong bản demo.` } })
+        navigate('/thuc-an/kiem-ke', { state: { adjustmentMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.` } })
       }
     } catch (saveError) {
       setError(userFacingError(saveError, 'Không thể lưu phiếu kiểm kê. Vui lòng thử lại.'))
@@ -177,7 +201,7 @@ function FeedStockAdjustmentForm({ record, stockRows }: {
     }
   }
 
-  const previewLines = readOnly && currentRecord
+  const lines: Line[] = readOnly && currentRecord
     ? currentRecord.lines.map((line) => ({
       code: line.feedCode,
       name: line.feedName,
@@ -200,117 +224,140 @@ function FeedStockAdjustmentForm({ record, stockRows }: {
     }))
 
   return (
-    <Layout title="Thức ăn – Kiểm kê" user="manager">
-      <PageHeader title={title} sub="Đối chiếu số đếm thực tế với lượng tồn hiện tại.">
-        <Button disabled={saving} onClick={() => navigate('/thuc-an')}>Quay lại tồn kho</Button>
-        <Button disabled={saving} onClick={() => navigate('/thuc-an/kiem-ke')}>Danh sách phiếu</Button>
-      </PageHeader>
-
-      <Badge tone="info">Dữ liệu minh họa</Badge>
+    <Layout title={TITLE} user="manager">
+      <PageHeader title={title} sub="Đối chiếu tồn thực tế với tồn hệ thống" />
       <FeedManagementTabs />
       {readOnly && <Note tone="info">Phiếu đã ghi nhận; thông tin đang ở chế độ chỉ xem.</Note>}
       {error && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="flex min-w-0 flex-col gap-5">
-          <Card title="Thông tin phiếu">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Field label="Số phiếu" id="feed-adjustment-code">
-                <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? 'Tạo khi lưu nháp'} className={inputCls} />
-              </Field>
-              <Field label="Ngày kiểm kê *" id="feed-adjustment-date">
-                <input id="feed-adjustment-date" aria-label="Ngày kiểm kê" type="date" max={localFeedDate()} disabled={readOnly || saving} value={values.countDate} onChange={(event) => update('countDate', event.target.value)} className={inputCls} />
-              </Field>
-              <Field label="Loại kiểm kê *" id="feed-adjustment-type">
-                <Select id="feed-adjustment-type" aria-label="Loại kiểm kê" disabled={readOnly || saving} value={values.adjustmentType} onChange={(event) => update('adjustmentType', event.target.value as FeedStockAdjustmentType)}>
-                  {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </Select>
-              </Field>
-              <Field label="Người kiểm kê" id="feed-adjustment-counted-by">
-                <input id="feed-adjustment-counted-by" aria-label="Người kiểm kê" maxLength={200} disabled={readOnly || saving} value={values.countedBy} onChange={(event) => update('countedBy', event.target.value)} className={inputCls} />
-              </Field>
-            </div>
-          </Card>
-
-          <Card title="Đối chiếu tồn kho" sub="Nhập số lượng đếm được. Chênh lệch âm được phép.">
-            <AdjustmentLinesTable lines={previewLines} readOnly={readOnly || saving} onChange={updateLine} />
-          </Card>
-          <Note>Việc ghi nhận kiểm kê chỉ điều chỉnh tồn kho hiện tại, không thay đổi phiếu nhập hoặc nhật ký cho ăn trước đó.</Note>
-        </div>
-
-        <aside className="flex flex-col gap-3">
-          <Tile label="Mặt hàng chênh lệch" value={changedFeeds} note="Mặt hàng cần đối chiếu" />
-          <Tile label="Tổng chênh lệch" value={totalDifferenceKg === null ? '—' : `${quantityFormat.format(totalDifferenceKg)} kg`} note="Tổng số đếm trừ tồn hệ thống" />
-          <Tile label="Giá trị điều chỉnh" value={totalValue === null ? '—' : `${currencyFormat.format(totalValue)} đ`} note="Theo giá trị tồn hiện có" />
-          {totalValue === null && <Note tone="warn">Chưa đủ dữ liệu để tính giá trị cho một số mặt hàng.</Note>}
-          <div className="flex flex-col gap-2 rounded-md border border-edge bg-white p-4">
-            <strong className="text-xs">Hoàn tất phiếu</strong>
-            <span className="text-xs text-muted">Sau khi ghi nhận, phiếu sẽ không thể sửa.</span>
-            <Button variant="primary" disabled={saving || readOnly} onClick={() => submit(true)}>{saving ? 'Đang lưu…' : 'Ghi nhận điều chỉnh'}</Button>
-            <Button disabled={saving || readOnly} onClick={() => submit(false)}>{saving ? 'Đang lưu…' : 'Lưu nháp'}</Button>
-            <Button disabled={saving} onClick={() => navigate('/thuc-an')}>Hủy</Button>
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
+        <Card title="Thông tin phiếu">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Mã phiếu" id="feed-adjustment-code">
+              <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? nextCode} className={inputCls} />
+            </Field>
+            <Field label="Ngày kiểm kê *" id="feed-adjustment-date">
+              <DateInput id="feed-adjustment-date" readOnly={readOnly || saving} value={values.countDate} onChange={(value) => update('countDate', value)} />
+            </Field>
+            <Field label="Loại điều chỉnh *" id="feed-adjustment-type">
+              <Select id="feed-adjustment-type" aria-label="Loại điều chỉnh" disabled={readOnly || saving} value={values.adjustmentType} onChange={(event) => update('adjustmentType', event.target.value as FeedStockAdjustmentType)}>
+                {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </Select>
+            </Field>
+            <Field label="Người kiểm kê" id="feed-adjustment-counted-by">
+              <input id="feed-adjustment-counted-by" maxLength={200} readOnly={readOnly || saving} value={values.countedBy} onChange={(event) => update('countedBy', event.target.value)} className={inputCls} />
+            </Field>
           </div>
-        </aside>
+        </Card>
+
+        <Card>
+          <div className="flex items-center gap-2">
+            <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt điều chỉnh</h3>
+            <Badge tone="info" icon="pencil">{readOnly ? 'ĐÃ GHI' : 'NHÁP'}</Badge>
+          </div>
+          <Info cols={2} items={[
+            ['Thức ăn chênh lệch', `${changedFeeds} / ${lines.length}`],
+            ['Tổng chênh lệch', totalDifferenceKg === null ? '—' : `${signed(totalDifferenceKg, 3)} kg`],
+            ['Giá trị điều chỉnh', totalValue === null ? '—' : `${signed(totalValue, 0)} đ`],
+            ['Chứng từ', `${docs.length} tệp`],
+          ]} />
+          {totalValue === null && <Note tone="warn">Chưa đủ dữ liệu để tính giá trị cho một số mặt hàng.</Note>}
+          {!readOnly && (
+            <>
+              <Button variant="primary" block disabled={saving} onClick={() => void submit(true)}>{saving ? 'Đang lưu…' : 'Lưu điều chỉnh'}</Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button disabled={saving} onClick={() => void submit(false)}>Lưu nháp</Button>
+                <Button disabled={saving} onClick={() => navigate('/thuc-an')}>Hủy</Button>
+              </div>
+            </>
+          )}
+          {readOnly && <Button block onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>}
+        </Card>
       </div>
+
+      <Card title="Đối chiếu tồn kho" sub={`${lines.length} thức ăn · dòng có chênh lệch bắt buộc chọn lý do`}>
+        <Note tone="info">Điều chỉnh không sửa phiếu nhập hay nhật ký cho ăn đã ghi; mỗi dòng chênh lệch tạo 1 bút toán kho kèm lý do, người lập và thời điểm. Tồn sau điều chỉnh không âm.</Note>
+        <AdjustmentLinesTable lines={lines} readOnly={readOnly || saving} onChange={updateLine} totalDifferenceKg={totalDifferenceKg} totalValue={totalValue} />
+      </Card>
+
+      <Card title="Chứng từ đính kèm">
+        {!readOnly && <Dropzone hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
+        <Docs docs={docs} onRemove={readOnly ? undefined : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+        {docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
+      </Card>
+
+      <Foot>{FOOT}</Foot>
     </Layout>
   )
 }
 
-function AdjustmentLinesTable({ lines, readOnly, onChange }: {
-  lines: Array<{
-    code: string
-    name: string
-    systemKg: number
-    countedKg: number | null
-    differenceKg: number | null
-    reason: string
-    differenceValue: number | null
-    feedItemId?: number
-  }>
+function AdjustmentLinesTable({ lines, readOnly, onChange, totalDifferenceKg, totalValue }: {
+  lines: Line[]
   readOnly: boolean
   onChange?: (feedItemId: number, key: 'countedKg' | 'reason', value: string) => void
+  totalDifferenceKg: number | null
+  totalValue: number | null
 }) {
   return (
-    <Table scroll>
-      <thead><tr>
-        <Th>Mã / Thức ăn</Th><Th>Tồn hệ thống (kg)</Th><Th>Số đếm (kg)</Th><Th>Chênh lệch (kg)</Th><Th>Lý do</Th><Th>Giá trị (đ)</Th>
-      </tr></thead>
-      <tbody>
-        {lines.map((line) => (
-          <tr key={line.feedItemId ?? line.code}>
-            <Td><strong>{line.code}</strong><span className="block text-muted">{line.name}</span></Td>
-            <Td>{quantityFormat.format(line.systemKg)}</Td>
-            <Td>
-              {readOnly ? quantityFormat.format(line.countedKg ?? 0) : (
-                <input
-                  aria-label={`Số đếm ${line.code}`}
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  value={line.countedKg ?? ''}
-                  onChange={(event) => line.feedItemId !== undefined && onChange?.(line.feedItemId, 'countedKg', event.target.value)}
-                  className={`${inputCls} min-w-[110px]`}
-                />
-              )}
-            </Td>
-            <Td className={line.differenceKg !== null && line.differenceKg < 0 ? 'text-err-fg' : 'text-ok-fg'}>
-              {line.differenceKg === null ? '—' : `${line.differenceKg > 0 ? '+' : ''}${quantityFormat.format(line.differenceKg)}`}
-            </Td>
-            <Td>
-              {readOnly ? line.reason || '—' : (
-                <Textarea
-                  aria-label={`Lý do ${line.code}`}
-                  value={line.reason}
-                  placeholder={line.differenceKg === 0 ? 'Không bắt buộc' : 'Nhập lý do chênh lệch'}
-                  onChange={(event) => line.feedItemId !== undefined && onChange?.(line.feedItemId, 'reason', event.target.value)}
-                  className="min-w-[180px]"
-                />
-              )}
-            </Td>
-            <Td>{line.differenceValue === null ? '—' : currencyFormat.format(line.differenceValue)}</Td>
+    <>
+      <datalist id="feed-adjustment-reasons">{REASON_SUGGESTIONS.map((reason) => <option key={reason} value={reason} />)}</datalist>
+      <Table scroll stack={false}>
+        <thead>
+          <tr><Th>Thức ăn</Th><Th>Tồn hệ thống</Th><Th>Tồn thực tế</Th><Th>Chênh lệch</Th><Th>Lý do</Th><Th>Giá trị (đ)</Th></tr>
+        </thead>
+        <tbody>
+          {lines.map((line) => {
+            const changed = line.differenceKg !== null && Math.abs(line.differenceKg) > 0.0005
+            return (
+              <tr key={line.feedItemId ?? line.code} className={changed ? 'bg-warn-bg' : undefined}>
+                <Td className="min-w-[130px] font-medium">{line.name}</Td>
+                <Td className="whitespace-nowrap">{formatKg(line.systemKg, 3)}</Td>
+                <Td className="min-w-[120px]">
+                  {readOnly ? formatNumber(line.countedKg ?? 0, 3) : (
+                    <input
+                      aria-label={`Số đếm ${line.code}`}
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      value={line.countedKg ?? ''}
+                      onChange={(event) => line.feedItemId !== undefined && onChange?.(line.feedItemId, 'countedKg', event.target.value)}
+                      className={`${inputCls} w-[110px]`}
+                    />
+                  )}
+                </Td>
+                <Td className={`whitespace-nowrap ${changed ? 'text-err-fg' : ''}`}>
+                  {line.differenceKg === null ? '—' : changed ? `${signed(line.differenceKg)} kg` : '0'}
+                </Td>
+                <Td className="min-w-[200px]">
+                  {readOnly ? line.reason || '—' : changed ? (
+                    <div className="relative">
+                      <input
+                        aria-label={`Lý do ${line.code}`}
+                        list="feed-adjustment-reasons"
+                        maxLength={500}
+                        value={line.reason}
+                        placeholder="Chọn hoặc nhập lý do"
+                        onChange={(event) => line.feedItemId !== undefined && onChange?.(line.feedItemId, 'reason', event.target.value)}
+                        className={`${inputCls} w-[240px] max-w-full pr-8`}
+                      />
+                      <Icon name="chevron-down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
+                    </div>
+                  ) : '—'}
+                </Td>
+                <Td className="whitespace-nowrap">{line.differenceValue === null ? '—' : line.differenceValue === 0 ? '0' : signed(line.differenceValue, 0)}</Td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <Td className="font-semibold">Tổng</Td><Td /><Td />
+            <Td className="whitespace-nowrap font-semibold">{totalDifferenceKg === null ? '—' : `${signed(totalDifferenceKg)} kg`}</Td>
+            <Td />
+            <Td className="whitespace-nowrap font-semibold">{totalValue === null ? '—' : signed(totalValue, 0)}</Td>
           </tr>
-        ))}
-      </tbody>
-    </Table>
+        </tfoot>
+      </Table>
+    </>
   )
 }

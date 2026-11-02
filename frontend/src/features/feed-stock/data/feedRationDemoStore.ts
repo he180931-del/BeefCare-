@@ -143,16 +143,30 @@ function serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
   return current
 }
 
+/** Removes a version that has not taken effect and gives the previous version its end date back (GBR-101). */
+function dropScheduledVersion(rations: readonly FeedRation[], id: number, today: string): FeedRation[] {
+  const target = rations.find((row) => row.id === id)
+  if (!target) throw new Error('Không tìm thấy phiên bản khẩu phần.')
+  if (rationStatusForDate(target, today) !== 'SCHEDULED') throw new Error('Chỉ hủy hoặc thay được phiên bản chưa có hiệu lực.')
+  const dayBefore = addDays(target.effectiveFrom, -1)
+  return rations.filter((row) => row.id !== id).map((row) => {
+    const replaced = row.rationCode === target.rationCode && row.effectiveTo === dayBefore && row.penIds.some((penId) => target.penIds.includes(penId))
+    if (!replaced) return row
+    return { ...row, effectiveTo: target.effectiveTo, status: rationStatusForDate({ effectiveFrom: row.effectiveFrom, effectiveTo: target.effectiveTo }, today) }
+  })
+}
+
 async function saveVersion(input: SaveFeedRationInput, currentStock: readonly FeedStockRow[]): Promise<FeedRation> {
   return serializeMutation(async () => {
     validate(input, currentStock)
     const state = await states.get('feed-rations')
-    const code = input.rationCode || nextCode(state.rations)
-    const previousVersions = state.rations.filter((row) => row.rationCode === code).sort((a, b) => b.versionNo - a.versionNo)
+    const working = input.replacesId === undefined ? state.rations : dropScheduledVersion(state.rations, input.replacesId, localToday())
+    const code = input.rationCode || nextCode(working)
+    const previousVersions = working.filter((row) => row.rationCode === code).sort((a, b) => b.versionNo - a.versionNo)
     if (input.rationCode && !previousVersions.length) throw new Error('Không tìm thấy khẩu phần cần tạo phiên bản mới.')
     const today = localToday()
     const selectedPenIds = new Set(input.penIds)
-    const priorRows = state.rations.filter((row) => row.penIds.some((id) => selectedPenIds.has(id)))
+    const priorRows = working.filter((row) => row.penIds.some((id) => selectedPenIds.has(id)))
     if (priorRows.some((row) => row.effectiveFrom === input.effectiveFrom)) throw new Error('Chuồng đã có khẩu phần bắt đầu từ ngày này.')
     const rowsToClose = priorRows.filter((row) => row.effectiveFrom < input.effectiveFrom
       && !(row.effectiveTo && row.effectiveTo < input.effectiveFrom))
@@ -162,14 +176,14 @@ async function saveVersion(input: SaveFeedRationInput, currentStock: readonly Fe
     const futureStart = priorRows.map((row) => row.effectiveFrom).filter((date) => date > input.effectiveFrom).sort()[0]
     const effectiveTo = futureStart ? addDays(futureStart, -1) : null
 
-    const rations = state.rations.map((row) => {
+    const rations = working.map((row) => {
       if (!row.penIds.some((id) => selectedPenIds.has(id)) || row.effectiveFrom >= input.effectiveFrom
         || row.effectiveTo && row.effectiveTo < input.effectiveFrom) return row
       const nextEnd = addDays(input.effectiveFrom, -1)
       return { ...row, effectiveTo: nextEnd, status: rationStatusForDate({ ...row, effectiveTo: nextEnd }, today) }
     })
     const next: FeedRation = {
-      id: Math.max(0, ...state.rations.map((row) => row.id)) + 1,
+      id: Math.max(0, ...working.map((row) => row.id)) + 1,
       rationCode: code,
       versionNo: (previousVersions[0]?.versionNo ?? 0) + 1,
       name: input.name.trim(),
@@ -193,17 +207,7 @@ async function cancelVersion(id: number): Promise<FeedRation> {
     const state = await states.get('feed-rations')
     const current = state.rations.find((row) => row.id === id)
     if (!current) throw new Error('Không tìm thấy phiên bản khẩu phần.')
-    const today = localToday()
-    if (rationStatusForDate(current, today) !== 'SCHEDULED') throw new Error('Chỉ hủy được phiên bản chưa có hiệu lực.')
-    const dayBefore = addDays(current.effectiveFrom, -1)
-    // The version this one replaced ended the day before: give its end date back so it stays effective.
-    const rations = state.rations.filter((row) => row.id !== id).map((row) => {
-      const replaced = row.rationCode === current.rationCode && row.effectiveTo === dayBefore
-        && row.penIds.some((penId) => current.penIds.includes(penId))
-      if (!replaced) return row
-      return { ...row, effectiveTo: current.effectiveTo, status: rationStatusForDate({ effectiveFrom: row.effectiveFrom, effectiveTo: current.effectiveTo }, today) }
-    })
-    await states.update(state.id, { rations })
+    await states.update(state.id, { rations: dropScheduledVersion(state.rations, id, localToday()) })
     return { ...current, penIds: [...current.penIds], components: current.components.map((component) => ({ ...component })) }
   })
 }

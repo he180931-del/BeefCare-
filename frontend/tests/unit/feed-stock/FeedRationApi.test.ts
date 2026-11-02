@@ -19,8 +19,9 @@ const makeTransport = (): BackendTransport => ({
 })
 
 function input(overrides: Partial<SaveFeedRationInput> = {}): SaveFeedRationInput {
+  // Day after tomorrow: tomorrow is already taken by the scheduled KP-02 v2 on pen B1.
   const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setDate(tomorrow.getDate() + 2)
   return {
     name: 'Khẩu phần kiểm thử',
     herdGroup: 'FATTENING',
@@ -135,5 +136,66 @@ describe('SCR-81/82 ration API boundary and demo store', () => {
 
     expect(getFeedStock).toHaveBeenCalledOnce()
     expect(saved.components[0].estimatedDailyCost).toBe(2_700)
+  })
+
+  it('cancels only a scheduled version and gives the previous version its open end back (GBR-101)', async () => {
+    localStorage.clear()
+    localStorage.setItem('beefcare:latency', '0')
+    await resetFeedRationDemoStore()
+    const api = createFeedRationApi({ mode: 'local', farmId: 1, transport: makeTransport() })
+    const rows = await api.list()
+    const v1 = rows.find((row) => row.rationCode === 'KP-02' && row.versionNo === 1)!
+    const v2 = rows.find((row) => row.rationCode === 'KP-02' && row.versionNo === 2)!
+    expect(v1.effectiveTo).not.toBeNull()
+
+    await expect(api.cancelVersion(v1.id)).rejects.toThrow('chưa có hiệu lực')
+    await api.cancelVersion(v2.id)
+    const after = await api.list()
+    expect(after.some((row) => row.id === v2.id)).toBe(false)
+    expect(after.find((row) => row.id === v1.id)).toMatchObject({ effectiveTo: null, status: 'EFFECTIVE' })
+  })
+
+  it('stops an effective ration from tomorrow or later and not before the next version starts', async () => {
+    localStorage.clear()
+    localStorage.setItem('beefcare:latency', '0')
+    await resetFeedRationDemoStore()
+    const api = createFeedRationApi({ mode: 'local', farmId: 1, transport: makeTransport() })
+    const rows = await api.list()
+    const kp03 = rows.find((row) => row.rationCode === 'KP-03')!
+    const day = (offset: number) => { const date = new Date(); date.setDate(date.getDate() + offset); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
+
+    await expect(api.stop(kp03.id, day(0))).rejects.toThrow('từ ngày mai')
+    await expect(api.stop(rows.find((row) => row.rationCode === 'KP-06')!.id, day(5))).rejects.toThrow('đang áp dụng')
+    expect(await api.stop(kp03.id, day(3))).toMatchObject({ effectiveTo: day(3), status: 'EFFECTIVE' })
+    await expect(api.stop(kp03.id, day(4))).rejects.toThrow('đã có ngày kết thúc')
+  })
+
+  it('replaces a scheduled version in one step and keeps the version number', async () => {
+    localStorage.clear()
+    localStorage.setItem('beefcare:latency', '0')
+    await resetFeedRationDemoStore()
+    const rows = await feedRationDemoStore.list()
+    const v2 = rows.find((row) => row.rationCode === 'KP-02' && row.versionNo === 2)!
+    const saved = await saveFeedRationDemoVersion(input({
+      rationCode: 'KP-02', replacesId: v2.id, effectiveFrom: v2.effectiveFrom, penIds: v2.penIds,
+      components: [{ feedItemId: 104, session1Kg: 5, session2Kg: 5, session3Kg: 0 }],
+    }))
+    expect(saved.versionNo).toBe(2)
+    const after = await listFeedRations()
+    expect(after.filter((row) => row.rationCode === 'KP-02')).toHaveLength(2)
+    expect(after.find((row) => row.rationCode === 'KP-02' && row.versionNo === 1)?.effectiveTo).toBe(
+      (() => { const d = new Date(`${v2.effectiveFrom}T00:00:00`); d.setDate(d.getDate() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
+    )
+  })
+
+  it('has no backend route for cancel or stop and never touches the demo store in backend mode', async () => {
+    const demoStore = { cancelVersion: vi.fn(), stop: vi.fn() } as unknown as FeedRationDemoStore
+    const transport = makeTransport()
+    const api = createFeedRationApi({ mode: 'backend', farmId: 32, transport, demoStore })
+    await expect(api.cancelVersion(1)).rejects.toThrow('Chưa tích hợp')
+    await expect(api.stop(1, '2030-01-01')).rejects.toThrow('Chưa tích hợp')
+    expect(demoStore.cancelVersion).not.toHaveBeenCalled()
+    expect(demoStore.stop).not.toHaveBeenCalled()
+    expect(transport.command).not.toHaveBeenCalled()
   })
 })
