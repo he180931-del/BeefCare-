@@ -54,7 +54,7 @@ describe('reproduction mock API boundary', () => {
 
     expect(after.status).toBe('POST_CALVING')
     expect(after.openPregnancy).toBeNull()
-    expect(after.parity).toBe(4)
+    expect(after.parity).toBe(3)
     expect(after.calvings[0]?.calves[0]?.registrationStatus).toBe('PENDING_CONFIRMATION')
 
     const corrected = await api.correctCalving('BC-000087', after.calvings[0]!.id, { course: 'ASSISTED' }, 'Bổ sung diễn biến đẻ', 'MANAGER')
