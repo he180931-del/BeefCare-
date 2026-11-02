@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, Table, Td, Th } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
@@ -39,11 +38,6 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
-      {canWrite && (
-        <div className="flex justify-end">
-          <Button variant="primary" onClick={() => goRecord()}><Icon name="circle-plus" className="mr-1.5 align-[-3px]" />Ghi nhận tiêm</Button>
-        </div>
-      )}
       <Scheduled data={data} canWrite={canWrite} onRecord={goRecord} onDefer={(id) => setModal('defer', 'd', id)} />
       <History data={data} canWrite={canWrite} onCorrect={(id) => setModal('correct', 'r', id)} />
       <Foot>Tab Tiêm phòng trong hồ sơ bò: phần trên là mũi còn phải tiêm theo lịch, phần dưới là lịch sử đã tiêm. "Ngưng thịt đến" chỉ có với mũi tiêm tại trại có thời gian ngưng. Phản ứng hiện mã ca sức khỏe nếu có. Quản lý thấy nút Ghi nhận, Hoãn, Sửa · Hủy; vai trò khác chỉ xem.</Foot>

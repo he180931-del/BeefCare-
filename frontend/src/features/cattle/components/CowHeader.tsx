@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
+import { useSession } from '../../authorization'
 import { Chip, chipIcon } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
 
@@ -15,11 +16,14 @@ export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['qr', 'Thẻ QR', 'qrcode'],
 ]
 
-// Nút chính bên phải thay đổi theo tab; trang ghi nhận do tính năng tương ứng sở hữu.
-const TAB_ACTIONS: Record<string, { label: string; to: string }> = {
-  growth: { label: 'Ghi nhận cân & BCS', to: '/can-nang/ghi-nhan' },
-  vaccine: { label: 'Ghi nhận tiêm', to: '/tiem-phong/ghi-nhan' },
-  health: { label: 'Mở ca sức khỏe', to: '/suc-khoe/mo-ca' },
+// Nút chính bên phải thay đổi theo tab; hộp thoại ?m= do tab chăm sóc tương ứng mở, tiêm phòng có trang ghi nhận riêng.
+const TAB_ACTIONS: Record<string, { label: string; modal?: string; page?: (code: string) => string }> = {
+  growth: { label: 'Ghi nhận cân & BCS', modal: 'record' },
+  vaccine: {
+    label: 'Ghi nhận tiêm',
+    page: (code) => `/tiem-phong/ghi-nhan?cattle=${encodeURIComponent(code)}&back=${encodeURIComponent(`/cattle/${code}?tab=vaccine`)}`,
+  },
+  health: { label: 'Mở ca sức khỏe', modal: 'open-case' },
 }
 
 /** Mô tả dòng 2 của header: "Số tai X · giống · giới · tuổi · Chuồng X". */
@@ -39,7 +43,9 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
   const voided = cow.status === 'VOIDED'
   const exited = cow.status === 'EXITED'
   const active = cow.status === 'ACTIVE'
-  const action = canWrite ? TAB_ACTIONS[tab] : undefined
+  // Chỉ Quản lý ghi nhận chăm sóc; Chủ trại vẫn cập nhật được hồ sơ nhưng không thấy nút này.
+  const canRecord = (useSession()?.role ?? 'MANAGER') === 'MANAGER'
+  const action = canWrite && canRecord ? TAB_ACTIONS[tab] : undefined
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-[18px] rounded-md border border-edge bg-white p-4">
@@ -59,7 +65,7 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
         <div className="flex-1" />
         {canWrite && (
           <div className="flex flex-wrap gap-2.5">
-            {action && <Button variant="primary" className="leading-[normal]" onClick={() => nav(`${action.to}?cattle=${encodeURIComponent(cow.code)}`)}>{action.label}</Button>}
+            {action && <Button variant="primary" className="leading-[normal]" onClick={() => (action.page ? nav(action.page(cow.code)) : onOpenModal(action.modal ?? ''))}><Icon name="circle-plus" className="mr-1.5 align-[-3px]" />{action.label}</Button>}
             <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('update')}><Icon name="edit" />Cập nhật hồ sơ</Button>
             <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('qr-reissue')}><Icon name="qrcode" />Cấp lại QR</Button>
           </div>

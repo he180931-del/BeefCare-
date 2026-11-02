@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import farm from '../assets/farm.png'
 import wave from '../assets/wave.png'
@@ -83,6 +83,9 @@ export const useTopbarTitle = (title?: string) => {
   }, [title, set])
 }
 
+// Tab chăm sóc trong hồ sơ bò sáng mục chăm sóc tương ứng thay vì "Đàn bò".
+const CARE_TAB_NAV: Record<string, string> = { growth: '/can-nang', vaccine: '/tiem-phong', health: '/suc-khoe', repro: '/sinh-san' }
+
 const NAV = 'mx-3.5 mb-px flex h-7 items-center gap-2.5 rounded-xl px-2.5 text-[13px]'
 
 /**
@@ -99,6 +102,9 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   const [menu, setMenu] = useState(false)
   const [query, setQuery] = useState('')
   const [override, setOverride] = useState<string | null>(null)
+  const location = useLocation()
+  const careNav = location.pathname.startsWith('/cattle/') ? CARE_TAB_NAV[new URLSearchParams(location.search).get('tab') ?? ''] : undefined
+  const lit = (to: string, isActive: boolean) => (careNav ? to === careNav : isActive)
   const search = (event: FormEvent) => {
     event.preventDefault()
     const text = query.trim()
@@ -133,11 +139,11 @@ export default function Layout({ title, user = 'owner', children }: { title: str
                     // Mục cha cùng tiền tố với mục con (Hàng đợi / Ticket được giao) không được sáng cùng lúc.
                     end={g.items.some((other) => other !== it && other.to.startsWith(`${it.to}/`))}
                     onClick={() => setOpen(false)}
-                    className={({ isActive }) => `${NAV} ${isActive ? 'bg-side-active font-semibold text-white' : 'text-side-text'}`}
+                    className={({ isActive }) => `${NAV} ${lit(it.to, isActive) ? 'bg-side-active font-semibold text-white' : 'text-side-text'}`}
                   >
                     {({ isActive }) => (
                       <>
-                        <span className={`grid h-5 w-3.5 shrink-0 place-items-center rounded-[7px] ${isActive ? 'bg-[#cde9d8] text-side-active' : 'bg-side-item text-[#cde9d8]'}`}>
+                        <span className={`grid h-5 w-3.5 shrink-0 place-items-center rounded-[7px] ${lit(it.to, isActive) ? 'bg-[#cde9d8] text-side-active' : 'bg-side-item text-[#cde9d8]'}`}>
                           <Icon name={it.icon} size={14} />
                         </span>
                         {it.name}

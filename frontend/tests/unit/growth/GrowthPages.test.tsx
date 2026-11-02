@@ -46,9 +46,7 @@ describe('danh sách đàn /can-nang', () => {
 describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
   it('Quản lý ghi nhận được lần cân mới và danh sách cập nhật', async () => {
     const user = userEvent.setup()
-    renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
-    await screen.findByText('Lịch sử đo')
-    await user.click(screen.getByRole('button', { name: /Ghi nhận cân & BCS/ }))
+    renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
     await screen.findByLabelText('Cân nặng')
     const dialog = screen.getByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Lưu đánh giá' }))

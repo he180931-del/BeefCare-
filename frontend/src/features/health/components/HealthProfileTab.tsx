@@ -63,7 +63,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
           ))}
         </div>
         <div className="flex min-w-0 flex-col gap-4">
-          <Card title="Tình trạng sức khỏe" actions={openCaseButton || undefined}>
+          <Card title="Tình trạng sức khỏe">
             <div className="grid grid-cols-2 gap-3">
               <Meta label="Hiện tại"><HealthStateBadge state={profile.healthState} /></Meta>
               <Meta label="Ca đang mở">{activeCases.filter((c) => c.status === 'OPEN').length}</Meta>

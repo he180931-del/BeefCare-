@@ -32,7 +32,7 @@ describe('cattle slice S12', () => {
       </MemoryRouter>,
     )
     await user.click(await screen.findByRole('button', { name: 'Ghi nhận cân & BCS' }))
-    expect(screen.getByTestId('where')).toHaveTextContent('/can-nang/ghi-nhan?cattle=BC-000125')
+    expect(await screen.findByLabelText('Cân nặng')).toBeInTheDocument()
   })
 
   it.each([['vaccine', 'Ghi nhận tiêm'], ['health', 'Mở ca sức khỏe']])('shows the %s tab action', async (tab, label) => {

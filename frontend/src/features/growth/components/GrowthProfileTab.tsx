@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Info, LoadingBlock, Metric, Note, Table, Td, Th } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
@@ -18,7 +17,7 @@ const HISTORY_ROWS = 5
 
 export default function GrowthProfileTab({ cattleCode }: { cattleCode: string }) {
   const canWrite = (useSession()?.role ?? 'MANAGER') === 'MANAGER'
-  const [modal, openModal, closeModal] = useModalParam()
+  const [modal, , closeModal] = useModalParam()
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useState<string | null>(null)
   const { data, loading, error, refetch } = useQuery(() => growthApi.getProfile(cattleCode), [cattleCode])
@@ -44,11 +43,6 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
-      {canWrite && (
-        <div className="flex justify-end">
-          <Button variant="primary" onClick={() => openModal('record')}><Icon name="circle-plus" className="mr-1.5 align-[-3px]" />Ghi nhận cân & BCS</Button>
-        </div>
-      )}
       <Summary profile={data} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,720fr)_minmax(0,376fr)]">
         <Card title="Cân nặng theo thời gian" sub="Chỉ vẽ bản ghi hợp lệ" actions={<ChartLegend />}>
