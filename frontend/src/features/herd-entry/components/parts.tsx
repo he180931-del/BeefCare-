@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
-import { Radio } from '../../../components/ui'
+import { Badge, Radio, type BadgeTone } from '../../../components/ui'
+import type { IconName } from '../../../components/Icon'
 import { money } from '../../../data/format'
 
 /** <select> không viền, chỉ hiện chữ + ▾ (ô trong bảng của Figma). Đổi giá trị bằng <select> phủ trong suốt. */
@@ -41,4 +42,15 @@ export function RadioRow({ name, value, options, onChange }: { name: string; val
       ))}
     </div>
   )
+}
+
+const STATUS: Record<string, { tone: BadgeTone | undefined; icon: IconName }> = {
+  'Nháp': { tone: undefined, icon: 'pencil' },
+  'Đã nhập': { tone: 'ok', icon: 'circle-check' },
+  'Đã hủy': { tone: 'err', icon: 'circle-x' },
+}
+/** Huy hiệu trạng thái phiếu nhập kèm icon như Figma. */
+export function EntryStatusBadge({ status }: { status: string }) {
+  const s = STATUS[status]
+  return <Badge tone={s?.tone} icon={s?.icon}>{status}</Badge>
 }
