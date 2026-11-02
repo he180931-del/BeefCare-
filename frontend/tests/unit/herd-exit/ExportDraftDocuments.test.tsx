@@ -93,7 +93,7 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
     renderPage()
     await screen.findByText('1. Thông tin phiếu')
 
-    expect(screen.getByText('Cách tính giá')).toBeInTheDocument()
+    expect(screen.getByText('Cách tính giá *')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Theo kg' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Theo con' })).toBeInTheDocument()
   })

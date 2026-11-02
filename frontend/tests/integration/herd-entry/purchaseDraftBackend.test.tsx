@@ -83,7 +83,7 @@ describe('purchase entry page in backend mode', () => {
 
     await screen.findByDisplayValue('Mua ngoài')
     await user.click(screen.getByRole('button', { name: 'Theo con' }))
-    await user.click(screen.getByRole('button', { name: '+ Thêm con' }))
+    await user.click(screen.getByRole('button', { name: 'Thêm con' }))
     const dialog = screen.getByRole('dialog')
     const comboBoxes = within(dialog).getAllByRole('combobox')
     await user.type(within(dialog).getAllByRole('textbox')[0], 'BC-BACKEND-001')
