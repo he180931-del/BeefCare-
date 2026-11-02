@@ -65,8 +65,8 @@ export default function VaccinesPage() {
       <SavedNotice text={ed.notice} />
       <SplitLayout>
         <CatalogueList q={q} onQ={setQ} status={status} onStatus={setStatus} rows={list.data} error={list.error} onRetry={list.refetch} errorText="Không tải được danh mục vắc-xin." emptyTitle="Không có vắc-xin nào phù hợp">
-          <Table>
-            <thead><tr><Th>Mã</Th><Th>Tên vắc-xin</Th><Th>Phòng bệnh</Th><Th>Liều · đường</Th><Th>Đang dùng</Th><Th>Trạng thái</Th></tr></thead>
+          <Table stack={false}>
+            <thead><tr><Th className="w-[84px]">Mã</Th><Th>Tên vắc-xin</Th><Th>Phòng bệnh</Th><Th>Liều · đường</Th><Th className="w-[84px] whitespace-nowrap">Đang dùng</Th><Th>Trạng thái</Th></tr></thead>
             <tbody>
               {(list.data ?? []).map((v) => {
                 const doseRoute = vaccineDoseRoute(v)
@@ -76,7 +76,7 @@ export default function VaccinesPage() {
                     <Td>{v.name}</Td>
                     <Td>{v.diseasePrevented}</Td>
                     <Td><span className={doseRoute.needsLabel ? 'text-[#b26b00]' : undefined}>{doseRoute.text}</span></Td>
-                    <Td>{vaccineUsageLabel(v)}</Td>
+                    <Td className="whitespace-nowrap">{vaccineUsageLabel(v)}</Td>
                     <Td><AvailabilityBadge available={v.available} /></Td>
                   </SelectableRow>
                 )
