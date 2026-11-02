@@ -28,7 +28,7 @@ function record(penId: number, sessionNo: number, time: string, rationCode: stri
   }
 }
 
-const A1 = [130.5, 17.4, 10.2] as const
+const A1 = [130.5, 17.4, 10.1] as const
 const A2 = [126, 16.8, 9.8] as const
 
 export function buildFeedFeedingSeed(): FeedFeedingRecord[] {
