@@ -8,7 +8,7 @@ import type { DoseRow, VaccinationSource, VaccineRoute } from '../types'
 
 export const ROUTE_LABEL: Record<VaccineRoute, string> = { IM: 'Tiêm bắp', SC: 'Tiêm dưới da', ORAL: 'Uống', IN: 'Nhỏ mũi', OTHER: 'Khác' }
 export const SOURCE_LABEL: Record<VaccinationSource, string> = { ON_FARM: 'Tại trại', HISTORICAL: 'Nhập lịch sử' }
-export const healthCasePath = (code: string) => `/suc-khoe/${code}`
+export const healthCasePath = (code: string) => `/cattle/${code}?tab=health`
 export const profilePath = (code: string) => `/cattle/${code}?tab=vaccine`
 export const recordPath = (params: Record<string, string>) => `/tiem-phong/ghi-nhan?${new URLSearchParams(params).toString()}`
 
