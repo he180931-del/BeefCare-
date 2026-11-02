@@ -13,7 +13,7 @@ const makeTransport = (): BackendTransport => ({
 })
 
 const feedInput = (overrides: Record<string, unknown> = {}) => ({
-  code: 'TA-04',
+  code: 'TA-09',
   name: 'Cỏ voi demo',
   group: 'GREEN_ROUGHAGE' as const,
   purchaseUnit: 'bó',
@@ -35,7 +35,7 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
     const api = createFeedCatalogueApi({ mode: 'local', farmId: 1, transport: makeTransport() })
     const created = await api.saveFeed(feedInput())
     let row = (await listFeedStock()).find((item) => item.feedItemId === created.id)!
-    expect(row).toMatchObject({ code: 'TA-04', name: 'Cỏ voi demo', group: 'GREEN_ROUGHAGE', minimumStockKg: 45, onHandKg: 0, available: true })
+    expect(row).toMatchObject({ code: 'TA-09', name: 'Cỏ voi demo', group: 'GREEN_ROUGHAGE', minimumStockKg: 45, onHandKg: 0, available: true })
 
     await api.saveFeed({ ...feedInput({ name: 'Cỏ voi cập nhật', minimumStockKg: 80 }), id: created.id })
     row = (await listFeedStock()).find((item) => item.feedItemId === created.id)!
@@ -55,8 +55,8 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
     const api = createFeedCatalogueApi({ mode: 'local', farmId: 1, transport: makeTransport() })
     await expect(api.saveFeed(feedInput({ code: 'TA-01' }))).rejects.toThrow('Mã thức ăn đã tồn tại.')
     await expect(api.saveFeed(feedInput({ kgPerPurchaseUnit: 0 }))).rejects.toThrow('Quy đổi phải lớn hơn 0.')
-    await expect(api.saveFeed({ ...feedInput({ code: 'TA-05' }), id: 101 })).rejects.toThrow('không thể đổi mã')
-    expect((await api.listFeeds()).some((item) => item.code === 'TA-05')).toBe(false)
+    await expect(api.saveFeed({ ...feedInput({ code: 'TA-09' }), id: 101 })).rejects.toThrow('không thể đổi mã')
+    expect((await api.listFeeds()).some((item) => item.code === 'TA-09')).toBe(false)
   })
 
   it('shares supplier additions and status changes with the receipt form data boundary', async () => {
@@ -72,7 +72,7 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
     const updatedSuppliers = await api.listSuppliers()
     expect(updatedSuppliers.find((item) => item.id === supplier.id)?.active).toBe(false)
     expect(validateFeedReceiptForm(form, await listFeedStock(), updatedSuppliers)).toBe('Chọn nhà cung cấp.')
-    expect((await api.listSuppliers()).find((item) => item.id === 201)?.name).toBe('Nông sản Ba Vì')
+    expect((await api.listSuppliers()).find((item) => item.id === 201)?.name).toBe('Đại lý TACN Hưng Thịnh – Sơn Tây')
   })
 
   it('reads server catalogue and supplier lists without local fallback, and blocks backend mutations', async () => {

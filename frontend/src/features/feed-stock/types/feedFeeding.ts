@@ -33,6 +33,8 @@ export type FeedFeedingRecord = {
   status: string
   version: number
   fedBy: string | null
+  /** Local demo: who entered the record when it differs from who fed (Người ghi column). */
+  recordedBy?: string | null
   recordedAt: string | null
   leftoverKg: number | null
   note: string | null

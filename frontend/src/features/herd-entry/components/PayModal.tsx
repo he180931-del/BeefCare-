@@ -46,7 +46,7 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
       <div className="grid grid-cols-3 gap-4">
         <KV k="Tổng phải trả">{money(total)} đ</KV>
         <KV k="Đã thanh toán">{money(paid)} đ</KV>
-        <KV k="Còn phải trả">{money(debt)} đ</KV>
+        <KV k="Còn nợ">{money(debt)} đ</KV>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -86,10 +86,9 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
       </Field>
 
       <Note tone="info">
-        <span className="block font-semibold">Đã trả: {money(projectedPaid)} đ</span>
         {remaining > 0
-          ? <span className="block">Còn phải trả: {money(remaining)} đ</span>
-          : <span className="block">Đã thanh toán đủ.</span>}
+          ? `Sau khi lưu: Còn nợ = ${money(remaining)} đ. Khoản đã ghi chỉ sửa/hủy kèm lý do và giữ lịch sử. Đây là sổ thu chi của trại, không phải hóa đơn thuế.`
+          : 'Sau khi lưu: Còn nợ = 0 đ, phiếu hiện "Đã thanh toán đủ". Khoản đã ghi chỉ sửa/hủy kèm lý do và giữ lịch sử.'}
       </Note>
 
       <ModalFooter>

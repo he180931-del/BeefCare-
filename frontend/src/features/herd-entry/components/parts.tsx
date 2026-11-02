@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
-import { Radio } from '../../../components/ui'
+import { Badge, Radio, type BadgeTone } from '../../../components/ui'
+import { Icon, type IconName } from '../../../components/Icon'
 import { money } from '../../../data/format'
 
 /** <select> không viền, chỉ hiện chữ + ▾ (ô trong bảng của Figma). Đổi giá trị bằng <select> phủ trong suốt. */
@@ -7,7 +8,7 @@ export function GhostSelect({ value, onChange, options, className }: { value: st
   const label = options.find((o) => o.value === value)?.label ?? value
   return (
     <span className={`relative inline-block whitespace-nowrap text-xs ${className || ''}`}>
-      {label} <small className="text-[9px]">▾</small>
+      {label} <Icon name="chevron-down" size={12} className="inline align-middle" />
       <select value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0">
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -41,4 +42,15 @@ export function RadioRow({ name, value, options, onChange }: { name: string; val
       ))}
     </div>
   )
+}
+
+const STATUS: Record<string, { tone: BadgeTone | undefined; icon: IconName }> = {
+  'Nháp': { tone: undefined, icon: 'pencil' },
+  'Đã nhập': { tone: 'ok', icon: 'circle-check' },
+  'Đã hủy': { tone: 'err', icon: 'circle-x' },
+}
+/** Huy hiệu trạng thái phiếu nhập kèm icon như Figma. */
+export function EntryStatusBadge({ status }: { status: string }) {
+  const s = STATUS[status]
+  return <Badge tone={s?.tone} icon={s?.icon}>{status}</Badge>
 }

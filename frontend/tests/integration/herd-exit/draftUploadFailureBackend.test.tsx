@@ -52,7 +52,7 @@ describe('herd-exit draft upload failure in backend mode', () => {
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), new File(['%PDF'], 'fail.pdf', { type: 'application/pdf' }))
     await user.click(screen.getByRole('button', { name: /Lưu và kiểm tra/ }))
 
-    expect(await screen.findByText('upload failed')).toBeInTheDocument()
+    expect(await screen.findByText('Máy chủ đang gặp sự cố. Vui lòng thử lại sau ít phút.')).toBeInTheDocument()
     expect(screen.queryByText('navigated')).not.toBeInTheDocument()
     expect(screen.getAllByRole('row', { name: /BC-000301/ })[0]).toHaveTextContent('BC-000301')
   })

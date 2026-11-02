@@ -32,7 +32,9 @@ describe('cattle list herd statuses', () => {
     const { default: CowList } = await import('../../../src/features/cattle/pages/CowList')
     render(<MemoryRouter><CowList /></MemoryRouter>)
     expect(await screen.findByText('BC-ACTIVE')).toBeInTheDocument()
-    expect(screen.getAllByText('Đang nuôi').length).toBeGreaterThan(0)
+    const activeRow = screen.getByText('BC-ACTIVE').closest('tr') as HTMLElement
+    expect(activeRow).toHaveTextContent('—')
+    expect(activeRow).not.toHaveTextContent(/Chờ xuất|Đã xuất|Đã hủy/)
     expect(screen.getByText('Chờ xuất')).toBeInTheDocument()
     expect(screen.getByText('Đã xuất')).toBeInTheDocument()
     expect(screen.getByText('Đã hủy')).toBeInTheDocument()

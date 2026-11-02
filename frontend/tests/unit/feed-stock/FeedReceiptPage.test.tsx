@@ -26,20 +26,27 @@ describe('SCR-78 Feed Receipts page', () => {
     listReceiptsMock.mockResolvedValue(FEED_RECEIPT_MOCK)
   })
 
-  it('renders trustworthy monthly receipt totals and marks unavailable values explicitly', async () => {
+  it('renders the receipt tiles from the loaded rows and marks unavailable values explicitly', async () => {
     renderPage()
 
     expect(await screen.findByRole('table')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Phiếu nhập kho thức ăn' })).toBeInTheDocument()
-    expect(screen.getByText('Nhập trong tháng này')).toBeInTheDocument()
-    expect(screen.getByText('Công nợ nhà cung cấp')).toBeInTheDocument()
-    expect(screen.getByText('Nhà cung cấp đang hoạt động')).toBeInTheDocument()
-    expect(screen.getByText(/Chưa có dữ liệu thanh toán trong danh sách receipt/)).toBeInTheDocument()
-    expect(screen.getByText('1 phiếu · 500 kg đã ghi nhận')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Phiếu nhập kho' })).toBeInTheDocument()
+    expect(screen.getByText('Nhập kho 30 ngày qua')).toBeInTheDocument()
+    expect(screen.getByText('16.400 kg')).toBeInTheDocument()
+    expect(screen.getByText('3 phiếu · 27.100.000 đ')).toBeInTheDocument()
+    expect(screen.getByText('Còn nợ nhà cung cấp')).toBeInTheDocument()
+    expect(screen.getByText('2.500.000 đ')).toBeInTheDocument()
+    expect(screen.getByText('1 phiếu · PNK-2026-0029')).toBeInTheDocument()
+    expect(screen.getByText('Nhà cung cấp đang giao dịch')).toBeInTheDocument()
+    expect(await screen.findByText('Hưng Thịnh · HTX cỏ Ba Vì · TMR Việt Phát · …')).toBeInTheDocument()
     expect(screen.getByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[0].code) })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Còn nợ' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Còn nợ (đ)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Tạo phiếu nhập kho/i })).toBeEnabled()
-    expect(screen.getByRole('button', { name: new RegExp(`Xem ${FEED_RECEIPT_MOCK[0].code}`) })).toBeEnabled()
+    expect(screen.getByRole('button', { name: new RegExp(`Tiếp tục ${FEED_RECEIPT_MOCK[0].code}`) })).toBeEnabled()
+    expect(screen.getByRole('button', { name: new RegExp(`Xem ${FEED_RECEIPT_MOCK[1].code}`) })).toBeEnabled()
+    // A voided receipt shows its reason, a draft shows "nháp" instead of a debt.
+    expect(screen.getByText('Hủy: nhập trùng PNK-0026')).toBeInTheDocument()
+    expect(screen.getByText('Hiển thị 6 / 6 phiếu')).toBeInTheDocument()
   })
 
   it('filters the loaded list by status, date range, and supplier', async () => {
@@ -47,21 +54,22 @@ describe('SCR-78 Feed Receipts page', () => {
     renderPage()
     await screen.findByRole('table')
 
-    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: `${new Date().getFullYear()}-01-01` } })
-    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: `${new Date().getFullYear()}-12-31` } })
+    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: `${new Date().getFullYear() - 1}-01-01` } })
+    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: `${new Date().getFullYear() + 1}-12-31` } })
 
-    await user.click(screen.getByRole('tab', { name: /Đã ghi/ }))
+    await user.click(screen.getByRole('button', { name: /Đã nhập/ }))
+    expect(screen.queryByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[0].code) })).not.toBeInTheDocument()
+    expect(screen.getByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[1].code) })).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Nhà cung cấp' }), '203')
     expect(screen.queryByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[1].code) })).not.toBeInTheDocument()
-    expect(screen.getByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[0].code) })).toBeInTheDocument()
+    expect(screen.getByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[2].code) })).toBeInTheDocument()
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Nhà cung cấp' }), '202')
-    expect(screen.getByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[0].code) })).toBeInTheDocument()
-
-    const nextDay = new Date(`${FEED_RECEIPT_MOCK[0].receiptDate}T12:00:00`)
+    const nextDay = new Date(`${FEED_RECEIPT_MOCK[2].receiptDate}T12:00:00`)
     nextDay.setDate(nextDay.getDate() + 1)
     const nextDayIso = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`
     fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: nextDayIso } })
-    expect(screen.queryByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[0].code) })).not.toBeInTheDocument()
+    expect(screen.queryByRole('row', { name: new RegExp(FEED_RECEIPT_MOCK[2].code) })).not.toBeInTheDocument()
   })
 
   it('shows loading and empty states without substituting local fixture rows', async () => {

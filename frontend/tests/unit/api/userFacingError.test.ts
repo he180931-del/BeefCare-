@@ -8,6 +8,11 @@ test('maps server and transport failures', () => {
   assert.match(userFacingError(new Error('Failed to fetch')), /Không thể kết nối máy chủ/)
   assert.match(userFacingError(new BackendError(504)), /phản hồi quá lâu/)
 })
+
+test('treats Safari load failures as transport errors but not failed uploads', () => {
+  assert.match(userFacingError(new Error('Load failed')), /Không thể kết nối máy chủ/)
+  assert.doesNotMatch(userFacingError(new Error('upload failed')), /Không thể kết nối máy chủ/)
+})
 test('maps access, missing data and validation failures', () => {
   assert.match(userFacingError(new BackendError(401)), /đăng nhập lại/)
   assert.match(userFacingError(new BackendError(404)), /Không tìm thấy dữ liệu/)

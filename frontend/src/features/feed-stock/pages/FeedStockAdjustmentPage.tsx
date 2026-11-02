@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { listFeedStockAdjustments } from '../api/feedStockAdjustmentApi'
@@ -30,13 +29,12 @@ export default function FeedStockAdjustmentPage() {
     : null
 
   return (
-    <Layout title="Thức ăn – Kiểm kê" user="manager">
+    <Layout title="Thức ăn › Kiểm kê" user="manager">
       <PageHeader title="Phiếu kiểm kê / điều chỉnh tồn kho" sub="Theo dõi các lần kiểm kê và phần chênh lệch tồn kho.">
         <Button onClick={() => navigate('/thuc-an')}>Quay lại tồn kho</Button>
         <Button variant="primary" onClick={() => navigate('/thuc-an/kiem-ke/moi')}>Tạo phiếu kiểm kê</Button>
       </PageHeader>
 
-      {backendMode === 'local' && <Badge tone="info">Dữ liệu minh họa</Badge>}
       <FeedManagementTabs />
       {routeMessage && <Note tone="ok">{routeMessage}</Note>}
 

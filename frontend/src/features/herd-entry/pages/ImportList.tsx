@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Button, Foot, Note, PageHeader, Segmented, Select, StatusBadge, Table, Td, Th, Tile, inputCls } from '../../../components/ui'
-import { herdEntryApi } from '../api/index'
+import { Button, FilterSelect, Foot, Note, PageHeader, Segmented, Table, Td, Th, Tile, inputCls } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
+import { EntryStatusBadge } from '../components/parts'
+import { herdEntryApi, listPendingEntryCalves } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
 import { SOURCE_FILTERS } from '../data/importsData'
 import { dmy, dm, kg, money } from '../../../data/format'
@@ -32,6 +34,7 @@ export default function ImportList() {
     from,
     to,
   }), [type, from, to])
+  const { data: pending } = useQuery(() => listPendingEntryCalves(), [])
   const view = data
   const imports = view?.rows ?? []
   const tiles = view?.tiles ?? {}
@@ -64,14 +67,15 @@ export default function ImportList() {
     <Layout title="Phiếu nhập – Danh sách" user="manager">
       <div className="contents leading-[normal]">
         {Boolean(error) && <Note tone="err">{userFacingError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
-        <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được tạo mã nội bộ cố định và thẻ QR khi lưu.">
-            <Button variant="primary" onClick={() => nav('/herd-entry/new', { state: { from: '/herd-entry' } })}>+ Tạo phiếu nhập</Button>
+        <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được cấp mã bò và thẻ QR khi lưu.">
+            <Button onClick={() => nav('/herd-entry/new?kind=calf', { state: { from: '/herd-entry' } })}>Bê chờ xác nhận ({pending?.length ?? 0})</Button>
+            <Button variant="primary" onClick={() => nav('/herd-entry/new', { state: { from: '/herd-entry' } })}><Icon name="circle-plus" />Tạo phiếu nhập</Button>
         </PageHeader>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Segmented value={tab} onChange={setTab} options={TABS.map((t) => ({ value: t, label: `${t} (${count(t)})` }))} />
           <div className="flex-1" />
-          <div className="relative w-[200px]">
+          <div className="relative w-[240px]">
             <button
               type="button"
               onClick={() => {
@@ -79,10 +83,10 @@ export default function ImportList() {
                 setDraftTo(to)
                 setDateOpen(!dateOpen)
               }}
-              className={`${inputCls} flex w-[200px] cursor-pointer items-center gap-1.5 text-left`}
+              className={`${inputCls} flex h-[38px] w-[240px] cursor-pointer items-center gap-1.5 whitespace-nowrap py-0 text-left text-xs`}
             >
               <span className="min-w-0 flex-1">{`${dmy(from)} – ${dmy(to)}`}</span>
-              <span className="text-[10px] text-muted">▾</span>
+              <Icon name="calendar-event" className="text-[#66756b]" />
             </button>
             {dateOpen && (
               <div className="absolute right-0 top-[calc(100%+6px)] z-10 flex w-[260px] flex-col gap-2.5 rounded-xl border border-field bg-white p-3">
@@ -98,18 +102,18 @@ export default function ImportList() {
               </div>
             )}
           </div>
-          <Select className="w-[200px]" value={type} onChange={(e) => setType(e.target.value)} aria-label="Loại nhập">
+          <FilterSelect className="w-[200px]" value={type} onChange={(e) => setType(e.target.value)} aria-label="Loại nhập">
             <option value="">Loại nhập: Tất cả</option>
             <option value="Mua ngoài">Mua ngoài</option>
             <option value="Bê sinh tại trại">Bê sinh tại trại</option>
-          </Select>
-          <Select className="w-[200px]" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Nguồn">
+          </FilterSelect>
+          <FilterSelect className="w-[200px]" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Nguồn">
             <option value="">Nguồn: Tất cả</option>
             {SOURCE_FILTERS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
+          </FilterSelect>
         </div>
 
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
           <Tile
             label={`Phiếu đã nhập (từ ${dm(from)})`}
             value={shown(Number(tiles.postedVouchers ?? 0))}
@@ -129,7 +133,7 @@ export default function ImportList() {
         </div>
 
         <div className="rounded-md border border-edge bg-white p-2">
-          <Table wide>
+          <Table scroll>
             <thead>
               <tr>
                 <Th className={`${TH} w-[110px]`}>Mã phiếu</Th>
@@ -142,40 +146,38 @@ export default function ImportList() {
                 <Th className={`${TH} w-[85px]`}>Còn nợ (đ)</Th>
                 <Th className={`${TH} w-[80px]`}>Trạng thái</Th>
                 <Th className={`${TH} w-[60px]`} />
-                <Th className={TH} />
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
-                  <Td className={`${TH} font-medium`}>{r.id}</Td>
-                  <Td className={TH}>{dmy(r.date)}</Td>
-                  <Td className={TH}>{r.type}</Td>
+                  <Td className={`${TH} whitespace-nowrap font-medium`}>{r.id}</Td>
+                  <Td className={`${TH} whitespace-nowrap`}>{dmy(r.date)}</Td>
+                  <Td className={`${TH} whitespace-nowrap`}>{r.type}</Td>
                   <Td className={TH}>{r.source}</Td>
                   <Td className={TH}>{r.count}</Td>
                   <Td className={`${TH} whitespace-nowrap`}>{kg(r.weight)}</Td>
-                  <Td className={TH}>{r.total == null ? '—' : money(r.total)}</Td>
-                  <Td className={TH}>{r.debt == null ? '—' : money(r.debt)}</Td>
-                  <Td className={TH}><StatusBadge status={r.status} /></Td>
+                  <Td className={`${TH} whitespace-nowrap`}>{r.total == null ? '—' : money(r.total)}</Td>
+                  <Td className={`${TH} whitespace-nowrap`}>{r.debt == null ? '—' : money(r.debt)}</Td>
+                  <Td className={TH}><EntryStatusBadge status={r.status} /></Td>
                   <Td className={TH}>
                     <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}${r.type === 'Bê sinh tại trại' ? '&kind=calf' : ''}` : `/herd-entry/${r.id}`)}>
                       {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
                     </Button>
                   </Td>
-                  <Td className={TH} />
                 </tr>
               ))}
               {!rows.length && (
                 <tr>
-                  <Td colSpan={11} className="text-center text-muted">{loading ? 'Đang tải phiếu nhập…' : error ? String(error) : 'Không có phiếu nhập'}</Td>
+                  <Td colSpan={10} className="text-center text-muted">{loading ? 'Đang tải phiếu nhập…' : error ? String(error) : 'Không có phiếu nhập'}</Td>
                 </tr>
               )}
             </tbody>
           </Table>
           <div className="flex items-center p-3 text-[11px] text-muted">
-            Hiển thị {rows.length} / {totalRows} phiếu
+            Hiển thị {rows.length} / {Math.max(totalRows, count(tab))} phiếu
             <div className="flex-1" />
-            <span className="text-xs font-semibold text-brand-dark">‹ Trước &nbsp;&nbsp;&nbsp; Sau ›</span>
+            <span className="flex items-center gap-3 text-xs font-semibold text-brand-dark"><span className="flex items-center"><Icon name="chevron-left" size={14} />Trước</span><span className="flex items-center">Sau<Icon name="chevron-right" size={14} /></span></span>
           </div>
         </div>
 

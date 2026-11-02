@@ -1,33 +1,121 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Badge, Button, Card, Note, Table, Td, Th } from '../../../components/ui'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Badge, Button, Card, Foot, KV, Note } from '../../../components/ui'
+import { Icon, type IconName } from '../../../components/Icon'
 import { backendMode } from '../../../api/backendTransport'
 import { reproductionApi } from '../api/reproductionApi'
-import { actionsForStatus, type ReproductionAction } from '../domain/reproductionRules'
+import { useModalParam } from '../../../components/Modal'
+import { useSession } from '../../authorization'
+import {
+  ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
+} from '../domain/reproductionRules'
 import type { ReproductionFemale, ReproductionRole } from '../types'
 import ReproductionActionDialog, { type ReproductionDialogTarget } from './ReproductionActionDialog'
+import { CalfHistoryCard, EligibilityCard, LastBreedingCard, PregnancyCard, WindowCard } from './ReproductionCards'
+import ReproductionTimeline, { type TimelineRecord } from './ReproductionTimeline'
+import { nowLocal } from './reproductionFields'
 
-const STATUS: Record<string, { label: string; tone: 'ok' | 'warn' | 'info' | 'outline' }> = {
-  AWAITING_BREEDING: { label: 'Chờ phối', tone: 'outline' }, IN_ESTRUS: { label: 'Động dục', tone: 'warn' },
-  BRED: { label: 'Đã phối · chờ khám thai', tone: 'info' }, PREGNANT: { label: 'Mang thai', tone: 'ok' },
-  POST_CALVING: { label: 'Sau sinh', tone: 'outline' },
-}
-const eventLabel: Record<string, string> = { ESTRUS: 'Động dục', BREEDING: 'Phối giống', PREGNANCY_CHECK: 'Khám thai', PREGNANCY_UPDATE: 'Diễn biến thai', CALVING: 'Sự kiện đẻ' }
-const actionLabel: Record<ReproductionAction, string> = {
+const ACTION_LABEL: Record<ReproductionAction, string> = {
   RECORD_ESTRUS: 'Ghi động dục', RECORD_BREEDING: 'Ghi phối giống', RECORD_PREGNANCY_CHECK: 'Ghi khám thai',
   RECORD_PREGNANCY_UPDATE: 'Ghi diễn biến thai', RECORD_CALVING: 'Ghi sự kiện đẻ',
 }
-const dateTime = (value: string | null | undefined) => value ? new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—'
-const dateOnly = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString('vi-VN') : '—'
-const dayCount = (value: string | null) => value ? Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000)) : null
+const ACTION_ICON: Record<ReproductionAction, IconName> = {
+  RECORD_ESTRUS: 'flame', RECORD_BREEDING: 'dna', RECORD_PREGNANCY_CHECK: 'heartbeat', RECORD_PREGNANCY_UPDATE: 'clipboard-list', RECORD_CALVING: 'baby-carriage',
+}
+const CAPTION: Record<string, string> = {
+  IN_ESTRUS: 'Tab Sinh sản khi bò Đang động dục. Nút ghi hiện theo trạng thái (chỉ Quản lý): Ghi động dục, Ghi phối giống; "Thêm" chứa Ghi khám thai và Ghi sự kiện đẻ khi thai không được theo dõi. Điều kiện xét phối và cửa sổ phối chỉ để tham khảo.',
+  BRED: 'Tab Sinh sản khi bò Đã phối – chờ khám thai. Nút chính là Ghi khám thai; vẫn có Ghi động dục (nếu bò động dục lại) và Ghi sự kiện đẻ. Dải chỉ số sinh sản tính riêng cho từng bò, hiện "—" khi chưa áp dụng.',
+  PREGNANT: 'Tab Sinh sản khi bò Đang mang thai (hiện "Sắp đẻ" khi trong thời gian chuẩn bị đẻ của trại). Nút chính là Ghi sự kiện đẻ; có thêm Ghi khám thai và Ghi diễn biến thai. Lịch sử sinh bê liên kết tới hồ sơ bê đã đăng ký, hoặc ghi "Bê nháp".',
+}
 
-export default function ReproductionProfileTab({ cattleCode, role = 'TECHNICIAN' }: { cattleCode: string; role?: ReproductionRole }) {
+function StatusBadge({ profile }: { profile: ReproductionFemale }) {
+  if (profile.status === 'IN_ESTRUS') return <Badge tone="info" icon="flame">Đang động dục</Badge>
+  if (profile.status === 'BRED') return <Badge tone="info" icon="clock">Đã phối – chờ khám thai</Badge>
+  if (profile.status === 'PREGNANT') return isDueSoon(profile, nowLocal()) ? <Badge tone="warn" icon="heartbeat">Mang thai · Sắp đẻ</Badge> : <Badge tone="ok" icon="heartbeat">Mang thai</Badge>
+  if (profile.status === 'POST_CALVING') return <Badge icon="baby-carriage">Sau sinh</Badge>
+  return <Badge tone="outline" icon="clock">Chờ phối</Badge>
+}
+
+function MoreMenu({ onPick }: { onPick: (action: ReproductionAction) => void }) {
+  const [open, setOpen] = useState(false)
+  const items: Array<[ReproductionAction, string]> = [['RECORD_PREGNANCY_CHECK', 'Ghi khám thai'], ['RECORD_CALVING', 'Ghi sự kiện đẻ (không theo dõi thai kỳ)']]
+  return (
+    <div className="relative">
+      <Button aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>Thêm<Icon name="chevron-down" size={16} /></Button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-[calc(100%+4px)] z-10 flex min-w-[260px] flex-col rounded-lg border border-edge bg-white py-1 shadow-md">
+          {items.map(([action, label]) => (
+            <button key={action} type="button" role="menuitem" className="cursor-pointer px-3 py-2 text-left text-xs hover:bg-page" onClick={() => { setOpen(false); onPick(action) }}>{label}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatusCard({ profile, canManage, onAction }: { profile: ReproductionFemale; canManage: boolean; onAction: (action: ReproductionAction) => void }) {
+  const primary = primaryActionFor(profile.status)
+  const active = canManage && profile.herdStatus === 'ACTIVE'
+  const shown = active ? actionsForStatus(profile.status).sort((a, b) => Number(a === primary) - Number(b === primary)) : []
+  const showMore = active && ['YOUNG_STOCK', 'ADULT'].includes(profile.lifeStage)
+  const hasCalvings = profile.calvings.some((calving) => calving.status === 'VALID')
+  const ind = profile.indicators
+  const dash = (value: number | null, unit: string) => (value == null ? '—' : `${value} ${unit}`)
+  return (
+    <Card
+      title={<span className="flex flex-wrap items-center gap-2.5">Trạng thái sinh sản<StatusBadge profile={profile} />{profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn phối</Badge>}</span>}
+      actions={
+        <div className="flex flex-wrap items-center justify-end gap-2.5">
+          {shown.map((action) => (
+            <Button key={action} variant={action === primary ? 'primary' : 'default'} onClick={() => onAction(action)}><Icon name={ACTION_ICON[action]} size={16} />{ACTION_LABEL[action]}</Button>
+          ))}
+          {showMore && <MoreMenu onPick={onAction} />}
+        </div>
+      }
+    >
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
+        <KV k="Số lần phối (chu kỳ này)">{profile.servicesInCurrentCycle}</KV>
+        <KV k="Số lần đẻ">{profile.parity}</KV>
+        <KV k="Lần đẻ gần nhất"><span className="whitespace-nowrap">{formatDate(profile.lastCalvingAt)}</span></KV>
+        <KV k="Cân gần nhất"><span className="whitespace-nowrap">{profile.latestWeightKg == null ? '—' : `${profile.latestWeightKg} kg · thực tế`}</span></KV>
+        {profile.status === 'PREGNANT' && <>
+          <KV k="Khoảng cách lứa gần nhất">{dash(ind.lastCalvingIntervalDays, 'ngày')}</KV>
+          <KV k="Phối / đậu thai">{ind.conceptionDetail ?? ind.conceptionSummary}</KV>
+        </>}
+      </div>
+      {hasCalvings ? (
+        <div className="mt-3 grid grid-cols-2 gap-3 rounded-md bg-page p-3 md:grid-cols-5">
+          <KV k="Tuổi đẻ lứa đầu">{dash(ind.ageAtFirstCalvingMonths, 'tháng')}</KV>
+          <KV k="Khoảng cách lứa gần nhất">{dash(ind.lastCalvingIntervalDays, 'ngày')}</KV>
+          <KV k="Ngày sau đẻ">{dash(ind.daysSinceLastCalving, 'ngày')}</KV>
+          <KV k="Ngày không mang thai">{dash(ind.daysOpen, 'ngày')}</KV>
+          <KV k="Thụ thai">{ind.conceptionSummary}</KV>
+        </div>
+      ) : <div className="mt-3"><Note>Chưa có chỉ số sinh sản: bò chưa đẻ lứa nào.</Note></div>}
+    </Card>
+  )
+}
+
+export default function ReproductionProfileTab({ cattleCode, role: roleProp }: { cattleCode: string; role?: ReproductionRole }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const session = useSession()
+  const role: ReproductionRole = roleProp ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
+  const [modal, openModal, closeModal] = useModalParam()
   const [profile, setProfile] = useState<ReproductionFemale | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [dialog, setDialog] = useState<ReproductionDialogTarget | null>(null)
+  const [localDialog, setLocalDialog] = useState<ReproductionDialogTarget | null>(null)
   const canManage = role === 'MANAGER'
+  const notice = (location.state as { reproductionNotice?: string } | null)?.reproductionNotice
+  // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only a Manager gets it.
+  const modalAction = modal ? ACTION_FOR_MODAL[modal] : undefined
+  const dialog: ReproductionDialogTarget | null = localDialog ?? (canManage && modalAction ? { mode: 'record', action: modalAction } : null)
+  const setDialog = (next: ReproductionDialogTarget | null) => {
+    setLocalDialog(next && next.mode !== 'record' ? next : null)
+    if (next?.mode === 'record') openModal(MODAL_FOR_ACTION[next.action])
+    else if (!next && modal) closeModal()
+  }
 
   const refresh = async () => {
     setError('')
@@ -37,141 +125,67 @@ export default function ReproductionProfileTab({ cattleCode, role = 'TECHNICIAN'
   }
   useEffect(() => { void refresh() }, [cattleCode])
 
-  const run = async (action: ReproductionAction) => {
-    if (action === 'RECORD_CALVING') {
-      navigate(`/cattle/${encodeURIComponent(cattleCode)}/sinh-san/de`)
-      return
-    }
-    setDialog({ mode: 'record', action })
+  const run = (action: ReproductionAction) => {
+    if (action === 'RECORD_CALVING') navigate(`/cattle/${encodeURIComponent(cattleCode)}/sinh-san/de`)
+    else setDialog({ mode: 'record', action })
   }
-  const saveRecord = async (command: Parameters<typeof reproductionApi.recordEvent>[1]) => {
-    const result = await reproductionApi.recordEvent(cattleCode, command, role)
-    setProfile(result)
-  }
-  const correctEvent = async (eventId: string, patch: Parameters<typeof reproductionApi.correctEvent>[2], reason: string) => {
-    setProfile(await reproductionApi.correctEvent(cattleCode, eventId, patch, reason, role))
-  }
-  const voidEvent = async (eventId: string, reason: string) => setProfile(await reproductionApi.voidEvent(cattleCode, eventId, reason, role))
-  const correctCalving = async (id: string, patch: Parameters<typeof reproductionApi.correctCalving>[2], reason: string) => {
-    setProfile(await reproductionApi.correctCalving(cattleCode, id, patch, reason, role))
-  }
-  const voidCalving = async (id: string, reason: string) => setProfile(await reproductionApi.voidCalving(cattleCode, id, reason, role))
+  const revise = (record: TimelineRecord, action: 'correct' | 'void') => setDialog({ mode: 'revise', record, action })
 
   if (loading && !profile) return <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ sinh sản…</p></Card>
   if (!profile) return <Card>{error && <Note tone={backendMode === 'backend' ? 'warn' : 'err'}>{error}</Note>}<p className="m-0 text-sm text-muted">Chưa có dữ liệu sinh sản cho {cattleCode}.</p></Card>
 
-  const status = profile.status ? STATUS[profile.status] : null
-  const lastEvent = profile.events.find((event) => event.status === 'VALID')
-  const managerActions = canManage && profile.herdStatus === 'ACTIVE' ? actionsForStatus(profile.status) : []
-  const moreActions = canManage && profile.herdStatus === 'ACTIVE' && ['YOUNG_STOCK', 'ADULT'].includes(profile.lifeStage)
-    ? (['RECORD_PREGNANCY_CHECK', 'RECORD_CALVING'] as ReproductionAction[]).filter((action) => !managerActions.includes(action))
-    : []
-  const indicatorItems = [
-    ['Số lứa đẻ', profile.parity], ['Số lần phối chu kỳ hiện tại', profile.servicesInCurrentCycle],
-    ['Tuổi lứa đẻ đầu', profile.indicators.ageAtFirstCalvingMonths == null ? '—' : `${profile.indicators.ageAtFirstCalvingMonths} tháng`],
-    ['Khoảng cách lứa gần nhất', profile.indicators.lastCalvingIntervalDays == null ? '—' : `${profile.indicators.lastCalvingIntervalDays} ngày`],
-    ['Ngày từ lần đẻ gần nhất', profile.indicators.daysSinceLastCalving == null ? '—' : `${profile.indicators.daysSinceLastCalving} ngày`],
-    ['Ngày trống', profile.indicators.daysOpen == null ? '—' : `${profile.indicators.daysOpen} ngày`],
-    ['Kết quả thụ thai', profile.indicators.conceptionSummary],
-  ]
-  const openCalving = () => navigate(`/cattle/${encodeURIComponent(cattleCode)}/sinh-san/de`)
+  const status = profile.status
+  const showEligibility = !!profile.eligibility && (status === 'AWAITING_BREEDING' || status === 'IN_ESTRUS' || status === 'POST_CALVING')
+  const showWindow = status === 'IN_ESTRUS' && !!profile.breedingWindow
+  const hasCalvings = profile.calvings.some((calving) => calving.status === 'VALID')
 
   return (
     <div className="flex flex-col gap-4">
+      {notice && <Note tone="ok">{notice}</Note>}
       {error && <Note tone={backendMode === 'backend' ? 'warn' : 'err'}>{error}</Note>}
       {backendMode === 'backend' && <Note tone="warn">Hồ sơ sinh sản chưa nối API. Dữ liệu minh họa không được dùng trong chế độ backend.</Note>}
       {!canManage && <Note tone="info">{role === 'TECHNICIAN' ? 'Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.' : 'Chủ trại xem hồ sơ sinh sản ở chế độ chỉ đọc.'}</Note>}
       {profile.herdStatus !== 'ACTIVE' && <Note tone="warn">Bò đã rời đàn hoặc đang chờ xác nhận xuất; hồ sơ sinh sản chỉ xem.</Note>}
 
-      <Card title="Trạng thái sinh sản" sub={`${profile.cattleCode} · ${profile.earTag || 'Chưa có số tai'} · ${profile.breed} · Chuồng ${profile.penCode}`} actions={<>{status && <Badge tone={status.tone}>{status.label}</Badge>}{profile.indicators.overdueForConception && <Badge tone="warn">Quá hạn phối</Badge>}</>}>
-        {!profile.applicable ? <Note tone="grey">Không theo dõi sinh sản cho bò này theo giai đoạn hoặc mục đích nuôi. Dòng thời gian vẫn được giữ.</Note> : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-              <div><div className="text-[11px] text-muted">Sự kiện mới nhất</div><div className="mt-1 text-sm font-medium">{lastEvent?.summary ?? 'Chưa ghi nhận'}</div><div className="mt-1 text-[11px] text-muted">{dateTime(lastEvent?.occurredAt)}</div></div>
-              <div><div className="text-[11px] text-muted">Cân gần nhất</div><div className="mt-1 text-sm font-medium">{profile.latestWeightKg == null ? '—' : `${profile.latestWeightKg} kg`}</div></div>
-              <div><div className="text-[11px] text-muted">Đẻ gần nhất</div><div className="mt-1 text-sm font-medium">{dateOnly(profile.lastCalvingAt)}</div></div>
-              <div><div className="text-[11px] text-muted">Thai kỳ</div><div className="mt-1 text-sm font-medium">{profile.openPregnancy ? `Lứa ${profile.openPregnancy.pregnancyNumber}` : 'Không có thai kỳ đang mở'}</div></div>
-              <div><div className="text-[11px] text-muted">Ngày đẻ dự kiến</div><div className="mt-1 text-sm font-medium">{dateOnly(profile.openPregnancy?.expectedCalvingAt)}{profile.openPregnancy?.expectedDateBasis && <span className="ml-1 text-[11px] text-muted">({profile.openPregnancy.expectedDateBasis})</span>}</div></div>
-              <div><div className="text-[11px] text-muted">Số ngày mang thai</div><div className="mt-1 text-sm font-medium">{profile.openPregnancy ? `${dayCount(profile.openPregnancy.confirmedAt) ?? '—'} ngày từ lần khám xác nhận` : '—'}</div></div>
+      {!profile.applicable ? (
+        <Card title="Trạng thái sinh sản"><Note>Không theo dõi sinh sản cho bò này theo giai đoạn hoặc mục đích nuôi. Nếu đã có khám thai hoặc sự kiện đẻ thực tế, hãy ghi từ "Thêm". Dòng thời gian vẫn được giữ.</Note></Card>
+      ) : (
+        <>
+          <StatusCard profile={profile} canManage={canManage} onAction={run} />
+          {(showEligibility || showWindow) && (
+            <div className={`grid gap-4 ${showEligibility && showWindow ? 'lg:grid-cols-2' : ''}`}>
+              {showEligibility && <EligibilityCard profile={profile} />}
+              {showWindow && <WindowCard profile={profile} />}
             </div>
-            <div className="flex min-w-[220px] flex-col gap-2">
-              {managerActions.map((action) => <Button key={action} variant={action === 'RECORD_CALVING' ? 'primary' : 'default'} onClick={() => void run(action)}>{actionLabel[action]}</Button>)}
-              {moreActions.length > 0 && <details className="rounded-md border border-edge px-3 py-2 text-xs"><summary className="cursor-pointer font-semibold">Thêm thao tác</summary><div className="mt-2 flex flex-col gap-2">{moreActions.map((action) => <Button key={action} size="sm" onClick={() => action === 'RECORD_CALVING' ? openCalving() : void run(action)}>{actionLabel[action]}</Button>)}</div></details>}
-            </div>
-          </div>
-        )}
-      </Card>
+          )}
+          {status === 'BRED' && <LastBreedingCard profile={profile} />}
+          {status === 'PREGNANT' && (
+            <div className="grid gap-4 lg:grid-cols-[7fr_4fr]"><PregnancyCard profile={profile} /><CalfHistoryCard profile={profile} /></div>
+          )}
+          {status === 'POST_CALVING' && hasCalvings && <CalfHistoryCard profile={profile} />}
+        </>
+      )}
 
-      {profile.eligibility && <Card title="Điều kiện phối giống" sub="Chỉ để tham khảo, không chặn việc ghi sự kiện đã xảy ra." actions={<Badge tone={profile.eligibility.status === 'MET' ? 'ok' : 'warn'}>{profile.eligibility.status === 'MET' ? 'Đạt' : 'Chưa đạt'}</Badge>}>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Eligibility label="Tuổi tối thiểu" value={`${profile.eligibility.actualAgeMonths} / ${profile.eligibility.requiredAgeMonths} tháng`} met={profile.eligibility.minimumAgeMet} />
-          <Eligibility label="Cân nặng tối thiểu" value={`${profile.eligibility.actualWeightKg ?? '—'} / ${profile.eligibility.requiredWeightKg} kg`} met={profile.eligibility.minimumWeightMet} />
-          <Eligibility label="Ca sức khỏe đang mở" value={profile.openHealthCase ? 'Có ca mở' : 'Không có ca mở'} met={!profile.openHealthCase} />
-        </div>
-      </Card>}
+      <ReproductionTimeline profile={profile} canManage={canManage && profile.herdStatus === 'ACTIVE'} onRevise={revise} />
 
-      {profile.breedingWindow && profile.status === 'IN_ESTRUS' && <Card title="Cửa sổ phối giống" sub="Được tính từ thời điểm động dục; không phải bằng chứng đã phối."><div className="flex flex-wrap items-center gap-3"><Badge tone="warn">Động dục</Badge><span className="text-sm">{dateTime(profile.breedingWindow.from)} – {dateTime(profile.breedingWindow.to)}</span></div></Card>}
+      {profile.revisions.length > 0 && (
+        <Card title="Lịch sử chỉnh sửa" sub="Giá trị cũ được giữ lại trong lịch sử.">
+          <div className="flex flex-col gap-2">{profile.revisions.map((revision) => <div key={revision.id} className="rounded border border-edge p-3 text-xs"><b>{revision.changedBy}</b> · {revision.changedAt.slice(0, 16).replace('T', ' ')} · {revision.reason}</div>)}</div>
+        </Card>
+      )}
+      {status && CAPTION[status] && <Foot>{CAPTION[status]}</Foot>}
 
-      {profile.openPregnancy && <Card title="Thai kỳ hiện tại" sub="Kết quả khám thai thực tế mở thai kỳ; thời điểm dự kiến luôn đi kèm căn cứ.">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <ReadValue label="Mã thai kỳ" value={`Lứa ${profile.openPregnancy.pregnancyNumber}`} />
-          <ReadValue label="Phối liên quan" value={profile.events.find((event) => event.id === profile.openPregnancy?.linkedBreedingId)?.summary ?? 'Không liên kết'} />
-          <ReadValue label="Xác nhận có thai" value={dateTime(profile.openPregnancy.confirmedAt)} />
-          <ReadValue label="Ngày đẻ dự kiến" value={`${dateOnly(profile.openPregnancy.expectedCalvingAt)} · ${profile.openPregnancy.expectedDateBasis ?? 'Chưa đủ dữ liệu'}`} />
-        </div>
-      </Card>}
-
-      <Card title="Chỉ số sinh sản" sub="Các số liệu lịch sử trong dữ liệu minh họa; kết quả thiếu dữ liệu được để trống.">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">{indicatorItems.map(([label, value]) => <ReadValue key={String(label)} label={String(label)} value={String(value)} />)}</div>
-      </Card>
-
-      <Card title="Dòng thời gian sinh sản" sub="Sự kiện VOIDED vẫn được giữ và không tham gia tính trạng thái." actions={<span className="text-[11px] text-muted">{profile.events.length} sự kiện</span>}>
-        <Table wide>
-          <thead><tr><Th>Thời điểm</Th><Th>Sự kiện</Th><Th>Chi tiết</Th><Th>Nguồn · người ghi</Th><Th>Trạng thái</Th><Th /></tr></thead>
-          <tbody>
-            {profile.events.map((event) => <tr key={event.id} className={event.status === 'VOIDED' ? 'bg-page text-muted' : ''}>
-              <Td>{dateTime(event.occurredAt)}</Td><Td><div className="font-semibold">{eventLabel[event.type]}</div><div className="text-[11px] text-muted">{event.summary}{event.corrected ? ' · Đã chỉnh sửa' : ''}</div></Td>
-              <Td>{event.details || '—'}{event.voidReason && <div className="mt-1 text-[11px] text-err-fg">Lý do hủy: {event.voidReason}</div>}</Td>
-              <Td>{event.dataSource ? ({ DIRECT_OBSERVATION: 'Quan sát trực tiếp', FARM_NOTEBOOK: 'Sổ trại', EXTERNAL_REPORT: 'Báo cáo ngoài' }[event.dataSource]) : '—'}<div className="mt-1 text-[11px] text-muted">{event.recorder}</div></Td>
-              <Td><Badge tone={event.status === 'VALID' ? 'ok' : 'outline'}>{event.status === 'VALID' ? 'Hợp lệ' : 'Đã hủy'}</Badge></Td>
-              <Td>{canManage && event.status === 'VALID' && <div className="flex gap-1"><Button size="sm" onClick={() => setDialog(event.type === 'CALVING' ? { mode: 'correct-calving', calving: profile.calvings.find((calving) => calving.id === event.id)! } : { mode: 'correct-event', event })}>Sửa</Button><Button size="sm" variant="danger" onClick={() => setDialog(event.type === 'CALVING' ? { mode: 'void-calving', calving: profile.calvings.find((calving) => calving.id === event.id)! } : { mode: 'void-event', event })}>Hủy</Button></div>}</Td>
-            </tr>)}
-            {!profile.events.length && <tr><Td colSpan={6} className="py-8 text-center text-muted">Chưa có sự kiện sinh sản.</Td></tr>}
-          </tbody>
-        </Table>
-      </Card>
-
-      <Card title="Lịch sử đẻ và kết quả bê" sub="Bê sống có thể để trạng thái chờ xác nhận hoặc được đăng ký ngay.">
-        <Table wide>
-          <thead><tr><Th>Ngày đẻ</Th><Th>Kết quả bê</Th><Th>Đăng ký</Th><Th>Diễn biến · bò mẹ</Th><Th /></tr></thead>
-          <tbody>
-            {profile.calvings.map((calving) => <tr key={calving.id} className={calving.status === 'VOIDED' ? 'bg-page text-muted' : ''}>
-              <Td>{dateTime(calving.birthAt)}</Td><Td>{calving.calves.map((calf) => <div key={calf.id}>Bê {calf.number}: {calf.outcome === 'LIVE' ? `Sống · ${calf.sex === 'FEMALE' ? 'Cái' : 'Đực'}` : 'Thai chết lưu'}{calf.weightKg != null ? ` · ${calf.weightKg} kg${calf.weightBasis === 'ESTIMATED' ? ' ước tính' : ''}` : ''}</div>)}</Td>
-              <Td>{calving.calves.map((calf) => <div key={calf.id}>{calf.outcome === 'STILLBORN' ? '—' : calf.registrationStatus === 'REGISTERED' ? `Đã đăng ký${calf.earTag ? ` · ${calf.earTag}` : ''}` : `Nháp · REM-09${calf.earTag ? ` · ${calf.earTag}` : ''}`}</div>)}</Td>
-              <Td>{calving.course} · {calving.damCondition}{calving.retainedPlacenta ? ' · Nhau chưa ra sau 12 giờ' : ''}<div className="mt-1 text-[11px] text-muted">Ghi bởi {calving.recorder}{calving.corrected ? ' · Đã chỉnh sửa' : ''}</div>{calving.voidReason && <div className="text-[11px] text-err-fg">Lý do hủy: {calving.voidReason}</div>}</Td>
-              <Td>{canManage && calving.status === 'VALID' && <div className="flex gap-1"><Button size="sm" onClick={() => setDialog({ mode: 'correct-calving', calving })}>Sửa</Button><Button size="sm" variant="danger" onClick={() => setDialog({ mode: 'void-calving', calving })}>Hủy</Button></div>}</Td>
-            </tr>)}
-            {!profile.calvings.length && <tr><Td colSpan={5} className="py-8 text-center text-muted">Chưa có sự kiện đẻ được ghi.</Td></tr>}
-          </tbody>
-        </Table>
-        {canManage && profile.herdStatus === 'ACTIVE' && <Button variant="primary" onClick={openCalving}>Ghi sự kiện đẻ</Button>}
-      </Card>
-
-      {profile.revisions.length > 0 && <Card title="Lịch sử chỉnh sửa"><div className="flex flex-col gap-2">{profile.revisions.map((revision) => <div key={revision.id} className="rounded border border-edge p-3 text-xs"><b>{revision.changedBy}</b> · {dateTime(revision.changedAt)} · {revision.reason}</div>)}</div></Card>}
-
-      {dialog && <ReproductionActionDialog
-        target={dialog} profile={profile} onClose={() => setDialog(null)} onRecord={saveRecord}
-        onCorrectEvent={correctEvent} onVoidEvent={voidEvent} onCorrectCalving={correctCalving} onVoidCalving={voidCalving}
-      />}
+      {dialog && (
+        <ReproductionActionDialog
+          target={dialog} profile={profile} onClose={() => setDialog(null)}
+          onRecord={async (command) => setProfile(await reproductionApi.recordEvent(cattleCode, command, role))}
+          onCorrectEvent={async (id, patch, reason) => setProfile(await reproductionApi.correctEvent(cattleCode, id, patch, reason, role))}
+          onVoidEvent={async (id, reason) => setProfile(await reproductionApi.voidEvent(cattleCode, id, reason, role))}
+          onCorrectCalving={async (id, patch, reason) => setProfile(await reproductionApi.correctCalving(cattleCode, id, patch, reason, role))}
+          onVoidCalving={async (id, reason) => setProfile(await reproductionApi.voidCalving(cattleCode, id, reason, role))}
+          onVoidCalf={async (calvingId, calfId, reason) => setProfile(await reproductionApi.voidCalf(cattleCode, calvingId, calfId, reason, role))}
+        />
+      )}
     </div>
   )
 }
-
-function Eligibility({ label, value, met }: { label: string; value: string; met: boolean }) {
-  return <div className="flex items-center justify-between gap-3 rounded-md border border-edge p-3"><div><div className="text-[11px] text-muted">{label}</div><div className="mt-1 text-sm font-medium">{value}</div></div><Badge tone={met ? 'ok' : 'warn'}>{met ? 'Đạt' : 'Chưa đạt'}</Badge></div>
-}
-
-function ReadValue({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-md border border-edge p-3"><div className="text-[11px] text-muted">{label}</div><div className="mt-1 text-sm font-medium">{value}</div></div>
-}
-

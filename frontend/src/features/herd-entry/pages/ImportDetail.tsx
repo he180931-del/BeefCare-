@@ -1,7 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import Layout from '../../../components/Layout'
-import { Button, Card, Docs, Foot, Info, Note, PageHeader, StatusBadge, Table, Td, Th } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
+import { EntryStatusBadge } from '../components/parts'
+import { Button, Card, Docs, Foot, Info, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
 import { downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
@@ -93,9 +95,9 @@ export default function ImportDetail() {
   return (
     <Layout title={`Chi tiết phiếu nhập – ${r.status}`} user="manager">
       <div className="contents leading-[normal]">
-        <PageHeader title={`Phiếu nhập ${r.id}`} badge={<StatusBadge status={r.status} />}>
-          <Button onClick={() => window.print()}>In phiếu</Button>
-          <Button disabled={!canCancel} onClick={() => openModal('cancel')}>Hủy phiếu</Button>
+        <PageHeader title={<span className="inline-flex flex-wrap items-center gap-3">{`Phiếu nhập ${r.id}`}<EntryStatusBadge status={r.status} /></span>}>
+          <Button onClick={() => window.print()}><Icon name="printer" />In phiếu</Button>
+          <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>
         </PageHeader>
         {Boolean(paymentError || voidError) && <Note tone="err">{displayError(paymentError || voidError)}</Note>}
         {documentError && <Note tone="err">{documentError}</Note>}
@@ -128,7 +130,6 @@ export default function ImportDetail() {
                     <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
                     <Th className={`${TH} w-[90px]`}>Hiện tại</Th>
                     <Th className={`${TH} w-[90px]`}>Thành tiền</Th>
-                    <Th className={TH} />
                   </tr>
                 </thead>
                 <tbody>
@@ -140,13 +141,12 @@ export default function ImportDetail() {
                       <Td className={`${TH} whitespace-nowrap`}>{kg(c.weight)}</Td>
                       <Td className={TH}>{c.barn}</Td>
                       <Td className={TH}>{c.current}</Td>
-                      <Td className={TH}>{money(c.amount)}</Td>
-                      <Td className={TH} />
+                      <Td className={`${TH} whitespace-nowrap`}>{money(c.amount)}</Td>
                     </tr>
                   ))}
                   {!(d.cows ?? []).length && (
                     <tr>
-                      <Td colSpan={8} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
+                      <Td colSpan={7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
                     </tr>
                   )}
                 </tbody>
@@ -156,7 +156,6 @@ export default function ImportDetail() {
                     <Td className={`${TH} whitespace-nowrap`}>{kg(r.weight)}</Td>
                     <Td className={TH} /><Td className={TH} />
                     <Td className={TH}>{d ? money(d.cowsTotal) : ''}</Td>
-                    <Td className={TH} />
                   </tr>
                 </tfoot>
               </Table>
@@ -172,7 +171,7 @@ export default function ImportDetail() {
 
           <div className="flex flex-col gap-[18px]">
             {r.total != null && (
-              <Card title="Thông tin thanh toán">
+              <Card title="Thanh toán">
                 <Info
                   cols={2}
                   items={[

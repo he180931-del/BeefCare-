@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon } from '../../../components/Icon'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Field, Note, Textarea } from '../../../components/ui'
 import { cancelHerdExit, pens } from '../api/index'
@@ -48,12 +49,12 @@ export default function CancelModal({ row, onClose, onCancelled }: { row: HerdEx
       <div className="-mt-2 flex flex-col gap-2.5">
         <div className="text-sm font-semibold">Khi xác nhận hủy</div>
         <Note tone="ok">
-          ✓ {barnCount} con trở lại ACTIVE và mở lại phân chuồng cuối {occupancyText || 'theo từng con'}.<br />
-          ✓ Phiếu giữ nguyên trong lịch sử với trạng thái ĐÃ HỦY và lý do.
+          <div className="flex items-start gap-1.5"><Icon name="circle-check" size={14} className="mt-px shrink-0" />{barnCount} con trở lại ACTIVE và mở lại phân chuồng cuối {occupancyText || 'theo từng con'}.</div>
+          <div className="flex items-start gap-1.5"><Icon name="circle-check" size={14} className="mt-px shrink-0" />Phiếu giữ nguyên trong lịch sử với trạng thái ĐÃ HỦY và lý do.</div>
         </Note>
         <Note tone="warn">
-          ! Mũi tiêm, nhắc việc đã hủy do xuất đàn KHÔNG tự khôi phục – Quản lý lập lại nếu cần.<br />
-          ! Tiền đã thu {money(collected)} đ vẫn giữ trong lịch sử – hoàn trả xử lý ngoài hệ thống.
+          <div className="flex items-start gap-1.5"><Icon name="alert-triangle" size={14} className="mt-px shrink-0" />Mũi tiêm, nhắc việc đã hủy do xuất đàn KHÔNG tự khôi phục – Quản lý lập lại nếu cần.</div>
+          <div className="flex items-start gap-1.5"><Icon name="alert-triangle" size={14} className="mt-px shrink-0" />Tiền đã thu {money(collected)} đ vẫn giữ trong lịch sử – hoàn trả xử lý ngoài hệ thống.</div>
         </Note>
       </div>
       <Field label="Lý do hủy *" hint={`Tối đa ${MAX_REASON} ký tự`}>
@@ -68,7 +69,7 @@ export default function CancelModal({ row, onClose, onCancelled }: { row: HerdEx
       <Note>Chỉ Chủ trại hủy được phiếu đã xuất. Nếu chuồng cuối ngưng sử dụng hoặc không đủ chỗ, hệ thống yêu cầu chọn chuồng khác cho từng con trước khi hủy (MSG-FE13-09).</Note>
       <ModalFooter>
         <ModalButton className="text-ink" onClick={onClose}>Đóng</ModalButton>
-        <ModalButton variant="danger" disabled={!cancelReason.trim() || saving} onClick={confirm}>Hủy phiếu xuất</ModalButton>
+        <ModalButton variant="danger" disabled={!cancelReason.trim() || saving} onClick={confirm}><Icon name="circle-x" />Hủy phiếu xuất</ModalButton>
       </ModalFooter>
     </Modal>
   )

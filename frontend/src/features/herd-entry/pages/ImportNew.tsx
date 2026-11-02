@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Badge, Button, Card, Checkbox, DateInput, Docs, Dropzone, Field, Foot, KV, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Badge, Button, Card, Checkbox, DateInput, Docs, Dropzone, Field, Foot, Info, KV, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
 import {
   commitEntryExcel,
@@ -35,6 +36,7 @@ import { validateEntryForPost } from '../entryValidation'
 import type { DocumentRow, EntryCalf, EntryCow, HerdEntry, Pen } from '../../../types'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
 import { userFacingError } from '../../../api/userFacingError'
+import { useSession } from '../../authorization'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'
@@ -89,6 +91,7 @@ export default function ImportNew() {
 function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCattle }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[] }) {
   const { mutate: persistEntry, loading, error: saveError } = useMutation(saveHerdEntry)
   const nav = useNavigate()
+  const sessionName = useSession()?.fullName ?? ''
   const location = useLocation()
   const [params, setParams] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
@@ -124,11 +127,12 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
   const [sourceId, setSourceId] = useState(draft?.sourceId ?? sellers[0]?.id ?? '')
   const [date, setDate] = useState(draft?.date ?? (entryExcelBackendEnabled ? localToday() : TODAY))
-  const [quarantine, setQuarantine] = useState(draft?.quarantine ?? '')
+  const [quarantine, setQuarantine] = useState(draft?.quarantine ?? (entryExcelBackendEnabled ? '' : 'KD-HN-2026-004512'))
   const [plate, setPlate] = useState(draft?.plate ?? '')
-  const [receiver, setReceiver] = useState(draft?.receiver ?? (entryExcelBackendEnabled ? '' : 'Anh A'))
-  const [note, setNote] = useState(draft?.note ?? '')
+  const [receiver, setReceiver] = useState(draft?.receiver ?? (entryExcelBackendEnabled ? sessionName : 'Anh A'))
+  const [note, setNote] = useState(draft?.note ?? (entryExcelBackendEnabled || !isBuy ? '' : 'Khám ngoại hình bình thường, 1 con hơi gầy'))
   const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? (entryExcelBackendEnabled ? [] : INITIAL_COWS))
+  const [pricing, setPricing] = useState<'kg' | 'con'>(() => (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
   const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? pendingCalves)
   const [directCalfCount, setDirectCalfCount] = useState(0)
   const [freight, setFreight] = useState(draft?.freight ?? (entryExcelBackendEnabled ? 0 : 1500000))
@@ -149,8 +153,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
   const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
-  // Pricing is selected per cattle line: by kg or per head.
-  const lineAmount = (c: EntryCow) => c.pricing === 'con' ? (c.unitPrice ?? 0) : (c.weightBasis ? (c.weight ?? 0) * (c.unitPrice ?? 0) : 0)
+  // GBR-92: one pricing basis (per kg or per head) for every line of the voucher.
+  const lineAmount = (c: EntryCow) => pricing === 'con' ? (c.unitPrice ?? 0) : (c.weight ?? 0) * (c.unitPrice ?? 0)
   const cowsMoney = cows.reduce((s, c) => s + lineAmount(c), 0)
   const totalWeight = cows.reduce((s, c) => s + (c.weight ?? 0), 0)
   const total = cowsMoney + freight
@@ -392,7 +396,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           <div>
             <h1 className="m-0 text-[22px] font-bold">Phiếu nhập mới</h1>
             <p className="mb-0 mt-1 text-xs text-muted">
-              {isBuy ? 'Mỗi con trong phiếu sẽ được tạo 1 mã nội bộ cố định và thẻ QR khi lưu.' : 'Bê được tạo từ sự kiện đẻ đang ở trạng thái Chờ xác nhận.'}
+              {isBuy ? 'Mỗi con trong phiếu sẽ được cấp 1 mã bò và thẻ QR khi lưu.' : 'Bê được tạo từ sự kiện đẻ đang ở trạng thái Chờ xác nhận.'}
             </p>
           </div>
         </div>
@@ -429,7 +433,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                       </Field>
                     </>
                   )}
-                  <Field id="entry-receiver" label="Người nhập *"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
+                  <Field id="entry-receiver" label="Người nhập"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
                 </div>
                 <Field id="entry-note" label={isBuy ? 'Ghi chú khi nhận bò' : 'Ghi chú'}>
                   <input id="entry-note" maxLength={1000} className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -440,16 +444,23 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
             {isBuy ? (
               <Card
                 title={`2. Danh sách bò trong phiếu (${cows.length} con)`}
-                sub='Lịch sử trước nhập đàn mặc định "Không rõ" · sửa từng con bằng ✎'
+                sub='Lịch sử trước nhập đàn mặc định "Không rõ" · sửa từng con bằng nút bút chì'
                 actions={
                   <>
-                    <Button small onClick={() => openModal('excel')}>Nhập từ Excel</Button>
-                    <Button small onClick={() => { setCows([...cows, blankCow(importBarns[0]?.code ?? '')]); openModal(`row-${cows.length + 1}`) }}>+ Thêm con</Button>
+                    <Button small onClick={() => openModal('excel')}><Icon name="upload" />Nhập từ Excel</Button>
+                    <Button small onClick={() => { setCows([...cows, { ...blankCow(importBarns[0]?.code ?? ''), pricing }]); openModal(`row-${cows.length + 1}`) }}><Icon name="circle-plus" />Thêm con</Button>
                   </>
                 }
               >
-                <div className="max-h-[420px] overflow-auto rounded-md">
-                <Table wide>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold">Cách tính giá</span>
+                  <Segmented
+                    value={pricing}
+                    onChange={(next) => { setPricing(next as 'kg' | 'con'); setCows(cows.map((c) => ({ ...c, pricing: next as 'kg' | 'con' }))) }}
+                    options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]}
+                  />
+                </div>
+                <Table scroll>
                   <thead>
                     <tr>
                       <Th className={`${TH} w-[20px]`}>#</Th>
@@ -458,10 +469,9 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                       <Th className={`${TH} w-[60px]`}>Tuổi</Th>
                       <Th className={`${TH} w-[70px]`}>Cân nặng</Th>
                       <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
-                      <Th className={`${TH} w-[90px]`}>Đơn giá</Th>
+                      <Th className={`${TH} w-[90px]`}>{`Đơn giá/${pricing === 'con' ? 'con' : 'kg'}`}</Th>
                       <Th className={`${TH} w-[80px]`}>Thành tiền</Th>
                       <Th className={`${TH} w-[20px]`} />
-                      <Th className={TH} />
                     </tr>
                   </thead>
                   <tbody>
@@ -475,12 +485,11 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                         <Td className={TH}>
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
                         </Td>
-                        <Td className={TH}>{money(c.unitPrice ?? 0)} <span className="text-[10px] text-muted">đ/{c.pricing === 'con' ? 'con' : 'kg'}</span></Td>
+                        <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>
                         <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c))}</Td>
                         <Td className={TH}>
-                          <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}>✎</button>
+                          <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}><Icon name="pencil" size={14} /></button>
                         </Td>
-                        <Td className={TH} />
                       </tr>
                     ))}
                   </tbody>
@@ -492,11 +501,10 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                       <Td className={`${TH} whitespace-nowrap`}>{`${money(totalWeight)} kg`}</Td>
                       <Td className={TH} /><Td className={TH} />
                       <Td className={`${TH} whitespace-nowrap`}>{money(cowsMoney)}</Td>
-                      <Td className={TH} /><Td className={TH} />
+                      <Td className={TH} />
                     </tr>
                   </tfoot>
                 </Table>
-                </div>
                 <p className="m-0 text-[11px] text-muted">
                   UT = cân nặng ước tính. Con chưa có thẻ tai vẫn được tạo hồ sơ & QR, gắn thẻ sau. Mỗi dòng được kiểm tra tiêu chí và sức chứa của chuồng nhận.
                 </p>
@@ -511,8 +519,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                     <span className="pb-1 text-xs text-muted">Tạo tối đa 10 dòng để nhập bố/mẹ, giống, ngày sinh, giới tính và cân sơ sinh.</span>
                   </div>
                 )}
-                <div className="max-h-[420px] overflow-auto rounded-md">
-                <Table wide>
+                <Table scroll>
                   <thead>
                     <tr>
                       <Th className={`${TH} w-[20px]`} />
@@ -537,14 +544,24 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                             onChange={(e) => patchCalf(i, { picked: e.target.checked, barn: e.target.checked ? calfBarn.code : '' })}
                           />
                         </Td>
-                        <Td className={TH}>{c.tag || 'Chưa gắn thẻ'}<br />{c.name}</Td>
+                        <Td className={TH}><span className="whitespace-nowrap">{c.tag || 'Chưa gắn thẻ'}</span><br />{c.name}</Td>
                         <Td className={TH}>
+                          {c.calfOutcomeId != null && c.mother ? (
+                            <span className="whitespace-nowrap">{c.mother}</span>
+                          ) : (
+                            <>
                           <select aria-label={`Bò mẹ của bê ${i + 1}`} className="w-full min-w-[150px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={String(c.damId ?? '')} disabled={!parentCattle.some((row) => row.sex === 'FEMALE')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = { damId: option?.id, mother: option?.code ?? '' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>
                             <option value="">{c.mother ? `Đang chọn: ${c.mother}` : 'Chọn bò mẹ trong đàn'}</option>
                             {parentCattle.filter((row) => row.sex === 'FEMALE').map((row) => <option key={row.id} value={row.id}>{row.code}{row.name ? ` · ${row.name}` : ''}</option>)}
                           </select>
+                            </>
+                          )}
                         </Td>
                         <Td className={TH}>
+                          {c.calfOutcomeId != null && c.mother ? (
+                            <span className="whitespace-nowrap">{c.father || 'Không rõ'}</span>
+                          ) : (
+                            <>
                           <select aria-label={`Bò bố của bê ${i + 1}`} className="w-full min-w-[190px] rounded border border-field bg-white px-2 py-1 text-[11px]" value={c.sireSource === 'AI' ? 'AI' : String(c.sireId ?? '')} onChange={(e) => { const option = parentCattle.find((row) => String(row.id) === e.target.value); const next = e.target.value === 'AI' ? { sireId: undefined, sireSource: 'AI', father: 'Thụ tinh nhân tạo' } : { sireId: option?.id, sireSource: option ? 'INTERNAL' : 'NONE', father: option?.code ?? 'Không rõ' }; patchCalf(i, next); void persistCalfParentage(c, next) }}>
                             <option value="">{c.sireId ? `Đang chọn: ${c.father}` : (c.father && c.father !== 'Không rõ' ? c.father : 'Chọn bò bố hoặc thụ tinh nhân tạo')}</option>
                             <option value="AI">Thụ tinh nhân tạo</option>
@@ -554,6 +571,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                           {(c.sireSource || c.externalSireName || c.semenBatch || c.sireBreed) && <small className="block text-[10px] text-muted">
                             {[c.sireSource, c.externalSireName, c.semenBatch, c.sireBreed ? `Giống ${c.sireBreed}` : ''].filter(Boolean).join(' · ')}
                           </small>}
+                            </>
+                          )}
                         </Td>
                         <Td className={`${TH} whitespace-nowrap`}>{dmy(c.born)}</Td>
                         <Td className={TH}>{c.sex}</Td>
@@ -575,7 +594,6 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                     ))}
                   </tbody>
                 </Table>
-                </div>
                 <p className="m-0 text-[11px] text-muted">
                   Bố, mẹ, nguồn bố (bò nội bộ, bố ngoài đàn hoặc lô tinh), giống, giới tính và cân sơ sinh lấy từ sự kiện đẻ – chỉ đọc, không sửa ở phiếu nhập. Ngày nhập đàn của bê = ngày sinh; giai đoạn = Bê theo mẹ. Bê chưa gắn thẻ vẫn chọn được, hệ thống cấp mã và QR. Bê đã chết trước khi đăng ký được đánh dấu tại đây.
                 </p>
@@ -597,11 +615,16 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                 )}
               </Card>
               {isBuy && (
-                <Card title="4. Thông tin thanh toán" actions={<Button size="sm" variant="primary" onClick={() => setPaymentModalOpen(true)}>Thanh toán</Button>}>
-                  <div className="flex items-center justify-between gap-3 text-xs text-muted">
-                    <span>Tổng phải trả: <strong className="text-ink">{money(total)} đ</strong></span>
-                    <span>Đã trả: <strong className="text-ink">{money(paid)} đ</strong> · Còn nợ: <strong className="text-ink">{money(debt)} đ</strong></span>
-                  </div>
+                <Card title="4. Thanh toán" actions={<Button size="sm" onClick={() => setPaymentModalOpen(true)}>Thanh toán</Button>}>
+                  <Info cols={2} items={[
+                    ['Tiền bò', `${money(cowsMoney)} đ`],
+                    ['Phí vận chuyển', `${money(freight)} đ`],
+                    ['Tổng phải trả', `${money(total)} đ`],
+                    ['Đã thanh toán', `${money(paid)} đ`],
+                    ['Còn nợ nguồn bán', `${money(debt)} đ`],
+                    ['Phương thức', method || '—'],
+                    ...(due ? [['Hạn trả phần nợ', dmy(due)]] : []),
+                  ]} />
                 </Card>
               )}
             </div>
@@ -654,7 +677,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                   'Bò mẹ đang ACTIVE trong trại',
                 ]
               ).map((t) => (
-                <div key={t} className="flex gap-2 text-xs"><span className="font-semibold text-brand">✓</span>{t}</div>
+                <div key={t} className="flex gap-2 text-xs"><Icon name="circle-check" size={14} className="mt-px shrink-0 text-brand" />{t}</div>
               ))}
             </Card>
 
@@ -665,8 +688,9 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               {validationError && <Note tone="err">{validationError}</Note>}
               {Boolean(saveError) && <Note tone="err">{displayError(saveError)}</Note>}
               <Button variant="primary" block disabled={!n || blocked || loading} onClick={() => { void save('Đã nhập').catch(() => undefined) }}>
-                {`Lưu & tạo hồ sơ ${n} con`}
+                <Icon name="circle-check" />{`Lưu & tạo hồ sơ ${n} con`}
               </Button>
+              <Button block disabled={loading} onClick={() => { void save('Nháp').catch(() => undefined) }}>Lưu nháp phiếu</Button>
               <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
             </Card>
           </div>
@@ -674,8 +698,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
         <Foot>
           {isBuy
-            ? 'Phiếu nhập gom nhiều con cùng nguồn; khi lưu, mỗi con được tạo hồ sơ, mã nội bộ, thẻ QR và phân chuồng; tiền bò và công nợ tính theo phiếu.'
-            : 'Chỉ bê có kết quả đẻ đang Chờ xác nhận mới được chọn; khi lưu, mỗi bê được tạo hồ sơ, mã nội bộ, thẻ QR và xếp vào chuồng nhận.'}
+            ? 'Phiếu nhập gom nhiều con cùng nguồn; khi lưu, mỗi con được tạo hồ sơ, mã bò, thẻ QR và phân chuồng; tiền bò và công nợ tính theo phiếu.'
+            : 'Chỉ bê có kết quả đẻ đang Chờ xác nhận mới được chọn; khi lưu, mỗi bê được tạo hồ sơ, mã bò, thẻ QR và xếp vào chuồng nhận.'}
         </Foot>
       </div>
 
@@ -690,7 +714,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           vaccines={vaccines ?? []}
           breeds={breeds ?? []}
           others={cows.filter((_, idx) => idx !== editing)}
-          onSave={(next) => { patchCow(editing, next); closeModal() }}
+          onSave={(next) => { patchCow(editing, { ...next, pricing }); closeModal() }}
           onRemove={() => { setCows(cows.filter((_, idx) => idx !== editing)); closeModal() }}
           onClose={closeModal}
         />

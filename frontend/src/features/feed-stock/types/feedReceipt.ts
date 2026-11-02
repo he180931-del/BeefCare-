@@ -26,6 +26,10 @@ export type FeedReceipt = {
   totalPayable: number
   version: number
   lines: FeedReceiptLine[]
+  /** Local-demo extras shown in the list; ReceiptView does not carry them, so backend rows leave them undefined. */
+  invoiceNumber?: string
+  amountPaid?: number
+  voidReason?: string
 }
 
 export type FeedReceiptStatus = 'DRAFT' | 'POSTED' | 'VOIDED'

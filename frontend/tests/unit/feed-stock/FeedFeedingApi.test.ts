@@ -24,7 +24,8 @@ const today = () => {
 
 function input(overrides: Partial<FeedFeedingDraftInput> = {}): FeedFeedingDraftInput {
   return {
-    penId: 1,
+    // C1 has no seeded session today; A1 to B2 already have their morning feeding.
+    penId: 6,
     feedingDate: today(),
     sessionNo: 1,
     time: '06:30',
@@ -102,7 +103,7 @@ describe('SCR-83 feeding log boundary and local demo store', () => {
     const outcomes = await Promise.allSettled([recordFeedSessionDemo(input()), recordFeedSessionDemo(input())])
 
     expect(outcomes.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
-    expect(await listFeedFeedingRecords({ from: today(), to: today() })).toHaveLength(1)
+    expect((await listFeedFeedingRecords({ from: today(), to: today() })).filter((record) => record.penId === 6)).toHaveLength(1)
     expect((await listFeedStock()).find((row) => row.feedItemId === 101)!.onHandKg).toBe(before - 2)
   })
 
@@ -117,7 +118,7 @@ describe('SCR-83 feeding log boundary and local demo store', () => {
     await expect(recordFeedSessionDemo(input({ lines: [{ feedItemId: 101, plannedKg: 0, actualKg: -1, inRation: false }] })))
       .rejects.toThrow('không âm')
 
-    expect(await listFeedFeedingRecords({ from: today(), to: today() })).toHaveLength(0)
+    expect((await listFeedFeedingRecords({ from: today(), to: today() })).filter((record) => record.penId === 6)).toHaveLength(0)
     expect((await listFeedStock()).find((row) => row.feedItemId === 101)!.onHandKg).toBe(before)
   })
 })

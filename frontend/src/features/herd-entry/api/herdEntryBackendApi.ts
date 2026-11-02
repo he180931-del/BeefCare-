@@ -391,7 +391,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
         const barn = textValue(cow.barn)
         const basis = cow.weightBasis ?? (numberValue(cow.weight) > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null)
         return {
-          earTagNumber: textValue(cow.tag) || null, name: textValue(cow.name) || null, photoUrl: null, colourMarkings: null,
+          earTagNumber: textValue(cow.tag) || null, name: textValue(cow.name) || null, photoUrl: null, colourMarkings: textValue(cow.colourMarkings) || null,
           breedId: nullableNumber(cow.breedId) ?? findNamedId(breedsBody, textValue(cow.breed)), sex: sex(cow.sex), birthDate: fullDate(cow.dob ?? cow.born),
           birthDateAccuracy: birthAccuracy(cow.dobAccuracy), ageMonths: nullableNumber(cow.ageMonths), lifeStage: lifeStage(cow.stage ?? cow.group, farmBorn),
           purposeId: findPurposeId(purposesBody, textValue(cow.purpose)) ?? nullableNumber(cow.purposeId), entryWeightKg: cow.pricing === 'con' ? null : basis ? numberValue(cow.weight) : null,

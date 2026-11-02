@@ -13,7 +13,7 @@ const cow = (code: string, fields: Partial<Cattle> = {}): Cattle => ({
 })
 
 export const canonicalCattle: Cattle[] = [
-  cow('BC-000203', { tag: 'VN-0412', breed: 'Zebu đỏ', sex: 'Đực', barn: 'B1', weight: 322 }),
+  cow('BC-000203', { tag: 'VN-BV-0512', breed: 'Zebu đỏ', sex: 'Đực', barn: 'B1', weight: 322 }),
   cow('BC-000205', { tag: 'VN-0415', breed: 'Brahman lai', sex: 'Đực', barn: 'B1', weight: 348, withdrawalUntil: '2026-10-25' }),
   cow('BC-000211', { tag: 'VN-0431', breed: 'Lai Sind', sex: 'Đực', barn: 'B1', weight: 332, weightEst: true }),
   cow('BC-000214', { tag: 'VN-0436', breed: 'Zebu đỏ', sex: 'Đực', barn: 'B1', weight: 305 }),

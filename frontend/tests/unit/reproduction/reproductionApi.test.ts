@@ -10,9 +10,12 @@ const transport: BackendTransport = {
   farmPath: vi.fn((farmId, suffix = '') => `/api/farms/${farmId}${suffix}`),
 }
 
+// The lifecycle scenarios run past the demo day, so they bring their own clock.
+const AFTER_LIFECYCLE = () => '2026-11-02T09:00'
+
 describe('reproduction mock API boundary', () => {
   it('records breeding, pregnancy check and loss as a consistent local lifecycle', async () => {
-    const store = createReproductionDemoStore(REPRODUCTION_DEMO)
+    const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
 
     const bred = await api.recordEvent('BC-000142', {
@@ -38,7 +41,7 @@ describe('reproduction mock API boundary', () => {
   })
 
   it('records a calving and calf outcomes, then moves the dam to post-calving', async () => {
-    const store = createReproductionDemoStore(REPRODUCTION_DEMO)
+    const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
     const before = await api.getProfile('BC-000087')
 
@@ -54,19 +57,20 @@ describe('reproduction mock API boundary', () => {
 
     expect(after.status).toBe('POST_CALVING')
     expect(after.openPregnancy).toBeNull()
-    expect(after.parity).toBe(4)
+    expect(after.parity).toBe(3)
     expect(after.calvings[0]?.calves[0]?.registrationStatus).toBe('PENDING_CONFIRMATION')
 
     const corrected = await api.correctCalving('BC-000087', after.calvings[0]!.id, { course: 'ASSISTED' }, 'Bổ sung diễn biến đẻ', 'MANAGER')
-    expect(corrected.events.find((event) => event.id === after.calvings[0]!.id)?.details).toContain('ASSISTED')
+    expect(corrected.calvings[0]?.course).toBe('ASSISTED')
+    expect(corrected.events.find((event) => event.id === after.calvings[0]!.id)?.corrected).toBe(true)
     const voided = await api.voidCalving('BC-000087', after.calvings[0]!.id, 'Ghi nhầm sự kiện', 'MANAGER')
     expect(voided.status).toBe('PREGNANT')
-    expect(voided.parity).toBe(3)
+    expect(voided.parity).toBe(2)
     expect(voided.calvings[0]?.voidReason).toBe('Ghi nhầm sự kiện')
   })
 
   it('requires a correction reason and blocks voiding a breeding used by a later check', async () => {
-    const store = createReproductionDemoStore(REPRODUCTION_DEMO)
+    const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
     const cow = await api.getProfile('BC-000061')
     const breeding = cow.events.find((event) => event.type === 'BREEDING')!
@@ -83,7 +87,7 @@ describe('reproduction mock API boundary', () => {
   })
 
   it('updates a corrected pregnancy result and refuses to orphan a pregnancy with dependent events', async () => {
-    const store = createReproductionDemoStore(REPRODUCTION_DEMO)
+    const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
     const cow = await api.getProfile('BC-000061')
     const breeding = cow.events.find((event) => event.type === 'BREEDING')!
@@ -106,7 +110,7 @@ describe('reproduction mock API boundary', () => {
   })
 
   it('rejects a corrected calving date in the future', async () => {
-    const store = createReproductionDemoStore(REPRODUCTION_DEMO)
+    const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
     const calving = (await api.getProfile('BC-000087')).calvings[0]!
 
@@ -115,7 +119,7 @@ describe('reproduction mock API boundary', () => {
   })
 
   it('keeps a before/after revision when a manager corrects an event and enforces read-only roles', async () => {
-    const store = createReproductionDemoStore(REPRODUCTION_DEMO)
+    const store = createReproductionDemoStore(REPRODUCTION_DEMO, AFTER_LIFECYCLE)
     const api = createReproductionApi({ mode: 'local', farmId: 1, transport, store })
     const cow = await api.getProfile('BC-000142')
     const estrus = cow.events.find((event) => event.type === 'ESTRUS')!
@@ -136,7 +140,7 @@ describe('reproduction mock API boundary', () => {
       list: vi.fn(async () => REPRODUCTION_DEMO),
       get: vi.fn(async () => REPRODUCTION_DEMO[0]),
       recordEvent: vi.fn(), recordCalving: vi.fn(), correctEvent: vi.fn(), voidEvent: vi.fn(),
-      correctCalving: vi.fn(), voidCalving: vi.fn(), reset: vi.fn(),
+      correctCalving: vi.fn(), voidCalving: vi.fn(), voidCalf: vi.fn(), reset: vi.fn(),
     }
     const api = createReproductionApi({ mode: 'backend', farmId: 1, transport, store })
 

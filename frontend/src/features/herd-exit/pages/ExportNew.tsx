@@ -9,7 +9,8 @@ import { dm, money } from '../../../data/format'
 import { backendMode } from '../../../api/backendTransport'
 import { confirmHerdExit, downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, saveHerdExit, pens, listExitBuyers, listSelectableExitCattle } from '../api/index'
 import { useMutation, useQuery } from '../../../hooks/useApi'
-import { Box, CheckList, MoneyInput, SummaryCard, TH, cx } from '../components/parts'
+import { Icon } from '../../../components/Icon'
+import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
 import type { ExitDraftCow, HerdExit, ExitType } from '../../../types'
 import { userFacingError } from '../../../api/userFacingError'
@@ -42,12 +43,20 @@ const normalizeHerdCow = (cow: ExitDraftCow, source?: HerdCow): HerdCow => {
 
 // Tải danh sách phiếu trước, rồi mới dựng form (form lấy phiếu Nháp làm giá trị ban đầu).
 export default function ExportNew() {
+  const isOwner = useIsOwner()
   const [params] = useSearchParams()
   const draftId = params.get('id')
   const { data: exports } = useQuery<HerdExit[]>(() => herdExitApi.list(), [])
   const { data: hydratedDraft } = useQuery<HerdExit | null>(() => draftId ? herdExitApi.get(draftId) : Promise.resolve(null), [draftId])
   const { data: selectableCattle } = useQuery(() => listSelectableExitCattle(), [])
   const { data: buyers } = useQuery(() => listExitBuyers(), [])
+  if (!isOwner) {
+    return (
+      <Layout title="Phiếu xuất mới">
+        <Note tone="warn">Chỉ Chủ trại lập và xác nhận phiếu xuất. Quản lý chỉ xem danh sách và chi tiết phiếu.</Note>
+      </Layout>
+    )
+  }
   if (!exports || !selectableCattle || !buyers || (draftId && !hydratedDraft)) {
     return (
       <Layout title="Phiếu xuất mới">
@@ -97,6 +106,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
   const [checks, setChecks] = useState<ExitChecks | null>(null)
   const [checksError, setChecksError] = useState<unknown>(null)
+  const [checking, setChecking] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState<unknown>(null)
 
   const isSale = type === 'Bán'
@@ -185,7 +196,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       ['Tổng quan', warningChecks.length ? `${warningChecks.length} con có cảnh báo` : 'Không có cảnh báo', warningChecks.length > 0],
       ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? checkMessages(check) || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, ReactNode, boolean?]),
     ]
-    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : 'Đang tải kết quả kiểm tra…', true]]
+    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : checking ? 'Đang tải kết quả kiểm tra…' : 'Chưa kiểm tra. Lưu phiếu để xem kết quả.', true]]
   const checksReady = Boolean(checks)
 
   const buildDraftRecord = (): Partial<HerdExit> => ({
@@ -206,12 +217,20 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     },
   })
 
+  // GBR-34: every non-sale exit needs a reason.
+  const missingReason = () => {
+    if (!isSale && !note.trim()) { setFormError('Vui lòng nhập lý do xuất.'); return true }
+    setFormError(null)
+    return false
+  }
+
   const saveDraftAndLoadChecks = async () => {
-    if (savingRef.current) return
+    if (savingRef.current || missingReason()) return
     const revision = formRevision.current
     const snapshot = formSnapshot()
     const isCurrentForm = () => revision === formRevision.current && snapshot === formSnapshot()
     savingRef.current = true
+    setChecking(true)
     setChecks(null)
     setChecksError(null)
     setConfirmed(false)
@@ -229,12 +248,13 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       // selected files mounted so the user can retry without losing the draft.
       if (revision === formRevision.current) setChecksError(error)
     } finally {
+      setChecking(false)
       savingRef.current = false
     }
   }
 
   const saveDraft = async () => {
-    if (savingRef.current) return
+    if (savingRef.current || missingReason()) return
     savingRef.current = true
     try {
       await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
@@ -278,11 +298,6 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
               <Field label="Mã phiếu"><input className={inputCls} value={id} readOnly /></Field>
               <Field label="Ngày xuất *"><DateInput value={date} onChange={setDate} /></Field>
               <Field label="Loại xuất"><input className={inputCls} value={type} readOnly /></Field>
-              {hasPricing && (
-                <Field label="Cách tính giá">
-                  <Segmented value={pricing} onChange={(value) => setPricing(value as 'kg' | 'con')} options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]} />
-                </Field>
-              )}
               {isSale && (
                 <>
                   <Field label="Người mua / thương lái *" hint={`${buyer?.phone ?? ''} · + Thêm người mua`}>
@@ -305,13 +320,18 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
             gap="gap-3"
             actions={
               <>
-                <Button size="sm" onClick={() => openModal('pick')}>+ Chọn bò</Button>
+                <Button size="sm" onClick={() => openModal('pick')}><Icon name="circle-plus" />Chọn bò</Button>
               </>
             }
           >
-            {hasPricing && <span className="text-[11px] text-muted">Cân xuất mặc định = cân gần nhất (ước tính) · mỗi con có đơn giá riêng</span>}
-            <div className="max-h-[420px] overflow-auto rounded-md">
-            <Table>
+            {hasPricing && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-semibold">Cách tính giá *</span>
+                <Segmented value={pricing} onChange={(value) => setPricing(value as 'kg' | 'con')} options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]} />
+                <span className="text-[11px] text-muted">Cân xuất mặc định = cân gần nhất (ước tính) · cân lại để ghi thực tế</span>
+              </div>
+            )}
+            <Table scroll>
               <thead>
                 <tr>
                   <Th className={TH}>#</Th><Th className={TH}>Mã bò · thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Chuồng</Th>
@@ -341,12 +361,12 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                       {hasPricing && (
                         <>
                           <Td className={TH}>
-                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[70px]" />
+                            <MoneyInput value={c.unitPrice} onChange={(v) => patch(c.code, { unitPrice: v })} className="w-[96px]" />
                           </Td>
                           <Td className={TH}>{money(amount(c))}</Td>
                         </>
                       )}
-                      <Td className={TH}>{blocked ? <Badge tone="err" className="!border-0">Ngưng GM → {dm(c.withdrawalUntil)}</Badge> : <Badge tone="ok" className="!border-0">OK</Badge>}</Td>
+                      <Td className={TH}>{blocked ? <Badge tone="err">Ngưng GM → {dm(c.withdrawalUntil)}</Badge> : <Badge tone="ok" icon="circle-check">OK</Badge>}</Td>
                       <Td className={cx(TH, 'relative')}>
                         <button type="button" className="cursor-pointer px-1 text-muted" onClick={() => setMenu(menu === c.code ? null : c.code)}>⋯</button>
                         {menu === c.code && (
@@ -372,7 +392,6 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                 </tr>
               </tfoot>
             </Table>
-            </div>
             {withdrawal.map((c) => (
               <Note tone="err" key={c.code}>
                 {c.code} đang trong thời gian ngưng giết mổ đến {dm(c.withdrawalUntil)}/2026{c.code === 'BC-000205' ? ' (điều trị kháng sinh 18/10)' : ''}. Bán để giết mổ trước ngày này vi phạm an toàn thực phẩm – nên dời ngày xuất hoặc bỏ con khỏi phiếu.
@@ -419,7 +438,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
 
         <div className="flex flex-col gap-[18px]">
           <SummaryCard
-            badge={<Badge>Nháp</Badge>}
+            badge={<ExitStatusBadge status="Nháp" />}
             rows={[
               ['Số con', picked.length],
               ['Loại xuất', type],
@@ -433,8 +452,9 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
             <Checkbox checked={confirmed} disabled={!checksReady || saving} onChange={(e) => setConfirmed(e.target.checked)} className="text-xs font-semibold">
               Tôi đã xem các mục trên và xác nhận xuất đàn *
             </Checkbox>
+            {formError && <Note tone="err">{formError}</Note>}
             {Boolean(saveError || confirmError) && <Note tone="err">{displayError(confirmError ?? saveError)}</Note>}
-            <Button variant="primary" block className="!border-0 !py-[9px]" disabled={!picked.length || saving || (checksReady ? !confirmed : false)} onClick={checksReady ? confirm : saveDraftAndLoadChecks}>
+            <Button variant="primary" block className="!py-[9px]" disabled={!picked.length || saving || (checksReady ? !confirmed : false)} onClick={checksReady ? confirm : saveDraftAndLoadChecks}>
               {checksReady ? `Xác nhận xuất ${picked.length} con` : 'Lưu và kiểm tra trước khi xác nhận'}
             </Button>
             <Button block disabled={saving} onClick={saveDraft}>Lưu nháp phiếu</Button>

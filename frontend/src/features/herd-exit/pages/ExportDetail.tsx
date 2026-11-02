@@ -1,18 +1,17 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Badge, Button, Docs, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../../../components/ui'
+import { Button, Docs, Foot, Info, Note, Table, Td, Th, PaymentTable } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
 import { dmy, kg, money } from '../../../data/format'
 import { cattle, downloadExitAttachment, herdExitApi } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
-import { Box, TH } from '../components/parts'
+import { Icon } from '../../../components/Icon'
+import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
 import type { HerdExit, ExitDetail, Cattle } from '../../../types'
-
-const STATUS_TONE: Record<string, 'ok' | 'err' | 'warn' | undefined> = { 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
 
 export default function ExportDetail() {
   const { id } = useParams()
@@ -21,6 +20,7 @@ export default function ExportDetail() {
   const { data: cattleRows } = useQuery<Cattle[]>(() => cattle.list(), [])
   const [m, openModal, closeModal] = useModalParam()
   const [documentError, setDocumentError] = useState('')
+  const isOwner = useIsOwner()
 
   if (!r) {
     return (
@@ -36,7 +36,6 @@ export default function ExportDetail() {
   const d: ExitDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
   const collected = d.payments?.reduce((s, p) => s + p.amount, 0) ?? (r.total ?? 0) - (r.due ?? 0)
   const owed = r.due ?? 0
-  const tone = STATUS_TONE[r.status]
   const isSold = r.status === 'Đã xuất'
   const canCancel = isSold && Boolean(d.cows?.length) && Boolean(cattleRows) && (d.cows ?? []).every((row) => (cattleRows ?? []).some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
   const viewDocument = async (index: number) => {
@@ -60,14 +59,14 @@ export default function ExportDetail() {
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
       <div className="flex flex-wrap items-start gap-3">
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="m-0 text-[22px] font-bold">Phiếu xuất {r.id}</h1>
-          <div className="mt-1"><Badge tone={tone} className={tone ? '!border-0' : undefined}>{r.status}</Badge></div>
+          <ExitStatusBadge status={r.status} />
         </div>
         <div className="flex-1" />
         <div className="flex flex-wrap gap-2.5">
-          <Button onClick={() => window.print()}>In phiếu</Button>
-          <Button disabled={!canCancel} onClick={() => openModal('cancel')}>Hủy phiếu</Button>
+          <Button onClick={() => window.print()}><Icon name="printer" />In phiếu</Button>
+          {isOwner && <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>}
         </div>
       </div>
 
@@ -90,7 +89,7 @@ export default function ExportDetail() {
           </Box>
 
           <Box title="Bò trong phiếu" sub={`${r.count} con${r.weight ? ` · ${r.weight}` : ''}`} gap="gap-3">
-            <Table>
+            <Table scroll>
               <thead>
                 <tr>
                   <Th className={TH}>Mã bò</Th><Th className={TH}>Thẻ tai</Th><Th className={TH}>Giống · giới tính</Th><Th className={TH}>Cân xuất</Th>
@@ -103,7 +102,7 @@ export default function ExportDetail() {
                     <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
                     <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
                     <Td className={`${TH} !py-3`}>{c.barn}</Td>
-                    <Td className={`${TH} !py-3`}><Badge tone="ok" className="!border-0">Đã xuất</Badge></Td>
+                    <Td className={`${TH} !py-3`}><ExitStatusBadge status="Đã xuất" /></Td>
                     <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
                   </tr>
                 ))}
@@ -140,7 +139,7 @@ export default function ExportDetail() {
                 ]}
               />
               {d && <PaymentTable payments={d.payments ?? []} />}
-              {isSold && owed > 0 && <Button block onClick={() => openModal('collect')}>Ghi nhận thu tiền</Button>}
+              {isOwner && isSold && owed > 0 && <Button block onClick={() => openModal('collect')}><Icon name="cash" />Ghi nhận thu tiền</Button>}
             </Box>
           )}
           <Box title="Lịch sử phiếu" gap="gap-2">

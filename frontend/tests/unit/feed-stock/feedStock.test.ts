@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createFeedStockApi, filterFeedStock, FEED_STOCK_MOCK, type FeedStockRow } from '../../../src/features/feed-stock'
+import { deriveFeedStockStatus } from '../../../src/features/feed-stock/domain/feedStockStatus'
 
 describe('FE-23 feed stock read model', () => {
   const feedGroups = [
@@ -25,11 +26,8 @@ describe('FE-23 feed stock read model', () => {
       expect(row.code).toMatch(/^TA-/)
       expect(feedGroups).toContain(row.group)
       expect(['OUT_OF_STOCK', 'LOW', 'SUFFICIENT']).toContain(row.status)
-      const expectedStatus = row.onHandKg <= 0
-        ? 'OUT_OF_STOCK'
-        : row.minimumStockKg !== null && row.onHandKg <= row.minimumStockKg
-          ? 'LOW'
-          : 'SUFFICIENT'
+      // Out of stock, at/below the minimum level, or less than 4 days of cover (Figma "Sắp hết").
+      const expectedStatus = deriveFeedStockStatus(row.onHandKg, row.minimumStockKg, row.averageDailyUseKg)
       expect(row.status).toBe(expectedStatus)
       const expectedCover = row.averageDailyUseKg === 0
         ? null
@@ -39,12 +37,12 @@ describe('FE-23 feed stock read model', () => {
   })
 
   it('filters by stock status and searches feed code or name', () => {
-    const rows = filterFeedStock(FEED_STOCK_MOCK, { status: 'LOW', query: 'TA-02' })
+    const rows = filterFeedStock(FEED_STOCK_MOCK, { status: 'LOW', query: 'TA-06' })
 
     expect(rows).toHaveLength(1)
-    expect(rows[0].code).toBe('TA-02')
+    expect(rows[0].code).toBe('TA-06')
     expect(rows[0].status).toBe('LOW')
-    expect(filterFeedStock(FEED_STOCK_MOCK, { query: 'cam hon hop bo thit' }).map((row) => row.code)).toEqual(['TA-02'])
+    expect(filterFeedStock(FEED_STOCK_MOCK, { query: 'cam ngo' }).map((row) => row.code)).toEqual(['TA-06'])
     expect(filterFeedStock(FEED_STOCK_MOCK, { query: 'CONCENTRATE' })).toEqual([])
   })
 

@@ -45,7 +45,7 @@ export default function Modal({ title, sub, topTitle, width = 600, maxHeight, on
     <div className="fixed inset-0 z-50 box-border w-full max-w-full overflow-x-hidden overflow-y-auto bg-[rgba(23,37,30,0.32)]" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className={`pointer-events-none flex min-h-full w-full min-w-0 max-w-full justify-center box-border p-4 ${top ? 'items-start' : 'items-center'}`} style={top ? { paddingTop: top } : undefined}>
         <div role="dialog" aria-modal="true" aria-label={title} style={{ width: `min(${width}px, calc(100vw - 2rem))`, ...(maxHeight ? { maxHeight } : {}) }} className={`pointer-events-auto relative flex max-h-[calc(100vh-1rem)] min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-lg bg-white p-6 ${WIDTH[width] || WIDTH[600]} ${dialogClassName}`}>
-          <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-6 top-6 size-6 text-[#67766c]">
+          <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-6 top-6 z-20 size-6 cursor-pointer text-[#67766c]">
             <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 5l14 14M19 5L5 19" /></svg>
           </button>
           <div className="sticky top-0 z-10 -mx-6 bg-white px-6 pb-1">

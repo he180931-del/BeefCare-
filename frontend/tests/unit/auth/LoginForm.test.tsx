@@ -144,7 +144,7 @@ describe('TC-AUTH-U04: Wrong credentials error', () => {
     await waitFor(() => {
       const alert = screen.getByRole('alert')
       expect(alert).toBeInTheDocument()
-      expect(alert.textContent).toBe('Email hoặc mật khẩu không đúng.')
+      expect(alert.textContent).toContain('Email hoặc mật khẩu chưa chính xác.')
       expect(alert.textContent).not.toContain('error.validation')
     })
   })
@@ -161,7 +161,7 @@ describe('TC-AUTH-U04: Wrong credentials error', () => {
     await user.type(screen.getByLabelText('Mật khẩu', { exact: true }), 'wrong-password')
     await user.click(screen.getByRole('button', { name: /đăng nhập/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Email hoặc mật khẩu không đúng.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Email hoặc mật khẩu chưa chính xác.')
     expect(screen.getByRole('alert')).not.toHaveTextContent('error.validation')
   })
 

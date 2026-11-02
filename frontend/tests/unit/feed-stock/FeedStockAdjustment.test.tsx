@@ -27,8 +27,9 @@ describe('SCR-80 stock adjustment', () => {
 
     await screen.findByRole('table')
     await user.click(screen.getByRole('button', { name: 'Kiểm kê / điều chỉnh' }))
-    expect(await screen.findByRole('heading', { name: 'Tạo phiếu kiểm kê / điều chỉnh' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Quay lại tồn kho' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Phiếu điều chỉnh kho' })).toBeInTheDocument()
+    expect(screen.getByText('Mã phiếu')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lưu điều chỉnh' })).toBeEnabled()
   })
 
   it('opens the saved adjustment list from the feed navigation tab', async () => {
@@ -39,7 +40,7 @@ describe('SCR-80 stock adjustment', () => {
     await user.click(screen.getByRole('tab', { name: 'Kiểm kê' }))
     expect(await screen.findByRole('heading', { name: 'Phiếu kiểm kê / điều chỉnh tồn kho' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Tạo phiếu kiểm kê' }))
-    expect(await screen.findByRole('heading', { name: 'Tạo phiếu kiểm kê / điều chỉnh' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Phiếu điều chỉnh kho' })).toBeInTheDocument()
   })
 
   it('requires a non-negative count and a reason when a feed differs from system stock', async () => {
@@ -53,7 +54,7 @@ describe('SCR-80 stock adjustment', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Số đếm của TA-01 phải là số không âm.')
 
     await user.clear(screen.getByLabelText('Số đếm TA-01'))
-    await user.type(screen.getByLabelText('Số đếm TA-01'), '1850')
+    await user.type(screen.getByLabelText('Số đếm TA-01'), '1860')
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Nhập lý do chênh lệch cho TA-01.')
     expect(await listFeedStockAdjustments()).toHaveLength(0)
@@ -65,24 +66,24 @@ describe('SCR-80 stock adjustment', () => {
     await screen.findByRole('table')
 
     await user.clear(screen.getByLabelText('Số đếm TA-01'))
-    await user.type(screen.getByLabelText('Số đếm TA-01'), '1850')
+    await user.type(screen.getByLabelText('Số đếm TA-01'), '1860')
     await user.type(screen.getByLabelText('Lý do TA-01'), 'Đếm thực tế')
-    await user.clear(screen.getByLabelText('Số đếm TA-02'))
-    await user.type(screen.getByLabelText('Số đếm TA-02'), '240')
-    await user.type(screen.getByLabelText('Lý do TA-02'), 'Hao hụt')
+    await user.clear(screen.getByLabelText('Số đếm TA-06'))
+    await user.type(screen.getByLabelText('Số đếm TA-06'), '10')
+    await user.type(screen.getByLabelText('Lý do TA-06'), 'Hao hụt')
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
 
     expect(await screen.findByRole('heading', { name: 'Phiếu kiểm kê / điều chỉnh tồn kho' })).toBeInTheDocument()
     const draft = (await listFeedStockAdjustments()).find((row) => row.status === 'DRAFT')!
     expect(draft.lines.find((line) => line.feedItemId === 101)?.differenceKg).toBe(10)
-    expect(draft.lines.find((line) => line.feedItemId === 102)?.differenceKg).toBe(-20)
+    expect(draft.lines.find((line) => line.feedItemId === 106)?.differenceKg).toBe(-20)
     await user.click(screen.getByRole('button', { name: `Tiếp tục ${draft.code}` }))
-    expect(await screen.findByRole('heading', { name: 'Sửa phiếu kiểm kê / điều chỉnh' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Phiếu điều chỉnh kho ĐCK-\d{4}-0001 · Nháp/ })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Ghi nhận điều chỉnh' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu điều chỉnh' }))
     expect(await screen.findByRole('heading', { name: 'Quản lý thức ăn' })).toBeInTheDocument()
     expect((await listFeedStock()).find((row) => row.feedItemId === 101)?.onHandKg).toBe(FEED_STOCK_MOCK[0].onHandKg + 10)
-    expect((await listFeedStock()).find((row) => row.feedItemId === 102)?.onHandKg).toBe(FEED_STOCK_MOCK[1].onHandKg - 20)
+    expect((await listFeedStock()).find((row) => row.feedItemId === 106)?.onHandKg).toBe(FEED_STOCK_MOCK[5].onHandKg - 20)
     expect((await listFeedStockAdjustments()).find((row) => row.id === draft.id)?.status).toBe('POSTED')
 
     await expect(import('../../../src/features/feed-stock/api/feedStockAdjustmentApi').then(({ postFeedStockAdjustmentDemo }) => postFeedStockAdjustmentDemo(draft.id)))
