@@ -12,7 +12,7 @@ const routeCases = [
   ['/loi-moi?farmId=1', 'Lời mời thành viên'],
   ['/chap-nhan-loi-moi?token=route-smoke', 'Lời mời không còn hiệu lực'],
   ['/sinh-san', 'Sinh sản'],
-  ['/cattle/BC-000087/sinh-san/de', 'Ghi sự kiện đẻ · BC-000087'],
+  ['/cattle/BC-000087/sinh-san/de', 'Ghi sự kiện đẻ'],
   ['/thuc-an/hom-nay', 'Khẩu phần hôm nay'],
 ] as const
 
