@@ -71,7 +71,7 @@ export default function RecordListPage() {
             <EmptyBlock title="Không có kết quả phù hợp" sub="Giữ bộ lọc đang chọn. Thử xóa bộ lọc để xem dữ liệu được phép; không hiển thị số hoặc bản ghi giả." action={filtered || filters.state ? <Button variant="primary" onClick={() => setFilters({ page: 1 })}><Icon name="filter-off" size={16} /> Xóa bộ lọc</Button> : undefined} />
           ) : (
             <>
-              <Table wide>
+              <Table scroll>
                 <thead><tr><Th>Mã</Th><Th>Ngày phát sinh</Th><Th>Loại</Th><Th>Danh mục</Th><Th>Diễn giải</Th><Th>Phạm vi</Th><Th>Số tiền</Th><Th>Trạng thái</Th></tr></thead>
                 <tbody>
                   {data.rows.map((r) => (
