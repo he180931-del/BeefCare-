@@ -70,7 +70,7 @@ export default function HealthCaseList() {
         <EmptyBlock title="Không có ca sức khỏe phù hợp" sub="Thử đổi bộ lọc hoặc mở ca mới từ hồ sơ bò." />
       ) : (
         <>
-          <Table wide>
+          <Table scroll>
             <thead>
               <tr>
                 <Th className="w-[88px]"><button type="button" className="font-semibold" onClick={() => toggleSort('caseCode')}>Mã ca{arrow('caseCode')}</button></Th>
