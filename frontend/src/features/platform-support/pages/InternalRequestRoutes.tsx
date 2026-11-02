@@ -1,5 +1,11 @@
-import { ScreenStub } from '../../../components/ScreenStub'
+import { Route, Routes } from 'react-router-dom'
+import InternalRequestsPage from './InternalRequestsPage'
 
 export default function InternalRequestRoutes() {
-  return <ScreenStub title="Yêu cầu nội bộ được giao" />
+  return (
+    <Routes>
+      <Route index element={<InternalRequestsPage />} />
+      <Route path=":code" element={<InternalRequestsPage />} />
+    </Routes>
+  )
 }
