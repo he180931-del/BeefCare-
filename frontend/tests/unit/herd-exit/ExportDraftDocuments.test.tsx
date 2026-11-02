@@ -162,7 +162,7 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
   it('keeps the hydrated draft visible when document upload fails', async () => {
     apiState.exports = [{ id: existingDraft.id, date: existingDraft.date, type: existingDraft.type, status: 'Nháp' }]
     apiState.hydrated = structuredClone(existingDraft)
-    apiState.saveError = new Error('upload failed')
+    apiState.saveError = new Error('Tải chứng từ thất bại')
     const user = userEvent.setup()
     renderPageWithLocation('/herd-exit/new?id=PX-2026-0061')
 
@@ -172,7 +172,7 @@ describe('Phiếu xuất nháp — chứng từ và giá theo từng con', () =>
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), pdf)
     await user.click(screen.getByRole('button', { name: /Lưu và kiểm tra/ }))
 
-    expect(await screen.findByText('upload failed')).toBeInTheDocument()
+    expect(await screen.findByText('Tải chứng từ thất bại')).toBeInTheDocument()
     expect(screen.getByText('Phiếu xuất mới')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Bán')).toHaveValue('Bán')
     expect(screen.getAllByText('BC-000301')[0]).toBeInTheDocument()
