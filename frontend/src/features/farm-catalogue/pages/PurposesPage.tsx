@@ -35,7 +35,7 @@ export default function PurposesPage() {
       <SavedNotice text={ed.notice} />
       <SplitLayout>
         <CatalogueList q={q} onQ={setQ} status={status} onStatus={setStatus} rows={list.data} error={list.error} onRetry={list.refetch} errorText="Không tải được danh mục mục đích nuôi." emptyTitle="Không có mục đích nào phù hợp">
-          <Table>
+          <Table stack={false}>
             <thead><tr><Th>Mã</Th><Th>Tên mục đích</Th><Th>Loại</Th><Th>Đang nuôi</Th><Th>Chuồng tiếp nhận</Th><Th>Trạng thái</Th></tr></thead>
             <tbody>
               {(list.data ?? []).map((p) => (

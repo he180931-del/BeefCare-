@@ -39,7 +39,7 @@ export default function MedicinesPage() {
       <SavedNotice text={ed.notice} />
       <SplitLayout>
         <CatalogueList q={q} onQ={setQ} status={status} onStatus={setStatus} rows={list.data} error={list.error} onRetry={list.refetch} errorText="Không tải được danh mục thuốc." emptyTitle="Không có thuốc nào phù hợp">
-          <Table>
+          <Table stack={false}>
             <thead><tr><Th>Mã</Th><Th>Tên thuốc</Th><Th>Liều tham chiếu</Th><Th>Đường dùng</Th><Th>Ngưng thịt</Th><Th>Trạng thái</Th></tr></thead>
             <tbody>
               {(list.data ?? []).map((m) => (

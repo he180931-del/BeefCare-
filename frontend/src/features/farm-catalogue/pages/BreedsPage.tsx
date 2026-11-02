@@ -35,8 +35,8 @@ export default function BreedsPage() {
       <SavedNotice text={ed.notice} />
       <SplitLayout>
         <CatalogueList q={q} onQ={setQ} status={status} onStatus={setStatus} rows={list.data} error={list.error} onRetry={list.refetch} errorText="Không tải được danh mục giống bò." emptyTitle="Không có giống nào phù hợp">
-          <Table>
-            <thead><tr><Th>Mã</Th><Th>Tên giống</Th><Th>Nhóm</Th><Th>Đang nuôi</Th><Th>Trạng thái</Th></tr></thead>
+          <Table stack={false}>
+            <thead><tr><Th className="w-[118px]">Mã</Th><Th>Tên giống</Th><Th className="w-[84px]">Nhóm</Th><Th className="w-[74px]">Đang nuôi</Th><Th className="w-[104px]">Trạng thái</Th></tr></thead>
             <tbody>
               {(list.data ?? []).map((b) => (
                 <SelectableRow key={b.id} selected={item?.id === b.id} muted={!b.available} onSelect={() => ed.select(b)}>
