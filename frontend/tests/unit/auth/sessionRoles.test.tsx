@@ -116,6 +116,6 @@ describe('mock sign-in', () => {
   })
 
   it('rejects an empty password', async () => {
-    await expect(createMockAuthClient().login('owner@beefcare.local', '')).rejects.toThrow('Email hoặc mật khẩu không đúng.')
+    await expect(createMockAuthClient().login('owner@beefcare.local', '')).rejects.toThrow('Email hoặc mật khẩu chưa chính xác.')
   })
 })

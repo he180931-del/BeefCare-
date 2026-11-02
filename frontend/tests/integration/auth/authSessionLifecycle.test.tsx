@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, useAuth, type AuthClient } from '../../../src/features/authentication/AuthContext'
@@ -21,7 +21,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     localStorage.clear()
   })
 
-  it('TC-AUTH-INT01: End-to-end session lifecycle: login -> authenticated workspace -> logout -> login form', async () => {
+  it('TC-AUTH-INT01: End-to-end session lifecycle: login -> authenticated workspace -> logout -> public page -> login form', async () => {
     let authState = false
     const user = userEvent.setup()
 
@@ -35,8 +35,9 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
       }),
     }
 
+    // "/" is now the public landing page (SCR-01), so the sign-in screen is reached from its own path.
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/dang-nhap']}>
         <AuthProvider client={mockClient}>
           <AuthenticatedWorkspace />
         </AuthProvider>
@@ -45,13 +46,13 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
 
     // 1. Kiểm tra màn hình đăng nhập ban đầu
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/mật khẩu/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Mật khẩu')).toBeInTheDocument()
     expect(screen.queryByText('Trang chủ Quản lý Trại bò')).not.toBeInTheDocument()
 
     // 2. Nhập thông tin tài khoản và đăng nhập
     const emailInput = screen.getByLabelText(/email/i)
-    const passwordInput = screen.getByLabelText(/mật khẩu/i)
-    const submitButton = screen.getByRole('button', { name: /đăng nhập/i })
+    const passwordInput = screen.getByLabelText('Mật khẩu')
+    const submitButton = screen.getByRole('button', { name: 'Đăng nhập' })
 
     await user.type(emailInput, 'manager@beefcare.local')
     await user.type(passwordInput, 'beefcare-dev-password')
@@ -66,7 +67,8 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     const logoutButton = screen.getByRole('button', { name: /đăng xuất/i })
     await user.click(logoutButton)
 
-    // 5. Quay trở lại màn hình đăng nhập, phiên đã kết thúc
+    // 5. Phiên đã kết thúc: khách thấy trang công khai và vào lại biểu mẫu đăng nhập từ đó
+    await user.click(await screen.findByRole('link', { name: 'Đăng nhập' }))
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.queryByText('Trang chủ Quản lý Trại bò')).not.toBeInTheDocument()
     expect(mockClient.logout).toHaveBeenCalled()

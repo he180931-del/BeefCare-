@@ -1,63 +1,59 @@
 import type { ChangeEvent, FormEvent, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import logo from '../../../assets/logo.png'
+import farm from '../../../assets/farm.png'
+import wave from '../../../assets/wave.png'
+import { Icon } from '../../../components/Icon'
 
-export const fieldClass = 'mt-1.5 block h-12 w-full rounded-xl border border-field bg-white px-3.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10 disabled:bg-page'
-export const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-wait disabled:opacity-60'
-export const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-field bg-white px-5 py-3 text-sm font-semibold text-ink transition hover:border-brand hover:bg-page focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60'
+export const fieldClass = 'mt-2 block h-[53px] w-full rounded-xl border border-field bg-white px-4 text-[15px] text-ink outline-none transition placeholder:text-[#9aa79e] focus:border-brand focus:ring-2 focus:ring-brand/10 read-only:bg-chip disabled:bg-page'
+export const primaryButtonClass = 'inline-flex h-[54px] w-full items-center justify-center rounded-[14px] bg-brand-dark px-5 text-[15px] font-bold text-white transition hover:bg-brand focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-wait disabled:opacity-60'
+export const googleButtonClass = 'relative inline-flex h-[54px] w-full items-center justify-center rounded-[14px] bg-brand px-5 text-[15px] font-bold text-white transition hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-80'
+export const secondaryButtonClass = 'inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-[14px] border border-field bg-white px-5 text-[15px] font-bold text-brand-dark transition hover:border-brand hover:bg-page focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60'
 
-export function AuthShell({ title, description, children, footer, alert }: {
+export function Brand({ light = false }: { light?: boolean }) {
+  return (
+    <div className={`flex items-center gap-3 font-bold ${light ? 'text-[22px] text-white' : 'text-xl text-brand-dark'}`}>
+      <img src={logo} alt="" className={`rounded-[11px] object-cover ${light ? 'size-[42px]' : 'size-9'}`} />
+      <span>BeefCare</span>
+    </div>
+  )
+}
+
+/** Khung đăng nhập/đăng ký: cột thương hiệu 520px bên trái, biểu mẫu 620px bên phải (Figma "Đăng nhập · Redesign"). */
+export function AuthShell({ title, description, eyebrow, children, footer, alert }: {
   title: string
   description: string
+  eyebrow?: string
   children: ReactNode
   footer?: ReactNode
   alert?: ReactNode
 }) {
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#f3f7f2] px-4 py-8 sm:px-6">
-      <div aria-hidden="true" className="pointer-events-none absolute -left-28 -top-40 size-[26rem] rounded-full bg-[#d8eadc]/70 blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-48 -right-28 size-[30rem] rounded-full bg-[#e3efe3] blur-3xl" />
-      <section className="relative grid w-full max-w-[980px] overflow-hidden rounded-[28px] border border-[#e3ebe3] bg-white shadow-[0_24px_80px_rgba(11,86,60,0.10)] md:grid-cols-[0.88fr_1.12fr]">
-        <aside className="relative hidden min-h-[620px] flex-col justify-between overflow-hidden bg-[#0b563c] p-10 text-white md:flex">
-          <div aria-hidden="true" className="absolute -bottom-32 -left-16 size-80 rounded-full border-[46px] border-white/5" />
-          <div aria-hidden="true" className="absolute -right-28 top-20 size-72 rounded-full border-[38px] border-white/5" />
-          <Brand light />
-          <div className="relative max-w-sm pb-10">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90">
-              <span className="size-2 rounded-full bg-[#a8d5a8]" />
-              Quản lý chăn nuôi tập trung
-            </div>
-            <p className="text-3xl font-bold leading-tight tracking-tight">Chăm đàn bò tốt hơn, mỗi ngày.</p>
-            <p className="mt-4 text-sm leading-6 text-white/75">Hồ sơ, lịch chăm sóc và hoạt động trang trại được kết nối trên một nền tảng dễ dùng.</p>
-            <div className="mt-8 grid grid-cols-3 gap-3 border-t border-white/15 pt-5 text-xs text-white/80">
-              <span>Hồ sơ từng con</span><span>Nhắc việc kịp thời</span><span>Dữ liệu riêng tư</span>
-            </div>
-          </div>
-          <span className="relative text-xs text-white/55">BeefCare · Quản lý trang trại bò thịt</span>
-        </aside>
-        <div className="flex min-h-[620px] flex-col justify-center px-6 py-8 sm:px-12 md:px-14">
-          <div className="mb-8 md:hidden"><Brand /></div>
-          <div className="mx-auto w-full max-w-[420px]">
-            <div className="mb-7">
-              <h1 className="text-[26px] font-bold leading-tight tracking-tight text-ink">{title}</h1>
-              <p className="mt-2 text-sm leading-6 text-subtle">{description}</p>
-            </div>
+    <main className="flex min-h-screen bg-page text-ink">
+      <aside className="relative hidden w-[520px] shrink-0 flex-col overflow-hidden bg-side text-white lg:flex">
+        <div className="px-7 pt-7"><Brand light /></div>
+        <h2 className="m-0 mt-[52px] px-7 text-[30px] font-bold leading-[1.25]">Mỗi con bò một hồ sơ —<br />ghi ngay tại chuồng.</h2>
+        <p className="m-0 mt-4 px-7 text-[15px] text-[#d7ebdf]">Gọn việc mỗi ngày. Rõ dữ liệu cả vòng đời đàn bò.</p>
+        <img src={farm} alt="" className="mt-auto w-full" />
+        <p className="m-0 px-7 pb-7 pt-3 text-sm text-[#d7ebdf]">Thiết kế cho công việc thực tế tại trại.</p>
+      </aside>
+      <div className="relative min-w-0 flex-1 overflow-hidden">
+        <img src={wave} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full object-cover" />
+        <div className="relative flex min-h-screen flex-col px-5 py-6 sm:px-12 lg:px-14">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-subtle no-underline hover:text-brand"><Icon name="arrow-left" size={14} />Trang chủ</Link>
+          <div className="mx-auto flex w-full max-w-[620px] flex-1 flex-col justify-center py-8">
+            <div className="mb-8 lg:hidden"><Brand /></div>
+            <h1 className="m-0 text-[32px] font-bold leading-tight text-ink">{title}</h1>
+            <p className="m-0 mt-3 text-sm leading-6 text-subtle">{description}</p>
+            {eyebrow && <span className="mb-4 mt-7 block text-[11px] font-bold uppercase tracking-wider text-brand">{eyebrow}</span>}
+            {!eyebrow && <div className="h-7" />}
             {alert}
             {children}
-            {footer && <div className="mt-6 border-t border-rule pt-5 text-center text-sm text-subtle">{footer}</div>}
+            {footer && <div className="mt-6 text-center text-[13px] text-subtle">{footer}</div>}
           </div>
         </div>
-      </section>
-      <span className="relative mt-5 text-center text-xs text-subtle">© BeefCare · Hệ thống quản lý trang trại</span>
+      </div>
     </main>
-  )
-}
-
-export function Brand({ light = false }: { light?: boolean }) {
-  return (
-    <div className={`flex items-center gap-2.5 text-base font-bold ${light ? 'text-white' : 'text-ink'}`}>
-      <img src={logo} alt="" className="size-10 rounded-xl object-cover" />
-      <span>BeefCare</span>
-    </div>
   )
 }
 
@@ -74,19 +70,31 @@ export function FormField({ label, id, error, ...props }: {
   required?: boolean
   disabled?: boolean
   placeholder?: string
+  invalid?: boolean
 }) {
+  const { invalid, ...inputProps } = props
   return (
-    <label htmlFor={id} className="block text-[13px] font-semibold text-ink">
+    <label htmlFor={id} className="block text-sm font-bold text-ink">
       {label}
-      <input id={id} className={`${fieldClass} ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} {...props} />
-      {error && <span id={`${id}-error`} className="mt-1 block text-xs font-normal text-red-700">{error}</span>}
+      <input id={id} className={`${fieldClass} font-normal ${error || invalid ? '!border-[#b54843] focus:ring-red-100' : ''}`} aria-invalid={Boolean(error) || Boolean(invalid)} aria-describedby={error ? `${id}-error` : undefined} {...inputProps} />
+      {error && <span id={`${id}-error`} className="mt-1 block text-xs font-normal text-[#b54843]">{error}</span>}
     </label>
   )
 }
 
 export function Alert({ children, tone = 'error' }: { children: ReactNode; tone?: 'error' | 'info' | 'success' }) {
-  const style = tone === 'error' ? 'border-red-200 bg-red-50 text-red-800' : tone === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-[#d6e7dd] bg-[#f3f8f4] text-ink'
-  return <div role={tone === 'error' ? 'alert' : 'status'} className={`mb-5 rounded-xl border px-4 py-3 text-sm leading-5 ${style}`}>{children}</div>
+  const style = tone === 'error' ? 'bg-[#fff0ee] text-[#b54843]' : tone === 'success' ? 'bg-ok-bg text-ok-fg' : 'bg-[#eef4ef] text-ink'
+  return <div role={tone === 'error' ? 'alert' : 'status'} className={`mb-5 rounded-xl px-4 py-3 text-[13px] font-semibold leading-5 ${style}`}>{children}</div>
+}
+
+/** Ô nền be (#fff3d9) cho trạng thái cần chú ý: liên kết hết hạn, tài khoản tạm ngưng. */
+export function NoticePanel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div role="status" className="rounded-2xl border border-[#f0d69c] bg-[#fff3d9] px-5 py-4">
+      <p className="m-0 text-base font-bold text-ink">{title}</p>
+      <p className="m-0 mt-1.5 text-[13px] leading-5 text-subtle">{children}</p>
+    </div>
+  )
 }
 
 export function Form({ onSubmit, children }: { onSubmit: (event: FormEvent<HTMLFormElement>) => void; children: ReactNode }) {
