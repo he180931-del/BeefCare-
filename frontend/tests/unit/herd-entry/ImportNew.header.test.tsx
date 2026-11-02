@@ -99,12 +99,13 @@ beforeEach(() => {
 })
 
 describe('Phiếu nhập mới — thông tin phiếu', () => {
-  it('uses each cow line unit price per kg and removes the voucher-level pricing selector', async () => {
+  it('prices each line per kg by default and shows the voucher-level pricing basis', async () => {
     renderPage()
     await waitForForm()
 
-    expect(screen.queryByText('Cách tính giá')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Cách tính giá')).not.toBeInTheDocument()
+    // Figma + SRS GBR-92: the voucher has one pricing basis for all lines, per kg by default.
+    expect(screen.getByText('Cách tính giá')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Theo kg' })).toBeInTheDocument()
     expect(screen.getByText('20.060.000')).toBeInTheDocument()
     expect(screen.getByText('24.225.000')).toBeInTheDocument()
   })

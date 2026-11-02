@@ -97,6 +97,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
   const [checks, setChecks] = useState<ExitChecks | null>(null)
   const [checksError, setChecksError] = useState<unknown>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState<unknown>(null)
 
   const isSale = type === 'Bán'
@@ -206,8 +207,15 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     },
   })
 
+  // GBR-34: every non-sale exit needs a reason.
+  const missingReason = () => {
+    if (!isSale && !note.trim()) { setFormError('Vui lòng nhập lý do xuất.'); return true }
+    setFormError(null)
+    return false
+  }
+
   const saveDraftAndLoadChecks = async () => {
-    if (savingRef.current) return
+    if (savingRef.current || missingReason()) return
     const revision = formRevision.current
     const snapshot = formSnapshot()
     const isCurrentForm = () => revision === formRevision.current && snapshot === formSnapshot()
@@ -234,7 +242,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   }
 
   const saveDraft = async () => {
-    if (savingRef.current) return
+    if (savingRef.current || missingReason()) return
     savingRef.current = true
     try {
       await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
@@ -433,6 +441,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
             <Checkbox checked={confirmed} disabled={!checksReady || saving} onChange={(e) => setConfirmed(e.target.checked)} className="text-xs font-semibold">
               Tôi đã xem các mục trên và xác nhận xuất đàn *
             </Checkbox>
+            {formError && <Note tone="err">{formError}</Note>}
             {Boolean(saveError || confirmError) && <Note tone="err">{displayError(confirmError ?? saveError)}</Note>}
             <Button variant="primary" block className="!border-0 !py-[9px]" disabled={!picked.length || saving || (checksReady ? !confirmed : false)} onClick={checksReady ? confirm : saveDraftAndLoadChecks}>
               {checksReady ? `Xác nhận xuất ${picked.length} con` : 'Lưu và kiểm tra trước khi xác nhận'}
