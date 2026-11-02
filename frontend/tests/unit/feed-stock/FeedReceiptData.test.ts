@@ -4,12 +4,17 @@ import { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts 
 
 describe('SCR-78 receipt list projections', () => {
   it('summarizes posted receipts in the selected calendar month and keeps status counts separate', () => {
+    // Posted receipts of the last 30 days only: the draft and the two receipts from a month ago are left out.
     expect(summarizeFeedReceipts(FEED_RECEIPT_MOCK, new Date())).toEqual({
-      receivedKg: FEED_RECEIPT_MOCK[0].lines.reduce((sum, line) => sum + line.kgReceived, 0),
-      receiptCount: 1,
-      totalPayable: FEED_RECEIPT_MOCK[0].totalPayable,
-      counts: { all: 3, draft: 1, posted: 1, voided: 1 },
+      receivedKg: 16_400,
+      receiptCount: 3,
+      totalPayable: 27_100_000,
+      owedAmount: 2_500_000,
+      owingCodes: ['PNK-2026-0029'],
+      counts: { all: 6, draft: 1, posted: 4, voided: 1 },
     })
+    // Backend rows carry no paid amount, so the debt is reported as unknown instead of guessed.
+    expect(summarizeFeedReceipts(FEED_RECEIPT_MOCK.map(({ amountPaid: _paid, ...row }) => row)).owedAmount).toBeNull()
   })
 
   it('defaults the list period to the previous month through today', () => {
@@ -22,8 +27,8 @@ describe('SCR-78 receipt list projections', () => {
       from: '2000-01-01',
       to: '2100-12-31',
       supplierId: 202,
-      query: 'cong ty thuc an xanh',
-    })).toEqual([FEED_RECEIPT_MOCK[0]])
+      query: 'htx co ba vi',
+    })).toEqual([FEED_RECEIPT_MOCK[1], FEED_RECEIPT_MOCK[3]])
     expect(filterFeedReceipts(FEED_RECEIPT_MOCK, { from: '2099-01-01' })).toEqual([])
   })
 })

@@ -14,6 +14,7 @@ export function createFeedStockApi({
   mockRows?: readonly FeedStockRow[]
 }) {
   return {
+    // GET /api/farms/{farmId}/feed/stock
     async list(): Promise<FeedStockRow[]> {
       if (mode === 'backend') {
         const [stockValue, catalogueValue] = await Promise.all([

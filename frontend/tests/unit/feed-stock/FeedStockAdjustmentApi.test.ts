@@ -22,9 +22,9 @@ function input(overrides: Partial<FeedStockAdjustmentDraftInput> = {}): FeedStoc
     adjustmentType: 'PERIODIC_COUNT',
     countedBy: 'Nhân viên kho',
     lines: [
-      { feedItemId: 101, countedKg: 1850, reason: 'Đếm thực tế' },
-      { feedItemId: 102, countedKg: 240, reason: 'Hao hụt' },
-      { feedItemId: 103, countedKg: 0, reason: '' },
+      { feedItemId: 101, countedKg: 1860, reason: 'Đếm thực tế' },
+      { feedItemId: 106, countedKg: 10, reason: 'Hao hụt' },
+      { feedItemId: 108, countedKg: 0, reason: '' },
     ],
     ...overrides,
   }
@@ -71,7 +71,7 @@ describe('SCR-80 stock adjustment data boundary', () => {
     await expect(saveFeedStockAdjustmentDemoDraft(input({ countDate: futureDate }))).rejects.toThrow('Ngày kiểm kê không được ở tương lai.')
     const invalidCount = input({ lines: [{ feedItemId: 101, countedKg: -1, reason: 'Sai số' }] })
     await expect(saveFeedStockAdjustmentDemoDraft(invalidCount)).rejects.toThrow('Số đếm của TA-01 phải là số không âm.')
-    const missingReason = input({ lines: [{ feedItemId: 101, countedKg: 1850, reason: '' }] })
+    const missingReason = input({ lines: [{ feedItemId: 101, countedKg: 1860, reason: '' }] })
     await expect(saveFeedStockAdjustmentDemoDraft(missingReason)).rejects.toThrow('Nhập lý do chênh lệch cho TA-01.')
     expect((await createFeedStockAdjustmentApi({ mode: 'local', farmId: 1, transport: makeTransport() }).list())).toHaveLength(0)
   })
@@ -89,6 +89,6 @@ describe('SCR-80 stock adjustment data boundary', () => {
     expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1)
     const after = await listFeedStock()
     expect(after.find((row) => row.feedItemId === 101)?.onHandKg).toBe(FEED_STOCK_MOCK[0].onHandKg + 10)
-    expect(after.find((row) => row.feedItemId === 102)?.onHandKg).toBe(FEED_STOCK_MOCK[1].onHandKg - 20)
+    expect(after.find((row) => row.feedItemId === 106)?.onHandKg).toBe(FEED_STOCK_MOCK[5].onHandKg - 20)
   })
 })

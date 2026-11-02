@@ -54,12 +54,18 @@ export type SaveFeedRationInput = {
   sessionTimes: string[]
   penIds: number[]
   components: FeedRationDraftComponentInput[]
+  /** Local demo: id of a scheduled version this save replaces (it is cancelled in the same step). */
+  replacesId?: number
 }
 
 export type FeedRationDemoStore = {
   list: () => Promise<FeedRation[]>
   get: (id: string) => Promise<FeedRation>
   saveVersion: (input: SaveFeedRationInput, currentStock: readonly FeedStockRow[]) => Promise<FeedRation>
+  /** SRS GBR-101: cancel a version that has not taken effect yet; the previous version stays effective. */
+  cancelVersion: (id: number) => Promise<FeedRation>
+  /** SRS UC-FE23-06 AF2: stop an effective ration from a date tomorrow or later. */
+  stop: (id: number, endDate: string) => Promise<FeedRation>
   reset: () => Promise<void>
 }
 

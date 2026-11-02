@@ -114,3 +114,10 @@ export function previewFeedStockAdjustment(
     totalValue,
   }
 }
+
+/** Next ĐCK-YYYY-nnnn shown on a new adjustment; the store assigns the same code when the draft is saved. */
+export function nextFeedAdjustmentCode(codes: readonly string[], year = new Date().getFullYear()) {
+  const prefix = `ĐCK-${year}-`
+  const max = Math.max(0, ...codes.filter((code) => code.startsWith(prefix)).map((code) => Number(code.slice(prefix.length)) || 0))
+  return `${prefix}${String(max + 1).padStart(4, '0')}`
+}

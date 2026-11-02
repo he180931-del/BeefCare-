@@ -32,13 +32,8 @@ export function nextRationCode(rows: readonly FeedRation[]) {
 
 export function initialFeedRationForm(record: FeedRation | null): FeedRationFormValues {
   const next = localRationDate(1)
-  const afterRecord = record?.effectiveFrom && record.effectiveFrom >= next
-    ? (() => {
-      const date = new Date(`${record.effectiveFrom}T00:00:00`)
-      date.setDate(date.getDate() + 1)
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-    })()
-    : next
+  // A scheduled version is edited in place (saving replaces it); every other version starts from tomorrow.
+  const afterRecord = record?.effectiveFrom && record.effectiveFrom >= next ? record.effectiveFrom : next
   return {
     name: record?.name ?? '',
     herdGroup: record?.herdGroup ?? '',
@@ -91,9 +86,10 @@ export function validateFeedRationForm(
   return null
 }
 
-export function toSaveFeedRationInput(values: FeedRationFormValues, rationCode?: string): SaveFeedRationInput {
+export function toSaveFeedRationInput(values: FeedRationFormValues, rationCode?: string, replacesId?: number): SaveFeedRationInput {
   return {
     ...(rationCode ? { rationCode } : {}),
+    ...(replacesId === undefined ? {} : { replacesId }),
     name: values.name,
     herdGroup: values.herdGroup,
     basis: values.basis,

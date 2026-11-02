@@ -89,3 +89,19 @@ export function buildTodayRationPens({
       }
     })
 }
+
+/** Expected vs recorded sessions of the day (REM-11): expected = pens with an effective ration, per session of that ration. */
+export function summarizeTodaySessions(input: { pens: readonly FeedRationPenOption[]; rations: readonly FeedRation[]; records: readonly FeedFeedingRecord[]; stock: readonly FeedStockRow[]; date: string }) {
+  let expected = 0
+  let recorded = 0
+  const missing: Array<{ pen: FeedRationPenOption; sessionNo: number }> = []
+  for (const sessionNo of sessionsForToday(input.pens, input.rations, input.date)) {
+    for (const row of buildTodayRationPens({ ...input, sessionNo })) {
+      if (!row.hasSession) continue
+      expected += 1
+      if (row.record) recorded += 1
+      else missing.push({ pen: row.pen, sessionNo })
+    }
+  }
+  return { expected, recorded, missing }
+}

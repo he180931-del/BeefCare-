@@ -109,15 +109,17 @@ describe('SCR-86 technician today’s rations', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Khẩu phần hôm nay' })).toBeInTheDocument()
-    expect(screen.getAllByText('2 chuồng')).toHaveLength(2)
-    expect(screen.getByText('A1 · Bò cái')).toBeInTheDocument()
-    expect(screen.getByText(/KP-01 v2/)).toBeInTheDocument()
-    expect(screen.getByText('Đã ghi 06:38')).toBeInTheDocument()
+    expect(screen.getByText(/2 chuồng · chỉ xem/)).toBeInTheDocument()
     const firstPen = screen.getAllByRole('article')[0]
-    expect(within(firstPen).getByText('3 kg')).toBeInTheDocument()
-    expect(within(firstPen).getByText('4,2 kg')).toBeInTheDocument()
-    expect(screen.getAllByText('Hết kho')).toHaveLength(2)
-    expect(screen.getByText(/Quản lý ghi nhận cữ cho ăn/)).toBeInTheDocument()
+    expect(within(firstPen).getByText('Bò cái')).toBeInTheDocument()
+    expect(within(firstPen).getByText('12 con · KP-01')).toBeInTheDocument()
+    expect(screen.getByText('Đã ghi 06:38')).toBeInTheDocument()
+    expect(within(firstPen).getByText(/Cỏ voi 3 · Cám hỗn hợp 1,2 kg/)).toBeInTheDocument()
+    expect(within(firstPen).getByText('Kế hoạch cữ: 4,2 kg')).toBeInTheDocument()
+    // The empty pen has no card; the out-of-stock feed turns the line red with "(hết kho)".
+    expect(screen.getAllByRole('article')).toHaveLength(2)
+    expect(screen.getAllByText(/\(hết kho\)/)).toHaveLength(2)
+    expect(screen.getByText(/Quản lý ghi cữ cho ăn/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi cữ cho ăn' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi cữ' })).not.toBeInTheDocument()
 
@@ -132,10 +134,10 @@ describe('SCR-86 technician today’s rations', () => {
 
     expect(screen.getByRole('tab', { name: /Cữ chiều/ })).toHaveAttribute('aria-selected', 'true')
     const [firstPen, secondPen] = screen.getAllByRole('article')
-    expect(within(firstPen).getByText('1,8 kg')).toBeInTheDocument()
-    expect(within(firstPen).getByText('4,2 kg')).toBeInTheDocument()
-    expect(within(secondPen).getByText('2 kg')).toBeInTheDocument()
-    expect(within(secondPen).getByText('3 kg')).toBeInTheDocument()
+    expect(within(firstPen).getByText(/Cỏ voi 1,8 · Cám hỗn hợp 2,4 kg/)).toBeInTheDocument()
+    expect(within(firstPen).getByText('Kế hoạch cữ: 4,2 kg')).toBeInTheDocument()
+    expect(within(secondPen).getByText(/Cỏ voi 1 · Cám hỗn hợp 2 kg/)).toBeInTheDocument()
+    expect(within(secondPen).getByText('Kế hoạch cữ: 3 kg')).toBeInTheDocument()
   })
 
   it('opens SCR-83 with the linked date in technician read-only mode', async () => {
@@ -143,10 +145,9 @@ describe('SCR-86 technician today’s rations', () => {
 
     expect(await screen.findByRole('tabpanel', { name: 'Nhật ký cho ăn' })).toBeInTheDocument()
     expect(screen.getByLabelText('Ngày')).toHaveValue(dateToday())
-    expect(screen.getByText(/Chế độ chỉ xem dành cho Kỹ thuật viên/)).toBeInTheDocument()
+    expect(screen.getByText(/Chế độ chỉ xem/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi cữ cho ăn' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi cữ' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Sửa cữ' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Hủy cữ' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Thao tác/)).not.toBeInTheDocument()
   })
 })
