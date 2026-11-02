@@ -74,7 +74,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
           </Card>
           <Card title="Các ca trước">
             {previousCases.length === 0 ? <p className="m-0 text-xs text-muted">Chưa có ca nào đã đóng.</p> : (
-              <Table>
+              <Table stack={false}>
                 <thead><tr><Th>Mã ca</Th><Th>Dấu hiệu</Th><Th>Kết quả</Th></tr></thead>
                 <tbody>
                   {previousCases.map((c) => (

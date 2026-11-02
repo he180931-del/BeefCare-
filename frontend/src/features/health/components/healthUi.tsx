@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
+import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
 import { Badge, inputCls, Radio } from '../../../components/ui'
 import { useSession } from '../../authorization'
-import { ENTRY_LABEL, HEALTH_STATE_LABEL, OUTCOME_LABEL, PROGRESS_LABEL, ROUTE_LABEL, SEVERITY_LABEL, fmtDate, fmtTemp } from '../domain/healthFormat'
+import { ENTRY_LABEL, HEALTH_STATE_LABEL, OUTCOME_LABEL, PROGRESS_LABEL, ROUTE_LABEL, SEVERITY_LABEL, fmtDate, fmtDateTime, fmtTemp } from '../domain/healthFormat'
 import { HealthValidationError } from '../domain/healthRules'
 import type { CaseOutcome, CaseStatus, HealthCattle, HealthState, HealthTimelineRow, Severity } from '../types'
 
@@ -62,8 +63,21 @@ export function useDialogSave() {
 
 export const hint = (error?: string, text?: ReactNode) => (error ? <span role="alert" className="text-err-fg">{error}</span> : text)
 
+/** Ô ngày giờ dd/mm/yyyy hh:mm như Figma, không phụ thuộc ngôn ngữ trình duyệt; giá trị ra là 'yyyy-mm-ddThh:mm' hoặc '' khi chưa hợp lệ. */
 export function DateTimeInput({ id, value, onChange }: { id?: string; value: string; onChange: (value: string) => void }) {
-  return <input id={id} type="datetime-local" value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />
+  const [text, setText] = useState(() => (value ? fmtDateTime(value) : ''))
+  const edit = (next: string) => {
+    setText(next)
+    const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(next.trim())
+    const iso = m ? `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}` : ''
+    onChange(iso && !Number.isNaN(Date.parse(iso)) ? iso : '')
+  }
+  return (
+    <div className="relative">
+      <input id={id} value={text} onChange={(e) => edit(e.target.value)} placeholder="dd/mm/yyyy hh:mm" inputMode="numeric" autoComplete="off" className={`${inputCls} pr-9`} />
+      <Icon name="calendar-event" size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted" />
+    </div>
+  )
 }
 
 export const ReadonlyBox = ({ id, value }: { id?: string; value: string }) => <input id={id} readOnly value={value} className={inputCls} />
