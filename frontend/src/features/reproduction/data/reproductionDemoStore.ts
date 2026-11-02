@@ -48,6 +48,13 @@ const requiredReason = (reason: string) => {
 }
 
 const calculateExpectedDate = expectedCalvingDate
+const RESULT_TEXT = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' } as const
+const CHECK_METHOD_TEXT: Record<string, string> = { ULTRASOUND: 'Siêu âm', RECTAL: 'Khám trực tràng', OTHER: 'Khác' }
+const UPDATE_TEXT = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' } as const
+/** "Có thai · Siêu âm · BS Trần Văn Bình" */
+const checkDetails = (event: ReproductionEvent) => [event.result ? RESULT_TEXT[event.result] : null, event.method ? CHECK_METHOD_TEXT[event.method] ?? event.method : null, event.examiner].filter(Boolean).join(' · ')
+/** "Biến chứng · Phù chân sau, đi lại chậm · ca HC-0415" */
+const updateDetails = (event: ReproductionEvent) => [event.updateType ? UPDATE_TEXT[event.updateType] : null, event.description, event.linkedHealthCaseId ? `ca ${event.linkedHealthCaseId}` : null].filter(Boolean).join(' · ')
 
 /** Every VALID or VOIDED calving shows on the timeline as one CALVING row that follows the calving record. */
 function syncCalvingEvents(profile: ReproductionFemale): void {
@@ -250,10 +257,10 @@ export function createReproductionDemoStore(
         nextStatus = 'BRED'
       } else if (command.type === 'PREGNANCY_CHECK') {
         base.summary = `Khám thai · ${{ PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' }[command.result]}`
-        base.details = [command.method, command.examiner, command.note].filter(Boolean).join(' · ')
         base.result = command.result
         base.method = command.method
         base.examiner = command.examiner
+        base.details = checkDetails(base)
         base.linkedBreedingId = command.linkedBreedingId ?? null
         base.estimatedMonths = command.estimatedMonths ?? null
         if (command.result === 'PREGNANT') {
@@ -272,10 +279,11 @@ export function createReproductionDemoStore(
         }
       } else {
         base.summary = `Diễn biến thai · ${{ OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' }[command.updateType]}`
-        base.details = command.details
+        base.description = command.details
         base.updateType = command.updateType
         base.pregnancyId = profile.openPregnancy?.id ?? null
         base.linkedHealthCaseId = command.linkedHealthCaseId ?? null
+        base.details = updateDetails(base)
         if (command.updateType === 'LOSS') nextStatus = 'AWAITING_BREEDING'
       }
       profile.events.unshift(base)
@@ -361,7 +369,8 @@ export function createReproductionDemoStore(
       }
       if (item.type === 'PREGNANCY_CHECK') {
         const resultLabel = { PREGNANT: 'Có thai', NOT_PREGNANT: 'Không có thai', INCONCLUSIVE: 'Chưa xác định' }
-        item.summary = `Khám thai · ${item.result ? resultLabel[item.result] : 'Chưa kết luận'}`
+        item.summary = `Khám thai · ${item.result ? resultLabel[item.result] : 'Chưa xác định'}`
+        item.details = checkDetails(item)
         if (item.result === 'PREGNANT') {
           item.pregnancyId ??= `pregnancy-${item.id}`
           const linkedBreeding = profile.events.find((event) => event.id === item.linkedBreedingId && event.type === 'BREEDING' && event.status === 'VALID')
@@ -379,6 +388,7 @@ export function createReproductionDemoStore(
       if (item.type === 'PREGNANCY_UPDATE') {
         const updateLabel = { OBSERVATION: 'Theo dõi', COMPLICATION: 'Biến chứng', LOSS: 'Sẩy thai' }
         item.summary = `Diễn biến thai · ${item.updateType ? updateLabel[item.updateType] : 'Theo dõi'}`
+        item.details = updateDetails(item)
       }
       addRevision(profile, eventId, before, clone(item), reason, role)
       deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)

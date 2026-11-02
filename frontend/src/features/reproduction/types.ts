@@ -30,6 +30,8 @@ export interface ReproductionEvent {
   dataSource?: DataSource
   summary: string
   details?: string
+  /** Raw text typed by the manager; `details` is the composed timeline line. */
+  description?: string
   corrected?: boolean
   voidReason?: string
   linkedEstrusId?: string | null

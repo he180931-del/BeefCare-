@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ReproductionActionDialog from '../../../src/features/reproduction/components/ReproductionActionDialog'
 import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
-import type { ReproductionFemale } from '../../../src/features/reproduction/types'
+import type { CalvingRecord, ReproductionCommand, ReproductionEvent, ReproductionFemale } from '../../../src/features/reproduction/types'
 
 type Target = Parameters<typeof ReproductionActionDialog>[0]['target']
 const cow = (code: string): ReproductionFemale => REPRODUCTION_DEMO.find((row) => row.cattleCode === code)!
@@ -12,9 +12,13 @@ const eventOf = (code: string, id: string) => cow(code).events.find((event) => e
 
 function open(target: Target, code: string) {
   const handlers = {
-    onClose: vi.fn(), onRecord: vi.fn(async () => undefined), onCorrectEvent: vi.fn(async () => undefined),
-    onVoidEvent: vi.fn(async () => undefined), onCorrectCalving: vi.fn(async () => undefined),
-    onVoidCalving: vi.fn(async () => undefined), onVoidCalf: vi.fn(async () => undefined),
+    onClose: vi.fn(),
+    onRecord: vi.fn(async (_command: ReproductionCommand) => undefined),
+    onCorrectEvent: vi.fn(async (_id: string, _patch: Partial<ReproductionEvent>, _reason: string) => undefined),
+    onVoidEvent: vi.fn(async (_id: string, _reason: string) => undefined),
+    onCorrectCalving: vi.fn(async (_id: string, _patch: Partial<CalvingRecord>, _reason: string) => undefined),
+    onVoidCalving: vi.fn(async (_id: string, _reason: string) => undefined),
+    onVoidCalf: vi.fn(async (_id: string, _calf: string, _reason: string) => undefined),
   }
   render(<MemoryRouter><ReproductionActionDialog target={target} profile={cow(code)} {...handlers} /></MemoryRouter>)
   return { user: userEvent.setup(), ...handlers }
@@ -45,7 +49,7 @@ describe('record dialogs follow the Figma frames', () => {
     const dialog = screen.getByRole('dialog', { name: 'Ghi phối giống – lần phối 1' })
     expect(within(dialog).getByText('Đạt 3/3 · tuổi, cân nặng, sức khỏe')).toBeInTheDocument()
 
-    fireEvent.change(within(dialog).getByLabelText('Thời điểm phối'), { target: { value: '2026-10-20T15:10' } })
+    fireEvent.change(within(dialog).getByLabelText('Thời điểm phối', { selector: 'input' }), { target: { value: '2026-10-20T15:10' } })
     expect(within(dialog).getByRole('combobox', { name: 'Liên kết động dục' })).toHaveValue('re-142-e3')
     const expected = within(dialog).getByLabelText('Ngày dự kiến đẻ (tạm tính)')
     expect(expected).toHaveValue('30/07/2027')

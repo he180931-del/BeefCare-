@@ -134,7 +134,7 @@ export const REPRODUCTION_DEMO: ReproductionFemale[] = [
     eligibility: null, openHealthCase: true,
     openPregnancy: { id: 'preg-087-3', pregnancyNumber: 3, linkedBreedingId: 're-087-b4', confirmedAt: '2026-03-12T09:00', expectedCalvingAt: '2026-10-22T07:30', expectedDateBasis: 'CONFIRMED', estimatedMonths: null, status: 'OPEN' },
     events: [
-      event('re-087-pu1', 'PREGNANCY_UPDATE', '2026-10-15T07:00', 'Diễn biến thai · Biến chứng', 'Biến chứng · Phù chân sau, đi lại chậm · ca HC-0415', { updateType: 'COMPLICATION', pregnancyId: 'preg-087-3', linkedHealthCaseId: 'HC-0415' }),
+      event('re-087-pu1', 'PREGNANCY_UPDATE', '2026-10-15T07:00', 'Diễn biến thai · Biến chứng', 'Biến chứng · Phù chân sau, đi lại chậm · ca HC-0415', { updateType: 'COMPLICATION', pregnancyId: 'preg-087-3', linkedHealthCaseId: 'HC-0415', description: 'Phù chân sau, đi lại chậm' }),
       event('re-087-pc4', 'PREGNANCY_CHECK', '2026-03-12T09:00', 'Khám thai · Có thai', 'Có thai · Siêu âm · BS Trần Văn Bình', { result: 'PREGNANT', method: 'ULTRASOUND', examiner: 'BS Trần Văn Bình', linkedBreedingId: 're-087-b4', pregnancyId: 'preg-087-3', expectedCalvingAt: '2026-10-22T07:30', expectedDateBasis: 'CONFIRMED' }),
       event('re-087-pc3', 'PREGNANCY_CHECK', '2026-02-20T08:30', 'Khám thai · Chưa kết luận', 'Chưa xác định · Khám trực tràng · BS Trần Văn Bình', { result: 'INCONCLUSIVE', method: 'RECTAL', examiner: 'BS Trần Văn Bình', linkedBreedingId: 're-087-b4' }),
       event('re-087-b4', 'BREEDING', '2026-01-12T07:30', 'Phối giống · lần 1', 'Thụ tinh nhân tạo · Brahman đỏ BRD-204 · Nguyễn Văn Tâm', { method: 'ARTIFICIAL_INSEMINATION', sireLabel: 'Brahman đỏ', semenCode: 'BRD-204', performer: 'Nguyễn Văn Tâm' }),

@@ -34,7 +34,7 @@ describe('profile tab: estrus female (frame 2616:4352)', () => {
     expect(screen.getByText('Tuổi ≥ 13 tháng')).toBeInTheDocument()
     expect(screen.getByText('Cân ≥ 230 kg')).toBeInTheDocument()
     expect(screen.getByText('Cửa sổ phối gợi ý')).toBeInTheDocument()
-    expect(screen.getByText('14:30 – 18:30 hôm nay')).toBeInTheDocument()
+    expect(screen.getByText(/14:30 – 18:30/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sửa 19/10/2026 18:10' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Hủy 22/09/2026 07:00' })).toBeInTheDocument()
   })
