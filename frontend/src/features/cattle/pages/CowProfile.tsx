@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Button } from '../../../components/ui'
 import { useModalParam } from '../../../components/Modal'
@@ -18,6 +18,7 @@ import { Panel } from '../components/parts'
 import type { ReactNode } from 'react'
 
 export default function CowProfile() {
+  const navigate = useNavigate()
   const { code } = useParams()
   const [params, setParams] = useSearchParams()
   const [modal, openModal, closeModal] = useModalParam()
@@ -62,7 +63,7 @@ export default function CowProfile() {
         {!cow && !profileQuery.loading && (
           <Panel gap="gap-3" className="items-start">
             <p className="m-0 text-sm text-[#212121]">Không tìm thấy hồ sơ bò {code}</p>
-            <Button className="leading-[normal]" onClick={() => window.history.back()}>← Về danh sách</Button>
+            <Button className="leading-[normal]" onClick={() => navigate('/cattle')}>← Về danh sách</Button>
           </Panel>
         )}
       </div>

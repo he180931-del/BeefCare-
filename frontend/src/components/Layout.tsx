@@ -1,31 +1,30 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { navigationForRole } from '../app/navigation'
+import { loadOrders, loadSelectedFarmId } from '../features/subscription/subscriptionStore'
 import logo from '../assets/logo.png'
 import farm from '../assets/farm.png'
 import wave from '../assets/wave.png'
 
-// Menu theo Figma. Quản lý (manager) không có "Thông tin trại / Gói dịch vụ / Hỗ trợ".
-const item = (name: string, to: string) => ({ name, to })
-const NAV_COMMON = [
-  { label: 'VẬN HÀNH', items: [item('Tổng quan', '/tong-quan'), item('Nhắc việc', '/nhac-viec'), item('Thông báo trại', '/thong-bao')] },
-  { label: 'ĐÀN BÒ', items: [item('Đàn bò', '/cattle'), item('Nhập đàn', '/herd-entry'), item('Chuồng trại', '/pens'), item('Xuất đàn', '/herd-exit')] },
-  {
-    label: 'CHĂM SÓC',
-    items: [item('Cân nặng & thể trạng', '/can-nang'), item('Tiêm phòng', '/tiem-phong'), item('Sức khỏe & Điều trị', '/suc-khoe'), item('Sinh sản', '/sinh-san'), item('Thức ăn', '/thuc-an')],
-  },
-  { label: 'QUẢN TRỊ', items: [item('Báo cáo', '/bao-cao'), item('Danh mục & Tham số', '/danh-muc')] },
-]
-const FARM_MANAGER = { label: 'TRANG TRẠI', items: [item('Thành viên & quyền', '/thanh-vien')] }
-const FARM_OWNER = {
-  label: 'TRANG TRẠI',
-  items: [item('Thông tin trại', '/thong-tin-trai'), item('Thành viên & quyền', '/thanh-vien'), item('Gói dịch vụ', '/goi-dich-vu'), item('Hỗ trợ', '/ho-tro')],
-}
-export const NAV_GROUPS = [...NAV_COMMON, FARM_OWNER]
+export const NAV_GROUPS = navigationForRole('owner')
 export const pageName = (path: string) => NAV_GROUPS.flatMap((g) => g.items).find((i) => i.to === path)?.name
 
 const USERS = {
-  manager: { initials: 'TL', name: 'Trần Quốc Long', role: 'Quản lý', groups: [...NAV_COMMON, FARM_MANAGER], gap: 'mt-[2px]' },
-  owner: { initials: 'NH', name: 'Nguyễn Văn Hùng', role: 'Chủ trại', groups: [...NAV_COMMON, FARM_OWNER], gap: 'mt-[3px]' },
+  manager: { initials: 'TL', name: 'Trần Quốc Long', role: 'Quản lý', groups: navigationForRole('manager'), gap: 'mt-[2px]' },
+  owner: { initials: 'NH', name: 'Nguyễn Văn Hùng', role: 'Chủ trại', groups: navigationForRole('owner'), gap: 'mt-[3px]' },
+}
+const notificationRoute = (user: keyof typeof USERS) => user === 'owner' ? '/ui/scr-74' : '/ui/scr-73'
+
+function selectedFarmName() {
+  if (typeof window !== 'undefined') {
+    try {
+      const demo = JSON.parse(window.localStorage.getItem('beefcare-ui-demo') || '{}') as { account?: { 'farm-selection'?: { farm?: string } } }
+      const selected = demo.account?.['farm-selection']?.farm
+      if (selected) return selected
+    } catch { /* fall through to the subscription fixture */ }
+  }
+  const selectedId = loadSelectedFarmId()
+  return loadOrders().find((farmRow) => farmRow.id === selectedId)?.name ?? 'Chọn trang trại'
 }
 
 // Modal đổi tiêu đề thanh trên (Figma: khi mở modal, tiêu đề topbar = tên modal).
@@ -39,38 +38,45 @@ export const useTopbarTitle = (title?: string) => {
   }, [title, set])
 }
 
-const NAV = 'mx-3.5 mb-px flex h-7 items-center gap-2.5 rounded-xl px-2.5 text-[13px] before:size-5 before:shrink-0 before:rounded-[7px]'
+const NAV = 'mx-3 mb-0.5 flex min-h-10 items-center gap-2 rounded-md border-l-2 px-2.5 text-sm before:size-3.5 before:shrink-0 before:rounded'
 
 /**
  * Khung trang. `user`: 'manager' | 'owner'. `dim` không cần: Modal tự phủ lớp mờ.
  * Nội dung (children) nằm trong <main> padding 32px, gap 20px, rộng 100% (không max-width).
  */
 export default function Layout({ title, user = 'owner', children }: { title: string; user?: keyof typeof USERS; children: ReactNode }) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const u = USERS[user]
   const [open, setOpen] = useState(false)
   const [override, setOverride] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const farmName = selectedFarmName()
   return (
     <TitleCtx.Provider value={setOverride}>
       <div className="min-h-screen overflow-x-clip">
+        <a href="#main-content" className="sr-only left-3 top-3 z-50 rounded-md bg-white px-3 py-2 font-semibold text-brand shadow focus:not-sr-only focus:fixed">
+          Bỏ qua điều hướng
+        </a>
         {open && <div className="fixed inset-0 z-20 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-[264px] overflow-hidden bg-side transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+          className={`fixed inset-y-0 left-0 z-30 w-[248px] overflow-x-hidden overflow-y-auto bg-side transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
         >
-          <div className="absolute left-[22px] top-5 flex items-center gap-2.5 text-[19px] font-bold text-white">
-            <img src={logo} alt="" className="size-[38px] rounded-[10px] object-cover" />
+          <div className="absolute left-5 top-4 flex items-center gap-2.5 text-lg font-bold text-white">
+            <img src={logo} alt="" width="36" height="36" className="size-9 rounded-lg object-cover" />
             BeefCare
           </div>
-          <nav className="absolute inset-x-0 top-[82px] z-10">
+          <nav className="absolute inset-x-0 top-[72px] z-10 pb-56">
             {u.groups.map((g, i) => (
               <div key={g.label} className={i ? u.gap : ''}>
-                <div className="mb-1 h-3.5 px-6 text-[10px] font-semibold leading-[14px] text-side-label">{g.label}</div>
+                <div className="mb-0.5 px-5 text-xs font-semibold leading-5 text-side-label">{g.label}</div>
                 {g.items.map((it) => (
                   <NavLink
                     key={it.to}
                     to={it.to}
                     onClick={() => setOpen(false)}
                     className={({ isActive }) =>
-                      `${NAV} ${isActive ? 'bg-side-active font-semibold text-white before:bg-[#cde9d8]' : 'text-side-text before:bg-side-item'}`
+                      `${NAV} ${isActive ? 'border-white bg-side-active font-semibold text-white before:bg-[#cde9d8]' : 'border-transparent text-side-text before:bg-side-item'}`
                     }
                   >
                     {it.name}
@@ -79,27 +85,51 @@ export default function Layout({ title, user = 'owner', children }: { title: str
               </div>
             ))}
           </nav>
-          <img src={farm} alt="" className="pointer-events-none absolute bottom-0 left-0 h-[234px] w-[264px] object-cover opacity-[0.72]" />
+          <img src={farm} alt="" width="248" height="220" className="pointer-events-none absolute bottom-0 left-0 h-[220px] w-[248px] object-cover opacity-[0.72]" />
         </aside>
 
-        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[264px]" style={{ backgroundImage: `url(${wave})` }}>
-          <header className="flex h-[72px] items-center bg-white px-4 lg:pl-8 lg:pr-[30px]">
-            <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-10 shrink-0 place-items-center rounded-lg border border-field text-xl text-brand-dark lg:hidden">☰</button>
-            <div className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{override || title}</div>
-            <div className="mr-[22px] hidden h-[46px] w-[200px] shrink-0 items-center rounded-xl border border-field bg-white px-[13px] text-[13px] font-bold text-brand-dark lg:flex">
-              Trại bò Yên Bài – Ba Vì &nbsp;▾
-            </div>
-            <div className="mr-5 hidden h-[46px] w-[278px] shrink-0 items-center rounded-xl border border-field bg-page px-[13px] text-[13px] text-subtle xl:flex">
-              ⌕&nbsp; Tìm hồ sơ bò hoặc mã QR...
-            </div>
-            <div className="mr-4 grid size-9 shrink-0 place-items-center rounded-full bg-[#eef4ef] text-lg font-bold text-brand">•</div>
-            <div className="mr-2 grid size-10 shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{u.initials}</div>
-            <div className="hidden w-[150px] shrink-0 sm:block">
-              <div className="whitespace-nowrap text-xs font-bold leading-[18px] text-ink">{u.name}</div>
-              <div className="text-[10px] leading-4 text-subtle">{u.role}</div>
+        <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[248px]" style={{ backgroundImage: `url(${wave})` }}>
+          <header className="flex h-16 min-w-0 items-center bg-white px-4 lg:pl-6 lg:pr-6">
+            <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-8 shrink-0 place-items-center rounded-md border border-field text-lg text-brand-dark lg:hidden">☰</button>
+            <div className="min-w-0 flex-1 truncate text-[15px] font-bold text-ink">{override || title}</div>
+            <NavLink
+              to="/ui/scr-10"
+              state={{ returnTo: location.pathname + location.search }}
+              aria-label={`Đổi trang trại; hiện tại ${farmName}`}
+              className="mr-4 hidden min-h-10 max-w-[220px] shrink-0 items-center gap-2 rounded-md border border-field bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand hover:bg-ok-bg lg:flex"
+            >
+              <span className="truncate">{farmName}</span>
+              <span aria-hidden="true" className="ml-auto text-xs text-subtle">Đổi</span>
+            </NavLink>
+            <form
+              role="search"
+              className="mr-4 hidden min-h-10 w-[260px] shrink-0 items-center rounded-md border border-field bg-page focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/10 xl:flex"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const value = search.trim()
+                if (value) navigate(`/ui/scr-26?q=${encodeURIComponent(value)}`)
+              }}
+            >
+              <input
+                aria-label="Tìm hồ sơ bò hoặc mã QR"
+                autoComplete="off"
+                spellCheck={false}
+                name="global-cattle-search"
+                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-ink outline-none placeholder:text-subtle"
+                placeholder="Tìm hồ sơ bò hoặc mã QR…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <button type="submit" aria-label="Tìm" className="grid size-9 shrink-0 place-items-center text-base font-bold text-brand hover:bg-ok-bg">⌕</button>
+            </form>
+            <NavLink to={notificationRoute(user)} aria-label="Mở thông báo" className="mr-3 grid size-8 shrink-0 place-items-center rounded-full bg-[#eef4ef] text-base font-bold text-brand hover:bg-ok-bg">•</NavLink>
+            <div className="mr-2 grid size-9 shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{u.initials}</div>
+            <div className="hidden w-[140px] shrink-0 sm:block">
+              <div className="whitespace-nowrap text-sm font-bold leading-5 text-ink">{u.name}</div>
+              <div className="text-xs leading-5 text-subtle">{u.role}</div>
             </div>
           </header>
-          <main className="flex w-full min-w-0 flex-col gap-5 px-4 pb-10 pt-6 sm:px-6 lg:px-8">{children}</main>
+          <main id="main-content" tabIndex={-1} className="flex w-full min-w-0 flex-col gap-4 px-4 pb-8 pt-5 sm:px-6 lg:px-6 xl:px-8">{children}</main>
         </div>
       </div>
     </TitleCtx.Provider>

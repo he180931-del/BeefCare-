@@ -14,11 +14,15 @@ export interface StatusChip { label: string; tone?: Tone }
 export interface CattleEvent {
   id: string
   at: string
+  recordedAt?: string
   cat: string
   title: string
   badge: StatusChip
   detail: string
   meta: string
+  sourceId?: string
+  status?: 'CORRECTED' | 'VOIDED' | 'EXCLUDED'
+  reason?: string
 }
 export interface QrHistoryRow { code: string; status: string; from: string; to: string; reason: string; by: string }
 export interface BarnHistoryRow { from: string; to: string; barn: string; reason: string; by: string }
@@ -65,6 +69,7 @@ export interface Cattle {
   purposeId?: number
   purposeSince?: string
   stage?: string
+  stageSince?: string
   /** Backend enum kept separately from the translated display label. */
   lifeStage?: string
   herdGroup?: string

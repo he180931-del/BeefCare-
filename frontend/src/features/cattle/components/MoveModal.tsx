@@ -22,7 +22,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
 
   const dest = barns[to]
   const checks: Array<[string, boolean]> = [
-    ['Chuồng đích ACTIVE và còn chỗ', dest?.status === 'ACTIVE' && dest.count < dest.capacity],
+    ['Chuồng đích đang sử dụng và còn chỗ', dest?.status === 'ACTIVE' && dest.count < dest.capacity],
     ['Mục đích nuôi khớp tiêu chí chuồng', cow.purpose === dest?.purpose],
     [`Ngưỡng ≥ ${dest?.minMonths ?? 0} tháng và ≥ ${dest?.minKg ?? 0} kg`, cow.months >= (dest?.minMonths ?? 0) && cow.weight != null && cow.weight >= (dest?.minKg ?? 0)],
     ['Giai đoạn khớp tiêu chí chuồng', cow.stage === dest?.stage],

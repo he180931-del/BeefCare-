@@ -108,7 +108,7 @@ export default function RecordEditModal({ cow, record, onClose, onSaved }: { cow
       </Field>
 
       <Note tone="grey">
-        “Hủy bản ghi” chỉ hiện khi bò chưa có sự kiện nào khác ngoài nhập đàn và xếp chuồng; hồ sơ chuyển VOIDED và thẻ QR bị thu hồi (GBR-33).
+        “Hủy bản ghi” chỉ hiện khi bò chưa có sự kiện nào khác ngoài nhập đàn và xếp chuồng; hồ sơ chuyển sang “Đã hủy” và thẻ QR bị thu hồi.
       </Note>
 
       <ModalFooter>

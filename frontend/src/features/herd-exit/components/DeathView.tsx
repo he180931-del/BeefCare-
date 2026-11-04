@@ -12,7 +12,7 @@ import type { HerdExit, ExitDetail } from '../../../types'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
 const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa phương', 'Khác']
-const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
+const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Không xác định được lỗi. Vui lòng thử lại.'
 
 // Phiếu xuất "Chết / mất" tạo từ ca sức khỏe, chờ Chủ trại xác nhận.
 export default function DeathView({ row }: { row: HerdExit }) {

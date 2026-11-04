@@ -1,0 +1,9 @@
+import { defineScreen, FARM_WRITE, FARM_VIEW } from '../operations/components/DedicatedScreen'
+const row = ['TB-024', 'Lịch tiêm phòng tháng 11', 'Toàn trại', 'Đã phát hành', '02/11/2026']
+export const announcementScreens = [
+  defineScreen({ id:'SCR-38', feature:'Thông báo', title:'Thông báo trang trại', description:'Đọc, lọc và theo dõi thông báo đã gửi.', kind:'list', fields:['Tìm theo tiêu đề','Nhóm người nhận','Trạng thái'], columns:['Mã','Tiêu đề','Người nhận','Trạng thái','Ngày gửi'], rows:[row], rowTarget:'/ui/scr-40', actions:[{label:'Soạn thông báo',roles:FARM_WRITE,type:'navigateTo',target:'/ui/scr-39'}] }),
+  defineScreen({ id:'SCR-39', feature:'Thông báo', title:'Soạn thông báo', description:'Chuẩn bị nội dung và phạm vi nhận trước khi xem lại.', kind:'form', fields:['Tiêu đề','Nội dung thông báo','Nhóm người nhận','Thời điểm phát hành'], columns:['Mục','Giá trị'], rows:[['Người nhận','Toàn trại']], actions:[{label:'Lưu bản nháp',roles:FARM_WRITE,type:'save'},{label:'Xem lại',roles:FARM_WRITE,type:'save',target:'/ui/scr-40'}] }),
+  defineScreen({ id:'SCR-40', feature:'Thông báo', title:'Xem lại và phát hành thông báo', description:'Xác nhận nội dung, người nhận và thời điểm gửi.', kind:'detail', fields:['Tiêu đề','Nội dung','Danh sách người nhận','Xác nhận phát hành'], columns:['Mục','Giá trị'], rows:[['Người nhận','12 thành viên']], actions:[{label:'Quay lại chỉnh sửa',roles:FARM_WRITE,type:'navigateTo',target:'/ui/scr-39'},{label:'Phát hành',roles:FARM_WRITE,type:'status'}] }),
+  defineScreen({ id:'SCR-41', feature:'Thông báo', title:'Đính chính thông báo', description:'Giữ nguyên bản gốc và phát hành nội dung đính chính.', kind:'form', fields:['Thông báo gốc','Nội dung đính chính','Lý do đính chính'], columns:['Phiên bản','Thời điểm'], rows:[['Bản gốc','02/11/2026']], actions:[{label:'Phát hành đính chính',roles:FARM_WRITE}] }),
+] as const
+export { FARM_VIEW }

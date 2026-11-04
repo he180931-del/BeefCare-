@@ -10,7 +10,7 @@ import { DocRow, MoneyInput } from './parts'
 import type { HerdExit } from '../../../types'
 
 const METHODS = ['Tiền mặt', 'Chuyển khoản']
-const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
+const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Không xác định được lỗi. Vui lòng thử lại.'
 const localIsoToday = () => {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`

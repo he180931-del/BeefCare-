@@ -27,7 +27,7 @@ export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed
           {QR_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
         </Select>
       </Field>
-      <Field label="Mã thẻ mới" hint="Hệ thống tự cấp; thẻ cũ chuyển sang REPLACED.">
+      <Field label="Mã thẻ mới" hint="Hệ thống tự cấp; thẻ cũ chuyển sang trạng thái đã thay thế.">
         <input className={fieldCls} readOnly value={newCode} />
       </Field>
       <Field label="Ghi chú">

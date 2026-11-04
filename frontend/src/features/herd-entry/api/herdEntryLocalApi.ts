@@ -96,7 +96,7 @@ export async function saveHerdEntry({ id, record, cattleRows = [] }: { id?: stri
 const today = () => new Date().toISOString().slice(0, 10)
 
 async function validateEntryCattle(rows: CattleInput[], voucherId: string, record: EntrySaveRecord): Promise<void> {
-  if (record.date && record.date > today()) throw new Error('Entry date cannot be in the future')
+  if (record.date && record.date > today()) throw new Error('Ngày nhập đàn không được lớn hơn ngày hiện tại.')
   const existing = await cattle.list()
   const existingLines = new Set(existing.filter((row) => row.entryVoucherId === voucherId).map((row) => row.entryLineNo))
   const seenTags = new Set()

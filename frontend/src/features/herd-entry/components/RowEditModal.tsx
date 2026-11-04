@@ -146,7 +146,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
     <>
     <Modal
       width={1040}
-      maxHeight="calc(100vh - 1rem)"
+      maxHeight="calc(100dvh - 1rem)"
       title={`Sửa con #${index + 1} trong phiếu ${recordId}`}
       sub={'Thông tin dùng để tạo hồ sơ bò khi lưu phiếu – chưa tạo hồ sơ cho đến khi bấm "Lưu & tạo hồ sơ".'}
       topTitle="Thêm / sửa con trong phiếu nhập"
@@ -361,7 +361,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
       </ModalFooter>
     </Modal>
     {detailModal && (
-      <Modal width={520} maxHeight="min(600px, calc(100vh - 2rem))" title={detailMeta[detailModal].title} sub="Nhập thông tin chi tiết cho khai báo này." onClose={() => setDetailModal(null)}>
+      <Modal width={520} maxHeight="min(600px, calc(100dvh - 2rem))" title={detailMeta[detailModal].title} sub="Nhập thông tin chi tiết cho khai báo này." onClose={() => setDetailModal(null)}>
         {detailModal === 'vaccine' ? <div className="flex min-h-0 flex-col gap-2">
           <div aria-label="Danh sách vaccine" role="region" className="max-h-[220px] min-h-0 overflow-y-auto overscroll-contain pr-1">
           <div className="flex flex-col gap-2">

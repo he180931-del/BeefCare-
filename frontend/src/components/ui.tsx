@@ -1,9 +1,9 @@
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { Children, cloneElement, isValidElement, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ButtonHTMLAttributes, type ChangeEvent, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import type { DocumentRow, Payment } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 
-const BTN = 'whitespace-nowrap border font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45'
+const BTN = 'inline-flex max-w-full items-center justify-center whitespace-nowrap border font-semibold leading-tight cursor-pointer disabled:cursor-not-allowed disabled:opacity-45'
 const BTN_VARIANT: Record<ButtonVariant, string> = {
   default: 'border-edge bg-white text-[#212121]',
   primary: 'border-brand bg-brand text-white',
@@ -12,8 +12,8 @@ const BTN_VARIANT: Record<ButtonVariant, string> = {
 }
 
 /**
- * variant: default | primary | danger | link.  size: (mặc định) trang 13px, rounded 4 · 'sm' 12px · 'lg' = nút modal Figma
- * (cao 46px, rounded 12, 14px, viền #dce6de). `small` = tương thích cũ (giống size="sm").
+ * variant: default | primary | danger | link. Mọi cỡ dùng bán kính 4–8px;
+ * nút thường cao 32px, nút nhỏ 28px để hành động trong bảng không chen nhau.
  */
 type ButtonVariant = 'default' | 'primary' | 'danger' | 'link'
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> { variant?: ButtonVariant; size?: 'sm' | 'lg'; small?: boolean; block?: boolean }
@@ -26,7 +26,13 @@ export function Button({ variant = 'default', size, small, block, className, ...
       className={cx(
         BTN,
         BTN_VARIANT[variant],
-        lg ? 'h-[46px] rounded-xl px-4 text-sm' : cx('rounded', variant === 'link' ? 'p-1' : 'px-4 py-[9px]', sm ? 'text-xs' : 'text-[13px]'),
+        lg
+          ? 'min-h-11 rounded-md px-5 py-2 text-sm'
+          : cx(
+              'rounded-md',
+              variant === 'link' ? 'min-h-8 px-1.5 py-1' : sm ? 'min-h-8 px-2.5 py-1' : 'min-h-9 px-3.5 py-1.5',
+              sm ? 'text-xs' : 'text-[13px]',
+            ),
         lg && variant === 'default' && 'border-field',
         block && 'w-full',
         className,
@@ -48,7 +54,7 @@ const BADGE_TONE = {
 export type BadgeTone = 'ok' | 'err' | 'warn' | 'info' | 'outline'
 export function Badge({ tone, className, children }: { tone?: BadgeTone; className?: string; children?: ReactNode }) {
   return (
-    <span className={cx('inline-block whitespace-nowrap rounded-[10px] border px-2 py-[3px] text-[10px] font-medium', tone ? BADGE_TONE[tone] : undefined, tone ? undefined : 'border-edge bg-chip text-[#212121]', className)}>
+    <span className={cx('inline-block whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium leading-5', tone ? BADGE_TONE[tone] : undefined, tone ? undefined : 'border-edge bg-chip text-[#212121]', className)}>
       {children}
     </span>
   )
@@ -67,7 +73,7 @@ export function Segmented({ options, value, onChange }: { options: Array<{ value
           disabled={o.disabled}
           onClick={() => onChange(o.value)}
           className={cx(
-            'cursor-pointer rounded px-3.5 py-[7px] text-xs border disabled:cursor-not-allowed disabled:opacity-50',
+            'min-h-8 cursor-pointer rounded px-3 py-1.5 text-xs border disabled:cursor-not-allowed disabled:opacity-50',
             o.value === value ? 'border-faint bg-white font-semibold text-[#212121]' : 'border-transparent text-muted',
           )}
         >
@@ -101,24 +107,26 @@ export function Tile({ label, value, note, warn }: { label: ReactNode; value: Re
     <div className="flex flex-col gap-1 rounded-md border border-edge bg-white p-4">
       <span className="text-xs text-muted">{label}</span>
       <span className={cx('text-xl font-bold', warn && 'text-warn-fg')}>{value}</span>
-      <span className="text-[11px] font-semibold text-brand">{note}</span>
+      <span className="text-xs font-semibold text-brand">{note}</span>
     </div>
   )
 }
 
 export const inputCls =
-  'w-full rounded-xl border border-field bg-white px-2.5 py-3 text-sm text-ink outline-none focus:border-brand read-only:bg-page read-only:text-muted'
+  'min-h-8 w-full min-w-0 rounded-md border border-field bg-white px-3 py-1.5 text-[13px] text-ink outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/10 disabled:cursor-not-allowed disabled:bg-page disabled:text-faint read-only:bg-page read-only:text-muted'
 export const smInputCls =
-  'rounded-lg border border-field bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand'
+  'rounded-md border border-field bg-white px-2 py-1 text-xs text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/10'
 
 export function Field({ label, id, hint, children }: { label: ReactNode; id?: string; hint?: ReactNode; children: ReactNode }) {
+  const generatedId = useId()
+  const controlId = id || `field-${generatedId.replace(/:/g, '')}`
   const requiredLabel = typeof label === 'string' && label.endsWith(' *')
   const accessibleLabel = requiredLabel && typeof label === 'string' ? label.slice(0, -2) : undefined
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <label htmlFor={id} aria-label={accessibleLabel} className="text-xs font-medium text-ink">{label}</label>
-      {children}
-      {hint && <span className="text-[11px] text-muted">{hint}</span>}
+      <label htmlFor={controlId} aria-label={accessibleLabel} className="text-xs font-semibold text-ink">{label}</label>
+      {isValidElement(children) ? cloneElement(children, { id: controlId } as Record<string, unknown>) : children}
+      {hint && <span className="text-xs leading-5 text-muted">{hint}</span>}
     </div>
   )
 }
@@ -128,7 +136,7 @@ export function Info({ items, cols = 3 }: { items: Array<ReadonlyArray<unknown>>
     <dl className={cx('m-0 grid gap-x-4 gap-y-3', cols === 2 ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')}>
       {items.map(([k, v, warn]) => (
         <div key={String(k)}>
-          <dt className="mb-[3px] text-[11px] text-faint">{String(k)}</dt>
+          <dt className="mb-[3px] text-xs text-faint">{String(k)}</dt>
           <dd className={cx('m-0 text-[13px]', warn ? 'font-semibold text-warn-fg' : 'font-medium')}>{typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '')}</dd>
         </div>
       ))}
@@ -139,36 +147,87 @@ export function Info({ items, cols = 3 }: { items: Array<ReadonlyArray<unknown>>
 // Bảng không cuộn ngang: khi khung chứa hẹp hơn ngưỡng, mỗi dòng chuyển thành thẻ xếp dọc
 // (nhãn lấy từ tiêu đề cột). Ngưỡng theo container, không theo màn hình.
 const STACK = {
-  wide: '@max-[900px]:block @max-[900px]:[&_thead]:hidden @max-[900px]:[&_tbody]:block @max-[900px]:[&_tfoot]:block @max-[900px]:[&_tr]:block @max-[900px]:[&_tr]:border-b @max-[900px]:[&_tr]:border-rule @max-[900px]:[&_td]:flex @max-[900px]:[&_td]:items-center @max-[900px]:[&_td]:justify-between @max-[900px]:[&_td]:gap-4 @max-[900px]:[&_td]:border-b-0 @max-[900px]:[&_td]:before:content-[attr(data-label)] @max-[900px]:[&_td]:before:text-[11px] @max-[900px]:[&_td]:before:font-semibold @max-[900px]:[&_td]:before:text-muted @max-[900px]:[&_td:empty]:hidden',
-  normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:flex @max-[640px]:[&_td]:items-center @max-[640px]:[&_td]:justify-between @max-[640px]:[&_td]:gap-4 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-[11px] @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
+  wide: '@max-[900px]:block @max-[900px]:[&_thead]:hidden @max-[900px]:[&_tbody]:block @max-[900px]:[&_tfoot]:block @max-[900px]:[&_tr]:block @max-[900px]:[&_tr:not(:last-child)]:border-b @max-[900px]:[&_tr]:border-rule @max-[900px]:[&_td]:grid @max-[900px]:[&_td]:grid-cols-[minmax(112px,0.32fr)_minmax(0,1fr)] @max-[900px]:[&_td]:items-start @max-[900px]:[&_td]:gap-4 @max-[900px]:[&_td]:border-b-0 @max-[900px]:[&_td>*]:col-start-2 @max-[900px]:[&_td]:before:content-[attr(data-label)] @max-[900px]:[&_td]:before:text-xs @max-[900px]:[&_td]:before:font-semibold @max-[900px]:[&_td]:before:text-muted @max-[900px]:[&_td:empty]:hidden',
+  normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr:not(:last-child)]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:grid @max-[640px]:[&_td]:grid-cols-[minmax(96px,0.36fr)_minmax(0,1fr)] @max-[640px]:[&_td]:items-start @max-[640px]:[&_td]:gap-3 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td>*]:col-start-2 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-xs @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
 }
 
-export function Table({ children, wide, scroll, stack = !scroll, bordered = true }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean }) {
+export function Table({ children, wide, scroll, stack = true, bordered = false, pageSize = 25 }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean; pageSize?: number }) {
   const ref = useRef<HTMLTableElement>(null)
+  const [page, setPage] = useState(1)
+  const [responsivePageSize, setResponsivePageSize] = useState(() => {
+    if (pageSize !== 25 || typeof window === 'undefined') return pageSize
+    return window.innerWidth <= 900 ? 8 : window.innerWidth <= 1180 ? 15 : pageSize
+  })
+  useEffect(() => {
+    if (pageSize !== 25) { setResponsivePageSize(pageSize); return }
+    const update = () => setResponsivePageSize(window.innerWidth <= 900 ? 8 : window.innerWidth <= 1180 ? 15 : pageSize)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [pageSize])
+  const sections = useMemo(() => Children.toArray(children), [children])
+  const bodyIndex = sections.findIndex((child) => isValidElement<{ children?: ReactNode }>(child) && child.type === 'tbody')
+  const body = bodyIndex >= 0 && isValidElement<{ children?: ReactNode }>(sections[bodyIndex]) ? sections[bodyIndex] : undefined
+  const rows = body ? Children.toArray(body.props.children) : []
+  const shouldPaginate = responsivePageSize > 0 && rows.length > responsivePageSize
+  const pageCount = shouldPaginate ? Math.ceil(rows.length / responsivePageSize) : 1
+  useEffect(() => { if (page > pageCount) setPage(pageCount) }, [page, pageCount])
+  const renderedSections = shouldPaginate && body
+    ? sections.map((section, index) => index === bodyIndex
+      ? cloneElement(body, { children: rows.slice((page - 1) * responsivePageSize, page * responsivePageSize) })
+      : section)
+    : sections
   useLayoutEffect(() => {
     const t = ref.current
     if (!t) return
     const heads = [...t.querySelectorAll('thead th')].map((h) => h.textContent.trim())
-    t.querySelectorAll('tbody tr, tfoot tr').forEach((tr) =>
+    t.querySelectorAll('tbody tr').forEach((tr) =>
       [...tr.children].forEach((td, i) => (heads[i] ? td.setAttribute('data-label', heads[i]) : td.removeAttribute('data-label'))),
     )
+    t.querySelectorAll('tfoot tr').forEach((tr) => {
+      let column = 0
+      let headingFound = false
+      ;[...tr.children].forEach((td) => {
+        const span = Number(td.getAttribute('colspan') || 1)
+        const text = td.textContent.trim()
+        const summaryHeading = !headingFound && /^tổng\b/i.test(text)
+        td.toggleAttribute('data-summary-heading', summaryHeading)
+        if (summaryHeading) {
+          headingFound = true
+          td.removeAttribute('data-label')
+        } else if (heads[column]) td.setAttribute('data-label', heads[column])
+        else td.removeAttribute('data-label')
+        column += span
+      })
+    })
   })
   return (
-    <div className={cx('@container bg-white', bordered && 'rounded border border-edge', scroll ? 'overflow-x-auto' : 'overflow-hidden')}>
-      <table
-        ref={ref}
-        className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : 'normal'])}
-      >
-        {children}
-      </table>
+    <div className={cx('@container bg-white', bordered && 'rounded-md border border-edge')}>
+      <div className={scroll ? 'overflow-x-auto' : 'overflow-hidden'}>
+        <table
+          ref={ref}
+          data-stack={wide ? 'wide' : 'normal'}
+          className={cx('beefcare-table w-full border-collapse', scroll && !stack && 'min-w-[620px]', stack && STACK[wide ? 'wide' : 'normal'])}
+        >
+          {renderedSections}
+        </table>
+      </div>
+      {shouldPaginate && <nav aria-label="Phân trang bảng" className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-3 py-2 text-xs text-subtle">
+        <span>Hiển thị {(page - 1) * responsivePageSize + 1}–{Math.min(page * responsivePageSize, rows.length)} / {rows.length} dòng</span>
+        <div className="flex items-center gap-2">
+          <Button small disabled={page === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Trước</Button>
+          <span>Trang {page} / {pageCount}</span>
+          <Button small disabled={page === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>Sau</Button>
+        </div>
+      </nav>}
     </div>
   )
 }
 export const Th = ({ className, ...p }: ThHTMLAttributes<HTMLTableCellElement>) => (
-  <th className={cx('bg-chip px-1.5 py-2.5 text-left text-[11px] font-semibold text-muted first:pl-3 last:pr-3', className)} {...p} />
+  <th className={cx('bg-chip px-2 py-2 text-left text-xs font-semibold text-muted first:pl-3 last:pr-3', className)} {...p} />
 )
 export const Td = ({ className, ...p }: TdHTMLAttributes<HTMLTableCellElement>) => (
-  <td className={cx('border-b border-rule px-1.5 py-2.5 align-middle text-xs [overflow-wrap:anywhere] first:pl-3 last:pr-3', className)} {...p} />
+  <td className={cx('px-2 py-2 align-middle text-xs [overflow-wrap:anywhere] first:pl-3 last:pr-3', className)} {...p} />
 )
 
 export const Note = ({ tone = 'grey', children }: { tone?: 'grey' | 'warn' | 'err' | 'ok' | 'info'; children: ReactNode }) => (
@@ -182,7 +241,7 @@ export const Note = ({ tone = 'grey', children }: { tone?: 'grey' | 'warn' | 'er
   </div>
 )
 
-export const Foot = ({ children }: { children: ReactNode }) => <p className="m-0 text-[11px] text-subtle">{children}</p>
+export const Foot = ({ children }: { children: ReactNode }) => <p className="m-0 text-xs leading-5 text-subtle">{children}</p>
 
 export function Docs({ docs, onView, onRemove }: { docs?: DocumentRow[]; onView?: (index: number) => void; onRemove?: (index: number) => void }) {
   return (docs ?? []).map((d, index) => (
@@ -203,23 +262,25 @@ export function Docs({ docs, onView, onRemove }: { docs?: DocumentRow[]; onView?
   ))
 }
 
-export function Dropzone({ hint, onFiles, accept = 'application/pdf,image/jpeg', multiple = true }: {
+export function Dropzone({ hint, onFiles, accept = 'application/pdf,image/jpeg', multiple = true, disabled = false }: {
   hint?: ReactNode
   onFiles?: (files: File[]) => void
   accept?: string
   multiple?: boolean
+  disabled?: boolean
 }) {
   const input = useRef<HTMLInputElement>(null)
   const send = (files: FileList | null) => onFiles?.(files ? Array.from(files) : [])
   return (
     <div
-      className="cursor-pointer rounded-md border border-field bg-page p-4 text-center text-xs font-semibold text-brand"
+      className={cx('rounded-md border border-field bg-page p-4 text-center text-xs font-semibold text-brand', disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer')}
       role="button"
-      tabIndex={0}
-      onClick={() => input.current?.click()}
-      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') input.current?.click() }}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => { event.preventDefault(); send(event.dataTransfer.files) }}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
+      onClick={() => { if (!disabled) input.current?.click() }}
+      onKeyDown={(event) => { if (!disabled && (event.key === 'Enter' || event.key === ' ')) input.current?.click() }}
+      onDragOver={(event) => { if (!disabled) event.preventDefault() }}
+      onDrop={(event) => { event.preventDefault(); if (!disabled) send(event.dataTransfer.files) }}
     >
       <input
         ref={input}
@@ -228,10 +289,11 @@ export function Dropzone({ hint, onFiles, accept = 'application/pdf,image/jpeg',
         aria-label="Chọn chứng từ đính kèm"
         accept={accept}
         multiple={multiple}
-        onChange={(event) => { send(event.target.files); event.target.value = '' }}
+        disabled={disabled}
+        onChange={(event) => { if (!disabled) send(event.target.files); event.target.value = '' }}
       />
       ⇪ Kéo thả tệp hoặc Chọn tệp
-      <small className="mt-1 block text-[11px] font-normal text-muted">{hint}</small>
+      <small className="mt-1 block text-xs font-normal text-muted">{hint}</small>
     </div>
   )
 }
@@ -256,27 +318,28 @@ export function PaymentTable({ payments }: { payments: Payment[] }) {
 }
 
 export function PageHeader({ title, sub, badge, children }: { title: ReactNode; sub?: ReactNode; badge?: ReactNode; children?: ReactNode }) {
+  const visibleSub = typeof sub === 'string' && /(?:dữ liệu demo|duyệt giao diện|duyệt luồng|không gọi api|bản demo|localstorage|lưu trên thiết bị|scr\d{2,3})/i.test(sub) ? undefined : sub
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div>
         <h1 className="m-0 text-[22px] font-bold">{title}</h1>
-        {sub && <p className="mb-0 mt-1 max-w-[700px] text-xs text-muted">{sub}</p>}
+        {visibleSub && <p className="mb-0 mt-1 max-w-[700px] text-xs text-muted">{visibleSub}</p>}
         {badge && <div className="mt-1">{badge}</div>}
       </div>
       <div className="flex-1" />
-      <div className="flex flex-wrap gap-2.5">{children}</div>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )
 }
 
-// ---------- Ô nhập liệu theo Figma (cao 44px, bo 12, viền #dce6de, chữ 14px) ----------
+// ---------- Ô nhập liệu dùng chung: cao tối thiểu 32px, bo 6px ----------
 
 /** <select> có mũi tên ▾ nhỏ như Figma. Dùng thay <select className={inputCls}>. */
 export function Select({ className, children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <div className={cx('relative', className)}>
       <select className={cx(inputCls, 'cursor-pointer appearance-none pr-7')} {...p}>{children}</select>
-      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted">▾</span>
+      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted">▾</span>
     </div>
   )
 }
@@ -289,7 +352,7 @@ export function DateInput({ value, onChange, className, readOnly, id }: { value:
     <div className={cx('relative', className)}>
       <div className={cx(inputCls, 'flex items-center gap-1.5')}>
         <span className="min-w-0 flex-1">{value ? `${d}/${m}/${y}` : 'dd/mm/yyyy'}</span>
-        <span className="text-[10px] text-muted">▾</span>
+        <span className="text-xs text-muted">▾</span>
       </div>
       {!readOnly && (
         <input
@@ -347,7 +410,7 @@ export function Tabs({ tabs, value, onChange }: { tabs: Array<{ value: string; l
 /** Hộp số liệu "nhãn nhỏ xám + giá trị" dùng trong modal/summary (11px #8f8f8f trên, 13px medium dưới). */
 export const KV = ({ k, children, className }: { k: ReactNode; children: ReactNode; className?: string }) => (
   <div className={className}>
-    <div className="mb-[3px] text-[11px] text-faint">{k}</div>
+    <div className="mb-[3px] text-xs text-faint">{k}</div>
     <div className="text-[13px] font-medium">{children}</div>
   </div>
 )

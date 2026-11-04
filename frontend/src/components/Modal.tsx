@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { Children, isValidElement, useEffect, useRef, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTopbarTitle } from './Layout'
 import { Button } from './ui'
@@ -36,15 +36,40 @@ const WIDTH: Record<number, string> = { 560: 'w-[560px]', 600: 'w-[600px]', 640:
  */
 export default function Modal({ title, sub, topTitle, width = 600, maxHeight, onClose, top, compact = false, dialogClassName = '', bodyClassName = '', children }: { title: string; sub?: ReactNode; topTitle?: string; width?: number; maxHeight?: string; onClose: () => void; top?: number; compact?: boolean; dialogClassName?: string; bodyClassName?: string; children: ReactNode }) {
   useTopbarTitle(topTitle || title)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  const childNodes = Children.toArray(children)
+  const footer = childNodes.find((child) => isValidElement(child) && child.type === ModalFooter)
+  const body = childNodes.filter((child) => child !== footer)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const openerText = opener?.textContent?.trim()
+    const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])
+    requestAnimationFrame(() => (focusable()[0] || dialogRef.current)?.focus())
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return onCloseRef.current()
+      if (e.key !== 'Tab') return
+      const items = focusable()
+      if (!items.length) { e.preventDefault(); dialogRef.current?.focus(); return }
+      const first = items[0]; const last = items[items.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      requestAnimationFrame(() => {
+        if (opener?.isConnected) { opener.focus(); return }
+        const fallback = Array.from(document.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])')).find((candidate) => candidate.textContent?.trim() === openerText)
+        fallback?.focus()
+      })
+    }
+  }, [])
   return (
     <div className="fixed inset-0 z-50 box-border w-full max-w-full overflow-x-hidden overflow-y-auto bg-[rgba(23,37,30,0.32)]" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className={`pointer-events-none flex min-h-full w-full min-w-0 max-w-full justify-center box-border p-4 ${top ? 'items-start' : 'items-center'}`} style={top ? { paddingTop: top } : undefined}>
-        <div role="dialog" aria-modal="true" aria-label={title} style={{ width: `min(${width}px, calc(100vw - 2rem))`, ...(maxHeight ? { maxHeight } : {}) }} className={`pointer-events-auto relative flex max-h-[calc(100vh-1rem)] min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-lg bg-white p-6 ${WIDTH[width] || WIDTH[600]} ${dialogClassName}`}>
+        <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} style={{ width: `min(${width}px, calc(100vw - 2rem))`, ...(maxHeight ? { maxHeight } : {}) }} className={`pointer-events-auto relative flex max-h-[calc(100dvh-1rem)] min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden overscroll-contain rounded-[10px] bg-white p-6 ${WIDTH[width] || WIDTH[600]} ${dialogClassName}`}>
           <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-6 top-6 size-6 text-[#67766c]">
             <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 5l14 14M19 5L5 19" /></svg>
           </button>
@@ -52,9 +77,10 @@ export default function Modal({ title, sub, topTitle, width = 600, maxHeight, on
             <h2 className="m-0 pr-10 text-lg font-bold leading-[normal] text-ink">{title}</h2>
             {sub && <p className="m-0 mt-1 text-xs leading-[normal] text-subtle">{sub}</p>}
           </div>
-          <div className={`mt-4 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto pb-0 ${compact ? 'max-h-[calc(100vh-8rem)] flex-1' : 'flex-1'} ${bodyClassName}`}>
-            <div className="flex min-w-0 flex-col gap-4">{children}</div>
+          <div className={`mt-4 min-h-0 min-w-0 overflow-x-hidden overflow-y-auto pb-2 ${compact ? 'max-h-[calc(100dvh-8rem)] flex-1' : 'flex-1'} ${bodyClassName}`}>
+            <div className="flex min-w-0 flex-col gap-4">{body}</div>
           </div>
+          {footer}
         </div>
       </div>
     </div>
@@ -64,7 +90,7 @@ export default function Modal({ title, sub, topTitle, width = 600, maxHeight, on
 export function ModalFooter({ children, className = '', compact = false }: { children: ReactNode; className?: string; compact?: boolean }) {
   // Keep actions in normal flow. A sticky/negative-margin footer overlays the
   // last form fields in compact dialogs (especially the vaccination fields).
-  return <div className={`flex shrink-0 min-w-0 flex-wrap items-center justify-end gap-2.5 overflow-x-hidden bg-white ${compact ? '!gap-1.5 !px-2 !pt-[0.1875rem] !pb-[max(0.28125rem,env(safe-area-inset-bottom))]' : 'px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4'} ${className}`}>{children}</div>
+  return <div className={`flex shrink-0 min-w-0 flex-wrap items-center justify-end gap-2.5 overflow-x-hidden border-t border-rule bg-white ${compact ? '!gap-1.5 !px-2 !pt-2 !pb-[max(0.5rem,env(safe-area-inset-bottom))]' : 'px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3'} ${className}`}>{children}</div>
 }
 
 /** Nút trong modal (cao 46px). variant: default | primary | danger | link */

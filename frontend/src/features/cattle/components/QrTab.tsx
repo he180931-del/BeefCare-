@@ -21,7 +21,7 @@ export default function QrTab({ cow, onOpenModal }: { cow: CowSeed; onOpenModal:
             cols="grid-cols-1 sm:grid-cols-2"
             items={[
               ['Mã thẻ', cur.code],
-              ['Trạng thái', <Chip key="s" tone="ok">ACTIVE</Chip>],
+              ['Trạng thái', <Chip key="s" tone="ok">Đang sử dụng</Chip>],
               ['Mã hiển thị in trên thẻ', cow.code],
               ['Cấp lúc', `${cur.from} · ${cur.by}`],
             ]}
@@ -54,7 +54,7 @@ export default function QrTab({ cow, onOpenModal }: { cow: CowSeed; onOpenModal:
           </tbody>
         </Table>
       </Panel>
-      <Foot>Mỗi bò chỉ có một thẻ ACTIVE. Quét thẻ chỉ mở được hồ sơ khi người quét là thành viên của trại.</Foot>
+      <Foot>Mỗi bò chỉ có một thẻ đang sử dụng. Quét thẻ chỉ mở được hồ sơ khi người quét là thành viên của trại.</Foot>
     </>
   )
 }

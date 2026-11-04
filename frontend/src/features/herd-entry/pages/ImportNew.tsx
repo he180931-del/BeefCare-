@@ -31,6 +31,7 @@ import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
 import PayModal from '../components/PayModal'
+import { ActionDialog } from '../../../components/workspace'
 import { validateEntryForPost } from '../entryValidation'
 import type { DocumentRow, EntryCalf, EntryCow, HerdEntry, Pen } from '../../../types'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
@@ -144,6 +145,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
   const [temporaryExcelDraftId, setTemporaryExcelDraftId] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [calfDeathTarget, setCalfDeathTarget] = useState<Calf | null>(null)
+  const [calfDeathReason, setCalfDeathReason] = useState('')
   const recordId = persistedRecordId ?? initialRecordId
   const backTarget = (location.state as { from?: string } | null)?.from
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
@@ -197,14 +200,20 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
       calfOutcomeId: undefined,
     })))
   }
-  const markCalfDied = async (calf: Calf) => {
+  const markCalfDied = async (calf: Calf, reason: string) => {
     const calfOutcomeId = calf.calfOutcomeId
     if (typeof calfOutcomeId !== 'number' || !Number.isFinite(calfOutcomeId)) return
-    const reason = window.prompt('Lý do bê chết trước đăng ký', '')?.trim()
-    if (!reason) return
+    const normalizedReason = reason.trim()
+    if (!normalizedReason) {
+      setValidationError('Vui lòng nhập lý do bê chết trước đăng ký.')
+      return
+    }
     try {
-      await markCalfDiedBeforeRegistration(calfOutcomeId, reason)
+      await markCalfDiedBeforeRegistration(calfOutcomeId, normalizedReason)
       setCalves((current) => current.filter((row) => row.calfOutcomeId !== calfOutcomeId))
+      setCalfDeathTarget(null)
+      setCalfDeathReason('')
+      setValidationError(null)
     } catch (error) {
       setValidationError(displayError(error))
     }
@@ -566,7 +575,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                         </Td>
                         <Td className={TH}>
                           {c.calfOutcomeId != null && (
-                            <button type="button" aria-label="Đánh dấu chết trước đăng ký" className="border-0 bg-transparent p-1 text-[11px] text-danger" onClick={() => { void markCalfDied(c) }}>
+                            <button type="button" aria-label="Đánh dấu chết trước đăng ký" className="border-0 bg-transparent p-1 text-[11px] text-danger" onClick={() => { setCalfDeathTarget(c); setCalfDeathReason(''); setValidationError(null) }}>
                               Đánh dấu chết trước đăng ký
                             </button>
                           )}
@@ -741,6 +750,21 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           onClose={() => { void cancelExcelImport() }}
         />
       )}
+      <ActionDialog
+        open={Boolean(calfDeathTarget)}
+        title="Đánh dấu bê chết trước đăng ký"
+        description={`Bê ${calfDeathTarget?.tag || calfDeathTarget?.name || ''} sẽ được loại khỏi danh sách chờ đăng ký. Thao tác này được lưu vào lịch sử.`}
+        confirmLabel="Xác nhận"
+        confirmTone="danger"
+        confirmDisabled={!calfDeathReason.trim()}
+        onCancel={() => { setCalfDeathTarget(null); setCalfDeathReason('') }}
+        onConfirm={() => { if (calfDeathTarget) void markCalfDied(calfDeathTarget, calfDeathReason) }}
+      >
+        <Field label="Lý do *">
+          <textarea className={inputCls} rows={3} maxLength={500} value={calfDeathReason} onChange={(event) => setCalfDeathReason(event.target.value)} placeholder="Ví dụ: Bê chết ngay sau sinh, đã kiểm tra lúc 06:30" />
+        </Field>
+        {!calfDeathReason.trim() && <p className="m-0 text-xs text-muted">Nhập lý do để có thể xác nhận.</p>}
+      </ActionDialog>
     </Layout>
   )
 }

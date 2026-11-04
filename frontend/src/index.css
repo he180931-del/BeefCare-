@@ -34,3 +34,835 @@ html {
 body {
   @apply bg-page font-sans text-[13px] text-[#212121];
 }
+
+/* Responsive table totals keep their own heading instead of borrowing the
+   first column label (for example “Thức ăn · Tổng”). */
+@container (max-width: 900px) {
+  .beefcare-table[data-stack='wide'] tfoot td[data-summary-heading] {
+    display: block;
+    padding-top: 0.75rem;
+    font-weight: 700;
+  }
+
+  .beefcare-table[data-stack='wide'] tfoot td[data-summary-heading]::before {
+    display: none;
+  }
+}
+
+@container (max-width: 640px) {
+  .beefcare-table[data-stack='normal'] tfoot td[data-summary-heading] {
+    display: block;
+    padding-top: 0.75rem;
+    font-weight: 700;
+  }
+
+  .beefcare-table[data-stack='normal'] tfoot td[data-summary-heading]::before {
+    display: none;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  touch-action: manipulation;
+}
+
+a,
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(8, 115, 78, 0.16);
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+::selection {
+  background: #cce9db;
+  color: var(--color-ink);
+}
+
+/* Shared review surface for the complete 122-screen prototype. Individual
+   feature wrappers may add stricter table rules, but every screen starts from
+   the same readable, touch-first hierarchy. */
+.review-ui {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.review-ui h1 { font-size: clamp(20px, 2.2vw, 26px) !important; line-height: 1.2; }
+.review-ui h2 { font-size: clamp(16px, 1.8vw, 20px) !important; line-height: 1.25; }
+.review-ui h3 { font-size: clamp(14px, 1.5vw, 18px) !important; line-height: 1.3; }
+.review-ui .text-xs,
+.review-ui .text-\[11px\],
+.review-ui .text-\[10px\] { font-size: 12px !important; line-height: 1.5; }
+.review-ui .text-sm,
+.review-ui .text-\[13px\] { font-size: 14px !important; line-height: 1.5; }
+.review-ui p.text-muted,
+.review-ui p.text-subtle { font-size: 16px !important; line-height: 1.5; }
+.review-ui button,
+.review-ui input:not([type='checkbox']):not([type='radio']),
+.review-ui select,
+.review-ui textarea,
+.review-ui a { min-height: 32px; }
+
+.review-ui td button {
+  min-height: 28px !important;
+  padding: 4px 8px;
+}
+
+.review-ui td > button + button {
+  margin-left: 6px;
+}
+
+/* Farm work happens mainly on phones and tablets: keep controls comfortably
+   tappable, while dense administrative tables can remain compact on desktop. */
+@media (max-width: 1024px) {
+  .review-ui button:not(td button),
+  .review-ui input:not([type='checkbox']):not([type='radio']),
+  .review-ui select,
+  .review-ui textarea { min-height: 42px; }
+  .review-ui td button { min-height: 34px !important; }
+}
+.review-ui input[type='checkbox'],
+.review-ui input[type='radio'] { width: 20px; height: 20px; min-width: 20px; min-height: 20px; }
+.review-ui .rounded-\[10px\],
+.review-ui .rounded-full { border-radius: 8px; }
+
+@media (max-width: 1024px) {
+  .review-ui table { width: 100%; table-layout: fixed; }
+  .review-ui th,
+  .review-ui td { white-space: normal; overflow-wrap: anywhere; padding-inline: 8px; }
+}
+
+/* SCR69–72 review surface: readable at iPad portrait width without changing
+   the compact density of the rest of the fixture application. */
+.herd-exit-ui {
+  font-size: 18px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.herd-exit-ui h1 {
+  font-size: clamp(24px, 2.2vw, 32px);
+  line-height: 1.2;
+}
+
+.herd-exit-ui h2 {
+  font-size: clamp(20px, 1.8vw, 24px);
+  line-height: 1.25;
+}
+
+.herd-exit-ui .text-xs,
+.herd-exit-ui .text-sm,
+.herd-exit-ui .text-\[13px\],
+.herd-exit-ui .text-\[11px\],
+.herd-exit-ui .text-\[10px\] {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.herd-exit-ui button,
+.herd-exit-ui input:not([type='checkbox']):not([type='radio']),
+.herd-exit-ui select,
+.herd-exit-ui textarea {
+  min-height: 48px;
+}
+
+.herd-exit-ui input[type='checkbox'],
+.herd-exit-ui input[type='radio'] {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.herd-exit-ui .rounded-\[10px\] {
+  border-radius: 8px;
+}
+
+.herd-exit-ui .overflow-x-auto {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+
+/* SCR81–85 catalogue surface: portrait and landscape iPad use the same
+   readable, touch-first density without introducing a horizontal page scroll. */
+.catalogue-ui {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.catalogue-ui h1 {
+  font-size: clamp(24px, 2.2vw, 32px) !important;
+  line-height: 1.2;
+}
+
+.catalogue-ui h2 {
+  font-size: clamp(20px, 1.8vw, 24px) !important;
+  line-height: 1.25;
+}
+
+.catalogue-ui .text-xs,
+.catalogue-ui .text-sm,
+.catalogue-ui .text-\[13px\],
+.catalogue-ui .text-\[11px\],
+.catalogue-ui .text-\[10px\] {
+  font-size: 16px !important;
+  line-height: 1.5;
+}
+
+.catalogue-ui button,
+.catalogue-ui input:not([type='checkbox']):not([type='radio']),
+.catalogue-ui select,
+.catalogue-ui textarea {
+  min-height: 48px;
+}
+
+.catalogue-ui input[type='checkbox'],
+.catalogue-ui input[type='radio'] {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.catalogue-ui .rounded-\[10px\],
+.catalogue-ui .rounded-full {
+  border-radius: 8px;
+}
+
+.catalogue-ui .overflow-x-auto {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+
+/* SCR93–99 support: touch-first on iPad portrait/landscape while keeping the
+   workbench flat and readable instead of adding nested card chrome. */
+.support-ui {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.support-ui h1 {
+  font-size: clamp(24px, 2.2vw, 32px) !important;
+  line-height: 1.2;
+}
+
+.support-ui h2 {
+  font-size: clamp(20px, 1.8vw, 24px) !important;
+  line-height: 1.25;
+}
+
+.support-ui .text-xs,
+.support-ui .text-sm,
+.support-ui .text-\[13px\],
+.support-ui .text-\[11px\],
+.support-ui .text-\[10px\] {
+  font-size: 16px !important;
+  line-height: 1.5;
+}
+
+.support-ui button,
+.support-ui input:not([type='checkbox']):not([type='radio']),
+.support-ui select,
+.support-ui textarea {
+  min-height: 48px;
+}
+
+.support-ui input[type='checkbox'],
+.support-ui input[type='radio'] {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.support-ui .rounded-\[10px\],
+.support-ui .rounded-full {
+  border-radius: 8px;
+}
+
+.support-ui .overflow-x-auto {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+
+/* SCR100–103 platform finance: readable on iPad without nested visual chrome.
+   Tables may wrap their cells, but the page itself never scrolls sideways. */
+.platform-finance-ui {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.platform-finance-ui h1 {
+  font-size: clamp(24px, 2.2vw, 32px) !important;
+  line-height: 1.2;
+}
+
+.platform-finance-ui h2 {
+  font-size: clamp(20px, 1.8vw, 24px) !important;
+  line-height: 1.25;
+}
+
+.platform-finance-ui .text-xs,
+.platform-finance-ui .text-sm,
+.platform-finance-ui .text-\[13px\],
+.platform-finance-ui .text-\[11px\],
+.platform-finance-ui .text-\[10px\] {
+  font-size: 16px !important;
+  line-height: 1.5;
+}
+
+.platform-finance-ui button,
+.platform-finance-ui input:not([type='checkbox']):not([type='radio']),
+.platform-finance-ui select,
+.platform-finance-ui textarea {
+  min-height: 48px;
+}
+
+.platform-finance-ui input[type='checkbox'],
+.platform-finance-ui input[type='radio'] {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.platform-finance-ui .rounded-\[10px\],
+.platform-finance-ui .rounded-full {
+  border-radius: 8px;
+}
+
+.platform-finance-ui .overflow-x-auto {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+
+@media (max-width: 820px) {
+  .platform-finance-ui table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .platform-finance-ui th,
+  .platform-finance-ui td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding-inline: 8px;
+  }
+}
+
+/* Technician surfaces are operated while standing in the barn: larger type,
+   wider content, obvious touch targets and a compact icon + label bottom nav. */
+.technician-ui {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.technician-ui h1 {
+  font-size: clamp(24px, 3vw, 32px) !important;
+  line-height: 1.2;
+}
+
+.technician-ui h2 {
+  font-size: clamp(20px, 2.3vw, 24px) !important;
+  line-height: 1.25;
+}
+
+.technician-ui h3,
+.technician-ui .text-sm,
+.technician-ui .text-xs,
+.technician-ui .text-\[13px\],
+.technician-ui .text-\[11px\],
+.technician-ui .text-\[10px\] {
+  font-size: 16px !important;
+  line-height: 1.5;
+}
+
+.technician-ui button,
+.technician-ui input:not([type='checkbox']):not([type='radio']),
+.technician-ui select,
+.technician-ui textarea,
+.technician-ui a {
+  min-height: 48px;
+}
+
+.technician-ui input[type='checkbox'],
+.technician-ui input[type='radio'] {
+  width: 24px;
+  height: 24px;
+}
+
+.technician-ui .rounded-full,
+.technician-ui .rounded-\[10px\] {
+  border-radius: 8px;
+}
+
+@media (max-width: 720px) {
+  .technician-shell nav {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    min-height: 52px;
+  }
+
+  .technician-shell {
+    padding-bottom: 3.5rem;
+  }
+}
+
+/* Final type and control scale shared by every reviewed screen. Feature-level
+   wrappers above may tune layout, but they must not reintroduce oversized
+   headings or 18px body copy. Technician pages remain intentionally larger
+   because they are operated while moving around the barn. */
+.review-ui h1 { font-size: clamp(20px, 2.2vw, 26px) !important; }
+.review-ui h2 { font-size: clamp(16px, 1.8vw, 20px) !important; }
+.review-ui h3 { font-size: clamp(14px, 1.5vw, 18px) !important; }
+.review-ui .text-xs,
+.review-ui .text-\[11px\],
+.review-ui .text-\[10px\] { font-size: 12px !important; }
+.review-ui .text-sm,
+.review-ui .text-\[13px\] { font-size: 14px !important; }
+.review-ui button,
+.review-ui input:not([type='checkbox']):not([type='radio']),
+.review-ui select,
+.review-ui textarea,
+.review-ui a { min-height: 32px; }
+
+.review-ui .technician-ui,
+.review-ui .technician-ui .text-sm,
+.review-ui .technician-ui .text-xs,
+.review-ui .technician-ui .text-\[13px\],
+.review-ui .technician-ui .text-\[11px\],
+.review-ui .technician-ui .text-\[10px\] {
+  font-size: 16px !important;
+}
+
+.review-ui .technician-ui h1 { font-size: 26px !important; }
+.review-ui .technician-ui h2 { font-size: 20px !important; }
+.review-ui .technician-ui h3 { font-size: 18px !important; }
+
+/* SCR105–110 advanced entry/exit: clear hierarchy and full-size controls for
+   dense operational forms on both iPad orientations. */
+.herd-advanced-ui {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.herd-advanced-ui h1 { font-size: clamp(24px, 2.2vw, 32px) !important; line-height: 1.2; }
+.herd-advanced-ui h2 { font-size: clamp(20px, 1.8vw, 24px) !important; line-height: 1.25; }
+.herd-advanced-ui .text-xs,
+.herd-advanced-ui .text-sm,
+.herd-advanced-ui .text-\[13px\],
+.herd-advanced-ui .text-\[11px\],
+.herd-advanced-ui .text-\[10px\] { font-size: 16px !important; line-height: 1.5; }
+.herd-advanced-ui button,
+.herd-advanced-ui input:not([type='checkbox']):not([type='radio']),
+.herd-advanced-ui select,
+.herd-advanced-ui textarea { min-height: 48px; }
+.herd-advanced-ui input[type='checkbox'],
+.herd-advanced-ui input[type='radio'] { width: 24px; height: 24px; min-width: 24px; min-height: 24px; }
+.herd-advanced-ui .rounded-\[10px\],
+.herd-advanced-ui .rounded-full { border-radius: 8px; }
+.herd-advanced-ui .overflow-x-auto { max-width: 100%; overscroll-behavior-inline: contain; }
+
+@media (max-width: 1024px) {
+  .herd-advanced-ui table { width: 100%; table-layout: fixed; }
+  .herd-advanced-ui th,
+  .herd-advanced-ui td { white-space: normal; overflow-wrap: anywhere; padding-inline: 7px; }
+}
+
+/* SCR111–122 feed and ration flow: one flat operational surface with readable
+   values and controls; dense tables wrap inside the iPad viewport. */
+.feed-ui {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.feed-ui h1 { font-size: clamp(24px, 2.2vw, 32px) !important; line-height: 1.2; }
+.feed-ui h2 { font-size: clamp(20px, 1.8vw, 24px) !important; line-height: 1.25; }
+.feed-ui .text-xs,
+.feed-ui .text-sm,
+.feed-ui .text-\[13px\],
+.feed-ui .text-\[11px\],
+.feed-ui .text-\[10px\] { font-size: 16px !important; line-height: 1.5; }
+.feed-ui button,
+.feed-ui input:not([type='checkbox']):not([type='radio']),
+.feed-ui select,
+.feed-ui textarea,
+.feed-ui a { min-height: 48px; }
+.feed-ui input[type='checkbox'],
+.feed-ui input[type='radio'] { width: 24px; height: 24px; min-width: 24px; min-height: 24px; }
+.feed-ui .rounded-\[10px\],
+.feed-ui .rounded-full { border-radius: 8px; }
+.feed-ui .overflow-x-auto { max-width: 100%; overscroll-behavior-inline: contain; }
+
+@media (max-width: 1024px) {
+  .feed-ui table { width: 100%; table-layout: fixed; }
+  .feed-ui th,
+  .feed-ui td { white-space: normal; overflow-wrap: anywhere; padding-inline: 7px; }
+}
+
+/* Keep feature wrappers aligned with the final product scale. This block is
+   deliberately last so an older screen-specific review rule cannot enlarge
+   the entire surface again. */
+.review-ui.herd-exit-ui,
+.review-ui.catalogue-ui,
+.review-ui.support-ui,
+.review-ui.platform-finance-ui,
+.review-ui.herd-advanced-ui,
+.review-ui.feed-ui,
+.review-ui .herd-exit-ui,
+.review-ui .catalogue-ui,
+.review-ui .support-ui,
+.review-ui .platform-finance-ui,
+.review-ui .herd-advanced-ui,
+.review-ui .feed-ui { font-size: 12px; }
+
+.review-ui h1 { font-size: clamp(20px, 2.2vw, 26px) !important; }
+.review-ui h2 { font-size: clamp(16px, 1.8vw, 20px) !important; }
+.review-ui h3 { font-size: clamp(14px, 1.5vw, 18px) !important; }
+.review-ui .text-xs,
+.review-ui .text-\[11px\],
+.review-ui .text-\[10px\] { font-size: 12px !important; }
+.review-ui .text-sm,
+.review-ui .text-\[13px\] { font-size: 14px !important; }
+.review-ui button,
+.review-ui input:not([type='checkbox']):not([type='radio']),
+.review-ui select,
+.review-ui textarea,
+.review-ui a { min-height: 32px; }
+
+.review-ui.technician-ui,
+.review-ui .technician-ui,
+.review-ui.technician-ui .text-sm,
+.review-ui.technician-ui .text-xs,
+.review-ui.technician-ui .text-\[13px\],
+.review-ui.technician-ui .text-\[11px\],
+.review-ui.technician-ui .text-\[10px\],
+.review-ui .technician-ui .text-sm,
+.review-ui .technician-ui .text-xs,
+.review-ui .technician-ui .text-\[13px\],
+.review-ui .technician-ui .text-\[11px\],
+.review-ui .technician-ui .text-\[10px\] { font-size: 16px !important; }
+
+/* Dense table actions stay touchable without crowding neighboring rows. */
+.review-ui td button {
+  min-height: 28px !important;
+  padding: 4px 8px !important;
+}
+.review-ui td > button + button { margin-left: 6px; }
+.review-ui td .flex { gap: 6px; }
+
+/* Forms keep their final actions available while long sections scroll. The
+   rule only targets a direct, final action row; regular field rows stay in
+   document flow. */
+.review-ui form > div.flex.justify-end.gap-2:last-child,
+.review-ui form > div.flex.flex-wrap.justify-end.gap-2.border-t,
+.review-ui form > div.flex.flex-wrap.items-center.justify-end.gap-2.border-t {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background: rgb(255 255 255 / 96%);
+  padding-block: 10px;
+  backdrop-filter: blur(4px);
+}
+
+/* The desktop shell keeps its sidebar at iPad landscape width, so feature
+   grids must respond to the actual content area rather than the viewport. */
+@media (max-width: 1180px) {
+  .herd-exit-ui form > div.grid:first-child,
+  .catalogue-ui > div.mt-5 > div.grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Final shared density tokens. These overrides deliberately sit last: older
+   review wrappers used 18px copy and 48px controls, which made the same
+   component change size between screens. BeefCare now keeps one compact
+   operational scale, with a slightly larger technician variant below. */
+html,
+body,
+#root {
+  min-width: 0;
+  max-width: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.review-ui,
+.herd-exit-ui,
+.catalogue-ui,
+.support-ui,
+.platform-finance-ui,
+.herd-advanced-ui,
+.feed-ui {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 13px !important;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.review-ui h1,
+.herd-exit-ui h1,
+.catalogue-ui h1,
+.support-ui h1,
+.platform-finance-ui h1,
+.herd-advanced-ui h1,
+.feed-ui h1 {
+  font-size: clamp(20px, 2.2vw, 26px) !important;
+  line-height: 1.2;
+}
+
+.review-ui h2,
+.herd-exit-ui h2,
+.catalogue-ui h2,
+.support-ui h2,
+.platform-finance-ui h2,
+.herd-advanced-ui h2,
+.feed-ui h2 {
+  font-size: clamp(16px, 1.8vw, 20px) !important;
+  line-height: 1.25;
+}
+
+.review-ui h3,
+.herd-exit-ui h3,
+.catalogue-ui h3,
+.support-ui h3,
+.platform-finance-ui h3,
+.herd-advanced-ui h3,
+.feed-ui h3 {
+  font-size: clamp(14px, 1.5vw, 18px) !important;
+  line-height: 1.3;
+}
+
+.review-ui .text-xs,
+.review-ui .text-\[11px\],
+.review-ui .text-\[10px\],
+.herd-exit-ui .text-xs,
+.catalogue-ui .text-xs,
+.support-ui .text-xs,
+.platform-finance-ui .text-xs,
+.herd-advanced-ui .text-xs,
+.feed-ui .text-xs {
+  font-size: 12px !important;
+  line-height: 1.5;
+}
+
+.review-ui .text-sm,
+.review-ui .text-\[13px\],
+.herd-exit-ui .text-sm,
+.catalogue-ui .text-sm,
+.support-ui .text-sm,
+.platform-finance-ui .text-sm,
+.herd-advanced-ui .text-sm,
+.feed-ui .text-sm {
+  font-size: 13px !important;
+  line-height: 1.5;
+}
+
+.review-ui button,
+.review-ui input:not([type='checkbox']):not([type='radio']),
+.review-ui select,
+.review-ui textarea,
+.herd-exit-ui button,
+.herd-exit-ui input:not([type='checkbox']):not([type='radio']),
+.herd-exit-ui select,
+.herd-exit-ui textarea,
+.catalogue-ui button,
+.catalogue-ui input:not([type='checkbox']):not([type='radio']),
+.catalogue-ui select,
+.catalogue-ui textarea,
+.support-ui button,
+.support-ui input:not([type='checkbox']):not([type='radio']),
+.support-ui select,
+.support-ui textarea,
+.platform-finance-ui button,
+.platform-finance-ui input:not([type='checkbox']):not([type='radio']),
+.platform-finance-ui select,
+.platform-finance-ui textarea,
+.herd-advanced-ui button,
+.herd-advanced-ui input:not([type='checkbox']):not([type='radio']),
+.herd-advanced-ui select,
+.herd-advanced-ui textarea,
+.feed-ui button,
+.feed-ui input:not([type='checkbox']):not([type='radio']),
+.feed-ui select,
+.feed-ui textarea {
+  min-height: 32px;
+}
+
+.review-ui .rounded-\[10px\],
+.review-ui .rounded-lg,
+.review-ui .rounded-xl,
+.review-ui .rounded-2xl,
+.review-ui .rounded-3xl {
+  border-radius: 8px;
+}
+
+/* Keep intentional avatars, radio controls and status dots circular. */
+.review-ui .rounded-full {
+  border-radius: 9999px;
+}
+
+/* Table rows use whitespace and hover feedback instead of a rule under every
+   cell. Stacked rows retain one separator from the responsive table classes. */
+.beefcare-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.beefcare-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-page) 68%, white);
+}
+
+.beefcare-table td {
+  border-bottom: 0;
+}
+
+.review-ui td button {
+  min-height: 28px !important;
+  padding: 4px 8px !important;
+}
+
+.review-ui td .flex {
+  gap: 6px;
+}
+
+/* Technician screens stay larger than back-office tables without reverting
+   to the former 48px-everywhere scale. The navigation itself remains 52px. */
+.review-ui.technician-ui,
+.review-ui .technician-ui,
+.technician-ui {
+  font-size: 16px !important;
+  line-height: 1.5;
+}
+
+.review-ui.technician-ui h1,
+.review-ui .technician-ui h1,
+.technician-ui h1 {
+  font-size: 26px !important;
+}
+
+.review-ui.technician-ui h2,
+.review-ui .technician-ui h2,
+.technician-ui h2 {
+  font-size: 20px !important;
+}
+
+.review-ui.technician-ui h3,
+.review-ui .technician-ui h3,
+.technician-ui h3 {
+  font-size: 18px !important;
+}
+
+.review-ui.technician-ui .text-xs,
+.review-ui.technician-ui .text-sm,
+.review-ui .technician-ui .text-xs,
+.review-ui .technician-ui .text-sm,
+.technician-ui .text-xs,
+.technician-ui .text-sm {
+  font-size: 16px !important;
+}
+
+.review-ui.technician-ui button,
+.review-ui.technician-ui input:not([type='checkbox']):not([type='radio']),
+.review-ui.technician-ui select,
+.review-ui.technician-ui textarea,
+.review-ui .technician-ui button,
+.review-ui .technician-ui input:not([type='checkbox']):not([type='radio']),
+.review-ui .technician-ui select,
+.review-ui .technician-ui textarea,
+.technician-ui button,
+.technician-ui input:not([type='checkbox']):not([type='radio']),
+.technician-ui select,
+.technician-ui textarea {
+  min-height: 36px;
+}
+
+@media (max-width: 1024px) {
+  .review-ui table,
+  .herd-exit-ui table,
+  .catalogue-ui table,
+  .support-ui table,
+  .platform-finance-ui table,
+  .herd-advanced-ui table,
+  .feed-ui table {
+    width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
+  }
+
+  .review-ui th,
+  .review-ui td,
+  .herd-exit-ui th,
+  .herd-exit-ui td,
+  .catalogue-ui th,
+  .catalogue-ui td,
+  .support-ui th,
+  .support-ui td,
+  .platform-finance-ui th,
+  .platform-finance-ui td,
+  .herd-advanced-ui th,
+  .herd-advanced-ui td,
+  .feed-ui th,
+  .feed-ui td {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding-inline: 8px;
+  }
+}

@@ -155,7 +155,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
   }
 
   return (
-    <Modal top={24} width={840} maxHeight="calc(100vh - 3rem)" title="Nhập danh sách bò từ Excel" sub={`Thêm nhiều con vào phiếu ${recordId} · chỉ dòng hợp lệ được thêm`} onClose={onClose}>
+    <Modal top={24} width={840} maxHeight="calc(100dvh - 3rem)" title="Nhập danh sách bò từ Excel" sub={`Thêm nhiều con vào phiếu ${recordId} · chỉ dòng hợp lệ được thêm`} onClose={onClose}>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="m-0 text-[13px] font-semibold">1. Tải file mẫu</h3>
