@@ -23,7 +23,7 @@ export function loadLocalStressConfig(): LocalStressConfig {
   try {
     const value = JSON.parse(window.localStorage.getItem(LOCAL_STRESS_KEY) || 'null') as Partial<LocalStressConfig> | null
     return {
-      enabled: Boolean(value?.enabled),
+      enabled: value?.enabled ?? defaultConfig.enabled,
       rowsPerTable: Math.min(1000, Math.max(50, Math.round(Number(value?.rowsPerTable) || 100))),
       seed: Number.isFinite(Number(value?.seed)) ? Number(value?.seed) : defaultConfig.seed,
     }

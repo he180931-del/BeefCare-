@@ -1,5 +1,6 @@
 import { createCollection, type NewCollectionInput } from '../../../api/client'
 import { cancelCattleExit, confirmCattleExit } from '../../../api/herdDomainApi'
+import { expandLocalTable, isStressGenerated, type StressGeneratedRow } from '../../../app/localStressData'
 import { initialExports } from '../data/exportsData'
 import { errorMessage } from '../../../api/herdDomainApi'
 import { herdExitSchema } from '../../../api/collectionSchemas'
@@ -12,6 +13,54 @@ const nextExitId = (rows: HerdExit[]): string => {
 
 const herdExits = createCollection('herdExits', initialExports, { schema: herdExitSchema, nextId: nextExitId })
 const terminalStatuses = new Set(['Đã xuất', 'Đã hủy', 'Đã bác'])
+const completedTemplate = initialExports.find((row) => row.id === 'PX-2026-0007') ?? initialExports[0]
+
+const stressExit = (row: HerdExit & StressGeneratedRow): HerdExit => {
+  if (!isStressGenerated(row)) return row
+  const sequence = (row.__stressIndex ?? 0) + 1
+  const count = 1 + (sequence % 5)
+  const unitPrice = 88_000 + (sequence % 6) * 1_000
+  const cows = Array.from({ length: count }, (_, index) => {
+    const weight = 315 + ((sequence * 17 + index * 11) % 58)
+    return {
+      code: `BC-X${String(sequence).padStart(4, '0')}-${index + 1}`,
+      tag: `VN-X${String(sequence * 10 + index).padStart(5, '0')}`,
+      breed: ['Zebu đỏ · Đực', 'Lai Sind · Đực', 'Brahman lai · Đực'][(sequence + index) % 3],
+      weight,
+      barn: ['B1 – Vỗ béo', 'C1 – Bò tơ'][(sequence + index) % 2],
+      amount: weight * unitPrice,
+    }
+  })
+  const totalWeight = cows.reduce((sum, cow) => sum + cow.weight, 0)
+  const total = cows.reduce((sum, cow) => sum + cow.amount, 0)
+  const day = String(1 + (sequence % 28)).padStart(2, '0')
+  const buyer = ['Lò mổ Hà Đông', 'HTX chăn nuôi Ba Vì', 'Thương lái Nguyễn Văn Phúc – Sơn Tây'][sequence % 3]
+  const detail = completedTemplate.detail && !completedTemplate.detail.death ? {
+    ...completedTemplate.detail,
+    buyer,
+    cows,
+    cowsTotal: total,
+    payments: [{ date: `${day}/10/2026`, by: 'Nguyễn Văn Hùng', method: sequence % 2 ? 'Chuyển khoản' : 'Tiền mặt', ref: `PX-STRESS-${sequence}`, amount: total }],
+    history: [`${day}/10 07:30 · Nguyễn Văn Hùng xác nhận xuất ${count} con`, `${day}/10 07:31 · Hệ thống hoàn tất cập nhật đàn và chuồng`],
+  } : undefined
+  return {
+    ...row,
+    date: `2026-10-${day}`,
+    type: 'Bán',
+    who: buyer,
+    sub: `${count} con · dữ liệu mô phỏng tải lớn`,
+    count,
+    weight: `${totalWeight.toLocaleString('vi-VN')} kg`,
+    total,
+    due: 0,
+    dueNote: undefined,
+    status: 'Đã xuất',
+    draft: undefined,
+    detail,
+  }
+}
+
+const expandedHerdExits = async (): Promise<HerdExit[]> => expandLocalTable('herd-exit-vouchers', await herdExits.list()).map(stressExit)
 
 const getExisting = async (id: string): Promise<HerdExit | null> => {
   try {
@@ -23,8 +72,20 @@ const getExisting = async (id: string): Promise<HerdExit | null> => {
 }
 
 export const herdExitApi = {
-  list: (predicate?: (row: HerdExit) => boolean) => herdExits.list(predicate),
-  get: (id: string) => herdExits.get(id),
+  list: async (predicate?: (row: HerdExit) => boolean) => {
+    const rows = await expandedHerdExits()
+    return predicate ? rows.filter(predicate) : rows
+  },
+  get: async (id: string) => {
+    try {
+      return await herdExits.get(id)
+    } catch (error) {
+      if (!errorMessage(error).startsWith('Not found:')) throw error
+      const row = (await expandedHerdExits()).find((item) => item.id === id)
+      if (row) return row
+      throw error
+    }
+  },
   create: (record: NewCollectionInput<HerdExit, 'id'>) => herdExits.create(record),
   update: async (id: string, patch: Partial<HerdExit>) => {
     const current = await herdExits.get(id)

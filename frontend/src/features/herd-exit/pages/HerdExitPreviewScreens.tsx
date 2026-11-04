@@ -1,6 +1,12 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { ReviewState } from "../../../app/fixtureSession";
+import {
+  expandLocalTable,
+  isStressGenerated,
+  stripStressRows,
+  type StressGeneratedRow,
+} from "../../../app/localStressData";
 import type { ScreenDefinition, ScreenRole } from "../../../app/screenManifest";
 import {
   Badge,
@@ -476,7 +482,7 @@ const normalizeVoucher = (row: Record<string, unknown>): ExitVoucher => {
   };
 };
 const CANONICAL_KEY = "herd-exit-vouchers-v2";
-const loadVouchers = (): ExitVoucher[] => {
+const storedVouchers = (): ExitVoucher[] => {
   const canonical = accountRead<unknown[]>(CANONICAL_KEY, []);
   if (canonical.length)
     return canonical
@@ -498,7 +504,77 @@ const loadVouchers = (): ExitVoucher[] => {
   accountWrite(CANONICAL_KEY, seeded);
   return seeded;
 };
-const saveVouchers = (rows: ExitVoucher[]) => accountWrite(CANONICAL_KEY, rows);
+const stressVoucher = (
+  row: ExitVoucher & StressGeneratedRow,
+): ExitVoucher & StressGeneratedRow => {
+  if (!isStressGenerated(row)) return row;
+  const sequence = (row.__stressIndex ?? 0) + 1;
+  const lineCount = 1 + (sequence % 4);
+  const unitPrice = 88_000 + (sequence % 6) * 1_000;
+  const lines: ExitLine[] = Array.from({ length: lineCount }, (_, index) => {
+    const exitWeightKg = 315 + ((sequence * 17 + index * 11) % 58);
+    return {
+      cattleCode: `BC-X${String(sequence).padStart(4, "0")}-${index + 1}`,
+      tag: `VN-X${String(sequence * 10 + index).padStart(5, "0")}`,
+      breed: ["Zebu đỏ", "Lai Sind", "Brahman lai"][(sequence + index) % 3],
+      sex: "Đực",
+      exitWeightKg,
+      weightBasis: (sequence + index) % 5 === 0 ? "ESTIMATED" : "MEASURED",
+      lastPen: (sequence + index) % 2 ? "B1" : "C1",
+      unitPrice,
+      amount: exitWeightKg * unitPrice,
+      herdStatus: "EXITED",
+    };
+  });
+  const total = lines.reduce((sum, line) => sum + line.amount, 0);
+  const day = String(1 + (sequence % 28)).padStart(2, "0");
+  const buyer = [
+    "Lò mổ Hà Đông",
+    "HTX chăn nuôi Ba Vì",
+    "Thương lái Nguyễn Văn Phúc – Sơn Tây",
+  ][sequence % 3];
+  return {
+    ...row,
+    type: "SALE",
+    date: `2026-10-${day}`,
+    status: "CONFIRMED",
+    buyer,
+    buyerPhone: sequence % 2 ? "0243 555 018" : "0987 654 321",
+    certificate: `KD-HN-2026-${String(4400 + sequence).padStart(6, "0")}`,
+    vehicle: `29C-${String(700 + sequence).padStart(3, "0")}.${String(sequence % 100).padStart(2, "0")}`,
+    note: "Dữ liệu mô phỏng tải lớn · đã cân tại trại",
+    deductions: 0,
+    pricingBasis: "PER_KG",
+    attachments: [],
+    evidence: [],
+    lines,
+    collections: [
+      {
+        id: `collect-stress-${sequence}`,
+        date: `2026-10-${day}`,
+        amount: total,
+        method: sequence % 2 ? "BANK" : "CASH",
+        reference: `PX-STRESS-${sequence}`,
+        recordedBy: "Nguyễn Văn Hùng",
+        status: "ACTIVE",
+      },
+    ],
+    history: [
+      `${day}/10/2026 · Xác nhận xuất ${lineCount} con`,
+      `${day}/10/2026 · Hoàn tất cập nhật đàn và chuồng`,
+    ],
+    version: 1,
+    createdBy: "Nguyễn Văn Hùng",
+    createdAt: `2026-10-${day}T07:15:00+07:00`,
+    confirmedBy: "Nguyễn Văn Hùng",
+    confirmedAt: `2026-10-${day}T07:30:00+07:00`,
+    updatedAt: `2026-10-${day}T07:30:00+07:00`,
+  };
+};
+const loadVouchers = (): ExitVoucher[] =>
+  expandLocalTable("herd-exit-preview", storedVouchers()).map(stressVoucher);
+const saveVouchers = (rows: ExitVoucher[]) =>
+  accountWrite(CANONICAL_KEY, stripStressRows(rows));
 const readCattle = (): CowSeed[] => {
   const rows = accountRead<unknown[]>("cattle-preview", []);
   const base = (rows.length ? rows : initialCows) as CowSeed[];
