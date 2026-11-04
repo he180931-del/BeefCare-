@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ReviewState } from '../../../app/fixtureSession'
 import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
+import { expandLocalTable, isStressGenerated } from '../../../app/localStressData'
 import { Badge, Button, Field, Info, inputCls, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { EmptyState, FilterBar, FixtureNotice, InlineMessage, LoadingState, SummaryStrip, WorkSection } from '../../../components/workspace'
 import { initialCows, MANAGER, type CowSeed } from '../../../data/cowsData'
@@ -49,7 +50,13 @@ function write(key: string, value: unknown) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...root, account: { ...(root.account || {}), [key]: value } }))
 }
 const editable = (role?: ScreenRole) => role === 'manager'
-const cows = () => read<CowSeed[]>('cattle-preview', initialCows)
+const generatedTag = (code: string) => `TAI-${code.replace(/\D/g, '').slice(-6).padStart(6, '0')}`
+const cows = () => expandLocalTable('growth-cattle', read<CowSeed[]>('cattle-preview', initialCows)).map((cow) => isStressGenerated(cow) ? {
+  ...cow,
+  status: 'ACTIVE' as const,
+  name: `Bò ${cow.code}`,
+  tag: generatedTag(cow.code),
+} : cow)
 const todayInput = () => { const now = new Date(); const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000); return local.toISOString().slice(0, 16) }
 
 function parseDate(value: unknown): Date | null {

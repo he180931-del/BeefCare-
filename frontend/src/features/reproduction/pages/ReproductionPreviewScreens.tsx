@@ -5,11 +5,9 @@ import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
 import { Badge, Button, Card, Field, Info, inputCls, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { EmptyState, FilterBar, InlineMessage, LoadingState, SummaryStrip, WorkSection } from '../../../components/workspace'
 import { initialCows, type CowSeed } from '../../../data/cowsData'
-import { type ReproEvent, type ReproductionState, femaleApplies, formatDate, latest, readReproductionState, reconcileReminders, selectCow, selectedCowCode, statusFor, statusLabel, validFor, writeReproductionState } from '../reproductionStore'
+import { type ReproEvent, type ReproductionState, femaleApplies, formatDate, latest, readReproductionCows, readReproductionState, reconcileReminders, selectCow, selectedCowCode, statusFor, statusLabel, validFor, writeReproductionState } from '../reproductionStore'
 
-const readCows = (): CowSeed[] => {
-  try { const root = JSON.parse(window.localStorage.getItem('beefcare-ui-demo') || '{}') as { account?: { 'cattle-preview'?: CowSeed[] } }; return root.account?.['cattle-preview'] || initialCows } catch { return initialCows }
-}
+const readCows = (): CowSeed[] => readReproductionCows()
 const toneFor = (status: ReturnType<typeof statusFor>) => status === 'PREGNANT' ? 'info' : status === 'IN_ESTRUS' ? 'warn' : status === 'NOT_APPLICABLE' ? 'outline' : 'ok'
 const canEdit = (role?: ScreenRole, state?: ReviewState) => role === 'manager' && state !== 'read-only'
 const dataSources = [['DIRECT', 'Quan sát trực tiếp'], ['FARM_NOTEBOOK', 'Sổ theo dõi tại trại'], ['EXTERNAL', 'Báo cáo bên ngoài']]

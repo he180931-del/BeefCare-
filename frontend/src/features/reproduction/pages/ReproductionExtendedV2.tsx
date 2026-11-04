@@ -5,9 +5,9 @@ import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
 import { Badge, Button, Card, Field, Info, inputCls, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { FixtureNotice, InlineMessage, LoadingState, WorkSection } from '../../../components/workspace'
 import { initialCows, type CowSeed } from '../../../data/cowsData'
-import { type CalfOutcome, type CalvingRecord, type PregnancyCheck, type PregnancyResult, type PregnancyUpdate, type PregnancyUpdateType, femaleApplies, formatDate, latest, nowDateTimeInput, openPregnancyFor, readReproductionState, reconcileReminders, selectedCowCode, validFor, writeReproductionState } from '../reproductionStore'
+import { type CalfOutcome, type CalvingRecord, type PregnancyCheck, type PregnancyResult, type PregnancyUpdate, type PregnancyUpdateType, femaleApplies, formatDate, latest, nowDateTimeInput, openPregnancyFor, readReproductionCows, readReproductionState, reconcileReminders, selectedCowCode, validFor, writeReproductionState } from '../reproductionStore'
 
-const readCows = (): CowSeed[] => { try { const root = JSON.parse(window.localStorage.getItem('beefcare-ui-demo') || '{}') as { account?: { 'cattle-preview'?: CowSeed[] } }; return root.account?.['cattle-preview'] || initialCows } catch { return initialCows } }
+const readCows = (): CowSeed[] => readReproductionCows()
 const selectedCow = (cows: CowSeed[]): CowSeed => cows.find((cow) => cow.code === selectedCowCode()) || cows.find(femaleApplies) || cows[0] || initialCows[0]
 const canEdit = (role?: ScreenRole, state?: ReviewState) => role === 'manager' && state !== 'read-only'
 const roleMessage = 'Chỉ Quản lý được ghi nhận hoặc điều chỉnh sự kiện. Chủ trại và Kỹ thuật viên có quyền xem.'

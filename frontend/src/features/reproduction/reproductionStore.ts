@@ -1,4 +1,5 @@
-import type { CowSeed } from '../../data/cowsData'
+import { expandLocalTable, isStressGenerated } from '../../app/localStressData'
+import { initialCows, type CowSeed } from '../../data/cowsData'
 
 export const REPRO_STORAGE_KEY = 'reproduction-state'
 const ROOT_KEY = 'beefcare-ui-demo'
@@ -153,6 +154,22 @@ const blankState = (): ReproductionState => ({ events: [], checks: [], pregnancy
 
 const storedRoot = (): Record<string, any> => {
   try { return JSON.parse(window.localStorage.getItem(ROOT_KEY) || '{}') as Record<string, any> } catch { return {} }
+}
+
+const generatedTag = (code: string) => `TAI-${code.replace(/\D/g, '').slice(-6).padStart(6, '0')}`
+
+export function readReproductionCows(): CowSeed[] {
+  if (typeof window === 'undefined') return initialCows
+  const raw = (storedRoot().account?.['cattle-preview'] as CowSeed[] | undefined) || initialCows
+  return expandLocalTable('reproduction-cattle', raw).map((cow) => isStressGenerated(cow) ? {
+    ...cow,
+    sex: 'Cái',
+    status: 'ACTIVE',
+    purpose: 'Sinh sản',
+    stage: 'Bò cái sinh sản',
+    name: `Bò cái ${cow.code}`,
+    tag: generatedTag(cow.code),
+  } : cow)
 }
 
 export function readReproductionState(): ReproductionState {
