@@ -81,12 +81,12 @@ function useCooldown(scope: string, seconds = 60) {
 function Page({ screen, readOnly, sub, actions, children, narrow = false }: {
   screen: ScreenDefinition; readOnly: boolean; sub: string; actions?: ReactNode; children: ReactNode; narrow?: boolean
 }) {
-  if (narrow) return <div className="mx-auto grid w-full max-w-5xl overflow-hidden rounded-xl border border-field bg-white shadow-[0_18px_60px_rgba(16,78,55,.08)] md:min-h-[620px] md:grid-cols-[minmax(230px,.72fr)_minmax(0,1.28fr)]">
-    <aside className="relative overflow-hidden bg-side px-6 py-7 text-white sm:px-8 md:flex md:flex-col md:justify-between">
+  if (narrow) return <div className="grid min-h-screen w-full bg-white lg:grid-cols-[minmax(360px,520px)_minmax(0,1fr)]">
+    <aside className="relative hidden overflow-hidden bg-side px-8 py-8 text-white lg:flex lg:flex-col lg:justify-between">
       <div><p className="m-0 text-xl font-bold">BeefCare</p><p className="mb-0 mt-3 max-w-xs text-sm leading-6 text-[#d7ebdf]">Ghi nhận ngay tại chuồng. Theo dõi rõ cả vòng đời đàn bò.</p></div>
       <div className="mt-6 hidden md:block"><div className="rounded-lg bg-white/10 p-4"><p className="m-0 text-xs font-semibold text-[#d7ebdf]">HÔM NAY TẠI TRẠI</p><p className="mb-0 mt-2 text-3xl font-bold">184 con</p><div className="mt-4 grid grid-cols-2 gap-3 text-xs"><span>6 việc đến hạn</span><span>3 chuồng cần xem</span><span>12 hồ sơ mới</span><span>98% dữ liệu đủ</span></div></div><p className="mb-0 mt-5 text-xs leading-5 text-[#d7ebdf]">Dùng tốt trên điện thoại và máy tính bảng, không cần cài ứng dụng.</p></div>
     </aside>
-    <section className="flex min-w-0 flex-col gap-6 px-5 py-7 sm:px-9 sm:py-10"><PageHeader title={screen.viTitle} sub={sub} badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : <FixtureNotice />}>{actions}</PageHeader>{children}</section>
+    <section className="flex min-w-0 items-center bg-page px-5 py-7 sm:px-10 lg:px-14"><div className="mx-auto flex w-full max-w-[620px] flex-col gap-6"><div className="mb-1 text-xl font-bold text-brand lg:hidden">BeefCare</div><PageHeader title={screen.viTitle} sub={sub} badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : <FixtureNotice />}>{actions}</PageHeader>{children}</div></section>
   </div>
   return <div className="flex w-full flex-col gap-6"><PageHeader title={screen.viTitle} sub={sub} badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : <FixtureNotice />}>{actions}</PageHeader>{children}</div>
 }

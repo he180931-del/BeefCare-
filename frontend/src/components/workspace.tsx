@@ -22,7 +22,7 @@ export function WorkSection({ title, description, actions, children, className, 
 }
 
 export function FilterBar({ children, actions, className }: { children: ReactNode; actions?: ReactNode; className?: string }) {
-  return <div className={cx('mb-4 flex min-w-0 flex-wrap items-end gap-3 border-b border-rule pb-3', className)}><div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">{children}</div>{actions && <div className="flex flex-wrap gap-2">{actions}</div>}</div>
+  return <div className={cx('mb-4 flex min-w-0 flex-wrap items-end gap-3 border-b border-rule pb-3', className)}><div className="grid min-w-0 flex-1 grid-cols-2 items-end gap-2 [&>*]:min-w-0 [&>*]:max-w-full [&>*:first-child]:col-span-2 sm:flex sm:flex-wrap sm:gap-3 sm:[&>*]:w-auto sm:[&>*]:min-w-[150px] sm:[&>*]:flex-[0_1_210px] sm:[&>*:first-child]:flex-[1_1_260px]">{children}</div>{actions && <div className="flex flex-wrap gap-2">{actions}</div>}</div>
 }
 
 export function SummaryStrip({ items, className }: { items: Array<{ label: ReactNode; value: ReactNode; note?: ReactNode }>; className?: string }) {
