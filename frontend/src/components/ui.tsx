@@ -144,10 +144,10 @@ export function Info({ items, cols = 3 }: { items: Array<ReadonlyArray<unknown>>
   )
 }
 
-// Bảng không cuộn ngang: khi khung chứa hẹp hơn ngưỡng, mỗi dòng chuyển thành thẻ xếp dọc
-// (nhãn lấy từ tiêu đề cột). Ngưỡng theo container, không theo màn hình.
+// Giữ dạng bảng lâu hơn ở tablet để tránh mỗi dòng bị kéo thành một khối rất cao.
+// Chỉ xếp dọc khi khung thực sự hẹp; bảng `scroll` vẫn cuộn trong chính khung, không làm tràn trang.
 const STACK = {
-  wide: '@max-[900px]:block @max-[900px]:[&_thead]:hidden @max-[900px]:[&_tbody]:block @max-[900px]:[&_tfoot]:block @max-[900px]:[&_tr]:block @max-[900px]:[&_tr:not(:last-child)]:border-b @max-[900px]:[&_tr]:border-rule @max-[900px]:[&_td]:grid @max-[900px]:[&_td]:grid-cols-[minmax(112px,0.32fr)_minmax(0,1fr)] @max-[900px]:[&_td]:items-start @max-[900px]:[&_td]:gap-4 @max-[900px]:[&_td]:border-b-0 @max-[900px]:[&_td>*]:col-start-2 @max-[900px]:[&_td]:before:content-[attr(data-label)] @max-[900px]:[&_td]:before:text-xs @max-[900px]:[&_td]:before:font-semibold @max-[900px]:[&_td]:before:text-muted @max-[900px]:[&_td:empty]:hidden',
+  wide: '@max-[760px]:block @max-[760px]:[&_thead]:hidden @max-[760px]:[&_tbody]:block @max-[760px]:[&_tfoot]:block @max-[760px]:[&_tr]:block @max-[760px]:[&_tr:not(:last-child)]:border-b @max-[760px]:[&_tr]:border-rule @max-[760px]:[&_td]:grid @max-[760px]:[&_td]:grid-cols-[minmax(112px,0.32fr)_minmax(0,1fr)] @max-[760px]:[&_td]:items-start @max-[760px]:[&_td]:gap-4 @max-[760px]:[&_td]:border-b-0 @max-[760px]:[&_td>*]:col-start-2 @max-[760px]:[&_td]:before:content-[attr(data-label)] @max-[760px]:[&_td]:before:text-xs @max-[760px]:[&_td]:before:font-semibold @max-[760px]:[&_td]:before:text-muted @max-[760px]:[&_td:empty]:hidden',
   normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr:not(:last-child)]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:grid @max-[640px]:[&_td]:grid-cols-[minmax(96px,0.36fr)_minmax(0,1fr)] @max-[640px]:[&_td]:items-start @max-[640px]:[&_td]:gap-3 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td>*]:col-start-2 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-xs @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
 }
 
@@ -207,7 +207,7 @@ export function Table({ children, wide, scroll, stack = true, bordered = false, 
         <table
           ref={ref}
           data-stack={wide ? 'wide' : 'normal'}
-          className={cx('beefcare-table w-full border-collapse', scroll && !stack && 'min-w-[620px]', stack && STACK[wide ? 'wide' : 'normal'])}
+          className={cx('beefcare-table w-full border-collapse', scroll && wide && 'min-w-[860px]', scroll && !wide && !stack && 'min-w-[620px]', stack && STACK[wide ? 'wide' : 'normal'])}
         >
           {renderedSections}
         </table>

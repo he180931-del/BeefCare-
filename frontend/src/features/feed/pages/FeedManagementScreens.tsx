@@ -39,6 +39,8 @@ import {
   type FeedUnit,
   type FeedVoucher,
 } from "../feedStore";
+import { isStressGenerated } from "../../../app/localStressData";
+import { previewFeedStore } from "../feedPreviewData";
 
 const money = (value: number) =>
   `${Math.round(value).toLocaleString("vi-VN")} đ`;
@@ -202,7 +204,7 @@ function Stock({
   state?: ReviewState;
 }) {
   const navigate = useNavigate();
-  const [store, setStore] = useState<FeedStore>(() => loadFeedStore());
+  const [store] = useState<FeedStore>(() => previewFeedStore(loadFeedStore()));
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("ALL");
   const [status, setStatus] = useState("ALL");
@@ -430,7 +432,7 @@ function Stock({
                       <Td className="whitespace-nowrap">
                         <Button
                           small
-                          disabled={!canWrite(role, state)}
+                          disabled={!canWrite(role, state) || isStressGenerated(item)}
                           onClick={() =>
                             navigate(`/ui/scr-113?feedId=${item.id}`)
                           }
@@ -439,6 +441,7 @@ function Stock({
                         </Button>{" "}
                         <Button
                           small
+                          disabled={isStressGenerated(item)}
                           onClick={() =>
                             setMovement(movement === item.id ? null : item.id)
                           }
@@ -516,7 +519,7 @@ function Receipts({
   state?: ReviewState;
 }) {
   const navigate = useNavigate();
-  const [store, setStore] = useState<FeedStore>(() => loadFeedStore());
+  const [store, setStore] = useState<FeedStore>(() => previewFeedStore(loadFeedStore()));
   const [tab, setTab] = useState<FeedStatus | "ALL">("ALL");
   const [supplier, setSupplier] = useState("ALL");
   const [from, setFrom] = useState(previousMonthStart);
@@ -580,7 +583,7 @@ function Receipts({
           trimmed,
           action.row.version,
         );
-      setStore(loadFeedStore());
+      setStore(previewFeedStore(loadFeedStore()));
       closeAction();
     } catch (cause) {
       setActionError(
@@ -700,8 +703,9 @@ function Receipts({
                     <tr>
                       <Td>
                         <button
-                          className="font-semibold text-brand"
-                          onClick={() => navigate(`/ui/scr-113?id=${row.id}`)}
+                          className="font-semibold text-brand disabled:cursor-default disabled:text-subtle"
+                          disabled={isStressGenerated(row)}
+                          onClick={() => !isStressGenerated(row) && navigate(`/ui/scr-113?id=${row.id}`)}
                         >
                           {row.code}
                         </button>
@@ -759,6 +763,7 @@ function Receipts({
                         {row.status !== "DRAFT" && (
                           <Button
                             small
+                            disabled={isStressGenerated(row)}
                             onClick={() => navigate(`/ui/scr-113?id=${row.id}`)}
                           >
                             Xem
@@ -767,7 +772,7 @@ function Receipts({
                         {row.status === "POSTED" && row.outstanding > 0 && (
                           <Button
                             small
-                            disabled={!canWrite(role, state)}
+                            disabled={!canWrite(role, state) || isStressGenerated(row)}
                             onClick={() =>
                               navigate(
                                 `/ui/scr-107?id=${row.id}&kind=FEED&returnTarget=/ui/scr-112`,
@@ -780,7 +785,7 @@ function Receipts({
                         {row.status === "POSTED" && (
                           <Button
                             small
-                            disabled={!canWrite(role, state)}
+                            disabled={!canWrite(role, state) || isStressGenerated(row)}
                             onClick={(event) =>
                               openAction(
                                 { type: "voucher", row },
