@@ -1,6 +1,7 @@
 import { loadOrders, loadPaymentIntents, type FarmSubscription } from '../subscription/subscriptionStore'
 import { loadServicePeriods } from '../platform-service/platformServiceStore'
 import { accountMembers, permissionRows } from '../account/data/accountFixtures'
+import { loadLocalStressConfig } from '../../app/localStressData'
 
 export type SupportCategory = 'ACCOUNT_ACCESS' | 'PAYMENT' | 'FARM_SERVICE' | 'SYSTEM_USAGE' | 'OTHER'
 export type SupportScope = 'FARM' | 'ACCOUNT'
@@ -111,6 +112,7 @@ export const SUPPORT_KEYS = {
   audit: 'support.audit',
   internalRequests: 'support.internalRequests',
   selection: 'support.selection',
+  stressSeed: 'support.stressSeed',
 } as const
 
 export const DEMO_OWNER_ID = 'owner-demo'
@@ -217,7 +219,103 @@ const defaultInternalRequests: SupportInternalRequest[] = [
   { id: 'internal-198-1', code: 'IR-047', ticketId: 'ticket-198', targetRole: 'pm', recipientId: 'pm-quang', recipientName: 'PM Quang', question: 'Đối soát lại thanh toán của yêu cầu TK-0198.', contextLinks: ['TK-0198', 'farm-moc-chau'], status: 'DONE', createdAt: '2026-11-01T04:00:00.000Z', createdBy: 'CS Mai', updatedAt: '2026-11-02T07:00:00.000Z', resultOutcome: 'PERFORMED', resultText: 'Đã xác nhận giao dịch và cập nhật kỳ dịch vụ.', resultReference: 'PAY-771' },
 ]
 
+function ensureSupportStressData() {
+  const config = loadLocalStressConfig()
+  if (!config.enabled || typeof window === 'undefined') return
+  const seeded = readSupport<boolean>(SUPPORT_KEYS.stressSeed, false)
+  if (seeded) return
+
+  const sourceTickets = readSupport<SupportTicket[] | null>(SUPPORT_KEYS.tickets, null) ?? defaultTickets
+  const sourceMessages = readSupport<SupportMessage[] | null>(SUPPORT_KEYS.messages, null) ?? defaultMessages
+  const sourceAssignments = readSupport<SupportAssignment[] | null>(SUPPORT_KEYS.assignments, null) ?? defaultAssignments
+  const sourceResolutions = readSupport<SupportResolution[] | null>(SUPPORT_KEYS.resolutions, null) ?? defaultResolutions
+  const sourceAudit = readSupport<SupportAuditEntry[] | null>(SUPPORT_KEYS.audit, null) ?? defaultAudit
+  const sourceRequests = readSupport<SupportInternalRequest[] | null>(SUPPORT_KEYS.internalRequests, null) ?? defaultInternalRequests
+  const target = config.rowsPerTable
+  const tickets = [...sourceTickets]
+  const messages = [...sourceMessages]
+  const assignments = [...sourceAssignments]
+  const resolutions = [...sourceResolutions]
+  const audit = [...sourceAudit]
+  const internalRequests = [...sourceRequests]
+  const statuses: SupportStatus[] = ['OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'RESOLVED', 'CLOSED']
+  const categories: SupportCategory[] = ['SYSTEM_USAGE', 'PAYMENT', 'FARM_SERVICE', 'ACCOUNT_ACCESS', 'OTHER']
+  const priorities: SupportPriority[] = ['Normal', 'High', 'Low']
+  const farmRows = farms()
+
+  for (let index = tickets.length; index < target; index += 1) {
+    const number = index + 201
+    const id = `ticket-stress-${String(number).padStart(4, '0')}`
+    const status = statuses[index % statuses.length]
+    const category = categories[index % categories.length]
+    const priority = priorities[index % priorities.length]
+    const farm = farmRows[index % Math.max(farmRows.length, 1)]
+    const createdAt = new Date(Date.UTC(2026, 9, 1) + index * 3_600_000).toISOString()
+    const updatedAt = new Date(new Date(createdAt).getTime() + (index % 48 + 1) * 3_600_000).toISOString()
+    const ticket: SupportTicket = {
+      id,
+      code: `TK-${String(number).padStart(4, '0')}`,
+      requesterId: DEMO_OWNER_ID,
+      requesterName: 'Nguyễn Văn Hùng',
+      requesterEmail: DEMO_OWNER_EMAIL,
+      subject: `${['Cần hỗ trợ mã QR', 'Đối soát thanh toán', 'Cập nhật dịch vụ trại', 'Phân quyền thành viên', 'Hướng dẫn sử dụng'][index % 5]} · ${number}`,
+      description: `Yêu cầu mô phỏng số ${number} dùng để kiểm tra danh sách, bộ lọc và luồng xử lý hỗ trợ.`,
+      category,
+      scope: category === 'ACCOUNT_ACCESS' ? 'ACCOUNT' : 'FARM',
+      farmId: category === 'ACCOUNT_ACCESS' ? undefined : farm?.id,
+      farmName: category === 'ACCOUNT_ACCESS' ? undefined : farm?.name,
+      priority,
+      status,
+      createdAt,
+      updatedAt,
+      slaDueAt: new Date(new Date(createdAt).getTime() + 24 * 3_600_000).toISOString(),
+      firstResponseAt: status === 'OPEN' ? undefined : new Date(new Date(createdAt).getTime() + 2 * 3_600_000).toISOString(),
+      acknowledgedResolutionVersion: status === 'CLOSED' ? 1 : undefined,
+    }
+    tickets.push(ticket)
+    messages.push({ id: `message-${id}-1`, ticketId: id, visibility: 'PUBLIC', authorType: 'OWNER', authorName: 'Bạn', createdAt, content: ticket.description })
+    if (status !== 'OPEN') {
+      messages.push({ id: `message-${id}-2`, ticketId: id, visibility: 'PUBLIC', authorType: 'CS', authorName: index % 2 ? 'CS Linh' : 'CS Mai', createdAt: ticket.firstResponseAt || updatedAt, content: 'Đã tiếp nhận và đang xử lý yêu cầu.' })
+    }
+    assignments.push({ id: `assignment-${id}`, ticketId: id, assigneeId: status === 'OPEN' ? undefined : index % 2 ? 'cs-linh' : 'cs-mai', assigneeName: status === 'OPEN' ? undefined : index % 2 ? 'CS Linh' : 'CS Mai', assignedAt: status === 'OPEN' ? undefined : ticket.firstResponseAt })
+    if (status === 'RESOLVED' || status === 'CLOSED') {
+      resolutions.push({ id: `resolution-${id}-v1`, ticketId: id, version: 1, csName: index % 2 ? 'CS Linh' : 'CS Mai', createdAt: updatedAt, text: 'Đã kiểm tra dữ liệu và hoàn tất phương án xử lý cho yêu cầu mô phỏng.' })
+    }
+    audit.push({ id: `audit-${id}-created`, ticketId: id, action: 'CREATED', at: createdAt, actor: 'Bạn', toStatus: 'OPEN' })
+  }
+
+  for (let index = internalRequests.length; index < target; index += 1) {
+    const ticket = tickets.find((item) => item.status === 'IN_PROGRESS' || item.status === 'WAITING_CUSTOMER') ?? tickets[index % tickets.length]
+    const done = index % 3 !== 0
+    internalRequests.push({
+      id: `internal-stress-${String(index + 1).padStart(4, '0')}`,
+      code: `IR-${String(index + 51).padStart(3, '0')}`,
+      ticketId: ticket.id,
+      targetRole: index % 2 ? 'pm' : 'sa',
+      recipientId: index % 2 ? 'pm-quang' : 'sa-minh',
+      recipientName: index % 2 ? 'PM Quang' : 'SA Minh',
+      question: `Kiểm tra dữ liệu liên quan đến ${ticket.code}.`,
+      contextLinks: [ticket.code, ticket.farmId || 'ACCOUNT'],
+      status: done ? 'DONE' : 'OPEN',
+      createdAt: ticket.createdAt,
+      createdBy: index % 2 ? 'CS Linh' : 'CS Mai',
+      updatedAt: done ? ticket.updatedAt : undefined,
+      resultOutcome: done ? 'UNABLE' : undefined,
+      resultText: done ? 'Đã rà soát và phản hồi cho nhân viên hỗ trợ.' : undefined,
+    })
+  }
+
+  writeSupport(SUPPORT_KEYS.tickets, tickets)
+  writeSupport(SUPPORT_KEYS.messages, messages)
+  writeSupport(SUPPORT_KEYS.assignments, assignments)
+  writeSupport(SUPPORT_KEYS.resolutions, resolutions)
+  writeSupport(SUPPORT_KEYS.audit, audit)
+  writeSupport(SUPPORT_KEYS.internalRequests, internalRequests)
+  writeSupport(SUPPORT_KEYS.stressSeed, true)
+}
+
 export function loadSupportTickets() {
+  ensureSupportStressData()
   const stored = readSupport<SupportTicket[] | null>(SUPPORT_KEYS.tickets, null)
   const tickets = stored ?? defaultTickets
   if (!stored) writeSupport(SUPPORT_KEYS.tickets, tickets)
@@ -225,19 +323,20 @@ export function loadSupportTickets() {
 }
 export function saveSupportTickets(value: SupportTicket[]) { if (!writeSupport(SUPPORT_KEYS.tickets, value)) throw new Error('Không thể lưu yêu cầu hỗ trợ. Hãy thử lại.'); return true }
 export function loadSupportMessages() {
+  ensureSupportStressData()
   const stored = readSupport<SupportMessage[] | null>(SUPPORT_KEYS.messages, null)
   const messages = stored ?? defaultMessages
   if (!stored) writeSupport(SUPPORT_KEYS.messages, messages)
   return messages.map((message) => ({ ...message, createdAt: iso(message.createdAt) }))
 }
 export function saveSupportMessages(value: SupportMessage[]) { if (!writeSupport(SUPPORT_KEYS.messages, value)) throw new Error('Không thể lưu trao đổi hỗ trợ. Hãy thử lại.'); return true }
-export function loadSupportAssignments() { const stored = readSupport<SupportAssignment[] | null>(SUPPORT_KEYS.assignments, null); const value = stored ?? defaultAssignments; if (!stored) writeSupport(SUPPORT_KEYS.assignments, value); return value }
+export function loadSupportAssignments() { ensureSupportStressData(); const stored = readSupport<SupportAssignment[] | null>(SUPPORT_KEYS.assignments, null); const value = stored ?? defaultAssignments; if (!stored) writeSupport(SUPPORT_KEYS.assignments, value); return value }
 export function saveSupportAssignments(value: SupportAssignment[]) { if (!writeSupport(SUPPORT_KEYS.assignments, value)) throw new Error('Không thể lưu phân công hỗ trợ. Hãy thử lại.'); return true }
-export function loadSupportResolutions() { const stored = readSupport<SupportResolution[] | null>(SUPPORT_KEYS.resolutions, null); const value = stored ?? defaultResolutions; if (!stored) writeSupport(SUPPORT_KEYS.resolutions, value); return value.map((resolution) => ({ ...resolution, createdAt: iso(resolution.createdAt) })) }
+export function loadSupportResolutions() { ensureSupportStressData(); const stored = readSupport<SupportResolution[] | null>(SUPPORT_KEYS.resolutions, null); const value = stored ?? defaultResolutions; if (!stored) writeSupport(SUPPORT_KEYS.resolutions, value); return value.map((resolution) => ({ ...resolution, createdAt: iso(resolution.createdAt) })) }
 export function saveSupportResolutions(value: SupportResolution[]) { if (!writeSupport(SUPPORT_KEYS.resolutions, value)) throw new Error('Không thể lưu kết quả xử lý. Hãy thử lại.'); return true }
-export function loadSupportAudit() { const stored = readSupport<SupportAuditEntry[] | null>(SUPPORT_KEYS.audit, null); const value = stored ?? defaultAudit; if (!stored) writeSupport(SUPPORT_KEYS.audit, value); return value.map((entry) => ({ ...entry, at: iso(entry.at) })) }
+export function loadSupportAudit() { ensureSupportStressData(); const stored = readSupport<SupportAuditEntry[] | null>(SUPPORT_KEYS.audit, null); const value = stored ?? defaultAudit; if (!stored) writeSupport(SUPPORT_KEYS.audit, value); return value.map((entry) => ({ ...entry, at: iso(entry.at) })) }
 export function saveSupportAudit(value: SupportAuditEntry[]) { if (!writeSupport(SUPPORT_KEYS.audit, value)) throw new Error('Không thể lưu lịch sử hỗ trợ. Hãy thử lại.'); return true }
-export function loadSupportInternalRequests() { const stored = readSupport<SupportInternalRequest[] | null>(SUPPORT_KEYS.internalRequests, null); const value = stored ?? defaultInternalRequests; if (!stored) writeSupport(SUPPORT_KEYS.internalRequests, value); return value.map((request) => ({ ...request, createdAt: iso(request.createdAt), updatedAt: request.updatedAt ? iso(request.updatedAt) : undefined })) }
+export function loadSupportInternalRequests() { ensureSupportStressData(); const stored = readSupport<SupportInternalRequest[] | null>(SUPPORT_KEYS.internalRequests, null); const value = stored ?? defaultInternalRequests; if (!stored) writeSupport(SUPPORT_KEYS.internalRequests, value); return value.map((request) => ({ ...request, createdAt: iso(request.createdAt), updatedAt: request.updatedAt ? iso(request.updatedAt) : undefined })) }
 export function saveSupportInternalRequests(value: SupportInternalRequest[]) { if (!writeSupport(SUPPORT_KEYS.internalRequests, value)) throw new Error('Không thể lưu yêu cầu nội bộ. Hãy thử lại.'); return true }
 export function loadSupportSelection() { return readSupport<string | null>(SUPPORT_KEYS.selection, null) }
 export function saveSupportSelection(ticketId: string) { return writeSupport(SUPPORT_KEYS.selection, ticketId) }

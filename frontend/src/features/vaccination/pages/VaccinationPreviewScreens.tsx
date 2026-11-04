@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ReviewState } from '../../../app/fixtureSession'
 import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
+import { expandLocalTable, isStressGenerated } from '../../../app/localStressData'
 import { Badge, Button, Field, Info, inputCls, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { EmptyState, FilterBar, FixtureNotice, InlineMessage, LoadingState, StickyActions, SummaryStrip, WorkSection } from '../../../components/workspace'
 import { initialCows, MANAGER, type CowSeed } from '../../../data/cowsData'
@@ -39,8 +40,12 @@ const read = <T,>(key: string, fallbackValue: T): T => (readRoot().account?.[key
 const write = (key: string, value: unknown) => { const root = readRoot(); localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...root, account: { ...(root.account || {}), [key]: value } })) }
 const clearVaccinationSelection = () => { write(SELECTED_VACCINATION, null); write(SELECTED_VACCINATIONS, []) }
 const recomputeWithdrawal = (code: string, records: Vaccination[]) => { const latest = records.filter((item) => item.code === code && item.status === 'ADMINISTERED' && (item.recordStatus || 'VALID') === 'VALID' && item.withdrawal).sort((a, b) => (a.withdrawal || '').localeCompare(b.withdrawal || '')).pop()?.withdrawal; const summary = read<Record<string, string>>('vaccination-withdrawal-summary', {}); if (latest) summary[code] = latest; else delete summary[code]; write('vaccination-withdrawal-summary', summary); write('cattle-preview', cows().map((cow) => cow.code === code ? { ...cow, withdrawalUntil: latest } : cow)) }
-const rows = () => read<Vaccination[]>('vaccination-preview', fallback())
-const cows = () => read<CowSeed[]>('cattle-preview', initialCows)
+const cows = () => expandLocalTable('vaccination-cattle', read<CowSeed[]>('cattle-preview', initialCows))
+const rows = () => {
+  const expanded = expandLocalTable('vaccination-records', read<Vaccination[]>('vaccination-preview', fallback()))
+  const cattle = cows().filter((cow) => cow.status === 'ACTIVE')
+  return expanded.map((row, index) => isStressGenerated(row) && cattle.length ? { ...row, code: cattle[index % cattle.length].code } : row)
+}
 const activeCattle = () => cows().filter((cow) => cow.status === 'ACTIVE')
 const isManager = (role?: ScreenRole) => role === 'manager'
 const localNow = () => { const now = new Date(); const pad = (value: number) => String(value).padStart(2, '0'); return { date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`, time: `${pad(now.getHours())}:${pad(now.getMinutes())}` } }

@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ReviewState } from '../../../app/fixtureSession'
 import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
+import { expandLocalTable, loadLocalStressConfig } from '../../../app/localStressData'
 import { Badge, Button, Card, Docs, Dropzone, Field, Info, inputCls, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { ActionDialog, EmptyState, FilterBar, InlineMessage, LoadingState, SummaryStrip, WorkSection } from '../../../components/workspace'
 import { initialCows, type CowSeed } from '../../../data/cowsData'
@@ -95,7 +96,60 @@ const normaliseRecord = (value: unknown): HealthRecord | undefined => {
   if (!id || !caseId || !at || !['OPEN', 'FOLLOW_UP', 'TREATMENT', 'STATUS', 'CORRECTION', 'VOID'].includes(kind)) return undefined
   return { ...row, id, caseId, kind, at, by: String(row.by || row.recordedBy || 'Không rõ'), status: row.status === 'VOIDED' ? 'VOIDED' : 'VALID', version: Number(row.version) || 1 } as HealthRecord
 }
+const ensureHealthStressData = () => {
+  const config = loadLocalStressConfig()
+  if (!config.enabled || typeof window === 'undefined' || readDemo('health-stress-seeded', false)) return
+  const rawCases = readDemo<unknown>('health-cases-preview', null)
+  const rawRecords = readDemo<unknown>('health-records-preview', readDemo<unknown>('health-events-preview', null))
+  const cases = (Array.isArray(rawCases) ? rawCases.map(normaliseCase).filter((row): row is HealthCase => Boolean(row)) : seedCases())
+  const records = (Array.isArray(rawRecords) ? rawRecords.map(normaliseRecord).filter((row): row is HealthRecord => Boolean(row)) : seedRecords())
+  const audits = readDemo<AuditEntry[]>('health-audit-preview', [])
+  const cattle = expandLocalTable('health-cattle', readDemo<CowSeed[]>('cattle-preview', initialCows))
+  const severities: Severity[] = ['MILD', 'MODERATE', 'SEVERE']
+  const statuses: CaseStatus[] = ['OPEN', 'CHRONIC', 'CLOSED']
+  const diagnoses = ['Viêm móng', 'Rối loạn tiêu hóa', 'Theo dõi hô hấp', 'Sốt nhẹ', 'Giảm ăn']
+  for (let index = cases.length; index < config.rowsPerTable; index += 1) {
+    const cow = cattle[index % cattle.length]
+    const status = statuses[index % statuses.length]
+    const openedAt = new Date(Date.UTC(2026, 8, 1) + index * 8 * 3_600_000).toISOString().slice(0, 16)
+    const id = `case-stress-${String(index + 1).padStart(4, '0')}`
+    cases.push({
+      id,
+      code: `HC-${String(index + 301).padStart(4, '0')}`,
+      cattleCode: cow.code,
+      cattleName: cow.name?.trim() || `Bò ${cow.code}`,
+      breed: cow.breed,
+      sex: cow.sex,
+      age: cow.ageLong || cow.ageShort,
+      pen: cow.barn,
+      diagnosis: diagnoses[index % diagnoses.length],
+      signs: `${['Đi khập khiễng', 'Ăn giảm', 'Ho nhẹ', 'Nhiệt độ tăng', 'Cần theo dõi thêm'][index % 5]} · ca mô phỏng ${index + 1}`,
+      severity: severities[index % severities.length],
+      status,
+      openedAt,
+      chronicSince: status === 'CHRONIC' ? openedAt.slice(0, 10) : undefined,
+      closedAt: status === 'CLOSED' ? new Date(new Date(openedAt).getTime() + 3 * 86_400_000).toISOString().slice(0, 16) : undefined,
+      outcome: status === 'CLOSED' ? 'RECOVERED' : undefined,
+      contagious: index % 11 === 0,
+      version: status === 'CLOSED' ? 2 : 1,
+    })
+  }
+  for (const item of cases) {
+    if (records.some((record) => record.caseId === item.id)) continue
+    records.push({ id: `record-open-${item.id}`, caseId: item.id, kind: 'OPEN', status: 'VALID', at: item.openedAt, by: 'Nguyễn Lan · Manager', version: 1, signs: item.signs, diagnosis: item.diagnosis, temperature: 38.5 + (records.length % 6) / 10 })
+  }
+  for (let index = audits.length; index < config.rowsPerTable; index += 1) {
+    const item = cases[index % cases.length]
+    audits.push({ id: `audit-health-${String(index + 1).padStart(4, '0')}`, at: item.openedAt, actor: 'Nguyễn Lan · Manager', action: 'OPEN_CASE', targetId: item.id, version: item.version })
+  }
+  writeDemo('health-cases-preview', cases)
+  writeDemo('health-records-preview', records)
+  writeDemo('health-events-preview', records)
+  writeDemo('health-audit-preview', audits)
+  writeDemo('health-stress-seeded', true)
+}
 const getCases = (): HealthCase[] => {
+  ensureHealthStressData()
   const raw = readDemo<unknown>('health-cases-preview', null)
   if (raw == null) return seedCases()
   const values = Array.isArray(raw) ? raw : []
@@ -104,6 +158,7 @@ const getCases = (): HealthCase[] => {
   return migrated
 }
 const getRecords = (): HealthRecord[] => {
+  ensureHealthStressData()
   const raw = readDemo<unknown>('health-records-preview', readDemo<unknown>('health-events-preview', null))
   if (raw == null) return seedRecords()
   const values = Array.isArray(raw) ? raw : []
@@ -111,7 +166,7 @@ const getRecords = (): HealthRecord[] => {
   if (migrated.length !== values.length) { writeDemo('health-records-preview', seedRecords()); writeDemo('health-events-preview', seedRecords()); return seedRecords() }
   return migrated
 }
-const getAudits = () => readDemo<AuditEntry[]>('health-audit-preview', [])
+const getAudits = () => { ensureHealthStressData(); return readDemo<AuditEntry[]>('health-audit-preview', []) }
 const saveCollections = (cases: HealthCase[], records: HealthRecord[], audits: AuditEntry[]) => {
   writeDemo('health-cases-preview', cases); writeDemo('health-records-preview', records); writeDemo('health-events-preview', records); writeDemo('health-audit-preview', audits)
   const incidents = cases.filter((item) => item.status === 'CLOSED' && (item.outcome === 'DIED' || item.outcome === 'MISSING'))

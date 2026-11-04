@@ -106,9 +106,11 @@ function PreviewContent({ screen }: { screen: ScreenDefinition }) {
   if (screen.id === 'SCR-80') {
     return session.role === 'sa' ? <PlatformScreen screen={screen} state={session.reviewState} role="sa" /> : <div role="alert" className="border-l-[3px] border-err-fg px-3 py-2.5 text-xs text-err-fg">Chỉ SA mới được xem lịch sử kiểm tra.</div>
   }
-  if (VACCINATION_SCREEN_IDS.has(screen.id) || HEALTH_PREVIEW_SCREEN_IDS.has(screen.id) || REPRO_PREVIEW_SCREEN_IDS.has(screen.id) || REPRO_EXTENDED_SCREEN_IDS.has(screen.id) || HERD_EXIT_SCREEN_IDS.has(screen.id)) {
-    return HERD_EXIT_SCREEN_IDS.has(screen.id) ? <HerdExitPreviewScreen screen={screen} role={session.role} state={session.reviewState} /> : REPRO_EXTENDED_SCREEN_IDS.has(screen.id) ? <ReproductionExtendedV2 screen={screen} role={session.role} state={session.reviewState} /> : REPRO_PREVIEW_SCREEN_IDS.has(screen.id) ? <ReproductionPreviewScreen screen={screen} role={session.role} state={session.reviewState} /> : screen.id >= 'SCR-53' ? <HealthPreviewScreen screen={screen} role={session.role} state={session.reviewState} /> : <VaccinationPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  }
+  if (HERD_EXIT_SCREEN_IDS.has(screen.id)) return <HerdExitPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
+  if (REPRO_EXTENDED_SCREEN_IDS.has(screen.id)) return <ReproductionExtendedV2 screen={screen} role={session.role} state={session.reviewState} />
+  if (REPRO_PREVIEW_SCREEN_IDS.has(screen.id)) return <ReproductionPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
+  if (HEALTH_PREVIEW_SCREEN_IDS.has(screen.id)) return <HealthPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
+  if (VACCINATION_SCREEN_IDS.has(screen.id)) return <VaccinationPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
   if (CATALOGUE_SCREEN_IDS.has(screen.id)) return <CatalogueScreen screen={screen} role={session.role} state={session.reviewState} />
   if (SUBSCRIPTION_SCREEN_IDS.has(screen.id)) return <SubscriptionScreen screen={screen} role={session.role} state={session.reviewState} />
   if (PLATFORM_SERVICE_SCREEN_IDS.has(screen.id)) return <PlatformServiceScreen screen={screen} role={session.role} state={session.reviewState} />
@@ -137,8 +139,6 @@ function PreviewContent({ screen }: { screen: ScreenDefinition }) {
     if (CATTLE_SCREEN_IDS.has(screen.id)) return <CattlePreviewScreen screen={screen} role={session.role} state={session.reviewState} />
     if (HERD_ENTRY_SCREEN_IDS.has(screen.id)) return <HerdEntryPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
   if (GROWTH_SCREEN_IDS.has(screen.id)) return <GrowthPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (VACCINATION_SCREEN_IDS.has(screen.id)) return <VaccinationPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-    if (HEALTH_PREVIEW_SCREEN_IDS.has(screen.id)) return screen.id === 'SCR-53' ? <HealthPreviewScreen screen={screen} role={session.role} state={session.reviewState} /> : <VaccinationPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
     switch (kind) {
       case 'account': return <AccountScreen screen={screen} state={session.reviewState} role={session.role} />
       case 'form': return <FormScreen screen={screen} state={session.reviewState} />
