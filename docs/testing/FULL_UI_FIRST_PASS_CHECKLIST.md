@@ -288,6 +288,7 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 
 ## Bổ sung kiểm tra ngày 06/11/2026
 
+- Hàng bảng dùng nền trắng và viền mảnh giữ nguyên, nhưng hover/focus-within nay chuyển sang xanh lục nhạt tương phản hơn (`#e1f1e8` / `#d8ede2`) để nhận biết hàng đang thao tác mà không tạo hiệu ứng loè loẹt. Kiểm tra runtime tại `SCR-80` xác nhận màu hover được áp dụng và console không có lỗi.
 - `SCR-77` không còn đưa các hàng được sinh tự động cho stress-test vào chỉ số hoặc bảng “Cần chú ý hôm nay”. Stress data vẫn phục vụ kiểm tra mật độ ở các màn danh sách, nhưng bảng tổng quan chỉ tổng hợp nhắc việc cục bộ thật và các tín hiệu phát sinh từ hồ sơ.
 - Lượt test đầu của `InsightScreens.test.tsx` kiểm tra cứng 7 dòng nhưng fixture hiện tại chỉ có 3 tín hiệu phù hợp (cộng hàng tiêu đề là 4), nên assertion được sửa để phản ánh đúng dữ liệu nghiệp vụ hiện hành và đồng thời bảo đảm không hiện nhãn hàng sinh `mẫu N`.
 - Kiểm tra runtime thủ công tại `1024px`: bảng “Cần chú ý hôm nay” hiển thị 3 cảnh báo thật (`BC-000125`, `BC-000142`, lịch sinh bê), `scrollWidth = clientWidth = 1024` và console không có lỗi; chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây không phải visual-regression tự động.

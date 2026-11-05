@@ -774,11 +774,11 @@ textarea {
 }
 
 .beefcare-table tbody tr:hover {
-  background: #eaf6ee;
+  background: #e1f1e8;
 }
 
 .beefcare-table tbody tr:focus-within {
-  background: #eaf6ee;
+  background: #d8ede2;
 }
 
 .beefcare-table td {
