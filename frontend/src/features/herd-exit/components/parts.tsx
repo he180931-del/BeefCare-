@@ -6,9 +6,9 @@ export const cx = (...c: Array<string | false | null | undefined>) => c.filter(B
 // Khoảng cách giữa các cột 8px như Figma (ghi đè px của Th/Td trong ui.tsx).
 export const TH = '!px-1 first:!pl-3 last:!pr-3'
 
-/** Thẻ Figma: viền #bdbdbd, bo 6, padding 16. */
+/** Phân đoạn xuất đàn: đường chia nhẹ, không thêm lớp card vào khung trang. */
 export const Box = ({ title, sub, actions, gap = 'gap-[10px]', className, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; gap?: string; className?: string; children: ReactNode }) => (
-  <section className={cx('flex flex-col rounded-md border border-edge bg-white p-4', gap, className)}>
+  <section className={cx('flex flex-col border-y border-rule p-4', gap, className)}>
     {(title || actions) && (
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0">

@@ -93,7 +93,7 @@ export default function BarnList() {
       {saveNotice && <div className="text-sm font-medium text-brand" role="status" aria-live="polite">{saveNotice}</div>}
 
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[560px_minmax(0,1fr)]">
-        <div className="min-w-0 rounded-md border border-[#bdbdbd] bg-white p-2 xl:w-[560px]">
+        <div className="min-w-0 xl:w-[560px]">
           <BarnTable rows={visibleBarns} selected={selected?.code} onSelect={selectBarn} loading={loading && !data} />
         </div>
         <div className="min-w-0">

@@ -41,10 +41,10 @@ export function Seg({ options, value, onChange }: { options: ReadonlyArray<reado
   )
 }
 
-/** Thẻ nội dung: viền xám, bo 6, tiêu đề 14px đậm. `gap` đổi theo thẻ theo Figma. */
+/** Phân đoạn nội dung: dùng đường chia ngang để tránh lồng nhiều thẻ trên cùng một màn. */
 export function Panel({ title, action, gap = 'gap-3', pad = 'p-4', className, children }: { title?: ReactNode; action?: ReactNode; gap?: string; pad?: string; className?: string; children: ReactNode }) {
   return (
-    <section className={cx('flex flex-col rounded-md border border-edge bg-white', pad, gap, className)}>
+    <section className={cx('flex flex-col border-y border-rule', pad, gap, className)}>
       {(title || action) && (
         <div className="flex flex-wrap items-center gap-3">
           {title && <h3 className="m-0 text-sm font-semibold text-[#212121]">{title}</h3>}
