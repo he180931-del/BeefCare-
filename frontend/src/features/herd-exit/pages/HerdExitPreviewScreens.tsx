@@ -1167,6 +1167,14 @@ function CattlePicker({
       (pen === "ALL" || cow.barn === pen),
   );
   const pens = [...new Set(all.map((cow) => cow.barn).filter(Boolean))];
+  const candidateCodes = candidates.map((cow) => cow.code);
+  const selectedCandidateCount = candidateCodes.filter((code) => selected.includes(code)).length;
+  const allVisibleSelected = candidateCodes.length > 0 && selectedCandidateCount === candidateCodes.length;
+  const toggleVisible = () => onChange(
+    allVisibleSelected
+      ? selected.filter((code) => !candidateCodes.includes(code))
+      : [...new Set([...selected, ...candidateCodes])],
+  );
   const toggle = (code: string) =>
     onChange(
       selected.includes(code)
@@ -1177,6 +1185,7 @@ function CattlePicker({
     <WorkSection
       title="Bò đủ điều kiện"
       description="Chỉ hiện bò đang nuôi và chưa nằm trong phiếu xuất khác. Cảnh báo không chặn lựa chọn; Chủ trại rà soát trước khi xác nhận."
+      actions={candidates.length ? <Button small type="button" disabled={disabled} onClick={toggleVisible}>{allVisibleSelected ? "Bỏ chọn kết quả" : `Chọn ${candidates.length} kết quả`}</Button> : undefined}
     >
       <div className="mb-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_170px]">
         <input
@@ -1218,7 +1227,9 @@ function CattlePicker({
               <tr key={cow.code}>
                 <Td>
                   <input
+                    id={`exit-select-${cow.code}`}
                     type="checkbox"
+                    className="size-5 cursor-pointer accent-brand"
                     checked={selected.includes(cow.code)}
                     onChange={() => toggle(cow.code)}
                     disabled={disabled}
@@ -1226,7 +1237,7 @@ function CattlePicker({
                   />
                 </Td>
                 <Td>
-                  {cow.code}
+                  <label htmlFor={`exit-select-${cow.code}`} className="cursor-pointer font-semibold text-ink">{cow.code}</label>
                   <br />
                   <span className="text-subtle">
                     {cow.tag || "Chưa cấp thẻ"}
