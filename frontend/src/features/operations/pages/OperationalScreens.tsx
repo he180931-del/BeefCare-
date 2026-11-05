@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { ReviewState } from '../../../app/fixtureSession'
 import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
 import { Button, Field, inputCls, PageHeader, Table, Td, Th } from '../../../components/ui'
-import { EmptyState, FilterBar, FixtureNotice, InlineMessage, LoadingState, WorkSection } from '../../../components/workspace'
+import { ActionDialog, EmptyState, FilterBar, FixtureNotice, InlineMessage, LoadingState, WorkSection } from '../../../components/workspace'
 import { configForFeature } from '../data/operationalFixtures'
 import { createOperationalRow, isPreviewOperationalRow, loadOperationalRows, saveOperationalRows, type PreviewOperationalRow } from '../data/operationalStore'
 
@@ -37,7 +37,6 @@ export function OperationalScreen({ screen, state, role }: { screen: ScreenDefin
   const resetFilters = () => { setQuery(''); setStatus('ALL'); setFrom('') }
   const openDetails = (row: PreviewOperationalRow) => {
     setSelectedCode(row.code); setMessage(null)
-    window.setTimeout(() => document.getElementById(`operational-detail-${screen.feature}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
   const create = () => {
     if (!subject.trim() || !detail.trim()) { setMessage({ tone: 'err', body: 'Nhập tên và thông tin chi tiết trước khi lưu.' }); return }
@@ -45,7 +44,6 @@ export function OperationalScreen({ screen, state, role }: { screen: ScreenDefin
     setRows(loadOperationalRows(screen.feature, [...config.rows, saved]))
     setSelectedCode(saved.code); setCreating(false); setSubject(''); setDetail(''); setRecordDate(today())
     setMessage({ tone: 'ok', body: `Đã lưu ${saved.code} trong dữ liệu cục bộ.` })
-    window.setTimeout(() => document.getElementById(`operational-detail-${screen.feature}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
   const closeSelected = () => {
     if (!selected || selectedPreview) return
@@ -68,6 +66,6 @@ export function OperationalScreen({ screen, state, role }: { screen: ScreenDefin
       </FilterBar>
       {state === 'empty' ? <EmptyState title={config.emptyTitle} description="Thử thay đổi bộ lọc hoặc tạo bản ghi đầu tiên." actionLabel={config.primaryAction} onAction={() => setCreating(true)} compact /> : !visible.length ? <EmptyState title="Không có bản ghi khớp bộ lọc" description="Thử xóa từ khóa, trạng thái hoặc mốc ngày để xem lại." actionLabel="Đặt lại bộ lọc" onAction={resetFilters} compact /> : <Table><thead><tr>{config.columns.map((column) => <Th key={column}>{column}</Th>)}<Th /></tr></thead><tbody>{visible.map((row) => <tr key={row.code}><Td>{row.code}</Td><Td><strong>{row.subject}</strong><div className="mt-1 text-[11px] text-subtle">{row.detail}</div></Td><Td>{row.date}</Td><Td><span className="font-medium text-ink">{row.status}</span></Td><Td><Button small onClick={() => openDetails(row)}>Mở</Button></Td></tr>)}</tbody></Table>}
     </WorkSection>
-    {selected && <div id={`operational-detail-${screen.feature}`}><WorkSection title={`Chi tiết · ${selected.code}`} description={selectedPreview ? 'Dữ liệu thử để kiểm tra bảng dài; chỉ xem và không lưu.' : 'Bản ghi cục bộ có thể cập nhật khi đang duyệt giao diện.'}><dl className="m-0 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div><dt className="text-xs text-subtle">Nội dung</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.subject}</dd></div><div><dt className="text-xs text-subtle">Chi tiết</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.detail}</dd></div><div><dt className="text-xs text-subtle">Ngày</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.date}</dd></div><div><dt className="text-xs text-subtle">Trạng thái</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.status}</dd></div></dl>{selectedPreview ? <InlineMessage className="mt-4" tone="info" title="Dữ liệu thử · chỉ xem">Chọn một bản ghi thật để cập nhật trạng thái.</InlineMessage> : canWrite && selected.status !== 'Đã hoàn tất' ? <div className="mt-4"><Button onClick={closeSelected}>Đánh dấu hoàn tất</Button></div> : null}{message?.tone === 'ok' && <InlineMessage className="mt-4" tone="ok">{message.body}</InlineMessage>}</WorkSection></div>}
+    {selected && <ActionDialog open title={`Chi tiết · ${selected.code}`} description={selectedPreview ? 'Dữ liệu thử để kiểm tra bảng dài; chỉ xem và không lưu.' : 'Bản ghi cục bộ có thể cập nhật khi đang duyệt giao diện.'} cancelLabel="Đóng" showConfirm={!selectedPreview && canWrite && selected.status !== 'Đã hoàn tất'} confirmLabel="Đánh dấu hoàn tất" onCancel={() => setSelectedCode('')} onConfirm={closeSelected}><dl className="m-0 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div><dt className="text-xs text-subtle">Nội dung</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.subject}</dd></div><div><dt className="text-xs text-subtle">Chi tiết</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.detail}</dd></div><div><dt className="text-xs text-subtle">Ngày</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.date}</dd></div><div><dt className="text-xs text-subtle">Trạng thái</dt><dd className="m-0 mt-1 text-sm font-semibold text-ink">{selected.status}</dd></div></dl>{selectedPreview && <InlineMessage className="mt-4" tone="info" title="Dữ liệu thử · chỉ xem">Chọn một bản ghi thật để cập nhật trạng thái.</InlineMessage>}{message?.tone === 'ok' && <InlineMessage className="mt-4" tone="ok">{message.body}</InlineMessage>}</ActionDialog>}
   </>
 }
