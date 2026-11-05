@@ -11,6 +11,7 @@ describe('InsightScreen', () => {
     expect(screen.getByRole('heading', { name: 'Cần chú ý hôm nay' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Cơ cấu đàn' })).toBeInTheDocument()
     expect(screen.getByText('M09 · Sinh sản')).toBeInTheDocument()
+    expect(screen.getByText(/0 cái quá hạn/)).toBeInTheDocument()
     expect(screen.getByText(/bò đang nuôi · Dịch vụ:/)).toBeInTheDocument()
   })
 
