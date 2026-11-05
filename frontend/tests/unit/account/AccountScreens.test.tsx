@@ -76,6 +76,16 @@ describe('AccountScreen', () => {
     expect(screen.getByRole('button', { name: 'Mời thành viên' })).toBeInTheDocument()
   })
 
+  it('opens generated invitation details in a read-only dialog', () => {
+    render(<AccountScreen screen={screenById('SCR-17')!} state="success" />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Xem' })[0])
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Dữ liệu thử · chỉ xem')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Lời mời ·')
+    expect(document.getElementById('preview-invite-detail')).not.toBeInTheDocument()
+  })
+
   it('separates viewing a farm from entering an active farm', () => {
     render(<AccountScreen screen={screenById('SCR-10')!} state="success" />)
     const baViRow = screen.getByText('Trại bò Ba Vì').closest('tr')!
