@@ -288,6 +288,11 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 
 ## Bổ sung kiểm tra ngày 06/11/2026
 
+- `SCR-42` bổ sung lối vào trực tiếp `Ghi số đo` trên mỗi dòng bò thật, bên cạnh `Mở hồ sơ`; bộ chọn trên đầu đổi nhãn thành `Chọn bò để ghi nhận`. Các hàng sinh để kiểm tra mật độ được gắn nhãn dữ liệu thử và bị vô hiệu hoá cho thao tác ghi, tránh tạo dữ liệu nghiệp vụ giả.
+- `SCR-46` giải thích rõ chế độ xem khi người dùng không có vai trò Quản lý: họ vẫn mở được liều/lịch sử, còn Quản lý mới ghi nhận, hoãn và quản lý lịch. Điều này không làm lỏng phân quyền đã quy định.
+- Kiểm tra Playwright thủ công tại `1180×820`, dữ liệu cục bộ, vai trò Quản lý: bấm `Ghi số đo` ở dòng `BC-000017` điều hướng đúng tới `SCR-44?code=BC-000017`; biểu mẫu có thời điểm đo, người đo, cân nặng, phương pháp, BCS và ghi chú. Chuyển sang vai trò Chủ trại tại `SCR-46` hiển thị đúng thông báo chế độ xem. Không có lỗi console; còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
+- `npm run typecheck` và `git diff --check` đạt sau thay đổi.
+
 - Hàng bảng dùng nền trắng và viền mảnh giữ nguyên, nhưng hover/focus-within nay chuyển sang xanh lục nhạt tương phản hơn (`#e1f1e8` / `#d8ede2`) để nhận biết hàng đang thao tác mà không tạo hiệu ứng loè loẹt. Kiểm tra runtime tại `SCR-80` xác nhận màu hover được áp dụng và console không có lỗi.
 - `SCR-77` không còn đưa các hàng được sinh tự động cho stress-test vào chỉ số hoặc bảng “Cần chú ý hôm nay”. Stress data vẫn phục vụ kiểm tra mật độ ở các màn danh sách, nhưng bảng tổng quan chỉ tổng hợp nhắc việc cục bộ thật và các tín hiệu phát sinh từ hồ sơ.
 - Lượt test đầu của `InsightScreens.test.tsx` kiểm tra cứng 7 dòng nhưng fixture hiện tại chỉ có 3 tín hiệu phù hợp (cộng hàng tiêu đề là 4), nên assertion được sửa để phản ánh đúng dữ liệu nghiệp vụ hiện hành và đồng thời bảo đảm không hiện nhãn hàng sinh `mẫu N`.
