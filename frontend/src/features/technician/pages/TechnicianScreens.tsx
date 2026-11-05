@@ -5,7 +5,8 @@ import type { ReviewState } from '../../../app/fixtureSession'
 import type { ScreenDefinition } from '../../../app/screenManifest'
 import { Badge, Button, inputCls, PageHeader } from '../../../components/ui'
 import { EmptyState, FixtureNotice, InlineMessage, LoadingState, WorkSection } from '../../../components/workspace'
-import { identifiedCattle, rationRows, technicianAnnouncements, technicianReminders } from '../data/technicianFixtures'
+import { identifiedCattle, technicianAnnouncements, technicianReminders } from '../data/technicianFixtures'
+import { loadRations, markRationCompleted } from '../data/rationStore'
 import { initialCows, type CowSeed } from '../../../data/cowsData'
 
 const DEMO_KEY = 'beefcare-ui-demo'
@@ -82,7 +83,14 @@ function Scanner({ screen }: { screen: ScreenDefinition }) {
 }
 
 function Rations({ screen, readOnly }: { screen: ScreenDefinition; readOnly: boolean }) {
-  return <div className="flex flex-col gap-5"><PageHeader title={screen.viTitle} sub="Theo dõi lượng thức ăn cần cấp cho từng chuồng trong ngày." badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : <FixtureNotice />} /><WorkSection title="Theo chuồng" description="Ghi nhận ngay tại chuồng để tránh nhập nhầm khẩu phần."><div className="divide-y divide-rule border-y border-rule">{rationRows.map((row) => <article key={row.pen} className="py-4"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><h3 className="m-0 text-sm font-bold text-ink">{row.pen}</h3><p className="mb-0 mt-1 text-xs text-subtle">{row.count} · {row.ration}</p></div><strong className="text-sm text-brand">{row.amount}</strong></div><div className="mt-3 flex items-center gap-3"><span className="min-w-0 flex-1 text-xs font-semibold text-subtle">{row.status}</span>{!readOnly && <Button small variant="primary">Ghi nhận đã cho ăn</Button>}</div></article>)}</div></WorkSection></div>
+  const [rows, setRows] = useState(loadRations)
+  const [notice, setNotice] = useState('')
+  const complete = (pen: string) => {
+    const next = markRationCompleted(pen)
+    setRows(next)
+    setNotice(`Đã ghi nhận khẩu phần cho ${pen}.`)
+  }
+  return <div className="flex flex-col gap-5"><PageHeader title={screen.viTitle} sub="Theo dõi lượng thức ăn cần cấp cho từng chuồng trong ngày." badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : <FixtureNotice />} />{notice && <InlineMessage tone="ok">{notice}</InlineMessage>}<WorkSection title="Theo chuồng" description="Ghi nhận ngay tại chuồng để tránh nhập nhầm khẩu phần."><div className="divide-y divide-rule border-y border-rule">{rows.map((row) => <article key={row.pen} className="py-4"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><h3 className="m-0 text-sm font-bold text-ink">{row.pen}</h3><p className="mb-0 mt-1 text-xs text-subtle">{row.count} · {row.ration}</p></div><strong className="text-sm text-brand">{row.amount}</strong></div><div className="mt-3 flex items-center gap-3"><span className="min-w-0 flex-1 text-xs font-semibold text-subtle">{row.status}</span>{!readOnly && row.status !== 'Đã hoàn tất' && <Button small variant="primary" onClick={() => complete(row.pen)}>Ghi nhận đã cho ăn</Button>}</div></article>)}</div></WorkSection></div>
 }
 
 export function TechnicianScreen({ screen, state }: { screen: ScreenDefinition; state: ReviewState }) {
