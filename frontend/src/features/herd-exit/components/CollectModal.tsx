@@ -28,6 +28,7 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
   const [method, setMethod] = useState('Chuyển khoản')
   const [reference, setReference] = useState(isBackend ? '' : 'MBVCB.8841207 · LO MO HA DONG TT PX-2026-0007')
   const [showStatement, setShowStatement] = useState(!isBackend)
+  const [viewingStatement, setViewingStatement] = useState(false)
   const [note, setNote] = useState(isBackend ? '' : 'Thu đủ phần còn lại')
 
   const valid = amount > 0 && amount <= owed
@@ -72,8 +73,9 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
       )}
       {method === 'Chuyển khoản' && showStatement && (
         <div className="-mt-2">
-          <DocRow ext="PDF" name="sao-ke-2210.pdf" />
-          <button type="button" className="ml-auto block cursor-pointer p-1 text-xs font-semibold text-err-fg" onClick={() => setShowStatement(false)}>Xóa</button>
+          <DocRow ext="PDF" name="sao-ke-2210.pdf" onView={() => setViewingStatement(true)} />
+          {viewingStatement && <div role="status" className="mt-2 border-l-[3px] border-brand bg-brand-soft px-3 py-2 text-xs text-ink"><strong className="block">Sao kê chuyển khoản · dữ liệu cục bộ</strong><span className="mt-1 block">{reference || 'Chưa có số tham chiếu'} · {money(amount)} đ</span><button type="button" className="mt-2 cursor-pointer font-semibold text-brand underline-offset-4 hover:underline" onClick={() => setViewingStatement(false)}>Đóng xem trước</button></div>}
+          <button type="button" className="ml-auto block cursor-pointer p-1 text-xs font-semibold text-err-fg underline-offset-4 hover:underline" onClick={() => { setShowStatement(false); setViewingStatement(false) }}>Xóa</button>
         </div>
       )}
       <Field label="Ghi chú">

@@ -23,12 +23,12 @@ export const Box = ({ title, sub, actions, gap = 'gap-[10px]', className, childr
   </section>
 )
 
-export const DocRow = ({ ext, name }: { ext?: string; name: string }) => (
+export const DocRow = ({ ext, name, onView }: { ext?: string; name: string; onView: () => void }) => (
   <div className="flex items-center gap-2 text-xs">
     <Badge>{ext}</Badge>
     <span>{name}</span>
     <span className="flex-1" />
-    <button type="button" className="cursor-pointer p-1 font-semibold text-brand">Xem</button>
+    <button type="button" className="cursor-pointer p-1 font-semibold text-brand underline-offset-4 hover:underline" onClick={onView} aria-label={`Xem tệp ${name}`}>Xem</button>
   </div>
 )
 
