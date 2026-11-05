@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useFixtureSession } from '../../../app/fixtureSession'
 import { screenById, type ScreenDefinition, type ScreenId, type ScreenRole } from '../../../app/screenManifest'
 import { landingRouteForRole } from '../../../app/navigation'
@@ -73,15 +73,6 @@ const FEED_MANAGEMENT_SCREEN_IDS = new Set<ScreenId>(['SCR-111', 'SCR-112', 'SCR
 const RATION_SCREEN_IDS = new Set<ScreenId>(['SCR-115', 'SCR-116', 'SCR-117', 'SCR-118', 'SCR-119'])
 const FEED_CATALOGUE_SCREEN_IDS = new Set<ScreenId>(['SCR-120'])
 const FEED_REPORT_SCREEN_IDS = new Set<ScreenId>(['SCR-121'])
-const CARE_ADMIN_PARENT: Partial<Record<ScreenId, ScreenId>> = {
-  'SCR-39': 'SCR-38', 'SCR-40': 'SCR-39', 'SCR-43': 'SCR-42', 'SCR-44': 'SCR-42', 'SCR-45': 'SCR-42',
-  'SCR-47': 'SCR-46', 'SCR-48': 'SCR-46', 'SCR-49': 'SCR-46', 'SCR-50': 'SCR-46', 'SCR-51': 'SCR-46', 'SCR-52': 'SCR-46',
-  'SCR-54': 'SCR-53', 'SCR-55': 'SCR-53', 'SCR-56': 'SCR-53', 'SCR-57': 'SCR-53', 'SCR-58': 'SCR-53',
-  'SCR-60': 'SCR-59', 'SCR-61': 'SCR-59', 'SCR-62': 'SCR-59', 'SCR-63': 'SCR-59', 'SCR-64': 'SCR-59', 'SCR-65': 'SCR-59', 'SCR-66': 'SCR-59', 'SCR-67': 'SCR-59', 'SCR-68': 'SCR-59',
-  'SCR-87': 'SCR-86', 'SCR-88': 'SCR-87', 'SCR-89': 'SCR-86', 'SCR-94': 'SCR-93', 'SCR-95': 'SCR-93', 'SCR-97': 'SCR-96', 'SCR-98': 'SCR-96', 'SCR-102': 'SCR-101',
-  'SCR-112': 'SCR-111', 'SCR-113': 'SCR-111', 'SCR-114': 'SCR-111', 'SCR-116': 'SCR-115', 'SCR-118': 'SCR-117', 'SCR-119': 'SCR-117', 'SCR-122': 'SCR-117',
-}
-
 export function previewKindFor(screen: ScreenDefinition, role: Exclude<ScreenRole, 'guest'>): PreviewKind {
   if (ACCOUNT_SCREEN_IDS.has(screen.id)) return 'account'
   if (PLATFORM_SCREEN_IDS.has(screen.id)) return 'platform'
@@ -156,6 +147,7 @@ function PreviewContent({ screen }: { screen: ScreenDefinition }) {
 export default function ScreenPreviewPage() {
   const params = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const session = useFixtureSession()
   const [publicMenuOpen, setPublicMenuOpen] = useState(false)
   const screen = useMemo(() => screenById((params.screenId ?? '').toUpperCase() as ScreenId), [params.screenId])
@@ -171,7 +163,12 @@ export default function ScreenPreviewPage() {
     return <Layout title="Không có quyền truy cập" user={session.role === 'manager' ? 'manager' : 'owner'}>{content}</Layout>
   }
   const preview = <PreviewContent screen={screen} />
-  const content = <div className={`review-ui min-w-0 ${screen.feature === 'feed' ? 'feed-ui' : ''} ${previewKindFor(screen, session.role) === 'technician' ? 'technician-ui' : ''}`}>{preview}</div>
+  const parent = screen.parentId ? screenById(screen.parentId) : undefined
+  const parentPath = parent ? `/ui/${parent.id.toLowerCase()}${location.search}` : ''
+  const content = <div className={`review-ui min-w-0 ${screen.feature === 'feed' ? 'feed-ui' : ''} ${previewKindFor(screen, session.role) === 'technician' ? 'technician-ui' : ''}`}>
+    {parent && <nav aria-label="Điều hướng về màn hình cha" className="mb-3"><button type="button" onClick={() => navigate(parentPath)} className="min-h-8 px-0 text-xs font-semibold text-brand hover:underline">← {parent.viTitle}</button></nav>}
+    {preview}
+  </div>
   if (screen.roles.includes('guest')) {
     const landing = screen.id === 'SCR-01'
     const publicLinks = [['Tính năng', '#tinh-nang'], ['Cách hoạt động', '#cach-hoat-dong'], ['Bảng giá', '#bang-gia'], ['Hỏi đáp', '#hoi-dap']]
