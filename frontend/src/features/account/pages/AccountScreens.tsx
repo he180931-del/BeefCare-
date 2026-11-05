@@ -9,6 +9,7 @@ import { AccountForm } from '../components/AccountForm'
 import { accountFields, accountMembers, farmRows, invitationRows, permissionRows, serviceFarmRows } from '../data/accountFixtures'
 import { previewFarms, previewInvitations, previewMembers, previewServiceFarms } from '../data/accountPreviewData'
 import { fixtureRoleForFarm, readFarmSelection, saveFarmSelection, type FarmRole } from '../data/farmSelectionStore'
+import { DEMO_TODAY, loadOrders } from '../../subscription/subscriptionStore'
 import farm from '../../../assets/farm.png'
 import logo from '../../../assets/logo.png'
 import productDashboard from '../../../assets/product-dashboard.png'
@@ -46,6 +47,35 @@ function loadAccountDemo(scope: string): Record<string, string | boolean> {
 function fieldsFor(screenId: string) {
   const saved = loadAccountDemo(screenId)
   return (accountFields[screenId] ?? []).map((field) => ({ ...field, value: typeof saved[field.label] === 'string' ? saved[field.label] as string : field.value }))
+}
+function farmInformationFields(farmName: string) {
+  const saved = loadAccountDemo(`farm-information:${farmName}`)
+  const farm = farmRows.find((row) => row.name === farmName)
+  const [ward = '', province = 'Hà Nội'] = (farm?.address || '').split(',').map((part) => part.trim())
+  const defaults: Record<string, string> = {
+    'Tên trang trại': farmName,
+    'Tỉnh / thành phố': province || 'Hà Nội',
+    'Xã / phường': ward,
+    'Địa chỉ chi tiết': farm?.address || '',
+  }
+  return (accountFields['SCR-12'] ?? []).map((field) => ({
+    ...field,
+    value: typeof saved[field.label] === 'string' ? saved[field.label] as string : defaults[field.label] ?? field.value,
+  }))
+}
+function farmServiceSummary(farmName: string) {
+  const service = loadOrders().find((item) => item.name === farmName)
+  const label: Record<string, string> = { ACTIVE: 'Đang hoạt động', PENDING_PAYMENT: 'Chờ thanh toán', EXPIRED: 'Đã hết hạn', SUSPENDED: 'Tạm ngừng', NONE: 'Chưa đăng ký' }
+  const end = service?.currentEnd || service?.confirmedEnd || '—'
+  const today = new Date(`${DEMO_TODAY}T00:00:00Z`).getTime()
+  const endAt = end === '—' ? Number.NaN : new Date(`${end}T00:00:00Z`).getTime()
+  const days = Number.isFinite(endAt) ? Math.max(0, Math.ceil((endAt - today) / 86_400_000)) : undefined
+  return {
+    status: label[service?.status || 'NONE'] || service?.status || 'Chưa có dịch vụ',
+    end,
+    days: days == null ? '—' : `${days} ngày`,
+    renewal: service?.status === 'ACTIVE' && end !== '—' ? 'Mở khi còn 90 ngày' : 'Chưa khả dụng',
+  }
 }
 const profileIdentityByRole: Record<Exclude<ScreenRole, 'guest'>, { name: string; email: string; phone: string; role: string }> = {
   owner: { name: 'Nguyễn Văn Hùng', email: 'owner@beefcare.local', phone: '0912 345 678', role: 'Chủ trại' },
@@ -279,7 +309,10 @@ function FarmSelect({ screen, readOnly, role, empty = false }: { screen: ScreenD
 function FarmInformation({ screen, readOnly }: { screen: ScreenDefinition; readOnly: boolean }) {
   const navigate = useNavigate()
   const [saved, setSaved] = useState(false)
-  return <Page screen={screen} readOnly={readOnly} sub="Thông tin đăng ký, liên hệ và lịch vận hành của Trại bò Ba Vì."><WorkSection title="Thông tin trại và vận hành"><AccountForm fields={fieldsFor('SCR-12')} actionLabel="Lưu thay đổi" onSubmit={(values) => { saveAccountDemo('SCR-12', values); setSaved(true) }} readOnly={readOnly} wide /></WorkSection>{saved && <InlineMessage tone="ok" title="Đã lưu thông tin trại">Thông tin trang trại đã được lưu.</InlineMessage>}<WorkSection title="Tóm tắt dịch vụ" actions={<Button small onClick={() => navigate('/ui/scr-86')}>Xem gói dịch vụ</Button>}><SummaryStrip items={[{label:'Trạng thái',value:'Đang hoạt động',note:'Không tạm ngừng'},{label:'Kỳ hiện tại đến',value:'31/12/2027'},{label:'Mở gia hạn từ',value:'02/10/2027'},{label:'Còn lại',value:'423 ngày'}]} /><p className="mb-0 mt-4 text-xs text-subtle">Chủ trại: owner@beefcare.local</p></WorkSection></Page>
+  const selection = readFarmSelection()
+  const service = farmServiceSummary(selection.farm)
+  const farm = farmRows.find((row) => row.name === selection.farm)
+  return <Page screen={screen} readOnly={readOnly} sub={`Thông tin đăng ký, liên hệ và lịch vận hành của ${selection.farm}.`}><WorkSection title="Thông tin trại và vận hành"><AccountForm fields={farmInformationFields(selection.farm)} actionLabel="Lưu thay đổi" onSubmit={(values) => { saveAccountDemo(`farm-information:${selection.farm}`, values); setSaved(true) }} readOnly={readOnly} wide /></WorkSection>{saved && <InlineMessage tone="ok" title="Đã lưu thông tin trại">Thông tin của {selection.farm} đã được lưu trong bản xem trước cục bộ.</InlineMessage>}<WorkSection title="Tóm tắt dịch vụ" actions={<Button small onClick={() => navigate('/ui/scr-86')}>Xem gói dịch vụ</Button>}><SummaryStrip items={[{label:'Trạng thái',value:service.status,note:service.status === 'Đang hoạt động' ? 'Có thể vận hành' : 'Kiểm tra gói dịch vụ'},{label:'Kỳ hiện tại đến',value:service.end},{label:'Gia hạn',value:service.renewal},{label:'Còn lại',value:service.days},{label:'Quy mô đàn',value:farm?.herd || '—'}]} /><p className="mb-0 mt-4 text-xs text-subtle">Trang trại đang chọn · {selection.role}</p></WorkSection></Page>
 }
 
 function ServiceOverview({ screen, readOnly }: { screen: ScreenDefinition; readOnly: boolean }) {

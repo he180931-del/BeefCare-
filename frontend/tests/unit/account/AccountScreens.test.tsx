@@ -97,6 +97,18 @@ describe('AccountScreen', () => {
     expect(screen.getByDisplayValue('Lê Minh An')).toBeInTheDocument()
   })
 
+  it('keeps farm information scoped to the farm selected in the quick switcher', () => {
+    window.localStorage.setItem('beefcare-ui-demo', JSON.stringify({ account: { 'farm-selection': { farm: 'Trại kỹ thuật Yên Bài', role: 'Kỹ thuật viên' } } }))
+    render(<AccountScreen screen={screenById('SCR-12')!} state="success" />)
+
+    expect(screen.getByText('Thông tin đăng ký, liên hệ và lịch vận hành của Trại kỹ thuật Yên Bài.')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Trại kỹ thuật Yên Bài')).toBeInTheDocument()
+    expect(screen.getByText('Chờ thanh toán')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
+    expect(window.localStorage.getItem('beefcare-ui-demo')).toContain('farm-information:Trại kỹ thuật Yên Bài')
+  })
+
   it('finishes email verification and continues to the owner profile', () => {
     testingRender(
       <MemoryRouter initialEntries={['/ui/scr-04']}>
