@@ -207,3 +207,5 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Phân trang bảng dùng cửa sổ 5 số trang cạnh nút Trước/Sau, có trạng thái trang hiện tại và `aria-current`, giúp chuyển nhanh khi kiểm tra bảng 100 hàng.
 - `SCR-99` giữ nguyên dữ liệu nghiệp vụ cục bộ; khi bấm `Mở`, trang tự cuộn tới vùng xử lý bên dưới để phản hồi thao tác được nhìn thấy ngay.
 - `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Build vẫn còn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB; chưa coi đây là lỗi chặn checkpoint giao diện.
+- `SCR-100` hiển thị 100 biên nhận mô phỏng chỉ đọc, có tổng tiền theo bộ lọc, 13 trang và phần chi tiết đầy đủ; chọn nguồn từ biên nhận mở đúng chứng từ mô phỏng tương ứng tại `SCR-91` ở chế độ chỉ xem.
+- `SCR-103` được kiểm tra với bản chụp 51 giao dịch: bảng theo ngày và bảng chi tiết đều có phân trang số, tổng hợp phạm vi và biểu đồ không tràn bố cục desktop.
