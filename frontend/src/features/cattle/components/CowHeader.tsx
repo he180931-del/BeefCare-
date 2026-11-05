@@ -31,7 +31,7 @@ export default function CowHeader({ cow, tab, onTab, onOpenModal }: { cow: CowSe
   const active = cow.status === 'ACTIVE'
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-[18px] rounded-md border border-edge bg-white p-4">
+      <div className="flex flex-wrap items-center gap-[18px] border-y border-rule py-4">
         <div className="size-16 shrink-0 rounded-full bg-ok-bg" aria-hidden="true" />
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="text-[22px] font-bold leading-[normal] text-[#212121]">
