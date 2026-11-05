@@ -430,23 +430,20 @@ function Stock({
                         </Badge>
                       </Td>
                       <Td className="whitespace-nowrap">
-                        <Button
+                        {isStressGenerated(item) ? <Badge tone="outline">Dữ liệu thử</Badge> : <><Button
                           small
-                          disabled={!canWrite(role, state) || isStressGenerated(item)}
-                          onClick={() =>
-                            navigate(`/ui/scr-113?feedId=${item.id}`)
-                          }
+                          disabled={!canWrite(role, state)}
+                          onClick={() => navigate(`/ui/scr-113?feedId=${item.id}`)}
                         >
                           Nhập
-                        </Button>{" "}
+                        </Button>{" "}</>}
                         <Button
                           small
-                          disabled={isStressGenerated(item)}
                           onClick={() =>
                             setMovement(movement === item.id ? null : item.id)
                           }
                         >
-                          Biến động
+                          {isStressGenerated(item) ? "Xem chi tiết" : "Biến động"}
                         </Button>
                       </Td>
                     </tr>
@@ -493,6 +490,7 @@ function Stock({
                         <Td>{item.sourceDocument}</Td>
                       </tr>
                     ))}
+                    {!movements.length && <tr><Td colSpan={6}>{isStressGenerated(store.stock.find((item) => item.id === movement)) ? "Dữ liệu thử chỉ dùng để kiểm tra danh sách và chi tiết tồn kho; không có sổ biến động lưu trữ." : "Chưa có biến động kho cho mặt hàng này."}</Td></tr>}
                   </tbody>
                 </Table>
               </div>
@@ -702,13 +700,10 @@ function Receipts({
                   <Fragment key={row.id}>
                     <tr>
                       <Td>
-                        <button
-                          className="font-semibold text-brand disabled:cursor-default disabled:text-subtle"
-                          disabled={isStressGenerated(row)}
-                          onClick={() => !isStressGenerated(row) && navigate(`/ui/scr-113?id=${row.id}`)}
-                        >
-                          {row.code}
-                        </button>
+                        {isStressGenerated(row) ? <strong>{row.code}</strong> : <button
+                          className="cursor-pointer font-semibold text-brand"
+                          onClick={() => navigate(`/ui/scr-113?id=${row.id}`)}
+                        >{row.code}</button>}
                       </Td>
                       <Td>
                         {row.date}
@@ -761,13 +756,7 @@ function Receipts({
                           </Button>
                         )}
                         {row.status !== "DRAFT" && (
-                          <Button
-                            small
-                            disabled={isStressGenerated(row)}
-                            onClick={() => navigate(`/ui/scr-113?id=${row.id}`)}
-                          >
-                            Xem
-                          </Button>
+                          isStressGenerated(row) ? <Badge tone="outline">Dữ liệu thử · chỉ xem</Badge> : <Button small onClick={() => navigate(`/ui/scr-113?id=${row.id}`)}>Xem</Button>
                         )}
                       </Td>
                     </tr>
