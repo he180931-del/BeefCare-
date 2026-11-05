@@ -43,6 +43,7 @@ describe('PlatformScreen', () => {
 
   it('keeps all 100 preview audit rows inside the default seven-day window', () => {
     renderPlatform('SCR-80', 'success')
+    expect(screen.getByRole('button', { name: 'Xuất kết quả lọc' })).toBeEnabled()
     expect(screen.getByLabelText('Phân trang bảng')).toHaveTextContent(/Hiển thị 1–\d+ \/ 100 dòng/)
     expect(screen.getByRole('button', { name: 'Trang 4' })).toBeInTheDocument()
   })
