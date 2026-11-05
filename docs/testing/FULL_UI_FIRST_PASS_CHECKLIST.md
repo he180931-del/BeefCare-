@@ -213,3 +213,5 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Sau thay đổi `SCR-120`, `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Build chỉ còn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB như checkpoint trước.
 - `SCR-20` và `SCR-21` được kiểm tra trực tiếp bằng Playwright với vai trò SA và 100 dòng: mọi hàng đều có nút `Xem chi tiết`; hàng mô phỏng mở vùng chỉ đọc có nhãn rõ, không hiển thị nút thay đổi trạng thái hoặc lưu quyền và không ghi localStorage.
 - `SCR-21` khởi tạo đúng hành động `Đổi` hoặc `Khôi phục` khi tài khoản đã có quyền; chỉ nút `Cấp quyền nền tảng` mới chuyển biểu mẫu sang hành động `Cấp`.
+- `SCR-10`, `SCR-13`, `SCR-15` và `SCR-17` được kiểm tra trực tiếp bằng Playwright: hàng mô phỏng đều mở vùng thông tin chỉ đọc, không còn nút `Mô phỏng` bị vô hiệu. So sánh phần `account` trong `beefcare-ui-demo` trước và sau thao tác cho cả bốn màn đều không đổi.
+- Các hành động nghiệp vụ trên bốn màn tài khoản vẫn tách riêng cho dữ liệu thật: vào trại/thanh toán, tạm ngừng hoặc xem gói, đổi vai trò và gửi lại/hủy lời mời.
