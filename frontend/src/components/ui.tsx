@@ -171,6 +171,11 @@ export function Table({ children, wide, scroll, stack = true, bordered = false, 
   const rows = body ? Children.toArray(body.props.children) : []
   const shouldPaginate = responsivePageSize > 0 && rows.length > responsivePageSize
   const pageCount = shouldPaginate ? Math.ceil(rows.length / responsivePageSize) : 1
+  const visiblePages = useMemo(() => {
+    const windowSize = Math.min(5, pageCount)
+    const start = Math.max(1, Math.min(page - 2, pageCount - windowSize + 1))
+    return Array.from({ length: windowSize }, (_, index) => start + index)
+  }, [page, pageCount])
   useEffect(() => { if (page > pageCount) setPage(pageCount) }, [page, pageCount])
   const renderedSections = shouldPaginate && body
     ? sections.map((section, index) => index === bodyIndex
@@ -214,9 +219,10 @@ export function Table({ children, wide, scroll, stack = true, bordered = false, 
       </div>
       {shouldPaginate && <nav aria-label="Phân trang bảng" className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-3 py-2 text-xs text-subtle">
         <span>Hiển thị {(page - 1) * responsivePageSize + 1}–{Math.min(page * responsivePageSize, rows.length)} / {rows.length} dòng</span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Button small disabled={page === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Trước</Button>
-          <span>Trang {page} / {pageCount}</span>
+          <span className="sr-only">Trang {page} trên {pageCount}</span>
+          {visiblePages.map((pageNumber) => <Button key={pageNumber} small variant={pageNumber === page ? 'primary' : 'default'} aria-current={pageNumber === page ? 'page' : undefined} aria-label={`Trang ${pageNumber}`} onClick={() => setPage(pageNumber)}>{pageNumber}</Button>)}
           <Button small disabled={page === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>Sau</Button>
         </div>
       </nav>}

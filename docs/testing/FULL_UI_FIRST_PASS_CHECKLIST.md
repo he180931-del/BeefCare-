@@ -198,3 +198,12 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Quét bổ sung đủ `122/122` màn tại `390×844`: không có màn tràn ngang hoặc vùng nội dung chính rỗng. Đây là bằng chứng manual Playwright cho khả năng co hẹp, không phải bộ visual-regression tự động.
 - Footer bảng responsive xử lý đúng `colSpan`: `SCR-113` chỉ hiển thị tiêu đề “Tổng”, “Số lượng” và “Thành tiền”; `SCR-121` giữ đủ 11 chỉ số tổng hợp với nhãn tương ứng. Hai màn đều không tràn ngang tại `390×844`, còn bảng `SCR-113` tại `1440×900` vẫn giữ bố cục một hàng như desktop.
 - `npm run typecheck` và `npm run build` đều đạt. Build còn cảnh báo kích thước chunk `ScreenPreviewPage` lớn hơn 500 kB; đây là việc tối ưu bundle, không phải lỗi giao diện/runtime.
+
+## Bổ sung kiểm tra ngày 05/11/2026
+
+- `SCR-90` và `SCR-91` được mở rộng thành 100 hàng mô phỏng chỉ để kiểm tra mật độ, phân trang và responsive; các hàng sinh thêm không ghi vào localStorage và không đi qua API lưu.
+- Nút `Chi tiết` tại `SCR-90` và `Mở` tại `SCR-91` mở đúng vùng chi tiết, tự cuộn đến nội dung và đánh dấu dữ liệu thử ở chế độ chỉ xem thay vì để nút bất hoạt.
+- Bộ lọc `SCR-91` tách đúng trạng thái chứng từ và trạng thái yêu cầu thanh toán; các nhãn `PENDING_MATCH`, `RECEIVED` và trạng thái thanh toán đã được Việt hóa theo đúng ngữ cảnh.
+- Phân trang bảng dùng cửa sổ 5 số trang cạnh nút Trước/Sau, có trạng thái trang hiện tại và `aria-current`, giúp chuyển nhanh khi kiểm tra bảng 100 hàng.
+- `SCR-99` giữ nguyên dữ liệu nghiệp vụ cục bộ; khi bấm `Mở`, trang tự cuộn tới vùng xử lý bên dưới để phản hồi thao tác được nhìn thấy ngay.
+- `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Build vẫn còn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB; chưa coi đây là lỗi chặn checkpoint giao diện.

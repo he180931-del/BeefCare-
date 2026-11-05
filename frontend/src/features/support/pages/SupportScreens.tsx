@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ReviewState } from '../../../app/fixtureSession'
 import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
@@ -174,6 +174,10 @@ function Support99({ state, role }: { state: ReviewState; role: ScreenRole }) {
   const selectedHistory = selected ? audit.filter((entry) => entry.requestId === selected.id).sort((a, b) => a.at.localeCompare(b.at)) : []
   const committedDomainResults = actorRole ? availableCommittedDomainResults(actorRole) : []
   const reload = () => { setRequests(loadSupportInternalRequests()); setAudit(loadSupportAudit()) }
+  useEffect(() => {
+    if (!selectedId) return
+    requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }))
+  }, [selectedId])
   const submit = () => { if (!selected || !actorRole) return; try { completeSupportInternalRequest(selected.id, outcome, result, reference, actorRole, role === 'pm' ? 'PM Quang' : 'SA Lan'); setError(''); setNotice('Đã ghi kết quả domain và đánh dấu hoàn tất.'); setResult(''); setReference(''); reload() } catch (cause) { setError(cause instanceof Error ? cause.message : 'Không thể hoàn tất yêu cầu.') } }
   if (role !== 'pm' && role !== 'sa') return <InlineMessage tone="err" title="Bạn không có quyền truy cập">Yêu cầu nội bộ chỉ dành cho PM hoặc SA được chỉ định.</InlineMessage>
   if (state === 'loading') return <LoadingState label="Đang tải internal requests…" rows={5} />
