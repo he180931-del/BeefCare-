@@ -51,6 +51,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   const [open, setOpen] = useState(false)
   const [override, setOverride] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const farmName = selectedFarmName()
   return (
     <TitleCtx.Provider value={setOverride}>
@@ -89,7 +90,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
         </aside>
 
         <div className="min-h-screen min-w-0 bg-page bg-cover bg-center bg-no-repeat lg:ml-[248px]" style={{ backgroundImage: `url(${wave})` }}>
-          <header className="flex h-16 min-w-0 items-center bg-white px-4 lg:pl-6 lg:pr-6">
+          <header className="relative flex h-16 min-w-0 items-center bg-white px-4 lg:pl-6 lg:pr-6">
             <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-8 shrink-0 place-items-center rounded-md border border-field text-lg text-brand-dark lg:hidden">☰</button>
             <div className="min-w-0 flex-1 truncate text-[15px] font-bold text-ink">{override || title}</div>
             <NavLink
@@ -101,6 +102,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
               <span className="truncate">{farmName}</span>
               <span aria-hidden="true" className="ml-auto text-xs text-subtle">Đổi</span>
             </NavLink>
+            <NavLink to="/ui/scr-10" state={{ returnTo: location.pathname + location.search }} aria-label={`Đổi trang trại; hiện tại ${farmName}`} className="mr-2 grid size-9 shrink-0 place-items-center rounded-md border border-field bg-white text-brand hover:border-brand hover:bg-ok-bg lg:hidden">⌂</NavLink>
             <form
               role="search"
               className="mr-4 hidden min-h-10 w-[260px] shrink-0 items-center rounded-md border border-field bg-page focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/10 xl:flex"
@@ -123,10 +125,12 @@ export default function Layout({ title, user = 'owner', children }: { title: str
               <button type="submit" aria-label="Tìm" className="grid size-9 shrink-0 place-items-center text-base font-bold text-brand hover:bg-ok-bg">⌕</button>
             </form>
             <NavLink to={notificationRoute(user)} aria-label="Mở thông báo" className="mr-3 grid size-8 shrink-0 place-items-center rounded-full bg-[#eef4ef] text-base font-bold text-brand hover:bg-ok-bg">•</NavLink>
-            <div className="mr-2 grid size-9 shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{u.initials}</div>
-            <div className="hidden w-[140px] shrink-0 sm:block">
-              <div className="whitespace-nowrap text-sm font-bold leading-5 text-ink">{u.name}</div>
-              <div className="text-xs leading-5 text-subtle">{u.role}</div>
+            <div className="relative">
+              <button type="button" aria-label={`Mở menu tài khoản của ${u.name}`} aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)} className="flex min-h-10 min-w-10 items-center gap-2 rounded-md px-0 text-left hover:bg-page focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand sm:px-1">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{u.initials}</span>
+                <span className="hidden w-[140px] shrink-0 sm:block"><span className="block whitespace-nowrap text-sm font-bold leading-5 text-ink">{u.name}</span><span className="block text-xs leading-5 text-subtle">{u.role}</span></span>
+              </button>
+              {accountMenuOpen && <div role="menu" aria-label="Tài khoản" className="absolute right-0 top-[calc(100%+8px)] z-40 w-56 border border-edge bg-white p-1 shadow-lg"><NavLink role="menuitem" to="/ui/scr-08" onClick={() => setAccountMenuOpen(false)} className="flex min-h-10 items-center px-3 text-sm font-semibold text-ink hover:bg-page">Hồ sơ của tôi</NavLink><NavLink role="menuitem" to="/ui/scr-10" state={{ returnTo: location.pathname + location.search }} onClick={() => setAccountMenuOpen(false)} className="flex min-h-10 items-center px-3 text-sm font-semibold text-ink hover:bg-page">Đổi trang trại</NavLink><button type="button" role="menuitem" onClick={() => navigate('/ui/scr-02')} className="flex min-h-10 w-full items-center px-3 text-left text-sm font-semibold text-err-fg hover:bg-err-bg">Đăng xuất</button></div>}
             </div>
           </header>
           <main id="main-content" tabIndex={-1} className="flex w-full min-w-0 flex-col gap-4 px-4 pb-8 pt-5 sm:px-6 lg:px-6 xl:px-8">{children}</main>

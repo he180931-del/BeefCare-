@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { fireEvent, render as testingRender, screen } from '@testing-library/react'
+import { fireEvent, render as testingRender, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { FixtureSessionProvider } from '../../../src/app/fixtureSession'
@@ -74,6 +74,27 @@ describe('AccountScreen', () => {
     render(<AccountScreen screen={screenById('SCR-17')!} state="empty" />)
     expect(screen.getByText('Chưa có lời mời thành viên')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mời thành viên' })).toBeInTheDocument()
+  })
+
+  it('separates viewing a farm from entering an active farm', () => {
+    render(<AccountScreen screen={screenById('SCR-10')!} state="success" />)
+    const baViRow = screen.getByText('Trại bò Ba Vì').closest('tr')!
+
+    expect(within(baViRow).getByRole('button', { name: 'Xem thông tin' })).toBeInTheDocument()
+    expect(within(baViRow).getByRole('button', { name: 'Vào trang trại' })).toBeInTheDocument()
+
+    fireEvent.click(within(baViRow).getByRole('button', { name: 'Xem thông tin' }))
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Thông tin trang trại')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Trại bò Ba Vì')
+  })
+
+  it('uses the signed-in technician identity on the personal profile', () => {
+    render(<AccountScreen screen={screenById('SCR-08')!} state="success" role="technician" />)
+
+    expect(screen.getByText('Lê Minh An · Kỹ thuật viên')).toBeInTheDocument()
+    expect(screen.getByText(/technician@beefcare\.local/)).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Lê Minh An')).toBeInTheDocument()
   })
 
   it('finishes email verification and continues to the owner profile', () => {

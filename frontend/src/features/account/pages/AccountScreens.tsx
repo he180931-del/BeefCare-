@@ -46,6 +46,25 @@ function fieldsFor(screenId: string) {
   const saved = loadAccountDemo(screenId)
   return (accountFields[screenId] ?? []).map((field) => ({ ...field, value: typeof saved[field.label] === 'string' ? saved[field.label] as string : field.value }))
 }
+const profileIdentityByRole: Record<Exclude<ScreenRole, 'guest'>, { name: string; email: string; phone: string; role: string }> = {
+  owner: { name: 'Nguyễn Văn Hùng', email: 'owner@beefcare.local', phone: '0912 345 678', role: 'Chủ trại' },
+  manager: { name: 'Trần Quốc Long', email: 'manager@beefcare.local', phone: '0987 654 321', role: 'Quản lý' },
+  technician: { name: 'Lê Minh An', email: 'technician@beefcare.local', phone: '0903 456 789', role: 'Kỹ thuật viên' },
+  cs: { name: 'Phạm Thu Hà', email: 'support@beefcare.local', phone: '0901 234 567', role: 'Chăm sóc khách hàng (CS)' },
+  pm: { name: 'Đỗ Minh Quân', email: 'platform@beefcare.local', phone: '0902 345 678', role: 'Quản lý nền tảng (PM)' },
+  sa: { name: 'Vũ Ngọc Mai', email: 'admin@beefcare.local', phone: '0904 567 890', role: 'Quản trị hệ thống (SA)' },
+}
+function profileIdentity(role?: ScreenRole) {
+  return profileIdentityByRole[role && role !== 'guest' ? role : 'owner']
+}
+function profileFields(role?: ScreenRole) {
+  const identity = profileIdentity(role)
+  const saved = loadAccountDemo(`profile:${role ?? 'owner'}`)
+  return (accountFields['SCR-08'] ?? []).map((field) => {
+    const fallback = field.label === 'Họ và tên' ? identity.name : field.label === 'Số điện thoại' ? identity.phone : field.value
+    return { ...field, value: typeof saved[field.label] === 'string' ? saved[field.label] as string : fallback }
+  })
+}
 function demoRows<T>(scope: string, fallback: T[]): T[] {
   if (typeof window === 'undefined') return fallback
   try {
@@ -180,7 +199,7 @@ function AuthenticationForm({ screen, readOnly }: { screen: ScreenDefinition; re
     saveAccountDemo(screen.id, values); saveAccountDemo('reset-link', { invalid: true }); saveAccountDemo('sign-in-message', { success: true }); navigate('/ui/scr-02')
   }
   return <Page screen={screen} readOnly={readOnly} narrow sub="Truy cập BeefCare bằng phương thức phù hợp với tài khoản của bạn.">
-    {screen.id === 'SCR-03' && !suspended && <><Button block disabled={readOnly} onClick={() => { saveAccountDemo(`${screen.id}-google`, { completed: true }); navigate('/ui/scr-07') }}>Tiếp tục với Google</Button><div className="flex items-center gap-3 text-xs text-subtle"><span className="h-px flex-1 bg-rule" />hoặc dùng email<span className="h-px flex-1 bg-rule" /></div></>}
+    {(screen.id === 'SCR-02' || screen.id === 'SCR-03') && !suspended && <><Button block disabled={readOnly} onClick={() => { saveAccountDemo(`${screen.id}-google`, { completed: true }); navigate(screen.id === 'SCR-02' ? signInTarget() : '/ui/scr-07') }}>Tiếp tục với Google</Button><div className="flex items-center gap-3 text-xs text-subtle"><span className="h-px flex-1 bg-rule" />hoặc dùng email<span className="h-px flex-1 bg-rule" /></div></>}
     {message && <InlineMessage tone={message.tone} title={message.title}>{message.body}{screen.id === 'SCR-02' && message.title.includes('xác minh') && <Button small variant="link" onClick={() => navigate('/ui/scr-04')}>Gửi lại email xác minh</Button>}</InlineMessage>}
     {screen.id === 'SCR-05' && <InlineMessage tone="info" title={sent ? 'Kiểm tra email của bạn' : 'Bảo vệ thông tin tài khoản'}>{sent ? 'Nếu địa chỉ có tài khoản mật khẩu đang hoạt động, BeefCare đã gửi liên kết đặt lại có hiệu lực 30 phút.' : 'Kết quả gửi luôn giống nhau dù email có tồn tại hay không.'}</InlineMessage>}
     {!linkInvalid && !suspended && <AccountForm fields={fields} actionLabel={actionById[screen.id]} readOnly={readOnly} validate={validateAuth} onSubmit={submit} primaryBlock />}
@@ -218,8 +237,10 @@ function Profile({ screen, readOnly, role }: { screen: ScreenDefinition; readOnl
   const navigate = useNavigate()
   const [saved, setSaved] = useState(false)
   const platformRole = role === 'cs' || role === 'pm' || role === 'sa'
-  const roleLabel = role === 'cs' ? 'Chăm sóc khách hàng (CS)' : role === 'pm' ? 'Quản lý nền tảng (PM)' : role === 'sa' ? 'Quản trị hệ thống (SA)' : role === 'manager' ? 'Quản lý' : role === 'technician' ? 'Kỹ thuật viên' : 'Chủ trại'
-  return <Page screen={screen} readOnly={readOnly} sub={`Nguyễn Văn Hùng · ${roleLabel}`}><div className="border-y border-rule py-4"><InfoList items={[["Email đăng nhập",<span>owner@beefcare.local · <Badge tone="ok">Đã xác minh</Badge></span>],["Vai trò",roleLabel],[platformRole ? 'Phạm vi làm việc' : 'Trang trại hiện tại',platformRole ? 'Nền tảng BeefCare' : 'Trại bò Ba Vì']]} /></div><WorkSection title="Thông tin cá nhân"><AccountForm fields={fieldsFor('SCR-08')} actionLabel="Lưu hồ sơ" onSubmit={(values) => { saveAccountDemo('SCR-08', values); setSaved(true) }} readOnly={readOnly} /></WorkSection>{saved && <InlineMessage tone="ok" title="Đã lưu hồ sơ">Thông tin đã được lưu thành công.</InlineMessage>}<WorkSection title="Phương thức đăng nhập" actions={!readOnly && <Button small onClick={() => navigate('/ui/scr-09')}>Đổi mật khẩu</Button>}><InfoList items={[["Google",'Đã liên kết'],['Email và mật khẩu','Đã thiết lập']]} /></WorkSection>{platformRole ? <WorkSection title="Quyền nền tảng" description="Vai trò nền tảng không cấp quyền xem dữ liệu vận hành của trang trại."><InfoList items={[["Vai trò hiện tại",roleLabel],['Phạm vi',role === 'sa' ? 'Tài khoản, phân quyền và audit' : role === 'pm' ? 'Dịch vụ, đối soát và công việc nội bộ' : 'Yêu cầu hỗ trợ được phân công'],['Cấp bởi','admin@beefcare.local']]} /></WorkSection> : <WorkSection title="Quyền của tôi tại trang trại" description="Quyền được xác định theo vai trò, không chỉnh sửa tại hồ sơ cá nhân."><PermissionsTable /></WorkSection>}</Page>
+  const identity = profileIdentity(role)
+  const roleLabel = identity.role
+  const currentFarm = String(loadAccountDemo('farm-selection').farm || 'Trại bò Ba Vì')
+  return <Page screen={screen} readOnly={readOnly} sub={`${identity.name} · ${roleLabel}`}><div className="border-y border-rule py-4"><InfoList items={[["Email đăng nhập",<span>{identity.email} · <Badge tone="ok">Đã xác minh</Badge></span>],["Vai trò",roleLabel],[platformRole ? 'Phạm vi làm việc' : 'Trang trại hiện tại',platformRole ? 'Nền tảng BeefCare' : currentFarm]]} /></div><WorkSection title="Thông tin cá nhân"><AccountForm fields={profileFields(role)} actionLabel="Lưu hồ sơ" onSubmit={(values) => { saveAccountDemo(`profile:${role ?? 'owner'}`, values); setSaved(true) }} readOnly={readOnly} /></WorkSection>{saved && <InlineMessage tone="ok" title="Đã lưu hồ sơ">Thông tin đã được lưu thành công.</InlineMessage>}<WorkSection title="Phương thức đăng nhập" actions={!readOnly && <Button small onClick={() => navigate('/ui/scr-09')}>Đổi mật khẩu</Button>}><InfoList items={[["Google",'Đã liên kết'],['Email và mật khẩu','Đã thiết lập']]} /></WorkSection>{platformRole ? <WorkSection title="Quyền nền tảng" description="Vai trò nền tảng không cấp quyền xem dữ liệu vận hành của trang trại."><InfoList items={[["Vai trò hiện tại",roleLabel],['Phạm vi',role === 'sa' ? 'Tài khoản, phân quyền và audit' : role === 'pm' ? 'Dịch vụ, đối soát và công việc nội bộ' : 'Yêu cầu hỗ trợ được phân công'],['Cấp bởi','admin@beefcare.local']]} /></WorkSection> : <WorkSection title="Quyền của tôi tại trang trại" description="Quyền được xác định theo vai trò, không chỉnh sửa tại hồ sơ cá nhân."><PermissionsTable /></WorkSection>}</Page>
 }
 
 function ChangePassword({ screen, readOnly }: { screen: ScreenDefinition; readOnly: boolean }) {
@@ -251,10 +272,11 @@ function FarmSelect({ screen, readOnly, role, empty = false }: { screen: ScreenD
         const blockedForMember = !rowOwner && !active
         const action = active ? 'Vào trang trại' : farm.statusCode === 'PENDING_PAYMENT' ? 'Thanh toán để kích hoạt' : farm.statusCode === 'EXPIRED' ? 'Gia hạn' : 'Gửi yêu cầu hỗ trợ'
         const destination = active ? (farm.role === 'Kỹ thuật viên' ? '/ui/scr-104' : returnTo ?? '/ui/scr-77') : farm.statusCode === 'SUSPENDED' ? '/ui/scr-94' : '/ui/scr-87'
-        return <tr key={farm.name}><Td><strong>{farm.name}</strong><span className="mt-1 block text-xs text-subtle">{farm.address}</span></Td><Td>{farm.role}</Td><Td><Badge tone={active ? 'ok' : farm.statusCode === 'SUSPENDED' ? 'err' : 'warn'}>{farm.status}</Badge><span className="mt-1 block text-xs text-subtle">{farm.service}</span></Td><Td>{farm.herd}</Td><Td><div className="flex flex-col items-start gap-1">{generated ? <Button small onClick={() => setPreviewFarm(farm)}>Xem</Button> : <Button small disabled={readOnly || blockedForMember} onClick={() => { saveAccountDemo('farm-selection', { farm: farm.name, role: farm.role }); const selected = loadOrders().find((row) => row.name === farm.name); if (selected) saveSelectedFarmId(selected.id); const selectedRole = farm.role === 'Kỹ thuật viên' ? 'technician' : farm.role === 'Quản lý' ? 'manager' : 'owner'; session.dispatch({ type: 'set-role', role: selectedRole }); navigate(destination) }}>{action}</Button>}{blockedForMember && !generated && <span className="text-xs text-subtle">Chủ trại quản lý gói dịch vụ</span>}</div></Td></tr>
+        const enterFarm = () => { saveAccountDemo('farm-selection', { farm: farm.name, role: farm.role }); const selected = loadOrders().find((row) => row.name === farm.name); if (selected) saveSelectedFarmId(selected.id); const selectedRole = farm.role === 'Kỹ thuật viên' ? 'technician' : farm.role === 'Quản lý' ? 'manager' : 'owner'; session.dispatch({ type: 'set-role', role: selectedRole }); navigate(destination) }
+        return <tr key={farm.name}><Td><strong>{farm.name}</strong><span className="mt-1 block text-xs text-subtle">{farm.address}</span></Td><Td>{farm.role}</Td><Td><Badge tone={active ? 'ok' : farm.statusCode === 'SUSPENDED' ? 'err' : 'warn'}>{farm.status}</Badge><span className="mt-1 block text-xs text-subtle">{farm.service}</span></Td><Td>{farm.herd}</Td><Td><div className="flex flex-wrap items-center gap-2"><Button small onClick={() => setPreviewFarm(farm)}>Xem thông tin</Button>{!generated && <Button small variant={active ? 'primary' : 'default'} disabled={readOnly || blockedForMember} onClick={enterFarm}>{action}</Button>}{blockedForMember && <span className="basis-full text-xs text-subtle">Chủ trại quản lý gói dịch vụ</span>}</div></Td></tr>
       })}</tbody></Table>
     </WorkSection>
-    {previewFarm && <ActionDialog open title={previewFarm.name} description="Dữ liệu thử để kiểm tra danh sách dài; chỉ xem và không thể chọn làm trang trại hiện tại." cancelLabel="Đóng" showConfirm={false} onCancel={() => setPreviewFarm(null)}><InlineMessage tone="info" title="Dữ liệu thử · chỉ xem">Các thao tác vào trại, thanh toán hoặc gia hạn chỉ xuất hiện với trang trại thật.</InlineMessage><InfoList items={[["Địa chỉ", previewFarm.address], ["Vai trò", previewFarm.role], ["Dịch vụ", `${previewFarm.status} · ${previewFarm.service}`], ["Quy mô đàn", previewFarm.herd]]} /></ActionDialog>}
+    {previewFarm && <ActionDialog open title="Thông tin trang trại" description={previewFarm.__stressGenerated ? 'Dữ liệu thử để kiểm tra danh sách dài; chỉ xem và không thể chọn làm trang trại hiện tại.' : 'Xem thông tin trại, vai trò và tình trạng dịch vụ. Chọn “Vào trang trại” ở danh sách để bắt đầu làm việc.'} cancelLabel="Đóng" showConfirm={false} onCancel={() => setPreviewFarm(null)}>{previewFarm.__stressGenerated && <InlineMessage tone="info" title="Dữ liệu thử · chỉ xem">Các thao tác vào trại, thanh toán hoặc gia hạn chỉ xuất hiện với trang trại thật.</InlineMessage>}<InfoList items={[["Trang trại", previewFarm.name], ["Địa chỉ", previewFarm.address], ["Vai trò", previewFarm.role], ["Dịch vụ", `${previewFarm.status} · ${previewFarm.service}`], ["Quy mô đàn", previewFarm.herd]]} /></ActionDialog>}
   </Page>
 }
 

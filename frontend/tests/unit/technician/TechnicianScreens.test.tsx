@@ -22,6 +22,18 @@ describe('TechnicianScreen', () => {
     expect(screen.getByText('2 phiên chưa ghi nhận')).toBeInTheDocument()
   })
 
+  it('keeps farm switching and the technician profile reachable from the header', () => {
+    render(<MemoryRouter initialEntries={['/ui/scr-104']}><TechnicianLayout title="Công việc hôm nay"><TechnicianScreen screen={screenById('SCR-104')!} state="success" /></TechnicianLayout></MemoryRouter>)
+
+    expect(screen.getByRole('link', { name: 'Đổi trang trại' })).toHaveAttribute('href', '/ui/scr-10')
+    expect(screen.getByRole('button', { name: 'Mở menu tài khoản' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mở menu tài khoản' }))
+
+    expect(screen.getByRole('menu')).toHaveTextContent('Hồ sơ của tôi')
+    expect(screen.getByRole('menuitem', { name: 'Hồ sơ của tôi' })).toHaveAttribute('href', '/ui/scr-08')
+  })
+
   it('removes write actions in read-only state', () => {
     renderScreen('SCR-122', 'read-only')
     expect(screen.getByText('Chỉ xem')).toBeInTheDocument()
