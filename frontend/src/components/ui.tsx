@@ -124,8 +124,8 @@ export function Field({ label, id, hint, children }: { label: ReactNode; id?: st
   const accessibleLabel = requiredLabel && typeof label === 'string' ? label.slice(0, -2) : undefined
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <label htmlFor={controlId} aria-label={accessibleLabel} className="text-xs font-semibold text-ink">{label}</label>
-      {isValidElement(children) ? cloneElement(children, { id: controlId } as Record<string, unknown>) : children}
+      <label htmlFor={controlId} className="text-xs font-semibold text-ink">{label}</label>
+      {isValidElement(children) ? cloneElement(children, { id: controlId, ...(accessibleLabel ? { 'aria-label': accessibleLabel } : {}) } as Record<string, unknown>) : children}
       {hint && <span className="text-xs leading-5 text-muted">{hint}</span>}
     </div>
   )
