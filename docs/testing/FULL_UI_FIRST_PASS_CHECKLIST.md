@@ -47,6 +47,8 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Playwright `SCR-01` tại `1440×1000` và `390×844`: landing không tràn ngang, menu desktop/mobile đúng breakpoint và console có `0` lỗi.
 - Lần gọi Playwright đầu tiên trong sandbox thất bại với `EPERM` khi ghi daemon vào `~/Library/Caches/ms-playwright`; chạy lại bằng quyền đã duyệt thì đạt. Đây là lỗi quyền công cụ kiểm tra, không phải lỗi ứng dụng.
 - Lần khởi động Vite bổ sung báo cổng `4175` đang được dùng và tự chuyển sang `4176`; kiểm tra tiến trình cho thấy server đúng worktree đã chạy sẵn tại `4175`, nên giữ server `4175` làm bản người dùng duyệt.
+- `npm --prefix frontend run typecheck`: đạt sau khi thêm adapter 100 dòng mô phỏng cho tài khoản và quyền nhân sự nền tảng; dữ liệu mô phỏng không tham gia thao tác ghi localStorage.
+- `npm --prefix frontend run build`: đạt; cảnh báo duy nhất vẫn là chunk `ScreenPreviewPage` lớn hơn 500 kB, chưa ảnh hưởng runtime giao diện.
 
 | Mã | Màn hình | Feature sở hữu | Kiểu | Dữ liệu | Route/owner | Trạng thái |
 | --- | --- | --- | --- | --- | --- | --- |
