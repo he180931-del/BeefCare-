@@ -211,3 +211,5 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - `SCR-103` được kiểm tra với bản chụp 51 giao dịch: bảng theo ngày và bảng chi tiết đều có phân trang số, tổng hợp phạm vi và biểu đồ không tràn bố cục desktop.
 - `SCR-120` cho phép mở chi tiết cả 100 hàng kiểm tra mật độ. Hàng mô phỏng được đánh dấu `Dữ liệu thử · chỉ xem`, khóa toàn bộ trường và không có hành động lưu; hàng thật vẫn dùng đúng biểu mẫu có thể sửa theo quyền, nên dữ liệu thử không thể lọt vào localStorage nghiệp vụ.
 - Sau thay đổi `SCR-120`, `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Build chỉ còn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB như checkpoint trước.
+- `SCR-20` và `SCR-21` được kiểm tra trực tiếp bằng Playwright với vai trò SA và 100 dòng: mọi hàng đều có nút `Xem chi tiết`; hàng mô phỏng mở vùng chỉ đọc có nhãn rõ, không hiển thị nút thay đổi trạng thái hoặc lưu quyền và không ghi localStorage.
+- `SCR-21` khởi tạo đúng hành động `Đổi` hoặc `Khôi phục` khi tài khoản đã có quyền; chỉ nút `Cấp quyền nền tảng` mới chuyển biểu mẫu sang hành động `Cấp`.
