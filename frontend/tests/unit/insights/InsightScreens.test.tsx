@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { screenById } from '../../../src/app/screenManifest'
 import { InsightScreen } from '../../../src/features/insights/pages/InsightScreens'
@@ -12,6 +12,15 @@ describe('InsightScreen', () => {
     expect(screen.getByRole('heading', { name: 'Cơ cấu đàn' })).toBeInTheDocument()
     expect(screen.getByText('M09 · Sinh sản')).toBeInTheDocument()
     expect(screen.getByText(/bò đang nuôi · Dịch vụ:/)).toBeInTheDocument()
+  })
+
+  it('keeps stress-test reminders out of the operational dashboard', () => {
+    window.localStorage.setItem('beefcare.preview.large-data.v1', JSON.stringify({ enabled: true, rowsPerTable: 100, seed: 49035 }))
+    render(<InsightScreen screen={screenById('SCR-77')!} state="success" />)
+
+    const attention = screen.getByRole('heading', { name: 'Cần chú ý hôm nay' }).closest('section')!
+    expect(within(attention).getAllByRole('row')).toHaveLength(4)
+    expect(within(attention).queryByText(/mẫu \d+/i)).not.toBeInTheDocument()
   })
 
   it('renders report criteria, catalogue and result semantics for SCR-78', () => {

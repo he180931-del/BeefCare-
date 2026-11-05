@@ -288,6 +288,10 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 
 ## Bổ sung kiểm tra ngày 06/11/2026
 
+- `SCR-77` không còn đưa các hàng được sinh tự động cho stress-test vào chỉ số hoặc bảng “Cần chú ý hôm nay”. Stress data vẫn phục vụ kiểm tra mật độ ở các màn danh sách, nhưng bảng tổng quan chỉ tổng hợp nhắc việc cục bộ thật và các tín hiệu phát sinh từ hồ sơ.
+- Lượt test đầu của `InsightScreens.test.tsx` kiểm tra cứng 7 dòng nhưng fixture hiện tại chỉ có 3 tín hiệu phù hợp (cộng hàng tiêu đề là 4), nên assertion được sửa để phản ánh đúng dữ liệu nghiệp vụ hiện hành và đồng thời bảo đảm không hiện nhãn hàng sinh `mẫu N`.
+- Kiểm tra runtime thủ công tại `1024px`: bảng “Cần chú ý hôm nay” hiển thị 3 cảnh báo thật (`BC-000125`, `BC-000142`, lịch sinh bê), `scrollWidth = clientWidth = 1024` và console không có lỗi; chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây không phải visual-regression tự động.
+
 - Đối chiếu `SRS_2026-11-01_SEP490_G35_Report.txt`, UC-FE02-02 và GBR-09/12/13/14: danh sách chọn trại phải dựa trên membership ACTIVE của tài khoản, không suy ra từ catalog trại; Chủ trại còn thấy trại sở hữu không ACTIVE để gia hạn/hỗ trợ, còn Quản lý/Kỹ thuật viên không được mở trại đó.
 - Adapter local `farmsForMember` nay là ranh giới duy nhất của `SCR-10` và bộ đổi trại nhanh. Fixture dịch vụ được đồng bộ để `Trại kỹ thuật Yên Bài` là `ACTIVE`, khớp việc kỹ thuật viên được vào trại và mốc dịch vụ hiển thị.
 - Lượt `npm run typecheck` đầu tiên dừng ở kiểu `false | FarmAccessRow` trong `readFarmSelection`; đã đổi biểu thức tra membership thành nhánh tường minh. Không có lỗi runtime từ thay đổi này.
