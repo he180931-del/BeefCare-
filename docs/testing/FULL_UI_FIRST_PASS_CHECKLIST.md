@@ -49,6 +49,10 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Lần khởi động Vite bổ sung báo cổng `4175` đang được dùng và tự chuyển sang `4176`; kiểm tra tiến trình cho thấy server đúng worktree đã chạy sẵn tại `4175`, nên giữ server `4175` làm bản người dùng duyệt.
 - `npm --prefix frontend run typecheck`: đạt sau khi thêm adapter 100 dòng mô phỏng cho tài khoản và quyền nhân sự nền tảng; dữ liệu mô phỏng không tham gia thao tác ghi localStorage.
 - `npm --prefix frontend run build`: đạt; cảnh báo duy nhất vẫn là chunk `ScreenPreviewPage` lớn hơn 500 kB, chưa ảnh hưởng runtime giao diện.
+- Lệnh Playwright đầu tiên cho `SCR-20` báo phiên `beefcare-account` chưa mở; lần mở tiếp theo trong sandbox thất bại `EPERM` khi ghi cache daemon. Mở lại bằng quyền công cụ đã duyệt thì đạt; đây là lỗi phiên/công cụ kiểm tra, không phải lỗi ứng dụng.
+- Fixture kiểm tra `SCR-20` ban đầu đặt sai ở cấp gốc của `beefcare-ui-demo`, nên ứng dụng vẫn đọc vai trò Chủ trại trong `state` và hiển thị đúng màn từ chối quyền. Sau khi đặt đúng `version: 1` và `state.role: sa`, `SCR-20`/`SCR-21` hiển thị đủ 100 dòng, tự phân trang theo breakpoint và console có `0` lỗi.
+- `npm --prefix frontend run typecheck`: đạt sau khi bổ sung adapter 100 dòng cho sổ đăng ký dịch vụ `SCR-90`; dòng mô phỏng chỉ dùng kiểm tra mật độ và bị khóa thao tác chi tiết.
+- `npm --prefix frontend run build`: đạt cho checkpoint `SCR-90`; cảnh báo duy nhất vẫn là chunk `ScreenPreviewPage` lớn hơn 500 kB.
 
 | Mã | Màn hình | Feature sở hữu | Kiểu | Dữ liệu | Route/owner | Trạng thái |
 | --- | --- | --- | --- | --- | --- | --- |
