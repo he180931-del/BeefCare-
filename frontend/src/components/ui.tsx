@@ -86,7 +86,7 @@ export function Segmented({ options, value, onChange }: { options: Array<{ value
 
 export function Card({ title, sub, actions, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
+    <section className="flex min-w-0 flex-col gap-4 border-y border-rule py-4">
       {(title || actions) && (
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="m-0 text-sm font-semibold">
