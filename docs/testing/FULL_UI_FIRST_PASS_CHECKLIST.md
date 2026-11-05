@@ -209,3 +209,5 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Build vẫn còn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB; chưa coi đây là lỗi chặn checkpoint giao diện.
 - `SCR-100` hiển thị 100 biên nhận mô phỏng chỉ đọc, có tổng tiền theo bộ lọc, 13 trang và phần chi tiết đầy đủ; chọn nguồn từ biên nhận mở đúng chứng từ mô phỏng tương ứng tại `SCR-91` ở chế độ chỉ xem.
 - `SCR-103` được kiểm tra với bản chụp 51 giao dịch: bảng theo ngày và bảng chi tiết đều có phân trang số, tổng hợp phạm vi và biểu đồ không tràn bố cục desktop.
+- `SCR-120` cho phép mở chi tiết cả 100 hàng kiểm tra mật độ. Hàng mô phỏng được đánh dấu `Dữ liệu thử · chỉ xem`, khóa toàn bộ trường và không có hành động lưu; hàng thật vẫn dùng đúng biểu mẫu có thể sửa theo quyền, nên dữ liệu thử không thể lọt vào localStorage nghiệp vụ.
+- Sau thay đổi `SCR-120`, `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Build chỉ còn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB như checkpoint trước.
