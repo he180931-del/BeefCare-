@@ -73,6 +73,12 @@ describe('TechnicianScreen', () => {
     expect(screen.getByText('Mọi thông tin trên trang chủ kỹ thuật viên chỉ để xem.')).toBeInTheDocument()
   })
 
+  it('uses the selected farm in the technician home context', () => {
+    window.localStorage.setItem('beefcare-ui-demo', JSON.stringify({ account: { 'farm-selection': { farm: 'Trại kỹ thuật Yên Bài', role: 'Kỹ thuật viên' } } }))
+    renderScreen('SCR-104')
+    expect(screen.getByText('Trại kỹ thuật Yên Bài · Thứ Ba, 03/11/2026')).toBeInTheDocument()
+  })
+
   it('opens the selected reminder detail instead of leaving the item inert', () => {
     renderScreen('SCR-104')
     fireEvent.click(screen.getByRole('button', { name: /Kiểm tra bò sau điều trị/ }))
