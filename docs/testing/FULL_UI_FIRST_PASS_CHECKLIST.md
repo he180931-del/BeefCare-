@@ -135,7 +135,7 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 | SCR-77 | Tổng quan trang trại | dashboard | dashboard | fixture | /ui/scr-77 | Đã duyệt manual · 1440x900 và 1180x820 · không tràn ngang |
 | SCR-78 | Báo cáo quản trị | report | report | fixture | /ui/scr-78 | Đã duyệt manual · Chủ trại · 820×1180 · bộ lọc mở, báo cáo responsive |
 | SCR-79 | Dòng thời gian hồ sơ bò | cattle | detail | fixture | /ui/scr-79 | Đã duyệt manual · Chủ trại · 820×1180 · thuật ngữ Việt hóa, không tràn ngang |
-| SCR-80 | Lịch sử kiểm tra | audit | workbench | fixture | /ui/scr-80 | Đã duyệt manual · SA · 820×1180 · hành động và đối tượng Việt hóa |
+| SCR-80 | Lịch sử kiểm tra | audit | workbench | fixture | /ui/scr-80 | Đã duyệt manual · SA · 100 dòng trong khoảng mặc định, phân trang và nhãn Việt hóa |
 | SCR-81 | Danh mục giống bò | catalogue | catalogue | fixture | /ui/scr-81 | Đã duyệt manual · Chủ trại · 820×1180 · danh sách và biểu mẫu responsive |
 | SCR-82 | Danh mục vaccine | catalogue | catalogue | fixture | /ui/scr-82 | Đã duyệt manual · Chủ trại · 820×1180 · trường vaccine đầy đủ, không tràn ngang |
 | SCR-83 | Danh mục thuốc | catalogue | catalogue | fixture | /ui/scr-83 | Đã duyệt manual · Chủ trại · 820×1180 · danh sách và biểu mẫu responsive |
@@ -218,6 +218,8 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Màn đăng nhập thật trong `AuthProvider` được kiểm tra qua production preview (không dùng màn fixture): bố cục chia đôi tại `1180×820`, bố cục tablet tại `820×1180` và bố cục một cột tại `390×844` đều không tràn ngang hoặc dọc ngoài ý muốn.
 - Ở cả ba viewport, tiêu đề, email, mật khẩu, nút hiện/ẩn mật khẩu và nút đăng nhập đều hiển thị và có tên truy cập. Bản DEV tại `/ui/*` vẫn giữ cơ chế bypass xác thực phục vụ duyệt giao diện; không thay đổi logic này để tạo bằng chứng giả.
 - Sau khi thiết kế lại màn đăng nhập, `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Cảnh báo duy nhất vẫn là kích thước chunk `ScreenPreviewPage` lớn hơn 500 kB.
+- `SCR-80` giữ nguyên thời gian của bản ghi thật; 100 bản ghi mô phỏng được đặt trong khoảng bảy ngày mặc định để kiểm tra bộ lọc, mật độ và phân trang mà không ghi ngược vào localStorage.
+- Test tập trung `PlatformScreens.test.tsx` đạt `7/7`, bao gồm trạng thái chỉ xem, trạng thái rỗng và xác nhận đủ 100 dòng trong bộ lọc mặc định.
 - `SCR-01` dùng logo thật ở đầu/cuối trang, tăng diện tích nhận diện thương hiệu và làm phẳng khung xem trước sản phẩm (bỏ hai lớp bo góc và bóng đổ lồng nhau). Nút trong khung mở được tổng quan thật thay vì chỉ trang trí.
 - Landing được kiểm tra trực tiếp tại `1440×900` và `390×844`: không tràn ngang; logo, menu mobile, liên kết điều hướng và nút “Mở tổng quan thật” đều hiển thị/hoạt động. Đây là kiểm tra runtime thủ công bằng Playwright, không phải visual-regression tự động.
 - `SCR-111`: các hàng tồn kho mô phỏng không còn nút `Nhập` bị vô hiệu; thay bằng nhãn dữ liệu thử và nút `Xem chi tiết` mở vùng đọc-only. Kiểm tra runtime có 12 nút chi tiết trên trang hiện tại, vùng chi tiết hiển thị đúng và không tràn ngang tại `1180×820`.

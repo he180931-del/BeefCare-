@@ -1,5 +1,5 @@
 import { auditRows } from './data/platformFixtures'
-import { expandLocalTable, stripStressRows } from '../../app/localStressData'
+import { expandLocalTable, isStressGenerated, stripStressRows } from '../../app/localStressData'
 
 export type AuditRecord = {
   id: string
@@ -66,14 +66,23 @@ function normalize(value: Partial<AuditRecord>, index = 0): AuditRecord {
 }
 const seed: AuditRecord[] = auditRows.map((row, index) => normalize({ id: `seed-${index + 1}`, at: fixtureIso(row.time), actor: row.actor, actorRole: row.actor.includes('·') ? row.actor.split('·').pop()?.trim() : 'System', action: row.action, target: row.target, targetType: row.target.startsWith('Trang trại') ? 'Farm' : row.target.startsWith('Thanh toán') ? 'Payment' : row.target.startsWith('Thành viên') ? 'Membership' : 'Farm', before: row.before, after: row.after, correlationId: row.correlation }, index))
 
+function previewAuditRows(rows: AuditRecord[]) {
+  return expandLocalTable('platform-audit', rows).map((row) => {
+    if (!isStressGenerated(row)) return row
+    const index = Number(row.__stressIndex || 0)
+    const at = new Date(Date.UTC(2026, 10, 3, 8 + (index % 10)) - (index % 7) * 86_400_000).toISOString()
+    return { ...row, at }
+  })
+}
+
 export function loadAuditRecords(): AuditRecord[] {
   if (typeof window === 'undefined') return seed
   try {
     const parsed = JSON.parse(window.localStorage.getItem(AUDIT_KEY) || 'null')
     const rows = (Array.isArray(parsed) ? parsed.map((value, index) => normalize(value as Partial<AuditRecord>, index)) : seed).filter((row) => ACTION_TARGET[row.action] === row.targetType)
     if (!parsed) window.localStorage.setItem(AUDIT_KEY, JSON.stringify(rows))
-    return expandLocalTable('platform-audit', rows)
-  } catch { return expandLocalTable('platform-audit', seed) }
+    return previewAuditRows(rows)
+  } catch { return previewAuditRows(seed) }
 }
 
 export function appendAuditRecord(record: Omit<AuditRecord, 'id'> & { id?: string }) {
