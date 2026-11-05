@@ -12,6 +12,7 @@ import { fixtureRoleForFarm, readFarmSelection, saveFarmSelection, type FarmRole
 import farm from '../../../assets/farm.png'
 import logo from '../../../assets/logo.png'
 import productDashboard from '../../../assets/product-dashboard.png'
+import wave from '../../../assets/wave.png'
 
 const actionById: Record<string, string> = {
   'SCR-02': 'Đăng nhập', 'SCR-03': 'Tạo tài khoản', 'SCR-05': 'Gửi liên kết đặt lại', 'SCR-06': 'Lưu mật khẩu',
@@ -101,15 +102,15 @@ function useCooldown(scope: string, seconds = 60) {
   return { remaining, start }
 }
 
-function Page({ screen, readOnly, sub, actions, children, narrow = false }: {
-  screen: ScreenDefinition; readOnly: boolean; sub: string; actions?: ReactNode; children: ReactNode; narrow?: boolean
+function Page({ screen, readOnly, sub, actions, children, narrow = false, auth = false }: {
+  screen: ScreenDefinition; readOnly: boolean; sub: string; actions?: ReactNode; children: ReactNode; narrow?: boolean; auth?: boolean
 }) {
-  if (narrow) return <div className="grid min-h-[calc(100dvh-7.5rem)] w-full bg-white md:grid-cols-[minmax(280px,38vw)_minmax(0,1fr)] lg:grid-cols-[minmax(360px,520px)_minmax(0,1fr)]">
+  if (narrow) return <div className={`grid min-h-[calc(100dvh-8rem)] w-full bg-white md:grid-cols-[minmax(280px,38vw)_minmax(0,1fr)] lg:grid-cols-[minmax(360px,520px)_minmax(0,1fr)] ${auth ? 'md:grid-cols-[minmax(320px,40vw)_minmax(0,1fr)]' : ''}`}>
     <aside className="relative hidden overflow-hidden bg-side px-7 py-8 text-white md:flex md:flex-col md:justify-between lg:px-8">
       <div className="relative z-10"><div className="flex items-center gap-3 text-[26px] font-bold tracking-tight text-white"><img src={logo} alt="" className="size-11 rounded-[10px] object-cover" />BeefCare</div><p className="mb-0 mt-2 text-xs font-semibold uppercase tracking-[.14em] text-[#b7d9c1]">Quản lý trại bò thịt</p><h2 className="mb-0 mt-10 max-w-sm text-[24px] font-bold leading-tight text-white lg:text-[30px]">Mỗi con bò một hồ sơ — ghi ngay tại chuồng.</h2><p className="mb-0 mt-4 max-w-xs text-sm leading-6 text-[#d7ebdf]">Gọn việc mỗi ngày. Rõ dữ liệu cả vòng đời đàn bò.</p></div>
       <div className="relative z-10 -mx-7 -mb-8 mt-8 lg:-mx-8"><img src={farm} alt="Minh họa trang trại bò" className="mx-auto w-full max-w-[520px]" /><p className="m-0 px-7 pb-6 pt-2 text-xs leading-5 text-[#d7ebdf] lg:px-8">Thiết kế cho công việc thực tế tại trại.</p></div>
     </aside>
-    <section className="flex min-w-0 items-center bg-page px-5 py-7 sm:px-8 lg:px-14"><div className="mx-auto flex w-full max-w-[620px] flex-col gap-6"><div className="mb-1 text-xl font-bold text-brand md:hidden">BeefCare</div><PageHeader title={screen.viTitle} sub={sub} badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : <FixtureNotice />}>{actions}</PageHeader>{children}</div></section>
+    <section className={`relative flex min-w-0 items-center overflow-hidden px-5 py-7 sm:px-8 lg:px-14 ${auth ? 'bg-white' : 'bg-page'}`}>{auth && <img src={wave} alt="" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full object-cover opacity-45" />}<div className="relative mx-auto flex w-full max-w-[620px] flex-col gap-6"><div className="mb-1 flex items-center gap-2 text-xl font-bold text-brand md:hidden"><img src={logo} alt="" className="size-8 rounded-[7px] object-cover" />BeefCare</div><PageHeader title={screen.viTitle} sub={sub} badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : auth ? undefined : <FixtureNotice />}>{actions}</PageHeader>{children}</div></section>
   </div>
   return <div className="flex w-full flex-col gap-6"><PageHeader title={screen.viTitle} sub={sub} badge={readOnly ? <span className="text-xs font-semibold text-subtle">Chỉ xem</span> : <FixtureNotice />}>{actions}</PageHeader>{children}</div>
 }
@@ -193,7 +194,7 @@ function AuthenticationForm({ screen, readOnly }: { screen: ScreenDefinition; re
     }
     saveAccountDemo(screen.id, values); saveAccountDemo('reset-link', { invalid: true }); saveAccountDemo('sign-in-message', { success: true }); navigate('/ui/scr-02')
   }
-  return <Page screen={screen} readOnly={readOnly} narrow sub="Truy cập BeefCare bằng phương thức phù hợp với tài khoản của bạn.">
+  return <Page screen={screen} readOnly={readOnly} narrow auth sub="Truy cập BeefCare bằng phương thức phù hợp với tài khoản của bạn.">
     {(screen.id === 'SCR-02' || screen.id === 'SCR-03') && !suspended && <><Button block disabled={readOnly} onClick={() => { saveAccountDemo(`${screen.id}-google`, { completed: true }); navigate(screen.id === 'SCR-02' ? signInTarget() : '/ui/scr-07') }}>Tiếp tục với Google</Button><div className="flex items-center gap-3 text-xs text-subtle"><span className="h-px flex-1 bg-rule" />hoặc dùng email<span className="h-px flex-1 bg-rule" /></div></>}
     {message && <InlineMessage tone={message.tone} title={message.title}>{message.body}{screen.id === 'SCR-02' && message.title.includes('xác minh') && <Button small variant="link" onClick={() => navigate('/ui/scr-04')}>Gửi lại email xác minh</Button>}</InlineMessage>}
     {screen.id === 'SCR-05' && <InlineMessage tone="info" title={sent ? 'Kiểm tra email của bạn' : 'Bảo vệ thông tin tài khoản'}>{sent ? 'Nếu địa chỉ có tài khoản mật khẩu đang hoạt động, BeefCare đã gửi liên kết đặt lại có hiệu lực 30 phút.' : 'Kết quả gửi luôn giống nhau dù email có tồn tại hay không.'}</InlineMessage>}
