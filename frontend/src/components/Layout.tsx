@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { navigationForRole } from '../app/navigation'
-import { loadOrders, loadSelectedFarmId } from '../features/subscription/subscriptionStore'
+import { FarmQuickSwitcher } from '../features/account/components/FarmQuickSwitcher'
 import logo from '../assets/logo.png'
 import farm from '../assets/farm.png'
 import wave from '../assets/wave.png'
@@ -14,18 +14,6 @@ const USERS = {
   owner: { initials: 'NH', name: 'Nguyễn Văn Hùng', role: 'Chủ trại', groups: navigationForRole('owner'), gap: 'mt-[3px]' },
 }
 const notificationRoute = (user: keyof typeof USERS) => user === 'owner' ? '/ui/scr-74' : '/ui/scr-73'
-
-function selectedFarmName() {
-  if (typeof window !== 'undefined') {
-    try {
-      const demo = JSON.parse(window.localStorage.getItem('beefcare-ui-demo') || '{}') as { account?: { 'farm-selection'?: { farm?: string } } }
-      const selected = demo.account?.['farm-selection']?.farm
-      if (selected) return selected
-    } catch { /* fall through to the subscription fixture */ }
-  }
-  const selectedId = loadSelectedFarmId()
-  return loadOrders().find((farmRow) => farmRow.id === selectedId)?.name ?? 'Chọn trang trại'
-}
 
 // Modal đổi tiêu đề thanh trên (Figma: khi mở modal, tiêu đề topbar = tên modal).
 const TitleCtx = createContext<(title: string | null) => void>(() => undefined)
@@ -52,7 +40,6 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   const [override, setOverride] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
-  const farmName = selectedFarmName()
   return (
     <TitleCtx.Provider value={setOverride}>
       <div className="min-h-screen overflow-x-clip">
@@ -93,16 +80,8 @@ export default function Layout({ title, user = 'owner', children }: { title: str
           <header className="relative flex h-16 min-w-0 items-center bg-white px-4 lg:pl-6 lg:pr-6">
             <button type="button" aria-label="Mở menu" onClick={() => setOpen(true)} className="mr-3 grid size-8 shrink-0 place-items-center rounded-md border border-field text-lg text-brand-dark lg:hidden">☰</button>
             <div className="min-w-0 flex-1 truncate text-[15px] font-bold text-ink">{override || title}</div>
-            <NavLink
-              to="/ui/scr-10"
-              state={{ returnTo: location.pathname + location.search }}
-              aria-label={`Đổi trang trại; hiện tại ${farmName}`}
-              className="mr-4 hidden min-h-10 max-w-[220px] shrink-0 items-center gap-2 rounded-md border border-field bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand hover:bg-ok-bg lg:flex"
-            >
-              <span className="truncate">{farmName}</span>
-              <span aria-hidden="true" className="ml-auto text-xs text-subtle">Đổi</span>
-            </NavLink>
-            <NavLink to="/ui/scr-10" state={{ returnTo: location.pathname + location.search }} aria-label={`Đổi trang trại; hiện tại ${farmName}`} className="mr-2 grid size-9 shrink-0 place-items-center rounded-md border border-field bg-white text-brand hover:border-brand hover:bg-ok-bg lg:hidden">⌂</NavLink>
+            <div className="mr-4 hidden lg:block"><FarmQuickSwitcher preferredRole={user === 'manager' ? 'Quản lý' : 'Chủ trại'} /></div>
+            <div className="mr-2 lg:hidden"><FarmQuickSwitcher compact preferredRole={user === 'manager' ? 'Quản lý' : 'Chủ trại'} /></div>
             <form
               role="search"
               className="mr-4 hidden min-h-10 w-[260px] shrink-0 items-center rounded-md border border-field bg-page focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/10 xl:flex"

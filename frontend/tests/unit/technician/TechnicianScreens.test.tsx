@@ -1,9 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { fireEvent, render as testingRender, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { FixtureSessionProvider } from '../../../src/app/fixtureSession'
 import { screenById } from '../../../src/app/screenManifest'
 import TechnicianLayout from '../../../src/components/TechnicianLayout'
 import { TechnicianScreen } from '../../../src/features/technician/pages/TechnicianScreens'
+
+const render = (ui: ReactNode) => testingRender(<FixtureSessionProvider>{ui}</FixtureSessionProvider>)
 
 function renderScreen(id: `SCR-${string}`, state: 'success' | 'read-only' | 'empty' = 'success') {
   return render(<MemoryRouter initialEntries={[`/ui/${id.toLowerCase()}`]}><TechnicianScreen screen={screenById(id)!} state={state} /></MemoryRouter>)
@@ -25,12 +29,16 @@ describe('TechnicianScreen', () => {
   it('keeps farm switching and the technician profile reachable from the header', () => {
     render(<MemoryRouter initialEntries={['/ui/scr-104']}><TechnicianLayout title="Công việc hôm nay"><TechnicianScreen screen={screenById('SCR-104')!} state="success" /></TechnicianLayout></MemoryRouter>)
 
-    expect(screen.getByRole('link', { name: 'Đổi trang trại' })).toHaveAttribute('href', '/ui/scr-10')
+    expect(screen.getByRole('button', { name: /Đổi trang trại; hiện tại/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Đổi trang trại; hiện tại/ }))
+    expect(screen.getByRole('menu', { name: 'Đổi trang trại nhanh' })).toHaveTextContent('Trại kỹ thuật Yên Bài')
+    fireEvent.click(screen.getByRole('menuitem', { name: /Trại bò Ba Vì/ }))
+    expect(window.localStorage.getItem('beefcare-ui-demo')).toContain('Trại bò Ba Vì')
     expect(screen.getByRole('button', { name: 'Mở menu tài khoản' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Mở menu tài khoản' }))
 
-    expect(screen.getByRole('menu')).toHaveTextContent('Hồ sơ của tôi')
+    expect(screen.getByRole('menu', { name: 'Tài khoản kỹ thuật viên' })).toHaveTextContent('Hồ sơ của tôi')
     expect(screen.getByRole('menuitem', { name: 'Hồ sơ của tôi' })).toHaveAttribute('href', '/ui/scr-08')
   })
 

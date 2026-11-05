@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { navigationForRole } from '../app/navigation'
+import { FarmQuickSwitcher } from '../features/account/components/FarmQuickSwitcher'
 
 const technicianIcon: Record<string, string> = {
   'Hôm nay': '⌂',
@@ -24,7 +25,7 @@ export default function TechnicianLayout({ title, children }: { title: string; c
       </a>
       <header className="sticky top-0 z-30 flex min-h-[60px] items-center border-b border-rule bg-white px-4 sm:px-6 lg:px-8">
         <strong className="min-w-0 flex-1 truncate text-xl font-bold leading-tight text-ink">{title}</strong>
-        <NavLink to="/ui/scr-10" state={{ returnTo: location.pathname + location.search }} aria-label="Đổi trang trại" className="mr-2 grid size-11 shrink-0 place-items-center rounded-md border border-field bg-white text-base font-bold text-brand hover:border-brand hover:bg-ok-bg">⌂</NavLink>
+        <div className="mr-2"><FarmQuickSwitcher compact preferredRole="Kỹ thuật viên" /></div>
         <div className="relative">
           <button type="button" aria-label="Mở menu tài khoản" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)} className="grid size-11 shrink-0 place-items-center rounded-md bg-ok-bg text-sm font-bold text-brand hover:bg-[#d7f0e1]">KT</button>
           {accountMenuOpen && <div role="menu" aria-label="Tài khoản kỹ thuật viên" className="absolute right-0 top-[calc(100%+8px)] z-40 w-52 border border-edge bg-white p-1 shadow-lg"><NavLink role="menuitem" to="/ui/scr-08" onClick={() => setAccountMenuOpen(false)} className="flex min-h-10 items-center px-3 text-sm font-semibold text-ink hover:bg-page">Hồ sơ của tôi</NavLink><NavLink role="menuitem" to="/ui/scr-10" state={{ returnTo: location.pathname + location.search }} onClick={() => setAccountMenuOpen(false)} className="flex min-h-10 items-center px-3 text-sm font-semibold text-ink hover:bg-page">Đổi trang trại</NavLink><button type="button" role="menuitem" onClick={() => navigate('/ui/scr-02')} className="flex min-h-10 w-full items-center px-3 text-left text-sm font-semibold text-err-fg hover:bg-err-bg">Đăng xuất</button></div>}

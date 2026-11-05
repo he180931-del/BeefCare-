@@ -8,7 +8,7 @@ import { ActionDialog, EmptyState, FilterBar, FixtureNotice, InlineMessage, Load
 import { AccountForm } from '../components/AccountForm'
 import { accountFields, accountMembers, farmRows, invitationRows, permissionRows, serviceFarmRows } from '../data/accountFixtures'
 import { previewFarms, previewInvitations, previewMembers, previewServiceFarms } from '../data/accountPreviewData'
-import { loadOrders, saveSelectedFarmId } from '../../subscription/subscriptionStore'
+import { fixtureRoleForFarm, readFarmSelection, saveFarmSelection, type FarmRole } from '../data/farmSelectionStore'
 import farm from '../../../assets/farm.png'
 import logo from '../../../assets/logo.png'
 import productDashboard from '../../../assets/product-dashboard.png'
@@ -239,7 +239,7 @@ function Profile({ screen, readOnly, role }: { screen: ScreenDefinition; readOnl
   const platformRole = role === 'cs' || role === 'pm' || role === 'sa'
   const identity = profileIdentity(role)
   const roleLabel = identity.role
-  const currentFarm = String(loadAccountDemo('farm-selection').farm || 'Trại bò Ba Vì')
+  const currentFarm = readFarmSelection().farm
   return <Page screen={screen} readOnly={readOnly} sub={`${identity.name} · ${roleLabel}`}><div className="border-y border-rule py-4"><InfoList items={[["Email đăng nhập",<span>{identity.email} · <Badge tone="ok">Đã xác minh</Badge></span>],["Vai trò",roleLabel],[platformRole ? 'Phạm vi làm việc' : 'Trang trại hiện tại',platformRole ? 'Nền tảng BeefCare' : currentFarm]]} /></div><WorkSection title="Thông tin cá nhân"><AccountForm fields={profileFields(role)} actionLabel="Lưu hồ sơ" onSubmit={(values) => { saveAccountDemo(`profile:${role ?? 'owner'}`, values); setSaved(true) }} readOnly={readOnly} /></WorkSection>{saved && <InlineMessage tone="ok" title="Đã lưu hồ sơ">Thông tin đã được lưu thành công.</InlineMessage>}<WorkSection title="Phương thức đăng nhập" actions={!readOnly && <Button small onClick={() => navigate('/ui/scr-09')}>Đổi mật khẩu</Button>}><InfoList items={[["Google",'Đã liên kết'],['Email và mật khẩu','Đã thiết lập']]} /></WorkSection>{platformRole ? <WorkSection title="Quyền nền tảng" description="Vai trò nền tảng không cấp quyền xem dữ liệu vận hành của trang trại."><InfoList items={[["Vai trò hiện tại",roleLabel],['Phạm vi',role === 'sa' ? 'Tài khoản, phân quyền và audit' : role === 'pm' ? 'Dịch vụ, đối soát và công việc nội bộ' : 'Yêu cầu hỗ trợ được phân công'],['Cấp bởi','admin@beefcare.local']]} /></WorkSection> : <WorkSection title="Quyền của tôi tại trang trại" description="Quyền được xác định theo vai trò, không chỉnh sửa tại hồ sơ cá nhân."><PermissionsTable /></WorkSection>}</Page>
 }
 
@@ -272,7 +272,7 @@ function FarmSelect({ screen, readOnly, role, empty = false }: { screen: ScreenD
         const blockedForMember = !rowOwner && !active
         const action = active ? 'Vào trang trại' : farm.statusCode === 'PENDING_PAYMENT' ? 'Thanh toán để kích hoạt' : farm.statusCode === 'EXPIRED' ? 'Gia hạn' : 'Gửi yêu cầu hỗ trợ'
         const destination = active ? (farm.role === 'Kỹ thuật viên' ? '/ui/scr-104' : returnTo ?? '/ui/scr-77') : farm.statusCode === 'SUSPENDED' ? '/ui/scr-94' : '/ui/scr-87'
-        const enterFarm = () => { saveAccountDemo('farm-selection', { farm: farm.name, role: farm.role }); const selected = loadOrders().find((row) => row.name === farm.name); if (selected) saveSelectedFarmId(selected.id); const selectedRole = farm.role === 'Kỹ thuật viên' ? 'technician' : farm.role === 'Quản lý' ? 'manager' : 'owner'; session.dispatch({ type: 'set-role', role: selectedRole }); navigate(destination) }
+        const enterFarm = () => { saveFarmSelection({ farm: farm.name, role: farm.role as FarmRole }); session.dispatch({ type: 'set-role', role: fixtureRoleForFarm(farm.role as FarmRole) }); navigate(destination) }
         return <tr key={farm.name}><Td><strong>{farm.name}</strong><span className="mt-1 block text-xs text-subtle">{farm.address}</span></Td><Td>{farm.role}</Td><Td><Badge tone={active ? 'ok' : farm.statusCode === 'SUSPENDED' ? 'err' : 'warn'}>{farm.status}</Badge><span className="mt-1 block text-xs text-subtle">{farm.service}</span></Td><Td>{farm.herd}</Td><Td><div className="flex flex-wrap items-center gap-2"><Button small onClick={() => setPreviewFarm(farm)}>Xem thông tin</Button>{!generated && <Button small variant={active ? 'primary' : 'default'} disabled={readOnly || blockedForMember} onClick={enterFarm}>{action}</Button>}{blockedForMember && <span className="basis-full text-xs text-subtle">Chủ trại quản lý gói dịch vụ</span>}</div></Td></tr>
       })}</tbody></Table>
     </WorkSection>
