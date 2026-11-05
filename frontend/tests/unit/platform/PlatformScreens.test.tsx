@@ -30,16 +30,16 @@ describe('PlatformScreen', () => {
     fireEvent.change(screen.getByLabelText('Giá trị / ghi chú *'), { target: { value: '4.800.000 đ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Lưu công việc' }))
 
-    expect(screen.getByText('Đã thêm công việc vào danh sách cục bộ.')).toBeInTheDocument()
+    expect(screen.getAllByText('Đã thêm công việc vào danh sách cục bộ.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Đối soát phí tháng 11').length).toBeGreaterThan(0)
     fireEvent.click(screen.getAllByRole('button', { name: 'Mở' })[0])
     expect(screen.getByRole('heading', { name: /Chi tiết công việc/ })).toBeInTheDocument()
   })
 
   it.each([
-    ['SCR-20', 'Tài khoản người dùng', 'Trang trại tham gia', 'Tạm ngừng tài khoản'],
-    ['SCR-21', 'Quyền nhân sự nền tảng', 'SA hoạt động cuối cùng', 'Lịch sử quyền'],
-    ['SCR-80', 'Lịch sử kiểm tra', 'Mã tương quan', 'Chi tiết thay đổi'],
+    ['SCR-20', 'Tài khoản người dùng', 'Trang trại tham gia', 'Xem chi tiết'],
+    ['SCR-21', 'Quyền nhân sự nền tảng', 'SA hoạt động cuối cùng', 'Cấp quyền nền tảng'],
+    ['SCR-80', 'Lịch sử kiểm tra', 'Xuất kết quả lọc', 'Xem chi tiết'],
   ])('renders a dedicated platform workbench for %s', (id, heading, firstMarker, secondMarker) => {
     renderPlatform(id as `SCR-${string}`, 'success')
     expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
@@ -64,5 +64,15 @@ describe('PlatformScreen', () => {
     expect(screen.getByRole('button', { name: 'Xuất kết quả lọc' })).toBeEnabled()
     expect(screen.getByLabelText('Phân trang bảng')).toHaveTextContent(/Hiển thị 1–\d+ \/ 100 dòng/)
     expect(screen.getByRole('button', { name: 'Trang 4' })).toBeInTheDocument()
+  })
+
+  it('opens audit details in a dialog only after a row is selected', () => {
+    renderPlatform('SCR-80', 'success')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Xem chi tiết' })[0])
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Chi tiết thay đổi')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Mã tương quan')
   })
 })
