@@ -9,6 +9,7 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Các vùng chung của bò, nhập/xuất đàn và chuồng được làm phẳng thành đường phân tách ngang, bỏ nền trắng, viền bo và khung lồng nhau không cần thiết. Bảng chuồng cũng bỏ lớp bao bọc thứ hai.
 - Màn đăng nhập chỉ giữ email/mật khẩu; nhận diện BeefCare dùng logo thật, tên sản phẩm lớn hơn. Đăng ký vẫn giữ lựa chọn đăng nhập Google tách riêng. Landing được tổ chức lại theo hành trình: giá trị, ba nhóm công việc, sau đó CTA rõ ràng.
 - Component nút dùng chung bổ sung phản hồi hover/focus theo đúng ngữ nghĩa: nút chính đậm hơn, nút thường đổi viền/nền, nút nguy hiểm tối hơn và liên kết nhận nền nhấn. Trạng thái disabled không nhận tương tác.
+- Các ô số liệu `Tile` dùng chung được đổi từ card trắng bo viền sang nhịp chỉ số có dải phân cách dọc. Nhờ vậy các dashboard/list page giữ mật độ thông tin nhưng không tạo các lớp khung kép.
 - `git diff --check`, `npm run typecheck` và `npm run build` đều đạt. Cổng xem trước `http://127.0.0.1:4175/ui/scr-02` trả HTTP 200. Vite vẫn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB; đây là hạng mục tối ưu bundle còn mở, không phải lỗi biên dịch hoặc giao diện runtime.
 
 ## Cách đọc

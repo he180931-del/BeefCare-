@@ -104,7 +104,7 @@ export function Card({ title, sub, actions, children }: { title?: ReactNode; sub
 
 export function Tile({ label, value, note, warn }: { label: ReactNode; value: ReactNode; note: ReactNode; warn?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-edge bg-white p-4">
+    <div className={cx('flex min-w-0 flex-col gap-1 border-l-2 border-field py-2 pl-3', warn && 'border-warn-fg')}>
       <span className="text-xs text-muted">{label}</span>
       <span className={cx('text-xl font-bold', warn && 'text-warn-fg')}>{value}</span>
       <span className="text-xs font-semibold text-brand">{note}</span>
