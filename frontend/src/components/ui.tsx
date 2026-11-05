@@ -149,16 +149,16 @@ const STACK = {
   normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr:not(:last-child)]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:grid @max-[640px]:[&_td]:grid-cols-[minmax(96px,0.36fr)_minmax(0,1fr)] @max-[640px]:[&_td]:items-start @max-[640px]:[&_td]:gap-3 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td>*]:col-start-2 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-xs @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
 }
 
-export function Table({ children, wide, scroll, stack = true, bordered = false, pageSize = 25 }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean; pageSize?: number }) {
+export function Table({ children, wide, scroll, stack = true, bordered = false, pageSize = 15 }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean; pageSize?: number }) {
   const ref = useRef<HTMLTableElement>(null)
   const [page, setPage] = useState(1)
   const [responsivePageSize, setResponsivePageSize] = useState(() => {
-    if (pageSize !== 25 || typeof window === 'undefined') return pageSize
-    return window.innerWidth <= 900 ? 8 : window.innerWidth <= 1180 ? 15 : pageSize
+    if (pageSize !== 15 || typeof window === 'undefined') return pageSize
+    return window.innerWidth <= 900 ? 8 : pageSize
   })
   useEffect(() => {
-    if (pageSize !== 25) { setResponsivePageSize(pageSize); return }
-    const update = () => setResponsivePageSize(window.innerWidth <= 900 ? 8 : window.innerWidth <= 1180 ? 15 : pageSize)
+    if (pageSize !== 15) { setResponsivePageSize(pageSize); return }
+    const update = () => setResponsivePageSize(window.innerWidth <= 900 ? 8 : pageSize)
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
