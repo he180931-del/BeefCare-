@@ -11,6 +11,8 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Component nút dùng chung bổ sung phản hồi hover/focus theo đúng ngữ nghĩa: nút chính đậm hơn, nút thường đổi viền/nền, nút nguy hiểm tối hơn và liên kết nhận nền nhấn. Trạng thái disabled không nhận tương tác.
 - Các ô số liệu `Tile` dùng chung được đổi từ card trắng bo viền sang nhịp chỉ số có dải phân cách dọc. Nhờ vậy các dashboard/list page giữ mật độ thông tin nhưng không tạo các lớp khung kép.
 - Bảng dùng chung mặc định hiển thị 15 dòng trên desktop/tablet (8 dòng trên mobile) rồi dùng phân trang đánh số. Điều này giới hạn chiều cao bảng dài mà không ẩn dữ liệu hoặc thay bằng cuộn trang ngang.
+- `SCR-90` không còn đẩy thông tin chi tiết xuống cuối danh sách: nút `Chi tiết` mở popup có tiêu đề, mô tả và đóng bằng Esc/nút Đóng. Dòng dữ liệu thử chỉ xem trong popup; bản ghi thật có thêm hành động đi đến đối soát. `ActionDialog` dùng chung bổ sung cờ ẩn nút xác nhận để phục vụ popup chỉ đọc mà không tạo hai nút đóng trùng nhau.
+- Lượt typecheck đầu của popup lỗi vì import nhầm `ActionDialog` từ `components/ui`; đã chuyển về `components/workspace`. Lượt `git diff --check`, `npm run typecheck` và `npm run build` sau đó đều đạt.
 - Lượt build đầu cho checkpoint phân trang bị lớp theo dõi dừng sau bước transform, nên không được tính là đạt. Đã chạy lại riêng `npm run build`: hoàn tất thành công; `npm run typecheck` và `git diff --check` cũng đạt. Cảnh báo chunk lớn giữ nguyên như đã biết.
 - `git diff --check`, `npm run typecheck` và `npm run build` đều đạt. Cổng xem trước `http://127.0.0.1:4175/ui/scr-02` trả HTTP 200. Vite vẫn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB; đây là hạng mục tối ưu bundle còn mở, không phải lỗi biên dịch hoặc giao diện runtime.
 

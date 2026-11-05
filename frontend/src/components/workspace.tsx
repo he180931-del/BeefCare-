@@ -59,6 +59,7 @@ export function ActionDialog({
   cancelLabel = 'Hủy',
   confirmTone = 'primary',
   confirmDisabled = false,
+  showConfirm = true,
   returnFocusRef,
   onCancel,
   onConfirm,
@@ -72,6 +73,7 @@ export function ActionDialog({
   cancelLabel?: string
   confirmTone?: 'primary' | 'danger'
   confirmDisabled?: boolean
+  showConfirm?: boolean
   returnFocusRef?: RefObject<HTMLElement | null>
   onCancel: () => void
   onConfirm: () => void
@@ -150,7 +152,7 @@ export function ActionDialog({
         </div>
         <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-rule bg-white px-4 py-2.5 sm:px-5 md:px-6">
           <Button onClick={onCancel}>{cancelLabel}</Button>
-          <Button variant={confirmTone === 'danger' ? 'danger' : 'primary'} disabled={confirmDisabled} onClick={onConfirm}>{confirmLabel}</Button>
+          {showConfirm && <Button variant={confirmTone === 'danger' ? 'danger' : 'primary'} disabled={confirmDisabled} onClick={onConfirm}>{confirmLabel}</Button>}
         </footer>
       </section>
     </div>
