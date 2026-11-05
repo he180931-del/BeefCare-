@@ -39,6 +39,15 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Hộp thoại hủy phiếu tại `SCR-112` được kiểm tra bằng bàn phím: `Escape` đóng hộp thoại và trả focus về đúng nút đã mở hộp thoại.
 - Đây là bằng chứng duyệt runtime thủ công có hỗ trợ script, **không phải** bộ kiểm thử hồi quy hình ảnh tự động.
 
+## Nhật ký lệnh kiểm tra ngày 05/11/2026
+
+- `npm --prefix frontend run typecheck`: đạt sau khi tách adapter dữ liệu mô phỏng cho trang trại, dịch vụ, thành viên và lời mời.
+- `npm --prefix frontend run build`: đạt; còn cảnh báo chunk `ScreenPreviewPage` lớn hơn 500 kB như checkpoint trước.
+- Playwright `SCR-15` tại `1440×1000`: hiển thị `100` thành viên, phân trang `25` dòng/trang, các dòng mô phỏng bị khóa thao tác và console có `0` lỗi.
+- Playwright `SCR-01` tại `1440×1000` và `390×844`: landing không tràn ngang, menu desktop/mobile đúng breakpoint và console có `0` lỗi.
+- Lần gọi Playwright đầu tiên trong sandbox thất bại với `EPERM` khi ghi daemon vào `~/Library/Caches/ms-playwright`; chạy lại bằng quyền đã duyệt thì đạt. Đây là lỗi quyền công cụ kiểm tra, không phải lỗi ứng dụng.
+- Lần khởi động Vite bổ sung báo cổng `4175` đang được dùng và tự chuyển sang `4176`; kiểm tra tiến trình cho thấy server đúng worktree đã chạy sẵn tại `4175`, nên giữ server `4175` làm bản người dùng duyệt.
+
 | Mã | Màn hình | Feature sở hữu | Kiểu | Dữ liệu | Route/owner | Trạng thái |
 | --- | --- | --- | --- | --- | --- | --- |
 | SCR-01 | Trang giới thiệu BeefCare | account | public | fixture | /ui/scr-01 | Đã duyệt manual · 820×1180 · nội dung mở, không tràn ngang |
