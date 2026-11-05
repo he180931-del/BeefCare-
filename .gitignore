@@ -20,3 +20,6 @@ storage-state-*.json
 .env.*.local
 .agents/
 .codex/
+
+# macOS Finder metadata is local-only and must not appear in UI checkpoints.
+.DS_Store
