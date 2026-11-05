@@ -774,7 +774,11 @@ textarea {
 }
 
 .beefcare-table tbody tr:hover {
-  background: color-mix(in srgb, var(--color-page) 68%, white);
+  background: #eaf6ee;
+}
+
+.beefcare-table tbody tr:focus-within {
+  background: #eaf6ee;
 }
 
 .beefcare-table td {

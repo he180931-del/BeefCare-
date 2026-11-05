@@ -205,7 +205,7 @@ export function Table({ children, wide, scroll, stack = true, bordered = false, 
     })
   })
   return (
-    <div className={cx('@container', bordered && 'rounded-md border border-edge bg-white')}>
+    <div className={cx('@container border border-edge bg-white', bordered && 'rounded-md')}>
       <div className={scroll ? 'overflow-x-auto' : 'overflow-hidden'}>
         <table
           ref={ref}

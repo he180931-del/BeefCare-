@@ -981,6 +981,8 @@ function ExitList({
       }
     >
       <StateFrame state={state}>
+        <section aria-labelledby="exit-list-filters" className="border-b border-rule pb-1">
+          <h2 id="exit-list-filters" className="m-0 mb-2 text-sm font-semibold text-ink">Lọc phiếu xuất</h2>
         <FilterBar
           actions={
             <span className="text-xs text-subtle">
@@ -1034,6 +1036,7 @@ function ExitList({
             <option value="2026-11-01">Từ 01/11/2026</option>
           </select>
         </FilterBar>
+        </section>
         <SummaryStrip
           items={[
             { label: "Đang hiển thị", value: visible.length },

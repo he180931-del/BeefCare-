@@ -8,6 +8,13 @@ describe('role navigation', () => {
     expect(names('owner')).toEqual(expect.arrayContaining(['Tổng quan', 'Đàn bò', 'Sinh sản', 'Báo cáo', 'Thông tin trại', 'Gói dịch vụ']))
   })
 
+  it('links primary herd workspaces directly to their preview screens', () => {
+    const byName = Object.fromEntries(navigationForRole('owner').flatMap((group) => group.items.map((item) => [item.name, item.to])))
+    expect(byName['Đàn bò']).toBe('/ui/scr-26')
+    expect(byName['Chuồng trại']).toBe('/ui/scr-22')
+    expect(byName['Xuất đàn']).toBe('/ui/scr-69')
+  })
+
   it('keeps owner-only farm actions away from managers', () => {
     expect(names('manager')).not.toContain('Gói dịch vụ')
     expect(names('manager')).not.toContain('Thông tin trại')
