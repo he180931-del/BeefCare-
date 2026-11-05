@@ -5,10 +5,10 @@ const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean)
 
 const BTN = 'inline-flex max-w-full items-center justify-center whitespace-nowrap border font-semibold leading-tight cursor-pointer disabled:cursor-not-allowed disabled:opacity-45'
 const BTN_VARIANT: Record<ButtonVariant, string> = {
-  default: 'border-edge bg-white text-[#212121]',
-  primary: 'border-brand bg-brand text-white',
-  danger: 'border-err-fg bg-err-fg text-white',
-  link: 'border-transparent bg-transparent text-brand',
+  default: 'border-edge bg-white text-[#212121] transition-colors hover:border-brand hover:bg-page focus-visible:border-brand',
+  primary: 'border-brand bg-brand text-white transition-colors hover:bg-brand-dark focus-visible:bg-brand-dark',
+  danger: 'border-err-fg bg-err-fg text-white transition-colors hover:bg-[#a83f3a] focus-visible:bg-[#a83f3a]',
+  link: 'border-transparent bg-transparent text-brand transition-colors hover:bg-ok-bg hover:text-brand-dark focus-visible:bg-ok-bg',
 }
 
 /**
