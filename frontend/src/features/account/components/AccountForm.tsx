@@ -22,7 +22,7 @@ function maxLengthFor(field: AccountFieldSpec): number | undefined {
   return undefined
 }
 
-function FieldControl({ field, disabled, value, error, onChange }: { field: AccountFieldSpec; disabled: boolean; value: string | boolean; error?: string; onChange: (value: string | boolean) => void }) {
+function FieldControl({ field, disabled, value, error, onChange, tall = false }: { field: AccountFieldSpec; disabled: boolean; value: string | boolean; error?: string; onChange: (value: string | boolean) => void; tall?: boolean }) {
   const id = fieldId(field.label)
   const [passwordVisible, setPasswordVisible] = useState(false)
   if (field.kind === 'checkbox') {
@@ -33,21 +33,22 @@ function FieldControl({ field, disabled, value, error, onChange }: { field: Acco
   }
   const label = `${field.label}${field.required ? ' *' : ''}`
   if (field.kind === 'select') {
-    return <Field id={id} label={label} hint={field.hint}><select id={id} name={id} className={inputCls} required={field.required} disabled={disabled} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} value={String(value)} onChange={(event) => onChange(event.target.value)}><option value="" disabled>Chọn {field.label.toLowerCase()}</option>{field.options?.map((option) => <option key={option}>{option}</option>)}</select>{error && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-err-fg">{error}</p>}</Field>
+    return <Field id={id} label={label} hint={field.hint}><select id={id} name={id} className={`${inputCls}${tall ? ' !min-h-12 !text-sm' : ''}`} required={field.required} disabled={disabled} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} value={String(value)} onChange={(event) => onChange(event.target.value)}><option value="" disabled>Chọn {field.label.toLowerCase()}</option>{field.options?.map((option) => <option key={option}>{option}</option>)}</select>{error && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-err-fg">{error}</p>}</Field>
   }
   if (field.kind === 'textarea') {
     return <Field id={id} label={label} hint={field.hint}><textarea id={id} name={id} className={`${inputCls} min-h-24 resize-y`} required={field.required} disabled={disabled} maxLength={maxLengthFor(field)} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} value={String(value)} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder} />{error && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-err-fg">{error}</p>}</Field>
   }
-  return <Field id={id} label={label} hint={field.hint}><div className="relative"><input id={id} name={id} className={`${inputCls}${field.kind === 'password' ? ' pr-20' : ''}`} type={field.kind === 'password' && passwordVisible ? 'text' : field.kind ?? 'text'} required={field.required} readOnly={field.readOnly} disabled={disabled && !field.readOnly} maxLength={maxLengthFor(field)} autoComplete={autoCompleteFor(field)} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} value={String(value)} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder ?? (field.readOnly ? undefined : `Nhập ${field.label.toLowerCase()}`)} />{field.kind === 'password' && <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-brand" onClick={() => setPasswordVisible((current) => !current)} disabled={disabled}>{passwordVisible ? 'Ẩn' : 'Hiện'}</button>}</div>{error && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-err-fg">{error}</p>}</Field>
+  return <Field id={id} label={label} hint={field.hint}><div className="relative"><input id={id} name={id} className={`${inputCls}${tall ? ' !min-h-12 !text-sm' : ''}${field.kind === 'password' ? ' pr-20' : ''}`} type={field.kind === 'password' && passwordVisible ? 'text' : field.kind ?? 'text'} required={field.required} readOnly={field.readOnly} disabled={disabled && !field.readOnly} maxLength={maxLengthFor(field)} autoComplete={autoCompleteFor(field)} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} value={String(value)} onChange={(event) => onChange(event.target.value)} placeholder={field.placeholder ?? (field.readOnly ? undefined : `Nhập ${field.label.toLowerCase()}`)} />{field.kind === 'password' && <button type="button" className="absolute inset-y-0 right-3 text-xs font-semibold text-brand" onClick={() => setPasswordVisible((current) => !current)} disabled={disabled}>{passwordVisible ? 'Ẩn' : 'Hiện'}</button>}</div>{error && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-err-fg">{error}</p>}</Field>
 }
 
-export function AccountForm({ fields, actionLabel, secondaryAction, readOnly = false, wide = false, primaryBlock = false, onSubmit, onSecondary, onFieldChange, validate }: {
+export function AccountForm({ fields, actionLabel, secondaryAction, readOnly = false, wide = false, primaryBlock = false, tall = false, onSubmit, onSecondary, onFieldChange, validate }: {
   fields: AccountFieldSpec[]
   actionLabel: string
   secondaryAction?: string
   readOnly?: boolean
   wide?: boolean
   primaryBlock?: boolean
+  tall?: boolean
   onSubmit?: (values: Record<string, string | boolean>) => void
   onSecondary?: () => void
   onFieldChange?: (label: string, value: string | boolean) => void
@@ -68,5 +69,5 @@ export function AccountForm({ fields, actionLabel, secondaryAction, readOnly = f
     setErrors(next)
     return Object.keys(next).length === 0
   }
-  return <form className="w-full" noValidate onSubmit={(event) => { event.preventDefault(); if (validateForm()) onSubmit?.(values) }}><div className={wide ? 'grid gap-4 md:grid-cols-2' : 'flex max-w-xl flex-col gap-4'}>{fields.map((field) => <FieldControl key={field.label} field={field} error={errors[field.label]} value={values[field.label] ?? ''} onChange={(value) => { setValues((current) => ({ ...current, [field.label]: value })); setErrors((current) => ({ ...current, [field.label]: '' })); onFieldChange?.(field.label, value) }} disabled={readOnly} />)}</div>{!readOnly && <div className={`${wide ? '' : 'max-w-xl'} mt-5 flex flex-wrap justify-end gap-2`}>{secondaryAction && <Button type="button" onClick={onSecondary}>{secondaryAction}</Button>}<Button block={primaryBlock} variant="primary" type="submit">{actionLabel}</Button></div>}</form>
+  return <form className="w-full" noValidate onSubmit={(event) => { event.preventDefault(); if (validateForm()) onSubmit?.(values) }}><div className={wide ? 'grid gap-4 md:grid-cols-2' : 'flex max-w-xl flex-col gap-4'}>{fields.map((field) => <FieldControl key={field.label} field={field} error={errors[field.label]} value={values[field.label] ?? ''} onChange={(value) => { setValues((current) => ({ ...current, [field.label]: value })); setErrors((current) => ({ ...current, [field.label]: '' })); onFieldChange?.(field.label, value) }} disabled={readOnly} tall={tall} />)}</div>{!readOnly && <div className={`${wide ? '' : 'max-w-xl'} mt-5 flex flex-wrap justify-end gap-2`}>{secondaryAction && <Button type="button" onClick={onSecondary}>{secondaryAction}</Button>}<Button block={primaryBlock} size={tall ? 'lg' : undefined} variant="primary" type="submit">{actionLabel}</Button></div>}</form>
 }
