@@ -107,17 +107,33 @@ const defaultFarms: FarmSubscription[] = [
       { id: 'period-moc-chau-1', farmId: 'farm-moc-chau', start: '2026-01-01', end: '2027-07-01', termYears: 1, amount: 1200000, paymentCode: 'PAY-772', status: 'CURRENT', confirmedAt: '2026-01-03T14:00:00.000Z' },
     ],
   },
-  { id: 'farm-yen-bai', name: 'Trại kỹ thuật Yên Bài', status: 'PENDING_PAYMENT', periods: [] },
+  {
+    id: 'farm-yen-bai', name: 'Trại kỹ thuật Yên Bài', status: 'ACTIVE', currentStart: '2026-10-01', currentEnd: '2027-09-30', confirmedEnd: '2027-09-30', periods: [
+      { id: 'period-yen-bai-1', farmId: 'farm-yen-bai', start: '2026-10-01', end: '2027-09-30', termYears: 1, amount: 1200000, paymentCode: 'PAY-803', status: 'CURRENT', confirmedAt: '2026-10-01T09:00:00.000Z' },
+    ],
+  },
+  {
+    id: 'farm-hoa-binh', name: 'Trại Hòa Bình', status: 'EXPIRED', currentStart: '2025-10-15', currentEnd: '2026-10-15', confirmedEnd: '2026-10-15', periods: [
+      { id: 'period-hoa-binh-1', farmId: 'farm-hoa-binh', start: '2025-10-15', end: '2026-10-15', termYears: 1, amount: 1200000, paymentCode: 'PAY-785', status: 'PAST', confirmedAt: '2025-10-15T09:00:00.000Z' },
+    ],
+  },
+  {
+    id: 'farm-son-tay', name: 'Trại thử nghiệm Sơn Tây', status: 'SUSPENDED', currentStart: '2026-01-01', currentEnd: '2027-01-01', confirmedEnd: '2027-01-01', suspendedSince: '2026-10-28', periods: [
+      { id: 'period-son-tay-1', farmId: 'farm-son-tay', start: '2026-01-01', end: '2027-01-01', termYears: 1, amount: 1200000, paymentCode: 'PAY-786', status: 'CURRENT', confirmedAt: '2026-01-01T09:00:00.000Z' },
+    ],
+  },
 ]
 
 const defaultIntents: PaymentIntent[] = [
   { id: 'intent-882', code: 'PAY-882', farmId: 'farm-ba-vi', farmName: 'Trại bò Ba Vì', termYears: 1, amount: 1200000, priceVersion: 'v3', status: 'PENDING', createdAt: '2026-11-03T08:00:00.000Z', expiresAt: '2026-11-04T08:00:00.000Z', sourceReturn: '/ui/scr-86', firstPayment: false, transferContent: 'BEEFCARE PAY-882', receivingBank: RECEIVING_ACCOUNT.bank, receivingAccountNumber: RECEIVING_ACCOUNT.accountNumber, receivingAccountName: RECEIVING_ACCOUNT.accountName },
   { id: 'intent-771', code: 'PAY-771', farmId: 'farm-moc-chau', farmName: 'Trại vệ tinh Mộc Châu', termYears: 1, amount: 1200000, priceVersion: 'v2', status: 'EXPIRED', createdAt: '2026-09-01T10:00:00.000Z', expiresAt: '2026-09-02T10:00:00.000Z', sourceReturn: '/ui/scr-89', firstPayment: false, transferContent: 'BEEFCARE PAY-771', receivingBank: RECEIVING_ACCOUNT.bank, receivingAccountNumber: RECEIVING_ACCOUNT.accountNumber, receivingAccountName: RECEIVING_ACCOUNT.accountName },
   { id: 'intent-801', code: 'PAY-801', farmId: 'farm-ba-vi', farmName: 'Trại bò Ba Vì', termYears: 2, amount: 2160000, priceVersion: 'v3', status: 'PAID', createdAt: '2026-01-01T09:00:00.000Z', expiresAt: '2026-01-02T09:00:00.000Z', bankPaidAt: '2026-01-02T09:20:00.000Z', receivedAt: '2026-01-02T09:21:00.000Z', confirmedAt: '2026-01-02T10:15:00.000Z', periodStart: '2026-01-01', periodEnd: '2028-01-01', sourceReturn: '/ui/scr-86', firstPayment: false, transferContent: 'BEEFCARE PAY-801', receivingBank: RECEIVING_ACCOUNT.bank, receivingAccountNumber: RECEIVING_ACCOUNT.accountNumber, receivingAccountName: RECEIVING_ACCOUNT.accountName },
+  { id: 'intent-803', code: 'PAY-803', farmId: 'farm-yen-bai', farmName: 'Trại kỹ thuật Yên Bài', termYears: 1, amount: 1200000, priceVersion: 'v3', status: 'PAID', createdAt: '2026-10-01T08:30:00.000Z', expiresAt: '2026-10-02T08:30:00.000Z', bankPaidAt: '2026-10-01T08:42:00.000Z', receivedAt: '2026-10-01T08:45:00.000Z', confirmedAt: '2026-10-01T09:00:00.000Z', periodStart: '2026-10-01', periodEnd: '2027-09-30', sourceReturn: '/ui/scr-86', firstPayment: false, transferContent: 'BEEFCARE PAY-803', receivingBank: RECEIVING_ACCOUNT.bank, receivingAccountNumber: RECEIVING_ACCOUNT.accountNumber, receivingAccountName: RECEIVING_ACCOUNT.accountName },
 ]
 
 const defaultPayments: PaymentRecord[] = [
   { id: 'payment-801', paymentIntentId: 'intent-801', code: 'PAY-801', farmId: 'farm-ba-vi', amount: 2160000, bankPaidAt: '2026-01-02T09:20:00.000Z', receivedAt: '2026-01-02T09:21:00.000Z', confirmedAt: '2026-01-02T10:15:00.000Z', status: 'CONFIRMED' },
+  { id: 'payment-803', paymentIntentId: 'intent-803', code: 'PAY-803', farmId: 'farm-yen-bai', amount: 1200000, bankPaidAt: '2026-10-01T08:42:00.000Z', receivedAt: '2026-10-01T08:45:00.000Z', confirmedAt: '2026-10-01T09:00:00.000Z', status: 'CONFIRMED' },
 ]
 
 function read<T>(key: string, fallback: T): T {

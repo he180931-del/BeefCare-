@@ -26,6 +26,32 @@ export const farmRows = [
   { name: 'Trại thử nghiệm Sơn Tây', address: 'Sơn Tây, Hà Nội', role: 'Chủ trại', status: 'Tạm ngừng', statusCode: 'SUSPENDED', herd: '36 con', service: 'Tạm ngừng từ 28/10/2026' },
 ]
 
+export type FarmMemberRole = 'Chủ trại' | 'Quản lý' | 'Kỹ thuật viên'
+export type FarmAccessRow = typeof farmRows[number] & { role: FarmMemberRole }
+
+/**
+ * Local-preview membership boundary. It deliberately stays separate from the
+ * farm catalogue: a farm's owner is not evidence that the signed-in user can
+ * open it. Replace this adapter with the membership API when that endpoint is
+ * connected.
+ */
+const activeMemberships: Record<FarmMemberRole, Array<{ farm: string; role: FarmMemberRole }>> = {
+  'Chủ trại': [
+    { farm: 'Trại bò Ba Vì', role: 'Chủ trại' },
+    { farm: 'Trại Hòa Bình', role: 'Chủ trại' },
+    { farm: 'Trại thử nghiệm Sơn Tây', role: 'Chủ trại' },
+  ],
+  'Quản lý': [{ farm: 'Trại bò Ba Vì', role: 'Quản lý' }],
+  'Kỹ thuật viên': [{ farm: 'Trại kỹ thuật Yên Bài', role: 'Kỹ thuật viên' }],
+}
+
+export function farmsForMember(role: FarmMemberRole): FarmAccessRow[] {
+  return activeMemberships[role].flatMap((membership) => {
+    const farm = farmRows.find((candidate) => candidate.name === membership.farm)
+    return farm ? [{ ...farm, role: membership.role }] : []
+  })
+}
+
 export const serviceFarmRows = [
   { farm: 'Trại bò Ba Vì', owner: 'Nguyễn Văn Hùng', email: 'owner@beefcare.local', status: 'Đang hoạt động', coverage: '31/12/2027', suspended: 'Không', herd: '328' },
   { farm: 'Trại Mộc Châu', owner: 'Hoàng Thu Hà', email: 'ha@beefcare.local', status: 'Tạm ngừng', coverage: '30/06/2027', suspended: 'Có · 28/10/2026', herd: '146' },

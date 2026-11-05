@@ -89,6 +89,25 @@ describe('AccountScreen', () => {
     expect(screen.getByRole('dialog')).toHaveTextContent('Trại bò Ba Vì')
   })
 
+  it('lists only farms where the current account has an active membership', () => {
+    render(<AccountScreen screen={screenById('SCR-10')!} state="success" role="manager" />)
+    const currentTable = screen.getAllByRole('table').at(-1)!
+
+    expect(within(currentTable).getByText('Trại bò Ba Vì')).toBeInTheDocument()
+    expect(within(currentTable).queryByText('Trại kỹ thuật Yên Bài')).not.toBeInTheDocument()
+    expect(within(currentTable).queryByText('Trại vệ tinh Mộc Châu')).not.toBeInTheDocument()
+  })
+
+  it('keeps inactive farms available to the owner only for renewal or support', () => {
+    render(<AccountScreen screen={screenById('SCR-10')!} state="success" role="owner" />)
+    const currentTable = screen.getAllByRole('table').at(-1)!
+    const hoaBinh = within(currentTable).getByText('Trại Hòa Bình').closest('tr')!
+    const sonTay = within(currentTable).getByText('Trại thử nghiệm Sơn Tây').closest('tr')!
+
+    expect(within(hoaBinh).getByRole('button', { name: 'Gia hạn' })).toBeEnabled()
+    expect(within(sonTay).getByRole('button', { name: 'Gửi yêu cầu hỗ trợ' })).toBeEnabled()
+  })
+
   it('uses the signed-in technician identity on the personal profile', () => {
     render(<AccountScreen screen={screenById('SCR-08')!} state="success" role="technician" />)
 
@@ -103,7 +122,7 @@ describe('AccountScreen', () => {
 
     expect(screen.getByText('Thông tin đăng ký, liên hệ và lịch vận hành của Trại kỹ thuật Yên Bài.')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Trại kỹ thuật Yên Bài')).toBeInTheDocument()
-    expect(screen.getByText('Chờ thanh toán')).toBeInTheDocument()
+    expect(screen.getByText('Đang hoạt động')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
     expect(window.localStorage.getItem('beefcare-ui-demo')).toContain('farm-information:Trại kỹ thuật Yên Bài')

@@ -285,3 +285,12 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - `SCR-12` nay đọc cùng lựa chọn trại với thanh đổi trại nhanh: tiêu đề, tên trong biểu mẫu và tóm tắt dịch vụ thay đổi đồng bộ; bản nháp biểu mẫu được lưu tách theo từng tên trại thay vì ghi đè dữ liệu Ba Vì. Test tài khoản bổ sung kiểm tra ngữ cảnh Yên Bài và khóa localStorage riêng; kết quả kiểm tra được ghi ở checkpoint sau thay đổi.
 - Xác nhận checkpoint `SCR-12`: `AccountScreens.test.tsx` đạt `30/30`, `npm run typecheck` và `git diff --check` đạt. React Router chỉ in hai cảnh báo future-flag đã biết; không có lỗi kiểm thử hay kiểu dữ liệu.
 - Kiểm tra runtime thủ công bằng Playwright tại `1180×820`, trạng thái local preview chọn `Trại kỹ thuật Yên Bài · Kỹ thuật viên`: header, mô tả màn, tên form, trạng thái dịch vụ `Chờ thanh toán` và quy mô `142 con` cùng khớp ngữ cảnh; `scrollWidth = clientWidth = 1180`, console không có lỗi. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
+
+## Bổ sung kiểm tra ngày 06/11/2026
+
+- Đối chiếu `SRS_2026-11-01_SEP490_G35_Report.txt`, UC-FE02-02 và GBR-09/12/13/14: danh sách chọn trại phải dựa trên membership ACTIVE của tài khoản, không suy ra từ catalog trại; Chủ trại còn thấy trại sở hữu không ACTIVE để gia hạn/hỗ trợ, còn Quản lý/Kỹ thuật viên không được mở trại đó.
+- Adapter local `farmsForMember` nay là ranh giới duy nhất của `SCR-10` và bộ đổi trại nhanh. Fixture dịch vụ được đồng bộ để `Trại kỹ thuật Yên Bài` là `ACTIVE`, khớp việc kỹ thuật viên được vào trại và mốc dịch vụ hiển thị.
+- Lượt `npm run typecheck` đầu tiên dừng ở kiểu `false | FarmAccessRow` trong `readFarmSelection`; đã đổi biểu thức tra membership thành nhánh tường minh. Không có lỗi runtime từ thay đổi này.
+- Lượt kiểm tra runtime đầu của `SCR-10` phát hiện adapter stress-table vẫn thêm 100 hàng mô phỏng vào màn phạm vi quyền. Đã loại stress adapter khỏi riêng màn chọn trại; sau khi tải lại ở `1180×820`, bảng chỉ còn `Trại bò Ba Vì`, `Trại Hòa Bình`, `Trại thử nghiệm Sơn Tây`, với `scrollWidth = clientWidth = 1180`.
+- Kiểm tra Playwright thủ công ở `1180×820`, phiên local Kỹ thuật viên + `Trại kỹ thuật Yên Bài`: thanh đổi trại nhanh chỉ hiện đúng một menuitem Yên Bài, không lẫn Ba Vì; header và trang chủ cùng dùng Yên Bài; không có lỗi console. Console chỉ còn hai cảnh báo future-flag đã biết của React Router. Đây là bằng chứng runtime thủ công, không phải visual-regression tự động.
+- `AccountScreens.test.tsx` và `TechnicianScreens.test.tsx` đạt `41/41`; `npm run typecheck` và `git diff --check` đạt.

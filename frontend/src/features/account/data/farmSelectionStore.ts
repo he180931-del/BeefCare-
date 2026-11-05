@@ -1,7 +1,7 @@
 import { loadOrders, loadSelectedFarmId, saveSelectedFarmId } from '../../subscription/subscriptionStore'
-import { farmRows } from './accountFixtures'
+import { farmsForMember, type FarmMemberRole } from './accountFixtures'
 
-export type FarmRole = 'Chủ trại' | 'Quản lý' | 'Kỹ thuật viên'
+export type FarmRole = FarmMemberRole
 export type FarmSelection = { farm: string; role: FarmRole }
 
 const DEMO_KEY = 'beefcare-ui-demo'
@@ -11,20 +11,29 @@ function readDemo() {
   try { return JSON.parse(window.localStorage.getItem(DEMO_KEY) || '{}') as Record<string, unknown> } catch { return {} as Record<string, unknown> }
 }
 
+function isFarmRole(value: unknown): value is FarmRole {
+  return value === 'Chủ trại' || value === 'Quản lý' || value === 'Kỹ thuật viên'
+}
+
+export function selectableFarmsForRole(role: FarmRole) {
+  return farmsForMember(role)
+}
+
 export function readFarmSelection(fallbackRole?: FarmRole): FarmSelection {
   const demo = readDemo()
   const account = demo.account && typeof demo.account === 'object' ? demo.account as Record<string, unknown> : {}
   const raw = account['farm-selection']
-  if (raw && typeof raw === 'object') {
-    const saved = raw as Partial<FarmSelection>
-    if (typeof saved.farm === 'string' && typeof saved.role === 'string') return saved as FarmSelection
-  }
+  const saved = raw && typeof raw === 'object' ? raw as Partial<FarmSelection> : undefined
+  const selectedRole = fallbackRole ?? (isFarmRole(saved?.role) ? saved.role : 'Chủ trại')
+  const candidates = selectableFarmsForRole(selectedRole)
+  const savedFarm = typeof saved?.farm === 'string' ? candidates.find((farm) => farm.name === saved.farm) : undefined
   const selectedId = loadSelectedFarmId()
   const selected = loadOrders().find((farm) => farm.id === selectedId)
-  const fixture = farmRows.find((farm) => farm.name === selected?.name)
-    ?? farmRows.find((farm) => farm.statusCode === 'ACTIVE' && farm.role === fallbackRole)
-    ?? farmRows[0]
-  return { farm: fixture.name, role: fixture.role as FarmRole }
+  const fixture = savedFarm
+    ?? candidates.find((farm) => farm.name === selected?.name)
+    ?? candidates.find((farm) => farm.statusCode === 'ACTIVE')
+    ?? candidates[0]
+  return { farm: fixture?.name ?? 'Trại bò Ba Vì', role: fixture?.role ?? selectedRole }
 }
 
 export function saveFarmSelection(selection: FarmSelection) {

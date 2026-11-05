@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useFixtureSession } from '../../../app/fixtureSession'
-import { farmRows } from '../data/accountFixtures'
-import { fixtureRoleForFarm, landingForFarmRole, readFarmSelection, saveFarmSelection, type FarmRole } from '../data/farmSelectionStore'
+import { fixtureRoleForFarm, landingForFarmRole, readFarmSelection, saveFarmSelection, selectableFarmsForRole, type FarmRole } from '../data/farmSelectionStore'
 
 type Props = { compact?: boolean; preferredRole?: FarmRole }
 
@@ -13,9 +12,9 @@ export function FarmQuickSwitcher({ compact = false, preferredRole }: Props) {
   const session = useFixtureSession()
   const [open, setOpen] = useState(false)
   const [selection, setSelection] = useState(() => readFarmSelection(preferredRole))
-  const activeFarms = farmRows.filter((farm) => farm.statusCode === 'ACTIVE')
-  const selectFarm = (farm: typeof farmRows[number]) => {
-    const next = { farm: farm.name, role: farm.role as FarmRole }
+  const activeFarms = selectableFarmsForRole(selection.role).filter((farm) => farm.statusCode === 'ACTIVE')
+  const selectFarm = (farm: typeof activeFarms[number]) => {
+    const next = { farm: farm.name, role: farm.role }
     saveFarmSelection(next)
     setSelection(next)
     session.dispatch({ type: 'set-role', role: fixtureRoleForFarm(next.role) })

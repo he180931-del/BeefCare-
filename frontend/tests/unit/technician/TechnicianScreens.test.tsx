@@ -32,8 +32,7 @@ describe('TechnicianScreen', () => {
     expect(screen.getByRole('button', { name: /Đổi trang trại; hiện tại/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Đổi trang trại; hiện tại/ }))
     expect(screen.getByRole('menu', { name: 'Đổi trang trại nhanh' })).toHaveTextContent('Trại kỹ thuật Yên Bài')
-    fireEvent.click(screen.getByRole('menuitem', { name: /Trại bò Ba Vì/ }))
-    expect(window.localStorage.getItem('beefcare-ui-demo')).toContain('Trại bò Ba Vì')
+    expect(screen.queryByRole('menuitem', { name: /Trại bò Ba Vì/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mở menu tài khoản' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Mở menu tài khoản' }))

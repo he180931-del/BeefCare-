@@ -6,8 +6,8 @@ import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
 import { Badge, Button, inputCls, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { ActionDialog, EmptyState, FilterBar, FixtureNotice, InlineMessage, LoadingState, SummaryStrip, WorkSection } from '../../../components/workspace'
 import { AccountForm } from '../components/AccountForm'
-import { accountFields, accountMembers, farmRows, invitationRows, permissionRows, serviceFarmRows } from '../data/accountFixtures'
-import { previewFarms, previewInvitations, previewMembers, previewServiceFarms } from '../data/accountPreviewData'
+import { accountFields, accountMembers, farmRows, farmsForMember, invitationRows, permissionRows, serviceFarmRows } from '../data/accountFixtures'
+import { previewInvitations, previewMembers, previewServiceFarms } from '../data/accountPreviewData'
 import { fixtureRoleForFarm, readFarmSelection, saveFarmSelection, type FarmRole } from '../data/farmSelectionStore'
 import { DEMO_TODAY, loadOrders } from '../../subscription/subscriptionStore'
 import farm from '../../../assets/farm.png'
@@ -281,28 +281,31 @@ function FarmSelect({ screen, readOnly, role, empty = false }: { screen: ScreenD
   const navigate = useNavigate()
   const location = useLocation()
   const session = useFixtureSession()
-  const [previewFarm, setPreviewFarm] = useState<ReturnType<typeof previewFarms>[number] | null>(null)
+  const [previewFarm, setPreviewFarm] = useState<ReturnType<typeof farmsForMember>[number] | null>(null)
   const owner = role === undefined || role === 'owner'
   const identity = role === 'technician' ? 'Lê Minh An · technician@beefcare.local' : role === 'manager' ? 'Trần Quốc Long · manager@beefcare.local' : 'Nguyễn Văn Hùng · owner@beefcare.local'
   const returnTo = typeof location.state === 'object' && location.state && 'returnTo' in location.state && typeof location.state.returnTo === 'string' && location.state.returnTo.startsWith('/ui/') && location.state.returnTo !== '/ui/scr-10'
     ? location.state.returnTo
     : undefined
   if (empty) return <Page screen={screen} readOnly={readOnly} sub={identity} narrow><EmptyState title="Tài khoản chưa thuộc trang trại nào" description={owner ? 'Chủ trại có thể đăng ký trang trại mới; người được mời cần mở đúng liên kết lời mời.' : 'Tài khoản chưa có trang trại được cấp quyền trong phạm vi này.'} actionLabel={owner ? 'Đăng ký trang trại' : undefined} onAction={owner ? () => navigate('/ui/scr-11') : undefined} /></Page>
-  const rows = previewFarms(farmRows)
+  const memberRole: FarmRole = role === 'technician' ? 'Kỹ thuật viên' : role === 'manager' ? 'Quản lý' : 'Chủ trại'
+  // Farm selection is an authorization boundary, not a density-test table.
+  // Do not expand it with the local stress-row adapter: only memberships of
+  // the current account may ever appear here.
+  const rows = farmsForMember(memberRole)
   return <Page screen={screen} readOnly={readOnly} sub={identity} actions={<><Button variant="link" onClick={() => navigate('/ui/scr-02')}>Đăng xuất</Button>{owner && !readOnly && <Button variant="primary" onClick={() => navigate('/ui/scr-11')}>Đăng ký trang trại mới</Button>}</>}>
     <WorkSection title="Trang trại của bạn" description="Trạng thái dịch vụ quyết định hành động có thể thực hiện.">
       <Table wide scroll><thead><tr><Th>Trang trại</Th><Th>Vai trò của bạn</Th><Th>Dịch vụ</Th><Th>Quy mô đàn</Th><Th /></tr></thead><tbody>{rows.map((farm) => {
-        const generated = Boolean(farm.__stressGenerated)
-        const rowOwner = farm.role === 'Chủ trại'
+        const rowOwner = memberRole === 'Chủ trại'
         const active = farm.statusCode === 'ACTIVE'
         const blockedForMember = !rowOwner && !active
         const action = active ? 'Vào trang trại' : farm.statusCode === 'PENDING_PAYMENT' ? 'Thanh toán để kích hoạt' : farm.statusCode === 'EXPIRED' ? 'Gia hạn' : 'Gửi yêu cầu hỗ trợ'
         const destination = active ? (farm.role === 'Kỹ thuật viên' ? '/ui/scr-104' : returnTo ?? '/ui/scr-77') : farm.statusCode === 'SUSPENDED' ? '/ui/scr-94' : '/ui/scr-87'
         const enterFarm = () => { saveFarmSelection({ farm: farm.name, role: farm.role as FarmRole }); session.dispatch({ type: 'set-role', role: fixtureRoleForFarm(farm.role as FarmRole) }); navigate(destination) }
-        return <tr key={farm.name}><Td><strong>{farm.name}</strong><span className="mt-1 block text-xs text-subtle">{farm.address}</span></Td><Td>{farm.role}</Td><Td><Badge tone={active ? 'ok' : farm.statusCode === 'SUSPENDED' ? 'err' : 'warn'}>{farm.status}</Badge><span className="mt-1 block text-xs text-subtle">{farm.service}</span></Td><Td>{farm.herd}</Td><Td><div className="flex flex-wrap items-center gap-2"><Button small onClick={() => setPreviewFarm(farm)}>Xem thông tin</Button>{!generated && <Button small variant={active ? 'primary' : 'default'} disabled={readOnly || blockedForMember} onClick={enterFarm}>{action}</Button>}{blockedForMember && <span className="basis-full text-xs text-subtle">Chủ trại quản lý gói dịch vụ</span>}</div></Td></tr>
+        return <tr key={farm.name}><Td><strong>{farm.name}</strong><span className="mt-1 block text-xs text-subtle">{farm.address}</span></Td><Td>{farm.role}</Td><Td><Badge tone={active ? 'ok' : farm.statusCode === 'SUSPENDED' ? 'err' : 'warn'}>{farm.status}</Badge><span className="mt-1 block text-xs text-subtle">{farm.service}</span></Td><Td>{farm.herd}</Td><Td><div className="flex flex-wrap items-center gap-2"><Button small onClick={() => setPreviewFarm(farm)}>Xem thông tin</Button><Button small variant={active ? 'primary' : 'default'} disabled={readOnly || blockedForMember} onClick={enterFarm}>{action}</Button>{blockedForMember && <span className="basis-full text-xs text-subtle">Chủ trại quản lý gói dịch vụ</span>}</div></Td></tr>
       })}</tbody></Table>
     </WorkSection>
-    {previewFarm && <ActionDialog open title="Thông tin trang trại" description={previewFarm.__stressGenerated ? 'Dữ liệu thử để kiểm tra danh sách dài; chỉ xem và không thể chọn làm trang trại hiện tại.' : 'Xem thông tin trại, vai trò và tình trạng dịch vụ. Chọn “Vào trang trại” ở danh sách để bắt đầu làm việc.'} cancelLabel="Đóng" showConfirm={false} onCancel={() => setPreviewFarm(null)}>{previewFarm.__stressGenerated && <InlineMessage tone="info" title="Dữ liệu thử · chỉ xem">Các thao tác vào trại, thanh toán hoặc gia hạn chỉ xuất hiện với trang trại thật.</InlineMessage>}<InfoList items={[["Trang trại", previewFarm.name], ["Địa chỉ", previewFarm.address], ["Vai trò", previewFarm.role], ["Dịch vụ", `${previewFarm.status} · ${previewFarm.service}`], ["Quy mô đàn", previewFarm.herd]]} /></ActionDialog>}
+    {previewFarm && <ActionDialog open title="Thông tin trang trại" description="Xem thông tin trại, vai trò và tình trạng dịch vụ. Chọn “Vào trang trại” ở danh sách để bắt đầu làm việc." cancelLabel="Đóng" showConfirm={false} onCancel={() => setPreviewFarm(null)}><InfoList items={[["Trang trại", previewFarm.name], ["Địa chỉ", previewFarm.address], ["Vai trò", previewFarm.role], ["Dịch vụ", `${previewFarm.status} · ${previewFarm.service}`], ["Quy mô đàn", previewFarm.herd]]} /></ActionDialog>}
   </Page>
 }
 
