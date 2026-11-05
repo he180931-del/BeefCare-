@@ -683,7 +683,7 @@ function Receipts({
             ]}
           />
           {error && <InlineMessage tone="err">{error}</InlineMessage>}
-          <WorkSection title="Phiếu nhập thức ăn">
+          <WorkSection title="Danh sách phiếu">
             <Table wide scroll>
               <thead>
                 <tr>
@@ -769,42 +769,46 @@ function Receipts({
                             Xem
                           </Button>
                         )}
-                        {row.status === "POSTED" && row.outstanding > 0 && (
-                          <Button
-                            small
-                            disabled={!canWrite(role, state) || isStressGenerated(row)}
-                            onClick={() =>
-                              navigate(
-                                `/ui/scr-107?id=${row.id}&kind=FEED&returnTarget=/ui/scr-112`,
-                              )
-                            }
-                          >
-                            Ghi thêm
-                          </Button>
-                        )}
-                        {row.status === "POSTED" && (
-                          <Button
-                            small
-                            disabled={!canWrite(role, state) || isStressGenerated(row)}
-                            onClick={(event) =>
-                              openAction(
-                                { type: "voucher", row },
-                                event.currentTarget,
-                              )
-                            }
-                          >
-                            Hủy
-                          </Button>
-                        )}
                       </Td>
                     </tr>
                     {expanded === row.id && (
                       <tr>
                         <Td colSpan={8}>
                           <div className="py-2">
-                            <strong className="text-sm">
-                              Lịch sử thanh toán
-                            </strong>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <strong className="text-sm">
+                                Lịch sử thanh toán
+                              </strong>
+                              {row.status === "POSTED" && (
+                                <div className="flex flex-wrap gap-2">
+                                  {row.outstanding > 0 && (
+                                    <Button
+                                      small
+                                      disabled={!canWrite(role, state) || isStressGenerated(row)}
+                                      onClick={() =>
+                                        navigate(
+                                          `/ui/scr-107?id=${row.id}&kind=FEED&returnTarget=/ui/scr-112`,
+                                        )
+                                      }
+                                    >
+                                      Ghi thêm thanh toán
+                                    </Button>
+                                  )}
+                                  <Button
+                                    small
+                                    disabled={!canWrite(role, state) || isStressGenerated(row)}
+                                    onClick={(event) =>
+                                      openAction(
+                                        { type: "voucher", row },
+                                        event.currentTarget,
+                                      )
+                                    }
+                                  >
+                                    Hủy phiếu
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                             {row.payments.length ? (
                               <div className="mt-2 divide-y border-y border-rule">
                                 {row.payments.map((payment) => (

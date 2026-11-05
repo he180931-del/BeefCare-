@@ -169,3 +169,8 @@ export function previewFeedRations(store: FeedStore) {
     }
   })
 }
+
+export function previewRationStore(store: FeedStore): FeedStore {
+  const preview = previewFeedStore(store)
+  return { ...preview, rations: previewFeedRations(preview) }
+}
