@@ -6,6 +6,7 @@ import { Badge, Button, Field, inputCls, PageHeader, Table, Td, Th } from '../..
 import { EmptyState, FilterBar, InlineMessage, LoadingState, SummaryStrip, WorkSection } from '../../../components/workspace'
 import { platformConfigFor, staffAccessRows, userAccountRows } from '../data/platformFixtures'
 import { previewStaffAccess, previewUserAccounts } from '../data/platformPreviewData'
+import { createPlatformWorkRow, isPreviewPlatformWorkRow, loadPlatformWorkRows, savePlatformWorkRows, type PreviewPlatformWorkRow } from '../data/platformWorkStore'
 import { AUDIT_ACTIONS, AUDIT_TARGETS, loadAuditRecords } from '../auditStore'
 
 const auditActionLabel: Record<string, string> = {
@@ -110,7 +111,75 @@ function Audit({ screen, state, role, emptyOverride = false }: { screen: ScreenD
 function GenericWorkbench({ screen, state, role }: { screen: ScreenDefinition; state: ReviewState; role: Extract<ScreenRole, 'cs' | 'pm' | 'sa'> }) {
   const config = platformConfigFor(screen.feature)
   const readOnly = state === 'read-only'
-  return <Shell screen={screen} readOnly={readOnly} sub={config.intro} actions={!readOnly && <Button variant="primary">{config.primaryAction}</Button>}><SummaryStrip items={[{label:'Chờ xử lý',value:'12',note:'4 việc ưu tiên'},{label:'Đang phụ trách',value:role === 'cs' ? '8' : '6'},{label:'Hoàn tất hôm nay',value:'19'},{label:'Thời gian trung bình',value:'2,4 giờ'}]} /><WorkSection title="Hàng công việc"><FilterBar><input aria-label="Tìm kiếm" className={`${inputCls} min-w-64 flex-1`} placeholder={config.searchPlaceholder} /><select aria-label="Trạng thái" className={`${inputCls} w-48`}><option>Tất cả trạng thái</option><option>Chờ xử lý</option><option>Đang xử lý</option></select></FilterBar><Table><thead><tr><Th>Mã</Th><Th>Nội dung</Th><Th>Đối tượng</Th><Th>Giá trị</Th><Th>Trạng thái</Th><Th>Cập nhật</Th></tr></thead><tbody>{config.rows.map((row) => <tr key={row.code}><Td>{row.code}</Td><Td><strong>{row.subject}</strong></Td><Td>{row.owner}</Td><Td>{row.amount}</Td><Td>{row.status}</Td><Td>{row.updatedAt}</Td></tr>)}</tbody></Table></WorkSection></Shell>
+  const scope = `${screen.id}-${screen.feature}`
+  const [storedRows, setStoredRows] = useState(() => loadPlatformWorkRows(scope, config.rows))
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('Tất cả trạng thái')
+  const [selectedCode, setSelectedCode] = useState(storedRows[0]?.code || '')
+  const [showForm, setShowForm] = useState(false)
+  const [subject, setSubject] = useState('')
+  const [owner, setOwner] = useState('')
+  const [amount, setAmount] = useState('')
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const rows = storedRows
+  const visibleRows = rows.filter((row) => {
+    const matchingQuery = !query || `${row.code} ${row.subject} ${row.owner}`.toLowerCase().includes(query.trim().toLowerCase())
+    return matchingQuery && (status === 'Tất cả trạng thái' || row.status === status)
+  })
+  const statuses = [...new Set(rows.map((row) => row.status))]
+  const selected = rows.find((row) => row.code === selectedCode) || visibleRows[0]
+  const selectedPreview = selected ? isPreviewPlatformWorkRow(selected) : false
+  const waitingCount = rows.filter((row) => /chờ/i.test(row.status)).length
+  const activeCount = rows.filter((row) => /đang/i.test(row.status)).length
+  const completedCount = rows.filter((row) => /đã khớp|hoàn tất/i.test(row.status)).length
+  const openDetails = (row: PreviewPlatformWorkRow) => {
+    setSelectedCode(row.code)
+    setNotice('')
+    window.setTimeout(() => document.getElementById('platform-work-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+  const resetDraft = () => {
+    setSubject('')
+    setOwner('')
+    setAmount('')
+    setError('')
+  }
+  const openForm = () => {
+    setShowForm(true)
+    setNotice('')
+    resetDraft()
+    window.setTimeout(() => document.getElementById('platform-work-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
+  }
+  const saveWorkItem = () => {
+    if (!subject.trim() || !owner.trim() || !amount.trim()) {
+      setError('Nhập đủ nội dung, đối tượng và giá trị/ghi chú trước khi lưu.')
+      return
+    }
+    const row = createPlatformWorkRow(scope, config.rows, { subject: subject.trim(), owner: owner.trim(), amount: amount.trim(), status: screen.feature.includes('finance') ? 'Chờ đối soát' : 'Chờ xử lý' })
+    const next = [row, ...rows.filter((item) => !isPreviewPlatformWorkRow(item))]
+    savePlatformWorkRows(scope, next)
+    setStoredRows(loadPlatformWorkRows(scope, next))
+    setSelectedCode(row.code)
+    setShowForm(false)
+    resetDraft()
+    setNotice('Đã thêm công việc vào danh sách cục bộ.')
+  }
+  const completeWorkItem = () => {
+    if (!selected || selectedPreview) return
+    const next = rows.map((row) => row.code === selected.code ? { ...row, status: screen.feature.includes('finance') ? 'Đã khớp' : 'Hoàn tất', updatedAt: new Date().toLocaleString('vi-VN') } : row)
+    savePlatformWorkRows(scope, next)
+    setStoredRows(loadPlatformWorkRows(scope, next))
+    setNotice(screen.feature.includes('finance') ? 'Đã đánh dấu khoản thu là đã khớp.' : 'Đã đánh dấu công việc hoàn tất.')
+  }
+  const statusTone = (value: string) => /đã khớp|hoàn tất/i.test(value) ? 'ok' as const : /đang/i.test(value) ? 'info' as const : 'warn' as const
+
+  return <Shell screen={screen} readOnly={readOnly} sub={config.intro} actions={!readOnly && <Button variant="primary" onClick={openForm}>{config.primaryAction}</Button>}>
+    <SummaryStrip items={[{ label: 'Chờ xử lý', value: String(waitingCount), note: 'Cần ưu tiên trong danh sách' }, { label: 'Đang phụ trách', value: String(activeCount) }, { label: 'Đã hoàn tất', value: String(completedCount) }, { label: 'Tổng công việc', value: String(rows.length) }]} />
+    {notice && <InlineMessage tone="ok" title={notice}>{selectedPreview ? 'Đây là dữ liệu thử, chỉ dùng để kiểm tra bố cục.' : 'Dữ liệu này được lưu tạm trong trình duyệt ở chế độ xem trước.'}</InlineMessage>}
+    {showForm && !readOnly && <div id="platform-work-form"><WorkSection title={`${config.primaryAction} · công việc mới`} description="Bản ghi này chỉ lưu cục bộ để duyệt giao diện; chưa gửi sang máy chủ."><div className="grid max-w-4xl gap-4 md:grid-cols-3"><Field label="Nội dung *"><input aria-label="Nội dung *" className={inputCls} value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={160} /></Field><Field label="Đối tượng *"><input aria-label="Đối tượng *" className={inputCls} value={owner} onChange={(event) => setOwner(event.target.value)} maxLength={120} /></Field><Field label="Giá trị / ghi chú *"><input aria-label="Giá trị / ghi chú *" className={inputCls} value={amount} onChange={(event) => setAmount(event.target.value)} maxLength={120} /></Field></div>{error && <InlineMessage tone="err" className="mt-4">{error}</InlineMessage>}<div className="mt-4 flex flex-wrap gap-2"><Button variant="primary" onClick={saveWorkItem}>Lưu công việc</Button><Button onClick={() => { setShowForm(false); resetDraft() }}>Hủy</Button></div></WorkSection></div>}
+    <WorkSection title="Hàng công việc" description={`${visibleRows.length}/${rows.length} dòng theo bộ lọc`}><FilterBar actions={<Button small onClick={() => { setQuery(''); setStatus('Tất cả trạng thái') }}>Đặt lại</Button>}><input aria-label="Tìm kiếm" value={query} onChange={(event) => setQuery(event.target.value)} className={`${inputCls} min-w-64 flex-1`} placeholder={config.searchPlaceholder} /><select aria-label="Trạng thái" value={status} onChange={(event) => setStatus(event.target.value)} className={`${inputCls} w-48`}><option>Tất cả trạng thái</option>{statuses.map((item) => <option key={item}>{item}</option>)}</select></FilterBar>{visibleRows.length ? <Table wide scroll><thead><tr><Th>Mã</Th><Th>Nội dung</Th><Th>Đối tượng</Th><Th>Giá trị</Th><Th>Trạng thái</Th><Th>Cập nhật</Th><Th /></tr></thead><tbody>{visibleRows.map((row) => <tr key={row.code}><Td>{row.code}</Td><Td><strong>{row.subject}</strong>{isPreviewPlatformWorkRow(row) && <span className="mt-1 block text-xs text-subtle">Dữ liệu thử · chỉ xem</span>}</Td><Td>{row.owner}</Td><Td>{row.amount}</Td><Td><Badge tone={statusTone(row.status)}>{row.status}</Badge></Td><Td>{row.updatedAt}</Td><Td><Button small onClick={() => openDetails(row)}>Mở</Button></Td></tr>)}</tbody></Table> : <EmptyState compact title="Không có công việc khớp bộ lọc" description="Thử đổi trạng thái, từ khóa hoặc đặt lại bộ lọc." />}</WorkSection>
+    {selected && <div id="platform-work-detail"><WorkSection title={`Chi tiết công việc · ${selected.code}`} description={selectedPreview ? 'Dữ liệu thử để kiểm tra mật độ bảng; không thể cập nhật.' : 'Thông tin đang chọn trong danh sách cục bộ.'}>{selectedPreview && <InlineMessage tone="info" title="Dữ liệu thử · chỉ xem">Chọn một dòng do bạn tạo để thao tác cập nhật.</InlineMessage>}<dl className="m-0 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div><dt className="text-xs text-subtle">Nội dung</dt><dd className="m-0 mt-1 font-semibold">{selected.subject}</dd></div><div><dt className="text-xs text-subtle">Đối tượng</dt><dd className="m-0 mt-1 font-semibold">{selected.owner}</dd></div><div><dt className="text-xs text-subtle">Giá trị</dt><dd className="m-0 mt-1 font-semibold">{selected.amount}</dd></div><div><dt className="text-xs text-subtle">Cập nhật</dt><dd className="m-0 mt-1 font-semibold">{selected.updatedAt}</dd></div></dl>{!readOnly && !selectedPreview && !/đã khớp|hoàn tất/i.test(selected.status) && <div className="mt-4"><Button variant="primary" onClick={completeWorkItem}>{screen.feature.includes('finance') ? 'Đánh dấu đã khớp' : 'Đánh dấu hoàn tất'}</Button></div>}</WorkSection></div>}
+  </Shell>
 }
 
 export function PlatformScreen({ screen, state, role }: { screen: ScreenDefinition; state: ReviewState; role: Extract<ScreenRole, 'cs' | 'pm' | 'sa'> }) {
