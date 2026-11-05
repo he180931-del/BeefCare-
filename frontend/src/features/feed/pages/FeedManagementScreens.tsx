@@ -768,12 +768,12 @@ function Receipts({
                               <strong className="text-sm">
                                 Lịch sử thanh toán
                               </strong>
-                              {row.status === "POSTED" && (
+                              {row.status === "POSTED" && !isStressGenerated(row) && (
                                 <div className="flex flex-wrap gap-2">
                                   {row.outstanding > 0 && (
                                     <Button
                                       small
-                                      disabled={!canWrite(role, state) || isStressGenerated(row)}
+                                      disabled={!canWrite(role, state)}
                                       onClick={() =>
                                         navigate(
                                           `/ui/scr-107?id=${row.id}&kind=FEED&returnTarget=/ui/scr-112`,
@@ -785,7 +785,7 @@ function Receipts({
                                   )}
                                   <Button
                                     small
-                                    disabled={!canWrite(role, state) || isStressGenerated(row)}
+                                    disabled={!canWrite(role, state)}
                                     onClick={(event) =>
                                       openAction(
                                         { type: "voucher", row },
@@ -798,6 +798,7 @@ function Receipts({
                                 </div>
                               )}
                             </div>
+                            {isStressGenerated(row) && <InlineMessage className="mt-2" tone="info" title="Dữ liệu thử · chỉ xem">Lịch sử dùng để kiểm tra giao diện; không thể ghi thêm, hủy phiếu hoặc hủy khoản thu.</InlineMessage>}
                             {row.payments.length ? (
                               <div className="mt-2 divide-y border-y border-rule">
                                 {row.payments.map((payment) => (
@@ -851,7 +852,8 @@ function Receipts({
                                     </span>
                                     <span>
                                       {payment.status === "ACTIVE" &&
-                                        row.status === "POSTED" && (
+                                        row.status === "POSTED" &&
+                                        !isStressGenerated(row) && (
                                           <Button
                                             small
                                             disabled={!canWrite(role, state)}
