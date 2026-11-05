@@ -27,7 +27,6 @@ import { OperationalScreen } from '../../operations/pages/OperationalScreens'
 import { PlatformScreen } from '../../platform/pages/PlatformScreens'
 import { RecordScreen } from '../../records/pages/RecordScreens'
 import { TechnicianScreen } from '../../technician/pages/TechnicianScreens'
-import { CARE_ADMIN_SCREEN_IDS, CareAdminScreen } from '../../operations/pages/CareAdminScreens'
 import { CatalogueScreen } from '../../catalogue/pages/CatalogueScreens'
 import { SubscriptionScreen } from '../../subscription/pages/SubscriptionScreens'
 import { PlatformServiceScreen } from '../../platform-service'
@@ -122,9 +121,6 @@ function PreviewContent({ screen }: { screen: ScreenDefinition }) {
   // renderer so the full compose, review and correction flow is reachable.
   if (ANNOUNCEMENT_SCREEN_IDS.has(screen.id)) {
     return <AnnouncementPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  }
-  if (CARE_ADMIN_SCREEN_IDS.includes(screen.id)) {
-    return <CareAdminScreen screenId={screen.id} role={session.role} state={session.reviewState} />
   }
   const content = (() => {
     if (PEN_SCREEN_IDS.has(screen.id)) return <PenPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
