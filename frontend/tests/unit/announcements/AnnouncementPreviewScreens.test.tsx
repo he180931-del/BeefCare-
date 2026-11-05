@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { AnnouncementPreviewScreen } from '../../../src/features/farm-announcements/pages/AnnouncementPreviewScreens'
 import { screenById } from '../../../src/app/screenManifest'
 
@@ -9,6 +9,18 @@ function seedNotice(notice: Record<string, unknown>) {
 }
 
 describe('announcement screens', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('renders a paginated 100-row received-notice table for local UI review', () => {
+    render(<MemoryRouter><AnnouncementPreviewScreen screen={screenById('SCR-38')!} role="manager" state="success" /></MemoryRouter>)
+    expect(screen.getByLabelText('Phân trang bảng')).toHaveTextContent(/Hiển thị 1–\d+ \/ 100 dòng/)
+    expect(screen.getByRole('button', { name: 'Trang 4' })).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mở' })[1])
+    const saved = JSON.parse(localStorage.getItem('beefcare-ui-demo') || '{}')
+    expect(saved.account['selected-notice'].id).toBe('TB-024-L0002')
+    expect(saved.account.notices.some((notice: { id: string }) => notice.id === 'TB-024-L0002')).toBe(true)
+  })
+
   it('shows role-group and active-member recipient selectors while composing', () => {
     render(<MemoryRouter><AnnouncementPreviewScreen screen={screenById('SCR-39')!} role="owner" state="success" /></MemoryRouter>)
     expect(screen.getByRole('checkbox', { name: 'Quản lý' })).toBeInTheDocument()

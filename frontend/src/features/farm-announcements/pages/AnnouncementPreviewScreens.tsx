@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ReviewState } from '../../../app/fixtureSession'
+import { expandLocalTable, isStressGenerated } from '../../../app/localStressData'
 import type { ScreenDefinition, ScreenRole } from '../../../app/screenManifest'
 import { accountMembers } from '../../account/data/accountFixtures'
 import { Badge, Button, Docs, Dropzone, Field, Info, inputCls, PageHeader, Table, Td, Th } from '../../../components/ui'
@@ -74,11 +75,22 @@ function Shell({ screen, actions, children }: { screen: ScreenDefinition; action
 
 function NoticeList({ screen, role, state }: { screen: ScreenDefinition; role?: ScreenRole; state: ReviewState }) {
   const nav = useNavigate(); const identity = demoIdentityForRole(role); const [rows, setRows] = useState(readNotices); const [tab, setTab] = useState('Received'); const [q, setQ] = useState(''); const [audienceFilter, setAudienceFilter] = useState(''); const [statusFilter, setStatusFilter] = useState('')
+  const displayRows = useMemo(() => expandLocalTable(`farm-announcements-${role || 'guest'}`, rows), [rows, role])
   const authored = (row: Notice) => isNoticeAuthor(row, role, identity)
   const received = (row: Notice) => Boolean(identity && row.status === 'PUBLISHED' && row.deliveries?.some((delivery) => delivery.email === identity.email))
-  const shown = useMemo(() => rows.filter((row) => (!q || `${row.title} ${row.body}`.toLowerCase().includes(q.toLowerCase())) && (!audienceFilter || row.audience.includes(audienceFilter)) && (!statusFilter || row.status === statusFilter) && ((tab === 'All' && (received(row) || authored(row))) || (tab === 'Received' && received(row)) || (tab === 'Authored' && authored(row) && row.status === 'PUBLISHED') || (tab === 'Drafts' && authored(row) && row.status === 'DRAFT'))), [rows, q, audienceFilter, statusFilter, tab, role, identity?.email])
-  const canWrite = editable(role) && state !== 'read-only'; const drafts = rows.filter((row) => authored(row) && row.status === 'DRAFT').length; const unread = rows.filter((row) => received(row) && row.deliveries?.some((delivery) => delivery.email === identity?.email && delivery.status !== 'Read')).length
-  const open = (row: Notice) => { const opened = markOpened(row, identity); if (opened !== row) { const next = rows.map((item) => item.id === row.id ? opened : item); setRows(next); write('notices', next) }; write('selected-notice', { id: row.id }); nav(row.status === 'DRAFT' ? '/ui/scr-39' : '/ui/scr-40') }
+  const shown = useMemo(() => displayRows.filter((row) => (!q || `${row.title} ${row.body}`.toLowerCase().includes(q.toLowerCase())) && (!audienceFilter || row.audience.includes(audienceFilter)) && (!statusFilter || row.status === statusFilter) && ((tab === 'All' && (received(row) || authored(row))) || (tab === 'Received' && received(row)) || (tab === 'Authored' && authored(row) && row.status === 'PUBLISHED') || (tab === 'Drafts' && authored(row) && row.status === 'DRAFT'))), [displayRows, q, audienceFilter, statusFilter, tab, role, identity?.email])
+  const canWrite = editable(role) && state !== 'read-only'; const drafts = displayRows.filter((row) => authored(row) && row.status === 'DRAFT').length; const unread = displayRows.filter((row) => received(row) && row.deliveries?.some((delivery) => delivery.email === identity?.email && delivery.status !== 'Read')).length
+  const open = (row: Notice) => {
+    const opened = markOpened(row, identity)
+    if (opened !== row || isStressGenerated(row)) {
+      const materialized = { ...opened, __stressGenerated: undefined, __stressTable: undefined, __stressIndex: undefined }
+      const next = [...rows.filter((item) => item.id !== row.id), materialized]
+      setRows(next)
+      write('notices', next)
+    }
+    write('selected-notice', { id: row.id })
+    nav(row.status === 'DRAFT' ? '/ui/scr-39' : '/ui/scr-40')
+  }
   return <Shell screen={screen} actions={canWrite && <Button variant="primary" onClick={() => { write('selected-notice', undefined); nav('/ui/scr-39') }}>Soạn thông báo</Button>}>
     <div className="flex flex-wrap items-end justify-between gap-3 border-y border-rule py-3"><div className="flex flex-wrap gap-2">{[['Received', 'Đã nhận'], ['Authored', 'Đã soạn'], ['Drafts', `Bản nháp (${drafts})`], ['All', 'Tất cả']].map(([value, label]) => <Button key={value} small variant={tab === value ? 'primary' : 'default'} onClick={() => setTab(value)}>{label}</Button>)}</div><span className="text-xs text-subtle">{unread ? `${unread} chưa đọc` : 'Đã đọc hết'}</span></div>
     <FilterBar><input aria-label="Tìm theo tiêu đề" className={`${inputCls} min-w-[220px] max-w-sm`} value={q} onChange={(event) => setQ(event.target.value)} placeholder="Tìm theo tiêu đề hoặc nội dung" /><select aria-label="Nhóm người nhận" className={`${inputCls} w-44`} value={audienceFilter} onChange={(event) => setAudienceFilter(event.target.value)}><option value="">Tất cả nhóm nhận</option><option>Quản lý</option><option>Kỹ thuật viên</option></select><select aria-label="Trạng thái" className={`${inputCls} w-40`} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">Tất cả trạng thái</option><option value="DRAFT">Bản nháp</option><option value="PUBLISHED">Đã phát hành</option></select></FilterBar>
