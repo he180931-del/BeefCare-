@@ -76,7 +76,7 @@ export function ActionDialog({
   showConfirm?: boolean
   returnFocusRef?: RefObject<HTMLElement | null>
   onCancel: () => void
-  onConfirm: () => void
+  onConfirm?: () => void
 }) {
   const dialogRef = useRef<HTMLElement>(null)
   const lastPageFocusRef = useRef<HTMLElement | null>(null)
