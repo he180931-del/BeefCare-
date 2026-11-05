@@ -218,6 +218,8 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Màn đăng nhập thật trong `AuthProvider` được kiểm tra qua production preview (không dùng màn fixture): bố cục chia đôi tại `1180×820`, bố cục tablet tại `820×1180` và bố cục một cột tại `390×844` đều không tràn ngang hoặc dọc ngoài ý muốn.
 - Ở cả ba viewport, tiêu đề, email, mật khẩu, nút hiện/ẩn mật khẩu và nút đăng nhập đều hiển thị và có tên truy cập. Bản DEV tại `/ui/*` vẫn giữ cơ chế bypass xác thực phục vụ duyệt giao diện; không thay đổi logic này để tạo bằng chứng giả.
 - Sau khi thiết kế lại màn đăng nhập, `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Cảnh báo duy nhất vẫn là kích thước chunk `ScreenPreviewPage` lớn hơn 500 kB.
+- Landing `SCR-01` chuyển phần minh họa hero từ dashboard dựng bằng HTML sang ảnh chụp đúng màn Tổng quan trang trại cục bộ. Ảnh chỉ là bằng chứng sản phẩm; CTA “Mở màn tổng quan” vẫn điều hướng đến màn hoạt động thật.
+- `AccountScreens.test.tsx` đạt `27/27`, bao gồm ảnh sản phẩm có alt text và CTA hero. Lượt kiểm tra Playwright đa viewport sau thay đổi bị công cụ từ chối trước khi khởi chạy do hết hạn mức phiên, nên chưa ghi nhận là bằng chứng runtime mới.
 - `SCR-80` giữ nguyên thời gian của bản ghi thật; 100 bản ghi mô phỏng được đặt trong khoảng bảy ngày mặc định để kiểm tra bộ lọc, mật độ và phân trang mà không ghi ngược vào localStorage.
 - Test tập trung `PlatformScreens.test.tsx` đạt `7/7`, bao gồm trạng thái chỉ xem, trạng thái rỗng và xác nhận đủ 100 dòng trong bộ lọc mặc định.
 - `SCR-01` dùng logo thật ở đầu/cuối trang, tăng diện tích nhận diện thương hiệu và làm phẳng khung xem trước sản phẩm (bỏ hai lớp bo góc và bóng đổ lồng nhau). Nút trong khung mở được tổng quan thật thay vì chỉ trang trí.

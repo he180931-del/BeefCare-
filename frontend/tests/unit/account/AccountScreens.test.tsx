@@ -31,6 +31,12 @@ describe('AccountScreen', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Không thể tải lời mời vào trang trại')
   })
 
+  it('shows a real product screen in the landing hero', () => {
+    render(<AccountScreen screen={screenById('SCR-01')!} state="success" />)
+    expect(screen.getByRole('img', { name: /Màn hình tổng quan trang trại BeefCare/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mở màn tổng quan' })).toBeInTheDocument()
+  })
+
   it.each([
     ['SCR-01', 'Nhìn rõ cả đàn.', 'Bảng giá hiện hành'],
     ['SCR-02', 'Tiếp tục với Google', 'Ghi nhớ đăng nhập'],
