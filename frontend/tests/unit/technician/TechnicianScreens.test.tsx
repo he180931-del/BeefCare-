@@ -5,7 +5,7 @@ import { screenById } from '../../../src/app/screenManifest'
 import TechnicianLayout from '../../../src/components/TechnicianLayout'
 import { TechnicianScreen } from '../../../src/features/technician/pages/TechnicianScreens'
 
-function renderScreen(id: string, state: 'success' | 'read-only' | 'empty' = 'success') {
+function renderScreen(id: `SCR-${string}`, state: 'success' | 'read-only' | 'empty' = 'success') {
   return render(<MemoryRouter initialEntries={[`/ui/${id.toLowerCase()}`]}><TechnicianScreen screen={screenById(id)!} state={state} /></MemoryRouter>)
 }
 
@@ -51,6 +51,13 @@ describe('TechnicianScreen', () => {
     renderScreen('SCR-104')
     expect(screen.queryByRole('button', { name: 'Ghi kết quả' })).not.toBeInTheDocument()
     expect(screen.getByText('Mọi thông tin trên trang chủ kỹ thuật viên chỉ để xem.')).toBeInTheDocument()
+  })
+
+  it('opens the selected reminder detail instead of leaving the item inert', () => {
+    renderScreen('SCR-104')
+    fireEvent.click(screen.getByRole('button', { name: /Kiểm tra bò sau điều trị/ }))
+    expect(screen.getByRole('heading', { name: 'Nhắc việc · KT-01' })).toBeInTheDocument()
+    expect(screen.getAllByText('VN-0382 · Chuồng A1')).toHaveLength(2)
   })
 
   it('offers scan as the recovery action when the daily home is empty', () => {
