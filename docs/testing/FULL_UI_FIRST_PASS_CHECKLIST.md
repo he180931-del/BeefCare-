@@ -215,3 +215,6 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - `SCR-21` khởi tạo đúng hành động `Đổi` hoặc `Khôi phục` khi tài khoản đã có quyền; chỉ nút `Cấp quyền nền tảng` mới chuyển biểu mẫu sang hành động `Cấp`.
 - `SCR-10`, `SCR-13`, `SCR-15` và `SCR-17` được kiểm tra trực tiếp bằng Playwright: hàng mô phỏng đều mở vùng thông tin chỉ đọc, không còn nút `Mô phỏng` bị vô hiệu. So sánh phần `account` trong `beefcare-ui-demo` trước và sau thao tác cho cả bốn màn đều không đổi.
 - Các hành động nghiệp vụ trên bốn màn tài khoản vẫn tách riêng cho dữ liệu thật: vào trại/thanh toán, tạm ngừng hoặc xem gói, đổi vai trò và gửi lại/hủy lời mời.
+- Màn đăng nhập thật trong `AuthProvider` được kiểm tra qua production preview (không dùng màn fixture): bố cục chia đôi tại `1180×820`, bố cục tablet tại `820×1180` và bố cục một cột tại `390×844` đều không tràn ngang hoặc dọc ngoài ý muốn.
+- Ở cả ba viewport, tiêu đề, email, mật khẩu, nút hiện/ẩn mật khẩu và nút đăng nhập đều hiển thị và có tên truy cập. Bản DEV tại `/ui/*` vẫn giữ cơ chế bypass xác thực phục vụ duyệt giao diện; không thay đổi logic này để tạo bằng chứng giả.
+- Sau khi thiết kế lại màn đăng nhập, `npm run typecheck`, `npm run build` và `git diff --check` đều đạt. Cảnh báo duy nhất vẫn là kích thước chunk `ScreenPreviewPage` lớn hơn 500 kB.
