@@ -443,10 +443,10 @@ function Stock({
                         <Button
                           small
                           onClick={() =>
-                            setMovement(movement === item.id ? null : item.id)
+                            setMovement(item.id)
                           }
                         >
-                          {isStressGenerated(item) ? "Xem chi tiết" : "Biến động"}
+                          {isStressGenerated(item) ? "Xem chi tiết" : "Xem biến động"}
                         </Button>
                       </Td>
                     </tr>
@@ -464,40 +464,6 @@ function Stock({
                 )}
               </tbody>
             </Table>
-            {movement && (
-              <div className="mt-4 border-y border-rule py-3">
-                <strong className="text-sm">
-                  Biến động ·{" "}
-                  {store.stock.find((item) => item.id === movement)?.name ||
-                    movement}
-                </strong>
-                <Table wide>
-                  <thead>
-                    <tr>
-                      <Th>Thời gian</Th>
-                      <Th>Loại</Th>
-                      <Th>Số lượng kg</Th>
-                      <Th>Đơn giá</Th>
-                      <Th>Số dư sau</Th>
-                      <Th>Nguồn chứng từ</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {movements.map((item) => (
-                      <tr key={item.id}>
-                        <Td>{item.at}</Td>
-                        <Td>{item.type}</Td>
-                        <Td>{item.quantityKg}</Td>
-                        <Td>{money(item.unitCost)}</Td>
-                        <Td>{item.balanceAfterKg} kg</Td>
-                        <Td>{item.sourceDocument}</Td>
-                      </tr>
-                    ))}
-                    {!movements.length && <tr><Td colSpan={6}>{isStressGenerated(store.stock.find((item) => item.id === movement)) ? "Dữ liệu thử chỉ dùng để kiểm tra danh sách và chi tiết tồn kho; không có sổ biến động lưu trữ." : "Chưa có biến động kho cho mặt hàng này."}</Td></tr>}
-                  </tbody>
-                </Table>
-              </div>
-            )}
             <InlineMessage tone="info">
               Mức tối thiểu lấy từ danh mục; ngày tồn = tồn hiện tại ÷ mức dùng
               bình quân 7 ngày. Hệ thống nhắc khi tồn bằng hoặc thấp hơn mức tối
@@ -505,6 +471,22 @@ function Stock({
             </InlineMessage>
           </WorkSection>
         </State>
+        <ActionDialog
+          open={Boolean(movement)}
+          title={`Biến động kho · ${store.stock.find((item) => item.id === movement)?.name || movement || ""}`}
+          description="Sổ biến động chỉ đọc; đóng hộp thoại để quay lại đúng vị trí trong danh sách tồn kho."
+          cancelLabel="Đóng"
+          showConfirm={false}
+          onCancel={() => setMovement(null)}
+        >
+          <Table wide scroll>
+            <thead><tr><Th>Thời gian</Th><Th>Loại</Th><Th>Số lượng kg</Th><Th>Đơn giá</Th><Th>Số dư sau</Th><Th>Nguồn chứng từ</Th></tr></thead>
+            <tbody>
+              {movements.map((item) => <tr key={item.id}><Td>{item.at}</Td><Td>{item.type}</Td><Td>{item.quantityKg}</Td><Td>{money(item.unitCost)}</Td><Td>{item.balanceAfterKg} kg</Td><Td>{item.sourceDocument}</Td></tr>)}
+              {!movements.length && <tr><Td colSpan={6}>{isStressGenerated(store.stock.find((item) => item.id === movement)) ? "Dữ liệu thử chỉ dùng để kiểm tra danh sách và chi tiết tồn kho; không có sổ biến động lưu trữ." : "Chưa có biến động kho cho mặt hàng này."}</Td></tr>}
+            </tbody>
+          </Table>
+        </ActionDialog>
       </Shell>
     </Guard>
   );

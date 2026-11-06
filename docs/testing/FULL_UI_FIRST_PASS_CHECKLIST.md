@@ -293,6 +293,10 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Kiểm tra Playwright thủ công tại `1180×820`, dữ liệu cục bộ, vai trò Quản lý: bấm `Ghi số đo` ở dòng `BC-000017` điều hướng đúng tới `SCR-44?code=BC-000017`; biểu mẫu có thời điểm đo, người đo, cân nặng, phương pháp, BCS và ghi chú. Chuyển sang vai trò Chủ trại tại `SCR-46` hiển thị đúng thông báo chế độ xem. Không có lỗi console; còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
 - `npm run typecheck` và `git diff --check` đạt sau thay đổi.
 
+- `SCR-111` không còn bung chi tiết “Biến động” ở cuối bảng. Nút mỗi dòng nay là `Xem biến động` và mở hộp thoại chỉ đọc, có thể đóng để giữ nguyên vị trí/bộ lọc danh sách.
+- Kiểm tra Playwright đầu tiên dùng selector theo nhãn `Xem biến động` bị dừng vì có ba nút thật cùng nhãn; đây là lỗi mơ hồ của test, không phải lỗi giao diện. Selector được thu hẹp về dòng đầu. Lượt sau mở đúng dialog `Biến động kho · Cỏ voi tươi`, hiển thị sổ `RECEIPT`, số lượng, đơn giá, số dư và chứng từ; console không có lỗi, chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
+- `npm run typecheck` và `git diff --check` đạt sau thay đổi.
+
 - Hồ sơ `SCR-60` bổ sung thanh tiến trình sinh sản tuyến tính: Động dục → Phối giống → Khám thai → Theo dõi thai → Sinh bê. Mỗi bước hiện rõ đã ghi nhận, bước hiện tại hoặc chưa đến bước; trạng thái sau sinh kết thúc lứa gần nhất. Thành phần dùng phân tách mảnh và khoảng trắng, không tạo card lồng nhau.
 - Kiểm tra Playwright thủ công tại `1180×820`, vai trò Quản lý, `BC-000125`: trạng thái `Đã phối · chờ khám` hiển thị hai bước đầu đã ghi nhận, `Khám thai` là bước hiện tại, đồng thời nút hành động và lời nhắc cùng chỉ tới `Khám thai`. Console không có lỗi; chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
 - `npm run typecheck` đạt sau thay đổi.
