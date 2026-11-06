@@ -12,7 +12,7 @@ public interface DatabaseTestcontainer {
     PostgreSQLContainer<?> databaseContainer = createDatabaseContainer();
 
     private static PostgreSQLContainer<?> createDatabaseContainer() {
-        PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:18.4");
+        PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:16.15");
         container.withDatabaseName("beefcare");
         container.withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(DatabaseTestcontainer.class)));
         container.withReuse(true);
