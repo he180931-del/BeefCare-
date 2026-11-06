@@ -293,6 +293,10 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Kiểm tra Playwright thủ công tại `1180×820`, dữ liệu cục bộ, vai trò Quản lý: bấm `Ghi số đo` ở dòng `BC-000017` điều hướng đúng tới `SCR-44?code=BC-000017`; biểu mẫu có thời điểm đo, người đo, cân nặng, phương pháp, BCS và ghi chú. Chuyển sang vai trò Chủ trại tại `SCR-46` hiển thị đúng thông báo chế độ xem. Không có lỗi console; còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
 - `npm run typecheck` và `git diff --check` đạt sau thay đổi.
 
+- Hồ sơ `SCR-60` bổ sung thanh tiến trình sinh sản tuyến tính: Động dục → Phối giống → Khám thai → Theo dõi thai → Sinh bê. Mỗi bước hiện rõ đã ghi nhận, bước hiện tại hoặc chưa đến bước; trạng thái sau sinh kết thúc lứa gần nhất. Thành phần dùng phân tách mảnh và khoảng trắng, không tạo card lồng nhau.
+- Kiểm tra Playwright thủ công tại `1180×820`, vai trò Quản lý, `BC-000125`: trạng thái `Đã phối · chờ khám` hiển thị hai bước đầu đã ghi nhận, `Khám thai` là bước hiện tại, đồng thời nút hành động và lời nhắc cùng chỉ tới `Khám thai`. Console không có lỗi; chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
+- `npm run typecheck` đạt sau thay đổi.
+
 - Hàng bảng dùng nền trắng và viền mảnh giữ nguyên, nhưng hover/focus-within nay chuyển sang xanh lục nhạt tương phản hơn (`#e1f1e8` / `#d8ede2`) để nhận biết hàng đang thao tác mà không tạo hiệu ứng loè loẹt. Kiểm tra runtime tại `SCR-80` xác nhận màu hover được áp dụng và console không có lỗi.
 - `SCR-77` không còn đưa các hàng được sinh tự động cho stress-test vào chỉ số hoặc bảng “Cần chú ý hôm nay”. Stress data vẫn phục vụ kiểm tra mật độ ở các màn danh sách, nhưng bảng tổng quan chỉ tổng hợp nhắc việc cục bộ thật và các tín hiệu phát sinh từ hồ sơ.
 - Lượt test đầu của `InsightScreens.test.tsx` kiểm tra cứng 7 dòng nhưng fixture hiện tại chỉ có 3 tín hiệu phù hợp (cộng hàng tiêu đề là 4), nên assertion được sửa để phản ánh đúng dữ liệu nghiệp vụ hiện hành và đồng thời bảo đảm không hiện nhãn hàng sinh `mẫu N`.
