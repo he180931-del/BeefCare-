@@ -1,4 +1,5 @@
 import { Th as UiTh, Td as UiTd } from '../../../components/ui'
+import { Icon, type IconName } from '../../../components/Icon'
 import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react'
 import type { Tone } from '../../../types'
 
@@ -12,13 +13,21 @@ const CHIP_TONE = {
   info: 'bg-[#e8f2fa] text-[#296194]',
   grey: 'border border-edge bg-white text-[#212121]',
 }
-export function Chip({ tone = 'grey', className, children }: { tone?: Tone; className?: string; children?: ReactNode }) {
+export function Chip({ tone = 'grey', icon, className, children }: { tone?: Tone; icon?: IconName; className?: string; children?: ReactNode }) {
   return (
-    <span className={cx('inline-block whitespace-nowrap rounded-[10px] px-2 py-[2px] text-[11px] font-medium', CHIP_TONE[tone], className)}>
+    <span className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-[10px] px-2 py-[2px] text-[11px] font-medium', CHIP_TONE[tone], className)}>
+      {icon && <Icon name={icon} size={12} />}
       {children}
     </span>
   )
 }
+
+// Icon của nhãn trạng thái theo Figma (tab 00).
+const CHIP_ICONS: Record<string, IconName> = {
+  ACTIVE: 'circle-check', 'Khỏe': 'heart', 'Khỏe mạnh': 'heart', 'Theo dõi': 'eye', 'Đang điều trị': 'pill',
+  'Mang thai': 'heartbeat', 'Đang mang thai': 'heartbeat', 'Khai báo chửa': 'heartbeat', 'Sắp đẻ': 'baby-carriage', 'Động dục': 'flame', 'Đã phối': 'clock',
+}
+export const chipIcon = (label: string): IconName | undefined => CHIP_ICONS[label]
 
 /** Phân đoạn: chỉ tab đang chọn có viền (Figma). */
 export function Seg({ options, value, onChange }: { options: ReadonlyArray<readonly [string, string]>; value: string; onChange: (value: string) => void }) {

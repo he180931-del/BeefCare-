@@ -1,6 +1,8 @@
+import { Icon } from '../../../components/Icon'
 import { Badge, Button, KV, Table, Td, Th } from '../../../components/ui'
 import { thresholdText } from '../../../data/penData'
 import { Box, TH } from './parts'
+import { penName } from './BarnTable'
 import type { Pen } from '../../../types'
 
 export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll }: { barn: Pen; onEdit: () => void; onToggle: () => void; onMoveCow: (code: string) => void; onViewAll: () => void }) {
@@ -8,10 +10,10 @@ export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll
   return (
     <Box>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="m-0 text-sm font-semibold text-[#212121]">{barn.code} – {barn.name}</h3>
+        <h3 className="m-0 text-sm font-semibold text-[#212121]">{barn.code} – {penName(barn)}</h3>
         <div className="flex shrink-0 gap-2">
-          <Button onClick={onEdit}>Sửa</Button>
-          <Button onClick={onToggle}>{active ? 'Ngừng sử dụng' : 'Mở lại sử dụng'}</Button>
+          <Button onClick={onEdit}><Icon name="edit" size={14} />Sửa</Button>
+          <Button onClick={onToggle}><Icon name={active ? 'player-pause' : 'refresh'} size={14} />{active ? 'Ngừng sử dụng' : 'Mở lại sử dụng'}</Button>
         </div>
       </div>
 
@@ -20,13 +22,15 @@ export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll
         <KV k="Đang có">{barn.count}</KV>
         <KV k="Còn trống">{barn.capacity - barn.count}</KV>
         <KV k="Trạng thái">
-          {active ? <Badge tone="ok" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>}
+          {active ? <Badge tone="ok" icon="circle-check" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>}
         </KV>
       </div>
 
-      <div>
-        <KV k="Mô tả">{barn.desc?.trim() || 'Chưa có mô tả'}</KV>
-      </div>
+      {barn.desc?.trim() && (
+        <div>
+          <KV k="Mô tả">{barn.desc.trim()}</KV>
+        </div>
+      )}
 
       <div>
         <h4 className="m-0 text-[13px] font-semibold text-[#212121]">Tiêu chí tiếp nhận · {barn.version}</h4>

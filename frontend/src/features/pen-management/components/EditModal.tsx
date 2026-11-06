@@ -6,6 +6,7 @@ import { PURPOSES, STAGES } from '../../../data/penData'
 import { cx, TH } from './parts'
 import type { ReactNode } from 'react'
 import type { Pen, PenStatus } from '../../../types'
+import { penName } from './BarnTable'
 
 const OPERATORS = ['≥', '≤'] as const
 const TODAY_LABEL = '20/10/2026'
@@ -31,7 +32,7 @@ const ErrorText = ({ children }: { children: ReactNode }) => <span className="te
 export default function EditModal({ barn, barns, onSave, onClose, saving = false, saveError }: { barn: Pen | null; barns: Pen[]; onSave: (pen: Pen) => void | Promise<void>; onClose: () => void; saving?: boolean; saveError?: unknown }) {
   const isNew = !barn
   const [code, setCode] = useState(barn?.code ?? '')
-  const [name, setName] = useState(barn?.name ?? '')
+  const [name, setName] = useState(barn ? penName(barn) : '')
   const [capacity, setCapacity] = useState(barn ? String(barn.capacity) : '')
   const [desc, setDesc] = useState(barn?.desc ?? '')
   const [purpose, setPurpose] = useState(barn?.purpose ?? PURPOSES[0])
@@ -60,7 +61,8 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
     const next: Pen = {
       ...(barn ?? { code: trimmedCode, count: 0, cows: [], sex: 'Cả hai', accept: stage }),
       code: barn?.code ?? trimmedCode,
-      name: name.trim(),
+      // Giữ nguyên tiền tố mã nếu tên đang lưu có tiền tố; ô nhập chỉ hiện phần tên như frame.
+      name: barn && barn.name !== penName(barn) ? `${barn.code} – ${name.trim()}` : name.trim(),
       capacity: capacityNumber,
       desc: desc.trim(),
       status,
@@ -87,7 +89,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
     <Modal
       width={640}
       title={barn ? `Sửa chuồng – ${barn.code}` : 'Tạo chuồng mới'}
-      sub={barn ? `${barn.name} · ${barn.count} con đang ở` : 'Nhập thông tin chuồng và tiêu chí tiếp nhận'}
+      sub={barn ? `${penName(barn)} · ${barn.count} con đang ở` : 'Nhập thông tin chuồng và tiêu chí tiếp nhận'}
       topTitle="Tạo / sửa chuồng"
       onClose={onClose}
     >

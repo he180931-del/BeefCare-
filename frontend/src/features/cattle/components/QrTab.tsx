@@ -1,18 +1,19 @@
 import { Button, Foot, Table } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
 import { Chip, Fields, Panel, Td, Th } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
 import type { Tone } from '../../../types'
 
 const QR_TONE: Record<string, Tone> = { ACTIVE: 'ok', REPLACED: 'grey', REVOKED: 'err' }
 
-export default function QrTab({ cow, onOpenModal }: { cow: CowSeed; onOpenModal: (name: string) => void }) {
+export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; canWrite: boolean; onOpenModal: (name: string) => void }) {
   const cur = cow.qrHistory.find((q) => q.status === 'ACTIVE') || cow.qrHistory[0]
   return (
     <>
       <Panel
         title="Thẻ hiện hành"
         gap="gap-4"
-        action={cow.status === 'ACTIVE' && <Button className="leading-[normal]" onClick={() => onOpenModal('qr-reissue')}>Cấp lại QR</Button>}
+        action={canWrite && <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('qr-reissue')}><Icon name="qrcode" />Cấp lại QR</Button>}
       >
         <div className="flex flex-wrap items-center gap-6">
           <div className="size-[120px] shrink-0 rounded-md border border-edge bg-[#eef4ef]" aria-hidden="true" />
@@ -20,10 +21,10 @@ export default function QrTab({ cow, onOpenModal }: { cow: CowSeed; onOpenModal:
             className="w-full max-w-[600px]"
             cols="grid-cols-1 sm:grid-cols-2"
             items={[
-              ['Mã thẻ', cur.code],
-              ['Trạng thái', <Chip key="s" tone="ok">ACTIVE</Chip>],
+              ['Mã thẻ', cur?.code ?? '—'],
+              ['Trạng thái', cur ? <Chip key="s" tone={QR_TONE[cur.status] ?? 'grey'} icon={cur.status === 'ACTIVE' ? 'circle-check' : undefined}>{cur.status}</Chip> : '—'],
               ['Mã hiển thị in trên thẻ', cow.code],
-              ['Cấp lúc', `${cur.from} · ${cur.by}`],
+              ['Cấp lúc', cur ? `${cur.from} · ${cur.by}` : '—'],
             ]}
           />
         </div>

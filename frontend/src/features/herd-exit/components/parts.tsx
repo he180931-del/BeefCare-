@@ -1,4 +1,6 @@
-import { Badge, KV, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Badge, KV, Table, Td, Th, inputCls, type BadgeTone } from '../../../components/ui'
+import { Icon, type IconName } from '../../../components/Icon'
+import { useSession } from '../../authorization'
 import type { ReactNode, ChangeEvent } from 'react'
 import { money } from '../../../data/format'
 
@@ -34,7 +36,7 @@ export const DocRow = ({ ext, name }: { ext?: string; name: string }) => (
 
 export const Drop = ({ hint }: { hint?: ReactNode }) => (
   <div className="flex flex-col items-center gap-1 rounded-md border border-field bg-page p-3.5">
-    <span className="text-xs font-semibold text-brand">⇪ Kéo thả tệp hoặc Chọn tệp</span>
+    <span className="flex items-center gap-1.5 text-xs font-semibold text-brand"><Icon name="upload" size={14} />Kéo thả tệp hoặc Chọn tệp</span>
     <span className="max-w-[240px] text-center text-[11px] text-muted">{hint}</span>
   </div>
 )
@@ -80,3 +82,22 @@ export const MoneyInput = ({ value, onChange, suffix, className }: { value: numb
     {suffix && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">{suffix}</span>}
   </div>
 )
+
+const EXIT_STATUS: Record<string, { tone?: BadgeTone; icon?: IconName }> = {
+  'Nháp': { icon: 'pencil' },
+  'Chờ xác nhận': { tone: 'warn', icon: 'clock' },
+  'Đã xuất': { tone: 'ok', icon: 'logout' },
+  'Đã hủy': { tone: 'err', icon: 'circle-x' },
+  'Đã bác': {},
+}
+/** Huy hiệu trạng thái phiếu xuất kèm icon như Figma. */
+export function ExitStatusBadge({ status }: { status: string }) {
+  const s = EXIT_STATUS[status] ?? {}
+  return <Badge tone={s.tone} icon={s.icon}>{status}</Badge>
+}
+
+/** Chỉ Chủ trại lập, xác nhận, thu tiền và hủy phiếu xuất (GBR-07, GBR-94); Quản lý chỉ xem. Không có phiên thì coi là Chủ trại. */
+export function useIsOwner() {
+  const role = useSession()?.role
+  return !role || role === 'OWNER'
+}

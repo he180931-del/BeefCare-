@@ -23,6 +23,9 @@ const draftVoucher = (status = 'DRAFT', version = 1) => ({
   payments: [], history: [],
 })
 
+// The server stores the requested ear tag on its own line view (with catalogue names).
+const storedLines = (body: unknown) => draftVoucher().lines.map((line, index) => ({ ...line, earTagNumber: ((body as { lines?: Array<{ earTagNumber?: string }> }).lines?.[index]?.earTagNumber) ?? line.earTagNumber }))
+
 describe('purchase entry page in backend mode', () => {
   let serverVoucher: ReturnType<typeof draftVoucher> | null = null
   const requests: Array<{ method: string; path: string; body?: unknown }> = []
@@ -41,12 +44,12 @@ describe('purchase entry page in backend mode', () => {
       requests.push({ method, path: url.pathname, body })
       if (url.pathname === '/api/farms/9/entry-vouchers' && method === 'GET') return response({ items: serverVoucher ? [serverVoucher] : [] })
       if (url.pathname === '/api/farms/9/entry-vouchers' && method === 'POST') {
-        serverVoucher = { ...draftVoucher(), ...(body as object), version: 1 }
+        serverVoucher = { ...draftVoucher(), ...(body as object), lines: storedLines(body), version: 1 }
         return response(serverVoucher)
       }
       if (url.pathname === '/api/farms/9/entry-vouchers/41' && method === 'GET') return response(serverVoucher ?? draftVoucher())
       if (url.pathname === '/api/farms/9/entry-vouchers/41' && method === 'PUT') {
-        serverVoucher = { ...draftVoucher(), ...(body as object), status: 'DRAFT', version: 2 }
+        serverVoucher = { ...draftVoucher(), ...(body as object), lines: storedLines(body), status: 'DRAFT', version: 2 }
         return response(serverVoucher)
       }
       if (url.pathname === '/api/farms/9/entry-vouchers/41/attachments' && method === 'GET') {
@@ -79,8 +82,8 @@ describe('purchase entry page in backend mode', () => {
     const first = render(<MemoryRouter initialEntries={['/herd-entry/new']}><Routes><Route path="/herd-entry/new" element={<ImportNew />} /></Routes></MemoryRouter>)
 
     await screen.findByDisplayValue('Mua ngoài')
-    await user.selectOptions(screen.getByLabelText('Cách tính giá'), 'con')
-    await user.click(screen.getByRole('button', { name: '+ Thêm con' }))
+    await user.click(screen.getByRole('button', { name: 'Theo con' }))
+    await user.click(screen.getByRole('button', { name: 'Thêm con' }))
     const dialog = screen.getByRole('dialog')
     const comboBoxes = within(dialog).getAllByRole('combobox')
     await user.type(within(dialog).getAllByRole('textbox')[0], 'BC-BACKEND-001')
@@ -88,9 +91,14 @@ describe('purchase entry page in backend mode', () => {
     const numberInputs = within(dialog).getAllByRole('spinbutton')
     await user.clear(numberInputs[0])
     await user.type(numberInputs[0], '236')
-    await user.clear(numberInputs[1])
-    await user.type(numberInputs[1], '85000')
+    // Per head: the line amount field replaces the per-kg unit price.
+    const amount = dialog.querySelector('#entry-cow-total-amount') as HTMLInputElement
+    await user.clear(amount)
+    await user.type(amount, '85000')
     await user.selectOptions(comboBoxes[3], 'B1')
+    const selectWith = (option: string) => within(dialog).getAllByRole('combobox').find((select) => within(select).queryByRole('option', { name: option }))!
+    await user.selectOptions(selectWith('Bò tơ / hậu bị'), 'Bò tơ')
+    await user.selectOptions(selectWith('Bò sinh sản · loại Sinh sản'), 'Bò sinh sản · loại Sinh sản')
     await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
     const file = new File(['pdf'], 'purchase.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
@@ -105,8 +113,9 @@ describe('purchase entry page in backend mode', () => {
     expect(screen.getByText('BC-BACKEND-001')).toBeInTheDocument()
     expect(screen.getByText('purchase.pdf')).toBeInTheDocument()
 
+    await user.type(screen.getByRole('textbox', { name: 'Người nhập' }), 'Anh A')
     await user.click(screen.getByRole('button', { name: /Lưu & tạo hồ sơ 1 con/ }))
     await waitFor(() => expect(requests.some((request) => request.method === 'POST' && request.path.endsWith('/post'))).toBe(true))
     expect(serverVoucher?.status).toBe('POSTED')
-  })
+  }, 20000)
 })

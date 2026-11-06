@@ -1,3 +1,4 @@
+import { Icon } from '../../../components/Icon'
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Field, Note, Table, Td, Textarea, Th } from '../../../components/ui'
@@ -40,7 +41,7 @@ export default function CancelModal({ record, onConfirm, onClose }: { record: He
               <tr key={c.code}>
                 <Td className={TH}>{c.code} · {c.tag}</Td>
                 <Td className={TH}>{c.events?.length ? c.events.join(', ') : 'Không có (chỉ nhập đàn và xếp chuồng)'}</Td>
-                <Td className={TH}>{c.events?.length ? <Badge tone="err">Không hủy được</Badge> : <Badge tone="ok">Hủy được</Badge>}</Td>
+                <Td className={TH}>{c.events?.length ? <Badge tone="err">Không hủy được</Badge> : <Badge tone="ok" icon="circle-x">Hủy được</Badge>}</Td>
               </tr>
             ))}
           </tbody>
@@ -50,10 +51,10 @@ export default function CancelModal({ record, onConfirm, onClose }: { record: He
       <div className="flex flex-col gap-2">
         <h3 className="m-0 text-sm font-semibold">Khi xác nhận hủy</h3>
         <Note tone="ok">
-          <div>✓ Hồ sơ {(d.cows ?? []).map((c) => c.code).join(', ')} chuyển ĐÃ HỦY; mã nội bộ và mã hiển thị không được dùng lại.</div>
-          <div>✓ Đóng phân chuồng {(d.cows ?? []).map((c) => (c.barn ?? '').split(' ')[0]).join(', ')}, giải phóng {(d.cows ?? []).length} chỗ; thẻ QR bị thu hồi.</div>
+          <div className="flex items-start gap-1.5"><Icon name="circle-check" size={14} className="mt-px shrink-0" />Hồ sơ {(d.cows ?? []).map((c) => c.code).join(', ')} chuyển ĐÃ HỦY; mã bò {(d.cows ?? []).map((c) => c.code).join(', ')} không được dùng lại.</div>
+          <div className="flex items-start gap-1.5"><Icon name="circle-check" size={14} className="mt-px shrink-0" />Đóng phân chuồng {(d.cows ?? []).map((c) => (c.barn ?? '').split(' ')[0]).join(', ')}, giải phóng {(d.cows ?? []).length} chỗ; thẻ QR bị thu hồi.</div>
         </Note>
-        {paid > 0 && <Note tone="warn">! Khoản đã thanh toán {money(paid)} đ vẫn giữ trong lịch sử – việc đòi lại tiền xử lý ngoài hệ thống.</Note>}
+        {paid > 0 && <Note tone="warn"><div className="flex items-start gap-1.5"><Icon name="alert-triangle" size={14} className="mt-px shrink-0" />Khoản đã thanh toán {money(paid)} đ vẫn giữ trong lịch sử – việc đòi lại tiền xử lý ngoài hệ thống.</div></Note>}
       </div>
 
       <Field label="Lý do hủy *">
@@ -63,7 +64,7 @@ export default function CancelModal({ record, onConfirm, onClose }: { record: He
       <ModalFooter>
         <ModalButton onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="danger" disabled={!reason.trim() || blocked} onClick={() => onConfirm(reason.trim())}>
-          Hủy phiếu nhập
+          <Icon name="circle-x" />Hủy phiếu nhập
         </ModalButton>
       </ModalFooter>
     </Modal>

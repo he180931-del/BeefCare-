@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Checkbox, Field, Note, Select, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Icon } from '../../../components/Icon'
 import { money } from '../../../data/format'
 import { TH } from './parts'
 import type { HerdExit } from '../../../types'
@@ -73,11 +74,11 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
         </Field>
       </div>
 
-      <Table>
+      <Table stack={false}>
         <thead>
           <tr>
             <Th className={TH} />
-            <Th className={TH}>Mã bò</Th><Th className={TH}>Nhóm đàn</Th><Th className={TH}>Chuồng</Th>
+            <Th className={TH}>Mã bò · thẻ tai</Th><Th className={TH}>Nhóm đàn · giai đoạn</Th><Th className={TH}>Chuồng</Th>
             <Th className={TH}>Tuổi</Th><Th className={TH}>Cân gần nhất</Th><Th className={TH}>Cảnh báo</Th>
           </tr>
         </thead>
@@ -85,14 +86,14 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
           {rows.map((c) => (
             <tr key={c.code} className="cursor-pointer" onClick={() => toggle(c.code)}>
               <Td className={TH}><Checkbox checked={selected.has(c.code)} onChange={() => toggle(c.code)} aria-label={c.code} /></Td>
-              <Td className={TH}>{c.code}<br />{c.tag}</Td>
+              <Td className={TH}>{c.code} / {c.tag}</Td>
               <Td className={TH}>{c.group}<br />{c.stage}</Td>
               <Td className={TH}>{c.barn}</Td>
               <Td className={TH}>{c.age}</Td>
               <Td className={TH}>{c.weight} kg<br />{c.weightNote}</Td>
               <Td className={TH}>
-                {c.withdrawalUntil && <Badge tone="err" className="!border-0">Ngưng GM → {c.withdrawalUntil.slice(8)}/{c.withdrawalUntil.slice(5, 7)}</Badge>}
-                {c.openCase && <Badge tone="warn" className="!border-0">Ca mở {c.openCase}</Badge>}
+                {c.withdrawalUntil && <Badge tone="err" icon="ban">Ngưng GM → {c.withdrawalUntil.slice(8)}/{c.withdrawalUntil.slice(5, 7)}</Badge>}
+                {c.openCase && <Badge tone="warn">Ca mở {c.openCase}</Badge>}
                 {!c.withdrawalUntil && !c.openCase && '—'}
               </Td>
             </tr>
@@ -109,7 +110,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
       </div>
       <ModalFooter>
         <ModalButton className="text-ink" onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={!selected.size} onClick={confirm}>Thêm {selected.size} con vào phiếu</ModalButton>
+        <ModalButton variant="primary" disabled={!selected.size} onClick={confirm}><Icon name="circle-plus" />Thêm {selected.size} con vào phiếu</ModalButton>
       </ModalFooter>
     </Modal>
   )

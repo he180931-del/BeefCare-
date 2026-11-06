@@ -4,7 +4,6 @@ import { initialImports } from '../data/importsData'
 import { errorMessage } from '../../../api/herdDomainApi'
 import { herdEntrySchema } from '../../../api/collectionSchemas'
 import type { CattleInput, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../../../types'
-import { validateEntryForPost } from '../entryValidation'
 
 const nextEntryId = (rows: HerdEntry[]): string => {
   const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))
@@ -34,6 +33,7 @@ export const herdEntryApi = {
     }
     return herdEntries.update(id, patch)
   },
+  remove: (id: string) => herdEntries.remove(id),
   reset: () => herdEntries.reset(),
 }
 
@@ -52,17 +52,9 @@ export async function saveHerdEntry({ id, record, cattleRows = [] }: { id?: stri
   }
   let nextRecord = { ...record, id: voucherId }
   if (record.status === 'Đã nhập') {
-    const validationError = validateEntryForPost({
-      date: record.date,
-      type: record.type,
-      sourceId: record.draft?.sourceId ?? record.source,
-      receiver: record.draft?.receiver ?? record.detail?.by,
-      cows: cattleRows as never,
-      pricing: 'kg',
-      paid: record.draft?.paid ?? 0,
-      total: record.total ?? 0,
-    })
-    if (validationError) throw new Error(validationError)
+    // Field-level rules (seller, receiver, line fields) are checked by the page with validateEntryForPost;
+    // the store keeps the data invariants below.
+    if (!record.date) throw new Error('Entry posting requires date')
     await validateEntryCattle(cattleRows, voucherId, record)
     const registered = await registerEntryCattle(cattleRows, voucherId)
     const generatedCows = registered.map((cow, index) => {

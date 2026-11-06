@@ -75,7 +75,7 @@ export function userFacingError(error: unknown, fallback = 'Không thể hoàn t
   if (status === 404 || /not found|không tìm thấy|error\.http\.404/.test(normalized)) return 'Không tìm thấy dữ liệu cần thao tác. Vui lòng tải lại trang và thử lại.'
   if (status === 408 || status === 504 || /timeout|timed out|gateway timeout|error\.http\.408|error\.http\.504/.test(normalized)) return 'Máy chủ phản hồi quá lâu. Vui lòng kiểm tra kết nối rồi thử lại.'
   if ((status >= 500 && status <= 599) || /error\.http\.5\d\d|server error|internal server/.test(normalized)) return 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau ít phút.'
-  if (/failed to fetch|networkerror|network error|network request|load failed|connection refused|err_connection|cors|error\.network/.test(normalized)) return 'Không thể kết nối máy chủ. Vui lòng kiểm tra máy chủ và kết nối mạng rồi thử lại.'
+  if (/failed to fetch|networkerror|network error|network request|\bload failed|connection refused|err_connection|cors|error\.network/.test(normalized)) return 'Không thể kết nối máy chủ. Vui lòng kiểm tra máy chủ và kết nối mạng rồi thử lại.'
   if (status === 400 || status === 409 || status === 422 || error instanceof BackendError && (error.fieldErrors.length > 0 || error.violations.length > 0) || /error\.validation|validation failed/.test(normalized)) {
     return specificBackendMessage(error) ?? 'Không thể lưu chuồng. Vui lòng kiểm tra lại mã, tên, sức chứa và tiêu chí tiếp nhận.'
   }
