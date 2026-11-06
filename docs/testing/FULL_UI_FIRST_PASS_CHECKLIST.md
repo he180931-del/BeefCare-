@@ -293,6 +293,10 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Kiểm tra Playwright thủ công tại `1180×820`, dữ liệu cục bộ, vai trò Quản lý: bấm `Ghi số đo` ở dòng `BC-000017` điều hướng đúng tới `SCR-44?code=BC-000017`; biểu mẫu có thời điểm đo, người đo, cân nặng, phương pháp, BCS và ghi chú. Chuyển sang vai trò Chủ trại tại `SCR-46` hiển thị đúng thông báo chế độ xem. Không có lỗi console; còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
 - `npm run typecheck` và `git diff --check` đạt sau thay đổi.
 
+- `SCR-26` tinh chỉnh nhãn `Đang hiển thị`: chỉ số này hiện chỉ đếm bò nghiệp vụ khớp bộ lọc, không cộng 92 dòng dùng để thử mật độ bảng. Dòng giải thích ngay dưới nêu chính xác bao nhiêu dòng thử đang hiện và rằng chúng chỉ đọc.
+- Kiểm tra Playwright thủ công tại `1180×820`, dữ liệu cục bộ: chỉ số hiện `Đang hiển thị · 8 con`, bảng vẫn có `1–15 / 100 dòng`, câu giải thích hiện `92 dòng thử`; `scrollWidth = clientWidth = 1180`, console không có lỗi, chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
+- `npm run typecheck` đạt trước kiểm tra runtime.
+
 - `SCR-26` tách chỉ số tổng đàn và số ở tab nhóm khỏi hàng stress-test. Hàng thử vẫn giúp kiểm tra phân trang nhưng có nhãn `Dữ liệu thử · chỉ xem`, không mở hồ sơ; thông báo ngay dưới chỉ số giải thích rõ khác biệt này.
 - Kiểm tra Playwright thủ công tại `1180×820`: tổng `Đang nuôi` và tab `Tất cả` đều là `8`, các nhóm cộng đúng 8; bảng giữ 100 dòng để kiểm tra mật độ nhưng 92 dòng thử hiện nhãn riêng và chỉ có trạng thái `Chỉ xem`. Console không có lỗi; chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
 - Lượt `npm run typecheck` đầu của thay đổi dừng tại type guard `isStressGenerated`: phủ định guard đã làm `CowSeed` bị thu hẹp thành `never`. Adapter cục bộ được thay bằng kiểm tra boolean chỉ dành cho `CowSeed`; lượt `npm run typecheck` sau và `git diff --check` đều đạt.
