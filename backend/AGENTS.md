@@ -50,7 +50,7 @@ Hai tài liệu thao tác nằm từ gốc repo:
 - Giữ session cookie + CSRF, guard quyền/tenant/service, durable key/version; không mở generated entity CRUD để lách command. Giữ Long/bigint, lịch sử/revision, audit và giao dịch.
 - D04: không triển khai FEFO; lô chỉ để cảnh báo hạn dùng. Bảng scaffold cũ không phải nguồn tồn.
 - Không reset DB nhóm, sửa checksum migration đã áp dụng, commit secret hoặc đổi provider LIVE chỉ để test. Migration mới kiểm DB mới và đường upgrade trên DB kiểm thử riêng khi liên quan.
-- `@ServiceIntegrationTest` là H2. `mvn test` mặc định bỏ lớp IT; dùng danh sách lớp rõ ràng và báo suite thực chạy. `@IntegrationTest`/Testcontainers hiện khai báo postgres:18.4 nhưng compose là PostgreSQL16: thống nhất DB mục tiêu trước khi tuyên bố đã kiểm đúng phiên bản.
+- `@ServiceIntegrationTest` là H2. `mvn test` mặc định bỏ lớp IT; dùng danh sách lớp rõ ràng và báo suite thực chạy. `@IntegrationTest`/Testcontainers, compose root và compose JHipster cùng dùng `postgres:16.15`; đổi phiên bản thì sửa cả ba nơi.
 - JaCoCo có thể cần `-Djacoco.skip=true` vì path Windows Unicode; điều này không bỏ test. Không chạy nhiều Maven trên cùng checkout/target. Clock/job test phải chủ động, không sleep dài chờ cron.
 - Outbox hiện có event nhưng thông báo/email còn được tạo trực tiếp; không thêm consumer gửi trùng mà chưa kiểm thiết kế.
 - Các plan Markdown trước đây có review chéo là tài liệu cũ. Workflow HTML và yêu cầu trực tiếp mới của thành viên được ưu tiên.

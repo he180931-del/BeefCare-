@@ -143,7 +143,7 @@ Các lưu ý trực tiếp từ source repo:
 
 - Surefire cấu hình bỏ `*IT*`/`*IntTest*` khi chạy `test` mặc định; Failsafe có chúng ở `verify`. Chạy `mvn test` không tự chứng minh đã chạy các integration workflow. Chọn tường minh các lớp liên quan như ví dụ trên và kiểm báo cáo thực chạy.
 - `@ServiceIntegrationTest` + `testh2` dùng H2. `@IntegrationTest` cấu hình Testcontainers là nhóm khác, trong đó có nhiều test CRUD legacy đang khóa. Không chạy tất cả rồi coi lỗi của các route đã khóa là bug nghiệp vụ, cũng không tự bỏ cả nhóm để báo xanh. Chủ nền tảng rà suite cần duy trì và ghi rõ exclusions.
-- `compose.backend.yml` dùng PostgreSQL16 nhưng `config/DatabaseTestcontainer.java` hiện khai báo `postgres:18.4`. Cần thống nhất phiên bản mục tiêu trước khi coi kết quả Testcontainers là bằng chứng trên đúng DB triển khai; chưa sửa cấu hình ở đợt viết workflow này.
+- PostgreSQL mục tiêu là `postgres:16.15` (chốt 07/11/2026), dùng chung cho `compose.backend.yml`, `src/main/docker/postgresql.yml` và `config/DatabaseTestcontainer.java`. Khi đổi phiên bản, sửa cả ba nơi trong cùng một commit.
 - JaCoCo đang được skip cho hạn chế đường dẫn Unicode trên máy này; đó là bỏ coverage instrumentation, không bỏ test. Không dùng coverage % hoặc tổng test làm điều kiện duy nhất.
 - Đọc kết quả trong `target/surefire-reports` và, khi dùng Failsafe, `target/failsafe-reports`. Ghi tên suite/profile, không dựa vào hậu tố tên lớp.
 - Với migration, kiểm DB mới và đường nâng cấp từ schema bàn giao trước đó trên DB kiểm thử riêng. Smoke DB mới không chứng minh upgrade giữ dữ liệu. Không reset DB nhóm hoặc sửa changeSet đã áp dụng để làm test pass.
