@@ -72,6 +72,16 @@ const FEED_MANAGEMENT_SCREEN_IDS = new Set<ScreenId>(['SCR-111', 'SCR-112', 'SCR
 const RATION_SCREEN_IDS = new Set<ScreenId>(['SCR-115', 'SCR-116', 'SCR-117', 'SCR-118', 'SCR-119'])
 const FEED_CATALOGUE_SCREEN_IDS = new Set<ScreenId>(['SCR-120'])
 const FEED_REPORT_SCREEN_IDS = new Set<ScreenId>(['SCR-121'])
+// Owner may inspect every manager workflow, but recording/correcting care data
+// remains a manager operation. Passing the existing read-only state through the
+// feature surfaces keeps the UI honest while preserving the full context.
+const OWNER_READ_ONLY_WORKFLOW_SCREEN_IDS = new Set<ScreenId>([
+  'SCR-44', 'SCR-45',
+  'SCR-47', 'SCR-48', 'SCR-50', 'SCR-52',
+  'SCR-55', 'SCR-56', 'SCR-57', 'SCR-58',
+  'SCR-61', 'SCR-62', 'SCR-63', 'SCR-64', 'SCR-65', 'SCR-66', 'SCR-67', 'SCR-68',
+  'SCR-117', 'SCR-118',
+])
 export function previewKindFor(screen: ScreenDefinition, role: Exclude<ScreenRole, 'guest'>): PreviewKind {
   if (ACCOUNT_SCREEN_IDS.has(screen.id)) return 'account'
   if (PLATFORM_SCREEN_IDS.has(screen.id)) return 'platform'
@@ -89,52 +99,55 @@ export function previewKindFor(screen: ScreenDefinition, role: Exclude<ScreenRol
 function PreviewContent({ screen }: { screen: ScreenDefinition }) {
   const session = useFixtureSession()
   const kind = previewKindFor(screen, session.role)
+  const reviewState = session.role === 'owner' && OWNER_READ_ONLY_WORKFLOW_SCREEN_IDS.has(screen.id)
+    ? 'read-only'
+    : session.reviewState
   // Feature screens own their navigation. A preview-wide back bar made every
   // screen look like a child page and often sent users to an unrelated route.
-  if (screen.id === 'SCR-122') return <TechnicianFeedScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (NOTIFICATION_SCREEN_IDS.has(screen.id)) return <NotificationScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (screen.id === 'SCR-79') return <CattleTimelineScreen screen={screen} role={session.role} state={session.reviewState} />
+  if (screen.id === 'SCR-122') return <TechnicianFeedScreen screen={screen} role={session.role} state={reviewState} />
+  if (NOTIFICATION_SCREEN_IDS.has(screen.id)) return <NotificationScreen screen={screen} role={session.role} state={reviewState} />
+  if (screen.id === 'SCR-79') return <CattleTimelineScreen screen={screen} role={session.role} state={reviewState} />
   if (screen.id === 'SCR-80') {
-    return session.role === 'sa' ? <PlatformScreen screen={screen} state={session.reviewState} role="sa" /> : <div role="alert" className="border-l-[3px] border-err-fg px-3 py-2.5 text-xs text-err-fg">Chỉ SA mới được xem lịch sử kiểm tra.</div>
+    return session.role === 'sa' ? <PlatformScreen screen={screen} state={reviewState} role="sa" /> : <div role="alert" className="border-l-[3px] border-err-fg px-3 py-2.5 text-xs text-err-fg">Chỉ SA mới được xem lịch sử kiểm tra.</div>
   }
-  if (HERD_EXIT_SCREEN_IDS.has(screen.id)) return <HerdExitPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (REPRO_EXTENDED_SCREEN_IDS.has(screen.id)) return <ReproductionExtendedV2 screen={screen} role={session.role} state={session.reviewState} />
-  if (REPRO_PREVIEW_SCREEN_IDS.has(screen.id)) return <ReproductionPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (HEALTH_PREVIEW_SCREEN_IDS.has(screen.id)) return <HealthPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (VACCINATION_SCREEN_IDS.has(screen.id)) return <VaccinationPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (CATALOGUE_SCREEN_IDS.has(screen.id)) return <CatalogueScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (SUBSCRIPTION_SCREEN_IDS.has(screen.id)) return <SubscriptionScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (PLATFORM_SERVICE_SCREEN_IDS.has(screen.id)) return <PlatformServiceScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (PLATFORM_FINANCE_SCREEN_IDS.has(screen.id)) return <PlatformFinanceScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (SUPPORT_SCREEN_IDS.has(screen.id)) return <SupportScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (FEED_MANAGEMENT_SCREEN_IDS.has(screen.id)) return <FeedManagementScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (RATION_SCREEN_IDS.has(screen.id)) return <RationScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (FEED_CATALOGUE_SCREEN_IDS.has(screen.id)) return <FeedCatalogueScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (FEED_REPORT_SCREEN_IDS.has(screen.id)) return <FeedReportScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (HERD_ENTRY_ADVANCED_SCREEN_IDS.has(screen.id)) return <HerdEntryAdvancedPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
+  if (HERD_EXIT_SCREEN_IDS.has(screen.id)) return <HerdExitPreviewScreen screen={screen} role={session.role} state={reviewState} />
+  if (REPRO_EXTENDED_SCREEN_IDS.has(screen.id)) return <ReproductionExtendedV2 screen={screen} role={session.role} state={reviewState} />
+  if (REPRO_PREVIEW_SCREEN_IDS.has(screen.id)) return <ReproductionPreviewScreen screen={screen} role={session.role} state={reviewState} />
+  if (HEALTH_PREVIEW_SCREEN_IDS.has(screen.id)) return <HealthPreviewScreen screen={screen} role={session.role} state={reviewState} />
+  if (VACCINATION_SCREEN_IDS.has(screen.id)) return <VaccinationPreviewScreen screen={screen} role={session.role} state={reviewState} />
+  if (CATALOGUE_SCREEN_IDS.has(screen.id)) return <CatalogueScreen screen={screen} role={session.role} state={reviewState} />
+  if (SUBSCRIPTION_SCREEN_IDS.has(screen.id)) return <SubscriptionScreen screen={screen} role={session.role} state={reviewState} />
+  if (PLATFORM_SERVICE_SCREEN_IDS.has(screen.id)) return <PlatformServiceScreen screen={screen} role={session.role} state={reviewState} />
+  if (PLATFORM_FINANCE_SCREEN_IDS.has(screen.id)) return <PlatformFinanceScreen screen={screen} role={session.role} state={reviewState} />
+  if (SUPPORT_SCREEN_IDS.has(screen.id)) return <SupportScreen screen={screen} role={session.role} state={reviewState} />
+  if (FEED_MANAGEMENT_SCREEN_IDS.has(screen.id)) return <FeedManagementScreen screen={screen} role={session.role} state={reviewState} />
+  if (RATION_SCREEN_IDS.has(screen.id)) return <RationScreen screen={screen} role={session.role} state={reviewState} />
+  if (FEED_CATALOGUE_SCREEN_IDS.has(screen.id)) return <FeedCatalogueScreen screen={screen} role={session.role} state={reviewState} />
+  if (FEED_REPORT_SCREEN_IDS.has(screen.id)) return <FeedReportScreen screen={screen} role={session.role} state={reviewState} />
+  if (HERD_ENTRY_ADVANCED_SCREEN_IDS.has(screen.id)) return <HerdEntryAdvancedPreviewScreen screen={screen} role={session.role} state={reviewState} />
   // Growth owns SCR-42–45. This must run before the generic Care Admin branch,
   // because the manifest also classifies these screens as care-admin dialogs.
   if (GROWTH_SCREEN_IDS.has(screen.id)) {
-    return <GrowthPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
+    return <GrowthPreviewScreen screen={screen} role={session.role} state={reviewState} />
   }
   // Announcement owns SCR-38–41. Keep this before the generic Care Admin
   // renderer so the full compose, review and correction flow is reachable.
   if (ANNOUNCEMENT_SCREEN_IDS.has(screen.id)) {
-    return <AnnouncementPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
+    return <AnnouncementPreviewScreen screen={screen} role={session.role} state={reviewState} />
   }
   const content = (() => {
-    if (PEN_SCREEN_IDS.has(screen.id)) return <PenPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-    if (CATTLE_SCREEN_IDS.has(screen.id)) return <CattlePreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-    if (HERD_ENTRY_SCREEN_IDS.has(screen.id)) return <HerdEntryPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
-  if (GROWTH_SCREEN_IDS.has(screen.id)) return <GrowthPreviewScreen screen={screen} role={session.role} state={session.reviewState} />
+    if (PEN_SCREEN_IDS.has(screen.id)) return <PenPreviewScreen screen={screen} role={session.role} state={reviewState} />
+    if (CATTLE_SCREEN_IDS.has(screen.id)) return <CattlePreviewScreen screen={screen} role={session.role} state={reviewState} />
+    if (HERD_ENTRY_SCREEN_IDS.has(screen.id)) return <HerdEntryPreviewScreen screen={screen} role={session.role} state={reviewState} />
+  if (GROWTH_SCREEN_IDS.has(screen.id)) return <GrowthPreviewScreen screen={screen} role={session.role} state={reviewState} />
     switch (kind) {
-      case 'account': return <AccountScreen screen={screen} state={session.reviewState} role={session.role} />
-      case 'form': return <FormScreen screen={screen} state={session.reviewState} />
-      case 'insight': return <InsightScreen screen={screen} state={session.reviewState} role={session.role} />
-      case 'platform': return <PlatformScreen screen={screen} state={session.reviewState} role={PLATFORM_ROLES.has(session.role) ? session.role as 'cs' | 'pm' | 'sa' : 'sa'} />
-      case 'record': return <RecordScreen screen={screen} state={session.reviewState} />
-      case 'technician': return <TechnicianScreen screen={screen} state={session.reviewState} />
-      default: return <OperationalScreen screen={screen} state={session.reviewState} role={session.role} />
+      case 'account': return <AccountScreen screen={screen} state={reviewState} role={session.role} />
+      case 'form': return <FormScreen screen={screen} state={reviewState} />
+      case 'insight': return <InsightScreen screen={screen} state={reviewState} role={session.role} />
+      case 'platform': return <PlatformScreen screen={screen} state={reviewState} role={PLATFORM_ROLES.has(session.role) ? session.role as 'cs' | 'pm' | 'sa' : 'sa'} />
+      case 'record': return <RecordScreen screen={screen} state={reviewState} />
+      case 'technician': return <TechnicianScreen screen={screen} state={reviewState} />
+      default: return <OperationalScreen screen={screen} state={reviewState} role={session.role} />
     }
   })()
   return content
