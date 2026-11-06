@@ -297,6 +297,10 @@ Nguồn: `frontend/src/app/screenManifest.ts` và SRS 2026-11-01.
 - Kiểm tra Playwright thủ công tại `1180×820`, vai trò Quản lý, `BC-000125`: trạng thái `Đã phối · chờ khám` hiển thị hai bước đầu đã ghi nhận, `Khám thai` là bước hiện tại, đồng thời nút hành động và lời nhắc cùng chỉ tới `Khám thai`. Console không có lỗi; chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
 - `npm run typecheck` đạt sau thay đổi.
 
+- `SCR-111` tách các chỉ số tồn kho khỏi hàng được sinh để kiểm tra mật độ bảng. Số mặt hàng, cảnh báo thấp/hết, giá trị tồn và mức dùng chỉ dùng dữ liệu nghiệp vụ; dòng thử vẫn ở bảng nhưng được giải thích rõ, không ảnh hưởng số liệu vận hành.
+- Kiểm tra Playwright thủ công tại `1180×820`: chỉ số hiển thị `3` mặt hàng, `2` sắp hết/đã hết (`TA-05`, `TA-08`), giá trị `2.012.000 đ` và `102 kg/ngày`; dòng mô tả nêu rõ 97 dòng thử không làm thay đổi tồn/cảnh báo. Console không có lỗi, chỉ còn 2 cảnh báo future-flag React Router đã biết. Đây là kiểm tra runtime thủ công, không phải visual-regression tự động.
+- `npm run typecheck` và `git diff --check` đạt sau thay đổi.
+
 - Hàng bảng dùng nền trắng và viền mảnh giữ nguyên, nhưng hover/focus-within nay chuyển sang xanh lục nhạt tương phản hơn (`#e1f1e8` / `#d8ede2`) để nhận biết hàng đang thao tác mà không tạo hiệu ứng loè loẹt. Kiểm tra runtime tại `SCR-80` xác nhận màu hover được áp dụng và console không có lỗi.
 - `SCR-77` không còn đưa các hàng được sinh tự động cho stress-test vào chỉ số hoặc bảng “Cần chú ý hôm nay”. Stress data vẫn phục vụ kiểm tra mật độ ở các màn danh sách, nhưng bảng tổng quan chỉ tổng hợp nhắc việc cục bộ thật và các tín hiệu phát sinh từ hồ sơ.
 - Lượt test đầu của `InsightScreens.test.tsx` kiểm tra cứng 7 dòng nhưng fixture hiện tại chỉ có 3 tín hiệu phù hợp (cộng hàng tiêu đề là 4), nên assertion được sửa để phản ánh đúng dữ liệu nghiệp vụ hiện hành và đồng thời bảo đảm không hiện nhãn hàng sinh `mẫu N`.

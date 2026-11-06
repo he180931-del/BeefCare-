@@ -249,8 +249,10 @@ function Stock({
       }),
     [store, search, group, status, warehouse, nearExpiry],
   );
-  const low = store.stock.filter((item) => item.stockKg <= item.minimumKg);
-  const stockValue = store.stock.reduce(
+  const operationalStock = store.stock.filter((item) => !isStressGenerated(item));
+  const stressStockCount = store.stock.length - operationalStock.length;
+  const low = operationalStock.filter((item) => item.stockKg <= item.minimumKg);
+  const stockValue = operationalStock.reduce(
     (sum, item) => sum + item.stockKg * item.averageCost,
     0,
   );
@@ -342,7 +344,7 @@ function Stock({
             items={[
               {
                 label: "Mặt hàng đang dùng",
-                value: store.stock.filter((item) => item.status === "ACTIVE")
+                value: operationalStock.filter((item) => item.status === "ACTIVE")
                   .length,
               },
               {
@@ -353,10 +355,11 @@ function Stock({
               { label: "Giá trị tồn kho", value: money(stockValue) },
               {
                 label: "Mức dùng bình quân 7 ngày",
-                value: `${store.stock.reduce((sum, item) => sum + item.averageDailyUseKg, 0)} kg/ngày`,
+                value: `${operationalStock.reduce((sum, item) => sum + item.averageDailyUseKg, 0)} kg/ngày`,
               },
             ]}
           />
+          {stressStockCount > 0 && <p className="m-0 text-xs text-subtle">Chỉ số chỉ tính dữ liệu nghiệp vụ. {stressStockCount} dòng <span className="font-semibold">Dữ liệu thử</span> trong bảng dùng để kiểm tra mật độ, không làm thay đổi tồn kho hay cảnh báo.</p>}
           <WorkSection
             title="Tồn kho theo thức ăn"
             description="Tồn kho thay đổi khi ghi sổ phiếu nhập, điều chỉnh hoặc ghi nhận lần cho ăn; đơn vị chuẩn là kg."
