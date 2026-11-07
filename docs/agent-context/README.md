@@ -24,7 +24,8 @@ smallest relevant source symbol or contract section when a rule must change.
 ## Source-of-truth order
 
 1. `docs/REQUIREMENT_DECISIONS.md`
-2. Latest approved SRS/project documents in `docs/`
+2. Approved SRS `docs/requirements/SRS_2026-10-28.txt` and feature specs in
+   `docs/requirements/specs/` (decision D12)
 3. `docs/api/openapi.json` and Java request/response DTOs
 4. Existing backend business rules and tests
 5. Figma for layout and interaction details
