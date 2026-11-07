@@ -1,3 +1,5 @@
+> **Đã thay thế (07/11/2026).** Nguồn yêu cầu hiện hành là `docs/requirements/SRS_2026-10-28.txt` và `docs/requirements/specs/` (quyết định D12). File này chỉ để tham khảo lịch sử; không dùng để triển khai hay nghiệm thu.
+
 # BeefCare – Đặc tả logic: Chuồng trại, Nhập đàn, Xuất đàn
 
 > Tài liệu cho Claude Code để code nhóm tính năng **FE-04 Quản lý chuồng**, **FE-06 Nhập đàn**, **FE-13 Xuất đàn**.

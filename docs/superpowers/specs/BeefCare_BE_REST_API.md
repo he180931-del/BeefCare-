@@ -1,3 +1,5 @@
+> **Đã thay thế (07/11/2026).** Nguồn yêu cầu hiện hành là `docs/requirements/SRS_2026-10-28.txt` và `docs/requirements/specs/` (quyết định D12). File này chỉ để tham khảo lịch sử; không dùng để triển khai hay nghiệm thu.
+
 # BeefCare - REST API: Chuồng trại / Nhập đàn / Xuất đàn (FE-04, FE-06, FE-13)
 
 Backend only (JHipster, Spring Boot 3). Business spec: `BeefCare_FE_Chuong_Nhap_Xuat_Logic.md` (the SRS appendices win).

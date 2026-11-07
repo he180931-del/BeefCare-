@@ -2,6 +2,8 @@
 
 Tài liệu làm việc hiện tại (29/10/2026):
 
+- **Nguồn yêu cầu (chốt 07/11/2026):** [SRS 28/10](docs/requirements/SRS_2026-10-28.txt) và [23 spec theo feature](docs/requirements/specs/README.md). Xem quyết định D12 trong [REQUIREMENT_DECISIONS](docs/REQUIREMENT_DECISIONS.md).
+
 - [Workflow backend và phân công 4 người](docs/backend-workflow.html): các bước tự kiểm cùng agent, viết test, sửa code, Git và bàn giao FE; không bắt buộc review chéo.
 - [Bảng API bàn giao](docs/api-handoff.html): 257 thao tác trong contract hiện tại, input/output, nguồn UC/BR và trạng thái kiểm chứng. Có xuất/nhập kết quả để tổng hợp.
 - [Hướng dẫn agent backend](backend/AGENTS.md).
