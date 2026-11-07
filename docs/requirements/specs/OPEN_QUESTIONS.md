@@ -4,7 +4,9 @@ Nguồn: mục 10 của 23 spec theo SRS 28/10/2026 (quyết định D12). Mỗi
 
 Cột **Quyết định**: để trống = chưa chốt; ghi `Theo đề xuất`, `Khác: …` hoặc `Hoãn`. **Người chốt** mặc định là chủ feature; câu chạm feature khác thì trao đổi với chủ feature đó.
 
-Tổng: 105 câu – AnNT 28, DucNV 18, LamKD 19, TaiDX 21, TuanPQ 19.
+Tổng: 115 câu – AnNT 28, DucNV 19, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
+
+Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Chung Q1) khi dọn thư mục `docs/`: lấy từ đối chiếu FE–BE phần thức ăn (01/11), đối chiếu Figma với frontend (02/11) và báo cáo triển khai backend (28–29/10).
 
 | FE | Mã | Câu hỏi | Đề xuất trong spec | Quyết định | Người chốt | Ngày |
 |---|---|---|---|---|---|---|
@@ -21,6 +23,7 @@ Tổng: 105 câu – AnNT 28, DucNV 18, LamKD 19, TaiDX 21, TuanPQ 19.
 | FE-03 | Q2 | UC-FE03-02, 05, 07 không có đặc tả Part II; luồng suy từ SCR | Chủ dự án xác nhận |  | DucNV |  |
 | FE-03 | Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử |  | DucNV |  |
 | FE-03 | Q4 | Tài khoản bị tạm ngưng có được nhận lời mời / được cấp quyền platform không? | Không được cấp quyền platform khi đang tạm ngưng |  | DucNV |  |
+| FE-03 | Q5 | Sidebar SA có mục riêng "Quyền nhân sự nền tảng" theo Figma; SRS SCR-16 coi đây là popup của Tài khoản người dùng. FE đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | DucNV |  |
 | FE-04 | Q1 | UC-FE04-01 → 04 không có đặc tả Part II; luồng suy từ SCR-17 và popup | Chủ dự án xác nhận |  | AnNT |  |
 | FE-04 | Q2 | "Tuổi / cân tối thiểu" khi bò chưa có lần cân nào | Kết quả "Không áp dụng" cho tiêu chí cân |  | AnNT |  |
 | FE-04 | Q3 | Mã chuồng phân biệt hoa thường không (`c-01` và `C-01`)? | Không phân biệt; lưu chữ hoa |  | AnNT |  |
@@ -58,6 +61,7 @@ Tổng: 105 câu – AnNT 28, DucNV 18, LamKD 19, TaiDX 21, TuanPQ 19.
 | FE-12 | Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 |  | TuanPQ |  |
 | FE-12 | Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) |  | TuanPQ |  |
 | FE-12 | Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác |  | TuanPQ |  |
+| FE-12 | Q5 | Thẻ tai bê: Figma bắt buộc khi chọn "Đăng ký ngay", SRS không bắt buộc. FE (`CalvingPage`) đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | TuanPQ |  |
 | FE-13 | Q1 | Độ dài lý do bỏ đề xuất phiếu chết | ≤ 500 |  | AnNT |  |
 | FE-13 | Q2 | UC-FE13-02, 04 không có đặc tả Part II | Theo SCR-41, SCR-76 và popup dùng chung |  | AnNT |  |
 | FE-13 | Q3 | Phiếu PENDING có được thêm bò khác không? | Không – mỗi phiếu chết gắn đúng 1 con (GBR-95) |  | AnNT |  |
@@ -67,6 +71,7 @@ Tổng: 105 câu – AnNT 28, DucNV 18, LamKD 19, TaiDX 21, TuanPQ 19.
 | FE-14 | Q3 | Nhắc việc có gửi email / thông báo đẩy không? | Không – SRS chỉ nói hiển thị trong trại |  | TaiDX |  |
 | FE-14 | Q4 | Thời gian giữ thông báo đã đọc | Giữ vô hạn; phân trang |  | TaiDX |  |
 | FE-14 | Q5 | Chuông thông báo trên header cho vai trò nào | Owner (SCR-45), CS / PM / SA (SCR-46), PM (SCR-47) |  | TaiDX |  |
+| FE-14 | Q6 | Thanh dưới của Technician: Figma có Trang chủ, Đàn bò, Quét QR, Sinh sản, Thức ăn, Tài khoản; SRS bảng 5.1-1 có Announcements, không có Tài khoản. FE đang theo Figma, thông báo mở từ trang chủ | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | TaiDX |  |
 | FE-15 | Q1 | Không có đặc tả UC ở Part II | Dùng Part III + GBR |  | TaiDX |  |
 | FE-15 | Q2 | Mã lỗi khi kỳ > 24 tháng | MSG-COM-10 với nội dung "tối đa 24 tháng" |  | TaiDX |  |
 | FE-15 | Q3 | Có xuất báo cáo (Excel / PDF) không? | SRS không yêu cầu – ngoài phạm vi |  | TaiDX |  |
@@ -113,3 +118,10 @@ Tổng: 105 câu – AnNT 28, DucNV 18, LamKD 19, TaiDX 21, TuanPQ 19.
 | FE-23 | Q4 | "Điền nhanh theo khẩu phần" cho nhiều bữa: lưu 1 lần hay từng bữa? | Mở lần lượt từng popup đã điền sẵn để Manager xác nhận |  | TaiDX |  |
 | FE-23 | Q5 | UC-FE23-01, 03, 04, 05, 07, 10, 11 không có đặc tả Part II | Theo Part III + GBR |  | TaiDX |  |
 | FE-23 | Q6 | Giá vốn khi tồn về 0 rồi nhập lại | Giá vốn BQ = đơn giá của lần nhập mới |  | TaiDX |  |
+| FE-23 | Q7 | `feedGroup`: sáu mã ở SRS Table III-6 là tập đóng hay danh mục mở? BE chỉ kiểm chuỗi ≤ 30 ký tự, OpenAPI không có enum | Tập đóng; BE và OpenAPI kiểm enum |  | TaiDX |  |
+| FE-23 | Q8 | Danh sách phiếu nhập (SCR-78): lọc trạng thái / kỳ / nhà cung cấp, phân trang và công nợ làm ở BE hay FE? Hiện FE phải gọi API thanh toán cho từng phiếu để biết còn nợ | BE thêm lọc, phân trang và đã trả / còn nợ trong `ReceiptView` |  | TaiDX |  |
+| FE-23 | Q9 | Lịch sử của phiếu nhập đã ghi sổ / đã hủy (SCR-79) lấy từ đâu? `ReceiptView` không có lịch sử | Dùng người, thời điểm ghi sổ / hủy, lý do hủy (spec §3) và danh sách thanh toán; không thêm API lịch sử riêng |  | TaiDX |  |
+| FE-23 | Q10 | "Tồn trước → sau" trên phiếu nhập: chỉ là xem trước khi soạn hay phải lưu lại lúc ghi sổ? | Chỉ xem trước khi soạn; sau khi ghi sổ xem thẻ kho (A2) |  | TaiDX |  |
+| FE-23 | Q11 | Hóa đơn đến sau khi đã ghi sổ có được đính kèm thêm vào phiếu không? Hiện BE từ chối vì phiếu chỉ đọc | Giữ như hiện tại: phiếu đã ghi sổ chỉ đọc |  | TaiDX |  |
+| FE-23 | Q12 | Trạng thái "Sắp hết": Figma tính cả khi đủ dùng dưới 4 ngày; SRS là tồn ≤ mức tối thiểu. Mock đang theo Figma, backend theo SRS | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | TaiDX |  |
+| Chung | Q1 | Outbox: sự kiện được ghi nhưng chưa có handler; thông báo trong app và email đang tạo trực tiếp trong transaction. Giữ outbox (thêm handler) hay bỏ ghi sự kiện không dùng? | Hoãn; không thêm handler gửi trùng thông báo / email khi chưa kiểm thiết kế |  | Cả nhóm |  |
