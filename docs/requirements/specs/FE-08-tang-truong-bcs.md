@@ -225,11 +225,11 @@ Popup → chọn **Sửa giá trị** (cân, vòng ngực + dài thân, BCS, ph�
 
 ## 10. Điểm SRS chưa rõ
 
-| # | Câu hỏi | Đề xuất |
-|---|---|---|
-| Q1 | Trạng thái VOIDED của bản ghi cân xuất hiện khi nào? (UC-03 chỉ có Sửa và Loại trừ) | Chỉ khi hủy nhập / hủy phiếu (hệ thống), người dùng không chọn |
-| Q2 | "Ngưỡng 20 %" và "30 ngày" có là tham số trại không? | Hằng số |
-| Q3 | Thang BCS 1–9 thì ô tổng hợp "BCS dưới 2,5" tính thế nào? | Quy đổi theo tỷ lệ thang, hoặc chỉ hiện với thang 1–5 |
+| # | Câu hỏi | Đề xuất | Quyết định (07/11/2026) |
+|---|---|---|---|
+| Q1 | Trạng thái VOIDED của bản ghi cân xuất hiện khi nào? (UC-03 chỉ có Sửa và Loại trừ) | Chỉ khi hủy nhập / hủy phiếu (hệ thống), người dùng không chọn | Theo đề xuất |
+| Q2 | "Ngưỡng 20 %" và "30 ngày" có là tham số trại không? | Hằng số | Theo đề xuất |
+| Q3 | Thang BCS 1–9 thì ô tổng hợp "BCS dưới 2,5" tính thế nào? | Quy đổi theo tỷ lệ thang, hoặc chỉ hiện với thang 1–5 | Quy đổi theo tỷ lệ thang: thang 1–9 dùng ngưỡng dưới 4,0 (tương đương 2,5 trên thang 1–5) |
 
 ---
 
@@ -239,3 +239,4 @@ Popup → chọn **Sửa giá trị** (cân, vòng ngực + dài thân, BCS, ph�
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
