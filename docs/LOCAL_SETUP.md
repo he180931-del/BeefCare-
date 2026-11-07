@@ -74,14 +74,17 @@ Lưu ý:
 ```bash
 cd frontend
 npm install
-npm run dev          # chế độ theo frontend/.env, proxy /api -> 127.0.0.1:8080
+npm run dev          # chế độ theo frontend/.env (xem bên dưới)
 npm run dev:mock     # mọi màn hình chạy bằng dữ liệu mock, không cần backend, cổng 5174
 ```
 
 Khi cần mở từ thiết bị khác hoặc chạy kiểm runtime: `npm run dev -- --host 0.0.0.0 --port 5174`.
 
-- Frontend gọi API bằng đường dẫn tương đối `/api` qua proxy của Vite; không hardcode origin hoặc tự xử lý CORS trong trang.
-- `VITE_BEEFCARE_DATA_SOURCE=backend` dùng backend thật; giá trị khác dùng adapter local. File `frontend/.env` (không commit) ghi đè `frontend/.env.example`; đọc file đang dùng trước khi kết luận app đang chạy chế độ nào.
+Cấu hình `frontend/.env` (không commit). Vite chỉ đọc `.env`, không đọc `.env.example`; chưa có `.env` thì `npm run dev` chạy adapter local, không gọi backend.
+
+- `VITE_BEEFCARE_DATA_SOURCE=backend` dùng backend thật; giá trị khác hoặc để trống dùng adapter local. `VITE_BEEFCARE_FARM_ID` là ID số của trại trên backend.
+- `VITE_BEEFCARE_API_URL` **để trống**: request đi theo đường dẫn tương đối `/api` qua proxy của Vite tới `127.0.0.1:8080`. Đây là cách đúng theo quy tắc dự án (không hardcode origin).
+- Nếu đặt `VITE_BEEFCARE_API_URL` (ví dụ `http://localhost:8080`), trình duyệt gọi thẳng backend, bỏ qua proxy, và backend phải cho phép origin của frontend qua `BEEFCARE_CORS_ORIGINS` (mặc định ở profile `local`: `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`).
 - Dùng cùng hostname cho frontend và backend: cookie của `localhost` và `127.0.0.1` là khác nhau. Cookie production cần HTTPS.
 
 ## 5. Tài khoản và dữ liệu seed
@@ -107,7 +110,7 @@ Ba trại ở trạng thái ACTIVE, múi giờ `Asia/Ho_Chi_Minh`, có danh mụ
 
 **Bảo mật link.** Job gửi email chỉ lưu người nhận, mã mẫu và tham chiếu tới bản ghi nguồn, không lưu link. Bảng token tài khoản và lời mời giữ hash SHA-256 cùng nonce ngẫu nhiên. Link được tạo lúc gửi bằng HMAC-SHA256 với khóa chỉ ở server, đối chiếu với hash rồi gửi sau khi transaction commit. Job lỗi được thử lại với backoff sau khi khởi động lại. Đổi `BEEFCARE_LINK_SECRET` làm mất hiệu lực các link đang chờ; khi đó phải gửi link mới. Backend không được dựng link từ header `Host` của request.
 
-**SMTP thật.** Đặt `BEEFCARE_EMAIL_PROVIDER=smtp` cùng `BEEFCARE_SMTP_HOST`, `BEEFCARE_SMTP_PORT`, `BEEFCARE_SMTP_USERNAME`, `BEEFCARE_SMTP_PASSWORD`, `BEEFCARE_SMTP_AUTH`, `BEEFCARE_PUBLIC_URL`, `BEEFCARE_BACKEND_URL`, `BEEFCARE_LINK_SECRET` trong kho secret của môi trường triển khai. Timeout kết nối, đọc và ghi là 5 giây. Adapter thử nhanh 3 lần, sau đó job gửi bền vững thử lại với backoff tăng dần có giới hạn. Địa chỉ gửi lấy từ `jhipster.mail.from` và phải được nhà cung cấp mail cho phép. Tham khảo: [Spring Boot email](https://docs.spring.io/spring-boot/reference/io/email.html).
+**SMTP thật.** Đặt `BEEFCARE_EMAIL_PROVIDER=smtp` cùng `BEEFCARE_SMTP_HOST`, `BEEFCARE_SMTP_PORT`, `BEEFCARE_SMTP_USERNAME`, `BEEFCARE_SMTP_PASSWORD`, `BEEFCARE_PUBLIC_URL`, `BEEFCARE_BACKEND_URL`, `BEEFCARE_LINK_SECRET` trong kho secret của môi trường triển khai (các biến SMTP được đọc trong `application-prod.yml`). Nếu nhà cung cấp yêu cầu xác thực, bật thêm `spring.mail.properties.mail.smtp.auth=true`; hiện chưa có biến `BEEFCARE_*` riêng cho cờ này. Timeout kết nối, đọc và ghi là 5 giây. Adapter thử nhanh 3 lần, sau đó job gửi bền vững thử lại với backoff tăng dần có giới hạn. Địa chỉ gửi lấy từ `jhipster.mail.from` và phải được nhà cung cấp mail cho phép. Tham khảo: [Spring Boot email](https://docs.spring.io/spring-boot/reference/io/email.html).
 
 ## 7. Đăng nhập Google
 

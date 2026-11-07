@@ -10,8 +10,9 @@ The canonical working copy is:
 
 Do not build or run the project from `/Users/lam/Documents/BeefCare-`; that
 directory is managed by iCloud File Provider and can stall Maven, JAR, or file
-copy operations. Keep the Documents copy only as a backup. The working branch
-for the current frontend/backend integration is `LamKD`.
+copy operations. Keep the Documents copy only as a backup. `main` is the shared
+integration point for frontend and backend work; `LamKD` still holds unmerged
+work, including the 01/11 SRS that decision D12 does not use.
 
 Use Git for backup and collaboration. Do not commit or push unless the user
 asks for it. Never include `.env`, credentials, generated `dist/`,

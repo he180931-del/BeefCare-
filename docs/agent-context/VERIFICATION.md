@@ -33,8 +33,9 @@ script whose unit step still includes integration files and whose final
 integration step is entry-only; report its subcommands rather than treating it
 as complete coverage.
 
-Backend unit tests use `cd backend && ./mvnw -Dskip.installnodenpm -Dskip.npm
-test`; select focused classes with Maven's `-Dtest=ClassName` when appropriate.
+Backend tests run from `backend/` with the Maven Wrapper and an explicit class
+list; the exact command and flags (`-Pdev,!webapp`, `-Dtest=...`) are in
+`backend/AGENTS.md`.
 Tests named `*IT`/`*IntTest` are Failsafe integration tests and must run through
 `verify`, not Surefire `test`.
 
