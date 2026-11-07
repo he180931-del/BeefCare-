@@ -42,25 +42,25 @@ Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Ch
 | FE-07 | Q2 | Rich text lưu dạng gì? | Markdown hoặc HTML đã lọc theo danh sách thẻ cho phép (đậm, nghiêng, ul, ol, a) |  | TaiDX |  |
 | FE-07 | Q3 | Có xóa được nháp không? SRS không nêu | Có, chỉ tác giả |  | TaiDX |  |
 | FE-07 | Q4 | Người nhận chọn tên bị đổi vai trò (Technician → Manager) trước khi đăng, tác giả là Manager | Bị loại khi đăng (R-07-05) |  | TaiDX |  |
-| FE-08 | Q1 | Trạng thái VOIDED của bản ghi cân xuất hiện khi nào? (UC-03 chỉ có Sửa và Loại trừ) | Chỉ khi hủy nhập / hủy phiếu (hệ thống), người dùng không chọn |  | TuanPQ |  |
-| FE-08 | Q2 | "Ngưỡng 20 %" và "30 ngày" có là tham số trại không? | Hằng số |  | TuanPQ |  |
-| FE-08 | Q3 | Thang BCS 1–9 thì ô tổng hợp "BCS dưới 2,5" tính thế nào? | Quy đổi theo tỷ lệ thang, hoặc chỉ hiện với thang 1–5 |  | TuanPQ |  |
-| FE-09 | Q1 | Độ dài lý do dừng lịch: SRS không ghi | ≤ 500 |  | TuanPQ |  |
-| FE-09 | Q2 | UC-FE09-01, 03, 04, 07 không có đặc tả Part II; luồng suy từ SCR | Chủ dự án xác nhận |  | TuanPQ |  |
-| FE-09 | Q3 | Sửa lịch đổi **vắc-xin** khi đã có mũi DONE có được không? | Không – dừng lịch và tạo lịch mới |  | TuanPQ |  |
-| FE-09 | Q4 | "Gần đây" ở R-09-04 là bao nhiêu ngày? | Trong khoảng nhắc lại, mặc định 30 ngày |  | TuanPQ |  |
-| FE-09 | Q5 | Mũi nhắc lại khi lịch có số mũi 1 và không có nhắc lại | Không tạo |  | TuanPQ |  |
-| FE-10 | Q1 | "Diễn biến mới nhất" ở popup Cập nhật / Đóng ca có bắt buộc không? UC-03 E1 nói thiếu "progress, description" → MSG-COM-06 | Bắt buộc khi Giữ trạng thái; không bắt buộc khi Đóng / đổi trạng thái |  | TuanPQ |  |
-| FE-10 | Q2 | UC-FE10-01 không có đặc tả Part II | Theo SCR-36, SCR-37 |  | TuanPQ |  |
-| FE-10 | Q3 | Code có "sửa việc đóng ca" (closure-correction) – SRS không có | Bỏ, hoặc bổ sung UC vào SRS |  | TuanPQ |  |
-| FE-10 | Q4 | Chẩn đoán nghi ngờ có danh mục chuẩn không? | Không – chữ tự do + gợi ý từ dữ liệu trại |  | TuanPQ |  |
-| FE-11 | Q1 | UC-FE11-01 không có đặc tả Part II | Theo SCR-38, SCR-39 |  | TuanPQ |  |
-| FE-11 | Q2 | Kiểm trùng 12 giờ áp cho phối giống không? (MSG-FE11-03 dùng "{event_type}") | Có cho cả động dục và phối, trừ phối lần hai có chủ ý (R-11-08) – cần chốt |  | TuanPQ |  |
-| FE-11 | Q3 | Động dục trên bò Đã phối → trạng thái Động dục; nếu sau đó khám CÓ THAI cho lần phối cũ? | Khám CÓ THAI thắng (Table 3.4-3 "Any → PREGNANT") |  | TuanPQ |  |
-| FE-12 | Q1 | UC-02 POST-2 viết "returns to OPEN" sau KHÔNG CÓ THAI – mâu thuẫn tên trạng thái | Hiểu là Chờ phối (AWAITING_BREEDING) theo Table 3.4-3 |  | TuanPQ |  |
-| FE-12 | Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 |  | TuanPQ |  |
-| FE-12 | Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) |  | TuanPQ |  |
-| FE-12 | Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác |  | TuanPQ |  |
+| FE-08 | Q1 | Trạng thái VOIDED của bản ghi cân xuất hiện khi nào? (UC-03 chỉ có Sửa và Loại trừ) | Chỉ khi hủy nhập / hủy phiếu (hệ thống), người dùng không chọn | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-08 | Q2 | "Ngưỡng 20 %" và "30 ngày" có là tham số trại không? | Hằng số | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-08 | Q3 | Thang BCS 1–9 thì ô tổng hợp "BCS dưới 2,5" tính thế nào? | Quy đổi theo tỷ lệ thang, hoặc chỉ hiện với thang 1–5 | Quy đổi theo tỷ lệ thang: thang 1–9 dùng ngưỡng dưới 4,0 (tương đương 2,5 trên thang 1–5) | TuanPQ | 07/11/2026 |
+| FE-09 | Q1 | Độ dài lý do dừng lịch: SRS không ghi | ≤ 500 | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-09 | Q2 | UC-FE09-01, 03, 04, 07 không có đặc tả Part II; luồng suy từ SCR | Chủ dự án xác nhận | Theo các màn hình SCR trong SRS 28/10 | TuanPQ | 07/11/2026 |
+| FE-09 | Q3 | Sửa lịch đổi **vắc-xin** khi đã có mũi DONE có được không? | Không – dừng lịch và tạo lịch mới | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-09 | Q4 | "Gần đây" ở R-09-04 là bao nhiêu ngày? | Trong khoảng nhắc lại, mặc định 30 ngày | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-09 | Q5 | Mũi nhắc lại khi lịch có số mũi 1 và không có nhắc lại | Không tạo | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-10 | Q1 | "Diễn biến mới nhất" ở popup Cập nhật / Đóng ca có bắt buộc không? UC-03 E1 nói thiếu "progress, description" → MSG-COM-06 | Bắt buộc khi Giữ trạng thái; không bắt buộc khi Đóng / đổi trạng thái | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-10 | Q2 | UC-FE10-01 không có đặc tả Part II | Theo SCR-36, SCR-37 | Theo SCR-36, SCR-37 | TuanPQ | 07/11/2026 |
+| FE-10 | Q3 | Code có "sửa việc đóng ca" (closure-correction) – SRS không có | Bỏ, hoặc bổ sung UC vào SRS | Bỏ: không làm chức năng sửa việc đóng ca (không có trong SRS); gỡ route hiện có khi làm FE-10 | TuanPQ | 07/11/2026 |
+| FE-10 | Q4 | Chẩn đoán nghi ngờ có danh mục chuẩn không? | Không – chữ tự do + gợi ý từ dữ liệu trại | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-11 | Q1 | UC-FE11-01 không có đặc tả Part II | Theo SCR-38, SCR-39 | Theo SCR-38, SCR-39 | TuanPQ | 07/11/2026 |
+| FE-11 | Q2 | Kiểm trùng 12 giờ áp cho phối giống không? (MSG-FE11-03 dùng "{event_type}") | Có cho cả động dục và phối, trừ phối lần hai có chủ ý (R-11-08) – cần chốt | Có, áp cho cả động dục và phối; trừ phối lần hai có chủ ý (R-11-08) | TuanPQ | 07/11/2026 |
+| FE-11 | Q3 | Động dục trên bò Đã phối → trạng thái Động dục; nếu sau đó khám CÓ THAI cho lần phối cũ? | Khám CÓ THAI thắng (Table 3.4-3 "Any → PREGNANT") | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-12 | Q1 | UC-02 POST-2 viết "returns to OPEN" sau KHÔNG CÓ THAI – mâu thuẫn tên trạng thái | Hiểu là Chờ phối (AWAITING_BREEDING) theo Table 3.4-3 | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-12 | Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 | Theo SCR-39 | TuanPQ | 07/11/2026 |
+| FE-12 | Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) | Theo đề xuất | TuanPQ | 07/11/2026 |
+| FE-12 | Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác | Theo đề xuất | TuanPQ | 07/11/2026 |
 | FE-12 | Q5 | Thẻ tai bê: Figma bắt buộc khi chọn "Đăng ký ngay", SRS không bắt buộc. FE (`CalvingPage`) đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | TuanPQ |  |
 | FE-13 | Q1 | Độ dài lý do bỏ đề xuất phiếu chết | ≤ 500 |  | AnNT |  |
 | FE-13 | Q2 | UC-FE13-02, 04 không có đặc tả Part II | Theo SCR-41, SCR-76 và popup dùng chung |  | AnNT |  |

@@ -303,12 +303,12 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 
 ## 10. Điểm SRS chưa rõ
 
-| # | Câu hỏi | Đề xuất |
-|---|---|---|
-| Q1 | UC-02 POST-2 viết "returns to OPEN" sau KHÔNG CÓ THAI – mâu thuẫn tên trạng thái | Hiểu là Chờ phối (AWAITING_BREEDING) theo Table 3.4-3 |
-| Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 |
-| Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) |
-| Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác |
+| # | Câu hỏi | Đề xuất | Quyết định (07/11/2026) |
+|---|---|---|---|
+| Q1 | UC-02 POST-2 viết "returns to OPEN" sau KHÔNG CÓ THAI – mâu thuẫn tên trạng thái | Hiểu là Chờ phối (AWAITING_BREEDING) theo Table 3.4-3 | Theo đề xuất |
+| Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 | Theo SCR-39 |
+| Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) | Theo đề xuất |
+| Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác | Theo đề xuất |
 
 ---
 
@@ -318,3 +318,4 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
