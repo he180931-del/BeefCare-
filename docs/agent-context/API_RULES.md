@@ -4,15 +4,19 @@
 
 Frontend requests use relative `/api` paths. Vite proxies `/api` to the local
 backend in `frontend/vite.config.js`; do not hardcode a remote origin or solve
-CORS in page code. `frontend/src/api/backendClient.ts` rejects non-relative API
-paths and always sends `credentials: 'include'`.
+CORS in page code. `frontend/src/api/backendClient.ts` requires paths starting
+with `/api/` and always sends `credentials: 'include'`, but it prefixes
+`VITE_BEEFCARE_API_URL` when that variable is set. Keep it empty (as in
+`frontend/.env.example`) so requests stay relative; a backend origin there
+bypasses the proxy and relies on backend CORS.
 
 `VITE_BEEFCARE_DATA_SOURCE=backend` selects the backend adapters in
 `frontend/src/api/backendTransport.ts`. Any other value selects local adapters.
 Local collection persistence in `frontend/src/api/client.ts` is for local demo
 and tests only; backend mode must not silently fall back to localStorage.
-The tracked `frontend/.env.example` is a backend-mode sample, while an
-untracked local `frontend/.env` can override it for the current Vite process.
+The tracked `frontend/.env.example` is only a backend-mode sample: Vite never
+reads it. The untracked `frontend/.env` is what the current Vite process uses;
+without it, `npm run dev` runs the local adapters.
 Read the active env before claiming which mode is live; never infer runtime mode
 from the example file alone.
 
