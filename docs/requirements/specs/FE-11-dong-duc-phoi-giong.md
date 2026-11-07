@@ -298,11 +298,11 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 
 ## 10. Điểm SRS chưa rõ
 
-| # | Câu hỏi | Đề xuất |
-|---|---|---|
-| Q1 | UC-FE11-01 không có đặc tả Part II | Theo SCR-38, SCR-39 |
-| Q2 | Kiểm trùng 12 giờ áp cho phối giống không? (MSG-FE11-03 dùng "{event_type}") | Có cho cả động dục và phối, trừ phối lần hai có chủ ý (R-11-08) – cần chốt |
-| Q3 | Động dục trên bò Đã phối → trạng thái Động dục; nếu sau đó khám CÓ THAI cho lần phối cũ? | Khám CÓ THAI thắng (Table 3.4-3 "Any → PREGNANT") |
+| # | Câu hỏi | Đề xuất | Quyết định (07/11/2026) |
+|---|---|---|---|
+| Q1 | UC-FE11-01 không có đặc tả Part II | Theo SCR-38, SCR-39 | Theo SCR-38, SCR-39 |
+| Q2 | Kiểm trùng 12 giờ áp cho phối giống không? (MSG-FE11-03 dùng "{event_type}") | Có cho cả động dục và phối, trừ phối lần hai có chủ ý (R-11-08) – cần chốt | Có, áp cho cả động dục và phối; trừ phối lần hai có chủ ý (R-11-08) |
+| Q3 | Động dục trên bò Đã phối → trạng thái Động dục; nếu sau đó khám CÓ THAI cho lần phối cũ? | Khám CÓ THAI thắng (Table 3.4-3 "Any → PREGNANT") | Theo đề xuất |
 
 ---
 
@@ -312,3 +312,4 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |

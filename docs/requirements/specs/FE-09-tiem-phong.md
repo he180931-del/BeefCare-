@@ -317,13 +317,13 @@ Popup → Sửa (vắc-xin, số lô, thời điểm, liều, đường dùng, n
 
 ## 10. Điểm SRS chưa rõ
 
-| # | Câu hỏi | Đề xuất |
-|---|---|---|
-| Q1 | Độ dài lý do dừng lịch: SRS không ghi | ≤ 500 |
-| Q2 | UC-FE09-01, 03, 04, 07 không có đặc tả Part II; luồng suy từ SCR | Chủ dự án xác nhận |
-| Q3 | Sửa lịch đổi **vắc-xin** khi đã có mũi DONE có được không? | Không – dừng lịch và tạo lịch mới |
-| Q4 | "Gần đây" ở R-09-04 là bao nhiêu ngày? | Trong khoảng nhắc lại, mặc định 30 ngày |
-| Q5 | Mũi nhắc lại khi lịch có số mũi 1 và không có nhắc lại | Không tạo |
+| # | Câu hỏi | Đề xuất | Quyết định (07/11/2026) |
+|---|---|---|---|
+| Q1 | Độ dài lý do dừng lịch: SRS không ghi | ≤ 500 | Theo đề xuất |
+| Q2 | UC-FE09-01, 03, 04, 07 không có đặc tả Part II; luồng suy từ SCR | Chủ dự án xác nhận | Theo các màn hình SCR trong SRS 28/10 |
+| Q3 | Sửa lịch đổi **vắc-xin** khi đã có mũi DONE có được không? | Không – dừng lịch và tạo lịch mới | Theo đề xuất |
+| Q4 | "Gần đây" ở R-09-04 là bao nhiêu ngày? | Trong khoảng nhắc lại, mặc định 30 ngày | Theo đề xuất |
+| Q5 | Mũi nhắc lại khi lịch có số mũi 1 và không có nhắc lại | Không tạo | Theo đề xuất |
 
 ---
 
@@ -333,3 +333,4 @@ Popup → Sửa (vắc-xin, số lô, thời điểm, liều, đường dùng, n
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS (thay spec mẫu FE-09 cũ); Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
