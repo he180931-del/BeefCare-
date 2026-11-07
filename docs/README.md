@@ -6,7 +6,7 @@ Mục lục tài liệu dự án BeefCare. Khi bắt đầu một việc, đọc
 
 | File | Ý nghĩa |
 |---|---|
-| [REQUIREMENT_DECISIONS.md](REQUIREMENT_DECISIONS.md) | Quyết định D01–D12 khi SRS mâu thuẫn hoặc chưa rõ. Ưu tiên cao nhất. |
+| [REQUIREMENT_DECISIONS.md](REQUIREMENT_DECISIONS.md) | Quyết định D01–D13 khi SRS mâu thuẫn hoặc chưa rõ, gồm các câu hỏi spec đã chốt. Ưu tiên cao nhất. |
 | [requirements/SRS_2026-10-28.txt](requirements/SRS_2026-10-28.txt) | SRS đã chốt (D12): UC, SCR, GBR, MSG, ma trận quyền. |
 | [requirements/BeefCare_Report3_SRS_2026-10-28.docx](requirements/BeefCare_Report3_SRS_2026-10-28.docx) | Bản Word gốc của SRS; tra cứu dùng bản `.txt`. |
 | [requirements/BeefCare_Conceptual_ERD.drawio](requirements/BeefCare_Conceptual_ERD.drawio) | ERD mức khái niệm, 10 trang. |
@@ -33,6 +33,13 @@ Mục lục tài liệu dự án BeefCare. Khi bắt đầu một việc, đọc
 |---|---|
 | [LOCAL_SETUP.md](LOCAL_SETUP.md) | Chạy DB, backend, frontend; cổng; tài khoản seed; cấu hình email, Google, SePay. |
 | [FIGMA.md](FIGMA.md) | File Figma đúng, các tab Redesign, node frame theo từng màn, quy ước dựng màn, chỗ Figma khác SRS. |
+
+## Kiểm thử: `testing/`
+
+| File | Ý nghĩa |
+|---|---|
+| [testing/COMMANDS.md](testing/COMMANDS.md) | Lệnh chạy test frontend và backend, phiên bản công cụ, kết quả lần kiểm gần nhất. |
+| [testing/UNIT_TEST_REPORT_TEMPLATE.md](testing/UNIT_TEST_REPORT_TEMPLATE.md) | Mẫu Report 5.1 – Unit Test: mỗi chủ feature điền case TC-xx-nn, tầng, kết quả, môi trường. |
 
 ## Ngữ cảnh ngắn cho agent: `agent-context/`
 
