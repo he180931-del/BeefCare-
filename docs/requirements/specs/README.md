@@ -54,8 +54,8 @@ Thành phần dùng chung: popup **Ghi thanh toán** mô tả ở FE-06 §6 (FE-
 
 ## File đi kèm
 
-- `OPEN_QUESTIONS.md` – 105 câu hỏi từ mục 10 của các spec, mỗi câu có người chốt.
-- `MISSING_ROUTES.md` – 18 thao tác chưa có route trong code, kèm route đề xuất.
+- `OPEN_QUESTIONS.md` – 115 câu hỏi, mỗi câu có người chốt: 105 câu từ mục 10 của các spec, 10 câu thêm ngày 07/11 từ các tài liệu đối chiếu cũ.
+- `MISSING_ROUTES.md` – phần backend còn thiếu: 18 thao tác chưa có route kèm route đề xuất, chỗ lệch spec của FE-23, route và trường FE cần khi dựng màn, phần đã có code nhưng chưa kiểm chứng.
 
 ## Cách dùng
 

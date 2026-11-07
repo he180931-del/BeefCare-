@@ -25,8 +25,8 @@ service và review. Không bắt buộc phải phân công Luna, Sol hoặc Tera
 4. Với thay đổi Entry, payment, farm-born calf hoặc pen, lập ma trận trường:
    tên, kiểu, đơn vị, bắt buộc/tùy chọn, điều kiện kích hoạt, validation, API
    và nơi lưu DB.
-5. Với thay đổi backend/API, đọc thêm `backend/AGENTS.md` và
-   `docs/BACKEND_REVIEW_WORKFLOW.md`; dùng `docs/api-handoff.html` và
+5. Với thay đổi backend/API, đọc thêm `backend/AGENTS.md` (quy trình tự kiểm,
+   tầng test, tiêu chí READY_FOR_FE); dùng `docs/api-handoff.html` và
    `docs/backend-workflow.html` để đối chiếu scope, evidence và trạng thái
    READY_FOR_FE. Khi DTO hoặc route đổi, cập nhật OpenAPI và API catalog theo
    hướng dẫn tương ứng.
@@ -96,5 +96,6 @@ trước/sau. Kiểm tra loading, empty, error, disabled, responsive và overflo
 
 ## Lệnh local thường dùng
 
-Backend và DB chạy theo hướng dẫn trong `RTK.md` và `docs/BACKEND_EXECUTION.md`.
-Frontend chạy từ `frontend/`; API local dùng proxy `/api` tới backend local.
+DB, backend, frontend, tài khoản seed và tích hợp email/Google/SePay chạy theo
+`docs/LOCAL_SETUP.md`. Frontend chạy từ `frontend/`; API local dùng proxy `/api`
+tới backend local.
