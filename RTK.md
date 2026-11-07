@@ -10,8 +10,9 @@ The canonical working copy is:
 
 Do not build or run the project from `/Users/lam/Documents/BeefCare-`; that
 directory is managed by iCloud File Provider and can stall Maven, JAR, or file
-copy operations. Keep the Documents copy only as a backup. The working branch
-for the current frontend/backend integration is `LamKD`.
+copy operations. Keep the Documents copy only as a backup. `main` is the shared
+integration point for frontend and backend work; `LamKD` still holds unmerged
+work, including the 01/11 SRS that decision D12 does not use.
 
 Use Git for backup and collaboration. Do not commit or push unless the user
 asks for it. Never include `.env`, credentials, generated `dist/`,
@@ -264,55 +265,20 @@ internal component or mock data.
 
 ## Local setup and commands
 
-Start infrastructure from the repository root:
-
-```bash
-cd /Users/lam/Projects/BeefCare
-BEEFCARE_DB_PASSWORD="$BEEFCARE_DB_PASSWORD" docker compose -f compose.backend.yml up -d db mailpit
-```
-
-Start the backend with the local profile:
-
-```bash
-SPRING_PROFILES_ACTIVE=dev,local,secret-samples,api-docs \
-SPRING_DOCKER_COMPOSE_ENABLED=false \
-BEEFCARE_DB_PASSWORD="$BEEFCARE_DB_PASSWORD" \
-BEEFCARE_DEV_PASSWORD="$BEEFCARE_DEV_PASSWORD" \
-BEEFCARE_LINK_SECRET="$BEEFCARE_LINK_SECRET" \
-java -jar backend/target/beefcare-0.0.1-SNAPSHOT.jar
-```
-
-### Local E2E account fixtures
-
-Keep six stable local-only test identities: two `Owner`, two `Manager`, and
-two `Technician` accounts:
-
-| Role | Fixture identifiers |
-| --- | --- |
-| Owner | `owner@beefcare.local`, `owner-2@beefcare.local` |
-| Manager | `manager@beefcare.local`, `manager-2@beefcare.local` |
-| Technician | `technician@beefcare.local`, `technician-2@beefcare.local` |
+Infrastructure, backend, frontend commands (Windows and macOS/Linux), ports,
+the ten local seed accounts across three farms, and email/Google/SePay setup
+live in `docs/LOCAL_SETUP.md`. Use that file instead of copying commands here.
 
 Never store plaintext passwords, tokens, password hashes, `.env`
 contents, cookies, or authentication state in `AGENTS.md`, `RTK.md`, or Git.
-At backend startup, all local development account passwords are read from the
-ignored local environment variable `BEEFCARE_DEV_PASSWORD`. Restart and reseed
-the backend whenever that value changes. These identities and credentials are
-for local E2E testing only and must never be used in production.
+All local seed account passwords come from the ignored environment variable
+`BEEFCARE_DEV_PASSWORD`; restart the backend whenever it changes. These
+identities are for local testing only and must never be used in production.
 
-For a source build, run from `backend/`. If Maven's Modernizer gate blocks an
-otherwise valid local artifact, use `-Dmodernizer.skip=true` and report that
-quality-gate skip explicitly; do not mass-refactor unrelated legacy code.
-
-Start the frontend from `frontend/`:
-
-```bash
-npm install
-npm run dev -- --host 0.0.0.0 --port 5174
-```
-
-The frontend is available at `http://127.0.0.1:5174`. API requests must use
-the `/api` proxy so browser CORS is not solved by hardcoding a remote origin.
+If Maven's Modernizer gate blocks an otherwise valid local artifact, use
+`-Dmodernizer.skip=true` and report that quality-gate skip explicitly; do not
+mass-refactor unrelated legacy code. API requests must use the `/api` proxy so
+browser CORS is not solved by hardcoding a remote origin.
 
 ## Test and implementation workflow
 
@@ -906,7 +872,9 @@ For Entry and Exit, prioritize these flows:
 When requirements differ, use this order:
 
 1. Explicit decisions in `docs/REQUIREMENT_DECISIONS.md`.
-2. The latest SRS and approved project documents in `docs/`.
+2. The approved SRS `docs/requirements/SRS_2026-10-28.txt` and the feature
+   specs in `docs/requirements/specs/` (decision D12; do not use any other SRS
+   version).
 3. Backend API documentation and `docs/api/openapi.json`.
 4. Existing backend business rules and tests.
 5. Figma for layout and interaction details.

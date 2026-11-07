@@ -3,10 +3,11 @@
 Nguồn chuẩn, theo thứ tự ưu tiên khi có khác biệt:
 
 1. `docs/REQUIREMENT_DECISIONS.md`.
-2. `docs/BeefCare_Report3_SRS_2026-10-28.docx`: UC-FE06-01, SCR-23,
-   SCR-24, popup "Voucher Cattle Line", popup "Import Cattle from Excel",
-   SCR-75, GBR-90, GBR-96 và MSG-FE06-10/16/17/18/19/24.
-3. `docs/superpowers/specs/BeefCare_BE_REST_API.md`, phần 3.3.
+2. `docs/requirements/SRS_2026-10-28.txt` (quyết định D12): UC-FE06-01,
+   SCR-23, SCR-24, popup "Voucher Cattle Line", popup "Import Cattle from
+   Excel", SCR-75, GBR-90, GBR-96 và MSG-FE06-10/16/17/18/19/24.
+3. `docs/requirements/specs/FE-06-nhap-dan.md`: quy tắc, trường và test case
+   TC-06-nn.
 4. `docs/api/openapi.json` và contract thực tế của backend.
 5. Màn Entry hiện tại/Figma để kiểm tra bố cục, nhãn và thao tác người dùng.
 

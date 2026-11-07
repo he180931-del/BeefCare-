@@ -2,7 +2,7 @@
 
 ## Scope
 
-- Chủ BE / người review chéo / thành viên FE nhận:
+- Chủ BE (tự kiểm cùng agent, không bắt buộc review chéo) / thành viên FE nhận:
 - Nhánh / commit gốc / commit đã kiểm:
 - Trạng thái: TO_REVIEW / REVIEWING / BE_REVIEWED / READY_FOR_FE / FE_INTEGRATING / FE_VERIFIED / BLOCKED.
 - UC trong gói; phần ngoài gói:
@@ -32,7 +32,7 @@ Các ca áp dụng: happy/alternative/exception, sai quyền/trại, biên input
 - HTTP/luồng BE trên bản tích hợp; commit/URL:
 - Migration: DB mới / upgrade schema cũ / không thay schema:
 - Test chưa chạy, lý do và phạm vi chưa kết luận:
-- Reviewer và nhận xét/ca reviewer kiểm lại:
+- Người kiểm và các ca đã kiểm lại (ghi thêm reviewer nếu có review chéo tự nguyện):
 
 ## Handoff FE
 
@@ -45,4 +45,4 @@ Các ca áp dụng: happy/alternative/exception, sai quyền/trại, biên input
 - Dependency chưa sẵn sàng / known limitation / phần ngoài gói:
 - Người FE xác nhận và issue tích hợp:
 
-READY_FOR_FE chỉ được ghi khi đã qua tiêu chí của BACKEND_REVIEW_WORKFLOW.md; có contract dự thảo chưa đồng nghĩa API đã sẵn sàng.
+READY_FOR_FE chỉ được ghi khi đã qua tiêu chí READY_FOR_FE trong `backend/AGENTS.md`; có contract dự thảo chưa đồng nghĩa API đã sẵn sàng.

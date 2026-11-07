@@ -29,6 +29,7 @@ TAG_FEATURE = {
  'attachment-resource':5,'farm-dashboard-resource':15,'growth-assessment-resource':8,
  'authenticate-controller':1,'public-landing-resource':22,'platform-subscription-resource':19,
  'platform-audit-resource':17,'farm-reminder-resource':14,'growth-overview-resource':8,
+ 'voucher-attachment-resource':6,
 }
 
 ucs = {}
@@ -105,6 +106,7 @@ def candidates(tag, path, method, op):
     if tag=='voucher-payment-resource':
         if '/feed/' in path:f=23;nums=[2]
         else: return [f'UC-FE06-04',f'UC-FE13-04',f'UC-FE23-02'],6
+    if tag=='voucher-attachment-resource' and '/exit-vouchers' in path:f=13
     if tag=='reproduction-command-resource':
         if any(x in path for x in ('pregnancy-updates','pregnancy-episodes','calving','calf-outcomes')):f=12
     if tag=='care-catalogue-command-resource':nums=([5] if method=='get' else [6] if method=='post' else [8] if method=='delete' else [7,8]) if 'vaccine' in path else ([9] if method=='get' else [10] if method=='post' else [11,12])
@@ -204,9 +206,11 @@ for path,methods in SPEC['paths'].items():
         apis.append({'id':method.upper()+' '+path,'method':method.upper(),'path':path,'op':operation,'feature':f'FE-{f:02}','featureName':NAMES[f],'owner':str(owner),'ucs':ids,'rules':rids,'description':desc,'sources':sources,'guards':guards,'fieldHints':hints,'signature':hashlib.sha256(hashtext.encode()).hexdigest()[:20]})
 
 apis.sort(key=lambda a:(int(a['feature'][3:]),a['path'],a['method']))
-try: commit=subprocess.check_output(['git','rev-parse','--short','HEAD'],cwd=ROOT,text=True).strip()
-except (FileNotFoundError,subprocess.CalledProcessError):commit='6ccc3a8'
-data={'meta':{'commit':commit,'date':'2026-10-29','paths':len(SPEC['paths']),'operations':len(apis),'contractSha':hashlib.sha256(json.dumps(SPEC,sort_keys=True).encode()).hexdigest()[:16]},'apis':apis,'schemas':SPEC['components']['schemas'],'ucs':ucs,'rules':rules,'screens':screens,'names':NAMES,'decisions':(ROOT/'docs/REQUIREMENT_DECISIONS.md').read_text(encoding='utf-8')}
+try:
+    commit=subprocess.check_output(['git','rev-parse','--short','HEAD'],cwd=ROOT,text=True).strip()
+    date=subprocess.check_output(['git','log','-1','--format=%cs','HEAD'],cwd=ROOT,text=True).strip()
+except (FileNotFoundError,subprocess.CalledProcessError):commit,date='unknown','unknown'
+data={'meta':{'commit':commit,'date':date,'paths':len(SPEC['paths']),'operations':len(apis),'contractSha':hashlib.sha256(json.dumps(SPEC,sort_keys=True).encode()).hexdigest()[:16]},'apis':apis,'schemas':SPEC['components']['schemas'],'ucs':ucs,'rules':rules,'screens':screens,'names':NAMES,'decisions':(ROOT/'docs/REQUIREMENT_DECISIONS.md').read_text(encoding='utf-8')}
 page=ROOT/'docs/api-handoff.html'
 if not page.exists():raise SystemExit('Create api-handoff.html shell first.')
 html=page.read_text(encoding='utf-8')

@@ -1,10 +1,10 @@
 # BeefCare frontend API contract
 
-This contract is in progress. An endpoint appearing in generated OpenAPI means it is registered in code, not that its whole SRS use case has passed acceptance tests. The implementation traceability pages record remaining feature gaps. Do not use generated legacy entity CRUD such as `/api/cattle` or `/api/support-tickets`.
+This contract is in progress. An endpoint appearing in generated OpenAPI means it is registered in code, not that its whole SRS use case has passed acceptance tests. Remaining backend gaps are tracked in `docs/requirements/specs/MISSING_ROUTES.md`; open requirement questions in `docs/requirements/specs/OPEN_QUESTIONS.md`. Do not use generated legacy entity CRUD such as `/api/cattle` or `/api/support-tickets`.
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **212 paths, 284 schemas** (regenerated 29 October 2026 from `main` at `71ce2a3`, after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
+Current contract: **216 paths, 265 operations, 284 schemas** (file last regenerated 1 November 2026, commit `127859b`; the earlier 29 October export at `71ce2a3` had 212 paths after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -23,7 +23,7 @@ Sign-in and account failures carry the SRS code in the body (`{code, params, mes
 
 Local backend runs at `http://localhost:8080`; the allowed frontend origins are configured with `BEEFCARE_CORS_ORIGINS` (local defaults localhost:5173 and localhost:3000). Keep the hostname consistent; localhost and 127.0.0.1 have different cookies. Production cookies require HTTPS.
 
-The shared browser adapter is `frontend/src/api/backendClient.js`; its tests cover cookie/CSRF and command behavior. Existing frontend mock screens have not all been switched over. Replace each screen's mock adapter deliberately rather than keeping client-side business mutations alongside backend commands.
+The shared browser adapter is `frontend/src/api/backendClient.ts`; its tests cover cookie/CSRF and command behavior. Existing frontend mock screens have not all been switched over. Replace each screen's mock adapter deliberately rather than keeping client-side business mutations alongside backend commands.
 
 ## Commands and errors
 

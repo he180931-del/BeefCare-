@@ -4,17 +4,16 @@
 
 Feature worktrees run only the agreed feature-local unit suite. Do not run
 cross-feature integration/API suites there. After approved feature checkpoints
-are combined on `integration`, run the agreed integration/API tests, typecheck,
-and build.
+are combined on the integration point (`integration` when the parallel
+worktree model in `RTK.md` is used, otherwise `main`), run the agreed
+integration/API tests, typecheck, and build.
 
-Frontend commands from `frontend/`:
+Frontend commands from `frontend/`. Each feature has its own folder under
+`tests/unit/` (for example `herd-entry`, `cattle`, `pens`, `feed-stock`,
+`platform-admin`); pass the exact folder of the feature you changed:
 
 ```bash
-./node_modules/.bin/vitest run --passWithNoTests tests/unit/herd-entry
-./node_modules/.bin/vitest run --passWithNoTests tests/unit/herd-exit
-./node_modules/.bin/vitest run --passWithNoTests tests/unit/cattle
-./node_modules/.bin/vitest run --passWithNoTests tests/unit/pens
-./node_modules/.bin/vitest run --passWithNoTests tests/unit/auth
+./node_modules/.bin/vitest run --passWithNoTests tests/unit/<feature>
 npm run test:api
 ./node_modules/.bin/vitest run --passWithNoTests tests/integration
 npm run typecheck
@@ -25,7 +24,7 @@ The feature-unit commands above pass an exact `tests/unit/<feature>` path and
 are the only test commands for a feature worktree. The current
 `frontend/vitest.config.ts` include pattern also includes `tests/integration`,
 so a bare `npm run test:unit:run` is not a unit-only boundary. After approved
-feature changes are combined on `integration`, the installed Vitest binary
+feature changes are combined on the integration point, the installed Vitest binary
 command `./node_modules/.bin/vitest run --passWithNoTests tests/integration`
 covers all frontend integration directories. The existing
 `npm run test:integration` script is an entry-only smoke command and must not
@@ -34,8 +33,9 @@ script whose unit step still includes integration files and whose final
 integration step is entry-only; report its subcommands rather than treating it
 as complete coverage.
 
-Backend unit tests use `cd backend && ./mvnw -Dskip.installnodenpm -Dskip.npm
-test`; select focused classes with Maven's `-Dtest=ClassName` when appropriate.
+Backend tests run from `backend/` with the Maven Wrapper and an explicit class
+list; the exact command and flags (`-Pdev,!webapp`, `-Dtest=...`) are in
+`backend/AGENTS.md`.
 Tests named `*IT`/`*IntTest` are Failsafe integration tests and must run through
 `verify`, not Surefire `test`.
 
