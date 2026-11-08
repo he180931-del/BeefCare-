@@ -185,6 +185,13 @@ public class IdentityService {
             .isPresent();
     }
 
+    @Transactional(readOnly = true)
+    public Optional<String> passwordResetEmail(String rawToken) {
+        if (!isPasswordResetLinkValid(rawToken)) return Optional.empty();
+        return tokenRepository.findOneByTokenHashAndTokenType(linkSigner.hash(rawToken), PASSWORD_RESET)
+            .map(AccountLinkToken::getUser).map(User::getEmail);
+    }
+
     @Transactional
     public User completePasswordReset(String rawToken, String newPassword, String confirmation) {
         AccountLinkToken link = consume(rawToken, PASSWORD_RESET);

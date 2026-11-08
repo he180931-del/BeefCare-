@@ -419,15 +419,15 @@ class BrowserSessionFlowIT {
         assertThat(inbox.findMessagesFor(unknown)).isEmpty();
         assertThat(inbox.findMessagesFor(email).size()).isEqualTo(mailsBefore + 1);
 
-        String first = linkToken(email, "/reset-password?token=");
+        String first = linkToken(email, "/resetpassword?token=");
         var stored = links.findOneByTokenHashAndTokenType(signer.hash(first), "PASSWORD_RESET").orElseThrow();
         assertThat(Duration.between(stored.getCreatedAt(), stored.getExpiresAt())).isEqualTo(Duration.ofMinutes(30));
-        guest.get("/api/account/reset-password/validate?token=" + first).andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(true));
+        guest.get("/api/account/reset-password/validate?token=" + first).andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(true)).andExpect(jsonPath("$.email").value(email));
         guest.get("/api/account/reset-password/validate?token=garbage").andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(false));
 
         // a new request replaces the earlier link (the address is matched case-insensitively)
         guest.post("/api/account/reset-password/init", Map.of("email", email.toUpperCase())).andExpect(status().isOk());
-        String second = linkToken(email, "/reset-password?token=");
+        String second = linkToken(email, "/resetpassword?token=");
         assertThat(second).isNotEqualTo(first);
         guest.get("/api/account/reset-password/validate?token=" + first).andExpect(jsonPath("$.valid").value(false));
         guest.post("/api/account/reset-password/finish", reset(first, "ResetPassword-88", "ResetPassword-88"))

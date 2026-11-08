@@ -340,10 +340,10 @@ public class AccountResource {
 
     @GetMapping(path = "/account/reset-password/validate")
     public ResetLinkValidation validateResetLink(@RequestParam("token") String token) {
-        return new ResetLinkValidation(identityService.isPasswordResetLinkValid(token));
+        return identityService.passwordResetEmail(token).map(email -> new ResetLinkValidation(true, email)).orElseGet(() -> new ResetLinkValidation(false, null));
     }
 
-    public record ResetLinkValidation(boolean valid) {}
+    public record ResetLinkValidation(boolean valid, String email) {}
 
     /**
      * {@code POST   /account/reset-password/finish} : Finish to reset the password of the user.

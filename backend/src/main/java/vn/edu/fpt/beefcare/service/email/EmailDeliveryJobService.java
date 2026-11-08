@@ -135,7 +135,7 @@ public class EmailDeliveryJobService {
             if (!signer.matchesHash(bearer, link.getTokenHash())) return cancel(job);
             expectedRecipient = link.getUser().getEmail();
             expiry = link.getExpiresAt();
-            String base = templateKey.equals("VERIFY_EMAIL") ? backendBaseUrl + "/api/activate?token=" : frontendBaseUrl + "/reset-password?token=";
+            String base = templateKey.equals("VERIFY_EMAIL") ? backendBaseUrl + "/api/activate?token=" : frontendBaseUrl + "/resetpassword?token=";
             actionUrl = base + bearer;
         } else if ("INVITATION".equals(job.getLinkSource())) {
             FarmInvitation invitation = invitations.findById(job.getLinkSourceId()).orElse(null);

@@ -21,7 +21,7 @@ export function GuestAuthFlow({ client, onAuthenticated, initialError = null }: 
   else if (path === AUTH_PATH.verification) page = <EmailSentPage client={client} kind="verification" />
   else if (path === AUTH_PATH.forgot) page = <ForgotPasswordPage client={client} />
   else if (path === AUTH_PATH.resetSent) page = <EmailSentPage client={client} kind="reset" />
-  else if (path === AUTH_PATH.reset) page = <ResetPasswordPage client={client} />
+  else if (path === AUTH_PATH.reset || path === '/reset-password') page = <ResetPasswordPage client={client} />
   else if (path === AUTH_PATH.invalid) page = <InvalidLinkPage email={emailFromState(location.state) || normalizeEmail(search.get('email') || '')} flow={search.get('type') === 'verification' ? 'verification' : 'reset'} />
   else if (path === AUTH_PATH.suspended) page = <SuspendedPage />
   else if (path === AUTH_PATH.loginFailed) page = <SignInPage client={client} onAuthenticated={onAuthenticated} initialError={null} startFailed />

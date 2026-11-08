@@ -3,7 +3,7 @@ import { userFacingError } from '../../../api/userFacingError'
 
 export const AUTH_PATH = {
   home: '/', signIn: '/sign-in', register: '/dang-ky', verification: '/xac-minh-email',
-  forgot: '/quen-mat-khau', resetSent: '/kiem-tra-email', reset: '/reset-password',
+  forgot: '/quen-mat-khau', resetSent: '/kiem-tra-email', reset: '/resetpassword',
   invalid: '/lien-ket-khong-con-hieu-luc', suspended: '/tai-khoan-tam-ngung', loginFailed: '/dang-nhap-that-bai',
 } as const
 
