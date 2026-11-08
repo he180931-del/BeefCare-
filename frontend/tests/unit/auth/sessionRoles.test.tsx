@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { writeCurrentFarmId } from '../../../src/api/currentFarm'
 import Layout from '../../../src/components/Layout'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
-import { HomeRedirect, RoleGate, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
+import { HomeRedirect, RoleGate, isStaleFarmSelection, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 
 const sessionFor = (role: AppRole): Session => ({
@@ -16,6 +17,7 @@ const withSession = (role: AppRole, path: string, element: React.ReactElement) =
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
+        <Route path="/chon-trai" element={<div>Chọn trang trại</div>} />
         <Route path="/tong-quan" element={element} />
         <Route path="/kt" element={<div>Trang kỹ thuật viên</div>} />
         <Route path="/nen-tang/ho-tro" element={<div>Trang CS</div>} />
@@ -40,9 +42,18 @@ describe('session from the backend profile', () => {
   it('treats an account with no farm as an owner still onboarding', () => {
     expect(sessionFromProfile({ fullName: 'Mới', email: 'n@x', platformRole: null, farms: [] })).toMatchObject({ role: 'OWNER', farmId: null, farmName: null })
   })
+
+  it('UC-FE02-02 E1: a farm kept for this tab that is no longer in the profile is stale', () => {
+    const profile = { farms: [{ farmId: 1, farmName: 'Trại A', role: 'OWNER' }] }
+    expect(isStaleFarmSelection(profile, 5)).toBe(true)
+    expect(isStaleFarmSelection(profile, 1)).toBe(false)
+    expect(isStaleFarmSelection(profile, null)).toBe(false)
+  })
 })
 
 describe('role navigation', () => {
+  beforeEach(() => sessionStorage.clear())
+
   it.each([
     ['OWNER', 'Trang chủ trại'],
     ['MANAGER', 'Trang chủ trại'],
@@ -50,7 +61,18 @@ describe('role navigation', () => {
     ['CS', 'Trang CS'],
     ['PM', 'Trang PM'],
     ['SA', 'Trang SA'],
-  ] as const)('sends %s to its own home from /', (role, text) => {
+  ] as const)('sends %s to its own home from / once a farm is entered in this tab', (role, text) => {
+    writeCurrentFarmId(1)
+    withSession(role, '/', <div>Trang chủ trại</div>)
+    expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it.each(['OWNER', 'MANAGER', 'TECHNICIAN'] as const)('UC-FE02-02 sends %s to Select Farm after sign-in when no farm is entered yet', (role) => {
+    withSession(role, '/', <div>Trang chủ trại</div>)
+    expect(screen.getByText('Chọn trang trại')).toBeInTheDocument()
+  })
+
+  it.each([['PM', 'Trang PM'], ['SA', 'Trang SA']] as const)('keeps %s on its platform home without a farm', (role, text) => {
     withSession(role, '/', <div>Trang chủ trại</div>)
     expect(screen.getByText(text)).toBeInTheDocument()
   })

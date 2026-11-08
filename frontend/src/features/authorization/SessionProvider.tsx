@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asRecord, asRows, backendFarmId, backendTransport, numberValue, textValue } from '../../api/backendTransport'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../api/currentFarm'
 import { userFacingError } from '../../api/userFacingError'
 import { useAuth } from '../authentication/AuthContext'
 import { demoUserFor, readMockUserEmail } from '../authentication/demoUsers'
@@ -26,6 +27,12 @@ export function sessionFromProfile(value: unknown): SessionUser {
   }
 }
 
+/** UC-FE02-02 E1: the farm entered in this tab is no longer one of the account's farms (membership ended or changed). */
+export function isStaleFarmSelection(profile: unknown, selected: number | null): boolean {
+  if (selected == null) return false
+  return !asRows(asRecord(profile).farms).some((farm) => numberValue(farm.farmId) === selected)
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { mode, logout } = useAuth()
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -38,7 +45,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return undefined
     }
     backendTransport.get('/api/account/profile').then(
-      (profile) => { if (active) setUser(sessionFromProfile(profile)) },
+      (profile) => {
+        if (!active) return
+        // Every feature API of this page already points at the stale farm, so forget it and reload into Select Farm.
+        // Reload only once the stale id is really gone, so a storage that refuses to forget it cannot loop.
+        if (isStaleFarmSelection(profile, readCurrentFarmId())) {
+          clearCurrentFarmId()
+          if (readCurrentFarmId() == null) {
+            pageLoader.load('/chon-trai')
+            return
+          }
+        }
+        setUser(sessionFromProfile(profile))
+      },
       (cause: unknown) => { if (active) setError(userFacingError(cause, 'Không tải được hồ sơ người dùng.')) },
     )
     return () => { active = false }

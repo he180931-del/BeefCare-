@@ -100,10 +100,13 @@ class FarmWorkspaceServiceTest extends DomainTestSupport {
         assertThatThrownBy(()->commands.execute(null,null,"FARM_REGISTER","farm-key",request(Set.of()),Details.class,()->workspaces.register(request)))
             .isInstanceOfSatisfying(DomainException.class,e->assertThat(e.getStatus().value()).isEqualTo(409));
     }
-    @Test void farmListHidesInactiveFarmFromManagerButKeepsOwnerException() {
+    /** UC-FE02-02 AF3 (decision 08/11/2026): the Manager sees the farm that is not ACTIVE as a locked card; only the Owner may select it. */
+    @Test void farmListShowsInactiveFarmToManagerAsLockedAndOnlyOwnerSelectsIt() {
         Farm farm=farm("EXPIRED");AppUser owner=memberWithRole(farm,FarmRole.OWNER);AppUser manager=memberWithRole(farm,FarmRole.MANAGER);
-        actAs(manager);assertThat(workspaces.list()).isEmpty();
+        actAs(manager);assertThat(workspaces.list()).extracting(Summary::id,Summary::serviceStatus).containsExactly(tuple(farm.getId(),"EXPIRED"));
+        assertThatThrownBy(()->workspaces.context(farm.getId())).isInstanceOfSatisfying(DomainException.class,e->assertThat(e.getCode()).isEqualTo("MSG-FE02-04"));
         actAs(owner);assertThat(workspaces.list()).extracting(Summary::id).contains(farm.getId());
+        assertThat(workspaces.context(farm.getId()).role()).isEqualTo("OWNER");
         assertThat(workspaces.get(farm.getId()).id()).isEqualTo(farm.getId());
         assertThatThrownBy(()->workspaces.catalogues(farm.getId())).isInstanceOf(DomainException.class);
     }

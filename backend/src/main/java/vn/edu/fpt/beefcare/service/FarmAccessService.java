@@ -53,12 +53,14 @@ public class FarmAccessService {
             throw DomainException.forbidden(MessageCodes.COM_01);
         }
         Farm farm = farmRepository.findById(farmId).orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
-        if (
-            action != FarmAction.VIEW_FARM_INFORMATION &&
-            action != FarmAction.MANAGE_FARM_INFORMATION &&
-            !ACTIVE.equalsIgnoreCase(farm.getServiceStatus())
-        ) {
-            throw DomainException.forbidden(MessageCodes.COM_12, "farm", farm.getName(), "status", farm.getServiceStatus());
+        if (!ACTIVE.equalsIgnoreCase(farm.getServiceStatus())) {
+            if (action == FarmAction.SELECT_FARM) {
+                if (role != FarmRole.OWNER) {
+                    throw DomainException.forbidden(MessageCodes.FE02_04, "farm", farm.getName(), "status", farm.getServiceStatus());
+                }
+            } else if (action != FarmAction.VIEW_FARM_INFORMATION && action != FarmAction.MANAGE_FARM_INFORMATION) {
+                throw DomainException.forbidden(MessageCodes.COM_12, "farm", farm.getName(), "status", farm.getServiceStatus());
+            }
         }
         return new FarmContext(farm, user, role);
     }

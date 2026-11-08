@@ -4,6 +4,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { Icon } from '../../../components/Icon'
 import Layout from '../../../components/Layout'
 import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
+import { InactiveFarmBanner, openedInactiveFromFarmSelect } from '../../farm-workspace/components/WorkspaceUi'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { Facts, ICON_BTN } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
@@ -58,6 +59,7 @@ export default function RenewPage() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} sub={data.farmName} />
+        {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_376px]">
           <div className="flex flex-col gap-4">
             <Card title="Thời hạn">

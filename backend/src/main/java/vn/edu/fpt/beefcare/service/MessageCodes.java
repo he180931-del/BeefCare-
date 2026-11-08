@@ -28,6 +28,8 @@ public final class MessageCodes {
 
     /** UC-FE02-01 E1: Owner registration is not complete. */
     public static final String FE02_02 = "MSG-FE02-02";
+    /** UC-FE02-02 AF3: a Manager or Technician enters a farm that is not ACTIVE. */
+    public static final String FE02_04 = "MSG-FE02-04";
 
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";

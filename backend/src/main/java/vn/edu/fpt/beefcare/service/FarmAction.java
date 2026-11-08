@@ -13,6 +13,11 @@ public enum FarmAction {
     VIEW_FARM_INFORMATION(false, FarmRole.OWNER),
     /** Owner may maintain the farm's own information regardless of service status. */
     MANAGE_FARM_INFORMATION(true, FarmRole.OWNER),
+    /**
+     * UC-FE02-02 step 4: enter the farm chosen on Select Farm. Every member may enter an ACTIVE farm; while the farm is
+     * not ACTIVE only the Owner may (GBR-14) and a Manager or Technician gets MSG-FE02-04 (AF3).
+     */
+    SELECT_FARM(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     /** Catalogue lookups used by farm workflows require an ACTIVE farm and are readable by every farm role. */
     VIEW_CATALOGUES(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     VIEW_CATTLE(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),

@@ -117,3 +117,11 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
 export function Banner({ children }: { children: ReactNode }) {
   return <div role="status" className="rounded-lg bg-[#e8f2fa] px-3 py-2 text-xs text-[#296194]">{children}</div>
 }
+
+/** MSG-FE02-03: the Owner opened a farm that is not ACTIVE from Select Farm (UC-FE02-02 AF1 / AF2). */
+export function InactiveFarmBanner({ farmName, status }: { farmName: string; status: string }) {
+  return <Banner>{farmName} đang ở trạng thái {serviceLabel(status)}. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ.</Banner>
+}
+
+/** True when the page was opened from a card of Select Farm (`from=chon-trai`) for a farm that is not ACTIVE. */
+export const openedInactiveFromFarmSelect = (params: URLSearchParams, status: string) => params.get('from') === 'chon-trai' && status !== 'ACTIVE'

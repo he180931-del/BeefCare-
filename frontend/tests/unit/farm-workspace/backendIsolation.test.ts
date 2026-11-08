@@ -26,6 +26,13 @@ describe('farm workspace backend adapter isolation', () => {
     expect(transport.get).toHaveBeenCalledWith('/api/farms')
   })
 
+  it('UC-FE02-02 rechecks access through the farm context before entering a farm', async () => {
+    vi.mocked(transport.get).mockResolvedValue({ id: 902, name: 'Trại hết hạn', role: 'OWNER', serviceStatus: 'EXPIRED', version: 2, activeCattleCount: 0, serviceUntil: null })
+    const api = createFarmWorkspaceApi({ mode: 'backend', farmId: 1, transport, demoStore: store })
+    await expect(api.selectFarm(902)).resolves.toMatchObject({ id: 902, role: 'OWNER', serviceStatus: 'EXPIRED' })
+    expect(transport.get).toHaveBeenCalledWith('/api/farms/902/context')
+  })
+
   it('propagates a backend read failure and does not fall back to the demo store', async () => {
     vi.mocked(transport.get).mockRejectedValue(new Error('backend unavailable'))
     const expectedLocalCount = (await store.listFarms()).length

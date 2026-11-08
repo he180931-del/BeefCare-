@@ -116,6 +116,26 @@ describe('Chọn thời hạn và tạo yêu cầu', () => {
   })
 })
 
+describe('Mở từ màn chọn trại (UC-FE02-02 AF1, MSG-FE02-03)', () => {
+  const banner = 'Trại Tản Lĩnh đang ở trạng thái Chờ thanh toán. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ.'
+
+  it('chọn thời hạn lần đầu hiện banner trạng thái khi Owner mở trại chưa hoạt động từ màn chọn trại', async () => {
+    renderAt('/dang-ky-goi?farm=2&from=chon-trai', 'OWNER')
+    expect(await screen.findByText(banner)).toBeInTheDocument()
+  })
+
+  it('luồng đăng ký trại mới không hiện banner', async () => {
+    renderAt('/dang-ky-goi?farm=2', 'OWNER')
+    expect(await screen.findByText('Đăng ký gói dịch vụ · Trại Tản Lĩnh')).toBeInTheDocument()
+    expect(screen.queryByText(banner)).not.toBeInTheDocument()
+  })
+
+  it('trang gia hạn cũng hiện banner khi mở từ màn chọn trại', async () => {
+    renderAt('/goi-dich-vu/gia-han?farm=2&from=chon-trai', 'OWNER')
+    expect(await screen.findByText(banner)).toBeInTheDocument()
+  })
+})
+
 describe('Hướng dẫn chuyển khoản', () => {
   it('hiện bộ đếm ngược, tiến trình và thông tin chuyển khoản của yêu cầu đang chờ', async () => {
     renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9', 'OWNER')

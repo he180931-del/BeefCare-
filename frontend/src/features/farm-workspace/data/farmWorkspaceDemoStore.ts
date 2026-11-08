@@ -1,6 +1,7 @@
+import { BackendError } from '../../../api/backendClient'
 import type {
   ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
-  FarmRole, FarmWorkspaceProfile, Invitation, InvitationPreview, InviteMemberInput, Membership, RequestKeyOptions, UpdateProfileInput,
+  FarmRole, FarmSummary, FarmWorkspaceProfile, Invitation, InvitationPreview, InviteMemberInput, Membership, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { EXPIRED_TOKEN, FIRST_NEW_FARM_ID, INVITED_FARM_ID, SAMPLE_TOKEN, samplePreview, seedFarms, seedYenBaiInvitations, seedYenBaiMembers, YEN_BAI } from './farmWorkspaceSeed'
 
@@ -9,6 +10,11 @@ export interface FarmWorkspaceDemoStore {
   completeOwnerRegistration(input: CompleteOwnerProfileInput): Promise<FarmWorkspaceProfile>
   updateProfile(input: UpdateProfileInput): Promise<FarmWorkspaceProfile>
   listFarms(): Promise<FarmDetails[]>
+  /**
+   * UC-FE02-02 step 4, same rule as `GET /api/farms/{id}/context`: every member enters an ACTIVE farm; otherwise only
+   * the Owner (GBR-14), and a Manager or Technician gets MSG-FE02-04 (AF3).
+   */
+  selectFarm(farmId: number): Promise<FarmSummary>
   getFarm(farmId: number): Promise<FarmDetails>
   /** UC-FE02-01. Cùng `idempotencyKey` + cùng dữ liệu → trả lại trại đã tạo; cùng khóa, khác dữ liệu → lỗi (R-02-02). */
   registerFarm(input: FarmRegistrationInput, options?: RequestKeyOptions): Promise<FarmDetails>
@@ -72,6 +78,13 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
       return this.getProfile()
     },
     async listFarms() { return [...farms.values()].map(cloneFarm) },
+    async selectFarm(farmId) {
+      const farm = getFarm(farmId)
+      if (farm.serviceStatus !== 'ACTIVE' && farm.role !== 'OWNER') {
+        throw new BackendError(403, { code: 'MSG-FE02-04', params: { farm: farm.name, status: farm.serviceStatus } })
+      }
+      return cloneFarm(farm)
+    },
     async getFarm(farmId) { return cloneFarm(getFarm(farmId)) },
     async registerFarm(input, options) {
       const request = JSON.stringify(input)

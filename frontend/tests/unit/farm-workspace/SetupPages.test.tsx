@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { BackendError } from '../../../src/api/backendClient'
+import { pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { farmWorkspaceApi } from '../../../src/features/farm-workspace/api/farmWorkspaceApi'
+import { farmAction } from '../../../src/features/farm-workspace/components/FarmCard'
 import AcceptInvitationPage from '../../../src/features/farm-workspace/pages/AcceptInvitationPage'
 import FarmInformationPage from '../../../src/features/farm-workspace/pages/FarmInformationPage'
 import FarmRegistrationPage from '../../../src/features/farm-workspace/pages/FarmRegistrationPage'
@@ -20,7 +22,7 @@ function PlanSelection() {
   const location = useLocation()
   return <p>SCR-58 {location.search} · {(location.state as { notice?: string } | null)?.notice}</p>
 }
-const renderAt = (who: string, path: string, route: string, element: JSX.Element) => render(
+const renderAt = (who: string, path: string | { pathname: string; state?: unknown }, route: string, element: JSX.Element) => render(
   <SessionContext.Provider value={sessions[who]}>
     <MemoryRouter initialEntries={[path]}><Routes>
       <Route path={route} element={element} />
@@ -31,16 +33,136 @@ const renderAt = (who: string, path: string, route: string, element: JSX.Element
   </SessionContext.Provider>,
 )
 
-describe('Select Farm', () => {
-  it('shows each farm with its role, size and the action its service state allows', async () => {
+describe('Select Farm (UC-FE02-02)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    sessionStorage.clear()
+  })
+
+  const cardOf = async (name: string) => (await screen.findByRole('heading', { name })).closest('article') as HTMLElement
+
+  it('shows each farm with its place, role, herd size, service and the action its role and status allow', async () => {
     renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
     expect(await screen.findByText('Trại Tản Lĩnh')).toBeInTheDocument()
     expect(screen.getByText('4 trang trại bạn có quyền truy cập')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Vào trại' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Thanh toán để kích hoạt' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Gửi Ticket' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Gửi phiếu hỗ trợ' })).toBeEnabled()
     expect(screen.getByText('Đến 14/11/2026')).toBeInTheDocument()
-    expect(screen.getByText('Gói do chủ trại quản lý')).toBeInTheDocument()
+    // SCR-09 field 7 is the same for every role: the Manager card also shows the service end date.
+    expect(screen.getByText('Đến 31/03/2027')).toBeInTheDocument()
+    expect(screen.getByText('Chưa có kỳ dịch vụ')).toBeInTheDocument()
+    expect(screen.getByText('Đang tạm ngưng')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['OWNER', 'ACTIVE', 'Vào trại', '/tong-quan'],
+    ['MANAGER', 'ACTIVE', 'Vào trại', '/tong-quan'],
+    ['TECHNICIAN', 'ACTIVE', 'Vào trại', '/kt'],
+    ['OWNER', 'PENDING_PAYMENT', 'Thanh toán để kích hoạt', '/dang-ky-goi?farm=8&from=chon-trai'],
+    ['OWNER', 'EXPIRED', 'Gia hạn', '/goi-dich-vu/gia-han?farm=8&from=chon-trai'],
+    ['OWNER', 'SUSPENDED', 'Gửi phiếu hỗ trợ', '/ho-tro/moi?category=FARM_SERVICE&farmId=8'],
+    ['MANAGER', 'EXPIRED', 'Chủ trại quản lý gói dịch vụ', null],
+    ['TECHNICIAN', 'SUSPENDED', 'Chủ trại quản lý gói dịch vụ', null],
+  ] as const)('SCR-09 card action: %s + %s → "%s" (%s)', (role, serviceStatus, label, to) => {
+    expect(farmAction({ id: 8, name: 'Trại 8', role, serviceStatus, version: 1 })).toMatchObject({ label, to, disabled: to === null })
+  })
+
+  it('rechecks access, keeps the farm for this tab and reloads into its home (steps 3-5, R-02-12)', async () => {
+    const user = userEvent.setup()
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const select = vi.spyOn(farmWorkspaceApi, 'selectFarm')
+    renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    await user.click(within(await cardOf('Trại bò Yên Bài – Ba Vì')).getByRole('button', { name: 'Vào trại' }))
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    expect(select).toHaveBeenCalledWith(1)
+    expect(readCurrentFarmId()).toBe(1)
+  })
+
+  it('AF1 makes the PENDING_PAYMENT farm current and opens plan selection (SCR-58) for it', async () => {
+    const user = userEvent.setup()
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    await user.click(await screen.findByRole('button', { name: 'Thanh toán để kích hoạt' }))
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/dang-ky-goi?farm=2&from=chon-trai'))
+    expect(readCurrentFarmId()).toBe(2)
+  })
+
+  it('TC-02-11 shows a Manager the farm that is not ACTIVE as a locked card with MSG-FE02-04', async () => {
+    vi.spyOn(farmWorkspaceApi, 'listFarms').mockResolvedValue([
+      { id: 3, name: 'Trại Cẩm Lĩnh', role: 'MANAGER', serviceStatus: 'ACTIVE', version: 1 },
+      { id: 6, name: 'Trại Đồng Xoài', role: 'MANAGER', serviceStatus: 'EXPIRED', version: 1, serviceUntil: '2026-09-30' },
+    ])
+    renderAt('manager', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    const locked = await cardOf('Trại Đồng Xoài')
+    expect(within(locked).getByRole('button', { name: 'Chủ trại quản lý gói dịch vụ' })).toBeDisabled()
+    expect(within(locked).getByText('Trại Đồng Xoài không khả dụng vì dịch vụ đang ở trạng thái Đã hết hạn. Vui lòng liên hệ Chủ trại.')).toBeInTheDocument()
+  })
+
+  it('shows the last day of service like SCR-57: the backend end time is exclusive', async () => {
+    // 15/11/2026 00:00 in Asia/Ho_Chi_Minh ends the period, so the last day of service is 14/11/2026.
+    vi.spyOn(farmWorkspaceApi, 'listFarms').mockResolvedValue([
+      { id: 1, name: 'Trại bò Yên Bài – Ba Vì', role: 'OWNER', serviceStatus: 'ACTIVE', version: 1, serviceUntil: '2026-11-14T17:00:00Z' },
+    ])
+    renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    expect(await screen.findByText('Đến 14/11/2026')).toBeInTheDocument()
+  })
+
+  it('E1 shows MSG-COM-01 and reloads the list when the membership was removed after the list was shown', async () => {
+    const user = userEvent.setup()
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const list = vi.spyOn(farmWorkspaceApi, 'listFarms')
+    vi.spyOn(farmWorkspaceApi, 'selectFarm').mockRejectedValueOnce(new BackendError(403, { code: 'MSG-COM-01', params: {} }))
+    renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    await user.click(within(await cardOf('Trại bò Yên Bài – Ba Vì')).getByRole('button', { name: 'Vào trại' }))
+    expect(await screen.findByText(/^Bạn không có quyền thực hiện thao tác này\./)).toBeInTheDocument()
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
+    expect(load).not.toHaveBeenCalled()
+    expect(readCurrentFarmId()).toBeNull()
+  })
+
+  it('AF3 also applies when the service stopped after the list was shown (MSG-FE02-04 from the backend)', async () => {
+    const user = userEvent.setup()
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    vi.spyOn(farmWorkspaceApi, 'selectFarm').mockRejectedValueOnce(new BackendError(403, { code: 'MSG-FE02-04', params: { farm: 'Trại Cẩm Lĩnh', status: 'EXPIRED' } }))
+    renderAt('manager', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    await user.click(within(await cardOf('Trại Cẩm Lĩnh')).getByRole('button', { name: 'Vào trại' }))
+    expect(await screen.findByText(/^Trại Cẩm Lĩnh không khả dụng vì dịch vụ đang ở trạng thái Đã hết hạn\./)).toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+  })
+
+  it('does not reload into a farm it could not keep for this tab', async () => {
+    const user = userEvent.setup()
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    await user.click(within(await cardOf('Trại bò Yên Bài – Ba Vì')).getByRole('button', { name: 'Vào trại' }))
+    expect(await screen.findByText(/Trình duyệt đang chặn lưu dữ liệu/)).toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+  })
+
+  it('AF4 opens the only available farm directly after sign-in, but not from the farm switcher', async () => {
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const only = { id: 3, name: 'Trại Cẩm Lĩnh', role: 'TECHNICIAN' as const, serviceStatus: 'ACTIVE' as const, version: 1 }
+    vi.spyOn(farmWorkspaceApi, 'listFarms').mockResolvedValue([only])
+    vi.spyOn(farmWorkspaceApi, 'selectFarm').mockResolvedValue(only)
+    const switcher = renderAt('technician', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    expect(await screen.findByRole('heading', { name: 'Trại Cẩm Lĩnh' })).toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+    switcher.unmount()
+    renderAt('technician', { pathname: '/chon-trai', state: { fromSignIn: true } }, '/chon-trai', <FarmSelectPage />)
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/kt'))
+    expect(readCurrentFarmId()).toBe(3)
+  })
+
+  it('opens SCR-07 first when the Owner profile is not complete (SCR-09 "Register new farm")', async () => {
+    const user = userEvent.setup()
+    const profile = await farmWorkspaceApi.getProfile()
+    vi.spyOn(farmWorkspaceApi, 'getProfile').mockResolvedValue({ ...profile, ownerRegistrationCompleted: false })
+    renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
+    await screen.findByRole('heading', { name: 'Trại Tản Lĩnh' })
+    await user.click(screen.getByRole('button', { name: 'Đăng ký trại mới' }))
+    expect(await screen.findByText('SCR-07 Hoàn tất hồ sơ chủ trại')).toBeInTheDocument()
   })
 
   it('shows the empty and error states from ?demo=', async () => {

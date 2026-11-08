@@ -4,7 +4,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { Icon } from '../../../components/Icon'
 import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note } from '../../../components/ui'
 import SetupLayout from '../../farm-workspace/components/SetupLayout'
-import { Stepper } from '../../farm-workspace/components/WorkspaceUi'
+import { InactiveFarmBanner, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace/components/WorkspaceUi'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
@@ -59,6 +59,7 @@ export default function FirstSubscriptionPage() {
   return (
     <OnboardingShell>
       <Stepper current={3} />
+      {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
       <Card title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
         <div className="flex flex-col gap-4">
           <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? 'Đang có kỳ' : 'Chưa có']]} />

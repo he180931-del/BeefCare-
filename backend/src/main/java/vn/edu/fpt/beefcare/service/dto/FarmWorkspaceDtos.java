@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.service.dto;
 
 import jakarta.validation.constraints.*;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
@@ -37,7 +38,12 @@ public final class FarmWorkspaceDtos {
         Set<Long> mainBreedIds,
         @NotNull Integer expectedVersion
     ) {}
-    public record Summary(Long id,String name,String role,String serviceStatus,Integer version) {}
+    /**
+     * SCR-09 farm card (UC-FE02-02 step 2) and the farm context (step 4): commune and province, the caller's role, the
+     * service status, the number of ACTIVE cattle and the latest confirmed service end ({@code null}: no period yet).
+     */
+    public record Summary(Long id,String name,String role,String serviceStatus,Integer version,
+        String province,String commune,long activeCattleCount,Instant serviceUntil) {}
     public record Details(Long id,String name,String province,String commune,String detailedAddress,
         String contactPerson,String contactPhone,String registrationCertificateInfo,String expectedHerdSize,
         String timeZone,LocalTime morningShiftStart,String operatingNotes,String serviceStatus,

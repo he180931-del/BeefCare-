@@ -114,6 +114,10 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
     listFarms: async () => mode === 'backend'
       ? asRows(await transport.get('/api/farms')).map(farmSummary)
       : (await demoStore.listFarms()).map(({ id, name, role, serviceStatus, version, province, commune, detailedAddress, activeCattleCount, serviceUntil, renewalOpensAt, ownerEmail }) => ({ id, name, role, serviceStatus, version, province, commune, detailedAddress, activeCattleCount, serviceUntil, renewalOpensAt, ownerEmail })),
+    // UC-FE02-02 step 4: rechecks membership, role and service status right before the farm becomes current (GBR-09).
+    selectFarm: async (id: number) => mode === 'backend'
+      ? farmSummary(await transport.get(path(id, '/context')))
+      : demoStore.selectFarm(id),
     getFarm: async (id: number) => {
       if (mode !== 'backend') return demoStore.getFarm(id)
       const [details, context] = await Promise.all([transport.get(path(id, '')), transport.get(path(id, '/context'))])

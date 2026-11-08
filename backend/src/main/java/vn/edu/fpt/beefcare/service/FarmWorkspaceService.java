@@ -1,7 +1,9 @@
 package vn.edu.fpt.beefcare.service;
 
 import jakarta.persistence.EntityManager;
+import java.time.Instant;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +11,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.*;
+import vn.edu.fpt.beefcare.domain.enumeration.HerdStatus;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.service.dto.FarmWorkspaceDtos.*;
 
@@ -25,13 +28,38 @@ public class FarmWorkspaceService {
         StarterCatalogueService starters,AuditService audit,OutboxService outbox) {
         this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;
     }
+    /**
+     * UC-FE02-02 step 2: every farm where the caller has an ACTIVE membership, whatever its service status. A Manager or
+     * Technician gets a farm that is not ACTIVE as a locked card (AF3); entering it is refused by {@link #context}.
+     */
     @Transactional(readOnly=true)
     public List<Summary> list() {
         AppUser user=access.currentActiveUser();
-        return em.createQuery("select m from FarmMembership m join fetch m.farm where m.user.id=:user and upper(m.status)='ACTIVE' order by m.farm.id",FarmMembership.class)
-            .setParameter("user",user.getId()).getResultList().stream()
-            .filter(m -> "OWNER".equalsIgnoreCase(m.getRole()) || "ACTIVE".equalsIgnoreCase(m.getFarm().getServiceStatus()))
-            .map(m -> new Summary(m.getFarm().getId(),m.getFarm().getName(),m.getRole(),m.getFarm().getServiceStatus(),m.getFarm().getVersion())).toList();
+        List<FarmMembership> memberships=em.createQuery("select m from FarmMembership m join fetch m.farm where m.user.id=:user and upper(m.status)='ACTIVE' order by m.farm.id",FarmMembership.class)
+            .setParameter("user",user.getId()).getResultList();
+        if (memberships.isEmpty()) return List.of();
+        List<Long> ids=memberships.stream().map(m -> m.getFarm().getId()).toList();
+        Map<Long,Long> cattle=activeCattle(ids);Map<Long,Instant> until=serviceUntil(ids);
+        return memberships.stream().map(m -> summary(m.getFarm(),m.getRole(),cattle,until)).toList();
+    }
+    private static Summary summary(Farm farm,String role,Map<Long,Long> cattle,Map<Long,Instant> until) {
+        return new Summary(farm.getId(),farm.getName(),role,farm.getServiceStatus(),farm.getVersion(),farm.getProvince(),farm.getCommune(),
+            cattle.getOrDefault(farm.getId(),0L),until.get(farm.getId()));
+    }
+    private Map<Long,Long> activeCattle(List<Long> farmIds) {
+        Map<Long,Long> counts=new HashMap<>();
+        em.createQuery("select c.farm.id, count(c) from Cattle c where c.farm.id in :ids and c.herdStatus=:s group by c.farm.id",Object[].class)
+            .setParameter("ids",farmIds).setParameter("s",HerdStatus.ACTIVE).getResultList()
+            .forEach(row -> counts.put((Long) row[0],(Long) row[1]));
+        return counts;
+    }
+    /** Latest confirmed service end per farm (SCR-09 "Until dd/mm/yyyy"); absent when the farm has no subscription yet. */
+    private Map<Long,Instant> serviceUntil(List<Long> farmIds) {
+        Map<Long,Instant> ends=new HashMap<>();
+        em.createQuery("select s.farm.id, s.latestEnd from Subscription s where s.farm.id in :ids",Object[].class)
+            .setParameter("ids",farmIds).getResultList()
+            .forEach(row -> { if (row[1]!=null) ends.put((Long) row[0],(Instant) row[1]); });
+        return ends;
     }
     /** UC-FE02-01: one farm in PENDING_PAYMENT with its OWNER membership, parameters, starter catalogue and audit (R-02-03). */
     @Transactional
@@ -52,10 +80,12 @@ public class FarmWorkspaceService {
     }
     @Transactional(readOnly=true)
     public Details get(Long farmId) { return details(access.require(farmId,FarmAction.VIEW_FARM_INFORMATION).farm()); }
+    /** UC-FE02-02 step 4: rechecks membership, role and service status before the farm becomes the current farm (GBR-09, GBR-14). */
     @Transactional(readOnly=true)
     public Summary context(Long farmId) {
-        FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATALOGUES);
-        return new Summary(farmId,ctx.farm().getName(),ctx.role().name(),ctx.farm().getServiceStatus(),ctx.farm().getVersion());
+        FarmContext ctx=access.require(farmId,FarmAction.SELECT_FARM);
+        List<Long> ids=List.of(farmId);
+        return summary(ctx.farm(),ctx.role().name(),activeCattle(ids),serviceUntil(ids));
     }
     @Transactional
     public Details update(Long farmId,Update request) {
