@@ -171,13 +171,16 @@ class AuthenticateControllerIT {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"fullName\":\"Farm Owner\",\"phone\":\"0900000000\",\"termsAccepted\":true}"))
+            .content("{\"fullName\":\"Farm Owner\",\"phone\":\"0900 000.000\",\"termsAccepted\":true}"))
             .andExpect(status().isOk())
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.fullName").value("Farm Owner"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.phone").value("0900000000"))
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.passwordHash").doesNotExist());
         AppUser appUser = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(appUser.isOwnerRegistrationCompleted()).isTrue();
         org.assertj.core.api.Assertions.assertThat(appUser.getOwnerRegistrationCompletedAt()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(appUser.isTermsAccepted()).isTrue();
+        org.assertj.core.api.Assertions.assertThat(appUser.getTermsAcceptedAt()).isNotNull();
     }
 
     private User createIdentity(String login) {

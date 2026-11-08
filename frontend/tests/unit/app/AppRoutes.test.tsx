@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom'
 import App from '../../../src/App'
 
 const routeCases = [
+  ['/terms', 'Điều khoản sử dụng'],
+  ['/data-policy', 'Chính sách dữ liệu'],
   ['/owner-registration', 'Hoàn tất hồ sơ chủ trại'],
   ['/chon-trai', 'Chọn trang trại'],
   ['/dang-ky-trai', 'Đăng ký trang trại'],

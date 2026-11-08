@@ -24,6 +24,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
@@ -174,6 +175,7 @@ public class AccountResource {
 
     /** Completes the personal Owner profile; it does not create a farm or grant farm/platform access. */
     @PostMapping("/account/owner-registration")
+    @Transactional
     public OwnerRegistrationResponse completeOwnerRegistration(@RequestBody OwnerRegistrationRequest request) {
         String name = fullName(request.fullName());
         String phone = phone(request.phone());
@@ -181,8 +183,15 @@ public class AccountResource {
         AppUser user = farmAccessService.currentActiveUser();
         user.setFullName(name);
         user.setPhone(phone);
-        user.setOwnerRegistrationCompleted(true);
-        user.setOwnerRegistrationCompletedAt(Instant.now());
+        Instant now = Instant.now();
+        if (!user.isTermsAccepted()) {
+            user.setTermsAccepted(true);
+            user.setTermsAcceptedAt(now);
+        }
+        if (!user.isOwnerRegistrationCompleted()) {
+            user.setOwnerRegistrationCompleted(true);
+            user.setOwnerRegistrationCompletedAt(now);
+        }
         appUserRepository.save(user);
         return new OwnerRegistrationResponse(user.getId(), user.getEmail(), user.getFullName(), user.getPhone(), true);
     }
@@ -222,7 +231,7 @@ public class AccountResource {
     /** SCR-07 / SCR-08: optional Vietnamese phone, 10 digits starting with 0 or +84 followed by 9 digits (MSG-COM-10). */
     private static String phone(String value) {
         if (value == null || value.isBlank()) return null;
-        String phone = value.trim();
+        String phone = value.trim().replaceAll("[\\s.-]", "");
         if (!phone.matches("^(?:0[0-9]{9}|\\+84[0-9]{9})$")) throw DomainException.invalid("phone");
         return phone;
     }

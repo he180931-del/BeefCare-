@@ -47,7 +47,7 @@ export default function OwnerRegistrationPage() {
           <Field label="Họ và tên *" id="owner-full-name"><input id="owner-full-name" autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} className={inputCls} maxLength={100} /><FieldError>{errors.fullName}</FieldError></Field>
           <Field label="Số điện thoại liên hệ" id="owner-phone"><input id="owner-phone" type="tel" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className={inputCls} /><FieldError>{errors.phone}</FieldError></Field>
           <div>
-            <label className="flex items-center gap-2 text-[13px] text-ink"><input type="checkbox" className="size-4 accent-brand" checked={form.termsAccepted} onChange={(event) => setForm({ ...form, termsAccepted: event.target.checked })} />Tôi đồng ý với Điều khoản sử dụng và Chính sách dữ liệu của BeefCare</label>
+            <label className="flex items-center gap-2 text-[13px] text-ink"><input type="checkbox" className="size-4 accent-brand" checked={form.termsAccepted} onChange={(event) => setForm({ ...form, termsAccepted: event.target.checked })} />Tôi đồng ý với <a href="/terms" className="font-bold text-brand underline">Điều khoản sử dụng</a> và <a href="/data-policy" className="font-bold text-brand underline">Chính sách dữ liệu</a> của BeefCare</label>
             <FieldError>{errors.termsAccepted}</FieldError>
           </div>
           <div className="flex justify-end"><Button type="submit" variant="primary" size="lg" disabled={saving || query.loading}>{saving ? 'Đang lưu…' : 'Hoàn tất và đăng ký trang trại'}</Button></div>
