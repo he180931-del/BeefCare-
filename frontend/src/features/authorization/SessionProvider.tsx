@@ -4,7 +4,9 @@ import { userFacingError } from '../../api/userFacingError'
 import { useAuth } from '../authentication/AuthContext'
 import { demoUserFor, readMockUserEmail } from '../authentication/demoUsers'
 import { SELECTED_FARM_CHANGED_EVENT, selectedFarmId } from '../farm-workspace/selectedFarm'
-import { SessionContext, type AppRole, type Session, type SessionUser } from './sessionContext'
+import { markOwnerRegistrationCompleted, SessionContext, type AppRole, type Session, type SessionUser } from './sessionContext'
+
+export const OWNER_REGISTRATION_COMPLETED_EVENT = 'beefcare:owner-registration-completed'
 
 const PLATFORM_ROLES: readonly string[] = ['CS', 'PM', 'SA']
 const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
@@ -47,8 +49,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       (cause: unknown) => { if (active) setError(userFacingError(cause, 'Không tải được hồ sơ người dùng.')) },
     )
     void loadProfile()
+    const markCompleted = () => {
+      setUser((current) => current ? markOwnerRegistrationCompleted(current) : current)
+      void loadProfile()
+    }
     window.addEventListener(SELECTED_FARM_CHANGED_EVENT, loadProfile)
-    return () => { active = false; window.removeEventListener(SELECTED_FARM_CHANGED_EVENT, loadProfile) }
+    window.addEventListener(OWNER_REGISTRATION_COMPLETED_EVENT, markCompleted)
+    return () => {
+      active = false
+      window.removeEventListener(SELECTED_FARM_CHANGED_EVENT, loadProfile)
+      window.removeEventListener(OWNER_REGISTRATION_COMPLETED_EVENT, markCompleted)
+    }
   }, [mode])
 
   const session = useMemo<Session | null>(() => user && { ...user, logout }, [user, logout])

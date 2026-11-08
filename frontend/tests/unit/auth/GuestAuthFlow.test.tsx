@@ -90,6 +90,20 @@ describe('guest authentication pages', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Không thể đăng nhập với Google')
   })
 
+  it('keeps Google sign-in available during the password lockout', async () => {
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+    }
+
+    renderAuth(client, '/sign-in?error=google-sign-in')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể đăng nhập với Google')
+    expect(screen.getByRole('link', { name: 'Tiếp tục với Google' })).toBeEnabled()
+  })
+
   it('opens the suspended-account state for the backend suspension code', async () => {
     const user = userEvent.setup()
     const client: AuthClient = {

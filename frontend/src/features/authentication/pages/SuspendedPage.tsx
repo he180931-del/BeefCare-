@@ -6,7 +6,8 @@ import { CONTACT } from '../data/landingContent'
 
 /** MSG-FE01-03: tài khoản bị tạm ngưng, kèm thông tin liên hệ chính thức (GBR-87). */
 export function SuspendedPage({ onBackToSignIn }: { onBackToSignIn?: () => void }) {
-  const email = emailFromState(useLocation().state)
+  const location = useLocation()
+  const email = emailFromState(location.state) || new URLSearchParams(location.search).get('email')?.trim().toLowerCase() || ''
   return (
     <AuthShell title="Tài khoản đang tạm ngưng" description="Bạn chưa thể truy cập trại bằng tài khoản này." eyebrow="Trạng thái tài khoản" footer={<ActionLink to={AUTH_PATH.signIn} onClick={onBackToSignIn}>Quay lại đăng nhập</ActionLink>}>
       <div className="space-y-5">

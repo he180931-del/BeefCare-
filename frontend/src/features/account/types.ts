@@ -10,6 +10,8 @@ export interface AccountProfile {
   passwordSignInEnabled: boolean
   googleSignInLinked: boolean
   ownerRegistrationCompleted: boolean
+  /** True when the user already accepted the terms during email/Google registration. */
+  termsAccepted?: boolean
   status: string
   signInMethods: string[]
   hasPassword: boolean

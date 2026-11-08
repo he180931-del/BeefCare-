@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Field, Foot, inputCls, Note } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { OWNER_REGISTRATION_COMPLETED_EVENT, useSession } from '../../authorization'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import SetupLayout from '../components/SetupLayout'
 import { farmWorkspaceError, FieldError, Stepper } from '../components/WorkspaceUi'
@@ -19,7 +19,12 @@ export default function OwnerRegistrationPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   useEffect(() => {
-    if (query.data) setForm({ fullName: session?.fullName ?? query.data.fullName, phone: query.data.phone, termsAccepted: query.data.ownerRegistrationCompleted })
+    if (query.data) setForm({
+      fullName: session?.fullName ?? query.data.fullName,
+      phone: query.data.phone,
+      // SCR-07 hides the checkbox when terms were already accepted in SCR-03.
+      termsAccepted: query.data.termsAccepted === true || query.data.ownerRegistrationCompleted,
+    })
   }, [query.data, session?.fullName])
   const profile = query.data
   const email = session?.email ?? profile?.email
@@ -29,7 +34,11 @@ export default function OwnerRegistrationPage() {
     setErrors(next)
     if (Object.keys(next).length) return
     setSaving(true); setError(null)
-    try { await farmWorkspaceApi.completeOwnerRegistration(form); navigate('/dang-ky-trai', { replace: true }) }
+    try {
+      await farmWorkspaceApi.completeOwnerRegistration(form)
+      window.dispatchEvent(new Event(OWNER_REGISTRATION_COMPLETED_EVENT))
+      navigate('/dang-ky-trai', { replace: true })
+    }
     catch (reason) { setError(farmWorkspaceError(reason, 'Không thể lưu hồ sơ lúc này.')) }
     finally { setSaving(false) }
   }
@@ -46,10 +55,10 @@ export default function OwnerRegistrationPage() {
           <Field label="Thư điện tử đăng nhập" id="owner-email"><input id="owner-email" readOnly value={email ? `${email} · ${profile?.emailVerified === false ? 'chưa xác minh' : `đã xác minh${profile?.googleSignInLinked ? ' qua Google' : ''}`}` : 'Đang tải…'} className={inputCls} /></Field>
           <Field label="Họ và tên *" id="owner-full-name"><input id="owner-full-name" autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} className={inputCls} maxLength={100} /><FieldError>{errors.fullName}</FieldError></Field>
           <Field label="Số điện thoại liên hệ" id="owner-phone"><input id="owner-phone" type="tel" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className={inputCls} /><FieldError>{errors.phone}</FieldError></Field>
-          <div>
+          {!query.data?.termsAccepted && !query.data?.ownerRegistrationCompleted && <div>
             <label className="flex items-center gap-2 text-[13px] text-ink"><input type="checkbox" className="size-4 accent-brand" checked={form.termsAccepted} onChange={(event) => setForm({ ...form, termsAccepted: event.target.checked })} />Tôi đồng ý với <a href="/terms" className="font-bold text-brand underline">Điều khoản sử dụng</a> và <a href="/data-policy" className="font-bold text-brand underline">Chính sách dữ liệu</a> của BeefCare</label>
             <FieldError>{errors.termsAccepted}</FieldError>
-          </div>
+          </div>}
           <div className="flex justify-end"><Button type="submit" variant="primary" size="lg" disabled={saving || query.loading}>{saving ? 'Đang lưu…' : 'Hoàn tất và đăng ký trang trại'}</Button></div>
         </form>
       </Card>

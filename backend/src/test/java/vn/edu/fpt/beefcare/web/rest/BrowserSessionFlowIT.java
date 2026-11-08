@@ -123,6 +123,8 @@ class BrowserSessionFlowIT {
             .andExpect(status().isSeeOther()).andExpect(header().string("Location", org.hamcrest.Matchers.endsWith("/owner-registration"))).andReturn();
         assertThat(activated.getResponse().getHeader("Location")).startsWith("http://127.0.0.1:8080");
         phone.get("/api/account/profile").andExpect(status().isOk()).andExpect(jsonPath("$.emailVerified").value(true));
+        // SCR-07 must know that the email registration already accepted the terms so it can hide the duplicate checkbox.
+        phone.get("/api/account/profile").andExpect(jsonPath("$.termsAccepted").value(true));
         assertThat(accounts.findOneByEmailIgnoreCase(email)).get().satisfies(account ->
             assertThat(account.getPasswordMethodStatus()).isEqualTo("ACTIVE")
         );
@@ -158,24 +160,24 @@ class BrowserSessionFlowIT {
             .andExpect(jsonPath("$.signInMethods[0]").value("PASSWORD"))
             .andExpect(jsonPath("$.platformRole").doesNotExist()).andExpect(jsonPath("$.farms").isEmpty())
             .andExpect(jsonPath("$.password").doesNotExist()).andExpect(jsonPath("$.passwordHash").doesNotExist());
-        desktop.postWithoutCsrf("/api/account/profile", Map.of("fullName", "Changed Without Csrf", "phone", "")).andExpect(status().isForbidden());
+        desktop.postWithoutCsrf("/api/account/profile", Map.of("fullName", "Changed Without Csrf", "contactPhone", "")).andExpect(status().isForbidden());
         assertThat(accounts.findOneByEmailIgnoreCase(email).orElseThrow().getFullName()).isEqualTo("Flow Owner");
         // SCR-08: name 2-100 characters, Vietnamese phone only (MSG-COM-10)
-        desktop.post("/api/account/profile", Map.of("fullName", "A", "phone", "0901234567"))
+        desktop.post("/api/account/profile", Map.of("fullName", "A", "contactPhone", "0901234567"))
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("fullName"));
-        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner", "phone", "12345"))
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("phone"));
-        desktop.post("/api/account/profile", Map.of("fullName", "  Flow Owner Updated ", "phone", "+84901234567")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.fullName").value("Flow Owner Updated")).andExpect(jsonPath("$.phone").value("+84901234567"));
+        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner", "contactPhone", "12345"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("contactPhone"));
+        desktop.post("/api/account/profile", Map.of("fullName", "  Flow Owner Updated ", "contactPhone", "+84901234567")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.fullName").value("Flow Owner Updated")).andExpect(jsonPath("$.contactPhone").value("+84901234567"));
         desktop.get("/api/account/profile").andExpect(jsonPath("$.fullName").value("Flow Owner Updated"));
         // the e-mail is the sign-in identity and cannot be edited through the profile
-        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner Updated", "phone", "+84901234567", "email", "other@example.test")).andExpect(status().isOk());
+        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner Updated", "contactPhone", "+84901234567", "email", "other@example.test")).andExpect(status().isOk());
         assertThat(accounts.findOneByEmailIgnoreCase(email)).isPresent();
 
-        // UC-FE01-01 step 7: Owner registration needs the terms (MSG-FE01-14)
-        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "phone", "0901234567", "termsAccepted", false))
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-14"));
-        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "phone", "0901234567", "termsAccepted", true))
+        // UC-FE01-01 step 7: email registration already recorded consent, so SCR-07 may omit the duplicate checkbox.
+        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "contactPhone", "0901234567", "termsAccepted", false))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.completed").value(true));
+        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "contactPhone", "0901234567", "termsAccepted", true))
             .andExpect(status().isOk()).andExpect(jsonPath("$.completed").value(true));
         desktop.get("/api/account/profile").andExpect(jsonPath("$.ownerRegistrationCompleted").value(true));
 
@@ -214,6 +216,21 @@ class BrowserSessionFlowIT {
         }
         assertThat(users.findOneByEmailIgnoreCase(email)).isEmpty();
         assertThat(accounts.findOneByEmailIgnoreCase(email)).isEmpty();
+    }
+
+    @Test
+    void verificationAndPasswordRecoveryRejectMalformedEmailAtTheApiBoundary() throws Exception {
+        Browser guest = new Browser();
+        guest.fetchCsrf();
+
+        guest.post("/api/account/verification/resend", Map.of("email", "not-an-email"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-COM-10"))
+            .andExpect(jsonPath("$.params.field").value("email"));
+        guest.post("/api/account/reset-password/init", Map.of("email", "not-an-email"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-COM-10"))
+            .andExpect(jsonPath("$.params.field").value("email"));
     }
 
     @Test
@@ -415,6 +432,10 @@ class BrowserSessionFlowIT {
         // GBR-03: the answer is the same for a registered and an unknown address (status and body), and the unknown one gets no mail
         String unknown = email("ghost");
         MvcResult known = guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk()).andReturn();
+        // The API keeps the privacy-preserving success response, but must enforce the same 60-second resend cooldown as SCR-05.
+        guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk());
+        assertThat(links.countByUserIdAndTokenTypeAndCreatedAtAfter(
+            users.findOneByEmailIgnoreCase(email).orElseThrow().getId(), "PASSWORD_RESET", Instant.EPOCH)).isEqualTo(1);
         MvcResult ghost = guest.post("/api/account/reset-password/init", Map.of("email", unknown)).andExpect(status().isOk()).andReturn();
         assertThat(ghost.getResponse().getContentAsString()).isEqualTo(known.getResponse().getContentAsString());
         assertThat(ghost.getResponse().getHeaderNames()).containsExactlyInAnyOrderElementsOf(known.getResponse().getHeaderNames());
@@ -428,7 +449,9 @@ class BrowserSessionFlowIT {
         guest.get("/api/account/reset-password/validate?token=" + first).andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(true)).andExpect(jsonPath("$.email").value(email));
         guest.get("/api/account/reset-password/validate?token=garbage").andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(false));
 
-        // a new request replaces the earlier link (the address is matched case-insensitively)
+        // After the server cooldown, a new request replaces the earlier link (the address is matched case-insensitively).
+        stored.setCreatedAt(Instant.now().minusSeconds(61));
+        links.saveAndFlush(stored);
         guest.post("/api/account/reset-password/init", Map.of("email", email.toUpperCase())).andExpect(status().isOk());
         String second = linkToken(email, "/resetpassword?token=");
         assertThat(second).isNotEqualTo(first);
@@ -455,6 +478,10 @@ class BrowserSessionFlowIT {
 
         int mailsBeforeFinish = inbox.findMessagesFor(email).size();
         guest.post("/api/account/reset-password/finish", reset(second, "ResetPassword-88", "ResetPassword-88")).andExpect(status().isOk());
+        assertThat(accounts.findOneByEmailIgnoreCase(email).orElseThrow()).satisfies(account -> {
+            assertThat(account.getPasswordMethodStatus()).isEqualTo("ACTIVE");
+            assertThat(account.getPasswordLinkedAt()).isNotNull();
+        });
         // single use
         guest.get("/api/account/reset-password/validate?token=" + second).andExpect(jsonPath("$.valid").value(false));
         guest.post("/api/account/reset-password/finish", reset(second, "Another-Pass-99", "Another-Pass-99"))
@@ -499,6 +526,12 @@ class BrowserSessionFlowIT {
         guest.fetchCsrf();
         int before = resetMails(email);
         for (int request = 1; request <= 7; request++) {
+            if (request > 1) {
+                var latest = links.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(
+                    users.findOneByEmailIgnoreCase(email).orElseThrow().getId(), "PASSWORD_RESET").orElseThrow();
+                latest.setCreatedAt(Instant.now().minusSeconds(61));
+                links.saveAndFlush(latest);
+            }
             guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk()); // always the same answer
             deliverAll();
             assertThat(resetMails(email) - before).isEqualTo(Math.min(request, 5));
@@ -724,7 +757,7 @@ class BrowserSessionFlowIT {
 
     /** Completes the Owner profile, registers a farm over HTTP and activates its service (payment is out of scope here). */
     private long activeFarm(Browser owner) throws Exception {
-        owner.post("/api/account/owner-registration", Map.of("fullName", "Flow Farm Owner", "phone", "0901234567", "termsAccepted", true)).andExpect(status().isOk());
+        owner.post("/api/account/owner-registration", Map.of("fullName", "Flow Farm Owner", "contactPhone", "0901234567", "termsAccepted", true)).andExpect(status().isOk());
         MvcResult result = owner.post("/api/farms",
             Map.of("name", "Flow Farm", "province", "Dong Nai", "commune", "Xuan Loc", "expectedHerdSize", "UNDER_50"), UUID.randomUUID().toString())
             .andExpect(status().isCreated()).andExpect(jsonPath("$.serviceStatus").value("PENDING_PAYMENT")).andReturn();

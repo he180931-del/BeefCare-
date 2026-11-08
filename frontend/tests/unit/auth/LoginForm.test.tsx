@@ -208,6 +208,7 @@ describe('TC-AUTH-U05: Account lockout (423)', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument()
     })
+    expect(screen.getByRole('link', { name: 'Tiếp tục với Google' })).toBeEnabled()
   })
 })
 

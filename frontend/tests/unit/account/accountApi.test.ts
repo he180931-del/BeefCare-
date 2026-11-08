@@ -87,7 +87,7 @@ describe('account API (backend mode)', () => {
     await api.changePassword(manager, { currentPassword: 'a', newPassword: 'NewPassw0rd', confirmPassword: 'NewPassw0rd' })
     expect(http.get).toHaveBeenCalledWith('/api/account/profile')
     expect(http.get).toHaveBeenCalledWith('/api/farms/1/my-permissions')
-    expect(http.command).toHaveBeenCalledWith('/api/account/profile', { fullName: 'An B', phone: '' }, { method: 'POST' })
+    expect(http.command).toHaveBeenCalledWith('/api/account/profile', { fullName: 'An B', contactPhone: '' }, { method: 'POST' })
     expect(http.command).toHaveBeenCalledWith('/api/account/google-reauthentication', { returnTo: '/ho-so' }, { method: 'POST' })
     expect(http.command).toHaveBeenCalledWith('/api/account/change-password', expect.objectContaining({ newPassword: 'NewPassw0rd' }), { method: 'POST' })
     expect(spy).not.toHaveBeenCalled()

@@ -165,7 +165,7 @@ class AuthenticateControllerIT {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"fullName\":\"Farm Owner\",\"phone\":\"0900000000\",\"termsAccepted\":false}"))
+            .content("{\"fullName\":\"Farm Owner\",\"contactPhone\":\"0900000000\",\"termsAccepted\":false}"))
             .andExpect(status().isBadRequest());
 
         mockMvc.perform(post("/api/account/owner-registration")
@@ -173,10 +173,10 @@ class AuthenticateControllerIT {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"fullName\":\"Farm Owner\",\"phone\":\"0900 000.000\",\"termsAccepted\":true}"))
+            .content("{\"fullName\":\"Farm Owner\",\"contactPhone\":\"0900 000.000\",\"termsAccepted\":true}"))
             .andExpect(status().isOk())
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.fullName").value("Farm Owner"))
-            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.phone").value("0900000000"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.contactPhone").value("0900000000"))
             .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.passwordHash").doesNotExist());
         AppUser appUser = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(appUser.isOwnerRegistrationCompleted()).isTrue();

@@ -337,10 +337,11 @@ public class SupportTicketCommandService {
         }
         List<SupportDtos.InternalView> requests = assignee && detail ? em.createQuery("select r from InternalRequest r where r.ticket.id=:t order by r.createdAt,r.id", InternalRequest.class)
             .setParameter("t", t.getId()).getResultList().stream().map(this::internalView).toList() : List.of();
-        AppUser csUser = available(t.getAssignedCs(), PlatformRole.CS) ? t.getAssignedCs() : null;
+        boolean assignedAvailable = available(t.getAssignedCs(), PlatformRole.CS);
+        AppUser csUser = t.getAssignedCs();
         return new SupportDtos.Ticket(t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getPriority(), t.getStatus(),
             t.getFarm() == null ? null : t.getFarm().getId(), t.getFarm() == null ? null : t.getFarm().getName(),
-            t.getRequester().getId(), t.getRequester().getFullName(), csUser == null ? null : csUser.getId(), csUser == null ? null : csUser.getFullName(),
+            t.getRequester().getId(), t.getRequester().getFullName(), csUser == null ? null : csUser.getId(), csUser == null ? null : csUser.getFullName(), assignedAvailable,
             t.getCreatedAt(), t.getUpdatedAt(), t.getVersion(), messages, resolutions, history, requests);
     }
     SupportDtos.InternalView internalView(InternalRequest r) {

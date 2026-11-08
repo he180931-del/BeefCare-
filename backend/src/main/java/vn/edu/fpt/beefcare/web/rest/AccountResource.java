@@ -182,9 +182,12 @@ public class AccountResource {
     @Transactional
     public OwnerRegistrationResponse completeOwnerRegistration(@RequestBody OwnerRegistrationRequest request) {
         String name = fullName(request.fullName());
-        String phone = phone(request.phone());
-        if (!request.termsAccepted()) throw DomainException.badRequest(MessageCodes.FE01_14, "field", "termsAccepted");
+        String phone = phone(request.contactPhone(), "contactPhone");
         AppUser user = farmAccessService.currentActiveUser();
+        // SCR-07 only asks for consent when it was not already recorded during SCR-03.
+        if (!request.termsAccepted() && !user.isTermsAccepted()) {
+            throw DomainException.badRequest(MessageCodes.FE01_14, "field", "termsAccepted");
+        }
         user.setFullName(name);
         user.setPhone(phone);
         Instant now = Instant.now();
@@ -200,9 +203,9 @@ public class AccountResource {
         return new OwnerRegistrationResponse(user.getId(), user.getEmail(), user.getFullName(), user.getPhone(), true);
     }
 
-    public record OwnerRegistrationRequest(String fullName, String phone, boolean termsAccepted) {}
+    public record OwnerRegistrationRequest(String fullName, String contactPhone, boolean termsAccepted) {}
 
-    public record OwnerRegistrationResponse(Long id, String email, String fullName, String phone, boolean completed) {}
+    public record OwnerRegistrationResponse(Long id, String email, String fullName, String contactPhone, boolean completed) {}
 
     @GetMapping("/account/profile")
     public ProfileResponse getProfile() {
@@ -210,9 +213,9 @@ public class AccountResource {
     }
 
     @PostMapping("/account/profile")
-    public ProfileResponse updateProfile(@RequestBody ProfileUpdate request) {
+    public ProfileResponse updateProfile(@RequestBody AccountProfileUpdate request) {
         String name = fullName(request.fullName());
-        String phone = phone(request.phone());
+        String phone = phone(request.contactPhone(), "contactPhone");
         AppUser account = farmAccessService.currentActiveUser();
         account.setFullName(name);
         account.setPhone(phone);
@@ -283,10 +286,10 @@ public class AccountResource {
     }
 
     /** SCR-07 / SCR-08: optional Vietnamese phone, 10 digits starting with 0 or +84 followed by 9 digits (MSG-COM-10). */
-    private static String phone(String value) {
+    private static String phone(String value, String field) {
         if (value == null || value.isBlank()) return null;
         String phone = value.trim().replaceAll("[\\s.-]", "");
-        if (!phone.matches("^(?:0[0-9]{9}|\\+84[0-9]{9})$")) throw DomainException.invalid("phone");
+        if (!phone.matches("^(?:0[0-9]{9}|\\+84[0-9]{9})$")) throw DomainException.invalid(field);
         return phone;
     }
 
@@ -298,7 +301,7 @@ public class AccountResource {
         if (account.isPasswordLoginEnabled()) methods.add("PASSWORD");
         if (account.getGoogleSubject() != null) methods.add("GOOGLE");
         return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
-            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), account.getAccountStatus(),
+            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), account.isTermsAccepted(), account.getAccountStatus(),
             methods, account.isPasswordLoginEnabled(), platformRole, farms);
     }
 
@@ -314,11 +317,11 @@ public class AccountResource {
         return java.util.Arrays.stream(FarmAction.values()).filter(action -> action.allows(farmRole)).map(Enum::name).toList();
     }
 
-    public record ProfileUpdate(String fullName, String phone) {}
+    public record AccountProfileUpdate(String fullName, String contactPhone) {}
 
     /** SCR-08 header: the platform role (staff), and the role and its fixed GBR-06 permissions in each available farm. */
-    public record ProfileResponse(Long id, String email, String fullName, String phone, boolean emailVerified,
-        boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted,
+    public record ProfileResponse(Long id, String email, String fullName, String contactPhone, boolean emailVerified,
+        boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted, boolean termsAccepted,
         String status, List<String> signInMethods, boolean hasPassword, String platformRole, List<FarmRoleSummary> farms) {}
 
     public record FarmRoleSummary(Long farmId, String farmName, String role, String serviceStatus, List<String> permissions) {}

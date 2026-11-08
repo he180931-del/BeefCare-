@@ -82,6 +82,22 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-edge text-xs font-semibold text-white">{initialsOf(name)}</span>
 }
 
+const fieldLabels: Record<string, string> = {
+  name: 'Tên trại', province: 'Tỉnh/thành', commune: 'Xã/phường', detailedAddress: 'Địa chỉ chi tiết',
+  contactPerson: 'Người liên hệ', contactPhone: 'Điện thoại liên hệ', registrationCertificateInfo: 'Thông tin giấy chứng nhận',
+  expectedHerdSize: 'Quy mô đàn dự kiến', timeZone: 'Múi giờ', morningShiftStart: 'Giờ bắt đầu ca sáng', operatingNotes: 'Ghi chú vận hành',
+}
+
+function validationFieldMessage(field: string | undefined, message: string | undefined) {
+  const label = fieldLabels[field ?? ''] ?? 'Trường dữ liệu'
+  const value = (message ?? '').toLowerCase()
+  if (field === 'contactPhone' && (value.includes('must match') || value.includes('pattern') || value.includes('phone'))) return `${label}: Nhập số điện thoại Việt Nam hợp lệ.`
+  if (value.includes('must not be blank') || value.includes('must not be null') || value === 'required') return `${label}: Đây là trường bắt buộc.`
+  if (value.includes('must match') || value.includes('invalid') || value.includes('validation') || /\b(must|should|required|valid|well-formed|between|positive|null|blank)\b/.test(value)) return `${label}: Dữ liệu không hợp lệ.`
+  if (value.includes('size must be') || value.includes('length')) return `${label}: Độ dài dữ liệu không hợp lệ.`
+  return `${label}: ${message ?? 'Dữ liệu không hợp lệ.'}`
+}
+
 export function farmWorkspaceError(error: unknown, fallback: string) {
   if (error instanceof BackendError) {
     const code = error.code?.toUpperCase()
@@ -101,7 +117,7 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
     }
     if (code && known[code]) return known[code]
     const fieldErrors = [...error.fieldErrors, ...error.violations.map((item) => ({ field: item.field ?? item.propertyPath, message: item.message }))]
-    if (fieldErrors.length) return fieldErrors.map((item) => `${item.field ?? 'Trường dữ liệu'}: ${item.message ?? 'không hợp lệ'}`).join('; ')
+    if (fieldErrors.length) return fieldErrors.map((item) => validationFieldMessage(item.field, item.message)).join('; ')
     if (error.status === 401) return 'Phiên đăng nhập hết hạn. Đăng nhập lại rồi thử lại.'
     if (error.status === 403) return 'Tài khoản không có quyền thực hiện thao tác này hoặc dịch vụ trang trại chưa hoạt động.'
     if (error.status === 404) return 'Không tìm thấy dữ liệu. Tải lại danh sách rồi thử lại.'

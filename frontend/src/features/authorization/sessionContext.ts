@@ -23,6 +23,9 @@ export const SessionContext = createContext<Session | null>(null)
 /** Null khi trang được render ngoài `SessionProvider` (vd. test từng trang): khi đó không áp quyền theo vai trò. */
 export const useSession = () => useContext(SessionContext)
 
+/** Optimistic session update after the server accepts the Owner profile form. */
+export const markOwnerRegistrationCompleted = <T extends SessionUser>(session: T): T => ({ ...session, ownerRegistrationCompleted: true })
+
 const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 export const isFarmRole = (role: AppRole): role is FarmRole => FARM_ROLES.includes(role)
 

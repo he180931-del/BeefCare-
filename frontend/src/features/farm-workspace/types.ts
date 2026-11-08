@@ -21,6 +21,8 @@ export interface FarmWorkspaceProfile {
   passwordSignInEnabled: boolean
   googleSignInLinked: boolean
   ownerRegistrationCompleted: boolean
+  /** True when terms were accepted during the account flow, before Owner completion. */
+  termsAccepted?: boolean
   platformRole: string | null
   farms: FarmRoleSummary[]
 }

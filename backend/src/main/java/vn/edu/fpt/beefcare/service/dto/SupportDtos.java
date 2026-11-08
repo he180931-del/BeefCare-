@@ -24,7 +24,7 @@ public final class SupportDtos {
     public record InternalView(Long id,String code,Long ticketId,String ticketCode,Long farmId,String farmName,String targetRole,Long recipientId,String recipient,
         String from,Instant createdAt,String question,List<ContextReference> context,String status,String outcome,String result,Long domainResultAuditId,Instant completedAt,Integer version) {}
     public record Ticket(Long id,String code,String subject,String category,String priority,String status,Long farmId,String farmName,
-        Long requesterId,String requester,Long assignedCsId,String assignedCs,Instant createdAt,Instant updatedAt,Integer version,
+        Long requesterId,String requester,Long assignedCsId,String assignedCs,boolean assignedCsAvailable,Instant createdAt,Instant updatedAt,Integer version,
         List<Message> messages,List<ResolutionView> resolutions,List<Map<String,Object>> history,List<InternalView> internalRequests) {}
     public record Page(List<Ticket> items,long total,int page,int size,Map<String,Long> counts) {}
 }

@@ -38,13 +38,18 @@ public class GoogleIdentityService {
     public Result provisionOrLink(OidcUser google) {
         String subject = google.getSubject();
         String email = normalizeEmail(google.getClaimAsString("email"));
-        if (subject == null || subject.isBlank() || !Boolean.TRUE.equals(google.getClaim("email_verified"))) throw denied();
+        if (subject == null || subject.isBlank() || !Boolean.TRUE.equals(google.getClaim("email_verified"))) throw denied("missing-subject-or-unverified-email");
 
         Optional<AppUser> bySubject = appUsers.findOneByGoogleSubject(subject);
-        if (bySubject.isPresent() && !email.equals(bySubject.orElseThrow().getEmail())) throw denied();
+        if (bySubject.isPresent() && !email.equals(bySubject.orElseThrow().getEmail())) throw denied("subject-email-mismatch");
         AppUser account = bySubject.or(() -> appUsers.findOneByEmailIgnoreCase(email)).orElse(null);
-        if (account != null && !"ACTIVE".equalsIgnoreCase(account.getAccountStatus())) throw denied();
-        if (account != null && account.getGoogleSubject() != null && !account.getGoogleSubject().equals(subject)) throw denied();
+        if (account != null && "SUSPENDED".equalsIgnoreCase(account.getAccountStatus())) {
+            throw DomainException.forbidden(MessageCodes.FE01_03, "email", account.getEmail());
+        }
+        if (account != null && !"ACTIVE".equalsIgnoreCase(account.getAccountStatus())) throw denied("inactive-account");
+        if (account != null && account.getGoogleSubject() != null && !account.getGoogleSubject().equals(subject)) throw denied("conflicting-google-subject");
+
+        User identity = identities.findOneByEmailIgnoreCase(email).orElse(null);
 
         String displayName = safeDisplayName(google, email);
         if (account == null) {
@@ -61,7 +66,6 @@ public class GoogleIdentityService {
         if (account.getFullName() == null || account.getFullName().isBlank()) account.setFullName(displayName);
         appUsers.saveAndFlush(account);
 
-        User identity = identities.findOneByEmailIgnoreCase(email).orElse(null);
         if (identity == null) {
             identity = new User();
             identity.setLogin(email.length() <= 50 ? email : "google-" + UUID.randomUUID().toString().replace("-", ""));
@@ -84,9 +88,9 @@ public class GoogleIdentityService {
     }
 
     private String normalizeEmail(String raw) {
-        if (raw == null || raw.isBlank()) throw denied();
+        if (raw == null || raw.isBlank()) throw denied("missing-email");
         String email = raw.trim().toLowerCase(Locale.ROOT);
-        if (email.length() > 254 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) throw denied();
+        if (email.length() > 254 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) throw denied("invalid-email");
         return email;
     }
 
@@ -107,8 +111,8 @@ public class GoogleIdentityService {
         return parts.length > 1 ? parts[1].substring(0, Math.min(50, parts[1].length())) : null;
     }
 
-    private static OAuth2AuthenticationException denied() {
-        return new OAuth2AuthenticationException(new OAuth2Error("access_denied"));
+    private static OAuth2AuthenticationException denied(String reason) {
+        return new OAuth2AuthenticationException(new OAuth2Error("access_denied", null, reason));
     }
 
     public record Result(User user, boolean ownerRegistrationCompleted) {}

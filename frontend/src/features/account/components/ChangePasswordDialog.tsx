@@ -11,6 +11,35 @@ import type { AccountIdentity, AccountProfile, PasswordErrors } from '../types'
 
 const errorText = (message?: string) => message ? <span className="text-xs text-err-fg">{message}</span> : null
 
+type PasswordFieldKey = 'current' | 'new' | 'confirm'
+
+function PasswordInput({ id, label, autoComplete, value, onChange, visible, onToggle }: {
+  id: string; label: string; autoComplete: string; value: string; onChange: (value: string) => void; visible: boolean; onToggle: () => void
+}) {
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        type={visible ? 'text' : 'password'}
+        autoComplete={autoComplete}
+        maxLength={128}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`${inputCls} pr-11`}
+      />
+      <button
+        type="button"
+        className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded text-subtle hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+        aria-label={`${visible ? 'Ẩn' : 'Hiện'} ${label.toLowerCase()}`}
+        aria-pressed={visible}
+        onClick={onToggle}
+      >
+        <Icon name="eye" size={18} />
+      </button>
+    </div>
+  )
+}
+
 /** UC-FE01-06. Tài khoản có Google: xác thực lại trong 5 phút thì không cần mật khẩu hiện tại (D07); chưa có mật khẩu thì phải xác thực lại. */
 export function ChangePasswordDialog({ identity, profile, onClose, onChanged, googleReauthenticated = false, returnTo }: {
   identity: AccountIdentity; profile: AccountProfile; onClose: () => void; onChanged: (message: string) => void; googleReauthenticated?: boolean; returnTo: string
@@ -19,11 +48,13 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
   const [errors, setErrors] = useState<PasswordErrors>({})
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [visible, setVisible] = useState<Record<PasswordFieldKey, boolean>>({ current: false, new: false, confirm: false })
   const [reauthed, setReauthed] = useState(googleReauthenticated)
   const hasPassword = profile.passwordSignInEnabled
   const needsReauth = !hasPassword && !reauthed
   const requireCurrent = hasPassword && !reauthed
   const set = (key: keyof typeof values, value: string) => setValues((current) => ({ ...current, [key]: value }))
+  const toggleVisibility = (key: PasswordFieldKey) => setVisible((current) => ({ ...current, [key]: !current[key] }))
 
   const reauthenticate = async () => {
     setError(null)
@@ -57,17 +88,17 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
         {needsReauth && <Note tone="info">Tài khoản này chưa có mật khẩu. Xác thực lại với Google để thêm mật khẩu.</Note>}
         {requireCurrent && (
           <Field label="Mật khẩu hiện tại *" id="cp-current">
-            <input id="cp-current" type="password" autoComplete="current-password" maxLength={128} value={values.currentPassword} onChange={(event) => set('currentPassword', event.target.value)} className={inputCls} />
+            <PasswordInput id="cp-current" label="mật khẩu hiện tại" autoComplete="current-password" value={values.currentPassword} onChange={(value) => set('currentPassword', value)} visible={visible.current} onToggle={() => toggleVisibility('current')} />
             {errorText(errors.currentPassword)}
           </Field>
         )}
         {!needsReauth && (<>
           <Field label="Mật khẩu mới *" id="cp-new">
-            <input id="cp-new" type="password" autoComplete="new-password" maxLength={128} value={values.newPassword} onChange={(event) => set('newPassword', event.target.value)} className={inputCls} />
+            <PasswordInput id="cp-new" label="mật khẩu mới" autoComplete="new-password" value={values.newPassword} onChange={(value) => set('newPassword', value)} visible={visible.new} onToggle={() => toggleVisibility('new')} />
             {errorText(errors.newPassword)}
           </Field>
           <Field label="Nhập lại mật khẩu mới *" id="cp-confirm">
-            <input id="cp-confirm" type="password" autoComplete="new-password" maxLength={128} value={values.confirmPassword} onChange={(event) => set('confirmPassword', event.target.value)} className={inputCls} />
+            <PasswordInput id="cp-confirm" label="mật khẩu xác nhận" autoComplete="new-password" value={values.confirmPassword} onChange={(value) => set('confirmPassword', value)} visible={visible.confirm} onToggle={() => toggleVisibility('confirm')} />
             {errorText(errors.confirmPassword)}
           </Field>
         </>)}

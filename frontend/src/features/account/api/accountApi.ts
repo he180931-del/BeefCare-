@@ -7,9 +7,10 @@ import type { AccountIdentity, AccountProfile, FarmPermissions, PasswordChangeIn
 function profile(value: unknown): AccountProfile {
   const row = asRecord(value)
   return {
-    id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.phone),
+    id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.contactPhone ?? row.phone),
     emailVerified: row.emailVerified === true, passwordSignInEnabled: row.passwordSignInEnabled === true,
     googleSignInLinked: row.googleSignInLinked === true, ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
+    termsAccepted: row.termsAccepted === true,
     status: textValue(row.status, 'ACTIVE'),
     signInMethods: Array.isArray(row.signInMethods) ? row.signInMethods.filter((item): item is string => typeof item === 'string') : [],
     hasPassword: row.hasPassword === true || row.passwordSignInEnabled === true,
@@ -50,9 +51,9 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
     async getProfile(identity: AccountIdentity): Promise<AccountProfile> {
       return backend ? profile(await transport.get('/api/account/profile')) : store.getProfile(identity)
     },
-    // POST /api/account/profile (OpenAPI ProfileUpdate hiện mô tả sai trường: gửi fullName và phone theo SRS SCR-08)
+    // POST /api/account/profile (FE01 A9: contactPhone là tên trường hợp đồng)
     async updateProfile(identity: AccountIdentity, input: ProfileUpdateInput): Promise<AccountProfile> {
-      return backend ? profile(await transport.command('/api/account/profile', { fullName: input.fullName.trim(), phone: input.phone.trim() }, { method: 'POST' })) : store.updateProfile(identity, input)
+      return backend ? profile(await transport.command('/api/account/profile', { fullName: input.fullName.trim(), contactPhone: input.phone.trim() }, { method: 'POST' })) : store.updateProfile(identity, input)
     },
     async getFarmPermissions(identity: AccountIdentity, farmId: number): Promise<FarmPermissions> {
       if (backend) return permissions(await transport.get(`/api/farms/${farmId}/my-permissions`))

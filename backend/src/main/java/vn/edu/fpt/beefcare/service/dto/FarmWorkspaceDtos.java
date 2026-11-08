@@ -13,7 +13,7 @@ public final class FarmWorkspaceDtos {
         @NotBlank @Size(max=150) String commune,
         @Size(max=255) String detailedAddress,
         @Size(max=100) String contactPerson,
-        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$") String contactPhone,
+        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$", message="Nhập số điện thoại Việt Nam hợp lệ.") String contactPhone,
         @Size(max=255) String registrationCertificateInfo,
         @Pattern(regexp="UNDER_50|50_149|150_300|OVER_300") String expectedHerdSize,
         Set<@NotBlank String> mainBreedCodes
@@ -24,7 +24,7 @@ public final class FarmWorkspaceDtos {
         @NotBlank @Size(max=150) String commune,
         @Size(max=255) String detailedAddress,
         @Size(max=100) String contactPerson,
-        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$") String contactPhone,
+        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$", message="Nhập số điện thoại Việt Nam hợp lệ.") String contactPhone,
         @Size(max=255) String registrationCertificateInfo,
         @Size(max=40) String timeZone,
         LocalTime morningShiftStart,

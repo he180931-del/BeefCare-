@@ -91,6 +91,7 @@ describe('mock sign-in failure frames', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Email hoặc mật khẩu chưa chính xác.')
     expect(screen.getByText('Sau 5 lần sai liên tiếp, đăng nhập bị khóa 15 phút.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Thử đăng nhập lại' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Đăng ký chủ trại' })).toHaveAttribute('href', '/dang-ky')
   })
 
   it('opens the suspended-account state for the reserved suspended email', async () => {

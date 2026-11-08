@@ -80,6 +80,48 @@ class GoogleIdentityServiceTest {
         verify(identities, never()).saveAndFlush(any());
     }
 
+    @Test
+    void reportsSuspendedAccountInsteadOfAGenericGoogleRejection() {
+        AppUser suspended = new AppUser();
+        suspended.setEmail("suspended@example.test");
+        suspended.setAccountStatus("SUSPENDED");
+        when(appUsers.findOneByGoogleSubject("google-subject")).thenReturn(Optional.empty());
+        when(appUsers.findOneByEmailIgnoreCase("suspended@example.test")).thenReturn(Optional.of(suspended));
+
+        assertThatThrownBy(() -> service.provisionOrLink(profile("suspended@example.test", "google-subject", true)))
+            .isInstanceOfSatisfying(DomainException.class, error -> {
+                assertThat(error.getCode()).isEqualTo(MessageCodes.FE01_03);
+                assertThat(error.getStatus()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+            });
+
+        verify(appUsers, never()).saveAndFlush(any());
+        verify(identities, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void allowsGoogleSignInWhileThePasswordLockoutIsActive() {
+        AppUser account = new AppUser();
+        account.setEmail("locked@example.test");
+        account.setFullName("Locked Person");
+        account.setAccountStatus("ACTIVE");
+        account.setPasswordLoginEnabled(true);
+        User identity = new User();
+        identity.setEmail(account.getEmail());
+        identity.setActivated(true);
+        identity.setPasswordLockedUntil(java.time.Instant.now().plusSeconds(900));
+        when(appUsers.findOneByGoogleSubject("google-subject")).thenReturn(Optional.empty());
+        when(appUsers.findOneByEmailIgnoreCase("locked@example.test")).thenReturn(Optional.of(account));
+        when(identities.findOneByEmailIgnoreCase("locked@example.test")).thenReturn(Optional.of(identity));
+
+        when(appUsers.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GoogleIdentityService.Result result = service.provisionOrLink(profile("locked@example.test", "google-subject", true));
+
+        assertThat(result.user()).isSameAs(identity);
+        verify(appUsers).saveAndFlush(account);
+        verify(identities, never()).saveAndFlush(any());
+    }
+
     private OidcUser profile(String email, String subject, boolean verified) {
         OidcUser google = mock(OidcUser.class);
         when(google.getSubject()).thenReturn(subject);

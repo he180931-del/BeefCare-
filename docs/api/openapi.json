@@ -8152,7 +8152,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/ProfileUpdate"
+                "$ref" : "#/components/schemas/AccountProfileUpdate"
               }
             }
           },
@@ -17890,6 +17890,17 @@
           }
         }
       },
+      "AccountProfileUpdate" : {
+        "type" : "object",
+        "properties" : {
+          "fullName" : {
+            "type" : "string"
+          },
+          "contactPhone" : {
+            "type" : "string"
+          }
+        }
+      },
       "FarmRoleSummary" : {
         "type" : "object",
         "properties" : {
@@ -17927,7 +17938,7 @@
           "fullName" : {
             "type" : "string"
           },
-          "phone" : {
+          "contactPhone" : {
             "type" : "string"
           },
           "emailVerified" : {
@@ -17940,6 +17951,9 @@
             "type" : "boolean"
           },
           "ownerRegistrationCompleted" : {
+            "type" : "boolean"
+          },
+          "termsAccepted" : {
             "type" : "boolean"
           },
           "status" : {
@@ -17971,7 +17985,7 @@
           "fullName" : {
             "type" : "string"
           },
-          "phone" : {
+          "contactPhone" : {
             "type" : "string"
           },
           "termsAccepted" : {
@@ -17992,7 +18006,7 @@
           "fullName" : {
             "type" : "string"
           },
-          "phone" : {
+          "contactPhone" : {
             "type" : "string"
           },
           "completed" : {

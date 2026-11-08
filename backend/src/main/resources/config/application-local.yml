@@ -2,6 +2,13 @@
 spring:
   config:
     import: optional:file:../.env[.properties]
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID:}
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET:}
   datasource:
     url: ${BEEFCARE_DB_URL:jdbc:postgresql://localhost:15432/beefcare}
     username: ${BEEFCARE_DB_USERNAME:beefcare}

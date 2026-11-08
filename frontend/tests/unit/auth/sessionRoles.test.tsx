@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../../../src/components/Layout'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
-import { HomeRedirect, RoleGate, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
+import { HomeRedirect, RoleGate, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { clearSelectedFarmOnDevice, selectFarmOnDevice } from '../../../src/features/farm-workspace/selectedFarm'
 
@@ -33,6 +33,10 @@ const withSession = (role: AppRole, path: string, element: React.ReactElement) =
 )
 
 describe('session from the backend profile', () => {
+  it('marks the in-memory session complete after owner registration succeeds', () => {
+    expect(markOwnerRegistrationCompleted({ ...sessionFor('OWNER'), ownerRegistrationCompleted: false })).toMatchObject({ ownerRegistrationCompleted: true })
+  })
+
   it('prefers the platform role over any farm role', () => {
     const session = sessionFromProfile({ fullName: 'Đỗ Minh Quân', email: 'pm@x', platformRole: 'PM', farms: [{ farmId: 9, farmName: 'A', role: 'OWNER' }] })
     expect(session.role).toBe('PM')

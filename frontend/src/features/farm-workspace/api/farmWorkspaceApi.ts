@@ -63,9 +63,10 @@ function profile(value: unknown): FarmWorkspaceProfile {
   const row = asRecord(value)
   const farmRows = Array.isArray(row.farms) ? asRows(row.farms) : []
   return {
-    id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.phone),
+    id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.contactPhone ?? row.phone),
     emailVerified: row.emailVerified === true, passwordSignInEnabled: row.passwordSignInEnabled === true,
     googleSignInLinked: row.googleSignInLinked === true, ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
+    termsAccepted: row.termsAccepted === true,
     platformRole: typeof row.platformRole === 'string' ? row.platformRole : null,
     farms: farmRows.map((farm) => ({ farmId: numberValue(farm.farmId), farmName: textValue(farm.farmName), role: requiredOneOf(farm.role, roles, 'vai trò trại'), permissions: breeds(farm.permissions) })),
   }
@@ -105,11 +106,11 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
     getProfile: async () => mode === 'backend' ? profile(await transport.get('/api/account/profile')) : demoStore.getProfile(),
     completeOwnerRegistration: async (input: CompleteOwnerProfileInput) => {
       if (mode !== 'backend') return demoStore.completeOwnerRegistration(input)
-      const result = asRecord(await command('/api/account/owner-registration', { ...input, phone: compactPhone(input.phone) }, 'POST'))
+      const result = asRecord(await command('/api/account/owner-registration', { fullName: input.fullName, contactPhone: compactPhone(input.phone), termsAccepted: input.termsAccepted }, 'POST'))
       return profile({ ...result, ownerRegistrationCompleted: result.completed === true, farms: [] })
     },
     updateProfile: async (input: UpdateProfileInput) => mode === 'backend'
-      ? profile(await command('/api/account/profile', { ...input, phone: compactPhone(input.phone) }, 'POST'))
+      ? profile(await command('/api/account/profile', { fullName: input.fullName, contactPhone: compactPhone(input.phone) }, 'POST'))
       : demoStore.updateProfile(input),
     listFarms: async () => mode === 'backend'
       ? asRows(await transport.get('/api/farms')).map(farmSummary)
@@ -120,14 +121,14 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
       return farmDetails(details, farmSummary(context).role)
     },
     registerFarm: async (input: FarmRegistrationInput) => mode === 'backend'
-      ? farmDetails(await command('/api/farms', { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'POST'), 'OWNER')
+      ? farmDetails(await command('/api/farms', { ...input, contactPhone: compactPhone(input.contactPhone ?? '') || null }, 'POST'), 'OWNER')
       : demoStore.registerFarm(input),
     updateFarm: async (id: number, input: FarmUpdateInput) => {
       if (mode !== 'backend') return demoStore.updateFarm(id, input)
       if (input.expectedVersion == null || !input.mainBreedIds) throw new Error('Thiếu phiên bản hoặc danh sách giống để lưu thông tin trại.')
       const context = await transport.get(path(id, '/context'))
       const role = farmSummary(context).role
-      const updated = await command(path(id, ''), { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'PUT')
+      const updated = await command(path(id, ''), { ...input, contactPhone: compactPhone(input.contactPhone ?? '') || null }, 'PUT')
       return farmDetails(updated, role)
     },
     listMembers: async (id: number) => mode === 'backend'
