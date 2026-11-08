@@ -4,6 +4,7 @@ import { BackendError } from '../../api/backendClient'
 import { userFacingError } from '../../api/userFacingError'
 import { defaultAuthClient } from './client'
 import { GuestAuthFlow } from './pages/GuestAuthFlow'
+import { clearSelectedFarmOnDevice } from '../farm-workspace/selectedFarm'
 import type { AuthClient } from './types'
 
 export type { AuthClient } from './types'
@@ -54,6 +55,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     mode: client.mode ?? 'backend',
     logout: async () => {
       await client.logout()
+      clearSelectedFarmOnDevice()
       setStatus('anonymous')
     },
   }), [client, status])

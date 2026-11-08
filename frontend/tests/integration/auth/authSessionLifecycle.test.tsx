@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, useAuth, type AuthClient } from '../../../src/features/authentication/AuthContext'
+import { SELECTED_FARM_STORAGE_KEY } from '../../../src/features/farm-workspace/selectedFarm'
 
 function AuthenticatedWorkspace() {
   const { authenticated, logout } = useAuth()
@@ -64,6 +65,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     expect(mockClient.login).toHaveBeenCalledWith('manager@beefcare.local', 'beefcare-dev-password', false)
 
     // 4. Thực hiện đăng xuất
+    localStorage.setItem(SELECTED_FARM_STORAGE_KEY, '42')
     const logoutButton = screen.getByRole('button', { name: /đăng xuất/i })
     await user.click(logoutButton)
 
@@ -72,5 +74,6 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.queryByText('Trang chủ Quản lý Trại bò')).not.toBeInTheDocument()
     expect(mockClient.logout).toHaveBeenCalled()
+    expect(localStorage.getItem(SELECTED_FARM_STORAGE_KEY)).toBeNull()
   })
 })

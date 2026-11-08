@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { asRecord, asRows, backendFarmId, backendTransport, numberValue, textValue } from '../../api/backendTransport'
+import { asRecord, asRows, backendTransport, numberValue, textValue } from '../../api/backendTransport'
 import { userFacingError } from '../../api/userFacingError'
 import { useAuth } from '../authentication/AuthContext'
 import { demoUserFor, readMockUserEmail } from '../authentication/demoUsers'
+import { SELECTED_FARM_CHANGED_EVENT, selectedFarmId } from '../farm-workspace/selectedFarm'
 import { SessionContext, type AppRole, type Session, type SessionUser } from './sessionContext'
 
 const PLATFORM_ROLES: readonly string[] = ['CS', 'PM', 'SA']
@@ -12,7 +13,8 @@ const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 export function sessionFromProfile(value: unknown): SessionUser {
   const row = asRecord(value)
   const farms = asRows(row.farms)
-  const farm = farms.find((item) => String(item.farmId) === String(backendFarmId)) ?? farms[0]
+  const selectedFarm = selectedFarmId()
+  const farm = farms.find((item) => Number(item.farmId) === selectedFarm) ?? farms[0]
   const platformRole = textValue(row.platformRole)
   const farmRole = textValue(farm?.role)
   // Tài khoản mới chưa có trại vẫn là chủ trại đang hoàn tất đăng ký (SCR-07 → SCR-10).
@@ -40,11 +42,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUser(demoUserFor(readMockUserEmail()))
       return undefined
     }
-    backendTransport.get('/api/account/profile').then(
+    const loadProfile = () => backendTransport.get('/api/account/profile').then(
       (profile) => { if (active) setUser(sessionFromProfile(profile)) },
       (cause: unknown) => { if (active) setError(userFacingError(cause, 'Không tải được hồ sơ người dùng.')) },
     )
-    return () => { active = false }
+    void loadProfile()
+    window.addEventListener(SELECTED_FARM_CHANGED_EVENT, loadProfile)
+    return () => { active = false; window.removeEventListener(SELECTED_FARM_CHANGED_EVENT, loadProfile) }
   }, [mode])
 
   const session = useMemo<Session | null>(() => user && { ...user, logout }, [user, logout])

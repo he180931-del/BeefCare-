@@ -23,7 +23,7 @@ function serviceText(farm: FarmSummary) {
   return 'Tạm ngưng'
 }
 
-export function FarmCard({ farm, onOpen }: { farm: FarmSummary; onOpen: (to: string) => void }) {
+export function FarmCard({ farm, onOpen }: { farm: FarmSummary; onOpen: (farm: FarmSummary, to: string) => void }) {
   const action = farmAction(farm)
   const fact = (label: string, value: string) => <div><span className="block text-[11px] text-subtle">{label}</span><strong className="text-[13px] font-medium text-ink">{value}</strong></div>
   return (
@@ -40,7 +40,7 @@ export function FarmCard({ farm, onOpen }: { farm: FarmSummary; onOpen: (to: str
       </div>
       {action.disabled && <p className="m-0 text-[11px] text-subtle">{farm.name} chưa khả dụng vì dịch vụ {serviceLabel(farm.serviceStatus).toLowerCase()}. Vui lòng liên hệ Chủ trại.</p>}
       <button
-        type="button" disabled={action.disabled} onClick={() => action.to && onOpen(`${action.to}?farmId=${farm.id}`)}
+        type="button" disabled={action.disabled} onClick={() => action.to && onOpen(farm, `${action.to}?farmId=${farm.id}`)}
         className={`inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 ${action.primary ? 'border-brand bg-brand text-white' : 'border-field bg-white text-ink'}`}
       ><Icon name={action.icon} size={16} />{action.label}</button>
     </article>

@@ -6,6 +6,7 @@ import { useQuery } from '../../../hooks/useApi'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { FarmCard } from '../components/FarmCard'
 import SetupLayout from '../components/SetupLayout'
+import { selectFarmOnDevice } from '../selectedFarm'
 
 /** SCR-09. `?demo=empty` và `?demo=load-error` hiện hai trạng thái không có dữ liệu (mô phỏng). */
 export default function FarmSelectPage() {
@@ -16,6 +17,10 @@ export default function FarmSelectPage() {
     return demo === 'empty' ? [] : farmWorkspaceApi.listFarms()
   }, [demo])
   const farms = query.data ?? []
+  const openFarm = (farm: (typeof farms)[number], to: string) => {
+    selectFarmOnDevice(farm.id)
+    navigate(to)
+  }
   return (
     <SetupLayout
       eyebrow="Chọn không gian" heading="Chọn đúng trại để bắt đầu"
@@ -30,7 +35,7 @@ export default function FarmSelectPage() {
       {!query.loading && !query.error && farms.length === 0 && (
         <EmptyBlock title="Tài khoản chưa liên kết với trang trại nào" sub="Đăng ký trang trại của bạn, hoặc mở lời mời đã gửi tới email." action={<Button variant="primary" onClick={() => navigate('/dang-ky-trai')}>Đăng ký trang trại</Button>} />
       )}
-      <div className="grid gap-4 xl:grid-cols-2">{farms.map((farm) => <FarmCard key={farm.id} farm={farm} onOpen={navigate} />)}</div>
+      <div className="grid gap-4 xl:grid-cols-2">{farms.map((farm) => <FarmCard key={farm.id} farm={farm} onOpen={openFarm} />)}</div>
       <Foot>Chọn trại theo vai trò và trạng thái dịch vụ; dữ liệu giữa các trại được tách riêng.</Foot>
     </SetupLayout>
   )

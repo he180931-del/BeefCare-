@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../../../src/components/Layout'
@@ -6,6 +6,9 @@ import { createMockAuthClient } from '../../../src/features/authentication/clien
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
 import { HomeRedirect, RoleGate, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { clearSelectedFarmOnDevice, selectFarmOnDevice } from '../../../src/features/farm-workspace/selectedFarm'
+
+afterEach(() => clearSelectedFarmOnDevice())
 
 const sessionFor = (role: AppRole): Session => ({
   role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại thử nghiệm',
@@ -38,6 +41,15 @@ describe('session from the backend profile', () => {
   it('uses the role in the farm and keeps the numeric farm id', () => {
     const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [{ farmId: 1, farmName: 'Trại A', role: 'TECHNICIAN' }] })
     expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 1, farmName: 'Trại A' })
+  })
+
+  it('uses the farm selected on this device when the account has several farms', () => {
+    selectFarmOnDevice(9)
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+    ] })
+    expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 9, farmName: 'Trại B', activeFarmCount: 2 })
   })
 
   it('treats an account with no farm as an owner still onboarding', () => {
