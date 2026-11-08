@@ -130,12 +130,12 @@ E1 chưa hoàn tất đăng ký Owner → MSG-FE02-02 · E2 thiếu / sai trư�
 
 ### UC-FE02-02 Xem và chọn trại
 1. Mở SCR-09.
-2. Hệ thống liệt kê mọi trại mà người dùng có membership ACTIVE (thẻ: tên, địa chỉ, trạng thái dịch vụ, vai trò, số bò ACTIVE, ngày hết dịch vụ). Owner thấy thêm trại của mình đang `PENDING_PAYMENT`, `EXPIRED`, `SUSPENDED`.
+2. Hệ thống liệt kê mọi trại mà người dùng có membership ACTIVE, ở mọi trạng thái dịch vụ (thẻ: tên, địa chỉ, trạng thái dịch vụ, vai trò, số bò ACTIVE, ngày hết dịch vụ). Owner thấy cả trại của mình đang `PENDING_PAYMENT`, `EXPIRED`, `SUSPENDED`; Manager / Technician thấy trại không ACTIVE dưới dạng thẻ khóa (AF3, Q6).
 3. Bấm **Vào trại** ở trại ACTIVE.
 4. Hệ thống kiểm lại membership, vai trò, trạng thái dịch vụ.
 5. Xóa dữ liệu trại trước, đặt trại hiện tại, mở trang chủ: Owner / Manager → SCR-48, Technician → SCR-74.
 
-AF1 Owner chọn trại `PENDING_PAYMENT` / `EXPIRED` → nút "Thanh toán để kích hoạt" / "Gia hạn", mở SCR-57 kèm MSG-FE02-03 · AF2 Owner chọn trại `SUSPENDED` → nút "Gửi phiếu hỗ trợ", MSG-FE02-03 · AF3 Manager / Technician ở trại không ACTIVE → thẻ bị khóa, MSG-FE02-04 · AF4 chỉ có 1 trại khả dụng → mở thẳng · AF5 không có trại → MSG-FE01-15; Owner thấy "Đăng ký trại mới".
+AF1 Owner chọn trại `PENDING_PAYMENT` / `EXPIRED` → nút "Thanh toán để kích hoạt" / "Gia hạn", đặt trại làm trại hiện tại và mở SCR-58 (chọn thời hạn) kèm MSG-FE02-03 (Q5) · AF2 Owner chọn trại `SUSPENDED` → nút "Gửi phiếu hỗ trợ", mở SCR-65 · AF3 Manager / Technician ở trại không ACTIVE → thẻ bị khóa, MSG-FE02-04 · AF4 chỉ có 1 trại khả dụng → mở thẳng (Q7: ngay sau đăng nhập, danh sách có đúng 1 trại và trại đó ACTIVE) · AF5 không có trại → MSG-FE01-15; Owner thấy "Đăng ký trại mới".
 E1 membership bị ngưng / đổi vai trò sau khi danh sách đã hiện → MSG-COM-01 và tải lại danh sách · E2 lỗi tải → MSG-COM-03.
 
 ### UC-FE02-03 Cập nhật thông tin trại
@@ -253,10 +253,10 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Đăng ký trại | `name, province, commune, detailedAddress?, contactPerson?, contactPhone?, registrationCertificateInfo?, expectedHerdSize?, mainBreedCodes[]?` + header `Idempotency-Key`; trường tùy chọn để chuỗi rỗng = không nhập | Trại (A3) | FE02-02, COM-06, COM-10, COM-02 | `POST /api/farms` |
-| A2 | Danh sách trại của tôi | — | `[{farmId, name, commune, province, serviceStatus, myRole, activeCattle, serviceEndDate?, actions[]}]` | COM-03 | `GET /api/farms` |
+| A2 | Danh sách trại của tôi | — | `[{id, name, commune, province, serviceStatus, role, activeCattleCount, serviceUntil?, version}]`; nút trên thẻ suy ra ở FE từ `role` + `serviceStatus` theo bảng SCR-09 | COM-03 | `GET /api/farms` |
 | A3 | Chi tiết thông tin trại | — | Mọi thuộc tính mục 3.1 + `serviceSummary {status, currentPeriodEnd, renewalOpensFrom, suspended, suspendedAt, daysRemaining}, ownerEmail, version` | COM-01 | `GET /api/farms/{farmId}` |
 | A4 | Sửa thông tin trại | Các trường SCR-11 + `version` + `Idempotency-Key` | A3 | COM-01, COM-05, COM-06, COM-10, COM-02 | `PUT /api/farms/{farmId}` |
-| A5 | Chọn trại (ngữ cảnh) | — | `{farmId, name, myRole, serviceStatus, timeZone, allowedAreas[]}` | COM-01, FE02-04 | `GET /api/farms/{farmId}/context` |
+| A5 | Chọn trại (ngữ cảnh) | — | Như một phần tử của A2. Owner vào được ở mọi trạng thái (GBR-14); múi giờ xem A3, quyền theo vai trò suy ra ở FE | COM-01 (không còn membership), FE02-04 (Manager / Technician, trại không ACTIVE) | `GET /api/farms/{farmId}/context` |
 | A6 | Tổng quan dịch vụ (PM) | `q?, status?, page, size, sort?` | `{tiles {total, active, activePercent, pendingPayment, expired, suspended}, items[{farmId, name, ownerName, ownerEmail, serviceStatus, coverageEnd, suspended, suspendedAt, activeCattle}], total}` | COM-01 | `GET /api/platform/farms` |
 | A7 | Xem trước popup | — | `{farm, ownerName, activeCattle, currentStatus, suspendedSince, suspendedBy, previousReason, purchasedPeriod, statusAfterRestore, version}` | COM-01 | chưa có riêng – thêm `GET /api/platform/farms/{farmId}` |
 | A8 | Tạm ngưng | `reason, version` + `Idempotency-Key` | `{farmId, serviceStatus, suspended, suspendedAt}` | COM-01, COM-06, FE02-09, COM-05, COM-02 | `POST /api/platform/farms/{farmId}/suspend` |
@@ -271,7 +271,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | MSG-FE02-01 | Toast thành công | Đăng ký trại xong | Đã đăng ký trại {farm_name}. Hãy chọn gói để kích hoạt. |
 | MSG-FE02-02 | Hộp thoại | Đăng ký trại khi chưa xong hồ sơ Owner | Vui lòng hoàn tất hồ sơ Chủ trại trước khi đăng ký trại. |
 | MSG-FE02-03 | Banner | Owner mở trại không ACTIVE | {farm} đang ở trạng thái {status}. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ. |
-| MSG-FE02-04 | Trên thẻ | Manager / Technician chọn trại không ACTIVE | {farm} không khả dụng vì dịch vụ đang {status}. Vui lòng liên hệ Chủ trại. |
+| MSG-FE02-04 | Trên thẻ | Manager / Technician chọn trại không ACTIVE | {farm} không khả dụng vì dịch vụ đang ở trạng thái {status}. Vui lòng liên hệ Chủ trại. |
 | MSG-FE02-05 | Toast thành công | Lưu thông tin trại | Đã cập nhật thông tin trại. |
 | MSG-FE02-06 | Hộp thoại xác nhận | PM tạm ngưng | Tạm ngưng dịch vụ của {farm}? Thành viên sẽ mất quyền thao tác trại; Chủ trại vẫn dùng được gói dịch vụ và hỗ trợ. |
 | MSG-FE02-07 | Hộp thoại xác nhận | PM khôi phục | Khôi phục dịch vụ của {farm}? Trạng thái sẽ theo gói dịch vụ: {new_status}. |
@@ -328,6 +328,9 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | Q2 | Đổi múi giờ trại khi đã có dữ liệu: dữ liệu cũ hiển thị lại theo múi giờ mới? | Chỉ cho đổi khi trại chưa có bò, hoặc cảnh báo |
 | Q3 | Danh mục tỉnh / thành: theo danh mục sau sáp nhập 2025 (34 tỉnh) hay 63 tỉnh cũ? | 34 tỉnh, lưu mã |
 | Q4 | "Số ngày còn lại" khi đang SUSPENDED có hiện không? | Vẫn hiện (kỳ dịch vụ không đổi khi tạm ngưng) |
+| Q5 | Nút "Thanh toán để kích hoạt" / "Gia hạn" mở SCR-57 (AF1) hay SCR-58 (bảng nút SCR-09, trigger UC-FE19-02)? | SCR-58 kèm MSG-FE02-03 |
+| Q6 | Bước 2 đọc được là Manager / Technician không thấy trại không ACTIVE; AF3, SCR-09 và TC-02-11 nói thẻ khóa | Hiện thẻ khóa |
+| Q7 | AF4: "khả dụng" là gì, áp dụng lúc nào? | Ngay sau đăng nhập, đúng 1 trại và trại đó ACTIVE; mở từ nút đổi trại vẫn hiện SCR-09 |
 
 ---
 
@@ -338,3 +341,4 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho DucNV duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 08/11/2026 | 28/10/2026 | Chốt Q3: tỉnh lưu **tên**, thuộc 34 tỉnh / thành (mục 3.1). A1 dùng tên trường như code (`province`, `detailedAddress`, `registrationCertificateInfo`); không đổi dữ liệu hay hành vi | DucNV |
+| 08/11/2026 | 28/10/2026 | UC-FE02-02: chốt Q5 (AF1 mở SCR-58 thay vì SCR-57), Q6 (thẻ khóa cho Manager / Technician) và Q7 (cách hiểu AF4). A2 / A5 dùng tên trường như code; MSG-FE02-04 sửa câu "đang ở trạng thái {status}" | DucNV |

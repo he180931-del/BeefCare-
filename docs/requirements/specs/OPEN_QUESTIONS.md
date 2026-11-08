@@ -4,9 +4,11 @@ Nguồn: mục 10 của 23 spec theo SRS 28/10/2026 (quyết định D12). Mỗi
 
 Cột **Quyết định**: để trống = chưa chốt; ghi `Theo đề xuất`, `Khác: …` hoặc `Hoãn`. **Người chốt** mặc định là chủ feature; câu chạm feature khác thì trao đổi với chủ feature đó.
 
-Tổng: 115 câu – AnNT 28, DucNV 19, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
+Tổng: 118 câu – AnNT 28, DucNV 22, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
 
 Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Chung Q1) khi dọn thư mục `docs/`: lấy từ đối chiếu FE–BE phần thức ăn (01/11), đối chiếu Figma với frontend (02/11) và báo cáo triển khai backend (28–29/10).
+
+Ngày 08/11/2026 thêm 3 câu (FE-02 Q5–Q7) khi làm UC-FE02-02: chỗ SRS mâu thuẫn hoặc đọc được hai cách.
 
 | FE | Mã | Câu hỏi | Đề xuất trong spec | Quyết định | Người chốt | Ngày |
 |---|---|---|---|---|---|---|
@@ -19,6 +21,9 @@ Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Ch
 | FE-02 | Q2 | Đổi múi giờ trại khi đã có dữ liệu: dữ liệu cũ hiển thị lại theo múi giờ mới? | Chỉ cho đổi khi trại chưa có bò, hoặc cảnh báo |  | DucNV |  |
 | FE-02 | Q3 | Danh mục tỉnh / thành: theo danh mục sau sáp nhập 2025 (34 tỉnh) hay 63 tỉnh cũ? | 34 tỉnh, lưu mã | Khác: 34 tỉnh, **lưu tên** (SRS không quy định lưu mã); backend từ chối tên ngoài danh sách (MSG-COM-10) | DucNV | 08/11/2026 |
 | FE-02 | Q4 | "Số ngày còn lại" khi đang SUSPENDED có hiện không? | Vẫn hiện (kỳ dịch vụ không đổi khi tạm ngưng) |  | DucNV |  |
+| FE-02 | Q5 | Nút "Thanh toán để kích hoạt" / "Gia hạn" trên SCR-09 mở SCR-57 (UC-FE02-02 AF1) hay SCR-58 (bảng nút SCR-09; trigger UC-FE19-02)? SRS mâu thuẫn | SCR-58 kèm MSG-FE02-03 | Theo đề xuất: chờ thanh toán → SCR-58 lần đầu (`/dang-ky-goi`), hết hạn → SCR-58 gia hạn (`/goi-dich-vu/gia-han`), kèm banner MSG-FE02-03; sửa AF1 mục 5 | DucNV | 08/11/2026 |
+| FE-02 | Q6 | UC-FE02-02 bước 2 đọc được là Manager / Technician không thấy trại không ACTIVE; AF3, bảng nút SCR-09 và TC-02-11 lại nói thẻ bị khóa | Hiện thẻ khóa kèm MSG-FE02-04 | Theo đề xuất | DucNV | 08/11/2026 |
+| FE-02 | Q7 | AF4 "chỉ có 1 trại khả dụng → mở thẳng": "khả dụng" là gì, áp dụng lúc nào? | Chỉ ngay sau đăng nhập, khi danh sách có đúng 1 trại và trại đó ACTIVE; mở từ nút đổi trại thì vẫn hiện SCR-09 để còn "Đăng ký trại mới" | Theo đề xuất | DucNV | 08/11/2026 |
 | FE-03 | Q1 | UC-01 AF2 (email của thành viên INACTIVE): SRS không có mã thông báo | Thêm MSG-FE03-21 "{email} là thành viên đã ngưng. Kích hoạt lại thay vì mời?" kèm nút mở popup |  | DucNV |  |
 | FE-03 | Q2 | UC-FE03-02, 05, 07 không có đặc tả Part II; luồng suy từ SCR | Chủ dự án xác nhận |  | DucNV |  |
 | FE-03 | Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử |  | DucNV |  |
