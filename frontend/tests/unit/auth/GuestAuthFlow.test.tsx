@@ -12,7 +12,7 @@ function renderAuth(client: AuthClient, path: string) {
 }
 
 describe('guest authentication pages', () => {
-  it('opens the password reset form from the public reset-password email route', async () => {
+  it('opens the password reset form from the canonical resetpassword email route', async () => {
     const client: AuthClient = {
       mode: 'backend',
       isAuthenticated: vi.fn().mockResolvedValue(false),
@@ -21,7 +21,7 @@ describe('guest authentication pages', () => {
       validatePasswordReset: vi.fn().mockResolvedValue({ valid: true, email: 'owner@beefcare.vn' }),
     }
 
-    renderAuth(client, '/reset-password?token=email-token')
+    renderAuth(client, '/resetpassword?token=email-token')
 
     expect(await screen.findByRole('heading', { name: 'Đặt mật khẩu mới' })).toBeInTheDocument()
     expect(await screen.findByDisplayValue('owner@beefcare.vn')).toBeInTheDocument()

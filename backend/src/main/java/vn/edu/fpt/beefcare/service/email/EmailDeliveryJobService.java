@@ -24,6 +24,7 @@ import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.EmailDeliveryJobRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
+import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.payment.SubscriptionNoticeJob;
 import vn.edu.fpt.beefcare.repository.SupportTicketRepository;
 
@@ -46,6 +47,7 @@ public class EmailDeliveryJobService {
     private final SpringTemplateEngine templates;
     private final String frontendBaseUrl;
     private final String backendBaseUrl;
+    private final FarmClock farmClock;
     private final TransactionTemplate requiresNew;
 
     public EmailDeliveryJobService(
@@ -59,6 +61,7 @@ public class EmailDeliveryJobService {
         EmailDelivery delivery,
         SpringTemplateEngine templates,
         PlatformTransactionManager transactionManager,
+        FarmClock farmClock,
         @Value("${beefcare.email.frontend-base-url}") String frontendBaseUrl,
         @Value("${beefcare.email.backend-base-url}") String backendBaseUrl
     ) {
@@ -71,6 +74,7 @@ public class EmailDeliveryJobService {
         this.signer = signer;
         this.delivery = delivery;
         this.templates = templates;
+        this.farmClock = farmClock;
         this.frontendBaseUrl = trimTrailingSlash(frontendBaseUrl);
         this.backendBaseUrl = trimTrailingSlash(backendBaseUrl);
         this.requiresNew = new TransactionTemplate(transactionManager);
@@ -139,7 +143,7 @@ public class EmailDeliveryJobService {
             actionUrl = base + bearer;
         } else if ("INVITATION".equals(job.getLinkSource())) {
             FarmInvitation invitation = invitations.findById(job.getLinkSourceId()).orElse(null);
-            if (invitation == null || !"PENDING".equalsIgnoreCase(invitation.getStatus()) || invitation.getTokenNonce() == null || !invitation.getExpiresAt().isAfter(Instant.now())) return cancel(job);
+            if (invitation == null || !"PENDING".equalsIgnoreCase(invitation.getStatus()) || invitation.getTokenNonce() == null || !invitation.getExpiresAt().isAfter(farmClock.now())) return cancel(job);
             bearer = signer.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce());
             if (!signer.matchesHash(bearer, invitation.getTokenHash())) return cancel(job);
             expectedRecipient = invitation.getInvitedEmail();

@@ -478,7 +478,7 @@ class BrowserSessionFlowIT {
         Browser guest = new Browser();
         guest.fetchCsrf();
         guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk());
-        String token = linkToken(email, "/reset-password?token=");
+        String token = linkToken(email, "/resetpassword?token=");
         var link = links.findOneByTokenHashAndTokenType(signer.hash(token), "PASSWORD_RESET").orElseThrow();
         link.setExpiresAt(Instant.now().minusSeconds(1));
         links.saveAndFlush(link);
@@ -514,7 +514,7 @@ class BrowserSessionFlowIT {
         Browser guest = new Browser();
         guest.fetchCsrf();
         guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk());
-        String token = linkToken(email, "/reset-password?token=");
+        String token = linkToken(email, "/resetpassword?token=");
         guest.post("/api/account/reset-password/finish", reset(token, "ResetPassword-88", "ResetPassword-88")).andExpect(status().isOk());
         guest.login(email, "ResetPassword-88", false).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE01-03"));
     }
@@ -745,7 +745,7 @@ class BrowserSessionFlowIT {
     }
 
     private int resetMails(String email) {
-        return (int) inbox.findMessagesFor(email).stream().filter(message -> message.plainText() != null && message.plainText().contains("/reset-password?token=")).count();
+        return (int) inbox.findMessagesFor(email).stream().filter(message -> message.plainText() != null && message.plainText().contains("/resetpassword?token=")).count();
     }
 
     /** Runs the durable mail dispatcher (the scheduler is slowed down in the test profile). */
