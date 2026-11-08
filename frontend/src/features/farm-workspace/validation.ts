@@ -5,6 +5,7 @@ import type {
   FarmRegistrationInput,
   InviteMemberInput,
 } from './types'
+import { PROVINCES } from './data/provinces'
 
 export type FormErrors<T extends object> = Partial<Record<keyof T, string>>
 
@@ -23,16 +24,17 @@ export function validateOwnerProfile(input: Partial<CompleteOwnerProfileInput>):
   return errors
 }
 
+/** SCR-10 (UC-FE02-01). Tỉnh phải thuộc danh sách 34 tỉnh/thành (quyết định FE-02 Q3); quy mô dự kiến không bắt buộc. */
 export function validateFarmRegistration(input: Partial<Omit<FarmRegistrationInput, 'expectedHerdSize'>> & { expectedHerdSize?: string }): FormErrors<FarmRegistrationInput> {
   const errors: FormErrors<FarmRegistrationInput> = {}
   if (!NAME(input.name, 2, 150)) errors.name = 'Tên trại cần có từ 2 đến 150 ký tự.'
-  if (!NAME(input.province, 1, 150)) errors.province = 'Chọn tỉnh hoặc thành phố.'
+  if (!(PROVINCES as readonly string[]).includes(input.province?.trim() ?? '')) errors.province = 'Chọn tỉnh hoặc thành phố.'
   if (!NAME(input.commune, 1, 150)) errors.commune = 'Nhập xã, phường hoặc thị trấn.'
   if (!optionalText(input.detailedAddress, 255)) errors.detailedAddress = 'Địa chỉ chi tiết tối đa 255 ký tự.'
   if (!optionalText(input.contactPerson, 100)) errors.contactPerson = 'Người liên hệ tối đa 100 ký tự.'
   if (input.contactPhone && !PHONE.test(input.contactPhone.trim())) errors.contactPhone = 'Nhập số điện thoại Việt Nam hợp lệ.'
   if (!optionalText(input.registrationCertificateInfo, 255)) errors.registrationCertificateInfo = 'Thông tin giấy đăng ký tối đa 255 ký tự.'
-  if (!['UNDER_50', '50_149', '150_300', 'OVER_300'].includes(String(input.expectedHerdSize))) errors.expectedHerdSize = 'Chọn quy mô đàn dự kiến.'
+  if (input.expectedHerdSize && !['UNDER_50', '50_149', '150_300', 'OVER_300'].includes(input.expectedHerdSize)) errors.expectedHerdSize = 'Chọn quy mô đàn dự kiến.'
   if (input.mainBreedCodes != null && !Array.isArray(input.mainBreedCodes)) errors.mainBreedCodes = 'Danh sách giống không hợp lệ.'
   return errors
 }

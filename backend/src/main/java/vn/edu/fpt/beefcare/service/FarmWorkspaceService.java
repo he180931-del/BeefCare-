@@ -33,14 +33,16 @@ public class FarmWorkspaceService {
             .filter(m -> "OWNER".equalsIgnoreCase(m.getRole()) || "ACTIVE".equalsIgnoreCase(m.getFarm().getServiceStatus()))
             .map(m -> new Summary(m.getFarm().getId(),m.getFarm().getName(),m.getRole(),m.getFarm().getServiceStatus(),m.getFarm().getVersion())).toList();
     }
+    /** UC-FE02-01: one farm in PENDING_PAYMENT with its OWNER membership, parameters, starter catalogue and audit (R-02-03). */
     @Transactional
     public Details register(Registration request) {
         AppUser owner=access.currentActiveUser();
-        if (!owner.isOwnerRegistrationCompleted()) throw DomainException.forbidden("MSG-FE02-OWNER_PROFILE_REQUIRED");
+        if (!owner.isOwnerRegistrationCompleted()) throw DomainException.forbidden(MessageCodes.FE02_02);
+        String province=VietnamProvinces.require(request.province(),"province");
         Farm farm=new Farm(); farm.setServiceStatus("PENDING_PAYMENT"); farm.setTimeZone("Asia/Ho_Chi_Minh");
-        applyContact(farm,request.name(),request.province(),request.commune(),request.detailedAddress(),
+        applyContact(farm,request.name(),province,request.commune(),request.detailedAddress(),
             blankDefault(request.contactPerson(),owner.getFullName()),blankDefault(request.contactPhone(),owner.getPhone()),request.registrationCertificateInfo());
-        farm.setExpectedHerdSize(request.expectedHerdSize()); em.persist(farm);
+        farm.setExpectedHerdSize(blankDefault(request.expectedHerdSize(),null)); em.persist(farm);
         FarmMembership membership=new FarmMembership();membership.setFarm(farm);membership.setUser(owner);
         membership.setRole("OWNER");membership.setStatus("ACTIVE");em.persist(membership);
         starters.create(farm,owner,request.mainBreedCodes());

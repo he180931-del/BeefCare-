@@ -3,7 +3,7 @@ import type {
   ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
   FarmRegistrationInput, FarmRole, FarmServiceStatus, FarmSummary, FarmWorkspaceProfile,
   Invitation, InvitationPreview, InvitationStatus, InviteMemberInput, Membership, MemberStatus,
-  UpdateProfileInput,
+  RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { compactPhone } from '../validation'
 import { farmWorkspaceDemoStore, type FarmUpdateInput, type FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
@@ -119,9 +119,13 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
       const [details, context] = await Promise.all([transport.get(path(id, '')), transport.get(path(id, '/context'))])
       return farmDetails(details, farmSummary(context).role)
     },
-    registerFarm: async (input: FarmRegistrationInput) => mode === 'backend'
-      ? farmDetails(await command('/api/farms', { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'POST'), 'OWNER')
-      : demoStore.registerFarm(input),
+    // UC-FE02-01: the page holds the request key so a retry or reload re-sends the same key (R-02-02, GBR-88).
+    registerFarm: async (input: FarmRegistrationInput, options?: RequestKeyOptions) => {
+      if (mode !== 'backend') return demoStore.registerFarm(input, options)
+      const body = { ...input, contactPhone: compactPhone(input.contactPhone ?? ''), expectedHerdSize: input.expectedHerdSize || null }
+      const key = options?.idempotencyKey
+      return farmDetails(await transport.command('/api/farms', body, key ? { method: 'POST', key } : { method: 'POST' }), 'OWNER')
+    },
     updateFarm: async (id: number, input: FarmUpdateInput) => {
       if (mode !== 'backend') return demoStore.updateFarm(id, input)
       if (input.expectedVersion == null || !input.mainBreedIds) throw new Error('Thiếu phiên bản hoặc danh sách giống để lưu thông tin trại.')

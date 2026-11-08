@@ -1,6 +1,6 @@
 import type {
   ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
-  FarmRole, FarmWorkspaceProfile, Invitation, InvitationPreview, InviteMemberInput, Membership, UpdateProfileInput,
+  FarmRole, FarmWorkspaceProfile, Invitation, InvitationPreview, InviteMemberInput, Membership, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { EXPIRED_TOKEN, FIRST_NEW_FARM_ID, INVITED_FARM_ID, SAMPLE_TOKEN, samplePreview, seedFarms, seedYenBaiInvitations, seedYenBaiMembers, YEN_BAI } from './farmWorkspaceSeed'
 
@@ -10,7 +10,8 @@ export interface FarmWorkspaceDemoStore {
   updateProfile(input: UpdateProfileInput): Promise<FarmWorkspaceProfile>
   listFarms(): Promise<FarmDetails[]>
   getFarm(farmId: number): Promise<FarmDetails>
-  registerFarm(input: FarmRegistrationInput): Promise<FarmDetails>
+  /** UC-FE02-01. Cùng `idempotencyKey` + cùng dữ liệu → trả lại trại đã tạo; cùng khóa, khác dữ liệu → lỗi (R-02-02). */
+  registerFarm(input: FarmRegistrationInput, options?: RequestKeyOptions): Promise<FarmDetails>
   updateFarm(farmId: number, input: FarmUpdateInput): Promise<FarmDetails>
   listMembers(farmId: number): Promise<Membership[]>
   changeMember(farmId: number, memberId: number, input: ChangeMemberInput): Promise<Membership>
@@ -41,6 +42,7 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
   const members = new Map<number, Membership[]>([[1, seedYenBaiMembers()]])
   const invitations = new Map<number, Invitation[]>([[1, seedYenBaiInvitations()]])
   let nextFarmId = FIRST_NEW_FARM_ID
+  const registrations = new Map<string, { request: string; farmId: number }>()
   let nextMemberId = 100
   let nextInvitationId = 100
   let previewStatus: InvitationPreview['status'] = 'PENDING'
@@ -71,13 +73,20 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
     },
     async listFarms() { return [...farms.values()].map(cloneFarm) },
     async getFarm(farmId) { return cloneFarm(getFarm(farmId)) },
-    async registerFarm(input) {
+    async registerFarm(input, options) {
+      const request = JSON.stringify(input)
+      const replay = options?.idempotencyKey ? registrations.get(options.idempotencyKey) : undefined
+      if (replay) {
+        if (replay.request !== request) throw new Error('Khóa yêu cầu đã dùng cho dữ liệu khác. Tải lại trang rồi thử lại.')
+        return cloneFarm(getFarm(replay.farmId))
+      }
       const id = nextFarmId++
+      if (options?.idempotencyKey) registrations.set(options.idempotencyKey, { request, farmId: id })
       const farm: FarmDetails = {
         id, name: input.name.trim(), role: 'OWNER', serviceStatus: 'PENDING_PAYMENT', version: 1,
         province: input.province, commune: input.commune, detailedAddress: input.detailedAddress ?? '',
         contactPerson: input.contactPerson ?? profile.fullName, contactPhone: input.contactPhone ?? profile.phone,
-        registrationCertificateInfo: input.registrationCertificateInfo ?? '', expectedHerdSize: input.expectedHerdSize,
+        registrationCertificateInfo: input.registrationCertificateInfo ?? '', expectedHerdSize: input.expectedHerdSize ?? '',
         timeZone: 'Asia/Ho_Chi_Minh', morningShiftStart: '', operatingNotes: '', mainBreedIds: [], mainBreedCodes: [...(input.mainBreedCodes ?? [])],
         activeCattleCount: 0, serviceUntil: null, renewalOpensAt: null, ownerName: profile.fullName, ownerEmail: profile.email,
       }

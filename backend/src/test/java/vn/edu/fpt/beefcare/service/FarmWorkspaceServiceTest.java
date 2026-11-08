@@ -44,9 +44,53 @@ class FarmWorkspaceServiceTest extends DomainTestSupport {
             .setParameter("f",farm.id()).getSingleResult()).isEqualTo(9);
         assertThat(workspaces.list()).extracting(Summary::id).contains(farm.id());
     }
+    /** TC-02-07 (R-02-03, R-02-04, GBR-109, Table III-6): the post-conditions not covered by the test above. */
+    @Test void tc0207RegistrationWritesOneAuditEntryAndNoSubscriptionOrPayment() {
+        owner();
+        Details farm=workspaces.register(request(Set.of("ZEBU-D")));
+        assertThat(farm.timeZone()).isEqualTo("Asia/Ho_Chi_Minh");
+        assertThat(em.createQuery("select a.action from AuditLog a where a.farm.id=:f",String.class).setParameter("f",farm.id()).getResultList()).containsExactly("FARM_REGISTER");
+        assertThat(em.createQuery("select count(s) from Subscription s where s.farm.id=:f",Long.class).setParameter("f",farm.id()).getSingleResult()).isZero();
+        assertThat(em.createQuery("select count(p) from Payment p where p.subscription.farm.id=:f",Long.class).setParameter("f",farm.id()).getSingleResult()).isZero();
+        assertThat(em.createQuery("select count(p) from ProductionPurpose p where p.farm.id=:f and p.available=true",Long.class).setParameter("f",farm.id()).getSingleResult()).isEqualTo(4);
+        assertThat(em.createQuery("select count(v) from Vaccine v where v.farm.id=:f and (v.dose is not null or v.route is not null or v.boosterInterval is not null)",Long.class).setParameter("f",farm.id()).getSingleResult()).isZero();
+        assertThat(em.createQuery("select v.code from Vaccine v where v.farm.id=:f and v.available=false",String.class).setParameter("f",farm.id()).getResultList()).containsExactly("VX-NT");
+        assertThat(em.createQuery("select count(i) from FeedItem i where i.farm.id=:f and (i.onHandKg<>0 or i.minimumStockKg is not null)",Long.class).setParameter("f",farm.id()).getSingleResult()).isZero();
+    }
+    /** TC-02-05: farm names need not be unique, not even for the same Owner. */
+    @Test void tc0205SameOwnerCanRegisterTwoFarmsWithTheSameName() {
+        owner();
+        Details first=workspaces.register(minimal("Trại A","Hà Nội",null,null));
+        Details second=workspaces.register(minimal("Trại A","Hà Nội",null,null));
+        assertThat(second.id()).isNotEqualTo(first.id());
+        assertThat(workspaces.list()).extracting(Summary::id).contains(first.id(),second.id());
+    }
+    /** TC-02-06 (R-02-01, UC-FE02-01 E1): MSG-FE02-02 and no farm. */
     @Test void unfinishedOwnerProfileCannotCreateFarm() {
-        actAs(user());
-        assertThatThrownBy(()->workspaces.register(request(Set.of()))).isInstanceOfSatisfying(DomainException.class,e->assertThat(e.getStatus().value()).isEqualTo(403));
+        AppUser notOwnerYet=user();actAs(notOwnerYet);
+        assertThatThrownBy(()->workspaces.register(request(Set.of()))).isInstanceOfSatisfying(DomainException.class,e->{
+            assertThat(e.getStatus().value()).isEqualTo(403);assertThat(e.getCode()).isEqualTo("MSG-FE02-02");
+        });
+        assertThat(em.createQuery("select count(m) from FarmMembership m where m.user.id=:u",Long.class).setParameter("u",notOwnerYet.getId()).getSingleResult()).isZero();
+    }
+    /** SCR-10 Province, decision FE-02 Q3: one of the 34 provinces and centrally-run cities, stored by name. */
+    @Test void provinceMustBeOneOfTheThirtyFourProvinces() {
+        owner();
+        assertThatThrownBy(()->workspaces.register(minimal("Trại B","Hà Tây",null,null))).isInstanceOfSatisfying(DomainException.class,e->{
+            assertThat(e.getCode()).isEqualTo("MSG-COM-10");assertThat(e.getParams()).containsEntry("field","province");
+        });
+        assertThat(workspaces.register(minimal("Trại B"," TP. Hồ Chí Minh ",null,null)).province()).isEqualTo("TP. Hồ Chí Minh");
+        assertThat(VietnamProvinces.NAMES).hasSize(34).doesNotHaveDuplicates();
+    }
+    /** SCR-10: a blank optional field is "not provided"; the contact phone then defaults to the Owner's phone. */
+    @Test void blankOptionalFieldsAreNotProvided() {
+        AppUser owner=owner();
+        Details farm=workspaces.register(minimal("Trại C","Phú Thọ","",""));
+        assertThat(farm.contactPhone()).isEqualTo(owner.getPhone());
+        assertThat(farm.expectedHerdSize()).isNull();
+    }
+    private Registration minimal(String name,String province,String phone,String herdSize) {
+        return new Registration(name,province,"Xã demo",null,null,phone,null,herdSize,Set.of());
     }
     @Test void idempotentFarmRegistrationDoesNotCreateDuplicateFarmOrCatalogue() {
         owner();Registration request=request(Set.of("ZEBU-D"));

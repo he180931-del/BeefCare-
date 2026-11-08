@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { BackendError } from '../../../src/api/backendClient'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { farmWorkspaceApi } from '../../../src/features/farm-workspace/api/farmWorkspaceApi'
 import AcceptInvitationPage from '../../../src/features/farm-workspace/pages/AcceptInvitationPage'
 import FarmInformationPage from '../../../src/features/farm-workspace/pages/FarmInformationPage'
 import FarmRegistrationPage from '../../../src/features/farm-workspace/pages/FarmRegistrationPage'
@@ -14,9 +16,18 @@ const sessions: Record<string, Session> = {
   manager: { role: 'MANAGER', fullName: 'Trần Quốc Long', email: 'manager@beefcare.local', ...farm, logout: vi.fn() },
   technician: { role: 'TECHNICIAN', fullName: 'Lê Thị Mai', email: 'technician@beefcare.local', ...farm, logout: vi.fn() },
 }
+function PlanSelection() {
+  const location = useLocation()
+  return <p>SCR-58 {location.search} · {(location.state as { notice?: string } | null)?.notice}</p>
+}
 const renderAt = (who: string, path: string, route: string, element: JSX.Element) => render(
   <SessionContext.Provider value={sessions[who]}>
-    <MemoryRouter initialEntries={[path]}><Routes><Route path={route} element={element} /><Route path="/goi-dich-vu" element={<p>Trang gói dịch vụ</p>} /></Routes></MemoryRouter>
+    <MemoryRouter initialEntries={[path]}><Routes>
+      <Route path={route} element={element} />
+      <Route path="/goi-dich-vu" element={<p>Trang gói dịch vụ</p>} />
+      <Route path="/dang-ky-goi" element={<PlanSelection />} />
+      <Route path="/owner-registration" element={<p>SCR-07 Hoàn tất hồ sơ chủ trại</p>} />
+    </Routes></MemoryRouter>
   </SessionContext.Provider>,
 )
 
@@ -43,19 +54,65 @@ describe('Select Farm', () => {
 })
 
 describe('Register Farm', () => {
-  it('validates the required fields, then creates the farm and opens plan selection', async () => {
-    const user = userEvent.setup()
-    renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
-    await user.click(await screen.findByRole('button', { name: /Tạo trang trại và tiếp tục/ }))
-    expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
-    expect(screen.getByText('Chọn quy mô đàn dự kiến.')).toBeInTheDocument()
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    sessionStorage.clear()
+  })
 
-    await user.type(screen.getByLabelText('Tên trại *'), 'Trại Thung Mây')
+  const fillRequired = async (user: ReturnType<typeof userEvent.setup>, name = 'Trại Thung Mây') => {
+    await user.type(await screen.findByLabelText('Tên trại *'), name)
     await user.selectOptions(screen.getByLabelText('Tỉnh/Thành *'), 'Phú Thọ')
     await user.type(screen.getByLabelText('Xã/Phường *'), 'Xã Minh Đài')
-    await user.selectOptions(screen.getByLabelText('Quy mô dự kiến *'), '150_300')
-    await user.click(screen.getByRole('button', { name: /Tạo trang trại và tiếp tục/ }))
-    expect(await screen.findByText('Trang gói dịch vụ')).toBeInTheDocument()
+  }
+
+  it('validates the required fields, then creates the farm and opens plan selection (SCR-58) for that farm', async () => {
+    const user = userEvent.setup()
+    renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
+    await user.click(await screen.findByRole('button', { name: 'Tạo trại và tiếp tục' }))
+    expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
+    expect(screen.queryByText('Chọn quy mô đàn dự kiến.')).not.toBeInTheDocument()
+
+    await fillRequired(user)
+    expect(screen.getByLabelText('Quy mô dự kiến')).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Tạo trại và tiếp tục' }))
+    expect(await screen.findByText(/^SCR-58 \?farm=\d+ · Đã đăng ký trại Trại Thung Mây\. Hãy chọn gói để kích hoạt\.$/)).toBeInTheDocument()
+  })
+
+  it('R-02-02 sends the same request key again when the Owner retries after a failure', async () => {
+    const user = userEvent.setup()
+    const register = vi.spyOn(farmWorkspaceApi, 'registerFarm').mockRejectedValueOnce(new Error('Mất kết nối mạng.'))
+    renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
+    await fillRequired(user, 'Trại thử lại')
+    await user.click(screen.getByRole('button', { name: 'Tạo trại và tiếp tục' }))
+    expect(await screen.findByText('Mất kết nối mạng.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Tạo trại và tiếp tục' }))
+    await waitFor(() => expect(register).toHaveBeenCalledTimes(2))
+    const [firstKey, secondKey] = register.mock.calls.map((call) => call[1]?.idempotencyKey)
+    expect(firstKey).toBeTruthy()
+    expect(secondKey).toBe(firstKey)
+    expect(await screen.findByText(/^SCR-58 \?farm=\d+/)).toBeInTheDocument()
+  })
+
+  it('UC-FE02-01 E1 shows MSG-FE02-02 and opens SCR-07 when the Owner profile is not complete', async () => {
+    const user = userEvent.setup()
+    const profile = await farmWorkspaceApi.getProfile()
+    vi.spyOn(farmWorkspaceApi, 'getProfile').mockResolvedValue({ ...profile, ownerRegistrationCompleted: false })
+    const register = vi.spyOn(farmWorkspaceApi, 'registerFarm')
+    renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
+    expect(await screen.findByRole('dialog', { name: 'Chưa hoàn tất hồ sơ Chủ trại' })).toBeInTheDocument()
+    expect(screen.getByText('Vui lòng hoàn tất hồ sơ Chủ trại trước khi đăng ký trại.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Hoàn tất hồ sơ' }))
+    expect(await screen.findByText('SCR-07 Hoàn tất hồ sơ chủ trại')).toBeInTheDocument()
+    expect(register).not.toHaveBeenCalled()
+  })
+
+  it('UC-FE02-01 E1 also handles MSG-FE02-02 returned by the backend', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(farmWorkspaceApi, 'registerFarm').mockRejectedValueOnce(new BackendError(403, { code: 'MSG-FE02-02', params: {} }))
+    renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
+    await fillRequired(user)
+    await user.click(screen.getByRole('button', { name: 'Tạo trại và tiếp tục' }))
+    expect(await screen.findByRole('dialog', { name: 'Chưa hoàn tất hồ sơ Chủ trại' })).toBeInTheDocument()
   })
 })
 

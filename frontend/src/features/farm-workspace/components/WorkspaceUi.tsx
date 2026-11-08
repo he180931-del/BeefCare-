@@ -90,6 +90,7 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
       'MSG-COM-06': 'Vui lòng điền đủ các trường bắt buộc.',
       'MSG-COM-07': 'Ngày hiệu lực không hợp lệ.',
       'MSG-COM-10': 'Email hoặc số điện thoại không hợp lệ.',
+      'MSG-FE02-02': 'Vui lòng hoàn tất hồ sơ Chủ trại trước khi đăng ký trại.',
       'MSG-FE02-03': 'Trang trại chưa thể sử dụng dịch vụ. Chủ trại cần kiểm tra gói dịch vụ.',
       'MSG-FE02-04': 'Chủ trại quản lý gói dịch vụ; thành viên chưa thể vào trang trại này.',
       'MSG-FE03-02': 'Email này đã là thành viên đang hoạt động.',

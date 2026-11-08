@@ -11469,7 +11469,7 @@
           },
           "contactPhone" : {
             "type" : "string",
-            "pattern" : "^(?:0|\\+84)[0-9]{9,10}$"
+            "pattern" : "((?:0|\\+84)[0-9]{9})?"
           },
           "registrationCertificateInfo" : {
             "type" : "string",
@@ -14936,7 +14936,7 @@
           },
           "contactPhone" : {
             "type" : "string",
-            "pattern" : "^(?:0|\\+84)[0-9]{9,10}$"
+            "pattern" : "((?:0|\\+84)[0-9]{9})?"
           },
           "registrationCertificateInfo" : {
             "type" : "string",
@@ -14945,7 +14945,7 @@
           },
           "expectedHerdSize" : {
             "type" : "string",
-            "pattern" : "UNDER_50|50_149|150_300|OVER_300"
+            "pattern" : "(UNDER_50|50_149|150_300|OVER_300)?"
           },
           "mainBreedCodes" : {
             "type" : "array",

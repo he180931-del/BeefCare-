@@ -647,7 +647,7 @@ class BrowserSessionFlowIT {
     private long activeFarm(Browser owner) throws Exception {
         owner.post("/api/account/owner-registration", Map.of("fullName", "Flow Farm Owner", "phone", "0901234567", "termsAccepted", true)).andExpect(status().isOk());
         MvcResult result = owner.post("/api/farms",
-            Map.of("name", "Flow Farm", "province", "Dong Nai", "commune", "Xuan Loc", "expectedHerdSize", "UNDER_50"), UUID.randomUUID().toString())
+            Map.of("name", "Flow Farm", "province", "Đồng Nai", "commune", "Xuan Loc", "expectedHerdSize", "UNDER_50"), UUID.randomUUID().toString())
             .andExpect(status().isCreated()).andExpect(jsonPath("$.serviceStatus").value("PENDING_PAYMENT")).andReturn();
         long farmId = om.readTree(result.getResponse().getContentAsString()).path("id").asLong();
         var farm = farms.findById(farmId).orElseThrow();

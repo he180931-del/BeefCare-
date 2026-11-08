@@ -45,4 +45,12 @@ describe('farm workspace backend adapter isolation', () => {
     expect(transport.command).toHaveBeenCalledWith('/api/farms', expect.objectContaining({ name: 'Trại mới' }), { method: 'POST' })
     expect((await store.listFarms()).some((farm) => farm.name === 'Trại mới')).toBe(false)
   })
+
+  it('UC-FE02-01 sends the request key held by the page and a blank expected herd size as null', async () => {
+    vi.mocked(transport.command).mockResolvedValueOnce({ id: 903, name: 'Trại mới', province: 'Phú Thọ', commune: 'Minh Đài', serviceStatus: 'PENDING_PAYMENT', mainBreedIds: [], version: 1 })
+    const api = createFarmWorkspaceApi({ mode: 'backend', farmId: 1, transport, demoStore: store })
+    const farm = await api.registerFarm({ name: 'Trại mới', province: 'Phú Thọ', commune: 'Minh Đài', contactPhone: '0912 345 678', expectedHerdSize: '' }, { idempotencyKey: 'key-1' })
+    expect(farm).toMatchObject({ id: 903, role: 'OWNER', serviceStatus: 'PENDING_PAYMENT' })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms', expect.objectContaining({ contactPhone: '0912345678', expectedHerdSize: null }), { method: 'POST', key: 'key-1' })
+  })
 })

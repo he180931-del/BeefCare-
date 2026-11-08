@@ -26,6 +26,9 @@ public final class MessageCodes {
     public static final String COM_18 = "MSG-COM-18";
     public static final String COM_19 = "MSG-COM-19";
 
+    /** UC-FE02-01 E1: Owner registration is not complete. */
+    public static final String FE02_02 = "MSG-FE02-02";
+
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";
     public static final String FE03_20 = "MSG-FE03-20";

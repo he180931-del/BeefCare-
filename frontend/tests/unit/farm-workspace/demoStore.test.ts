@@ -20,6 +20,22 @@ describe('farm workspace local demo store', () => {
     expect((await store.listMembers(farm.id)).filter((member) => member.role === 'OWNER')).toHaveLength(1)
   })
 
+  it('R-02-02 returns the farm already created for a repeated request key and rejects that key with other data', async () => {
+    const store = createFarmWorkspaceDemoStore()
+    const first = await store.registerFarm(registration, { idempotencyKey: 'key-1' })
+    const again = await store.registerFarm(registration, { idempotencyKey: 'key-1' })
+    expect(again.id).toBe(first.id)
+    expect((await store.listFarms()).filter((farm) => farm.name === registration.name)).toHaveLength(1)
+    await expect(store.registerFarm({ ...registration, name: 'Trại khác' }, { idempotencyKey: 'key-1' })).rejects.toThrow()
+    // TC-02-05: the same name with a new key is a second farm
+    expect((await store.registerFarm(registration, { idempotencyKey: 'key-2' })).id).not.toBe(first.id)
+  })
+
+  it('stores a blank expected herd size as not provided', async () => {
+    const store = createFarmWorkspaceDemoStore()
+    expect((await store.registerFarm({ ...registration, expectedHerdSize: '' })).expectedHerdSize).toBe('')
+  })
+
   it('supports invitation status changes and member role lifecycle', async () => {
     const store = createFarmWorkspaceDemoStore()
     const farm = (await store.listFarms())[0]

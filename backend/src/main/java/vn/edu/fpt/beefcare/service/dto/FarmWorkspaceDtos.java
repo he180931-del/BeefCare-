@@ -7,15 +7,20 @@ import java.util.Set;
 
 public final class FarmWorkspaceDtos {
     private FarmWorkspaceDtos() {}
+    /** SCR-10 / SCR-11 contact phone: "0" or "+84" followed by 9 digits; an empty value means "not provided". */
+    public static final String CONTACT_PHONE = "((?:0|\\+84)[0-9]{9})?";
+    /** SCR-10 expected herd size: optional, one of the four ranges; an empty value means "not provided". */
+    public static final String EXPECTED_HERD_SIZE = "(UNDER_50|50_149|150_300|OVER_300)?";
+    /** SCR-10. {@code province} must also be one of {@code VietnamProvinces.NAMES} (checked by the service). */
     public record Registration(
         @NotBlank @Size(min=2,max=150) String name,
         @NotBlank @Size(max=150) String province,
         @NotBlank @Size(max=150) String commune,
         @Size(max=255) String detailedAddress,
         @Size(max=100) String contactPerson,
-        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$") String contactPhone,
+        @Pattern(regexp=CONTACT_PHONE) String contactPhone,
         @Size(max=255) String registrationCertificateInfo,
-        @Pattern(regexp="UNDER_50|50_149|150_300|OVER_300") String expectedHerdSize,
+        @Pattern(regexp=EXPECTED_HERD_SIZE) String expectedHerdSize,
         Set<@NotBlank String> mainBreedCodes
     ) {}
     public record Update(
@@ -24,7 +29,7 @@ public final class FarmWorkspaceDtos {
         @NotBlank @Size(max=150) String commune,
         @Size(max=255) String detailedAddress,
         @Size(max=100) String contactPerson,
-        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$") String contactPhone,
+        @Pattern(regexp=CONTACT_PHONE) String contactPhone,
         @Size(max=255) String registrationCertificateInfo,
         @Size(max=40) String timeZone,
         LocalTime morningShiftStart,
