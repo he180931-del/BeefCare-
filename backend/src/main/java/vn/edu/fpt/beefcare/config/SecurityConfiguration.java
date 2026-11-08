@@ -186,7 +186,9 @@ public class SecurityConfiguration {
                         session.invalidate();
                     }
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
-                    response.sendError(ex.getStatus().value());
+                    response.setStatus(ex.getStatus().value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"code\":\"" + ex.getCode() + "\"}");
                     return;
                 }
             }

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, type AuthClient } from '../../../src/features/authentication'
 import { AuthGate } from '../../../src/features/authorization'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
+import { BackendError } from '../../../src/api/backendClient'
 
 function renderAuth(client: AuthClient, path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AuthProvider client={client}><AuthGate><div>Private content</div></AuthGate></AuthProvider></MemoryRouter>)
@@ -104,6 +105,18 @@ describe('guest authentication pages', () => {
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByRole('heading', { name: 'Tài khoản đang tạm ngưng' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'tuanpqhe181869@fpt.edu.vn' })).toHaveAttribute('href', 'mailto:tuanpqhe181869@fpt.edu.vn')
+  })
+
+  it('shows the suspended-account state instead of a generic session-check error', async () => {
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockRejectedValue(new BackendError(403, { code: 'MSG-FE01-03' })),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+    }
+    renderAuth(client, '/sign-in')
+    expect(await screen.findByRole('heading', { name: 'Tài khoản đang tạm ngưng' })).toBeInTheDocument()
+    expect(screen.queryByText('Không thể kiểm tra phiên đăng nhập với máy chủ')).not.toBeInTheDocument()
   })
 
   it('keeps unverified-email errors distinct from incorrect credentials', async () => {

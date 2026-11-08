@@ -70,7 +70,8 @@ class AuthenticateControllerIT {
         AppUser appUser = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow();
         appUser.setAccountStatus("SUSPENDED");
         appUserRepository.saveAndFlush(appUser);
-        mockMvc.perform(get("/api/account").session(session)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/account").session(session)).andExpect(status().isForbidden())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("MSG-FE01-03"));
         org.assertj.core.api.Assertions.assertThat(session.isInvalid()).isTrue();
     }
 

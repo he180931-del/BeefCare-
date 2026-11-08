@@ -26,7 +26,7 @@ function loginErrorMessage(error: unknown): string {
 }
 
 export function AuthProvider({ client = defaultAuthClient, children }: { client?: AuthClient; children: ReactNode }) {
-  const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated'>('checking')
+  const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated' | 'suspended'>('checking')
   const [error, setError] = useState<string | null>(null)
   const hasRouter = useInRouterContext()
 
@@ -36,10 +36,14 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     setError(null)
     client.isAuthenticated().then((ok) => {
       if (active) setStatus(ok ? 'authenticated' : 'anonymous')
-    }).catch(() => {
+    }).catch((reason: unknown) => {
       if (active) {
-        setError('Không thể kiểm tra phiên đăng nhập với máy chủ. Hãy thử đăng nhập lại hoặc kiểm tra kết nối.')
-        setStatus('anonymous')
+        if (reason instanceof BackendError && reason.code === 'MSG-FE01-03') {
+          setStatus('suspended')
+        } else {
+          setError('Không thể kiểm tra phiên đăng nhập với máy chủ. Hãy thử đăng nhập lại hoặc kiểm tra kết nối.')
+          setStatus('anonymous')
+        }
       }
     })
     return () => { active = false }
@@ -60,7 +64,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       {status === 'authenticated'
         ? children
         : hasRouter
-          ? <GuestAuthFlow client={client} initialError={error} onAuthenticated={() => setStatus('authenticated')} />
+          ? <GuestAuthFlow client={client} initialError={error} forceSuspended={status === 'suspended'} onAuthenticated={() => setStatus('authenticated')} />
           : <LegacyLoginForm client={client} initialError={error} onSuccess={() => setStatus('authenticated')} />}
     </AuthContext.Provider>
   )
