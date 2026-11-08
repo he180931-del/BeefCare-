@@ -92,6 +92,9 @@ public class PlatformFinanceResource {
     @GetMapping("/reports/{id}")
     public CashReport report(@PathVariable Long id) { return service.report(id); }
 
+    @GetMapping("/reports/latest")
+    public CashReport latestReport() { return service.latestReport(); }
+
     @GetMapping(value = "/reports/{id}/xlsx", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     public ResponseEntity<byte[]> export(@PathVariable Long id) {
         ExportSnapshot snapshot = service.exportSnapshot(id);

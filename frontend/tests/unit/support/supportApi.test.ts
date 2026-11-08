@@ -128,12 +128,15 @@ describe('supportApi: trả lời, xác nhận, mở lại (SCR-66)', () => {
 })
 
 describe('supportApi: chế độ backend', () => {
-  it('từ chối và không đụng tới store', async () => {
+  it('gọi API thật và không đụng tới store', async () => {
     const store = createSupportDemoStore()
     const spy = vi.spyOn(store, 'listTickets')
-    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listTickets()).rejects.toThrow()
-    await expect(api.createTicket({ category: 'OTHER', scope: 'ACCOUNT', farmId: null, subject: 'a', description: 'b' })).rejects.toThrow()
+    const http = transport()
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listTickets()).resolves.toMatchObject({ items: [], total: 0 })
+    await expect(api.createTicket({ category: 'OTHER', scope: 'ACCOUNT', farmId: null, subject: 'a', description: 'b' })).resolves.toMatchObject({ id: 0 })
     expect(spy).not.toHaveBeenCalled()
+    expect(http.get).toHaveBeenCalled()
+    expect(http.command).toHaveBeenCalled()
   })
 })

@@ -9,10 +9,14 @@ import org.springframework.stereotype.Service;
 public class PublicLandingService {
     private final PlanPriceService prices;
     private final String contactEmail;
+    private final String contactPhone;
 
-    public PublicLandingService(PlanPriceService prices, @Value("$" + "{beefcare.public.contact-email:}") String contactEmail) {
+    public PublicLandingService(PlanPriceService prices,
+        @Value("$" + "{beefcare.public.contact-email:}") String contactEmail,
+        @Value("$" + "{beefcare.public.contact-phone:}") String contactPhone) {
         this.prices = prices;
         this.contactEmail = contactEmail;
+        this.contactPhone = contactPhone;
     }
 
     public LandingContent get() {
@@ -20,18 +24,23 @@ public class PublicLandingService {
             "BeefCare",
             "Quản lý đàn bò và vận hành trang trại trên cùng một nền tảng.",
             List.of(
-                new Feature("Quản lý đàn", "Hồ sơ bò, nhập xuất đàn, chuồng và dòng thời gian hoạt động."),
-                new Feature("Chăm sóc và sinh sản", "Theo dõi tiêm phòng, điều trị, sức khỏe và sự kiện sinh sản."),
-                new Feature("Thức ăn và báo cáo", "Quản lý tồn kho, khẩu phần, ghi nhận cho ăn và chi phí."),
-                new Feature("Làm việc theo vai trò", "Chủ trại quản lý thành viên; nhân viên chỉ xem hoặc cập nhật phần được giao.")
+                new Feature("Hồ sơ cá thể", "Mã QR mở nhanh hồ sơ, thông tin và lịch sử theo từng con."),
+                new Feature("Đàn và chuồng", "Quản lý nhóm đàn, vị trí chuồng và tình trạng hiện tại."),
+                new Feature("Tăng trưởng và BCS", "Ghi cân nặng, thể trạng và theo dõi thay đổi theo thời gian."),
+                new Feature("Tiêm phòng và sức khỏe", "Lưu lịch tiêm, điều trị và lịch tái khám."),
+                new Feature("Sinh sản", "Theo dõi động dục, phối giống, khám thai và ngày dự kiến sinh."),
+                new Feature("Nhắc việc và báo cáo", "Xem việc sắp đến hạn và tổng hợp tình hình trại.")
             ),
             List.of(
-                new Faq("BeefCare dùng cho ai?", "Cho chủ trại bò và các thành viên được mời vào trang trại."),
-                new Faq("Có thể quản lý nhiều trang trại không?", "Một tài khoản Chủ trại có thể đăng ký và quản lý nhiều trang trại."),
-                new Faq("Khi nào trang trại được kích hoạt?", "Sau khi khoản thanh toán đăng ký được xác nhận.")
+                new Faq("BeefCare phù hợp với quy mô trại nào?", "BeefCare hướng tới các trang trại bò thịt quy mô khoảng 150–300 con và vẫn dùng được cho trại nhỏ hơn hoặc lớn hơn."),
+                new Faq("Quản lý được những thông tin nào của đàn bò?", "Hồ sơ từng cá thể, chuồng trại, cân nặng và thể trạng, tiêm phòng, sức khỏe, sinh sản, thức ăn và nhắc việc."),
+                new Faq("Thành viên trại được phân quyền ra sao?", "Mỗi trại có Chủ trại, Quản lý và Kỹ thuật viên với quyền cố định theo vai trò. Chủ trại mời và quản lý thành viên."),
+                new Faq("Có thể dùng trên điện thoại không?", "Có. BeefCare chạy trên trình duyệt, không cần cài ứng dụng; Kỹ thuật viên có giao diện điện thoại để ghi nhận tại chuồng."),
+                new Faq("Tôi cần hỗ trợ khi bắt đầu từ đâu?", "Liên hệ BeefCare qua email hoặc điện thoại ở cuối trang; chúng tôi hướng dẫn tạo trại và mời thành viên.")
             ),
             prices.current(),
-            contactEmail == null || contactEmail.isBlank() ? null : contactEmail.trim()
+            contactEmail == null || contactEmail.isBlank() ? null : contactEmail.trim(),
+            contactPhone == null || contactPhone.isBlank() ? null : contactPhone.trim()
         );
     }
 
@@ -41,5 +50,5 @@ public class PublicLandingService {
 
     public record Feature(String title, String description) {}
     public record Faq(String question, String answer) {}
-    public record LandingContent(String name, String introduction, List<Feature> features, List<Faq> faq, PlanPriceService.PriceVersion prices, String contactEmail) {}
+    public record LandingContent(String name, String introduction, List<Feature> features, List<Faq> faq, PlanPriceService.PriceVersion prices, String contactEmail, String contactPhone) {}
 }

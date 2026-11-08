@@ -107,11 +107,13 @@ describe('yêu cầu nội bộ', () => {
 })
 
 describe('chế độ backend', () => {
-  it('từ chối và không đụng vào store', async () => {
+  it('gọi API thật và không đụng vào store', async () => {
     const store = createSupportDemoStore()
     const spy = vi.spyOn(store, 'listQueue')
-    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listQueue(CS_ME, {})).rejects.toThrow()
+    const http = transport()
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listQueue(CS_ME, {})).resolves.toMatchObject({ items: [], total: 0 })
     expect(spy).not.toHaveBeenCalled()
+    expect(http.get).toHaveBeenCalled()
   })
 })

@@ -248,22 +248,24 @@ public class PlatformFinanceService {
     public RecordDTO createReplacement(Long voidedId, VersionedAction request) {
         var actor = access.requireRole(PlatformRole.PM).user();
         ManualFinanceRecord old = records.findById(voidedId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (request != null && request.version() != null) requireVersion(old, request.version());
         if (!"VOID".equalsIgnoreCase(old.getState())) throw DomainException.conflict(MessageCodes.COM_05);
         ManualFinanceRecord replacement = new ManualFinanceRecord();
         replacement.setRecordCode(nextCode());
         replacement.setType(old.getType());
         replacement.setCategory(old.getCategory());
-        replacement.setAmountVnd(old.getAmountVnd());
+        replacement.setAmountVnd(request == null || request.amountVnd() == null ? old.getAmountVnd() : request.amountVnd());
         replacement.setOccurredOn(old.getOccurredOn());
         replacement.setState("DRAFT");
         replacement.setFarm(old.getFarm());
         replacement.setScope(old.getScope());
         replacement.setDocumentNumber(old.getDocumentNumber());
-        replacement.setDescription(old.getDescription());
+        replacement.setDescription(request == null || request.description() == null ? old.getDescription() : blankToNull(request.description()));
         replacement.setSourceType("MANUAL");
         replacement.setCreatedAt(clock.now());
         replacement.setCreatedBy(actor);
         replacement.setReplacementRecord(old);
+        validateFields(replacement);
         records.saveAndFlush(replacement);
         writeHistory(replacement, actor, "REPLACEMENT_CREATE", null, RecordDTO.from(replacement), null);
         audit(actor, "FINANCE_REPLACEMENT_CREATE", replacement, null, "DRAFT");
@@ -303,6 +305,13 @@ public class PlatformFinanceService {
     public CashReport report(Long id) {
         access.requireRole(PlatformRole.PM);
         return snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now())).map(this::report)
+            .orElseThrow(PlatformFinanceService::snapshotExpired);
+    }
+
+    @Transactional(readOnly = true)
+    public CashReport latestReport() {
+        access.requireRole(PlatformRole.PM);
+        return snapshots.findFirstByExpiresAtAfterOrderByIdDesc(clock.now()).map(this::report)
             .orElseThrow(PlatformFinanceService::snapshotExpired);
     }
 
@@ -503,8 +512,8 @@ public class PlatformFinanceService {
     }
 
     private CashReport report(CashReportSnapshot snapshot) {
-        try { return new CashReport(snapshot.getId(), mapper.readValue(snapshot.getCriteriaJson(), ReportCriteria.class),
-            mapper.readValue(snapshot.getSummaryJson(), ReportSummary.class), snapshot.getAsOf(), snapshot.getExpiresAt()); }
+        try { return new CashReport(snapshot.getId(), "SNAP-" + snapshot.getId(), mapper.readValue(snapshot.getCriteriaJson(), ReportCriteria.class),
+            mapper.readValue(snapshot.getSummaryJson(), ReportSummary.class), mapper.readValue(snapshot.getDetailsJson(), new TypeReference<List<ReportLine>>() {}), snapshot.getAsOf(), snapshot.getExpiresAt()); }
         catch (Exception malformed) { throw new IllegalStateException("Stored cash report snapshot is invalid", malformed); }
     }
 
@@ -520,7 +529,9 @@ public class PlatformFinanceService {
 
     public record CreateRecord(RecordFields fields, Long sourceEvidenceId) {}
     public record VersionedRecord(RecordFields fields, Long sourceEvidenceId, Long version) {}
-    public record VersionedAction(Long version, String reason) {}
+    public record VersionedAction(Long version, String reason, BigDecimal amountVnd, String description) {
+        public VersionedAction(Long version, String reason) { this(version, reason, null, null); }
+    }
     public record RecordFields(String type, String category, BigDecimal amountVnd, LocalDate occurredOn, String scope, Long farmId,
         String documentNumber, String description, String sourceType) {}
     public record RecordDTO(Long id, String recordCode, String type, String category, BigDecimal amountVnd, LocalDate occurredOn,
@@ -545,6 +556,6 @@ public class PlatformFinanceService {
     public record ReportSummary(BigDecimal subscriptionReceipts, BigDecimal otherIncome, BigDecimal totalIncome, BigDecimal totalExpense, BigDecimal netCashFlow, List<ScopeTotals> scopes, List<DailyTotals> dailyIncome, String note) {}
     public record FinanceCategories(List<String> income, List<String> expense) {}
     public record ReportLine(String sourceType, String code, String scope, Long farmId, String farmName, String direction, String category, String description, BigDecimal amount, LocalDate cashDate, String status, String sourceReference) {}
-    public record CashReport(Long id, ReportCriteria criteria, ReportSummary summary, Instant generatedAt, Instant expiresAt) {}
+    public record CashReport(Long id, String code, ReportCriteria criteria, ReportSummary summary, List<ReportLine> lines, Instant generatedAt, Instant expiresAt) {}
     public record ExportSnapshot(Long id, LocalDate dateFrom, LocalDate dateTo, Instant asOf, ReportCriteria criteria, ReportSummary summary, List<ReportLine> lines) {}
 }

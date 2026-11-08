@@ -35,6 +35,11 @@ export default function RecordFormPage() {
   const record = data?.record ?? null
 
   useEffect(() => { if (record) setFields(toFields(record)) }, [record])
+  useEffect(() => {
+    if (!record?.sourceReference || !bank.data?.length || fields.sourceEvidenceId) return
+    const source = bank.data.find((item) => item.sourceReference === record.sourceReference)
+    if (source) setFields((current) => ({ ...current, sourceEvidenceId: source.transactionId, sourceType: 'BANK' }))
+  }, [record, bank.data, fields.sourceEvidenceId])
 
   if (loading && code && !data) return <Layout title="Khoản thu chi"><LoadingBlock /></Layout>
   if (error) return <Layout title="Khoản thu chi"><ErrorBlock message={userFacingError(error, 'Không tải được khoản thu chi.')} onRetry={refetch} /></Layout>

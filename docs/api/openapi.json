@@ -14648,11 +14648,20 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "code" : {
+            "type" : "string"
+          },
           "criteria" : {
             "$ref" : "#/components/schemas/ReportCriteria"
           },
           "summary" : {
             "$ref" : "#/components/schemas/ReportSummary"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReportLine"
+            }
           },
           "generatedAt" : {
             "type" : "string",
@@ -14674,6 +14683,23 @@
           "income" : {
             "type" : "number"
           }
+        }
+      },
+      "ReportLine" : {
+        "type" : "object",
+        "properties" : {
+          "sourceType" : { "type" : "string" },
+          "code" : { "type" : "string" },
+          "scope" : { "type" : "string" },
+          "farmId" : { "type" : "integer", "format" : "int64" },
+          "farmName" : { "type" : "string" },
+          "direction" : { "type" : "string" },
+          "category" : { "type" : "string" },
+          "description" : { "type" : "string" },
+          "amount" : { "type" : "number" },
+          "cashDate" : { "type" : "string", "format" : "date" },
+          "status" : { "type" : "string" },
+          "sourceReference" : { "type" : "string" }
         }
       },
       "ReportCriteria" : {
@@ -18238,6 +18264,9 @@
             "$ref" : "#/components/schemas/PriceVersion"
           },
           "contactEmail" : {
+            "type" : "string"
+          },
+          "contactPhone" : {
             "type" : "string"
           }
         }

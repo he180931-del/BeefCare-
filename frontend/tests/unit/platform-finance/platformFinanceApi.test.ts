@@ -156,11 +156,13 @@ describe('biên nhận và thông báo', () => {
     expect((await api.listNotices('RECON')).filter((n) => !n.readTime)).toHaveLength(0)
     expect((await api.listNotices('SUPPORT')).filter((n) => !n.readTime)).toHaveLength(2)
   })
-  it('chế độ backend từ chối và không đụng store', async () => {
+  it('chế độ backend gọi API thật và không đụng store', async () => {
     const store = createFinanceDemoStore()
     const spy = vi.spyOn(store, 'listRecords')
-    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listRecords({})).rejects.toThrow()
+    const http = transport()
+    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listRecords({})).resolves.toMatchObject({ rows: [], total: 0 })
     expect(spy).not.toHaveBeenCalled()
+    expect(http.get).toHaveBeenCalled()
   })
 })

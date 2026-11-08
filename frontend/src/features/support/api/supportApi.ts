@@ -52,7 +52,7 @@ function createBackendApi(transport: BackendTransport) {
   const run = async <T>(operation: () => Promise<T>): Promise<T> => { try { return await operation() } catch (error) { return mapError(error) } }
   return {
     listOwnedFarms: () => run(async () => asRows(await transport.get('/api/farms')).map((farm): OwnedFarm => ({ id: numberValue(farm.id), name: textValue(farm.name) }))),
-    listTickets: (filters = {}) => run(async () => {
+    listTickets: (filters: TicketFilters = {}) => run(async () => {
       const params = new URLSearchParams()
       if (filters.q) params.set('q', filters.q)
       if (filters.category) params.set('category', filters.category)
@@ -68,11 +68,11 @@ function createBackendApi(transport: BackendTransport) {
       }
       return result
     }),
-    getTicket: (id) => run(async () => mapTicket(await transport.get(`/api/support/tickets/${id}`))),
-    createTicket: (command) => run(async () => mapTicket(await transport.command('/api/support/tickets', command))),
-    reply: (id, command) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/replies`, command))),
-    acknowledge: (id, command) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/acknowledgments`, command))),
-    reopen: (id, command) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/reopen`, command))),
+    getTicket: (id: number) => run(async () => mapTicket(await transport.get(`/api/support/tickets/${id}`))),
+    createTicket: (command: CreateTicketCommand) => run(async () => mapTicket(await transport.command('/api/support/tickets', command))),
+    reply: (id: number, command: ReplyCommand) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/replies`, command))),
+    acknowledge: (id: number, command: AcknowledgeCommand) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/acknowledgments`, command))),
+    reopen: (id: number, command: ReopenCommand) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/reopen`, command))),
   }
 }
 

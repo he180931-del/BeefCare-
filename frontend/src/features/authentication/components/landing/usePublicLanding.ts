@@ -4,7 +4,7 @@ import { DEFAULT_FAQ, DEFAULT_FEATURES } from '../../data/landingContent'
 
 export type Prices = { price1y: number; price2y: number; price3y: number }
 export type PriceState = { status: 'loading' | 'ready' | 'unavailable'; prices: Prices | null }
-type Published = { introduction?: string; features?: Array<{ title?: string; description?: string }>; faq?: Array<{ question?: string; answer?: string }>; contactEmail?: string }
+type Published = { introduction?: string; features?: Array<{ title?: string; description?: string }>; faq?: Array<{ question?: string; answer?: string }>; contactEmail?: string; contactPhone?: string }
 
 const isPrice = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0
 
@@ -47,5 +47,6 @@ export function usePublishedLanding(client: AuthClient) {
     features: features?.length ? features : DEFAULT_FEATURES,
     faq: faq?.length ? faq : DEFAULT_FAQ,
     contactEmail: published?.contactEmail?.trim() || undefined,
+    contactPhone: published?.contactPhone?.trim() || undefined,
   }
 }
