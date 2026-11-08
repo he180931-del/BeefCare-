@@ -260,15 +260,18 @@ public class IdentityService {
     }
 
     @Transactional
-    public void recordFailedPasswordAttempt(String login) {
+    public Optional<Instant> recordFailedPasswordAttempt(String login) {
         User user = findLogin(login).orElse(null);
-        if (user == null || !user.isActivated()) return;
+        if (user == null || !user.isActivated()) return Optional.empty();
         int attempts = user.getFailedPasswordAttempts() + 1;
         if (attempts >= 5) {
             user.setFailedPasswordAttempts(5);
-            user.setPasswordLockedUntil(Instant.now().plus(PASSWORD_LOCK));
+            Instant lockedUntil = Instant.now().plus(PASSWORD_LOCK);
+            user.setPasswordLockedUntil(lockedUntil);
+            return Optional.of(lockedUntil);
         } else {
             user.setFailedPasswordAttempts(attempts);
+            return Optional.empty();
         }
     }
 
@@ -277,6 +280,7 @@ public class IdentityService {
         findLogin(login).ifPresent(user -> {
             user.setFailedPasswordAttempts(0);
             user.setPasswordLockedUntil(null);
+            appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).ifPresent(account -> account.setPasswordLastUsedAt(Instant.now()));
         });
     }
 

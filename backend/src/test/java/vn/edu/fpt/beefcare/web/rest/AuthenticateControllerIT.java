@@ -112,7 +112,7 @@ class AuthenticateControllerIT {
     void fiveConsecutivePasswordFailuresLockPasswordSignInForFifteenMinutes() throws Exception {
         User user = createIdentity("session-lockout");
         Csrf csrf = fetchCsrf();
-        for (int attempt = 0; attempt < 5; attempt++) {
+        for (int attempt = 0; attempt < 4; attempt++) {
             mockMvc.perform(post("/api/authenticate")
                 .cookie(csrf.cookie())
                 .header("X-XSRF-TOKEN", csrf.token())
@@ -124,8 +124,9 @@ class AuthenticateControllerIT {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(MediaType.APPLICATION_JSON)
-            .content(om.writeValueAsBytes(login("session-lockout", "secret"))))
-            .andExpect(status().isLocked());
+            .content(om.writeValueAsBytes(login("session-lockout", "wrong-password"))))
+            .andExpect(status().isLocked())
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("MSG-FE01-02"));
         User locked = userRepository.findById(user.getId()).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(locked.getFailedPasswordAttempts()).isEqualTo(5);
         org.assertj.core.api.Assertions.assertThat(locked.getPasswordLockedUntil()).isAfter(java.time.Instant.now())

@@ -278,11 +278,11 @@ class BrowserSessionFlowIT {
         attacker.fetchCsrf();
         // GBR-02 / E1: a wrong password and an unknown e-mail give the identical answer
         attacker.login(email("unknown"), "whatever-123", false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01")).andExpect(jsonPath("$.params").isEmpty());
-        for (int attempt = 0; attempt < 5; attempt++) {
+        for (int attempt = 0; attempt < 4; attempt++) {
             attacker.login(email, "wrong-password-" + attempt, false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01"));
         }
-        // E2: the 6th try is locked even with the right password (MSG-FE01-02, with the time sign-in reopens)
-        MvcResult locked = attacker.login(email, PASSWORD, false).andExpect(status().isLocked()).andExpect(jsonPath("$.code").value("MSG-FE01-02")).andReturn();
+        // E2: the fifth wrong password itself locks sign-in (MSG-FE01-02, with the time sign-in reopens).
+        MvcResult locked = attacker.login(email, "wrong-password-final", false).andExpect(status().isLocked()).andExpect(jsonPath("$.code").value("MSG-FE01-02")).andReturn();
         Instant until = Instant.parse(om.readTree(locked.getResponse().getContentAsString()).path("params").path("time").asText());
         assertThat(Duration.between(Instant.now(), until)).isBetween(Duration.ofMinutes(14), Duration.ofMinutes(15).plusSeconds(5));
         assertThat(users.findOneByEmailIgnoreCase(email).orElseThrow().getFailedPasswordAttempts()).isEqualTo(5);
