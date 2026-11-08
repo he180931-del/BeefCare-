@@ -1,5 +1,6 @@
 import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { accountDemoStore, type AccountDemoStore } from '../data/accountDemoStore'
+import { googleAuthorizationUrl } from '../../authentication/googleOAuth'
 import type { AccountIdentity, AccountProfile, PasswordChangeInput, ProfileUpdateInput } from '../types'
 
 function profile(value: unknown): AccountProfile {
@@ -37,7 +38,7 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
     async reauthenticateWithGoogle(identity: AccountIdentity): Promise<{ redirectTo: string | null }> {
       if (!backend) return store.reauthenticateWithGoogle(identity)
       await transport.command('/api/account/google-reauthentication', {}, { method: 'POST' })
-      return { redirectTo: '/oauth2/authorization/google' }
+      return { redirectTo: googleAuthorizationUrl() }
     },
     // POST /api/account/change-password
     async changePassword(identity: AccountIdentity, input: PasswordChangeInput): Promise<{ message: string }> {

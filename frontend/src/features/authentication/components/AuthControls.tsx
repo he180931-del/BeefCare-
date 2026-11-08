@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../../../components/Icon'
 import type { AuthClient } from '../types'
 import { FormField, googleButtonClass } from './AuthShell'
+import { googleAuthorizationUrl } from '../googleOAuth'
 
 export function ActionLink({ to, children, state }: { to: string; children: ReactNode; state?: unknown }) {
   return <Link to={to} state={state} className="font-bold text-brand underline-offset-4 hover:underline">{children}</Link>
@@ -26,9 +27,7 @@ export function PasswordField({ label, id, value, onChange, error, autoComplete,
 export function GoogleButton({ client, label }: { client: AuthClient; label: string }) {
   const glyph = <span aria-hidden="true" className="absolute left-5 text-xl font-bold">G</span>
   if (client.mode === 'mock') return <button type="button" disabled className={googleButtonClass} title="Google OAuth chỉ khả dụng khi nối máy chủ">{glyph}{label}</button>
-  const apiOrigin = (import.meta.env.VITE_BEEFCARE_API_URL || '').trim().replace(/\/+$/, '')
-  const authorizationUrl = `${apiOrigin}/oauth2/authorization/google`
-  return <a href={authorizationUrl} className={`${googleButtonClass} no-underline`}>{glyph}{label}</a>
+  return <a href={googleAuthorizationUrl()} className={`${googleButtonClass} no-underline`}>{glyph}{label}</a>
 }
 
 export function Divider({ children }: { children: ReactNode }) {
