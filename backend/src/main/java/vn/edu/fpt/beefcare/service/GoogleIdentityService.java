@@ -41,6 +41,7 @@ public class GoogleIdentityService {
         if (subject == null || subject.isBlank() || !Boolean.TRUE.equals(google.getClaim("email_verified"))) throw denied();
 
         Optional<AppUser> bySubject = appUsers.findOneByGoogleSubject(subject);
+        if (bySubject.isPresent() && !email.equals(bySubject.orElseThrow().getEmail())) throw denied();
         AppUser account = bySubject.or(() -> appUsers.findOneByEmailIgnoreCase(email)).orElse(null);
         if (account != null && !"ACTIVE".equalsIgnoreCase(account.getAccountStatus())) throw denied();
         if (account != null && account.getGoogleSubject() != null && !account.getGoogleSubject().equals(subject)) throw denied();

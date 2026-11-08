@@ -76,7 +76,8 @@ public class SecurityConfiguration {
         HttpSecurity http,
         FarmAccessService farmAccessService,
         SessionRegistry sessionRegistry,
-        vn.edu.fpt.beefcare.security.GoogleOidcSuccessHandler googleSuccessHandler
+        vn.edu.fpt.beefcare.security.GoogleOidcSuccessHandler googleSuccessHandler,
+        vn.edu.fpt.beefcare.security.GoogleOidcFailureHandler googleFailureHandler
     ) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookiePath("/");
@@ -140,7 +141,7 @@ public class SecurityConfiguration {
             )
             .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, exception) -> response.sendError(401)));
 
-        if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler));
+        if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler).failureHandler(googleFailureHandler));
 
         return http.build();
     }

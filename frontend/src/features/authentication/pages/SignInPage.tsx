@@ -16,7 +16,8 @@ export function SignInPage({ client, onAuthenticated, initialError, startFailed 
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [errors, setErrors] = useState<ReturnType<typeof validateSignIn>>({})
-  const [error, setError] = useState<string | null>(startFailed ? CREDENTIAL_MESSAGE : initialError)
+  const googleSignInRejected = new URLSearchParams(location.search).get('error') === 'google-sign-in'
+  const [error, setError] = useState<string | null>(startFailed ? CREDENTIAL_MESSAGE : googleSignInRejected ? 'Không thể đăng nhập với Google. Vui lòng thử lại hoặc dùng email.' : initialError)
   const [credentialFailed, setCredentialFailed] = useState(startFailed)
   const [unverified, setUnverified] = useState(false)
   const [submitting, setSubmitting] = useState(false)

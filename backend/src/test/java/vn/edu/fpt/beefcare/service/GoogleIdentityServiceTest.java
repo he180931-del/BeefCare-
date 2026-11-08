@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import vn.edu.fpt.beefcare.domain.Authority;
+import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.AuthorityRepository;
@@ -62,6 +63,21 @@ class GoogleIdentityServiceTest {
         assertThat(account.getValue().getGoogleLastUsedAt()).isEqualTo(account.getValue().getGoogleLinkedAt());
         assertThat(account.getValue().isTermsAccepted()).isFalse();
         assertThat(account.getValue().getTermsAcceptedAt()).isNull();
+    }
+
+    @Test
+    void refusesAChangedEmailForAnAlreadyLinkedGoogleSubject() {
+        AppUser linked = new AppUser();
+        linked.setEmail("original@example.test");
+        linked.setAccountStatus("ACTIVE");
+        linked.setGoogleSubject("google-subject");
+        when(appUsers.findOneByGoogleSubject("google-subject")).thenReturn(Optional.of(linked));
+
+        assertThatThrownBy(() -> service.provisionOrLink(profile("different@example.test", "google-subject", true)))
+            .isInstanceOf(OAuth2AuthenticationException.class);
+
+        verify(appUsers, never()).saveAndFlush(any());
+        verify(identities, never()).saveAndFlush(any());
     }
 
     private OidcUser profile(String email, String subject, boolean verified) {

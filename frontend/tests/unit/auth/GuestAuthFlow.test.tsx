@@ -76,6 +76,19 @@ describe('guest authentication pages', () => {
     expect(screen.queryByText(/Chế độ mô phỏng/)).not.toBeInTheDocument()
   })
 
+  it('explains a rejected Google sign-in from the OAuth callback', async () => {
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+    }
+
+    renderAuth(client, '/sign-in?error=google-sign-in')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể đăng nhập với Google')
+  })
+
   it('opens the suspended-account state for the backend suspension code', async () => {
     const user = userEvent.setup()
     const client: AuthClient = {

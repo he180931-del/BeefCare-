@@ -26,7 +26,9 @@ export function PasswordField({ label, id, value, onChange, error, autoComplete,
 export function GoogleButton({ client, label }: { client: AuthClient; label: string }) {
   const glyph = <span aria-hidden="true" className="absolute left-5 text-xl font-bold">G</span>
   if (client.mode === 'mock') return <button type="button" disabled className={googleButtonClass} title="Google OAuth chỉ khả dụng khi nối máy chủ">{glyph}{label}</button>
-  return <a href="/oauth2/authorization/google" className={`${googleButtonClass} no-underline`}>{glyph}{label}</a>
+  const apiOrigin = (import.meta.env.VITE_BEEFCARE_API_URL || '').trim().replace(/\/+$/, '')
+  const authorizationUrl = `${apiOrigin}/oauth2/authorization/google`
+  return <a href={authorizationUrl} className={`${googleButtonClass} no-underline`}>{glyph}{label}</a>
 }
 
 export function Divider({ children }: { children: ReactNode }) {
