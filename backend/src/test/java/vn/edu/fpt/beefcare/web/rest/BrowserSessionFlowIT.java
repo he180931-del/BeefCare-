@@ -662,6 +662,24 @@ class BrowserSessionFlowIT {
     }
 
     @Test
+    void profilePermissionTableUsesTheServerVerifiedFarmRole() throws Exception {
+        Signed owner = signedUp(email("permission-owner"), "Permission Owner");
+        long farmId = activeFarm(owner.browser);
+
+        owner.browser.get("/api/farms/" + farmId + "/my-permissions")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.role").value("OWNER"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='CATTLE_PROFILE_QR')].value").value("FULL"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='GROWTH_BCS')].value").value("RESTRICTED"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='MEMBERS_ROLES')].value").value("FULL"));
+
+        signedUp(email("permission-stranger"), "Permission Stranger").browser
+            .get("/api/farms/" + farmId + "/my-permissions")
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("MSG-COM-01"));
+    }
+
+    @Test
     void theClosedGenericCrudRoutesStayClosedForAnonymousAndSignedInCallers() throws Exception {
         Browser anonymous = new Browser();
         anonymous.fetchCsrf();

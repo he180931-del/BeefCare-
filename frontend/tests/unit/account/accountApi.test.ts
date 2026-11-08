@@ -4,8 +4,8 @@ import { createAccountDemoStore } from '../../../src/features/account/data/accou
 import { validatePasswordChange, validateProfile } from '../../../src/features/account/domain/profileRules'
 import type { AccountIdentity } from '../../../src/features/account/types'
 
-const manager: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì' }
-const pm: AccountIdentity = { email: 'pm@beefcare.local', fullName: 'Đỗ Minh Quân', role: 'PM', farmName: null }
+const manager: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }
+const pm: AccountIdentity = { email: 'pm@beefcare.local', fullName: 'Đỗ Minh Quân', role: 'PM', farmName: null, farmId: null }
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
 const localApi = (now?: () => number) => createAccountApi({ mode: 'local', farmId: 1, transport: transport(), store: createAccountDemoStore({ now }) })
 
@@ -73,15 +73,19 @@ describe('account API (local mode)', () => {
 describe('account API (backend mode)', () => {
   it('calls the real routes and never reads the local store', async () => {
     const http = transport()
-    http.get.mockResolvedValue({ id: 7, email: 'a@b.vn', fullName: 'An', phone: '', emailVerified: true, passwordSignInEnabled: true, googleSignInLinked: false, ownerRegistrationCompleted: true, platformRole: null, farms: [] })
+    http.get.mockImplementation(async (path: string) => path === '/api/farms/1/my-permissions'
+      ? { role: 'MANAGER', permissions: [{ area: 'GROWTH_BCS', value: 'FULL' }] }
+      : { id: 7, email: 'a@b.vn', fullName: 'An', phone: '', emailVerified: true, passwordSignInEnabled: true, googleSignInLinked: false, ownerRegistrationCompleted: true, platformRole: null, farms: [] })
     http.command.mockResolvedValue({ id: 7, email: 'a@b.vn', fullName: 'An B', phone: '', farms: [] })
     const store = createAccountDemoStore()
     const spy = vi.spyOn(store, 'getProfile')
     const api = createAccountApi({ mode: 'backend', farmId: 1, transport: http, store })
     expect((await api.getProfile(manager)).id).toBe(7)
+    await expect(api.getFarmPermissions(manager, 1)).resolves.toEqual({ role: 'MANAGER', permissions: [{ area: 'GROWTH_BCS', value: 'FULL' }] })
     await api.updateProfile(manager, { fullName: 'An B', phone: '' })
     await api.changePassword(manager, { currentPassword: 'a', newPassword: 'NewPassw0rd', confirmPassword: 'NewPassw0rd' })
     expect(http.get).toHaveBeenCalledWith('/api/account/profile')
+    expect(http.get).toHaveBeenCalledWith('/api/farms/1/my-permissions')
     expect(http.command).toHaveBeenCalledWith('/api/account/profile', { fullName: 'An B', phone: '' }, { method: 'POST' })
     expect(http.command).toHaveBeenCalledWith('/api/account/change-password', expect.objectContaining({ newPassword: 'NewPassw0rd' }), { method: 'POST' })
     expect(spy).not.toHaveBeenCalled()

@@ -11,7 +11,7 @@ import { useAccountProfile, useProfileForm } from './useAccountProfile'
 
 /** SCR-08 "Hồ sơ & quyền của tôi". `platform`: nhân sự nền tảng (CS, PM, SA) không có bảng quyền theo trại. */
 export function ProfileScreen({ title, platform = false }: { title: string; platform?: boolean }) {
-  const { identity, data, loading, error, refetch } = useAccountProfile()
+  const { identity, data, loading, error, refetch, permissions } = useAccountProfile()
   const [m, openModal, closeModal] = useModalParam()
   const [notice, setNotice] = useState<string | null>(null)
   const form = useProfileForm(data, identity, async (_saved, message) => { setNotice(message); await refetch() })
@@ -29,7 +29,7 @@ export function ProfileScreen({ title, platform = false }: { title: string; plat
       {form.error && <Note tone="err">{form.error}</Note>}
       <div className={`grid items-start gap-5 ${farmRole ? 'xl:grid-cols-[minmax(0,1fr)_376px]' : 'max-w-[740px]'}`}>
         <ProfileCard profile={data} headline={roleAtFarm(identity.role, identity.farmName)} values={form.values} onChange={form.setValues} errors={form.errors} onSubmit={form.submit} onPassword={() => openModal('doi-mat-khau')} />
-        {farmRole && <PermissionsCard role={farmRole} />}
+        {farmRole && <PermissionsCard permissions={permissions.data} loading={permissions.loading} error={permissions.error} />}
       </div>
       <Foot>{farmRole ? 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Bảng quyền chỉ đọc theo vai trò hiện tại.' : 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Quyền nền tảng do System Admin cấp.'}</Foot>
       {m === 'doi-mat-khau' && <ChangePasswordDialog identity={identity} profile={data} onClose={closeModal} onChanged={(message) => { setNotice(message); closeModal(); void refetch() }} />}

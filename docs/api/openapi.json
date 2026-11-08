@@ -1512,7 +1512,14 @@
         },
         "responses" : {
           "201" : {
-            "description" : "Created"
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegistrationResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3877,6 +3884,58 @@
         }
       }
     },
+    "/api/farms/{farmId}/pending-calves/{calfId}/parentage" : {
+      "post" : {
+        "tags" : [ "herd-entry-resource" ],
+        "operationId" : "assignParentage",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "calfId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignCalfParentageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PendingCalf"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/pending-calves/{calfId}/died-before-registration" : {
       "post" : {
         "tags" : [ "herd-entry-resource" ],
@@ -5262,220 +5321,6 @@
         }
       }
     },
-    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "listEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "array",
-                "items" : {
-                  "$ref" : "#/components/schemas/AttachmentDTO"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "post" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "uploadEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "requestBody" : {
-        "content" : {
-          "multipart/form-data" : {
-            "schema" : {
-              "type" : "object",
-              "properties" : {
-                "file" : {
-                  "type" : "string",
-                  "format" : "binary"
-                }
-              },
-              "required" : [
-                "file"
-              ]
-            }
-          }
-        }
-      },
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "listExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "array",
-                "items" : {
-                  "$ref" : "#/components/schemas/AttachmentDTO"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "post" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "uploadExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "requestBody" : {
-        "content" : {
-          "multipart/form-data" : {
-            "schema" : {
-              "type" : "object",
-              "properties" : {
-                "file" : {
-                  "type" : "string",
-                  "format" : "binary"
-                }
-              },
-              "required" : [
-                "file"
-              ]
-            }
-          }
-        }
-      },
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
     "/api/farms/{farmId}/feed/rations" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
@@ -6134,6 +5979,100 @@
         }
       }
     },
+    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "listExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AttachmentDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "uploadExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/exit-vouchers/{id}/void" : {
       "post" : {
         "tags" : [ "herd-exit-voucher-resource" ],
@@ -6444,6 +6383,100 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Voucher"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "listEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AttachmentDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "uploadEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
                 }
               }
             }
@@ -8041,7 +8074,14 @@
         },
         "responses" : {
           "200" : {
-            "description" : "OK"
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResendVerificationResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9613,6 +9653,33 @@
         }
       }
     },
+    "/api/farms/{farmId}/my-permissions" : {
+      "get" : {
+        "tags" : [ "account-resource" ],
+        "operationId" : "myPermissions",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FarmPermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/members" : {
       "get" : {
         "tags" : [ "farm-membership-resource" ],
@@ -9994,280 +10061,6 @@
         }
       }
     },
-    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments/{attachmentId}" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "readEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "headers" : {
-            "Content-Type" : {
-              "description" : "Stored attachment media type.",
-              "schema" : {
-                "type" : "string",
-                "enum" : [
-                  "application/pdf",
-                  "image/jpeg"
-                ]
-              }
-            },
-            "Content-Disposition" : {
-              "description" : "Attachment disposition with the sanitized original filename.",
-              "schema" : {
-                "type" : "string"
-              }
-            },
-            "Cache-Control" : {
-              "description" : "Response is not cacheable.",
-              "schema" : {
-                "type" : "string",
-                "example" : "no-store"
-              }
-            },
-            "X-Content-Type-Options" : {
-              "description" : "Prevents MIME sniffing.",
-              "schema" : {
-                "type" : "string",
-                "example" : "nosniff"
-              }
-            }
-          },
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "string",
-                "format" : "binary"
-              }
-            }
-          }
-        }
-      }
-    },
-    "delete" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "removeEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments/{attachmentId}" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "readExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "headers" : {
-            "Content-Type" : {
-              "description" : "Stored attachment media type.",
-              "schema" : {
-                "type" : "string",
-                "enum" : [
-                  "application/pdf",
-                  "image/jpeg"
-                ]
-              }
-            },
-            "Content-Disposition" : {
-              "description" : "Attachment disposition with the sanitized original filename.",
-              "schema" : {
-                "type" : "string"
-              }
-            },
-            "Cache-Control" : {
-              "description" : "Response is not cacheable.",
-              "schema" : {
-                "type" : "string",
-                "example" : "no-store"
-              }
-            },
-            "X-Content-Type-Options" : {
-              "description" : "Prevents MIME sniffing.",
-              "schema" : {
-                "type" : "string",
-                "example" : "nosniff"
-              }
-            }
-          },
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "string",
-                "format" : "binary"
-              }
-            }
-          }
-        }
-      }
-    },
-    "delete" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "removeExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
     "/api/farms/{farmId}/feed/adjustments/{adjustmentId}" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
@@ -10359,6 +10152,98 @@
           }
         }, {
           "name" : "adjustmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments/{attachmentId}" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "readExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "removeExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
           "in" : "path",
           "required" : true,
           "schema" : {
@@ -10517,6 +10402,98 @@
                   "items" : {
                     "$ref" : "#/components/schemas/SelectableCattle"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments/{attachmentId}" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "readEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "removeEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
                 }
               }
             }
@@ -13153,6 +13130,19 @@
           "calfOutcomeId" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "damId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "externalSireCode" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
           }
         }
       },
@@ -14297,6 +14287,14 @@
           },
           "termsAccepted" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "RegistrationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string"
           }
         }
       },
@@ -15556,15 +15554,29 @@
         },
         "required" : [ "effectiveDate", "status" ]
       },
-      "DiedBeforeRegistrationRequest" : {
+      "AssignCalfParentageRequest" : {
         "type" : "object",
         "properties" : {
-          "reason" : {
+          "damId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireSource" : {
             "type" : "string",
-            "maxLength" : 500,
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "externalSireCode" : {
+            "type" : "string",
+            "maxLength" : 50,
             "minLength" : 0
           }
-        }
+        },
+        "required" : [ "damId" ]
       },
       "PendingCalf" : {
         "type" : "object",
@@ -15587,7 +15599,23 @@
           "damActive" : {
             "type" : "boolean"
           },
+          "sireId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "sireCode" : {
+            "type" : "string"
+          },
+          "sireSource" : {
+            "type" : "string"
+          },
+          "externalSireName" : {
+            "type" : "string"
+          },
+          "semenBatch" : {
+            "type" : "string"
+          },
+          "sireBreedCode" : {
             "type" : "string"
           },
           "sex" : {
@@ -15620,6 +15648,16 @@
           "draftVoucherId" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "DiedBeforeRegistrationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
           }
         }
       },
@@ -17739,7 +17777,7 @@
           },
           "password" : {
             "type" : "string",
-            "maxLength" : 100,
+            "maxLength" : 128,
             "minLength" : 4
           },
           "rememberMe" : {
@@ -17820,6 +17858,15 @@
           }
         }
       },
+      "ResendVerificationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "nextAllowedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "KeyAndPasswordVM" : {
         "type" : "object",
         "properties" : {
@@ -17845,6 +17892,9 @@
             "type" : "string"
           },
           "role" : {
+            "type" : "string"
+          },
+          "serviceStatus" : {
             "type" : "string"
           },
           "permissions" : {
@@ -17881,6 +17931,18 @@
             "type" : "boolean"
           },
           "ownerRegistrationCompleted" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "signInMethods" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "hasPassword" : {
             "type" : "boolean"
           },
           "platformRole" : {
@@ -18276,11 +18338,27 @@
       "PagePlatformPayment" : {
         "type" : "object",
         "properties" : {
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "totalPages" : {
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -18298,22 +18376,6 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "empty" : {
             "type" : "boolean"
           }
@@ -18322,16 +18384,6 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "unpaged" : {
-            "type" : "boolean"
-          },
           "paged" : {
             "type" : "boolean"
           },
@@ -18342,6 +18394,16 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -18403,13 +18465,13 @@
       "SortObject" : {
         "type" : "object",
         "properties" : {
-          "empty" : {
-            "type" : "boolean"
-          },
           "sorted" : {
             "type" : "boolean"
           },
           "unsorted" : {
+            "type" : "boolean"
+          },
+          "empty" : {
             "type" : "boolean"
           }
         }
@@ -18471,11 +18533,27 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "totalPages" : {
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -18490,22 +18568,6 @@
             }
           },
           "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -18707,11 +18769,27 @@
       "PageFarmOverview" : {
         "type" : "object",
         "properties" : {
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "totalPages" : {
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -18726,22 +18804,6 @@
             }
           },
           "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -18791,11 +18853,27 @@
       "PageAuditEntry" : {
         "type" : "object",
         "properties" : {
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "totalPages" : {
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -18813,6 +18891,25 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "empty" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PageAccountSummary" : {
+        "type" : "object",
+        "properties" : {
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
@@ -18822,26 +18919,7 @@
           "last" : {
             "type" : "boolean"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "empty" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "PageAccountSummary" : {
-        "type" : "object",
-        "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -18856,22 +18934,6 @@
             }
           },
           "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -19251,6 +19313,31 @@
           "totalPlaces" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "FarmPermissionsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "role" : {
+            "type" : "string"
+          },
+          "permissions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionEntry"
+            }
+          }
+        }
+      },
+      "PermissionEntry" : {
+        "type" : "object",
+        "properties" : {
+          "area" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
           }
         }
       },
@@ -20398,13 +20485,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "token" : {
+          "headerName" : {
             "type" : "string"
           },
           "parameterName" : {
             "type" : "string"
           },
-          "headerName" : {
+          "token" : {
             "type" : "string"
           }
         }
@@ -20414,6 +20501,9 @@
         "properties" : {
           "valid" : {
             "type" : "boolean"
+          },
+          "email" : {
+            "type" : "string"
           }
         }
       }

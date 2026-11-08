@@ -6,21 +6,27 @@ import { accountApi } from '../api/accountApi'
 import { validateProfile } from '../domain/profileRules'
 import type { AccountIdentity, AccountProfile, ProfileErrors } from '../types'
 
-const FALLBACK_IDENTITY: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì' }
+const FALLBACK_IDENTITY: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }
 
 /** Người đang đăng nhập; ngoài phiên (vd. test từng trang) dùng Quản lý của trại mẫu. */
 export function useAccountIdentity(): AccountIdentity {
   const session = useSession()
   return useMemo(
-    () => session ? { email: session.email, fullName: session.fullName, role: session.role, farmName: session.farmName } : FALLBACK_IDENTITY,
-    [session?.email, session?.fullName, session?.role, session?.farmName],
+    () => session ? { email: session.email, fullName: session.fullName, role: session.role, farmName: session.farmName, farmId: session.farmId } : FALLBACK_IDENTITY,
+    [session?.email, session?.fullName, session?.role, session?.farmName, session?.farmId],
   )
 }
 
 export function useAccountProfile() {
   const identity = useAccountIdentity()
   const query = useQuery(() => accountApi.getProfile(identity), [identity.email])
-  return { identity, ...query }
+  const permissions = useQuery(
+    () => identity.farmId != null && ['OWNER', 'MANAGER', 'TECHNICIAN'].includes(identity.role)
+      ? accountApi.getFarmPermissions(identity, identity.farmId)
+      : Promise.resolve(null),
+    [identity.email, identity.farmId, identity.role],
+  )
+  return { identity, permissions, ...query }
 }
 
 /** Biểu mẫu hồ sơ cá nhân (họ tên, điện thoại); nút "Lưu hồ sơ" ở đầu trang gửi biểu mẫu qua thuộc tính `form`. */

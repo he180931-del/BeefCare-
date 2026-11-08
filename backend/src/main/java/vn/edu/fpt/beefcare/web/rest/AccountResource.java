@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
+import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
 import vn.edu.fpt.beefcare.repository.UserRepository;
 import vn.edu.fpt.beefcare.security.SecurityUtils;
@@ -61,6 +62,7 @@ public class AccountResource {
     private final UserService userService;
 
     private final AppUserRepository appUserRepository;
+    private final FarmMembershipRepository farmMembershipRepository;
     private final FarmAccessService farmAccessService;
     private final IdentityService identityService;
     private final UserDetailsService userDetailsService;
@@ -79,6 +81,7 @@ public class AccountResource {
         UserRepository userRepository,
         UserService userService,
         AppUserRepository appUserRepository,
+        FarmMembershipRepository farmMembershipRepository,
         FarmAccessService farmAccessService,
         IdentityService identityService,
         UserDetailsService userDetailsService,
@@ -89,6 +92,7 @@ public class AccountResource {
         this.userRepository = userRepository;
         this.userService = userService;
         this.appUserRepository = appUserRepository;
+        this.farmMembershipRepository = farmMembershipRepository;
         this.farmAccessService = farmAccessService;
         this.identityService = identityService;
         this.userDetailsService = userDetailsService;
@@ -220,6 +224,56 @@ public class AccountResource {
         return profile(account);
     }
 
+    /** A10 / SCR-08: the permission matrix comes from the verified active membership, never from browser state. */
+    @GetMapping("/farms/{farmId}/my-permissions")
+    public FarmPermissionsResponse myPermissions(@PathVariable Long farmId) {
+        AppUser account = farmAccessService.currentActiveUser();
+        FarmRole role = farmMembershipRepository
+            .findFirstByFarmIdAndUserIdAndStatusIgnoreCase(farmId, account.getId(), "ACTIVE")
+            .map(membership -> parseFarmRole(membership.getRole()))
+            .orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
+        return new FarmPermissionsResponse(role.name(), permissionEntries(role));
+    }
+
+    private static FarmRole parseFarmRole(String value) {
+        try {
+            return FarmRole.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw DomainException.forbidden(MessageCodes.COM_01);
+        }
+    }
+
+    private static List<PermissionEntry> permissionEntries(FarmRole role) {
+        return List.of(
+            permission("CATTLE_PROFILE_QR", role, "FULL", "FULL", "RESTRICTED"),
+            permission("PENS_AND_MOVES", role, "FULL", "FULL", "RESTRICTED"),
+            permission("HERD_ENTRY_AND_PAYMENTS", role, "FULL", "FULL", "NO"),
+            permission("GROWTH_BCS", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("VACCINATION", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("HEALTH_AND_TREATMENT", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("REPRODUCTION", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("CATALOGUES_AND_PARAMETERS", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("FARM_ANNOUNCEMENTS", role, "FULL", "FULL", "RESTRICTED"),
+            permission("REMINDERS", role, "RESTRICTED", "RESTRICTED", "RESTRICTED"),
+            permission("DASHBOARD_AND_REPORTS", role, "RESTRICTED", "RESTRICTED", "NO"),
+            permission("MEMBERS_ROLES", role, "FULL", "RESTRICTED", "NO"),
+            permission("HERD_EXIT_AND_COLLECTIONS", role, "FULL", "RESTRICTED", "NO"),
+            permission("FEED_STOCK_AND_CATALOGUE", role, "FULL", "FULL", "RESTRICTED"),
+            permission("FEEDING_LOG", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("SUBSCRIPTION_AND_PAYMENT", role, "FULL", "NO", "NO"),
+            permission("FARM_INFORMATION", role, "FULL", "NO", "NO")
+        );
+    }
+
+    private static PermissionEntry permission(String area, FarmRole role, String owner, String manager, String technician) {
+        String value = switch (role) {
+            case OWNER -> owner;
+            case MANAGER -> manager;
+            case TECHNICIAN -> technician;
+        };
+        return new PermissionEntry(area, value);
+    }
+
     /** SCR-07 / SCR-08: full name 2-100 characters. */
     private static String fullName(String value) {
         if (value == null || value.isBlank()) throw DomainException.required("fullName");
@@ -268,6 +322,10 @@ public class AccountResource {
         String status, List<String> signInMethods, boolean hasPassword, String platformRole, List<FarmRoleSummary> farms) {}
 
     public record FarmRoleSummary(Long farmId, String farmName, String role, String serviceStatus, List<String> permissions) {}
+
+    public record FarmPermissionsResponse(String role, List<PermissionEntry> permissions) {}
+
+    public record PermissionEntry(String area, String value) {}
 
     /**
      * {@code POST  /account} : update the current user information.
