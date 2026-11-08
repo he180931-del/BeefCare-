@@ -49,7 +49,7 @@ Mọi request kiểm lại quyền, membership và trạng thái dịch vụ (GB
 |---|---|---|---|---|
 | Farm ID | Số, hệ thống tạo | Có | Định danh duy nhất | §3.2 |
 | Tên trại | Chuỗi | Có | 2–150 ký tự; **không cần duy nhất** | SCR-10 |
-| Tỉnh / thành phố | Mã danh mục | Có | Danh sách tỉnh / thành trực thuộc TW của Việt Nam | SCR-10 |
+| Tỉnh / thành phố | Chuỗi (tên tỉnh) | Có | Một trong 34 tỉnh / thành phố trực thuộc TW (sau sáp nhập 2025); lưu tên, tên ngoài danh sách → MSG-COM-10 | SCR-10, Q3 |
 | Xã / phường | Chuỗi | Có | ≤ 150 | SCR-10 |
 | Địa chỉ chi tiết | Chuỗi | Không | ≤ 255 | SCR-10 |
 | Người liên hệ | Chuỗi | Không | ≤ 100; mặc định họ tên Owner | SCR-10 |
@@ -252,7 +252,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
-| A1 | Đăng ký trại | `name, provinceCode, commune, addressDetail?, contactPerson?, contactPhone?, registrationInfo?, expectedHerdSize?, mainBreedCodes[]?` + header `Idempotency-Key` | Trại (A3) | FE02-02, COM-06, COM-10, COM-02 | `POST /api/farms` |
+| A1 | Đăng ký trại | `name, province, commune, detailedAddress?, contactPerson?, contactPhone?, registrationCertificateInfo?, expectedHerdSize?, mainBreedCodes[]?` + header `Idempotency-Key`; trường tùy chọn để chuỗi rỗng = không nhập | Trại (A3) | FE02-02, COM-06, COM-10, COM-02 | `POST /api/farms` |
 | A2 | Danh sách trại của tôi | — | `[{farmId, name, commune, province, serviceStatus, myRole, activeCattle, serviceEndDate?, actions[]}]` | COM-03 | `GET /api/farms` |
 | A3 | Chi tiết thông tin trại | — | Mọi thuộc tính mục 3.1 + `serviceSummary {status, currentPeriodEnd, renewalOpensFrom, suspended, suspendedAt, daysRemaining}, ownerEmail, version` | COM-01 | `GET /api/farms/{farmId}` |
 | A4 | Sửa thông tin trại | Các trường SCR-11 + `version` + `Idempotency-Key` | A3 | COM-01, COM-05, COM-06, COM-10, COM-02 | `PUT /api/farms/{farmId}` |
@@ -337,3 +337,4 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho DucNV duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 08/11/2026 | 28/10/2026 | Chốt Q3: tỉnh lưu **tên**, thuộc 34 tỉnh / thành (mục 3.1). A1 dùng tên trường như code (`province`, `detailedAddress`, `registrationCertificateInfo`); không đổi dữ liệu hay hành vi | DucNV |
