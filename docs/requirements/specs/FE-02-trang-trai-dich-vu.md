@@ -79,7 +79,7 @@ Không bao giờ xóa trại đã có lịch sử.
 
 | Thuộc tính | Ràng buộc |
 |---|---|
-| Trại, hành động (`SUSPEND` / `RESTORE`), trạng thái trước, trạng thái sau, lý do (≤ 500), PM, thời điểm | Bất biến sau khi lưu; sắp theo thời gian; Owner được thông báo sau mỗi lần |
+| Trại, hành động (`SUSPEND` / `RESTORE`), trạng thái trước, trạng thái sau, lý do (≤ 500), PM, thời điểm | Bất biến sau khi lưu; sắp theo thời gian; Owner được thông báo sau mỗi lần. Lưu là dòng audit `FARM_SERVICE_SUSPEND` / `FARM_SERVICE_RESTORE` ghi cùng transaction (Q9, BR-D29) |
 
 ### 3.4 Dữ liệu tạo kèm khi đăng ký trại (GBR-109, Table III-6)
 
@@ -142,7 +142,7 @@ E1 membership bị ngưng / đổi vai trò sau khi danh sách đã hiện → M
 Luồng đã xác nhận (Q1). Owner mở SCR-11 (ở mọi trạng thái dịch vụ) → sửa nhóm "Đăng ký và liên hệ", "Vận hành" → **Lưu thay đổi** (kèm `version` và khóa yêu cầu) → kiểm tra (tỉnh như SCR-10, múi giờ theo Q2) → lưu, ghi audit `FARM_UPDATE` → MSG-FE02-05. Trường tùy chọn để trống = không có (không tự điền lại SĐT Owner). SCR-11 không sửa giống chính; giống chính giữ nguyên. Khối "Tóm tắt dịch vụ" chỉ đọc. Manager / Technician không truy cập được: API trả 403 MSG-COM-01, giao diện đưa về trang chủ của vai trò (Q8). Sửa đồng thời → MSG-COM-05.
 
 ### UC-FE02-04 Tổng quan dịch vụ các trại (PM)
-PM mở SCR-12 → ô đếm theo trạng thái (bấm để lọc), tìm theo tên trại / email Owner, lọc trạng thái, danh sách có sắp xếp → hành động Tạm ngưng / Khôi phục, Xem gói (SCR-61). Không có dữ liệu → MSG-COM-04.
+Luồng đã xác nhận (Q1). PM mở SCR-12 → ô đếm theo trạng thái, tính trên mọi trại của nền tảng, không phụ thuộc ô tìm (bấm để lọc), tìm theo tên trại / email Owner, lọc trạng thái, danh sách sắp xếp được theo tên trại, trạng thái, ngày hết kỳ (trại chưa có ngày hết luôn ở cuối) → hành động Tạm ngưng / Khôi phục, Xem gói (SCR-61). Không có dữ liệu → MSG-COM-04. Chỉ PM ACTIVE; CS / SA → MSG-COM-01.
 
 ### UC-FE02-05 Tạm ngưng / khôi phục
 1. PM bấm Tạm ngưng hoặc Khôi phục.
@@ -257,9 +257,9 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | A3 | Chi tiết thông tin trại | — | Mọi thuộc tính mục 3.1 + `serviceStatus, currentPeriodUntil?, renewalOpensAt?, suspendedAt?, daysRemaining?, ownerName, ownerEmail, version` (phẳng, tên như code) | COM-01 | `GET /api/farms/{farmId}` |
 | A4 | Sửa thông tin trại | Các trường SCR-11 (không gồm giống chính) + `expectedVersion` + `Idempotency-Key`; trường tùy chọn để chuỗi rỗng = không có | A3 | COM-01, COM-05, COM-06, COM-10, COM-02 | `PUT /api/farms/{farmId}` |
 | A5 | Chọn trại (ngữ cảnh) | — | Như một phần tử của A2. Owner vào được ở mọi trạng thái (GBR-14); múi giờ xem A3, quyền theo vai trò suy ra ở FE | COM-01 (không còn membership), FE02-04 (Manager / Technician, trại không ACTIVE) | `GET /api/farms/{farmId}/context` |
-| A6 | Tổng quan dịch vụ (PM) | `q?, status?, page, size, sort?` | `{tiles {total, active, activePercent, pendingPayment, expired, suspended}, items[{farmId, name, ownerName, ownerEmail, serviceStatus, coverageEnd, suspended, suspendedAt, activeCattle}], total}` | COM-01 | `GET /api/platform/farms` |
-| A7 | Xem trước popup | — | `{farm, ownerName, activeCattle, currentStatus, suspendedSince, suspendedBy, previousReason, purchasedPeriod, statusAfterRestore, version}` | COM-01 | chưa có riêng – thêm `GET /api/platform/farms/{farmId}` |
-| A8 | Tạm ngưng | `reason, version` + `Idempotency-Key` | `{farmId, serviceStatus, suspended, suspendedAt}` | COM-01, COM-06, FE02-09, COM-05, COM-02 | `POST /api/platform/farms/{farmId}/suspend` |
+| A6 | Tổng quan dịch vụ (PM) | `q?, status?, sort?` (`name`, `status`, `coverageEnd`; tiền tố `-` = giảm dần), `page, size` | `{tiles {total, active, activePercent, pendingPayment, expired, suspended}, items[{farmId, farmName, ownerId, ownerName, ownerEmail, serviceStatus, coverageEnd, suspended, suspendedAt, activeCattle, version}], total}`; `tiles` tính trên mọi trại, `total` là số trại khớp tìm / lọc | COM-01, COM-10 (`sort` sai) | `GET /api/platform/farms` |
+| A7 | Xem trước popup | — | `{farmId, farmName, ownerName, ownerEmail, activeCattle, serviceStatus, suspendedAt, suspendedBy, previousReason, periodStart, periodEnd, coverageEnd, statusAfterRestore, version}` | COM-01 | `GET /api/platform/farms/{farmId}` |
+| A8 | Tạm ngưng | `reason, version` + `Idempotency-Key` | Một phần tử như A6 | COM-01, COM-06, FE02-09, COM-05, COM-02 | `POST /api/platform/farms/{farmId}/suspend` |
 | A9 | Khôi phục | `reason, version` + `Idempotency-Key` | như A8 | như A8 | `POST /api/platform/farms/{farmId}/restore` |
 
 ---
@@ -332,6 +332,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | Q6 | Bước 2 đọc được là Manager / Technician không thấy trại không ACTIVE; AF3, SCR-09 và TC-02-11 nói thẻ khóa | Hiện thẻ khóa |
 | Q7 | AF4: "khả dụng" là gì, áp dụng lúc nào? | Ngay sau đăng nhập, đúng 1 trại và trại đó ACTIVE; mở từ nút đổi trại vẫn hiện SCR-09 |
 | Q8 | Manager / Technician mở SCR-11 (gõ đường dẫn hoặc link cũ): hiện MSG-COM-01 hay đưa về trang chủ? | Hiện MSG-COM-01 |
+| Q9 | Lịch sử thay đổi dịch vụ (mục 3.3) lưu ở bảng riêng hay trong audit? | Dùng audit đang có, không migration |
 
 ---
 
@@ -344,3 +345,4 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | 08/11/2026 | 28/10/2026 | Chốt Q3: tỉnh lưu **tên**, thuộc 34 tỉnh / thành (mục 3.1). A1 dùng tên trường như code (`province`, `detailedAddress`, `registrationCertificateInfo`); không đổi dữ liệu hay hành vi | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-02: chốt Q5 (AF1 mở SCR-58 thay vì SCR-57), Q6 (thẻ khóa cho Manager / Technician) và Q7 (cách hiểu AF4). A2 / A5 dùng tên trường như code; MSG-FE02-04 sửa câu "đang ở trạng thái {status}" | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-03: xác nhận luồng (Q1); chốt Q2 (3 múi giờ UTC+7), Q4 (vẫn hiện số ngày còn lại khi SUSPENDED) và Q8 (Manager / Technician mở SCR-11 → về trang chủ). Mục 3.1, 5, 6 (SCR-11), 7 (A3, A4), TC-02-17 | DucNV |
+| 08/11/2026 | 28/10/2026 | UC-FE02-04, UC-FE02-05: xác nhận luồng UC-04 (Q1); chốt Q9 (lịch sử dịch vụ lưu trong audit). Mục 3.3, 5 (UC-04), 7 (A6 → A9 theo code, A7 đã có API) | DucNV |
