@@ -104,12 +104,16 @@ public class AccountResource {
      */
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public void registerAccount(@RequestBody RegistrationRequest request) {
-        identityService.register(request.fullName(), request.email(), request.password(), request.confirmPassword(), request.termsAccepted());
+    public RegistrationResponse registerAccount(@RequestBody RegistrationRequest request) {
+        return new RegistrationResponse(
+            identityService.register(request.fullName(), request.email(), request.password(), request.confirmPassword(), request.termsAccepted())
+        );
     }
 
     /** SCR-03 fields. Rules are enforced by {@link IdentityService} so each failure carries its MSG-FE01 / MSG-COM code. */
     public record RegistrationRequest(String fullName, String email, String password, String confirmPassword, boolean termsAccepted) {}
+
+    public record RegistrationResponse(String email) {}
 
     /**
      * {@code GET  /activate} : activate the registered user.

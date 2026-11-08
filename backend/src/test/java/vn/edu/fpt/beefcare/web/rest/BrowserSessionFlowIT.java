@@ -85,8 +85,15 @@ class BrowserSessionFlowIT {
         assertThat(users.findOneByEmailIgnoreCase(email)).isEmpty();
 
         // UC-FE01-01 AF1: SRS fields only (no login name), the account is pending verification
-        guest.post("/api/register", registration(email, PASSWORD, PASSWORD, true)).andExpect(status().isCreated());
-        assertThat(users.findOneByEmailIgnoreCase(email)).get().satisfies(user -> assertThat(user.isActivated()).isFalse());
+        guest.post("/api/register", registration("  " + email.toUpperCase() + "  ", PASSWORD, PASSWORD, true))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.email").value(email))
+            .andExpect(jsonPath("$.password").doesNotExist())
+            .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        assertThat(users.findOneByEmailIgnoreCase(email)).get().satisfies(user -> {
+            assertThat(user.isActivated()).isFalse();
+            assertThat(user.getPassword()).startsWith("$2").doesNotContain(PASSWORD);
+        });
         assertThat(accounts.findOneByEmailIgnoreCase(email)).get().satisfies(account -> {
             assertThat(account.isTermsAccepted()).isTrue();
             assertThat(account.getTermsAcceptedAt()).isNotNull();

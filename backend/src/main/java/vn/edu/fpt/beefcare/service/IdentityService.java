@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -71,7 +72,7 @@ public class IdentityService {
     }
 
     @Transactional
-    public void register(String fullName, String email, String password, String confirmation, boolean termsAccepted) {
+    public String register(String fullName, String email, String password, String confirmation, boolean termsAccepted) {
         String normalizedEmail = normalizeEmail(email);
         if (fullName == null || fullName.isBlank()) throw DomainException.required("fullName");
         if (fullName.trim().length() < 2 || fullName.trim().length() > 100) throw DomainException.invalid("fullName");
@@ -90,20 +91,25 @@ public class IdentityService {
         identity.setFirstName(fullName.trim().substring(0, Math.min(50, fullName.trim().length())));
         authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(identity.getAuthorities()::add);
         if (identity.getAuthorities().isEmpty()) throw new IllegalStateException("The standard user authority is not configured");
-        identity = userRepository.save(identity);
+        try {
+            identity = userRepository.saveAndFlush(identity);
 
-        AppUser account = new AppUser();
-        account.setEmail(normalizedEmail);
-        account.setFullName(fullName.trim());
-        account.setAccountStatus("ACTIVE");
-        account.setPasswordLoginEnabled(true);
-        Instant registeredAt = Instant.now();
-        account.setTermsAccepted(true);
-        account.setTermsAcceptedAt(registeredAt);
-        account.setPasswordMethodStatus("PENDING_VERIFICATION");
-        account.setPasswordLinkedAt(registeredAt);
-        appUserRepository.save(account);
+            AppUser account = new AppUser();
+            account.setEmail(normalizedEmail);
+            account.setFullName(fullName.trim());
+            account.setAccountStatus("ACTIVE");
+            account.setPasswordLoginEnabled(true);
+            Instant registeredAt = Instant.now();
+            account.setTermsAccepted(true);
+            account.setTermsAcceptedAt(registeredAt);
+            account.setPasswordMethodStatus("PENDING_VERIFICATION");
+            account.setPasswordLinkedAt(registeredAt);
+            appUserRepository.saveAndFlush(account);
+        } catch (DataIntegrityViolationException duplicateIdentity) {
+            throw DomainException.conflict(MessageCodes.FE01_10, "email", normalizedEmail);
+        }
         sendLink(identity, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL");
+        return normalizedEmail;
     }
 
     @Transactional
