@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
@@ -123,7 +125,16 @@ public class AccountResource {
      */
     @GetMapping("/activate")
     public ResponseEntity<Void> activateAccount(@RequestParam(value = "token") String token, HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
-        User activated = identityService.activateEmail(token);
+        User activated;
+        try {
+            activated = identityService.activateEmail(token);
+        } catch (DomainException invalid) {
+            if (!MessageCodes.FE01_06.equals(invalid.getCode())) throw invalid;
+            String destination = frontendBaseUrl.replaceAll("/+$", "") + "/lien-ket-khong-con-hieu-luc?type=verification";
+            String email = identityService.verificationEmail(token).orElse(null);
+            if (email != null) destination += "&email=" + URLEncoder.encode(email, StandardCharsets.UTF_8);
+            return ResponseEntity.status(HttpStatus.SEE_OTHER).location(URI.create(destination)).build();
+        }
         UserDetails details = userDetailsService.loadUserByUsername(activated.getEmail());
         Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(details, null, details.getAuthorities());
         SecurityContext context = SecurityContextHolder.createEmptyContext();
@@ -139,11 +150,13 @@ public class AccountResource {
 
     /** Same answer for every address (GBR-03). The body is a JSON object: a bare JSON string would arrive with its quotes. */
     @PostMapping("/account/verification/resend")
-    public void resendEmailVerification(@RequestBody EmailRequest request) {
-        identityService.resendVerification(request.email());
+    public ResendVerificationResponse resendEmailVerification(@RequestBody EmailRequest request) {
+        return new ResendVerificationResponse(identityService.resendVerification(request.email()));
     }
 
     public record EmailRequest(String email) {}
+
+    public record ResendVerificationResponse(Instant nextAllowedAt) {}
 
     /**
      * {@code GET  /account} : get the current user.

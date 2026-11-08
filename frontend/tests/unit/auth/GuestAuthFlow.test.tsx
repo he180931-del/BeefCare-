@@ -41,6 +41,7 @@ describe('guest authentication pages', () => {
 
     expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
     expect(screen.getByText('owner@beefcare.vn')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /thử lại sau (?:59|60)s/ })).toBeDisabled()
     expect(await mock.isAuthenticated()).toBe(false)
 
     await user.click(screen.getByRole('link', { name: 'Quay lại đăng nhập' }))
@@ -111,5 +112,24 @@ describe('guest authentication pages', () => {
     await user.click(screen.getByRole('link', { name: 'Gửi lại email xác minh' }))
     expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
     expect(screen.getByText('owner@beefcare.vn')).toBeInTheDocument()
+  })
+
+  it('uses the verification resend time returned by the server', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-11-08T12:00:00Z'))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+      resendVerification: vi.fn().mockResolvedValue({ nextAllowedAt: '2026-11-08T12:02:00Z' }),
+    }
+    renderAuth(client, '/xac-minh-email?email=owner%40beefcare.vn')
+
+    await user.click(await screen.findByRole('button', { name: 'Gửi lại email xác minh' }))
+
+    expect(await screen.findByRole('button', { name: /thử lại sau 1(?:19|20)s/ })).toBeDisabled()
+    vi.useRealTimers()
   })
 })

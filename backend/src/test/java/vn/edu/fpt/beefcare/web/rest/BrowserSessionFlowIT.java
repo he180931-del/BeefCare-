@@ -127,8 +127,12 @@ class BrowserSessionFlowIT {
         );
         // MSG-FE01-06: a used link is refused, and it does not sign anybody in
         new Browser().get("/api/activate?token=" + verificationToken)
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-06"));
-        new Browser().get("/api/activate?token=not-a-real-token").andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-06"));
+            .andExpect(status().isSeeOther())
+            .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/lien-ket-khong-con-hieu-luc?type=verification")))
+            .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("email=")));
+        new Browser().get("/api/activate?token=not-a-real-token")
+            .andExpect(status().isSeeOther())
+            .andExpect(header().string("Location", org.hamcrest.Matchers.endsWith("/lien-ket-khong-con-hieu-luc?type=verification")));
 
         // UC-FE01-02: password sign-in is 204 + session cookie; the 8-hour idle timeout (30 days with Remember me)
         Browser desktop = new Browser();
@@ -232,13 +236,38 @@ class BrowserSessionFlowIT {
         guest.fetchCsrf();
         guest.post("/api/register", registration(email, PASSWORD, PASSWORD, true)).andExpect(status().isCreated());
         String first = linkToken(email, "/api/activate?token=");
-        // AF4: the resend response is the same for a registered and an unregistered address (JSON object body)
-        guest.post("/api/account/verification/resend", Map.of("email", email)).andExpect(status().isOk());
-        guest.post("/api/account/verification/resend", Map.of("email", email("nobody"))).andExpect(status().isOk());
+        var firstLink = links.findOneByTokenHashAndTokenType(signer.hash(first), "EMAIL_VERIFICATION").orElseThrow();
+        // SCR-04: the server enforces the first 60 seconds; reloading the browser cannot issue another link.
+        guest.post("/api/account/verification/resend", Map.of("email", email))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nextAllowedAt").isString());
+        assertThat(linkToken(email, "/api/activate?token=")).isEqualTo(first);
+        firstLink.setCreatedAt(Instant.now().minusSeconds(61));
+        links.saveAndFlush(firstLink);
+        // AF4: the response shape is the same for a registered and an unregistered address.
+        guest.post("/api/account/verification/resend", Map.of("email", email))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nextAllowedAt").isString());
+        guest.post("/api/account/verification/resend", Map.of("email", email("nobody")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nextAllowedAt").isString());
         String second = linkToken(email, "/api/activate?token=");
         assertThat(second).isNotEqualTo(first);
-        new Browser().get("/api/activate?token=" + first).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-06"));
+        new Browser().get("/api/activate?token=" + first).andExpect(status().isSeeOther());
+        Long userId = users.findOneByEmailIgnoreCase(email).orElseThrow().getId();
+        String newest = second;
+        for (int sent = 2; sent < 5; sent++) {
+            var latest = links.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(userId, "EMAIL_VERIFICATION").orElseThrow();
+            latest.setCreatedAt(Instant.now().minusSeconds(61));
+            links.saveAndFlush(latest);
+            guest.post("/api/account/verification/resend", Map.of("email", email)).andExpect(status().isOk());
+            newest = linkToken(email, "/api/activate?token=");
+        }
+        assertThat(links.countByUserIdAndTokenTypeAndCreatedAtAfter(userId, "EMAIL_VERIFICATION", Instant.now().minus(Duration.ofHours(1)))).isEqualTo(5);
+        var fifth = links.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(userId, "EMAIL_VERIFICATION").orElseThrow();
+        fifth.setCreatedAt(Instant.now().minusSeconds(61));
+        links.saveAndFlush(fifth);
+        guest.post("/api/account/verification/resend", Map.of("email", email)).andExpect(status().isOk());
+        assertThat(links.countByUserIdAndTokenTypeAndCreatedAtAfter(userId, "EMAIL_VERIFICATION", Instant.now().minus(Duration.ofHours(1)))).isEqualTo(5);
         new Browser().get("/api/activate?token=" + second).andExpect(status().isSeeOther());
+        new Browser().get("/api/activate?token=" + newest).andExpect(status().isSeeOther());
     }
 
     @Test

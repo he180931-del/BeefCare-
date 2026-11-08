@@ -128,8 +128,33 @@ public class IdentityService {
     }
 
     @Transactional
-    public void resendVerification(String email) {
-        findPasswordAccount(email, false).filter(user -> !user.isActivated()).ifPresent(user -> issueRateLimited(user, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL"));
+    public Instant resendVerification(String email) {
+        Instant now = Instant.now();
+        Optional<User> pending = findPasswordAccount(email, false).filter(user -> !user.isActivated());
+        if (pending.isEmpty()) return now.plusSeconds(60);
+        User user = pending.orElseThrow();
+        Optional<AccountLinkToken> latest = tokenRepository.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(user.getId(), EMAIL_VERIFICATION);
+        if (latest.isPresent() && latest.orElseThrow().getCreatedAt().plusSeconds(60).isAfter(now)) {
+            return latest.orElseThrow().getCreatedAt().plusSeconds(60);
+        }
+        Instant hourStart = now.minus(Duration.ofHours(1));
+        if (tokenRepository.countByUserIdAndTokenTypeAndCreatedAtAfter(user.getId(), EMAIL_VERIFICATION, hourStart) >= MAX_LINK_EMAILS_PER_HOUR) {
+            return tokenRepository
+                .findFirstByUserIdAndTokenTypeAndCreatedAtAfterOrderByCreatedAtAsc(user.getId(), EMAIL_VERIFICATION, hourStart)
+                .map(link -> link.getCreatedAt().plus(Duration.ofHours(1)))
+                .orElseGet(() -> now.plusSeconds(60));
+        }
+        sendLink(user, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL");
+        return now.plusSeconds(60);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<String> verificationEmail(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) return Optional.empty();
+        return tokenRepository
+            .findOneByTokenHashAndTokenType(linkSigner.hash(rawToken), EMAIL_VERIFICATION)
+            .map(AccountLinkToken::getUser)
+            .map(User::getEmail);
     }
 
     /**
