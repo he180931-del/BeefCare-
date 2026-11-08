@@ -24,7 +24,7 @@ function DetailPanel({ farmId, onPeriods }: { farmId: number; onPeriods: () => v
   return (
     <Card title={s.farmName} sub={`${s.subscriptionCode ?? 'Chưa có đăng ký'} · các kỳ đã mua không thể sửa`} actions={<ServiceBadge status={s.serviceStatus} />}>
       <Info cols={2} items={[
-        ['Dịch vụ', `${STATUS_LABEL[s.serviceStatus]} · ${data.suspended ? `tạm ngừng từ ${fmtDate(data.suspendedSince)}` : 'không tạm ngừng'}`],
+        ['Dịch vụ', `${STATUS_LABEL[s.serviceStatus]} · ${data.suspended ? `tạm ngưng từ ${fmtDate(data.suspendedSince)}` : 'không tạm ngưng'}`],
         ['Kỳ hiện tại', current ? `${fmtDate(current.start)} → ${fmtDate(current.end)}` : '—'],
         ['Đã xác nhận đến', fmtDate(s.confirmedUntil)],
         ['Kỳ mua gần nhất', latest ? `${latest.termYears} năm · ${latest.paymentCode}` : '—'],
@@ -32,7 +32,7 @@ function DetailPanel({ farmId, onPeriods }: { farmId: number; onPeriods: () => v
       ]} />
       <div className="mt-3 mb-2 text-[12px] font-semibold text-ink">Kỳ đã mua và thanh toán nguồn</div>
       {data.periods.length === 0 ? (
-        <Note tone="info">{data.emptyMessage ?? 'Chưa có kỳ nào.'} Trại tạm ngừng vẫn có thể còn kỳ sử dụng hợp lệ.</Note>
+        <Note tone="info">{data.emptyMessage ?? 'Chưa có kỳ nào.'} Trại tạm ngưng vẫn có thể còn kỳ sử dụng hợp lệ.</Note>
       ) : (
         <>
           <Table stack={false} bordered>

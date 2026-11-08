@@ -46,10 +46,34 @@ export interface FarmOverview {
   periodEnd: string | null
   version: number
 }
-export interface FarmFilters { q?: string; status?: ServiceStatus | '' }
-export interface FarmTiles { total: number; active: number; pending: number; expired: number; suspended: number }
+/** SCR-12 sort: farm name (default), status or coverage end; `-` for descending; farms without an end come last. */
+export type FarmSort = 'name' | '-name' | 'status' | '-status' | 'coverageEnd' | '-coverageEnd'
+export interface FarmFilters { q?: string; status?: ServiceStatus | ''; sort?: FarmSort }
+/** SCR-12 tiles count every farm of the platform, whatever the search or filter. */
+export interface FarmTiles { total: number; active: number; activePercent: number; pending: number; expired: number; suspended: number }
+/** `total` is the number of farms matching the search and filter. */
 export interface FarmListResult { items: FarmOverview[]; total: number; tiles: FarmTiles }
 export interface ChangeFarmCommand { reason: string; version: number }
+/** Khóa yêu cầu (`Idempotency-Key`) do hộp thoại giữ, để bấm lại sau lỗi không tạo thay đổi thứ hai (GBR-88). */
+export interface ChangeOptions { idempotencyKey?: string }
+/** Popup "Tạm ngưng / Khôi phục dịch vụ" (UC-FE02-05): dữ liệu đọc lại từ máy chủ khi mở. */
+export interface FarmServicePreview {
+  farmId: number
+  farmName: string
+  ownerName: string
+  ownerEmail: string
+  herdSize: number
+  serviceStatus: ServiceStatus
+  suspendedSince: string | null
+  suspendedBy: string | null
+  suspendReason: string | null
+  /** Kỳ đã mua đang hiệu lực (ngày đầu, ngày cuối), nếu có. */
+  periodStart: string | null
+  periodEnd: string | null
+  coverageEnd: string | null
+  statusAfterRestore: ServiceStatus
+  version: number
+}
 
 export type PeriodState = 'CURRENT' | 'FUTURE' | 'PAST'
 export interface PeriodView extends PurchasedPeriod { state: PeriodState }

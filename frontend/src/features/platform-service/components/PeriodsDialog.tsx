@@ -15,7 +15,7 @@ export default function PeriodsDialog({ detail, onClose }: { detail: Subscriptio
   const s = detail.summary
   const current = detail.periods.find((p) => p.state === 'CURRENT')
   const future = detail.periods.find((p) => p.state === 'FUTURE')
-  const access = `${current ? 'Có kỳ hiện tại' : 'Chưa có kỳ hiện tại'} · ${STATUS_LABEL[s.serviceStatus]} · ${detail.suspended ? 'Đang tạm ngừng' : 'Không tạm ngưng'}`
+  const access = `${current ? 'Có kỳ hiện tại' : 'Chưa có kỳ hiện tại'} · ${STATUS_LABEL[s.serviceStatus]} · ${detail.suspended ? 'Đang tạm ngưng' : 'Không tạm ngưng'}`
   const link = future ?? current
   return (
     <Modal title={`Các kỳ đã mua của ${shortFarmName(s.farmName)}`} topTitle="Gói đăng ký" width={640} onClose={onClose}>

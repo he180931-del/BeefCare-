@@ -3,7 +3,6 @@ package vn.edu.fpt.beefcare.service;
 import jakarta.persistence.EntityManager;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +10,6 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.*;
-import vn.edu.fpt.beefcare.domain.enumeration.HerdStatus;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.service.dto.FarmWorkspaceDtos.*;
 
@@ -24,10 +22,10 @@ public class FarmWorkspaceService {
     private final StarterCatalogueService starters;
     private final AuditService audit;
     private final OutboxService outbox;
-    private final FarmClock clock;
+    private final FarmServiceFacts facts;
     public FarmWorkspaceService(EntityManager em,FarmAccessService access,FarmRepository farms,
-        StarterCatalogueService starters,AuditService audit,OutboxService outbox,FarmClock clock) {
-        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;this.clock=clock;
+        StarterCatalogueService starters,AuditService audit,OutboxService outbox,FarmServiceFacts facts) {
+        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;this.facts=facts;
     }
     /**
      * UC-FE02-02 step 2: every farm where the caller has an ACTIVE membership, whatever its service status. A Manager or
@@ -40,27 +38,13 @@ public class FarmWorkspaceService {
             .setParameter("user",user.getId()).getResultList();
         if (memberships.isEmpty()) return List.of();
         List<Long> ids=memberships.stream().map(m -> m.getFarm().getId()).toList();
-        Map<Long,Long> cattle=activeCattle(ids);Map<Long,Instant> until=serviceUntil(ids);
+        // SCR-09 "Until dd/mm/yyyy" is the latest confirmed end.
+        Map<Long,Long> cattle=facts.activeCattle(ids);Map<Long,Instant> until=facts.latestEnd(ids);
         return memberships.stream().map(m -> summary(m.getFarm(),m.getRole(),cattle,until)).toList();
     }
     private static Summary summary(Farm farm,String role,Map<Long,Long> cattle,Map<Long,Instant> until) {
         return new Summary(farm.getId(),farm.getName(),role,farm.getServiceStatus(),farm.getVersion(),farm.getProvince(),farm.getCommune(),
             cattle.getOrDefault(farm.getId(),0L),until.get(farm.getId()));
-    }
-    private Map<Long,Long> activeCattle(List<Long> farmIds) {
-        Map<Long,Long> counts=new HashMap<>();
-        em.createQuery("select c.farm.id, count(c) from Cattle c where c.farm.id in :ids and c.herdStatus=:s group by c.farm.id",Object[].class)
-            .setParameter("ids",farmIds).setParameter("s",HerdStatus.ACTIVE).getResultList()
-            .forEach(row -> counts.put((Long) row[0],(Long) row[1]));
-        return counts;
-    }
-    /** Latest confirmed service end per farm (SCR-09 "Until dd/mm/yyyy"); absent when the farm has no subscription yet. */
-    private Map<Long,Instant> serviceUntil(List<Long> farmIds) {
-        Map<Long,Instant> ends=new HashMap<>();
-        em.createQuery("select s.farm.id, s.latestEnd from Subscription s where s.farm.id in :ids",Object[].class)
-            .setParameter("ids",farmIds).getResultList()
-            .forEach(row -> { if (row[1]!=null) ends.put((Long) row[0],(Instant) row[1]); });
-        return ends;
     }
     /** UC-FE02-01: one farm in PENDING_PAYMENT with its OWNER membership, parameters, starter catalogue and audit (R-02-03). */
     @Transactional
@@ -86,7 +70,7 @@ public class FarmWorkspaceService {
     public Summary context(Long farmId) {
         FarmContext ctx=access.require(farmId,FarmAction.SELECT_FARM);
         List<Long> ids=List.of(farmId);
-        return summary(ctx.farm(),ctx.role().name(),activeCattle(ids),serviceUntil(ids));
+        return summary(ctx.farm(),ctx.role().name(),facts.activeCattle(ids),facts.latestEnd(ids));
     }
     /**
      * UC-FE02-03 (SCR-11, flow confirmed as Q1): the Owner saves registration, contact and operating information in any
@@ -136,19 +120,14 @@ public class FarmWorkspaceService {
     }
     private String blankDefault(String value,String fallback) { return value==null || value.isBlank()?fallback:value.trim(); }
     private Details details(Farm f) {
-        Instant now=clock.now();
-        Instant currentEnd=em.createQuery("select max(p.purchasedEnd) from Payment p where p.subscription.farm.id=:f and upper(p.state)='PAID' "
-                +"and p.purchasedStart<=:now and p.purchasedEnd>:now",Instant.class)
-            .setParameter("f",f.getId()).setParameter("now",now).getSingleResult();
-        Instant latestEnd=serviceUntil(List.of(f.getId())).get(f.getId());
-        Instant suspendedAt="SUSPENDED".equalsIgnoreCase(f.getServiceStatus())
-            ? em.createQuery("select max(a.loggedAt) from AuditLog a where a.farm.id=:f and a.action='FARM_SERVICE_SUSPEND'",Instant.class)
-                .setParameter("f",f.getId()).getSingleResult()
-            : null;
+        List<Long> ids=List.of(f.getId());
+        Instant currentEnd=facts.currentPeriod(f.getId()).map(FarmServiceFacts.Period::end).orElse(null);
+        Instant latestEnd=facts.latestEnd(ids).get(f.getId());
+        FarmServiceFacts.Suspension suspension="SUSPENDED".equalsIgnoreCase(f.getServiceStatus())?facts.lastSuspension(ids).get(f.getId()):null;
+        Instant suspendedAt=suspension==null?null:suspension.at();
         // Whole days left, as SCR-57 counts them; the period keeps running while SUSPENDED (Q4).
-        Long daysRemaining=currentEnd==null?null:Math.max(0,Duration.between(now,currentEnd).toDays());
-        AppUser owner=em.createQuery("select m.user from FarmMembership m where m.farm.id=:f and upper(m.role)='OWNER' and upper(m.status)='ACTIVE'",AppUser.class)
-            .setParameter("f",f.getId()).setMaxResults(1).getResultStream().findFirst().orElse(null);
+        Long daysRemaining=currentEnd==null?null:Math.max(0,Duration.between(facts.now(),currentEnd).toDays());
+        AppUser owner=facts.owners(ids).get(f.getId());
         return new Details(f.getId(),f.getName(),f.getProvince(),f.getCommune(),f.getDetailedAddress(),f.getContactPerson(),f.getContactPhone(),
             f.getRegistrationCertificateInfo(),f.getExpectedHerdSize(),f.getTimeZone(),f.getMorningShiftStart(),f.getOperatingNotes(),f.getServiceStatus(),
             f.getMainBreeds().stream().map(Breed::getId).collect(java.util.stream.Collectors.toSet()),f.getVersion(),

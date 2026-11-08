@@ -1,11 +1,29 @@
 import { PLATFORM_SERVICE_DEMO, PM_NAME, type PlatformServiceSeed } from './platformServiceMock'
 import type {
-  ChangeFarmCommand, Evidence, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, LockCommand, PaymentFilters, PaymentTiles, PlatformFarm, PlatformPayment,
+  ChangeFarmCommand, ChangeOptions, Evidence, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, FarmServicePreview, FarmSort, LockCommand, PaymentFilters, PaymentTiles, PlatformFarm, PlatformPayment,
   PriceDraft, PriceVersionView, PublishPriceCommand, ReturnCommand, ReviewCommand, ReviewResult, SubscriptionDetail, SubscriptionFilters, SubscriptionRow, UnlockCommand,
 } from '../types'
 import { toDate, vnNow } from '../domain/dates'
 import { blockReason, checkAcceptance, findCandidates } from '../domain/reconciliation'
-import { coverageEnd, currentPeriod, deriveStatus, nextPeriod, periodState, renewalOpens, validateReason } from '../domain/servicePeriods'
+import { STATUS_LABEL, coverageEnd, currentPeriod, deriveStatus, nextPeriod, periodState, renewalOpens, validateReason } from '../domain/servicePeriods'
+
+const byName = (a: FarmOverview, b: FarmOverview) => a.farmName.localeCompare(b.farmName, 'vi', { sensitivity: 'base' })
+/** Same order as `GET /api/platform/farms?sort=`: farms without a coverage end always come last. */
+function sortFarms(rows: FarmOverview[], sort: FarmSort = 'name') {
+  const descending = sort.startsWith('-')
+  const key = descending ? sort.slice(1) : sort
+  const direction = descending ? -1 : 1
+  const compare = (a: FarmOverview, b: FarmOverview) => {
+    if (key === 'coverageEnd') {
+      if (a.coverageEnd === b.coverageEnd) return 0
+      if (a.coverageEnd === null) return 1
+      if (b.coverageEnd === null) return -1
+      return direction * a.coverageEnd.localeCompare(b.coverageEnd)
+    }
+    return direction * (key === 'status' ? a.serviceStatus.localeCompare(b.serviceStatus) : byName(a, b))
+  }
+  return [...rows].sort((a, b) => compare(a, b) || byName(a, b) || a.farmId - b.farmId)
+}
 import { PRICE_ERROR, validPrice, validateEffective, withStatuses } from '../domain/pricing'
 
 export const CHANGED = 'Bản ghi đã được thay đổi. Vui lòng tải lại và kiểm tra trước khi thử lại.'
@@ -33,7 +51,7 @@ export function createPlatformServiceDemoStore(seed: PlatformServiceSeed = PLATF
     const err = validateReason(cmd.reason)
     if (err) fail(err)
     const target = mode === 'suspend'
-    if (f.suspended === target) fail(`${f.farmName} đã ở trạng thái ${target ? 'Tạm ngừng' : 'không tạm ngừng'}.`)
+    if (f.suspended === target) fail(`${f.farmName} đã ở trạng thái ${STATUS_LABEL[f.serviceStatus]}.`) // MSG-FE02-09
     if (cmd.version !== f.version) fail(CHANGED)
     f.suspended = target
     f.suspendedSince = target ? toDate(now()) : null
@@ -57,20 +75,32 @@ export function createPlatformServiceDemoStore(seed: PlatformServiceSeed = PLATF
   return {
     async listFarms(filters: FarmFilters = {}): Promise<FarmListResult> {
       const q = (filters.q ?? '').trim().toLowerCase()
-      const items = s.farms
+      const items = sortFarms(s.farms
         .filter((f) => !filters.status || f.serviceStatus === filters.status)
-        .filter((f) => !q || [f.farmName, f.ownerEmail, f.ownerName].some((t) => t.toLowerCase().includes(q)))
-        .map(overview)
+        .filter((f) => !q || [f.farmName, f.ownerEmail].some((t) => t.toLowerCase().includes(q)))
+        .map(overview), filters.sort)
       const count = (st: string) => s.farms.filter((f) => f.serviceStatus === st).length
       const o = s.otherFarms
-      const total = s.farms.length + o.active + o.pending + o.expired + o.suspended
+      const all = s.farms.length + o.active + o.pending + o.expired + o.suspended
+      const active = o.active + count('ACTIVE')
       return structuredClone({
-        items, total,
-        tiles: { total, active: o.active + count('ACTIVE'), pending: o.pending + count('PENDING_PAYMENT'), expired: o.expired + count('EXPIRED'), suspended: o.suspended + count('SUSPENDED') },
+        items, total: items.length,
+        tiles: { total: all, active, activePercent: all ? Math.round((active * 100) / all) : 0, pending: o.pending + count('PENDING_PAYMENT'), expired: o.expired + count('EXPIRED'), suspended: o.suspended + count('SUSPENDED') },
       })
     },
-    async suspendFarm(id: number, cmd: ChangeFarmCommand) { return changeService(id, 'suspend', cmd) },
-    async restoreFarm(id: number, cmd: ChangeFarmCommand) { return changeService(id, 'restore', cmd) },
+    async getFarmService(id: number): Promise<FarmServicePreview> {
+      const f = farmOf(id)
+      const cur = periodOf(f)
+      return structuredClone({
+        farmId: f.farmId, farmName: f.farmName, ownerName: f.ownerName, ownerEmail: f.ownerEmail, herdSize: f.herdSize, serviceStatus: f.serviceStatus,
+        suspendedSince: f.suspendedSince, suspendedBy: f.suspendedBy, suspendReason: f.suspendReason,
+        periodStart: cur?.start ?? null, periodEnd: cur?.end ?? null, coverageEnd: coverageEnd(f.periods),
+        statusAfterRestore: deriveStatus(f.periods, false, toDate(now())), version: f.version,
+      })
+    },
+    // `options` mirrors the backend call; the demo store has no request-key replay.
+    async suspendFarm(id: number, cmd: ChangeFarmCommand, _options?: ChangeOptions) { return changeService(id, 'suspend', cmd) },
+    async restoreFarm(id: number, cmd: ChangeFarmCommand, _options?: ChangeOptions) { return changeService(id, 'restore', cmd) },
 
     async listSubscriptions(filters: SubscriptionFilters = {}): Promise<SubscriptionRow[]> {
       const q = (filters.q ?? '').trim().toLowerCase()
@@ -152,7 +182,7 @@ export function createPlatformServiceDemoStore(seed: PlatformServiceSeed = PLATF
       if (f) {
         f.periods.push({ paymentCode: p.code, receiptCode, termYears: p.termYears, start: period.start, end: period.end, confirmedAt: at })
         if (!f.subscriptionCode) f.subscriptionCode = `SUB-${pad4(60 + f.farmId)}`
-        f.serviceStatus = deriveStatus(f.periods, f.suspended, toDate(at)) // thanh toán không gỡ tạm ngừng (GBR-15)
+        f.serviceStatus = deriveStatus(f.periods, f.suspended, toDate(at)) // thanh toán không gỡ tạm ngưng (GBR-15)
         f.version += 1
       }
       return structuredClone({ evidence: e, payment: p, period, receiptCode, confirmedAt: at })

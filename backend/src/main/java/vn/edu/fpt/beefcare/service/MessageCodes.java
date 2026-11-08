@@ -30,6 +30,8 @@ public final class MessageCodes {
     public static final String FE02_02 = "MSG-FE02-02";
     /** UC-FE02-02 AF3: a Manager or Technician enters a farm that is not ACTIVE. */
     public static final String FE02_04 = "MSG-FE02-04";
+    /** UC-FE02-05 E3: the farm is already in the requested state (suspend a SUSPENDED farm, restore one that is not). */
+    public static final String FE02_09 = "MSG-FE02-09";
 
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";
