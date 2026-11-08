@@ -5,7 +5,7 @@ import { homePathFor, homePathForSession, useSession, type AppRole } from './ses
 /** Chỉ ẩn màn hình theo vai trò để điều hướng đúng; quyền thật vẫn do backend kiểm tra trên từng lệnh. */
 export function RoleGate({ allow, children }: { allow: readonly AppRole[]; children: ReactNode }) {
   const session = useSession()
-  if (session && !allow.includes(session.role)) return <Navigate to={homePathFor(session.role)} replace />
+  if (session?.ownerRegistrationCompleted === false || (session && !allow.includes(session.role))) return <Navigate to={homePathForSession(session)} replace />
   return children
 }
 

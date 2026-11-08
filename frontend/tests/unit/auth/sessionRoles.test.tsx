@@ -69,6 +69,13 @@ describe('role navigation', () => {
     expect(screen.getByText('Hoàn tất Owner')).toBeInTheDocument()
   })
 
+  it('keeps an incomplete owner out of a directly requested farm screen', () => {
+    const session = { ...sessionFor('OWNER'), ownerRegistrationCompleted: false }
+    render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/tong-quan']}><Routes><Route path="/tong-quan" element={<RoleGate allow={['OWNER', 'MANAGER']}><div>Bí mật</div></RoleGate>} /><Route path="/owner-registration" element={<div>Hoàn tất Owner</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
+    expect(screen.queryByText('Bí mật')).not.toBeInTheDocument()
+    expect(screen.getByText('Hoàn tất Owner')).toBeInTheDocument()
+  })
+
   it('opens farm selection when there is not exactly one active farm', () => {
     const session = { ...sessionFor('OWNER'), activeFarmCount: 2 }
     render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/']}><Routes><Route path="/" element={<HomeRedirect />} /><Route path="/chon-trai" element={<div>Chọn trại</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
