@@ -57,7 +57,7 @@ Mọi request kiểm lại quyền, membership và trạng thái dịch vụ (GB
 | Thông tin giấy đăng ký | Chuỗi | Không | ≤ 255 (số, nơi cấp, ngày cấp) | SCR-10 |
 | Quy mô dự kiến | Enum | Không | `UNDER_50`, `50_149`, `150_300`, `OVER_300` | SCR-10 |
 | Giống chính | Danh sách giống khởi tạo | Không | Chọn nhiều từ Table III-6 | SCR-10, GBR-109 |
-| Múi giờ | Chuỗi IANA | Có | Mặc định `Asia/Ho_Chi_Minh` | SCR-11, GBR-66 |
+| Múi giờ | Chuỗi IANA | Có | Mặc định `Asia/Ho_Chi_Minh`; chỉ một trong 3 múi giờ UTC+7 (`Asia/Ho_Chi_Minh`, `Asia/Bangkok`, `Asia/Vientiane`), khác → MSG-COM-10 (Q2) | SCR-11, GBR-66 |
 | Giờ bắt đầu ca sáng | Giờ `HH:mm` | Không | — | SCR-11 |
 | Ghi chú vận hành | Chuỗi dài | Không | ≤ 1.000 | SCR-11 |
 | Cờ tạm ngưng | Boolean (+ ngày, PM) | Có | Mặc định `false` | §3.2 |
@@ -139,7 +139,7 @@ AF1 Owner chọn trại `PENDING_PAYMENT` / `EXPIRED` → nút "Thanh toán đ�
 E1 membership bị ngưng / đổi vai trò sau khi danh sách đã hiện → MSG-COM-01 và tải lại danh sách · E2 lỗi tải → MSG-COM-03.
 
 ### UC-FE02-03 Cập nhật thông tin trại
-Owner mở SCR-11 (ở mọi trạng thái dịch vụ) → sửa nhóm "Đăng ký và liên hệ", "Vận hành" → **Lưu thay đổi** → kiểm tra → lưu → MSG-FE02-05. Khối "Tóm tắt dịch vụ" chỉ đọc. Manager / Technician không truy cập được (MSG-COM-01). Sửa đồng thời → MSG-COM-05.
+Luồng đã xác nhận (Q1). Owner mở SCR-11 (ở mọi trạng thái dịch vụ) → sửa nhóm "Đăng ký và liên hệ", "Vận hành" → **Lưu thay đổi** (kèm `version` và khóa yêu cầu) → kiểm tra (tỉnh như SCR-10, múi giờ theo Q2) → lưu, ghi audit `FARM_UPDATE` → MSG-FE02-05. Trường tùy chọn để trống = không có (không tự điền lại SĐT Owner). SCR-11 không sửa giống chính; giống chính giữ nguyên. Khối "Tóm tắt dịch vụ" chỉ đọc. Manager / Technician không truy cập được: API trả 403 MSG-COM-01, giao diện đưa về trang chủ của vai trò (Q8). Sửa đồng thời → MSG-COM-05.
 
 ### UC-FE02-04 Tổng quan dịch vụ các trại (PM)
 PM mở SCR-12 → ô đếm theo trạng thái (bấm để lọc), tìm theo tên trại / email Owner, lọc trạng thái, danh sách có sắp xếp → hành động Tạm ngưng / Khôi phục, Xem gói (SCR-61). Không có dữ liệu → MSG-COM-04.
@@ -205,16 +205,16 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | **Đăng ký và liên hệ** | | | | | |
 | 1–7 | Tên trại*, Tỉnh*, Xã*, Địa chỉ chi tiết, Người liên hệ, SĐT, Giấy đăng ký | Như SCR-10 | Như SCR-10 | Như SCR-10 | Như SCR-10 |
 | **Thông tin vận hành** | | | | | |
-| 8 | Time zone / Múi giờ | Dropdown | * | Mặc định Asia/Ho_Chi_Minh; dùng cho mọi ngày của trại | — |
+| 8 | Time zone / Múi giờ | Dropdown | * | Mặc định Asia/Ho_Chi_Minh; 3 múi giờ UTC+7 (Q2); dùng cho mọi ngày của trại | MSG-COM-10 |
 | 9 | Morning shift start / Giờ bắt đầu ca sáng | Giờ HH:mm | — | Dùng hiển thị nhắc việc "hôm nay" | MSG-COM-10 |
 | 10 | Operating notes / Ghi chú vận hành | Ô chữ dài | — | ≤ 1.000 | MSG-COM-10 |
 | 11 | Save changes / Lưu thay đổi | Nút | — | Kèm version | MSG-COM-05, MSG-COM-02; thành công MSG-FE02-05 |
 | **Tóm tắt dịch vụ (chỉ đọc)** | | | | | |
 | 12 | Service status / Trạng thái dịch vụ | Huy hiệu | — | — | — |
-| 13 | Current period until / Kỳ hiện tại đến | Ngày | — | dd/mm/yyyy hoặc "—" | — |
+| 13 | Current period until / Kỳ hiện tại đến | Ngày | — | Ngày cuối của kỳ đã mua đang hiệu lực (như SCR-57), dd/mm/yyyy hoặc "—" | — |
 | 14 | Renewal opens from / Mở gia hạn từ | Ngày | — | 90 ngày trước ngày hết đã xác nhận cuối cùng (GBR-71) | — |
 | 15 | Suspended / Tạm ngưng | Chữ | — | Không / Có kèm ngày | — |
-| 16 | Days remaining / Số ngày còn lại | Số | — | Đến hết kỳ hiện tại | — |
+| 16 | Days remaining / Số ngày còn lại | Số | — | Số ngày tròn đến hết kỳ hiện tại; vẫn hiện khi SUSPENDED (Q4); không có kỳ hiện tại (PENDING_PAYMENT, EXPIRED) → "—" | — |
 | 17 | View subscription / Xem gói dịch vụ | Link | — | — | Mở SCR-57 |
 | 18 | Owner / Chủ trại | Chữ | — | Email Owner | — |
 
@@ -254,8 +254,8 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 |---|---|---|---|---|---|
 | A1 | Đăng ký trại | `name, province, commune, detailedAddress?, contactPerson?, contactPhone?, registrationCertificateInfo?, expectedHerdSize?, mainBreedCodes[]?` + header `Idempotency-Key`; trường tùy chọn để chuỗi rỗng = không nhập | Trại (A3) | FE02-02, COM-06, COM-10, COM-02 | `POST /api/farms` |
 | A2 | Danh sách trại của tôi | — | `[{id, name, commune, province, serviceStatus, role, activeCattleCount, serviceUntil?, version}]`; nút trên thẻ suy ra ở FE từ `role` + `serviceStatus` theo bảng SCR-09 | COM-03 | `GET /api/farms` |
-| A3 | Chi tiết thông tin trại | — | Mọi thuộc tính mục 3.1 + `serviceSummary {status, currentPeriodEnd, renewalOpensFrom, suspended, suspendedAt, daysRemaining}, ownerEmail, version` | COM-01 | `GET /api/farms/{farmId}` |
-| A4 | Sửa thông tin trại | Các trường SCR-11 + `version` + `Idempotency-Key` | A3 | COM-01, COM-05, COM-06, COM-10, COM-02 | `PUT /api/farms/{farmId}` |
+| A3 | Chi tiết thông tin trại | — | Mọi thuộc tính mục 3.1 + `serviceStatus, currentPeriodUntil?, renewalOpensAt?, suspendedAt?, daysRemaining?, ownerName, ownerEmail, version` (phẳng, tên như code) | COM-01 | `GET /api/farms/{farmId}` |
+| A4 | Sửa thông tin trại | Các trường SCR-11 (không gồm giống chính) + `expectedVersion` + `Idempotency-Key`; trường tùy chọn để chuỗi rỗng = không có | A3 | COM-01, COM-05, COM-06, COM-10, COM-02 | `PUT /api/farms/{farmId}` |
 | A5 | Chọn trại (ngữ cảnh) | — | Như một phần tử của A2. Owner vào được ở mọi trạng thái (GBR-14); múi giờ xem A3, quyền theo vai trò suy ra ở FE | COM-01 (không còn membership), FE02-04 (Manager / Technician, trại không ACTIVE) | `GET /api/farms/{farmId}/context` |
 | A6 | Tổng quan dịch vụ (PM) | `q?, status?, page, size, sort?` | `{tiles {total, active, activePercent, pendingPayment, expired, suspended}, items[{farmId, name, ownerName, ownerEmail, serviceStatus, coverageEnd, suspended, suspendedAt, activeCattle}], total}` | COM-01 | `GET /api/platform/farms` |
 | A7 | Xem trước popup | — | `{farm, ownerName, activeCattle, currentStatus, suspendedSince, suspendedBy, previousReason, purchasedPeriod, statusAfterRestore, version}` | COM-01 | chưa có riêng – thêm `GET /api/platform/farms/{farmId}` |
@@ -301,7 +301,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | TC-02-14 | Owner trại EXPIRED | Gọi API tạo chuồng / ghi cân | Bị chặn (MSG-COM-12) | H | R-02-06 |
 | TC-02-15 | Manager trại EXPIRED | Gọi bất kỳ API của trại | 403 | H | R-02-06 |
 | TC-02-16 | Đang ở trại A với bộ lọc | Chuyển sang trại B | Không còn dữ liệu / bộ lọc của A | E | R-02-12 |
-| TC-02-17 | Manager | Mở SCR-11 / gọi `PUT /api/farms/{id}` | MSG-COM-01 / 403 | H | GBR-07 |
+| TC-02-17 | Manager | Mở SCR-11 / gọi `PUT /api/farms/{id}` | Đưa về trang chủ của vai trò (Q8) / 403 MSG-COM-01 | U, H | GBR-07 |
 | TC-02-18 | SCR-11 | Ghi chú vận hành 1.001 ký tự; giờ ca sáng `25:00` | MSG-COM-10 | U, H | SCR-11 |
 | TC-02-19 | Hai người cùng mở SCR-11 | Người thứ hai lưu với version cũ | MSG-COM-05 | I | UC-03 |
 | TC-02-20 | Trại ACTIVE có kỳ còn hạn | PM tạm ngưng có lý do | `SUSPENDED`; có bản ghi lịch sử + audit; Owner có thông báo | I | R-02-09 |
@@ -331,6 +331,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | Q5 | Nút "Thanh toán để kích hoạt" / "Gia hạn" mở SCR-57 (AF1) hay SCR-58 (bảng nút SCR-09, trigger UC-FE19-02)? | SCR-58 kèm MSG-FE02-03 |
 | Q6 | Bước 2 đọc được là Manager / Technician không thấy trại không ACTIVE; AF3, SCR-09 và TC-02-11 nói thẻ khóa | Hiện thẻ khóa |
 | Q7 | AF4: "khả dụng" là gì, áp dụng lúc nào? | Ngay sau đăng nhập, đúng 1 trại và trại đó ACTIVE; mở từ nút đổi trại vẫn hiện SCR-09 |
+| Q8 | Manager / Technician mở SCR-11 (gõ đường dẫn hoặc link cũ): hiện MSG-COM-01 hay đưa về trang chủ? | Hiện MSG-COM-01 |
 
 ---
 
@@ -342,3 +343,4 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 08/11/2026 | 28/10/2026 | Chốt Q3: tỉnh lưu **tên**, thuộc 34 tỉnh / thành (mục 3.1). A1 dùng tên trường như code (`province`, `detailedAddress`, `registrationCertificateInfo`); không đổi dữ liệu hay hành vi | DucNV |
 | 08/11/2026 | 28/10/2026 | UC-FE02-02: chốt Q5 (AF1 mở SCR-58 thay vì SCR-57), Q6 (thẻ khóa cho Manager / Technician) và Q7 (cách hiểu AF4). A2 / A5 dùng tên trường như code; MSG-FE02-04 sửa câu "đang ở trạng thái {status}" | DucNV |
+| 08/11/2026 | 28/10/2026 | UC-FE02-03: xác nhận luồng (Q1); chốt Q2 (3 múi giờ UTC+7), Q4 (vẫn hiện số ngày còn lại khi SUSPENDED) và Q8 (Manager / Technician mở SCR-11 → về trang chủ). Mục 3.1, 5, 6 (SCR-11), 7 (A3, A4), TC-02-17 | DucNV |
