@@ -24,7 +24,7 @@ export function sessionFromProfile(value: unknown): SessionUser {
     farmId: farm ? numberValue(farm.farmId) : null,
     farmName: farm ? textValue(farm.farmName) : null,
     ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
-    platformRole: PLATFORM_ROLES.includes(platformRole) ? platformRole as AppRole : null,
+    platformRole: PLATFORM_ROLES.includes(platformRole) ? platformRole as 'CS' | 'PM' | 'SA' : null,
     activeFarmCount: farms.filter((item) => textValue(item.serviceStatus, 'ACTIVE') === 'ACTIVE').length,
   }
 }

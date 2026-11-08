@@ -10,8 +10,11 @@ export interface AccountProfile {
   passwordSignInEnabled: boolean
   googleSignInLinked: boolean
   ownerRegistrationCompleted: boolean
+  status: string
+  signInMethods: string[]
+  hasPassword: boolean
   platformRole: string | null
-  farms: Array<{ farmId: number; farmName: string; role: string; permissions: string[] }>
+  farms: Array<{ farmId: number; farmName: string; role: string; serviceStatus: string; permissions: string[] }>
 }
 
 /** Người đang đăng nhập; chế độ mô phỏng dùng nó để dựng hồ sơ, máy chủ thật bỏ qua. */

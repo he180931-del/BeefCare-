@@ -153,6 +153,8 @@ class BrowserSessionFlowIT {
             .andExpect(jsonPath("$.email").value(email)).andExpect(jsonPath("$.fullName").value("Flow Owner"))
             .andExpect(jsonPath("$.emailVerified").value(true)).andExpect(jsonPath("$.passwordSignInEnabled").value(true))
             .andExpect(jsonPath("$.googleSignInLinked").value(false)).andExpect(jsonPath("$.ownerRegistrationCompleted").value(false))
+            .andExpect(jsonPath("$.status").value("ACTIVE")).andExpect(jsonPath("$.hasPassword").value(true))
+            .andExpect(jsonPath("$.signInMethods[0]").value("PASSWORD"))
             .andExpect(jsonPath("$.platformRole").doesNotExist()).andExpect(jsonPath("$.farms").isEmpty())
             .andExpect(jsonPath("$.password").doesNotExist()).andExpect(jsonPath("$.passwordHash").doesNotExist());
         desktop.postWithoutCsrf("/api/account/profile", Map.of("fullName", "Changed Without Csrf", "phone", "")).andExpect(status().isForbidden());

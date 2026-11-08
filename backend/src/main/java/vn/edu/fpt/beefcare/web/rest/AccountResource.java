@@ -240,8 +240,12 @@ public class AccountResource {
         boolean verified = userRepository.findOneByEmailIgnoreCase(account.getEmail()).map(User::isActivated).orElse(false);
         String platformRole = platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").map(access -> access.getRole()).orElse(null);
         List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role(), farm.serviceStatus(), permissionsOf(farm.role()))).toList();
+        List<String> methods = new ArrayList<>();
+        if (account.isPasswordLoginEnabled()) methods.add("PASSWORD");
+        if (account.getGoogleSubject() != null) methods.add("GOOGLE");
         return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
-            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), platformRole, farms);
+            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), account.getAccountStatus(),
+            methods, account.isPasswordLoginEnabled(), platformRole, farms);
     }
 
     /** UC-FE01-04 / SCR-08: the fixed permissions of a farm role (GBR-06, Table III-2), as FarmAction codes. */
@@ -261,7 +265,7 @@ public class AccountResource {
     /** SCR-08 header: the platform role (staff), and the role and its fixed GBR-06 permissions in each available farm. */
     public record ProfileResponse(Long id, String email, String fullName, String phone, boolean emailVerified,
         boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted,
-        String platformRole, List<FarmRoleSummary> farms) {}
+        String status, List<String> signInMethods, boolean hasPassword, String platformRole, List<FarmRoleSummary> farms) {}
 
     public record FarmRoleSummary(Long farmId, String farmName, String role, String serviceStatus, List<String> permissions) {}
 

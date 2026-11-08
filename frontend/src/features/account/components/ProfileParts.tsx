@@ -9,7 +9,7 @@ export const Avatar = ({ name, size = 56 }: { name: string; size?: number }) => 
   <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-edge text-base font-semibold text-white">{initials(name)}</span>
 )
 
-const methods = (profile: AccountProfile) => [profile.googleSignInLinked && 'Google', profile.passwordSignInEnabled && 'Thư điện tử & mật khẩu'].filter(Boolean).join(' · ') || '—'
+const methods = (profile: AccountProfile) => (profile.signInMethods.length ? profile.signInMethods.map((method) => method === 'GOOGLE' ? 'Google' : method === 'PASSWORD' ? 'Thư điện tử & mật khẩu' : method).join(' · ') : [profile.googleSignInLinked && 'Google', profile.passwordSignInEnabled && 'Thư điện tử & mật khẩu'].filter(Boolean).join(' · ')) || '—'
 
 const Err = ({ children }: { children?: string }) => children ? <span className="text-xs text-err-fg">{children}</span> : null
 

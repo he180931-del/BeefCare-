@@ -8,9 +8,13 @@ function profile(value: unknown): AccountProfile {
     id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.phone),
     emailVerified: row.emailVerified === true, passwordSignInEnabled: row.passwordSignInEnabled === true,
     googleSignInLinked: row.googleSignInLinked === true, ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
+    status: textValue(row.status, 'ACTIVE'),
+    signInMethods: Array.isArray(row.signInMethods) ? row.signInMethods.filter((item): item is string => typeof item === 'string') : [],
+    hasPassword: row.hasPassword === true || row.passwordSignInEnabled === true,
     platformRole: typeof row.platformRole === 'string' ? row.platformRole : null,
     farms: asRows(row.farms).map((farm) => ({
       farmId: numberValue(farm.farmId), farmName: textValue(farm.farmName), role: textValue(farm.role),
+      serviceStatus: textValue(farm.serviceStatus),
       permissions: Array.isArray(farm.permissions) ? farm.permissions.filter((item): item is string => typeof item === 'string') : [],
     })),
   }
