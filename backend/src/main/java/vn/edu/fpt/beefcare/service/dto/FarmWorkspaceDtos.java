@@ -44,10 +44,16 @@ public final class FarmWorkspaceDtos {
      */
     public record Summary(Long id,String name,String role,String serviceStatus,Integer version,
         String province,String commune,long activeCattleCount,Instant serviceUntil) {}
+    /**
+     * SCR-11 farm information plus its read-only service summary: end of the period covering now ({@code null}: none),
+     * renewal opening date (latest confirmed end - 90 days, GBR-71), suspension date, whole days left in the current
+     * period (still shown while SUSPENDED, decision Q4) and the Owner.
+     */
     public record Details(Long id,String name,String province,String commune,String detailedAddress,
         String contactPerson,String contactPhone,String registrationCertificateInfo,String expectedHerdSize,
         String timeZone,LocalTime morningShiftStart,String operatingNotes,String serviceStatus,
-        Set<Long> mainBreedIds,Integer version) {}
+        Set<Long> mainBreedIds,Integer version,
+        Instant currentPeriodUntil,Instant renewalOpensAt,Instant suspendedAt,Long daysRemaining,String ownerName,String ownerEmail) {}
     public record Lookup(Long id,String code,String name,boolean available,String type) {}
     public record Catalogues(List<Lookup> breeds,List<Lookup> productionPurposes,List<Lookup> vaccines,List<Lookup> feedItems) {}
 }

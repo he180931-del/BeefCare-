@@ -18,7 +18,8 @@ export interface FarmWorkspaceDemoStore {
   getFarm(farmId: number): Promise<FarmDetails>
   /** UC-FE02-01. Cùng `idempotencyKey` + cùng dữ liệu → trả lại trại đã tạo; cùng khóa, khác dữ liệu → lỗi (R-02-02). */
   registerFarm(input: FarmRegistrationInput, options?: RequestKeyOptions): Promise<FarmDetails>
-  updateFarm(farmId: number, input: FarmUpdateInput): Promise<FarmDetails>
+  /** UC-FE02-03. `options` mirrors the backend call; the demo store has no request-key replay for this save. */
+  updateFarm(farmId: number, input: FarmUpdateInput, options?: RequestKeyOptions): Promise<FarmDetails>
   listMembers(farmId: number): Promise<Membership[]>
   changeMember(farmId: number, memberId: number, input: ChangeMemberInput): Promise<Membership>
   listInvitations(farmId: number, status?: string): Promise<Invitation[]>

@@ -70,4 +70,29 @@ describe('farm workspace validation', () => {
     expect(validateFarmInfo({ name: 'Trại bò A', province: 'Hà Nội', commune: 'Ba Vì', contactPhone: '0123', operatingNotes: '' })).toHaveProperty('contactPhone')
     expect(validateFarmInfo({ name: 'Trại bò A', province: 'Hà Nội', commune: 'Ba Vì', contactPhone: '0912345678', operatingNotes: 'x'.repeat(1001) })).toHaveProperty('operatingNotes')
   })
+
+  describe('SCR-11 Farm Information (UC-FE02-03)', () => {
+    const info = { name: 'Trại bò A', province: 'Hà Nội', commune: 'Ba Vì', timeZone: 'Asia/Ho_Chi_Minh', morningShiftStart: '05:30', operatingNotes: '' }
+
+    it('accepts a valid form, with every optional field left blank', () => {
+      expect(validateFarmInfo(info)).toEqual({})
+      expect(validateFarmInfo({ ...info, morningShiftStart: '', contactPhone: '', contactPerson: '' })).toEqual({})
+    })
+
+    it('TC-02-18 rejects notes over 1,000 characters and a morning shift start of 25:00', () => {
+      expect(validateFarmInfo({ ...info, operatingNotes: 'x'.repeat(1000) })).toEqual({})
+      expect(validateFarmInfo({ ...info, operatingNotes: 'x'.repeat(1001) })).toHaveProperty('operatingNotes')
+      expect(validateFarmInfo({ ...info, morningShiftStart: '25:00' })).toHaveProperty('morningShiftStart')
+    })
+
+    it('Q3 the province must be one of the 34 provinces, as on SCR-10', () => {
+      expect(validateFarmInfo({ ...info, province: 'Hà Tây' })).toEqual({ province: 'Chọn tỉnh hoặc thành phố trong danh sách.' })
+      expect(validateFarmInfo({ ...info, province: ' Phú Thọ ' })).toEqual({})
+    })
+
+    it('Q2 the time zone must be one of the offered UTC+7 zones', () => {
+      expect(validateFarmInfo({ ...info, timeZone: 'Asia/Bangkok' })).toEqual({})
+      expect(validateFarmInfo({ ...info, timeZone: 'Europe/London' })).toEqual({ timeZone: 'Chọn múi giờ trong danh sách.' })
+    })
+  })
 })

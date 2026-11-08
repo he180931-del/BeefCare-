@@ -30,7 +30,8 @@ import vn.edu.fpt.beefcare.repository.SubscriptionRepository;
 public class SubscriptionPaymentService {
     private static final Duration REQUEST_TTL = Duration.ofHours(24);
     private static final ZoneId FARM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
-    private static final Duration RENEWAL_WINDOW = Duration.ofDays(90);
+    /** GBR-71: renewal opens 90 days before the latest confirmed end (also shown on SCR-11 by FarmWorkspaceService). */
+    static final Duration RENEWAL_WINDOW = Duration.ofDays(90);
 
     private final FarmAccessService farmAccess;
     private final FarmRepository farms;

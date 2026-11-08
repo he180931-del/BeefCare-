@@ -1,7 +1,7 @@
 import { Icon, type IconName } from '../../../components/Icon'
 import { Badge } from '../../../components/ui'
 import type { FarmServiceStatus, FarmSummary } from '../types'
-import { formatDate, roleLabel, serviceLabel } from './WorkspaceUi'
+import { lastServiceDay, roleLabel, serviceLabel } from './WorkspaceUi'
 
 const tone = (status: string) => status === 'ACTIVE' ? 'ok' : status === 'SUSPENDED' ? 'err' : 'warn'
 const place = (farm: FarmSummary) => [farm.commune?.replace(/^(Xã|Phường|Thị trấn) /, ''), farm.province].filter(Boolean).join(', ')
@@ -24,12 +24,6 @@ export function farmAction(farm: FarmSummary): FarmCardAction {
 /** MSG-FE02-04 (SCR-09 locked card). */
 export const unavailableFarmMessage = (farm: string, status: FarmServiceStatus | string) =>
   `${farm} không khả dụng vì dịch vụ đang ở trạng thái ${serviceLabel(status)}. Vui lòng liên hệ Chủ trại.`
-
-/** The service end from the backend is exclusive; show its last covered day, as SCR-57 does (`fmtEndDay`). */
-function lastServiceDay(end: string) {
-  const ms = Date.parse(end)
-  return Number.isNaN(ms) ? formatDate(end) : formatDate(new Date(ms - 1).toISOString())
-}
 
 /** SCR-09 field 7, the same for every role: "Đến dd/mm/yyyy", "Chưa có kỳ dịch vụ" or "Đang tạm ngưng". */
 function serviceText(farm: FarmSummary) {

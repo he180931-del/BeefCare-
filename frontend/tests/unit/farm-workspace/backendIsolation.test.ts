@@ -33,6 +33,26 @@ describe('farm workspace backend adapter isolation', () => {
     expect(transport.get).toHaveBeenCalledWith('/api/farms/902/context')
   })
 
+  it('UC-FE02-03 saves SCR-11 with the page request key, without main breeds, and reads the service summary', async () => {
+    vi.mocked(transport.command).mockResolvedValueOnce({
+      id: 1, name: 'Trại A', province: 'Hà Nội', commune: 'Ba Vì', serviceStatus: 'SUSPENDED', version: 4, mainBreedIds: [7],
+      currentPeriodUntil: '2026-12-31T17:00:00Z', renewalOpensAt: '2026-10-02T17:00:00Z', suspendedAt: '2026-11-01T03:00:00Z',
+      daysRemaining: 60, ownerName: 'Nguyễn Văn Hùng', ownerEmail: 'owner@beefcare.local',
+    })
+    const api = createFarmWorkspaceApi({ mode: 'backend', farmId: 1, transport, demoStore: store })
+    const saved = await api.updateFarm(1, {
+      name: 'Trại A', province: 'Hà Nội', commune: 'Ba Vì', detailedAddress: '', contactPerson: '', contactPhone: '0912 345 678',
+      registrationCertificateInfo: '', timeZone: 'Asia/Ho_Chi_Minh', morningShiftStart: '05:30', operatingNotes: '', mainBreedIds: [7], expectedVersion: 3,
+    }, { idempotencyKey: 'key-3' })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/1', expect.not.objectContaining({ mainBreedIds: expect.anything() }), { method: 'PUT', key: 'key-3' })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/1', expect.objectContaining({ contactPhone: '0912345678', expectedVersion: 3 }), { method: 'PUT', key: 'key-3' })
+    expect(transport.get).not.toHaveBeenCalled()
+    expect(saved).toMatchObject({
+      role: 'OWNER', serviceUntil: '2026-12-31T17:00:00Z', renewalOpensAt: '2026-10-02T17:00:00Z', suspendedAt: '2026-11-01T03:00:00Z',
+      daysRemaining: 60, ownerName: 'Nguyễn Văn Hùng', ownerEmail: 'owner@beefcare.local',
+    })
+  })
+
   it('propagates a backend read failure and does not fall back to the demo store', async () => {
     vi.mocked(transport.get).mockRejectedValue(new Error('backend unavailable'))
     const expectedLocalCount = (await store.listFarms()).length

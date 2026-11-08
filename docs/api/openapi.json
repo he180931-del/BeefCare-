@@ -11560,6 +11560,28 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "currentPeriodUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "renewalOpensAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "suspendedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "daysRemaining" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ownerName" : {
+            "type" : "string"
+          },
+          "ownerEmail" : {
+            "type" : "string"
           }
         }
       },

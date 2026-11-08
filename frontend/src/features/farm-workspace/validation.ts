@@ -5,7 +5,7 @@ import type {
   FarmRegistrationInput,
   InviteMemberInput,
 } from './types'
-import { PROVINCES } from './data/provinces'
+import { PROVINCES, TIME_ZONES } from './data/provinces'
 
 export type FormErrors<T extends object> = Partial<Record<keyof T, string>>
 
@@ -39,16 +39,24 @@ export function validateFarmRegistration(input: Partial<Omit<FarmRegistrationInp
   return errors
 }
 
+/**
+ * SCR-11 (UC-FE02-03). Như SCR-10 cho tỉnh (Q3), cộng phần vận hành: múi giờ thuộc danh sách UTC+7 (Q2), giờ ca sáng
+ * HH:mm, ghi chú tối đa 1.000 ký tự. Tên tỉnh cũ ngoài danh sách vẫn hiện để Chủ trại thấy và chọn lại.
+ */
 export function validateFarmInfo(input: Partial<FarmInfoInput>): FormErrors<FarmInfoInput> {
   const errors: FormErrors<FarmInfoInput> = {}
   if (!NAME(input.name, 2, 150)) errors.name = 'Tên trại cần có từ 2 đến 150 ký tự.'
-  if (!NAME(input.province, 1, 150)) errors.province = 'Chọn tỉnh hoặc thành phố.'
+  const province = input.province?.trim() ?? ''
+  if (!province) errors.province = 'Chọn tỉnh hoặc thành phố.'
+  else if (!(PROVINCES as readonly string[]).includes(province)) errors.province = 'Chọn tỉnh hoặc thành phố trong danh sách.'
   if (!NAME(input.commune, 1, 150)) errors.commune = 'Nhập xã, phường hoặc thị trấn.'
   if (!optionalText(input.detailedAddress, 255)) errors.detailedAddress = 'Địa chỉ chi tiết tối đa 255 ký tự.'
   if (!optionalText(input.contactPerson, 100)) errors.contactPerson = 'Người liên hệ tối đa 100 ký tự.'
   if (input.contactPhone && !PHONE.test(input.contactPhone.trim())) errors.contactPhone = 'Nhập số điện thoại Việt Nam hợp lệ.'
   if (!optionalText(input.registrationCertificateInfo, 255)) errors.registrationCertificateInfo = 'Thông tin giấy đăng ký tối đa 255 ký tự.'
-  if (!optionalText(input.timeZone, 40) || !input.timeZone?.trim()) errors.timeZone = 'Chọn múi giờ.'
+  const timeZone = input.timeZone?.trim() ?? ''
+  if (!timeZone) errors.timeZone = 'Chọn múi giờ.'
+  else if (!TIME_ZONES.some(([id]) => id === timeZone)) errors.timeZone = 'Chọn múi giờ trong danh sách.'
   if (input.morningShiftStart && !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(input.morningShiftStart)) errors.morningShiftStart = 'Nhập giờ theo định dạng HH:mm.'
   if (!optionalText(input.operatingNotes, 1000)) errors.operatingNotes = 'Ghi chú vận hành tối đa 1.000 ký tự.'
   return errors

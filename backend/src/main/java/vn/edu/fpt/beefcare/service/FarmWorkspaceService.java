@@ -1,8 +1,8 @@
 package vn.edu.fpt.beefcare.service;
 
 import jakarta.persistence.EntityManager;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,9 +24,10 @@ public class FarmWorkspaceService {
     private final StarterCatalogueService starters;
     private final AuditService audit;
     private final OutboxService outbox;
+    private final FarmClock clock;
     public FarmWorkspaceService(EntityManager em,FarmAccessService access,FarmRepository farms,
-        StarterCatalogueService starters,AuditService audit,OutboxService outbox) {
-        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;
+        StarterCatalogueService starters,AuditService audit,OutboxService outbox,FarmClock clock) {
+        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;this.clock=clock;
     }
     /**
      * UC-FE02-02 step 2: every farm where the caller has an ACTIVE membership, whatever its service status. A Manager or
@@ -87,15 +88,21 @@ public class FarmWorkspaceService {
         List<Long> ids=List.of(farmId);
         return summary(ctx.farm(),ctx.role().name(),activeCattle(ids),serviceUntil(ids));
     }
+    /**
+     * UC-FE02-03 (SCR-11, flow confirmed as Q1): the Owner saves registration, contact and operating information in any
+     * service status. Province as SCR-10 (Q3), time zone one of the offered UTC+7 zones (Q2), a blank optional field is
+     * "not provided"; main breeds change only when the request sends them (SCR-11 has no such field).
+     */
     @Transactional
     public Details update(Long farmId,Update request) {
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_FARM_INFORMATION);
         Farm f=farms.lockById(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
         VersionGuard.requireExpected(f.getVersion(),request.expectedVersion());
-        applyContact(f,request.name(),request.province(),request.commune(),request.detailedAddress(),request.contactPerson(),request.contactPhone(),request.registrationCertificateInfo());
-        String zone=blankDefault(request.timeZone(),"Asia/Ho_Chi_Minh");
-        try { ZoneId.of(zone); } catch (java.time.DateTimeException error) { throw DomainException.invalid("timeZone"); }
-        f.setTimeZone(zone); f.setMorningShiftStart(request.morningShiftStart());f.setOperatingNotes(request.operatingNotes());
+        String province=VietnamProvinces.require(request.province(),"province");
+        String zone=FarmTimeZones.require(request.timeZone(),"timeZone");
+        applyContact(f,request.name(),province,request.commune(),blankDefault(request.detailedAddress(),null),blankDefault(request.contactPerson(),null),
+            blankDefault(request.contactPhone(),null),blankDefault(request.registrationCertificateInfo(),null));
+        f.setTimeZone(zone); f.setMorningShiftStart(request.morningShiftStart());f.setOperatingNotes(blankDefault(request.operatingNotes(),null));
         if(request.mainBreedIds()!=null) {
             Set<Breed> selected=new LinkedHashSet<>();
             for(Long id:request.mainBreedIds()) {
@@ -129,9 +136,24 @@ public class FarmWorkspaceService {
     }
     private String blankDefault(String value,String fallback) { return value==null || value.isBlank()?fallback:value.trim(); }
     private Details details(Farm f) {
+        Instant now=clock.now();
+        Instant currentEnd=em.createQuery("select max(p.purchasedEnd) from Payment p where p.subscription.farm.id=:f and upper(p.state)='PAID' "
+                +"and p.purchasedStart<=:now and p.purchasedEnd>:now",Instant.class)
+            .setParameter("f",f.getId()).setParameter("now",now).getSingleResult();
+        Instant latestEnd=serviceUntil(List.of(f.getId())).get(f.getId());
+        Instant suspendedAt="SUSPENDED".equalsIgnoreCase(f.getServiceStatus())
+            ? em.createQuery("select max(a.loggedAt) from AuditLog a where a.farm.id=:f and a.action='FARM_SERVICE_SUSPEND'",Instant.class)
+                .setParameter("f",f.getId()).getSingleResult()
+            : null;
+        // Whole days left, as SCR-57 counts them; the period keeps running while SUSPENDED (Q4).
+        Long daysRemaining=currentEnd==null?null:Math.max(0,Duration.between(now,currentEnd).toDays());
+        AppUser owner=em.createQuery("select m.user from FarmMembership m where m.farm.id=:f and upper(m.role)='OWNER' and upper(m.status)='ACTIVE'",AppUser.class)
+            .setParameter("f",f.getId()).setMaxResults(1).getResultStream().findFirst().orElse(null);
         return new Details(f.getId(),f.getName(),f.getProvince(),f.getCommune(),f.getDetailedAddress(),f.getContactPerson(),f.getContactPhone(),
             f.getRegistrationCertificateInfo(),f.getExpectedHerdSize(),f.getTimeZone(),f.getMorningShiftStart(),f.getOperatingNotes(),f.getServiceStatus(),
-            f.getMainBreeds().stream().map(Breed::getId).collect(java.util.stream.Collectors.toSet()),f.getVersion());
+            f.getMainBreeds().stream().map(Breed::getId).collect(java.util.stream.Collectors.toSet()),f.getVersion(),
+            currentEnd,latestEnd==null?null:latestEnd.minus(SubscriptionPaymentService.RENEWAL_WINDOW),suspendedAt,daysRemaining,
+            owner==null?null:owner.getFullName(),owner==null?null:owner.getEmail());
     }
 }
 

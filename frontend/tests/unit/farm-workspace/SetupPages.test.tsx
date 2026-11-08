@@ -22,11 +22,16 @@ function PlanSelection() {
   const location = useLocation()
   return <p>SCR-58 {location.search} · {(location.state as { notice?: string } | null)?.notice}</p>
 }
+function SubscriptionPage() {
+  const location = useLocation()
+  return <p>Trang gói dịch vụ {location.search}</p>
+}
 const renderAt = (who: string, path: string | { pathname: string; state?: unknown }, route: string, element: JSX.Element) => render(
   <SessionContext.Provider value={sessions[who]}>
     <MemoryRouter initialEntries={[path]}><Routes>
       <Route path={route} element={element} />
-      <Route path="/goi-dich-vu" element={<p>Trang gói dịch vụ</p>} />
+      <Route path="/goi-dich-vu" element={<SubscriptionPage />} />
+      <Route path="/tong-quan" element={<p>Trang chủ trại</p>} />
       <Route path="/dang-ky-goi" element={<PlanSelection />} />
       <Route path="/owner-registration" element={<p>SCR-07 Hoàn tất hồ sơ chủ trại</p>} />
     </Routes></MemoryRouter>
@@ -266,24 +271,81 @@ describe('Accept Invitation', () => {
   })
 })
 
-describe('Farm Information', () => {
-  it('lets the Owner edit and save, and validates the name', async () => {
+describe('Farm Information (UC-FE02-03)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    sessionStorage.clear()
+  })
+
+  const save = () => screen.getByRole('button', { name: 'Lưu thay đổi' })
+
+  it('lets the Owner edit and save with MSG-FE02-05, and validates the name', async () => {
     const user = userEvent.setup()
     renderAt('owner', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
     const name = await screen.findByLabelText('Tên trại *')
     expect(await screen.findByText('owner@beefcare.local')).toBeInTheDocument()
     await user.clear(name)
-    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
+    await user.click(save())
     expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
     await user.type(name, 'Trại bò Yên Bài – Ba Vì')
-    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
-    expect(await screen.findByText('Thông tin trang trại đã được cập nhật.')).toBeInTheDocument()
+    await user.click(save())
+    expect(await screen.findByText('Đã cập nhật thông tin trại.')).toBeInTheDocument()
   })
 
-  it('is read-only for a Manager', async () => {
+  it('TC-02-17, decision 4b: a Manager is sent to their home and the farm is not loaded', async () => {
+    const getFarm = vi.spyOn(farmWorkspaceApi, 'getFarm')
     renderAt('manager', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
-    expect(await screen.findByText(/chỉ dành cho Chủ trại/)).toBeInTheDocument()
-    expect(screen.getByLabelText('Tên trại *')).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled()
+    expect(await screen.findByText('Trang chủ trại')).toBeInTheDocument()
+    expect(getFarm).not.toHaveBeenCalled()
+  })
+
+  it('shows the service summary from the backend: last day of the period, renewal, suspension and days left (Q4)', async () => {
+    const farm = await farmWorkspaceApi.getFarm(1)
+    vi.spyOn(farmWorkspaceApi, 'getFarm').mockResolvedValue({
+      ...farm, serviceStatus: 'SUSPENDED', serviceUntil: '2026-12-31T17:00:00Z', renewalOpensAt: '2026-10-02T17:00:00Z',
+      suspendedAt: '2026-11-01T03:00:00Z', daysRemaining: 60, ownerEmail: 'owner@beefcare.local',
+    })
+    renderAt('owner', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
+    // The period ends at 01/01/2027 00:00 (exclusive), so its last day is 31/12/2026, as SCR-57 shows it.
+    expect(await screen.findByText('31/12/2026')).toBeInTheDocument()
+    expect(screen.getByText('03/10/2026')).toBeInTheDocument()
+    expect(screen.getByText('Có · 01/11/2026')).toBeInTheDocument()
+    expect(screen.getByText('60 ngày')).toBeInTheDocument()
+  })
+
+  it('opens the subscription of this farm (SCR-57)', async () => {
+    const user = userEvent.setup()
+    renderAt('owner', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
+    await user.click(await screen.findByRole('button', { name: 'Xem gói dịch vụ' }))
+    expect(await screen.findByText('Trang gói dịch vụ ?farm=1')).toBeInTheDocument()
+  })
+
+  it('sends the same request key again when the Owner retries after a failure (GBR-88)', async () => {
+    const user = userEvent.setup()
+    const update = vi.spyOn(farmWorkspaceApi, 'updateFarm').mockRejectedValueOnce(new Error('Mất kết nối mạng.'))
+    renderAt('owner', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
+    const name = await screen.findByLabelText('Tên trại *')
+    await user.clear(name)
+    await user.type(name, 'Trại Yên Bài mới')
+    await user.click(save())
+    expect(await screen.findByText('Mất kết nối mạng.')).toBeInTheDocument()
+    await user.click(save())
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
+    const [firstKey, secondKey] = update.mock.calls.map((call) => call[2]?.idempotencyKey)
+    expect(firstKey).toBeTruthy()
+    expect(secondKey).toBe(firstKey)
+    expect(await screen.findByText('Đã cập nhật thông tin trại.')).toBeInTheDocument()
+  })
+
+  it('asks for a province from the list when the saved one is not among the 34 (Q3)', async () => {
+    const user = userEvent.setup()
+    const farm = await farmWorkspaceApi.getFarm(1)
+    vi.spyOn(farmWorkspaceApi, 'getFarm').mockResolvedValue({ ...farm, province: 'Hà Tây' })
+    const update = vi.spyOn(farmWorkspaceApi, 'updateFarm')
+    renderAt('owner', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
+    expect(await screen.findByLabelText('Tỉnh/Thành *')).toHaveValue('Hà Tây')
+    await user.click(save())
+    expect(await screen.findByText('Chọn tỉnh hoặc thành phố trong danh sách.')).toBeInTheDocument()
+    expect(update).not.toHaveBeenCalled()
   })
 })

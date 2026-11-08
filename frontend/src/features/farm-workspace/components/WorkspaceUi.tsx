@@ -67,6 +67,12 @@ export function formatDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
 }
 
+/** A service period ends at an exclusive instant; show its last covered day, as SCR-57 does (`fmtEndDay`). */
+export function lastServiceDay(end: string) {
+  const ms = Date.parse(end)
+  return Number.isNaN(ms) ? formatDate(end) : formatDate(new Date(ms - 1).toISOString())
+}
+
 /** mm/yyyy (cột "Tham gia"). */
 export function formatMonth(value?: string | null) {
   if (!value) return MISSING

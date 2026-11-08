@@ -55,6 +55,7 @@ function farmDetails(value: unknown, role?: FarmRole): FarmDetails {
     serviceUntil: typeof serviceUntil === 'string' ? serviceUntil : null,
     renewalOpensAt: typeof row.renewalOpensAt === 'string' ? row.renewalOpensAt : null,
     activeCattleCount: nullableNumber(row.activeCattleCount),
+    ownerName: typeof row.ownerName === 'string' ? row.ownerName : undefined,
     ownerEmail: typeof row.ownerEmail === 'string' ? row.ownerEmail : undefined,
   }
 }
@@ -130,13 +131,19 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
       const key = options?.idempotencyKey
       return farmDetails(await transport.command('/api/farms', body, key ? { method: 'POST', key } : { method: 'POST' }), 'OWNER')
     },
-    updateFarm: async (id: number, input: FarmUpdateInput) => {
-      if (mode !== 'backend') return demoStore.updateFarm(id, input)
-      if (input.expectedVersion == null || !input.mainBreedIds) throw new Error('Thiếu phiên bản hoặc danh sách giống để lưu thông tin trại.')
-      const context = await transport.get(path(id, '/context'))
-      const role = farmSummary(context).role
-      const updated = await command(path(id, ''), { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'PUT')
-      return farmDetails(updated, role)
+    // UC-FE02-03: SCR-11 has no main-breed field, so the save never sends main breeds and they stay as they are; the
+    // page holds the request key so a retry re-sends the same key (GBR-88). Only the Owner can save (GBR-07).
+    updateFarm: async (id: number, input: FarmUpdateInput, options?: RequestKeyOptions) => {
+      if (mode !== 'backend') return demoStore.updateFarm(id, input, options)
+      if (input.expectedVersion == null) throw new Error('Thiếu phiên bản để lưu thông tin trại. Tải lại trang rồi thử lại.')
+      const body = {
+        name: input.name, province: input.province, commune: input.commune, detailedAddress: input.detailedAddress ?? '',
+        contactPerson: input.contactPerson ?? '', contactPhone: compactPhone(input.contactPhone ?? ''),
+        registrationCertificateInfo: input.registrationCertificateInfo ?? '', timeZone: input.timeZone,
+        morningShiftStart: input.morningShiftStart || null, operatingNotes: input.operatingNotes ?? '', expectedVersion: input.expectedVersion,
+      }
+      const key = options?.idempotencyKey
+      return farmDetails(await transport.command(path(id, ''), body, key ? { method: 'PUT', key } : { method: 'PUT' }), 'OWNER')
     },
     listMembers: async (id: number) => mode === 'backend'
       ? asRows(await transport.get(path(id, '/members'))).map(member)
