@@ -239,7 +239,7 @@ public class AccountResource {
     private ProfileResponse profile(AppUser account) {
         boolean verified = userRepository.findOneByEmailIgnoreCase(account.getEmail()).map(User::isActivated).orElse(false);
         String platformRole = platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").map(access -> access.getRole()).orElse(null);
-        List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role(), permissionsOf(farm.role()))).toList();
+        List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role(), farm.serviceStatus(), permissionsOf(farm.role()))).toList();
         return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
             account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), platformRole, farms);
     }
@@ -263,7 +263,7 @@ public class AccountResource {
         boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted,
         String platformRole, List<FarmRoleSummary> farms) {}
 
-    public record FarmRoleSummary(Long farmId, String farmName, String role, List<String> permissions) {}
+    public record FarmRoleSummary(Long farmId, String farmName, String role, String serviceStatus, List<String> permissions) {}
 
     /**
      * {@code POST  /account} : update the current user information.

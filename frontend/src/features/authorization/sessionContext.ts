@@ -10,6 +10,10 @@ export interface SessionUser {
   email: string
   farmId: number | null
   farmName: string | null
+  /** Server-authoritative onboarding and membership facts used only for initial routing. */
+  ownerRegistrationCompleted?: boolean
+  platformRole?: PlatformRole | null
+  activeFarmCount?: number
 }
 
 export type Session = SessionUser & { logout: () => Promise<void> }
@@ -30,4 +34,12 @@ export function homePathFor(role: AppRole): string {
     case 'SA': return '/nen-tang/tai-khoan'
     default: return '/tong-quan'
   }
+}
+
+/** SCR-02 priority after a successful sign-in; requested/invitation routes are retained by the router before this is reached. */
+export function homePathForSession(session: SessionUser): string {
+  if (session.ownerRegistrationCompleted === false) return '/owner-registration'
+  if (session.platformRole || ['CS', 'PM', 'SA'].includes(session.role)) return homePathFor(session.role)
+  if ((session.activeFarmCount ?? (session.farmId == null ? 0 : 1)) !== 1) return '/chon-trai'
+  return homePathFor(session.role)
 }

@@ -23,6 +23,9 @@ export function sessionFromProfile(value: unknown): SessionUser {
     email: textValue(row.email),
     farmId: farm ? numberValue(farm.farmId) : null,
     farmName: farm ? textValue(farm.farmName) : null,
+    ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
+    platformRole: PLATFORM_ROLES.includes(platformRole) ? platformRole as AppRole : null,
+    activeFarmCount: farms.filter((item) => textValue(item.serviceStatus, 'ACTIVE') === 'ACTIVE').length,
   }
 }
 
