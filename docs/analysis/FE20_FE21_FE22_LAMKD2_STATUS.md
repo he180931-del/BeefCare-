@@ -27,11 +27,12 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 - `npm run build` — đạt (chỉ còn cảnh báo chunk lớn của Vite).
 - Frontend focused: `financeBackendApi`, `platformFinanceApi`, `platform-support/supportApi`, Owner `supportApi`, `accountApi` — **52 tests passed**.
 - Backend workflow/domain: `SupportTicketWorkflowTest`, `PlatformFinanceWorkflowTest`, `SupportTicketTest`, `TicketMessageTest`, `InternalRequestTest`, `ManualFinanceRecordTest` — Maven chạy đạt với Byte Buddy agent trên Java 24.
+- Smoke HTTP: `/api/public/landing` trả HTTP 200 trên backend `lamkd2` với PostgreSQL thật; payload có 6 feature và 5 FAQ.
 - `git diff --check` — đạt.
 
 ## Còn cần kiểm tra ở môi trường tích hợp
 
-- Chạy smoke HTTP với PostgreSQL thật trên đúng worktree `lamkd2` (đăng nhập PM/CS/Owner, tạo dữ liệu và đọc lại DB).
+- Chạy smoke HTTP có xác thực trên đúng worktree `lamkd2` (đăng nhập PM/CS/Owner, tạo dữ liệu và đọc lại DB); smoke public landing đã đạt.
 - Bổ sung fixture biên nhận PAID nếu database local chưa có payment/evidence tương ứng.
 - Kiểm tra trực tiếp stale-version/idempotency và quyền Owner/CS/PM/SA trong ma trận API.
 - Testcontainers hiện phụ thuộc Docker Desktop socket của máy; nếu runner trả HTTP 400 thì ghi nhận là lỗi môi trường, không chuyển sang mock nghiệp vụ.
