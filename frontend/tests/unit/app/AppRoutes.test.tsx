@@ -10,7 +10,7 @@ const routeCases = [
   ['/thong-tin-trai?farmId=1', 'Thông tin trại'],
   ['/thanh-vien?farmId=1', 'Thành viên & vai trò'],
   ['/loi-moi?farmId=1', 'Lời mời thành viên'],
-  ['/chap-nhan-loi-moi?token=route-smoke', 'Lời mời không còn hiệu lực'],
+  ['/invitation/accept?token=route-smoke', 'Lời mời không còn hiệu lực'],
   ['/sinh-san', 'Sinh sản'],
   ['/cattle/BC-000087/sinh-san/de', 'Ghi sự kiện đẻ'],
   ['/thuc-an/hom-nay', 'Khẩu phần hôm nay'],

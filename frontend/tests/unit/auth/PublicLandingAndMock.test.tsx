@@ -36,6 +36,7 @@ describe('public landing page', () => {
     expect(screen.getByText(/Trọn 36 tháng · tiết kiệm 15%/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Mỗi con bò một hồ sơ.')
     expect(screen.getByRole('link', { name: 'Bắt đầu quản lý trại' })).toHaveAttribute('href', '/dang-ky')
+    expect(screen.getAllByRole('link', { name: 'Đăng nhập' })[0]).toHaveAttribute('href', '/sign-in')
   })
 
   it('shows "—" prices, no invented numbers and a retry for ?demo=prices-unavailable', async () => {
@@ -82,7 +83,7 @@ describe('public landing page', () => {
 describe('mock sign-in failure frames', () => {
   it('shows the "Đăng nhập chưa thành công" state for the wrong-credentials email', async () => {
     const user = userEvent.setup()
-    renderGuest(createMockAuthClient(), '/dang-nhap')
+    renderGuest(createMockAuthClient(), '/sign-in')
     await user.type(await screen.findByLabelText('Email'), 'sai@beefcare.local')
     await user.type(screen.getByLabelText('Mật khẩu'), 'khong-dung')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
@@ -94,7 +95,7 @@ describe('mock sign-in failure frames', () => {
 
   it('opens the suspended-account state for the reserved suspended email', async () => {
     const user = userEvent.setup()
-    renderGuest(createMockAuthClient(), '/dang-nhap')
+    renderGuest(createMockAuthClient(), '/sign-in')
     await user.type(await screen.findByLabelText('Email'), 'tam-ngung@beefcare.local')
     await user.type(screen.getByLabelText('Mật khẩu'), 'mock-demo')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
@@ -104,7 +105,7 @@ describe('mock sign-in failure frames', () => {
 
   it('still signs in with the role buttons of the mock sign-in page', async () => {
     const user = userEvent.setup()
-    renderGuest(createMockAuthClient(), '/dang-nhap')
+    renderGuest(createMockAuthClient(), '/sign-in')
     await user.click(await screen.findByRole('button', { name: 'Quản lý' }))
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByText('Private content')).toBeInTheDocument()

@@ -9,11 +9,14 @@ spring:
   liquibase:
     contexts: local
   mail:
-    host: localhost
-    port: 1025
+    host: ${BEEFCARE_SMTP_HOST:smtp.gmail.com}
+    port: ${BEEFCARE_SMTP_PORT:587}
+    username: ${BEEFCARE_SMTP_USERNAME:BeefCare@gmail.com}
+    password: ${BEEFCARE_SMTP_PASSWORD:}
     properties:
-      mail.smtp.auth: false
-      mail.smtp.starttls.enable: false
+      mail.smtp.auth: ${BEEFCARE_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${BEEFCARE_SMTP_STARTTLS_ENABLE:true}
+      mail.smtp.starttls.required: ${BEEFCARE_SMTP_STARTTLS_REQUIRED:true}
       mail.smtp.connectiontimeout: 5000
       mail.smtp.timeout: 5000
       mail.smtp.writetimeout: 5000
@@ -41,6 +44,8 @@ beefcare:
     backend-base-url: ${BEEFCARE_BACKEND_URL:http://localhost:8080}
     link-signing-key: ${BEEFCARE_LINK_SECRET}
 jhipster:
+  mail:
+    from: ${BEEFCARE_MAIL_FROM:BeefCare@gmail.com}
   cors:
     allowed-origins: ${BEEFCARE_CORS_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000}
     allow-credentials: true

@@ -2,8 +2,8 @@ import { BackendError } from '../../../api/backendClient'
 import { userFacingError } from '../../../api/userFacingError'
 
 export const AUTH_PATH = {
-  home: '/', signIn: '/dang-nhap', register: '/dang-ky', verification: '/xac-minh-email',
-  forgot: '/quen-mat-khau', resetSent: '/kiem-tra-email', reset: '/dat-lai-mat-khau',
+  home: '/', signIn: '/sign-in', register: '/dang-ky', verification: '/xac-minh-email',
+  forgot: '/quen-mat-khau', resetSent: '/kiem-tra-email', reset: '/reset-password',
   invalid: '/lien-ket-khong-con-hieu-luc', suspended: '/tai-khoan-tam-ngung', loginFailed: '/dang-nhap-that-bai',
 } as const
 

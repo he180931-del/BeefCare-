@@ -1,7 +1,7 @@
 import type { FarmDetails, Invitation, InvitationPreview, Membership } from '../types'
 
 export const YEN_BAI = 'Trại bò Yên Bài – Ba Vì'
-/** Mã liên kết mẫu cho chế độ mô phỏng (xem /chap-nhan-loi-moi?token=…). */
+/** Mã liên kết mẫu cho chế độ mô phỏng (xem /invitation/accept?token=…). */
 export const SAMPLE_TOKEN = 'mock-invitation-token'
 export const EXPIRED_TOKEN = 'mock-invitation-expired'
 /** Trại của lời mời mẫu; không trùng mã trại đã có hoặc sắp cấp. */

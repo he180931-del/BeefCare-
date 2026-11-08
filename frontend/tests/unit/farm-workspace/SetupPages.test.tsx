@@ -61,25 +61,25 @@ describe('Register Farm', () => {
 
 describe('Accept Invitation', () => {
   it('hides the farm details when the signed-in email differs from the invited one', async () => {
-    renderAt('owner', '/chap-nhan-loi-moi?token=mock-invitation-token', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    renderAt('owner', '/invitation/accept?token=mock-invitation-token', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText(/được gửi tới thư điện tử khác/)).toBeInTheDocument()
     expect(screen.queryByText('Trang trại')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Chấp nhận & vào trại' })).toBeDisabled()
   })
 
   it('shows the expired state for an expired or unknown link', async () => {
-    const expired = renderAt('technician', '/chap-nhan-loi-moi?token=mock-invitation-expired', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    const expired = renderAt('technician', '/invitation/accept?token=mock-invitation-expired', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Lời mời không còn hiệu lực')).toBeInTheDocument()
     expect(screen.getByText('Đã hết hạn')).toBeInTheDocument()
     expect(screen.getByText('24/10/2026 08:10')).toBeInTheDocument()
     expired.unmount()
-    renderAt('technician', '/chap-nhan-loi-moi', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    renderAt('technician', '/invitation/accept', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Liên kết không hợp lệ')).toBeInTheDocument()
   })
 
   it('accepts the invitation with the matching email', async () => {
     const user = userEvent.setup()
-    renderAt('technician', '/chap-nhan-loi-moi?token=mock-invitation-token', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    renderAt('technician', '/invitation/accept?token=mock-invitation-token', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Chờ bạn chấp nhận')).toBeInTheDocument()
     expect(screen.getByText('Xem hồ sơ bò qua quét QR hoặc danh sách')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Chấp nhận & vào trại' }))

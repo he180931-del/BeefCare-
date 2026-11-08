@@ -20,3 +20,7 @@ storage-state-*.json
 .env.*.local
 .agents/
 .codex/
+
+# Local code-reading map for the FE-01 registration work.
+REGISTRATION_RELATED_FILES.md
+REGISTRATION_CODE_GUIDE/

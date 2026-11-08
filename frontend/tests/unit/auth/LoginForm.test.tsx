@@ -45,7 +45,7 @@ async function renderAuth(client: ReturnType<typeof fakeClient>) {
     '../../../src/features/authentication/AuthContext'
   )
   return render(
-    <MemoryRouter initialEntries={['/dang-nhap']}>
+    <MemoryRouter initialEntries={['/sign-in']}>
       <AuthProvider client={client as never}>
         <div data-testid="protected">Protected content</div>
       </AuthProvider>

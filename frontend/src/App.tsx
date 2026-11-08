@@ -146,7 +146,7 @@ export default function App() {
         <Route path="/thong-tin-trai" element={owner(<FarmInformation />)} />
         <Route path="/thanh-vien" element={desk(<Members />)} />
         <Route path="/loi-moi" element={owner(<Invitations />)} />
-        <Route path="/chap-nhan-loi-moi" element={<AcceptInvitation />} />
+        <Route path="/invitation/accept" element={<AcceptInvitation />} />
         <Route path="/goi-dich-vu/*" element={owner(<Subscription />)} />
         <Route path="/ho-tro/*" element={owner(<Support />)} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />

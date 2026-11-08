@@ -232,7 +232,7 @@ jhipster:
   #   allow-credentials: true
   #   max-age: 1800
   mail:
-    from: beefcare@localhost
+    from: ${BEEFCARE_MAIL_FROM:BeefCare@gmail.com}
   api-docs:
     default-include-pattern: /api/**
     management-include-pattern: /management/**

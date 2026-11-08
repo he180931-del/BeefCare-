@@ -37,7 +37,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
 
     // "/" is now the public landing page (SCR-01), so the sign-in screen is reached from its own path.
     render(
-      <MemoryRouter initialEntries={['/dang-nhap']}>
+      <MemoryRouter initialEntries={['/sign-in']}>
         <AuthProvider client={mockClient}>
           <AuthenticatedWorkspace />
         </AuthProvider>

@@ -11,6 +11,21 @@ function renderAuth(client: AuthClient, path: string) {
 }
 
 describe('guest authentication pages', () => {
+  it('opens the password reset form from the public reset-password email route', async () => {
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+      validatePasswordReset: vi.fn().mockResolvedValue({ valid: true, email: 'owner@beefcare.vn' }),
+    }
+
+    renderAuth(client, '/reset-password?token=email-token')
+
+    expect(await screen.findByRole('heading', { name: 'Đặt mật khẩu mới' })).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('owner@beefcare.vn')).toBeInTheDocument()
+  })
+
   it('navigates from registration to verification and keeps the mock session in memory', async () => {
     const user = userEvent.setup()
     const mock = createMockAuthClient()
@@ -46,7 +61,7 @@ describe('guest authentication pages', () => {
       login: vi.fn().mockRejectedValue(new Error('Failed to fetch')),
       logout: vi.fn().mockResolvedValue(undefined),
     }
-    renderAuth(client, '/dang-nhap')
+    renderAuth(client, '/sign-in')
 
     await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
@@ -68,7 +83,7 @@ describe('guest authentication pages', () => {
       login: vi.fn().mockRejectedValue({ code: 'MSG-FE01-03', status: 403 }),
       logout: vi.fn().mockResolvedValue(undefined),
     }
-    renderAuth(client, '/dang-nhap')
+    renderAuth(client, '/sign-in')
     await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
@@ -86,7 +101,7 @@ describe('guest authentication pages', () => {
       logout: vi.fn().mockResolvedValue(undefined),
       resendVerification: vi.fn().mockResolvedValue(undefined),
     }
-    renderAuth(client, '/dang-nhap')
+    renderAuth(client, '/sign-in')
     await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
