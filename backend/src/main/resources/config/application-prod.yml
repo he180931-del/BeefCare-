@@ -64,9 +64,9 @@ spring:
   liquibase:
     contexts: prod
   mail:
-    host: ${BEEFCARE_SMTP_HOST:localhost}
-    port: ${BEEFCARE_SMTP_PORT:25}
-    username: ${BEEFCARE_SMTP_USERNAME:}
+    host: ${BEEFCARE_SMTP_HOST:smtp.gmail.com}
+    port: ${BEEFCARE_SMTP_PORT:587}
+    username: ${BEEFCARE_SMTP_USERNAME:BeefCare@gmail.com}
     password: ${BEEFCARE_SMTP_PASSWORD:}
     properties:
       mail:
