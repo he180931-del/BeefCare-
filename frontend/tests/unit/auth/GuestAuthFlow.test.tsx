@@ -108,6 +108,7 @@ describe('guest authentication pages', () => {
   })
 
   it('shows the suspended-account state instead of a generic session-check error', async () => {
+    const user = userEvent.setup()
     const client: AuthClient = {
       mode: 'backend',
       isAuthenticated: vi.fn().mockRejectedValue(new BackendError(403, { code: 'MSG-FE01-03' })),
@@ -117,6 +118,8 @@ describe('guest authentication pages', () => {
     renderAuth(client, '/sign-in')
     expect(await screen.findByRole('heading', { name: 'Tài khoản đang tạm ngưng' })).toBeInTheDocument()
     expect(screen.queryByText('Không thể kiểm tra phiên đăng nhập với máy chủ')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Quay lại đăng nhập' }))
+    expect(await screen.findByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument()
   })
 
   it('keeps unverified-email errors distinct from incorrect credentials', async () => {

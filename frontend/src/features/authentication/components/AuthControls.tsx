@@ -1,12 +1,12 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type MouseEventHandler, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../../../components/Icon'
 import type { AuthClient } from '../types'
 import { FormField, googleButtonClass } from './AuthShell'
 import { googleAuthorizationUrl } from '../googleOAuth'
 
-export function ActionLink({ to, children, state }: { to: string; children: ReactNode; state?: unknown }) {
-  return <Link to={to} state={state} className="font-bold text-brand underline-offset-4 hover:underline">{children}</Link>
+export function ActionLink({ to, children, state, onClick }: { to: string; children: ReactNode; state?: unknown; onClick?: MouseEventHandler<HTMLAnchorElement> }) {
+  return <Link to={to} state={state} onClick={onClick} className="font-bold text-brand underline-offset-4 hover:underline">{children}</Link>
 }
 
 export function PasswordField({ label, id, value, onChange, error, autoComplete, placeholder, maxLength = 128, invalid }: {

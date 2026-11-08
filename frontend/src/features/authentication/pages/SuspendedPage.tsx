@@ -5,10 +5,10 @@ import { AUTH_PATH, emailFromState } from '../domain/authErrors'
 import { CONTACT } from '../data/landingContent'
 
 /** MSG-FE01-03: tài khoản bị tạm ngưng, kèm thông tin liên hệ chính thức (GBR-87). */
-export function SuspendedPage() {
+export function SuspendedPage({ onBackToSignIn }: { onBackToSignIn?: () => void }) {
   const email = emailFromState(useLocation().state)
   return (
-    <AuthShell title="Tài khoản đang tạm ngưng" description="Bạn chưa thể truy cập trại bằng tài khoản này." eyebrow="Trạng thái tài khoản" footer={<ActionLink to={AUTH_PATH.home}>Quay về trang chủ</ActionLink>}>
+    <AuthShell title="Tài khoản đang tạm ngưng" description="Bạn chưa thể truy cập trại bằng tài khoản này." eyebrow="Trạng thái tài khoản" footer={<ActionLink to={AUTH_PATH.signIn} onClick={onBackToSignIn}>Quay lại đăng nhập</ActionLink>}>
       <div className="space-y-5">
         <NoticePanel title="Tài khoản đã bị tạm ngưng">
           Liên hệ hỗ trợ để được kiểm tra trạng thái và hướng dẫn bước tiếp theo.

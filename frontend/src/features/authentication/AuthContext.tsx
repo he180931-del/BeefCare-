@@ -64,7 +64,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       {status === 'authenticated'
         ? children
         : hasRouter
-          ? <GuestAuthFlow client={client} initialError={error} forceSuspended={status === 'suspended'} onAuthenticated={() => setStatus('authenticated')} />
+          ? <GuestAuthFlow client={client} initialError={error} forceSuspended={status === 'suspended'} onExitSuspended={() => { setError(null); setStatus('anonymous') }} onAuthenticated={() => setStatus('authenticated')} />
           : <LegacyLoginForm client={client} initialError={error} onSuccess={() => setStatus('authenticated')} />}
     </AuthContext.Provider>
   )

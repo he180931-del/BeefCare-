@@ -10,13 +10,13 @@ import { ForgotPasswordPage, InvalidLinkPage, ResetPasswordPage } from './Recove
 import { SuspendedPage } from './SuspendedPage'
 
 /** Các màn hình dành cho khách chưa đăng nhập; chọn màn hình theo đường dẫn. */
-export function GuestAuthFlow({ client, onAuthenticated, initialError = null, forceSuspended = false }: { client: AuthClient; onAuthenticated: () => void; initialError?: string | null; forceSuspended?: boolean }) {
+export function GuestAuthFlow({ client, onAuthenticated, initialError = null, forceSuspended = false, onExitSuspended }: { client: AuthClient; onAuthenticated: () => void; initialError?: string | null; forceSuspended?: boolean; onExitSuspended?: () => void }) {
   const location = useLocation()
   const search = new URLSearchParams(location.search)
   const path = location.pathname
   const mockNotice = client.mode === 'mock' ? <div className="fixed bottom-3 right-3 z-30 rounded-full border border-[#c7dfcf] bg-white px-3 py-1.5 text-[11px] font-semibold text-brand shadow">Chế độ mô phỏng · dữ liệu chỉ ở bộ nhớ</div> : null
   let page
-  if (forceSuspended || path === AUTH_PATH.suspended) page = <SuspendedPage />
+  if (forceSuspended || path === AUTH_PATH.suspended) page = <SuspendedPage onBackToSignIn={onExitSuspended} />
   else if (path === AUTH_PATH.home) page = <PublicLandingPage client={client} />
   else if (path === AUTH_PATH.register) page = <RegisterPage client={client} />
   else if (path === AUTH_PATH.verification) page = <EmailSentPage client={client} kind="verification" />
