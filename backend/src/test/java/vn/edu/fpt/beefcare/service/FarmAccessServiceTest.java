@@ -110,7 +110,7 @@ class FarmAccessServiceTest extends DomainTestSupport {
     }
 
     @Test
-    void inactiveMembershipOrAccountIsForbidden() {
+    void inactiveMembershipIsForbiddenAndSuspendedAccountReportsItsAccountState() {
         Farm farm = farm();
         AppUser removed = user();
         member(farm, removed, "OWNER", "REMOVED");
@@ -120,7 +120,11 @@ class FarmAccessServiceTest extends DomainTestSupport {
         AppUser suspended = user("SUSPENDED");
         member(farm, suspended, "OWNER", "ACTIVE");
         actAs(suspended);
-        assertForbidden(() -> access.require(farm.getId(), FarmAction.VIEW_PENS));
+        assertThatThrownBy(() -> access.require(farm.getId(), FarmAction.VIEW_PENS))
+            .isInstanceOfSatisfying(DomainException.class, e -> {
+                assertThat(e.getCode()).isEqualTo(MessageCodes.FE01_03);
+                assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+            });
     }
 
     @Test
