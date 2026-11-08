@@ -92,4 +92,17 @@ describe('technician account page', () => {
     await user.click(screen.getByRole('button', { name: /Đăng xuất/ }))
     expect(sessions.technician.logout).toHaveBeenCalledOnce()
   })
+
+  it('lets a technician update their full name and phone without changing email', async () => {
+    const user = userEvent.setup()
+    renderAs('technician', '/kt/tai-khoan', <TechnicianAccountPage />)
+    const name = await screen.findByLabelText('Họ và tên *')
+    await user.clear(name)
+    await user.type(name, 'Lê Thị Mai Mới')
+    await user.clear(screen.getByLabelText('Điện thoại liên hệ'))
+    await user.type(screen.getByLabelText('Điện thoại liên hệ'), '0934 567 891')
+    await user.click(screen.getByRole('button', { name: 'Lưu hồ sơ' }))
+    expect(await screen.findByText('Hồ sơ của bạn đã được cập nhật.')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('technician@beefcare.local')).toHaveAttribute('readonly')
+  })
 })
