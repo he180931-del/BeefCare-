@@ -12,14 +12,14 @@ import type { AccountIdentity, AccountProfile, PasswordErrors } from '../types'
 const errorText = (message?: string) => message ? <span className="text-xs text-err-fg">{message}</span> : null
 
 /** UC-FE01-06. Tài khoản có Google: xác thực lại trong 5 phút thì không cần mật khẩu hiện tại (D07); chưa có mật khẩu thì phải xác thực lại. */
-export function ChangePasswordDialog({ identity, profile, onClose, onChanged }: {
-  identity: AccountIdentity; profile: AccountProfile; onClose: () => void; onChanged: (message: string) => void
+export function ChangePasswordDialog({ identity, profile, onClose, onChanged, googleReauthenticated = false }: {
+  identity: AccountIdentity; profile: AccountProfile; onClose: () => void; onChanged: (message: string) => void; googleReauthenticated?: boolean
 }) {
   const [values, setValues] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [errors, setErrors] = useState<PasswordErrors>({})
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [reauthed, setReauthed] = useState(false)
+  const [reauthed, setReauthed] = useState(googleReauthenticated)
   const hasPassword = profile.passwordSignInEnabled
   const needsReauth = !hasPassword && !reauthed
   const requireCurrent = hasPassword && !reauthed

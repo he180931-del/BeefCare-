@@ -381,7 +381,7 @@ public class AccountResource {
 
     /**
      * UC-FE01-06 AF1/AF2: the profile calls this, then sends the browser to {@code /oauth2/authorization/google}; after the
-     * Google sign-in the browser returns to {@code /profile?googleReauthenticated=true} and, for 5 minutes, change-password
+     * Google sign-in the browser returns to {@code /ho-so?m=doi-mat-khau&googleReauthenticated=true} and, for 5 minutes, change-password
      * accepts the new password without the current one.
      */
     @PostMapping(path = "/account/google-reauthentication")

@@ -73,6 +73,13 @@ describe('profile page', () => {
     expect(await screen.findByText(/Mật khẩu đã được đổi/)).toBeInTheDocument()
   })
 
+  it('restores the password dialog after Google re-authentication without asking for the current password', async () => {
+    renderAs('manager', '/ho-so?m=doi-mat-khau&googleReauthenticated=true', <ProfilePage />)
+    const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu' })
+    expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
+    expect(within(dialog).getByText('Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.')).toBeInTheDocument()
+  })
+
   it('shows the whole table including Owner-only rows to the Owner, and no farm table to platform staff', async () => {
     const owner = renderAs('owner', '/ho-so', <ProfilePage />)
     expect(await screen.findByText('Gói dịch vụ & thanh toán')).toBeInTheDocument()
