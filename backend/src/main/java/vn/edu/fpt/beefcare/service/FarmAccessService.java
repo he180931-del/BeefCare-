@@ -69,7 +69,7 @@ public class FarmAccessService {
             .orElseThrow(() -> new DomainException(MessageCodes.COM_01, null, HttpStatus.UNAUTHORIZED));
         AppUser user = findAppUser(login).orElseGet(() -> provisionForAuthenticatedIdentity(login));
         if (!ACTIVE.equalsIgnoreCase(user.getAccountStatus())) {
-            throw DomainException.forbidden(MessageCodes.COM_01);
+            throw DomainException.forbidden(MessageCodes.FE01_03, "email", user.getEmail());
         }
         userRepository
             .findOneByLogin(login.toLowerCase(Locale.ROOT))
