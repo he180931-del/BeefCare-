@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
 import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
@@ -15,6 +16,8 @@ export default function TechnicianAccountPage() {
   const session = useSession()
   const { identity, data, loading, error, refetch } = useAccountProfile()
   const [m, openModal, closeModal] = useModalParam()
+  const [search] = useSearchParams()
+  const { pathname } = useLocation()
   const [notice, setNotice] = useState<string | null>(null)
   const [signingOut, setSigningOut] = useState(false)
   const form = useProfileForm(data, identity, async (_saved, message) => { setNotice(message); await refetch() })
@@ -44,7 +47,7 @@ export default function TechnicianAccountPage() {
         {data && <Button block onClick={() => openModal('doi-mat-khau')}><Icon name="lock" size={16} />{data.passwordSignInEnabled ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button>}
         <Button block variant="danger" onClick={signOut} disabled={signingOut || !session}><Icon name="logout" size={16} />Đăng xuất</Button>
       </div>
-      {m === 'doi-mat-khau' && data && <ChangePasswordDialog identity={identity} profile={data} onClose={closeModal} onChanged={(message) => { setNotice(message); closeModal(); void refetch() }} />}
+      {m === 'doi-mat-khau' && data && <ChangePasswordDialog identity={identity} profile={data} returnTo={pathname} googleReauthenticated={search.get('googleReauthenticated') === 'true'} onClose={closeModal} onChanged={(message) => { setNotice(message); closeModal(); void refetch() }} />}
     </TechnicianLayout>
   )
 }

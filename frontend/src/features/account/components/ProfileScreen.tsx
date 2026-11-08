@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
 import Layout from '../../../components/Layout'
 import { useModalParam } from '../../../components/Modal'
@@ -15,6 +15,7 @@ export function ProfileScreen({ title, platform = false }: { title: string; plat
   const { identity, data, loading, error, refetch, permissions } = useAccountProfile()
   const [m, openModal, closeModal] = useModalParam()
   const [search] = useSearchParams()
+  const { pathname } = useLocation()
   const [notice, setNotice] = useState<string | null>(null)
   const form = useProfileForm(data, identity, async (_saved, message) => { setNotice(message); await refetch() })
 
@@ -34,7 +35,7 @@ export function ProfileScreen({ title, platform = false }: { title: string; plat
         {farmRole && <PermissionsCard permissions={permissions.data} loading={permissions.loading} error={permissions.error} />}
       </div>
       <Foot>{farmRole ? 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Bảng quyền chỉ đọc theo vai trò hiện tại.' : 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Quyền nền tảng do System Admin cấp.'}</Foot>
-      {m === 'doi-mat-khau' && <ChangePasswordDialog identity={identity} profile={data} googleReauthenticated={search.get('googleReauthenticated') === 'true'} onClose={closeModal} onChanged={(message) => { setNotice(message); closeModal(); void refetch() }} />}
+      {m === 'doi-mat-khau' && <ChangePasswordDialog identity={identity} profile={data} returnTo={pathname} googleReauthenticated={search.get('googleReauthenticated') === 'true'} onClose={closeModal} onChanged={(message) => { setNotice(message); closeModal(); void refetch() }} />}
     </Layout>
   )
 }

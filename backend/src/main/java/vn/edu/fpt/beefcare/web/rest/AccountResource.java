@@ -381,14 +381,29 @@ public class AccountResource {
 
     /**
      * UC-FE01-06 AF1/AF2: the profile calls this, then sends the browser to {@code /oauth2/authorization/google}; after the
-     * Google sign-in the browser returns to {@code /ho-so?m=doi-mat-khau&googleReauthenticated=true} and, for 5 minutes, change-password
+     * Google sign-in the browser returns to its server-verified profile route with {@code googleReauthenticated=true} and, for 5 minutes, change-password
      * accepts the new password without the current one.
      */
     @PostMapping(path = "/account/google-reauthentication")
     @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
-    public void startGoogleReauthentication(jakarta.servlet.http.HttpServletRequest request) {
-        request.getSession(true).setAttribute(GoogleReauthentication.RETURN_TO_PROFILE, Boolean.TRUE);
+    public void startGoogleReauthentication(@RequestBody(required = false) GoogleReauthenticationRequest request, HttpServletRequest httpRequest) {
+        AppUser account = farmAccessService.currentActiveUser();
+        String requested = request == null ? null : request.returnTo();
+        httpRequest.getSession(true).setAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH, reauthenticationReturnPath(account, requested));
     }
+
+    /** Only known account routes are retained, and each privileged route is derived from the active server-side role. */
+    private String reauthenticationReturnPath(AppUser account, String requested) {
+        if ("/nen-tang/ho-so".equals(requested) && platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").isPresent()) {
+            return requested;
+        }
+        if ("/kt/tai-khoan".equals(requested) && farmMembershipRepository.existsByUserIdAndRoleIgnoreCaseAndStatusIgnoreCase(account.getId(), "TECHNICIAN", "ACTIVE")) {
+            return requested;
+        }
+        return "/ho-so";
+    }
+
+    public record GoogleReauthenticationRequest(String returnTo) {}
 
     /**
      * {@code POST   /account/reset-password/init} : Send an email to reset the password of the user.

@@ -39,6 +39,7 @@ import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.email.ActionLinkSigner;
 import vn.edu.fpt.beefcare.service.email.EmailDeliveryJobService;
 import vn.edu.fpt.beefcare.service.email.MockEmailDelivery;
+import vn.edu.fpt.beefcare.security.GoogleReauthentication;
 
 /**
  * FE-01 / FE-03 end to end through the real Spring Security chain, the way the React client drives it:
@@ -677,6 +678,16 @@ class BrowserSessionFlowIT {
             .get("/api/farms/" + farmId + "/my-permissions")
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("MSG-COM-01"));
+    }
+
+    @Test
+    void googleReauthenticationStoresOnlyAServerAllowedProfileRoute() throws Exception {
+        Signed owner = signedUp(email("reauth-route"), "Reauthentication Route");
+
+        owner.browser.post("/api/account/google-reauthentication", Map.of("returnTo", "/nen-tang/ho-so"))
+            .andExpect(status().isNoContent());
+
+        assertThat(owner.browser.session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH)).isEqualTo("/ho-so");
     }
 
     @Test

@@ -60,9 +60,9 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
       return mockPermissions(identity.role)
     },
     // POST /api/account/google-reauthentication (D07), sau đó trình duyệt chuyển tới Google
-    async reauthenticateWithGoogle(identity: AccountIdentity): Promise<{ redirectTo: string | null }> {
+    async reauthenticateWithGoogle(identity: AccountIdentity, returnTo: string): Promise<{ redirectTo: string | null }> {
       if (!backend) return store.reauthenticateWithGoogle(identity)
-      await transport.command('/api/account/google-reauthentication', {}, { method: 'POST' })
+      await transport.command('/api/account/google-reauthentication', { returnTo }, { method: 'POST' })
       return { redirectTo: googleAuthorizationUrl() }
     },
     // POST /api/account/change-password

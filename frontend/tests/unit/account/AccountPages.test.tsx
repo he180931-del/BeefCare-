@@ -112,4 +112,11 @@ describe('technician account page', () => {
     expect(await screen.findByText('Hồ sơ của bạn đã được cập nhật.')).toBeInTheDocument()
     expect(screen.getByDisplayValue('technician@beefcare.local')).toHaveAttribute('readonly')
   })
+
+  it('restores the password dialog after Google re-authentication', async () => {
+    renderAs('technician', '/kt/tai-khoan?m=doi-mat-khau&googleReauthenticated=true', <TechnicianAccountPage />)
+    const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu' })
+    expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
+    expect(within(dialog).getByText('Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.')).toBeInTheDocument()
+  })
 })

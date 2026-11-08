@@ -66,9 +66,10 @@ public class GoogleOidcSuccessHandler implements AuthenticationSuccessHandler {
             contextRepository.saveContext(context, request, response);
             sessions.registerNewSession(session.getId(), beefCareAuthentication.getName());
             session.setAttribute(GoogleReauthentication.AUTHENTICATED_AT, java.time.Instant.now());
-            boolean reauthentication = Boolean.TRUE.equals(session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE));
-            session.removeAttribute(GoogleReauthentication.RETURN_TO_PROFILE);
-            String destination = reauthentication ? "/ho-so?m=doi-mat-khau&googleReauthenticated=true"
+            Object requestedReturnPath = session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH);
+            session.removeAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH);
+            String destination = requestedReturnPath instanceof String returnPath
+                ? returnPath + "?m=doi-mat-khau&googleReauthenticated=true"
                 : linked.ownerRegistrationCompleted() ? "/chon-trai" : "/owner-registration";
             response.sendRedirect(frontendBaseUrl + destination);
         } catch (RuntimeException failure) {

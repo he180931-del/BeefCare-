@@ -12,8 +12,8 @@ import type { AccountIdentity, AccountProfile, PasswordErrors } from '../types'
 const errorText = (message?: string) => message ? <span className="text-xs text-err-fg">{message}</span> : null
 
 /** UC-FE01-06. Tài khoản có Google: xác thực lại trong 5 phút thì không cần mật khẩu hiện tại (D07); chưa có mật khẩu thì phải xác thực lại. */
-export function ChangePasswordDialog({ identity, profile, onClose, onChanged, googleReauthenticated = false }: {
-  identity: AccountIdentity; profile: AccountProfile; onClose: () => void; onChanged: (message: string) => void; googleReauthenticated?: boolean
+export function ChangePasswordDialog({ identity, profile, onClose, onChanged, googleReauthenticated = false, returnTo }: {
+  identity: AccountIdentity; profile: AccountProfile; onClose: () => void; onChanged: (message: string) => void; googleReauthenticated?: boolean; returnTo: string
 }) {
   const [values, setValues] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [errors, setErrors] = useState<PasswordErrors>({})
@@ -28,7 +28,7 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
   const reauthenticate = async () => {
     setError(null)
     try {
-      const result = await accountApi.reauthenticateWithGoogle(identity)
+      const result = await accountApi.reauthenticateWithGoogle(identity, returnTo)
       if (result.redirectTo) window.location.assign(result.redirectTo)
       else setReauthed(true)
     } catch (reason) { setError(userFacingError(reason, 'Không xác thực lại được với Google.')) }
