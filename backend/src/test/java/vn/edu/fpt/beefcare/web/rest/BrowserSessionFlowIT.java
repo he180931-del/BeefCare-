@@ -87,6 +87,15 @@ class BrowserSessionFlowIT {
         // UC-FE01-01 AF1: SRS fields only (no login name), the account is pending verification
         guest.post("/api/register", registration(email, PASSWORD, PASSWORD, true)).andExpect(status().isCreated());
         assertThat(users.findOneByEmailIgnoreCase(email)).get().satisfies(user -> assertThat(user.isActivated()).isFalse());
+        assertThat(accounts.findOneByEmailIgnoreCase(email)).get().satisfies(account -> {
+            assertThat(account.isTermsAccepted()).isTrue();
+            assertThat(account.getTermsAcceptedAt()).isNotNull();
+            assertThat(account.getPasswordMethodStatus()).isEqualTo("PENDING_VERIFICATION");
+            assertThat(account.getPasswordLinkedAt()).isNotNull();
+            assertThat(account.getPasswordLastUsedAt()).isNull();
+            assertThat(account.getGoogleLinkedAt()).isNull();
+            assertThat(account.getGoogleLastUsedAt()).isNull();
+        });
         guest.post("/api/register", registration(email.toUpperCase(), PASSWORD, PASSWORD, true))
             .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-FE01-10"));
         assertThat(accounts.findAll().stream().filter(account -> email.equalsIgnoreCase(account.getEmail()))).hasSize(1);
@@ -106,6 +115,9 @@ class BrowserSessionFlowIT {
             .andExpect(status().isSeeOther()).andExpect(header().string("Location", org.hamcrest.Matchers.endsWith("/owner-registration"))).andReturn();
         assertThat(activated.getResponse().getHeader("Location")).startsWith("http://127.0.0.1:8080");
         phone.get("/api/account/profile").andExpect(status().isOk()).andExpect(jsonPath("$.emailVerified").value(true));
+        assertThat(accounts.findOneByEmailIgnoreCase(email)).get().satisfies(account ->
+            assertThat(account.getPasswordMethodStatus()).isEqualTo("ACTIVE")
+        );
         // MSG-FE01-06: a used link is refused, and it does not sign anybody in
         new Browser().get("/api/activate?token=" + verificationToken)
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-06"));

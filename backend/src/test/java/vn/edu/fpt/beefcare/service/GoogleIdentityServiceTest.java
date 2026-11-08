@@ -57,6 +57,11 @@ class GoogleIdentityServiceTest {
         assertThat(account.getValue().getGoogleSubject()).isEqualTo("google-subject");
         assertThat(account.getValue().isPasswordLoginEnabled()).isFalse();
         assertThat(account.getValue().isOwnerRegistrationCompleted()).isFalse();
+        assertThat(account.getValue().getPasswordMethodStatus()).isNull();
+        assertThat(account.getValue().getGoogleLinkedAt()).isNotNull();
+        assertThat(account.getValue().getGoogleLastUsedAt()).isEqualTo(account.getValue().getGoogleLinkedAt());
+        assertThat(account.getValue().isTermsAccepted()).isFalse();
+        assertThat(account.getValue().getTermsAcceptedAt()).isNull();
     }
 
     private OidcUser profile(String email, String subject, boolean verified) {

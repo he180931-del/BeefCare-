@@ -3,6 +3,7 @@ package vn.edu.fpt.beefcare.service;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -52,7 +53,10 @@ public class GoogleIdentityService {
             account.setPasswordLoginEnabled(false);
             account.setFullName(displayName);
         }
+        Instant signedInAt = Instant.now();
         account.setGoogleSubject(subject);
+        if (account.getGoogleLinkedAt() == null) account.setGoogleLinkedAt(signedInAt);
+        account.setGoogleLastUsedAt(signedInAt);
         if (account.getFullName() == null || account.getFullName().isBlank()) account.setFullName(displayName);
         appUsers.saveAndFlush(account);
 

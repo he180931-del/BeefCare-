@@ -97,6 +97,11 @@ public class IdentityService {
         account.setFullName(fullName.trim());
         account.setAccountStatus("ACTIVE");
         account.setPasswordLoginEnabled(true);
+        Instant registeredAt = Instant.now();
+        account.setTermsAccepted(true);
+        account.setTermsAcceptedAt(registeredAt);
+        account.setPasswordMethodStatus("PENDING_VERIFICATION");
+        account.setPasswordLinkedAt(registeredAt);
         appUserRepository.save(account);
         sendLink(identity, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL");
     }
@@ -112,6 +117,7 @@ public class IdentityService {
         user.setActivationKey(null);
         user.setFailedPasswordAttempts(0);
         user.setPasswordLockedUntil(null);
+        projection.setPasswordMethodStatus("ACTIVE");
         return user;
     }
 
