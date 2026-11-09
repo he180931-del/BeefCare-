@@ -73,6 +73,25 @@ class OpenApiContractTest {
         assertThat(postPayment.path("parameters").toString()).contains("Idempotency-Key");
         JsonNode request = api.path("components").path("schemas").path("Request");
         assertThat(request.path("required").toString()).contains("durationYears", "reviewedPriceVersion");
+        // D18: masked paged list, separately authorized full evidence detail, and exact payment allocation.
+        assertThat(paths.has("/api/platform/payments/evidence/{evidenceId}")).isTrue();
+        assertThat(paths.path("/api/platform/payments/evidence").path("get").path("parameters").toString())
+            .contains("\"page\"", "\"size\"", "\"status\"", "\"bankFrom\"", "\"bankTo\"");
+        JsonNode evidenceRow = api.path("components").path("schemas").path("PlatformBankEvidenceRow").path("properties");
+        assertThat(evidenceRow.has("maskedTransactionId")).isTrue();
+        assertThat(evidenceRow.has("transactionId")).isFalse();
+        assertThat(allowsNull(evidenceRow.path("receivingAccountMatches"))).isTrue();
+        // The strict SCR-62 adapter accepts only declared values; unknown stored states are read as PROCESSING.
+        assertThat(evidenceRow.path("reviewStatus").path("enum").toString()).contains("TO_REVIEW", "LOCKED", "PROCESSING");
+        assertThat(evidenceRow.path("matchResult").path("enum").toString()).contains("PAID_AUTO", "EXACT_CODE", "ACCOUNT_MISMATCH");
+        JsonNode evidenceDetail = api.path("components").path("schemas").path("PlatformBankEvidenceDetail").path("properties");
+        assertThat(evidenceDetail.has("history")).isTrue();
+        assertThat(evidenceDetail.has("transactionId")).isTrue();
+        assertThat(allowsNull(evidenceDetail.path("firstReceivedAt"))).isTrue();
+        JsonNode pmPayment = api.path("components").path("schemas").path("PlatformPaymentRead").path("properties");
+        for (String field : java.util.List.of("evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt")) {
+            assertThat(allowsNull(pmPayment.path(field))).as("UC5 nullable " + field).isTrue();
+        }
         Files.writeString(Path.of("target","beefcare-openapi.json"),mapper.writerWithDefaultPrettyPrinter().writeValueAsString(api)+"\n",StandardCharsets.UTF_8);
     }
 

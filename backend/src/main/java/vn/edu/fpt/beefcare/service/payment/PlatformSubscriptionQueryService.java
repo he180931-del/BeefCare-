@@ -31,8 +31,8 @@ import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.PlatformAccessService;
 
 /**
- * PM read models without farm operational data: SCR-61 Platform Subscriptions (UC-FE19-04), the SCR-62 filters and tiles
- * (UC-FE19-05) and SCR-70 Subscription Receipts (UC-FE21-01). A receipt is the read-only view of one PAID payment (GBR-82);
+ * PM read models without farm operational data: SCR-61 Platform Subscriptions (UC-FE19-04) and SCR-70 Subscription
+ * Receipts (UC-FE21-01). A receipt is the read-only view of one PAID payment (GBR-82);
  * nothing here changes data.
  */
 @Service
@@ -165,54 +165,7 @@ public class PlatformSubscriptionQueryService {
         );
     }
 
-    // ------------------------------------------------------------------ SCR-62 tiles
-
-    public PaymentTiles paymentTiles() {
-        platformAccess.requireRole(PlatformRole.PM);
-        long pending = em.createQuery("select count(p) from Payment p where upper(p.state) = 'PENDING'", Long.class).getSingleResult();
-        Map<String, Long> byStatus = em.createQuery("select upper(e.reviewStatus), count(e) from BankTransferEvidence e group by upper(e.reviewStatus)", Object[].class)
-            .getResultList().stream().collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
-        long locked = em.createQuery("select count(e) from BankTransferEvidence e where e.lockedForReturn = true", Long.class).getSingleResult();
-        return new PaymentTiles(pending, byStatus.getOrDefault("UNMATCHED", 0L), byStatus.getOrDefault("HOLD", 0L), locked);
-    }
-
-    /** SCR-62 "Review status" filter: ALL, TO_REVIEW, HOLD, REJECTED, ACCEPTED, LOCKED; and the bank date range. */
-    public List<BankTransferEvidence> evidence(String status, LocalDate bankFrom, LocalDate bankTo) {
-        platformAccess.requireRole(PlatformRole.PM);
-        String s = status == null || status.isBlank() ? "TO_REVIEW" : status.trim().toUpperCase(Locale.ROOT);
-        if (!List.of("ALL", "TO_REVIEW", "HOLD", "REJECTED", "ACCEPTED", "LOCKED").contains(s)) throw DomainException.invalid("status");
-        return em.createQuery("select e from BankTransferEvidence e order by e.bankPaidAt desc, e.id desc", BankTransferEvidence.class).getResultStream()
-            .filter(e -> switch (s) {
-                case "TO_REVIEW" -> "UNMATCHED".equalsIgnoreCase(e.getReviewStatus()) && !e.isLockedForReturn();
-                case "LOCKED" -> e.isLockedForReturn();
-                case "ALL" -> true;
-                default -> s.equalsIgnoreCase(e.getReviewStatus());
-            })
-            .filter(e -> bankFrom == null || (e.getBankPaidAt() != null && !localDate(e.getBankPaidAt()).isBefore(bankFrom)))
-            .filter(e -> bankTo == null || (e.getBankPaidAt() != null && !localDate(e.getBankPaidAt()).isAfter(bankTo)))
-            .toList();
-    }
-
-    public List<SePayWebhookService.EvidenceDTO> evidenceView(String status, LocalDate bankFrom, LocalDate bankTo) {
-        return evidence(status, bankFrom, bankTo).stream().map(SePayWebhookService.EvidenceDTO::from).toList();
-    }
-
-    public Page<SePayWebhookService.PlatformPayment> paymentView(String state, String q, int page, int size) {
-        return payments(state, q, page, size).map(SePayWebhookService.PlatformPayment::from);
-    }
-
-    /** SCR-62 "Payment requests" tab with a state filter and code / farm search. */
-    public Page<Payment> payments(String state, String q, int page, int size) {
-        platformAccess.requireRole(PlatformRole.PM);
-        String needle = normalized(q);
-        List<Payment> rows = em.createQuery("select p from Payment p join fetch p.subscription s join fetch s.farm order by p.requestedAt desc, p.id desc", Payment.class)
-            .getResultStream()
-            .filter(p -> state == null || state.isBlank() || state.trim().equalsIgnoreCase(p.getState()))
-            .filter(p -> needle == null || (p.getQuoteRef() != null && p.getQuoteRef().toLowerCase(Locale.ROOT).contains(needle)) ||
-                p.getSubscription().getFarm().getName().toLowerCase(Locale.ROOT).contains(needle))
-            .toList();
-        return page(rows, page, size);
-    }
+    // SCR-62 reads (UC-FE19-05, D18) live in PlatformPaymentQueryService; only the shared PaymentTiles/Page records stay here.
 
     // ------------------------------------------------------------------ SCR-70
 

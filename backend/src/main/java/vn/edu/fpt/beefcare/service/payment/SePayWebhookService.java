@@ -42,7 +42,6 @@ import vn.edu.fpt.beefcare.repository.ManualFinanceRecordRepository;
 import vn.edu.fpt.beefcare.repository.SubscriptionRepository;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.DomainException;
-import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.NotificationService;
 import vn.edu.fpt.beefcare.service.PlatformAccessService;
 import vn.edu.fpt.beefcare.service.JsonSupport;
@@ -148,35 +147,6 @@ public class SePayWebhookService {
         platformAccess.requireRole(PlatformRole.PM);
         IncomingTransfer incoming = transfer(lookupClient.find(transactionId));
         return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming));
-    }
-
-    @Transactional(readOnly = true)
-    public java.util.List<EvidenceDTO> unresolvedEvidence() {
-        platformAccess.requireRole(PlatformRole.PM);
-        return evidenceRepository.findReviewQueue(
-            java.util.List.of("UNMATCHED", "HOLD", "REJECTED", "LOCKED_FOR_RETURN")
-        ).stream().map(EvidenceDTO::from).toList();
-    }
-
-    @Transactional(readOnly = true)
-    public java.util.List<PaymentCandidate> candidates(Long evidenceId) {
-        platformAccess.requireRole(PlatformRole.PM);
-        BankTransferEvidence evidence = evidenceRepository.findById(evidenceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return payments.findEligibleAt(evidence.getAmount(), evidence.getBankPaidAt()).stream()
-            .filter(payment -> !evidenceRepository.existsByPayment_Id(payment.getId()))
-            .filter(payment -> java.util.Objects.equals(payment.getReceivingAccountNamespace(), evidence.getAccountNamespace()))
-            .filter(payment -> sameAccount(payment.getReceivingAccount(), evidence.getReceivingAccount()))
-            .map(payment -> new PaymentCandidate(
-                payment.getId(),
-                payment.getQuoteRef(),
-                payment.getSubscription().getFarm().getId(),
-                payment.getSubscription().getFarm().getName(),
-                payment.getAmountVnd(),
-                payment.getDurationYears(),
-                payment.getExpiresAt(),
-                payment.getReceivingAccountNamespace()
-            )).toList();
     }
 
     @Transactional
@@ -289,28 +259,25 @@ public class SePayWebhookService {
         return EvidenceDTO.from(evidence);
     }
 
-    @Transactional(readOnly = true)
-    public org.springframework.data.domain.Page<PlatformPayment> platformPayments(int page, int size) {
-        platformAccess.requireRole(PlatformRole.PM);
-        int safeSize = Math.max(1, Math.min(100, size));
-        return payments.findAll(org.springframework.data.domain.PageRequest.of(
-            Math.max(0, page),
-            safeSize,
-            org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "requestedAt")
-        )).map(PlatformPayment::from);
+    /*
+     * Receiving context as ingestion stores it and as UC6 ACCEPT compares it. PlatformPaymentQueryService (SCR-62
+     * reads, D18) uses these same rules so its account check and candidates never disagree with ingestion/ACCEPT.
+     */
+    static String storedEnvironment(String configured) {
+        return StringUtils.hasText(configured) ? configured.trim().toUpperCase(Locale.ROOT) : "UNCONFIGURED";
     }
 
-    @Transactional(readOnly = true)
-    public PlatformPayment platformPayment(Long paymentId) {
-        platformAccess.requireRole(PlatformRole.PM);
-        // MSG-COM-08 like the other PM read details (SCR-61 source link, D17).
-        return payments.findById(paymentId).map(PlatformPayment::from)
-            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "payment_id", paymentId));
+    static String storedNamespace(String configured) {
+        return StringUtils.hasText(configured) ? configured.trim() : "UNCONFIGURED";
+    }
+
+    static String expectedAccount(String configured, String provider) {
+        return !StringUtils.hasText(configured) && "MOCK".equalsIgnoreCase(provider) ? "MOCK-ACCOUNT" : configured;
     }
 
     private WebhookResult processWithReplayProtection(IncomingTransfer incoming, String provider, String payloadHash) {
-        String namespace = StringUtils.hasText(accountNamespace) ? accountNamespace.trim() : "UNCONFIGURED";
-        String env = StringUtils.hasText(environment) ? environment.trim().toUpperCase(Locale.ROOT) : "UNCONFIGURED";
+        String namespace = storedNamespace(accountNamespace);
+        String env = storedEnvironment(environment);
         Optional<BankTransferEvidence> existing = evidenceRepository.findFirstByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnId(
             provider, env, namespace, incoming.transactionId()
         );
@@ -351,8 +318,7 @@ public class SePayWebhookService {
             evidence.setReviewReason("Not an incoming transfer");
             return saveEvidence(evidence, provider);
         }
-        String expectedAccount = receivingAccount;
-        if (!StringUtils.hasText(expectedAccount) && "MOCK".equalsIgnoreCase(provider)) expectedAccount = "MOCK-ACCOUNT";
+        String expectedAccount = expectedAccount(receivingAccount, provider);
         if (!StringUtils.hasText(expectedAccount)) {
             evidence.setReviewReason("Receiving account is not configured");
             return saveEvidence(evidence, provider);
@@ -568,7 +534,7 @@ public class SePayWebhookService {
         return StringUtils.hasText(second) ? second.trim() : null;
     }
 
-    private static boolean sameAccount(String expected, String actual) {
+    static boolean sameAccount(String expected, String actual) {
         if (!StringUtils.hasText(actual)) return false;
         return canonicalAccount(expected).equals(canonicalAccount(actual));
     }
@@ -624,44 +590,6 @@ public class SePayWebhookService {
                 e.getBankPaidAt(), e.getQuoteRef(), e.getTransferDirection(), e.getReceivingAccount(), e.getTransferContent(),
                 e.getGateway(), e.getReviewStatus(), e.getReviewReason(), e.isLockedForReturn(), e.getReturnReference(),
                 e.getReturnResult(), e.getPayment() == null ? null : e.getPayment().getId(), e.getVersion()
-            );
-        }
-    }
-
-    public record PaymentCandidate(Long paymentId, String quoteRef, Long farmId, String farmName, BigDecimal amount, Integer termYears, Instant expiresAt, String accountNamespace) {}
-
-    public record PlatformPayment(
-        Long id,
-        Long farmId,
-        String farmName,
-        String quoteRef,
-        Integer termYears,
-        BigDecimal amount,
-        String state,
-        Instant requestedAt,
-        Instant expiresAt,
-        Instant purchasedStart,
-        Instant purchasedEnd,
-        String receiptCode,
-        String requestedByEmail,
-        Long priceVersionId
-    ) {
-        static PlatformPayment from(Payment payment) {
-            return new PlatformPayment(
-                payment.getId(),
-                payment.getSubscription().getFarm().getId(),
-                payment.getSubscription().getFarm().getName(),
-                payment.getQuoteRef(),
-                payment.getDurationYears(),
-                payment.getAmountVnd(),
-                payment.getState(),
-                payment.getRequestedAt(),
-                payment.getExpiresAt(),
-                payment.getPurchasedStart(),
-                payment.getPurchasedEnd(),
-                payment.getReceiptCode(),
-                payment.getRequestedBy().getEmail(),
-                payment.getPriceVersion().getId()
             );
         }
     }

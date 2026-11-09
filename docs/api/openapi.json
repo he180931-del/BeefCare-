@@ -8758,7 +8758,7 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 25
+            "default" : 20
           }
         }, {
           "name" : "state",
@@ -8781,7 +8781,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PagePlatformPayment"
+                  "$ref" : "#/components/schemas/PagePlatformPaymentRead"
                 }
               }
             }
@@ -8808,7 +8808,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PlatformPayment"
+                  "$ref" : "#/components/schemas/PlatformPaymentRead"
                 }
               }
             }
@@ -8861,6 +8861,24 @@
             "type" : "string",
             "format" : "date"
           }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
         } ],
         "responses" : {
           "200" : {
@@ -8868,10 +8886,34 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/EvidenceDTO"
-                  }
+                  "$ref" : "#/components/schemas/PagePlatformBankEvidenceRow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/payments/evidence/{evidenceId}" : {
+      "get" : {
+        "tags" : [ "platform-payment-resource" ],
+        "operationId" : "evidenceDetail",
+        "parameters" : [ {
+          "name" : "evidenceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlatformBankEvidenceDetail"
                 }
               }
             }
@@ -8900,7 +8942,7 @@
                 "schema" : {
                   "type" : "array",
                   "items" : {
-                    "$ref" : "#/components/schemas/PaymentCandidate"
+                    "$ref" : "#/components/schemas/PlatformPaymentCandidate"
                   }
                 }
               }
@@ -18501,79 +18543,30 @@
           }
         }
       },
-      "PagePlatformPayment" : {
+      "PagePlatformPaymentRead" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlatformPaymentRead"
+            }
           },
-          "totalElements" : {
+          "total" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PlatformPayment"
-            }
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "empty" : {
-            "type" : "boolean"
           }
         }
       },
-      "PageableObject" : {
-        "type" : "object",
-        "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "unpaged" : {
-            "type" : "boolean"
-          },
-          "paged" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "PlatformPayment" : {
+      "PlatformPaymentRead" : {
         "type" : "object",
         "properties" : {
           "id" : {
@@ -18609,36 +18602,77 @@
             "format" : "date-time"
           },
           "purchasedStart" : {
-            "type" : "string",
-            "format" : "date-time"
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
           },
           "purchasedEnd" : {
-            "type" : "string",
-            "format" : "date-time"
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
           },
           "receiptCode" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           },
           "requestedByEmail" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           },
           "priceVersionId" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "SortObject" : {
-        "type" : "object",
-        "properties" : {
-          "empty" : {
-            "type" : "boolean"
           },
-          "unsorted" : {
-            "type" : "boolean"
+          "evidenceId" : {
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int64"
+            }, {
+              "type" : "null"
+            } ]
           },
-          "sorted" : {
-            "type" : "boolean"
+          "confirmedAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "confirmationSource" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "bankPaidAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "receivedAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
           }
         }
       },
@@ -18663,7 +18697,223 @@
           }
         }
       },
-      "PaymentCandidate" : {
+      "PagePlatformBankEvidenceRow" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlatformBankEvidenceRow"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PlatformBankEvidenceRow" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "environment" : {
+            "type" : "string"
+          },
+          "accountNamespace" : {
+            "type" : "string"
+          },
+          "maskedTransactionId" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "direction" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "content" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "bankPaidAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reviewStatus" : {
+            "type" : "string",
+            "enum" : [ "TO_REVIEW", "HOLD", "REJECTED", "ACCEPTED", "LOCKED", "PROCESSING" ]
+          },
+          "matchResult" : {
+            "type" : "string",
+            "enum" : [ "PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST", "REQUEST_EXPIRED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE" ]
+          },
+          "reviewReason" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "receivingAccountMatches" : {
+            "anyOf" : [ {
+              "type" : "boolean"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "paymentId" : {
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int64"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "paymentCode" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PlatformBankEvidenceDetail" : {
+        "type" : "object",
+        "properties" : {
+          "summary" : {
+            "$ref" : "#/components/schemas/PlatformBankEvidenceRow"
+          },
+          "transactionId" : {
+            "type" : "string"
+          },
+          "receivingAccount" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "bank" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "referenceCode" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "quoteRef" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "firstReceivedAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "history" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlatformEvidenceHistory"
+            }
+          }
+        }
+      },
+      "PlatformEvidenceHistory" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "REVIEW", "EVENT" ]
+          },
+          "action" : {
+            "type" : "string",
+            "description" : "REVIEW: stored PM decision ACCEPT/HOLD/REJECT. EVENT: EVIDENCE_RECEIVED, EVIDENCE_AUTO_ACCEPTED, EVIDENCE_LOCK_RETURN, EVIDENCE_RETURN_UNLOCK or EVIDENCE_RETURN_RECORDED; never a raw audit action name"
+          },
+          "reason" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "reference" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "result" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "pmId" : {
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int64"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "pmName" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PlatformPaymentCandidate" : {
         "type" : "object",
         "properties" : {
           "paymentId" : {
@@ -18699,13 +18949,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -18724,20 +18974,60 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
           "empty" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PageableObject" : {
+        "type" : "object",
+        "properties" : {
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "paged" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SortObject" : {
+        "type" : "object",
+        "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
+          "sorted" : {
+            "type" : "boolean"
+          },
+          "unsorted" : {
             "type" : "boolean"
           }
         }
@@ -19074,13 +19364,13 @@
       "PageAuditEntry" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -19099,14 +19389,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -19120,13 +19410,13 @@
       "PageAccountSummary" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -19145,14 +19435,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -20840,13 +21130,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "headerName" : {
+          "token" : {
             "type" : "string"
           },
           "parameterName" : {
             "type" : "string"
           },
-          "token" : {
+          "headerName" : {
             "type" : "string"
           }
         }

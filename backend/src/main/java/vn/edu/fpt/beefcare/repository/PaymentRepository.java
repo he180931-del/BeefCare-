@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
-import java.math.BigDecimal;
 
 /**
  * Spring Data JPA repository for the Payment entity.
@@ -23,9 +22,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     Optional<Payment> findFirstByQuoteRefIgnoreCaseAndSubscription_Farm_Id(String quoteRef, Long farmId);
     List<Payment> findAllByStateIgnoreCaseAndExpiresAtBefore(String state, Instant now);
     List<Payment> findAllByOrderByRequestedAtDescIdDesc();
-
-    @Query("select p from Payment p where upper(p.state) in ('PENDING','EXPIRED') and p.amountVnd = :amount and p.requestedAt <= :paidAt and p.expiresAt > :paidAt order by p.requestedAt desc")
-    List<Payment> findEligibleAt(@Param("amount") BigDecimal amount, @Param("paidAt") Instant paidAt);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Payment p where p.id = :id")

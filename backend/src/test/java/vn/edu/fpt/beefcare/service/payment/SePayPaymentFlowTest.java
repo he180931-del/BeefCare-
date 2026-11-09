@@ -39,6 +39,7 @@ class SePayPaymentFlowTest extends DomainTestSupport {
     @Autowired BankTransferEvidenceRepository evidences;
     @Autowired SubscriptionLifecycleJob lifecycle;
     @Autowired PlatformSubscriptionQueryService queries;
+    @Autowired PlatformPaymentQueryService reads;
     @Autowired vn.edu.fpt.beefcare.repository.NotificationRepository notifications;
     @Autowired vn.edu.fpt.beefcare.service.NotificationService notificationService;
 
@@ -210,14 +211,60 @@ class SePayPaymentFlowTest extends DomainTestSupport {
         var unmatched = service.receiveMock(event(payment.getQuoteRef(), 81007L, "999", clock.instant()));
         assertThat(unmatched.reviewStatus()).isEqualTo("UNMATCHED");
 
-        assertThat(queries.evidenceView("TO_REVIEW", null, null)).extracting(e -> e.id()).contains(unmatched.evidenceId());
-        assertThat(queries.evidenceView("ACCEPTED", null, null)).extracting(e -> e.id()).doesNotContain(unmatched.evidenceId());
+        // SCR-62 reads come only from the D18 query service; this test drives it through real ingestion.
+        assertThat(reads.evidence("TO_REVIEW", null, null, 0, 100).items()).extracting(e -> e.id()).contains(unmatched.evidenceId());
+        assertThat(reads.evidence("ACCEPTED", null, null, 0, 100).items()).extracting(e -> e.id()).doesNotContain(unmatched.evidenceId());
         LocalDate today = clock.instant().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
-        assertThat(queries.evidenceView("ALL", today.plusDays(1), null)).extracting(e -> e.id()).doesNotContain(unmatched.evidenceId());
-        assertThat(queries.paymentTiles().evidenceToReview()).isGreaterThanOrEqualTo(1);
-        assertThat(queries.paymentTiles().pendingRequests()).isGreaterThanOrEqualTo(1);
-        assertThat(queries.paymentView("PENDING", payment.getQuoteRef(), 0, 25).items()).extracting(p -> p.id()).containsExactly(payment.getId());
-        assertThatThrownBy(() -> queries.evidenceView("WHATEVER", null, null)).isInstanceOf(vn.edu.fpt.beefcare.service.DomainException.class);
+        assertThat(reads.evidence("ALL", today.plusDays(1), null, 0, 100).items()).extracting(e -> e.id()).doesNotContain(unmatched.evidenceId());
+        assertThat(reads.tiles().evidenceToReview()).isGreaterThanOrEqualTo(1);
+        assertThat(reads.tiles().pendingRequests()).isGreaterThanOrEqualTo(1);
+        assertThat(reads.payments("PENDING", payment.getQuoteRef(), 0, 20).items()).extracting(p -> p.id()).containsExactly(payment.getId());
+        assertThatThrownBy(() -> reads.evidence("WHATEVER", null, null, 0, 20)).isInstanceOf(vn.edu.fpt.beefcare.service.DomainException.class);
+    }
+
+    @Test
+    void ingestedEvidenceCandidatesAndAcceptUseOneAccountRuleAcrossAccountFormats() {
+        Farm farm = farm("PENDING_PAYMENT");
+        AppUser owner = memberWithRole(farm, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
+        PlanVersion price = createPrice();
+        Payment payment = pendingPayment(owner, price, createSubscription(farm, price));
+        payment.setReceivingAccount("mock account"); // the same account as MOCK-ACCOUNT for ingestion and ACCEPT
+        payments.saveAndFlush(payment);
+        createPlatformManager();
+        actAsPlatformManager();
+
+        var unmatched = service.receiveMock(event("BCZZZZZZZZZZZZ", 81031L, "1200000", clock.instant()));
+        assertThat(unmatched.reviewStatus()).isEqualTo("UNMATCHED");
+        var before = reads.evidence(unmatched.evidenceId()).summary();
+        assertThat(before.receivingAccountMatches()).isTrue();
+        assertThat(before.matchResult()).isEqualTo("NO_REQUEST");
+        assertThat(reads.candidates(unmatched.evidenceId())).extracting(c -> c.paymentId()).containsExactly(payment.getId());
+
+        Long version = evidences.findById(unmatched.evidenceId()).orElseThrow().getVersion();
+        service.review(unmatched.evidenceId(), new SePayWebhookService.ReviewCommand("ACCEPT", payment.getId(), "PM đối chiếu sao kê", version));
+        var after = reads.evidence(unmatched.evidenceId());
+        assertThat(after.summary().matchResult()).isEqualTo("PAID_PM");
+        assertThat(after.summary().receivingAccountMatches()).isTrue();
+        assertThat(after.history()).extracting(h -> h.action()).containsExactlyInAnyOrder("EVIDENCE_RECEIVED", "ACCEPT");
+    }
+
+    @Test
+    void autoAcceptedEvidenceReadsAsAutoAcceptedAccountMatchAcrossAccountFormats() {
+        Farm farm = farm("PENDING_PAYMENT");
+        AppUser owner = memberWithRole(farm, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);
+        PlanVersion price = createPrice();
+        Payment payment = pendingPayment(owner, price, createSubscription(farm, price));
+        payment.setReceivingAccount("mock account");
+        payments.saveAndFlush(payment);
+        createPlatformManager();
+        actAsPlatformManager();
+
+        var accepted = service.receiveMock(event(81041L, payment.getQuoteRef(), "1200000"));
+        assertThat(accepted.reviewStatus()).isEqualTo("ACCEPTED");
+        var detail = reads.evidence(accepted.evidenceId());
+        assertThat(detail.summary().matchResult()).isEqualTo("PAID_AUTO");
+        assertThat(detail.summary().receivingAccountMatches()).isTrue();
+        assertThat(detail.history()).extracting(h -> h.action()).containsExactly("EVIDENCE_AUTO_ACCEPTED");
     }
 
     private PlanVersion createPrice() {

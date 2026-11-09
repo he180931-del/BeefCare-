@@ -32,6 +32,11 @@ public class BackendApiDocumentationConfiguration {
                 nullableFields(api, "SubscriptionRequestEligibility", "reason", "opensAt");
                 nullableFields(api, "PaymentDTO", "purchasedStart", "purchasedEnd", "receiptCode", "qrImageUrl",
                     "bankCode", "accountNumber", "accountName", "bankPaidAt", "receivedAt", "confirmedAt", "confirmationSource");
+                nullableFields(api, "PlatformBankEvidenceRow", "direction", "content", "reviewReason", "receivingAccountMatches", "paymentId", "paymentCode");
+                nullableFields(api, "PlatformBankEvidenceDetail", "receivingAccount", "bank", "referenceCode", "quoteRef", "firstReceivedAt");
+                nullableFields(api, "PlatformEvidenceHistory", "reason", "reference", "result", "pmId", "pmName");
+                nullableFields(api, "PlatformPaymentRead", "purchasedStart", "purchasedEnd", "receiptCode", "requestedByEmail",
+                    "evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt");
             })
             .build();
     }

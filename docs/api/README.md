@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **216 paths, 265 operations, 284 schemas** (file last regenerated 1 November 2026, commit `127859b`; the earlier 29 October export at `71ce2a3` had 212 paths after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
+Current contract: **219 paths, 268 operations, 294 schemas**, regenerated 10 November 2026 from the UC5 working tree after `OpenApiContractTest` passed. UC5 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md`; this count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -12,6 +12,22 @@ Copy-Item target\beefcare-openapi.json ..\docs\api\openapi.json
 ```
 
 The test writes only to `backend/target/beefcare-openapi.json`; the copy step publishes it here. Commit the regenerated file in the same change as the DTO or route change.
+
+UC5 / D18 contract change (10 November 2026): `GET /api/platform/payments`
+and `GET .../evidence` return `{items,total,page,size}` with a default size of
+20 (evidence previously returned an array; payments previously returned a
+Spring Page with default size 25). Evidence defaults to ALL and returns only
+`maskedTransactionId`; full provider transaction ID and committed handling
+history are in the new PM-only `GET .../evidence/{evidenceId}`. Payment detail
+preserves UC4 fields and adds exact `evidenceId`, stored bank/first-received/
+confirmation clocks and source, with explicit nulls. GETs never settle or
+change stored status; expired PENDING requests are read as EXPIRED. API-03
+lookup and all UC6 mutation behavior remain outside this read handoff.
+After the UC5 review (same day, counts unchanged): `reviewStatus`,
+`matchResult` and history `source` declare enums (undeclared stored review
+states read as `PROCESSING`); history `action` is a PM decision or a documented
+event code (`EVIDENCE_RECEIVED`, `EVIDENCE_AUTO_ACCEPTED`, ...), never a raw
+audit action; account checks and candidates use the ingestion/ACCEPT rule.
 
 ## Browser authentication
 
