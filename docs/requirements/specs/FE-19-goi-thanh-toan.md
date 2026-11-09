@@ -172,6 +172,25 @@ Mở lại PENDING dùng snapshot cũ, không phụ thuộc giá/TK cấu hình 
 AF1 có PENDING → MSG-FE19-01 · AF2 giá đổi → MSG-FE19-02, quay lại bước 2 · AF3 Để sau / Đóng → vẫn PENDING · AF4 Kiểm tra lại → PAID: MSG-FE19-06 · AF5 hết hạn → MSG-FE19-07.
 E1 không phải Owner → MSG-COM-01 · E2 ngoài cửa sổ → MSG-FE19-03 · E3 SUSPENDED → MSG-FE19-09 · E4 không có giá / TK → MSG-FE19-04 · E5 không tạo được ảnh QR → vẫn hiện thông tin dạng chữ · E6 lỗi → MSG-COM-02.
 
+### UC-FE19-03 Xem lịch sử và chi tiết thanh toán
+
+Người dùng xác nhận 09/11/2026 (D16): backend + SCR-60, dùng lại SCR-59 theo D15. Căn cứ SRS I.4.2.19, III Table III-1 và III.19.1.3–4; GBR-07/09/12/14/70/72/73. Ma trận trường và bằng chứng tại `docs/reviews/FE19_UC03_REVIEW.md`.
+
+**Tiền điều kiện:** đã đăng nhập, tài khoản ACTIVE, Owner hiện tại của trại tại mỗi request. Trại PENDING_PAYMENT/ACTIVE/EXPIRED/SUSPENDED đều được xem; chưa có Subscription vẫn mở được.
+
+1. Owner mở Lịch sử thanh toán từ SCR-57 hoặc SCR-59; hệ thống kiểm quyền và đúng trại.
+2. Tải danh sách yêu cầu của trại, gồm cả yêu cầu do người khác tạo trước đây. Tìm chứa một phần mã không phân biệt hoa/thường, trim, tối đa 100 ký tự; ô tìm gửi một request sau khi ngừng gõ 300 ms. Mặc định tất cả trạng thái và không giới hạn ngày, mới nhất theo requestedAt trước.
+3. Lọc theo trạng thái hiệu lực tại thời điểm đọc và ngày tạo. From/to nhận độc lập, bao gồm trọn ngày theo Asia/Ho_Chi_Minh; from > to báo MSG-COM-11 ngay dưới ô "Tạo đến" (inline under field), không gọi API và giữ kết quả hợp lệ gần nhất; BE vẫn trả 400 MSG-COM-11 nếu nhận khoảng sai. Sắp xếp requestedAt/expiresAt tăng/giảm, tie-break id cùng chiều. BE lọc/count/sort trước phân trang 20 dòng (page 0..107374182, ngoài khoảng 400 MSG-COM-10); giữ bộ lọc theo tài khoản/trại trong phiên, đổi filter/sort về trang đầu. Khi tải lại, bảng cũ vẫn hiện (aria-busy) thay vì bị thay bằng khối đang tải.
+4. PENDING còn hiệu lực → Mở lại SCR-59 của đúng yêu cầu, dùng numeric id trong backend mode và snapshot cũ. Đóng hướng dẫn quay lại SCR-60, giữ filter và tải mới. Không tạo yêu cầu mới khi chỉ mở lại.
+5. PAID/EXPIRED → Xem panel chi tiết ngay dưới danh sách và phân trang, đủ SCR-60 #9; mở panel thì cuộn tới panel và chuyển focus vào tiêu đề. Ba mốc thời gian độc lập đến giây; null lịch sử hiện “—”. Chỉ kỳ đã xác nhận mới là kỳ đã mua.
+6. Làm mới khi vào màn, đổi filter/trang, quay lại từ SCR-59 hoặc bấm Làm mới; SCR-60 không polling. SCR-59 tiếp tục polling 5 giây theo D15. Đọc lại chi tiết trước khi quyết định mở hướng dẫn hoặc panel để nhận trạng thái mới.
+
+**Nhánh/lỗi:** chưa có yêu cầu → “Chưa có thanh toán” + Xem gói; không khớp filter → MSG-COM-04 + Xóa bộ lọc; tải danh sách lỗi → MSG-COM-03 + Thử lại; lỗi detail có Thử lại; không đúng Owner → MSG-COM-01; id không thuộc trại/không tồn tại → MSG-COM-08, không lộ dữ liệu trại khác. Đúng expiresAt thì PENDING được hiển thị/lọc như EXPIRED dù JOB-03 chưa chạy; GET không ghi state. Xác nhận đến muộn theo GBR-72 vẫn có thể làm lần đọc sau trả PAID.
+
+**Hậu điều kiện:** chỉ đọc lịch sử/chi tiết; không tạo/sửa Subscription, Payment, kỳ đã mua, chứng từ, biên lai, audit hoặc trạng thái dịch vụ. Việc tạo mới từ SCR-59 thuộc UC2.
+
+**Hiệu năng đọc chứng từ (review 09/11/2026):** mỗi trang đọc chứng từ bằng 2 query theo lô (theo payment id và theo `upper(quote_ref)`), không còn 2 query mỗi dòng. Changeset `20261109000200` thêm index `ix_evidence_quote_ref_upper` (chỉ PostgreSQL, không thêm cột/dữ liệu) cho phép tra mã không phân biệt hoa/thường dùng index; SCR-57 và SCR-59 (đọc lại 5 giây) cũng hưởng index này.
+
 ### UC-FE19-08 Xác nhận từ SePay
 1. SePay gửi giao dịch kèm chữ ký HMAC + timestamp.
 2. Xác minh chữ ký (≤ 300 s).
@@ -323,7 +342,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 |---|---|---|---|---|---|
 | A1 | Tổng quan gói | `farmId` ở path; không body | `SubscriptionOverview {farmId, farmName, serviceStatus, entitlementStatus, currentPeriod?, daysRemaining?, latestEnd?, renewalOpensAt?, suspended, suspendedSince?, pendingPayment?, currentPrices?, futurePeriods[], periods[], eligibility{ok, reason?, opensAt?}}`; các khóa có `?` vẫn hiện trong JSON với null khi không có dữ liệu. Tên JSON theo DTO/OpenAPI, đối chiếu 14 mục tại ma trận UC-01 | COM-01; thiếu giá: currentPrices=null, eligibility.reason=PRICE_UNAVAILABLE, vùng giá hiện FE19-04 | `GET /api/farms/{farmId}/subscription` |
 | A2 | Tạo / mở lại yêu cầu | `{durationYears (1\|2\|3), reviewedPriceVersion}` (đều bắt buộc) + `Idempotency-Key` | `PaymentDTO {id, quoteRef, durationYears, amountVnd, priceVersionId, bankCode, accountNumber, accountName, qrImageUrl, requestedAt, expiresAt, state, reopened, bankPaidAt?, receivedAt?, confirmedAt?, confirmationSource?, purchasedStart?, purchasedEnd?, receiptCode?}`; nội dung CK = quoteRef; null giữ khóa JSON | FE19-01 (reopened=true, UI mời mở lại), FE19-02, FE19-03, FE19-09, FE19-04, COM-01, COM-02 | `POST /api/farms/{farmId}/subscription/payments` |
-| A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status?, from?, to?` (phần danh sách thuộc UC-03) / — | `[PaymentDTO]` / `PaymentDTO` như A2; FE suy ba bước tiến trình từ requestedAt/receivedAt/confirmedAt và kỳ từ purchasedStart/purchasedEnd, không có mảng progress lưu trùng | FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
+| A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status?, from?, to?, sort=requestedAt, dir=desc, page=0`; ngày ISO, page zero-based 0..107374182, size cố định 20 / — | `PaymentHistoryPage {content: PaymentDTO[], number, size, totalElements, totalPages}` / `PaymentDTO` như A2; đây là thay đổi từ array sang page cho UC3. FE suy tiến trình/kỳ từ các field thực, không lưu trùng. Detail path dùng numeric id | COM-11 khoảng ngày; COM-10 filter/page/sort không hợp lệ; COM-01 quyền; COM-08 detail không tồn tại; list lỗi COM-03; kiểm tra SCR-59 lỗi FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
 | A4 | VietQR (API-01) | Ngân hàng, TK, số tiền, nội dung | URL ảnh | — | Trong `qrImageUrl` của A2 (gọi dịch vụ QR SePay) |
 | A5 | Gói các trại (PM) | `q, coverage, serviceStatus, endFrom, endTo, page, size` / — | `PageSubscriptionRow` / `SubscriptionDetail` | COM-03 | `GET /api/platform/subscriptions` · `GET …/{farmId}` |
 | A6 | Ô tổng hợp | — | `PaymentTiles {pending, toReview, held, locked}` | — | `GET /api/platform/payments/summary` |
@@ -408,13 +427,28 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 
 ---
 
+### Nghiệm thu UC-FE19-03 (D16)
+
+| Mã | Given / When | Then | Tầng / bằng chứng |
+|---|---|---|---|
+| TC-19-40 | Owner hiện tại đọc lịch sử trại, gồm yêu cầu do người khác tạo; mọi trạng thái dịch vụ | Đủ lịch sử đúng trại; chỉ đọc, không thay Subscription/Payment/trạng thái dịch vụ | H2 + PostgreSQL: currentOwnerSeesFarmHistoryRegardlessOfRequesterAndServiceStateWithoutWrites |
+| TC-19-41 | Tìm một phần mã khác hoa/thường, khoảng ngày tại 00:00 và cuối ngày Việt Nam, hoặc chỉ một đầu ngày | Kết quả kết hợp đúng; ký tự %/_ là chữ tìm literal; không cắt bỏ ngày đến | H2 + PostgreSQL: combinesLiteralCaseInsensitiveSearchAndInclusiveVietnamCreatedDates |
+| TC-19-42 | Có 23 yêu cầu cùng thời điểm tạo | Trang đầu 20, trang sau 3; thứ tự ổn định; sort hai cột thời gian đúng | H2 + PostgreSQL: pagesAfterFilteringAndUsesStableSortingForBothTimestampColumns; FE pagination |
+| TC-19-43 | PENDING đúng expiresAt, JOB-03 chưa chạy; lọc trạng thái | Xuất hiện trong EXPIRED, không trong PENDING; stored state vẫn PENDING sau GET | H2 + PostgreSQL: filtersByEffectiveExpiryBeforePagingWithoutUpdatingStoredState |
+| TC-19-44 | Sai khoảng ngày, enum/sort/page (kể cả page vượt 107374182), quá 100 ký tự; sai role/trại hoặc mất quyền | Từ chối đúng code/quyền (page tràn là 400 MSG-COM-10, không phải 500); không lộ dữ liệu; FE báo MSG-COM-11 dưới ô "Tạo đến", không gọi HTTP, giữ danh sách hợp lệ gần nhất | H2 + PostgreSQL: rejectsInvalidRangesEnumsSortPageAndLongSearch, guardsListsAndDetailsAgainstRolesOtherFarmsAndRevokedMembership; FE validation |
+| TC-19-45 | PAID/EXPIRED và dữ liệu cũ thiếu mốc ngân hàng | Panel chỉ đọc đủ trường, ba mốc đến giây độc lập; null hiện “—”; numeric id cho API | H2 + PostgreSQL: detailAndListPreserveStoredSecondsSnapshotsAndNullLegacyFields; FE detail |
+| TC-19-46 | Owner tìm mã → Mở lại SCR-59 → Đóng hướng dẫn về SCR-60 | Đúng yêu cầu/trại, giữ filter, tải lại danh sách; đổi trại không dùng filter/dữ liệu trại cũ | FE subscriptionHistoryBackend.test.tsx; runtime MOCK ghi riêng trong review |
+| TC-19-47 | Để SCR-60 đứng yên, bấm Làm mới; danh sách rỗng/lỗi | Không polling; có manual refresh/retry; phân biệt chưa có thanh toán và không khớp filter; không fallback demo | FE subscriptionHistoryBackend.test.tsx; OpenApiContractTest cho schema page |
+| TC-19-48 | Trang 20 dòng, mỗi dòng có chứng từ riêng (đã phân bổ, chưa phân bổ khác hoa/thường, sai tài khoản) | Mỗi dòng nhận đúng mốc của chứng từ của mình, list = detail; số câu SQL của trang 20 dòng không tăng so với 3 dòng; PostgreSQL có và dùng được `ix_evidence_quote_ref_upper` | H2 + PostgreSQL: listReadsEvidenceInOneBatchAndMatchesEachRowToItsOwnEvidence; PostgreSQL: upperQuoteRefIndexServesTheBatchedEvidenceLookup |
+| TC-19-49 | Gõ nhanh nhiều ký tự; bấm Làm mới; mở Xem ở trang 20 dòng | Một request sau khi ngừng gõ; bảng giữ nguyên khi tải lại; panel chi tiết được cuộn tới và nhận focus | FE subscriptionHistoryBackend.test.tsx |
+
 ## 10. Điểm SRS chưa rõ
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
 | Q1 | Rút phiên bản đã lên lịch chưa có route | Thêm A14 |
 | Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Bổ sung tham số `from, to` |
-| Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt theo Part III + GBR và luồng mục 5 (DucNV, 09/11/2026). UC-03, 04, 05 chưa chốt |
+| Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt theo Part III + GBR; UC-03 chốt luồng mục 5 theo D16 ngày 09/11/2026. UC-04, 05 chưa chốt |
 | Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định |
 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |
 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Đã chốt DucNV 09/11/2026 (D14): làm tròn xuống theo số ngày tròn 24 giờ; còn 23 giờ → 0 ngày, vẫn có bao phủ tới end; không có kỳ hiện tại → "—" |
