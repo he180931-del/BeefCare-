@@ -23,6 +23,9 @@ public interface BankTransferEvidenceRepository extends JpaRepository<BankTransf
     List<BankTransferEvidence> findAllByUpperQuoteRefIn(@Param("quoteRefs") List<String> quoteRefs);
     List<BankTransferEvidence> findAllByReviewStatusIgnoreCaseOrderByBankPaidAtAscIdAsc(String status);
     List<BankTransferEvidence> findAllByPayment_Subscription_Farm_IdOrderByBankPaidAtDescIdDesc(Long farmId);
+    /** API-03 period lookup: which listed SePay transactions are already stored as evidence (BR-D24 identity). */
+    List<BankTransferEvidence> findAllByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnIdIn(
+        String provider, String environment, String accountNamespace, List<Long> providerTxnIds);
     List<BankTransferEvidence> findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

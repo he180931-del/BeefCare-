@@ -103,8 +103,9 @@ public class BankTransferEvidence implements Serializable {
     @Column(name = "review_status", length = 30, nullable = false)
     private String reviewStatus;
 
-    @Size(max = 500)
-    @Column(name = "review_reason", length = 500)
+    /** D19: SCR-62 "Reason and evidence references", up to 1,000 characters. */
+    @Size(max = 1000)
+    @Column(name = "review_reason", length = 1000)
     private String reviewReason;
 
     @Column(name = "locked_for_return", nullable = false)
@@ -117,6 +118,10 @@ public class BankTransferEvidence implements Serializable {
     @Size(max = 500)
     @Column(name = "return_result", length = 500)
     private String returnResult;
+
+    /** D19: date the money was returned outside BeefCare (Asia/Ho_Chi_Minh); recorded once. */
+    @Column(name = "return_date")
+    private java.time.LocalDate returnDate;
 
     @Version
     @Column(name = "version", nullable = false)
@@ -265,6 +270,8 @@ public class BankTransferEvidence implements Serializable {
     public void setReturnReference(String returnReference) { this.returnReference = returnReference; }
     public String getReturnResult() { return returnResult; }
     public void setReturnResult(String returnResult) { this.returnResult = returnResult; }
+    public java.time.LocalDate getReturnDate() { return returnDate; }
+    public void setReturnDate(java.time.LocalDate returnDate) { this.returnDate = returnDate; }
     public Long getVersion() { return version; }
     public void setVersion(Long version) { this.version = version; }
     public String getPayloadHash() { return payloadHash; }

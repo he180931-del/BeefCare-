@@ -82,12 +82,25 @@ class OpenApiContractTest {
         assertThat(evidenceRow.has("transactionId")).isFalse();
         assertThat(allowsNull(evidenceRow.path("receivingAccountMatches"))).isTrue();
         // The strict SCR-62 adapter accepts only declared values; unknown stored states are read as PROCESSING.
-        assertThat(evidenceRow.path("reviewStatus").path("enum").toString()).contains("TO_REVIEW", "LOCKED", "PROCESSING");
+        assertThat(evidenceRow.path("reviewStatus").path("enum").toString()).contains("TO_REVIEW", "LOCKED", "PROCESSING", "NO_ACTION");
         assertThat(evidenceRow.path("matchResult").path("enum").toString()).contains("PAID_AUTO", "EXACT_CODE", "ACCOUNT_MISMATCH");
         JsonNode evidenceDetail = api.path("components").path("schemas").path("PlatformBankEvidenceDetail").path("properties");
         assertThat(evidenceDetail.has("history")).isTrue();
         assertThat(evidenceDetail.has("transactionId")).isTrue();
         assertThat(allowsNull(evidenceDetail.path("firstReceivedAt"))).isTrue();
+        // D19 / UC6: keyed reconciliation commands, one reason field, dated return, period lookup and return state on detail.
+        for (String command : java.util.List.of("review", "lock-return", "record-return", "unlock-return")) {
+            assertThat(paths.path("/api/platform/payments/evidence/{evidenceId}/" + command).path("post").path("parameters").toString())
+                .as(command).contains("Idempotency-Key");
+        }
+        JsonNode reviewBody = api.path("components").path("schemas").path("Review").path("properties");
+        assertThat(reviewBody.has("references")).isFalse();
+        assertThat(reviewBody.path("reason").path("maxLength").asInt()).isEqualTo(1000);
+        assertThat(api.path("components").path("schemas").path("ReturnResult").path("properties").has("returnDate")).isTrue();
+        assertThat(paths.path("/api/platform/payments/lookup").path("get").path("parameters").toString()).contains("\"from\"", "\"to\"");
+        for (String field : java.util.List.of("returnReference", "returnDate", "returnResult")) {
+            assertThat(allowsNull(evidenceDetail.path(field))).as("UC6 nullable " + field).isTrue();
+        }
         JsonNode pmPayment = api.path("components").path("schemas").path("PlatformPaymentRead").path("properties");
         for (String field : java.util.List.of("evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt")) {
             assertThat(allowsNull(pmPayment.path(field))).as("UC5 nullable " + field).isTrue();

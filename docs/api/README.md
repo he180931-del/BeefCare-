@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **219 paths, 268 operations, 294 schemas**, regenerated 10 November 2026 from the UC5 working tree after `OpenApiContractTest` passed. UC5 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md`; this count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
+Current contract: **220 paths, 269 operations, 296 schemas**, regenerated 10 November 2026 from the UC6 working tree after `OpenApiContractTest` passed. UC5 and UC6 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` and `docs/reviews/FE19_UC06_REVIEW.md`; this count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -28,6 +28,16 @@ After the UC5 review (same day, counts unchanged): `reviewStatus`,
 states read as `PROCESSING`); history `action` is a PM decision or a documented
 event code (`EVIDENCE_RECEIVED`, `EVIDENCE_AUTO_ACCEPTED`, ...), never a raw
 audit action; account checks and candidates use the ingestion/ACCEPT rule.
+
+UC6 / D19 contract change (10 November 2026): the four reconciliation commands
+(`POST .../evidence/{evidenceId}/review`, `lock-return`, `record-return`,
+`unlock-return`) require `Idempotency-Key` and the evidence `version`. `Review`
+has one `reason` field (max 1,000, no `references`); `ReturnResult` adds the
+required `returnDate`. Blocked acceptance is 409 `MSG-FE19-11` with
+`params.reason`; stale version or state is 409 `MSG-COM-05`. New read-only
+`GET .../lookup?from&to` lists SePay transactions for at most 31 days and 200
+rows. Evidence detail adds `returnReference`, `returnDate`, `returnResult`;
+history adds `returnDate` and the decisions LOCK / UNLOCK / RETURN_VERIFIED. D20: an unresolved outgoing transfer reads as `NO_ACTION` and is not counted or filtered as TO_REVIEW.
 
 ## Browser authentication
 

@@ -265,6 +265,30 @@ class PlatformPaymentReadResourceTest extends DomainTestSupport {
     }
 
     @Test
+    void outgoingTransfersAreNotQueuedForReviewButStayVisibleUnderAll() throws Exception {
+        // D20: SRS 2447 lists only incoming problems as "needing review"; money sent out can never fund a request.
+        AppUser pm = staff("PM"); Instant bank = Instant.parse("2026-09-20T03:00:00Z");
+        JsonNode before = body(read(pm, "/summary"));
+        BankTransferEvidence incoming = evidence("UNMATCHED", bank, null);
+        BankTransferEvidence outgoing = evidence("UNMATCHED", bank, null); outgoing.setTransferDirection("OUT");
+        BankTransferEvidence outgoingHeld = evidence("HOLD", bank, null); outgoingHeld.setTransferDirection("OUT");
+        em.flush(); em.clear();
+        JsonNode tiles = body(read(pm, "/summary"));
+        assertThat(tiles.path("evidenceToReview").asLong() - before.path("evidenceToReview").asLong()).isEqualTo(1);
+        assertThat(tiles.path("hold").asLong() - before.path("hold").asLong()).isEqualTo(1);
+        String day = "&bankFrom=2026-09-20&bankTo=2026-09-20";
+        assertThat(ids(body(read(pm, "/evidence?status=TO_REVIEW" + day)))).containsExactly(incoming.getId());
+        JsonNode all = body(read(pm, "/evidence?status=ALL" + day));
+        assertThat(ids(all)).contains(outgoing.getId(), outgoingHeld.getId());
+        for (JsonNode row : all.path("items")) {
+            long id = row.path("id").asLong();
+            if (id == outgoing.getId()) assertThat(row.path("reviewStatus").asText()).isEqualTo("NO_ACTION");
+            if (id == outgoingHeld.getId()) assertThat(row.path("reviewStatus").asText()).isEqualTo("HOLD");
+            if (id == incoming.getId()) assertThat(row.path("reviewStatus").asText()).isEqualTo("TO_REVIEW");
+        }
+    }
+
+    @Test
     void historyNamesIngestionEventsWithDocumentedCodesInsteadOfAuditActions() throws Exception {
         AppUser pm = staff("PM"); Instant now = clock.instant();
         Payment p = payment("BCUC5AUTOHIST", "PAID", now.minusSeconds(100), now.plusSeconds(100)); p.setConfirmationSource("SEPAY");

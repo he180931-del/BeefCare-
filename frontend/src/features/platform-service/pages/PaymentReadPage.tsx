@@ -1,7 +1,9 @@
-import { useEffect, useState, type DependencyList } from 'react'
+import { useEffect, useRef, useState, type DependencyList } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, Metric, PageHeader, Pagination, Segmented, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, Metric, Note, PageHeader, Pagination, Segmented, Table, Td, Th, inputCls } from '../../../components/ui'
+import EvidenceActions, { type ActionDraft } from '../components/EvidenceActions'
+import SePayLookup from '../components/SePayLookup'
 import { useQuery } from '../../../hooks/useApi'
 import { userFacingError } from '../../../api/userFacingError'
 import { useSession } from '../../authorization'
@@ -15,7 +17,8 @@ const EVIDENCE: EvidenceReadFilters = { status: 'ALL', bankFrom: '', bankTo: '',
 const PAYMENTS: PaymentReadFilters = { q: '', state: '', page: 0 }
 /** PlatformEvidenceHistory.action: PM decisions plus the documented event codes (never raw audit action names). */
 const HISTORY_LABEL: Record<string, string> = {
-  ACCEPT: 'Chấp nhận', HOLD: 'Tạm giữ', REJECT: 'Từ chối', EVIDENCE_RECEIVED: 'Tiếp nhận chứng từ', EVIDENCE_AUTO_ACCEPTED: 'Tự động chấp nhận',
+  ACCEPT: 'Chấp nhận', HOLD: 'Tạm giữ', REJECT: 'Từ chối', LOCK: 'Khóa hoàn trả', UNLOCK: 'Mở khóa hoàn trả', RETURN_VERIFIED: 'Xác minh hoàn trả',
+  EVIDENCE_RECEIVED: 'Tiếp nhận chứng từ', EVIDENCE_AUTO_ACCEPTED: 'Tự động chấp nhận',
   EVIDENCE_LOCK_RETURN: 'Khóa hoàn trả', EVIDENCE_RETURN_UNLOCK: 'Mở khóa hoàn trả', EVIDENCE_RETURN_RECORDED: 'Ghi nhận hoàn trả',
 }
 const invalidRange = (f: EvidenceReadFilters) => !!(f.bankFrom && f.bankTo && f.bankFrom > f.bankTo)
@@ -49,8 +52,10 @@ function useReadPage<T>(load: () => Promise<ReadPage<T>>, deps: DependencyList) 
   return { ...result, loading: result.loading || result.query !== deps[0] }
 }
 
-function EvidencePanel({ id, refresh }: { id: number; refresh: number }) {
+function EvidencePanel({ id, refresh, onDone, onStale }: { id: number; refresh: number; onDone: (message: string) => void; onStale: (message: string) => void }) {
   const result = useQuery(() => Promise.all([api.evidenceDetail(id), api.candidates(id)]), [id, refresh])
+  // What the PM was typing when the evidence changed meanwhile (MSG-COM-05); restored into the reloaded form.
+  const draft = useRef<ActionDraft | null>(null)
   if (result.loading && !result.data) return <LoadingBlock />
   if (result.error || !result.data) return <ErrorBlock message={userFacingError(result.error, 'Không tải được chứng từ.')} onRetry={result.refetch} />
   const [e, candidates] = result.data
@@ -68,18 +73,17 @@ function EvidencePanel({ id, refresh }: { id: number; refresh: number }) {
       ]} />
       {r.paymentId && <Link className="mt-3 inline-flex font-semibold text-brand underline" to={paymentLink(r.paymentId)}>Xem thanh toán {r.paymentCode}</Link>}
     </Card>
-    <div className="mt-4"><Card title="Yêu cầu ứng viên">
-      {candidates.length === 0 ? <p className="text-sm text-muted">Không có yêu cầu ứng viên.</p> : <Table stack={false}>
-        <caption className="sr-only">Yêu cầu ứng viên</caption><thead><tr><Th>Mã / Trại</Th><Th>Số tiền / Kỳ hạn</Th><Th>Hết hạn</Th></tr></thead>
-        <tbody>{candidates.map((c) => <tr key={c.paymentId}><Td><Link className="font-semibold text-brand underline" to={paymentLink(c.paymentId)}>{c.quoteRef}</Link><div>{c.farmName}</div></Td>
-          <Td>{fmtVnd(c.amount)}<div>{c.termYears} năm</div></Td><Td>{fmtSeconds(c.expiresAt)}</Td></tr>)}</tbody></Table>}
-    </Card></div>
     <div className="mt-4"><Card title="Lịch sử xử lý">
       {e.history.length === 0 ? <p className="text-sm text-muted">Chưa có lịch sử xử lý.</p> : <Table stack={false}>
         <caption className="sr-only">Lịch sử xử lý</caption><thead><tr><Th>Sự kiện / Thời điểm</Th><Th>Người xử lý</Th><Th>Lý do / Tham chiếu</Th></tr></thead>
         <tbody>{e.history.map((h) => <tr key={`${h.source}-${h.id}`}><Td>{HISTORY_LABEL[h.action] ?? 'Xử lý chứng từ'}<div>{fmtSeconds(h.at)}</div></Td><Td>{h.pmName ?? 'Hệ thống'}</Td>
-          <Td>{reasonText(h.reason) ?? '—'}{h.reference &&<div>Tham chiếu: {h.reference}</div>}{h.result && <div>Kết quả: {h.result}</div>}</Td></tr>)}</tbody></Table>}
+          <Td>{h.reason ? reasonText(h.reason) : h.reference || h.result || h.returnDate ? null : '—'}
+            {h.reference && <div>Tham chiếu: {h.reference}</div>}{h.result && <div>Kết quả: {h.result}</div>}
+            {h.returnDate && <div>Ngày hoàn trả: {fmtDate(h.returnDate)}</div>}</Td></tr>)}</tbody></Table>}
     </Card></div>
+    {/* The form restarts on each new version: a saved change starts empty, a stale reload keeps the PM's draft. */}
+    <EvidenceActions key={`${r.id}-${r.version}`} detail={e} candidates={candidates} draft={draft.current} paymentHref={paymentLink}
+      onDone={(message) => { draft.current = null; onDone(message) }} onStale={(message, kept) => { draft.current = kept; onStale(message) }} />
   </section>
 }
 
@@ -160,6 +164,7 @@ function Workbench({ account }: { account: string }) {
   const [search, setSearch] = useState(initial.payments.q)
   const [selected, setSelected] = useState<number | null>(idOf(params.get('evidenceId')) ?? (params.has('evidenceId') ? -1 : null))
   const [refresh, setRefresh] = useState(0)
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
   const tiles = useQuery(api.tiles, [refresh])
   const rangeError = invalidRange(controls)
   useEffect(() => { if (!rangeError) setEvidence(controls) }, [controls, rangeError])
@@ -175,6 +180,10 @@ function Workbench({ account }: { account: string }) {
   }, [params])
   const reload = () => setRefresh((v) => v + 1)
   const choose = (id: number) => { setSelected(id); setParams({ evidenceId: String(id) }, { replace: true }) }
+  // UC6 commands: show the result once, then reload the evidence, the list and the global counts (no polling).
+  const done = (text: string) => { setNotice({ tone: 'ok', text }); reload() }
+  const stale = (text: string) => { setNotice({ tone: 'warn', text }); reload() }
+  const open = (id: number) => { setTab('evidence'); choose(id); reload() }
   const changeEvidence = (patch: Partial<EvidenceReadFilters>) => {
     const next = { ...controls, page: 0, ...patch }
     setControls(next)
@@ -191,6 +200,9 @@ function Workbench({ account }: { account: string }) {
         <Metric label="Chứng từ cần xem" value={tiles.data?.evidenceToReview ?? '—'} />
         <Metric label="Đang tạm giữ" value={tiles.data?.hold ?? '—'} /><Metric label="Khóa hoàn trả" value={tiles.data?.lockedForReturn ?? '—'} />
       </div>}
+    {notice && (notice.tone === 'ok'
+      ? <div role="status" aria-label="Kết quả thao tác" className="mb-4"><Note tone="ok">{notice.text}</Note></div>
+      : <div role="alert" className="mb-4"><Note tone="warn">{notice.text}</Note></div>)}
     <div className="mb-4"><Segmented value={tab} onChange={switchTab} options={[{ value: 'evidence', label: 'Chứng từ ngân hàng' }, { value: 'requests', label: 'Yêu cầu thanh toán' }]} /></div>
     {tab === 'evidence' ? <>
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -201,9 +213,10 @@ function Workbench({ account }: { account: string }) {
         <div className="w-[170px]"><label htmlFor="bank-to" className="text-xs text-muted">Ngày ngân hàng đến</label><DateInput id="bank-to" label="Ngày ngân hàng đến" value={controls.bankTo} onChange={(bankTo) => changeEvidence({ bankTo })} />
           {rangeError && <p role="alert" className="mt-1 text-xs text-err-fg">Ngày bắt đầu không được sau ngày kết thúc.</p>}</div>
       </div>
+      <SePayLookup onDone={done} onOpen={open} />
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
         <EvidenceList filters={evidence} refresh={refresh} selected={selected} choose={choose} preview={setSelected} changePage={(page) => changeEvidence(page < 0 ? EVIDENCE : { page })} clampPage={clampEvidencePage} reload={reload} />
-        {params.has('evidenceId') && idOf(params.get('evidenceId')) === null ? <p role="alert">Mã chứng từ không hợp lệ.</p> : selected && <EvidencePanel key={selected} id={selected} refresh={refresh} />}
+        {params.has('evidenceId') && idOf(params.get('evidenceId')) === null ? <p role="alert">Mã chứng từ không hợp lệ.</p> : selected && <EvidencePanel key={selected} id={selected} refresh={refresh} onDone={done} onStale={stale} />}
       </div>
     </> : <>
       <div className="mb-4 flex flex-wrap gap-3"><input className={`${inputCls} w-[280px] max-w-full`} maxLength={100} aria-label="Tìm mã thanh toán hoặc tên trại" placeholder="Mã thanh toán / tên trại…" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -212,7 +225,7 @@ function Workbench({ account }: { account: string }) {
         </FilterSelect></div>
       <PaymentList filters={payments} refresh={refresh} changePage={(page) => { if (page < 0) { setSearch(''); setPayments(PAYMENTS) } else setPayments((old) => ({ ...old, page })) }} reload={reload} />
     </>}
-    <Foot>Chọn chứng từ để xem nguồn ngân hàng, yêu cầu liên quan và lịch sử xử lý. Các số tổng hợp áp dụng toàn hệ thống.</Foot>
+    <Foot>Chọn chứng từ để xem nguồn ngân hàng, yêu cầu liên quan, lịch sử và xử lý đối soát. Các số tổng hợp áp dụng toàn hệ thống.</Foot>
   </Layout>
 }
 

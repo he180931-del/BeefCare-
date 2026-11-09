@@ -11,11 +11,13 @@ export interface EvidenceRow {
 }
 export interface EvidenceHistory {
   id: number; source: 'REVIEW' | 'EVENT'; action: string; reason: string | null; reference: string | null; result: string | null
-  pmId: number | null; pmName: string | null; at: string
+  returnDate: string | null; pmId: number | null; pmName: string | null; at: string
 }
 export interface EvidenceDetail {
   summary: EvidenceRow; transactionId: string; receivingAccount: string | null; bank: string | null; referenceCode: string | null
-  quoteRef: string | null; firstReceivedAt: string | null; history: EvidenceHistory[]
+  quoteRef: string | null; firstReceivedAt: string | null
+  /** D19: the recorded return (once, immutable); null while not returned. */
+  returnReference: string | null; returnDate: string | null; returnResult: string | null; history: EvidenceHistory[]
 }
 export interface PaymentRead extends SourcePayment {
   evidenceId: number | null; confirmedAt: string | null; confirmationSource: string | null; bankPaidAt: string | null; receivedAt: string | null
@@ -33,14 +35,15 @@ const nullableText = (v: unknown): v is string | null => v === null || text(v)
 const instant = (v: unknown): v is string => text(v) && /(?:Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v))
 const nullableInstant = (v: unknown) => v === null || instant(v)
 const nullableId = (v: unknown) => v === null || id(v)
+const nullableDate = (v: unknown) => v === null || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v))
 const money = (v: unknown) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0
-const statuses = ['TO_REVIEW', 'HOLD', 'REJECTED', 'ACCEPTED', 'LOCKED', 'PROCESSING']
+const statuses = ['TO_REVIEW', 'HOLD', 'REJECTED', 'ACCEPTED', 'LOCKED', 'PROCESSING', 'NO_ACTION']
 export const MATCH_TEXT: Record<string, string> = {
   PAID_AUTO: 'Tự động xác nhận · PAID', PAID_PM: 'PM xác nhận · PAID', PAID: 'Đã xác nhận · PAID', EXACT_CODE: 'Khớp mã · chờ xác nhận',
   CODE_MISMATCH: 'Mã không khớp', NO_REQUEST: 'Không có yêu cầu', REQUEST_EXPIRED: 'Giờ ngân hàng sau hạn yêu cầu',
   OUTSIDE_WINDOW: 'Giờ ngân hàng trước yêu cầu', AMOUNT_MISMATCH: 'Sai số tiền', OUTGOING: 'Chuyển ra', ACCOUNT_MISMATCH: 'Sai tài khoản nhận', ALREADY_ALLOCATED: 'Yêu cầu đã có chứng từ',
 }
-export const REVIEW_TEXT: Record<string, string> = { TO_REVIEW: 'Cần xem', HOLD: 'Tạm giữ', REJECTED: 'Từ chối', ACCEPTED: 'Đã chấp nhận', LOCKED: 'Khóa hoàn trả', PROCESSING: 'Đang xử lý' }
+export const REVIEW_TEXT: Record<string, string> = { TO_REVIEW: 'Cần xem', HOLD: 'Tạm giữ', REJECTED: 'Từ chối', ACCEPTED: 'Đã chấp nhận', LOCKED: 'Khóa hoàn trả', PROCESSING: 'Đang xử lý', NO_ACTION: 'Không cần xử lý' }
 export const CONFIRMATION_SOURCE_TEXT: Record<string, string> = { SEPAY: 'Tự động qua SePay', PM: 'PM xác nhận' }
 /** Fixed reasons written by SePayWebhookService during ingestion/settlement; PM-entered reasons are shown as stored. */
 const SYSTEM_REASON_TEXT: Record<string, string> = {
@@ -86,13 +89,14 @@ function readPage<T>(value: unknown, parse: (v: unknown) => T): ReadPage<T> {
 function history(value: unknown): EvidenceHistory {
   const h = asRecord(value)
   if (!id(h.id) || !['REVIEW', 'EVENT'].includes(h.source as string) || !text(h.action) || !instant(h.at)
-    || !['reason', 'reference', 'result', 'pmName'].every((key) => nullableText(h[key])) || !nullableId(h.pmId)) throw invalid()
+    || !['reason', 'reference', 'result', 'pmName'].every((key) => nullableText(h[key])) || !nullableDate(h.returnDate) || !nullableId(h.pmId)) throw invalid()
   return h as unknown as EvidenceHistory
 }
 function detail(value: unknown): EvidenceDetail {
   const e = asRecord(value)
   if (!text(e.transactionId) || !/^\d+$/.test(e.transactionId) || !['receivingAccount', 'bank', 'referenceCode', 'quoteRef'].every((key) => nullableText(e[key]))
-    || !nullableInstant(e.firstReceivedAt) || !Array.isArray(e.history)) throw invalid()
+    || !nullableInstant(e.firstReceivedAt) || !nullableText(e.returnReference) || !nullableDate(e.returnDate) || !nullableText(e.returnResult)
+    || !Array.isArray(e.history)) throw invalid()
   return { ...e, summary: evidenceRow(e.summary), history: e.history.map(history) } as unknown as EvidenceDetail
 }
 function candidates(value: unknown): CandidateRead[] {

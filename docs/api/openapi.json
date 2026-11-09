@@ -1919,6 +1919,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -1955,6 +1962,13 @@
           "schema" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -1993,6 +2007,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -2029,6 +2050,13 @@
           "schema" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -8834,6 +8862,41 @@
         }
       }
     },
+    "/api/platform/payments/lookup" : {
+      "get" : {
+        "tags" : [ "platform-payment-resource" ],
+        "operationId" : "lookupPeriod",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SePayLookupPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/platform/payments/evidence" : {
       "get" : {
         "tags" : [ "platform-payment-resource" ],
@@ -14613,15 +14676,13 @@
         "properties" : {
           "reason" : {
             "type" : "string",
-            "maxLength" : 500,
-            "minLength" : 0
+            "maxLength" : 1000
           },
           "version" : {
             "type" : "integer",
             "format" : "int64"
           }
-        },
-        "required" : [ "version" ]
+        }
       },
       "EvidenceDTO" : {
         "type" : "object",
@@ -14687,6 +14748,10 @@
           "version" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "returnDate" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -14695,44 +14760,46 @@
         "properties" : {
           "decision" : {
             "type" : "string",
-            "maxLength" : 20,
-            "minLength" : 0
+            "enum" : [ "ACCEPT", "HOLD", "REJECT" ]
           },
           "paymentId" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "Required for ACCEPT unless the evidence payment code is exact"
           },
           "reason" : {
             "type" : "string",
-            "maxLength" : 500,
-            "minLength" : 0
+            "description" : "Reason and evidence references (one field)",
+            "maxLength" : 1000
           },
           "version" : {
             "type" : "integer",
             "format" : "int64"
           }
-        },
-        "required" : [ "version" ]
+        }
       },
       "ReturnResult" : {
         "type" : "object",
         "properties" : {
           "reference" : {
             "type" : "string",
-            "maxLength" : 255,
-            "minLength" : 0
+            "description" : "Outgoing bank reference",
+            "maxLength" : 255
+          },
+          "returnDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "Date returned (Asia/Ho_Chi_Minh), not in the future nor before the bank-paid date"
           },
           "result" : {
             "type" : "string",
-            "maxLength" : 500,
-            "minLength" : 0
+            "maxLength" : 500
           },
           "version" : {
             "type" : "integer",
             "format" : "int64"
           }
-        },
-        "required" : [ "version" ]
+        }
       },
       "Complete" : {
         "type" : "object",
@@ -18697,6 +18764,66 @@
           }
         }
       },
+      "SePayLookupPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SePayLookupRow"
+            }
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "At most this many rows are returned"
+          }
+        }
+      },
+      "SePayLookupRow" : {
+        "type" : "object",
+        "properties" : {
+          "transactionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bankPaidAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "direction" : {
+            "type" : "string",
+            "enum" : [ "IN", "OUT" ]
+          },
+          "content" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "referenceCode" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "evidenceId" : {
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int64",
+              "description" : "Stored evidence of this transaction, if any"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Stored evidence of this transaction, if any"
+          }
+        }
+      },
       "PagePlatformBankEvidenceRow" : {
         "type" : "object",
         "properties" : {
@@ -18762,7 +18889,7 @@
           },
           "reviewStatus" : {
             "type" : "string",
-            "enum" : [ "TO_REVIEW", "HOLD", "REJECTED", "ACCEPTED", "LOCKED", "PROCESSING" ]
+            "enum" : [ "TO_REVIEW", "HOLD", "REJECTED", "ACCEPTED", "LOCKED", "PROCESSING", "NO_ACTION" ]
           },
           "matchResult" : {
             "type" : "string",
@@ -18848,6 +18975,28 @@
               "type" : "null"
             } ]
           },
+          "returnReference" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "returnDate" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "returnResult" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
           "history" : {
             "type" : "array",
             "items" : {
@@ -18888,6 +19037,14 @@
           "result" : {
             "anyOf" : [ {
               "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "returnDate" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date"
             }, {
               "type" : "null"
             } ]
@@ -18949,13 +19106,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -18974,6 +19131,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -18982,10 +19143,6 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -19002,19 +19159,19 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "unpaged" : {
             "type" : "boolean"
           },
           "paged" : {
             "type" : "boolean"
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -19364,13 +19521,13 @@
       "PageAuditEntry" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -19389,6 +19546,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -19398,10 +19559,6 @@
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "empty" : {
             "type" : "boolean"
           }
@@ -19410,13 +19567,13 @@
       "PageAccountSummary" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -19435,6 +19592,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -19443,10 +19604,6 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -21130,13 +21287,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "token" : {
-            "type" : "string"
-          },
           "parameterName" : {
             "type" : "string"
           },
           "headerName" : {
+            "type" : "string"
+          },
+          "token" : {
             "type" : "string"
           }
         }

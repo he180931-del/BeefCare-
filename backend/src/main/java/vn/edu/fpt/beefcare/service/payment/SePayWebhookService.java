@@ -45,6 +45,7 @@ import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.NotificationService;
 import vn.edu.fpt.beefcare.service.PlatformAccessService;
 import vn.edu.fpt.beefcare.service.JsonSupport;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 
 /** Authenticated SePay ingestion and the common, serialized payment confirmation rules. */
 @Service
@@ -52,6 +53,9 @@ public class SePayWebhookService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final Pattern QUOTE = Pattern.compile("(?i)(?<![A-Z0-9])(BC[A-Z0-9]{12})(?![A-Z0-9])");
     private static final DateTimeFormatter SEPAY_LOCAL_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final int REASON_MAX = 1000;
+    private static final int LOOKUP_MAX_DAYS = 31;
+    private static final int LOOKUP_LIMIT = 200;
 
     private final SePaySignatureVerifier signatures;
     private final SePayTransactionLookupClient lookupClient;
@@ -149,114 +153,194 @@ public class SePayWebhookService {
         return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming));
     }
 
+    /** API-03 by period (D19): SePay rows of the receiving account; read-only, the PM stores a row by its ID. */
+    public LookupPage lookupPeriod(java.time.LocalDate from, java.time.LocalDate to) {
+        platformAccess.requireRole(PlatformRole.PM);
+        if (from == null) throw DomainException.required("from");
+        if (to == null) throw DomainException.required("to");
+        if (from.isAfter(to)) throw DomainException.badRequest(MessageCodes.COM_11, "field", "to");
+        if (to.isAfter(from.plusDays(LOOKUP_MAX_DAYS - 1L))) throw DomainException.invalid("to");
+        if (!StringUtils.hasText(receivingAccount)) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "SePay lookup is not configured");
+        java.util.List<IncomingTransfer> rows = lookupClient.list(from.atStartOfDay(BUSINESS_ZONE).toInstant(),
+            to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant(), receivingAccount.trim(), LOOKUP_LIMIT).stream().map(this::transfer).toList();
+        java.util.Map<Long, Long> stored = new java.util.HashMap<>();
+        if (!rows.isEmpty()) {
+            evidenceRepository.findAllByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnIdIn("SEPAY", storedEnvironment(environment),
+                storedNamespace(accountNamespace), rows.stream().map(IncomingTransfer::transactionId).toList())
+                .forEach(e -> stored.put(e.getProviderTxnId(), e.getId()));
+        }
+        return new LookupPage(rows.stream().map(r -> new LookupRow(r.transactionId(), r.paidAt(), r.amount(), r.direction(), r.content(),
+            r.referenceCode(), stored.get(r.transactionId()))).toList(), LOOKUP_LIMIT);
+    }
+
+    /**
+     * UC-FE19-06 PM decision (D19). ACCEPT re-runs the shared GBR-72/GBR-84 confirmation serialized per farm; HOLD and
+     * REJECT keep the evidence unresolved. Every decision is one immutable evidence_review row plus audit.
+     */
     @Transactional
     public EvidenceDTO review(Long evidenceId, ReviewCommand command) {
         var actor = platformAccess.requireRole(PlatformRole.PM).user();
-        if (command == null || !StringUtils.hasText(command.decision()) || !StringUtils.hasText(command.reason())) {
-            throw DomainException.required("decision and reason");
-        }
-        if (command.reason().trim().length() > 500) throw DomainException.invalid("reason");
-        BankTransferEvidence evidence = evidenceRepository.lockById(evidenceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        verifyVersion(command.version(), evidence.getVersion());
-        if (evidence.isLockedForReturn()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Evidence is locked for return");
-        if ("ACCEPTED".equalsIgnoreCase(evidence.getReviewStatus())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Evidence is already accepted");
-
-        String decision = command.decision().trim().toUpperCase(Locale.ROOT);
+        String decision = command == null || !StringUtils.hasText(command.decision()) ? null : command.decision().trim().toUpperCase(Locale.ROOT);
+        if (decision == null) throw DomainException.required("decision");
         if (!java.util.Set.of("ACCEPT", "HOLD", "REJECT").contains(decision)) throw DomainException.invalid("decision");
-        Payment payment = null;
+        String reason = reason(command.reason());
+        BankTransferEvidence evidence = lockedEvidence(evidenceId, command.version());
+        if (evidence.getPayment() != null || "ACCEPTED".equalsIgnoreCase(evidence.getReviewStatus())) throw blocked("EVIDENCE_ALLOCATED");
+        if (evidence.isLockedForReturn() || "LOCKED_FOR_RETURN".equalsIgnoreCase(evidence.getReviewStatus())) throw blocked("LOCKED_FOR_RETURN");
+
+        Instant now = clock.now();
         Farm farm = null;
         if ("ACCEPT".equals(decision)) {
-            if (command.paymentId() == null) throw DomainException.required("paymentId");
-            payment = payments.findById(command.paymentId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-            Long farmId = payment.getSubscription().getFarm().getId();
-            farm = farms.lockById(farmId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-            Subscription subscription = subscriptions.lockByFarmId(farmId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-            payment = payments.lockById(payment.getId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-            if (evidenceRepository.existsByPayment_Id(payment.getId())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Payment already has allocated evidence");
-            IncomingTransfer transfer = new IncomingTransfer(
-                evidence.getProviderTxnId(), evidence.getAmount(), evidence.getBankPaidAt(), evidence.getTransferDirection(),
-                evidence.getReceivingAccount(), evidence.getTransferContent(), evidence.getGateway(), evidence.getReferenceCode(), evidence.getQuoteRef()
-            );
-            String invalid = eligibilityReason(payment, transfer);
-            if (invalid == null && (!subscription.getFarm().getId().equals(farmId) ||
-                !java.util.Objects.equals(payment.getReceivingEnvironment(), evidence.getEnvironment()) ||
-                !java.util.Objects.equals(payment.getReceivingAccountNamespace(), evidence.getAccountNamespace()) ||
-                !sameAccount(payment.getReceivingAccount(), evidence.getReceivingAccount()))) {
-                invalid = "Evidence does not match the request's receiving account";
-            }
-            if (invalid != null) throw new ResponseStatusException(HttpStatus.CONFLICT, invalid);
-            confirm(payment, subscription, farm, evidence, transfer, actor, "PM_ACCEPT", command.reason().trim());
+            if (!"IN".equalsIgnoreCase(evidence.getTransferDirection())) throw blocked("OUTGOING");
+            Long paymentId = command.paymentId() != null ? command.paymentId() : exactRequest(evidence);
+            Payment selected = payments.findById(paymentId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+            Long farmId = selected.getSubscription().getFarm().getId();
+            farm = farms.lockById(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+            Subscription subscription = subscriptions.lockByFarmId(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+            Payment payment = payments.lockById(selected.getId()).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+            String rule = acceptanceBlock(payment, evidence);
+            if (rule != null) throw blocked(rule);
+            confirm(payment, subscription, farm, evidence, storedTransfer(evidence), actor, "PM_ACCEPT", reason);
         } else {
             evidence.setReviewStatus("HOLD".equals(decision) ? "HOLD" : "REJECTED");
-            evidence.setReviewReason(command.reason().trim());
+            evidence.setReviewReason(reason);
             evidenceRepository.saveAndFlush(evidence);
         }
-        EvidenceReview review = new EvidenceReview();
-        review.setEvidence(evidence);
-        review.setPmUser(actor);
-        review.setDecision(decision);
-        review.setReason(command.reason().trim());
-        review.setReviewedAt(clock.now());
-        EvidenceReview savedReview = reviews.saveAndFlush(review);
-        audit(actor, "EVIDENCE_REVIEW", "EvidenceReview", savedReview.getId(), farm, Map.of(
+        EvidenceReview saved = saveReview(evidence, actor, decision, reason, now);
+        audit(actor, "EVIDENCE_REVIEW", "EvidenceReview", saved.getId(), farm, Map.of(
             "decision", decision,
             "evidenceId", evidence.getId(),
-            "paymentId", command.paymentId() == null ? 0L : command.paymentId(),
-            "reason", command.reason().trim()
-        ));
+            "paymentId", evidence.getPayment() == null ? 0L : evidence.getPayment().getId(),
+            "reason", reason
+        ), now);
         return EvidenceDTO.from(evidence);
     }
 
     @Transactional
     public EvidenceDTO lockForReturn(Long evidenceId, ReturnCommand command) {
         var actor = platformAccess.requireRole(PlatformRole.PM).user();
-        if (command == null || !StringUtils.hasText(command.reason())) throw DomainException.required("reason");
-        BankTransferEvidence evidence = evidenceRepository.lockById(evidenceId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        verifyVersion(command.version(), evidence.getVersion());
-        if ("ACCEPTED".equalsIgnoreCase(evidence.getReviewStatus()) || evidence.isLockedForReturn()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Evidence cannot be locked in its current state");
-        }
+        String reason = reason(command == null ? null : command.reason());
+        BankTransferEvidence evidence = lockedEvidence(evidenceId, command.version());
+        if (evidence.getPayment() != null || "ACCEPTED".equalsIgnoreCase(evidence.getReviewStatus())) throw stale("EVIDENCE_ALLOCATED");
+        if (evidence.isLockedForReturn()) throw stale("ALREADY_LOCKED");
+        if (!"IN".equalsIgnoreCase(evidence.getTransferDirection())) throw stale("OUTGOING");
+        Instant now = clock.now();
         evidence.setLockedForReturn(true);
         evidence.setReviewStatus("LOCKED_FOR_RETURN");
-        evidence.setReviewReason(command.reason().trim());
+        evidence.setReviewReason(reason);
         evidenceRepository.saveAndFlush(evidence);
-        audit(actor, "EVIDENCE_LOCK_RETURN", "BankTransferEvidence", evidence.getId(), null, Map.of("reason", command.reason().trim()));
+        saveReview(evidence, actor, "LOCK", reason, now);
+        audit(actor, "EVIDENCE_LOCK_RETURN", "BankTransferEvidence", evidence.getId(), null, Map.of("reason", reason), now);
         return EvidenceDTO.from(evidence);
     }
 
     @Transactional
     public EvidenceDTO recordReturn(Long evidenceId, ReturnResultCommand command) {
         var actor = platformAccess.requireRole(PlatformRole.PM).user();
-        if (command == null || !StringUtils.hasText(command.reference()) || !StringUtils.hasText(command.result())) {
-            throw DomainException.required("reference and result");
-        }
-        BankTransferEvidence evidence = evidenceRepository.lockById(evidenceId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        verifyVersion(command.version(), evidence.getVersion());
-        if (!evidence.isLockedForReturn()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Evidence is not locked for return");
-        evidence.setReturnReference(limit(command.reference().trim(), 255));
-        evidence.setReturnResult(limit(command.result().trim(), 500));
+        String reference = text(command == null ? null : command.reference(), "reference", 255);
+        if (command.returnDate() == null) throw DomainException.required("returnDate");
+        String result = text(command.result(), "result", 500);
+        BankTransferEvidence evidence = lockedEvidence(evidenceId, command.version());
+        if (!evidence.isLockedForReturn()) throw stale("NOT_LOCKED");
+        if (StringUtils.hasText(evidence.getReturnReference())) throw stale("ALREADY_RECORDED");
+        Instant now = clock.now();
+        if (command.returnDate().isAfter(now.atZone(BUSINESS_ZONE).toLocalDate())) throw DomainException.badRequest(MessageCodes.COM_07, "field", "returnDate");
+        if (command.returnDate().isBefore(evidence.getBankPaidAt().atZone(BUSINESS_ZONE).toLocalDate())) throw DomainException.invalid("returnDate");
+        evidence.setReturnReference(reference);
+        evidence.setReturnDate(command.returnDate());
+        evidence.setReturnResult(result);
         evidenceRepository.saveAndFlush(evidence);
+        saveReview(evidence, actor, "RETURN_VERIFIED", null, now);
         audit(actor, "EVIDENCE_RETURN_RECORDED", "BankTransferEvidence", evidence.getId(), null,
-            Map.of("reference", evidence.getReturnReference(), "result", evidence.getReturnResult()));
+            Map.of("reference", reference, "result", result, "returnDate", command.returnDate().toString()), now);
         return EvidenceDTO.from(evidence);
     }
 
     @Transactional
     public EvidenceDTO unlockReturn(Long evidenceId, ReturnCommand command) {
         var actor = platformAccess.requireRole(PlatformRole.PM).user();
-        if (command == null || !StringUtils.hasText(command.reason())) throw DomainException.required("reason");
-        BankTransferEvidence evidence = evidenceRepository.lockById(evidenceId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        verifyVersion(command.version(), evidence.getVersion());
-        if (!evidence.isLockedForReturn() || StringUtils.hasText(evidence.getReturnReference())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Evidence cannot be unlocked after a return is recorded");
-        }
+        String reason = reason(command == null ? null : command.reason());
+        BankTransferEvidence evidence = lockedEvidence(evidenceId, command.version());
+        if (!evidence.isLockedForReturn()) throw stale("NOT_LOCKED");
+        if (StringUtils.hasText(evidence.getReturnReference())) throw stale("RETURN_RECORDED");
+        Instant now = clock.now();
         evidence.setLockedForReturn(false);
         evidence.setReviewStatus("UNMATCHED");
-        evidence.setReviewReason(command.reason().trim());
+        evidence.setReviewReason(reason);
         evidenceRepository.saveAndFlush(evidence);
-        audit(actor, "EVIDENCE_RETURN_UNLOCK", "BankTransferEvidence", evidence.getId(), null, Map.of("reason", command.reason().trim()));
+        saveReview(evidence, actor, "UNLOCK", reason, now);
+        audit(actor, "EVIDENCE_RETURN_UNLOCK", "BankTransferEvidence", evidence.getId(), null, Map.of("reason", reason), now);
         return EvidenceDTO.from(evidence);
+    }
+
+    /** One field "Reason and evidence references" (SRS 4961, D19): required, trimmed, up to 1,000 characters. */
+    private static String reason(String value) {
+        return text(value, "reason", REASON_MAX);
+    }
+
+    private static String text(String value, String field, int max) {
+        if (!StringUtils.hasText(value)) throw DomainException.required(field);
+        String trimmed = value.trim();
+        if (trimmed.length() > max) throw DomainException.invalid(field);
+        return trimmed;
+    }
+
+    private BankTransferEvidence lockedEvidence(Long evidenceId, Long version) {
+        if (version == null) throw DomainException.required("version");
+        BankTransferEvidence evidence = evidenceRepository.lockById(evidenceId)
+            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "evidenceId"));
+        verifyVersion(version, evidence.getVersion());
+        return evidence;
+    }
+
+    /** SRS 4959 / GBR-72: without a selected candidate only the exact payment code identifies the request. */
+    private Long exactRequest(BankTransferEvidence evidence) {
+        if (!StringUtils.hasText(evidence.getQuoteRef())) throw blocked("NO_CANDIDATE");
+        return payments.findFirstByQuoteRefIgnoreCase(evidence.getQuoteRef().trim()).map(Payment::getId).orElseThrow(() -> blocked("NO_CANDIDATE"));
+    }
+
+    /** GBR-72 and GBR-84 for PM acceptance, as rule codes for MSG-FE19-11; null when the request may be funded. */
+    private String acceptanceBlock(Payment payment, BankTransferEvidence evidence) {
+        if (!"PENDING".equalsIgnoreCase(payment.getState()) && !"EXPIRED".equalsIgnoreCase(payment.getState())) return "REQUEST_NOT_PENDING";
+        if (evidenceRepository.existsByPayment_Id(payment.getId())) return "REQUEST_ALLOCATED";
+        if (evidence.getBankPaidAt().isBefore(payment.getRequestedAt()) || !evidence.getBankPaidAt().isBefore(payment.getExpiresAt())) return "OUTSIDE_WINDOW";
+        if (evidence.getAmount().compareTo(payment.getAmountVnd()) != 0) return "AMOUNT_MISMATCH";
+        if (!java.util.Objects.equals(payment.getReceivingEnvironment(), evidence.getEnvironment())
+            || !java.util.Objects.equals(payment.getReceivingAccountNamespace(), evidence.getAccountNamespace())
+            || !StringUtils.hasText(payment.getReceivingAccount()) || !sameAccount(payment.getReceivingAccount(), evidence.getReceivingAccount())) {
+            return "ACCOUNT_MISMATCH";
+        }
+        if (manualFinanceRecords.existsBySourceReferenceAndTypeIgnoreCaseAndStateIgnoreCase(
+            vn.edu.fpt.beefcare.service.PlatformFinanceService.sourceReference(evidence), "INCOME", "POSTED")) {
+            return "MANUAL_INCOME";
+        }
+        return null;
+    }
+
+    private static IncomingTransfer storedTransfer(BankTransferEvidence evidence) {
+        return new IncomingTransfer(
+            evidence.getProviderTxnId(), evidence.getAmount(), evidence.getBankPaidAt(), evidence.getTransferDirection(),
+            evidence.getReceivingAccount(), evidence.getTransferContent(), evidence.getGateway(), evidence.getReferenceCode(), evidence.getQuoteRef()
+        );
+    }
+
+    private EvidenceReview saveReview(BankTransferEvidence evidence, vn.edu.fpt.beefcare.domain.AppUser actor, String decision, String reason, Instant at) {
+        EvidenceReview review = new EvidenceReview();
+        review.setEvidence(evidence);
+        review.setPmUser(actor);
+        review.setDecision(decision);
+        review.setReason(reason);
+        review.setReviewedAt(at);
+        return reviews.saveAndFlush(review);
+    }
+
+    private static DomainException blocked(String rule) {
+        return DomainException.conflict(MessageCodes.FE19_11, "reason", rule);
+    }
+
+    /** Lock / unlock / record are only offered in valid states, so another state means the PM saw stale data. */
+    private static DomainException stale(String state) {
+        return DomainException.conflict(MessageCodes.COM_05, "reason", state);
     }
 
     /*
@@ -281,14 +365,14 @@ public class SePayWebhookService {
         Optional<BankTransferEvidence> existing = evidenceRepository.findFirstByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnId(
             provider, env, namespace, incoming.transactionId()
         );
-        if (existing.isPresent()) return duplicateResult(existing.get(), payloadHash);
+        if (existing.isPresent()) return duplicateResult(existing.get(), incoming, payloadHash);
         try {
             return transactions.execute(status -> process(incoming, provider, env, namespace, payloadHash));
         } catch (DataIntegrityViolationException duplicateRace) {
             BankTransferEvidence saved = evidenceRepository.findFirstByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnId(
                 provider, env, namespace, incoming.transactionId()
             ).orElseThrow(() -> duplicateRace);
-            return duplicateResult(saved, payloadHash);
+            return duplicateResult(saved, incoming, payloadHash);
         }
     }
 
@@ -443,11 +527,25 @@ public class SePayWebhookService {
         return result(saved, false);
     }
 
-    private WebhookResult duplicateResult(BankTransferEvidence existing, String payloadHash) {
-        if (!java.util.Objects.equals(existing.getPayloadHash(), payloadHash)) {
+    /**
+     * The webhook and API-03 lookup describe one SePay transaction with different text (gateway name, spacing, amount
+     * scale). Same identity + same amount, direction, bank time and receiving account is the same transfer (D19);
+     * any other difference is still rejected as a changed payload.
+     */
+    private WebhookResult duplicateResult(BankTransferEvidence existing, IncomingTransfer incoming, String payloadHash) {
+        if (!java.util.Objects.equals(existing.getPayloadHash(), payloadHash) && !sameTransfer(existing, incoming)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The transaction id was received with a different payload");
         }
         return result(existing, true);
+    }
+
+    private static boolean sameTransfer(BankTransferEvidence existing, IncomingTransfer incoming) {
+        boolean sameReceiver = !StringUtils.hasText(existing.getReceivingAccount())
+            ? !StringUtils.hasText(incoming.receivingAccount())
+            : sameAccount(existing.getReceivingAccount(), incoming.receivingAccount());
+        return existing.getAmount() != null && incoming.amount() != null && existing.getAmount().compareTo(incoming.amount()) == 0
+            && existing.getTransferDirection() != null && existing.getTransferDirection().equalsIgnoreCase(incoming.direction())
+            && java.util.Objects.equals(existing.getBankPaidAt(), incoming.paidAt()) && sameReceiver;
     }
 
     private static String sha256(byte[] value) {
@@ -463,13 +561,18 @@ public class SePayWebhookService {
     }
 
     private void audit(vn.edu.fpt.beefcare.domain.AppUser actor, String action, String targetType, Long targetId, Farm farm, Object details) {
+        audit(actor, action, targetType, targetId, farm, details, clock.now());
+    }
+
+    /** One command writes its review row and audit event with the same time, so history can show the pair once. */
+    private void audit(vn.edu.fpt.beefcare.domain.AppUser actor, String action, String targetType, Long targetId, Farm farm, Object details, Instant at) {
         AuditLog entry = new AuditLog();
         entry.setActor(actor);
         entry.setFarm(farm);
         entry.setAction(action);
         entry.setTargetType(targetType);
         entry.setTargetId(targetId);
-        entry.setLoggedAt(clock.now());
+        entry.setLoggedAt(at);
         entry.setDetails(JsonSupport.toJson(details));
         auditLogs.save(entry);
     }
@@ -559,7 +662,7 @@ public class SePayWebhookService {
 
     private static void verifyVersion(Long expected, Long actual) {
         if (expected == null || !java.util.Objects.equals(expected, actual)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Evidence changed; refresh and retry");
+            throw DomainException.conflict(MessageCodes.COM_05, "field", "version");
         }
     }
 
@@ -582,21 +685,34 @@ public class SePayWebhookService {
         String returnReference,
         String returnResult,
         Long paymentId,
-        Long version
+        Long version,
+        java.time.LocalDate returnDate
     ) {
         static EvidenceDTO from(BankTransferEvidence e) {
             return new EvidenceDTO(
                 e.getId(), e.getProvider(), e.getEnvironment(), e.getAccountNamespace(), e.getProviderTxnId(), e.getAmount(),
                 e.getBankPaidAt(), e.getQuoteRef(), e.getTransferDirection(), e.getReceivingAccount(), e.getTransferContent(),
                 e.getGateway(), e.getReviewStatus(), e.getReviewReason(), e.isLockedForReturn(), e.getReturnReference(),
-                e.getReturnResult(), e.getPayment() == null ? null : e.getPayment().getId(), e.getVersion()
+                e.getReturnResult(), e.getPayment() == null ? null : e.getPayment().getId(), e.getVersion(), e.getReturnDate()
             );
         }
     }
 
     public record ReviewCommand(String decision, Long paymentId, String reason, Long version) {}
     public record ReturnCommand(String reason, Long version) {}
-    public record ReturnResultCommand(String reference, String result, Long version) {}
+    public record ReturnResultCommand(String reference, java.time.LocalDate returnDate, String result, Long version) {}
+
+    /** API-03 period lookup (D19): SePay data, not stored until the PM saves the row by its transaction ID. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)
+    @io.swagger.v3.oas.annotations.media.Schema(name = "SePayLookupRow")
+    public record LookupRow(Long transactionId, Instant bankPaidAt, BigDecimal amount,
+        @io.swagger.v3.oas.annotations.media.Schema(allowableValues = {"IN", "OUT"}) String direction,
+        @io.swagger.v3.oas.annotations.media.Schema(nullable = true) String content,
+        @io.swagger.v3.oas.annotations.media.Schema(nullable = true) String referenceCode,
+        @io.swagger.v3.oas.annotations.media.Schema(nullable = true, description = "Stored evidence of this transaction, if any") Long evidenceId) {}
+
+    @io.swagger.v3.oas.annotations.media.Schema(name = "SePayLookupPage")
+    public record LookupPage(java.util.List<LookupRow> items, @io.swagger.v3.oas.annotations.media.Schema(description = "At most this many rows are returned") int limit) {}
 
     public record SePayPayload(
         Long id,

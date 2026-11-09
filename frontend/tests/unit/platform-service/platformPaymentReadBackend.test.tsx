@@ -14,8 +14,8 @@ const row = (id = 742) => ({ id, provider: 'SEPAY', environment: 'TEST', account
   maskedTransactionId: '****5678', amount: 1200000, direction: 'IN', content: 'Transfer BCUC5', bankPaidAt: '2026-10-28T01:02:03Z',
   reviewStatus: 'TO_REVIEW', matchResult: 'EXACT_CODE', reviewReason: null, receivingAccountMatches: true, paymentId: null, paymentCode: null, version: 3 })
 const detail = (id = 742) => ({ summary: row(id), transactionId: '12345678', receivingAccount: 'UC5-ACCOUNT', bank: 'TESTBANK',
-  referenceCode: 'BANK-REF', quoteRef: 'BCUC5', firstReceivedAt: '2026-10-28T01:02:04Z',
-  history: [{ id: 1, source: 'REVIEW', action: 'HOLD', reason: 'Stored reason TK-5', reference: null, result: null,
+  referenceCode: 'BANK-REF', quoteRef: 'BCUC5', firstReceivedAt: '2026-10-28T01:02:04Z', returnReference: null, returnDate: null, returnResult: null,
+  history: [{ id: 1, source: 'REVIEW', action: 'HOLD', reason: 'Stored reason TK-5', reference: null, result: null, returnDate: null,
     pmId: 82, pmName: 'PM persisted', at: '2026-10-28T01:03:00Z' }] })
 const payment = (id = 502) => ({ id, farmId: 42, farmName: 'Trại UC5', quoteRef: 'BCUC5PAID', termYears: 1, amount: 1200000,
   state: 'PAID', requestedAt: '2026-10-28T00:00:00Z', expiresAt: '2026-10-29T00:00:00Z', purchasedStart: '2026-10-28T02:00:00Z',
@@ -58,8 +58,9 @@ describe('UC5 backend read workbench', () => {
     expect(await screen.findByText('UC5-NAMESPACE')).toBeInTheDocument()
     expect(await screen.findByText('Stored reason TK-5')).toBeInTheDocument()
     expect(screen.getByText('PM persisted')).toBeInTheDocument()
-    expect(await screen.findByText('BCCANDIDATE')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Kiểm tra và chấp nhận|Khóa chờ hoàn|Tra cứu/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('radio', { name: /BCCANDIDATE/ })).toBeInTheDocument()
+    // UC6 adds the decision form, but opening evidence never preselects a decision or sends a command.
+    expect(screen.queryByRole('button', { name: 'Kiểm tra và chấp nhận' })).not.toBeInTheDocument()
     expect(http.command).not.toHaveBeenCalled()
     expect(platformServiceDemoStore.listEvidence).not.toHaveBeenCalled()
   })
@@ -171,10 +172,20 @@ describe('UC5 backend read workbench', () => {
     expect(screen.queryByText('Stored reason TK-5')).not.toBeInTheDocument()
   })
 
+  it('shows an outgoing transfer that needs no review as such (D20)', async () => {
+    const original = http.get.getMockImplementation()!
+    http.get.mockImplementation(async (path: string) => new URL(path, 'http://test').pathname.endsWith('/evidence')
+      ? pageOf([row(), { ...row(743), direction: 'OUT', reviewStatus: 'NO_ACTION', matchResult: 'OUTGOING' }]) : original(path))
+    page()
+    const list = await screen.findByRole('table', { name: 'Chứng từ ngân hàng' })
+    expect(await within(list).findByText('Không cần xử lý')).toBeInTheDocument()
+    expect(within(list).getByText('Chuyển ra')).toBeInTheDocument()
+  })
+
   it('labels persisted handling events and system reasons in Vietnamese without exposing internal names', async () => {
     const original = http.get.getMockImplementation()!
     const event = (id: number, action: string, reason: string) => ({ id, source: 'EVENT', action, reason, reference: null,
-      result: null, pmId: null, pmName: null, at: '2026-10-28T01:02:04Z' })
+      result: null, returnDate: null, pmId: null, pmName: null, at: '2026-10-28T01:02:04Z' })
     http.get.mockImplementation(async (path: string) => /\/evidence\/\d+$/.test(path) ? {
       ...detail(), summary: { ...row(), reviewReason: 'No matching payment request' }, history: [
         ...detail().history, event(2, 'EVIDENCE_RECEIVED', 'Saved bank reason'),

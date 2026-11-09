@@ -13,10 +13,12 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,11 @@ import vn.edu.fpt.beefcare.service.payment.PlatformSubscriptionQueryService.Paym
 public class PlatformPaymentQueryService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final String LOCKED = "(e.lockedForReturn=true or upper(e.reviewStatus)='LOCKED_FOR_RETURN')";
+    /** D20: only incoming money can need review (SRS 2447); legacy rows without a direction stay reviewable. */
+    private static final String INCOMING = "(e.transferDirection is null or upper(e.transferDirection)='IN')";
+    /** Audit actions written together with an evidence_review row of this decision (D19). */
+    private static final Map<String, String> HANDLING_DECISION = Map.of(
+        "EVIDENCE_LOCK_RETURN", "LOCK", "EVIDENCE_RETURN_UNLOCK", "UNLOCK", "EVIDENCE_RETURN_RECORDED", "RETURN_VERIFIED");
     private static final String PAYMENT_FETCH = " from Payment p join fetch p.subscription s join fetch s.farm left join fetch p.requestedBy";
     private final EntityManager em;
     private final PlatformAccessService access;
@@ -59,7 +66,7 @@ public class PlatformPaymentQueryService {
         access.requireRole(PlatformRole.PM);
         long pending = em.createQuery("select count(p) from Payment p where upper(p.state)='PENDING' and p.expiresAt>:now", Long.class)
             .setParameter("now", clock.now()).getSingleResult();
-        long review = evidenceCount("not " + LOCKED + " and upper(e.reviewStatus) in ('UNMATCHED','NEEDS_REVIEW')");
+        long review = evidenceCount("not " + LOCKED + " and " + INCOMING + " and upper(e.reviewStatus) in ('UNMATCHED','NEEDS_REVIEW')");
         long held = evidenceCount("not " + LOCKED + " and upper(e.reviewStatus) in ('HOLD','HELD')");
         return new PaymentTiles(pending, review, held, evidenceCount(LOCKED));
     }
@@ -75,7 +82,7 @@ public class PlatformPaymentQueryService {
         if (from != null && to != null && from.isAfter(to)) throw DomainException.badRequest(MessageCodes.COM_11, "field", "bankTo");
         List<String> filters = new ArrayList<>(); Map<String, Object> params = new HashMap<>();
         switch (state) {
-            case "TO_REVIEW" -> filters.add("not " + LOCKED + " and upper(e.reviewStatus) in ('UNMATCHED','NEEDS_REVIEW')");
+            case "TO_REVIEW" -> filters.add("not " + LOCKED + " and " + INCOMING + " and upper(e.reviewStatus) in ('UNMATCHED','NEEDS_REVIEW')");
             case "HOLD" -> filters.add("not " + LOCKED + " and upper(e.reviewStatus) in ('HOLD','HELD')");
             case "ACCEPTED" -> filters.add("not " + LOCKED + " and (upper(e.reviewStatus) in ('MATCHED','ACCEPTED') or e.payment is not null)");
             case "REJECTED" -> filters.add("not " + LOCKED + " and upper(e.reviewStatus)='REJECTED'");
@@ -99,16 +106,26 @@ public class PlatformPaymentQueryService {
         BankTransferEvidence e = findEvidence(id);
         Payment reference = reference(e, referencedPayments(List.of(e)));
         List<History> history = new ArrayList<>();
+        Set<String> paired = new HashSet<>();
         em.createQuery("select r from EvidenceReview r join fetch r.pmUser where r.evidence.id=:id order by r.reviewedAt desc,r.id desc", EvidenceReview.class)
-            .setParameter("id", id).getResultList().forEach(r -> history.add(new History(r.getId(), "REVIEW", r.getDecision(), r.getReason(), null, null,
-                r.getPmUser().getId(), r.getPmUser().getFullName(), r.getReviewedAt())));
-        // UC6 lock/return commands currently persist audit events rather than EvidenceReview rows.
+            .setParameter("id", id).getResultList().forEach(r -> {
+                // RETURN_VERIFIED is recorded once (D19), so its outgoing reference/result/date are the evidence's.
+                boolean returned = "RETURN_VERIFIED".equals(r.getDecision());
+                history.add(new History(r.getId(), "REVIEW", r.getDecision(), r.getReason(), returned ? e.getReturnReference() : null,
+                    returned ? e.getReturnResult() : null, returned ? e.getReturnDate() : null, r.getPmUser().getId(), r.getPmUser().getFullName(), r.getReviewedAt()));
+                paired.add(r.getDecision() + "@" + r.getReviewedAt());
+            });
+        // D19: lock/unlock/return write a review row and an audit event at the same time; an event without its row is
+        // data from before UC6 and stays visible, so every handling step appears exactly once.
         em.createQuery("select a from AuditLog a left join fetch a.actor where a.targetType='BankTransferEvidence' and a.targetId=:id " +
             "and a.action in ('SEPAY_EVIDENCE','MOCK_EVIDENCE','EVIDENCE_LOCK_RETURN','EVIDENCE_RETURN_UNLOCK','EVIDENCE_RETURN_RECORDED')", AuditLog.class)
-            .setParameter("id", id).getResultList().forEach(a -> history.add(history(a)));
+            .setParameter("id", id).getResultList().forEach(a -> {
+                String decision = HANDLING_DECISION.get(a.getAction());
+                if (decision == null || !paired.contains(decision + "@" + a.getLoggedAt())) history.add(history(a));
+            });
         history.sort(Comparator.comparing(History::at).reversed().thenComparing(History::source).thenComparing(History::id, Comparator.reverseOrder()));
         return new EvidenceDetail(row(e, reference), e.getProviderTxnId().toString(), e.getReceivingAccount(), e.getGateway(),
-            e.getReferenceCode(), e.getQuoteRef(), e.getFirstReceivedAt(), history);
+            e.getReferenceCode(), e.getQuoteRef(), e.getFirstReceivedAt(), e.getReturnReference(), e.getReturnDate(), e.getReturnResult(), history);
     }
 
     public List<Candidate> candidates(Long id) {
@@ -227,7 +244,8 @@ public class PlatformPaymentQueryService {
         if (locked(e)) return "LOCKED";
         if (e.getPayment() != null) return "ACCEPTED";
         return switch (e.getReviewStatus().toUpperCase(Locale.ROOT)) {
-            case "UNMATCHED", "NEEDS_REVIEW" -> "TO_REVIEW";
+            // D20: an unresolved outgoing transfer can never fund a request, so it is not queued for review.
+            case "UNMATCHED", "NEEDS_REVIEW" -> e.getTransferDirection() == null || "IN".equalsIgnoreCase(e.getTransferDirection()) ? "TO_REVIEW" : "NO_ACTION";
             case "HELD", "HOLD" -> "HOLD";
             case "MATCHED", "ACCEPTED" -> "ACCEPTED";
             case "REJECTED" -> "REJECTED";
@@ -248,7 +266,15 @@ public class PlatformPaymentQueryService {
             default -> a.getAction();
         };
         return new History(a.getId(), "EVENT", action, text(details, "reason"), text(details, "reference"), text(details, "result"),
-            a.getActor() == null ? null : a.getActor().getId(), a.getActor() == null ? null : a.getActor().getFullName(), a.getLoggedAt());
+            date(text(details, "returnDate")), a.getActor() == null ? null : a.getActor().getId(), a.getActor() == null ? null : a.getActor().getFullName(), a.getLoggedAt());
+    }
+
+    private static LocalDate date(String value) {
+        try {
+            return value == null ? null : LocalDate.parse(value);
+        } catch (java.time.format.DateTimeParseException legacy) {
+            return null;
+        }
     }
 
     private static String text(JsonNode details, String field) {
@@ -272,7 +298,7 @@ public class PlatformPaymentQueryService {
     @Schema(name = "PlatformBankEvidenceRow")
     public record EvidenceRow(Long id, String provider, String environment, String accountNamespace, String maskedTransactionId, BigDecimal amount,
         @Schema(nullable = true) String direction, @Schema(nullable = true) String content, Instant bankPaidAt,
-        @Schema(allowableValues = {"TO_REVIEW", "HOLD", "REJECTED", "ACCEPTED", "LOCKED", "PROCESSING"}) String reviewStatus,
+        @Schema(allowableValues = {"TO_REVIEW", "HOLD", "REJECTED", "ACCEPTED", "LOCKED", "PROCESSING", "NO_ACTION"}) String reviewStatus,
         @Schema(allowableValues = {"PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST",
             "REQUEST_EXPIRED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE"}) String matchResult,
         @Schema(nullable = true) String reviewReason, @Schema(nullable = true) Boolean receivingAccountMatches,
@@ -281,14 +307,16 @@ public class PlatformPaymentQueryService {
     @Schema(name = "PlatformBankEvidenceDetail")
     public record EvidenceDetail(EvidenceRow summary, String transactionId, @Schema(nullable = true) String receivingAccount,
         @Schema(nullable = true) String bank, @Schema(nullable = true) String referenceCode, @Schema(nullable = true) String quoteRef,
-        @Schema(nullable = true) Instant firstReceivedAt, List<History> history) {}
+        @Schema(nullable = true) Instant firstReceivedAt, @Schema(nullable = true) String returnReference,
+        @Schema(nullable = true) LocalDate returnDate, @Schema(nullable = true) String returnResult, List<History> history) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     @Schema(name = "PlatformEvidenceHistory")
     public record History(Long id, @Schema(allowableValues = {"REVIEW", "EVENT"}) String source,
         @Schema(description = "REVIEW: stored PM decision ACCEPT/HOLD/REJECT. EVENT: EVIDENCE_RECEIVED, EVIDENCE_AUTO_ACCEPTED, "
             + "EVIDENCE_LOCK_RETURN, EVIDENCE_RETURN_UNLOCK or EVIDENCE_RETURN_RECORDED; never a raw audit action name") String action,
         @Schema(nullable = true) String reason, @Schema(nullable = true) String reference,
-        @Schema(nullable = true) String result, @Schema(nullable = true) Long pmId, @Schema(nullable = true) String pmName, Instant at) {}
+        @Schema(nullable = true) String result, @Schema(nullable = true) LocalDate returnDate,
+        @Schema(nullable = true) Long pmId, @Schema(nullable = true) String pmName, Instant at) {}
     @Schema(name = "PlatformPaymentCandidate")
     public record Candidate(Long paymentId, String quoteRef, Long farmId, String farmName, BigDecimal amount, Integer termYears, Instant expiresAt, String accountNamespace) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)

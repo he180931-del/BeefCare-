@@ -32,6 +32,8 @@ public final class MessageCodes {
     public static final String FE02_04 = "MSG-FE02-04";
     /** UC-FE02-05 E3: the farm is already in the requested state (suspend a SUSPENDED farm, restore one that is not). */
     public static final String FE02_09 = "MSG-FE02-09";
+    /** UC-FE19-06 E1/E2: PM acceptance blocked; params.reason names the rule (D19). */
+    public static final String FE19_11 = "MSG-FE19-11";
 
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";

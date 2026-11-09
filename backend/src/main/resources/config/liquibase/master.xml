@@ -143,5 +143,6 @@
     <include file="config/liquibase/changelog/20261101000100_calf_parentage_assignment.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261109000100_subscription_payment_progress.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261109000200_evidence_quote_ref_upper_index.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261110000100_evidence_reconciliation.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

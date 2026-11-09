@@ -93,7 +93,7 @@ def candidates(tag, path, method, op):
       'subscription-payment-resource':{'overview':[1],'request':[2],'history':[3],'detail':[3]},
       'platform-plan-price-resource':{'history':[7],'publish':[7]},
       'platform-subscription-resource':{'subscriptions':[4],'subscription':[4]},
-      'platform-payment-resource':{'list':[5],'get':[5],'summary':[5],'evidence':[5],'evidenceDetail':[5],'candidates':[5,6],'lookup':[6],'review':[6],'recordReturn':[6],'lockForReturn':[6],'unlockReturn':[6]},
+      'platform-payment-resource':{'list':[5],'get':[5],'summary':[5],'evidence':[5],'evidenceDetail':[5],'candidates':[5,6],'lookup':[6],'lookupPeriod':[6],'review':[6],'recordReturn':[6],'lockForReturn':[6],'unlockReturn':[6]},
       'se-pay-webhook-resource':{'receive':[8]},
       'public-landing-resource':{'landing':[1],'prices':[1]},
       'platform-audit-resource':{'search':[1],'get':[1]},
