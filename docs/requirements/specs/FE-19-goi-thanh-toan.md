@@ -8,7 +8,7 @@
 | Nguồn duy nhất | SRS 28/10/2026: Part I §3.2 (Plan Price Version, Subscription, Payment Request + Purchased Period, Bank Transfer Evidence + Evidence Review, Subscription Receipt), BR-D23 → 25, 28, Part II §15 (UC-FE19-02, 06, 07, 08), Part III §19 (SCR-57 → SCR-63), MSG-FE19-01 → 16, GBR-07, 13, 15, 66, 69 → 75, 84; API-01 → 03; JOB-03 → 07 |
 | Trạng thái | ĐÃ CHỐT 07/11/2026 – theo `docs/requirements/SRS_2026-10-28.txt` (quyết định D12) |
 
-> Mọi dòng lấy từ SRS. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS.
+> Nguồn nghiệp vụ là SRS 28/10/2026; các điểm làm rõ đã được chủ feature chốt được ghi tại `docs/REQUIREMENT_DECISIONS.md` và `OPEN_QUESTIONS.md`. Route ở mục 7 lấy theo code hiện có chỉ để nối API; dữ liệu vào / ra và mã lỗi theo SRS. DucNV xác nhận triển khai luồng UC-FE19-01 tại mục 5, gồm backend và nối SCR-57, ngày 09/11/2026; cách tính số ngày còn lại theo D14.
 
 ---
 
@@ -110,10 +110,52 @@ Mã RC-yy-nnnn, mã thanh toán, trại, kỳ hạn, phiên bản giá, số ti�
 | R-19-13 | Webhook: xác minh HMAC trên `timestamp + "." + raw body`, sai lệch ≤ 300 giây; sai → 401, không lưu chứng từ. Lưu chứng từ + job rồi mới trả `200 {"success": true}`. | UC-08 |
 | R-19-14 | JOB-03 (5 phút): PENDING quá hạn → EXPIRED. JOB-04 (15 phút): tính lại trạng thái dịch vụ. JOB-05 (07:00 hằng ngày): thông báo mở gia hạn, sắp hết hạn, đã hết hạn. JOB-06: xử lý chứng từ, retry. JOB-07: thông báo + email cho Owner. | JOB-03 → 07 |
 | R-19-15 | Mọi chấp nhận thanh toán, quyết định chứng từ, công bố giá ghi audit cùng transaction. | GBR-86 |
+| R-19-16 | Số ngày còn lại tính theo kỳ đang bao phủ thời điểm hiện tại: `floor((end - now) / 24 giờ)`, tối thiểu 0. Còn 23 giờ hiển thị 0 ngày; dịch vụ vẫn ACTIVE tới đúng `end` nếu không bị tạm ngưng. Không có kỳ hiện tại thì giá trị không có (`null`), hiển thị "—"; SUSPENDED vẫn đếm theo kỳ hiện tại. | SCR-57; D14 (DucNV, 09/11/2026); FE-02 Q4 |
 
 ---
 
 ## 5. Luồng xử lý
+
+### UC-FE19-01 Xem gói và trạng thái dịch vụ của trại
+
+**Trạng thái luồng:** DucNV xác nhận triển khai ngày 09/11/2026 (Q3, riêng UC-01), gồm backend và nối SCR-57; bổ sung từ SRS Part I §4.2.19, Part III §19.1.1 SCR-57, GBR-07, 09, 12 → 15, 69 → 71, 73, 75. R-19-16 theo D14. Bằng chứng chạy test và ma trận đủ 14 mục được ghi riêng tại `docs/reviews/FE19_UC01_REVIEW.md`; danh sách TC ở đây là tiêu chí nghiệp vụ.
+
+**Tác nhân / kích hoạt:** Owner mở Gói dịch vụ của một trại mình sở hữu, hoặc chuyển sang trại khác mình sở hữu trên SCR-57.
+
+**Tiền điều kiện:** tài khoản ACTIVE, đã đăng nhập; Owner còn quyền sở hữu trại tại thời điểm request. Không yêu cầu trại ACTIVE hoặc đã có Subscription.
+
+**Luồng chính:**
+
+1. Owner chọn trại và mở SCR-57.
+2. Hệ thống kiểm lại tài khoản, quyền Owner và đúng trại; lấy tổng quan qua A1.
+3. Hệ thống xác định trạng thái dịch vụ tại thời điểm đọc; lấy các kỳ đã mua từ thanh toán PAID, kỳ hiện tại, kỳ tương lai, ngày kết thúc đã xác nhận mới nhất, ngày mở gia hạn và thông tin tạm ngưng.
+4. Hệ thống lấy yêu cầu PENDING chưa hết hạn và bảng giá đang hiệu lực; hiển thị đủ 14 mục SCR-57. Ngày mở gia hạn vẫn hiển thị khi cửa sổ đã mở.
+5. Owner có thể mở Lịch sử thanh toán → SCR-60 (UC-03); mở hướng dẫn của yêu cầu đang chờ → SCR-59 (UC-02); hoặc chọn Thanh toán để kích hoạt / Gia hạn → SCR-58 (UC-02), theo điều kiện thanh toán.
+6. Khi chuyển trại, hệ thống kiểm lại quyền và tải dữ liệu của trại mới; dữ liệu hiển thị thuộc đúng trại đã chọn.
+
+**Nhánh / lỗi:**
+
+- AF1 chưa có Subscription hoặc chưa có kỳ PAID: vẫn xem được SCR-57; kỳ hiện tại, ngày kết thúc và ngày mở gia hạn là "—", các danh sách kỳ rỗng. Việc xem không tự tạo Subscription.
+- AF2 đang ngoài cửa sổ gia hạn: vẫn xem được tổng quan; tắt nút Gia hạn và hiển thị MSG-FE19-03. Khi đã tới cửa sổ hoặc đã hết bao phủ, cho đi tiếp theo GBR-71.
+- AF3 SUSPENDED: vẫn hiển thị các kỳ, ngày còn lại và thông tin tạm ngưng; tắt nút tạo yêu cầu, hiển thị MSG-FE19-09 và đường dẫn hỗ trợ. Lịch sử và hướng dẫn yêu cầu đang chờ vẫn có thể mở; việc mở không cấp kỳ hoặc gỡ tạm ngưng.
+- AF4 không có yêu cầu PENDING còn hiệu lực: trường Yêu cầu đang chờ là "—". Yêu cầu đã tới thời điểm hết hạn không được hiển thị như yêu cầu còn hiệu lực, kể cả JOB-03 chưa chạy.
+- E1 không có quyền Owner của trại: từ chối MSG-COM-01; không trả dữ liệu gói của trại.
+- E2 không lấy được bảng giá: vùng giá hiển thị MSG-FE19-04 + Thử lại; phần tổng quan đã lấy được vẫn hiển thị, không dùng giá mặc định để thay giá thiếu.
+- E3 không tải được tổng quan: MSG-COM-02 + Thử lại; không thay bằng dữ liệu demo.
+
+**Hậu điều kiện:** chỉ đọc tổng quan; không tạo / thay đổi Subscription, yêu cầu thanh toán, kỳ đã mua, chứng từ hoặc biên lai, không cấp thêm dịch vụ hay thay đổi tạm ngưng. Trạng thái hiển thị được suy ra theo GBR-13.
+
+**Quy ước dữ liệu để nghiệm thu:**
+
+| Dữ liệu | Quy tắc | Nguồn |
+|---|---|---|
+| Kỳ hiện tại | Kỳ PAID có `start <= now < end`; không có thì `null` / "—". | GBR-13, 73; SCR-57 |
+| Kỳ tương lai / đã qua | Tương lai khi `start > now`; đã qua khi `end <= now`. Mỗi kỳ xuất hiện một lần trong bảng Các kỳ đã mua. | GBR-73; SCR-57 |
+| Ngày kết thúc đã xác nhận | `max(end)` trên các kỳ PAID, gồm cả kỳ tương lai; chưa có kỳ thì `null` / "—". | SCR-57 |
+| Mở gia hạn từ | Ngày kết thúc đã xác nhận trừ 90 ngày lịch theo Asia/Ho_Chi_Minh; có ngày kết thúc thì luôn có mốc này, kể cả khi đã qua mốc. | GBR-71; SCR-57 |
+| Số ngày còn lại | R-19-16; không lấy ngày kết thúc kỳ tương lai để đếm cho kỳ hiện tại. | D14; SCR-57 |
+| Yêu cầu đang chờ | Chỉ PENDING có `now < expiresAt`; mở hướng dẫn dùng lại yêu cầu đó. | GBR-70; SCR-57 |
+| Bảng giá | Đúng phiên bản đang hiệu lực tại thời điểm đọc; phiên bản tương lai chưa được dùng. | GBR-75; SCR-57 |
 
 ### UC-FE19-02 Tạo yêu cầu thanh toán
 1. SCR-58: 3 kỳ hạn + giá từ phiên bản hiệu lực, điều khoản, trạng thái trại.
@@ -169,7 +211,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | 3 | Renew plan / Pay to activate – Gia hạn gói / Thanh toán để kích hoạt | Nút | SCR-58; tắt ngoài cửa sổ (MSG-FE19-03) hoặc SUSPENDED (MSG-FE19-09) |
 | 4 | Service status / Trạng thái dịch vụ | Huy hiệu | GBR-13 |
 | 5 | Current period / Kỳ hiện tại | Chỉ đọc | Bắt đầu → kết thúc, hoặc "—" |
-| 6 | Days remaining / Số ngày còn lại | Số | — |
+| 6 | Days remaining / Số ngày còn lại | Số | R-19-16: số ngày tròn 24 giờ, làm tròn xuống; còn 23 giờ → 0 ngày; không có kỳ hiện tại → "—" |
 | 7 | Confirmed end date / Ngày kết thúc đã xác nhận | Ngày | Mới nhất trên mọi kỳ |
 | 8 | Renewal opens from / Mở gia hạn từ | Ngày | Kết thúc − 90 ngày |
 | 9 | Suspended / Tạm ngưng | Chỉ đọc | Không / Có (từ ngày) |
@@ -275,7 +317,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
-| A1 | Tổng quan gói | — | `SubscriptionOverview {serviceStatus, currentPeriod?, daysRemaining, confirmedEnd?, renewalOpensFrom?, suspended{since?}, pendingRequest?{code}, priceVersion{version, effectiveFrom, prices{1,2,3}}, futurePeriods[], purchasedPeriods[], canRequest, blockReason?}` | COM-01, FE19-04 | `GET /api/farms/{farmId}/subscription` |
+| A1 | Tổng quan gói | `farmId` ở path; không body | `SubscriptionOverview {farmId, farmName, serviceStatus, entitlementStatus, currentPeriod?, daysRemaining?, latestEnd?, renewalOpensAt?, suspended, suspendedSince?, pendingPayment?, currentPrices?, futurePeriods[], periods[], eligibility{ok, reason?, opensAt?}}`; các khóa có `?` vẫn hiện trong JSON với null khi không có dữ liệu. Tên JSON theo DTO/OpenAPI, đối chiếu 14 mục tại ma trận UC-01 | COM-01; thiếu giá: currentPrices=null, eligibility.reason=PRICE_UNAVAILABLE, vùng giá hiện FE19-04 | `GET /api/farms/{farmId}/subscription` |
 | A2 | Tạo / mở lại yêu cầu | `{term (1\|2\|3), reviewedPriceVersion}` + `Idempotency-Key` | `PaymentDTO {code, term, amount, priceVersion, bank, accountNo, accountName, transferContent, qrUrl, createdAt, expiresAt, status, reopened}` | FE19-01, FE19-02, FE19-03, FE19-09, FE19-04, COM-01, COM-02 | `POST /api/farms/{farmId}/subscription/payments` |
 | A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status?, from?, to?` / — | `[PaymentDTO]` / `PaymentDTO + {bankPaidAt?, receivedAt?, confirmedAt?, period?, progress[]}` | FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
 | A4 | VietQR (API-01) | Ngân hàng, TK, số tiền, nội dung | URL ảnh | — | Trong `qrUrl` của A2 (gọi dịch vụ QR SePay) |
@@ -351,6 +393,14 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | TC-19-29 | 2 chứng từ cùng trại xác nhận đồng thời | — | Xử lý tuần tự, không tạo 2 kỳ chồng | I | R-19-06 |
 | TC-19-30 | PM | Xem SCR-61 | Không có dữ liệu bò / vận hành | H | §2 |
 | TC-19-31 | API-01 lỗi | Mở SCR-59 | Vẫn hiện thông tin chuyển khoản dạng chữ | E | UC-02 E5 |
+| TC-19-32 | Owner của trại, lần lượt PENDING_PAYMENT / ACTIVE / EXPIRED / SUSPENDED | Đọc A1 | Được xem tổng quan đúng trại và trạng thái tại thời điểm đọc; việc xem không tạo / thay đổi dữ liệu thương mại hoặc tạm ngưng | I, H | UC-01; GBR-07, 09, 13, 14 |
+| TC-19-33 | Manager / Technician / người chỉ có vai trò PM; Owner của trại khác | Đọc A1 của trại không sở hữu | 403 / MSG-COM-01; không lộ dữ liệu gói | H | R-19-01; GBR-09, 12 |
+| TC-19-34 | Trại mới, chưa có Subscription | Đọc A1 | Kỳ hiện tại, số ngày còn lại, ngày kết thúc và mở gia hạn là null; danh sách kỳ rỗng; đọc lại DB không có Subscription / Payment mới | I, H | UC-01 AF1; §3.2; SCR-57 |
+| TC-19-35 | Có các kỳ PAID đã qua / hiện tại / tương lai và các yêu cầu PENDING / EXPIRED | Đọc A1 | Đủ các kỳ PAID, đúng phân loại [start, end), đúng số tiền / kỳ hạn / mã; ngày kết thúc mới nhất gồm cả kỳ tương lai; không đưa yêu cầu chưa PAID vào kỳ đã mua | U, I | UC-01; R-19-07; SCR-57 |
+| TC-19-36 | Kỳ hiện tại còn 24 giờ / 23 giờ; hoặc không có kỳ hiện tại; có và không có tạm ngưng | Đọc A1 với clock cố định | Lần lượt 1 / 0 / null ngày; còn 23 giờ vẫn có bao phủ, SUSPENDED không ngừng đếm; đúng end thì kỳ thành Đã qua | U, I | R-19-16; D14; GBR-13, 15, 73 |
+| TC-19-37 | Có ngày kết thúc đã xác nhận; ngay trước / đúng mốc mở gia hạn và sau khi hết bao phủ | Đọc A1 | Mốc mở gia hạn luôn bằng kết thúc − 90 ngày; chặn trước mốc, cho phép từ mốc nếu không SUSPENDED; SUSPENDED vẫn bị chặn | U, I | UC-01 AF2, AF3; R-19-05; SCR-57 |
+| TC-19-38 | Yêu cầu PENDING còn hiệu lực / expiresAt đúng now nhưng JOB-03 chưa chạy | Đọc A1 | Chỉ trường hợp còn hiệu lực có yêu cầu đang chờ; trường hợp đã tới hết hạn không được hiển thị như còn hiệu lực | U, I | UC-01 AF4; R-19-03; GBR-70 |
+| TC-19-39 | Có bảng giá hiện tại và phiên bản lên lịch; hoặc không có bảng giá hiệu lực | Đọc A1 / xem SCR-57 | Đúng 3 giá và phiên bản hiện tại; không dùng giá tương lai; thiếu giá → MSG-FE19-04 + Thử lại tại vùng giá, phần tổng quan đã lấy được vẫn xem được | I, H | UC-01 E2; R-19-12; SCR-57 |
 
 ---
 
@@ -360,9 +410,10 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 |---|---|---|
 | Q1 | Rút phiên bản đã lên lịch chưa có route | Thêm A14 |
 | Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Bổ sung tham số `from, to` |
-| Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | Theo Part III |
+| Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt theo Part III + GBR và luồng mục 5 (DucNV, 09/11/2026). UC-03, 04, 05 chưa chốt |
 | Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định |
 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |
+| Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Đã chốt DucNV 09/11/2026 (D14): làm tròn xuống theo số ngày tròn 24 giờ; còn 23 giờ → 0 ngày, vẫn có bao phủ tới end; không có kỳ hiện tại → "—" |
 
 ---
 
@@ -372,3 +423,5 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho DucNV duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 09/11/2026 | 28/10/2026 | Ghi quyết định cách tính số ngày còn lại (D14, Q6); bổ sung dự thảo luồng UC-01, quy ước dữ liệu và TC-19-32 → 39 để chốt trước triển khai. Q3 vẫn chờ xác nhận luồng | DucNV chốt Q6; agent soạn dự thảo UC-01 |
+| 09/11/2026 | 28/10/2026 | DucNV xác nhận làm UC-01 và cả backend + nối SCR-57; chốt phần UC-01 của Q3. A1 dùng tên JSON thực tế của DTO; ma trận và bằng chứng tại `docs/reviews/FE19_UC01_REVIEW.md` | DucNV |

@@ -4,11 +4,13 @@ Nguồn: mục 10 của 23 spec theo SRS 28/10/2026 (quyết định D12). Mỗi
 
 Cột **Quyết định**: để trống = chưa chốt; ghi `Theo đề xuất`, `Khác: …` hoặc `Hoãn`. **Người chốt** mặc định là chủ feature; câu chạm feature khác thì trao đổi với chủ feature đó.
 
-Tổng: 120 câu – AnNT 28, DucNV 24, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
+Tổng: 121 câu – AnNT 28, DucNV 25, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
 
 Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Chung Q1) khi dọn thư mục `docs/`: lấy từ đối chiếu FE–BE phần thức ăn (01/11), đối chiếu Figma với frontend (02/11) và báo cáo triển khai backend (28–29/10).
 
 Ngày 08/11/2026 thêm 5 câu (FE-02 Q5–Q9) khi làm UC-FE02-02 đến UC-FE02-05: chỗ SRS mâu thuẫn, đọc được hai cách hoặc cần chọn cách lưu.
+
+Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại trên SCR-57 (D14), sau đó xác nhận làm UC-FE19-01 gồm backend và nối SCR-57. FE-19 Q3 chốt riêng UC-01, còn UC-03, 04, 05 chờ xác nhận.
 
 | FE | Mã | Câu hỏi | Đề xuất trong spec | Quyết định | Người chốt | Ngày |
 |---|---|---|---|---|---|---|
@@ -102,9 +104,10 @@ Ngày 08/11/2026 thêm 5 câu (FE-02 Q5–Q9) khi làm UC-FE02-02 đến UC-FE02
 | FE-18 | Q5 | Tham số "Chuẩn bị đẻ trước" (30) dùng cho REM-05; "Khám thai sau phối" (28) cho REM-03 – xác nhận REM dùng tham số thay hằng số | Có – Table III-3 ghi giá trị mặc định |  | AnNT |  |
 | FE-19 | Q1 | Rút phiên bản đã lên lịch chưa có route | Thêm A14 |  | DucNV |  |
 | FE-19 | Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Bổ sung tham số `from, to` |  | DucNV |  |
-| FE-19 | Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | Theo Part III |  | DucNV |  |
+| FE-19 | Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | Theo Part III + GBR; luồng UC-01 tại mục 5 spec FE-19 | Chốt UC-01 theo đề xuất, gồm backend và nối SCR-57. UC-03, 04, 05 còn chờ xác nhận | DucNV | 09/11/2026 |
 | FE-19 | Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định |  | DucNV |  |
 | FE-19 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |  | DucNV |  |
+| FE-19 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Giữ số ngày tròn 24 giờ, làm tròn xuống, thống nhất FE-02 và demo FE-19 | Theo đề xuất: còn 23 giờ → 0 ngày nhưng vẫn có bao phủ tới end; không có kỳ hiện tại → null / "—"; SUSPENDED vẫn đếm theo kỳ (D14) | DucNV | 09/11/2026 |
 | FE-20 | Q1 | Độ dài lý do bàn giao / trả về hàng đợi / đổi người nhận / hủy IR | ≤ 1.000 |  | LamKD |  |
 | FE-20 | Q2 | Ghi chú tùy chọn khi Owner xác nhận – UI chưa có trường | Thêm ô "Nhận xét" (≤ 1.000) tùy chọn |  | LamKD |  |
 | FE-20 | Q3 | UC-FE20-02, 03, 06, 08, 09 không có đặc tả Part II | Theo Part III + GBR |  | LamKD |  |
