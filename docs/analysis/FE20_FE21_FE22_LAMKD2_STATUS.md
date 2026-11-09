@@ -25,8 +25,7 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 
 - `npm run typecheck` — đạt.
 - `npm run build` — đạt (chỉ còn cảnh báo chunk lớn của Vite).
-- Frontend focused adapters/notifications: `supportApi`, `financeBackendApi`, `platformFinanceApi`, `notificationsApi` — **62 tests passed** after the farm/evidence/XLSX adapter checks.
-- Frontend local landing/demo contract: `PublicLandingAndMock.test.tsx` với `VITE_BEEFCARE_DATA_SOURCE=local` — **11 tests passed**.
+- Frontend focused adapters/pages/notifications/landing: **73 tests passed** (`supportApi`, `financeBackendApi`, `platformFinanceApi`, `notificationsApi`, `PlatformFinancePages`, `PublicLandingAndMock`).
 - Frontend API contract suite: `npm run test:api` — **100 tests passed**.
 - Backend workflow/domain: `SupportTicketWorkflowTest`, `PlatformFinanceWorkflowTest`, `SupportTicketTest`, `TicketMessageTest`, `InternalRequestTest`, `ManualFinanceRecordTest` — Maven đạt với Byte Buddy agent trên Java 24.
 - Smoke HTTP/DB thật trên backend `dev,local`: `/api/public/landing` HTTP 200 (6 feature); Owner/CS/PM/SA login trả đúng ma trận quyền; ticket `TK-8751` đọc khớp API và PostgreSQL (`OPEN`, version `1`). Landing còn có contact mặc định chính thức `tuanpqhe181869@fpt.edu.vn`, `0386 671 863` khi chưa cấu hình biến môi trường.
