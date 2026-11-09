@@ -106,7 +106,13 @@ export function createPlatformServiceDemoStore(seed: PlatformServiceSeed = PLATF
       const q = (filters.q ?? '').trim().toLowerCase()
       const rows = s.farms
         .filter((f) => !filters.status || f.serviceStatus === filters.status)
-        .filter((f) => !q || [f.farmName, f.ownerName, f.subscriptionCode ?? '', ...f.periods.map((p) => p.paymentCode)].some((t) => t.toLowerCase().includes(q)))
+        .filter((f) => {
+          const current = periodOf(f) !== null
+          const future = f.periods.some((p) => p.start > toDate(now()))
+          return !filters.coverage || filters.coverage === 'ALL' || (filters.coverage === 'CURRENT' ? current
+            : filters.coverage === 'FUTURE_ONLY' ? !current && future : !current && !future)
+        })
+        .filter((f) => !q || [f.farmName, ...f.periods.map((p) => p.paymentCode)].some((t) => t.toLowerCase().includes(q)))
         .map(subscriptionRow)
         .filter((r) => !(filters.endFrom || filters.endTo) || (r.confirmedUntil !== null && (!filters.endFrom || r.confirmedUntil >= filters.endFrom) && (!filters.endTo || r.confirmedUntil <= filters.endTo)))
       return structuredClone(rows)
@@ -117,9 +123,9 @@ export function createPlatformServiceDemoStore(seed: PlatformServiceSeed = PLATF
       const periods = [...f.periods].sort((a, b) => a.start.localeCompare(b.start)).map((p) => ({ ...p, state: periodState(p, today) }))
       const end = coverageEnd(f.periods)
       return structuredClone({
-        summary: subscriptionRow(f), suspended: f.suspended, suspendedSince: f.suspendedSince, renewalOpens: end ? renewalOpens(end) : null,
-        latestPurchase: [...f.periods].sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt))[0] ?? null, periods,
-        emptyMessage: f.periods.length === 0 ? 'Chưa có đăng ký nên chưa có kỳ hay ngày hết hạn.' : null,
+        summary: subscriptionRow(f), subscriptionId: f.subscriptionCode ? f.farmId : null, suspended: f.suspended, suspendedSince: f.suspendedSince, renewalOpens: end ? renewalOpens(end) : null,
+        latestPurchase: [...f.periods].sort((a, b) => (b.confirmedAt ?? '').localeCompare(a.confirmedAt ?? ''))[0] ?? null, periods,
+        emptyMessage: f.periods.length === 0 ? f.subscriptionCode ? 'Đã có đăng ký, chưa có kỳ đã mua.' : 'Chưa có gói: không có kỳ hay ngày kết thúc.' : null,
       })
     },
 

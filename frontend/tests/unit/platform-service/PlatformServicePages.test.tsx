@@ -84,9 +84,10 @@ describe('SCR-61 gói đăng ký', () => {
   it('selects a farm, shows the empty subscription note and opens the periods dialog', async () => {
     const user = userEvent.setup()
     renderAt(<PlatformSubscriptionRoutes />, '/nen-tang/goi-dang-ky')
-    expect(await screen.findByText(/SUB-0048/)).toBeInTheDocument()
+    expect(await screen.findByText('Kỳ đã mua và thanh toán nguồn')).toBeInTheDocument()
+    expect(screen.queryByText(/SUB-0048/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Trại Tản Lĩnh/ }))
-    expect(await screen.findByText(/Chưa có đăng ký nên chưa có kỳ/)).toBeInTheDocument()
+    expect(await screen.findByText('Chưa có gói: không có kỳ hay ngày kết thúc.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Trại bò Yên Bài/ }))
     await user.click(await screen.findByRole('button', { name: 'Kỳ hiện tại / tương lai' }))
     expect(await screen.findByText('Các kỳ đã mua của Yên Bài')).toBeInTheDocument()

@@ -33,19 +33,25 @@ export function addYears(d: string, n: number) {
 
 export function fmtDate(d: string | null | undefined) {
   if (!d) return '—'
-  const [y, m, day] = d.slice(0, 10).split('-')
+  const [y, m, day] = (hasZone(d) ? vnDateOf(d) : d.slice(0, 10)).split('-')
   return `${day}/${m}/${y}`
 }
+const hasZone = (value: string) => /(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+/** Backend periods are half-open instants; local demo periods already hold inclusive dates. */
+export const fmtEndDate = (value: string | null | undefined) => fmtDate(value && hasZone(value) ? lastVnDay(value) : value)
 export function fmtDateTime(iso: string | null | undefined) {
   if (!iso) return '—'
-  return `${fmtDate(iso)} ${iso.slice(11, 16)}`
+  const local = hasZone(iso) ? vnNow(new Date(iso)) : iso
+  return `${fmtDate(local)} ${local.slice(11, 16)}`
 }
 export function fmtShort(iso: string) {
-  return `${iso.slice(11, 16)} ${fmtDate(iso).slice(0, 5)}`
+  const local = hasZone(iso) ? vnNow(new Date(iso)) : iso
+  return `${local.slice(11, 16)} ${fmtDate(local).slice(0, 5)}`
 }
 export function fmtSeconds(iso: string | null | undefined) {
   if (!iso) return '—'
-  return `${fmtDate(iso)} ${iso.slice(11, 19)}`
+  const local = hasZone(iso) ? vnNow(new Date(iso)) : iso
+  return `${fmtDate(local)} ${local.slice(11, 19)}`
 }
 export function fmtMoney(n: number) {
   return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { useModalParam } from '../../../components/Modal'
 import { Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../components/ui'
@@ -13,12 +14,18 @@ import type { EvidenceFilters, ReviewDecision, ReviewResult } from '../types'
 import { fmtDateTime, fmtMoney, fmtShort } from '../domain/dates'
 import { MATCH_LABEL, MATCH_TONE, PAYMENT_STATE_LABEL, blockReason, checkAcceptance, evidenceCode, exactCodeMatches, maskTransaction } from '../domain/reconciliation'
 import { validateReason } from '../domain/servicePeriods'
+import PaymentSourcePage from './PaymentSourcePage'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
 const PAY_TONE = { PENDING: 'warn', PAID: 'ok', EXPIRED: 'outline' } as const
 
 export default function PaymentReconciliationRoutes() {
+  const [params] = useSearchParams()
+  return params.has('paymentId') ? <PaymentSourcePage key={params.get('paymentId')} /> : <ReconciliationPage />
+}
+
+function ReconciliationPage() {
   const canAct = usePmAccess()
   const [m, openModal, closeModal] = useModalParam()
   const [tab, setTab] = useState<Tab>('evidence')

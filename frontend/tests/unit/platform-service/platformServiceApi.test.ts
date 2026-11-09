@@ -167,11 +167,12 @@ describe('backend mode', () => {
     expect(restored).toMatchObject({ serviceStatus: 'ACTIVE', suspended: false, version: 6 })
   })
 
-  it('keeps the FE-19 platform screens unavailable in backend mode and never touches the store', async () => {
+  it('keeps reconciliation and prices unavailable in backend mode and never touches the store', async () => {
     const { store, transport } = setup()
-    const spy = vi.spyOn(store, 'listSubscriptions')
+    const spy = vi.spyOn(store, 'listEvidence')
     const api = createPlatformServiceApi({ mode: 'backend', farmId: 1, transport, store })
-    await expect(api.listSubscriptions()).rejects.toThrow('Chưa tích hợp')
+    await expect(api.listEvidence()).rejects.toThrow('Chưa tích hợp')
+    await expect(api.listPriceVersions()).rejects.toThrow('Chưa tích hợp')
     expect(spy).not.toHaveBeenCalled()
   })
 })

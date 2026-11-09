@@ -2,15 +2,16 @@ export type ServiceStatus = 'ACTIVE' | 'PENDING_PAYMENT' | 'EXPIRED' | 'SUSPENDE
 export type TermYears = 1 | 2 | 3
 
 export interface PurchasedPeriod {
+  paymentId?: number
   paymentCode: string
-  receiptCode: string
+  receiptCode: string | null
   termYears: TermYears
   /** yyyy-mm-dd, ngày đầu của kỳ */
   start: string
   /** yyyy-mm-dd, ngày cuối cùng của kỳ (đã gồm) */
   end: string
   /** yyyy-mm-ddTHH:mm:ss giờ Việt Nam */
-  confirmedAt: string
+  confirmedAt: string | null
 }
 
 export interface PlatformFarm {
@@ -80,8 +81,8 @@ export interface PeriodView extends PurchasedPeriod { state: PeriodState }
 export interface SubscriptionRow {
   farmId: number
   farmName: string
-  ownerName: string
-  ownerEmail: string
+  ownerName: string | null
+  ownerEmail: string | null
   serviceStatus: ServiceStatus
   subscriptionCode: string | null
   currentStart: string | null
@@ -91,6 +92,7 @@ export interface SubscriptionRow {
 }
 export interface SubscriptionDetail {
   summary: SubscriptionRow
+  subscriptionId: number | null
   suspended: boolean
   suspendedSince: string | null
   renewalOpens: string | null
@@ -98,7 +100,18 @@ export interface SubscriptionDetail {
   periods: PeriodView[]
   emptyMessage: string | null
 }
-export interface SubscriptionFilters { q?: string; status?: ServiceStatus | ''; endFrom?: string; endTo?: string }
+export type Coverage = 'ALL' | 'CURRENT' | 'FUTURE_ONLY' | 'NONE'
+export interface SubscriptionFilters {
+  q?: string; coverage?: Coverage; status?: ServiceStatus | ''; endFrom?: string; endTo?: string
+  dir?: 'asc' | 'desc'; page?: number
+}
+export interface SubscriptionPage { items: SubscriptionRow[]; total: number; page: number; size: number }
+/** Read-only existing SCR-62 payment endpoint; no bank or confirmation data is inferred. */
+export interface SourcePayment {
+  id: number; farmId: number; farmName: string; quoteRef: string; termYears: TermYears; amount: number
+  state: PaymentState; requestedAt: string; expiresAt: string; purchasedStart: string | null; purchasedEnd: string | null
+  receiptCode: string | null; requestedByEmail: string | null; priceVersionId: number
+}
 
 export type PaymentState = 'PENDING' | 'PAID' | 'EXPIRED'
 export interface PlatformPayment {

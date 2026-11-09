@@ -42,6 +42,7 @@ import vn.edu.fpt.beefcare.repository.ManualFinanceRecordRepository;
 import vn.edu.fpt.beefcare.repository.SubscriptionRepository;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.DomainException;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.NotificationService;
 import vn.edu.fpt.beefcare.service.PlatformAccessService;
 import vn.edu.fpt.beefcare.service.JsonSupport;
@@ -302,8 +303,9 @@ public class SePayWebhookService {
     @Transactional(readOnly = true)
     public PlatformPayment platformPayment(Long paymentId) {
         platformAccess.requireRole(PlatformRole.PM);
+        // MSG-COM-08 like the other PM read details (SCR-61 source link, D17).
         return payments.findById(paymentId).map(PlatformPayment::from)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "payment_id", paymentId));
     }
 
     private WebhookResult processWithReplayProtection(IncomingTransfer incoming, String provider, String payloadHash) {

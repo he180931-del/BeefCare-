@@ -1,11 +1,15 @@
 package vn.edu.fpt.beefcare.service.payment;
 
 import jakarta.persistence.EntityManager;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -17,12 +21,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
 import vn.edu.fpt.beefcare.domain.Farm;
-import vn.edu.fpt.beefcare.domain.FarmMembership;
+import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.Payment;
-import vn.edu.fpt.beefcare.domain.Subscription;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.FarmClock;
+import vn.edu.fpt.beefcare.service.FarmServiceFacts;
 import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.PlatformAccessService;
 
@@ -41,41 +45,74 @@ public class PlatformSubscriptionQueryService {
     private final EntityManager em;
     private final PlatformAccessService platformAccess;
     private final FarmClock clock;
+    private final FarmServiceFacts facts;
 
-    public PlatformSubscriptionQueryService(EntityManager em, PlatformAccessService platformAccess, FarmClock clock) {
+    public PlatformSubscriptionQueryService(EntityManager em, PlatformAccessService platformAccess, FarmClock clock, FarmServiceFacts facts) {
         this.em = em;
         this.platformAccess = platformAccess;
         this.clock = clock;
+        this.facts = facts;
     }
 
     // ------------------------------------------------------------------ SCR-61
 
     public Page<SubscriptionRow> subscriptions(String q, String coverage, String serviceStatus, LocalDate endFrom, LocalDate endTo, int page, int size) {
+        return subscriptions(q, coverage, serviceStatus, endFrom, endTo, "confirmedUntil", "desc", page, size);
+    }
+
+    /** D17: filter/count/sort in storage before paging; derive service at one captured read time. */
+    public Page<SubscriptionRow> subscriptions(String q, String coverage, String serviceStatus, LocalDate endFrom, LocalDate endTo,
+        String sort, String dir, int page, int size) {
         platformAccess.requireRole(PlatformRole.PM);
+        String search = q == null ? "" : q.trim();
+        if (search.length() > 100) throw DomainException.invalid("q");
         String cov = coverage == null || coverage.isBlank() ? "ALL" : coverage.trim().toUpperCase(Locale.ROOT);
         if (!List.of("ALL", "CURRENT", "FUTURE_ONLY", "NONE").contains(cov)) throw DomainException.invalid("coverage");
+        String state = serviceStatus == null || serviceStatus.isBlank() ? null : serviceStatus.trim().toUpperCase(Locale.ROOT);
+        if (state != null && !List.of("ACTIVE", "PENDING_PAYMENT", "EXPIRED", "SUSPENDED").contains(state)) throw DomainException.invalid("serviceStatus");
+        if (endFrom != null && endTo != null && endFrom.isAfter(endTo)) throw DomainException.badRequest(MessageCodes.COM_11, "field", "endTo");
+        if (!"confirmedUntil".equals(sort)) throw DomainException.invalid("sort");
+        if (!List.of("asc", "desc").contains(dir)) throw DomainException.invalid("dir");
+        if (size < 1 || size > MAX_PAGE_SIZE) throw DomainException.invalid("size");
+        if (page < 0 || page > Integer.MAX_VALUE / size) throw DomainException.invalid("page");
         Instant now = clock.now();
-        Map<Long, List<Payment>> paidByFarm = paidPayments().collect(Collectors.groupingBy(p -> p.getSubscription().getFarm().getId()));
-        Map<Long, Subscription> subscriptionByFarm = em.createQuery("select s from Subscription s join fetch s.farm", Subscription.class)
-            .getResultList().stream().collect(Collectors.toMap(s -> s.getFarm().getId(), Function.identity()));
-        Map<Long, FarmMembership> owners = owners();
-        String needle = normalized(q);
-        List<SubscriptionRow> rows = em.createQuery("select f from Farm f order by f.id", Farm.class).getResultList().stream()
-            .map(farm -> row(farm, subscriptionByFarm.get(farm.getId()), paidByFarm.getOrDefault(farm.getId(), List.of()), owners.get(farm.getId()), now))
-            .filter(r -> needle == null || r.farmName().toLowerCase(Locale.ROOT).contains(needle) ||
-                r.paymentCodes().stream().anyMatch(code -> code.toLowerCase(Locale.ROOT).contains(needle)))
-            .filter(r -> switch (cov) {
-                case "CURRENT" -> r.currentStart() != null;
-                case "FUTURE_ONLY" -> r.currentStart() == null && r.confirmedUntil() != null && r.confirmedUntil().isAfter(now);
-                case "NONE" -> r.confirmedUntil() == null;
-                default -> true;
-            })
-            .filter(r -> serviceStatus == null || serviceStatus.isBlank() || serviceStatus.trim().equalsIgnoreCase(r.serviceStatus()))
-            .filter(r -> endFrom == null || (r.confirmedUntil() != null && !localDate(r.confirmedUntil()).isBefore(endFrom)))
-            .filter(r -> endTo == null || (r.confirmedUntil() != null && !localDate(r.confirmedUntil()).isAfter(endTo)))
-            .sorted(Comparator.comparing(SubscriptionRow::confirmedUntil, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(SubscriptionRow::farmId))
-            .toList();
-        return page(rows, page, size);
+        String paid = " from Payment p where p.subscription.farm.id=f.id and upper(p.state)='PAID' and p.purchasedStart is not null and p.purchasedEnd is not null";
+        String current = "exists (select p.id" + paid + " and p.purchasedStart<=:now and p.purchasedEnd>:now)";
+        String future = "exists (select p.id" + paid + " and p.purchasedStart>:now)";
+        String latestEnd = "(select max(p.purchasedEnd)" + paid + ")";
+        List<String> filters = new ArrayList<>();
+        Map<String, Object> parameters = new HashMap<>();
+        if (!search.isEmpty()) {
+            parameters.put("q", "%" + search.toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%");
+            filters.add("(lower(f.name) like :q escape '!' or exists (select p.id" + paid + " and lower(p.quoteRef) like :q escape '!'))");
+        }
+        switch (cov) {
+            case "CURRENT" -> filters.add(current);
+            case "FUTURE_ONLY" -> filters.add("not " + current + " and " + future);
+            case "NONE" -> filters.add("not " + current + " and not " + future);
+            default -> { }
+        }
+        if (state != null) {
+            filters.add("(case when upper(f.serviceStatus)='SUSPENDED' then 'SUSPENDED' when " + current
+                + " then 'ACTIVE' when exists (select p.id" + paid + ") then 'EXPIRED' else 'PENDING_PAYMENT' end)=:state");
+            parameters.put("state", state);
+        }
+        // end is exclusive: its last covered day belongs to [from,to] iff end > from00 and end <= (to+1)00.
+        if (endFrom != null) { filters.add(latestEnd + ">:endFrom"); parameters.put("endFrom", endFrom.atStartOfDay(BUSINESS_ZONE).toInstant()); }
+        if (endTo != null) { filters.add(latestEnd + "<=:endTo"); parameters.put("endTo", endTo.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant()); }
+        String where = filters.isEmpty() ? "" : " where " + String.join(" and ", filters);
+        if (where.contains(":now")) parameters.put("now", now);
+        var count = em.createQuery("select count(f) from Farm f" + where, Long.class);
+        parameters.forEach(count::setParameter);
+        long total = count.getSingleResult();
+        var query = em.createQuery("select f from Farm f" + where + " order by case when " + latestEnd
+            + " is null then 1 else 0 end, " + latestEnd + " " + dir + ", f.id asc", Farm.class);
+        parameters.forEach(query::setParameter);
+        List<Farm> farms = query.setFirstResult(page * size).setMaxResults(size).getResultList();
+        List<Long> ids = farms.stream().map(Farm::getId).toList();
+        Map<Long, List<Payment>> paidByFarm = paidForFarms(ids).stream().collect(Collectors.groupingBy(p -> p.getSubscription().getFarm().getId()));
+        Map<Long, AppUser> owners = facts.owners(ids);
+        return new Page<>(farms.stream().map(f -> row(f, paidByFarm.getOrDefault(f.getId(), List.of()), owners.get(f.getId()), now)).toList(), total, page, size);
     }
 
     public SubscriptionDetail subscription(Long farmId) {
@@ -83,31 +120,46 @@ public class PlatformSubscriptionQueryService {
         Farm farm = em.find(Farm.class, farmId);
         if (farm == null) throw DomainException.notFound(MessageCodes.COM_08, "farm_id", farmId);
         Instant now = clock.now();
-        List<Payment> paid = paidPayments().filter(p -> p.getSubscription().getFarm().getId().equals(farmId)).toList();
-        Subscription subscription = em.createQuery("select s from Subscription s where s.farm.id = :farm", Subscription.class)
+        List<Payment> paid = paidForFarms(List.of(farmId));
+        Long subscriptionId = em.createQuery("select s.id from Subscription s where s.farm.id = :farm", Long.class)
             .setParameter("farm", farmId).getResultStream().findFirst().orElse(null);
-        SubscriptionRow row = row(farm, subscription, paid, owners().get(farmId), now);
-        Map<Long, Instant> confirmed = confirmationTimes(paid.stream().map(Payment::getId).toList());
+        SubscriptionRow row = row(farm, paid, facts.owners(List.of(farmId)).get(farmId), now);
         List<PurchasedPeriod> periods = paid.stream()
             .sorted(Comparator.comparing(Payment::getPurchasedStart).reversed())
-            .map(p -> new PurchasedPeriod(p.getId(), p.getQuoteRef(), p.getReceiptCode(), p.getDurationYears(), p.getPurchasedStart(), p.getPurchasedEnd(), confirmed.get(p.getId())))
+            .map(p -> new PurchasedPeriod(p.getId(), p.getQuoteRef(), p.getReceiptCode(), p.getDurationYears(), p.getPurchasedStart(), p.getPurchasedEnd(),
+                p.getConfirmedAt(), periodStatus(p, now)))
             .toList();
-        PurchasedPeriod latest = periods.stream().max(Comparator.comparing(PurchasedPeriod::start)).orElse(null);
+        PurchasedPeriod latest = periods.stream().sorted(Comparator.comparing(PurchasedPeriod::confirmedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(PurchasedPeriod::paymentId, Comparator.reverseOrder())).findFirst().orElse(null);
         Instant renewalOpens = row.confirmedUntil() == null ? null : row.confirmedUntil().atZone(BUSINESS_ZONE).minusDays(90).toInstant();
-        return new SubscriptionDetail(row, subscription == null ? null : subscription.getId(), "SUSPENDED".equalsIgnoreCase(farm.getServiceStatus()),
-            renewalOpens, latest, periods, periods.isEmpty() ? "No subscription yet: no period or end date." : null);
+        boolean suspended = "SUSPENDED".equals(row.serviceStatus());
+        FarmServiceFacts.Suspension suspension = suspended ? facts.lastSuspension(List.of(farmId)).get(farmId) : null;
+        String emptyMessage = !periods.isEmpty() ? null : subscriptionId == null
+            ? "No subscription yet: no period or end date." : "Subscription exists: no purchased period yet.";
+        return new SubscriptionDetail(row, subscriptionId, suspended, suspension == null ? null : suspension.at(), renewalOpens, latest, periods, emptyMessage);
     }
 
-    private SubscriptionRow row(Farm farm, Subscription subscription, List<Payment> paid, FarmMembership owner, Instant now) {
+    /** Same [start,end) rule and read clock as the summary (D17), so the UI never mixes server and browser time. */
+    private static String periodStatus(Payment p, Instant now) {
+        return !p.getPurchasedEnd().isAfter(now) ? "PAST" : p.getPurchasedStart().isAfter(now) ? "FUTURE" : "CURRENT";
+    }
+
+    private List<Payment> paidForFarms(List<Long> ids) {
+        if (ids.isEmpty()) return List.of();
+        return em.createQuery("select p from Payment p join fetch p.subscription s join fetch s.farm where s.farm.id in :ids "
+            + "and upper(p.state)='PAID' and p.purchasedStart is not null and p.purchasedEnd is not null", Payment.class)
+            .setParameter("ids", ids).getResultList();
+    }
+
+    private SubscriptionRow row(Farm farm, List<Payment> paid, AppUser owner, Instant now) {
         Payment current = paid.stream()
             .filter(p -> !p.getPurchasedStart().isAfter(now) && p.getPurchasedEnd().isAfter(now))
             .max(Comparator.comparing(Payment::getPurchasedEnd)).orElse(null);
-        Instant confirmedUntil = subscription != null && subscription.getLatestEnd() != null ? subscription.getLatestEnd()
-            : paid.stream().map(Payment::getPurchasedEnd).max(Comparator.naturalOrder()).orElse(null);
+        Instant confirmedUntil = paid.stream().map(Payment::getPurchasedEnd).max(Comparator.naturalOrder()).orElse(null);
+        String status = "SUSPENDED".equalsIgnoreCase(farm.getServiceStatus()) ? "SUSPENDED" : current != null ? "ACTIVE" : paid.isEmpty() ? "PENDING_PAYMENT" : "EXPIRED";
         return new SubscriptionRow(
             farm.getId(), farm.getName(),
-            owner == null ? null : owner.getUser().getFullName(), owner == null ? null : owner.getUser().getEmail(),
-            farm.getServiceStatus(),
+            owner == null ? null : owner.getFullName(), owner == null ? null : owner.getEmail(), status,
             current == null ? null : current.getPurchasedStart(), current == null ? null : current.getPurchasedEnd(),
             confirmedUntil, paid.stream().map(Payment::getQuoteRef).filter(Objects::nonNull).toList()
         );
@@ -218,11 +270,6 @@ public class PlatformSubscriptionQueryService {
             .collect(Collectors.toMap(e -> e.getPayment().getId(), Function.identity(), (a, b) -> a.getId() < b.getId() ? a : b));
     }
 
-    private Map<Long, FarmMembership> owners() {
-        return em.createQuery("select m from FarmMembership m join fetch m.user where upper(m.role) = 'OWNER' and upper(m.status) = 'ACTIVE'", FarmMembership.class)
-            .getResultStream().collect(Collectors.toMap(m -> m.getFarm().getId(), Function.identity(), (a, b) -> a));
-    }
-
     /** The audit entry written when the payment became PAID (SePay or PM acceptance). */
     private Map<Long, Instant> confirmationTimes(List<Long> paymentIds) {
         if (paymentIds.isEmpty()) return Map.of();
@@ -257,13 +304,17 @@ public class PlatformSubscriptionQueryService {
         }
     }
 
-    public record SubscriptionRow(Long farmId, String farmName, String ownerName, String ownerEmail, String serviceStatus,
-        Instant currentStart, Instant currentEnd, Instant confirmedUntil, List<String> paymentCodes) {}
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    public record SubscriptionRow(Long farmId, String farmName, @Schema(nullable = true) String ownerName, @Schema(nullable = true) String ownerEmail, String serviceStatus,
+        @Schema(nullable = true) Instant currentStart, @Schema(nullable = true) Instant currentEnd, @Schema(nullable = true) Instant confirmedUntil, List<String> paymentCodes) {}
 
-    public record PurchasedPeriod(Long paymentId, String paymentCode, String receiptCode, Integer termYears, Instant start, Instant end, Instant confirmedAt) {}
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    public record PurchasedPeriod(Long paymentId, String paymentCode, @Schema(nullable = true) String receiptCode, Integer termYears, Instant start, Instant end,
+        @Schema(nullable = true) Instant confirmedAt, @Schema(allowableValues = {"CURRENT", "FUTURE", "PAST"}) String status) {}
 
-    public record SubscriptionDetail(SubscriptionRow summary, Long subscriptionId, boolean suspended, Instant renewalOpens,
-        PurchasedPeriod latestPurchase, List<PurchasedPeriod> periods, String emptyMessage) {}
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    public record SubscriptionDetail(SubscriptionRow summary, @Schema(nullable = true) Long subscriptionId, boolean suspended, @Schema(nullable = true) Instant suspendedSince,
+        @Schema(nullable = true) Instant renewalOpens, @Schema(nullable = true) PurchasedPeriod latestPurchase, List<PurchasedPeriod> periods, @Schema(nullable = true) String emptyMessage) {}
 
     public record PaymentTiles(long pendingRequests, long evidenceToReview, long hold, long lockedForReturn) {}
 
