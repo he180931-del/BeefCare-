@@ -5,6 +5,8 @@ import wave from '../../../../assets/wave.png'
 import { Icon } from '../../../../components/Icon'
 import { HERO_POINTS, OVERVIEW_CARDS, STEPS } from '../../data/landingContent'
 import { AUTH_PATH } from '../../domain/authErrors'
+import type { AuthClient } from '../../types'
+import { GoogleButton } from '../AuthControls'
 import { container } from './LandingHeader'
 
 const card = 'rounded-[14px] border border-field bg-white lg:rounded-[18px]'
@@ -12,18 +14,19 @@ const eyebrow = 'm-0 hidden text-xs font-bold uppercase tracking-wider text-bran
 const sectionTitle = 'm-0 text-[22px] font-bold leading-tight text-ink lg:text-[30px]'
 const circle = 'row-span-2 grid size-9 place-items-center rounded-full text-[11px] font-bold lg:row-span-1 lg:size-[42px] lg:text-xs'
 
-export function Hero() {
+export function Hero({ client }: { client: AuthClient }) {
   return (
     <section id="top" className="relative overflow-hidden">
       <img src={wave} alt="" aria-hidden="true" className="pointer-events-none absolute -right-24 -top-10 hidden w-[900px] opacity-70 [mask-image:linear-gradient(to_right,transparent,black_35%)] lg:block" />
       <div className={`${container} relative grid items-center gap-8 pb-8 pt-8 lg:grid-cols-[1fr_596px] lg:gap-6 lg:pb-14 lg:pt-14`}>
         <div>
-          <p className="m-0 text-xs font-bold uppercase tracking-wider text-brand lg:text-[13px]"><span className="lg:hidden">Quản lý trại bò</span><span className="hidden lg:inline">Quản lý trại bò dễ dùng</span></p>
+          <p className="m-0 text-xs font-bold uppercase tracking-wider text-brand lg:text-[13px]">Dành cho trại bò thịt 150–300 con</p>
           <h1 className="m-0 mt-4 text-[32px] font-bold leading-[1.2] text-ink lg:mt-5 lg:text-[42px]">Mỗi con bò một hồ sơ.<br />Cả <span className="hidden lg:inline">trang </span>trại trong tầm tay.</h1>
           <p className="m-0 mt-4 max-w-[520px] text-[15px] leading-7 text-subtle lg:mt-6 lg:text-[17px]">Ghi nhận tại chuồng, theo dõi sức khỏe và sinh sản, nhận nhắc việc đúng lúc<span className="hidden lg:inline"> — trên một hệ thống dễ dùng</span>.</p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row lg:mt-8">
-            <Link to={AUTH_PATH.register} className="inline-flex h-[52px] items-center justify-center rounded-[14px] bg-brand px-7 text-[15px] font-bold text-white no-underline hover:bg-brand-dark lg:h-14">Bắt đầu quản lý trại</Link>
-            <a href="#features" className="inline-flex h-12 items-center justify-center rounded-[14px] border border-field bg-white px-7 text-[15px] font-bold text-brand-dark no-underline hover:border-brand lg:h-14">Khám phá tính năng</a>
+            <Link to={AUTH_PATH.register} className="inline-flex h-[52px] items-center justify-center rounded-[14px] bg-brand px-7 text-[15px] font-bold text-white no-underline hover:bg-brand-dark lg:h-14">Đăng ký làm Chủ trại</Link>
+            <GoogleButton client={client} label="Tiếp tục với Google" />
+            <a href="#pricing" className="inline-flex h-12 items-center justify-center rounded-[14px] border border-field bg-white px-7 text-[15px] font-bold text-brand-dark no-underline hover:border-brand lg:h-14">Xem bảng giá</a>
           </div>
           <ul className="m-0 mt-6 hidden list-none flex-wrap gap-x-8 gap-y-2 p-0 text-[13px] text-subtle lg:flex">
             {HERO_POINTS.map((point) => <li key={point}>✓ {point}</li>)}

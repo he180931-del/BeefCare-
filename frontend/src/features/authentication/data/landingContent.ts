@@ -8,24 +8,24 @@ export const NAV_LINKS: ReadonlyArray<readonly [string, string]> = [
 export const HERO_POINTS = ['Dữ liệu có tổ chức', 'Dễ dùng tại trại', 'Theo dõi từng cá thể']
 
 export const OVERVIEW_CARDS: ReadonlyArray<readonly [string, string]> = [
-  ['Hồ sơ bò', 'Theo dõi từng cá thể'], ['Sức khỏe', 'Tiêm phòng & điều trị'],
-  ['Sinh sản', 'Theo dõi theo giai đoạn'], ['Nhắc việc', 'Biết việc cần làm hôm nay'],
+  ['1 hồ sơ mỗi con', 'Theo dõi rõ từng cá thể'], ['8 nhóm sự kiện', 'Chăm sóc trong một nơi'],
+  ['7 vai trò', 'Phân quyền theo công việc'], ['Kỳ hạn 1–3 năm', 'Chọn gói theo nhu cầu'],
 ]
 
 export const DEFAULT_FEATURES: ReadonlyArray<readonly [string, string]> = [
-  ['Hồ sơ cá thể', 'Mã QR mở nhanh hồ sơ, thông tin và lịch sử theo từng con.'],
-  ['Đàn & chuồng', 'Quản lý nhóm đàn, vị trí chuồng và tình trạng hiện tại.'],
+  ['Hồ sơ cá thể & thẻ QR', 'Mã QR mở nhanh hồ sơ, thông tin và lịch sử theo từng con.'],
   ['Tăng trưởng & BCS', 'Ghi cân nặng, thể trạng và theo dõi thay đổi theo thời gian.'],
   ['Tiêm phòng & sức khỏe', 'Lưu lịch tiêm, điều trị và lịch tái khám.'],
-  ['Sinh sản', 'Theo dõi động dục, phối giống, khám thai và ngày dự kiến sinh.'],
-  ['Nhắc việc & báo cáo', 'Xem việc sắp đến hạn và tổng hợp tình hình trại.'],
+  ['Sinh sản & đẻ', 'Theo dõi động dục, phối giống, khám thai và ngày dự kiến sinh.'],
+  ['Nhắc việc & thông báo trại', 'Xem việc sắp đến hạn và tổng hợp tình hình trại.'],
+  ['Nhiều trại độc lập', 'Tách dữ liệu và phân quyền rõ ràng giữa các trại.'],
 ]
 
 export const STEPS: ReadonlyArray<readonly [string, string]> = [
-  ['Tạo trại', 'Thiết lập thông tin trại và mời thành viên.'],
-  ['Thêm hồ sơ bò', 'Tạo hồ sơ hoặc nhập đàn theo phiếu.'],
-  ['Ghi nhận tại trại', 'Cập nhật sức khỏe, sinh sản, tăng trưởng.'],
-  ['Theo dõi & nhắc việc', 'Xem tổng quan và xử lý việc đến hạn.'],
+  ['Quét QR thẻ tai', 'Mở đúng hồ sơ của từng con tại chuồng.'],
+  ['Mở đúng hồ sơ', 'Xem nhanh thông tin và lịch sử chăm sóc.'],
+  ['Ghi sự kiện thực tế', 'Cập nhật sức khỏe, sinh sản và tăng trưởng.'],
+  ['Theo dõi & nhận nhắc việc', 'Biết việc cần làm và xử lý đúng hạn.'],
 ]
 
 export const DEFAULT_FAQ: ReadonlyArray<readonly [string, string]> = [

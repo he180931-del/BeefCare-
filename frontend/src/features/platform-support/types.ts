@@ -131,6 +131,9 @@ export interface SupportNotification {
   read: boolean
   actionLabel: string
   ticketCode: string
+  /** Backend target fields let platform notifications open an internal request as well as a ticket. */
+  targetType?: string
+  targetId?: number
 }
 
 export interface CompleteCommand {

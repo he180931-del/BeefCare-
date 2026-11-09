@@ -1,14 +1,26 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
+import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { financeDemoStore, type FinanceDemoStore } from '../data/financeDemoStore'
 import type { NoticeKind, ReceiptFilters, RecordFields, RecordFilters, ReportCriteria } from '../types'
 import { createFinanceBackendApi } from './financeBackendApi'
+import type { PmNotice } from '../types'
+
+const mapNotice = (value: unknown): PmNotice => {
+  const row = asRecord(value)
+  const category = textValue(row.category).toUpperCase()
+  const targetType = textValue(row.targetType).toUpperCase()
+  const targetId = numberValue(row.targetId)
+  const kind = category === 'SUPPORT' ? 'SUPPORT' : 'RECON'
+  const href = targetType === 'SUPPORT_TICKET' ? `/nen-tang/ho-tro/${targetId}`
+    : targetType === 'INTERNAL_REQUEST' ? `/nen-tang/yeu-cau/${targetId}`
+      : '/nen-tang/thanh-toan'
+  const actionLabel = targetType === 'INTERNAL_REQUEST' ? 'Mở yêu cầu' : targetType === 'SUPPORT_TICKET' ? 'Mở ticket' : 'Xem xét'
+  return { id: numberValue(row.id), kind, title: textValue(row.title), summary: textValue(row.summary), createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime), actionLabel, href }
+}
 
 export function createFinanceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FinanceDemoStore }) {
   // Backend mode is always remote; local mode is the only mode allowed to read the demo store.
   void farmId
   const backend = createFinanceBackendApi(transport)
-  const requireLocal = () => { if (mode === 'backend') throw backendPending('tài chính nền tảng') }
   return {
     now() { return store.now() },
     async listFarms() { return mode === 'backend' ? backend.listFarms() : store.listFarms() },
@@ -47,12 +59,23 @@ export function createFinanceApi({ mode, farmId, transport, store }: { mode: Bac
     // GET /api/platform/finance/reports/{id}/xlsx
     async exportXlsx(id: number) { return mode === 'backend' ? backend.exportXlsx(id) : store.exportXlsx(id) },
 
-    // GET /api/notifications/mine (lọc theo loại ở client)
-    async listNotices(kind: NoticeKind) { requireLocal(); return store.listNotices(kind) },
+    // GET /api/notifications/mine (lọc nhóm nền tảng ở client)
+    async listNotices(kind: NoticeKind) {
+      if (mode === 'local') return store.listNotices(kind)
+      return asRows(await transport.get('/api/notifications/mine')).map(mapNotice).filter((notice) => notice.kind === kind)
+    },
     // PUT /api/notifications/{id}/read
-    async markNoticeRead(id: number) { requireLocal(); return store.markNoticeRead(id) },
-    // PUT /api/notifications/read-all
-    async markAllNoticesRead(kind: NoticeKind) { requireLocal(); return store.markAllNoticesRead(kind) },
+    async markNoticeRead(id: number) {
+      if (mode === 'local') return store.markNoticeRead(id)
+      return mapNotice(await transport.command(`/api/notifications/${id}/read`, undefined, { method: 'PUT' }))
+    },
+    // Backend endpoint đọc tất cả không có filter; chỉ đánh dấu các notice cùng nhóm để không làm đổi tab khác.
+    async markAllNoticesRead(kind: NoticeKind) {
+      if (mode === 'local') return store.markAllNoticesRead(kind)
+      const rows = asRows(await transport.get('/api/notifications/mine')).map(mapNotice).filter((notice) => notice.kind === kind && notice.readTime == null)
+      await Promise.all(rows.map((notice) => transport.command(`/api/notifications/${notice.id}/read`, undefined, { method: 'PUT' })))
+      return rows.length
+    },
   }
 }
 export type FinanceApi = ReturnType<typeof createFinanceApi>

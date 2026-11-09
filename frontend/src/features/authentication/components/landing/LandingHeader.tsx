@@ -19,7 +19,7 @@ export function LandingHeader() {
         </nav>
         <div className="hidden items-center gap-3 lg:flex">
           <Link to={AUTH_PATH.signIn} className="inline-flex h-12 items-center rounded-[14px] border border-field bg-white px-6 text-[15px] font-bold text-brand-dark no-underline hover:border-brand">Đăng nhập</Link>
-          <Link to={AUTH_PATH.register} className="inline-flex h-12 items-center rounded-[14px] bg-brand px-6 text-[15px] font-bold text-white no-underline hover:bg-brand-dark">Đăng ký trại</Link>
+          <Link to={AUTH_PATH.register} className="inline-flex h-12 items-center rounded-[14px] bg-brand px-6 text-[15px] font-bold text-white no-underline hover:bg-brand-dark">Đăng ký làm Chủ trại</Link>
         </div>
         <button type="button" aria-label="Mở menu" aria-expanded={open} onClick={() => setOpen((value) => !value)} className="grid size-10 cursor-pointer place-items-center rounded-lg border-0 bg-transparent text-brand-dark lg:hidden">
           <span aria-hidden="true" className="flex flex-col gap-[5px]"><span className="h-0.5 w-5 rounded bg-current" /><span className="h-0.5 w-5 rounded bg-current" /><span className="h-0.5 w-5 rounded bg-current" /></span>
@@ -31,7 +31,7 @@ export function LandingHeader() {
             {NAV_LINKS.map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)} className="rounded-lg px-2 py-2.5 text-sm font-bold text-ink no-underline">{label}</a>)}
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Link to={AUTH_PATH.signIn} className="inline-flex h-11 items-center justify-center rounded-[14px] border border-field text-sm font-bold text-brand-dark no-underline">Đăng nhập</Link>
-              <Link to={AUTH_PATH.register} className="inline-flex h-11 items-center justify-center rounded-[14px] bg-brand text-sm font-bold text-white no-underline">Đăng ký trại</Link>
+              <Link to={AUTH_PATH.register} className="inline-flex h-11 items-center justify-center rounded-[14px] bg-brand text-sm font-bold text-white no-underline">Đăng ký làm Chủ trại</Link>
             </div>
           </div>
         </div>

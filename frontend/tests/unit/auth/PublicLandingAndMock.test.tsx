@@ -35,7 +35,8 @@ describe('public landing page', () => {
     expect(screen.getByText(/Trọn 24 tháng · tiết kiệm 10%/)).toBeInTheDocument()
     expect(screen.getByText(/Trọn 36 tháng · tiết kiệm 15%/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Mỗi con bò một hồ sơ.')
-    expect(screen.getByRole('link', { name: 'Bắt đầu quản lý trại' })).toHaveAttribute('href', '/dang-ky')
+    expect(screen.getAllByRole('link', { name: 'Đăng ký làm Chủ trại' })[1]).toHaveAttribute('href', '/dang-ky')
+    expect(screen.getByRole('link', { name: 'Xem bảng giá' })).toHaveAttribute('href', '#pricing')
     expect(screen.getAllByRole('link', { name: 'Đăng nhập' })[0]).toHaveAttribute('href', '/sign-in')
   })
 

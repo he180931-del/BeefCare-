@@ -165,4 +165,15 @@ describe('biên nhận và thông báo', () => {
     expect(spy).not.toHaveBeenCalled()
     expect(http.get).toHaveBeenCalled()
   })
+
+  it('thông báo nền tảng dùng notification API thật và lọc theo nhóm', async () => {
+    const store = createFinanceDemoStore()
+    const http = transport()
+    http.get.mockImplementation(async (path: string) => path === '/api/notifications/mine' ? [{ id: 5, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 77, title: 'IR-077', summary: 'Cần xử lý', createdTime: '2026-11-01T10:00:00Z', readTime: null }] : {})
+    http.command.mockResolvedValue({ id: 5, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 77, title: 'IR-077', summary: 'Cần xử lý', createdTime: '2026-11-01T10:00:00Z', readTime: '2026-11-01T10:01:00Z' })
+    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listNotices('SUPPORT')).resolves.toMatchObject([{ href: '/nen-tang/yeu-cau/77', kind: 'SUPPORT' }])
+    await api.markNoticeRead(5)
+    expect(http.command).toHaveBeenCalledWith('/api/notifications/5/read', undefined, { method: 'PUT' })
+  })
 })

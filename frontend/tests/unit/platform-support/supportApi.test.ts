@@ -116,4 +116,29 @@ describe('chế độ backend', () => {
     expect(spy).not.toHaveBeenCalled()
     expect(http.get).toHaveBeenCalled()
   })
+
+  it('giải mã mã IR bằng endpoint yêu cầu nội bộ và không ép chỉ trạng thái OPEN', async () => {
+    const store = createSupportDemoStore()
+    const http = transport()
+    http.get.mockImplementation(async (path: string) => {
+      if (path === '/api/platform/internal-requests') return [{ id: 77, code: 'IR-077', status: 'DONE', version: 2, question: 'Kiểm tra' }]
+      if (path === '/api/platform/internal-requests/77') return { id: 77, code: 'IR-077', status: 'DONE', version: 2, question: 'Kiểm tra' }
+      return {}
+    })
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listAssigned(CS_ME)).resolves.toHaveLength(1)
+    await expect(api.getAssigned(PM_QUAN, 'IR-077')).resolves.toMatchObject({ code: 'IR-077', status: 'DONE' })
+    expect(http.get).toHaveBeenCalledWith('/api/platform/internal-requests')
+    expect(http.get).toHaveBeenCalledWith('/api/platform/internal-requests/77')
+  })
+
+  it('thông báo hỗ trợ dùng notification API thật và mở đúng yêu cầu nội bộ', async () => {
+    const store = createSupportDemoStore()
+    const http = transport()
+    http.get.mockResolvedValue([{ id: 8, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 77, title: 'IR-077', summary: 'Cần xử lý', createdTime: '2026-11-01T10:00:00Z', readTime: null }])
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listNotifications()).resolves.toMatchObject([{ targetType: 'INTERNAL_REQUEST', ticketCode: '77', actionLabel: 'Mở yêu cầu' }])
+    await api.markNotificationRead(8)
+    expect(http.command).toHaveBeenCalledWith('/api/notifications/8/read', undefined, { method: 'PUT' })
+  })
 })

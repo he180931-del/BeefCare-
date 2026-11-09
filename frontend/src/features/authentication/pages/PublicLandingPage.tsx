@@ -16,7 +16,7 @@ export function PublicLandingPage({ client }: { client: AuthClient }) {
   return (
     <main className="min-h-screen bg-page text-ink">
       <LandingHeader />
-      <Hero />
+      <Hero client={client} />
       <Overview />
       <Features items={features} />
       <Steps />

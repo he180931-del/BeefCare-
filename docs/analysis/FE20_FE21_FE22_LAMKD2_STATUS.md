@@ -13,7 +13,7 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 
 | Nhóm | Trạng thái trên `lamkd2` | Bằng chứng |
 | --- | --- | --- |
-| FE20 Owner (danh sách, tạo, chi tiết, phản hồi, xác nhận, mở lại) | Đã nối adapter thật | `frontend/src/features/support/api/supportApi.ts`; test support API 12 cases |
+| FE20 Owner (danh sách, tạo, chi tiết, phản hồi, xác nhận, mở lại) | Đã nối adapter thật | `frontend/src/features/support/api/supportApi.ts`; test support API |
 | FE20 CS (queue, claim/handover, phân loại, phản hồi công khai, ghi chú, resolve/close) | Đã nối adapter thật | `frontend/src/features/platform-support/api/supportApi.ts`; test platform-support 11 cases |
 | FE20 PM/SA (yêu cầu nội bộ được giao, domain result, hoàn thành) | Đã nối adapter thật | `frontend/src/features/platform-support/api/supportApi.ts`; route `/nen-tang/yeu-cau/*` |
 | FE21-01 biên nhận gói chỉ đọc | Đã nối adapter thật | `financeBackendApi.listReceipts/getReceipt` |
@@ -25,14 +25,16 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 
 - `npm run typecheck` — đạt.
 - `npm run build` — đạt (chỉ còn cảnh báo chunk lớn của Vite).
-- Frontend focused: `financeBackendApi`, `platformFinanceApi`, `platform-support/supportApi`, Owner `supportApi`, `accountApi` — **52 tests passed**.
-- Backend workflow/domain: `SupportTicketWorkflowTest`, `PlatformFinanceWorkflowTest`, `SupportTicketTest`, `TicketMessageTest`, `InternalRequestTest`, `ManualFinanceRecordTest` — Maven chạy đạt với Byte Buddy agent trên Java 24.
-- Smoke HTTP: `/api/public/landing` trả HTTP 200 trên backend `lamkd2` với PostgreSQL thật; payload có 6 feature và 5 FAQ.
+- Frontend focused adapters/notifications: `supportApi`, `financeBackendApi`, `platformFinanceApi`, `notificationsApi` — **45 tests passed**.
+- Frontend local landing/demo contract: `PublicLandingAndMock.test.tsx` với `VITE_BEEFCARE_DATA_SOURCE=local` — **11 tests passed**.
+- Frontend API contract suite: `npm run test:api` — **100 tests passed**.
+- Backend workflow/domain: `SupportTicketWorkflowTest`, `PlatformFinanceWorkflowTest`, `SupportTicketTest`, `TicketMessageTest`, `InternalRequestTest`, `ManualFinanceRecordTest` — Maven đạt với Byte Buddy agent trên Java 24.
+- Smoke HTTP/DB thật trên backend `dev,local`: `/api/public/landing` HTTP 200 (6 feature); Owner/CS/PM/SA login trả đúng ma trận quyền; ticket `TK-8751` đọc khớp API và PostgreSQL (`OPEN`, version `1`).
 - `git diff --check` — đạt.
 
 ## Còn cần kiểm tra ở môi trường tích hợp
 
-- Chạy smoke HTTP có xác thực trên đúng worktree `lamkd2` (đăng nhập PM/CS/Owner, tạo dữ liệu và đọc lại DB); smoke public landing đã đạt.
 - Bổ sung fixture biên nhận PAID nếu database local chưa có payment/evidence tương ứng.
-- Kiểm tra trực tiếp stale-version/idempotency và quyền Owner/CS/PM/SA trong ma trận API.
+- Bổ sung smoke mutation FE21 (manual record + bank-source evidence) và đọc lại SQL; adapter đã sửa `evidenceId` để không dùng nhầm provider transaction number.
+- Chạy kiểm tra stale-version/idempotency mutation FE21 trực tiếp trên DB nếu môi trường tích hợp có fixture an toàn.
 - Testcontainers hiện phụ thuộc Docker Desktop socket của máy; nếu runner trả HTTP 400 thì ghi nhận là lỗi môi trường, không chuyển sang mock nghiệp vụ.

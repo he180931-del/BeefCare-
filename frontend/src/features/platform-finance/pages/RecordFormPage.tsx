@@ -38,7 +38,7 @@ export default function RecordFormPage() {
   useEffect(() => {
     if (!record?.sourceReference || !bank.data?.length || fields.sourceEvidenceId) return
     const source = bank.data.find((item) => item.sourceReference === record.sourceReference)
-    if (source) setFields((current) => ({ ...current, sourceEvidenceId: source.transactionId, sourceType: 'BANK' }))
+    if (source) setFields((current) => ({ ...current, sourceEvidenceId: source.evidenceId ?? source.transactionId, sourceType: 'BANK' }))
   }, [record, bank.data, fields.sourceEvidenceId])
 
   if (loading && code && !data) return <Layout title="Khoản thu chi"><LoadingBlock /></Layout>
@@ -81,10 +81,10 @@ export default function RecordFormPage() {
   const useSource = () => {
     if (!pick) return
     if (pick.claimedBy && fields.type === 'INCOME') { setConflict(pick); open('nguon-loi'); return }
-    set({ sourceEvidenceId: pick.transactionId, amountVnd: pick.amount, occurredOn: pick.bankPaidAt.slice(0, 10) })
+    set({ sourceEvidenceId: pick.evidenceId ?? pick.transactionId, amountVnd: pick.amount, occurredOn: pick.bankPaidAt.slice(0, 10) })
     close()
   }
-  const chosen = (bank.data ?? []).find((b) => b.transactionId === fields.sourceEvidenceId)
+  const chosen = (bank.data ?? []).find((b) => (b.evidenceId ?? b.transactionId) === fields.sourceEvidenceId)
   const sourceNotice = formError && /đã được ghi nhận là/.test(formError) ? formError : null
 
   return (

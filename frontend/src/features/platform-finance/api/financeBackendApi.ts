@@ -21,6 +21,7 @@ const mapBank = (value: unknown): BankTransactionChoice => {
   const row = asRecord(value)
   return {
     sourceReference: textValue(row.sourceReference), transactionId: numberValue(row.transactionId), amount: decimal(row.amount),
+    evidenceId: row.evidenceId == null ? undefined : numberValue(row.evidenceId),
     bankPaidAt: iso(row.bankPaidAt), direction: textValue(row.direction) === 'OUT' ? 'OUT' : 'IN', bank: textValue(row.bank),
     paymentReference: textValue(row.paymentReference), claimedBy: row.claimedBy == null ? undefined : textValue(row.claimedBy), evidenceCode: textValue(row.sourceReference),
   }
@@ -73,6 +74,13 @@ const mapReport = (value: unknown): CashReport => {
 export function createFinanceBackendApi(transport: BackendTransport) {
   const root = '/api/platform/finance'
   const getPage = async (path: string) => asRecord(await transport.get(path))
+  const resolveRecordId = async (code: string): Promise<number> => {
+    if (/^\d+$/.test(code)) return Number(code)
+    const page = await getPage(`${root}/records?page=0&size=100`)
+    const row = asRows(page.content).find((item) => textValue(item.recordCode) === code)
+    if (!row) throw new Error(`Không tìm thấy khoản thu chi ${code}.`)
+    return numberValue(row.id)
+  }
   const fields = (input: RecordFields) => ({ ...input, sourceType: input.sourceType === 'BANK' ? 'BANK_TRANSACTION' : 'MANUAL', farmId: input.scope === 'FARM' ? input.farmId : null })
   const recordCommand = (input: RecordFields, sourceEvidenceId?: number | null) => ({ fields: fields(input), sourceEvidenceId: sourceEvidenceId ?? input.sourceEvidenceId ?? null })
   const mapRecordResponse = (value: unknown) => mapRecord(value)
@@ -82,19 +90,22 @@ export function createFinanceBackendApi(transport: BackendTransport) {
     async listReceipts(filters: ReceiptFilters = {}) { const suffix = query({ q: filters.search, farmId: filters.farmId, bankFrom: filters.from, bankTo: filters.to, page: (filters.page ?? 1) - 1, size: filters.size ?? 5 }); const page = await getPage(`/api/platform/finance/receipts?${suffix}`); return { rows: asRows(page.items).map((item) => mapReceipt(item)), total: numberValue(page.total), page: numberValue(page.page) + 1, pageCount: Math.max(1, Math.ceil(numberValue(page.total) / numberValue(page.size, filters.size ?? 5))), totalAmount: decimal(page.totalAmount) } },
     async getReceipt(code: string) { const page = await getPage(`/api/platform/finance/receipts?q=${encodeURIComponent(code)}&page=0&size=100`); const row = asRows(page.items).find((item) => textValue(item.receiptCode) === code); if (!row) throw new Error('Không tìm thấy biên nhận.'); const detail = asRecord(await transport.get(`/api/platform/finance/receipts/${numberValue(row.paymentId)}`)); return mapReceipt(detail.receipt ?? detail, detail) },
     async listRecords(filters: RecordFilters = {}) {
-      const base = { type: filters.type, category: filters.category, scope: filters.scope === 'GENERAL' ? 'GENERAL' : filters.scope, farmId: filters.scope && filters.scope !== 'GENERAL' ? filters.scope : undefined, from: filters.from, to: filters.to, page: (filters.page ?? 1) - 1, size: filters.size ?? 5 }
+      const farmScope = filters.scope && /^\d+$/.test(filters.scope)
+        ? { scope: 'FARM', farmId: Number(filters.scope) }
+        : { scope: filters.scope === 'GENERAL' ? 'GENERAL' : undefined, farmId: undefined }
+      const base = { type: filters.type, category: filters.category, ...farmScope, from: filters.from, to: filters.to, page: (filters.page ?? 1) - 1, size: filters.size ?? 5 }
       const suffix = query({ ...base, state: filters.state }); const page = await getPage(`${root}/records?${suffix}`)
       const counts = await Promise.all(['DRAFT', 'POSTED', 'VOID'].map(async (state) => numberValue((await getPage(`${root}/records?${query({ ...base, state, page: 0, size: 1 })}`)).totalElements)))
       return { rows: asRows(page.content).map(mapRecordResponse), total: numberValue(page.totalElements), page: numberValue(page.number) + 1, pageCount: Math.max(1, Math.ceil(numberValue(page.totalElements) / numberValue(page.size, filters.size ?? 5))), counts: { ALL: counts.reduce((sum, count) => sum + count, 0), DRAFT: counts[0], POSTED: counts[1], VOID: counts[2] } }
     },
-    async getRecord(code: string) { const detail = asRecord(await transport.get(`${root}/records/${encodeURIComponent(code)}`)); return { record: mapRecord(detail.record, asRows(detail.history)), history: asRows(detail.history) } },
+    async getRecord(code: string) { const detail = asRecord(await transport.get(`${root}/records/${await resolveRecordId(code)}`)); return { record: mapRecord(detail.record, asRows(detail.history)), history: asRows(detail.history) } },
     async listBankTransactions() { return asRows(await transport.get(`${root}/bank-transactions`)).map(mapBank) },
     async createDraft(input: RecordFields) { return mapRecordResponse(await transport.command(`${root}/records`, recordCommand(input))) },
-    async saveDraft(code: string, input: RecordFields, expectedVersion: number) { return mapRecordResponse(await transport.command(`${root}/records/${encodeURIComponent(code)}`, { ...recordCommand(input), version: expectedVersion }, { method: 'PUT' })) },
-    async discard(code: string, expectedVersion: number) { return mapRecordResponse(await transport.command(`${root}/records/${encodeURIComponent(code)}/discard`, { version: expectedVersion })) },
-    async post(code: string, expectedVersion: number) { return mapRecordResponse(await transport.command(`${root}/records/${encodeURIComponent(code)}/post`, { version: expectedVersion })) },
-    async voidRecord(code: string, expectedVersion: number, reason: string) { return mapRecordResponse(await transport.command(`${root}/records/${encodeURIComponent(code)}/void`, { version: expectedVersion, reason })) },
-    async createReplacement(code: string, expectedVersion: number, overrides: { amountVnd?: number; description?: string } = {}) { return mapRecordResponse(await transport.command(`${root}/records/${encodeURIComponent(code)}/replacement`, { version: expectedVersion, reason: null, amountVnd: overrides.amountVnd ?? null, description: overrides.description ?? null })) },
+    async saveDraft(code: string, input: RecordFields, expectedVersion: number) { return mapRecordResponse(await transport.command(`${root}/records/${await resolveRecordId(code)}`, { ...recordCommand(input), version: expectedVersion }, { method: 'PUT' })) },
+    async discard(code: string, expectedVersion: number) { return mapRecordResponse(await transport.command(`${root}/records/${await resolveRecordId(code)}/discard`, { version: expectedVersion })) },
+    async post(code: string, expectedVersion: number) { return mapRecordResponse(await transport.command(`${root}/records/${await resolveRecordId(code)}/post`, { version: expectedVersion })) },
+    async voidRecord(code: string, expectedVersion: number, reason: string) { return mapRecordResponse(await transport.command(`${root}/records/${await resolveRecordId(code)}/void`, { version: expectedVersion, reason })) },
+    async createReplacement(code: string, expectedVersion: number, overrides: { amountVnd?: number; description?: string } = {}) { return mapRecordResponse(await transport.command(`${root}/records/${await resolveRecordId(code)}/replacement`, { version: expectedVersion, reason: null, amountVnd: overrides.amountVnd ?? null, description: overrides.description ?? null })) },
     async currentReport() { return mapReport(await transport.get(`${root}/reports/latest`)) },
     async getReport(id: number) { return mapReport(await transport.get(`${root}/reports/${id}`)) },
     async runReport(criteria: ReportCriteria) { const sourceFilter = criteria.sourceFilter === 'RECEIPTS' ? 'RECEIPTS_ONLY' : criteria.sourceFilter === 'MANUAL' ? 'MANUAL_ONLY' : 'ALL'; return mapReport(await transport.command(`${root}/reports`, { ...criteria, sourceFilter })) },

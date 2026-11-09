@@ -108,7 +108,15 @@ public class PlatformFinanceService {
         Specification<ManualFinanceRecord> filter = (root, query, cb) -> {
             List<jakarta.persistence.criteria.Predicate> p = new ArrayList<>();
             if (StringUtils.hasText(type)) p.add(cb.equal(cb.upper(root.get("type")), type.trim().toUpperCase(Locale.ROOT)));
-            if (StringUtils.hasText(state)) p.add(cb.equal(cb.upper(root.get("state")), state.trim().toUpperCase(Locale.ROOT)));
+            if (StringUtils.hasText(state)) {
+                String normalizedState = state.trim().toUpperCase(Locale.ROOT);
+                if ("VOID".equals(normalizedState)) {
+                    // The UI groups an explicitly voided posted record and a discarded draft under “Đã hủy”.
+                    p.add(cb.or(cb.equal(cb.upper(root.get("state")), "VOID"), cb.equal(cb.upper(root.get("state")), "DISCARDED")));
+                } else {
+                    p.add(cb.equal(cb.upper(root.get("state")), normalizedState));
+                }
+            }
             if (StringUtils.hasText(category)) p.add(cb.equal(cb.upper(root.get("category")), category.trim().toUpperCase(Locale.ROOT)));
             if (StringUtils.hasText(scope)) p.add(cb.equal(cb.upper(root.get("scope")), scope.trim().toUpperCase(Locale.ROOT)));
             if (farmId != null) p.add(cb.equal(root.get("farm").get("id"), farmId));
@@ -132,7 +140,7 @@ public class PlatformFinanceService {
         return evidence.findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc().stream()
             .filter(e -> StringUtils.hasText(e.getAuthOutcome()) && "VERIFIED".equalsIgnoreCase(e.getAuthOutcome()))
             .filter(e -> !claims.existsById(sourceReference(e)))
-            .map(e -> new BankTransactionChoice(sourceReference(e), e.getProviderTxnId(), e.getAmount(), e.getBankPaidAt(), e.getTransferDirection(), e.getGateway(), e.getQuoteRef()))
+            .map(e -> new BankTransactionChoice(sourceReference(e), e.getProviderTxnId(), e.getId(), e.getAmount(), e.getBankPaidAt(), e.getTransferDirection(), e.getGateway(), e.getQuoteRef()))
             .toList();
     }
 
@@ -548,7 +556,7 @@ public class PlatformFinanceService {
         static HistoryDTO from(ManualFinanceHistory h) { return new HistoryDTO(h.getId(), h.getAction(), h.getChangedAt(), h.getActor().getFullName(), h.getReason(), h.getBeforeJson(), h.getAfterJson()); }
     }
     public record RecordDetail(RecordDTO record, List<HistoryDTO> history) {}
-    public record BankTransactionChoice(String sourceReference, Long transactionId, BigDecimal amount, Instant bankPaidAt, String direction, String bank, String paymentReference) {}
+    public record BankTransactionChoice(String sourceReference, Long transactionId, Long evidenceId, BigDecimal amount, Instant bankPaidAt, String direction, String bank, String paymentReference) {}
     public record ReportRequest(LocalDate dateFrom, LocalDate dateTo, Long farmId, String sourceFilter) {}
     public record ReportCriteria(LocalDate dateFrom, LocalDate dateTo, Long farmId, String sourceFilter) {}
     public record ScopeTotals(String scope, Long farmId, String farmName, BigDecimal subscriptionReceipts, BigDecimal otherIncome, BigDecimal expense) {}

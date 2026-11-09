@@ -1,10 +1,9 @@
 import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
 import { supportDemoStore, type SupportDemoStore } from '../data/supportDemoStore'
 import type { Actor, CompleteCommand, ContextRef, QueueFilters, TargetRole, TicketCategory, TicketPriority } from '../types'
 import { BackendError } from '../../../api/backendClient'
 import { SupportError } from '../domain/supportRules'
-import type { InternalView, QueuePage, StaffMember, Ticket, TicketRow } from '../types'
+import type { InternalView, QueuePage, StaffMember, SupportNotification, Ticket, TicketRow } from '../types'
 
 const mapError = (error: unknown): never => {
   if (!(error instanceof BackendError)) throw error
@@ -27,6 +26,17 @@ const mapInternal = (value: unknown): InternalView => {
     status, outcome: row.outcome == null ? undefined : textValue(row.outcome) as InternalView['outcome'], result: row.result == null ? undefined : textValue(row.result),
     domainResultAuditId: row.domainResultAuditId == null ? undefined : numberValue(row.domainResultAuditId), completedAt: row.completedAt == null ? undefined : textValue(row.completedAt),
     version: numberValue(row.version), history: [],
+  }
+}
+
+const mapSupportNotification = (value: unknown): SupportNotification => {
+  const row = asRecord(value)
+  const targetType = textValue(row.targetType)
+  const targetId = numberValue(row.targetId)
+  return {
+    id: numberValue(row.id), title: textValue(row.title), body: textValue(row.summary),
+    at: textValue(row.createdTime), read: row.readTime != null, actionLabel: targetType === 'INTERNAL_REQUEST' ? 'Mở yêu cầu' : 'Mở ticket',
+    ticketCode: String(targetId), targetType, targetId,
   }
 }
 
@@ -54,6 +64,13 @@ function createBackendApi(transport: BackendTransport) {
     if (!row) throw new BackendError(404, { message: `Không tìm thấy ticket ${code}` })
     return numberValue(row.id)
   }
+  const resolveInternalId = async (code: string): Promise<number> => {
+    if (/^\d+$/.test(code)) return Number(code)
+    const rows = asRows(await transport.get('/api/platform/internal-requests'))
+    const row = rows.find((item) => textValue(item.code) === code)
+    if (!row) throw new BackendError(404, { message: `Không tìm thấy yêu cầu ${code}` })
+    return numberValue(row.id)
+  }
   const ticket = (code: string) => resolveId(code).then((id) => `/api/platform/support/tickets/${id}`)
   const get = async (code: string) => mapTicket(await transport.get(await ticket(code)))
   const command = async (code: string, body: Record<string, unknown>) => mapTicket(await transport.command(`${await ticket(code)}/processing`, body))
@@ -78,10 +95,17 @@ function createBackendApi(transport: BackendTransport) {
     close: (_actor: Actor, code: string, cmd: { reviewed: boolean; note?: string; expectedVersion?: number }) => run(async () => mapTicket(await transport.command(`${await ticket(code)}/close`, { reviewedAcknowledgment: cmd.reviewed, note: cmd.note, expectedVersion: cmd.expectedVersion }))),
     createInternal: async (_actor: Actor, code: string, cmd: { targetRole: TargetRole; recipientId: number; question: string; context?: ContextRef[] }) => run(async () => { const t = await get(code); return mapInternal(await transport.command(`${await ticket(code)}/internal-requests`, { targetRole: cmd.targetRole, recipientId: cmd.recipientId, question: cmd.question, context: cmd.context?.map(({ type, id }) => ({ type, id })) ?? [], ticketVersion: t.version })) }),
     manageInternal: async (_actor: Actor, code: string, irCode: string, cmd: { action: 'REASSIGN' | 'CANCEL'; recipientId?: number; reason: string }) => run(async () => { const t = await get(code); const ir = t.internalRequests.find((r) => r.code === irCode); if (!ir) throw new BackendError(404, { message: 'Không tìm thấy yêu cầu nội bộ' }); return mapInternal(await transport.command(`/api/platform/support/tickets/${t.id}/internal-requests/${ir.id}/management`, { action: cmd.action, recipientId: cmd.recipientId, reason: cmd.reason, expectedVersion: ir.version })) }),
-    listAssigned: (_actor: Actor) => run(async () => (asRows(await transport.get('/api/platform/internal-requests?state=OPEN')).map(mapInternal))),
-    getAssigned: async (_actor: Actor, code: string) => run(async () => mapInternal(await transport.get(`/api/platform/internal-requests/${await resolveId(code)}`))),
-    listDomainResults: async (_actor: Actor, code: string) => run(async () => asRows(await transport.get(`/api/platform/internal-requests/${await resolveId(code)}/domain-results`)).map((row) => ({ id: numberValue(row.auditId), label: `${textValue(row.action)} · ${textValue(row.targetType)} #${numberValue(row.targetId)}` }))),
-    completeInternal: async (_actor: Actor, code: string, cmd: CompleteCommand) => run(async () => mapInternal(await transport.command(`/api/platform/internal-requests/${await resolveId(code)}/completion`, { outcome: cmd.outcome, result: cmd.result, domainResultAuditId: cmd.domainResultAuditId, expectedVersion: cmd.expectedVersion }))),
+    listNotifications: () => run(async () => asRows(await transport.get('/api/notifications/mine')).filter((row) => textValue(row.category).toUpperCase() === 'SUPPORT').map(mapSupportNotification)),
+    markNotificationRead: (id: number) => run(async () => { await transport.command(`/api/notifications/${id}/read`, undefined, { method: 'PUT' }); return undefined }),
+    markAllNotificationsRead: () => run(async () => {
+      const rows = asRows(await transport.get('/api/notifications/mine')).filter((row) => textValue(row.category).toUpperCase() === 'SUPPORT' && row.readTime == null)
+      await Promise.all(rows.map((row) => transport.command(`/api/notifications/${numberValue(row.id)}/read`, undefined, { method: 'PUT' })))
+      return rows.length
+    }),
+    listAssigned: (_actor: Actor) => run(async () => asRows(await transport.get('/api/platform/internal-requests')).map(mapInternal)),
+    getAssigned: async (_actor: Actor, code: string) => run(async () => mapInternal(await transport.get(`/api/platform/internal-requests/${await resolveInternalId(code)}`))),
+    listDomainResults: async (_actor: Actor, code: string) => run(async () => asRows(await transport.get(`/api/platform/internal-requests/${await resolveInternalId(code)}/domain-results`)).map((row) => ({ id: numberValue(row.auditId), label: `${textValue(row.action)} · ${textValue(row.targetType)} #${numberValue(row.targetId)}` }))),
+    completeInternal: async (_actor: Actor, code: string, cmd: CompleteCommand) => run(async () => mapInternal(await transport.command(`/api/platform/internal-requests/${await resolveInternalId(code)}/completion`, { outcome: cmd.outcome, result: cmd.result, domainResultAuditId: cmd.domainResultAuditId, expectedVersion: cmd.expectedVersion }))),
   }
 }
 
@@ -90,7 +114,6 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
   void farmId
   void transport
   const backend = createBackendApi(transport)
-  const requireLocal = () => { if (mode === 'backend') throw backendPending('hỗ trợ khách hàng') }
   return {
     // GET /api/platform/support/tickets (?q,category,tab,farmId,priority,assignment,page,size)
     async listQueue(actor: Actor, filters: QueueFilters = {}) { return mode === 'backend' ? backend.listQueue(actor, filters) : store.listQueue(actor, filters) },
@@ -124,12 +147,12 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
     async createInternal(actor: Actor, code: string, cmd: { targetRole: TargetRole; recipientId: number; question: string; context?: ContextRef[] }) { return mode === 'backend' ? backend.createInternal(actor, code, cmd) : store.createInternal(actor, code, cmd) },
     // POST /api/platform/support/tickets/{ticketId}/internal-requests/{id}/management
     async manageInternal(actor: Actor, code: string, irCode: string, cmd: { action: 'REASSIGN' | 'CANCEL'; recipientId?: number; reason: string }) { return mode === 'backend' ? backend.manageInternal(actor, code, irCode, cmd) : store.manageInternal(actor, code, irCode, cmd) },
-    // chưa có API (thông báo hỗ trợ của CS)
-    async listNotifications() { requireLocal(); return store.listNotifications() },
-    // chưa có API
-    async markNotificationRead(id: number) { requireLocal(); return store.markNotificationRead(id) },
-    // chưa có API
-    async markAllNotificationsRead() { requireLocal(); return store.markAllNotificationsRead() },
+    // GET /api/notifications/mine (lọc category SUPPORT ở client)
+    async listNotifications() { return mode === 'backend' ? backend.listNotifications() : store.listNotifications() },
+    // PUT /api/notifications/{id}/read
+    async markNotificationRead(id: number) { return mode === 'backend' ? backend.markNotificationRead(id) : store.markNotificationRead(id) },
+    // PUT /api/notifications/{id}/read cho các thông báo hỗ trợ chưa đọc
+    async markAllNotificationsRead() { return mode === 'backend' ? backend.markAllNotificationsRead() : store.markAllNotificationsRead() },
     // GET /api/platform/internal-requests?state=
     async listAssigned(actor: Actor) { return mode === 'backend' ? backend.listAssigned(actor) : store.listAssigned(actor) },
     // GET /api/platform/internal-requests/{id}

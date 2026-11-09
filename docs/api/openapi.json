@@ -18808,6 +18808,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "evidenceId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "amount" : {
             "type" : "number"
           },

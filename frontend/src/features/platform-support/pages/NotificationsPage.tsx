@@ -17,9 +17,9 @@ export default function NotificationsPage() {
   if (error || !data) return <Layout title={TITLE}><ErrorBlock message={errText(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
   const unread = data.filter((n) => !n.read).length
   const items = tab === 'unread' ? data.filter((n) => !n.read) : data
-  const open = async (id: number, ticketCode: string) => {
+  const open = async (id: number, ticketCode: string, targetType?: string, targetId?: number) => {
     await supportApi.markNotificationRead(id)
-    navigate(`/nen-tang/ho-tro/${ticketCode}`) // màn ticket kiểm tra lại quyền khi mở
+    navigate(targetType === 'INTERNAL_REQUEST' ? `/nen-tang/yeu-cau/${targetId ?? ticketCode}` : `/nen-tang/ho-tro/${ticketCode}`) // màn đích kiểm tra lại quyền khi mở
   }
   return (
     <Layout title={TITLE}>
@@ -39,7 +39,7 @@ export default function NotificationsPage() {
                     <p className="m-0 text-xs text-muted">{n.body}</p>
                   </div>
                   <span className="shrink-0 text-[11px] text-muted">{n.at}</span>
-                  <Button variant="link" size="sm" onClick={() => void open(n.id, n.ticketCode)}>{n.actionLabel}</Button>
+                  <Button variant="link" size="sm" onClick={() => void open(n.id, n.ticketCode, n.targetType, n.targetId)}>{n.actionLabel}</Button>
                 </li>
               ))}
             </ul>

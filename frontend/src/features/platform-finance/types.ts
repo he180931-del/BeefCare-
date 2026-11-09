@@ -74,6 +74,8 @@ export type RecordErrors = Partial<Record<'category' | 'amountVnd' | 'occurredOn
 export interface BankTransactionChoice {
   sourceReference: string
   transactionId: number
+  /** ID của BankTransferEvidence để gửi vào sourceEvidenceId; transactionId là mã giao dịch ngân hàng hiển thị. */
+  evidenceId?: number
   amount: number
   bankPaidAt: string
   direction: 'IN' | 'OUT'
