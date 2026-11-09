@@ -17,7 +17,67 @@ Các tài liệu nguồn là dữ liệu yêu cầu của dự án. Những ch�
 | D11 | GBR-14, MSG-COM-12, UC-FE02-02 AF1: trại không ACTIVE chỉ còn thông tin trại, gói dịch vụ và hỗ trợ. Test cũ của FE04/06/13 kỳ vọng vẫn đọc được dữ liệu vận hành. | Giữ hành vi của mã: cả đọc lẫn ghi dữ liệu vận hành đều trả `MSG-COM-12`. Test cũ được sửa theo SRS. | Không đổi API. |
 | D12 | Repo có hai bản SRS: `docs/requirements/SRS_2026-10-28.txt` (86 SCR) và `SRS_2026-11-01_SEP490_G35_Report.txt` trên nhánh LamKD (104 SCR, đánh số khác, ví dụ Tồn kho thức ăn SCR-77 ↔ SCR-111). Spec cũ trong `docs/superpowers/specs/` viết trước khi chốt. | Nhóm chốt ngày 07/11/2026: nguồn yêu cầu để triển khai và nghiệm thu là SRS 28/10 cùng 23 spec trong `docs/requirements/specs/`. Mã UC, SCR, MSG, GBR theo bản 28/10. Bản 01/11 không dùng. Spec trong `docs/superpowers/specs/` chỉ để tham khảo lịch sử. | Mọi PR, test case (TC-xx-nn) và báo cáo 5.1–5.5 dẫn theo SRS 28/10 và spec. Checklist dùng số SCR bản 01/11 phải đổi về bản 28/10. Câu hỏi còn mở theo dõi tại `docs/requirements/specs/OPEN_QUESTIONS.md`; route thiếu tại `MISSING_ROUTES.md`. |
 | D13 | 19 câu hỏi mục 10 của spec FE-08 → FE-12 (`docs/requirements/specs/OPEN_QUESTIONS.md`). | Chủ feature (Tuấn) chốt ngày 07/11/2026 theo đề xuất trong spec. Điểm cần lưu ý: FE-10 Q3 bỏ chức năng sửa việc đóng ca vì SRS không có; FE-08 Q3 thang BCS 1–9 dùng ngưỡng dưới 4,0; FE-11 Q2 kiểm trùng 12 giờ áp cho cả động dục và phối, trừ phối lần hai có chủ ý; FE-12 Q1 sau kết quả KHÔNG CÓ THAI con cái về Chờ phối theo Table 3.4-3. | Không đổi yêu cầu trong SRS. Route sửa đóng ca hiện có trong code được gỡ khi làm FE-10. Test case viết theo quyết định này. |
+| D14 | SRS Part III §19.1.1 SCR-57 yêu cầu số ngày tới cuối kỳ hiện tại nhưng chưa quy định làm tròn. `FarmWorkspaceService.details` dùng `Duration.toDays()`; `subscriptionRules.daysUntil` dùng `Math.floor`. FE-02 Q4 đã chốt không có kỳ hiện tại thì hiện "—", SUSPENDED vẫn đếm theo kỳ. | Văn Đức (DucNV) xác nhận ngày 09/11/2026: giữ số ngày tròn 24 giờ, làm tròn xuống, tối thiểu 0. Còn 23 giờ → 0 ngày nhưng vẫn có bao phủ tới đúng end; không có kỳ hiện tại → null / "—". SUSPENDED không dừng đếm kỳ hiện tại. | Làm rõ hiển thị SCR-57 và thống nhất FE-02 / FE-19; không đổi thời điểm kỳ, bao phủ [start, end), trạng thái dịch vụ hoặc tạm ngưng. Bổ sung R-19-16, FE-19 Q6 và tiêu chí TC-19-36; đây là quyết định yêu cầu, chưa phải bằng chứng API / UI đã được kiểm chứng. |
+
+| D15 | UC-FE19-02, SCR-58/59: cần chốt phạm vi, ý nghĩa bước nhận giao dịch trước xác nhận và cách tự cập nhật màn hình. | Người dùng xác nhận ngày 09/11/2026 trong phiên: làm backend + nối SCR-58/SCR-59, gồm tạo/mở lại/đọc chi tiết. Chứng từ đã xác thực, chiều vào, đúng môi trường/namespace/tài khoản/mã được thể hiện đã nhận dù sai số tiền; chỉ shared confirmation hợp lệ mới PAID/cấp kỳ. SCR-59 tự đọc lại mỗi 5 giây khi PENDING, không request chồng; dừng khi PAID/EXPIRED hoặc rời màn hình, giữ nút Kiểm tra lại; kiểm tra thêm một lần khi hết thời gian. | Bổ sung mốc nhận/xác nhận có nguồn lưu thật và API readback; không suy giờ xác nhận từ giờ ngân hàng. Không mở rộng sang danh sách lịch sử, UI đối soát/công bố giá hoặc bật SePay LIVE. |
+
+| D16 | UC-FE19-03, SCR-60, Q3: cần xác nhận scope, tìm mã, biên ngày và cách làm mới lịch sử. | Người dùng xác nhận cả bốn đề xuất ngày 09/11/2026: backend + SCR-60, dùng lại SCR-59 của UC2; tìm chứa một phần mã không phân biệt hoa/thường, mặc định mọi trạng thái và ngày, mới nhất theo requestedAt trước; khoảng ngày tạo bao gồm trọn from/to theo Asia/Ho_Chi_Minh, cho nhập riêng từng đầu, from > to báo MSG-COM-11. Tải mới khi vào màn, thay filter/trang, trở lại từ SCR-59 hoặc bấm Làm mới; polling 5 giây áp dụng SCR-59 theo D15. | Chốt phần UC-03 của Q3. Theo Table III-1: 20 dòng/trang, giữ bộ lọc trong phiên; PAID/EXPIRED xem panel chỉ đọc như SCR-60. Bổ sung paging/filter/sort ở API A3, giữ quyền Owner hiện tại và dữ liệu snapshot; không thay logic xác nhận/cấp kỳ. |
+
+| D17 | UC-FE19-04 / SCR-61 thiếu đặc tả Part II (FE-19 Q3); trang hiện có dùng demo, thiếu coverage/paging/sort và liên kết thanh toán cụ thể. D09 chưa diễn giải trường mã subscription trong chi tiết. | Người dùng xác nhận ngày 09/11/2026 thực hiện cả sáu đề xuất: hoàn thiện backend + nối SCR-61 hiện có và phần đọc đúng thanh toán nguồn ở SCR-62. CURRENT = có kỳ bao phủ now; FUTURE_ONLY = không có kỳ hiện tại, có kỳ tương lai; NONE = không có cả hai, gồm chưa mua và đã hết hạn; độc lập với SUSPENDED. Áp dụng D09: nhận diện bằng tên trại, tìm tên trại hoặc mã thanh toán của kỳ PAID, không tạo/hiển thị mã subscription giả. Hiển thị và lọc ngày xác nhận đến theo ngày cuối phục vụ (end trừ một đơn vị thời gian trước khi đổi sang Asia/Ho_Chi_Minh); nhận độc lập hai đầu ngày, khoảng đảo MSG-COM-11. Lần mua mới nhất theo confirmedAt của PAID; phân biệt chưa có subscription với đã đăng ký nhưng chưa có kỳ mua. Tìm contains không phân biệt hoa/thường; mặc định mọi lọc, confirmedUntil giảm dần, null cuối; 20 dòng/trang, giữ lọc trong phiên, làm mới theo thao tác/vào màn/quay lại hoặc nút Làm mới. | Chốt riêng UC-04 của Q3; dùng lại trang và API sẵn có, bổ sung contract/tests theo ma trận tại docs/reviews/FE19_UC04_REVIEW.md. Trạng thái đọc suy ra tại một clock, kỳ vẫn [start,end), max(end) gồm kỳ tương lai, mở gia hạn = end − 90 ngày; không thay nghiệp vụ ghi tiền/cấp kỳ. Đây là quyết định yêu cầu, chưa phải bằng chứng đã kiểm chứng hay READY_FOR_FE. |
 
 SRS mô tả ERD ở mức khái niệm: các dòng chi tiết, lịch sử và phiên bản nằm trong phần mô tả entity. Việc cần thêm bảng chi tiết so với các ô trên sơ đồ là triển khai quan hệ đó, không tự nó là mâu thuẫn.
 
 Mỗi vấn đề mới cần ghi phần nguồn cụ thể, quyết định và ảnh hưởng đến API/dữ liệu. Nếu SRS và ERD không đủ để giải quyết một mâu thuẫn nghiệp vụ, phải trao đổi với chủ dự án trước khi chốt phần phụ thuộc.
+
+### D18 — UC-FE19-05 (10/11/2026)
+
+Người dùng xác nhận cả sáu đề xuất: backend + nối SCR-62 hiện có cho phần xem
+hai tab, tổng hợp, chi tiết, ứng viên và lịch sử. API-03 (ID/khoảng ngày, Q2)
+và mọi thao tác ghi đối soát để gói UC6. Tổng hợp toàn hệ thống độc lập lọc;
+PENDING chỉ khi now < expiresAt; Cần xem gồm UNMATCHED/NEEDS_REVIEW chưa khóa,
+HOLD/HELD và khóa có ô riêng. Mặc định Tất cả/không giới hạn ngày; chứng từ
+theo bankPaidAt desc/id desc, yêu cầu theo requestedAt desc/id desc; tìm mã/tên
+trại contains không phân biệt hoa thường và lọc trạng thái hiệu lực. Danh sách
+che mã chỉ còn bốn số cuối, chi tiết PM xem đầy đủ. Tải khi vào màn/đổi
+tab/lọc/trang/quay lại/Làm mới; giữ lọc/trang trong phiên, không polling.
+
+Chốt phần xem UC-05 của Q3; phân trang 20 và ngày VN theo SRS III-1/GBR-66.
+Ma trận, test và giới hạn: `docs/reviews/FE19_UC05_REVIEW.md`. GET không ghi
+tiền/cấp kỳ/đổi chứng từ; không suy sai thời gian từ trạng thái EXPIRED. Phần
+tra cứu và ghi UC6 ghi rõ là hoãn, chưa chứng nhận toàn SCR-62/READY_FOR_FE.
+
+### D19 — UC-FE19-06 (10/11/2026)
+
+Người dùng đồng ý cả năm đề xuất:
+
+1. SCR-62 giữ **một ô** "Lý do và tham chiếu chứng từ" (SRS 4961), tối đa
+   1.000 ký tự cho quyết định ACCEPT/HOLD/REJECT và lý do khóa/mở khóa (Q4);
+   A9 bỏ `references?`. Migration mới mở rộng `review_reason` lên 1.000, không
+   sửa migration đã chạy.
+2. LOCK / UNLOCK / RETURN_VERIFIED được lưu thành dòng `evidence_review` (SRS
+   815), audit vẫn ghi. Lịch sử SCR-62 đọc bảng này; dữ liệu cũ chỉ có audit
+   vẫn hiển thị, không trùng.
+3. Ghi hoàn trả có ngày hoàn trả bắt buộc (cột mới), ngày Việt Nam, không ở
+   tương lai và không trước ngày ngân hàng nhận; ghi một lần, sau đó bất biến.
+4. Tra cứu SePay (API-03, Q2) làm cả theo mã giao dịch và theo khoảng ngày:
+   khoảng ngày trả danh sách để PM lưu từng giao dịch thành chứng từ. Cùng giao
+   dịch đến từ webhook và tra cứu được so theo trường nghiệp vụ, không theo hash
+   payload, để không trả 409 sai.
+5. Làm tiếp trên nhánh `feat/fe19-goi-thanh-toan`, tách commit code và docs.
+
+Theo SRS không cần quyết thêm: lỗi theo MSG-FE19-11/COM-05/COM-06/COM-02,
+`Idempotency-Key` cho lệnh ghi, mã chính xác thì không bắt chọn ứng viên,
+không khóa hoàn trả giao dịch chiều ra. Ma trận và bằng chứng:
+`docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D20 — Giao dịch chuyển ra không vào hàng "Cần xem" (10/11/2026)
+
+Người dùng chọn phương án (a) sau review runtime UC-06. Bước 1 của
+UC-FE19-06 (SRS 2447) chỉ coi là cần xem các trường hợp tiền vào: mã không
+khớp, yêu cầu hết hạn, không có yêu cầu, sai số tiền. Giao dịch chuyển ra
+không thể trả cho yêu cầu nào, nên chứng từ chiều ra chưa được PM quyết định
+có trạng thái hiển thị `NO_ACTION` ("Không cần xử lý"), không tính vào ô
+"Chứng từ cần xem" và không có trong bộ lọc "Cần xem"; vẫn xem được ở "Tất cả".
+Chứng từ chưa có chiều (dữ liệu cũ) vẫn coi là cần xem. PM vẫn có thể Tạm giữ
+hoặc Từ chối chứng từ chiều ra; khi đó trạng thái theo quyết định. Điều chỉnh
+quy tắc đếm của D18. Bằng chứng: `docs/reviews/FE19_UC06_REVIEW.md`.

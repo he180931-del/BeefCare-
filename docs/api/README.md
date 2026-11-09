@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **221 paths, 270 operations, 293 schemas** (file last regenerated 9 November 2026; the 1 November export at `127859b` had 216 paths, and the earlier 29 October export at `71ce2a3` had 212 paths after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
+Current contract: **224 paths, 273 operations, 304 schemas** (file last regenerated 10 November 2026 after combining the current FE20 contract with FE19; the 9 November export had 221 paths, 270 operations and 293 schemas; the 1 November export at `127859b` had 216 paths). To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test

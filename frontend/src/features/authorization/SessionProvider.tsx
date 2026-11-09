@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asRecord, asRows, backendTransport, numberValue, textValue } from '../../api/backendTransport'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../api/currentFarm'
 import { userFacingError } from '../../api/userFacingError'
 import { useAuth } from '../authentication/AuthContext'
 import { demoUserFor, readMockUserEmail } from '../authentication/demoUsers'
-import { SELECTED_FARM_CHANGED_EVENT, selectedFarmId } from '../farm-workspace/selectedFarm'
 import { markOwnerRegistrationCompleted, SessionContext, type AppRole, type Session, type SessionUser } from './sessionContext'
 
 export const OWNER_REGISTRATION_COMPLETED_EVENT = 'beefcare:owner-registration-completed'
@@ -15,7 +15,7 @@ const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 export function sessionFromProfile(value: unknown): SessionUser {
   const row = asRecord(value)
   const farms = asRows(row.farms)
-  const selectedFarm = selectedFarmId()
+  const selectedFarm = readCurrentFarmId()
   const farm = farms.find((item) => Number(item.farmId) === selectedFarm) ?? farms[0]
   const platformRole = textValue(row.platformRole)
   const farmRole = textValue(farm?.role)
@@ -34,6 +34,12 @@ export function sessionFromProfile(value: unknown): SessionUser {
   }
 }
 
+/** UC-FE02-02 E1: the farm entered in this tab is no longer one of the account's farms (membership ended or changed). */
+export function isStaleFarmSelection(profile: unknown, selected: number | null): boolean {
+  if (selected == null) return false
+  return !asRows(asRecord(profile).farms).some((farm) => numberValue(farm.farmId) === selected)
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { mode, logout } = useAuth()
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -46,7 +52,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return undefined
     }
     const loadProfile = () => backendTransport.get('/api/account/profile').then(
-      (profile) => { if (active) setUser(sessionFromProfile(profile)) },
+      (profile) => {
+        if (!active) return
+        // Every feature API of this page already points at the stale farm, so forget it and reload into Select Farm.
+        // Reload only once the stale id is really gone, so a storage that refuses to forget it cannot loop.
+        if (isStaleFarmSelection(profile, readCurrentFarmId())) {
+          clearCurrentFarmId()
+          if (readCurrentFarmId() == null) {
+            pageLoader.load('/chon-trai')
+            return
+          }
+        }
+        setUser(sessionFromProfile(profile))
+      },
       (cause: unknown) => { if (active) setError(userFacingError(cause, 'Không tải được hồ sơ người dùng.')) },
     )
     void loadProfile()
@@ -54,11 +72,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUser((current) => current ? markOwnerRegistrationCompleted(current) : current)
       void loadProfile()
     }
-    window.addEventListener(SELECTED_FARM_CHANGED_EVENT, loadProfile)
     window.addEventListener(OWNER_REGISTRATION_COMPLETED_EVENT, markCompleted)
     return () => {
       active = false
-      window.removeEventListener(SELECTED_FARM_CHANGED_EVENT, loadProfile)
       window.removeEventListener(OWNER_REGISTRATION_COMPLETED_EVENT, markCompleted)
     }
   }, [mode])

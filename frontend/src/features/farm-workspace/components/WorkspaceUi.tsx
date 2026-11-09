@@ -67,6 +67,12 @@ export function formatDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
 }
 
+/** A service period ends at an exclusive instant; show its last covered day, as SCR-57 does (`fmtEndDay`). */
+export function lastServiceDay(end: string) {
+  const ms = Date.parse(end)
+  return Number.isNaN(ms) ? formatDate(end) : formatDate(new Date(ms - 1).toISOString())
+}
+
 /** mm/yyyy (cột "Tham gia"). */
 export function formatMonth(value?: string | null) {
   if (!value) return MISSING
@@ -106,6 +112,7 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
       'MSG-COM-06': 'Vui lòng điền đủ các trường bắt buộc.',
       'MSG-COM-07': 'Ngày hiệu lực không hợp lệ.',
       'MSG-COM-10': 'Email hoặc số điện thoại không hợp lệ.',
+      'MSG-FE02-02': 'Vui lòng hoàn tất hồ sơ Chủ trại trước khi đăng ký trại.',
       'MSG-FE02-03': 'Trang trại chưa thể sử dụng dịch vụ. Chủ trại cần kiểm tra gói dịch vụ.',
       'MSG-FE02-04': 'Chủ trại quản lý gói dịch vụ; thành viên chưa thể vào trang trại này.',
       'MSG-FE03-02': 'Email này đã là thành viên đang hoạt động.',
@@ -132,3 +139,11 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
 export function Banner({ children }: { children: ReactNode }) {
   return <div role="status" className="rounded-lg bg-[#e8f2fa] px-3 py-2 text-xs text-[#296194]">{children}</div>
 }
+
+/** MSG-FE02-03: the Owner opened a farm that is not ACTIVE from Select Farm (UC-FE02-02 AF1 / AF2). */
+export function InactiveFarmBanner({ farmName, status }: { farmName: string; status: string }) {
+  return <Banner>{farmName} đang ở trạng thái {serviceLabel(status)}. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ.</Banner>
+}
+
+/** True when the page was opened from a card of Select Farm (`from=chon-trai`) for a farm that is not ACTIVE. */
+export const openedInactiveFromFarmSelect = (params: URLSearchParams, status: string) => params.get('from') === 'chon-trai' && status !== 'ACTIVE'

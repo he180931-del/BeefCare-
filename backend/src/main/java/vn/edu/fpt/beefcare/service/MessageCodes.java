@@ -26,6 +26,15 @@ public final class MessageCodes {
     public static final String COM_18 = "MSG-COM-18";
     public static final String COM_19 = "MSG-COM-19";
 
+    /** UC-FE02-01 E1: Owner registration is not complete. */
+    public static final String FE02_02 = "MSG-FE02-02";
+    /** UC-FE02-02 AF3: a Manager or Technician enters a farm that is not ACTIVE. */
+    public static final String FE02_04 = "MSG-FE02-04";
+    /** UC-FE02-05 E3: the farm is already in the requested state (suspend a SUSPENDED farm, restore one that is not). */
+    public static final String FE02_09 = "MSG-FE02-09";
+    /** UC-FE19-06 E1/E2: PM acceptance blocked; params.reason names the rule (D19). */
+    public static final String FE19_11 = "MSG-FE19-11";
+
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";
     public static final String FE03_20 = "MSG-FE03-20";

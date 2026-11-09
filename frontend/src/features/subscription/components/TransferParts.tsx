@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '../../../components/Icon'
+import { backendMode } from '../../../api/backendTransport'
 import { Badge, Button, Card, Note, Table, Th, Td } from '../../../components/ui'
 import { BANK_NAMES, fmtAccount, fmtClock, fmtTimeDate, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
 import type { Payment } from '../types'
@@ -20,29 +21,49 @@ export function QrPlaceholder() {
 
 const QR_HIDDEN = 'mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-md bg-chip p-4 text-center text-xs text-faint'
 
-export function CopyButton({ value, label }: { value: string; label: string }) {
+/** Reports "copied" only after the clipboard write succeeds; a refused write shows an error instead. */
+function useClipboard(value: string) {
   const [done, setDone] = useState(false)
+  const [error, setError] = useState(false)
   const copy = async () => {
-    try { await navigator.clipboard?.writeText(value) } catch { /* trình duyệt chặn clipboard: vẫn báo đã chọn để người dùng chép tay */ }
-    setDone(true)
-    setTimeout(() => setDone(false), 1500)
+    setDone(false); setError(false)
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(value)
+      setDone(true)
+      setTimeout(() => setDone(false), 1500)
+    } catch { setError(true) }
   }
+  return { done, error, copy }
+}
+
+const CopyError = () => <span role="status" className="block text-xs text-err-fg">Không thể sao chép. Vui lòng chép trực tiếp giá trị.</span>
+
+export function CopyButton({ value, label }: { value: string; label: string }) {
+  const { done, error, copy } = useClipboard(value)
   return (
-    <button type="button" aria-label={`Sao chép ${label}`} onClick={copy} className="cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 text-xs font-semibold text-[#454545]">
+    <span><button type="button" aria-label={`Sao chép ${label}`} onClick={copy} className="cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 text-xs font-semibold text-[#454545]">
       {done ? 'Đã chép' : 'Sao chép'}
-    </button>
+    </button>{error && <CopyError />}</span>
   )
 }
 
 const remaining = (p: Payment, now: number) => Math.max(0, toMs(p.expiresAt) - now)
 
+function QrImage({ url }: { url?: string | null }) {
+  const [failed, setFailed] = useState(false)
+  if (backendMode === 'local') return <QrPlaceholder />
+  if (!url || failed) return <div className={QR_HIDDEN}>Không tải được mã QR. Vui lòng dùng thông tin chuyển khoản bên cạnh.</div>
+  return <img src={url} alt="Mã VietQR thanh toán" onError={() => setFailed(true)} className="mx-auto aspect-square w-full max-w-[280px] object-contain" />
+}
+
 /** Thẻ "Mã thanh toán": QR (ẩn khi hết hạn), bộ đếm ngược và giờ hết hạn. */
 export function QrCard({ payment, now }: { payment: Payment; now: number }) {
-  const pending = payment.state === 'PENDING'
+  const pending = payment.state === 'PENDING' && remaining(payment, now) > 0
   return (
     <Card title="Mã thanh toán" actions={<PaymentBadge state={payment.state} />}>
       <div className="flex flex-col gap-4">
-        {pending ? <QrPlaceholder /> : <div className={QR_HIDDEN}>{payment.state === 'EXPIRED' ? 'Mã QR không còn hiệu lực' : 'Đã nhận thanh toán'}</div>}
+        {pending ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>{payment.state === 'PAID' ? 'Đã nhận thanh toán' : 'Mã QR không còn hiệu lực'}</div>}
         <Facts cols={2} items={[
           [pending ? 'Còn hiệu lực' : 'Trạng thái', pending ? <span key="c" className="tabular-nums" aria-live="off">{fmtClock(remaining(payment, now))}</span> : <PaymentBadge key="b" state={payment.state} />],
           ['Hết hạn lúc', fmtTimeDate(payment.expiresAt)],
@@ -128,7 +149,7 @@ export function PhoneTransfer({ payment, now, checking, onCheck, onClose }: { pa
           {pending ? `Còn hiệu lực · hết hạn ${fmtTimeDate(payment.expiresAt)} · còn ${fmtClock(remaining(payment, now))}` : `Hết hạn ${fmtTimeDate(payment.expiresAt)}`}
         </span>
       </div>
-      <div className={box}>{pending ? <QrPlaceholder /> : <div className={QR_HIDDEN}>Mã QR không còn hiệu lực</div>}</div>
+      <div className={box}>{pending && remaining(payment, now) > 0 ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>Mã QR không còn hiệu lực</div>}</div>
       <div className={`${box} flex flex-col gap-3`}>
         <Facts cols={2} items={[
           ['Ngân hàng', `${payment.bankCode} · ${payment.accountNumber}`],
@@ -147,12 +168,13 @@ export function PhoneTransfer({ payment, now, checking, onCheck, onClose }: { pa
   )
 }
 
+/** Phone layout (frame 2638:4108): full-width button for the transfer content. */
 function CopyWide({ value }: { value: string }) {
-  const [done, setDone] = useState(false)
-  const copy = async () => {
-    try { await navigator.clipboard?.writeText(value) } catch { /* bỏ qua, xem CopyButton */ }
-    setDone(true)
-    setTimeout(() => setDone(false), 1500)
-  }
-  return <Button size="sm" block className={ICON_BTN} onClick={copy}>{done ? 'Đã chép nội dung chuyển khoản' : 'Sao chép nội dung chuyển khoản'}</Button>
+  const { done, error, copy } = useClipboard(value)
+  return (
+    <div className="flex flex-col gap-1">
+      <Button size="sm" block className={ICON_BTN} onClick={copy}>{done ? 'Đã chép nội dung chuyển khoản' : 'Sao chép nội dung chuyển khoản'}</Button>
+      {error && <CopyError />}
+    </div>
+  )
 }

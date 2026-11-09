@@ -27,7 +27,7 @@ export function seedFarms(): FarmDetails[] {
     {
       ...base, id: 3, name: 'Trại Cẩm Lĩnh', role: 'MANAGER', serviceStatus: 'ACTIVE', province: 'Hà Nội', commune: 'Cẩm Lĩnh, Ba Vì', detailedAddress: '',
       contactPerson: '', contactPhone: '', registrationCertificateInfo: '', morningShiftStart: '', operatingNotes: '',
-      serviceUntil: null, renewalOpensAt: null, activeCattleCount: 132, ownerName: 'Chủ trại Cẩm Lĩnh',
+      serviceUntil: '2027-03-31', renewalOpensAt: null, activeCattleCount: 132, ownerName: 'Chủ trại Cẩm Lĩnh',
     },
     {
       ...base, id: 4, name: 'Trại Suối Hai', role: 'OWNER', serviceStatus: 'SUSPENDED', province: 'Hà Nội', commune: 'Suối Hai, Ba Vì', detailedAddress: '',

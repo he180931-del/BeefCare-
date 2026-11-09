@@ -68,8 +68,14 @@ export interface FarmRegistrationInput {
   contactPerson?: string
   contactPhone?: string
   registrationCertificateInfo?: string
-  expectedHerdSize: ExpectedHerdSize
+  /** SCR-10: không bắt buộc; '' = chưa chọn. */
+  expectedHerdSize?: ExpectedHerdSize | ''
   mainBreedCodes?: string[]
+}
+
+/** Khóa yêu cầu (`Idempotency-Key`) do trang giữ cho một lần đăng ký (GBR-88). */
+export interface RequestKeyOptions {
+  idempotencyKey?: string
 }
 
 export interface FarmInfoInput extends Omit<FarmRegistrationInput, 'mainBreedCodes' | 'expectedHerdSize'> {

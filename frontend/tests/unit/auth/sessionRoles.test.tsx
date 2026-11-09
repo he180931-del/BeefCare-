@@ -6,9 +6,9 @@ import { createMockAuthClient } from '../../../src/features/authentication/clien
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
 import { HomeRedirect, RoleGate, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
-import { clearSelectedFarmOnDevice, selectFarmOnDevice } from '../../../src/features/farm-workspace/selectedFarm'
+import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/api/currentFarm'
 
-afterEach(() => clearSelectedFarmOnDevice())
+afterEach(() => clearCurrentFarmId())
 
 const sessionFor = (role: AppRole): Session => ({
   role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại thử nghiệm',
@@ -52,7 +52,7 @@ describe('session from the backend profile', () => {
   })
 
   it('uses the farm selected on this device when the account has several farms', () => {
-    selectFarmOnDevice(9)
+    writeCurrentFarmId(9)
     const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
       { farmId: 1, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
       { farmId: 9, farmName: 'Trại B', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
@@ -72,13 +72,23 @@ describe('session from the backend profile', () => {
 
 describe('role navigation', () => {
   it.each([
-    ['OWNER', 'Trang chủ trại'],
-    ['MANAGER', 'Trang chủ trại'],
-    ['TECHNICIAN', 'Trang kỹ thuật viên'],
+    ['OWNER', 'Chọn trại'],
+    ['MANAGER', 'Chọn trại'],
+    ['TECHNICIAN', 'Chọn trại'],
     ['CS', 'Trang CS'],
     ['PM', 'Trang PM'],
     ['SA', 'Trang SA'],
-  ] as const)('sends %s to its own home from /', (role, text) => {
+  ] as const)('sends %s through its correct landing route from /', (role, text) => {
+    withSession(role, '/', <div>Trang chủ trại</div>)
+    expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['OWNER', 'Trang chủ trại'],
+    ['MANAGER', 'Trang chủ trại'],
+    ['TECHNICIAN', 'Trang kỹ thuật viên'],
+  ] as const)('opens the selected farm home for %s', (role, text) => {
+    writeCurrentFarmId(1)
     withSession(role, '/', <div>Trang chủ trại</div>)
     expect(screen.getByText(text)).toBeInTheDocument()
   })

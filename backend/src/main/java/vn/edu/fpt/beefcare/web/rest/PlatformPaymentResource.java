@@ -1,21 +1,18 @@
 package vn.edu.fpt.beefcare.web.rest;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.time.LocalDate;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
+import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
 import vn.edu.fpt.beefcare.service.payment.PlatformSubscriptionQueryService;
+import vn.edu.fpt.beefcare.service.payment.PlatformPaymentQueryService;
 import vn.edu.fpt.beefcare.service.payment.SePayWebhookService;
 import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.EvidenceDTO;
-import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.PaymentCandidate;
-import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.PlatformPayment;
 import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.ReturnCommand;
 import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.ReturnResultCommand;
 import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.ReviewCommand;
@@ -24,67 +21,91 @@ import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.ReviewCommand;
 @RestController
 @RequestMapping("/api/platform/payments")
 public class PlatformPaymentResource {
+    static final String KEY = "Idempotency-Key";
     private final SePayWebhookService service;
-    private final PlatformSubscriptionQueryService queries;
-    public PlatformPaymentResource(SePayWebhookService service, PlatformSubscriptionQueryService queries) {
+    private final PlatformPaymentQueryService reads;
+    private final IdempotencyCommandService commands;
+    public PlatformPaymentResource(SePayWebhookService service, PlatformPaymentQueryService reads, IdempotencyCommandService commands) {
         this.service = service;
-        this.queries = queries;
+        this.reads = reads;
+        this.commands = commands;
     }
 
     /** SCR-62 payment requests; optional state filter and code / farm search. */
     @GetMapping
-    public Page<PlatformPayment> list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size,
+    public PlatformSubscriptionQueryService.Page<PlatformPaymentQueryService.PaymentView> list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
                                       @RequestParam(required = false) String state, @RequestParam(required = false) String q) {
-        if (state == null && q == null) return service.platformPayments(page, size);
-        var result = queries.paymentView(state, q, page, size);
-        return new PageImpl<>(result.items(), PageRequest.of(result.page(), result.size()), result.total());
+        return reads.payments(state, q, page, size);
     }
 
     /** SCR-62 summary tiles: PENDING requests, evidence to review, HOLD, locked for return. */
     @GetMapping("/summary")
-    public PlatformSubscriptionQueryService.PaymentTiles summary() { return queries.paymentTiles(); }
+    public PlatformSubscriptionQueryService.PaymentTiles summary() { return reads.tiles(); }
 
     @GetMapping("/{paymentId}")
-    public PlatformPayment get(@PathVariable Long paymentId) { return service.platformPayment(paymentId); }
+    public PlatformPaymentQueryService.PaymentView get(@PathVariable Long paymentId) { return reads.payment(paymentId); }
 
+    /** API-03 by transaction ID: stores the transaction as evidence once (idempotent by the BR-D24 identity). */
     @PostMapping("/lookup/{transactionId}")
     public vn.edu.fpt.beefcare.service.payment.SePayWebhookService.WebhookResult lookup(@PathVariable Long transactionId) {
         return service.lookupAndImport(transactionId);
     }
 
-    /** Without filters: the open review queue. status: ALL, TO_REVIEW, HOLD, REJECTED, ACCEPTED or LOCKED; bank dates in Asia/Ho_Chi_Minh. */
-    @GetMapping("/evidence")
-    public List<EvidenceDTO> evidence(@RequestParam(required = false) String status,
-                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bankFrom,
-                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bankTo) {
-        if (status == null && bankFrom == null && bankTo == null) return service.unresolvedEvidence();
-        return queries.evidenceView(status, bankFrom, bankTo);
+    /** API-03 by period (D19): from/to are VN dates, at most 31 days; read-only list with any stored evidenceId. */
+    @GetMapping("/lookup")
+    public SePayWebhookService.LookupPage lookupPeriod(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return service.lookupPeriod(from, to);
     }
 
+    /** D18: ALL by default, inclusive VN bank dates and stable server pagination; GET never changes stored state. */
+    @GetMapping("/evidence")
+    public PlatformSubscriptionQueryService.Page<PlatformPaymentQueryService.EvidenceRow> evidence(@RequestParam(required = false) String status,
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bankFrom,
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bankTo,
+                                      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return reads.evidence(status, bankFrom, bankTo, page, size);
+    }
+
+    @GetMapping("/evidence/{evidenceId}")
+    public PlatformPaymentQueryService.EvidenceDetail evidenceDetail(@PathVariable Long evidenceId) { return reads.evidence(evidenceId); }
+
     @GetMapping("/evidence/{evidenceId}/candidates")
-    public List<PaymentCandidate> candidates(@PathVariable Long evidenceId) { return service.candidates(evidenceId); }
+    public List<PlatformPaymentQueryService.Candidate> candidates(@PathVariable Long evidenceId) { return reads.candidates(evidenceId); }
 
     @PostMapping("/evidence/{evidenceId}/review")
-    public EvidenceDTO review(@PathVariable Long evidenceId, @Valid @RequestBody Review request) {
-        return service.review(evidenceId, new ReviewCommand(request.decision(), request.paymentId(), request.reason(), request.version()));
+    public EvidenceDTO review(@PathVariable Long evidenceId, @RequestBody Review request, @Parameter(name = KEY, in = ParameterIn.HEADER, required = true) @RequestHeader(value = KEY, required = false) String key) {
+        return commands.executePlatform(PlatformRole.PM, "EVIDENCE_REVIEW", key, new Keyed(evidenceId, "review", request), EvidenceDTO.class,
+            () -> service.review(evidenceId, new ReviewCommand(request.decision(), request.paymentId(), request.reason(), request.version())));
     }
 
     @PostMapping("/evidence/{evidenceId}/lock-return")
-    public EvidenceDTO lockForReturn(@PathVariable Long evidenceId, @Valid @RequestBody ReturnChange request) {
-        return service.lockForReturn(evidenceId, new ReturnCommand(request.reason(), request.version()));
+    public EvidenceDTO lockForReturn(@PathVariable Long evidenceId, @RequestBody ReturnChange request, @Parameter(name = KEY, in = ParameterIn.HEADER, required = true) @RequestHeader(value = KEY, required = false) String key) {
+        return commands.executePlatform(PlatformRole.PM, "EVIDENCE_LOCK_RETURN", key, new Keyed(evidenceId, "lock", request), EvidenceDTO.class,
+            () -> service.lockForReturn(evidenceId, new ReturnCommand(request.reason(), request.version())));
     }
 
     @PostMapping("/evidence/{evidenceId}/record-return")
-    public EvidenceDTO recordReturn(@PathVariable Long evidenceId, @Valid @RequestBody ReturnResult request) {
-        return service.recordReturn(evidenceId, new ReturnResultCommand(request.reference(), request.result(), request.version()));
+    public EvidenceDTO recordReturn(@PathVariable Long evidenceId, @RequestBody ReturnResult request, @Parameter(name = KEY, in = ParameterIn.HEADER, required = true) @RequestHeader(value = KEY, required = false) String key) {
+        return commands.executePlatform(PlatformRole.PM, "EVIDENCE_RETURN_RECORD", key, new Keyed(evidenceId, "record", request), EvidenceDTO.class,
+            () -> service.recordReturn(evidenceId, new ReturnResultCommand(request.reference(), request.returnDate(), request.result(), request.version())));
     }
 
     @PostMapping("/evidence/{evidenceId}/unlock-return")
-    public EvidenceDTO unlockReturn(@PathVariable Long evidenceId, @Valid @RequestBody ReturnChange request) {
-        return service.unlockReturn(evidenceId, new ReturnCommand(request.reason(), request.version()));
+    public EvidenceDTO unlockReturn(@PathVariable Long evidenceId, @RequestBody ReturnChange request, @Parameter(name = KEY, in = ParameterIn.HEADER, required = true) @RequestHeader(value = KEY, required = false) String key) {
+        return commands.executePlatform(PlatformRole.PM, "EVIDENCE_RETURN_UNLOCK", key, new Keyed(evidenceId, "unlock", request), EvidenceDTO.class,
+            () -> service.unlockReturn(evidenceId, new ReturnCommand(request.reason(), request.version())));
     }
 
-    public record Review(@NotBlank @Size(max = 20) String decision, Long paymentId, @NotBlank @Size(max = 500) String reason, @NotNull Long version) {}
-    public record ReturnChange(@NotBlank @Size(max = 500) String reason, @NotNull Long version) {}
-    public record ReturnResult(@NotBlank @Size(max = 255) String reference, @NotBlank @Size(max = 500) String result, @NotNull Long version) {}
+    /** Domain rules return MSG-COM-06/COM-10 per field, so the body carries documentation limits rather than bean constraints. */
+    public record Review(@Schema(allowableValues = {"ACCEPT", "HOLD", "REJECT"}) String decision,
+                         @Schema(description = "Required for ACCEPT unless the evidence payment code is exact") Long paymentId,
+                         @Schema(maxLength = 1000, description = "Reason and evidence references (one field)") String reason, Long version) {}
+    public record ReturnChange(@Schema(maxLength = 1000) String reason, Long version) {}
+    public record ReturnResult(@Schema(maxLength = 255, description = "Outgoing bank reference") String reference,
+                               @Schema(description = "Date returned (Asia/Ho_Chi_Minh), not in the future nor before the bank-paid date") LocalDate returnDate,
+                               @Schema(maxLength = 500) String result, Long version) {}
+
+    /** The request fingerprint names the evidence and command, so one key never replays another evidence's change. */
+    public record Keyed(Long evidenceId, String command, Object request) {}
 }

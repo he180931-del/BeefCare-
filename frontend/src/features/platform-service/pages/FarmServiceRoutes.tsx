@@ -9,21 +9,34 @@ import { userFacingError } from '../../../api/userFacingError'
 import { platformServiceApi } from '../api/platformServiceApi'
 import ServiceChangeDialog from '../components/ServiceChangeDialog'
 import { ServiceBadge, downloadCsv, usePmAccess } from '../components/common'
-import type { ServiceStatus } from '../types'
+import type { FarmSort, FarmTiles, ServiceStatus } from '../types'
 import { fmtDate } from '../domain/dates'
 import { STATUS_LABEL } from '../domain/servicePeriods'
 
 const TITLE = 'Dịch vụ trang trại'
 
+type SortField = 'name' | 'status' | 'coverageEnd'
+
+/** SCR-12 tiles: every farm of the platform; selecting one filters the list ("Tổng số trại" shows all again). */
+const TILES: Array<{ status: ServiceStatus | ''; label: string; value: (t: FarmTiles) => number; note: (t: FarmTiles) => string; extra?: (t: FarmTiles) => string; warn?: boolean }> = [
+  { status: '', label: 'Tổng số trại', value: (t) => t.total, note: () => 'Toàn nền tảng' },
+  { status: 'ACTIVE', label: 'Đang hoạt động', value: (t) => t.active, note: (t) => `${t.activePercent}% tổng số trại`, extra: (t) => ` · ${t.activePercent}%` },
+  { status: 'PENDING_PAYMENT', label: 'Chờ thanh toán', value: (t) => t.pending, note: () => 'Chưa có kỳ dịch vụ', warn: true },
+  { status: 'EXPIRED', label: 'Hết hạn', value: (t) => t.expired, note: () => 'Cần gia hạn' },
+  { status: 'SUSPENDED', label: 'Tạm ngưng', value: (t) => t.suspended, note: () => 'Do PM tạm ngưng' },
+]
+
+/** SCR-12 (UC-FE02-04): tổng quan dịch vụ các trại cho PM; không có dữ liệu bò hay chăm sóc (GBR-11). */
 export default function FarmServiceRoutes() {
   const canAct = usePmAccess()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<ServiceStatus | ''>('')
+  const [sort, setSort] = useState<FarmSort>('name')
   const [tick, setTick] = useState(0)
   const [targetId, setTargetId] = useState<number | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [m, openModal, closeModal] = useModalParam()
-  const filters = useMemo(() => ({ q, status }), [q, status])
+  const filters = useMemo(() => ({ q, status, sort }), [q, status, sort])
   const { data, loading, error, refetch } = useQuery(() => platformServiceApi.listFarms(filters), [filters, tick])
 
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
@@ -32,9 +45,18 @@ export default function FarmServiceRoutes() {
   const { items, tiles, total } = data
   const mode = m === 'restore' ? 'restore' : m === 'suspend' ? 'suspend' : null
   const target = mode ? items.find((f) => f.farmId === targetId) ?? items.find((f) => f.suspended === (mode === 'restore')) : undefined
-  const pct = tiles.total ? Math.round((tiles.active / tiles.total) * 100) : 0
+  const toggleSort = (field: SortField) => setSort((current) => (current === field ? `-${field}` : field) as FarmSort)
+  const ariaSort = (field: SortField) => (sort === field ? 'ascending' : sort === `-${field}` ? 'descending' : 'none')
+  const arrow = (field: SortField) => (sort === field ? '↑' : sort === `-${field}` ? '↓' : '')
+  const sortHeader = (field: SortField, label: string) => (
+    <Th aria-sort={ariaSort(field)}>
+      <button type="button" onClick={() => toggleSort(field)} className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 font-semibold text-muted">
+        {label}<span aria-hidden="true">{arrow(field)}</span>
+      </button>
+    </Th>
+  )
 
-  const exportList = () => downloadCsv('dich-vu-trang-trai.csv', [['Trang trại', 'Chủ trại', 'Gmail', 'Dịch vụ', 'Hết kỳ', 'Tạm ngừng', 'Quy mô'], ...items.map((f) => [f.farmName, f.ownerName, f.ownerEmail, STATUS_LABEL[f.serviceStatus], fmtDate(f.coverageEnd), f.suspended ? `Có · từ ${fmtDate(f.suspendedSince)}` : 'Không', `${f.herdSize} con`])])
+  const exportList = () => downloadCsv('dich-vu-trang-trai.csv', [['Trang trại', 'Chủ trại', 'Gmail', 'Dịch vụ', 'Hết kỳ', 'Tạm ngưng', 'Quy mô'], ...items.map((f) => [f.farmName, f.ownerName, f.ownerEmail, STATUS_LABEL[f.serviceStatus], fmtDate(f.coverageEnd), f.suspended ? `Có · từ ${fmtDate(f.suspendedSince)}` : 'Không', `${f.herdSize} con`])])
 
   return (
     <Layout title={TITLE}>
@@ -42,11 +64,17 @@ export default function FarmServiceRoutes() {
         <Button onClick={exportList}><Icon name="table-export" size={16} />Xuất danh sách</Button>
       </PageHeader>
       {message ? <Note tone="ok">{message}</Note> : null}
-      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Metric label="Tổng số trại" value={String(tiles.total)} note={`${tiles.active} đang hoạt động · ${pct}%`} />
-        <Metric label="Chờ thanh toán" value={String(tiles.pending)} note="Chưa có kỳ dịch vụ" warn />
-        <Metric label="Hết hạn" value={String(tiles.expired)} note="Cần gia hạn" />
-        <Metric label="Tạm ngừng" value={String(tiles.suspended)} note="Do PM tạm ngừng" />
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        {TILES.map((tile) => (
+          <button
+            key={tile.label} type="button" aria-pressed={status === tile.status}
+            aria-label={`${tile.label} (${tile.value(tiles)}${tile.extra?.(tiles) ?? ''})`}
+            onClick={() => setStatus(tile.status)}
+            className={`cursor-pointer rounded-md border-0 bg-transparent p-0 text-left ${status === tile.status ? 'ring-2 ring-brand' : ''}`}
+          >
+            <Metric label={tile.label} value={String(tile.value(tiles))} note={tile.note(tiles)} warn={tile.warn} />
+          </button>
+        ))}
       </div>
       <div className="mb-4 flex flex-wrap gap-3">
         <input aria-label="Tìm trại" className={`${inputCls} w-[320px] max-w-full`} placeholder="Tên trại, Gmail chủ trại…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -61,7 +89,7 @@ export default function FarmServiceRoutes() {
         ) : (
           <Table wide>
             <thead>
-              <tr><Th>Trang trại</Th><Th>Dịch vụ</Th><Th>Hết kỳ</Th><Th>Tạm ngừng</Th><Th>Quy mô</Th><Th>{' '}</Th></tr>
+              <tr>{sortHeader('name', 'Trang trại')}{sortHeader('status', 'Dịch vụ')}{sortHeader('coverageEnd', 'Hết kỳ')}<Th>Tạm ngưng</Th><Th>Quy mô</Th><Th>{' '}</Th></tr>
             </thead>
             <tbody>
               {items.map((f) => (
@@ -76,7 +104,7 @@ export default function FarmServiceRoutes() {
                       {f.suspended ? (
                         <Button variant="primary" size="sm" disabled={!canAct} onClick={() => { setTargetId(f.farmId); openModal('restore') }}><Icon name="refresh" size={16} />Khôi phục</Button>
                       ) : (
-                        <Button size="sm" disabled={!canAct} onClick={() => { setTargetId(f.farmId); openModal('suspend') }}>Tạm ngừng</Button>
+                        <Button size="sm" disabled={!canAct} onClick={() => { setTargetId(f.farmId); openModal('suspend') }}>Tạm ngưng</Button>
                       )}
                       <Link className="text-[12px] font-semibold text-brand" to="/nen-tang/goi-dang-ky">Xem gói</Link>
                     </div>
@@ -89,9 +117,9 @@ export default function FarmServiceRoutes() {
         <div className="px-4 py-3 text-[12px] text-muted">Hiển thị {items.length} / {total} trại</div>
       </Card>
       <div className="mt-4">
-        <Note tone="info">Tạm ngừng và khôi phục tách biệt với thanh toán: trại tạm ngừng vẫn giữ kỳ dịch vụ đã mua, và thanh toán không tự gỡ tạm ngừng.</Note>
+        <Note tone="info">Tạm ngưng và khôi phục tách biệt với thanh toán: trại tạm ngưng vẫn giữ kỳ dịch vụ đã mua, và thanh toán không tự gỡ tạm ngưng.</Note>
       </div>
-      <Foot>Dịch vụ trang trại (PM). Thẻ số liệu tóm tắt trạng thái dịch vụ toàn nền tảng; bảng liệt kê từng trại với ngày hết kỳ, tình trạng tạm ngừng và quy mô đàn. Nút cuối dòng mở hộp thoại tạm ngừng hoặc khôi phục.</Foot>
+      <Foot>Dịch vụ trang trại (PM). Ô số liệu đếm mọi trại theo trạng thái và bấm để lọc; bảng sắp xếp được theo tên, trạng thái và ngày hết kỳ. Nút cuối dòng mở hộp thoại tạm ngưng hoặc khôi phục.</Foot>
       {mode && target ? (
         <ServiceChangeDialog
           key={`${mode}-${target.farmId}`}

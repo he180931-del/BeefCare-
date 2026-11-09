@@ -1,21 +1,27 @@
 package vn.edu.fpt.beefcare.service.dto;
 
 import jakarta.validation.constraints.*;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 
 public final class FarmWorkspaceDtos {
     private FarmWorkspaceDtos() {}
+    /** SCR-10 / SCR-11: optional; when present, 0 + 9 digits or +84 + 9 digits. */
+    public static final String CONTACT_PHONE = "((?:0|\\+84)[0-9]{9})?";
+    /** SCR-10 expected herd size: optional, one of the four ranges; an empty value means "not provided". */
+    public static final String EXPECTED_HERD_SIZE = "(UNDER_50|50_149|150_300|OVER_300)?";
+    /** SCR-10. {@code province} must also be one of {@code VietnamProvinces.NAMES} (checked by the service). */
     public record Registration(
         @NotBlank @Size(min=2,max=150) String name,
         @NotBlank @Size(max=150) String province,
         @NotBlank @Size(max=150) String commune,
         @Size(max=255) String detailedAddress,
         @Size(max=100) String contactPerson,
-        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$", message="Nhập số điện thoại Việt Nam hợp lệ.") String contactPhone,
+        @Pattern(regexp=CONTACT_PHONE, message="Nhập số điện thoại Việt Nam hợp lệ.") String contactPhone,
         @Size(max=255) String registrationCertificateInfo,
-        @Pattern(regexp="UNDER_50|50_149|150_300|OVER_300") String expectedHerdSize,
+        @Pattern(regexp=EXPECTED_HERD_SIZE) String expectedHerdSize,
         Set<@NotBlank String> mainBreedCodes
     ) {}
     public record Update(
@@ -24,7 +30,7 @@ public final class FarmWorkspaceDtos {
         @NotBlank @Size(max=150) String commune,
         @Size(max=255) String detailedAddress,
         @Size(max=100) String contactPerson,
-        @Pattern(regexp="^(?:0|\\+84)[0-9]{9,10}$", message="Nhập số điện thoại Việt Nam hợp lệ.") String contactPhone,
+        @Pattern(regexp=CONTACT_PHONE, message="Nhập số điện thoại Việt Nam hợp lệ.") String contactPhone,
         @Size(max=255) String registrationCertificateInfo,
         @Size(max=40) String timeZone,
         LocalTime morningShiftStart,
@@ -32,11 +38,22 @@ public final class FarmWorkspaceDtos {
         Set<Long> mainBreedIds,
         @NotNull Integer expectedVersion
     ) {}
-    public record Summary(Long id,String name,String role,String serviceStatus,Integer version) {}
+    /**
+     * SCR-09 farm card (UC-FE02-02 step 2) and the farm context (step 4): commune and province, the caller's role, the
+     * service status, the number of ACTIVE cattle and the latest confirmed service end ({@code null}: no period yet).
+     */
+    public record Summary(Long id,String name,String role,String serviceStatus,Integer version,
+        String province,String commune,long activeCattleCount,Instant serviceUntil) {}
+    /**
+     * SCR-11 farm information plus its read-only service summary: end of the period covering now ({@code null}: none),
+     * renewal opening date (latest confirmed end - 90 days, GBR-71), suspension date, whole days left in the current
+     * period (still shown while SUSPENDED, decision Q4) and the Owner.
+     */
     public record Details(Long id,String name,String province,String commune,String detailedAddress,
         String contactPerson,String contactPhone,String registrationCertificateInfo,String expectedHerdSize,
         String timeZone,LocalTime morningShiftStart,String operatingNotes,String serviceStatus,
-        Set<Long> mainBreedIds,Integer version) {}
+        Set<Long> mainBreedIds,Integer version,
+        Instant currentPeriodUntil,Instant renewalOpensAt,Instant suspendedAt,Long daysRemaining,String ownerName,String ownerEmail) {}
     public record Lookup(Long id,String code,String name,boolean available,String type) {}
     public record Catalogues(List<Lookup> breeds,List<Lookup> productionPurposes,List<Lookup> vaccines,List<Lookup> feedItems) {}
 }

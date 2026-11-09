@@ -25,14 +25,23 @@ export interface PaymentDTO {
   purchasedEnd?: string | null // cuối kỳ, nửa mở [start, end)
   receiptCode?: string | null
   priceVersionId: number
+  bankCode: string | null
+  accountNumber: string | null
+  accountName: string | null
+  qrImageUrl?: string | null
+  reopened?: boolean
+  bankPaidAt?: string | null
+  receivedAt?: string | null
+  confirmedAt?: string | null
+  confirmationSource?: 'SEPAY' | 'PM' | null
+}
+
+/** Presentation values keep a missing legacy bank snapshot visible as empty. */
+export interface Payment extends Omit<PaymentDTO, 'bankCode' | 'accountNumber' | 'accountName'> {
+  // Missing legacy bank snapshots are empty for presentation; never replaced with a demo receiving account.
   bankCode: string
   accountNumber: string
   accountName: string
-  qrImageUrl?: string | null
-}
-
-/** Mốc thời gian chi tiết (giây) cho màn "Chi tiết thanh toán": chưa có trong PaymentDTO. */
-export interface Payment extends PaymentDTO {
   bankPaidAt?: string | null
   receivedAt?: string | null
   confirmedAt?: string | null
@@ -61,7 +70,7 @@ export interface SubscriptionOverview {
   currentPrices: PriceDTO | null
   pendingPayment: Payment | null
   renewalOpensAt: string | null
-  // Phần dưới chưa có trong SubscriptionOverview của openapi
+  // SCR-57: returned by the Owner subscription overview endpoint.
   farmName: string
   suspended: boolean
   suspendedSince: string | null
@@ -74,8 +83,9 @@ export interface SubscriptionOverview {
 
 export interface CreatePaymentCommand {
   durationYears: Term
-  /** Phiên bản giá Owner đã xem (GBR-70); chưa có trong Request của openapi. */
+  /** Phiên bản đã xem, adapter gửi reviewedPriceVersion (bắt buộc trong backend mode). */
   expectedPriceVersionId?: number
+  idempotencyKey?: string
 }
 
 export interface PaymentFilters {
@@ -85,6 +95,15 @@ export interface PaymentFilters {
   to?: string
   sort?: 'requestedAt' | 'expiresAt'
   dir?: 'asc' | 'desc'
+  page?: number // zero-based; SCR-60 uses 20 rows per page
+}
+
+export interface PaymentPage {
+  content: Payment[]
+  number: number
+  size: number
+  totalElements: number
+  totalPages: number
 }
 
 export type RefreshDemo = 'bank-paid' | 'result-unavailable'

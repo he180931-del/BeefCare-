@@ -60,7 +60,7 @@ describe('subscriptionApi (store demo)', () => {
     expect(p).toMatchObject({ state: 'PENDING', durationYears: 2, amountVnd: 2_160_000, priceVersionId: 3, bankCode: 'MB' })
     expect(Date.parse(p.expiresAt) - Date.parse(p.requestedAt)).toBe(24 * 3_600_000)
     const list = await api.listPayments(1)
-    expect(list.find((x) => x.quoteRef === 'BCF7K2Q9')?.state).toBe('EXPIRED')
+    expect(list.content.find((x) => x.quoteRef === 'BCF7K2Q9')?.state).toBe('EXPIRED')
   })
 
   it('giá đổi giữa lúc xem và lúc tạo thì báo giá cũ và giá mới, chưa tạo yêu cầu (AF2)', async () => {
@@ -70,7 +70,7 @@ describe('subscriptionApi (store demo)', () => {
     expect(e.code).toBe('PRICE_CHANGED')
     expect(e.detail.seen).toMatchObject({ version: 3, amountVnd: 1_200_000 })
     expect(e.detail.current).toMatchObject({ version: 4, amountVnd: 1_320_000 })
-    expect(await api.listPayments(2)).toHaveLength(0)
+    expect((await api.listPayments(2)).content).toHaveLength(0)
     const ok = await api.createPayment(2, { durationYears: 1, expectedPriceVersionId: 4 })
     expect(ok.amountVnd).toBe(1_320_000)
     expect(ok.quoteRef).toBe('BCK4M7R2')
@@ -124,12 +124,12 @@ describe('subscriptionApi (store demo)', () => {
 
   it('lịch sử lọc theo mã, trạng thái, ngày và sắp xếp', async () => {
     const { api } = setup()
-    expect((await api.listPayments(1)).map((p) => p.quoteRef)).toEqual(['BCF7K2Q9', 'BCE3P8L2', 'BCA9X2M1', 'BC77QK30'])
-    expect((await api.listPayments(1, { q: 'e3p' })).map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
-    expect((await api.listPayments(1, { state: 'PAID' }))).toHaveLength(2)
-    expect((await api.listPayments(1, { from: '2026-10-01', to: '2026-10-10' })).map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
-    expect((await api.listPayments(1, { sort: 'requestedAt', dir: 'asc' }))[0].quoteRef).toBe('BC77QK30')
-    expect(await api.listPayments(2)).toEqual([])
+    expect((await api.listPayments(1)).content.map((p) => p.quoteRef)).toEqual(['BCF7K2Q9', 'BCE3P8L2', 'BCA9X2M1', 'BC77QK30'])
+    expect((await api.listPayments(1, { q: 'e3p' })).content.map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
+    expect((await api.listPayments(1, { state: 'PAID' })).content).toHaveLength(2)
+    expect((await api.listPayments(1, { from: '2026-10-01', to: '2026-10-10' })).content.map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
+    expect((await api.listPayments(1, { sort: 'requestedAt', dir: 'asc' })).content[0].quoteRef).toBe('BC77QK30')
+    expect((await api.listPayments(2)).content).toEqual([])
   })
 
   it('kiểm tra lại: lỗi tra cứu giữ nguyên yêu cầu cũ; trạng thái chờ thì trả lại như cũ', async () => {
@@ -142,10 +142,13 @@ describe('subscriptionApi (store demo)', () => {
     expect((await rejects(api.getPayment(1, 'KHONGCO'))).code).toBe('NOT_FOUND')
   })
 
-  it('chế độ backend từ chối và không chạm store', async () => {
+  it('backend không dùng store khi API lỗi; lệnh tạo yêu cầu chưa tích hợp vẫn bị chặn', async () => {
     const store = { getOverview: vi.fn(), createPayment: vi.fn(), now: vi.fn() }
-    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: transport(), store: store as never })
-    await expect(api.getOverview(1)).rejects.toThrow(/Chưa tích hợp/)
+    const http = transport()
+    const unavailable = new Error('API unavailable')
+    http.get.mockRejectedValue(unavailable)
+    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: http, store: store as never })
+    await expect(api.getOverview(1)).rejects.toBe(unavailable)
     await expect(api.createPayment(1, { durationYears: 1 })).rejects.toThrow()
     expect(store.getOverview).not.toHaveBeenCalled()
     expect(store.createPayment).not.toHaveBeenCalled()
