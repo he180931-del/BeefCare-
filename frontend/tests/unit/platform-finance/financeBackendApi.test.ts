@@ -90,4 +90,11 @@ describe('financeBackendApi', () => {
     expect(receipt).toMatchObject({ code: 'RC-26-0001', priceVersion: 'v4', confirmedBy: 'PM_ACCEPT', evidenceCode: 'E-901', periodStart: '2026-11-05T00:00:00Z' })
     expect(http.get).toHaveBeenCalledWith('/api/platform/finance/receipts/77')
   })
+
+  it('trả blob xuất XLSX của đúng snapshot', async () => {
+    const blob = new Blob(['xlsx'])
+    const http = transport({ '/api/platform/finance/reports/12/xlsx': blob })
+    const api = createFinanceBackendApi(http)
+    await expect(api.exportXlsx(12)).resolves.toMatchObject({ fileName: 'beefcare-cash-report-12.xlsx', blob })
+  })
 })

@@ -9,6 +9,7 @@ export type QueueTab = 'all' | 'unassigned' | 'mine' | 'waiting' | 'resolved'
 
 export interface Actor { id: number; name: string; role: 'CS' | 'PM' | 'SA' }
 export interface StaffMember { id: number; name: string; role: 'CS' | 'PM' | 'SA'; available: boolean }
+export interface FarmOption { id: number; name: string }
 export interface ContextRef { type: string; id: number; label: string }
 
 export interface TicketMessage {
@@ -104,7 +105,7 @@ export interface TicketRow {
 export interface QueueFilters {
   q?: string
   farm?: string
-  /** 'all' | 'unassigned' | 'unavailable' | id của CS */
+  /** 'all' | 'unassigned' | 'unavailable' */
   assignment?: string
   category?: string
   priority?: string

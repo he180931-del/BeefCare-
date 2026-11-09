@@ -22,7 +22,7 @@ export function createFinanceApi({ mode, farmId, transport, store }: { mode: Bac
   void farmId
   const backend = createFinanceBackendApi(transport)
   return {
-    now() { return store.now() },
+    now() { return mode === 'backend' ? new Date().toISOString().slice(0, 10) : store.now().slice(0, 10) },
     async listFarms() { return mode === 'backend' ? backend.listFarms() : store.listFarms() },
     // GET /api/platform/finance/categories
     async listCategories() { return mode === 'backend' ? backend.listCategories() : store.listCategories() },

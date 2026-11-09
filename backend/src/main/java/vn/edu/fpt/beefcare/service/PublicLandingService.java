@@ -7,16 +7,18 @@ import org.springframework.stereotype.Service;
 /** Published, read-only copy for guests. No account, farm or payment data is exposed here. */
 @Service
 public class PublicLandingService {
+    private static final String OFFICIAL_CONTACT_EMAIL = "tuanpqhe181869@fpt.edu.vn";
+    private static final String OFFICIAL_CONTACT_PHONE = "0386 671 863";
     private final PlanPriceService prices;
     private final String contactEmail;
     private final String contactPhone;
 
     public PublicLandingService(PlanPriceService prices,
-        @Value("$" + "{beefcare.public.contact-email:}") String contactEmail,
-        @Value("$" + "{beefcare.public.contact-phone:}") String contactPhone) {
+        @Value("$" + "{beefcare.public.contact-email:tuanpqhe181869@fpt.edu.vn}") String contactEmail,
+        @Value("$" + "{beefcare.public.contact-phone:0386 671 863}") String contactPhone) {
         this.prices = prices;
-        this.contactEmail = contactEmail;
-        this.contactPhone = contactPhone;
+        this.contactEmail = contactEmail == null || contactEmail.isBlank() ? OFFICIAL_CONTACT_EMAIL : contactEmail.trim();
+        this.contactPhone = contactPhone == null || contactPhone.isBlank() ? OFFICIAL_CONTACT_PHONE : contactPhone.trim();
     }
 
     public LandingContent get() {

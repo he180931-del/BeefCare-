@@ -308,7 +308,8 @@ public class SupportTicketCommandService {
             case "ALL" -> true;
             case "IN_PROGRESS" -> Set.of("OPEN", "IN_PROGRESS").contains(t.getStatus());
             case "WAITING" -> "WAITING_CUSTOMER".equals(t.getStatus());
-            case "RESOLVED", "CLOSED" -> tab.equals(t.getStatus());
+            case "RESOLVED" -> "RESOLVED".equals(t.getStatus()) && waitingForOwnerAcknowledgment(t);
+            case "CLOSED" -> "CLOSED".equals(t.getStatus());
             case "UNASSIGNED" -> !"CLOSED".equals(t.getStatus()) && !available(t.getAssignedCs(), PlatformRole.CS);
             case "MINE" -> actor.equals(t.getAssignedCs());
             default -> throw DomainException.invalid("tab");
@@ -339,10 +340,19 @@ public class SupportTicketCommandService {
             .setParameter("t", t.getId()).getResultList().stream().map(this::internalView).toList() : List.of();
         boolean assignedAvailable = available(t.getAssignedCs(), PlatformRole.CS);
         AppUser csUser = t.getAssignedCs();
+        Map<String,List<SupportDtos.ContextReference>> contextOptions = new LinkedHashMap<>();
+        contextOptions.put("PM", t.getFarm() == null ? List.of() : List.of(new SupportDtos.ContextReference("FARM", t.getFarm().getId())));
+        contextOptions.put("SA", List.of(new SupportDtos.ContextReference("ACCOUNT", t.getRequester().getId())));
         return new SupportDtos.Ticket(t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getPriority(), t.getStatus(),
             t.getFarm() == null ? null : t.getFarm().getId(), t.getFarm() == null ? null : t.getFarm().getName(),
             t.getRequester().getId(), t.getRequester().getFullName(), csUser == null ? null : csUser.getId(), csUser == null ? null : csUser.getFullName(), assignedAvailable,
-            t.getCreatedAt(), t.getUpdatedAt(), t.getVersion(), messages, resolutions, history, requests);
+            t.getCreatedAt(), t.getUpdatedAt(), t.getVersion(), messages, resolutions, history, requests, contextOptions);
+    }
+    private boolean waitingForOwnerAcknowledgment(SupportTicket t) {
+        if (!"RESOLVED".equals(t.getStatus())) return false;
+        TicketResolution resolution = latestResolution(t);
+        ResolutionAcknowledgment ack = acknowledgment(resolution);
+        return ack == null || !"EFFECTIVE".equals(ack.status);
     }
     SupportDtos.InternalView internalView(InternalRequest r) {
         List<SupportDtos.ContextReference> context = r.getContextJson() == null ? List.of() : Arrays.asList(JsonSupport.fromJson(r.getContextJson(), SupportDtos.ContextReference[].class));

@@ -51,9 +51,9 @@ Ngày: 2026-11-09 (Asia/Ho_Chi_Minh)
 - Frontend focused adapters/notifications — **60 tests passed**; landing local contract — **11 tests passed**; `npm run test:api` — **100 tests passed**.
 - Backend package và workflow/domain — đạt với Byte Buddy agent trên Java 24; `RecordDTO.sourceEvidenceId` được kiểm tra bằng workflow test.
 - Smoke thật trên `dev,local`: public landing HTTP 200; Owner/CS/PM/SA login và endpoint authorization đúng; ticket FE20 `TK-8751` đã round-trip API → PostgreSQL → API.
-- Smoke tích hợp FE21 manual record đã đạt: `FR-0002`/`FR-0003` tạo/post, SQL/API round-trip khớp, stale discard trả 409 và discard đúng version chuyển `DISCARDED`/version `2`.
-- Smoke snapshot đã đạt: `SNAP-10101` lưu SQL với `MANUAL_ONLY`, expiry 30 ngày; XLSX thật tải được và workbook có `Summary`/`Details`.
-- Còn thiếu có điều kiện môi trường: fixture biên nhận PAID và bank-source/idempotency replay trực tiếp cần payment/evidence hợp lệ (database local hiện không có bản ghi PAID). Unit/workflow đã bao phủ các rule này.
+- Smoke tích hợp FE21 thật đã đạt: `FR-0002`/`FR-0003` tạo/post, SQL/API round-trip khớp, stale discard trả 409 và discard đúng version chuyển `DISCARDED`/version `2`; payment `10201` nhận SePay evidence `10301` thành `PAID`, receipt `RC-26-010201` trả đúng price version/kỳ mua/evidence; replay webhook idempotent.
+- Bank-source thật đã đạt với evidence chưa khớp `10302`: `FR-0004` giữ `sourceEvidenceId`, create/post replay không nhân bản, void chuyển `VOID` và giải phóng claim; dùng lại evidence PAID bị `409 MSG-FE21-08`.
+- Smoke snapshot thật: `SNAP-10601`/`SNAP-10602` summary và SQL khớp bộ lọc; replay cùng idempotency key trả cùng snapshot; XLSX tải từ snapshot. Notification PAYMENT_PAID được đọc/đánh dấu qua HTTP và SQL.
 
 ## Giới hạn phạm vi
 

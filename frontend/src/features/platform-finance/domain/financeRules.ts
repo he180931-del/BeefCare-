@@ -32,10 +32,10 @@ export function relativeTime(iso: string, nowIso: string): string {
 }
 export const addMinutes = (iso: string, minutes: number) => new Date(toMs(iso) + minutes * 60000).toISOString().slice(0, 19)
 
-export function validateRecordFields(f: RecordFields, today = DEMO_TODAY): RecordErrors {
+export function validateRecordFields(f: RecordFields, today = DEMO_TODAY, categoryOptions = FINANCE_CATEGORIES): RecordErrors {
   const errors: RecordErrors = {}
   if (!f.category) errors.category = 'Danh mục là bắt buộc.'
-  else if (!FINANCE_CATEGORIES[f.type].includes(f.category)) errors.category = `Danh mục ${f.category} không dùng được cho ${TYPE_LABEL[f.type]}.`
+  else if (!categoryOptions[f.type].includes(f.category)) errors.category = `Danh mục ${f.category} không dùng được cho ${TYPE_LABEL[f.type]}.`
   if (!Number.isInteger(f.amountVnd) || f.amountVnd < 1) errors.amountVnd = 'Số tiền phải là số nguyên đồng lớn hơn 0.'
   if (!f.occurredOn) errors.occurredOn = 'Ngày phát sinh là bắt buộc.'
   else if (f.occurredOn > today) errors.occurredOn = 'Ngày phát sinh không được ở tương lai.'

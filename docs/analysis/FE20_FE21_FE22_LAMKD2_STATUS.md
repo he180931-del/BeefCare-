@@ -25,19 +25,18 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 
 - `npm run typecheck` — đạt.
 - `npm run build` — đạt (chỉ còn cảnh báo chunk lớn của Vite).
-- Frontend focused adapters/notifications: `supportApi`, `financeBackendApi`, `platformFinanceApi`, `notificationsApi` — **60 tests passed**.
+- Frontend focused adapters/notifications: `supportApi`, `financeBackendApi`, `platformFinanceApi`, `notificationsApi` — **62 tests passed** after the farm/evidence/XLSX adapter checks.
 - Frontend local landing/demo contract: `PublicLandingAndMock.test.tsx` với `VITE_BEEFCARE_DATA_SOURCE=local` — **11 tests passed**.
 - Frontend API contract suite: `npm run test:api` — **100 tests passed**.
 - Backend workflow/domain: `SupportTicketWorkflowTest`, `PlatformFinanceWorkflowTest`, `SupportTicketTest`, `TicketMessageTest`, `InternalRequestTest`, `ManualFinanceRecordTest` — Maven đạt với Byte Buddy agent trên Java 24.
-- Smoke HTTP/DB thật trên backend `dev,local`: `/api/public/landing` HTTP 200 (6 feature); Owner/CS/PM/SA login trả đúng ma trận quyền; ticket `TK-8751` đọc khớp API và PostgreSQL (`OPEN`, version `1`).
+- Smoke HTTP/DB thật trên backend `dev,local`: `/api/public/landing` HTTP 200 (6 feature); Owner/CS/PM/SA login trả đúng ma trận quyền; ticket `TK-8751` đọc khớp API và PostgreSQL (`OPEN`, version `1`). Landing còn có contact mặc định chính thức `tuanpqhe181869@fpt.edu.vn`, `0386 671 863` khi chưa cấu hình biến môi trường.
 - Workflow FE20 thật trên PostgreSQL: Owner tạo `TK-9352`; CS claim → `IN_PROGRESS`, hỏi khách → `WAITING_CUSTOMER`, Owner phản hồi → `IN_PROGRESS`, CS resolve → `RESOLVED`, Owner xác nhận, CS close → `CLOSED` version `7` (SQL readback khớp). CS tạo `IR-9801`; PM đọc/tra domain result và hoàn thành `OUTSIDE_DOMAIN` → `DONE` version `2` (SQL readback khớp).
 - Workflow FE21 thật: `FR-0003` tạo/post thành công (`654321` VND, `POSTED`, version `2`); snapshot `SNAP-10101` tạo với `MANUAL_ONLY`, TTL 30 ngày, SQL summary khớp; XLSX tải được và có đúng hai sheet `Summary`/`Details`.
 - Backend `RecordDTO` trả lại `sourceEvidenceId` từ `BankTransferEvidence` và adapter dùng evidence ID (không dùng provider transaction number); test workflow xác nhận round-trip ID.
+- Smoke thanh toán/bank thật trên PostgreSQL: payment `10201` nhận SePay evidence `10301` → `PAID`, receipt `RC-26-010201` API/SQL khớp `priceVersionId=8601`, kỳ mua và masked transaction; replay event trả `duplicate=true`. Evidence chưa khớp `10302` tạo `FR-0004` bằng `sourceEvidenceId`, idempotent create/post, void giải phóng claim; dùng lại evidence PAID bị `409 MSG-FE21-08`.
+- Smoke snapshot/notification thật: `SNAP-10601` (ALL) và `SNAP-10602` (MANUAL_ONLY) có summary khớp; replay idempotency trả cùng snapshot; notification PAYMENT_PAID của Owner đọc/đánh dấu qua API và SQL.
 - `git diff --check` — đạt.
 
-## Còn cần kiểm tra ở môi trường tích hợp
+## Giới hạn môi trường
 
-- Bổ sung fixture biên nhận PAID nếu database local chưa có payment/evidence tương ứng; hiện database local không có payment PAID nên chưa thể chứng minh UI biên nhận bằng dữ liệu thanh toán thật.
-- Smoke mutation FE21 manual record đã đạt: tạo `FR-0002` (201), đọc lại API/SQL khớp amount `123456`, state `DRAFT`, version `1`; stale discard trả `409 MSG-COM-05`; discard đúng version trả `DISCARDED`, version `2`.
-- Bank-source mutation và idempotency replay trực tiếp trên PostgreSQL vẫn cần fixture evidence/payment hợp lệ; workflow/unit đã kiểm tra claim, giải phóng khi void và version conflict.
-- Testcontainers hiện phụ thuộc Docker Desktop socket của máy; nếu runner trả HTTP 400 thì ghi nhận là lỗi môi trường, không chuyển sang mock nghiệp vụ.
+- Testcontainers vẫn phụ thuộc Docker Desktop socket của máy; nếu runner trả HTTP 400 thì ghi nhận là lỗi môi trường, không chuyển sang mock nghiệp vụ.

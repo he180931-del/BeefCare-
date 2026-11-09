@@ -62,7 +62,7 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       const page = Math.min(Math.max(filters.page ?? 1, 1), pageCount)
       return { items: matched.slice((page - 1) * size, page * size).map(toRow), total: matched.length, page, size, counts: queueCounts(tickets.map(view), actor.id) }
     },
-    async listFarms() { return [...new Set(tickets.map((t) => t.farmName))].sort() },
+    async listFarms() { return [...new Map(tickets.map((t) => [t.farmId, { id: t.farmId, name: t.farmName }])).values()].sort((a, b) => a.name.localeCompare(b.name)) },
     async listCs() { return structuredClone(staff.filter((s) => s.role === 'CS')) },
     async listRecipients(role: TargetRole) { return structuredClone(staff.filter((s) => s.role === role && s.available)) },
     async getTicket(_actor: Actor, code: string) { return view(findTicket(code)) },

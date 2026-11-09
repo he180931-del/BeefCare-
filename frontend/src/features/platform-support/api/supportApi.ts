@@ -3,7 +3,7 @@ import { supportDemoStore, type SupportDemoStore } from '../data/supportDemoStor
 import type { Actor, CompleteCommand, ContextRef, QueueFilters, TargetRole, TicketCategory, TicketPriority } from '../types'
 import { BackendError } from '../../../api/backendClient'
 import { SupportError } from '../domain/supportRules'
-import type { InternalView, QueuePage, StaffMember, SupportNotification, Ticket, TicketRow } from '../types'
+import type { FarmOption, InternalView, QueuePage, StaffMember, SupportNotification, Ticket, TicketRow } from '../types'
 
 const mapError = (error: unknown): never => {
   if (!(error instanceof BackendError)) throw error
@@ -42,6 +42,10 @@ const mapSupportNotification = (value: unknown): SupportNotification => {
 
 const mapTicket = (value: unknown): Ticket => {
   const row = asRecord(value)
+  const context = (value: unknown) => asRows(value).map((c) => {
+    const type = textValue(c.type); const id = numberValue(c.id)
+    return { type, id, label: textValue(c.label, type === 'FARM' ? `Trang trại #${id}` : `Tài khoản #${id}`) }
+  })
   const assignedId = row.assignedCsId == null ? null : numberValue(row.assignedCsId)
   const assignedAvailable = row.assignedCsAvailable !== false
   const messages = asRows(row.messages).map((message) => ({ id: numberValue(message.id), visibility: message.audience === 'CS_ONLY' ? 'INTERNAL' as const : 'PUBLIC' as const, author: textValue(message.author, '—'), authorRole: message.authorRole === 'OWNER' ? 'OWNER' as const : 'CS' as const, text: textValue(message.content), at: textValue(message.createdAt) }))
@@ -51,7 +55,10 @@ const mapTicket = (value: unknown): Ticket => {
     createdAt: textValue(row.createdAt), updatedAt: textValue(row.updatedAt), version: numberValue(row.version), messages,
     resolutions: asRows(row.resolutions).map((r) => ({ id: numberValue(r.id), version: numberValue(r.version), content: textValue(r.content), resolvedBy: textValue(r.resolvedBy), resolvedAt: textValue(r.resolvedAt), acknowledged: r.acknowledged === true, acknowledgedAt: r.acknowledgedAt == null ? undefined : textValue(r.acknowledgedAt), acknowledgmentComment: r.acknowledgmentComment == null ? undefined : textValue(r.acknowledgmentComment), reviewed: r.reviewed === true })),
     history: asRows(row.history).map((h) => ({ at: textValue(h.time), actor: textValue(h.actor, 'Hệ thống'), text: textValue(h.event, textValue(h.status)) })),
-    internalRequests: asRows(row.internalRequests).map(mapInternal), contextOptions: { PM: [], SA: [] },
+    internalRequests: asRows(row.internalRequests).map(mapInternal), contextOptions: {
+      PM: context(asRecord(row.contextOptions).PM),
+      SA: context(asRecord(row.contextOptions).SA),
+    },
   }
 }
 
@@ -76,11 +83,11 @@ function createBackendApi(transport: BackendTransport) {
   const command = async (code: string, body: Record<string, unknown>) => mapTicket(await transport.command(`${await ticket(code)}/processing`, body))
   return {
     listQueue: (actor: Actor, filters: QueueFilters = {}) => run(async () => {
-      void actor; const p = new URLSearchParams(); if (filters.q) p.set('q', filters.q); if (filters.category && filters.category !== 'all') p.set('category', filters.category); if (filters.priority && filters.priority !== 'all') p.set('priority', filters.priority); if (filters.farm && filters.farm !== 'all' && /^\d+$/.test(filters.farm)) p.set('farmId', filters.farm); if (filters.assignment && filters.assignment !== 'all') p.set('assignment', filters.assignment === 'unassigned' ? 'UNASSIGNED' : filters.assignment === 'unavailable' ? 'UNAVAILABLE' : 'MINE'); if (filters.tab) p.set('tab', filters.tab.toUpperCase()); p.set('page', String(Math.max(0, (filters.page ?? 1) - 1))); p.set('size', String(filters.size ?? 25));
+      void actor; const p = new URLSearchParams(); if (filters.q) p.set('q', filters.q); if (filters.category && filters.category !== 'all') p.set('category', filters.category); if (filters.priority && filters.priority !== 'all') p.set('priority', filters.priority); if (filters.farm && filters.farm !== 'all' && /^\d+$/.test(filters.farm)) p.set('farmId', filters.farm); if (filters.assignment === 'unassigned' || filters.assignment === 'unavailable') p.set('assignment', filters.assignment === 'unassigned' ? 'UNASSIGNED' : 'UNAVAILABLE'); if (filters.tab) p.set('tab', filters.tab.toUpperCase()); p.set('page', String(Math.max(0, (filters.page ?? 1) - 1))); p.set('size', String(filters.size ?? 25));
       const page = asRecord(await transport.get(`/api/platform/support/tickets?${p}`)); const counts = asRecord(page.counts); const items = asRows(page.items).map(mapTicket).map((t): TicketRow => ({ id: t.id, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status, farmName: t.farmName, requester: t.requester, assignedCsId: t.assignedCsId, assignedCs: t.assignedCs, assignedAvailable: t.assignedAvailable, createdAt: t.createdAt, updatedAt: t.updatedAt }));
       const result: QueuePage = { items, total: numberValue(page.total), page: numberValue(page.page) + 1, size: numberValue(page.size, filters.size ?? 25), counts: { all: numberValue(counts.ALL), unassigned: numberValue(counts.UNASSIGNED), mine: numberValue(counts.MINE), waiting: numberValue(counts.WAITING), resolved: numberValue(counts.RESOLVED), unassignedHigh: 0 } }; return result
     }),
-    listFarms: () => run(async () => { const p = asRecord(await transport.get('/api/platform/support/tickets?page=0&size=100')); return [...new Set(asRows(p.items).map((item) => textValue(item.farmName)).filter(Boolean))].sort() }),
+    listFarms: () => run(async () => { const p = asRecord(await transport.get('/api/platform/support/tickets?page=0&size=100')); return [...new Map(asRows(p.items).filter((item) => item.farmId != null).map((item) => [numberValue(item.farmId), { id: numberValue(item.farmId), name: textValue(item.farmName) }])).values()].sort((a, b) => a.name.localeCompare(b.name)) as FarmOption[] }),
     listCs: () => run(async () => asRows(await transport.get('/api/platform/support/recipients?role=CS')).map((row): StaffMember => ({ id: numberValue(row.id), name: textValue(row.name), role: 'CS', available: true }))),
     listRecipients: (role: TargetRole) => run(async () => asRows(await transport.get(`/api/platform/support/recipients?role=${role}`)).map((row): StaffMember => ({ id: numberValue(row.id), name: textValue(row.name), role, available: true }))),
     getTicket: (_actor: Actor, code: string) => run(() => get(code)),

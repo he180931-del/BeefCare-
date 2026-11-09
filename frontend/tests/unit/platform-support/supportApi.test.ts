@@ -141,4 +141,19 @@ describe('chế độ backend', () => {
     await api.markNotificationRead(8)
     expect(http.command).toHaveBeenCalledWith('/api/notifications/8/read', undefined, { method: 'PUT' })
   })
+
+  it('lọc hàng đợi theo farmId và chỉ gửi các assignment backend có nghĩa', async () => {
+    const store = createSupportDemoStore()
+    const http = transport()
+    http.get.mockImplementation(async (path: string) => {
+      if (path.startsWith('/api/platform/support/tickets?')) return { items: [], total: 0, page: 0, size: 25, counts: {} }
+      return {}
+    })
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await api.listQueue(CS_ME, { farm: '1151', assignment: 'unassigned' })
+    expect(http.get).toHaveBeenCalledWith(expect.stringContaining('farmId=1151'))
+    expect(http.get).toHaveBeenCalledWith(expect.stringContaining('assignment=UNASSIGNED'))
+    await api.listQueue(CS_ME, { farm: '1151', assignment: 'all' })
+    expect(http.get).toHaveBeenCalledWith(expect.not.stringContaining('assignment=MINE'))
+  })
 })

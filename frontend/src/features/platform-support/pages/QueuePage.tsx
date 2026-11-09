@@ -24,7 +24,6 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
   const [flash, showFlash] = useFlash()
   const { data, loading, error, refetch } = useQuery(() => supportApi.listQueue(me, filters), [filters, me])
   const { data: farms } = useQuery(() => supportApi.listFarms(), [])
-  const { data: staff } = useQuery(() => supportApi.listCs(), [])
   const { data: target } = useQuery(() => (m === 'nhan-lai' && claimCode ? supportApi.getTicket(me, claimCode) : Promise.resolve(null)), [m, claimCode, me])
   const patch = (next: Partial<QueueFilters>) => setFilters((f) => ({ ...f, page: 1, ...next }))
 
@@ -64,13 +63,12 @@ export default function QueuePage({ initialTab = 'all' }: { initialTab?: QueueTa
           <SearchInput className="w-[300px] max-w-full" aria-label="Tìm kiếm" placeholder="Tìm tên khách hoặc mã ticket…" value={filters.q ?? ''} onChange={(e) => patch({ q: e.target.value })} />
           <FilterSelect aria-label="Trang trại" value={filters.farm ?? 'all'} onChange={(e) => patch({ farm: e.target.value })}>
             <option value="all">Trang trại: Tất cả</option>
-            {(farms ?? []).map((f) => <option key={f} value={f}>{f}</option>)}
+            {(farms ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </FilterSelect>
           <FilterSelect aria-label="CS phụ trách" value={filters.assignment ?? 'all'} onChange={(e) => patch({ assignment: e.target.value })}>
             <option value="all">CS phụ trách: Tất cả</option>
             <option value="unassigned">Chưa có người nhận</option>
             <option value="unavailable">CS không khả dụng</option>
-            {(staff ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </FilterSelect>
           <FilterSelect aria-label="Danh mục" value={filters.category ?? 'all'} onChange={(e) => patch({ category: e.target.value })}>
             <option value="all">Danh mục: Tất cả</option>

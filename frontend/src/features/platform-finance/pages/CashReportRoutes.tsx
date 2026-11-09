@@ -55,6 +55,12 @@ export default function CashReportRoutes() {
     try {
       if (demo === 'xuat-loi') throw new Error('export-failed')
       const file = await financeApi.exportXlsx(report.id)
+      if ('blob' in file) {
+        const url = URL.createObjectURL(file.blob as Blob)
+        const anchor = document.createElement('a')
+        anchor.href = url; anchor.download = file.fileName; anchor.click()
+        URL.revokeObjectURL(url)
+      }
       close()
       setFlash({ tone: 'ok', text: `Tệp xuất ${file.fileName} đã sẵn sàng.` })
     } catch (e) {
