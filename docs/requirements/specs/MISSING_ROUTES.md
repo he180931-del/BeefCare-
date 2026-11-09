@@ -59,7 +59,7 @@ Từ đối chiếu Figma với frontend ngày 02/11. Trong code FE, mỗi metho
 | FE-10 | Sức khỏe | Lựa chọn thuốc, thành viên, gợi ý chẩn đoán, phiếu chết chờ xác nhận, số đếm tab | Đóng ca chết hoặc mất phải tự tạo phiếu ở server | TuanPQ |
 | FE-18 | Danh mục | Lọc `q`, `status` cho vắc-xin và thuốc | `CatalogueItem` thiếu số lượng đang dùng; `ParameterVersionResult` thiếu `sourceNote`, `savedBy`, nội dung thay đổi; command thiếu `expectedVersion` | AnNT |
 | FE-19 | Gói dịch vụ (Owner) | | UC-02: Request cần `expectedPriceVersionId` (GBR-70); UC-02/03: `PaymentDTO` thiếu `bankPaidAt`, `receivedAt`, `confirmedAt`, danh sách thanh toán thiếu lọc và sắp xếp. UC-01 đã bổ sung đủ dữ liệu SCR-57 trong working tree 09/11/2026; trạng thái kiểm chứng / chưa bàn giao bản tích hợp xem `docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
-| FE-19 | PM dịch vụ | `getEvidence`, bản nháp bảng giá, thu hồi bảng giá | | DucNV |
+| FE-19 | PM dịch vụ | Bản nháp bảng giá, thu hồi bảng giá | UC5 `getEvidence` đã có `GET /api/platform/payments/evidence/{evidenceId}` cùng lịch sử/ứng viên trong working tree 10/11/2026 (D18); bản đọc chỉ BE_REVIEWED local, chưa READY_FOR_FE. API-03 ID/khoảng ngày và ghi đối soát để gói UC6; xem `docs/reviews/FE19_UC05_REVIEW.md` | DucNV |
 | FE-20 | Hỗ trợ của Owner | Danh sách trại cho form tạo ticket | `Message` thiếu `author`, `authorRole`, `createdAt`, `kind` | LamKD |
 | FE-20 | CS | Danh sách trại, CS, thông báo CS | `processing.action` chỉ khai báo là string, tên hành động đang là phỏng đoán | LamKD |
 | FE-21 | PM tài chính | Danh sách trại, danh sách và chi tiết biên nhận, báo cáo mới nhất | Tải XLSX chưa nối vì route trả về bytes | LamKD |

@@ -28,3 +28,20 @@ Các tài liệu nguồn là dữ liệu yêu cầu của dự án. Những ch�
 SRS mô tả ERD ở mức khái niệm: các dòng chi tiết, lịch sử và phiên bản nằm trong phần mô tả entity. Việc cần thêm bảng chi tiết so với các ô trên sơ đồ là triển khai quan hệ đó, không tự nó là mâu thuẫn.
 
 Mỗi vấn đề mới cần ghi phần nguồn cụ thể, quyết định và ảnh hưởng đến API/dữ liệu. Nếu SRS và ERD không đủ để giải quyết một mâu thuẫn nghiệp vụ, phải trao đổi với chủ dự án trước khi chốt phần phụ thuộc.
+
+### D18 — UC-FE19-05 (10/11/2026)
+
+Người dùng xác nhận cả sáu đề xuất: backend + nối SCR-62 hiện có cho phần xem
+hai tab, tổng hợp, chi tiết, ứng viên và lịch sử. API-03 (ID/khoảng ngày, Q2)
+và mọi thao tác ghi đối soát để gói UC6. Tổng hợp toàn hệ thống độc lập lọc;
+PENDING chỉ khi now < expiresAt; Cần xem gồm UNMATCHED/NEEDS_REVIEW chưa khóa,
+HOLD/HELD và khóa có ô riêng. Mặc định Tất cả/không giới hạn ngày; chứng từ
+theo bankPaidAt desc/id desc, yêu cầu theo requestedAt desc/id desc; tìm mã/tên
+trại contains không phân biệt hoa thường và lọc trạng thái hiệu lực. Danh sách
+che mã chỉ còn bốn số cuối, chi tiết PM xem đầy đủ. Tải khi vào màn/đổi
+tab/lọc/trang/quay lại/Làm mới; giữ lọc/trang trong phiên, không polling.
+
+Chốt phần xem UC-05 của Q3; phân trang 20 và ngày VN theo SRS III-1/GBR-66.
+Ma trận, test và giới hạn: `docs/reviews/FE19_UC05_REVIEW.md`. GET không ghi
+tiền/cấp kỳ/đổi chứng từ; không suy sai thời gian từ trạng thái EXPIRED. Phần
+tra cứu và ghi UC6 ghi rõ là hoãn, chưa chứng nhận toàn SCR-62/READY_FOR_FE.

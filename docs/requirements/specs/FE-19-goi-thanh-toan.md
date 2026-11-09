@@ -212,6 +212,64 @@ Người dùng xác nhận ngày 09/11/2026 (D17): hoàn thiện backend và n�
 
 **Review 10/11/2026:** BE trả `status` cho từng kỳ theo cùng thời điểm đọc với phần tóm tắt (D17 “một clock”); `GET /api/platform/payments/{paymentId}` không tồn tại trả 404 kèm MSG-COM-08 như các chi tiết PM khác; FE mở trang cuối khi trang giữ trong phiên đã vượt số trang. Chi tiết và bằng chứng tại `docs/reviews/FE19_UC04_REVIEW.md`.
 
+### UC-FE19-05 Xem yêu cầu thanh toán và chứng từ ngân hàng
+
+Người dùng chốt sáu đề xuất ngày 10/11/2026 (D18): backend + phần xem trên
+SCR-62 hiện có. Nguồn: SRS I.3.2/I.4.2.19, III Table III-1/III.19.2.2,
+GBR-09/11/66/70/72/74, BR-D24. Ma trận trường và bằng chứng:
+`docs/reviews/FE19_UC05_REVIEW.md`.
+
+**Tiền điều kiện:** đã đăng nhập, tài khoản ACTIVE và quyền PM ACTIVE tại mỗi
+request; được xem thanh toán mọi trại, không nhận dữ liệu vận hành.
+
+1. Mở SCR-62, đọc bốn số tổng hợp toàn hệ thống, độc lập bộ lọc. PENDING chỉ
+   tính khi `now < expiresAt`; Cần xem gồm UNMATCHED/NEEDS_REVIEW chưa khóa;
+   HOLD/HELD và khóa có ô riêng, không đếm khóa vào Cần xem/Tạm giữ.
+2. Tab Chứng từ mặc định Tất cả, không giới hạn ngày. Lọc trạng thái và giờ
+   ngân hàng theo ngày VN, hai đầu độc lập/bao gồm cả ngày; khoảng đảo báo
+   MSG-COM-11 dưới ô ngày đến, giữ danh sách hợp lệ, không gọi HTTP sai.
+3. Trạng thái hiển thị chuẩn hóa TO_REVIEW/HOLD/REJECTED/ACCEPTED/LOCKED;
+   RECEIVED và mọi giá trị lưu ngoài enum là Đang xử lý (PROCESSING), chỉ có
+   trong Tất cả. MATCHED/ACCEPTED vào nhóm Đã chấp nhận;
+   kết quả tự động/PM PAID chỉ khi có thanh toán PAID được phân bổ thật.
+4. Lọc/count/order ở DB trước phân trang 20; bankPaidAt desc/id desc. Danh
+   sách chỉ trả mã giao dịch đã che còn bốn số cuối. Mở đúng evidenceId để
+   xem mã đầy đủ, provider/environment/namespace, tiền/chiều/TK nhận và kiểm
+   khớp, nội dung/mã/tham chiếu/giờ NH/nhận đầu, liên kết thanh toán phân bổ,
+   ứng viên chỉ đọc và lịch sử quyết định/sự kiện từ storage. Kiểm tài khoản
+   nhận và ứng viên dùng đúng luật của bước nhận SePay và lệnh ACCEPT (UC6):
+   cùng env/namespace, so tài khoản theo chữ + số; cấu hình chuẩn hóa như lúc
+   lưu chứng từ. Ứng viên là đúng các yêu cầu ACCEPT sẽ nhận.
+5. Tab Yêu cầu mặc định mọi trạng thái; tìm literal contains mã/tên trại
+   không phân biệt hoa thường, trim/max100, debounce300ms; lọc trạng thái
+   hiệu lực lúc đọc. PENDING quá hạn được hiển thị/lọc EXPIRED dù job chưa
+   chạy. requestedAt desc/id desc, 20 dòng; đổi lọc về trang đầu.
+6. Mở đúng paymentId và chứng từ đã phân bổ; không thay thế bằng chứng từ
+   khớp mã chưa phân bổ. Các mốc NH/nhận/xác nhận độc lập, null hiển thị “—”.
+   Thời điểm NH trong cửa sổ gốc vẫn là khớp thời gian dù yêu cầu nay EXPIRED.
+7. Tải khi vào/đổi tab/lọc/trang/quay lại hoặc Làm mới; giữ tab/lọc/trang theo
+   tài khoản trong phiên, không polling. Trang lưu quá cuối chuyển về trang
+   cuối tồn tại, vẫn giữ `evidenceId` đang được chỉ định. Khi tải mới giữ bảng
+   cũ; không hiện chi tiết bản ghi trước khi đổi chứng từ. Rỗng có Xóa bộ lọc;
+   lỗi có Thử lại, không fallback demo. Lịch sử hiển thị nhãn tiếng Việt cho
+   quyết định/sự kiện; lý do cố định do hệ thống ghi được dịch, lý do PM nhập
+   giữ nguyên; nguồn xác nhận SEPAY/PM hiện "Tự động qua SePay"/"PM xác nhận".
+
+**Hậu điều kiện:** GET chỉ đọc; không đổi Payment/Subscription/chứng từ/kỳ/
+biên lai/dịch vụ/audit. Lịch sử chỉ hiển thị dữ liệu đã lưu, không chế tạo PM,
+thời điểm hay tham chiếu còn thiếu.
+
+**Phần hoãn:** tra cứu SePay API-03 (ID/khoảng ngày, Q2) và tất cả lệnh quyết
+định/khóa/mở khóa/ghi hoàn trả thuộc gói UC6. UC5 này chưa chứng nhận toàn bộ
+SCR-62 hoặc nghiệp vụ ghi UC6.
+
+**Review 10/11/2026:** kiểm tài khoản/ứng viên dùng chung luật với bước nhận
+SePay và ACCEPT (trước đó chỉ bỏ khoảng trắng, so env thô); `reviewStatus`,
+`matchResult` có enum trong OpenAPI, giá trị lạ đọc là PROCESSING; lịch sử trả
+mã sự kiện EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED thay tên audit SEPAY_/
+MOCK_EVIDENCE; xóa các hàm đọc SCR-62 cũ không còn dùng. Chi tiết và bằng chứng
+tại `docs/reviews/FE19_UC05_REVIEW.md`.
+
 ### UC-FE19-08 Xác nhận từ SePay
 1. SePay gửi giao dịch kèm chữ ký HMAC + timestamp.
 2. Xác minh chữ ký (≤ 300 s).
@@ -366,16 +424,17 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status?, from?, to?, sort=requestedAt, dir=desc, page=0`; ngày ISO, page zero-based 0..107374182, size cố định 20 / — | `PaymentHistoryPage {content: PaymentDTO[], number, size, totalElements, totalPages}` / `PaymentDTO` như A2; đây là thay đổi từ array sang page cho UC3. FE suy tiến trình/kỳ từ các field thực, không lưu trùng. Detail path dùng numeric id | COM-11 khoảng ngày; COM-10 filter/page/sort không hợp lệ; COM-01 quyền; COM-08 detail không tồn tại; list lỗi COM-03; kiểm tra SCR-59 lỗi FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
 | A4 | VietQR (API-01) | Ngân hàng, TK, số tiền, nội dung | URL ảnh | — | Trong `qrImageUrl` của A2 (gọi dịch vụ QR SePay) |
 | A5 | Gói các trại (PM) | `q?, coverage=ALL, serviceStatus?, endFrom?, endTo?, sort=confirmedUntil, dir=desc, page=0, size=20`; size 1..100, page 0..floor(2147483647/size), UI cố định 20 / farmId | `PageSubscriptionRow {items,total,page,size}` / `SubscriptionDetail {summary,subscriptionId?,suspended,suspendedSince?,renewalOpens?,latestPurchase?,periods[],emptyMessage?}`; PurchasedPeriod có numeric paymentId, paymentCode, receiptCode?, termYears, start/end, confirmedAt?, status CURRENT/FUTURE/PAST (cùng clock với summary); mốc null giữ khóa JSON | COM-01 quyền, COM-08 detail/thanh toán nguồn thiếu, COM-10 filter/page/sort sai, COM-11 khoảng ngày đảo, COM-03 tải danh sách | `GET /api/platform/subscriptions` · `GET …/{farmId}` |
-| A6 | Ô tổng hợp | — | `PaymentTiles {pending, toReview, held, locked}` | — | `GET /api/platform/payments/summary` |
-| A7 | Danh sách chứng từ | `status?, bankFrom?, bankTo?` | `[EvidenceDTO]` | COM-11 | `GET /api/platform/payments/evidence` |
-| A8 | Ứng viên | — | `[PaymentCandidate {code, amount, expiresAt}]` | — | `GET …/evidence/{evidenceId}/candidates` |
+| A6 | Ô tổng hợp UC5 | — | `PaymentTiles {pendingRequests,evidenceToReview,hold,lockedForReturn}`; global, D18 | COM-01 | `GET /api/platform/payments/summary` |
+| A7 | Danh sách chứng từ UC5 | `status=ALL, bankFrom?, bankTo?, page=0, size=20`; size1..100/page0..floor(INT_MAX/size) | `PagePlatformBankEvidenceRow {items,total,page,size}`; chỉ maskedTransactionId, không có mã giao dịch đầy đủ; `reviewStatus` enum TO_REVIEW/HOLD/REJECTED/ACCEPTED/LOCKED/PROCESSING, `matchResult` enum | COM-01/10/11 | `GET /api/platform/payments/evidence` |
+| A8 | Ứng viên chỉ đọc UC5 | evidenceId | `[PlatformPaymentCandidate {paymentId,quoteRef,farmId,farmName,amount,termYears,expiresAt,accountNamespace}]` | COM-01/08 | `GET …/evidence/{evidenceId}/candidates` |
 | A9 | Quyết định | `Review {decision, candidatePaymentId?, reason, references?, version}` + `Idempotency-Key` | `EvidenceDTO` | FE19-11, COM-06, COM-05, COM-02 | `POST …/evidence/{evidenceId}/review` |
 | A10 | Khóa / ghi hoàn trả / mở khóa | `ReturnChange {reason}` / `ReturnResult {outgoingRef, date, result}` + `Idempotency-Key` | `EvidenceDTO` | COM-06, COM-05 | `POST …/lock-return` · `…/record-return` · `…/unlock-return` |
 | A11 | Tra cứu SePay (API-03) | `transactionId` (hoặc khoảng – Q2) | `WebhookResult` | — | `POST /api/platform/payments/lookup/{transactionId}` |
-| A12 | Danh sách yêu cầu (PM) | `state?, q?, page, size` / — | `PagePlatformPayment` / `PlatformPayment` | — | `GET /api/platform/payments` · `GET …/{paymentId}` |
+| A12 | Danh sách/chi tiết yêu cầu UC5 | `state?, q?, page=0, size=20` / paymentId; size1..100/page0..floor(INT_MAX/size) | `PagePlatformPaymentRead {items,total,page,size}` / `PlatformPaymentRead`; giữ snapshot UC4, thêm evidenceId?, confirmedAt?, confirmationSource?, bankPaidAt?, receivedAt?; null giữ khóa | COM-01/08/10 | `GET /api/platform/payments` · `GET …/{paymentId}` |
 | A13 | Bảng giá | — / `PublishPriceRequest {price1, price2, price3, applyNow, effectiveFrom?, termsText?}` + `Idempotency-Key` | `[PriceVersion]` / `PriceVersion` | FE19-13, FE19-14, FE19-15, COM-02 | `GET` / `POST /api/platform/plan-prices` |
 | A14 | Rút phiên bản đã lên lịch | `{reason}` + `Idempotency-Key` | `PriceVersion` WITHDRAWN | COM-06, COM-05 | Chưa có – đề xuất `POST /api/platform/plan-prices/{version}/withdraw` |
 | A15 | Webhook SePay (API-02) | Header chữ ký + timestamp, raw body | `200 {"success": true}` / 401 | — | `POST /api/webhooks/sepay` |
+| A16 | Chi tiết chứng từ UC5 | evidenceId | `PlatformBankEvidenceDetail {summary,transactionId,receivingAccount?,bank?,referenceCode?,quoteRef?,firstReceivedAt?,history[]}`; PM/time/allowlisted reason/reference/result thực từ EvidenceReview/AuditLog; `history.action` = ACCEPT/HOLD/REJECT (REVIEW) hoặc EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED/EVIDENCE_LOCK_RETURN/EVIDENCE_RETURN_UNLOCK/EVIDENCE_RETURN_RECORDED (EVENT), không trả tên audit thô | COM-01/08 | `GET /api/platform/payments/evidence/{evidenceId}` |
 
 ---
 
@@ -476,13 +535,29 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | TC-19-56 | Chưa Subscription và đã Subscription nhưng chưa PAID | Thông báo riêng, dates/latest null, periods rỗng, không tạo bản ghi | emptyStatesDistinguishMissingSubscriptionAndMissingPaidPeriodWithoutAnyWrites |
 | TC-19-57 | SCR-61 → thanh toán nguồn → quay lại; đổi trại/lọc/tải mới/lỗi; trang trong phiên vượt số trang; giờ trình duyệt lệch | Đúng paymentId/farm, giữ filter/selection và GET mới; không lộ detail trại cũ, không fallback demo; mở trang cuối; nhãn kỳ theo status của BE | platformSubscriptionBackend.test.tsx; runtime ghi riêng tại review |
 
+### Nghiệm thu phần xem UC-FE19-05 (D18)
+
+| TC | Điều kiện nghiệm thu | Bằng chứng |
+|---|---|---|
+| TC-19-58 | Chỉ PM/account ACTIVE đọc cả sáu GET; rút quyền hiệu lực ngay, anonymous401 | PlatformPaymentReadResourceTest#onlyActivePmCanReadEveryEndpointAndRevocationAppliesImmediately + PostgreSQL |
+| TC-19-59 | Global counts, NEEDS_REVIEW/UNMATCHED và HOLD/HELD, khóa không đếm lặp; PENDING hết hạn không tính | globalTilesAndStatusAliasesAgreeAndExcludeExpiredPendingAndLockedHolds |
+| TC-19-60 | Ngày NH VN gồm trọn hai đầu/độc lập, 23 dòng ->20+3, sort ổn định, list không có transactionId đầy đủ | evidenceDatesAreInclusiveVietnamDaysAndPagingMasksFullTransactionIds |
+| TC-19-61 | Tìm literal %/_ không phân biệt hoa thường; trạng thái hiệu lực trước paging, GET không đổi stored PENDING | paymentSearchAndEffectiveExpiryRunBeforeStablePagingWithoutWritingState |
+| TC-19-62 | Đúng payment/evidenceId, ba mốc thực độc lập, lịch sử review/audit allowlist, legacy null, không lộ raw audit | detailsReadExactAllocationStoredClocksAndCommittedHistoryWithLegacyNulls |
+| TC-19-63 | EXPIRED nhưng giờ NH trong cửa sổ vẫn khớp; đúng expires bị loại; check tài khoản đúng snapshot | matchingUsesOriginalBankWindowAndSnapshotAccountInsteadOfCurrentExpiry |
+| TC-19-64 | Sai filter/page/q trảCOM10, khoảng đảoCOM11, thiếu detailCOM08 | rejectsInvalidFiltersDatesAndPagingAndMissingDetailsWithDomainCodes |
+| TC-19-65 | Toàn bộ GET không thay state/cấp kỳ/ghi Payment/Subscription/evidence/history/audit/notification | allReadsLeavePaymentEvidenceHistoryAndCommercialStateUnchanged |
+| TC-19-66 | Hai tab/strict adapter, paging/filter/debounce, chi tiết/liên kết đúng, session/back/refresh/no polling, rỗng/lỗi/không fallback | frontend platformPaymentReadBackend.test.tsx; runtime và giới hạn ghi riêng tại review |
+| TC-19-67 | Tài khoản snapshot/cấu hình khác định dạng (dấu, hoa thường, khoảng trắng) vẫn khớp như bước nhận/ACCEPT; ứng viên chỉ gồm yêu cầu ACCEPT sẽ nhận (loại khác env/namespace/tài khoản/số tiền, PAID, đã phân bổ, yêu cầu sau giờ NH; chứng từ khóa/OUT/đã phân bổ → rỗng); nhận thật → ứng viên → ACCEPT thành công | accountChecksAndCandidatesUseTheSameAccountRuleAsIngestionAndAccept, candidatesListOnlyUnallocatedRequestsTheAcceptCommandWouldTake, SePayPaymentFlowTest#ingestedEvidenceCandidatesAndAcceptUseOneAccountRuleAcrossAccountFormats / #autoAcceptedEvidenceReadsAsAutoAcceptedAccountMatchAcrossAccountFormats |
+| TC-19-68 | Trạng thái lưu ngoài enum đọc là PROCESSING, không vào bộ lọc quyết định; lịch sử trả mã sự kiện đã khai báo, không lộ tên audit; FE dịch nhãn/lý do hệ thống/nguồn xác nhận; tự chỉnh trang vượt cuối giữ evidenceId | unknownStoredReviewStatusesStayInsideTheDeclaredEnum, historyNamesIngestionEventsWithDocumentedCodesInsteadOfAuditActions, OpenApiContractTest; platformPaymentReadBackend.test.tsx (3 test mới) |
+
 ## 10. Điểm SRS chưa rõ
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
 | Q1 | Rút phiên bản đã lên lịch chưa có route | Thêm A14 |
 | Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Bổ sung tham số `from, to` |
-| Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt; UC-03 theo D16; UC-04 theo D17 ngày 09/11/2026 (luồng mục 5). UC-05 còn chờ chốt toàn bộ |
+| Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt; UC-03 D16; UC-04 D17; phần xem UC-05 D18 ngày 10/11/2026 (luồng mục 5). Tra cứu API-03 và ghi đối soát để gói UC6 |
 | Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định |
 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |
 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Đã chốt DucNV 09/11/2026 (D14): làm tròn xuống theo số ngày tròn 24 giờ; còn 23 giờ → 0 ngày, vẫn có bao phủ tới end; không có kỳ hiện tại → "—" |
@@ -500,3 +575,5 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | 09/11/2026 | 28/10/2026 | Ghi quyết định cách tính số ngày còn lại (D14, Q6); bổ sung dự thảo luồng UC-01, quy ước dữ liệu và TC-19-32 → 39 để chốt trước triển khai. Q3 vẫn chờ xác nhận luồng | DucNV chốt Q6; agent soạn dự thảo UC-01 |
 | 09/11/2026 | 28/10/2026 | DucNV xác nhận làm UC-01 và cả backend + nối SCR-57; chốt phần UC-01 của Q3. A1 dùng tên JSON thực tế của DTO; ma trận và bằng chứng tại `docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
 | 09/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất UC-04 (D17), tái dùng trang SCR-61; bổ sung luồng, A5, TC-19-50→57 và ma trận tại `docs/reviews/FE19_UC04_REVIEW.md` | Người dùng / DucNV |
+| 10/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất phần xem UC-05 (D18); luồng SCR-62, A6/7/8/12/16, TC-19-58→66 và ma trận tại `docs/reviews/FE19_UC05_REVIEW.md`. Tra cứu API-03 và ghi đối soát để gói UC6 | Người dùng / DucNV |
+| 10/11/2026 | 28/10/2026 | Review UC-05: luật tài khoản/ứng viên chung với nhận SePay/ACCEPT, enum reviewStatus/matchResult, mã sự kiện lịch sử, nhãn tiếng Việt, giữ evidenceId khi chỉnh trang; TC-19-67/68 | DucNV |
