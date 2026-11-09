@@ -8,6 +8,13 @@ const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
 const make = () => createSupportApi({ mode: 'local', farmId: 1, transport: transport(), store: createSupportDemoStore() })
 
 describe('hàng đợi hỗ trợ', () => {
+  it('không nhận ticket khi thiếu phiên bản hiện tại', async () => {
+    const api = make()
+    // @ts-expect-error Kiểm tra phòng thủ runtime khi caller cũ chưa gửi expectedVersion.
+    await expect(api.claim(CS_ME, 'TK-1044', {})).rejects.toMatchObject({ code: 'VALIDATION' })
+    await expect(api.claim(CS_ME, 'TK-1044', { expectedVersion: 1 })).resolves.toMatchObject({ assignedCsId: CS_ME.id, status: 'IN_PROGRESS' })
+  })
+
   it('chọn kết quả giải quyết mới nhất theo version dù API trả giảm dần', () => {
     expect(latestResolution({ resolutions: [
       { id: 2, version: 2, content: 'mới', resolvedBy: 'CS', resolvedAt: '2026-11-02T10:00:00', acknowledged: false, reviewed: false },
@@ -27,11 +34,11 @@ describe('hàng đợi hỗ trợ', () => {
 
   it('nhận ticket: chuyển Đang xử lý, người khác nhận sau bị từ chối, nhận lại giữ Đã giải quyết', async () => {
     const api = make()
-    const claimed = await api.claim(CS_ME, 'TK-1044', {})
+    const claimed = await api.claim(CS_ME, 'TK-1044', { expectedVersion: 1 })
     expect(claimed).toMatchObject({ assignedCsId: CS_ME.id, status: 'IN_PROGRESS' })
-    await expect(api.claim({ id: 2, name: 'Ngô Minh Khang', role: 'CS' }, 'TK-1044', {})).rejects.toMatchObject({ code: 'CONFLICT' })
-    await expect(api.claim(CS_ME, 'TK-1031', {})).rejects.toMatchObject({ code: 'VALIDATION' })
-    const again = await api.claim(CS_ME, 'TK-1031', { reason: 'Tiếp nhận lại để xem xác nhận mới nhất' })
+    await expect(api.claim({ id: 2, name: 'Ngô Minh Khang', role: 'CS' }, 'TK-1044', { expectedVersion: 2 })).rejects.toMatchObject({ code: 'CONFLICT' })
+    await expect(api.claim(CS_ME, 'TK-1031', { expectedVersion: 6 })).rejects.toMatchObject({ code: 'VALIDATION' })
+    const again = await api.claim(CS_ME, 'TK-1031', { reason: 'Tiếp nhận lại để xem xác nhận mới nhất', expectedVersion: 6 })
     expect(again).toMatchObject({ status: 'RESOLVED', assignedCsId: CS_ME.id, assignedAvailable: true })
   })
 
@@ -59,7 +66,7 @@ describe('giải quyết và đóng ticket', () => {
 
   it('đóng TK-1031 cần tick xác nhận; sau đó ticket chỉ đọc', async () => {
     const api = make()
-    await api.claim(CS_ME, 'TK-1031', { reason: 'Tiếp nhận lại' })
+    await api.claim(CS_ME, 'TK-1031', { reason: 'Tiếp nhận lại', expectedVersion: 6 })
     await expect(api.close(CS_ME, 'TK-1031', { reviewed: false })).rejects.toMatchObject({ code: 'VALIDATION' })
     const closed = await api.close(CS_ME, 'TK-1031', { reviewed: true, note: 'Chủ trại đã xác nhận' })
     expect(closed.status).toBe('CLOSED')
@@ -122,6 +129,36 @@ describe('chế độ backend', () => {
     await expect(api.listQueue(CS_ME, {})).resolves.toMatchObject({ items: [], total: 0 })
     expect(spy).not.toHaveBeenCalled()
     expect(http.get).toHaveBeenCalled()
+  })
+
+  it('map con trỏ hội thoại và tải trang tin nhắn cũ cho CS', async () => {
+    const store = createSupportDemoStore()
+    const http = transport()
+    http.get.mockImplementation(async (path: string) => {
+      if (path === '/api/platform/support/tickets/9') return {
+        id: 9, code: 'TK-0009', subject: 'Cần hỗ trợ', category: 'OTHER', priority: 'NORMAL', status: 'IN_PROGRESS',
+        requesterId: 17, requester: 'Chủ trại', assignedCsId: 4, assignedCs: 'CS', assignedCsAvailable: true,
+        createdAt: '2026-11-01T08:00:00Z', updatedAt: '2026-11-01T09:00:00Z', version: 2,
+        messages: [{ id: 42, audience: 'PUBLIC', author: 'CS', authorRole: 'CS', content: 'Tin mới', createdAt: '2026-11-01T09:00:00Z' }],
+        messagesBeforeId: 42, messagesHasMore: true,
+        resolutions: [], history: [], internalRequests: [], contextOptions: { PM: [], SA: [] },
+      }
+      if (path === '/api/platform/support/tickets/9/messages?beforeId=42&size=20') return {
+        items: [{ id: 21, audience: 'CS_ONLY', author: 'CS', authorRole: 'CS', content: 'Ghi chú cũ', createdAt: '2026-11-01T08:30:00Z' }],
+        nextBeforeId: null,
+        hasMore: false,
+      }
+      return {}
+    })
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+
+    await expect(api.getTicket(CS_ME, '9')).resolves.toMatchObject({ messagesBeforeId: 42, messagesHasMore: true })
+    await expect(api.getMessages(CS_ME, '9', 42)).resolves.toMatchObject({
+      items: [{ id: 21, visibility: 'INTERNAL', text: 'Ghi chú cũ' }],
+      nextBeforeId: null,
+      hasMore: false,
+    })
+    expect(http.get).toHaveBeenCalledWith('/api/platform/support/tickets/9/messages?beforeId=42&size=20')
   })
 
   it('giải mã mã IR bằng endpoint yêu cầu nội bộ và không ép chỉ trạng thái OPEN', async () => {

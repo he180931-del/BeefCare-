@@ -10,7 +10,7 @@ import SetupLayout from '../components/SetupLayout'
 import { farmWorkspaceError, formatDateTime, inviteStatusLabel, roleLabel } from '../components/WorkspaceUi'
 import type { InvitationPreview } from '../types'
 
-const SUPPORT_EMAIL = 'tuanpqhe181869@fpt.edu.vn'
+const SUPPORT_EMAIL = 'beefcare@gmail.com'
 const Fact = ({ label, children }: { label: string; children: ReactNode }) => <div><dt className="text-[11px] text-subtle">{label}</dt><dd className="m-0 mt-0.5 text-[13px] font-medium text-ink">{children}</dd></div>
 const Panel = ({ title, badge, children }: { title: string; badge: ReactNode; children: ReactNode }) => (
   <section className="flex flex-col gap-4 rounded-2xl border border-field bg-white p-6">

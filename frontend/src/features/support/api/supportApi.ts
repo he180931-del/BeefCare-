@@ -2,7 +2,7 @@ import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberV
 import { BackendError } from '../../../api/backendClient'
 import { supportDemoStore, type SupportDemoStore } from '../data/supportDemoStore'
 import type { AcknowledgeCommand, CreateTicketCommand, ReopenCommand, ReplyCommand, TicketFilters } from '../types'
-import type { OwnedFarm, Ticket, TicketPage } from '../types'
+import type { MessagePage, OwnedFarm, Ticket, TicketPage } from '../types'
 import { MESSAGES, SupportError } from '../domain/supportError'
 
 const mapError = (error: unknown): never => {
@@ -20,6 +20,7 @@ const mapError = (error: unknown): never => {
 }
 
 const mapMessage = (value: Record<string, unknown>) => ({
+  ...(value.id == null ? {} : { id: numberValue(value.id) }),
   code: textValue(value.type, 'MESSAGE'), params: {}, text: textValue(value.content),
   kind: (textValue(value.type, 'REPLY') as 'DESCRIPTION' | 'REPLY' | 'ACKNOWLEDGMENT' | 'REOPEN'),
   author: textValue(value.author, '—'), authorRole: value.authorRole === 'OWNER' ? 'OWNER' as const : 'CS' as const,
@@ -38,6 +39,8 @@ const mapTicket = (value: unknown): Ticket => {
     assignedCs: row.assignedCs == null ? null : textValue(row.assignedCs), createdAt: textValue(row.createdAt),
     updatedAt: textValue(row.updatedAt), version: numberValue(row.version),
     messages: asRows(row.messages).map(mapMessage),
+    messagesBeforeId: row.messagesBeforeId == null ? null : numberValue(row.messagesBeforeId),
+    messagesHasMore: row.messagesHasMore === true,
     resolutions: asRows(row.resolutions).map((resolution) => ({
       id: numberValue(resolution.id), version: numberValue(resolution.version), content: textValue(resolution.content),
       resolvedBy: textValue(resolution.resolvedBy), resolvedAt: textValue(resolution.resolvedAt),
@@ -51,7 +54,9 @@ const mapTicket = (value: unknown): Ticket => {
 function createBackendApi(transport: BackendTransport) {
   const run = async <T>(operation: () => Promise<T>): Promise<T> => { try { return await operation() } catch (error) { return mapError(error) } }
   return {
-    listOwnedFarms: () => run(async () => asRows(await transport.get('/api/farms')).map((farm): OwnedFarm => ({ id: numberValue(farm.id), name: textValue(farm.name) }))),
+    listOwnedFarms: () => run(async () => asRows(await transport.get('/api/farms'))
+      .filter((farm) => textValue(farm.role).toUpperCase() === 'OWNER')
+      .map((farm): OwnedFarm => ({ id: numberValue(farm.id), name: textValue(farm.name) }))),
     listTickets: (filters: TicketFilters = {}) => run(async () => {
       const params = new URLSearchParams()
       if (filters.q) params.set('q', filters.q)
@@ -59,16 +64,24 @@ function createBackendApi(transport: BackendTransport) {
       if (filters.tab) params.set('tab', filters.tab)
       if (filters.from) params.set('from', `${filters.from}T00:00:00Z`)
       if (filters.to) params.set('to', `${filters.to}T23:59:59Z`)
-      params.set('page', String(Math.max(0, (filters.page ?? 1) - 1))); params.set('size', String(filters.size ?? 25))
+      params.set('page', String(Math.max(0, (filters.page ?? 1) - 1))); params.set('size', String(filters.size ?? 50))
       const page = asRecord(await transport.get(`/api/support/tickets?${params}`))
       const counts = asRecord(page.counts)
       const result: TicketPage = {
-        items: asRows(page.items).map(mapTicket), total: numberValue(page.total), page: numberValue(page.page) + 1, size: numberValue(page.size, filters.size ?? 25),
+        items: asRows(page.items).map(mapTicket), total: numberValue(page.total), page: numberValue(page.page) + 1, size: numberValue(page.size, filters.size ?? 50),
         counts: { ALL: numberValue(counts.ALL), IN_PROGRESS: numberValue(counts.IN_PROGRESS), WAITING_CUSTOMER: numberValue(counts.WAITING), RESOLVED: numberValue(counts.RESOLVED), CLOSED: numberValue(counts.CLOSED) },
       }
       return result
     }),
     getTicket: (id: number) => run(async () => mapTicket(await transport.get(`/api/support/tickets/${id}`))),
+    getMessages: (id: number, beforeId: number, size = 20) => run(async (): Promise<MessagePage> => {
+      const page = asRecord(await transport.get(`/api/support/tickets/${id}/messages?beforeId=${beforeId}&size=${size}`))
+      return {
+        items: asRows(page.items).map(mapMessage),
+        nextBeforeId: page.nextBeforeId == null ? null : numberValue(page.nextBeforeId),
+        hasMore: page.hasMore === true,
+      }
+    }),
     createTicket: (command: CreateTicketCommand) => run(async () => mapTicket(await transport.command('/api/support/tickets', command))),
     reply: (id: number, command: ReplyCommand) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/replies`, command))),
     acknowledge: (id: number, command: AcknowledgeCommand) => run(async () => mapTicket(await transport.command(`/api/support/tickets/${id}/acknowledgments`, command))),
@@ -94,6 +107,10 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
     async getTicket(id: number) {
       if (mode === 'backend') return backend.getTicket(id)
       return store.getTicket(id)
+    },
+    async getMessages(id: number, beforeId: number, size = 20) {
+      if (mode === 'backend') return backend.getMessages(id, beforeId, size)
+      return store.getMessages(id, beforeId, size)
     },
     // POST /api/support/tickets
     async createTicket(command: CreateTicketCommand) {

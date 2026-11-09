@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **216 paths, 265 operations, 284 schemas** (file last regenerated 1 November 2026, commit `127859b`; the earlier 29 October export at `71ce2a3` had 212 paths after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
+Current contract: **221 paths, 270 operations, 293 schemas** (file last regenerated 9 November 2026; the 1 November export at `127859b` had 216 paths, and the earlier 29 October export at `71ce2a3` had 212 paths after the full H2 suite passed 577/577). To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -57,8 +57,8 @@ Path IDs are numeric internal IDs. Display codes such as `BC-000125`, pen codes 
 | Health cases (FE-10) | `/api/farms/{farmId}/health-cases` (+ `/cattle/{cattleId}`, `/{caseId}/observations`, `/{caseId}/treatments`, `/{caseId}/status`, `/{caseId}/closure-correction`), `/health-observations/{id}/correction` and `/void`, `/treatments/{id}/correction` and `/void` |
 | Reproduction (FE-11/12) | `/api/farms/{farmId}/cattle/{cattleId}/estrus-events`, `/breeding-events`, `/pregnancy-checks`, `/reproduction-history`; `/reproduction-worklist`; `/reproduction-events/{id}/correction` and `/void`; `/pregnancy-episodes/{id}/updates`, `/pregnancy-updates/{id}/correction` and `/void`; `/calvings` (+ `/{id}/correction`, `/void`), `/calf-outcomes/{calfId}/correction` and `/void`, `/pending-calves` (+ `/{calfId}/died-before-registration`) |
 | Catalogues and parameters (FE-18) | `/api/farms/{farmId}/catalogues/breeds`, `/catalogues/production-purposes`, `/vaccines`, `/medicines`; SCR-56 `/parameters/effective`, `/parameters/versions` |
-| Owner support | `/api/support/tickets` and ticket replies/acknowledgments/reopen |
-| CS support | `/api/platform/support/tickets` and explicit processing/resolution/closure commands |
+| Owner support | `/api/support/tickets`, `/{id}/messages?beforeId=&size=` and ticket replies/acknowledgments/reopen |
+| CS support | `/api/platform/support/tickets`, `/{id}/messages?beforeId=&size=` and explicit processing/resolution/closure commands |
 | PM/SA internal requests | `/api/platform/internal-requests`; recipient sees request context only |
 | Feed stock (SCR-77) | `/api/farms/{farmId}/feed/stock`, `/stock/{feedId}/movements`, `/feed/reminders` |
 | Feed receipts (SCR-78/79) | `/api/farms/{farmId}/feed/receipts`, `/{receiptId}/draft`, `/post`, `/void`, `/payments`; files: `/{receiptId}/attachments` (GET list, POST upload) and `/{receiptId}/attachments/{attachmentId}` (GET download, DELETE remove) |
@@ -89,6 +89,7 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 
 | Date | Change | Frontend impact |
 |---|---|---|
+| 2026-11-09 | FE20 ticket detail returns the latest 20 messages plus `messagesBeforeId` / `messagesHasMore`. Owner and CS can load older messages with `GET /api/support/tickets/{id}/messages` and `GET /api/platform/support/tickets/{id}/messages` (`beforeId`, `size` 1–100). Owner pages contain PUBLIC messages only; CS pages include PUBLIC and CS_ONLY. | Render a bounded conversation viewport and prepend `MessagePage.items` when “Xem trao đổi trước” is selected; keep the returned cursor for the next request. |
 | 2026-10-29 | Sign-in of a Google-only account with a password now answers **401** `MSG-FE01-01`, exactly like a wrong password (was 403). `POST /api/account/reset-password/init` for a Google-only address now mails advice to use Google (UC-FE01-05 AF1, same 5-per-hour limit, no link, no password). | Map 401 `MSG-FE01-01` as today; nothing else changes on the form. |
 | 2026-10-29 | UC-FE01-06 AF1/AF2: `POST /api/account/google-reauthentication` (204) then send the browser to `/oauth2/authorization/google`; Google returns to `/profile?googleReauthenticated=true`. For 5 minutes `POST /api/account/change-password` accepts `{newPassword, confirmPassword}` without `currentPassword` (first password for a Google-only account, or a forgotten one). Without a recent Google sign-in a Google-only account gets 403 `MSG-COM-01` with `params.reason=google_reauthentication_required`. | New dialog branch; `passwordSignInEnabled` / `googleSignInLinked` in the profile decide which fields to show. |
 | 2026-10-29 | `GET /api/account/profile`: each `farms[]` item adds `permissions` (FarmAction codes of the fixed role policy, GBR-06) for the SCR-08 permission table. | Additive. |

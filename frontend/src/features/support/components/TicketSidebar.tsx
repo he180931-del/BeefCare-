@@ -1,4 +1,5 @@
-import { Badge, Card, Table, Td, Th } from '../../../components/ui'
+import { useState } from 'react'
+import { Badge, Card, Pagination, Table, Td, Th } from '../../../components/ui'
 import { formatDateTime, formatDayTime } from '../domain/format'
 import { categoryLabel, HISTORY_EVENTS, PRIORITY_LABELS, shortFarmName } from '../domain/ticketRules'
 import type { Ticket } from '../types'
@@ -6,7 +7,7 @@ import { TicketStatusBadge } from './TicketStatusBadge'
 
 export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
   return (
-    <Card title="Thông tin ticket">
+    <Card title="Thông tin yêu cầu">
       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
         {[
           ['Trạng thái', <TicketStatusBadge ticket={ticket} />],
@@ -27,6 +28,11 @@ export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
 }
 
 export function StatusHistoryCard({ ticket }: { ticket: Ticket }) {
+  const pageSize = 50
+  const [page, setPage] = useState(1)
+  const pageCount = Math.max(1, Math.ceil(ticket.history.length / pageSize))
+  const safePage = Math.min(page, pageCount)
+  const rows = ticket.history.slice((safePage - 1) * pageSize, safePage * pageSize)
   return (
     <Card title="Lịch sử trạng thái">
       <Table stack={false}>
@@ -37,7 +43,7 @@ export function StatusHistoryCard({ ticket }: { ticket: Ticket }) {
           </tr>
         </thead>
         <tbody>
-          {ticket.history.map((e) => (
+          {rows.map((e) => (
             <tr key={`${e.at}-${e.event}`}>
               <Td className="font-medium">{formatDayTime(e.at)}</Td>
               <Td>
@@ -47,6 +53,7 @@ export function StatusHistoryCard({ ticket }: { ticket: Ticket }) {
           ))}
         </tbody>
       </Table>
+      {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setPage} summary={`Hiển thị ${rows.length} / ${ticket.history.length} sự kiện`} />}
     </Card>
   )
 }

@@ -27,7 +27,8 @@ export const CATEGORY_LABEL: Record<TicketCategory, string> = {
 }
 export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
 export const OUTCOME_LABEL = { PERFORMED: 'Đã thực hiện', UNABLE: 'Không thể thực hiện', OUTSIDE_DOMAIN: 'Ngoài phạm vi' } as const
-export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Platform Manager', SA: 'System Admin' }
+export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
+export const PLATFORM_ROLE_LABEL: Record<'CS' | TargetRole, string> = { CS: 'Nhân viên hỗ trợ', PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { HIGH: 0, NORMAL: 1, LOW: 2 }
 
@@ -79,7 +80,7 @@ export function closeConditions(t: Ticket) {
 
 export function toRow(t: Ticket): TicketRow {
   return {
-    id: t.id, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status,
+    id: t.id, version: t.version, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status,
     farmName: t.farmName, requester: t.requester, assignedCsId: t.assignedCsId, assignedCs: t.assignedCs,
     assignedAvailable: t.assignedAvailable, createdAt: t.createdAt, updatedAt: t.updatedAt,
   }
@@ -95,7 +96,7 @@ const matchesTab = (t: Ticket, tab: QueueTab, actorId: number) => {
   }
 }
 
-/** Hàng đợi không chứa ticket đã đóng; sắp theo ưu tiên rồi thời gian tạo mới nhất trước. */
+/** Hàng đợi không chứa ticket đã đóng; ticket chưa có người xử lý luôn đứng trước. */
 export function filterQueue(all: Ticket[], f: QueueFilters, actorId: number): Ticket[] {
   const q = (f.q ?? '').trim().toLowerCase()
   return all
@@ -112,7 +113,11 @@ export function filterQueue(all: Ticket[], f: QueueFilters, actorId: number): Ti
       if (a === 'unavailable') return t.assignedCsId !== null && !t.assignedAvailable
       return String(t.assignedCsId) === a
     })
-    .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) => {
+      const aNeedsHandling = a.assignedCsId === null || !a.assignedAvailable ? 0 : 1
+      const bNeedsHandling = b.assignedCsId === null || !b.assignedAvailable ? 0 : 1
+      return aNeedsHandling - bNeedsHandling || PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt)
+    })
 }
 
 export function queueCounts(all: Ticket[], actorId: number) {

@@ -49,7 +49,7 @@ function NoticeContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <PageHeader title={TITLE} sub="Chỉ yêu cầu nội bộ được CS giao đích danh cho bạn · mở thông báo sẽ kiểm tra lại quyền">
+      <PageHeader title={TITLE} sub="Chỉ yêu cầu nội bộ được nhân viên hỗ trợ giao đích danh cho bạn · mở thông báo sẽ kiểm tra lại quyền">
         <Button className={ICON_BUTTON} onClick={markAll} disabled={unread === 0}>
           <Icon name="checks" size={16} />
           Đánh dấu đã đọc tất cả
@@ -67,7 +67,7 @@ function NoticeContent() {
       {loading && !data && <LoadingBlock />}
       {error != null && <ErrorBlock message={userFacingError(error, 'Không tải được thông báo.')} onRetry={refetch} />}
       {data && !error && shown.length === 0 && (
-        <EmptyBlock title={tab === 'unread' ? 'Không còn thông báo chưa đọc' : 'Chưa có thông báo'} sub="Yêu cầu nội bộ CS giao cho bạn sẽ hiện ở đây." />
+        <EmptyBlock title={tab === 'unread' ? 'Không còn thông báo chưa đọc' : 'Chưa có thông báo'} sub="Yêu cầu nội bộ do nhân viên hỗ trợ giao cho bạn sẽ hiện ở đây." />
       )}
       {data && !error && shown.length > 0 && (
         <Card>
@@ -89,7 +89,7 @@ function NoticeContent() {
           </ul>
         </Card>
       )}
-      <Foot>Thông báo của SA: yêu cầu nội bộ CS giao đích danh và nhắc việc khi chưa có kết quả sau 4 giờ.</Foot>
+      <Foot>Thông báo của quản trị hệ thống: yêu cầu nội bộ do nhân viên hỗ trợ giao đích danh và nhắc việc khi chưa có kết quả sau 4 giờ.</Foot>
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   )

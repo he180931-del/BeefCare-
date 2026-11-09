@@ -27,7 +27,7 @@ describe('Select Farm', () => {
     expect(screen.getByText('4 trang trại bạn có quyền truy cập')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Vào trại' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Thanh toán để kích hoạt' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Gửi Ticket' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Gửi yêu cầu hỗ trợ' })).toBeEnabled()
     expect(screen.getByText('Đến 14/11/2026')).toBeInTheDocument()
     expect(screen.getByText('Gói do chủ trại quản lý')).toBeInTheDocument()
   })

@@ -66,7 +66,7 @@ export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
             </Field>
           </div>
           <div className="sm:col-span-2">
-            <Field label="Trang trại liên quan" id="tk-farm">
+            <Field label={isFarm ? 'Trang trại liên quan *' : 'Trang trại liên quan'} id="tk-farm">
               <Select id="tk-farm" value={isFarm ? (form.farmId ?? '') : ''} disabled={!isFarm} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
                 {!isFarm && <option value="">Không gắn trang trại</option>}
                 {isFarm && <option value="">Chọn trang trại</option>}

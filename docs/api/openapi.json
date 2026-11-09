@@ -8372,6 +8372,50 @@
         }
       }
     },
+    "/api/support/tickets/{id}/messages" : {
+      "get" : {
+        "tags" : [ "owner-support-resource" ],
+        "operationId" : "messages",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "beforeId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessagePage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/public/prices" : {
       "get" : {
         "tags" : [ "public-landing-resource" ],
@@ -8524,6 +8568,50 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Ticket"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/support/tickets/{id}/messages" : {
+      "get" : {
+        "tags" : [ "cs-support-resource" ],
+        "operationId" : "messages_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "beforeId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessagePage"
                 }
               }
             }
@@ -8973,6 +9061,24 @@
                 "schema" : {
                   "type" : "string",
                   "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/finance/reports/latest" : {
+      "get" : {
+        "tags" : [ "platform-finance-resource" ],
+        "operationId" : "latestReport",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CashReport"
                 }
               }
             }
@@ -14193,6 +14299,9 @@
           "assignedCs" : {
             "type" : "string"
           },
+          "assignedCsAvailable" : {
+            "type" : "boolean"
+          },
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -14210,6 +14319,13 @@
             "items" : {
               "$ref" : "#/components/schemas/Message"
             }
+          },
+          "messagesBeforeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "messagesHasMore" : {
+            "type" : "boolean"
           },
           "resolutions" : {
             "type" : "array",
@@ -14230,6 +14346,15 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/InternalView"
+            }
+          },
+          "contextOptions" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/components/schemas/ContextReference"
+              }
             }
           }
         }
@@ -14689,23 +14814,6 @@
           }
         }
       },
-      "ReportLine" : {
-        "type" : "object",
-        "properties" : {
-          "sourceType" : { "type" : "string" },
-          "code" : { "type" : "string" },
-          "scope" : { "type" : "string" },
-          "farmId" : { "type" : "integer", "format" : "int64" },
-          "farmName" : { "type" : "string" },
-          "direction" : { "type" : "string" },
-          "category" : { "type" : "string" },
-          "description" : { "type" : "string" },
-          "amount" : { "type" : "number" },
-          "cashDate" : { "type" : "string", "format" : "date" },
-          "status" : { "type" : "string" },
-          "sourceReference" : { "type" : "string" }
-        }
-      },
       "ReportCriteria" : {
         "type" : "object",
         "properties" : {
@@ -14722,6 +14830,49 @@
             "format" : "int64"
           },
           "sourceFilter" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReportLine" : {
+        "type" : "object",
+        "properties" : {
+          "sourceType" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "direction" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "cashDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "sourceReference" : {
             "type" : "string"
           }
         }
@@ -14805,6 +14956,12 @@
             "format" : "int64"
           },
           "reason" : {
+            "type" : "string"
+          },
+          "amountVnd" : {
+            "type" : "number"
+          },
+          "description" : {
             "type" : "string"
           }
         }
@@ -18221,6 +18378,24 @@
           }
         }
       },
+      "MessagePage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Message"
+            }
+          },
+          "nextBeforeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasMore" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "Faq" : {
         "type" : "object",
         "properties" : {
@@ -18410,21 +18585,21 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "size" : {
             "type" : "integer",
@@ -18448,9 +18623,6 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
           "paged" : {
             "type" : "boolean"
           },
@@ -18464,6 +18636,9 @@
           },
           "unpaged" : {
             "type" : "boolean"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "offset" : {
             "type" : "integer",
@@ -18605,21 +18780,21 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "size" : {
             "type" : "integer",
@@ -18845,21 +19020,21 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "size" : {
             "type" : "integer",
@@ -18929,21 +19104,21 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "size" : {
             "type" : "integer",
@@ -18975,21 +19150,21 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "size" : {
             "type" : "integer",
@@ -20553,13 +20728,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
+          "headerName" : {
+            "type" : "string"
+          },
           "parameterName" : {
             "type" : "string"
           },
           "token" : {
-            "type" : "string"
-          },
-          "headerName" : {
             "type" : "string"
           }
         }

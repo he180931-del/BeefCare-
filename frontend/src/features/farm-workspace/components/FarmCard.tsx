@@ -13,7 +13,7 @@ export function farmAction(farm: FarmSummary): { label: string; icon: IconName; 
   if (!owner) return { label: 'Chủ trại quản lý gói dịch vụ', icon: 'lock', primary: false, disabled: true, to: null }
   if (farm.serviceStatus === 'PENDING_PAYMENT') return { label: 'Thanh toán để kích hoạt', icon: 'credit-card', primary: false, disabled: false, to: '/goi-dich-vu' }
   if (farm.serviceStatus === 'EXPIRED') return { label: 'Gia hạn dịch vụ', icon: 'refresh', primary: false, disabled: false, to: '/goi-dich-vu' }
-  return { label: 'Gửi Ticket', icon: 'send', primary: false, disabled: false, to: '/ho-tro' }
+  return { label: 'Gửi yêu cầu hỗ trợ', icon: 'send', primary: false, disabled: false, to: '/ho-tro' }
 }
 
 function serviceText(farm: FarmSummary) {

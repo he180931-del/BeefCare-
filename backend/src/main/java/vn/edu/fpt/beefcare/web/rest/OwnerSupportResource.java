@@ -15,10 +15,14 @@ public class OwnerSupportResource {
     @GetMapping
     public SupportDtos.Page mine(@RequestParam(required=false) String q, @RequestParam(required=false) String category,
         @RequestParam(required=false) String tab, @RequestParam(required=false) Instant from, @RequestParam(required=false) Instant to,
-        @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="25") int size) {
+        @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="50") int size) {
         return support.mine(q, category, tab, from, to, page, size);
     }
     @GetMapping("/{id}") public SupportDtos.Ticket get(@PathVariable Long id) { return support.get(id, false); }
+    @GetMapping("/{id}/messages") public SupportDtos.MessagePage messages(@PathVariable Long id,
+        @RequestParam(required=false) Long beforeId, @RequestParam(defaultValue="20") int size) {
+        return support.messages(id, beforeId, size, false);
+    }
     @PostMapping public SupportDtos.Ticket create(@Valid @RequestBody SupportDtos.Create r, @RequestHeader("Idempotency-Key") String key) {
         return commands.execute(null, null, "SUPPORT_CREATE", key, r, SupportDtos.Ticket.class, () -> support.create(r));
     }

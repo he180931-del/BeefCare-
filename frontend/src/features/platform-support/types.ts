@@ -21,6 +21,12 @@ export interface TicketMessage {
   at: string
 }
 
+export interface MessagePage {
+  items: TicketMessage[]
+  nextBeforeId: number | null
+  hasMore: boolean
+}
+
 export interface ResolutionView {
   id: number
   version: number
@@ -80,6 +86,8 @@ export interface Ticket {
   updatedAt: string
   version: number
   messages: TicketMessage[]
+  messagesBeforeId?: number | null
+  messagesHasMore?: boolean
   resolutions: ResolutionView[]
   history: HistoryEvent[]
   internalRequests: InternalView[]
@@ -88,6 +96,7 @@ export interface Ticket {
 
 export interface TicketRow {
   id: number
+  version: number
   code: string
   subject: string
   category: TicketCategory

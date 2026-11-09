@@ -26,7 +26,7 @@ export function ConfirmedDialog({ ticket, onReopen, onBack, onClose }: { ticket:
         ]}
       />
       <div className="mt-3">
-        <Note tone="info">Giữ Đã giải quyết; CS sẽ xem xác nhận trước khi đóng.</Note>
+        <Note tone="info">Giữ Đã giải quyết; nhân viên hỗ trợ sẽ xem xác nhận trước khi đóng.</Note>
       </div>
       <ModalFooter>
         {ticket.status === 'RESOLVED' && (
@@ -35,7 +35,7 @@ export function ConfirmedDialog({ ticket, onReopen, onBack, onClose }: { ticket:
           </ModalButton>
         )}
         <ModalButton variant="primary" onClick={onBack}>
-          <Icon name="arrow-left" size={16} /> Về ticket
+          <Icon name="arrow-left" size={16} /> Về yêu cầu
         </ModalButton>
       </ModalFooter>
     </Modal>
@@ -48,8 +48,8 @@ export function ClosedDialog({ ticket, onList, onNew, onClose }: { ticket: Ticke
   if (!closure) return null
   const ack = lastAcknowledged(ticket)
   return (
-    <Modal title={`Ticket ${ticket.code} đã đóng`} width={560} onClose={onClose}>
-      <p className="m-0 mb-3 text-[13px] text-ink">Ticket này đã đóng và chỉ đọc. Hãy tạo ticket mới nếu bạn cần hỗ trợ thêm.</p>
+    <Modal title={`Yêu cầu ${ticket.code} đã đóng`} width={560} onClose={onClose}>
+      <p className="m-0 mb-3 text-[13px] text-ink">Yêu cầu này đã đóng và chỉ đọc. Hãy tạo yêu cầu mới nếu bạn cần hỗ trợ thêm.</p>
       <Info
         cols={2}
         items={[
@@ -60,7 +60,7 @@ export function ClosedDialog({ ticket, onList, onNew, onClose }: { ticket: Ticke
         ]}
       />
       <ModalFooter>
-        <ModalButton onClick={onList}>Danh sách ticket</ModalButton>
+        <ModalButton onClick={onList}>Danh sách yêu cầu</ModalButton>
         <ModalButton variant="primary" onClick={onNew}>
           <Icon name="circle-plus" size={16} /> Tạo yêu cầu mới
         </ModalButton>
@@ -73,10 +73,10 @@ export function ClosedDialog({ ticket, onList, onNew, onClose }: { ticket: Ticke
 export function ResultChangedDialog({ ticket, onReload, onClose }: { ticket: Ticket; onReload: () => void; onClose: () => void }) {
   return (
     <Modal title="Kết quả đã thay đổi" sub={ticket.code} width={560} onClose={onClose}>
-      <p className="m-0 text-[13px] text-ink">Ticket vừa có kết quả mới hơn phiên bản bạn đang xem.</p>
+      <p className="m-0 text-[13px] text-ink">Yêu cầu vừa có kết quả mới hơn phiên bản bạn đang xem.</p>
       <ModalFooter>
         <ModalButton variant="primary" onClick={onReload}>
-          <Icon name="refresh" size={16} /> Tải lại ticket
+          <Icon name="refresh" size={16} /> Tải lại yêu cầu
         </ModalButton>
       </ModalFooter>
     </Modal>

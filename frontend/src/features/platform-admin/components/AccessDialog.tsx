@@ -86,7 +86,7 @@ export default function AccessDialog({ account, onClose, onDone, onReload }: {
         <input id="access-reason" className={inputCls} value={reason} maxLength={REASON_MAX} placeholder="Nhập lý do…" onChange={(e) => { setReason(e.target.value); setFieldError(null) }} />
       </Field>
       {fieldError && <p role="alert" className="m-0 -mt-2 text-xs text-err-fg">{fieldError}</p>}
-      <Note tone="info">Không thể thu hồi quyền SA đang hoạt động cuối cùng. Quyền nền tảng không cấp quyền vào bất kỳ trang trại nào.</Note>
+      <Note tone="info">Không thể thu hồi quyền quản trị hệ thống đang hoạt động cuối cùng. Quyền nền tảng không cấp quyền vào bất kỳ trang trại nào.</Note>
       {error != null && (
         <Note tone="err">
           <span role="alert">{errorMessage(error)}</span>

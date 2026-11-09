@@ -75,6 +75,13 @@ public class SupportTicketCommandService {
         return view(t, cs, actor);
     }
 
+    public SupportDtos.MessagePage messages(Long id, Long beforeId, int size, boolean cs) {
+        AppUser actor = cs ? platform.requireRole(PlatformRole.CS).user() : requireOwner();
+        SupportTicket ticket = find(id, false);
+        if (!cs) requester(ticket, actor);
+        return messagePage(ticket, beforeId, size, cs);
+    }
+
     /** Also called inside the idempotency transaction before a cached assigned-CS command can be returned. */
     public void requireAssigned(Long id) { assigned(find(id, true)); }
     public void requireRequester(Long id) { requester(find(id, true), requireOwner()); }
@@ -202,6 +209,21 @@ public class SupportTicketCommandService {
     AppUser requireOwner() {
         AppUser actor = accounts.currentActiveUser();
         if (!actor.isOwnerRegistrationCompleted()) throw DomainException.forbidden(MessageCodes.COM_01);
+        long platformAccess = em.createQuery(
+            "select count(p) from PlatformStaffAccess p where p.user.id=:u and upper(p.status)='ACTIVE'",
+            Long.class
+        ).setParameter("u", actor.getId()).getSingleResult();
+        long memberships = em.createQuery(
+            "select count(m) from FarmMembership m where m.user.id=:u",
+            Long.class
+        ).setParameter("u", actor.getId()).getSingleResult();
+        long ownerMemberships = em.createQuery(
+            "select count(m) from FarmMembership m where m.user.id=:u and upper(m.status)='ACTIVE' and upper(m.role)='OWNER'",
+            Long.class
+        ).setParameter("u", actor.getId()).getSingleResult();
+        if (platformAccess > 0 || (memberships > 0 && ownerMemberships == 0)) {
+            throw DomainException.forbidden(MessageCodes.COM_01);
+        }
         return actor;
     }
     SupportTicket find(Long id, boolean lock) {
@@ -299,11 +321,17 @@ public class SupportTicketCommandService {
         Map<String, Long> counts = new LinkedHashMap<>();
         for (String key : List.of("ALL", "IN_PROGRESS", "WAITING", "RESOLVED", "CLOSED", "UNASSIGNED", "MINE"))
             counts.put(key, base.stream().filter(t -> tabMatches(t, key, actor)).count());
-        List<SupportTicket> filtered = base.stream().filter(t -> tabMatches(t, tab == null ? "ALL" : tab, actor)).toList();
+        List<SupportTicket> filtered = new ArrayList<>(base.stream().filter(t -> tabMatches(t, tab == null ? "ALL" : tab, actor)).toList());
+        // Keep actionable work visible first: unassigned or unavailable tickets must not be buried below tickets already being handled.
+        filtered.sort(Comparator.comparingInt((SupportTicket t) -> t.getAssignedCs() == null || !available(t.getAssignedCs(), PlatformRole.CS) ? 0 : 1)
+            .thenComparing(SupportTicket::getPriority, Comparator.nullsLast(Comparator.comparingInt(this::priorityRank)))
+            .thenComparing(SupportTicket::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(SupportTicket::getId, Comparator.reverseOrder()));
         int start = Math.min(page * size, filtered.size());
         return new SupportDtos.Page(filtered.subList(start, Math.min(start + size, filtered.size())).stream()
             .map(t -> view(t, cs, actor, false)).toList(), filtered.size(), page, size, counts);
     }
+    private int priorityRank(String priority) { return "HIGH".equals(priority) ? 0 : "NORMAL".equals(priority) ? 1 : 2; }
     private boolean tabMatches(SupportTicket t, String tab, AppUser actor) {
         return switch (tab) {
             case "ALL" -> true;
@@ -319,10 +347,7 @@ public class SupportTicketCommandService {
     private SupportDtos.Ticket view(SupportTicket t, boolean cs, AppUser actor) { return view(t, cs, actor, true); }
     private SupportDtos.Ticket view(SupportTicket t, boolean cs, AppUser actor, boolean detail) {
         boolean assignee = cs && actor.equals(t.getAssignedCs());
-        List<SupportDtos.Message> messages = detail ? em.createQuery("select m from TicketMessage m where m.ticket.id=:t order by m.createdAt,m.id", TicketMessage.class)
-            .setParameter("t", t.getId()).getResultList().stream().filter(m -> cs || "PUBLIC".equals(m.getAudience()))
-            .map(m -> new SupportDtos.Message(m.getId(), m.getType(), m.getAudience(), m.getAuthor().getId(), m.getAuthor().getFullName(),
-                m.getAuthorRole(), m.getContent(), m.getCreatedAt())).toList() : List.of();
+        SupportDtos.MessagePage messagePage = detail ? messagePage(t, null, 20, cs) : new SupportDtos.MessagePage(List.of(), null, false);
         List<SupportDtos.ResolutionView> resolutions = detail ? em.createQuery("select r from TicketResolution r where r.ticket.id=:t order by r.versionNo desc", TicketResolution.class)
             .setParameter("t", t.getId()).getResultList().stream().map(r -> {
                 ResolutionAcknowledgment a = acknowledgment(r);
@@ -347,7 +372,25 @@ public class SupportTicketCommandService {
         return new SupportDtos.Ticket(t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getPriority(), t.getStatus(),
             t.getFarm() == null ? null : t.getFarm().getId(), t.getFarm() == null ? null : t.getFarm().getName(),
             t.getRequester().getId(), t.getRequester().getFullName(), csUser == null ? null : csUser.getId(), csUser == null ? null : csUser.getFullName(), assignedAvailable,
-            t.getCreatedAt(), t.getUpdatedAt(), t.getVersion(), messages, resolutions, history, requests, contextOptions);
+            t.getCreatedAt(), t.getUpdatedAt(), t.getVersion(), messagePage.items(), messagePage.nextBeforeId(), messagePage.hasMore(), resolutions, history, requests, contextOptions);
+    }
+
+    private SupportDtos.MessagePage messagePage(SupportTicket ticket, Long beforeId, int size, boolean cs) {
+        if (size < 1 || size > 100 || beforeId != null && beforeId < 1) throw DomainException.invalid("pagination");
+        String query = "select m from TicketMessage m where m.ticket.id=:ticket" +
+            (cs ? "" : " and m.audience='PUBLIC'") + (beforeId == null ? "" : " and m.id<:beforeId") + " order by m.id desc";
+        var typedQuery = em.createQuery(query, TicketMessage.class).setParameter("ticket", ticket.getId()).setMaxResults(size + 1);
+        if (beforeId != null) typedQuery.setParameter("beforeId", beforeId);
+        List<TicketMessage> rows = new ArrayList<>(typedQuery.getResultList());
+        boolean hasMore = rows.size() > size;
+        if (hasMore) rows.removeLast();
+        java.util.Collections.reverse(rows);
+        List<SupportDtos.Message> items = rows.stream().map(m -> new SupportDtos.Message(
+            m.getId(), m.getType(), m.getAudience(), m.getAuthor().getId(), m.getAuthor().getFullName(),
+            m.getAuthorRole(), m.getContent(), m.getCreatedAt()
+        )).toList();
+        Long nextBeforeId = hasMore && !rows.isEmpty() ? rows.getFirst().getId() : null;
+        return new SupportDtos.MessagePage(items, nextBeforeId, hasMore);
     }
     private boolean waitingForOwnerAcknowledgment(SupportTicket t) {
         if (!"RESOLVED".equals(t.getStatus())) return false;

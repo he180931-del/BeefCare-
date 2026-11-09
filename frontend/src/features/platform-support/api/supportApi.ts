@@ -3,14 +3,14 @@ import { supportDemoStore, type SupportDemoStore } from '../data/supportDemoStor
 import type { Actor, CompleteCommand, ContextRef, QueueFilters, TargetRole, TicketCategory, TicketPriority } from '../types'
 import { BackendError } from '../../../api/backendClient'
 import { SupportError } from '../domain/supportRules'
-import type { FarmOption, InternalView, QueuePage, StaffMember, SupportNotification, Ticket, TicketRow } from '../types'
+import type { FarmOption, InternalView, MessagePage, QueuePage, StaffMember, SupportNotification, Ticket, TicketMessage, TicketRow } from '../types'
 
 const mapError = (error: unknown): never => {
   if (!(error instanceof BackendError)) throw error
   if (error.status === 404) throw new SupportError('NOT_FOUND', 'Không tìm thấy dữ liệu yêu cầu.')
   if (error.status === 403) throw new SupportError('FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này.')
-  if (error.code === 'MSG-FE20-06') throw new SupportError('CONFLICT', 'Ticket đã đóng và chỉ đọc.')
-  if (error.status === 409) throw new SupportError('CONFLICT', 'Ticket đã thay đổi. Vui lòng tải lại.')
+  if (error.code === 'MSG-FE20-06') throw new SupportError('CONFLICT', 'Yêu cầu đã đóng và chỉ đọc.')
+  if (error.status === 409) throw new SupportError('CONFLICT', 'Yêu cầu đã thay đổi. Vui lòng tải lại.')
   throw new SupportError('CONFLICT', error.message || 'Không lưu được dữ liệu. Vui lòng thử lại.')
 }
 
@@ -35,8 +35,29 @@ const mapSupportNotification = (value: unknown): SupportNotification => {
   const targetId = numberValue(row.targetId)
   return {
     id: numberValue(row.id), title: textValue(row.title), body: textValue(row.summary),
-    at: textValue(row.createdTime), read: row.readTime != null, actionLabel: targetType === 'INTERNAL_REQUEST' ? 'Mở yêu cầu' : 'Mở ticket',
+    at: textValue(row.createdTime), read: row.readTime != null, actionLabel: targetType === 'INTERNAL_REQUEST' ? 'Mở yêu cầu' : 'Mở yêu cầu hỗ trợ',
     ticketCode: String(targetId), targetType, targetId,
+  }
+}
+
+const mapMessage = (value: unknown): TicketMessage => {
+  const message = asRecord(value)
+  return {
+    id: numberValue(message.id),
+    visibility: message.audience === 'CS_ONLY' ? 'INTERNAL' : 'PUBLIC',
+    author: textValue(message.author, '—'),
+    authorRole: message.authorRole === 'OWNER' ? 'OWNER' : 'CS',
+    text: textValue(message.content),
+    at: textValue(message.createdAt),
+  }
+}
+
+const mapMessagePage = (value: unknown): MessagePage => {
+  const row = asRecord(value)
+  return {
+    items: asRows(row.items).map(mapMessage),
+    nextBeforeId: row.nextBeforeId == null ? null : numberValue(row.nextBeforeId),
+    hasMore: row.hasMore === true,
   }
 }
 
@@ -49,11 +70,12 @@ const mapTicket = (value: unknown): Ticket => {
   })
   const assignedId = row.assignedCsId == null ? null : numberValue(row.assignedCsId)
   const assignedAvailable = row.assignedCsAvailable !== false
-  const messages = asRows(row.messages).map((message) => ({ id: numberValue(message.id), visibility: message.audience === 'CS_ONLY' ? 'INTERNAL' as const : 'PUBLIC' as const, author: textValue(message.author, '—'), authorRole: message.authorRole === 'OWNER' ? 'OWNER' as const : 'CS' as const, text: textValue(message.content), at: textValue(message.createdAt) }))
+  const messages = asRows(row.messages).map(mapMessage)
   return {
     id: numberValue(row.id), code: textValue(row.code), subject: textValue(row.subject), category: textValue(row.category) as Ticket['category'], priority: textValue(row.priority) as Ticket['priority'], status: textValue(row.status) as Ticket['status'],
     farmId: row.farmId == null ? 0 : numberValue(row.farmId), farmName: textValue(row.farmName, 'Vấn đề tài khoản'), requesterId: numberValue(row.requesterId), requester: textValue(row.requester), assignedCsId: assignedId, assignedCs: row.assignedCs == null ? null : textValue(row.assignedCs), assignedAvailable,
     createdAt: textValue(row.createdAt), updatedAt: textValue(row.updatedAt), version: numberValue(row.version), messages,
+    messagesBeforeId: row.messagesBeforeId == null ? null : numberValue(row.messagesBeforeId), messagesHasMore: row.messagesHasMore === true,
     resolutions: asRows(row.resolutions).map((r) => ({ id: numberValue(r.id), version: numberValue(r.version), content: textValue(r.content), resolvedBy: textValue(r.resolvedBy), resolvedAt: textValue(r.resolvedAt), acknowledged: r.acknowledged === true, acknowledgedAt: r.acknowledgedAt == null ? undefined : textValue(r.acknowledgedAt), acknowledgmentComment: r.acknowledgmentComment == null ? undefined : textValue(r.acknowledgmentComment), reviewed: r.reviewed === true })),
     history: asRows(row.history).map((h) => ({ at: textValue(h.time), actor: textValue(h.actor, 'Hệ thống'), text: textValue(h.event, textValue(h.status)) })),
     internalRequests: asRows(row.internalRequests).map(mapInternal), contextOptions: {
@@ -84,15 +106,16 @@ function createBackendApi(transport: BackendTransport) {
   const command = async (code: string, body: Record<string, unknown>) => mapTicket(await transport.command(`${await ticket(code)}/processing`, body))
   return {
     listQueue: (actor: Actor, filters: QueueFilters = {}) => run(async () => {
-      void actor; const p = new URLSearchParams(); if (filters.q) p.set('q', filters.q); if (filters.category && filters.category !== 'all') p.set('category', filters.category); if (filters.priority && filters.priority !== 'all') p.set('priority', filters.priority); if (filters.farm && filters.farm !== 'all' && /^\d+$/.test(filters.farm)) p.set('farmId', filters.farm); if (filters.assignment === 'unassigned' || filters.assignment === 'unavailable') p.set('assignment', filters.assignment === 'unassigned' ? 'UNASSIGNED' : 'UNAVAILABLE'); if (filters.tab) p.set('tab', filters.tab.toUpperCase()); p.set('page', String(Math.max(0, (filters.page ?? 1) - 1))); p.set('size', String(filters.size ?? 25));
-      const page = asRecord(await transport.get(`/api/platform/support/tickets?${p}`)); const counts = asRecord(page.counts); const items = asRows(page.items).map(mapTicket).map((t): TicketRow => ({ id: t.id, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status, farmName: t.farmName, requester: t.requester, assignedCsId: t.assignedCsId, assignedCs: t.assignedCs, assignedAvailable: t.assignedAvailable, createdAt: t.createdAt, updatedAt: t.updatedAt }));
-      const result: QueuePage = { items, total: numberValue(page.total), page: numberValue(page.page) + 1, size: numberValue(page.size, filters.size ?? 25), counts: { all: numberValue(counts.ALL), unassigned: numberValue(counts.UNASSIGNED), mine: numberValue(counts.MINE), waiting: numberValue(counts.WAITING), resolved: numberValue(counts.RESOLVED), unassignedHigh: 0 } }; return result
+      void actor; const p = new URLSearchParams(); if (filters.q) p.set('q', filters.q); if (filters.category && filters.category !== 'all') p.set('category', filters.category); if (filters.priority && filters.priority !== 'all') p.set('priority', filters.priority); if (filters.farm && filters.farm !== 'all' && /^\d+$/.test(filters.farm)) p.set('farmId', filters.farm); if (filters.assignment === 'unassigned' || filters.assignment === 'unavailable') p.set('assignment', filters.assignment === 'unassigned' ? 'UNASSIGNED' : 'UNAVAILABLE'); if (filters.tab) p.set('tab', filters.tab.toUpperCase()); p.set('page', String(Math.max(0, (filters.page ?? 1) - 1))); p.set('size', String(filters.size ?? 50));
+      const page = asRecord(await transport.get(`/api/platform/support/tickets?${p}`)); const counts = asRecord(page.counts); const items = asRows(page.items).map(mapTicket).map((t): TicketRow => ({ id: t.id, version: t.version, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status, farmName: t.farmName, requester: t.requester, assignedCsId: t.assignedCsId, assignedCs: t.assignedCs, assignedAvailable: t.assignedAvailable, createdAt: t.createdAt, updatedAt: t.updatedAt }));
+      const result: QueuePage = { items, total: numberValue(page.total), page: numberValue(page.page) + 1, size: numberValue(page.size, filters.size ?? 50), counts: { all: numberValue(counts.ALL), unassigned: numberValue(counts.UNASSIGNED), mine: numberValue(counts.MINE), waiting: numberValue(counts.WAITING), resolved: numberValue(counts.RESOLVED), unassignedHigh: 0 } }; return result
     }),
     listFarms: () => run(async () => { const p = asRecord(await transport.get('/api/platform/support/tickets?page=0&size=100')); return [...new Map(asRows(p.items).filter((item) => item.farmId != null).map((item) => [numberValue(item.farmId), { id: numberValue(item.farmId), name: textValue(item.farmName) }])).values()].sort((a, b) => a.name.localeCompare(b.name)) as FarmOption[] }),
     listCs: () => run(async () => asRows(await transport.get('/api/platform/support/recipients?role=CS')).map((row): StaffMember => ({ id: numberValue(row.id), name: textValue(row.name), role: 'CS', available: true }))),
     listRecipients: (role: TargetRole) => run(async () => asRows(await transport.get(`/api/platform/support/recipients?role=${role}`)).map((row): StaffMember => ({ id: numberValue(row.id), name: textValue(row.name), role, available: true }))),
     getTicket: (_actor: Actor, code: string) => run(() => get(code)),
-    claim: (_actor: Actor, code: string, cmd: { reason?: string; expectedVersion?: number }) => run(() => command(code, { action: 'CLAIM', reason: cmd.reason ?? null, expectedVersion: cmd.expectedVersion })),
+    getMessages: (_actor: Actor, code: string, beforeId: number, size = 20) => run(async () => mapMessagePage(await transport.get(`${await ticket(code)}/messages?beforeId=${beforeId}&size=${size}`))),
+    claim: (_actor: Actor, code: string, cmd: { reason?: string; expectedVersion: number }) => run(() => command(code, { action: 'CLAIM', reason: cmd.reason ?? null, expectedVersion: cmd.expectedVersion })),
     handOver: (_actor: Actor, code: string, cmd: { toCsId: number; reason: string; expectedVersion?: number }) => run(() => command(code, { action: 'HANDOVER', recipientId: cmd.toCsId, reason: cmd.reason, expectedVersion: cmd.expectedVersion })),
     reply: (_actor: Actor, code: string, cmd: { text: string; expectedVersion?: number }) => run(async () => mapTicket(await transport.command(`${await ticket(code)}/replies`, { content: cmd.text, expectedVersion: cmd.expectedVersion }))),
     addNote: (_actor: Actor, code: string, cmd: { text: string; expectedVersion?: number }) => run(async () => mapTicket(await transport.command(`${await ticket(code)}/internal-notes`, { content: cmd.text, expectedVersion: cmd.expectedVersion }))),
@@ -133,8 +156,10 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
     async listRecipients(role: TargetRole) { return mode === 'backend' ? backend.listRecipients(role) : store.listRecipients(role) },
     // GET /api/platform/support/tickets/{id}
     async getTicket(actor: Actor, code: string) { return mode === 'backend' ? backend.getTicket(actor, code) : store.getTicket(actor, code) },
+    // GET /api/platform/support/tickets/{id}/messages (?beforeId,size)
+    async getMessages(actor: Actor, code: string, beforeId: number, size = 20) { return mode === 'backend' ? backend.getMessages(actor, code, beforeId, size) : store.getMessages(actor, code, beforeId, size) },
     // POST /api/platform/support/tickets/{id}/processing  (action: CLAIM)
-    async claim(actor: Actor, code: string, cmd: { reason?: string; expectedVersion?: number }) { return mode === 'backend' ? backend.claim(actor, code, cmd) : store.claim(actor, code, cmd) },
+    async claim(actor: Actor, code: string, cmd: { reason?: string; expectedVersion: number }) { return mode === 'backend' ? backend.claim(actor, code, cmd) : store.claim(actor, code, cmd) },
     // POST /api/platform/support/tickets/{id}/processing  (action: HANDOVER, recipientId, reason)
     async handOver(actor: Actor, code: string, cmd: { toCsId: number; reason: string; expectedVersion?: number }) { return mode === 'backend' ? backend.handOver(actor, code, cmd) : store.handOver(actor, code, cmd) },
     // POST /api/platform/support/tickets/{id}/replies

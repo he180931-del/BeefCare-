@@ -4,11 +4,11 @@ import {
 } from '../domain/supportRules'
 import type {
   Actor, CompleteCommand, ContextRef, DomainResult, InternalView, QueueFilters, QueuePage, StaffMember, SupportNotification, TargetRole, Ticket,
-  TicketCategory, TicketPriority,
+  MessagePage, TicketCategory, TicketPriority,
 } from '../types'
 
-const CLOSED_MSG = 'Ticket đã đóng và chỉ đọc. Hãy tạo ticket mới nếu cần hỗ trợ thêm.'
-const NOT_ASSIGNED_MSG = 'Chỉ CS đang phụ trách mới được thay đổi ticket này.'
+const CLOSED_MSG = 'Yêu cầu đã đóng và chỉ đọc. Hãy tạo yêu cầu mới nếu cần hỗ trợ thêm.'
+const NOT_ASSIGNED_MSG = 'Chỉ nhân viên hỗ trợ đang phụ trách mới được thay đổi yêu cầu này.'
 const CHANGED_MSG = 'Bản ghi đã được thay đổi. Hãy tải lại và kiểm tra trước khi thử lại.'
 const GONE_MSG = 'Mục đã chọn không còn khả dụng. Hãy chọn mục khác.'
 const NO_IR_ACCESS_MSG = 'Yêu cầu này không còn được giao cho bạn.'
@@ -23,9 +23,20 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
   let notifSeq = 100
 
   const view = (t: Ticket): Ticket => structuredClone({ ...t, internalRequests: irs.filter((r) => r.ticketCode === t.code) })
+  const messagePage = (t: Ticket, beforeId: number | null, size = 20): MessagePage => {
+    const eligible = t.messages.filter((message) => beforeId == null || message.id < beforeId)
+    const hasMore = eligible.length > size
+    const items = eligible.slice(Math.max(0, eligible.length - size))
+    return { items: structuredClone(items), nextBeforeId: hasMore ? items[0]?.id ?? null : null, hasMore }
+  }
+  const pagedView = (t: Ticket): Ticket => {
+    const result = view(t)
+    const page = messagePage(result, null)
+    return { ...result, messages: page.items, messagesBeforeId: page.nextBeforeId, messagesHasMore: page.hasMore }
+  }
   const findTicket = (code: string) => {
     const t = tickets.find((x) => x.code === code)
-    if (!t) throw new SupportError('NOT_FOUND', `Không tìm thấy ticket ${code}.`)
+    if (!t) throw new SupportError('NOT_FOUND', `Không tìm thấy yêu cầu ${code}.`)
     return t
   }
   const touch = (t: Ticket, actor: Actor, text: string) => {
@@ -57,7 +68,7 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
   return {
     async listQueue(actor: Actor, filters: QueueFilters = {}): Promise<QueuePage> {
       const matched = filterQueue(tickets.map(view), filters, actor.id)
-      const size = filters.size ?? 6
+      const size = filters.size ?? 50
       const pageCount = Math.max(1, Math.ceil(matched.length / size))
       const page = Math.min(Math.max(filters.page ?? 1, 1), pageCount)
       return { items: matched.slice((page - 1) * size, page * size).map(toRow), total: matched.length, page, size, counts: queueCounts(tickets.map(view), actor.id) }
@@ -65,13 +76,15 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
     async listFarms() { return [...new Map(tickets.map((t) => [t.farmId, { id: t.farmId, name: t.farmName }])).values()].sort((a, b) => a.name.localeCompare(b.name)) },
     async listCs() { return structuredClone(staff.filter((s) => s.role === 'CS')) },
     async listRecipients(role: TargetRole) { return structuredClone(staff.filter((s) => s.role === role && s.available)) },
-    async getTicket(_actor: Actor, code: string) { return view(findTicket(code)) },
+    async getTicket(_actor: Actor, code: string) { return pagedView(findTicket(code)) },
+    async getMessages(_actor: Actor, code: string, beforeId: number, size = 20) { return messagePage(findTicket(code), beforeId, size) },
 
-    async claim(actor: Actor, code: string, cmd: { reason?: string; expectedVersion?: number }) {
+    async claim(actor: Actor, code: string, cmd: { reason?: string; expectedVersion: number }) {
       const t = findTicket(code)
       if (t.status === 'CLOSED') throw new SupportError('CONFLICT', CLOSED_MSG)
-      if (!isClaimable(t)) throw new SupportError('CONFLICT', 'Ticket đã có CS khác nhận. Danh sách sẽ được làm mới.')
-      if (cmd.expectedVersion !== undefined && cmd.expectedVersion !== t.version) throw new SupportError('CONFLICT', CHANGED_MSG)
+      if (!isClaimable(t)) throw new SupportError('CONFLICT', 'Yêu cầu đã có người khác nhận. Danh sách sẽ được làm mới.')
+      if (cmd.expectedVersion == null) throw new SupportError('VALIDATION', 'Thiếu phiên bản yêu cầu hiện tại.')
+      if (cmd.expectedVersion !== t.version) throw new SupportError('CONFLICT', CHANGED_MSG)
       const takeover = t.assignedCsId !== null
       const reason = takeover ? required(cmd.reason, 'Lý do nhận', 1000) : ''
       t.assignedCsId = actor.id
@@ -79,7 +92,7 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       t.assignedAvailable = true
       const from = t.status
       if (t.status === 'OPEN') t.status = 'IN_PROGRESS'
-      touch(t, actor, takeover ? `Nhận lại ticket (giữ nguyên ${from}). Lý do: ${reason}` : 'Nhận ticket: Mới mở → Đang xử lý.')
+      touch(t, actor, takeover ? `Nhận lại yêu cầu (giữ nguyên ${from}). Lý do: ${reason}` : 'Nhận yêu cầu: Mới mở → Đang xử lý.')
       return view(t)
     },
     async handOver(actor: Actor, code: string, cmd: { toCsId: number; reason: string; expectedVersion?: number }) {
