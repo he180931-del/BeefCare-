@@ -5,9 +5,12 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
+import java.time.LocalDate;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
+import org.springframework.format.annotation.DateTimeFormat;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.fpt.beefcare.service.SubscriptionPaymentService;
 import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
@@ -15,6 +18,7 @@ import vn.edu.fpt.beefcare.service.FarmAction;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.SubscriptionPaymentService.PaymentDTO;
+import vn.edu.fpt.beefcare.service.SubscriptionPaymentService.PaymentHistoryPage;
 import vn.edu.fpt.beefcare.service.SubscriptionPaymentService.SubscriptionOverview;
 
 /** Owner subscription and payment-request API. Platform payment operations live under /api/platform/payments. */
@@ -31,7 +35,18 @@ public class SubscriptionPaymentResource {
     public SubscriptionOverview overview(@PathVariable Long farmId) { return service.overview(farmId); }
 
     @GetMapping("/payments")
-    public List<PaymentDTO> history(@PathVariable Long farmId) { return service.history(farmId); }
+    public PaymentHistoryPage history(@PathVariable Long farmId,
+        @Parameter(description = "Partial payment code, case-insensitive; trimmed, maximum 100 characters.") @RequestParam(required = false) String q,
+        @Parameter(schema = @Schema(allowableValues = {"PENDING", "PAID", "EXPIRED"})) @RequestParam(required = false) String status,
+        @Parameter(description = "Inclusive created date in Asia/Ho_Chi_Minh.") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+        @Parameter(description = "Inclusive created date in Asia/Ho_Chi_Minh.") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+        @Parameter(schema = @Schema(allowableValues = {"requestedAt", "expiresAt"})) @RequestParam(defaultValue = "requestedAt") String sort,
+        @Parameter(schema = @Schema(allowableValues = {"asc", "desc"})) @RequestParam(defaultValue = "desc") String dir,
+        @Parameter(description = "Zero-based page; fixed 20 rows per page. Out of range returns 400 MSG-COM-10.",
+            schema = @Schema(type = "integer", format = "int32", defaultValue = "0", minimum = "0", maximum = "107374182"))
+        @RequestParam(defaultValue = "0") int page) {
+        return service.history(farmId, q, status, from, to, sort, dir, page);
+    }
 
     @GetMapping("/payments/{paymentId}")
     public PaymentDTO detail(@PathVariable Long farmId, @PathVariable Long paymentId) { return service.paymentDetails(farmId, paymentId); }

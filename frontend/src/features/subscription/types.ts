@@ -95,6 +95,15 @@ export interface PaymentFilters {
   to?: string
   sort?: 'requestedAt' | 'expiresAt'
   dir?: 'asc' | 'desc'
+  page?: number // zero-based; SCR-60 uses 20 rows per page
+}
+
+export interface PaymentPage {
+  content: Payment[]
+  number: number
+  size: number
+  totalElements: number
+  totalPages: number
 }
 
 export type RefreshDemo = 'bank-paid' | 'result-unavailable'

@@ -57,6 +57,19 @@ class OpenApiContractTest {
             assertThat(allowsNull(payment.path(field))).as("pending payment nullable " + field).isTrue();
         }
         JsonNode postPayment = paths.path("/api/farms/{farmId}/subscription/payments").path("post");
+        JsonNode paymentHistory = paths.path("/api/farms/{farmId}/subscription/payments").path("get");
+        assertThat(paymentHistory.path("parameters").toString()).contains("\"q\"", "\"status\"", "\"from\"", "\"to\"", "\"sort\"", "\"dir\"", "\"page\"");
+        assertThat(paymentHistory.path("responses").path("200").toString()).contains("PaymentHistoryPage");
+        paymentHistory.path("parameters").forEach(parameter -> {
+            if ("page".equals(parameter.path("name").asText())) {
+                assertThat(parameter.path("schema").path("type").asText()).isEqualTo("integer");
+                assertThat(parameter.path("schema").path("minimum").asInt()).isZero();
+                assertThat(parameter.path("schema").path("maximum").asLong()).isEqualTo(Integer.MAX_VALUE / 20);
+            }
+        });
+        JsonNode historyPage = api.path("components").path("schemas").path("PaymentHistoryPage");
+        assertThat(historyPage.path("required").toString()).contains("content", "number", "size", "totalElements", "totalPages");
+        assertThat(historyPage.path("properties").path("content").path("items").path("$ref").asText()).endsWith("/PaymentDTO");
         assertThat(postPayment.path("parameters").toString()).contains("Idempotency-Key");
         JsonNode request = api.path("components").path("schemas").path("Request");
         assertThat(request.path("required").toString()).contains("durationYears", "reviewedPriceVersion");

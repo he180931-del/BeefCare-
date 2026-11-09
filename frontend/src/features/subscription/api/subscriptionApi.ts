@@ -1,8 +1,7 @@
 import { asRecord, backendFarmId, backendMode, backendTransport, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
 import { BackendError } from '../../../api/backendClient'
 import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
-import type { CreatePaymentCommand, Payment, PaymentFilters, RefreshDemo, SubscriptionOverview } from '../types'
+import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, SubscriptionOverview } from '../types'
 import { SubscriptionError, type PriceQuote } from '../types'
 
 /** A missing overview contract is an API error; it must never be filled with demo fields. */
@@ -49,7 +48,6 @@ function readPayment(value: unknown): Payment {
 
 export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SubscriptionDemoStore }) {
   void farmId
-  const requireLocal = () => { if (mode === 'backend') throw backendPending('gói dịch vụ') }
   const getPayment = async (farm: number, id: string): Promise<Payment> => {
     if (mode !== 'backend') return store.getPayment(farm, id)
     if (!/^\d+$/.test(id) || Number(id) <= 0) throw new Error('Mã yêu cầu thanh toán không hợp lệ.')
@@ -62,8 +60,31 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
     async getOverview(farm: number) {
       return mode === 'backend' ? readOverview(await transport.get(transport.farmPath(farm, '/subscription')), farm) : store.getOverview(farm)
     },
-    // GET /api/farms/{farmId}/subscription/payments (openapi chưa có tham số lọc/sắp xếp)
-    async listPayments(farm: number, filters: PaymentFilters = {}) { requireLocal(); return store.listPayments(farm, filters) },
+    // SCR-60 / D16: filter and count before paging, with no backend-to-demo fallback.
+    async listPayments(farm: number, filters: PaymentFilters = {}): Promise<PaymentPage> {
+      if (filters.from && filters.to && filters.from > filters.to) throw new Error('Ngày bắt đầu không được sau ngày kết thúc.')
+      const page = filters.page ?? 0
+      if (mode !== 'backend') {
+        const rows = await store.listPayments(farm, filters)
+        return { content: rows.slice(page * 20, (page + 1) * 20), number: page, size: 20, totalElements: rows.length, totalPages: Math.ceil(rows.length / 20) }
+      }
+      const query = new URLSearchParams()
+      if (filters.q?.trim()) query.set('q', filters.q.trim())
+      if (filters.state) query.set('status', filters.state)
+      if (filters.from) query.set('from', filters.from)
+      if (filters.to) query.set('to', filters.to)
+      query.set('sort', filters.sort ?? 'requestedAt')
+      query.set('dir', filters.dir ?? 'desc')
+      query.set('page', String(page))
+      const row = asRecord(await transport.get(transport.farmPath(farm, `/subscription/payments?${query}`)))
+      if (!Array.isArray(row.content) || !Number.isInteger(row.number) || row.number !== page || row.size !== 20
+        || !Number.isInteger(row.totalElements) || Number(row.totalElements) < 0
+        || !Number.isInteger(row.totalPages) || Number(row.totalPages) < 0 || row.content.length > 20) {
+        throw new Error('Dữ liệu lịch sử thanh toán từ máy chủ không đầy đủ hoặc không hợp lệ.')
+      }
+      return { content: row.content.map(readPayment), number: row.number as number, size: 20,
+        totalElements: row.totalElements as number, totalPages: row.totalPages as number }
+    },
     // GET /api/farms/{farmId}/subscription/payments/{paymentId} (mock tra theo mã quoteRef)
     getPayment,
     // POST /api/farms/{farmId}/subscription/payments

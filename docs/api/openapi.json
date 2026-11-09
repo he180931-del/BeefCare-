@@ -3390,6 +3390,68 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "description" : "Partial payment code, case-insensitive; trimmed, maximum 100 characters.",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "description" : "Inclusive created date in Asia/Ho_Chi_Minh.",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Inclusive created date in Asia/Ho_Chi_Minh.",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "requestedAt", "expiresAt" ]
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "asc", "desc" ]
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Zero-based page; fixed 20 rows per page. Out of range returns 400 MSG-COM-10.",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "maximum" : 107374182,
+            "minimum" : 0
+          }
         } ],
         "responses" : {
           "200" : {
@@ -3397,10 +3459,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/PaymentDTO"
-                  }
+                  "$ref" : "#/components/schemas/PaymentHistoryPage"
                 }
               }
             }
@@ -18421,17 +18480,13 @@
       "PagePlatformPayment" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "numberOfElements" : {
+          "totalElements" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -18459,6 +18514,10 @@
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "empty" : {
             "type" : "boolean"
           }
@@ -18467,12 +18526,6 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
-          "paged" : {
-            "type" : "boolean"
-          },
-          "unpaged" : {
-            "type" : "boolean"
-          },
           "offset" : {
             "type" : "integer",
             "format" : "int64"
@@ -18480,13 +18533,19 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "pageNumber" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
+          "paged" : {
+            "type" : "boolean"
+          },
+          "unpaged" : {
+            "type" : "boolean"
           }
         }
       },
@@ -18548,13 +18607,13 @@
       "SortObject" : {
         "type" : "object",
         "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
           "sorted" : {
             "type" : "boolean"
           },
           "unsorted" : {
-            "type" : "boolean"
-          },
-          "empty" : {
             "type" : "boolean"
           }
         }
@@ -18616,17 +18675,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "numberOfElements" : {
+          "totalElements" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -18653,6 +18708,10 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -18991,17 +19050,13 @@
       "PageAuditEntry" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "numberOfElements" : {
+          "totalElements" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -19029,6 +19084,10 @@
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "empty" : {
             "type" : "boolean"
           }
@@ -19037,17 +19096,13 @@
       "PageAccountSummary" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "numberOfElements" : {
+          "totalElements" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -19074,6 +19129,10 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -19487,6 +19546,34 @@
             } ]
           }
         }
+      },
+      "PaymentHistoryPage" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PaymentDTO"
+            }
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "content", "number", "size", "totalElements", "totalPages" ]
       },
       "ReproductionAnimal" : {
         "type" : "object",
@@ -20729,10 +20816,10 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "headerName" : {
+          "parameterName" : {
             "type" : "string"
           },
-          "parameterName" : {
+          "headerName" : {
             "type" : "string"
           },
           "token" : {

@@ -3,6 +3,7 @@ package vn.edu.fpt.beefcare.service;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -10,6 +11,12 @@ import java.util.Comparator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.stream.Collectors;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +43,9 @@ public class SubscriptionPaymentService {
     private static final ZoneId FARM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     /** GBR-71: renewal opens 90 days before the latest confirmed end (also shown on SCR-11 by FarmWorkspaceService). */
     static final Duration RENEWAL_WINDOW = Duration.ofDays(90);
+    /** SCR-60 / Table III-1: fixed 20 rows; the page cap keeps the JPA offset within int range (400 instead of 500). */
+    static final int HISTORY_PAGE_SIZE = 20;
+    static final int MAX_HISTORY_PAGE = Integer.MAX_VALUE / HISTORY_PAGE_SIZE;
 
     private final FarmAccessService farmAccess;
     private final FarmRepository farms;
@@ -119,15 +129,41 @@ public class SubscriptionPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentDTO> history(Long farmId) {
-        FarmContext context = farmAccess.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
-        return payments.findAllBySubscription_Farm_IdAndRequestedBy_IdOrderByRequestedAtDescIdDesc(farmId, context.user().getId())
-            .stream().map(this::toDto).toList();
+    public PaymentHistoryPage history(Long farmId, String q, String status, LocalDate from, LocalDate to, String sort, String dir, int page) {
+        farmAccess.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
+        String search = q == null ? "" : q.trim();
+        if (search.length() > 100) throw DomainException.invalid("q");
+        if (status != null && !List.of("PENDING", "PAID", "EXPIRED").contains(status)) throw DomainException.invalid("status");
+        if (from != null && to != null && from.isAfter(to)) throw DomainException.badRequest(MessageCodes.COM_11, "field", "from");
+        if (!List.of("requestedAt", "expiresAt").contains(sort)) throw DomainException.invalid("sort");
+        if (!List.of("asc", "desc").contains(dir)) throw DomainException.invalid("dir");
+        if (page < 0 || page > MAX_HISTORY_PAGE) throw DomainException.invalid("page");
+        Instant now = clock.now();
+        Instant start = from == null ? null : from.atStartOfDay(FARM_ZONE).toInstant();
+        Instant end = to == null ? null : to.plusDays(1).atStartOfDay(FARM_ZONE).toInstant();
+        String pattern = "%" + search.toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        var result = payments.findAll((root, query, cb) -> {
+            List<Predicate> filters = new ArrayList<>();
+            filters.add(cb.equal(root.get("subscription").get("farm").get("id"), farmId));
+            if (!search.isEmpty()) filters.add(cb.like(cb.lower(root.get("quoteRef")), pattern, '!'));
+            if (start != null) filters.add(cb.greaterThanOrEqualTo(root.get("requestedAt"), start));
+            if (end != null) filters.add(cb.lessThan(root.get("requestedAt"), end));
+            if (status != null) {
+                var effectiveState = cb.<String>selectCase().when(cb.and(
+                    cb.equal(cb.upper(root.get("state")), "PENDING"), cb.lessThanOrEqualTo(root.get("expiresAt"), now)
+                ), "EXPIRED").otherwise(cb.upper(root.get("state")));
+                filters.add(cb.equal(effectiveState, status));
+            }
+            return cb.and(filters.toArray(Predicate[]::new));
+        }, PageRequest.of(page, HISTORY_PAGE_SIZE, Sort.by(Sort.Direction.fromString(dir), sort, "id")));
+        Evidence evidence = evidenceFor(result.getContent());
+        return new PaymentHistoryPage(result.getContent().stream().map(p -> toDto(p, false, now, evidence)).toList(),
+            result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }
 
     @Transactional(readOnly = true)
     public PaymentDTO paymentDetails(Long farmId, Long paymentId) {
-        FarmContext context = farmAccess.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
+        farmAccess.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
         Payment payment = payments.findFirstByIdAndSubscription_Farm_Id(paymentId, farmId)
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
         return toDto(payment);
@@ -234,15 +270,35 @@ public class SubscriptionPaymentService {
     }
 
     private PaymentDTO toDto(Payment p, boolean reopened) {
-        BankTransferEvidence allocated = evidences.findFirstByPayment_Id(p.getId()).orElse(null);
-        BankTransferEvidence first = evidences.findAllByQuoteRefIgnoreCaseOrderByIdAsc(p.getQuoteRef()).stream()
+        return toDto(p, reopened, clock.now());
+    }
+
+    private PaymentDTO toDto(Payment p, boolean reopened, Instant now) {
+        return toDto(p, reopened, now, evidenceFor(List.of(p)));
+    }
+
+    /** Two queries for any number of payments, so an SCR-60 page does not issue per-row evidence reads. */
+    private Evidence evidenceFor(List<Payment> page) {
+        if (page.isEmpty()) return new Evidence(Map.of(), Map.of());
+        Map<Long, BankTransferEvidence> allocated = new HashMap<>();
+        evidences.findAllByPayment_IdInOrderByIdAsc(page.stream().map(Payment::getId).toList())
+            .forEach(e -> allocated.putIfAbsent(e.getPayment().getId(), e));
+        Map<String, List<BankTransferEvidence>> byQuoteRef = evidences.findAllByUpperQuoteRefIn(
+            page.stream().map(p -> p.getQuoteRef().toUpperCase(Locale.ROOT)).distinct().toList()
+        ).stream().collect(Collectors.groupingBy(e -> e.getQuoteRef().toUpperCase(Locale.ROOT)));
+        return new Evidence(allocated, byQuoteRef);
+    }
+
+    private PaymentDTO toDto(Payment p, boolean reopened, Instant now, Evidence evidence) {
+        BankTransferEvidence allocated = evidence.allocated().get(p.getId());
+        BankTransferEvidence first = evidence.byQuoteRef().getOrDefault(p.getQuoteRef().toUpperCase(Locale.ROOT), List.of()).stream()
             .filter(e -> "VERIFIED".equalsIgnoreCase(e.getAuthOutcome()) && "IN".equalsIgnoreCase(e.getTransferDirection())
                 && java.util.Objects.equals(p.getReceivingEnvironment(), e.getEnvironment())
                 && java.util.Objects.equals(p.getReceivingAccountNamespace(), e.getAccountNamespace())
                 && sameAccount(p.getReceivingAccount(), e.getReceivingAccount()) && e.getFirstReceivedAt() != null)
             .min(Comparator.comparing(BankTransferEvidence::getFirstReceivedAt).thenComparing(BankTransferEvidence::getId)).orElse(null);
         if (first == null) first = allocated;
-        String state = "PENDING".equalsIgnoreCase(p.getState()) && !p.getExpiresAt().isAfter(clock.now()) ? "EXPIRED" : p.getState();
+        String state = "PENDING".equalsIgnoreCase(p.getState()) && !p.getExpiresAt().isAfter(now) ? "EXPIRED" : p.getState();
         return new PaymentDTO(
             p.getId(),
             p.getQuoteRef(),
@@ -268,7 +324,11 @@ public class SubscriptionPaymentService {
         return a != null && b != null && a.replaceAll("\\s+", "").equalsIgnoreCase(b.replaceAll("\\s+", ""));
     }
 
+    private record Evidence(Map<Long, BankTransferEvidence> allocated, Map<String, List<BankTransferEvidence>> byQuoteRef) {}
+
     public record PaymentRequest(Integer durationYears, Long reviewedPriceVersion) {}
+    @Schema(requiredProperties = {"content", "number", "size", "totalElements", "totalPages"})
+    public record PaymentHistoryPage(List<PaymentDTO> content, int number, int size, long totalElements, int totalPages) {}
     public record PriceDTO(Long id, BigDecimal price1y, BigDecimal price2y, BigDecimal price3y, Instant effectiveAt) {
         static PriceDTO from(PlanVersion p) { return new PriceDTO(p.getId(), p.getPrice1y(), p.getPrice2y(), p.getPrice3y(), p.getEffectiveAt()); }
     }
