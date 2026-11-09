@@ -66,19 +66,20 @@ class HerdEntryImportServiceTest extends HerdEntryTestBase {
         EntryDtos.ImportResult result = imports.importLines(farm.getId(), draft.id(), file, true);
 
         assertThat(result.total()).isEqualTo(6);
-        assertThat(result.valid()).isEqualTo(3);
+        // IMP-5 is a female with a SIRE purpose: rejected (popup field 10, GBR-25, MSG-FE05-12).
+        assertThat(result.valid()).isEqualTo(2);
         assertThat(result.warnings()).isEqualTo(1);
-        assertThat(result.errors()).isEqualTo(3);
-        assertThat(result.added()).isEqualTo(3);
+        assertThat(result.errors()).isEqualTo(4);
+        assertThat(result.added()).isEqualTo(2);
         assertThat(result.summary().code()).isEqualTo("MSG-FE06-18");
-        assertThat(result.summary().params()).containsEntry("total", 6).containsEntry("valid", 3).containsEntry("warnings", 1).containsEntry("errors", 3);
+        assertThat(result.summary().params()).containsEntry("total", 6).containsEntry("valid", 2).containsEntry("warnings", 1).containsEntry("errors", 4);
         assertThat(result.addedNotice().code()).isEqualTo("MSG-FE06-19");
-        assertThat(result.rows()).extracting(EntryDtos.ImportRow::result).containsExactly("VALID", "WARNING", "ERROR", "ERROR", "VALID", "ERROR");
-        assertThat(result.rows()).extracting(EntryDtos.ImportRow::added).containsExactly(true, true, false, false, true, false);
+        assertThat(result.rows()).extracting(EntryDtos.ImportRow::result).containsExactly("VALID", "WARNING", "ERROR", "ERROR", "ERROR", "ERROR");
+        assertThat(result.rows()).extracting(EntryDtos.ImportRow::added).containsExactly(true, true, false, false, false, false);
         assertThat(result.rows().get(1).issues()).extracting(EntryDtos.Issue::code).contains(HerdEntryCodes.CHK_BIRTH_UNKNOWN, HerdEntryCodes.CHK_WEIGHT_BASIS_DEFAULTED);
         assertThat(result.rows().get(2).issues()).extracting(EntryDtos.Issue::code).contains(MessageCodes.COM_08);
         assertThat(result.rows().get(3).issues()).extracting(EntryDtos.Issue::code).contains(HerdEntryCodes.FE05_02);
-        assertThat(result.rows().get(4).issues()).isEmpty();
+        assertThat(result.rows().get(4).issues()).extracting(EntryDtos.Issue::code).contains(HerdEntryCodes.FE05_12);
 
         EntryDtos.Voucher saved = vouchers.get(farm.getId(), draft.id());
         assertThat(saved.status()).isEqualTo(EntryVoucherStatus.DRAFT);

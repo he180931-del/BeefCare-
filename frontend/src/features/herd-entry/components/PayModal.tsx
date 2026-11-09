@@ -31,7 +31,15 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
   const [file, setFile] = useState(!isBackend)
 
   const over = amount > debt
-  const invalid = amount <= 0 || over || !date
+  // R-06-17: date not in the future and not before the voucher date; reference ≤ 100; note ≤ 500.
+  const today = isBackend ? localIsoToday() : TODAY
+  const voucherDate = /^\d{4}-\d{2}-\d{2}$/.test(String(record.date ?? '')) ? String(record.date) : ''
+  const dateError = !date ? 'Vui lòng nhập Ngày thanh toán.'
+    : date > today ? 'Ngày thanh toán không được ở tương lai.'
+      : voucherDate && date < voucherDate ? `Ngày thanh toán không được trước ngày phiếu ${voucherDate.split('-').reverse().join('/')}.` : ''
+  const refError = ref.trim().length > 100 ? 'Tham chiếu tối đa 100 ký tự.' : ''
+  const noteError = note.trim().length > 500 ? 'Ghi chú tối đa 500 ký tự.' : ''
+  const invalid = amount <= 0 || over || !!dateError || !!refError || !!noteError || !method
   const projectedPaid = Math.min(total, paid + Math.max(amount, 0))
   const remaining = Math.max(total - projectedPaid, 0)
 
@@ -52,8 +60,9 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
       <div className="grid grid-cols-2 gap-4">
         <Field label="Ngày thanh toán *">
           <DateInput value={date} onChange={setDate} />
+          {dateError && <span className="text-[11px] text-err-fg">{dateError}</span>}
         </Field>
-        <Field label="Số tiền (đ) *" hint={over ? <span className="text-err-fg">{`Số tiền thanh toán vượt tổng phải trả (${money(debt)} đ còn lại)`}</span> : 'Không vượt số còn phải trả'}>
+        <Field label="Số tiền (đ) *" hint={over ? <span className="text-err-fg">{`Số tiền không được vượt quá ${money(debt)} đ.`}</span> : 'Không vượt số còn phải trả'}>
           <input
             inputMode="numeric"
             className={`${inputCls} ${over ? 'border-err-fg' : ''}`}
@@ -69,7 +78,8 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
       </div>
 
       <Field label="Số tham chiếu / nội dung chuyển khoản">
-        <input className={inputCls} value={ref} onChange={(e) => setRef(e.target.value)} />
+        <input className={inputCls} maxLength={100} value={ref} onChange={(e) => setRef(e.target.value)} />
+        {refError && <span className="text-[11px] text-err-fg">{refError}</span>}
       </Field>
 
       {file && (
@@ -82,7 +92,8 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
       )}
 
       <Field label="Ghi chú">
-        <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
+        <input className={inputCls} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+        {noteError && <span className="text-[11px] text-err-fg">{noteError}</span>}
       </Field>
 
       <Note tone="info">

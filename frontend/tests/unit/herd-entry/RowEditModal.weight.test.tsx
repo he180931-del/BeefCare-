@@ -101,8 +101,9 @@ it('khóa đơn giá và tính thành tiền bằng 0 khi chưa chọn cơ sở 
   expect(unitPrice).toBeEnabled()
   await user.clear(weight)
   await user.type(weight, '236')
+  // Đơn giá không bắt buộc (SCR-24 popup field 15, R-06-09): lưu được với đơn giá 0, chỉ là cảnh báo khi ghi sổ.
   await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).not.toHaveBeenCalled()
+  expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ weightBasis: 'MEASURED', weight: 236, unitPrice: 0 }))
 
   await user.clear(unitPrice)
   await user.type(unitPrice, '85000')

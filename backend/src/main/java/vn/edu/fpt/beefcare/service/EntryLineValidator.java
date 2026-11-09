@@ -201,6 +201,9 @@ public class EntryLineValidator {
                 issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE18_08, "purposeId", "field", "productionPurpose"));
             }
         }
+        if (full) {
+            checkPurposeFitsSex(issues, lineNo, purpose, sex);
+        }
 
         // birth date / age (GBR-23, SCR-24: either a date or an age in months)
         LocalDate birthDate = null;
@@ -477,6 +480,9 @@ public class EntryLineValidator {
         if (purpose != null && full && !Boolean.TRUE.equals(purpose.getAvailable())) {
             issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE18_08, "purposeId", "field", "productionPurpose"));
         }
+        if (full) {
+            checkPurposeFitsSex(issues, lineNo, purpose, sex);
+        }
 
         Pen pen = null;
         Long penId = r.penId() != null ? r.penId() : (calf != null && calf.getProposedPen() != null ? calf.getProposedPen().getId() : null);
@@ -541,9 +547,20 @@ public class EntryLineValidator {
 
     // ------------------------------------------------------------------ pieces
 
+    /** GBR-25 / popup field 10: SIRE only for males, BREEDING only for females; FATTENING / UNDECIDED fit both (MSG-FE05-12). */
+    private static void checkPurposeFitsSex(List<Issue> issues, int lineNo, ProductionPurpose purpose, Sex sex) {
+        if (purpose == null || sex == null || purpose.getPurposeType() == null) {
+            return;
+        }
+        boolean mismatch = (purpose.getPurposeType() == PurposeType.SIRE && sex != Sex.MALE) || (purpose.getPurposeType() == PurposeType.BREEDING && sex != Sex.FEMALE);
+        if (mismatch) {
+            issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE05_12, "purposeId", "purpose", purpose.getName(), "purpose_type", purpose.getPurposeType(), "sex", sex));
+        }
+    }
+
     private void checkTag(List<Issue> issues, int lineNo, Long farmId, String tag, Set<String> tagsSeen, boolean full) {
+        // SRS 28/10 SCR-24 popup field 1: the ear tag is optional, empty = "Tag later" (Gắn tai sau).
         if (tag == null) {
-            issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "earTagNumber", "field", "earTagNumber"));
             return;
         }
         if (tag.length() > 30) {

@@ -14,6 +14,8 @@ export type EntryListFilters = { type?: 'PURCHASE' | 'FARM_BORN'; from?: string;
 export type EntryListView = { rows: HerdEntry[]; tiles: Record<string, unknown>; counts: Record<string, number> }
 export type EntryVaccineOption = { id: number; code: string; name: string; available: boolean }
 export type EntryBreedOption = { id: number; code: string; name: string; available: boolean }
+/** A production purpose of the farm catalogue with its fixed purpose type (GBR-25 uses the type, never the name). */
+export type EntryPurposeOption = { id: number; name: string; purposeType: string; available: boolean }
 export type EntryParentOption = { id: number; code: string; sex: 'MALE' | 'FEMALE'; name: string }
 
 const statusFromBackend = (status: unknown): EntryStatus => status === 'POSTED' ? 'Đã nhập' : status === 'VOIDED' ? 'Đã hủy' : 'Nháp'
@@ -27,7 +29,10 @@ const fullDate = (value: unknown) => {
   return /^\d{4}-\d{2}$/.test(date) ? `${date}-01` : date || null
 }
 const lifeStage = (value: unknown, farmBorn = false) => {
-  const normalized = textValue(value).toLowerCase()
+  const raw = textValue(value)
+  if (['UNWEANED_CALF', 'WEANED_CALF', 'YOUNG_STOCK', 'ADULT'].includes(raw)) return raw
+  const normalized = raw.toLowerCase()
+  if (normalized.includes('chưa cai')) return 'UNWEANED_CALF'
   if (farmBorn && normalized.includes('bê')) return 'UNWEANED_CALF'
   if (normalized.includes('theo mẹ') || normalized.includes('sơ sinh')) return 'UNWEANED_CALF'
   if (normalized.includes('bê')) return 'WEANED_CALF'
@@ -163,6 +168,8 @@ const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry => {
       const data = asRecord(line.data)
       return {
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber), name: textValue(data.name),
+        // MISSING_ROUTES FE-06: colour markings and quarantine were sent but never read back when a draft reopened.
+        colourMarkings: textValue(data.colourMarkings), quarantineUntil: textValue(data.quarantineUntil) || undefined,
         // The voucher line response owns catalogue ids at line level. Older
         // drafts placed them under `data`; preserve both so reopening a row
         // does not turn a selected breed into a display-only label and then
@@ -468,9 +475,15 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
   const breeds = async (): Promise<EntryBreedOption[]> => asRows(await transport.get(transport.farmPath(farmId, '/catalogues/breeds'))).map((row) => ({
     id: numberValue(row.id), code: textValue(row.code), name: textValue(row.name, textValue(row.code)), available: row.available !== false,
   })).filter((row) => row.id > 0 && row.available)
+  const purposes = async (): Promise<EntryPurposeOption[]> => {
+    const body = await transport.get(transport.farmPath(farmId, '/catalogues/production-purposes'))
+    const rows = Array.isArray(body) ? asRows(body) : asRows(asRecord(body).items)
+    return rows.map((row) => ({ id: numberValue(row.id), name: textValue(row.name, textValue(row.code)), purposeType: textValue(row.purposeType), available: row.available !== false }))
+      .filter((row) => row.id > 0 && row.available)
+  }
   const parentCattle = async (): Promise<EntryParentOption[]> => {
     const body = asRecord(await transport.get(transport.farmPath(farmId, '/cattle?herdStatus=ACTIVE&size=200')))
     return asRows(body.items).map((row): EntryParentOption => ({ id: numberValue(row.id), code: textValue(row.code ?? row.displayCode), sex: row.sex === 'MALE' ? 'MALE' : 'FEMALE', name: textValue(row.name) })).filter((row) => row.id > 0)
   }
-  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, pendingCalves, diedBeforeRegistration, assignCalfParentage, sellers, vaccines, breeds, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel }
+  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, pendingCalves, diedBeforeRegistration, assignCalfParentage, sellers, vaccines, breeds, purposes, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel }
 }

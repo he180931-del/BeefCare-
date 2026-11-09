@@ -35,4 +35,24 @@ describe('PayModal backend defaults', () => {
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ date: localIsoToday(), ref: '', note: '' }))
   })
+
+  it('TC-06-35: rejects an amount above the outstanding, a future date and a date before the voucher', async () => {
+    vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
+    const { default: PayModal } = await import('../../../src/features/herd-entry/components/PayModal')
+    const { fireEvent } = await import('@testing-library/react')
+    render(<MemoryRouter><PayModal record={record} onSave={vi.fn()} onClose={vi.fn()} /></MemoryRouter>)
+    const save = screen.getByRole('button', { name: 'Lưu thanh toán' })
+    const amount = screen.getAllByRole('textbox')[0]
+    fireEvent.change(amount, { target: { value: '250001' } })
+    expect(screen.getByText('Số tiền không được vượt quá 250.000 đ.')).toBeInTheDocument()
+    expect(save).toBeDisabled()
+    fireEvent.change(amount, { target: { value: '250000' } })
+    expect(save).toBeEnabled()
+    const date = screen.getByLabelText('Chọn ngày')
+    fireEvent.change(date, { target: { value: '2999-01-01' } })
+    expect(screen.getByText('Ngày thanh toán không được ở tương lai.')).toBeInTheDocument()
+    fireEvent.change(date, { target: { value: '2026-10-28' } })
+    expect(screen.getByText('Ngày thanh toán không được trước ngày phiếu 29/10/2026.')).toBeInTheDocument()
+    expect(save).toBeDisabled()
+  })
 })

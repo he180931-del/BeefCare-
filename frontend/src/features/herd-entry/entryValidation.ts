@@ -15,7 +15,8 @@ type ValidationInput = {
 
 /** Rules required to transition an entry voucher from DRAFT to POSTED. */
 export function validateEntryForPost(input: ValidationInput): string | null {
-  const today = input.today ?? new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const today = input.today ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   if (!input.date) return 'Ngày nhập là bắt buộc.'
   if (input.date > today) return 'Ngày nhập không được ở tương lai.'
   if (input.type === 'Mua ngoài' && !String(input.sourceId ?? '').trim()) return 'Vui lòng chọn người bán.'
@@ -35,9 +36,10 @@ export function validateEntryForPost(input: ValidationInput): string | null {
     if (linePricing === 'kg') {
       const weightBasis = cow.weightBasis ?? (Number(cow.weight) > 0 ? 'MEASURED' : null)
       if (!weightBasis) return `${line}: vui lòng chọn cơ sở cân.`
-      if (!Number.isFinite(Number(cow.weight)) || Number(cow.weight) <= 0) return `${line}: cân nhập phải lớn hơn 0 kg.`
+      if (!Number.isFinite(Number(cow.weight)) || Number(cow.weight) < 1 || Number(cow.weight) > 1500) return `${line}: cân nhập phải từ 1 đến 1.500 kg.`
     }
-    if (input.type === 'Mua ngoài' && (!Number.isFinite(Number(cow.unitPrice)) || Number(cow.unitPrice) <= 0)) return `${line}: đơn giá phải lớn hơn 0.`
+    // Đơn giá không bắt buộc (≥ 0); thiếu giá chỉ là cảnh báo ở bảng kiểm tra (R-06-09).
+    if (input.type === 'Mua ngoài' && Number(cow.unitPrice) < 0) return `${line}: đơn giá không được âm.`
     const hist = cow.hist ?? { vaccine: '', disease: '', repro: '' }
     if (hist.vaccine === 'Có' && !String(hist.vaccineNote ?? '').trim()) return `${line}: cần nhập thông tin tiêm phòng.`
     if (hist.disease === 'Có' && !String((hist as Record<string, unknown>).diseaseNote ?? '').trim()) return `${line}: cần mô tả bệnh đã biết.`

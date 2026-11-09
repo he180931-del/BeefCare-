@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
-import RowEditModal, { purposesForSex, stagesForSex } from '../../../src/features/herd-entry/components/RowEditModal'
+import RowEditModal, { birthMonthFromAge, purposesForSex, stagesForSex } from '../../../src/features/herd-entry/components/RowEditModal'
 import type { EntryCow, Pen } from '../../../src/types'
 
 const eligiblePen: Pen = {
@@ -95,7 +95,7 @@ it('hiển thị lỗi tại popup và không lưu khi chưa chọn giống', as
   expect(screen.getByText('Vui lòng chọn giống.')).toBeInTheDocument()
 })
 
-it('hiển thị cảnh báo tiêu chí ngay khi chọn chuồng và không chặn lưu', async () => {
+it('TC-06-08: hiển thị cảnh báo tiêu chí và bắt nhập lý do cảnh báo trước khi lưu (R-06-07)', async () => {
   const onSave = vi.fn()
   render(
     <RowEditModal
@@ -115,8 +115,13 @@ it('hiển thị cảnh báo tiêu chí ngay khi chọn chuồng và không ch�
   expect(screen.getByText(/Cân nặng tối thiểu: 200 kg/)).toBeInTheDocument()
 
   const user = userEvent.setup()
+  // Lý do cảnh báo không được tự điền: thiếu thì chặn lưu.
   await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ warningReason: 'Không phù hợp tiêu chí chuồng' }))
+  expect(onSave).not.toHaveBeenCalled()
+  expect(screen.getByText('Bò không đạt tiêu chí chuồng: nhập lý do cảnh báo để tiếp tục.')).toBeInTheDocument()
+  await user.type(document.querySelector('#entry-cow-warning-reason') as HTMLTextAreaElement, 'Bê nhẹ cân, tách riêng theo dõi')
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ warningReason: 'Bê nhẹ cân, tách riêng theo dõi' }))
 })
 
 it('ẩn xóa con với dòng nháp mới và chỉ hiện với dòng đã có mã hồ sơ', () => {
@@ -220,15 +225,16 @@ it('cuộn riêng danh sách vaccine khi có nhiều dòng và giữ vùng thao 
   expect(screen.getByRole('button', { name: 'Lưu chi tiết' })).toBeVisible()
 })
 
-it('chỉ mở và lọc giai đoạn, mục đích sau khi chọn giới tính', async () => {
+it('chỉ mở giai đoạn, mục đích sau khi chọn giới tính; mục đích lọc theo loại (GBR-25)', async () => {
   const user = userEvent.setup()
   expect(stagesForSex('').length).toBe(0)
-  expect(stagesForSex('Đực').some((stage) => stage.value === 'Bò cái')).toBe(false)
-  expect(stagesForSex('Đực').some((stage) => stage.value === 'Đực giống')).toBe(true)
-  expect(stagesForSex('Cái').some((stage) => stage.value === 'Đực giống')).toBe(false)
-  expect(stagesForSex('Cái').some((stage) => stage.value === 'Bò cái')).toBe(true)
+  // Giai đoạn là sinh lý: cùng 4 giá trị cho cả hai giới (SRS §3.2).
+  expect(stagesForSex('Đực').map((stage) => stage.code)).toEqual(['UNWEANED_CALF', 'WEANED_CALF', 'YOUNG_STOCK', 'ADULT'])
+  expect(stagesForSex('Cái').map((stage) => stage.code)).toEqual(['UNWEANED_CALF', 'WEANED_CALF', 'YOUNG_STOCK', 'ADULT'])
+  // SIRE chỉ cho đực, BREEDING chỉ cho cái; Vỗ béo dùng cho cả hai.
   expect(purposesForSex('Đực').some((purpose) => /sinh sản/i.test(purpose))).toBe(false)
-  expect(purposesForSex('Cái').some((purpose) => /vỗ béo|đực giống/i.test(purpose))).toBe(false)
+  expect(purposesForSex('Cái').some((purpose) => /đực giống/i.test(purpose))).toBe(false)
+  expect(purposesForSex('Cái').some((purpose) => /vỗ béo/i.test(purpose))).toBe(true)
 
   cleanup()
   renderModal({ ...completeCow, sex: '', stage: '', purpose: '' })
@@ -238,14 +244,32 @@ it('chỉ mở và lọc giai đoạn, mục đích sau khi chọn giới tính'
   expect(screen.getByText('Chọn giới tính trước để mở danh sách giai đoạn sinh trưởng và mục đích nuôi.')).toBeInTheDocument()
 
   cleanup()
+  // Nhãn cũ "Đực giống" ở ô giai đoạn được đổi thành giai đoạn sinh lý Trưởng thành.
   renderModal({ ...completeCow, purpose: 'Giữ giống · loại Đực giống', sex: 'Đực', stage: 'Đực giống' })
   expect(screen.getByRole('radio', { name: 'Đực' })).toBeChecked()
-  expect(screen.getByRole('option', { name: 'Đực giống' })).toBeInTheDocument()
-  expect(screen.queryByRole('option', { name: 'Bò cái' })).not.toBeInTheDocument()
+  expect(screen.getAllByRole('combobox')[1]).toHaveValue('Trưởng thành')
 
+  // Đổi sang Cái: giai đoạn giữ nguyên, mục đích Đực giống bị bỏ chọn.
   await user.click(screen.getByRole('radio', { name: 'Cái' }))
-  expect(screen.getByText('Giai đoạn sinh trưởng hiện tại không phù hợp với giới tính đã chọn. Vui lòng chọn lại.')).toBeInTheDocument()
+  expect(screen.getByText('Mục đích nuôi hiện tại không phù hợp với giới tính đã chọn. Vui lòng chọn lại.')).toBeInTheDocument()
   const changedSexComboboxes = screen.getAllByRole('combobox')
-  expect(changedSexComboboxes[1]).toHaveValue('')
+  expect(changedSexComboboxes[1]).toHaveValue('Trưởng thành')
   expect(changedSexComboboxes[2]).toHaveValue('')
+})
+
+it('TC-06-18 / 19: tuổi 0 hoặc 241 bị chặn; tuổi 18 tháng tại 06/11/2026 cho tháng sinh 05/2025, Ước tính', async () => {
+  const user = userEvent.setup()
+  renderModal({ ...completeCow })
+  const age = screen.getByLabelText('Tuổi (tháng)')
+  await user.type(age, '241')
+  expect(screen.getByText('Tuổi phải là số nguyên từ 1 đến 240 tháng.')).toBeInTheDocument()
+  expect(birthMonthFromAge('2026-11-06', 18)).toBe('2025-05-01')
+})
+
+it('số tai để trống được lưu (Gắn tai sau)', async () => {
+  const user = userEvent.setup()
+  const onSave = vi.fn()
+  render(<RowEditModal cow={{ ...completeCow, tag: '' }} index={0} recordId="PN-2026-0014" dateIso="2026-10-29" others={[]} pens={[eligiblePen]} onSave={onSave} onRemove={vi.fn()} onClose={vi.fn()} />)
+  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ tag: '' }))
 })

@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
@@ -129,6 +130,24 @@ class HerdEntryPostingServiceTest extends HerdEntryTestBase {
         EntryDtos.Voucher second = vouchers.create(farm.getId(), purchase(List.of(line("R1", penA, "300", 1)), 0L, 0L));
         assertThat(first.code()).isEqualTo("PN-2026-0001");
         assertThat(second.code()).isEqualTo("PN-2026-0002");
+    }
+
+    @Test
+    void earTagIsOptional_tagLater() {
+        // SRS 28/10 popup field 1: an empty ear tag means "Tag later"; the cattle is still created with a code and a QR tag.
+        EntryDtos.Voucher draft = vouchers.create(farm.getId(), purchase(List.of(line(null, penA, "300", 80000)), 0L, 0L));
+        EntryDtos.PostResult posted = postDraft(farm.getId(), draft.id());
+        assertThat(count("Cattle")).isEqualTo(1);
+        assertThat(em.find(vn.edu.fpt.beefcare.domain.Cattle.class, posted.voucher().lines().get(0).cattleId()).getEarTagNumber()).isNull();
+    }
+
+    @Test
+    void purposeTypeMustFitTheSex() {
+        // Popup field 10 (GBR-25): BREEDING only for females, SIRE only for males -> MSG-FE05-12; FATTENING fits a female.
+        EntryDtos.Voucher maleBreeding = vouchers.create(farm.getId(), purchase(List.of(line("PS-1", vn.edu.fpt.beefcare.domain.enumeration.Sex.MALE, breeding, penA, "300", 80000)), 0L, 0L));
+        assertThat(thrown(() -> postDraft(farm.getId(), maleBreeding.id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        EntryDtos.Voucher femaleFattening = vouchers.create(farm.getId(), purchase(List.of(line("PS-2", vn.edu.fpt.beefcare.domain.enumeration.Sex.FEMALE, fattening, penA, "300", 80000)), 0L, 0L));
+        assertThatCode(() -> postDraft(farm.getId(), femaleFattening.id())).doesNotThrowAnyException();
     }
 
     @Test

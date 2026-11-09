@@ -5,7 +5,7 @@ import { BREEDS, PURPOSE_OPTIONS, STAGES } from '../data/importsData'
 import { money } from '../../../data/format'
 import { RadioRow } from './parts'
 import type { EntryCow, Pen } from '../../../types'
-import type { EntryBreedOption, EntryVaccineOption } from '../api/herdEntryBackendApi'
+import type { EntryBreedOption, EntryPurposeOption, EntryVaccineOption } from '../api/herdEntryBackendApi'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const compactInputCls = 'box-border min-w-0 w-full rounded-lg border border-field bg-white px-1.5 py-1.5 text-[12px] text-ink outline-none focus:border-brand read-only:bg-page read-only:text-muted sm:px-2 sm:py-2 sm:text-[13px]'
@@ -16,20 +16,40 @@ type EditCow = EntryCow & { colourMarkings?: string; quarantineUntil?: string }
 type HistoryDetail = 'vaccine' | 'disease' | 'repro'
 
 /**
- * Sex is selected first because the catalogue has biological constraints. The
- * dropdowns are filtered from sex; sex itself is never changed by selecting a
- * purpose or stage.
+ * Life stage is physiological (SRS §3.2): the same four stages for both sexes. Sex is selected first because the
+ * purpose type is bound to it: SIRE only for males, BREEDING only for females; FATTENING / UNDECIDED fit both
+ * (GBR-25, popup field 10, MSG-FE05-12).
  */
-export const stagesForSex = (sex: string) => {
-  if (sex === 'Đực') return STAGES.filter((stage) => ['Bê theo mẹ', 'Bò tơ', 'Vỗ béo', 'Đực giống', 'Chưa xác định'].includes(stage.value))
-  if (sex === 'Cái') return STAGES.filter((stage) => ['Bê theo mẹ', 'Bò tơ', 'Bò cái', 'Chưa xác định'].includes(stage.value))
-  return []
+export const LIFE_STAGES = [
+  { value: 'Bê chưa cai sữa', label: 'Bê chưa cai sữa', code: 'UNWEANED_CALF' },
+  { value: 'Bê cai sữa', label: 'Bê cai sữa', code: 'WEANED_CALF' },
+  { value: 'Bò tơ', label: 'Bò tơ / hậu bị', code: 'YOUNG_STOCK' },
+  { value: 'Trưởng thành', label: 'Trưởng thành', code: 'ADULT' },
+] as const
+/** Older drafts stored mixed labels (purpose words in the stage list); map them to the four stages. */
+export const normalizeStage = (stage: string): string => {
+  const value = stage.trim().toLowerCase()
+  if (!value || value === 'chưa xác định') return ''
+  const exact = LIFE_STAGES.find((s) => s.value.toLowerCase() === value)
+  if (exact) return exact.value
+  if (value.includes('theo mẹ') || value.includes('chưa cai') || value === 'unweaned_calf') return 'Bê chưa cai sữa'
+  if (value.includes('bê') || value === 'weaned_calf') return 'Bê cai sữa'
+  if (value.includes('tơ') || value.includes('hậu bị') || value === 'young_stock') return 'Bò tơ'
+  return 'Trưởng thành'
 }
+export const stagesForSex = (sex: string) => (sex === 'Đực' || sex === 'Cái' ? [...LIFE_STAGES] : [])
 
-export const purposesForSex = (sex: string) => {
-  if (sex === 'Đực') return PURPOSE_OPTIONS.filter((purpose) => !/sinh sản/i.test(purpose))
-  if (sex === 'Cái') return PURPOSE_OPTIONS.filter((purpose) => !/vỗ béo|đực giống/i.test(purpose))
-  return []
+export const purposeTypeFitsSex = (purposeType: string, sex: string) =>
+  purposeType === 'SIRE' ? sex === 'Đực' : purposeType === 'BREEDING' ? sex === 'Cái' : true
+const typeOfLabel = (purpose: string) => (/sinh sản/i.test(purpose) ? 'BREEDING' : /vỗ béo|thương phẩm/i.test(purpose) ? 'FATTENING' : /đực giống|giữ giống/i.test(purpose) ? 'SIRE' : 'UNDECIDED')
+export const purposesForSex = (sex: string) => (sex === 'Đực' || sex === 'Cái' ? PURPOSE_OPTIONS.filter((purpose) => purposeTypeFitsSex(typeOfLabel(purpose), sex)) : [])
+const PURPOSE_TYPE_LABEL: Record<string, string> = { BREEDING: 'Sinh sản', FATTENING: 'Vỗ béo', SIRE: 'Đực giống', UNDECIDED: 'Chưa xác định' }
+
+/** TC-06-19: age in months at the entry date gives the birth month (first day), accuracy Estimated. */
+export const birthMonthFromAge = (entryDate: string, months: number): string => {
+  const [y, m] = (entryDate || new Date().toISOString().slice(0, 10)).split('-').map(Number)
+  const total = y * 12 + (m - 1) - months
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}-01`
 }
 
 export const isFatteningPurpose = (purpose: string) => /vỗ béo|fattening/i.test(purpose)
@@ -38,14 +58,16 @@ export const isFatteningPurpose = (purpose: string) => /vỗ béo|fattening/i.te
  * Sửa một con trong phiếu nhập. `others` là các con khác trong phiếu (để kiểm tra sức chứa chuồng).
  * onSave(cow) ghi lại con; onRemove() xóa con khỏi phiếu.
  */
-export default function RowEditModal({ cow, index, recordId, dateIso, others, pens = [], vaccines = [], breeds = [], onSave, onRemove, onClose }: { cow: EditCow; index: number; recordId: string; dateIso: string; pricing?: 'kg' | 'con'; others: EditCow[]; pens?: Pen[]; vaccines?: EntryVaccineOption[]; breeds?: EntryBreedOption[]; onSave: (cow: EditCow) => void; onRemove: () => void; onClose: () => void }) {
+export default function RowEditModal({ cow, index, recordId, dateIso, others, pens = [], vaccines = [], breeds = [], purposes = [], onSave, onRemove, onClose }: { cow: EditCow; index: number; recordId: string; dateIso: string; pricing?: 'kg' | 'con'; others: EditCow[]; pens?: Pen[]; vaccines?: EntryVaccineOption[]; breeds?: EntryBreedOption[]; purposes?: EntryPurposeOption[]; onSave: (cow: EditCow) => void; onRemove: () => void; onClose: () => void }) {
   const initialPricing = cow.pricing ?? 'kg'
   const initialWeightBasis: 'MEASURED' | 'ESTIMATED' | null = cow.weightBasis === 'MEASURED' || cow.weightBasis === 'ESTIMATED'
     ? cow.weightBasis
     : cow.weightBasis === null ? null : cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null
-  const [c, setC] = useState(() => ({ ...cow, pricing: initialPricing, unitPrice: initialPricing === 'con' ? cow.unitPrice : initialWeightBasis ? cow.unitPrice : 0 }))
+  const [c, setC] = useState(() => ({ ...cow, stage: normalizeStage(cow.stage ?? ''), pricing: initialPricing, unitPrice: initialPricing === 'con' ? cow.unitPrice : initialWeightBasis ? cow.unitPrice : 0 }))
   const [validationError, setValidationError] = useState<string | null>(null)
-  const warningReason = String(cow.warningReason ?? '')
+  // R-06-07: when the line fails a pen criterion the user must type the warning reason (≤ 500); it is never filled in.
+  const [warningReason, setWarningReason] = useState(String(cow.warningReason ?? ''))
+  const [ageInput, setAgeInput] = useState('')
   const [detailModal, setDetailModal] = useState<HistoryDetail | null>(null)
   const [detailDraft, setDetailDraft] = useState('')
   const [detailDate, setDetailDate] = useState('')
@@ -54,7 +76,13 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
   const [weightInput, setWeightInput] = useState(String(cow.weight))
   const set = (p: Partial<EditCow>) => setC((x) => ({ ...x, ...p }))
   const availableStages = useMemo(() => stagesForSex(c.sex), [c.sex])
-  const availablePurposes = useMemo(() => purposesForSex(c.sex), [c.sex])
+  // Backend: the farm's ACTIVE purposes with their type; demo: the fixed labels. Both filtered by sex.
+  const catalogPurposes = useMemo(() => purposes.filter((p) => p.available && purposeTypeFitsSex(p.purposeType, c.sex)), [purposes, c.sex])
+  const availablePurposes = useMemo(() => (purposes.length ? catalogPurposes.map((p) => p.name) : purposesForSex(c.sex)), [purposes.length, catalogPurposes, c.sex])
+  const purposeLabel = (name: string) => {
+    const option = purposes.find((p) => p.name === name)
+    return option ? `${option.name} · loại ${PURPOSE_TYPE_LABEL[option.purposeType] ?? option.purposeType}` : name
+  }
   const setHist = (patch: Partial<EditCow['hist']>) => set({ hist: { ...c.hist, ...patch } })
   const detailMeta: Record<HistoryDetail, { title: string; label: string; placeholder: string; value: string; type?: 'number' }> = {
     vaccine: { title: 'Chi tiết tiêm phòng', label: 'Loại vaccine', placeholder: 'Nhập tên vaccine nếu chưa có trong danh mục', value: c.hist.vaccineName ?? c.hist.vaccineNote ?? '' },
@@ -97,8 +125,8 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
   const canRemove = Boolean(cow.code)
   const full = barn && barn.count + sameBarn + 1 > barn.capacity
   const receptionCriteria = barn?.receptionCriteria
-  const purposeCode = /sinh sản/i.test(c.purpose) ? 'BREEDING' : /vỗ béo|thương phẩm/i.test(c.purpose) ? 'FATTENING' : /đực giống|giữ giống/i.test(c.purpose) ? 'SIRE' : ''
-  const stageCode = /bê theo mẹ|chưa cai/i.test(c.stage) ? 'UNWEANED_CALF' : /bê cai sữa/i.test(c.stage) ? 'WEANED_CALF' : /bò tơ|hậu bị/i.test(c.stage) ? 'YOUNG_STOCK' : /bò|vỗ béo|đực giống/i.test(c.stage) ? 'ADULT' : ''
+  const purposeCode = purposes.find((p) => p.name === c.purpose)?.purposeType ?? (c.purpose ? typeOfLabel(c.purpose) : '')
+  const stageCode = LIFE_STAGES.find((s) => s.value === c.stage)?.code ?? ''
   const sexCode = c.sex === 'Đực' ? 'MALE' : c.sex === 'Cái' ? 'FEMALE' : ''
   const ageMonths = c.dob && dateIso ? (() => {
     const [year, month] = dateIso.split('-').map(Number)
@@ -124,22 +152,30 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
   const pricing = c.pricing ?? 'kg'
   const amount = pricing === 'con' ? c.unitPrice : hasWeightBasis ? c.weight * c.unitPrice : 0
   const save = () => {
-    if (!c.tag.trim()) return setValidationError('Vui lòng nhập số thẻ tai.')
+    // Popup fields 1–16 (SRS 28/10): the ear tag is optional ("Gắn tai sau"), the unit price optional (≥ 0).
+    if (c.tag.trim().length > 30) return setValidationError('Số tai tối đa 30 ký tự.')
+    if (String(c.name ?? '').trim().length > 50) return setValidationError('Tên tối đa 50 ký tự.')
     if (!c.breed.trim()) return setValidationError('Vui lòng chọn giống.')
     if (!c.sex.trim()) return setValidationError('Vui lòng chọn giới tính.')
     if (!c.stage.trim() || c.stage === 'Chưa xác định') return setValidationError('Vui lòng chọn giai đoạn sinh trưởng.')
     if (!c.purpose.trim() || c.purpose === 'Chưa xác định') return setValidationError('Vui lòng chọn mục đích nuôi.')
+    if (purposeCode && !purposeTypeFitsSex(purposeCode, c.sex)) return setValidationError(`${c.purpose} là mục đích loại ${PURPOSE_TYPE_LABEL[purposeCode]}, chỉ dùng cho bò ${purposeCode === 'SIRE' ? 'đực' : 'cái'}.`)
     if (!c.barn.trim()) return setValidationError('Vui lòng chọn chuồng nhận.')
-    if (pricing === 'kg' && (!Number.isFinite(c.weight) || c.weight <= 0)) return setValidationError('Cân nhập phải từ 1 đến 1.500 kg.')
+    if (pricing === 'kg' && (!Number.isFinite(c.weight) || c.weight < 1 || c.weight > 1500)) return setValidationError('Cân nhập phải từ 1 đến 1.500 kg.')
+    if (pricing === 'con' && c.weight > 1500) return setValidationError('Cân nhập phải từ 1 đến 1.500 kg.')
     if (pricing === 'kg' && !hasWeightBasis) return setValidationError('Vui lòng chọn cơ sở cân.')
-    if (!Number.isFinite(c.unitPrice) || c.unitPrice <= 0) return setValidationError(pricing === 'con' ? 'Vui lòng nhập số tiền cuối lớn hơn 0.' : 'Đơn giá phải lớn hơn 0.')
+    if (!Number.isFinite(c.unitPrice) || c.unitPrice < 0) return setValidationError('Đơn giá không được âm.')
     if (receptionError) return setValidationError(receptionError)
+    if (criterionIssues.length && !warningReason.trim()) return setValidationError('Bò không đạt tiêu chí chuồng: nhập lý do cảnh báo để tiếp tục.')
+    if (warningReason.trim().length > 500) return setValidationError('Lý do cảnh báo tối đa 500 ký tự.')
+    if (c.quarantineUntil && dateIso && String(c.quarantineUntil) < dateIso) return setValidationError('Cách ly đến không được trước ngày nhập.')
     if (c.hist.vaccine === 'Có' && !c.hist.vaccineNote?.trim()) return setValidationError('Vui lòng nhập thông tin tiêm phòng.')
     if (c.hist.disease === 'Có' && !String((c.hist as Record<string, unknown>).diseaseNote ?? '').trim()) return setValidationError('Vui lòng mô tả bệnh đã biết.')
     if (c.hist.repro === 'Có' && c.hist.pregnantAtEntry === 'YES' && (!Number.isInteger(c.hist.pregnancyMonths) || Number(c.hist.pregnancyMonths) < 1 || Number(c.hist.pregnancyMonths) > 9)) return setValidationError('Vui lòng nhập số tháng mang thai từ 1 đến 9.')
     if (c.hist.repro === 'Có' && (!Number.isInteger(c.hist.earlierCalvings) || Number(c.hist.earlierCalvings) < 0 || Number(c.hist.earlierCalvings) > 15)) return setValidationError('Vui lòng nhập số lứa đã đẻ từ 0 đến 15.')
     setValidationError(null)
-    onSave({ ...c, pricing, weightBasis, estimated: weightBasis === 'ESTIMATED', warningReason: criterionIssues.length ? (warningReason.trim() || 'Không phù hợp tiêu chí chuồng') : (warningReason.trim() || undefined) })
+    const purposeId = purposes.find((p) => p.name === c.purpose)?.id ?? (c as EditCow).purposeId ?? null
+    onSave({ ...c, purposeId, pricing, weightBasis, estimated: weightBasis === 'ESTIMATED', warningReason: warningReason.trim() || undefined })
   }
 
   return (
@@ -154,11 +190,11 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
     >
       <div className="flex min-w-0 flex-col gap-3.5">
         <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
-          <Field label="Số thẻ tai *" hint="Để trống nếu gắn thẻ sau">
-            <input id="entry-cow-tag" className={compactInputCls} value={c.tag} placeholder="Nhập số thẻ tai" onChange={(e) => set({ tag: e.target.value })} />
+          <Field label="Số thẻ tai" hint="Để trống nếu gắn thẻ sau">
+            <input id="entry-cow-tag" maxLength={30} className={compactInputCls} value={c.tag} placeholder="Gắn tai sau" onChange={(e) => set({ tag: e.target.value })} />
           </Field>
           <Field label="Tên gọi">
-            <input id="entry-cow-name" className={compactInputCls} value={c.name} placeholder="Không bắt buộc" onChange={(e) => set({ name: e.target.value })} />
+            <input id="entry-cow-name" maxLength={50} className={compactInputCls} value={c.name} placeholder="Không bắt buộc" onChange={(e) => set({ name: e.target.value })} />
           </Field>
           <div className="sm:col-span-2"><Field label="Màu lông & đặc điểm" hint="Nên nhập khi chưa có thẻ tai để phân biệt trong lô">
             <input id="entry-cow-colour" maxLength={255} className={compactInputCls} value={String(c.colourMarkings ?? '')} placeholder="Vàng, khoang trắng bụng, sừng ngắn" onChange={(e) => set({ colourMarkings: e.target.value })} />
@@ -204,6 +240,24 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
               className={`${compactInputCls} cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer`}
             />
           </Field>
+          <Field label="Hoặc tuổi (tháng)" hint="1–240 tháng; tháng sinh = ngày nhập − tuổi, độ chính xác Ước tính">
+            <input
+              id="entry-cow-age"
+              inputMode="numeric"
+              aria-label="Tuổi (tháng)"
+              className={compactInputCls}
+              value={ageInput}
+              onChange={(e) => {
+                const value = e.target.value
+                setAgeInput(value)
+                if (!value) return
+                const months = Number(value)
+                if (!Number.isInteger(months) || months < 1 || months > 240) return setValidationError('Tuổi phải là số nguyên từ 1 đến 240 tháng.')
+                setValidationError(null)
+                set({ dob: birthMonthFromAge(dateIso, months), dobAccuracy: 'Ước tính' })
+              }}
+            />
+          </Field>
           <div className="flex min-w-0 flex-col gap-1.5">
             <span className="text-xs font-medium text-ink">Độ chính xác ngày sinh</span>
             <RadioRow name="accuracy" value={c.dobAccuracy} options={Object.keys(ACCURACY)} onChange={(dobAccuracy) => set({ dobAccuracy })} />
@@ -217,10 +271,10 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
           <Field label="Mục đích nuôi *">
             <Select className={compactSelectCls} id="entry-cow-purpose" value={c.purpose} disabled={!c.sex.trim()} aria-describedby={!c.sex.trim() ? 'entry-cow-sex-hint' : undefined} onChange={(e) => {
               const purpose = e.target.value
-              set({ purpose, purposeId: null })
+              set({ purpose, purposeId: purposes.find((p) => p.name === purpose)?.id ?? null })
             }}>
               <option value="">{c.sex.trim() ? 'Chọn mục đích nuôi' : 'Chọn giới tính trước'}</option>
-              {availablePurposes.map((p) => <option key={p}>{p}</option>)}
+              {availablePurposes.map((p) => <option key={p} value={p}>{purposeLabel(p)}</option>)}
             </Select>
           </Field>
           {!c.sex.trim() && <span id="entry-cow-sex-hint" className="text-[11px] text-muted sm:col-span-2">Chọn giới tính trước để mở danh sách giai đoạn sinh trưởng và mục đích nuôi.</span>}
@@ -328,6 +382,11 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
             </tbody>
           </Table>
         </div>
+        {barn && !receptionError && criterionIssues.length > 0 && (
+          <Field label="Lý do cảnh báo *" hint="Bắt buộc khi bò không đạt tiêu chí chuồng (tối đa 500 ký tự)">
+            <textarea id="entry-cow-warning-reason" aria-label="Lý do cảnh báo" maxLength={500} className={`${compactInputCls} min-h-14`} value={warningReason} onChange={(e) => setWarningReason(e.target.value)} />
+          </Field>
+        )}
         {barn && !receptionError && criterionIssues.length === 0 && <Note tone="ok">{`Tiêu chí chuồng ${barn.code}: Đạt. Tiêm phòng "Có" được lưu là bản ghi tiêm LỊCH SỬ, không tạo mũi trong lịch tiêm.`}</Note>}
       </div>
 

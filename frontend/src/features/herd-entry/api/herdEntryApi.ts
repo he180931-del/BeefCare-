@@ -4,6 +4,7 @@ import { cattle, pens } from '../../../api/herdDomainApi'
 import {
   createHerdEntryBackendApi,
   type EntryBreedOption,
+  type EntryPurposeOption,
   type EntryListFilters,
   type EntryListView,
   type EntryParentOption,
@@ -150,6 +151,15 @@ export const listEntryVaccines = (): Promise<EntryVaccineOption[]> => usingBacke
 export const listEntryBreeds = (): Promise<EntryBreedOption[]> => usingBackend
   ? backendApi.breeds()
   : Promise.resolve(BREEDS.map((name, index) => ({ id: index + 1, code: name, name, available: true })))
+// GET /api/farms/{farmId}/catalogues/production-purposes (mục đích ACTIVE kèm loại)
+export const listEntryPurposes = (): Promise<EntryPurposeOption[]> => usingBackend
+  ? backendApi.purposes()
+  : Promise.resolve([
+      { id: 1, name: 'Bò sinh sản', purposeType: 'BREEDING', available: true },
+      { id: 2, name: 'Nuôi thương phẩm', purposeType: 'FATTENING', available: true },
+      { id: 3, name: 'Giữ giống', purposeType: 'SIRE', available: true },
+      { id: 4, name: 'Chưa xác định', purposeType: 'UNDECIDED', available: true },
+    ])
 // chưa có API trong gói S13: bò mẹ / bò bố cho bê
 export const listEntryParentCattle = (): Promise<EntryParentOption[]> => usingBackend
   ? backendApi.parentCattle()

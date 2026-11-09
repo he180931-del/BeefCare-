@@ -186,11 +186,14 @@ class FarmBornEntryTest extends HerdEntryTestBase {
     }
 
     @Test
-    void purposeIsIndependentFromTheCalfsSex() {
+    void purposeMustFitTheCalfsSex() {
+        // SCR-25 #9 (GBR-25): SIRE only for males, BREEDING only for females -> MSG-FE05-12.
         CalfOutcome heifer = calf("LIVE", "FEMALE", null);
-        assertThatCode(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(heifer, penA.getId(), sire.getId()))).id())).doesNotThrowAnyException();
+        assertThat(thrown(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(heifer, penA.getId(), sire.getId()))).id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
         CalfOutcome bull = calf("LIVE", "MALE", null);
-        assertThatCode(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(bull, penA.getId(), breeding.getId()))).id())).doesNotThrowAnyException();
+        assertThat(thrown(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(bull, penA.getId(), breeding.getId()))).id())).getCode()).isEqualTo(HerdEntryCodes.FE05_12);
+        CalfOutcome cow = calf("LIVE", "FEMALE", null);
+        assertThatCode(() -> postDraft(farm.getId(), vouchers.create(farm.getId(), farmBorn(calfLine(cow, penA.getId(), breeding.getId()))).id())).doesNotThrowAnyException();
     }
 
     @Test

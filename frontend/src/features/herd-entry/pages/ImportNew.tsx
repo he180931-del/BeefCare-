@@ -17,6 +17,7 @@ import {
   listEntryPens,
   listEntryVaccines,
   listEntryBreeds,
+  listEntryPurposes,
   listEntryParentCattle,
   listPendingEntryCalves,
   markCalfDiedBeforeRegistration,
@@ -105,6 +106,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const isBuy = kind === KIND_BUY
   const { data: vaccines } = useQuery(() => editingIndex >= 0 ? listEntryVaccines() : Promise.resolve([]), [editingIndex])
   const { data: breeds } = useQuery(() => (editingIndex >= 0 || !isBuy) ? listEntryBreeds() : Promise.resolve([]), [editingIndex, isBuy])
+  const { data: purposes } = useQuery(() => editingIndex >= 0 ? listEntryPurposes() : Promise.resolve([]), [editingIndex])
   // All receiving pens come from the farm endpoint. Do not reserve or remove
   // a hard-coded A3: farms may name their pens differently and purchase entry
   // must be able to select an active backend pen.
@@ -713,6 +715,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           pens={importBarns}
           vaccines={vaccines ?? []}
           breeds={breeds ?? []}
+          purposes={purposes ?? []}
           others={cows.filter((_, idx) => idx !== editing)}
           onSave={(next) => { patchCow(editing, { ...next, pricing }); closeModal() }}
           onRemove={() => { setCows(cows.filter((_, idx) => idx !== editing)); closeModal() }}

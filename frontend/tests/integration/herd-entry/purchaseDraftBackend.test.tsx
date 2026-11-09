@@ -98,7 +98,8 @@ describe('purchase entry page in backend mode', () => {
     await user.selectOptions(comboBoxes[3], 'B1')
     const selectWith = (option: string) => within(dialog).getAllByRole('combobox').find((select) => within(select).queryByRole('option', { name: option }))!
     await user.selectOptions(selectWith('Bò tơ / hậu bị'), 'Bò tơ')
-    await user.selectOptions(selectWith('Bò sinh sản · loại Sinh sản'), 'Bò sinh sản · loại Sinh sản')
+    // Mục đích lấy từ danh mục của trại kèm loại; bò cái chọn được Vỗ béo (R-05-04 / GBR-25).
+    await user.selectOptions(selectWith('Vỗ béo · loại Vỗ béo'), 'Vỗ béo · loại Vỗ béo')
     await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
     const file = new File(['pdf'], 'purchase.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
