@@ -158,6 +158,10 @@ Mã RC-yy-nnnn, mã thanh toán, trại, kỳ hạn, phiên bản giá, số ti�
 | Bảng giá | Đúng phiên bản đang hiệu lực tại thời điểm đọc; phiên bản tương lai chưa được dùng. | GBR-75; SCR-57 |
 
 ### UC-FE19-02 Tạo yêu cầu thanh toán
+
+Người dùng xác nhận 09/11/2026 (D15): triển khai backend + SCR-58/SCR-59, gồm API đọc lại chi tiết. SCR-59 tự tải trạng thái mỗi 5 giây khi PENDING, không gọi chồng; dừng khi PAID/EXPIRED/rời màn, vẫn giữ Kiểm tra lại và kiểm tra một lần ở mốc hết hạn. Bước nhận giao dịch hoàn thành khi chứng từ đã xác thực, chiều vào, đúng môi trường/namespace/TK/mã; sai số tiền vẫn là đã nhận, chưa PAID/cấp kỳ. Mã sai không tự gắn. Giờ ngân hàng, giờ nhận đầu tiên và giờ xác nhận là ba mốc riêng từ dữ liệu backend; dữ liệu lịch sử thiếu mốc thì hiện "—".
+
+Mở lại PENDING dùng snapshot cũ, không phụ thuộc giá/TK cấu hình mới hoặc điều kiện tạo mới (kể cả tạm ngưng); vẫn kiểm Owner hiện tại. Ngay `now >= expiresAt`, SCR-59 ẩn QR và hiển thị hết hạn dù JOB-03 chưa chạy; không cản nhánh EXPIRED→PAID của giao dịch có giờ NH trong cửa sổ gốc. Kỳ trước xác nhận luôn là ước tính; UC2 không có nút tự đánh dấu đã trả.
 1. SCR-58: 3 kỳ hạn + giá từ phiên bản hiệu lực, điều khoản, trạng thái trại.
 2. Owner chọn kỳ hạn → xem lại: trại, kỳ hạn, số tiền, kỳ dịch vụ ước tính, phiên bản giá.
 3. **Tạo yêu cầu thanh toán**.
@@ -318,9 +322,9 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Tổng quan gói | `farmId` ở path; không body | `SubscriptionOverview {farmId, farmName, serviceStatus, entitlementStatus, currentPeriod?, daysRemaining?, latestEnd?, renewalOpensAt?, suspended, suspendedSince?, pendingPayment?, currentPrices?, futurePeriods[], periods[], eligibility{ok, reason?, opensAt?}}`; các khóa có `?` vẫn hiện trong JSON với null khi không có dữ liệu. Tên JSON theo DTO/OpenAPI, đối chiếu 14 mục tại ma trận UC-01 | COM-01; thiếu giá: currentPrices=null, eligibility.reason=PRICE_UNAVAILABLE, vùng giá hiện FE19-04 | `GET /api/farms/{farmId}/subscription` |
-| A2 | Tạo / mở lại yêu cầu | `{term (1\|2\|3), reviewedPriceVersion}` + `Idempotency-Key` | `PaymentDTO {code, term, amount, priceVersion, bank, accountNo, accountName, transferContent, qrUrl, createdAt, expiresAt, status, reopened}` | FE19-01, FE19-02, FE19-03, FE19-09, FE19-04, COM-01, COM-02 | `POST /api/farms/{farmId}/subscription/payments` |
-| A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status?, from?, to?` / — | `[PaymentDTO]` / `PaymentDTO + {bankPaidAt?, receivedAt?, confirmedAt?, period?, progress[]}` | FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
-| A4 | VietQR (API-01) | Ngân hàng, TK, số tiền, nội dung | URL ảnh | — | Trong `qrUrl` của A2 (gọi dịch vụ QR SePay) |
+| A2 | Tạo / mở lại yêu cầu | `{durationYears (1\|2\|3), reviewedPriceVersion}` (đều bắt buộc) + `Idempotency-Key` | `PaymentDTO {id, quoteRef, durationYears, amountVnd, priceVersionId, bankCode, accountNumber, accountName, qrImageUrl, requestedAt, expiresAt, state, reopened, bankPaidAt?, receivedAt?, confirmedAt?, confirmationSource?, purchasedStart?, purchasedEnd?, receiptCode?}`; nội dung CK = quoteRef; null giữ khóa JSON | FE19-01 (reopened=true, UI mời mở lại), FE19-02, FE19-03, FE19-09, FE19-04, COM-01, COM-02 | `POST /api/farms/{farmId}/subscription/payments` |
+| A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status?, from?, to?` (phần danh sách thuộc UC-03) / — | `[PaymentDTO]` / `PaymentDTO` như A2; FE suy ba bước tiến trình từ requestedAt/receivedAt/confirmedAt và kỳ từ purchasedStart/purchasedEnd, không có mảng progress lưu trùng | FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
+| A4 | VietQR (API-01) | Ngân hàng, TK, số tiền, nội dung | URL ảnh | — | Trong `qrImageUrl` của A2 (gọi dịch vụ QR SePay) |
 | A5 | Gói các trại (PM) | `q, coverage, serviceStatus, endFrom, endTo, page, size` / — | `PageSubscriptionRow` / `SubscriptionDetail` | COM-03 | `GET /api/platform/subscriptions` · `GET …/{farmId}` |
 | A6 | Ô tổng hợp | — | `PaymentTiles {pending, toReview, held, locked}` | — | `GET /api/platform/payments/summary` |
 | A7 | Danh sách chứng từ | `status?, bankFrom?, bankTo?` | `[EvidenceDTO]` | COM-11 | `GET /api/platform/payments/evidence` |
@@ -414,6 +418,8 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định |
 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |
 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Đã chốt DucNV 09/11/2026 (D14): làm tròn xuống theo số ngày tròn 24 giờ; còn 23 giờ → 0 ngày, vẫn có bao phủ tới end; không có kỳ hiện tại → "—" |
+| Q7 | Khi đúng mã/TK nhưng sai số tiền, bước nhận giao dịch SCR-59 có hoàn thành không? | Đã chốt trong phiên 09/11/2026 (D15): hiện đã nhận khi chứng từ xác thực, IN, đúng env/namespace/TK/mã; chưa PAID/cấp kỳ khi sai tiền. Mốc nhận và xác nhận tách biệt |
+| Q8 | SCR-59 có tự cập nhật trạng thái không? | Đã chốt trong phiên 09/11/2026 (D15): đọc lại 5 giây khi PENDING, không request chồng; dừng PAID/EXPIRED/rời màn, kiểm một lần tại expiry, giữ nút Kiểm tra lại. Scope backend + SCR-58/SCR-59 |
 
 ---
 

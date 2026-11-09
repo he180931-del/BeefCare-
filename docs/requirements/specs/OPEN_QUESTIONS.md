@@ -108,6 +108,8 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-19 | Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định |  | DucNV |  |
 | FE-19 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |  | DucNV |  |
 | FE-19 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Giữ số ngày tròn 24 giờ, làm tròn xuống, thống nhất FE-02 và demo FE-19 | Theo đề xuất: còn 23 giờ → 0 ngày nhưng vẫn có bao phủ tới end; không có kỳ hiện tại → null / "—"; SUSPENDED vẫn đếm theo kỳ (D14) | DucNV | 09/11/2026 |
+| FE-19 | Q7 | Bước đã nhận giao dịch trên SCR-59 có hoàn thành khi đúng mã/TK nhưng sai số tiền không? | Có; nhận chứng từ và xác nhận/cấp kỳ là hai bước riêng | Đã chốt theo đề xuất (D15): chứng từ xác thực, IN, đúng env/namespace/TK/mã được hiện đã nhận; vẫn PENDING nếu chưa đạt điều kiện PAID; mã sai không tự gắn | Người dùng / scope DucNV | 09/11/2026 |
+| FE-19 | Q8 | SCR-59 tự cập nhật hay chỉ nút Kiểm tra lại? | Tự đọc lại mỗi 5 giây khi PENDING và giữ nút | Đã chốt (D15): không request chồng, dừng PAID/EXPIRED/rời màn, kiểm thêm một lần ở mốc hết hạn; làm backend + nối SCR-58/SCR-59 | Người dùng / scope DucNV | 09/11/2026 |
 | FE-20 | Q1 | Độ dài lý do bàn giao / trả về hàng đợi / đổi người nhận / hủy IR | ≤ 1.000 |  | LamKD |  |
 | FE-20 | Q2 | Ghi chú tùy chọn khi Owner xác nhận – UI chưa có trường | Thêm ô "Nhận xét" (≤ 1.000) tùy chọn |  | LamKD |  |
 | FE-20 | Q3 | UC-FE20-02, 03, 06, 08, 09 không có đặc tả Part II | Theo Part III + GBR |  | LamKD |  |
