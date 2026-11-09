@@ -45,3 +45,39 @@ Chốt phần xem UC-05 của Q3; phân trang 20 và ngày VN theo SRS III-1/GBR
 Ma trận, test và giới hạn: `docs/reviews/FE19_UC05_REVIEW.md`. GET không ghi
 tiền/cấp kỳ/đổi chứng từ; không suy sai thời gian từ trạng thái EXPIRED. Phần
 tra cứu và ghi UC6 ghi rõ là hoãn, chưa chứng nhận toàn SCR-62/READY_FOR_FE.
+
+### D19 — UC-FE19-06 (10/11/2026)
+
+Người dùng đồng ý cả năm đề xuất:
+
+1. SCR-62 giữ **một ô** "Lý do và tham chiếu chứng từ" (SRS 4961), tối đa
+   1.000 ký tự cho quyết định ACCEPT/HOLD/REJECT và lý do khóa/mở khóa (Q4);
+   A9 bỏ `references?`. Migration mới mở rộng `review_reason` lên 1.000, không
+   sửa migration đã chạy.
+2. LOCK / UNLOCK / RETURN_VERIFIED được lưu thành dòng `evidence_review` (SRS
+   815), audit vẫn ghi. Lịch sử SCR-62 đọc bảng này; dữ liệu cũ chỉ có audit
+   vẫn hiển thị, không trùng.
+3. Ghi hoàn trả có ngày hoàn trả bắt buộc (cột mới), ngày Việt Nam, không ở
+   tương lai và không trước ngày ngân hàng nhận; ghi một lần, sau đó bất biến.
+4. Tra cứu SePay (API-03, Q2) làm cả theo mã giao dịch và theo khoảng ngày:
+   khoảng ngày trả danh sách để PM lưu từng giao dịch thành chứng từ. Cùng giao
+   dịch đến từ webhook và tra cứu được so theo trường nghiệp vụ, không theo hash
+   payload, để không trả 409 sai.
+5. Làm tiếp trên nhánh `feat/fe19-goi-thanh-toan`, tách commit code và docs.
+
+Theo SRS không cần quyết thêm: lỗi theo MSG-FE19-11/COM-05/COM-06/COM-02,
+`Idempotency-Key` cho lệnh ghi, mã chính xác thì không bắt chọn ứng viên,
+không khóa hoàn trả giao dịch chiều ra. Ma trận và bằng chứng:
+`docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D20 — Giao dịch chuyển ra không vào hàng "Cần xem" (10/11/2026)
+
+Người dùng chọn phương án (a) sau review runtime UC-06. Bước 1 của
+UC-FE19-06 (SRS 2447) chỉ coi là cần xem các trường hợp tiền vào: mã không
+khớp, yêu cầu hết hạn, không có yêu cầu, sai số tiền. Giao dịch chuyển ra
+không thể trả cho yêu cầu nào, nên chứng từ chiều ra chưa được PM quyết định
+có trạng thái hiển thị `NO_ACTION` ("Không cần xử lý"), không tính vào ô
+"Chứng từ cần xem" và không có trong bộ lọc "Cần xem"; vẫn xem được ở "Tất cả".
+Chứng từ chưa có chiều (dữ liệu cũ) vẫn coi là cần xem. PM vẫn có thể Tạm giữ
+hoặc Từ chối chứng từ chiều ra; khi đó trạng thái theo quyết định. Điều chỉnh
+quy tắc đếm của D18. Bằng chứng: `docs/reviews/FE19_UC06_REVIEW.md`.

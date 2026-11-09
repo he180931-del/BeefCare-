@@ -223,7 +223,8 @@ GBR-09/11/66/70/72/74, BR-D24. Ma trận trường và bằng chứng:
 request; được xem thanh toán mọi trại, không nhận dữ liệu vận hành.
 
 1. Mở SCR-62, đọc bốn số tổng hợp toàn hệ thống, độc lập bộ lọc. PENDING chỉ
-   tính khi `now < expiresAt`; Cần xem gồm UNMATCHED/NEEDS_REVIEW chưa khóa;
+   tính khi `now < expiresAt`; Cần xem gồm UNMATCHED/NEEDS_REVIEW chưa khóa và
+   là tiền vào (D20: chiều ra chưa quyết định là NO_ACTION, chỉ có trong Tất cả);
    HOLD/HELD và khóa có ô riêng, không đếm khóa vào Cần xem/Tạm giữ.
 2. Tab Chứng từ mặc định Tất cả, không giới hạn ngày. Lọc trạng thái và giờ
    ngân hàng theo ngày VN, hai đầu độc lập/bao gồm cả ngày; khoảng đảo báo
@@ -290,6 +291,35 @@ E1 chữ ký sai → 401 · E2 lỗi lưu trước bước 3 → không trả th
 
 AF1 HOLD · AF2 REJECT · AF3 Khóa hoàn trả → sau đó Ghi hoàn trả (mã NH chiều ra, ngày, kết quả) hoặc Mở khóa (lý do) · AF4 Tra cứu SePay (API-03) → lưu thành chứng từ 1 lần.
 E1 bị chặn → MSG-FE19-11 · E2 chưa chọn ứng viên → MSG-FE19-11 · E3 thiếu lý do → MSG-COM-06 · E4 đã đổi (ví dụ SePay vừa xác nhận) → MSG-COM-05 · E5 lỗi → MSG-COM-02.
+
+**Chốt triển khai (D19, 10/11/2026):**
+
+- Mọi lệnh ghi cần PM ACTIVE, `Idempotency-Key` và `version` chứng từ PM đã xem;
+  cùng khóa + cùng dữ liệu trả lại kết quả đầu, cùng khóa khác dữ liệu là
+  MSG-COM-19; version khác là MSG-COM-05 (E4).
+- Một ô "Lý do và tham chiếu chứng từ" bắt buộc, tối đa 1.000 ký tự cho
+  ACCEPT/HOLD/REJECT và lý do khóa/mở khóa (Q4). Thiếu → MSG-COM-06, dài hơn →
+  MSG-COM-10.
+- ACCEPT: chỉ chứng từ IN, chưa phân bổ, chưa khóa. Mã chính xác thì không bắt
+  chọn ứng viên; gõ sai mã mà chưa chọn → MSG-FE19-11 `NO_CANDIDATE`. Kiểm theo
+  thứ tự: yêu cầu còn chờ, chưa có chứng từ, giờ NH trong [tạo, hết hạn), đúng
+  số tiền, đúng env/namespace/tài khoản, không trùng thu thủ công POSTED; mỗi
+  lỗi là MSG-FE19-11 với `params.reason`, không phân bổ gì. Thành công dùng chung
+  bước xác nhận của SePay (PAID, kỳ, biên lai, trạng thái dịch vụ, thông báo
+  Owner, audit) trong một transaction, MSG-FE19-10.
+- HOLD/REJECT được xem xét lại (AF2). Chứng từ đã phân bổ hoặc đang khóa không
+  nhận quyết định (MSG-FE19-11).
+- Khóa hoàn trả chỉ với chứng từ IN chưa phân bổ, chưa khóa (MSG-FE19-16). Khi
+  khóa: Ghi hoàn trả (mã chiều ra ≤255, ngày hoàn trả bắt buộc, không ở tương lai
+  MSG-COM-07, không trước ngày NH nhận MSG-COM-10, kết quả ≤500) chỉ một lần và
+  bất biến; hoặc Mở khóa với lý do khi chưa ghi hoàn trả. Sai trạng thái →
+  MSG-COM-05.
+- LOCK/UNLOCK/RETURN_VERIFIED là dòng `evidence_review` cùng thời điểm với audit;
+  lịch sử SCR-62 hiện mỗi bước một lần, sự kiện audit cũ chưa có dòng vẫn hiện.
+- Tra cứu SePay: theo mã giao dịch (lưu một lần, lặp lại trả cùng chứng từ) hoặc
+  theo khoảng ngày VN tối đa 31 ngày, tối đa 200 dòng, chỉ đọc; PM lưu từng dòng.
+  Cùng giao dịch từ webhook và tra cứu là trùng khi số tiền, chiều, giờ NH và
+  tài khoản nhận giống nhau dù chữ trong payload khác.
 
 ### UC-FE19-07 Công bố bảng giá
 1. SCR-63: phiên bản hiệu lực + lịch sử.
@@ -425,16 +455,17 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | A4 | VietQR (API-01) | Ngân hàng, TK, số tiền, nội dung | URL ảnh | — | Trong `qrImageUrl` của A2 (gọi dịch vụ QR SePay) |
 | A5 | Gói các trại (PM) | `q?, coverage=ALL, serviceStatus?, endFrom?, endTo?, sort=confirmedUntil, dir=desc, page=0, size=20`; size 1..100, page 0..floor(2147483647/size), UI cố định 20 / farmId | `PageSubscriptionRow {items,total,page,size}` / `SubscriptionDetail {summary,subscriptionId?,suspended,suspendedSince?,renewalOpens?,latestPurchase?,periods[],emptyMessage?}`; PurchasedPeriod có numeric paymentId, paymentCode, receiptCode?, termYears, start/end, confirmedAt?, status CURRENT/FUTURE/PAST (cùng clock với summary); mốc null giữ khóa JSON | COM-01 quyền, COM-08 detail/thanh toán nguồn thiếu, COM-10 filter/page/sort sai, COM-11 khoảng ngày đảo, COM-03 tải danh sách | `GET /api/platform/subscriptions` · `GET …/{farmId}` |
 | A6 | Ô tổng hợp UC5 | — | `PaymentTiles {pendingRequests,evidenceToReview,hold,lockedForReturn}`; global, D18 | COM-01 | `GET /api/platform/payments/summary` |
-| A7 | Danh sách chứng từ UC5 | `status=ALL, bankFrom?, bankTo?, page=0, size=20`; size1..100/page0..floor(INT_MAX/size) | `PagePlatformBankEvidenceRow {items,total,page,size}`; chỉ maskedTransactionId, không có mã giao dịch đầy đủ; `reviewStatus` enum TO_REVIEW/HOLD/REJECTED/ACCEPTED/LOCKED/PROCESSING, `matchResult` enum | COM-01/10/11 | `GET /api/platform/payments/evidence` |
+| A7 | Danh sách chứng từ UC5 | `status=ALL, bankFrom?, bankTo?, page=0, size=20`; size1..100/page0..floor(INT_MAX/size) | `PagePlatformBankEvidenceRow {items,total,page,size}`; chỉ maskedTransactionId, không có mã giao dịch đầy đủ; `reviewStatus` enum TO_REVIEW/HOLD/REJECTED/ACCEPTED/LOCKED/PROCESSING/NO_ACTION (D20), `matchResult` enum | COM-01/10/11 | `GET /api/platform/payments/evidence` |
 | A8 | Ứng viên chỉ đọc UC5 | evidenceId | `[PlatformPaymentCandidate {paymentId,quoteRef,farmId,farmName,amount,termYears,expiresAt,accountNamespace}]` | COM-01/08 | `GET …/evidence/{evidenceId}/candidates` |
-| A9 | Quyết định | `Review {decision, candidatePaymentId?, reason, references?, version}` + `Idempotency-Key` | `EvidenceDTO` | FE19-11, COM-06, COM-05, COM-02 | `POST …/evidence/{evidenceId}/review` |
-| A10 | Khóa / ghi hoàn trả / mở khóa | `ReturnChange {reason}` / `ReturnResult {outgoingRef, date, result}` + `Idempotency-Key` | `EvidenceDTO` | COM-06, COM-05 | `POST …/lock-return` · `…/record-return` · `…/unlock-return` |
-| A11 | Tra cứu SePay (API-03) | `transactionId` (hoặc khoảng – Q2) | `WebhookResult` | — | `POST /api/platform/payments/lookup/{transactionId}` |
+| A9 | Quyết định UC6 (D19) | `Review {decision ACCEPT\|HOLD\|REJECT, paymentId?, reason ≤1000, version}` + `Idempotency-Key`; `paymentId` bắt buộc khi ACCEPT trừ khi mã chuyển khoản chính xác; không có `references` (một ô chung) | `EvidenceDTO` (thêm `returnDate`) | FE19-11 với `params.reason` (NO_CANDIDATE, EVIDENCE_ALLOCATED, LOCKED_FOR_RETURN, OUTGOING, REQUEST_NOT_PENDING, REQUEST_ALLOCATED, OUTSIDE_WINDOW, AMOUNT_MISMATCH, ACCOUNT_MISMATCH, MANUAL_INCOME), COM-06/10 theo field, COM-08, COM-05, COM-19, COM-02 | `POST …/evidence/{evidenceId}/review` |
+| A10 | Khóa / ghi hoàn trả / mở khóa UC6 | `ReturnChange {reason ≤1000, version}` / `ReturnResult {reference ≤255, returnDate, result ≤500, version}` + `Idempotency-Key` | `EvidenceDTO` | COM-06/10, COM-07 ngày tương lai, COM-10 ngày trước ngày NH, COM-05 sai trạng thái hoặc version, COM-08, COM-19 | `POST …/lock-return` · `…/record-return` · `…/unlock-return` |
+| A11 | Tra cứu SePay theo mã (API-03) | `transactionId` | `WebhookResult {success, duplicate, evidenceId, reviewStatus, paymentId}`; lưu một lần theo BR-D24 | 503 chưa cấu hình, 404 không có ở SePay, 502 lỗi SePay, 409 khác dữ liệu nghiệp vụ | `POST /api/platform/payments/lookup/{transactionId}` |
+| A17 | Tra cứu SePay theo khoảng (API-03, Q2, D19) | `from, to` ngày VN bắt buộc, ≤31 ngày | `SePayLookupPage {items: SePayLookupRow[], limit=200}`; row `{transactionId, bankPaidAt, amount, direction, content?, referenceCode?, evidenceId?}` chỉ đọc | COM-06, COM-11 khoảng đảo, COM-10 quá 31 ngày, 503/502 | `GET /api/platform/payments/lookup` |
 | A12 | Danh sách/chi tiết yêu cầu UC5 | `state?, q?, page=0, size=20` / paymentId; size1..100/page0..floor(INT_MAX/size) | `PagePlatformPaymentRead {items,total,page,size}` / `PlatformPaymentRead`; giữ snapshot UC4, thêm evidenceId?, confirmedAt?, confirmationSource?, bankPaidAt?, receivedAt?; null giữ khóa | COM-01/08/10 | `GET /api/platform/payments` · `GET …/{paymentId}` |
 | A13 | Bảng giá | — / `PublishPriceRequest {price1, price2, price3, applyNow, effectiveFrom?, termsText?}` + `Idempotency-Key` | `[PriceVersion]` / `PriceVersion` | FE19-13, FE19-14, FE19-15, COM-02 | `GET` / `POST /api/platform/plan-prices` |
 | A14 | Rút phiên bản đã lên lịch | `{reason}` + `Idempotency-Key` | `PriceVersion` WITHDRAWN | COM-06, COM-05 | Chưa có – đề xuất `POST /api/platform/plan-prices/{version}/withdraw` |
 | A15 | Webhook SePay (API-02) | Header chữ ký + timestamp, raw body | `200 {"success": true}` / 401 | — | `POST /api/webhooks/sepay` |
-| A16 | Chi tiết chứng từ UC5 | evidenceId | `PlatformBankEvidenceDetail {summary,transactionId,receivingAccount?,bank?,referenceCode?,quoteRef?,firstReceivedAt?,history[]}`; PM/time/allowlisted reason/reference/result thực từ EvidenceReview/AuditLog; `history.action` = ACCEPT/HOLD/REJECT (REVIEW) hoặc EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED/EVIDENCE_LOCK_RETURN/EVIDENCE_RETURN_UNLOCK/EVIDENCE_RETURN_RECORDED (EVENT), không trả tên audit thô | COM-01/08 | `GET /api/platform/payments/evidence/{evidenceId}` |
+| A16 | Chi tiết chứng từ UC5 | evidenceId | `PlatformBankEvidenceDetail {summary,transactionId,receivingAccount?,bank?,referenceCode?,quoteRef?,firstReceivedAt?,returnReference?,returnDate?,returnResult?,history[]}` (UC6 thêm thông tin hoàn trả; `history` thêm `returnDate?` và quyết định LOCK/UNLOCK/RETURN_VERIFIED); PM/time/allowlisted reason/reference/result thực từ EvidenceReview/AuditLog; `history.action` = ACCEPT/HOLD/REJECT (REVIEW) hoặc EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED/EVIDENCE_LOCK_RETURN/EVIDENCE_RETURN_UNLOCK/EVIDENCE_RETURN_RECORDED (EVENT), không trả tên audit thô | COM-01/08 | `GET /api/platform/payments/evidence/{evidenceId}` |
 
 ---
 
@@ -551,14 +582,28 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | TC-19-67 | Tài khoản snapshot/cấu hình khác định dạng (dấu, hoa thường, khoảng trắng) vẫn khớp như bước nhận/ACCEPT; ứng viên chỉ gồm yêu cầu ACCEPT sẽ nhận (loại khác env/namespace/tài khoản/số tiền, PAID, đã phân bổ, yêu cầu sau giờ NH; chứng từ khóa/OUT/đã phân bổ → rỗng); nhận thật → ứng viên → ACCEPT thành công | accountChecksAndCandidatesUseTheSameAccountRuleAsIngestionAndAccept, candidatesListOnlyUnallocatedRequestsTheAcceptCommandWouldTake, SePayPaymentFlowTest#ingestedEvidenceCandidatesAndAcceptUseOneAccountRuleAcrossAccountFormats / #autoAcceptedEvidenceReadsAsAutoAcceptedAccountMatchAcrossAccountFormats |
 | TC-19-68 | Trạng thái lưu ngoài enum đọc là PROCESSING, không vào bộ lọc quyết định; lịch sử trả mã sự kiện đã khai báo, không lộ tên audit; FE dịch nhãn/lý do hệ thống/nguồn xác nhận; tự chỉnh trang vượt cuối giữ evidenceId | unknownStoredReviewStatusesStayInsideTheDeclaredEnum, historyNamesIngestionEventsWithDocumentedCodesInsteadOfAuditActions, OpenApiContractTest; platformPaymentReadBackend.test.tsx (3 test mới) |
 
+### Nghiệm thu UC-FE19-06 (D19)
+
+| TC | Điều kiện nghiệm thu | Bằng chứng |
+|---|---|---|
+| TC-19-69 | Bốn lệnh ghi chỉ cho PM ACTIVE, thiếu `Idempotency-Key` là COM-19, anonymous 401; không ghi gì | PlatformReconciliationResourceTest#everyCommandRequiresActivePmAndAnIdempotencyKey + PostgreSQL |
+| TC-19-70 | PM chọn ứng viên + lý do → PAID nguồn PM, kỳ, biên lai, một dòng review, audit, thông báo Owner, trại SUSPENDED vẫn SUSPENDED; cùng khóa phát lại, cùng khóa khác dữ liệu COM-19, khóa mới với version cũ COM-05 (TC-19-18, TC-19-20) | acceptWithSelectedCandidateRunsTheSharedConfirmationOnceAndReplaysTheSameKey |
+| TC-19-71 | Mã chính xác chấp nhận không cần ứng viên; gõ sai mã không chọn → FE19-11 NO_CANDIDATE (TC-19-17) | acceptByExactCodeNeedsNoCandidateButAMistypedCodeDoes |
+| TC-19-72 | Sai tiền, ngoài cửa sổ, sai tài khoản, yêu cầu PAID hoặc đã có chứng từ, thu thủ công POSTED, đang khóa, chiều ra, đã phân bổ → FE19-11 đúng `reason`; không phân bổ (TC-19-19, TC-19-22) | blockedAcceptanceReturnsTheRuleAndAllocatesNothing |
+| TC-19-73 | Thiếu/sai quyết định, lý do rỗng hoặc 1.001 ký tự, thiếu version; 1.000 ký tự lưu đủ; HOLD → REJECT → ACCEPT được (TC-19-21) | decisionsRequireAReasonUpToOneThousandCharactersAndCanBeReviewedAgain, holdReasonOfOneThousandCharactersIsStoredOnTheEvidence (PostgreSQL varchar(1000)) |
+| TC-19-74 | Khóa / mở khóa / khóa lại / ghi hoàn trả: lý do, chiều ra hoặc đã phân bổ bị chặn, ngày tương lai COM-07, trước ngày NH COM-10, ghi một lần, không mở khóa sau ghi; lịch sử 4 dòng review không trùng audit; audit cũ vẫn hiện | lockRecordAndUnlockFollowTheReturnLifecycleWithHistoryRows, legacyAuditOnlyLockEventsStayVisibleNextToReviewRows |
+| TC-19-75 | Tra cứu theo mã lưu một lần, chữ payload khác vẫn là trùng, khác số tiền 409, chưa cấu hình 503; theo khoảng chỉ đọc, đánh dấu dòng đã lưu, kiểm khoảng ngày | lookupStoresATransactionOnceAndProviderTextDifferencesAreStillDuplicates, periodLookupListsSePayTransactionsWithStoredEvidenceAndValidatesTheRange |
+| TC-19-77 | Chứng từ chiều ra chưa quyết định không vào ô Cần xem và bộ lọc Cần xem, hiện "Không cần xử lý" ở Tất cả; chiều ra đã Tạm giữ vẫn tính Tạm giữ (D20) | outgoingTransfersAreNotQueuedForReviewButStayVisibleUnderAll; platformPaymentReadBackend.test.tsx |
+| TC-19-76 | SCR-62: chọn quyết định, ứng viên, lý do trước khi gửi; giữ khóa khi gửi lại; FE19-11 và COM-05 tải lại; HOLD/REJECT; khóa → ghi hoặc mở khóa → đã ghi; đã phân bổ/chiều ra không có lệnh; tra cứu theo mã và theo khoảng | frontend platformReconciliationBackend.test.tsx (9) |
+
 ## 10. Điểm SRS chưa rõ
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
 | Q1 | Rút phiên bản đã lên lịch chưa có route | Thêm A14 |
-| Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Bổ sung tham số `from, to` |
+| Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Đã chốt D19 (10/11/2026): thêm A17 `GET …/lookup?from&to` (ngày VN, ≤31 ngày, ≤200 dòng, chỉ đọc); PM lưu từng dòng bằng A11 |
 | Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt; UC-03 D16; UC-04 D17; phần xem UC-05 D18 ngày 10/11/2026 (luồng mục 5). Tra cứu API-03 và ghi đối soát để gói UC6 |
-| Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định |
+| Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định. Đã chốt cho khóa/mở khóa và quyết định UC6 (D19); rút phiên bản thuộc UC-07 |
 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |
 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Đã chốt DucNV 09/11/2026 (D14): làm tròn xuống theo số ngày tròn 24 giờ; còn 23 giờ → 0 ngày, vẫn có bao phủ tới end; không có kỳ hiện tại → "—" |
 | Q7 | Khi đúng mã/TK nhưng sai số tiền, bước nhận giao dịch SCR-59 có hoàn thành không? | Đã chốt trong phiên 09/11/2026 (D15): hiện đã nhận khi chứng từ xác thực, IN, đúng env/namespace/TK/mã; chưa PAID/cấp kỳ khi sai tiền. Mốc nhận và xác nhận tách biệt |
@@ -577,3 +622,5 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | 09/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất UC-04 (D17), tái dùng trang SCR-61; bổ sung luồng, A5, TC-19-50→57 và ma trận tại `docs/reviews/FE19_UC04_REVIEW.md` | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Người dùng chốt sáu đề xuất phần xem UC-05 (D18); luồng SCR-62, A6/7/8/12/16, TC-19-58→66 và ma trận tại `docs/reviews/FE19_UC05_REVIEW.md`. Tra cứu API-03 và ghi đối soát để gói UC6 | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Review UC-05: luật tài khoản/ứng viên chung với nhận SePay/ACCEPT, enum reviewStatus/matchResult, mã sự kiện lịch sử, nhãn tiếng Việt, giữ evidenceId khi chỉnh trang; TC-19-67/68 | DucNV |
+| 10/11/2026 | 28/10/2026 | Người dùng chốt năm đề xuất UC-06 (D19): một ô lý do ≤1.000, lịch sử khóa/hoàn trả trong evidence_review, ngày hoàn trả ghi một lần, tra cứu SePay theo mã và theo khoảng (Q2); A9/A10/A11/A17, TC-19-69→76; ma trận tại `docs/reviews/FE19_UC06_REVIEW.md` | Người dùng / DucNV |
+| 10/11/2026 | 28/10/2026 | Review runtime UC-06: D20 giao dịch chuyển ra không vào hàng Cần xem (NO_ACTION); gộp danh sách ứng viên thành một danh sách chọn, giữ nháp khi MSG-COM-05, lỗi tự mất khi sửa, nhãn ngày khi tra cứu, lịch sử bỏ "—" thừa; TC-19-77 | Người dùng / DucNV |
