@@ -51,7 +51,7 @@ const specificBackendMessage = (error: unknown): string | null => {
   if (code === 'MSG-FE04-05') return `Chuồng ${params.pen_code ?? ''} không đủ chỗ nhận ${params.count ?? ''} con (còn ${params.free ?? 0} chỗ).`
   if (code === 'MSG-FE04-02') return `Mã chuồng ${params.pen_code ?? ''} đã tồn tại trong trại này.`
   if (code === 'MSG-FE04-03') return `Sức chứa phải là số nguyên tối thiểu ${params.min_capacity ?? 1}.`
-  if (code === 'MSG-COM-05') return 'Thông tin chuồng đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
+  if (code === 'MSG-COM-05') return 'Dữ liệu đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
   if (code === 'MSG-FE04-06') return `Chuồng ${params.pen_code ?? ''} chưa phù hợp với tiêu chí: ${params.criteria ?? 'vui lòng kiểm tra lại thông tin'}.`
   if (code === 'MSG-FE05-12') return 'Mục đích nuôi và giới tính không phù hợp. Vỗ béo/SIRE cần bò đực; BREEDING cần bò cái.'
   if (code === 'MSG-FE06-03') return 'Ngày nhập không được ở tương lai hoặc trước ngày sinh.'
@@ -60,8 +60,6 @@ const specificBackendMessage = (error: unknown): string | null => {
   if (code === 'MSG-FE21-09') return 'Số tiền phải là số nguyên VND lớn hơn 0.'
   if (code === 'MSG-FE21-10') return `Danh mục ${params.category ?? ''} không dùng được cho ${params.type === 'INCOME' ? 'Thu' : 'Chi'}.`
   if (code === 'MSG-FE21-12') return 'Kết quả báo cáo đã hết hạn. Hãy chạy lại báo cáo.'
-  if (code === 'MSG-FE21-13') return 'Khoản thu chi đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
-  if (code === 'MSG-FE21-14') return 'Chứng từ ngân hàng không còn khả dụng. Hãy tải lại và chọn lại nguồn.'
   const fields = [
     ...(body.fieldErrors ?? []),
     ...(body.violations ?? []).map((item) => ({ field: item.field ?? item.propertyPath, message: item.message })),

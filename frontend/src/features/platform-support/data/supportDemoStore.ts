@@ -160,6 +160,7 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
       const note = (cmd.note ?? '').trim()
       if (note.length > 500) throw new SupportError('VALIDATION', 'Ghi chú đóng tối đa 500 ký tự.')
       const res = latestResolution(t)
+      if (!res) throw new SupportError('CONFLICT', CHANGED_MSG)
       res.reviewed = true
       t.status = 'CLOSED'
       touch(t, actor, `Đóng ticket (kết quả phiên bản ${res.version}, đã xem xác nhận của Chủ trại).${note ? ` Ghi chú: ${note}` : ''}`)

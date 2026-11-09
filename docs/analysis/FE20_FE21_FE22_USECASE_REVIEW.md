@@ -13,19 +13,19 @@ Ngày: 2026-11-09 (Asia/Ho_Chi_Minh)
 
 | UC | Luồng và quyền | Pre/post-condition/rule đã kiểm tra | Test hiện có trên nhánh | Kết quả |
 | --- | --- | --- | --- | --- |
-| FE20-01 | Owner xem ticket của chính mình | scope theo user/farm, không đọc mock ở backend mode | `tests/unit/support/supportApi.test.ts`; backend `SupportTicketWorkflowTest` | Đạt ở unit/workflow; còn smoke HTTP có auth |
-| FE20-02 | Owner tạo ticket | category/scope/description, idempotency, lưu history/outbox | Owner adapter + API tests; smoke `TK-9352` | Đạt; tạo/đọc thật và SQL readback |
-| FE20-03 | Owner xem chi tiết/lịch sử | public message, version, closed read-only | support API tests; smoke `TK-9352` | Đạt qua API thật; ticket đóng version `7` |
-| FE20-04 | Owner phản hồi | OPEN/IN_PROGRESS/WAITING_CUSTOMER, version conflict | `supportApi.test.ts` | Đạt ở workflow/unit |
-| FE20-05 | Owner xác nhận resolve/reopen | resolution acknowledgement và quyền owner | support domain/workflow tests | Đạt ở workflow/unit |
-| FE20-06 | CS xử lý queue | filter/tab/assignment, claim/handover | `platform-support/supportApi.test.ts` | Đạt; adapter dùng API thật |
-| FE20-07 | CS phản hồi/ghi chú nội bộ | `CS_ONLY` không lộ cho Owner, version/idempotency | platform support tests + backend workflow | Đạt ở unit/workflow |
-| FE20-08 | CS phân loại/giải quyết/đóng | OPEN → IN_PROGRESS ↔ WAITING_CUSTOMER → RESOLVED → CLOSED; reviewed ack | workflow tests; smoke `TK-9352` | Đạt; full lifecycle thật, SQL `CLOSED` version `7` |
-| FE20-09 | CS tạo/quản lý IR | mỗi role một IR mở, reassign/cancel, history/outbox | support unit/workflow | Đạt; mã IR được resolve qua endpoint IR thật |
-| FE20-10 | PM/SA xem IR được giao | recipient-only, không đọc IR của người khác | support unit/workflow; smoke `IR-9801` | Đạt; PM đọc đúng yêu cầu được giao |
-| FE20-11 | PM/SA tra domain result | domain audit reference hợp lệ | support unit/workflow | Đạt ở test; cần smoke auth |
-| FE20-12 | PM/SA hoàn thành IR | PERFORMED/UNABLE/OUTSIDE_DOMAIN, optimistic version | support unit/workflow; smoke `IR-9801` | Đạt; `OUTSIDE_DOMAIN` → `DONE` version `2` |
-| FE20-13 | Notification hỗ trợ | recipient-scoped, mark one/all, target access | notification/platform-support unit; authenticated smoke | Đạt; Owner/CS/PM nhận notification theo scope |
+| FE20-01 | Owner tạo ticket | category/scope/description, idempotency, lưu history/outbox | Owner adapter + API tests; smoke `TK-9352` | Đạt; tạo/đọc thật và SQL readback |
+| FE20-02 | Owner xem ticket của chính mình | scope theo user/farm, không đọc mock ở backend mode | `tests/unit/support/supportApi.test.ts`; backend `SupportTicketWorkflowTest` | Đạt ở unit/workflow; còn smoke HTTP có auth |
+| FE20-03 | Owner trả lời ticket | OPEN/IN_PROGRESS/WAITING_CUSTOMER, version conflict | `supportApi.test.ts`; smoke lifecycle | Đạt qua API thật |
+| FE20-04 | Owner xác nhận đã giải quyết | resolution acknowledgement và quyền owner | support domain/workflow tests; smoke lifecycle | Đạt ở workflow/unit |
+| FE20-05 | Owner mở lại ticket | lý do, hiệu lực xác nhận và quyền owner | support domain/workflow tests | Đạt ở workflow/unit |
+| FE20-06 | CS xem hàng đợi | filter/tab/assignment, claim/handover | `platform-support/supportApi.test.ts` | Đạt; adapter dùng API thật |
+| FE20-07 | CS nhận, bàn giao, phân loại, đổi trạng thái | `CS_ONLY` không lộ cho Owner, version/idempotency | platform support tests + backend workflow | Đạt ở unit/workflow |
+| FE20-08 | CS trả lời công khai | chỉ CS phụ trách, lifecycle và notification | workflow tests; smoke `TK-9352` | Đạt; full lifecycle thật |
+| FE20-09 | CS ghi chú nội bộ | `CS_ONLY`, chỉ CS thấy | platform support tests + backend workflow | Đạt ở unit/workflow |
+| FE20-10 | CS ghi kết quả giải quyết | OPEN → IN_PROGRESS ↔ WAITING_CUSTOMER → RESOLVED; reviewed ack | workflow tests; smoke `TK-9352` | Đạt; SQL `CLOSED` version `7` sau bước đóng |
+| FE20-11 | CS đóng ticket | cần xác nhận Owner, không IR mở, checkbox review | workflow tests; smoke `TK-9352` | Đạt; full lifecycle thật |
+| FE20-12 | CS tạo / đổi người nhận / hủy IR | mỗi role một IR mở, reassign/cancel, history/outbox | support unit/workflow; smoke `IR-9801` | Đạt; mã IR được resolve qua endpoint IR thật |
+| FE20-13 | PM/SA xử lý IR được giao | recipient-only, domain result, outcome và version | support unit/workflow; smoke `IR-9801` | Đạt; `OUTSIDE_DOMAIN` → `DONE` version `2` |
 | FE21-01 | PM xem biên nhận gói | read-only, search/farm/date, không tạo receipt giả | finance adapter/unit; `ReceiptRoutes` detail test | Đạt adapter; fixture PAID local chưa có |
 | FE21-02 | PM tạo nháp | field matrix: type/category/amount/date/scope/farm/source | finance domain + adapter tests; `FR-0003` | Đạt; API/SQL round-trip |
 | FE21-03 | PM sửa nháp | chỉ DRAFT, source claim được thay thế | finance workflow + adapter | Đạt; adapter resolve recordCode → numeric id |

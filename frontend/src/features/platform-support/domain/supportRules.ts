@@ -49,7 +49,8 @@ export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slic
 export const isClosed = (t: Pick<Ticket, 'status'>) => t.status === 'CLOSED'
 export const openIrOf = (t: Pick<Ticket, 'internalRequests'>, role?: TargetRole): InternalView | undefined =>
   t.internalRequests.find((r) => r.status === 'OPEN' && (!role || r.targetRole === role))
-export const latestResolution = (t: Pick<Ticket, 'resolutions'>) => t.resolutions[t.resolutions.length - 1]
+/** Backend trả resolution mới nhất trước; luôn chọn theo version để không phụ thuộc thứ tự API. */
+export const latestResolution = (t: Pick<Ticket, 'resolutions'>) => t.resolutions.reduce((latest, current) => !latest || current.version > latest.version ? current : latest, undefined as Ticket['resolutions'][number] | undefined)
 
 export function isAssignedTo(t: Pick<Ticket, 'assignedCsId' | 'assignedAvailable'>, actor: Pick<Actor, 'id'>) {
   return t.assignedCsId === actor.id && t.assignedAvailable

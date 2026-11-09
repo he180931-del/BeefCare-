@@ -283,6 +283,7 @@ public class SupportTicketCommandService {
         if (priority != null && !PRIORITIES.contains(priority)) throw DomainException.invalid("priority");
         String search = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
         List<SupportTicket> base = all.stream().filter(t -> category == null || category.equals(t.getCategory()))
+            .filter(t -> !cs || !"CLOSED".equals(t.getStatus()))
             .filter(t -> farmId == null || t.getFarm() != null && farmId.equals(t.getFarm().getId()))
             .filter(t -> priority == null || priority.equals(t.getPriority()))
             .filter(t -> from == null || t.getUpdatedAt() != null && !t.getUpdatedAt().isBefore(from))
@@ -290,7 +291,7 @@ public class SupportTicketCommandService {
             .filter(t -> search.isEmpty() || (Objects.toString(t.getCode(), "") + " " + Objects.toString(t.getSubject(), "") +
                 (cs ? " " + t.getRequester().getFullName() : "")).toLowerCase(Locale.ROOT).contains(search))
             .filter(t -> assignment == null || switch (assignment) {
-                case "UNASSIGNED" -> !available(t.getAssignedCs(), PlatformRole.CS);
+                case "UNASSIGNED" -> t.getAssignedCs() == null;
                 case "UNAVAILABLE" -> t.getAssignedCs() != null && !available(t.getAssignedCs(), PlatformRole.CS);
                 case "MINE" -> actor.equals(t.getAssignedCs());
                 default -> throw DomainException.invalid("assignment");
@@ -341,7 +342,7 @@ public class SupportTicketCommandService {
         boolean assignedAvailable = available(t.getAssignedCs(), PlatformRole.CS);
         AppUser csUser = t.getAssignedCs();
         Map<String,List<SupportDtos.ContextReference>> contextOptions = new LinkedHashMap<>();
-        contextOptions.put("PM", t.getFarm() == null ? List.of() : List.of(new SupportDtos.ContextReference("FARM", t.getFarm().getId())));
+        contextOptions.put("PM", pmContextOptions(t));
         contextOptions.put("SA", List.of(new SupportDtos.ContextReference("ACCOUNT", t.getRequester().getId())));
         return new SupportDtos.Ticket(t.getId(), t.getCode(), t.getSubject(), t.getCategory(), t.getPriority(), t.getStatus(),
             t.getFarm() == null ? null : t.getFarm().getId(), t.getFarm() == null ? null : t.getFarm().getName(),
@@ -353,6 +354,21 @@ public class SupportTicketCommandService {
         TicketResolution resolution = latestResolution(t);
         ResolutionAcknowledgment ack = acknowledgment(resolution);
         return ack == null || !"EFFECTIVE".equals(ack.status);
+    }
+    private List<SupportDtos.ContextReference> pmContextOptions(SupportTicket t) {
+        if (t.getFarm() == null) return List.of();
+        Long farmId = t.getFarm().getId();
+        List<SupportDtos.ContextReference> refs = new ArrayList<>();
+        refs.add(new SupportDtos.ContextReference("FARM", farmId));
+        em.createQuery("select s.id from Subscription s where s.farm.id=:farm order by s.id desc", Long.class)
+            .setParameter("farm", farmId).setMaxResults(20).getResultList().forEach(id -> refs.add(new SupportDtos.ContextReference("SUBSCRIPTION", id)));
+        em.createQuery("select p.id from Payment p where p.subscription.farm.id=:farm order by p.id desc", Long.class)
+            .setParameter("farm", farmId).setMaxResults(20).getResultList().forEach(id -> refs.add(new SupportDtos.ContextReference("PAYMENT", id)));
+        em.createQuery("select f.id from ManualFinanceRecord f where f.farm.id=:farm order by f.id desc", Long.class)
+            .setParameter("farm", farmId).setMaxResults(20).getResultList().forEach(id -> refs.add(new SupportDtos.ContextReference("FINANCE_RECORD", id)));
+        em.createQuery("select s.id from CashReportSnapshot s where s.farm.id=:farm order by s.id desc", Long.class)
+            .setParameter("farm", farmId).setMaxResults(20).getResultList().forEach(id -> refs.add(new SupportDtos.ContextReference("FINANCE_SNAPSHOT", id)));
+        return refs;
     }
     SupportDtos.InternalView internalView(InternalRequest r) {
         List<SupportDtos.ContextReference> context = r.getContextJson() == null ? List.of() : Arrays.asList(JsonSupport.fromJson(r.getContextJson(), SupportDtos.ContextReference[].class));

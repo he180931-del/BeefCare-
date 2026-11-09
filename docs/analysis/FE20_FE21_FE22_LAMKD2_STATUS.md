@@ -13,7 +13,7 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 
 | Nhóm | Trạng thái trên `lamkd2` | Bằng chứng |
 | --- | --- | --- |
-| FE20 Owner (danh sách, tạo, chi tiết, phản hồi, xác nhận, mở lại) | Đã nối adapter thật | `frontend/src/features/support/api/supportApi.ts`; test support API |
+| FE20 Owner (danh sách, tạo, chi tiết, phản hồi, xác nhận, mở lại) | Đã nối adapter thật | `frontend/src/features/platform-support/api/supportApi.ts`; test support API |
 | FE20 CS (queue, claim/handover, phân loại, phản hồi công khai, ghi chú, resolve/close) | Đã nối adapter thật | `frontend/src/features/platform-support/api/supportApi.ts`; test platform-support 11 cases |
 | FE20 PM/SA (yêu cầu nội bộ được giao, domain result, hoàn thành) | Đã nối adapter thật | `frontend/src/features/platform-support/api/supportApi.ts`; route `/nen-tang/yeu-cau/*` |
 | FE21-01 biên nhận gói chỉ đọc | Đã nối adapter thật | `financeBackendApi.listReceipts/getReceipt`; trang chi tiết gọi GET theo `paymentId` và giữ `priceVersion`, evidence, kỳ áp dụng |
@@ -36,6 +36,7 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 - Smoke thanh toán/bank thật trên PostgreSQL: payment `10201` nhận SePay evidence `10301` → `PAID`, receipt `RC-26-010201` API/SQL khớp `priceVersionId=8601`, kỳ mua và masked transaction; replay event trả `duplicate=true`. Evidence chưa khớp `10302` tạo `FR-0004` bằng `sourceEvidenceId`, idempotent create/post, void giải phóng claim; dùng lại evidence PAID bị `409 MSG-FE21-08`.
 - Smoke snapshot/notification thật: `SNAP-10601` (ALL) và `SNAP-10602` (MANUAL_ONLY) có summary khớp; replay idempotency trả cùng snapshot; notification PAYMENT_PAID của Owner đọc/đánh dấu qua API và SQL.
 - `git diff --check` — đạt.
+- Rà soát bổ sung: ngày mặc định dùng múi giờ `Asia/Ho_Chi_Minh`; báo cáo chưa có snapshot vẫn cho phép chạy bản chốt đầu tiên; hàng đợi CS loại ticket đã đóng và tách đúng `UNASSIGNED`/`UNAVAILABLE`; resolution chọn theo version mới nhất; danh mục lỗi không rơi về mã mock trong backend mode; landing giữ đủ 6 tính năng và 5 FAQ trên mobile.
 
 ## Giới hạn môi trường
 

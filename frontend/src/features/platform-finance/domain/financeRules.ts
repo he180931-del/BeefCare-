@@ -70,7 +70,7 @@ const monthsBetween = (from: string, to: string) => (Number(to.slice(0, 4)) - Nu
 export function validateCriteria(c: ReportCriteria): string | null {
   if (!c.dateFrom || !c.dateTo) return 'Kỳ báo cáo là bắt buộc.'
   if (c.dateFrom > c.dateTo) return 'Ngày bắt đầu phải trước ngày kết thúc.'
-  if (monthsBetween(c.dateFrom, c.dateTo) >= 24) return 'Kỳ báo cáo tối đa 24 tháng.'
+  if (monthsBetween(c.dateFrom, c.dateTo) > 24) return 'Kỳ báo cáo tối đa 24 tháng.'
   return null
 }
 

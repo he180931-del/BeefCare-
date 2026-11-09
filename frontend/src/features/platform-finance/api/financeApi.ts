@@ -16,13 +16,28 @@ const mapNotice = (value: unknown): PmNotice => {
   const actionLabel = targetType === 'INTERNAL_REQUEST' ? 'Mở yêu cầu' : targetType === 'SUPPORT_TICKET' ? 'Mở ticket' : 'Xem xét'
   return { id: numberValue(row.id), kind, title: textValue(row.title), summary: textValue(row.summary), createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime), actionLabel, href }
 }
+const businessToday = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
 
 export function createFinanceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FinanceDemoStore }) {
   // Backend mode is always remote; local mode is the only mode allowed to read the demo store.
   void farmId
   const backend = createFinanceBackendApi(transport)
   return {
-    now() { return mode === 'backend' ? new Date().toISOString().slice(0, 10) : store.now().slice(0, 10) },
+    isBackend() { return mode === 'backend' },
+    now() { return mode === 'local' ? store.now().slice(0, 10) : businessToday() },
+    defaultDateRange() {
+      const today = mode === 'backend' ? businessToday() : store.now().slice(0, 10)
+      return { from: `${today.slice(0, 8)}01`, to: today }
+    },
+    defaultReportCriteria(): ReportCriteria {
+      if (mode === 'local') return store.currentReport().criteria
+      const range = this.defaultDateRange()
+      return { dateFrom: range.from, dateTo: range.to, farmId: null, sourceFilter: 'BOTH' }
+    },
     async listFarms() { return mode === 'backend' ? backend.listFarms() : store.listFarms() },
     // GET /api/platform/finance/categories
     async listCategories() { return mode === 'backend' ? backend.listCategories() : store.listCategories() },

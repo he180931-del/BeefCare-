@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFinanceApi } from '../../../src/features/platform-finance/api/financeApi'
 import { createFinanceDemoStore } from '../../../src/features/platform-finance/data/financeDemoStore'
-import { formatVnd, validateRecordFields } from '../../../src/features/platform-finance/domain/financeRules'
+import { formatVnd, validateCriteria, validateRecordFields } from '../../../src/features/platform-finance/domain/financeRules'
 import type { RecordFields } from '../../../src/features/platform-finance/types'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
@@ -16,6 +16,9 @@ const fields = (over: Partial<RecordFields> = {}): RecordFields => ({
 const ALL = { dateFrom: '2026-10-01', dateTo: '2026-10-18', farmId: null, sourceFilter: 'BOTH' as const }
 
 describe('quy tắc nhập khoản (SRS 21.3)', () => {
+  it('cho phép kỳ báo cáo đúng 24 tháng', () => {
+    expect(validateCriteria({ dateFrom: '2024-10-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBeNull()
+  })
   it('số tiền phải là số nguyên đồng lớn hơn 0 (MSG-FE21-09)', () => {
     expect(validateRecordFields(fields({ amountVnd: 0 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
     expect(validateRecordFields(fields({ amountVnd: 10.5 })).amountVnd).toBeTruthy()

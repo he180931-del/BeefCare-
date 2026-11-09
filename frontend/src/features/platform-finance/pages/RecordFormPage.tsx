@@ -50,13 +50,15 @@ export default function RecordFormPage() {
   const set = (p: Partial<RecordFields>) => setFields((f) => ({ ...f, ...p }))
   const title = record ? `Khoản thu chi ${record.recordCode}` : 'Khoản thu chi mới'
   const sub = !record ? 'Nhập khoản thu hoặc chi của nền tảng. Lưu nháp trước, kiểm tra rồi ghi sổ.' : record.state === 'DRAFT' ? 'Chỉ khoản nháp được sửa. Khi ghi sổ, khoản này không thể sửa nữa.' : record.state === 'POSTED' ? 'Khoản đã ghi sổ chỉ đọc; sửa sai bằng Hủy bỏ kèm lý do.' : 'Khoản đã hủy bỏ chỉ đọc; có thể tạo nháp thay thế.'
-  const categoryCodes = categoryQuery.data?.[fields.type === 'INCOME' ? 'income' : 'expense'] ?? FINANCE_CATEGORIES[fields.type]
+  const categoryError = financeApi.isBackend() && !!categoryQuery.error
+  const categoryCodes = categoryQuery.data?.[fields.type === 'INCOME' ? 'income' : 'expense'] ?? (financeApi.isBackend() ? [] : FINANCE_CATEGORIES[fields.type])
   const categoryLabels: Record<string, string> = { OTHER_INCOME: 'Thu khác', REFUND: 'Hoàn trả', INTEREST: 'Lãi tiền gửi', OPERATIONS: 'Vận hành', MARKETING: 'Quảng bá', SOFTWARE: 'Phần mềm', BANK_FEE: 'Phí ngân hàng', OTHER_EXPENSE: 'Chi khác' }
   const changeReload = () => setReloadKey((k) => k + 1)
 
   const save = async (): Promise<FinanceRecord | null> => {
     const found = validateRecordFields(fields, financeApi.now(), { INCOME: categoryQuery.data?.income ?? FINANCE_CATEGORIES.INCOME, EXPENSE: categoryQuery.data?.expense ?? FINANCE_CATEGORIES.EXPENSE })
     setErrors(found)
+    if (categoryError) { setFormError('Chưa tải được danh mục tài chính từ máy chủ. Vui lòng thử lại.'); return null }
     if (Object.keys(found).length) return null
     setBusy(true); setFormError(null)
     try {
@@ -104,6 +106,7 @@ export default function RecordFormPage() {
         </PageHeader>
         <FlashNote flash={flash} />
         {formError && !sourceNotice && <Note tone="err">{formError}</Note>}
+        {categoryError && <Note tone="err">Chưa tải được danh mục tài chính từ máy chủ. Vui lòng tải lại trang rồi thử lại.</Note>}
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_356px]">
           <Card title="Thông tin khoản" actions={record ? <StateBadge state={record.state} /> : <StateBadge state="DRAFT" />}>
             <div className="flex flex-col gap-4">

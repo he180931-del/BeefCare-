@@ -4,6 +4,7 @@ import { Icon } from '../../../components/Icon'
 import Modal, { ModalButton, ModalFooter, useModalParam } from '../../../components/Modal'
 import { Button, Card, DateInput, ErrorBlock, FilterSelect, Foot, LoadingBlock, Metric, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
+import { BackendError } from '../../../api/backendClient'
 import { useDemoState } from '../../../hooks/useDemoState'
 import { useQuery } from '../../../hooks/useApi'
 import { financeApi } from '../api/financeApi'
@@ -15,13 +16,17 @@ import type { CashReport, ReportCriteria, ScopeTotals, SourceFilter } from '../t
 const TITLE = 'Báo cáo dòng tiền nền tảng'
 const SOURCE_LABEL: Record<SourceFilter, string> = { BOTH: 'Biên nhận + thủ công', RECEIPTS: 'Chỉ biên nhận gói', MANUAL: 'Chỉ khoản thủ công' }
 const scopeLabel = (c: ReportCriteria, farmName: string) => `${c.dateFrom.slice(8, 10)}/${c.dateFrom.slice(5, 7)}–${formatDate(c.dateTo)} · ${farmName} · Asia/Ho_Chi_Minh · VND`
+const emptyReport = (criteria: ReportCriteria): CashReport => ({
+  id: 0, code: 'CHƯA-CÓ-BẢN-CHỐT', expired: false, criteria: { ...criteria }, generatedAt: `${criteria.dateTo}T00:00:00`, expiresAt: `${criteria.dateTo}T23:59:59`,
+  summary: { subscriptionReceipts: 0, otherIncome: 0, totalIncome: 0, totalExpense: 0, netCashFlow: 0, scopes: [], dailyIncome: [], note: 'Chưa có bản chốt. Chạy báo cáo để tạo kết quả.' }, lines: [],
+})
 
 /** SCR-73: báo cáo dòng tiền nền tảng chạy trên bản chốt, xuất XLSX đúng bản chốt đang xem. */
 export default function CashReportRoutes() {
   const [m, open, close] = useModalParam()
   const demo = useDemoState()
   const [flash, setFlash] = useFlash()
-  const [criteria, setCriteria] = useState<ReportCriteria>({ dateFrom: '2026-10-01', dateTo: '2026-10-18', farmId: null, sourceFilter: 'BOTH' })
+  const [criteria, setCriteria] = useState<ReportCriteria>(() => financeApi.defaultReportCriteria())
   const [shown, setShown] = useState<CashReport | null>(null)
   const [focus, setFocus] = useState<ScopeTotals | null>(null)
   const [busy, setBusy] = useState(false)
@@ -29,10 +34,12 @@ export default function CashReportRoutes() {
   const farms = useQuery(() => financeApi.listFarms(), [])
   const { data, loading, error, refetch } = useQuery(() => financeApi.currentReport(), [])
 
-  if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
+  const noSnapshot = error instanceof BackendError && (error.status === 404 || error.status === 410)
+  if (loading && !data && !noSnapshot) return <Layout title={TITLE}><LoadingBlock /></Layout>
+  if ((error && !noSnapshot) || (!data && !noSnapshot)) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
 
-  const report = shown ?? data
+  const report = shown ?? data ?? emptyReport(criteria)
+  const hasSnapshot = report.id > 0
   const expired = report.expired || demo === 'het-han'
   const s = report.summary
   const farmLabel = report.criteria.farmId ? farms.data?.find((f) => f.id === report.criteria.farmId)?.name ?? 'Một trại' : 'Tất cả trại'
@@ -51,6 +58,7 @@ export default function CashReportRoutes() {
     } catch (e) { setFormError(userFacingError(e, 'Không chạy được báo cáo.')) } finally { setBusy(false) }
   }
   const doExport = async () => {
+    if (!hasSnapshot) return
     open('dang-tao')
     try {
       if (demo === 'xuat-loi') throw new Error('export-failed')
@@ -75,7 +83,7 @@ export default function CashReportRoutes() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} sub="Biên nhận tính theo thời điểm ngân hàng ghi nhận; khoản thủ công đã ghi sổ tính theo ngày phát sinh · giờ Việt Nam">
-          <Button onClick={() => open('xuat')}><Icon name="table-export" size={16} /> Xuất XLSX</Button>
+          <Button onClick={() => open('xuat')} disabled={!hasSnapshot}><Icon name="table-export" size={16} /> Xuất XLSX</Button>
         </PageHeader>
         <FlashNote flash={flash} />
         <div className="flex flex-wrap items-end gap-3">

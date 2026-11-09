@@ -2,11 +2,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { createSupportApi } from '../../../src/features/platform-support/api/supportApi'
 import { createSupportDemoStore } from '../../../src/features/platform-support/data/supportDemoStore'
 import { CS_ME, PM_QUAN, SA_NAM } from '../../../src/features/platform-support/data/supportMock'
+import { latestResolution } from '../../../src/features/platform-support/domain/supportRules'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
 const make = () => createSupportApi({ mode: 'local', farmId: 1, transport: transport(), store: createSupportDemoStore() })
 
 describe('hàng đợi hỗ trợ', () => {
+  it('chọn kết quả giải quyết mới nhất theo version dù API trả giảm dần', () => {
+    expect(latestResolution({ resolutions: [
+      { id: 2, version: 2, content: 'mới', resolvedBy: 'CS', resolvedAt: '2026-11-02T10:00:00', acknowledged: false, reviewed: false },
+      { id: 1, version: 1, content: 'cũ', resolvedBy: 'CS', resolvedAt: '2026-11-01T10:00:00', acknowledged: true, reviewed: true },
+    ] })?.content).toBe('mới')
+  })
   it('đếm tab đúng và sắp ưu tiên cao trước', async () => {
     const api = make()
     const all = await api.listQueue(CS_ME, { size: 50 })

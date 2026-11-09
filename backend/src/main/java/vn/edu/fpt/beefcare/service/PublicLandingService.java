@@ -26,12 +26,12 @@ public class PublicLandingService {
             "BeefCare",
             "Quản lý đàn bò và vận hành trang trại trên cùng một nền tảng.",
             List.of(
-                new Feature("Hồ sơ cá thể", "Mã QR mở nhanh hồ sơ, thông tin và lịch sử theo từng con."),
-                new Feature("Đàn và chuồng", "Quản lý nhóm đàn, vị trí chuồng và tình trạng hiện tại."),
-                new Feature("Tăng trưởng và BCS", "Ghi cân nặng, thể trạng và theo dõi thay đổi theo thời gian."),
-                new Feature("Tiêm phòng và sức khỏe", "Lưu lịch tiêm, điều trị và lịch tái khám."),
-                new Feature("Sinh sản", "Theo dõi động dục, phối giống, khám thai và ngày dự kiến sinh."),
-                new Feature("Nhắc việc và báo cáo", "Xem việc sắp đến hạn và tổng hợp tình hình trại.")
+                new Feature("Hồ sơ cá thể & thẻ QR", "Mã QR mở nhanh hồ sơ, thông tin và lịch sử theo từng con."),
+                new Feature("Tăng trưởng & BCS", "Ghi cân nặng, thể trạng và theo dõi thay đổi theo thời gian."),
+                new Feature("Tiêm phòng & sức khỏe", "Lưu lịch tiêm, điều trị và lịch tái khám."),
+                new Feature("Sinh sản & đẻ", "Theo dõi động dục, phối giống, khám thai và ngày dự kiến sinh."),
+                new Feature("Nhắc việc & thông báo trại", "Xem việc sắp đến hạn và tổng hợp tình hình trại."),
+                new Feature("Nhiều trại độc lập", "Tách dữ liệu và phân quyền rõ ràng giữa các trại.")
             ),
             List.of(
                 new Faq("BeefCare phù hợp với quy mô trại nào?", "BeefCare hướng tới các trang trại bò thịt quy mô khoảng 150–300 con và vẫn dùng được cho trại nhỏ hơn hoặc lớn hơn."),

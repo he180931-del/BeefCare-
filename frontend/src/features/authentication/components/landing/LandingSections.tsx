@@ -100,7 +100,7 @@ export function Faq({ items }: { items: ReadonlyArray<readonly [string, string]>
       <h2 className={`${sectionTitle} lg:mt-3 lg:text-[28px]`}><span className="lg:hidden">Câu hỏi thường gặp</span><span className="hidden lg:inline">Bạn muốn biết thêm điều gì?</span></h2>
       <div className="mt-5 flex flex-col gap-2.5 lg:mt-7 lg:gap-3">
         {items.map(([question, answer], index) => (
-          <div key={question} className={`rounded-xl border border-field bg-white ${index === 4 ? 'hidden lg:block' : ''}`}>
+          <div key={question} className="rounded-xl border border-field bg-white">
             <button type="button" aria-expanded={open === index} onClick={() => setOpen(open === index ? null : index)} className="flex min-h-[46px] w-full cursor-pointer items-center justify-between gap-4 border-0 bg-transparent px-4 py-3 text-left text-xs font-bold text-ink lg:min-h-[50px] lg:px-5 lg:text-sm">
               {question}<Icon name={open === index ? 'x' : 'plus'} size={16} className="hidden shrink-0 text-brand lg:block" />
             </button>
