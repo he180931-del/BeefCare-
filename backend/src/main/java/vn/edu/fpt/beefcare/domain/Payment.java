@@ -86,6 +86,7 @@ public class Payment implements Serializable {
 
     @NotNull
     @Column(name = "requested_at", nullable = false)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.TIMESTAMP_WITH_TIMEZONE)
     private Instant requestedAt;
 
     @Version
@@ -114,6 +115,18 @@ public class Payment implements Serializable {
     @Size(max = 150)
     @Column(name = "receiving_account_name", length = 150)
     private String receivingAccountName;
+
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
+    @Size(max = 10)
+    @Column(name = "confirmation_source", length = 10)
+    private String confirmationSource;
+
+    public Instant getConfirmedAt() { return confirmedAt; }
+    public void setConfirmedAt(Instant confirmedAt) { this.confirmedAt = confirmedAt; }
+    public String getConfirmationSource() { return confirmationSource; }
+    public void setConfirmationSource(String confirmationSource) { this.confirmationSource = confirmationSource; }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

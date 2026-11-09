@@ -342,6 +342,7 @@ public class SePayWebhookService {
         evidence.setReferenceCode(limit(incoming.referenceCode(), 100));
         evidence.setDeliveryOutcome("STORED");
         evidence.setAuthOutcome("VERIFIED");
+        evidence.setFirstReceivedAt(clock.now());
         evidence.setReviewStatus("UNMATCHED");
 
         if (!"IN".equalsIgnoreCase(incoming.direction())) {
@@ -417,11 +418,14 @@ public class SePayWebhookService {
             !sameAccount(payment.getReceivingAccount(), transfer.receivingAccount())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Evidence does not match the request's receiving account");
         }
-        Instant start = subscription.getLatestEnd() == null || subscription.getLatestEnd().isBefore(transfer.paidAt())
-            ? transfer.paidAt()
+        Instant confirmedAt = clock.now();
+        Instant start = subscription.getLatestEnd() == null || subscription.getLatestEnd().isBefore(confirmedAt)
+            ? confirmedAt
             : subscription.getLatestEnd();
         Instant end = LocalDateTime.ofInstant(start, BUSINESS_ZONE).atZone(BUSINESS_ZONE).plusYears(payment.getDurationYears()).toInstant();
         payment.setState("PAID");
+        payment.setConfirmedAt(confirmedAt);
+        payment.setConfirmationSource(actor == null ? "SEPAY" : "PM");
         payment.setPurchasedStart(start);
         payment.setPurchasedEnd(end);
         payment.setReceiptCode(receiptCode(payment.getId(), transfer.paidAt()));

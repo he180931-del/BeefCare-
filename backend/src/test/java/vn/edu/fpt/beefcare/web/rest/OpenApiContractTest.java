@@ -52,9 +52,14 @@ class OpenApiContractTest {
         assertThat(allowsNull(eligibility.path("reason"))).isTrue();
         assertThat(allowsNull(eligibility.path("opensAt"))).isTrue();
         JsonNode payment = api.path("components").path("schemas").path("PaymentDTO").path("properties");
-        for (String field : java.util.List.of("purchasedStart", "purchasedEnd", "receiptCode", "qrImageUrl", "bankCode", "accountNumber", "accountName")) {
+        for (String field : java.util.List.of("purchasedStart", "purchasedEnd", "receiptCode", "qrImageUrl", "bankCode", "accountNumber", "accountName",
+            "bankPaidAt", "receivedAt", "confirmedAt", "confirmationSource")) {
             assertThat(allowsNull(payment.path(field))).as("pending payment nullable " + field).isTrue();
         }
+        JsonNode postPayment = paths.path("/api/farms/{farmId}/subscription/payments").path("post");
+        assertThat(postPayment.path("parameters").toString()).contains("Idempotency-Key");
+        JsonNode request = api.path("components").path("schemas").path("Request");
+        assertThat(request.path("required").toString()).contains("durationYears", "reviewedPriceVersion");
         Files.writeString(Path.of("target","beefcare-openapi.json"),mapper.writerWithDefaultPrettyPrinter().writeValueAsString(api)+"\n",StandardCharsets.UTF_8);
     }
 

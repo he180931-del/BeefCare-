@@ -31,7 +31,7 @@ public class BackendApiDocumentationConfiguration {
                     "daysRemaining", "currentPrices", "pendingPayment");
                 nullableFields(api, "SubscriptionRequestEligibility", "reason", "opensAt");
                 nullableFields(api, "PaymentDTO", "purchasedStart", "purchasedEnd", "receiptCode", "qrImageUrl",
-                    "bankCode", "accountNumber", "accountName");
+                    "bankCode", "accountNumber", "accountName", "bankPaidAt", "receivedAt", "confirmedAt", "confirmationSource");
             })
             .build();
     }

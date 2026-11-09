@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon, type IconName } from '../../../components/Icon'
+import { backendMode } from '../../../api/backendTransport'
 import Modal, { useModalParam } from '../../../components/Modal'
 import { Badge, Button, Note } from '../../../components/ui'
 import { DIALOG_FIXTURES } from '../data/subscriptionMock'
@@ -34,7 +35,7 @@ function build(state: StateDialogState, h: Handlers): Built {
       return {
         title: 'Bạn đã có yêu cầu còn hiệu lực', sub: state.payment.quoteRef,
         facts: [['Trạng thái', <Badge key="s" tone="warn">Đang chờ</Badge>], ['Giá / thời hạn', paymentQuote(state.payment)], ['Hết hạn', fmtDateTime(state.payment.expiresAt)]],
-        actions: [{ label: 'Quay lại', icon: 'arrow-left', onClick: h.close }, { label: 'Mở lại hướng dẫn', primary: true, onClick: () => h.reopen(state.payment.quoteRef) }],
+        actions: [{ label: 'Quay lại', icon: 'arrow-left', onClick: h.close }, { label: 'Mở lại hướng dẫn', primary: true, onClick: () => h.reopen(backendMode === 'backend' ? String(state.payment.id) : state.payment.quoteRef) }],
       }
     case 'renewal-closed':
       return {

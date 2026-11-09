@@ -17,6 +17,7 @@ public interface BankTransferEvidenceRepository extends JpaRepository<BankTransf
     );
     boolean existsByPayment_Id(Long paymentId);
     Optional<BankTransferEvidence> findFirstByPayment_Id(Long paymentId);
+    List<BankTransferEvidence> findAllByQuoteRefIgnoreCaseOrderByIdAsc(String quoteRef);
     List<BankTransferEvidence> findAllByReviewStatusIgnoreCaseOrderByBankPaidAtAscIdAsc(String status);
     @Query("select e from BankTransferEvidence e where upper(e.reviewStatus) in :statuses order by e.bankPaidAt desc, e.id desc")
     List<BankTransferEvidence> findReviewQueue(@Param("statuses") List<String> statuses);

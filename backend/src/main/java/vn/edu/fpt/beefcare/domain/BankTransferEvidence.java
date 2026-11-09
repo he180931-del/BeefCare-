@@ -126,6 +126,13 @@ public class BankTransferEvidence implements Serializable {
     @Column(name = "payload_hash", length = 64)
     private String payloadHash;
 
+    /** First authenticated receipt; retries must not replace this timestamp. Legacy evidence remains null. */
+    @Column(name = "first_received_at")
+    private Instant firstReceivedAt;
+
+    public Instant getFirstReceivedAt() { return firstReceivedAt; }
+    public void setFirstReceivedAt(Instant firstReceivedAt) { this.firstReceivedAt = firstReceivedAt; }
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {

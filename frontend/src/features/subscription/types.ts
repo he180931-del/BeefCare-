@@ -29,9 +29,14 @@ export interface PaymentDTO {
   accountNumber: string | null
   accountName: string | null
   qrImageUrl?: string | null
+  reopened?: boolean
+  bankPaidAt?: string | null
+  receivedAt?: string | null
+  confirmedAt?: string | null
+  confirmationSource?: 'SEPAY' | 'PM' | null
 }
 
-/** Mốc thời gian chi tiết (giây) cho màn "Chi tiết thanh toán": chưa có trong PaymentDTO. */
+/** Presentation values keep a missing legacy bank snapshot visible as empty. */
 export interface Payment extends Omit<PaymentDTO, 'bankCode' | 'accountNumber' | 'accountName'> {
   // Missing legacy bank snapshots are empty for presentation; never replaced with a demo receiving account.
   bankCode: string
@@ -78,8 +83,9 @@ export interface SubscriptionOverview {
 
 export interface CreatePaymentCommand {
   durationYears: Term
-  /** Phiên bản giá Owner đã xem (GBR-70); chưa có trong Request của openapi. */
+  /** Phiên bản đã xem, adapter gửi reviewedPriceVersion (bắt buộc trong backend mode). */
   expectedPriceVersionId?: number
+  idempotencyKey?: string
 }
 
 export interface PaymentFilters {

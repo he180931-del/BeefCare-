@@ -3418,6 +3418,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -15327,9 +15334,13 @@
             "format" : "int32",
             "maximum" : 3,
             "minimum" : 1
+          },
+          "reviewedPriceVersion" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         },
-        "required" : [ "durationYears" ]
+        "required" : [ "durationYears", "reviewedPriceVersion" ]
       },
       "PaymentDTO" : {
         "type" : "object",
@@ -15349,7 +15360,8 @@
             "type" : "number"
           },
           "state" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
           },
           "requestedAt" : {
             "type" : "string",
@@ -15410,6 +15422,41 @@
           "qrImageUrl" : {
             "anyOf" : [ {
               "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "reopened" : {
+            "type" : "boolean"
+          },
+          "bankPaidAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "receivedAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "confirmedAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "confirmationSource" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "enum" : [ "SEPAY", "PM" ]
             }, {
               "type" : "null"
             } ]
@@ -18382,6 +18429,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -18398,10 +18449,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -18420,15 +18467,18 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
+          "paged" : {
+            "type" : "boolean"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
           "offset" : {
             "type" : "integer",
             "format" : "int64"
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "paged" : {
-            "type" : "boolean"
           },
           "pageNumber" : {
             "type" : "integer",
@@ -18437,9 +18487,6 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "unpaged" : {
-            "type" : "boolean"
           }
         }
       },
@@ -18501,13 +18548,13 @@
       "SortObject" : {
         "type" : "object",
         "properties" : {
-          "empty" : {
-            "type" : "boolean"
-          },
           "sorted" : {
             "type" : "boolean"
           },
           "unsorted" : {
+            "type" : "boolean"
+          },
+          "empty" : {
             "type" : "boolean"
           }
         }
@@ -18577,6 +18624,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -18593,10 +18644,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -18952,6 +18999,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -18968,10 +19019,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -18998,6 +19045,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -19014,10 +19065,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -20685,10 +20732,10 @@
           "headerName" : {
             "type" : "string"
           },
-          "token" : {
+          "parameterName" : {
             "type" : "string"
           },
-          "parameterName" : {
+          "token" : {
             "type" : "string"
           }
         }

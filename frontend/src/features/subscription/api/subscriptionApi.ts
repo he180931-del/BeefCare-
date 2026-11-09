@@ -1,7 +1,9 @@
 import { asRecord, backendFarmId, backendMode, backendTransport, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { backendPending } from '../../../api/backendPending'
+import { BackendError } from '../../../api/backendClient'
 import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
 import type { CreatePaymentCommand, Payment, PaymentFilters, RefreshDemo, SubscriptionOverview } from '../types'
+import { SubscriptionError, type PriceQuote } from '../types'
 
 /** A missing overview contract is an API error; it must never be filled with demo fields. */
 function readOverview(value: unknown, farmId: number): SubscriptionOverview {
@@ -39,6 +41,9 @@ function readPayment(value: unknown): Payment {
     purchasedStart: row.purchasedStart as string | null | undefined, purchasedEnd: row.purchasedEnd as string | null | undefined,
     receiptCode: row.receiptCode as string | null | undefined, qrImageUrl: row.qrImageUrl as string | null | undefined,
     bankCode: textValue(row.bankCode), accountNumber: textValue(row.accountNumber), accountName: textValue(row.accountName),
+    reopened: row.reopened as boolean | undefined,
+    bankPaidAt: row.bankPaidAt as string | null | undefined, receivedAt: row.receivedAt as string | null | undefined,
+    confirmedAt: row.confirmedAt as string | null | undefined, confirmationSource: row.confirmationSource as Payment['confirmationSource'],
   }
 }
 
@@ -62,7 +67,27 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
     // GET /api/farms/{farmId}/subscription/payments/{paymentId} (mock tra theo mã quoteRef)
     getPayment,
     // POST /api/farms/{farmId}/subscription/payments
-    async createPayment(farm: number, command: CreatePaymentCommand) { requireLocal(); return store.createPayment(farm, command) },
+    async createPayment(farm: number, command: CreatePaymentCommand): Promise<Payment> {
+      if (mode !== 'backend') return store.createPayment(farm, command)
+      if (![1, 2, 3].includes(command.durationYears)) throw new SubscriptionError('INVALID_TERM', 'Vui lòng chọn kỳ hạn.')
+      if (!command.expectedPriceVersionId) throw new SubscriptionError('PRICE_UNAVAILABLE', 'Vui lòng xem lại bảng giá.')
+      try {
+        return readPayment(await transport.command(transport.farmPath(farm, '/subscription/payments'), {
+          durationYears: command.durationYears, reviewedPriceVersion: command.expectedPriceVersionId,
+        }, { key: command.idempotencyKey }))
+      } catch (error) {
+        if (!(error instanceof BackendError)) throw error
+        const p = error.params
+        if (error.code === 'MSG-FE19-02') throw new SubscriptionError('PRICE_CHANGED', error.message,
+          { seen: p.seen as PriceQuote, current: p.current as PriceQuote })
+        if (error.code === 'MSG-FE19-03') throw new SubscriptionError('OUTSIDE_WINDOW', error.message,
+          { confirmedEnd: p.confirmedEnd as string, opensAt: p.opensAt as string })
+        if (error.code === 'MSG-FE19-09') throw new SubscriptionError('SUSPENDED', error.message,
+          { farmName: p.farmName as string, paidUntil: p.paidUntil as string | null })
+        if (error.code === 'MSG-FE19-04') throw new SubscriptionError('PRICE_UNAVAILABLE', error.message)
+        throw error
+      }
+    },
     // GET /api/farms/{farmId}/subscription/payments/{paymentId} (Kiểm tra lại)
     async refreshPayment(farm: number, code: string, demo?: RefreshDemo) { return mode === 'backend' ? getPayment(farm, code) : store.refreshPayment(farm, code, demo) },
   }

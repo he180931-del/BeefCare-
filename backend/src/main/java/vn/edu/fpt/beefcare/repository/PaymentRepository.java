@@ -20,6 +20,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findAllBySubscription_Farm_IdOrderByRequestedAtDescIdDesc(Long farmId);
     Optional<Payment> findFirstByQuoteRefIgnoreCase(String quoteRef);
     Optional<Payment> findFirstByIdAndSubscription_Farm_IdAndRequestedBy_Id(Long id, Long farmId, Long requestedById);
+    Optional<Payment> findFirstByIdAndSubscription_Farm_Id(Long id, Long farmId);
     Optional<Payment> findFirstByQuoteRefIgnoreCaseAndSubscription_Farm_Id(String quoteRef, Long farmId);
     List<Payment> findAllByStateIgnoreCaseAndExpiresAtBefore(String state, Instant now);
     List<Payment> findAllBySubscription_Farm_IdAndRequestedBy_IdOrderByRequestedAtDescIdDesc(Long farmId, Long requestedById);

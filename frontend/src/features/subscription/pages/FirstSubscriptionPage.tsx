@@ -10,7 +10,9 @@ import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
 import { useFarmScope } from '../components/useFarmScope'
-import { TERMS, fmtDate, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
+import { TERMS, estimatePeriod, fmtDate, fmtPeriod, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
+import { backendMode } from '../../../api/backendTransport'
+import { usePaymentRequest } from './usePaymentRequest'
 import type { Term } from '../types'
 import { useOverview } from './useOverview'
 
@@ -26,6 +28,7 @@ function OnboardingShell({ children }: { children: ReactNode }) {
 
 export default function FirstSubscriptionPage() {
   const { farmId, to } = useFarmScope(ONBOARDING_FARM_ID)
+  const createPayment = usePaymentRequest(farmId)
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preset = Number(params.get('term')) as Term
@@ -39,14 +42,16 @@ export default function FirstSubscriptionPage() {
   if (error || !data) return <OnboardingShell><ErrorBlock message={userFacingError(error, 'Không tải được thông tin gói dịch vụ.')} onRetry={refetch} /></OnboardingShell>
 
   const price = data.currentPrices
+  const estimate = term ? estimatePeriod(subscriptionApi.now(), data.latestEnd, term) : null
 
   async function submit() {
     if (!term || !price) return
     setSaving(true)
     setSaveError('')
     try {
-      const p = await subscriptionApi.createPayment(farmId, { durationYears: term, expectedPriceVersionId: price.id })
-      navigate(to(`/goi-dich-vu/chuyen-khoan/${p.quoteRef}`, { from: 'onboarding' }))
+      const p = await createPayment(term, price.id)
+      if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? p.id : p.quoteRef}`, { from: 'onboarding' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)
@@ -62,13 +67,18 @@ export default function FirstSubscriptionPage() {
       {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
       <Card title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
         <div className="flex flex-col gap-4">
-          <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? 'Đang có kỳ' : 'Chưa có']]} />
+          <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end) : 'Chưa có']]} />
           <TermCards prices={price} selected={term} onSelect={setTerm} />
+          <Card title="Điều khoản gói"><Facts items={[
+            ['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại bằng chuyển khoản'],
+            ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ'],
+          ]} /></Card>
           <Card title="Xem lại trước khi tạo">
             <Facts items={[
               ['Trang trại', data.farmName],
               ['Thời hạn', term ? termLabel(term) : 'Chưa chọn'],
               ['Số tiền', term && price ? fmtVnd(priceFor(price, term)) : '—'],
+              ['Kỳ dịch vụ (ước tính)', estimate ? fmtPeriod(estimate.start, estimate.end) : '—'],
               ['Bảng giá', price ? `${versionLabel(price.id)} · hiệu lực ${fmtDate(price.effectiveAt)}` : 'Chưa khả dụng'],
             ]} />
           </Card>

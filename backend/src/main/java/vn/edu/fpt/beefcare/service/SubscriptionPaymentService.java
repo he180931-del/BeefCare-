@@ -20,6 +20,8 @@ import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.PlanVersion;
 import vn.edu.fpt.beefcare.domain.Subscription;
+import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
+import vn.edu.fpt.beefcare.repository.BankTransferEvidenceRepository;
 import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.repository.PaymentRepository;
@@ -41,6 +43,7 @@ public class SubscriptionPaymentService {
     private final PaymentRepository payments;
     private final PlanVersionRepository plans;
     private final AuditLogRepository auditLogs;
+    private final BankTransferEvidenceRepository evidences;
     private final FarmClock clock;
     private final FarmServiceFacts serviceFacts;
     private final String bankCode;
@@ -56,6 +59,7 @@ public class SubscriptionPaymentService {
         PaymentRepository payments,
         PlanVersionRepository plans,
         AuditLogRepository auditLogs,
+        BankTransferEvidenceRepository evidences,
         FarmClock clock,
         FarmServiceFacts serviceFacts,
         @Value("$" + "{beefcare.sepay.bank-code:}") String bankCode,
@@ -70,6 +74,7 @@ public class SubscriptionPaymentService {
         this.payments = payments;
         this.plans = plans;
         this.auditLogs = auditLogs;
+        this.evidences = evidences;
         this.clock = clock;
         this.serviceFacts = serviceFacts;
         this.bankCode = bankCode;
@@ -123,7 +128,7 @@ public class SubscriptionPaymentService {
     @Transactional(readOnly = true)
     public PaymentDTO paymentDetails(Long farmId, Long paymentId) {
         FarmContext context = farmAccess.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
-        Payment payment = payments.findFirstByIdAndSubscription_Farm_IdAndRequestedBy_Id(paymentId, farmId, context.user().getId())
+        Payment payment = payments.findFirstByIdAndSubscription_Farm_Id(paymentId, farmId)
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
         return toDto(payment);
     }
@@ -134,9 +139,33 @@ public class SubscriptionPaymentService {
         if (request == null || request.durationYears() == null || !List.of(1, 2, 3).contains(request.durationYears())) {
             throw DomainException.invalid("durationYears");
         }
+        if (request.reviewedPriceVersion() == null || request.reviewedPriceVersion() <= 0) throw DomainException.required("reviewedPriceVersion");
         Farm farm = farms.lockById(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        Instant now = clock.now();
+        List<Payment> requests = payments.findAllBySubscription_Farm_IdOrderByRequestedAtDescIdDesc(farmId);
+        Payment existing = requests.stream().filter(p -> "PENDING".equalsIgnoreCase(p.getState()) && p.getExpiresAt().isAfter(now))
+            .findFirst().orElse(null);
+        if (existing != null) return toDto(existing, true);
+        if ("SUSPENDED".equalsIgnoreCase(farm.getServiceStatus())) {
+            throw DomainException.conflict("MSG-FE19-09", "farmName", farm.getName());
+        }
+        Instant latestEnd = requests.stream().filter(p -> "PAID".equalsIgnoreCase(p.getState()))
+            .map(Payment::getPurchasedEnd).filter(java.util.Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
+        Instant opensAt = latestEnd == null ? null : latestEnd.atZone(FARM_ZONE).minusDays(90).toInstant();
+        if (opensAt != null && now.isBefore(opensAt)) {
+            throw DomainException.conflict("MSG-FE19-03", "confirmedEnd", latestEnd, "opensAt", opensAt);
+        }
         PlanVersion price = currentPrice();
-        if (price == null) throw DomainException.conflict("MSG-FE19-PRICE_UNAVAILABLE");
+        if (price == null || !StringUtils.hasText(bankCode) || !StringUtils.hasText(accountNumber)
+            || !StringUtils.hasText(accountName) || !StringUtils.hasText(accountNamespace) || !StringUtils.hasText(paymentEnvironment)) {
+            throw DomainException.conflict("MSG-FE19-04");
+        }
+        if (!price.getId().equals(request.reviewedPriceVersion())) {
+            PlanVersion reviewed = plans.findById(request.reviewedPriceVersion()).orElseThrow(() -> DomainException.invalid("reviewedPriceVersion"));
+            throw DomainException.conflict("MSG-FE19-02", "seen", Map.of("version", reviewed.getId(), "term", request.durationYears(),
+                "amountVnd", amountFor(reviewed, request.durationYears())), "current", Map.of("version", price.getId(), "term", request.durationYears(),
+                "amountVnd", amountFor(price, request.durationYears())));
+        }
         Subscription subscription = subscriptions.lockByFarmId(farmId).orElseGet(() -> {
             Subscription newSubscription = new Subscription();
             newSubscription.setFarm(farm);
@@ -144,22 +173,8 @@ public class SubscriptionPaymentService {
             newSubscription.setEntitlementStatus("PENDING");
             return subscriptions.saveAndFlush(newSubscription);
         });
-        if (subscription.getLatestEnd() != null && subscription.getLatestEnd().isAfter(clock.now().plus(RENEWAL_WINDOW))) {
-            throw DomainException.conflict("MSG-FE19-RENEWAL_NOT_OPEN");
-        }
-        Payment existing = payments.findFirstBySubscription_IdAndStateIgnoreCaseOrderByRequestedAtDesc(subscription.getId(), "PENDING").orElse(null);
-        if (existing != null && existing.getExpiresAt().isAfter(clock.now())) return toDto(existing);
-        if (existing != null) {
-            existing.setState("EXPIRED");
-            payments.save(existing);
-        }
-        BigDecimal amount = switch (request.durationYears()) {
-            case 1 -> price.getPrice1y();
-            case 2 -> price.getPrice2y();
-            case 3 -> price.getPrice3y();
-            default -> throw DomainException.invalid("durationYears");
-        };
-        Instant now = clock.now();
+        requests.stream().filter(p -> "PENDING".equalsIgnoreCase(p.getState())).forEach(p -> p.setState("EXPIRED"));
+        BigDecimal amount = amountFor(price, request.durationYears());
         Payment payment = new Payment();
         payment.setQuoteRef("BC" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT));
         payment.setDurationYears(request.durationYears());
@@ -172,7 +187,7 @@ public class SubscriptionPaymentService {
         payment.setPriceVersion(price);
         payment.setReceivingAccountNamespace(accountNamespace);
         payment.setReceivingEnvironment(paymentEnvironment == null ? null : paymentEnvironment.trim().toUpperCase(Locale.ROOT));
-        payment.setReceivingAccount(StringUtils.hasText(accountNumber) ? accountNumber.trim() : ("MOCK".equalsIgnoreCase(paymentEnvironment) ? "MOCK-ACCOUNT" : null));
+        payment.setReceivingAccount(accountNumber.trim());
         payment.setReceivingBankCode(StringUtils.hasText(bankCode) ? bankCode.trim() : null);
         payment.setReceivingAccountName(StringUtils.hasText(accountName) ? accountName.trim() : null);
         Payment saved = payments.saveAndFlush(payment);
@@ -197,6 +212,11 @@ public class SubscriptionPaymentService {
         return plans.findFirstByEffectiveAtLessThanEqualOrderByEffectiveAtDescIdDesc(clock.now()).orElse(null);
     }
 
+    private BigDecimal amountFor(PlanVersion price, int years) {
+        return switch (years) { case 1 -> price.getPrice1y(); case 2 -> price.getPrice2y(); case 3 -> price.getPrice3y();
+            default -> throw DomainException.invalid("durationYears"); };
+    }
+
     private String qrUrl(Payment payment) {
         if (!StringUtils.hasText(payment.getReceivingAccount()) || !StringUtils.hasText(payment.getReceivingBankCode())) return null;
         return UriComponentsBuilder.fromUriString("https://qr.sepay.vn/img")
@@ -210,12 +230,25 @@ public class SubscriptionPaymentService {
     }
 
     private PaymentDTO toDto(Payment p) {
+        return toDto(p, false);
+    }
+
+    private PaymentDTO toDto(Payment p, boolean reopened) {
+        BankTransferEvidence allocated = evidences.findFirstByPayment_Id(p.getId()).orElse(null);
+        BankTransferEvidence first = evidences.findAllByQuoteRefIgnoreCaseOrderByIdAsc(p.getQuoteRef()).stream()
+            .filter(e -> "VERIFIED".equalsIgnoreCase(e.getAuthOutcome()) && "IN".equalsIgnoreCase(e.getTransferDirection())
+                && java.util.Objects.equals(p.getReceivingEnvironment(), e.getEnvironment())
+                && java.util.Objects.equals(p.getReceivingAccountNamespace(), e.getAccountNamespace())
+                && sameAccount(p.getReceivingAccount(), e.getReceivingAccount()) && e.getFirstReceivedAt() != null)
+            .min(Comparator.comparing(BankTransferEvidence::getFirstReceivedAt).thenComparing(BankTransferEvidence::getId)).orElse(null);
+        if (first == null) first = allocated;
+        String state = "PENDING".equalsIgnoreCase(p.getState()) && !p.getExpiresAt().isAfter(clock.now()) ? "EXPIRED" : p.getState();
         return new PaymentDTO(
             p.getId(),
             p.getQuoteRef(),
             p.getDurationYears(),
             p.getAmountVnd(),
-            p.getState(),
+            state,
             p.getRequestedAt(),
             p.getExpiresAt(),
             p.getPurchasedStart(),
@@ -225,20 +258,27 @@ public class SubscriptionPaymentService {
             p.getReceivingBankCode(),
             p.getReceivingAccount(),
             p.getReceivingAccountName(),
-            qrUrl(p)
+            qrUrl(p), reopened,
+            allocated != null ? allocated.getBankPaidAt() : first == null ? null : first.getBankPaidAt(),
+            first == null ? null : first.getFirstReceivedAt(), p.getConfirmedAt(), p.getConfirmationSource()
         );
     }
 
-    public record PaymentRequest(Integer durationYears) {}
+    private boolean sameAccount(String a, String b) {
+        return a != null && b != null && a.replaceAll("\\s+", "").equalsIgnoreCase(b.replaceAll("\\s+", ""));
+    }
+
+    public record PaymentRequest(Integer durationYears, Long reviewedPriceVersion) {}
     public record PriceDTO(Long id, BigDecimal price1y, BigDecimal price2y, BigDecimal price3y, Instant effectiveAt) {
         static PriceDTO from(PlanVersion p) { return new PriceDTO(p.getId(), p.getPrice1y(), p.getPrice2y(), p.getPrice3y(), p.getEffectiveAt()); }
     }
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)
     public record PaymentDTO(
         Long id,
         String quoteRef,
         Integer durationYears,
         BigDecimal amountVnd,
-        String state,
+        @Schema(allowableValues = {"PENDING", "PAID", "EXPIRED"}) String state,
         Instant requestedAt,
         Instant expiresAt,
         Instant purchasedStart,
@@ -248,7 +288,12 @@ public class SubscriptionPaymentService {
         String bankCode,
         String accountNumber,
         String accountName,
-        String qrImageUrl
+        String qrImageUrl,
+        boolean reopened,
+        @Schema(nullable = true) Instant bankPaidAt,
+        @Schema(nullable = true) Instant receivedAt,
+        @Schema(nullable = true) Instant confirmedAt,
+        @Schema(nullable = true, allowableValues = {"SEPAY", "PM"}) String confirmationSource
     ) {
     }
     @Schema(requiredProperties = {"farmId", "serviceStatus", "latestEnd", "entitlementStatus", "currentPrices", "pendingPayment",
