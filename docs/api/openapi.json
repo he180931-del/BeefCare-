@@ -3891,6 +3891,58 @@
         }
       }
     },
+    "/api/farms/{farmId}/pending-calves/{calfId}/parentage" : {
+      "post" : {
+        "tags" : [ "herd-entry-resource" ],
+        "operationId" : "assignParentage",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "calfId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignCalfParentageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PendingCalf"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/pending-calves/{calfId}/died-before-registration" : {
       "post" : {
         "tags" : [ "herd-entry-resource" ],
@@ -5276,220 +5328,6 @@
         }
       }
     },
-    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "listEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "array",
-                "items" : {
-                  "$ref" : "#/components/schemas/AttachmentDTO"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "post" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "uploadEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "requestBody" : {
-        "content" : {
-          "multipart/form-data" : {
-            "schema" : {
-              "type" : "object",
-              "properties" : {
-                "file" : {
-                  "type" : "string",
-                  "format" : "binary"
-                }
-              },
-              "required" : [
-                "file"
-              ]
-            }
-          }
-        }
-      },
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "listExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "array",
-                "items" : {
-                  "$ref" : "#/components/schemas/AttachmentDTO"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "post" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "uploadExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "requestBody" : {
-        "content" : {
-          "multipart/form-data" : {
-            "schema" : {
-              "type" : "object",
-              "properties" : {
-                "file" : {
-                  "type" : "string",
-                  "format" : "binary"
-                }
-              },
-              "required" : [
-                "file"
-              ]
-            }
-          }
-        }
-      },
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
     "/api/farms/{farmId}/feed/rations" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
@@ -6148,6 +5986,100 @@
         }
       }
     },
+    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "listExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AttachmentDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "uploadExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/farms/{farmId}/exit-vouchers/{id}/void" : {
       "post" : {
         "tags" : [ "herd-exit-voucher-resource" ],
@@ -6458,6 +6390,100 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Voucher"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "listEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AttachmentDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "uploadEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
                 }
               }
             }
@@ -10042,280 +10068,6 @@
         }
       }
     },
-    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments/{attachmentId}" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "readEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "headers" : {
-            "Content-Type" : {
-              "description" : "Stored attachment media type.",
-              "schema" : {
-                "type" : "string",
-                "enum" : [
-                  "application/pdf",
-                  "image/jpeg"
-                ]
-              }
-            },
-            "Content-Disposition" : {
-              "description" : "Attachment disposition with the sanitized original filename.",
-              "schema" : {
-                "type" : "string"
-              }
-            },
-            "Cache-Control" : {
-              "description" : "Response is not cacheable.",
-              "schema" : {
-                "type" : "string",
-                "example" : "no-store"
-              }
-            },
-            "X-Content-Type-Options" : {
-              "description" : "Prevents MIME sniffing.",
-              "schema" : {
-                "type" : "string",
-                "example" : "nosniff"
-              }
-            }
-          },
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "string",
-                "format" : "binary"
-              }
-            }
-          }
-        }
-      }
-    },
-    "delete" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "removeEntry",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments/{attachmentId}" : {
-    "get" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "readExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "headers" : {
-            "Content-Type" : {
-              "description" : "Stored attachment media type.",
-              "schema" : {
-                "type" : "string",
-                "enum" : [
-                  "application/pdf",
-                  "image/jpeg"
-                ]
-              }
-            },
-            "Content-Disposition" : {
-              "description" : "Attachment disposition with the sanitized original filename.",
-              "schema" : {
-                "type" : "string"
-              }
-            },
-            "Cache-Control" : {
-              "description" : "Response is not cacheable.",
-              "schema" : {
-                "type" : "string",
-                "example" : "no-store"
-              }
-            },
-            "X-Content-Type-Options" : {
-              "description" : "Prevents MIME sniffing.",
-              "schema" : {
-                "type" : "string",
-                "example" : "nosniff"
-              }
-            }
-          },
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "type" : "string",
-                "format" : "binary"
-              }
-            }
-          }
-        }
-      }
-    },
-    "delete" : {
-      "tags" : [
-        "voucher-attachment-resource"
-      ],
-      "operationId" : "removeExit",
-      "parameters" : [
-        {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "voucherId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "attachmentId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        },
-        {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }
-      ],
-      "responses" : {
-        "200" : {
-          "description" : "OK",
-          "content" : {
-            "*/*" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentDTO"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
     "/api/farms/{farmId}/feed/adjustments/{adjustmentId}" : {
       "get" : {
         "tags" : [ "feed-management-resource" ],
@@ -10407,6 +10159,98 @@
           }
         }, {
           "name" : "adjustmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/exit-vouchers/{voucherId}/attachments/{attachmentId}" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "readExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "removeExit",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
           "in" : "path",
           "required" : true,
           "schema" : {
@@ -10565,6 +10409,98 @@
                   "items" : {
                     "$ref" : "#/components/schemas/SelectableCattle"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/entry-vouchers/{voucherId}/attachments/{attachmentId}" : {
+      "get" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "readEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "voucher-attachment-resource" ],
+        "operationId" : "removeEntry",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "voucherId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "attachmentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AttachmentDTO"
                 }
               }
             }
@@ -13223,6 +13159,19 @@
           "calfOutcomeId" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "damId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "externalSireCode" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
           }
         }
       },
@@ -14901,107 +14850,6 @@
           }
         }
       },
-      "FarmServicePreview" : {
-        "type" : "object",
-        "properties" : {
-          "farmId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "farmName" : {
-            "type" : "string"
-          },
-          "ownerName" : {
-            "type" : "string"
-          },
-          "ownerEmail" : {
-            "type" : "string"
-          },
-          "activeCattle" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "serviceStatus" : {
-            "type" : "string"
-          },
-          "suspendedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "suspendedBy" : {
-            "type" : "string"
-          },
-          "previousReason" : {
-            "type" : "string"
-          },
-          "periodStart" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "periodEnd" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "coverageEnd" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "statusAfterRestore" : {
-            "type" : "string"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }
-      },
-      "FarmServiceTiles" : {
-        "type" : "object",
-        "properties" : {
-          "total" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "active" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "activePercent" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "pendingPayment" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "expired" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "suspended" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
-      "FarmServicePage" : {
-        "type" : "object",
-        "properties" : {
-          "tiles" : {
-            "$ref" : "#/components/schemas/FarmServiceTiles"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/FarmOverview"
-            }
-          },
-          "total" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
       "AccountChange" : {
         "type" : "object",
         "properties" : {
@@ -15512,31 +15360,59 @@
             "format" : "date-time"
           },
           "purchasedStart" : {
-            "type" : "string",
-            "format" : "date-time"
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
           },
           "purchasedEnd" : {
-            "type" : "string",
-            "format" : "date-time"
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
           },
           "receiptCode" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           },
           "priceVersionId" : {
             "type" : "integer",
             "format" : "int64"
           },
           "bankCode" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           },
           "accountNumber" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           },
           "accountName" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           },
           "qrImageUrl" : {
-            "type" : "string"
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           }
         }
       },
@@ -15738,15 +15614,29 @@
         },
         "required" : [ "effectiveDate", "status" ]
       },
-      "DiedBeforeRegistrationRequest" : {
+      "AssignCalfParentageRequest" : {
         "type" : "object",
         "properties" : {
-          "reason" : {
+          "damId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireSource" : {
             "type" : "string",
-            "maxLength" : 500,
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "externalSireCode" : {
+            "type" : "string",
+            "maxLength" : 50,
             "minLength" : 0
           }
-        }
+        },
+        "required" : [ "damId" ]
       },
       "PendingCalf" : {
         "type" : "object",
@@ -15769,7 +15659,23 @@
           "damActive" : {
             "type" : "boolean"
           },
+          "sireId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "sireCode" : {
+            "type" : "string"
+          },
+          "sireSource" : {
+            "type" : "string"
+          },
+          "externalSireName" : {
+            "type" : "string"
+          },
+          "semenBatch" : {
+            "type" : "string"
+          },
+          "sireBreedCode" : {
             "type" : "string"
           },
           "sex" : {
@@ -15802,6 +15708,16 @@
           "draftVoucherId" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "DiedBeforeRegistrationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
           }
         }
       },
@@ -18483,6 +18399,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -18491,10 +18411,6 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -18511,9 +18427,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "unpaged" : {
-            "type" : "boolean"
-          },
           "paged" : {
             "type" : "boolean"
           },
@@ -18524,6 +18437,9 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
           }
         }
       },
@@ -18678,6 +18594,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -18686,10 +18606,6 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -18886,6 +18802,107 @@
           }
         }
       },
+      "FarmServicePage" : {
+        "type" : "object",
+        "properties" : {
+          "tiles" : {
+            "$ref" : "#/components/schemas/FarmServiceTiles"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FarmOverview"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "FarmServiceTiles" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "active" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activePercent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pendingPayment" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "expired" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "suspended" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "FarmServicePreview" : {
+        "type" : "object",
+        "properties" : {
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "ownerName" : {
+            "type" : "string"
+          },
+          "ownerEmail" : {
+            "type" : "string"
+          },
+          "activeCattle" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "serviceStatus" : {
+            "type" : "string"
+          },
+          "suspendedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "suspendedBy" : {
+            "type" : "string"
+          },
+          "previousReason" : {
+            "type" : "string"
+          },
+          "periodStart" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "periodEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "coverageEnd" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "statusAfterRestore" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "AuditEntry" : {
         "type" : "object",
         "properties" : {
@@ -18952,6 +18969,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -18960,10 +18981,6 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -18998,6 +19015,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
@@ -19006,10 +19027,6 @@
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -19286,24 +19303,140 @@
             "format" : "int64"
           },
           "serviceStatus" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING_PAYMENT", "ACTIVE", "EXPIRED", "SUSPENDED" ]
           },
           "latestEnd" : {
-            "type" : "string",
-            "format" : "date-time"
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
           },
           "entitlementStatus" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CURRENT", "FUTURE_ONLY", "NONE" ]
           },
           "currentPrices" : {
-            "$ref" : "#/components/schemas/PriceDTO"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/PriceDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "pendingPayment" : {
-            "$ref" : "#/components/schemas/PaymentDTO"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/PaymentDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "renewalOpensAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "suspended" : {
+            "type" : "boolean"
+          },
+          "suspendedSince" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "currentPeriod" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SubscriptionPurchasedPeriod"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "daysRemaining" : {
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int64",
+              "description" : "Whole 24-hour days remaining, rounded down (D14); null without current coverage, including while suspended."
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Whole 24-hour days remaining, rounded down (D14); null without current coverage, including while suspended."
+          },
+          "futurePeriods" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SubscriptionPurchasedPeriod"
+            }
+          },
+          "periods" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SubscriptionPurchasedPeriod"
+            }
+          },
+          "eligibility" : {
+            "$ref" : "#/components/schemas/SubscriptionRequestEligibility"
+          }
+        },
+        "required" : [ "currentPeriod", "currentPrices", "daysRemaining", "eligibility", "entitlementStatus", "farmId", "farmName", "futurePeriods", "latestEnd", "pendingPayment", "periods", "renewalOpensAt", "serviceStatus", "suspended", "suspendedSince" ]
+      },
+      "SubscriptionPurchasedPeriod" : {
+        "type" : "object",
+        "properties" : {
+          "paymentCode" : {
+            "type" : "string"
+          },
+          "durationYears" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "amountVnd" : {
+            "type" : "number"
+          },
+          "start" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "end" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "CURRENT", "FUTURE", "PAST" ]
+          }
+        }
+      },
+      "SubscriptionRequestEligibility" : {
+        "type" : "object",
+        "properties" : {
+          "ok" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "enum" : [ "SUSPENDED", "PRICE_UNAVAILABLE", "OUTSIDE_WINDOW" ]
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "opensAt" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "date-time"
+            }, {
+              "type" : "null"
+            } ]
           }
         }
       },
@@ -20548,13 +20681,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
+          "headerName" : {
+            "type" : "string"
+          },
           "token" : {
             "type" : "string"
           },
           "parameterName" : {
-            "type" : "string"
-          },
-          "headerName" : {
             "type" : "string"
           }
         }

@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
+import { backendMode } from '../../../api/backendTransport'
 import { Icon } from '../../../components/Icon'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
@@ -7,22 +8,22 @@ import { Facts, ICON_BTN, ServiceBadge, type Fact } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
 import { useFarmScope } from '../components/useFarmScope'
-import { fmtDate, fmtEndDay, fmtPeriod, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
+import { fmtDate, fmtPeriod, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
 import type { PeriodStatus, SubscriptionOverview } from '../types'
 import { useOverview } from './useOverview'
 
 const TITLE = 'Gói dịch vụ của trại'
-const PERIOD_BADGE: Record<PeriodStatus, ['ok' | 'info' | 'outline', string]> = { CURRENT: ['ok', 'Hiện tại'], FUTURE: ['info', 'Sắp tới'], PAST: ['outline', 'Đã qua'] }
+const PERIOD_BADGE: Record<PeriodStatus, ['ok' | 'info' | 'outline', string]> = { CURRENT: ['ok', 'Hiện tại'], FUTURE: ['info', 'Tương lai'], PAST: ['outline', 'Đã qua'] }
 
 function ServiceFacts({ o, openHref }: { o: SubscriptionOverview; openHref: string }) {
   const price = o.currentPrices
   const items: Fact[] = [
-    ['Kỳ hiện tại', o.currentPeriod ? fmtPeriod(o.currentPeriod.start, o.currentPeriod.end) : 'Chưa có'],
+    ['Kỳ hiện tại', o.currentPeriod ? fmtPeriod(o.currentPeriod.start, o.currentPeriod.end) : '—'],
     ['Còn lại', o.daysRemaining !== null ? `${o.daysRemaining} ngày` : '—'],
-    ['Ngày kết thúc đã xác nhận', o.latestEnd ? fmtEndDay(o.latestEnd) : '—'],
+    ['Ngày kết thúc đã xác nhận', o.latestEnd ? fmtDate(o.latestEnd) : '—'],
     ['Mở gia hạn từ', o.renewalOpensAt ? fmtDate(o.renewalOpensAt) : '—'],
     ['Tạm ngưng', o.suspended ? `Có (từ ${o.suspendedSince ? fmtDate(o.suspendedSince) : '—'})` : 'Không', o.suspended ? 'warn' : undefined],
-    ['Yêu cầu đang chờ', o.pendingPayment ? <span key="p">{o.pendingPayment.quoteRef} · <Link className="font-semibold text-brand" to={openHref}>Mở hướng dẫn</Link></span> : 'Không'],
+    ['Yêu cầu đang chờ', o.pendingPayment ? <span key="p">{o.pendingPayment.quoteRef} · <Link className="font-semibold text-brand" to={openHref}>Mở hướng dẫn</Link></span> : '—'],
     ['Bảng giá hiện hành', price ? `${versionLabel(price.id)} · từ ${fmtDate(price.effectiveAt)}` : 'Chưa khả dụng'],
     ['Kỳ tương lai', o.futurePeriods.length ? o.futurePeriods.map((p) => fmtPeriod(p.start, p.end)).join(', ') : '—'],
   ]
@@ -42,9 +43,9 @@ export default function SubscriptionHomePage() {
   const elig = data.eligibility
   const periods = [...data.periods].sort((a, b) => toMs(b.start) - toMs(a.start))
   const notice = !elig.ok && elig.reason === 'SUSPENDED'
-    ? <Note tone="warn">{data.farmName} đang tạm ngưng dịch vụ. Hiện chưa thể tạo yêu cầu thanh toán; hãy gửi yêu cầu hỗ trợ.</Note>
+    ? <Note tone="warn">{data.farmName} đang tạm ngưng dịch vụ. Hiện chưa thể tạo yêu cầu thanh toán. <Link className="font-semibold underline" to={to('/ho-tro')}>Gửi yêu cầu hỗ trợ</Link></Note>
     : !elig.ok && elig.reason === 'OUTSIDE_WINDOW'
-      ? <Note tone="info">Gia hạn mở từ {fmtDate(elig.opensAt)}, trước ngày kết thúc đã xác nhận {data.latestEnd ? fmtEndDay(data.latestEnd) : ''} 90 ngày.</Note>
+      ? <Note tone="info">Gia hạn mở từ {fmtDate(elig.opensAt)}, trước ngày kết thúc đã xác nhận {data.latestEnd ? fmtDate(data.latestEnd) : ''} 90 ngày.</Note>
       : null
 
   return (
@@ -52,11 +53,11 @@ export default function SubscriptionHomePage() {
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} sub={data.farmName}>
           <Button className={ICON_BTN} onClick={() => navigate(to('/goi-dich-vu/lich-su'))}><Icon name="history" size={16} /> Lịch sử thanh toán</Button>
-          <Button variant="primary" disabled={!elig.ok} onClick={() => navigate(to('/goi-dich-vu/gia-han'))}>{first ? 'Thanh toán để kích hoạt' : 'Gia hạn gói'}</Button>
+          <Button variant="primary" disabled={!elig.ok} onClick={() => navigate(to(first ? '/dang-ky-goi' : '/goi-dich-vu/gia-han'))}>{first ? 'Thanh toán để kích hoạt' : 'Gia hạn gói'}</Button>
         </PageHeader>
         {notice}
         <Card title="Trạng thái dịch vụ" actions={<ServiceBadge status={data.serviceStatus} />}>
-          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${data.pendingPayment?.quoteRef ?? ''}`, { from: 'subscription' })} />
+          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? data.pendingPayment?.id ?? '' : data.pendingPayment?.quoteRef ?? ''}`, { from: 'subscription' })} />
         </Card>
         <Card title="Bảng giá gói BeefCare">
           {data.currentPrices ? (

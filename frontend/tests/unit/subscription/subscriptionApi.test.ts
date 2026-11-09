@@ -142,10 +142,13 @@ describe('subscriptionApi (store demo)', () => {
     expect((await rejects(api.getPayment(1, 'KHONGCO'))).code).toBe('NOT_FOUND')
   })
 
-  it('chế độ backend từ chối và không chạm store', async () => {
+  it('backend không dùng store khi API lỗi; lệnh tạo yêu cầu chưa tích hợp vẫn bị chặn', async () => {
     const store = { getOverview: vi.fn(), createPayment: vi.fn(), now: vi.fn() }
-    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: transport(), store: store as never })
-    await expect(api.getOverview(1)).rejects.toThrow(/Chưa tích hợp/)
+    const http = transport()
+    const unavailable = new Error('API unavailable')
+    http.get.mockRejectedValue(unavailable)
+    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: http, store: store as never })
+    await expect(api.getOverview(1)).rejects.toBe(unavailable)
     await expect(api.createPayment(1, { durationYears: 1 })).rejects.toThrow()
     expect(store.getOverview).not.toHaveBeenCalled()
     expect(store.createPayment).not.toHaveBeenCalled()

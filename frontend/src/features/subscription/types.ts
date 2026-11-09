@@ -25,14 +25,18 @@ export interface PaymentDTO {
   purchasedEnd?: string | null // cuối kỳ, nửa mở [start, end)
   receiptCode?: string | null
   priceVersionId: number
-  bankCode: string
-  accountNumber: string
-  accountName: string
+  bankCode: string | null
+  accountNumber: string | null
+  accountName: string | null
   qrImageUrl?: string | null
 }
 
 /** Mốc thời gian chi tiết (giây) cho màn "Chi tiết thanh toán": chưa có trong PaymentDTO. */
-export interface Payment extends PaymentDTO {
+export interface Payment extends Omit<PaymentDTO, 'bankCode' | 'accountNumber' | 'accountName'> {
+  // Missing legacy bank snapshots are empty for presentation; never replaced with a demo receiving account.
+  bankCode: string
+  accountNumber: string
+  accountName: string
   bankPaidAt?: string | null
   receivedAt?: string | null
   confirmedAt?: string | null
@@ -61,7 +65,7 @@ export interface SubscriptionOverview {
   currentPrices: PriceDTO | null
   pendingPayment: Payment | null
   renewalOpensAt: string | null
-  // Phần dưới chưa có trong SubscriptionOverview của openapi
+  // SCR-57: returned by the Owner subscription overview endpoint.
   farmName: string
   suspended: boolean
   suspendedSince: string | null
