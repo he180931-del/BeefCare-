@@ -19,8 +19,28 @@ export interface CattleEvent {
   badge: StatusChip
   detail: string
   meta: string
+  /** FE-16 record status; absent = VALID. REVISION is the original value of a corrected record (shown with "Hiện chỉnh sửa"). */
+  status?: 'VALID' | 'CORRECTED' | 'EXCLUDED' | 'VOIDED' | 'REVISION'
+  /** "Đã sửa" / "Đã loại" / "Đã hủy" tag (SCR-50 #6). */
+  marker?: string
+  /** Reason of a correction, exclusion or void. */
+  reason?: string
+  /** Basis tag: Đo / Ước tính / Lịch sử / Tại trại (SCR-50 #5). */
+  basis?: string
+  /** Profile tab that holds the source record (R-16-06); '' is the overview tab. */
+  tab?: string
+  /** Entry / exit voucher of the event when the viewer may open it (Technician gets none). */
+  voucher?: { kind: 'entry' | 'exit'; code: string }
+  /** Care / reproduction record that the source tab can correct or void (R-16-07). */
+  correctable?: boolean
+  /** True when canOpen / canCorrect came from the backend (A1), which already applied the viewer's role. */
+  accessFromBackend?: boolean
+  /** The viewer may not open the source record: "Xem chi tiết" answers MSG-FE16-01 (R-16-06). */
+  openDenied?: boolean
+  /** Id of the source record, passed to the source tab as ?r= to open its correction popup. */
+  sourceId?: number
 }
-export interface QrHistoryRow { code: string; status: string; from: string; to: string; reason: string; by: string }
+export interface QrHistoryRow { code: string; status: string; from: string; to: string; reason: string; by: string; note?: string }
 export interface BarnHistoryRow { from: string; to: string; barn: string; reason: string; by: string }
 export type ImportRecordField = [key: string, label: string, current: string, next: string]
 export interface ImportRecord { plan: string; date: string; by: string; onlyImportEvents?: boolean; fields: ImportRecordField[] }
@@ -136,6 +156,11 @@ export interface Pen {
   sex?: string
   tag?: string
   version?: string
+  /** Backend optimistic-lock version of the pen (sent back as expectedVersion). */
+  lockVersion?: number
+  /** Current reception-criteria version (SCR-17 field 12). */
+  criteriaVersionNo?: number
+  criteriaEffectiveFrom?: string
   desc?: string
   /** Reception constraints returned by the backend pen catalogue. */
   receptionCriteria?: {

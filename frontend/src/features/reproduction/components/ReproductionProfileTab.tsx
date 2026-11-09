@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, Foot, KV, Note } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
 import { backendMode } from '../../../api/backendTransport'
@@ -111,10 +111,17 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only a Manager gets it.
   const modalAction = modal ? ACTION_FOR_MODAL[modal] : undefined
   const dialog: ReproductionDialogTarget | null = localDialog ?? (canManage && modalAction ? { mode: 'record', action: modalAction } : null)
+  const [params, setParams] = useSearchParams()
   const setDialog = (next: ReproductionDialogTarget | null) => {
     setLocalDialog(next && next.mode !== 'record' ? next : null)
     if (next?.mode === 'record') openModal(MODAL_FOR_ACTION[next.action])
-    else if (!next && modal) closeModal()
+    else if (!next && params.has('r')) {
+      // Opened from the timeline (?m=correct|void&r=<id>): clear both so the dialog does not reopen.
+      const rest = new URLSearchParams(params)
+      rest.delete('m')
+      rest.delete('r')
+      setParams(rest)
+    } else if (!next && modal) closeModal()
   }
 
   const refresh = async () => {
@@ -124,6 +131,18 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
     finally { setLoading(false) }
   }
   useEffect(() => { void refresh() }, [cattleCode])
+
+  // FE-16 R-16-07: the timeline opens ?tab=repro&m=correct|void&r=<record id>; same convention as the growth and
+  // vaccination tabs. Only a Manager gets the dialog; an unknown id opens nothing.
+  useEffect(() => {
+    const action = params.get('m')
+    const id = params.get('r')
+    if (!profile || !canManage || localDialog || !id || (action !== 'correct' && action !== 'void')) return
+    const event = profile.events.find((item) => String(item.id) === id)
+    if (!event) return
+    const calving = event.type === 'CALVING' ? profile.calvings.find((item) => item.id === event.id) : undefined
+    setLocalDialog({ mode: 'revise', record: calving ? { kind: 'calving', calving } : { kind: 'event', event }, action })
+  }, [profile, canManage, params])
 
   const run = (action: ReproductionAction) => {
     if (action === 'RECORD_CALVING') navigate(`/cattle/${encodeURIComponent(cattleCode)}/sinh-san/de`)

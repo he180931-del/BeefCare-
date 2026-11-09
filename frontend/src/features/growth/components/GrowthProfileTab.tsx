@@ -38,7 +38,10 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
     setParams(next)
   }
   const saved = (message: string) => { setNotice(message); closeAll(); refetch() }
-  const correctTarget = modal === 'correct' ? (data.records.find((r) => String(r.id) === params.get('r')) ?? data.records.find((r) => r.status === 'VALID')) : undefined
+  // With ?r= (e.g. opened from the timeline) only that record opens; never fall back to another one.
+  const correctTarget = modal === 'correct'
+    ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
+    : undefined
 
   return (
     <div className="flex flex-col gap-4">
