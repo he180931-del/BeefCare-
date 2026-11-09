@@ -29,7 +29,12 @@ describe('backend cattle QR reissue', () => {
     const cow = { ...initialCows[0], backendId: 42, backendVersion: 7 }
     render(<QrReissueModal cow={cow} onClose={() => undefined} onSaved={onSaved} />)
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Xác nhận cấp thẻ mới' }))
+    const user = userEvent.setup()
+    // R-05-12: thay thẻ phải chọn lý do; không có lý do mặc định.
+    await user.click(screen.getByRole('button', { name: 'Xác nhận thẻ mới' }))
+    expect(screen.getByText('Vui lòng chọn Lý do thay.')).toBeInTheDocument()
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Lý do thay thẻ' }), 'LOST')
+    await user.click(screen.getByRole('button', { name: 'Xác nhận thẻ mới' }))
     await waitFor(() => expect(screen.getByDisplayValue('QR-BACKEND-NEW')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'In thẻ thử' })).toBeEnabled()
     expect(onSaved).not.toHaveBeenCalled()

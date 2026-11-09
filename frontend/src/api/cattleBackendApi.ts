@@ -1,6 +1,7 @@
 import type { BackendTransport } from './backendTransport'
 import type { CattleEvent, CattleStatus, CattleCare, Pen, QrHistoryRow, BarnHistoryRow, StatusChip, Tone } from '../types'
 import type { CowSeed } from '../data/cowsData'
+import { mapTimeline, type BackendTimeline } from './cattleTimeline'
 
 type BackendProfile = {
   id?: number
@@ -45,12 +46,13 @@ type BackendProfile = {
   photoUrl?: string | null
   damId?: number | null
   sireId?: number | null
+  damCode?: string | null
+  sireCode?: string | null
   externalSireCode?: string | null
 }
 
 type BackendList = { items?: BackendProfile[]; total?: number; page?: number; size?: number; counts?: Record<string, number> }
-type BackendQrTag = { id?: number; tagCode?: string; status?: string; displayCode?: string; issuedAt?: string; endedAt?: string | null; reason?: string | null; version?: number }
-type BackendTimeline = { category?: string; type?: string; sourceId?: number | null; occurredAt?: string | null; recordedAt?: string | null; recorder?: string | null; status?: string | null; values?: Record<string, unknown> | null }
+type BackendQrTag = { id?: number; tagCode?: string; status?: string; displayCode?: string; issuedAt?: string; endedAt?: string | null; reason?: string | null; version?: number; issuedByName?: string | null; note?: string | null }
 type BackendPurpose = { id?: number; code?: string; name?: string; purposeType?: string; available?: boolean }
 type BackendPen = { id?: number; code?: string; name?: string; capacity?: number; headcount?: number; status?: string; freePlaces?: number; acceptsSummary?: string; currentCriteria?: { purposeTypes?: string[]; lifeStages?: string[]; sex?: string; minAgeMonths?: number; minWeightKg?: number } | null }
 type BackendPenHistory = {
@@ -85,11 +87,18 @@ export type ProfileUpdateCommand = {
   acknowledgedReproductionChange?: boolean
 }
 export type QrIssueCommand = { reason?: 'LOST' | 'DAMAGED' | 'OTHER'; tagCode?: string; note?: string; cattleVersion: number }
+export type ResolvedCode = { cattle: CowSeed | null; switchFarmRequired: boolean; farmId: number | null; replacedTag: boolean; currentTagCode: string | null; replacedAt: string | null }
 export type PenMoveCheckCommand = { cattleId: number; toPenId: number; moveDate: string }
 export type PenMoveCheck = {
   blocked?: boolean
   block?: { code?: string; text?: string; message?: string } | null
-  cattle?: Array<{ error?: { code?: string; text?: string; message?: string } | null; warningReasonRequired?: boolean; warning?: { code?: string; text?: string; message?: string } | null }>
+  cattle?: Array<{
+    error?: { code?: string; text?: string; message?: string; params?: Record<string, unknown> } | null
+    warningReasonRequired?: boolean
+    warning?: { code?: string; text?: string; message?: string } | null
+    /** One row per reception criterion (PenMoveCheckDTO.CattleCheck.results). */
+    results?: Array<{ criterion?: string; outcome?: 'MET' | 'NOT_MET' | 'NOT_APPLICABLE'; expected?: string | null; actual?: string | null }>
+  }>
 }
 export type PenMoveCommand = { cattleId: number; toPenId: number; moveDate: string; reason: string; warningReason?: string; cattleVersion?: number }
 
@@ -128,9 +137,11 @@ const combinedHealth = (state: unknown, withdrawal: boolean): StatusChip | null 
   if (!health) return { label: 'Ngưng sử dụng thịt', tone: 'warn' }
   return withdrawal ? { label: `${health.label} · Ngưng sử dụng thịt`, tone: 'warn' } : health
 }
+/** SCR-19 #9: exact date; "~date (ước tính)"; "Không rõ" (and no age) when unknown. */
 const birthLabel = (birthDate: string | null | undefined, accuracy: string | null | undefined): string => {
+  if (accuracy === 'UNKNOWN' || !birthDate) return 'Không rõ'
   const date = dateLabel(birthDate)
-  return accuracy === 'ESTIMATED' ? `${date} · ước tính` : accuracy === 'UNKNOWN' ? `${date} · chưa rõ` : date
+  return accuracy === 'ESTIMATED' ? `~${date} (ước tính)` : date
 }
 export const calculateAge = (birthDate: string | null | undefined, asOfDate = new Date().toISOString().slice(0, 10)): { short: string; long: string; months: number } => {
   if (!birthDate) return { short: '—', long: '—', months: 0 }
@@ -150,31 +161,38 @@ function exitLabel(profile: BackendProfile): string | undefined {
   return `Đã xuất · ${type[text(profile.exitType)] || text(profile.exitType, 'Khác')} · ${dateLabel(profile.exitDate)}`
 }
 
-const timelineCategory = (category: unknown): CattleEvent['cat'] => ({
-  IDENTIFICATION_QR: 'qr', ENTRY_EXIT: 'entryExit', PEN: 'barn', PURPOSE_STAGE: 'stage', GROWTH: 'weight', VACCINATION: 'vaccine', HEALTH: 'health', REPRODUCTION: 'repro',
-} as Record<string, CattleEvent['cat']>)[text(category)] || 'health'
-const timelineTitle = (type: unknown): string => ({
-  HERD_ENTRY: 'Herd entry', HERD_EXIT: 'Herd exit', PEN_ASSIGNMENT: 'Pen assignment', QR_ISSUED: 'QR issued', PROFILE_CHANGE: 'Profile change',
-  GROWTH_ASSESSMENT: 'Growth assessment', VACCINATION_RECORD: 'Vaccination', HEALTH_OBSERVATION: 'Health observation', TREATMENT: 'Treatment',
-} as Record<string, string>)[text(type)] || text(type, 'Backend event')
+// The backend stores the replacement reason on the tag that was replaced; a tag that replaced none was the first issue.
+const REPLACEMENT_LABELS: Record<string, string> = { LOST: 'Mất', DAMAGED: 'Hỏng', OTHER: 'Khác' }
 const mapQrTag = (tag: BackendQrTag): QrHistoryRow => ({
-  code: text(tag.tagCode, '—'), status: text(tag.status, 'UNKNOWN'), from: dateLabel(tag.issuedAt?.slice(0, 10)), to: dateLabel(tag.endedAt?.slice(0, 10)), reason: text(tag.reason, 'Backend'), by: 'Backend',
+  code: text(tag.tagCode, '—'), status: text(tag.status, 'UNKNOWN'), from: dateLabel(tag.issuedAt?.slice(0, 10)), to: dateLabel(tag.endedAt?.slice(0, 10)),
+  reason: tag.reason ? REPLACEMENT_LABELS[tag.reason] ?? tag.reason : '—', by: text(tag.issuedByName, '—'), note: text(tag.note),
 })
-const mapTimeline = (event: BackendTimeline, index: number): CattleEvent => {
-  const values = event.values || {}
-  const valueText = Object.entries(values).filter(([, value]) => value != null).map(([key, value]) => `${key}: ${String(value)}`).join(' · ')
-  return { id: `${event.sourceId ?? 'event'}-${index}`, at: text(event.occurredAt, event.recordedAt || ''), cat: timelineCategory(event.category), title: timelineTitle(event.type), badge: { label: text(event.status, 'Backend'), tone: event.status === 'VOIDED' ? 'grey' : 'info' }, detail: valueText || text(event.type, 'Backend event'), meta: `${dateLabel(event.occurredAt?.slice(0, 10))} · ${text(event.recorder, 'Backend')}` }
+/** SCR-21 #6: the issue reason of each tag is the replacement reason of the tag before it, or "Cấp lần đầu". */
+const withIssueReasons = (rows: QrHistoryRow[]): QrHistoryRow[] =>
+  rows.map((row, index) => ({ ...row, reason: index === rows.length - 1 ? 'Cấp lần đầu' : rows[index + 1].reason }))
+const ENTRY_SOURCE_LABELS: Record<string, string> = { EXTERNAL: 'Mua ngoài', FARM_BORN: 'Sinh tại trại' }
+/** SCR-19 #10: purchase shows date, seller, entry weight and basis, voucher code; farm-born shows the birth date. */
+const entrySourceLabel = (profile: BackendProfile): string => {
+  const entry = profile.entry
+  if (!entry?.source) return '—'
+  const label = ENTRY_SOURCE_LABELS[entry.source] ?? entry.source
+  if (entry.source === 'FARM_BORN') return `${label} · ${dateLabel(profile.birthDate)}`
+  const weight = entry.weightKg == null ? '' : `${entry.weightKg} kg${entry.weightBasis === 'ESTIMATED' ? ' (ước tính)' : ''}`
+  return [label, dateLabel(entry.entryDate), entry.seller, weight, entry.voucherCode].filter((part) => part && part !== '—').join(' · ')
 }
 
 export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPenHistory | null = null, qrTags: BackendQrTag[] = [], timeline: BackendTimeline[] = [], unavailable: { qr?: boolean; timeline?: boolean } = {}, asOfDate?: string): CowSeed {
   const code = text(profile.displayCode, `BC-${profile.id ?? ''}`)
-  const ages = calculateAge(profile.birthDate, asOfDate)
+  // TC-05-37: an estimated birth date gives "~" on the age; an unknown one gives no age at all.
+  const rawAges = profile.birthDateAccuracy === 'UNKNOWN' ? calculateAge(null, asOfDate) : calculateAge(profile.birthDate, asOfDate)
+  const estimated = profile.birthDateAccuracy === 'ESTIMATED' && rawAges.short !== '—'
+  const ages = estimated ? { ...rawAges, short: `~${rawAges.short}`, long: `~${rawAges.long}` } : rawAges
   const status = localStatus(profile.herdStatus)
   const current = penHistory?.current
   const history = (penHistory?.history ?? []).map((row): BarnHistoryRow => ({
     from: dateLabel(row.fromDate), to: dateLabel(row.toDate), barn: text(row.penCode, '—'), reason: text(row.reason, 'Phân chuồng'), by: text(row.recordedByName, '—'),
   }))
-  const qrHistory: QrHistoryRow[] = qrTags.map(mapQrTag)
+  const qrHistory: QrHistoryRow[] = withIssueReasons(qrTags.map(mapQrTag))
   const qrCode = qrHistory.find((tag) => tag.status === 'ACTIVE')?.code || qrHistory[0]?.code || '—'
   const weight = profile.latestWeightKg == null ? null : number(profile.latestWeightKg)
   const care: CattleCare = {
@@ -194,8 +212,12 @@ export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPen
     health: combinedHealth(profile.healthState, Boolean(profile.withdrawalActive)), repro: reproChip(profile.reproductiveStatus),
     headerBadges: [combinedHealth(profile.healthState, Boolean(profile.withdrawalActive)), groupChip(profile.herdGroup), reproChip(profile.reproductiveStatus)].filter(Boolean).map((chip) => [chip!.label, chip!.tone || 'grey']),
     qr: qrCode, qrHistory, barnHistory: history, barnSince: current ? dateLabel(current.since) : dateLabel(profile.penSince), purposeSince: dateLabel(profile.entry?.entryDate || profile.birthDate),
-    internalId: profile.id == null ? '—' : String(profile.id), birth: birthLabel(profile.birthDate, profile.birthDateAccuracy), source: text(profile.entry?.source, 'Backend'),
-    mother: profile.damId == null ? '—' : String(profile.damId), father: profile.sireId == null ? text(profile.externalSireCode, '—') : String(profile.sireId),
+    internalId: profile.id == null ? '—' : String(profile.id), birth: birthLabel(profile.birthDate, profile.birthDateAccuracy), source: entrySourceLabel(profile),
+    // GBR-23: never show internal ids; dam / sire are shown by display code, external sire code as text, else "Không rõ".
+    mother: text(profile.damCode, 'Không rõ'), father: text(profile.sireCode || profile.externalSireCode, 'Không rõ'),
+    damCode: profile.damCode ?? undefined, sireCode: profile.sireCode ?? undefined,
+    purposeType: text(profile.purposeType), sexCode: text(profile.sex), entryDate: profile.entry?.entryDate ?? undefined,
+    photoUrl: profile.photoUrl ?? undefined,
     description: text(profile.colourMarkings || profile.notes, '—'), birthDateAccuracy: text(profile.birthDateAccuracy), colourMarkings: text(profile.colourMarkings), notes: text(profile.notes), care, events, importRecord: null, exitStatusLabel: exitLabel(profile), backendId: profile.id, backendVersion: profile.version,
     canUpdate: profile.canUpdate === true, canChangePurpose: profile.canChangePurpose === true, qrUnavailable: unavailable.qr, timelineUnavailable: unavailable.timeline,
   }
@@ -234,6 +256,25 @@ export function createCattleBackendApi({ transport, farmId }: { transport: Backe
   const pens = async (): Promise<Pen[]> => rows<BackendPen>(await transport.get(transport.farmPath(farmId, '/pens')), 'pens').map(mapPen)
   const updateProfile = (cattleId: number, body: ProfileUpdateCommand) => transport.command(transport.farmPath(farmId, `/cattle/${cattleId}/profile`), body, { method: 'PUT' })
   const issueQr = (cattleId: number, body: QrIssueCommand) => transport.command(transport.farmPath(farmId, `/cattle/${cattleId}/qr-tags`), body, { method: 'POST' })
+  /** A4: JPG / PNG photo, multipart with the cattle version read when the popup opened. */
+  const uploadPhoto = (cattleId: number, file: File, cattleVersion: number) => {
+    const form = new FormData()
+    form.append('file', file)
+    return transport.command(transport.farmPath(farmId, `/cattle/${cattleId}/photo?expectedVersion=${cattleVersion}`), form, { method: 'POST' })
+  }
+  const removePhoto = (cattleId: number, cattleVersion: number) => transport.command(transport.farmPath(farmId, `/cattle/${cattleId}/photo?expectedVersion=${cattleVersion}`), undefined, { method: 'DELETE' })
+  /** A7 as returned by the backend: the cattle card, or a farm switch, or a domain error (MSG-FE05-09 / -10). */
+  const resolveCode = async (code: string): Promise<ResolvedCode> => {
+    const body = asRecord(await transport.get(`${root}/resolve?code=${encodeURIComponent(code)}`))
+    return {
+      cattle: body.cattle ? mapBackendCattle(body.cattle as BackendProfile) : null,
+      switchFarmRequired: body.switchFarmRequired === true,
+      farmId: typeof body.farmId === 'number' ? body.farmId : null,
+      replacedTag: body.replacedTag === true,
+      currentTagCode: typeof body.currentTagCode === 'string' ? body.currentTagCode : null,
+      replacedAt: typeof body.replacedAt === 'string' ? body.replacedAt : null,
+    }
+  }
   const checkPenMove = ({ cattleId, toPenId, moveDate }: PenMoveCheckCommand): Promise<PenMoveCheck> => transport.command(transport.farmPath(farmId, '/pen-moves/check'), { cattleIds: [cattleId], toPenId, moveDate }, { method: 'POST' }) as Promise<PenMoveCheck>
   const movePen = ({ cattleId, toPenId, moveDate, reason, warningReason, cattleVersion }: PenMoveCommand) => transport.command(transport.farmPath(farmId, '/pen-moves'), {
     cattleIds: [cattleId], toPenId, moveDate, reason, warningReasons: warningReason ? { [cattleId]: warningReason } : {},
@@ -252,5 +293,5 @@ export function createCattleBackendApi({ transport, farmId }: { transport: Backe
     ])
     return { cow: mapBackendCattle(body, history, rows<BackendQrTag>(tagResult.value, 'items'), rows<BackendTimeline>(timelineResult.value, 'items'), { qr: !tagResult.ok, timeline: !timelineResult.ok }), barns: barnRows }
   }
-  return { listPage, purposes, breeds, pens, profile, updateProfile, issueQr, checkPenMove, movePen }
+  return { listPage, purposes, breeds, pens, profile, updateProfile, issueQr, uploadPhoto, removePhoto, resolveCode, checkPenMove, movePen }
 }

@@ -50,7 +50,11 @@ describe('Cattle profile backend move pen flow', () => {
     expect(screen.getByRole('heading', { name: /Chuyển chuồng/ })).toBeInTheDocument()
     await user.selectOptions(screen.getAllByRole('combobox')[0], 'B1')
     await user.type(screen.getAllByRole('textbox')[1], 'Đủ điều kiện')
-    await user.click(screen.getByRole('button', { name: 'Xác nhận chuyển chuồng' }))
+    // R-04-05: khi có tiêu chí không đạt, lý do cảnh báo là trường riêng; thiếu thì chưa cho xác nhận.
+    const confirm = screen.getByRole('button', { name: 'Xác nhận chuyển chuồng' })
+    expect(confirm).toBeDisabled()
+    await user.type(await screen.findByRole('textbox', { name: 'Lý do cảnh báo' }), 'Chủ trại đồng ý ghép tạm')
+    await user.click(confirm)
 
     await waitFor(() => expect(requests.some((request) => request.path === '/api/farms/9/pen-moves')).toBe(true))
     const moveRequest = requests.find((request) => request.path === '/api/farms/9/pen-moves')
@@ -58,7 +62,7 @@ describe('Cattle profile backend move pen flow', () => {
     expect(checkRequest).toBeTruthy()
     expect(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves/check')).toBeLessThan(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves'))
     expect(JSON.parse(String(checkRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12 })
-    expect(JSON.parse(String(moveRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: new Date().toISOString().slice(0, 10), reason: 'Đủ điều kiện', warningReasons: { 42: 'Đủ điều kiện' }, cattleVersions: { 42: 7 } })
+    expect(JSON.parse(String(moveRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: new Date().toISOString().slice(0, 10), reason: 'Đủ điều kiện', warningReasons: { 42: 'Chủ trại đồng ý ghép tạm' }, cattleVersions: { 42: 7 } })
   })
 
   it('shows a backend blocking message and does not post the move', async () => {

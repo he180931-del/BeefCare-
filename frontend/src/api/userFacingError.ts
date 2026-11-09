@@ -53,7 +53,16 @@ const specificBackendMessage = (error: unknown): string | null => {
   if (code === 'MSG-FE04-03') return `Sức chứa phải là số nguyên tối thiểu ${params.min_capacity ?? 1}.`
   if (code === 'MSG-COM-05') return 'Thông tin chuồng đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
   if (code === 'MSG-FE04-06') return `Chuồng ${params.pen_code ?? ''} chưa phù hợp với tiêu chí: ${params.criteria ?? 'vui lòng kiểm tra lại thông tin'}.`
-  if (code === 'MSG-FE05-12') return 'Mục đích nuôi và giới tính không phù hợp. Vỗ béo/SIRE cần bò đực; BREEDING cần bò cái.'
+  if (code === 'MSG-FE05-12') {
+    // R-05-04: chỉ SIRE gắn với bò đực và BREEDING gắn với bò cái; Vỗ béo / Chưa xác định dùng cho cả hai giới.
+    const type = String(params.purpose_type ?? '')
+    const typeLabel = ({ SIRE: 'Đực giống', BREEDING: 'Sinh sản' } as Record<string, string>)[type] ?? type
+    const sex = type === 'SIRE' ? 'đực' : 'cái'
+    return `${params.purpose ?? 'Mục đích này'} là mục đích loại ${typeLabel || 'không phù hợp'}, chỉ dùng cho bò ${sex}. Hãy chọn mục đích Vỗ béo, Chưa xác định, hoặc mục đích phù hợp giới tính.`
+  }
+  if (code === 'MSG-FE05-02') return `Số tai ${params.ear_tag ?? ''} đã được dùng cho một bò đang nuôi của trại.`
+  if (code === 'MSG-FE05-03') return 'Chỉ Chủ trại mới đổi được mục đích sản xuất.'
+  if (code === 'MSG-FE12-08') return 'Mã thẻ này đã được dùng cho một thẻ khác. Hãy nhập mã khác hoặc để hệ thống tạo mã.'
   if (code === 'MSG-FE06-03') return 'Ngày nhập không được ở tương lai hoặc trước ngày sinh.'
   if (code === 'MSG-FE06-13') return `Số tiền thanh toán không được vượt quá ${params.amount ?? 0} đ.`
   const fields = [

@@ -2,7 +2,7 @@ import { createBackendClient } from './backendClient'
 
 export interface BackendTransport {
   get(path: string): Promise<unknown>
-  command(path: string, body: unknown, options?: { method?: string; key?: string }): Promise<unknown>
+  command(path: string, body: unknown, options?: { method?: string; key?: string; headers?: Record<string, string> }): Promise<unknown>
   farmPath(farmId: string | number, suffix?: string): string
 }
 

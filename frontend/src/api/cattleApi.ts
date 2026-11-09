@@ -46,6 +46,10 @@ type BackendMutationContext = {
   backendId?: number; backendVersion?: number; effectiveDate?: string; reason?: string
   currentProfile?: Partial<Pick<ProfileUpdateCommand, 'earTagNumber' | 'name' | 'colourMarkings' | 'notes' | 'productionPurposeId' | 'lifeStage'>>
 }
+const localToday = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
 const profileBody = (context: BackendMutationContext, overrides: Partial<ProfileUpdateCommand>): ProfileUpdateCommand => ({
   // ProfileUpdate is a full snapshot command. Never let an omitted field from
   // one tab turn into JSON null and erase a value changed in another tab.
@@ -55,19 +59,21 @@ const profileBody = (context: BackendMutationContext, overrides: Partial<Profile
   notes: context.currentProfile?.notes ?? '',
   productionPurposeId: context.currentProfile?.productionPurposeId,
   lifeStage: context.currentProfile?.lifeStage,
-  effectiveDate: context.effectiveDate || new Date().toISOString().slice(0, 10),
+  // Ngày theo giờ máy người dùng; toISOString() là UTC và lệch một ngày vào buổi sáng ở Việt Nam.
+  effectiveDate: context.effectiveDate || localToday(),
   reason: context.reason || 'Cập nhật hồ sơ',
   expectedVersion: context.backendVersion as number,
   acknowledgedReproductionChange: false,
   ...overrides,
 })
 
-export const updateIdentity = async (code: string, { name, tag, description }: { name: string; tag?: string; description?: string }, context: BackendMutationContext = {}) => {
+export const updateIdentity = async (code: string, { name, tag, description, notes }: { name: string; tag?: string; description?: string; notes?: string }, context: BackendMutationContext = {}) => {
   if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
     return backendApi.updateProfile(context.backendId, profileBody({ ...context, reason: context.reason || 'Cập nhật định danh và mô tả' }, {
       name,
       earTagNumber: tag ?? context.currentProfile?.earTagNumber ?? '',
       colourMarkings: description ?? context.currentProfile?.colourMarkings ?? '',
+      notes: notes ?? context.currentProfile?.notes ?? '',
     }))
   }
   await getActiveCow(code)
@@ -107,15 +113,34 @@ export async function moveBarn(code: string, { to, date, reason, by }: { to: str
   })
 }
 
+/** A4: replace or remove the cattle photo (backend only; the local demo keeps the placeholder). */
+export const uploadCattlePhoto = (context: BackendMutationContext, file: File) =>
+  backendMode === 'backend' && context.backendId != null && context.backendVersion != null
+    ? backendApi.uploadPhoto(context.backendId, file, context.backendVersion)
+    : Promise.resolve(null)
+export const removeCattlePhoto = (context: BackendMutationContext) =>
+  backendMode === 'backend' && context.backendId != null && context.backendVersion != null
+    ? backendApi.removePhoto(context.backendId, context.backendVersion)
+    : Promise.resolve(null)
+export const resolveScannedCode = (code: string) => backendApi.resolveCode(code)
+
 export const checkPenMove = (code: string, { date, toPenId }: { date: string; toPenId: number }, context: { backendId?: number } = {}): Promise<PenMoveCheck | null> => {
   if (backendMode === 'backend' && context.backendId != null) return backendApi.checkPenMove({ cattleId: context.backendId, toPenId, moveDate: date })
   return Promise.resolve(null)
 }
 
-export async function reissueQr(code: string, { reason, note, by }: { reason: string; note: string; by: string }, context: BackendMutationContext = {}) {
+export async function reissueQr(code: string, { reason, note, by, tagCode }: { reason: string; note: string; by: string; tagCode?: string }, context: BackendMutationContext = {}) {
   if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
-    const replacementReason = reason === 'Thẻ bị mất' ? 'LOST' : reason === 'Thẻ bị hỏng' ? 'DAMAGED' : 'OTHER'
-    return backendApi.issueQr(context.backendId, { reason: replacementReason, note, cattleVersion: context.backendVersion })
+    // Cấp lần đầu không gửi lý do (UC-04 AF1); thay thẻ gửi LOST / DAMAGED / OTHER.
+    const replacementReason = ['LOST', 'DAMAGED', 'OTHER'].includes(reason)
+      ? reason as 'LOST' | 'DAMAGED' | 'OTHER'
+      : reason === 'Thẻ bị mất' ? 'LOST' : reason === 'Thẻ bị hỏng' ? 'DAMAGED' : reason ? 'OTHER' : undefined
+    return backendApi.issueQr(context.backendId, {
+      ...(replacementReason ? { reason: replacementReason } : {}),
+      ...(tagCode?.trim() ? { tagCode: tagCode.trim() } : {}),
+      ...(note ? { note } : {}),
+      cattleVersion: context.backendVersion,
+    })
   }
   const cow = await getActiveCow(code)
   const newCode = newQrCode({ code: cow.code, qrHistory: cow.qrHistory ?? [] })

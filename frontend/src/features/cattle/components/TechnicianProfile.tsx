@@ -1,4 +1,5 @@
 import { useParams, useSearchParams } from 'react-router-dom'
+import { timelineGroups } from './TimelineTab'
 import TechnicianLayout from '../../../components/TechnicianLayout'
 import { ErrorBlock, LoadingBlock } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
@@ -20,10 +21,9 @@ const TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['health', 'Sức khỏe', 'stethoscope'],
   ['repro', 'Sinh sản', 'dna'],
 ]
-const CAT_LABEL: Record<string, string> = { qr: 'Định danh & QR', stage: 'Giai đoạn', barn: 'Chuồng', weight: 'Cân', vaccine: 'Tiêm phòng', health: 'Sức khỏe', repro: 'Khám thai', entryExit: 'Nhập / xuất' }
+const CAT_LABEL: Record<string, string> = { qr: 'Định danh & QR', stage: 'Giai đoạn', barn: 'Chuồng', weight: 'Cân', vaccine: 'Tiêm phòng', health: 'Sức khỏe', repro: 'Sinh sản', entryExit: 'Nhập / xuất' }
 
 const eventTime = (at: string) => `${at.slice(8, 10)}/${at.slice(5, 7)}${at.length > 10 ? ` ${at.slice(11, 16)}` : ''}`
-const recorder = (e: CattleEvent) => e.meta.split(' · ').at(-1) ?? ''
 
 function Overview({ cow }: { cow: CowSeed }) {
   const cur = cow.qrHistory.find((q) => q.status === 'ACTIVE') || cow.qrHistory[0]
@@ -50,27 +50,29 @@ function Overview({ cow }: { cow: CowSeed }) {
   )
 }
 
+/** Same rules as SCR-50 (TimelineTab): newest first, grouped by month, corrections hidden (Technician has no toggle). */
 function Timeline({ cow }: { cow: CowSeed }) {
-  const events = [...cow.events].sort((a, b) => (a.at < b.at ? 1 : -1))
-  if (events.length === 0) return <p className="m-0 text-xs text-muted">Chưa có sự kiện nào.</p>
-  let month = ''
+  const groups = timelineGroups(cow.events, 'all', false)
+  if (groups.length === 0) return <p className="m-0 text-xs text-muted">Chưa có sự kiện</p>
   return (
     <>
-      {events.map((e) => {
-        const label = `THÁNG ${Number(e.at.slice(5, 7))} / ${e.at.slice(0, 4)}`
-        const heading = label !== month ? <div className="text-[10px] font-semibold text-brand">{label}</div> : null
-        month = label
-        return (
-          <div key={e.id} className="flex flex-col gap-3">
-            {heading}
-            <div className="flex flex-col gap-1.5 rounded-lg border border-edge bg-white p-[15px] leading-[normal]">
-              <div className="flex items-center gap-2"><span className="text-[11px] font-semibold text-muted">{eventTime(e.at)}</span><Chip>{CAT_LABEL[e.cat] ?? e.cat}</Chip></div>
+      {groups.map((g) => (
+        <div key={g.label} className="flex flex-col gap-3">
+          <div className="text-[10px] font-semibold text-brand">{g.label}</div>
+          {g.items.map((e) => (
+            <div key={e.id} className="flex flex-col gap-1.5 rounded-lg border border-edge bg-white p-[15px] leading-[normal]">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-semibold text-muted">{eventTime(e.at)}</span>
+                <Chip>{CAT_LABEL[e.cat] ?? e.cat}</Chip>
+                {e.marker && <Chip tone={e.status === 'CORRECTED' ? 'warn' : 'grey'}>{e.marker}</Chip>}
+              </div>
               <div className="text-[13px] font-semibold text-[#212121]">{e.title}</div>
-              <div className="text-[10px] text-muted">Ghi bởi {recorder(e)}</div>
+              {e.detail && <div className="text-[11px] text-[#212121]">{e.detail}</div>}
+              <div className="text-[10px] text-muted">{e.meta}</div>
             </div>
-          </div>
-        )
-      })}
+          ))}
+        </div>
+      ))}
     </>
   )
 }
