@@ -11355,6 +11355,10 @@
           "sourceReference" : {
             "type" : "string"
           },
+          "sourceEvidenceId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "state" : {
             "type" : "string"
           },

@@ -56,10 +56,38 @@ describe('financeBackendApi', () => {
     expect(http.command).toHaveBeenCalledWith('/api/platform/finance/records/42/post', { version: 3 })
   })
 
+  it('tìm recordCode qua các trang backend khi mã không nằm ở trang đầu', async () => {
+    const http = transport({
+      '/api/platform/finance/records?page=0&size=100': { content: [{ id: 1, recordCode: 'FR-0001' }], totalPages: 2 },
+      '/api/platform/finance/records?page=1&size=100': { content: [{ id: 142, recordCode: 'FR-0142', state: 'DRAFT', version: 1, type: 'EXPENSE', category: 'SOFTWARE', amountVnd: 1000, occurredOn: '2026-11-01', scope: 'GENERAL' }], totalPages: 2 },
+      '/api/platform/finance/records/142': { record: { id: 142, recordCode: 'FR-0142', state: 'DRAFT', version: 1, type: 'EXPENSE', category: 'SOFTWARE', amountVnd: 1000, occurredOn: '2026-11-01', scope: 'GENERAL' }, history: [] },
+    })
+    const api = createFinanceBackendApi(http)
+    await api.getRecord('FR-0142')
+    expect(http.get).toHaveBeenCalledWith('/api/platform/finance/records/142')
+  })
+
   it('gửi scope FARM và farmId số khi lọc theo trại', async () => {
     const http = transport({ '/api/platform/finance/records?scope=FARM&farmId=7&page=0&size=5': { content: [], totalElements: 0, number: 0, size: 5 } })
     const api = createFinanceBackendApi(http)
     await api.listRecords({ scope: '7', size: 5 })
     expect(http.get).toHaveBeenCalledWith('/api/platform/finance/records?scope=FARM&farmId=7&page=0&size=5')
+  })
+
+  it('đọc biên nhận theo paymentId rồi ghép đầy đủ chi tiết chỉ đọc', async () => {
+    const http = transport({
+      '/api/platform/finance/receipts?q=RC-26-0001&page=0&size=100': {
+        items: [{ paymentId: 77, receiptCode: 'RC-26-0001', paymentCode: 'PAY-77', farmId: 9, farmName: 'Trại A', termYears: 1, amount: '1200000', bankPaidAt: '2026-11-05T10:00:00Z' }],
+        total: 1, page: 0, size: 100,
+      },
+      '/api/platform/finance/receipts/77': {
+        receipt: { paymentId: 77, receiptCode: 'RC-26-0001', paymentCode: 'PAY-77', farmId: 9, farmName: 'Trại A', termYears: 1, amount: '1200000', bankPaidAt: '2026-11-05T10:00:00Z' },
+        paymentState: 'PAID', priceVersionId: 4, confirmedAt: '2026-11-05T10:01:00Z', confirmationSource: 'PM_ACCEPT', purchasedStart: '2026-11-05T00:00:00Z', purchasedEnd: '2027-11-04T23:59:59Z', evidenceId: 901, maskedTransactionId: '****0843',
+      },
+    })
+    const api = createFinanceBackendApi(http)
+    const receipt = await api.getReceipt('RC-26-0001')
+    expect(receipt).toMatchObject({ code: 'RC-26-0001', priceVersion: 'v4', confirmedBy: 'PM_ACCEPT', evidenceCode: 'E-901', periodStart: '2026-11-05T00:00:00Z' })
+    expect(http.get).toHaveBeenCalledWith('/api/platform/finance/receipts/77')
   })
 })

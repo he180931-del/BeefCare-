@@ -76,10 +76,16 @@ export function createFinanceBackendApi(transport: BackendTransport) {
   const getPage = async (path: string) => asRecord(await transport.get(path))
   const resolveRecordId = async (code: string): Promise<number> => {
     if (/^\d+$/.test(code)) return Number(code)
-    const page = await getPage(`${root}/records?page=0&size=100`)
-    const row = asRows(page.content).find((item) => textValue(item.recordCode) === code)
-    if (!row) throw new Error(`Không tìm thấy khoản thu chi ${code}.`)
-    return numberValue(row.id)
+    let pageNumber = 0
+    while (true) {
+      const page = await getPage(`${root}/records?page=${pageNumber}&size=100`)
+      const row = asRows(page.content).find((item) => textValue(item.recordCode) === code)
+      if (row) return numberValue(row.id)
+      const totalPages = numberValue(page.totalPages, pageNumber + 1)
+      if (pageNumber + 1 >= totalPages || asRows(page.content).length === 0) break
+      pageNumber += 1
+    }
+    throw new Error(`Không tìm thấy khoản thu chi ${code}.`)
   }
   const fields = (input: RecordFields) => ({ ...input, sourceType: input.sourceType === 'BANK' ? 'BANK_TRANSACTION' : 'MANUAL', farmId: input.scope === 'FARM' ? input.farmId : null })
   const recordCommand = (input: RecordFields, sourceEvidenceId?: number | null) => ({ fields: fields(input), sourceEvidenceId: sourceEvidenceId ?? input.sourceEvidenceId ?? null })

@@ -124,14 +124,14 @@ public class PlatformFinanceService {
             if (to != null) p.add(cb.lessThanOrEqualTo(root.get("occurredOn"), to));
             return cb.and(p.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
-        return records.findAll(filter, PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)), Sort.by(Sort.Direction.DESC, "occurredOn", "id"))).map(RecordDTO::from);
+        return records.findAll(filter, PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)), Sort.by(Sort.Direction.DESC, "occurredOn", "id"))).map(this::dto);
     }
 
     @Transactional(readOnly = true)
     public RecordDetail detail(Long id) {
         access.requireRole(PlatformRole.PM);
         ManualFinanceRecord record = records.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return new RecordDetail(RecordDTO.from(record), history.findAllByRecord_IdOrderByChangedAtAscIdAsc(id).stream().map(HistoryDTO::from).toList());
+        return new RecordDetail(dto(record), history.findAllByRecord_IdOrderByChangedAtAscIdAsc(id).stream().map(HistoryDTO::from).toList());
     }
 
     @Transactional(readOnly = true)
@@ -165,9 +165,9 @@ public class PlatformFinanceService {
         claimSource(record);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
-        writeHistory(record, actor, "CREATE", null, RecordDTO.from(record), null);
+        writeHistory(record, actor, "CREATE", null, dto(record), null);
         audit(actor, "FINANCE_DRAFT_CREATE", record, null, "DRAFT");
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -178,7 +178,7 @@ public class PlatformFinanceService {
         requireVersion(record, request.version());
         if (!"DRAFT".equalsIgnoreCase(record.getState())) throw DomainException.conflict(MessageCodes.COM_05);
         validate(request.fields(), request.sourceEvidenceId());
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         String oldReference = record.getSourceReference();
         applyFields(record, request.fields());
         resolveSource(record, request.sourceEvidenceId());
@@ -186,9 +186,9 @@ public class PlatformFinanceService {
         if (oldReference != null && !oldReference.equals(record.getSourceReference())) claims.findById(oldReference).ifPresent(claims::delete);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
-        writeHistory(record, actor, "EDIT", before, RecordDTO.from(record), null);
+        writeHistory(record, actor, "EDIT", before, dto(record), null);
         audit(actor, "FINANCE_DRAFT_EDIT", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -197,15 +197,15 @@ public class PlatformFinanceService {
         ManualFinanceRecord record = lock(id);
         requireVersion(record, request == null ? null : request.version());
         if (!"DRAFT".equalsIgnoreCase(record.getState())) throw DomainException.conflict(MessageCodes.COM_05);
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         record.setState("DISCARDED");
         record.setDiscardedAt(clock.now());
         record.setDiscardedBy(actor);
         records.saveAndFlush(record);
         claims.findFirstByRecord_Id(id).ifPresent(claims::delete);
-        writeHistory(record, actor, "DISCARD", before, RecordDTO.from(record), request.reason());
+        writeHistory(record, actor, "DISCARD", before, dto(record), request.reason());
         audit(actor, "FINANCE_DRAFT_DISCARD", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -220,15 +220,15 @@ public class PlatformFinanceService {
             ManualFinanceBankClaim claim = claims.findById(record.getSourceReference()).orElseThrow(() -> DomainException.conflict("MSG-FE21-08"));
             if (!claim.getRecord().getId().equals(record.getId())) throw DomainException.conflict("MSG-FE21-08");
         }
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         record.setState("POSTED");
         record.setPostedAt(clock.now());
         record.setPostedBy(actor);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
-        writeHistory(record, actor, "POST", before, RecordDTO.from(record), null);
+        writeHistory(record, actor, "POST", before, dto(record), null);
         audit(actor, "FINANCE_RECORD_POST", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -239,7 +239,7 @@ public class PlatformFinanceService {
         ManualFinanceRecord record = lock(id);
         requireVersion(record, request.version());
         if (!"POSTED".equalsIgnoreCase(record.getState())) throw DomainException.conflict(MessageCodes.COM_05);
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         record.setState("VOID");
         record.setVoidedAt(clock.now());
         record.setVoidedBy(actor);
@@ -247,9 +247,9 @@ public class PlatformFinanceService {
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
         claims.findFirstByRecord_Id(id).ifPresent(claims::delete);
-        writeHistory(record, actor, "VOID", before, RecordDTO.from(record), request.reason().trim());
+        writeHistory(record, actor, "VOID", before, dto(record), request.reason().trim());
         audit(actor, "FINANCE_RECORD_VOID", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -275,9 +275,9 @@ public class PlatformFinanceService {
         replacement.setReplacementRecord(old);
         validateFields(replacement);
         records.saveAndFlush(replacement);
-        writeHistory(replacement, actor, "REPLACEMENT_CREATE", null, RecordDTO.from(replacement), null);
+        writeHistory(replacement, actor, "REPLACEMENT_CREATE", null, dto(replacement), null);
         audit(actor, "FINANCE_REPLACEMENT_CREATE", replacement, null, "DRAFT");
-        return RecordDTO.from(replacement);
+        return dto(replacement);
     }
 
     @Transactional
@@ -527,6 +527,22 @@ public class PlatformFinanceService {
 
     private String json(Object value) { try { return mapper.writeValueAsString(value); } catch (Exception e) { throw new IllegalStateException("Could not serialize finance snapshot", e); } }
     public static String sourceReference(BankTransferEvidence e) { return e.getProvider() + ":" + e.getEnvironment() + ":" + e.getAccountNamespace() + ":" + e.getProviderTxnId(); }
+    /**
+     * The source evidence id is not stored on the manual record (the durable key is
+     * sourceReference), but FE21 needs the internal evidence id to edit a bank-backed
+     * draft. Resolve it server-side so reopening a draft cannot silently drop its source.
+     */
+    private RecordDTO dto(ManualFinanceRecord record) {
+        Long sourceEvidenceId = null;
+        if (StringUtils.hasText(record.getSourceReference())) {
+            sourceEvidenceId = evidence.findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc().stream()
+                .filter(item -> record.getSourceReference().equals(sourceReference(item)))
+                .map(BankTransferEvidence::getId)
+                .findFirst()
+                .orElse(null);
+        }
+        return RecordDTO.from(record, sourceEvidenceId);
+    }
     private static boolean inRange(LocalDate date, LocalDate from, LocalDate to) { return !date.isBefore(from) && !date.isAfter(to); }
     private void validateDateRange(LocalDate from, LocalDate to, boolean required) {
         if (from == null || to == null) { if (required) throw DomainException.required("dateFrom and dateTo"); return; }
@@ -544,11 +560,12 @@ public class PlatformFinanceService {
         String documentNumber, String description, String sourceType) {}
     public record RecordDTO(Long id, String recordCode, String type, String category, BigDecimal amountVnd, LocalDate occurredOn,
         String scope, Long farmId, String farmName, String documentNumber, String description, String sourceType,
-        String sourceReference, String state, Long version, Instant createdAt, String createdBy, Instant postedAt,
+        String sourceReference, Long sourceEvidenceId, String state, Long version, Instant createdAt, String createdBy, Instant postedAt,
         String postedBy, Instant voidedAt, String voidedBy, String voidReason, Long replacementRecordId) {
-        static RecordDTO from(ManualFinanceRecord r) { return new RecordDTO(r.getId(), r.getRecordCode(), r.getType(), r.getCategory(), r.getAmountVnd(),
+        static RecordDTO from(ManualFinanceRecord r) { return from(r, null); }
+        static RecordDTO from(ManualFinanceRecord r, Long sourceEvidenceId) { return new RecordDTO(r.getId(), r.getRecordCode(), r.getType(), r.getCategory(), r.getAmountVnd(),
             r.getOccurredOn(), r.getScope(), r.getFarm() == null ? null : r.getFarm().getId(), r.getFarm() == null ? null : r.getFarm().getName(),
-            r.getDocumentNumber(), r.getDescription(), r.getSourceType(), r.getSourceReference(), r.getState(), r.getVersion(), r.getCreatedAt(),
+            r.getDocumentNumber(), r.getDescription(), r.getSourceType(), r.getSourceReference(), sourceEvidenceId, r.getState(), r.getVersion(), r.getCreatedAt(),
             r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getPostedAt(), r.getPostedBy() == null ? null : r.getPostedBy().getFullName(),
             r.getVoidedAt(), r.getVoidedBy() == null ? null : r.getVoidedBy().getFullName(), r.getVoidReason(), r.getReplacementRecord() == null ? null : r.getReplacementRecord().getId()); }
     }
