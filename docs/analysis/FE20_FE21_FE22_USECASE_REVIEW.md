@@ -51,7 +51,8 @@ Ngày: 2026-11-09 (Asia/Ho_Chi_Minh)
 - Frontend focused adapters/notifications — **45 tests passed**; landing local contract — **11 tests passed**; `npm run test:api` — **100 tests passed**.
 - Backend package và workflow/domain — đạt với Byte Buddy agent trên Java 24.
 - Smoke thật trên `dev,local`: public landing HTTP 200; Owner/CS/PM/SA login và endpoint authorization đúng; ticket FE20 `TK-8751` đã round-trip API → PostgreSQL → API.
-- Còn thiếu bằng chứng tích hợp: fixture biên nhận PAID, mutation FE21 + SQL readback (đặc biệt bank evidence), stale-version/idempotency matrix trực tiếp, và mở/đọc XLSX bằng thư viện kiểm tra.
+- Smoke tích hợp FE21 manual record đã đạt: `FR-0002` tạo 201, SQL/API round-trip khớp, stale discard trả 409 và discard đúng version chuyển `DISCARDED`/version `2`.
+- Còn thiếu bằng chứng: fixture biên nhận PAID, bank-source mutation + SQL readback, idempotency replay trực tiếp cho mọi command, và mở/đọc XLSX bằng thư viện kiểm tra.
 
 ## Giới hạn phạm vi
 

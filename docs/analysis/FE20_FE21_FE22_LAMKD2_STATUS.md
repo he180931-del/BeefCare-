@@ -35,6 +35,6 @@ Ngày kiểm tra: 2026-11-09 (Asia/Ho_Chi_Minh)
 ## Còn cần kiểm tra ở môi trường tích hợp
 
 - Bổ sung fixture biên nhận PAID nếu database local chưa có payment/evidence tương ứng.
-- Bổ sung smoke mutation FE21 (manual record + bank-source evidence) và đọc lại SQL; adapter đã sửa `evidenceId` để không dùng nhầm provider transaction number.
-- Chạy kiểm tra stale-version/idempotency mutation FE21 trực tiếp trên DB nếu môi trường tích hợp có fixture an toàn.
+- Smoke mutation FE21 manual record đã đạt: tạo `FR-0002` (201), đọc lại API/SQL khớp amount `123456`, state `DRAFT`, version `1`; stale discard trả `409 MSG-COM-05`; discard đúng version trả `DISCARDED`, version `2`.
+- Cần thêm fixture bank-source/PAID và kiểm tra XLSX trực tiếp; adapter đã sửa `evidenceId` để không dùng nhầm provider transaction number.
 - Testcontainers hiện phụ thuộc Docker Desktop socket của máy; nếu runner trả HTTP 400 thì ghi nhận là lỗi môi trường, không chuyển sang mock nghiệp vụ.
