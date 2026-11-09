@@ -19316,6 +19316,7 @@
           },
           "entitlementStatus" : {
             "type" : "string",
+            "description" : "Coverage at read time: CURRENT when a PAID period covers now, FUTURE_ONLY when only later periods exist, NONE otherwise. Not the stored Subscription.entitlementStatus column (PENDING / ACTIVE / EXPIRED / PENDING_PAYMENT).",
             "enum" : [ "CURRENT", "FUTURE_ONLY", "NONE" ]
           },
           "currentPrices" : {
@@ -19365,11 +19366,11 @@
             "anyOf" : [ {
               "type" : "integer",
               "format" : "int64",
-              "description" : "Whole 24-hour days remaining, rounded down (D14); null without current coverage, including while suspended."
+              "description" : "Whole 24-hour days until the current period ends, rounded down, minimum 0 (D14). Null when no PAID period covers now; still counted while SUSPENDED."
             }, {
               "type" : "null"
             } ],
-            "description" : "Whole 24-hour days remaining, rounded down (D14); null without current coverage, including while suspended."
+            "description" : "Whole 24-hour days until the current period ends, rounded down, minimum 0 (D14). Null when no PAID period covers now; still counted while SUSPENDED."
           },
           "futurePeriods" : {
             "type" : "array",

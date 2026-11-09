@@ -258,7 +258,9 @@ public class SubscriptionPaymentService {
         @Schema(allowableValues = {"PENDING_PAYMENT", "ACTIVE", "EXPIRED", "SUSPENDED"})
         String serviceStatus,
         @Schema(nullable = true) Instant latestEnd,
-        @Schema(allowableValues = {"CURRENT", "FUTURE_ONLY", "NONE"})
+        @Schema(allowableValues = {"CURRENT", "FUTURE_ONLY", "NONE"}, description = "Coverage at read time: CURRENT when a PAID period " +
+            "covers now, FUTURE_ONLY when only later periods exist, NONE otherwise. Not the stored Subscription.entitlementStatus column " +
+            "(PENDING / ACTIVE / EXPIRED / PENDING_PAYMENT).")
         String entitlementStatus,
         @Schema(nullable = true) PriceDTO currentPrices,
         @Schema(nullable = true) PaymentDTO pendingPayment,
@@ -267,7 +269,8 @@ public class SubscriptionPaymentService {
         boolean suspended,
         @Schema(nullable = true) Instant suspendedSince,
         @Schema(nullable = true) PurchasedPeriod currentPeriod,
-        @Schema(nullable = true, description = "Whole 24-hour days remaining, rounded down (D14); null without current coverage, including while suspended.")
+        @Schema(nullable = true, description = "Whole 24-hour days until the current period ends, rounded down, minimum 0 (D14). " +
+            "Null when no PAID period covers now; still counted while SUSPENDED.")
         Long daysRemaining,
         List<PurchasedPeriod> futurePeriods,
         List<PurchasedPeriod> periods,
