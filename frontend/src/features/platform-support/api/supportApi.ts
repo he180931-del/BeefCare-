@@ -44,7 +44,8 @@ const mapTicket = (value: unknown): Ticket => {
   const row = asRecord(value)
   const context = (value: unknown) => asRows(value).map((c) => {
     const type = textValue(c.type); const id = numberValue(c.id)
-    return { type, id, label: textValue(c.label, type === 'FARM' ? `Trang trại #${id}` : `Tài khoản #${id}`) }
+    const fallback = type === 'FARM' ? `Trang trại #${id}` : type === 'SUBSCRIPTION' ? `Gói dịch vụ #${id}` : type === 'PAYMENT' ? `Thanh toán #${id}` : type === 'FINANCE_RECORD' ? `Khoản thu chi #${id}` : type === 'FINANCE_SNAPSHOT' ? `Bản chốt #${id}` : `Tài khoản #${id}`
+    return { type, id, label: textValue(c.label, fallback) }
   })
   const assignedId = row.assignedCsId == null ? null : numberValue(row.assignedCsId)
   const assignedAvailable = row.assignedCsAvailable !== false
