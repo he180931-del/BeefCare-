@@ -33,6 +33,10 @@ const withSession = (role: AppRole, path: string, element: React.ReactElement) =
 )
 
 describe('session from the backend profile', () => {
+  it('keeps the server account id for authorization checks', () => {
+    expect(sessionFromProfile({ id: 47, fullName: 'CS thật', email: 'cs@x', platformRole: 'CS', farms: [] })).toMatchObject({ id: 47, role: 'CS' })
+  })
+
   it('marks the in-memory session complete after owner registration succeeds', () => {
     expect(markOwnerRegistrationCompleted({ ...sessionFor('OWNER'), ownerRegistrationCompleted: false })).toMatchObject({ ownerRegistrationCompleted: true })
   })
@@ -131,9 +135,15 @@ describe('shell menu by role', () => {
   it('gives platform roles their own menu without a farm selector', () => {
     shell('PM')
     expect(screen.getByRole('link', { name: 'Bảng giá gói' })).toBeInTheDocument()
-    expect(screen.getByText('Platform Manager · PM')).toBeInTheDocument()
+    expect(screen.getByText('Quản lý nền tảng · PM')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Đàn bò' })).not.toBeInTheDocument()
     expect(screen.queryByText('Trại thử nghiệm')).not.toBeInTheDocument()
+  })
+
+  it('shows the CS role in Vietnamese', () => {
+    shell('CS')
+    expect(screen.getByText('Nhân viên hỗ trợ · CS')).toBeInTheDocument()
+    expect(screen.getByText('Nhân viên hỗ trợ')).toBeInTheDocument()
   })
 
   it('takes the display name and initials from the session', () => {

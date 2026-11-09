@@ -17,5 +17,5 @@ export const MOCK_LANDING = {
   features: DEFAULT_FEATURES.map(([title, description]) => ({ title, description })),
   faq: DEFAULT_FAQ.map(([question, answer]) => ({ question, answer })),
   prices: MOCK_PRICES,
-  contactEmail: 'tuanpqhe181869@fpt.edu.vn',
+  contactEmail: 'beefcare@gmail.com',
 }

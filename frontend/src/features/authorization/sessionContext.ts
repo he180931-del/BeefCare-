@@ -5,6 +5,8 @@ export type PlatformRole = 'CS' | 'PM' | 'SA'
 export type AppRole = FarmRole | PlatformRole
 
 export interface SessionUser {
+  /** ID tài khoản do backend cấp; dùng cho các kiểm tra quyền theo người được giao. */
+  id?: number
   role: AppRole
   fullName: string
   email: string

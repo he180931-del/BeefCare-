@@ -118,7 +118,7 @@ describe('guest authentication pages', () => {
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByRole('heading', { name: 'Tài khoản đang tạm ngưng' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'tuanpqhe181869@fpt.edu.vn' })).toHaveAttribute('href', 'mailto:tuanpqhe181869@fpt.edu.vn')
+    expect(screen.getByRole('link', { name: 'beefcare@gmail.com' })).toHaveAttribute('href', 'mailto:beefcare@gmail.com')
   })
 
   it('shows the suspended-account state instead of a generic session-check error', async () => {

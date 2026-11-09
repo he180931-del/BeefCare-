@@ -85,7 +85,7 @@ describe('profile page', () => {
     expect(await screen.findByText('Gói dịch vụ & thanh toán')).toBeInTheDocument()
     owner.unmount()
     renderAs('pm', '/nen-tang/ho-so', <PlatformProfilePage />)
-    expect(await screen.findByText('Platform Manager · PM')).toBeInTheDocument()
+    expect(await screen.findByText('Quản lý nền tảng · PM')).toBeInTheDocument()
     expect(screen.queryByText('Quyền của tôi trong trại này')).not.toBeInTheDocument()
   })
 })

@@ -22,6 +22,7 @@ export function sessionFromProfile(value: unknown): SessionUser {
   // Tài khoản mới chưa có trại vẫn là chủ trại đang hoàn tất đăng ký (SCR-07 → SCR-10).
   const role = (PLATFORM_ROLES.includes(platformRole) ? platformRole : FARM_ROLES.includes(farmRole) ? farmRole : 'OWNER') as AppRole
   return {
+    id: numberValue(row.id),
     role,
     fullName: textValue(row.fullName),
     email: textValue(row.email),
