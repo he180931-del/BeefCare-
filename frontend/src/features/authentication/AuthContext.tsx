@@ -1,11 +1,13 @@
-import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { useInRouterContext } from 'react-router-dom'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { BackendError } from '../../api/backendClient'
+import { notifySessionSignedOut, onSessionExpired, onSessionSignedOut } from '../../api/sessionLifecycle'
 import { userFacingError } from '../../api/userFacingError'
 import { defaultAuthClient } from './client'
 import { GuestAuthFlow } from './pages/GuestAuthFlow'
 import { clearSelectedFarmOnDevice } from '../farm-workspace/selectedFarm'
 import type { AuthClient } from './types'
+import { AUTH_PATH } from './domain/authErrors'
 
 export type { AuthClient } from './types'
 
@@ -30,6 +32,11 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
   const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated' | 'suspended'>('checking')
   const [error, setError] = useState<string | null>(null)
   const hasRouter = useInRouterContext()
+  const expireSession = useCallback(() => {
+    clearSelectedFarmOnDevice()
+    setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+    setStatus('anonymous')
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -54,8 +61,17 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     authenticated: status === 'authenticated',
     mode: client.mode ?? 'backend',
     logout: async () => {
-      await client.logout()
+      let logoutFailed = false
+      try {
+        await client.logout()
+      } catch {
+        logoutFailed = true
+      }
       clearSelectedFarmOnDevice()
+      setError(logoutFailed
+        ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa; bạn có thể đăng nhập lại.'
+        : null)
+      notifySessionSignedOut()
       setStatus('anonymous')
     },
   }), [client, status])
@@ -63,6 +79,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
   if (status === 'checking') return <div className="grid min-h-screen place-items-center text-sm text-subtle">Đang kiểm tra phiên đăng nhập…</div>
   return (
     <AuthContext.Provider value={value}>
+      {status === 'authenticated' && hasRouter && <SessionRedirect onExpired={expireSession} />}
       {status === 'authenticated'
         ? children
         : hasRouter
@@ -70,6 +87,24 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
           : <LegacyLoginForm client={client} initialError={error} onSuccess={() => setStatus('authenticated')} />}
     </AuthContext.Provider>
   )
+}
+
+function SessionRedirect({ onExpired }: { onExpired: () => void }) {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const stopListeningForExpiry = onSessionExpired(() => {
+      onExpired()
+      navigate(AUTH_PATH.signIn, { replace: true })
+    })
+    const stopListeningForSignOut = onSessionSignedOut(() => {
+      navigate(AUTH_PATH.signIn, { replace: true })
+    })
+    return () => {
+      stopListeningForExpiry()
+      stopListeningForSignOut()
+    }
+  }, [navigate, onExpired])
+  return null
 }
 
 export function useAuth() {

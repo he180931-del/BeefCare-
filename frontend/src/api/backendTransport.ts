@@ -1,4 +1,5 @@
 import { createBackendClient } from './backendClient'
+import { notifySessionExpired } from './sessionLifecycle'
 
 export interface BackendTransport {
   get(path: string): Promise<unknown>
@@ -15,6 +16,7 @@ export const backendFarmId = env.VITE_BEEFCARE_FARM_ID || '1'
 
 export const backendTransport: BackendTransport = createBackendClient({
   baseUrl: env.VITE_BEEFCARE_API_URL || '',
+  onUnauthorized: notifySessionExpired,
 })
 
 export const asRecord = (value: unknown): Record<string, unknown> =>

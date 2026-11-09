@@ -35,6 +35,21 @@ test('session check distinguishes an authenticated response from 401', async () 
   const anonymous = createBackendClient({ fetchImpl: async () => json({ message: 'unauthorized' }, 401) })
   assert.equal(await anonymous.isAuthenticated(), false)
 })
+test('protected requests report an expired session on 401 but not a permission-only 403', async () => {
+  let expiredSessions = 0
+  let status = 401
+  const api = createBackendClient({
+    fetchImpl: async () => json({ message: status === 401 ? 'unauthorized' : 'forbidden' }, status),
+    onUnauthorized: () => { expiredSessions += 1 },
+  })
+
+  await assert.rejects(api.get('/api/protected'), (error) => error instanceof BackendError && error.status === 401)
+  assert.equal(expiredSessions, 1)
+
+  status = 403
+  await assert.rejects(api.get('/api/protected'), (error) => error instanceof BackendError && error.status === 403)
+  assert.equal(expiredSessions, 1)
+})
 test('absolute external URLs cannot receive session headers', async () => {
   const api = createBackendClient({ fetchImpl: async () => { throw new Error('must not fetch') } })
   await assert.rejects(api.get('https://example.test/api/farms'), /relative/)
