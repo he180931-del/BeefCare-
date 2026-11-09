@@ -63,7 +63,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
     setFormError(null)
     try {
       const saved = await catalogueApi.saveParameterVersion(
-        { parameters, gestationLengthDays: parameters.gestationLengthDays, effectiveFrom, sourceNote: source },
+        { parameters, gestationLengthDays: parameters.gestationLengthDays, effectiveFrom, sourceNote: source, baseVersion: current?.versionNo },
         session?.fullName,
       )
       setNotice(versionSavedMessage(saved.versionNo, saved.effectiveFrom)) // MSG-FE18-05

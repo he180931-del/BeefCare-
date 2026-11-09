@@ -30,6 +30,10 @@ public final class MessageCodes {
     public static final String FE03_18 = "MSG-FE03-18";
     public static final String FE03_20 = "MSG-FE03-20";
 
+    public static final String FE18_02 = "MSG-FE18-02";
+    public static final String FE18_04 = "MSG-FE18-04";
+    public static final String FE18_06 = "MSG-FE18-06";
+    public static final String FE18_09 = "MSG-FE18-09";
     public static final String FE04_01 = "MSG-FE04-01";
     public static final String FE04_02 = "MSG-FE04-02";
     public static final String FE04_03 = "MSG-FE04-03";

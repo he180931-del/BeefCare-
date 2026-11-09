@@ -34,7 +34,8 @@ public enum FarmAction {
     /** Record and maintain estrus, breeding, pregnancy and calving; Manager only. */
     MANAGE_REPRODUCTION(true, FarmRole.MANAGER),
     /** Read reference care catalogues; Owner and Manager only. */
-    VIEW_CARE_CATALOGUES(false, FarmRole.OWNER, FarmRole.MANAGER),
+    /** Vaccines, medicines, purposes and parameters: every member views (FE-18 §2; Q1 decided 09/11: Technician too). */
+    VIEW_CARE_CATALOGUES(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     /** Maintain vaccines, medicines and farm parameters; Owner and Manager. */
     MANAGE_CARE_CATALOGUES(true, FarmRole.OWNER, FarmRole.MANAGER),
     /** Move one or several cattle between pens. */
