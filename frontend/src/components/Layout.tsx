@@ -56,7 +56,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
     ],
   },
   SA: {
-    initials: 'VN', name: 'Vũ Hoàng Nam', role: 'System Admin', gap: 'mt-[3px]', platformRole: 'System Admin · SA',
+    initials: 'VN', name: 'Vũ Hoàng Nam', role: 'Quản trị viên hệ thống', gap: 'mt-[3px]', platformRole: 'Quản trị viên hệ thống · SA',
     search: 'Tìm tên, Gmail…', searchTo: '/nen-tang/tai-khoan', notifications: '/nen-tang/thong-bao', profile: PLATFORM_PROFILE,
     groups: [
       { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Quyền nhân sự nền tảng', '/nen-tang/quyen', 'shield-lock'), item('Lịch sử audit', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },

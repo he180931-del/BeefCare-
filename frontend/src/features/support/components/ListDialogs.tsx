@@ -7,9 +7,9 @@ import type { Ticket } from '../types'
 /** MSG-FE20-01: ticket đã gửi, trạng thái mới nhận. */
 export function SubmittedDialog({ ticket, onList, onView, onClose }: { ticket: Ticket; onList: () => void; onView: () => void; onClose: () => void }) {
   return (
-    <Modal title={`Đã gửi ticket ${ticket.code}`} width={560} onClose={onClose}>
+    <Modal title={`Đã gửi yêu cầu hỗ trợ ${ticket.code}`} width={560} onClose={onClose}>
       <p className="m-0 mb-3 text-[13px] text-ink">
-        Ticket {ticket.code} đã được gửi. Bộ phận hỗ trợ sẽ trả lời ngay trong ticket.
+        Yêu cầu hỗ trợ {ticket.code} đã được gửi. Bộ phận hỗ trợ sẽ trả lời ngay trong yêu cầu.
       </p>
       <Info
         cols={2}
@@ -21,9 +21,9 @@ export function SubmittedDialog({ ticket, onList, onView, onClose }: { ticket: T
         ]}
       />
       <ModalFooter>
-        <ModalButton onClick={onList}>Danh sách ticket</ModalButton>
+        <ModalButton onClick={onList}>Danh sách yêu cầu hỗ trợ</ModalButton>
         <ModalButton variant="primary" onClick={onView}>
-          Xem ticket
+          Xem yêu cầu
         </ModalButton>
       </ModalFooter>
     </Modal>

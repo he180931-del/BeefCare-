@@ -8,7 +8,7 @@ export const PLATFORM_ROLES: readonly PlatformRole[] = ['CS', 'PM', 'SA']
 export const ROLE_LABEL: Record<PlatformRole, string> = {
   CS: 'Customer Support (CS)',
   PM: 'Platform Manager (PM)',
-  SA: 'System Admin (SA)',
+  SA: 'Quản trị viên hệ thống (SA)',
 }
 
 export type PlatformAdminErrorCode =
@@ -26,7 +26,7 @@ export class PlatformAdminError extends Error {
 export const MSG = {
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   stale: 'Bản ghi này đã được thay đổi. Vui lòng tải lại và kiểm tra trước khi thử lại.',
-  lastSa: 'Phải còn ít nhất một System Admin đang hoạt động, và bạn không thể tạm khóa tài khoản của chính mình.',
+  lastSa: 'Phải còn ít nhất một Quản trị viên hệ thống đang hoạt động, và bạn không thể tạm khóa tài khoản của chính mình.',
   noAccount: 'Không có tài khoản BeefCare nào cho email này. Người đó cần đăng nhập một lần trước khi được cấp quyền.',
   unverified: 'Email của tài khoản chưa được xác minh nên chưa thể cấp quyền nền tảng.',
   noLongerAssigned: 'Yêu cầu này không còn được giao cho bạn.',
@@ -219,7 +219,7 @@ export const AUDIT_ACTIONS: ReadonlyArray<{ code: string; label: string }> = [
 export const auditActionLabel = (code: string) => AUDIT_ACTIONS.find((a) => a.code === code)?.label ?? code
 
 export const AUDIT_TARGET_TYPES: ReadonlyArray<{ value: AuditTargetType; label: string }> = [
-  { value: 'ACCOUNT', label: 'User' },
+  { value: 'ACCOUNT', label: 'Người dùng' },
   { value: 'PLATFORM_ACCESS', label: 'Platform access' },
   { value: 'MEMBERSHIP', label: 'Membership' },
   { value: 'FARM', label: 'Farm' },

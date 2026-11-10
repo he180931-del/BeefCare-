@@ -31,7 +31,7 @@ export function ProfileScreen({ title, platform = false }: { title: string; plat
         <ProfileCard profile={data} headline={roleAtFarm(identity.role, identity.farmName)} values={form.values} onChange={form.setValues} errors={form.errors} onSubmit={form.submit} onPassword={() => openModal('doi-mat-khau')} />
         {farmRole && <PermissionsCard role={farmRole} />}
       </div>
-      <Foot>{farmRole ? 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Bảng quyền chỉ đọc theo vai trò hiện tại.' : 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Quyền nền tảng do System Admin cấp.'}</Foot>
+      <Foot>{farmRole ? 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Bảng quyền chỉ đọc theo vai trò hiện tại.' : 'Thư điện tử và cách đăng nhập để nhận diện tài khoản; tên và điện thoại là thông tin liên hệ. Quyền nền tảng do Quản trị viên hệ thống cấp.'}</Foot>
       {m === 'doi-mat-khau' && <ChangePasswordDialog identity={identity} profile={data} onClose={closeModal} onChanged={(message) => { setNotice(message); closeModal(); void refetch() }} />}
     </Layout>
   )

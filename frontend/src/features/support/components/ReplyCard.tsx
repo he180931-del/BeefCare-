@@ -31,7 +31,7 @@ export function ReplyCard({ ticket, onSend }: { ticket: Ticket; onSend: (content
   return (
     <Card title="Phản hồi">
       <div className="flex flex-col gap-3">
-        {closed && <Note tone="grey">Ticket này đã đóng và chỉ đọc. Hãy tạo ticket mới nếu bạn cần hỗ trợ thêm.</Note>}
+        {closed && <Note tone="grey">Yêu cầu hỗ trợ này đã đóng và chỉ đọc. Hãy tạo yêu cầu mới nếu bạn cần hỗ trợ thêm.</Note>}
         <div>
           <Textarea
             id="tk-reply"

@@ -6,7 +6,7 @@ import { TicketStatusBadge } from './TicketStatusBadge'
 
 export function TicketInfoCard({ ticket }: { ticket: Ticket }) {
   return (
-    <Card title="Thông tin ticket">
+    <Card title="Thông tin yêu cầu hỗ trợ">
       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
         {[
           ['Trạng thái', <TicketStatusBadge ticket={ticket} />],

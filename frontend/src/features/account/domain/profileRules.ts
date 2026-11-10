@@ -30,7 +30,7 @@ export function validatePasswordChange(input: PasswordChangeInput, ctx: { email:
 }
 
 export const PLATFORM_ROLE_LABEL: Record<string, string> = {
-  CS: 'Customer Support · CS', PM: 'Platform Manager · PM', SA: 'System Admin · SA',
+  CS: 'Hỗ trợ khách hàng · CS', PM: 'Quản lý nền tảng · PM', SA: 'Quản trị viên hệ thống · SA',
 }
 export const FARM_ROLE_LABEL: Record<string, string> = { OWNER: 'Chủ trại', MANAGER: 'Quản lý', TECHNICIAN: 'Kỹ thuật viên' }
 

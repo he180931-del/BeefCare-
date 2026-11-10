@@ -14,7 +14,7 @@ import { TicketTable } from '../components/TicketTable'
 import { TICKET_TABS } from '../domain/ticketRules'
 import type { TicketFilters, TicketTab } from '../types'
 
-const TITLE = 'Ticket hỗ trợ của tôi'
+const TITLE = 'Yêu cầu hỗ trợ của tôi'
 const INITIAL: TicketFilters = { tab: 'ALL', q: '', category: '', from: '', to: '', page: 1 }
 
 /** SCR-64: danh sách ticket của tôi. `?demo=loi` dựng lại frame lỗi tải dữ liệu. */
@@ -38,7 +38,7 @@ export default function TicketListPage() {
   const filtered = !!(filters.q || filters.category || filters.from || filters.to)
   const goNew = () => navigate('/ho-tro/moi')
   const header = (
-    <PageHeader title="Ticket của tôi">
+    <PageHeader title="Yêu cầu hỗ trợ của tôi">
       <Button variant="primary" onClick={goNew}>
         <Icon name="send" size={16} /> Gửi yêu cầu mới
       </Button>
@@ -73,7 +73,7 @@ export default function TicketListPage() {
         <Segmented options={tabs} value={filters.tab ?? 'ALL'} onChange={(tab) => patch({ tab: tab as TicketTab })} />
         {data.items.length === 0 ? (
           <EmptyBlock
-            title="Không có ticket phù hợp"
+            title="Không có yêu cầu hỗ trợ phù hợp"
             sub={filtered || filters.tab !== 'ALL' ? 'Bộ lọc hiện tại không có phiếu phù hợp.' : 'Bạn chưa gửi yêu cầu hỗ trợ nào.'}
             action={
               <div className="flex flex-wrap justify-center gap-2">
@@ -91,7 +91,7 @@ export default function TicketListPage() {
         ) : (
           <TicketTable items={data.items} />
         )}
-        {pageCount > 1 && <Pagination page={data.page} pageCount={pageCount} onChange={(page) => setFilters((f) => ({ ...f, page }))} summary={`${data.total} ticket`} />}
+        {pageCount > 1 && <Pagination page={data.page} pageCount={pageCount} onChange={(page) => setFilters((f) => ({ ...f, page }))} summary={`${data.total} yêu cầu hỗ trợ`} />}
         <Foot>Lọc phiếu theo trạng thái; mỗi dòng cho biết mã phiếu, chủ đề, danh mục, trại, trạng thái và lần cập nhật gần nhất.</Foot>
       </div>
       {m === 'da-gui' && submitted.data && (

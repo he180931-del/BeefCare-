@@ -27,7 +27,7 @@ export const CATEGORY_LABEL: Record<TicketCategory, string> = {
 }
 export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
 export const OUTCOME_LABEL = { PERFORMED: 'Đã thực hiện', UNABLE: 'Không thể thực hiện', OUTSIDE_DOMAIN: 'Ngoài phạm vi' } as const
-export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Platform Manager', SA: 'System Admin' }
+export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Quản lý nền tảng', SA: 'Quản trị viên hệ thống' }
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { HIGH: 0, NORMAL: 1, LOW: 2 }
 
