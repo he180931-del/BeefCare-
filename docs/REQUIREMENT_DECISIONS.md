@@ -145,3 +145,46 @@ Giữ mã phiên bản backend hiện có (`PlanVersion.id`, không cam kết li
 frontend không tự dự đoán max+1. Metadata cũ chỉ lấy từ audit công bố thật, thiếu
 thì null / “—”, không suy từ effectiveAt. Ma trận, contract thay đổi và bằng
 chứng tại `docs/reviews/FE19_UC07_REVIEW.md`.
+
+### D24 — UC-FE19-08: nhận webhook, xử lý bền vững và email thanh toán (10/11/2026)
+
+Người dùng đồng ý cả năm đề xuất sau khi đọc spec19/UC8:
+
+1. Làm API-02, JOB-06 và phần JOB-07 của thanh toán, dùng chung cho webhook,
+   tra cứu và PM xác nhận; không kích hoạt consumer cho các sự kiện outbox của
+   feature khác (Chung Q1 vẫn mở).
+2. Giữ `POST /api/webhooks/sepay`, thêm alias SRS
+   `POST /api/v1/payments/sepay/webhook`. Cả hai xác thực HMAC/raw body như SRS,
+   chỉ trả `200 {"success":true}` sau khi chứng từ và job cùng commit; 200 chưa
+   có nghĩa PAID. API-03/simulator giữ kết quả thành công ngay như hiện có,
+   chạy chung bộ xử lý chứng từ đã lưu; lỗi kỹ thuật sau lưu còn job để retry.
+3. JOB-06 retry sau1/5/15 phút, rồi mỗi giờ, giới hạn24h tính từ lỗi đầu;
+   sau đó dừng tự động, giữ dữ liệu/lỗi để PM xử lý trên SCR-62, thông báo một
+   lần. Lỗi kỹ thuật phân biệt sai mã/số tiền; D20 vẫn loại thông báo đối soát
+   cho chiều ra. Job không ghi đè quyết định/khóa PM hoặc phân bổ đã commit.
+4. Mã trong `code`, `referenceCode`, `content` mâu thuẫn hoặc nhiều mã khác nhau
+   thì không chọn mã đầu; giữ chứng từ cho PM. Giao lặp vẫn theo dữ liệu nghiệp
+   vụ D19/D22, không theo hash payload đơn thuần.
+5. Q5 chốt email tiếng Việt cho Owner hiện tại: trại, mã thanh toán, số tiền,
+   kỳ hạn, kỳ đã xác nhận, biên lai và link đúng trại, dựa MSG-FE19-06. Không
+   tuyên bố gỡ SUSPENDED. Lưu ý định gửi cùng PAID, chống trùng; gửi/retry độc
+   lập đến24h, kiểm lại quyền/người nhận lúc gửi.
+
+Không quyết lại các luật đã rõ: GBR-72/73/84, cửa sổ ngân hàng [tạo,hết hạn),
+khóa theo trại, không cấp trùng, không gỡ tạm ngưng. Mốc kỷ niệm 29/02 theo
+GBR-73 suy từ chuỗi kỳ đã mua liên tục, không tạo mốc lịch sử giả. Chỉ kiểm
+MOCK/PostgreSQL/Mailpit local; chưa SePay LIVE hay READY_FOR_FE. Ma trận,
+test, readback và runtime: `docs/reviews/FE19_UC08_REVIEW.md`.
+
+Review UC8 (10/11/2026), người dùng đồng ý sửa cả bốn điểm:
+
+1. Tra cứu/simulator giữ lease job ngay trong commit lưu; JOB-06 không lấy chen
+   vào làm mất kết quả trả ngay của D21. Request chết thì lease hết hạn và job
+   retry như E3.
+2. Giao lặp tăng số lần giao bằng bulk update, không đổi version chứng từ, nên
+   quyết định PM đang mở không bị MSG-COM-05 vô cớ.
+3. Trường chữ của giao dịch đã xác thực (gateway, referenceCode, accountNumber,
+   code) luôn được lưu đủ: chọn nới cột theo giới hạn body 65.536 byte thay vì
+   từ chối 400 hoặc làm hỏng cả khoảng tra cứu 502 (R-19-08, E3).
+4. Metadata lời gọi bị 401 giữ 30 ngày rồi JOB-08 xóa; không lưu được metadata
+   vẫn trả 401.

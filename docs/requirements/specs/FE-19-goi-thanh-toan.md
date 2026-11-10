@@ -272,6 +272,12 @@ MOCK_EVIDENCE; xóa các hàm đọc SCR-62 cũ không còn dùng. Chi tiết v�
 tại `docs/reviews/FE19_UC05_REVIEW.md`.
 
 ### UC-FE19-08 Xác nhận từ SePay
+Người dùng chốt năm đề xuất D24 ngày10/11/2026: API-02 + JOB-06 và phần thông
+báo/email thanh toán của JOB-07, không mở rộng consumer outbox toàn hệ thống.
+Hai URL A15 cùng luồng; trả200 chỉ xác nhận lưu chứng từ và job, chưa PAID.
+Tra cứu/simulator giữ kết quả thành công ngay D21 và có job retry nếu lỗi sau
+lưu. Ma trận, đầy đủ trường, test và readback: `docs/reviews/FE19_UC08_REVIEW.md`.
+
 1. SePay gửi giao dịch kèm chữ ký HMAC + timestamp.
 2. Xác minh chữ ký (≤ 300 s).
 3. Lưu chứng từ theo bộ 4 (trùng → dùng lại) + job; trả 200.
@@ -281,6 +287,25 @@ tại `docs/reviews/FE19_UC05_REVIEW.md`.
 
 AF1 giao lặp → không tạo kỳ / thông báo mới · AF2 không đủ điều kiện → NEEDS_REVIEW + thông báo đối soát PM · AF3 yêu cầu EXPIRED nhưng giờ NH trong cửa sổ → PAID · AF4 trại SUSPENDED → PAID, vẫn SUSPENDED.
 E1 chữ ký sai → 401 · E2 lỗi lưu trước bước 3 → không trả thành công (SePay gửi lại) · E3 lỗi sau khi lưu → JOB-06 retry.
+
+- JOB-06 lưu bền vững, một job/chứng từ, lease khôi phục khi worker dừng; retry
+  sau1/5/15 phút rồi mỗi giờ, tối đa24h từ lỗi đầu. Hết thời gian → giữ chứng từ
+  NEEDS_REVIEW và lỗi kỹ thuật, báo PM một lần rồi dừng tự động; chiều ra vẫn
+  NO_ACTION/không báo đối soát theo D20. Không ghi đè quyết định/khóa PM.
+- Chỉ có một mã nhất quán trong code/referenceCode/content mới tự khớp; mâu
+  thuẫn → để PM, không chọn mã đầu. Không cắt mất nội dung/description. Giao
+  hợp lệ lặp tăng số lần giao đã biết, giữ giờ nhận đầu; dữ liệu cũ thiếu mốc/
+  số lần giao giữ null. Retry worker không phải lần giao webhook.
+- PAID lưu email intent chống trùng cùng transaction; gửi cho Owner hiện tại,
+  retry độc lập đến24h, không rollback PAID khi lỗi mail. Nội dung Q5 theo D24,
+  không nói đã kích hoạt khi SUSPENDED. Luật29/02 giữ mốc từ chuỗi kỳ liên tục.
+- Trạng thái lưu UNMATCHED/NEEDS_REVIEW đều là cần PM theo D18; API-03 giữ
+  UNMATCHED hiện có. Chứng từ đang chờ worker là RECEIVED → UI PROCESSING.
+- Review UC8 (10/11/2026): tra cứu/simulator giữ lease job ngay trong commit
+  lưu nên JOB-06 không chen vào kết quả trả ngay; giao lặp tăng số lần giao mà
+  không đổi version chứng từ PM đang mở; trường chữ của giao dịch đã xác thực
+  luôn lưu đủ, không 400/502 vì độ dài (R-19-08, E3); metadata lời gọi 401 giữ
+  30 ngày rồi JOB-08 xóa, không lưu được metadata vẫn trả 401.
 
 ### UC-FE19-06 Đối soát
 1. SCR-62: chứng từ cần xem (mã không khớp, yêu cầu hết hạn, không có yêu cầu, sai số tiền) + chi tiết.
@@ -496,7 +521,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | A12 | Danh sách/chi tiết yêu cầu UC5 | `state?, q?, page=0, size=20` / paymentId; size1..100/page0..floor(INT_MAX/size) | `PagePlatformPaymentRead {items,total,page,size}` / `PlatformPaymentRead`; giữ snapshot UC4, thêm evidenceId?, confirmedAt?, confirmationSource?, bankPaidAt?, receivedAt?; null giữ khóa | COM-01/08/10 | `GET /api/platform/payments` · `GET …/{paymentId}` |
 | A13 | Bảng giá (D23) | GET `page=0,size=20`; POST `{price1y,price2y,price3y,applyNow,effectiveAt?,terms?}` + `Idempotency-Key`; cả 3 giá và applyNow bắt buộc, effectiveAt bắt buộc khi lên lịch | `PlatformPlanPricePage {items,total,page,size,asOf,current?,nextEffectiveAt?}` / `PlatformPlanPriceVersion {id,revision,price1y,price2y,price3y,effectiveAt,terms?,status,publishedById?,publishedBy?,publishedAt?,withdrawnBy?,withdrawnAt?,withdrawReason?}`; nullable giữ khóa; id là số phiên bản; public PriceVersion không đổi | COM-01/06/10/19, FE19-13/14/15, COM-02 | `GET` / `POST /api/platform/plan-prices` |
 | A14 | Rút phiên bản đã lên lịch (D23) | `{reason,expectedVersion}` + `Idempotency-Key`; reason trim ≥5 ký tự không phải khoảng trắng, ≤1000; expectedVersion=revision đã đọc | `PlatformPlanPriceVersion` WITHDRAWN; không đổi giá/điều khoản/metadata công bố | COM-01/06/10/08/05/19/02 | `POST /api/platform/plan-prices/{version}/withdraw` |
-| A15 | Webhook SePay (API-02) | Header chữ ký + timestamp, raw body | `200 {"success": true}` / 401 | — | `POST /api/webhooks/sepay` |
+| A15 | Webhook SePay (API-02, D24) | `X-SePay-Signature`, `X-SePay-Timestamp` bắt buộc; JSON raw≤65536 bytes, schema SePayPayload, không session/CSRF/Idempotency-Key | `WebhookAcknowledgement {success:true}` sau commit chứng từ+job; không phải kết quả PAID; lặp dùng lại chứng từ/job | 401 HMAC/giờ;400 JSON/type/field;409 cùng ID khác dữ liệu nghiệp vụ;413 quá body;500 không lưu/commit được | `POST /api/webhooks/sepay` và alias `POST /api/v1/payments/sepay/webhook` |
 | A16 | Chi tiết chứng từ UC5/UC6 | evidenceId | `PlatformBankEvidenceDetail {summary,transactionId,receivingAccount?,bank?,referenceCode?,quoteRef?,firstReceivedAt?,returnReference?,returnDate?,returnResult?,history[]}`; mỗi history có `relatedPaymentId?`, `relatedPaymentCode?` riêng theo quyết định (D21), null cho dữ liệu cũ/sự kiện; PM/time/allowlisted reason/reference/result thực từ EvidenceReview/AuditLog; `history.action` = ACCEPT/HOLD/REJECT/LOCK/UNLOCK/RETURN_VERIFIED (REVIEW) hoặc EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED/EVIDENCE_LOCK_RETURN/EVIDENCE_RETURN_UNLOCK/EVIDENCE_RETURN_RECORDED (EVENT), không trả tên audit thô | COM-01/08 | `GET /api/platform/payments/evidence/{evidenceId}` |
 
 ---
@@ -633,6 +658,28 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | TC-19-81 | PM ACCEPT, xác nhận SePay và JOB-04 đang chờ khóa trại trong khi xác nhận khác của cùng trại commit `latestEnd` mới: kỳ bắt đầu từ `latestEnd` mới (GBR-73), job không ghi đè gia hạn | SubscriptionConfirmationConcurrencyTest (H2), SubscriptionConfirmationConcurrencyPostgresIT (khóa dòng PostgreSQL) |
 | TC-19-82 | Tra cứu ghi PM vào audit tiếp nhận/PAID, lịch sử hiện tên PM, nguồn vẫn SEPAY; dữ liệu SePay không lưu được → 502 cho theo mã và theo khoảng, không lưu gì; giao dịch chiều ra không tạo thông báo cần đối soát | lookupRecordsThePmWhoLookedUpTheTransaction; invalidSePayDataIsAProviderFailureAndStoresNothing; SePayPaymentFlowTest#outgoingTransfersAreKeptAsEvidenceWithoutAReconciliationNotice; frontend thông báo 502 |
 
+### Nghiệm thu UC-FE19-08 (D24)
+
+Các ca dưới đây kế thừa TC-19-07→16/19/22/29 và thêm bằng chứng queue/HTTP;
+`SePayWebhookPostgresIT` chạy lại cùng ca trên PostgreSQL16.15, không thay bằng H2.
+
+| Mã | Điều kiện và kết quả | Test / bằng chứng |
+|---|---|---|
+| TC-19-83 | Hai URL ký đúng →200 chỉ success, payment còn PENDING, chứng từ RECEIVED + một job cùng commit; lỗi lưu job không để chứng từ mồ côi/không ACK thành công | acknowledgesBothRoutesOnlyAfterEvidenceAndJobCommitWithoutConfirmingInTheRequest; failureToStoreTheJobCannotAcknowledgeOrLeaveAnOrphanEvidence |
+| TC-19-84 | Chữ ký/giờ sai401 không có chứng từ, chỉ metadata hạn chế; JSON/field/id sai kiểu400; full content/description/code lưu đúng | invalidSignatureOrTimestampStoresOnlyRestrictedRejectionMetadata; missingRequiredProviderFieldsCannotCreateEvidenceOrAJob; providerTransactionIdentityCannotBeSilentlyCoercedToAnotherInteger; authenticatedPayloadRetainsDescriptionAndTransferContentBeyondTheOld255CharacterLimit |
+| TC-19-85 | Giao lặp/delivery đồng thời/worker đồng thời → một chứng từ/job/kỳ/email, giữ giờ nhận đầu; count lịch sử không rõ vẫn null | replayReusesThePendingJobAndPreservesTheFirstReceivedTime; concurrentDeliveriesAndWorkersCreateOneEvidenceJobPeriodAndEmailIntent; replayDoesNotInventUnknownHistoricalDeliveryCounts |
+| TC-19-86 | Lỗi sau lưu rollback toàn bộ cấp kỳ, chứng từ/job còn; retry1/5/15/60 phút, sau24h dừng và báo PM một lần; OUT không báo đối soát | failedSettlementRollsBackButItsStoredEvidenceRetriesAtTheDocumentedDelaysThenStopsAt24Hours; exhaustedOutgoingProcessingStillDoesNotCreateAReconciliationNotice |
+| TC-19-87 | Lease cũ hết hạn khôi phục xử lý; quyết định HOLD của PM trước worker không bị ghi đè | retrySurvivesAClearedPersistenceContextAndDoesNotPayTwiceAfterAnExpiredLease; pmHoldBeforeProcessingIsNeverOverwrittenByTheWorker |
+| TC-19-88 | Xác nhận đồng bộ/queue cùng luật, SUSPENDED giữ nguyên, EXPIRED trả trong cửa sổ vẫn nhận, chuỗi gia hạn khôi phục29/02 đúng năm nhuận | synchronousSimulatorStillConfirmsAndQueuesOneDurableOwnerEmail; workerCommitsTheWholePaymentRoundTripOnceAndKeepsSuspension; anExpiredRequestPaidInsideItsOriginalWindowStillConfirmsThroughTheQueue; continuousRenewalsKeepTheOriginalFebruary29AnniversaryAcrossNonLeapYears |
+| TC-19-89 | Code/content có hai mã khác nhau không chọn mã đầu, không PAID; PM thấy lý do tiếng Việt | conflictingCodesNeverChooseTheFirstRequestAutomatically; paymentSystemReasons.test.ts; runtime SCR-62 |
+| TC-19-90 | Email cho Owner hiện tại, đủ dữ liệu thật/link đúng trại, không nói gỡ SUSPENDED; lỗi mail không rollback PAID, retry rồi dừng≤24h | ownerEmailUsesTheCurrentOwnerAndStoredPaidFieldsWithoutClaimingSuspensionWasLifted; emailProviderFailureRetriesIndependentlyOfPaidAndStopsAt24Hours |
+| TC-19-91 | Nâng cấp toàn schema UC7 giữ PAID/biên lai/phân bổ/nội dung/mốc thiếu; không tự tạo job/mail cho lịch sử | SePayProcessingMigrationPostgresIT |
+| TC-19-92 | Callback HTTP thật → JOB-06 tự chạy → DB/API PAID≤10s tải bình thường, SCR-59 tự cập nhật, SCR-62 đối soát, mail tới Mailpit | Runtime local448ms; six captures1180×820/1440×900; manifest và giới hạn tại review UC8 |
+| TC-19-93 | JOB-06 claim chen giữa lúc lưu và lúc tra cứu/simulator tự xử lý → không lấy được job; kết quả trả ngay vẫn ACCEPTED/PAID, job một lần thử | aJob06PollBetweenStorageAndTheImmediateRunCannotTakeTheSimulatorOrLookupResult |
+| TC-19-94 | Webhook giao lặp khi PM đang mở chứng từ → số lần giao +1, version không đổi, HOLD với version đã đọc thành công | aRepeatedDeliveryIsCountedWithoutInvalidatingTheEvidenceVersionAPmHasOpen |
+| TC-19-95 | gateway/referenceCode/accountNumber/code dài hơn giới hạn cũ → webhook 200 lưu đủ, xử lý UNMATCHED; tra cứu theo khoảng liệt kê, theo mã lưu đủ thay vì 502; nâng cấp giữ giá trị cũ | authenticatedTransfersWithLongProviderFieldsAreStoredInFullForReview; longSePayFieldsAreListedAndStoredInFullInsteadOfFailingTheLookup; SePayProcessingMigrationPostgresIT; OpenApiContractTest |
+| TC-19-96 | Không lưu được metadata của lời gọi sai chữ ký → vẫn 401, không có chứng từ; JOB-08 xóa metadata quá 30 ngày, giữ bản mới hơn | aRejectedCallStaysUnauthorizedWhenItsMetadataCannotBeStored; PlatformJobsIT#purgeDropsRejectedWebhookMetadataOlderThanThirtyDaysOnly |
+
 ## 10. Điểm SRS chưa rõ
 
 | # | Câu hỏi | Đề xuất |
@@ -641,7 +688,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Đã chốt D19 (10/11/2026): thêm A17 `GET …/lookup?from&to` (ngày VN, ≤31 ngày, ≤200 dòng, chỉ đọc); PM lưu từng dòng bằng A11 |
 | Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt; UC-03 D16; UC-04 D17; phần xem UC-05 D18 ngày 10/11/2026 (luồng mục 5). Tra cứu API-03 và ghi đối soát để gói UC6 |
 | Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | UC6 theo D19; UC7 chốt D23 ngày 10/11/2026: rút cần ≥5 ký tự không phải khoảng trắng, ≤1.000 ký tự sau trim (Table III-1) |
-| Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |
+| Q5 | Email cho Owner khi PAID – mẫu nội dung | Đã chốt D24 ngày10/11/2026: tiếng Việt dựa MSG-FE19-06, đủ trại/mã/tiền/kỳ/biên lai/link đúng trại, Owner hiện tại; không gỡ SUSPENDED; gửi bền vững/chống trùng |
 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Đã chốt DucNV 09/11/2026 (D14): làm tròn xuống theo số ngày tròn 24 giờ; còn 23 giờ → 0 ngày, vẫn có bao phủ tới end; không có kỳ hiện tại → "—" |
 | Q7 | Khi đúng mã/TK nhưng sai số tiền, bước nhận giao dịch SCR-59 có hoàn thành không? | Đã chốt trong phiên 09/11/2026 (D15): hiện đã nhận khi chứng từ xác thực, IN, đúng env/namespace/TK/mã; chưa PAID/cấp kỳ khi sai tiền. Mốc nhận và xác nhận tách biệt |
 | Q8 | SCR-59 có tự cập nhật trạng thái không? | Đã chốt trong phiên 09/11/2026 (D15): đọc lại 5 giây khi PENDING, không request chồng; dừng PAID/EXPIRED/rời màn, kiểm một lần tại expiry, giữ nút Kiểm tra lại. Scope backend + SCR-58/SCR-59 |
@@ -665,3 +712,5 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | 10/11/2026 | 28/10/2026 | Review runtime UC-06: D20 giao dịch chuyển ra không vào hàng Cần xem (NO_ACTION); gộp danh sách ứng viên thành một danh sách chọn, giữ nháp khi MSG-COM-05, lỗi tự mất khi sửa, nhãn ngày khi tra cứu, lịch sử bỏ "—" thừa; TC-19-77 | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Người dùng chốt D21: giao dịch tra cứu hợp lệ tự xác nhận; bổ sung yêu cầu liên quan theo từng quyết định (HOLD/REJECT tùy chọn), không suy dữ liệu cũ; A9/A11/A16, TC-19-78/79 | Người dùng |
 | 10/11/2026 | 28/10/2026 | Review UC6, người dùng chốt D22: mã chính xác chỉ cấp cho trại của mã, mã giao dịch là khóa tra cứu; khóa trại trước khi đọc subscription (xác nhận, JOB-04), PM trong audit tra cứu, 502 dữ liệu SePay, không thông báo chiều ra; A8/A9/A11, TC-19-80→82, Q10 | Người dùng / DucNV |
+| 10/11/2026 | 28/10/2026 | Người dùng chốt D24 UC8: durable JOB-06/alias/ACK lưu trước, retry và chuyển PM sau24h, mã mâu thuẫn, Q5 email; phần JOB-07 chỉ thanh toán. Bổ sung ma trận/test/readback/runtime, TC-19-83→92 | Người dùng / DucNV |
+| 10/11/2026 | 28/10/2026 | Review UC8, người dùng đồng ý sửa cả bốn điểm: lease job cho tra cứu/simulator, đếm giao lặp không đổi version, lưu đủ trường chữ đã xác thực (changeset 0500, chọn nới cột thay vì từ chối), JOB-08 dọn metadata 401 sau 30 ngày; TC-19-93→96 | Người dùng / DucNV |

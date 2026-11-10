@@ -87,7 +87,7 @@ Từ báo cáo triển khai backend và bàn giao ngày 28–29/10. Mỗi dòng 
 | FE-16 | Fixture luồng kết hợp cho bản ghi sửa đổi của sinh sản, sức khỏe, xuất đàn | AnNT |
 | FE-17 | Xuất dữ liệu và hành vi khi kết quả lớn | DucNV |
 | FE-18 | Lưu tham số (SCR-56) chưa gọi JOB-01 tính lại nhắc việc tương lai | AnNT |
-| FE-19 | Race nhiều transaction: webhook trùng, cùng `Idempotency-Key` | DucNV |
+| FE-19 | UC8 D24 đã kiểm webhook trùng/worker đồng thời, lease/retry/rollback, khóa trại, migration và email trên H2/PostgreSQL local; còn xác minh bản tích hợp và SePay LIVE, chưa READY_FOR_FE. Bằng chứng: docs/reviews/FE19_UC08_REVIEW.md | DucNV |
 | FE-20 | Ca replay qua REST / security; ánh xạ thông báo theo trường cho yêu cầu nội bộ | LamKD |
 | FE-21 | Test nội dung XLSX; race nhiều transaction | LamKD |
 | FE-22 | Quản trị nội dung trang giới thiệu (đang tĩnh); test API | LamKD |
