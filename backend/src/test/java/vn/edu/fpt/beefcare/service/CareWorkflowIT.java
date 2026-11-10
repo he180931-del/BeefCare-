@@ -18,6 +18,7 @@ import vn.edu.fpt.beefcare.domain.Cattle;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.HerdExitVoucher;
 import vn.edu.fpt.beefcare.domain.ScheduledDose;
+import vn.edu.fpt.beefcare.domain.Treatment;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 import vn.edu.fpt.beefcare.domain.enumeration.LifeStage;
 import vn.edu.fpt.beefcare.domain.enumeration.PurposeType;
@@ -84,6 +85,14 @@ class CareWorkflowIT extends DomainTestSupport {
         // GBR-46: first administration + course days - 1 + withdrawal days
         assertThat(treated.withdrawalEndDate()).isEqualTo(TODAY.plusDays(3 - 1 + 28));
 
+        assertThatThrownBy(() -> catalogue.saveMedicine(farm.getId(), medicine.id(), key(),
+            new CareDtos.MedicineCommand(medicine.version(), "OTHER-CODE", medicine.name(), null, "1 ml/10 kg", "IM", 28, true)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_10));
+        CareDtos.CatalogueItem renamed = catalogue.saveMedicine(farm.getId(), medicine.id(), key(),
+            new CareDtos.MedicineCommand(medicine.version(), medicine.code(), "Tên thuốc mới", null, "1 ml/10 kg", "IM", 28, true));
+        assertThat(renamed.referencedCount()).isEqualTo(1);
+        assertThat(em.find(Treatment.class, treated.id()).getMedicineNameSnapshot()).isEqualTo(medicine.name());
+
         // FE-10 reads: open tab and the cattle profile with case card and chronology
         assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null)).extracting(CareDtos.HealthCaseRow::id).contains(opened.id());
         actAs(technician); // read-only access
@@ -145,6 +154,9 @@ class CareWorkflowIT extends DomainTestSupport {
         CareDtos.VaccinationScheduleResult schedule = vaccination.createSchedule(farm.getId(), key(),
             new CareDtos.CreateVaccinationSchedule("FMD round", vaccine.id(), TODAY, 2, 21, null, List.of(cow.getId())));
         assertThat(schedule.plannedDoseCount()).isEqualTo(2);
+        assertThatThrownBy(() -> catalogue.saveVaccine(farm.getId(), vaccine.id(), key(),
+            new CareDtos.VaccineCommand(vaccine.version(), "OTHER-CODE", vaccine.name(), "Foot-and-mouth disease", "Navetco", "2 ml", "SC", 0, 6, true)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_10));
         List<ScheduledDose> doses = doses(schedule.id());
         ScheduledDose first = doses.get(0);
 
@@ -198,6 +210,14 @@ class CareWorkflowIT extends DomainTestSupport {
         actAs(owner);
         Integer usedVersion = versionOf(vn.edu.fpt.beefcare.domain.Vaccine.class, used.id());
         assertThatThrownBy(() -> catalogue.deleteUnusedVaccine(farm.getId(), used.id(), key(), usedVersion)).isInstanceOf(DomainException.class);
+        assertThatThrownBy(() -> catalogue.saveVaccine(farm.getId(), used.id(), key(),
+            new CareDtos.VaccineCommand(usedVersion, "OTHER-CODE", used.name(), "Haemorrhagic septicaemia", null, "2 ml", "IM", 0, 6, true)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_10));
+        CareDtos.CatalogueItem renamed = catalogue.saveVaccine(farm.getId(), used.id(), key(),
+            new CareDtos.VaccineCommand(usedVersion, used.code(), "Tên vắc-xin mới", "Haemorrhagic septicaemia", null, "2 ml", "IM", 0, 6, false));
+        assertThat(renamed.available()).isFalse();
+        assertThat(reads.vaccinationHistory(farm.getId(), null, used.id(), null, null, null, cow.getId()))
+            .extracting(CareDtos.VaccinationHistoryRow::vaccineName).containsExactly(used.name());
 
         actAs(technician);
         assertThatThrownBy(() -> catalogue.saveVaccine(farm.getId(), null, key(),

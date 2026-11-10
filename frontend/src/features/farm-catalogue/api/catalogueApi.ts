@@ -21,7 +21,17 @@ const FRONT_KEY = Object.fromEntries(Object.entries(PARAMETER_KEY).map(([front, 
 const BCS_TO_BACKEND: Record<BcsScale, string> = { '1-5': '1-5:0.5', '1-9': '1-9:1' }
 
 const ROUTES: Route[] = ['INTRAMUSCULAR', 'SUBCUTANEOUS', 'INTRAVENOUS', 'ORAL', 'INTRANASAL', 'TOPICAL', 'OTHER']
-const route = (value: unknown): Route | '' => (ROUTES.includes(value as Route) ? value as Route : '')
+const LEGACY_ROUTES: Readonly<Partial<Record<string, Route>>> = {
+  IM: 'INTRAMUSCULAR',
+  SC: 'SUBCUTANEOUS',
+  IV: 'INTRAVENOUS',
+  IN: 'INTRANASAL',
+}
+const route = (value: unknown): Route | '' => {
+  const key = textValue(value).trim().toUpperCase()
+  if (ROUTES.includes(key as Route)) return key as Route
+  return Object.hasOwn(LEGACY_ROUTES, key) ? LEGACY_ROUTES[key]! : ''
+}
 const PURPOSE_TYPES: PurposeType[] = ['BREEDING', 'FATTENING', 'SIRE', 'UNDECIDED']
 
 export const mapBreed = (row: Record<string, unknown>): Breed => ({

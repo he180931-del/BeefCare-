@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCatalogueApi } from '../../../src/features/farm-catalogue/api/catalogueApi'
+import { createCatalogueApi, mapMedicine, mapVaccine } from '../../../src/features/farm-catalogue/api/catalogueApi'
 import { createCatalogueDemoStore } from '../../../src/features/farm-catalogue/data/catalogueDemoStore'
 import { FieldErrors } from '../../../src/features/farm-catalogue/domain/catalogueRules'
 import { DEFAULT_PARAMETERS } from '../../../src/features/farm-catalogue/domain/parameterRules'
@@ -135,6 +135,14 @@ describe('catalogue api: parameters', () => {
 })
 
 describe('catalogue api: backend mode', () => {
+  it('maps legacy administration routes to the current catalogue options', () => {
+    expect(mapVaccine({ route: 'IM' }).route).toBe('INTRAMUSCULAR')
+    expect(mapVaccine({ route: 'IN' }).route).toBe('INTRANASAL')
+    expect(mapMedicine({ route: 'SC' }).route).toBe('SUBCUTANEOUS')
+    expect(mapMedicine({ route: 'IV' }).route).toBe('INTRAVENOUS')
+    expect(mapMedicine({ route: null }).route).toBe('')
+  })
+
   it('uses backend routes without touching the mock store', async () => {
     const transport = {
       get: vi.fn().mockResolvedValue([]),
