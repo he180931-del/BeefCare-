@@ -49,6 +49,7 @@ public class CareCatalogueCommandService {
         Vaccine vaccine = id == null ? new Vaccine() : vaccineForFarm(farmId, id);
         if (id != null) VersionGuard.requireExpected(vaccine.getVersion(), req.expectedVersion());
         String code = catalogueCode(req.code(), id == null ? null : vaccine.getCode()); String name = requireText(req.name(), "name", 150);
+        if (id != null && !code.equals(vaccine.getCode()) && vaccineReferenced(id)) throw DomainException.invalid("code");
         String disease = requireText(req.diseasePrevented(), "diseasePrevented", 150);
         ensureCodeAvailable(farmId, code, id, true);
         // §3.2: withdrawal 0–365 (default 0), booster interval 0–730 days.
@@ -77,6 +78,7 @@ public class CareCatalogueCommandService {
         Medicine medicine = id == null ? new Medicine() : medicineForFarm(farmId, id);
         if (id != null) VersionGuard.requireExpected(medicine.getVersion(), req.expectedVersion());
         String code = catalogueCode(req.code(), id == null ? null : medicine.getCode()); String name = requireText(req.name(), "name", 150);
+        if (id != null && !code.equals(medicine.getCode()) && treatments(id) > 0) throw DomainException.invalid("code");
         ensureCodeAvailable(farmId, code, id, false);
         // §3.3: withdrawal required 0–365; reference dose (≤ 100), route and notes (≤ 500) optional.
         if (req.withdrawalDays() == null) throw DomainException.required("withdrawalDays");
@@ -100,9 +102,7 @@ public class CareCatalogueCommandService {
     Boolean deleteUnusedVaccineInCommand(Long farmId, Long id, Integer expectedVersion) {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_CARE_CATALOGUES);
         Vaccine vaccine = vaccineForFarm(farmId, id); VersionGuard.requireExpected(vaccine.getVersion(), expectedVersion);
-        Long usedByRecord = em.createQuery("select count(v) from Vaccination v where v.vaccine.id=:id", Long.class).setParameter("id", id).getSingleResult();
-        Long usedBySchedule = em.createQuery("select count(s) from VaccinationSchedule s where s.vaccine.id=:id", Long.class).setParameter("id", id).getSingleResult();
-        if (usedByRecord > 0 || usedBySchedule > 0) throw DomainException.unprocessable(MessageCodes.FE18_04, "item", vaccine.getName());
+        if (vaccineReferenced(id)) throw DomainException.unprocessable(MessageCodes.FE18_04, "item", vaccine.getName());
         em.remove(vaccine); em.flush(); audit.log(ctx, "VACCINE_DELETE", "Vaccine", id, Map.of("code", vaccine.getCode())); return Boolean.TRUE;
     }
 
@@ -122,6 +122,15 @@ public class CareCatalogueCommandService {
     }
 
     private long count(String jpql, Long id) { return em.createQuery(jpql, Long.class).setParameter("id", id).getSingleResult(); }
+    private long vaccinationSchedules(Long vaccineId) {
+        return count("select count(s) from VaccinationSchedule s where s.vaccine.id=:id", vaccineId);
+    }
+    private long vaccinationRecords(Long vaccineId) {
+        return count("select count(v) from Vaccination v where v.vaccine.id=:id", vaccineId);
+    }
+    private boolean vaccineReferenced(Long vaccineId) {
+        return vaccinationSchedules(vaccineId) > 0 || vaccinationRecords(vaccineId) > 0;
+    }
     private long treatments(Long medicineId) { return count("select count(t) from Treatment t where t.medicine.id=:id", medicineId); }
 
     private Vaccine vaccineForFarm(Long farmId, Long id) {
@@ -141,8 +150,8 @@ public class CareCatalogueCommandService {
     }
     private CareDtos.CatalogueItem view(Vaccine v) {
         int days = 0; try { days = Integer.parseInt(v.getWithdrawalInfo()); } catch (Exception ignored) {}
-        long schedules = count("select count(s) from VaccinationSchedule s where s.vaccine.id=:id", v.getId());
-        long records = count("select count(x) from Vaccination x where x.vaccine.id=:id", v.getId());
+        long schedules = vaccinationSchedules(v.getId());
+        long records = vaccinationRecords(v.getId());
         boolean incomplete = v.getDose() == null || v.getDose().isBlank() || v.getRoute() == null || v.getRoute().isBlank();
         return new CareDtos.CatalogueItem(v.getId(), v.getCode(), v.getName(), null, v.getDiseasePrevented(), v.getManufacturer(), v.getDose(), v.getRoute(), days, v.getBoosterInterval(), v.getAvailable(), v.getVersion(),
             schedules, records, schedules + records, incomplete);
