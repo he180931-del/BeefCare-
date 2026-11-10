@@ -1,5 +1,8 @@
 import type { EntryCow, EntryType } from '../../types'
 
+// The supported farm time zones all use UTC+07:00, matching FarmClock.
+const farmDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' })
+
 type ValidationInput = {
   date?: string
   type?: EntryType
@@ -13,9 +16,14 @@ type ValidationInput = {
   today?: string
 }
 
+export function entryToday(): string {
+  const parts = Object.fromEntries(farmDate.formatToParts(new Date()).map(({ type, value }) => [type, value]))
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
 /** Rules required to transition an entry voucher from DRAFT to POSTED. */
 export function validateEntryForPost(input: ValidationInput): string | null {
-  const today = input.today ?? new Date().toISOString().slice(0, 10)
+  const today = input.today ?? entryToday()
   if (!input.date) return 'Ngày nhập là bắt buộc.'
   if (input.date > today) return 'Ngày nhập không được ở tương lai.'
   if (input.type === 'Mua ngoài' && !String(input.sourceId ?? '').trim()) return 'Vui lòng chọn người bán.'

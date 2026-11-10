@@ -170,7 +170,8 @@ const mapVoucher = (value: unknown, documents: unknown = [], root = '', voucherI
   }
   const draft: ExitDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
     type: typeFromBackend(row.exitType), date: textValue(row.exitDate), buyerId: buyer.id == null ? '' : String(buyer.id),
-    quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note),
+    quarantine: textValue(row.transportCertNo), plate: textValue(row.vehiclePlate),
+    note: textValue(row.exitType === 'OTHER' ? row.destination ?? row.note : row.exitType === 'DEATH' ? row.deathCause ?? row.note : row.note),
     pricing: row.pricingBasis === 'PER_HEAD' ? 'con' : 'kg', deduction: numberValue(row.deductions), collected: numberValue(row.depositCollected ?? row.amountCollected),
     method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', dueDate: textValue(row.collectionDueDate),
     docs: mapDocuments(documents, root, voucherId),
@@ -250,13 +251,15 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     const backendLossKind = backendExitType === 'DEATH'
       ? lossKind(detail.lossType)
       : isMissingLoss(detail.lossType) ? 'MISSING' : null
-    const buyerId = backendExitType === 'SALE'
-      ? nullableNumber(draft.buyerId) ?? findNamedId(partners, buyerName)
+    const needsBuyer = backendExitType === 'SALE' || backendExitType === 'CULL'
+    const selectedBuyerId = Number(draft.buyerId)
+    const buyerId = needsBuyer
+      ? (Number.isSafeInteger(selectedBuyerId) && selectedBuyerId > 0 ? selectedBuyerId : findNamedId(partners, buyerName))
       : null
     const selectableRows = asRows(selectable)
     const body = {
       exitType: backendExitType, exitDate: textValue(record.date ?? draft.date), buyerId,
-      destination: backendExitType === 'SALE' ? null : textValue(record.who) || null,
+      destination: backendExitType === 'OTHER' ? textValue(record.who) || null : null,
       transportCertNo: textValue(draft.quarantine ?? detail.quarantine) || null, vehiclePlate: textValue(draft.plate ?? detail.plate) || null,
       note: textValue(draft.note ?? detail.note ?? record.note) || null,
       lossKind: backendLossKind,
@@ -268,7 +271,9 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
         const match = selectableRows.find((item) => textValue(item.cattleCode) === textValue(cow.code))
         const cattleId = nullableNumber(cow.backendId) ?? nullableNumber(match?.cattleId)
         if (!cattleId) throw new Error(`Bò ${textValue(cow.code)} không còn đủ điều kiện xuất`)
-        return { cattleId, exitWeightKg: numberValue(cow.weight), weightBasis: cow.estimated ? 'ESTIMATED' : 'MEASURED', unitPrice: numberValue(cow.unitPrice) }
+        const exitWeightKg = nullableNumber(cow.weight) || null
+        const weightBasis = exitWeightKg == null ? null : cow.estimated ? 'ESTIMATED' : 'MEASURED'
+        return { cattleId, exitWeightKg, weightBasis, unitPrice: numberValue(cow.unitPrice) }
       }),
       expectedVersion: existing?.version ?? null,
     }
@@ -337,7 +342,7 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
       code: textValue(row.cattleCode), ...(cattleId !== null ? { backendId: cattleId } : {}), tag: textValue(row.earTagNumber), breed: textValue(row.breedName),
       sex: row.sex === 'MALE' ? 'Đực' : 'Cái', age: months ? `${months} tháng` : '—', group: HERD_GROUP_LABELS[groupKey] ?? groupKey, groupKey,
       stage: LIFE_STAGE_LABELS[stageKey] ?? stageKey, stageKey, barn: textValue(row.penCode), weight: numberValue(latest.weightKg),
-      weightNote: latest.basis === 'ESTIMATED' ? `ước tính ${textValue(latest.date)}` : `cân ${textValue(latest.date)}`,
+      weightNote: latest.weightKg == null ? 'Chưa có lần cân' : latest.basis === 'ESTIMATED' ? `ước tính ${textValue(latest.date)}` : `cân ${textValue(latest.date)}`,
       estimated: latest.basis === 'ESTIMATED', unitPrice: 0,
     }
     const penCount = nullableNumber(row.penCount ?? row.penOccupancy ?? row.occupancy)

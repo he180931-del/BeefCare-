@@ -855,6 +855,16 @@ class HerdExitVoucherServiceTest extends ExitTestSupport {
     }
 
     @Test
+    void destinationCannotReplaceTheBuyerOfACullVoucher() {
+        actAs(owner);
+        Cattle c = placed(penA, "300");
+        var draft = service.create(farmId(), saveReq(ExitType.CULL, TODAY, null, "Nơi đến", 0, 0, null, List.of(line(c, "300", 1L))));
+
+        expect(() -> confirm(draft.id()), MessageCodes.COM_06, HttpStatus.BAD_REQUEST);
+        assertThat(c.getHerdStatus()).isEqualTo(HerdStatus.ACTIVE);
+    }
+
+    @Test
     void depositDeductionsAndMethodRules() {
         actAs(owner);
         // total receivable = 100 kg x 10,000 - 100,000 = 900,000

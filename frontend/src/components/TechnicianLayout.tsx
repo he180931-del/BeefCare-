@@ -17,13 +17,13 @@ const TABS: ReadonlyArray<{ label: string; to: string; icon: IconName; end?: boo
  * Khung điện thoại của Kỹ thuật viên (frame 390 x 844, bỏ thanh trạng thái của máy).
  * `hero`: thanh xanh có logo của trang chủ; còn lại là thanh trắng, `back` là đường dẫn quay lại (true = trang trước).
  */
-export default function TechnicianLayout({ title, sub, hero = false, back, actions, children }: {
-  title: string; sub?: ReactNode; hero?: boolean; back?: string | true; actions?: ReactNode; children: ReactNode
+export default function TechnicianLayout({ title, sub, hero = false, back, actions, children, wide = false }: {
+  title: string; sub?: ReactNode; hero?: boolean; back?: string | true; actions?: ReactNode; children: ReactNode; wide?: boolean
 }) {
   const navigate = useNavigate()
   const backIcon = <Icon name="chevron-left" size={22} label="Quay lại" />
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-page">
+    <div className={`mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-page ${wide ? 'sm:max-w-[1240px]' : ''}`}>
       {hero ? (
         <header className="flex items-center gap-2.5 bg-side px-4 py-3.5">
           <img src={logo} alt="" className="size-[38px] rounded-[10px] object-cover" />

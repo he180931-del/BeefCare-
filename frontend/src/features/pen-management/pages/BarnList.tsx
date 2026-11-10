@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../../components/Icon'
 import Layout from '../../../components/Layout'
+import TechnicianLayout from '../../../components/TechnicianLayout'
 import { useModalParam } from '../../../components/Modal'
 import { Button, Note, PageHeader, Select, inputCls } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
@@ -32,6 +33,7 @@ const normalize = (text: string) => text.toLowerCase().normalize('NFD').replace(
 export default function BarnList() {
   const navigate = useNavigate()
   const session = useSession()
+  const technician = session?.role === 'TECHNICIAN'
   // Không có session (vd. test từng trang) thì không ẩn nút; quyền thật do backend kiểm tra.
   const canManage = !session || session.role === 'OWNER' || session.role === 'MANAGER'
   const [params, setParams] = useSearchParams()
@@ -100,8 +102,8 @@ export default function BarnList() {
     navigate(`/cattle?pen=${encodeURIComponent(pen)}`)
   }
 
-  return (
-    <Layout title="Chuồng trại – danh sách & chi tiết" user="manager">
+  const content = (
+    <>
       <PageHeader title="Chuồng trại" sub={`${header.penCount} chuồng · ${header.used}/${header.total} chỗ`}>
         {canManage && (
           <Button variant="primary" className="!border-0" onClick={() => openModal('create')}><Icon name="circle-plus" size={16} />Tạo chuồng</Button>
@@ -144,7 +146,7 @@ export default function BarnList() {
               onEdit={() => openModal('edit')}
               onToggle={() => openModal('disable')}
               onMove={(cattle) => setMoving(cattle)}
-              onViewAll={viewAll}
+              onViewAll={technician ? undefined : viewAll}
             />
           )}
         </div>
@@ -168,6 +170,9 @@ export default function BarnList() {
           onMoved={(message) => { setMoving(null); setNotice(message); refetch() }}
         />
       )}
-    </Layout>
+    </>
   )
+  return technician
+    ? <TechnicianLayout title="Chuồng trại" back="/kt" wide>{content}</TechnicianLayout>
+    : <Layout title="Chuồng trại – danh sách & chi tiết" user="manager">{content}</Layout>
 }

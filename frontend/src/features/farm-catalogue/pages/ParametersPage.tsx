@@ -45,7 +45,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
   const current = data?.find((v) => v.status === 'CURRENT')
   useEffect(() => {
     if (!data || draft) return
-    setBaseVersion(data[0]?.versionNo ?? 0)
+    setBaseVersion(data.reduce((latest, version) => Math.max(latest, version.versionNo), 0))
     setDraft(toDraft(current?.parameters ?? DEFAULT_PARAMETERS))
   }, [data, current, draft])
 
@@ -175,7 +175,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
         </Card>
       )}
 
-      <Foot>Tham số trạng thái và nhắc việc của trại (Chủ trại, Quản lý). Giá trị mặc định được tạo cùng trại. Mỗi lần lưu tạo phiên bản mới có nguồn và ngày áp dụng; giá trị ngoài khoảng cho phép được báo ngay dưới ô.</Foot>
+      <Foot>Chủ trại và Quản lý có thể lưu phiên bản tham số mới kèm nguồn và ngày áp dụng. Giá trị ngoài khoảng cho phép được báo dưới ô nhập.</Foot>
       {showHistory && <VersionHistoryDialog versions={data} onClose={closeHistory} />}
     </>
   )

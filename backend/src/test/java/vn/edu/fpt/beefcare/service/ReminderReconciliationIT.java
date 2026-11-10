@@ -201,7 +201,7 @@ class ReminderReconciliationIT extends DomainTestSupport {
     @Test void pendingDeathVoucherRemindsOwnerAndManagerUntilTheOwnerDismissesIt() {
         Farm farm=farmWith(ALL_PARAMETERS);AppUser manager=memberWithRole(farm,FarmRole.MANAGER);AppUser technician=memberWithRole(farm,FarmRole.TECHNICIAN);
         Cattle cow=cow(farm);
-        HerdExitVoucher pending=exitVoucher(farm,manager,null,0L,0L,ExitVoucherStatus.PENDING);pending.setExitType(ExitType.DEATH);exitLine(pending,cow,1,ExitLineStatus.PENDING);em.flush();
+        HerdExitVoucher pending=exitVoucher(farm,manager,null,0L,0L,ExitVoucherStatus.PENDING);pending.setExitType(ExitType.DEATH);pending.setCreatedAt(clock.instant());exitLine(pending,cow,1,ExitLineStatus.PENDING);em.flush();
         reconcile(farm);
         // REM-12 (Table III-3): Owner and Manager, never a Technician
         assertThat(rows(farm,"REM-12")).singleElement().satisfies(r->assertThat(r.getStatus()).isEqualTo("ACTIVE"));

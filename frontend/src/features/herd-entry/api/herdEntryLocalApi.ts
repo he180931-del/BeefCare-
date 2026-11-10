@@ -3,6 +3,7 @@ import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../api
 import { initialImports } from '../data/importsData'
 import { errorMessage } from '../../../api/herdDomainApi'
 import { herdEntrySchema } from '../../../api/collectionSchemas'
+import { entryToday } from '../entryValidation'
 import type { CattleInput, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../../../types'
 
 const nextEntryId = (rows: HerdEntry[]): string => {
@@ -85,7 +86,7 @@ export async function saveHerdEntry({ id, record, cattleRows = [] }: { id?: stri
   return current ? herdEntries.update(voucherId, nextRecord) : herdEntries.create(nextRecord)
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = entryToday
 
 async function validateEntryCattle(rows: CattleInput[], voucherId: string, record: EntrySaveRecord): Promise<void> {
   if (record.date && record.date > today()) throw new Error('Entry date cannot be in the future')

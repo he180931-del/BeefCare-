@@ -117,7 +117,7 @@ describe('Create / Edit Pen popup', () => {
     expect(options).not.toContain('Giới tính')
     expect(options).not.toContain('Loại mục đích')
 
-    await user.click(screen.getByText('INACTIVE'))
+    await user.click(screen.getByRole('radio', { name: 'Ngừng hoạt động' }))
     await user.click(screen.getByRole('button', { name: /Lưu chuồng/i }))
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       code: 'C-01', name: 'Bò tơ', capacity: 40, status: 'INACTIVE',

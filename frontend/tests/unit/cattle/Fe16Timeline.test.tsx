@@ -156,6 +156,36 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('?tab=growth&r=77&type=GROWTH_ASSESSMENT')
   })
 
+  it('sends only the changed fields to the exact reproduction source and refreshes the timeline', async () => {
+    const user = userEvent.setup()
+    const source = {
+      category: 'REPRODUCTION', type: 'BREEDING', status: 'VALID', sourceId: 77, occurredAt: '2026-10-01T03:00:00Z',
+      canCorrect: true, canOpen: true, values: { version: 2, method: 'AI', performedBy: 'Người cũ' },
+    }
+    const get = vi.spyOn(backendTransport, 'get').mockResolvedValue([source])
+    const command = vi.spyOn(backendTransport, 'command').mockResolvedValue({})
+    try {
+      render(<SessionContext.Provider value={session('MANAGER')}><MemoryRouter><TimelineTab cow={{ ...cow([]), backendId: 45 }} /></MemoryRouter></SessionContext.Provider>)
+      await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+      await user.click(await screen.findByRole('button', { name: 'Sửa / Hủy' }))
+      const dialog = within(screen.getByRole('dialog'))
+      await user.clear(dialog.getByLabelText('Người thực hiện'))
+      await user.type(dialog.getByLabelText('Người thực hiện'), 'Người mới')
+      await user.type(dialog.getByRole('textbox', { name: 'Lý do' }), 'Sửa tên')
+      const reads = get.mock.calls.length
+      await user.click(dialog.getByRole('button', { name: 'Lưu chỉnh sửa' }))
+      await waitFor(() => expect(command).toHaveBeenCalledWith(
+        expect.stringMatching(/\/reproduction-events\/77\/correction$/),
+        { expectedVersion: 2, reason: 'Sửa tên', performedBy: 'Người mới' },
+        { key: expect.any(String) },
+      ))
+      await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(reads))
+    } finally {
+      get.mockRestore()
+      command.mockRestore()
+    }
+  })
+
   it('backend canOpen=false answers MSG-FE16-01', async () => {
     const user = userEvent.setup()
     const denied = ev({ category: 'ENTRY_EXIT', type: 'HERD_EXIT', sourceId: null, occurredAt: '2026-10-01T03:00:00Z', status: 'CONFIRMED', values: { exitType: 'SALE' }, canOpen: false, canCorrect: false })

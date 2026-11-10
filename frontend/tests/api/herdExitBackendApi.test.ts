@@ -72,6 +72,28 @@ test('exit backend preserves per-head pricing and maps persisted per-head drafts
   assert.equal((writes[0]?.body as Record<string, unknown>)?.pricingBasis, 'PER_HEAD')
 })
 
+test('a per-head cull can be saved with a buyer and no recorded weight', async () => {
+  let savedBody: unknown
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async () => [],
+    command: async (_path, body) => {
+      savedBody = body
+      return { ...voucher(), exitType: 'CULL', pricingBasis: 'PER_HEAD' }
+    },
+  }
+  const api = createHerdExitBackendApi({ transport, farmId: 9 })
+  await api.save({
+    record: { date: '2026-10-29', type: 'Loại thải', status: 'Nháp', draft: { buyerId: '8', pricing: 'con' } },
+    cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 0, estimated: false, unitPrice: 8500000 }],
+  })
+
+  const body = savedBody as Record<string, unknown>
+  assert.equal(body.exitType, 'CULL')
+  assert.equal(body.buyerId, 8)
+  assert.deepEqual(body.lines, [{ cattleId: 301, exitWeightKg: null, weightBasis: null, unitPrice: 8500000 }])
+})
+
 test('exit backend preserves an OTHER MISSING loss when reopening and saving a draft', async () => {
   const missingVoucher = {
     ...voucher('DRAFT'), exitType: 'OTHER', loss: true, lossKind: 'MISSING', deathCause: 'Báo mất tích', lines: [{ ...voucher('DRAFT').lines[0], penCode: 'C9' }],

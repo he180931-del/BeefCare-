@@ -8,6 +8,7 @@ import { useQuery } from '../../../hooks/useApi'
 import { useSession } from '../../authorization'
 import { TIMELINE_FILTERS } from '../../../api/cattleTimeline'
 import { Chip, Panel, Seg } from './parts'
+import TimelineCorrectionDialog, { hasTimelineCorrection } from './TimelineCorrectionDialog'
 import type { CowSeed } from '../../../data/cowsData'
 import type { CattleEvent } from '../../../types'
 
@@ -40,7 +41,7 @@ export function timelineGroups(events: CattleEvent[], cat: string, showCorrectio
 /**
  * SCR-50 Timeline tab (UC-FE16-01): read-only (R-16-01). "Xem chi tiết" opens the source record in its profile tab
  * or voucher (R-16-06); "Sửa / Hủy" is offered to the Manager on care / reproduction records while "Hiện chỉnh sửa"
- * is on, and opens the source tab whose popup saves the change (R-16-07).
+ * is on, and saves the change through the source command (R-16-07).
  */
 export default function TimelineTab({ cow }: { cow: CowSeed }) {
   const nav = useNavigate()
@@ -49,6 +50,7 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
   const [showCorrections, setShowCorrections] = useState(false)
   const [denied, setDenied] = useState('')
   const [selected, setSelected] = useState<CattleEvent | null>(null)
+  const [editing, setEditing] = useState<CattleEvent | null>(null)
   const cattleId = cow.backendId
   const query = useQuery(async () => cattleId != null
     ? { showCorrections, events: await listCattleTimeline(cattleId, showCorrections) }
@@ -56,10 +58,9 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
   const events = cattleId != null && query.data?.showCorrections === showCorrections ? query.data.events : cow.events
   const groups = timelineGroups(events, cat, showCorrections)
   const code = encodeURIComponent(cow.code)
-  // FE-09 and FE-11/12 source tabs currently support demo writes only.
   const mayCorrect = (e: CattleEvent) => role === 'MANAGER' && cow.status === 'ACTIVE' &&
     e.correctable && !e.openDenied && e.tab && e.sourceId != null &&
-    (cattleId == null || (e.accessFromBackend && e.tab === 'growth'))
+    (cattleId == null || (e.accessFromBackend && (e.tab === 'growth' || hasTimelineCorrection(e))))
   const sourceLink = (e: CattleEvent, edit = false) => {
     const params = new URLSearchParams({ tab: e.tab ?? '' })
     if (e.sourceId != null) params.set('r', String(e.sourceId))
@@ -117,7 +118,10 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
                       <Button variant="link" small onClick={() => openSource(e)}>Xem chi tiết</Button>
                     )}
                     {showCorrections && mayCorrect(e) && (
-                      <Button variant="link" small onClick={() => nav(sourceLink(e, true))}>Sửa / Hủy</Button>
+                      <Button variant="link" small onClick={() => {
+                        if (cattleId != null && hasTimelineCorrection(e)) setEditing(e)
+                        else nav(sourceLink(e, true))
+                      }}>Sửa / Hủy</Button>
                     )}
                   </div>
                 </div>
@@ -136,7 +140,10 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
           <p className="text-muted">{selected.meta}</p>
         </Modal>
       )}
-      <Foot>Dòng thời gian chỉ đọc, gộp mọi sự kiện đã ghi của bò theo thời điểm xảy ra; lịch tiêm, mũi sắp tới và nhắc việc không nằm ở đây. Sửa hoặc hủy một bản ghi tại tab của bản ghi đó.</Foot>
+      {editing && hasTimelineCorrection(editing) && (
+        <TimelineCorrectionDialog event={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); query.refetch() }} />
+      )}
+      <Foot>Dòng thời gian gộp các sự kiện đã ghi của bò theo thời điểm xảy ra. Thao tác sửa hoặc hủy áp dụng cho bản ghi gốc.</Foot>
     </>
   )
 }

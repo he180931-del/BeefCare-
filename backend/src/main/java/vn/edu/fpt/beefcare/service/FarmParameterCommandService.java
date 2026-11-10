@@ -59,9 +59,13 @@ public class FarmParameterCommandService {
         // R-18-15: someone saved another version after this form was loaded.
         if (req.baseVersion() != null && req.baseVersion() != latest) throw DomainException.conflict(MessageCodes.COM_05, "versionNo", latest);
         int versionNo = latest + 1;
+        LocalDate effectiveFrom = req.effectiveFrom() == null ? clock.today() : req.effectiveFrom();
+        if (effectiveFrom.isBefore(clock.today())) throw DomainException.invalid("effectiveFrom");
+        var baseline = em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm and p.effectiveFrom<=:date order by p.effectiveFrom desc,p.versionNo desc", FarmParameterVersion.class)
+            .setParameter("farm", farmId).setParameter("date", effectiveFrom).setMaxResults(1).getResultList();
         Map<String, Object> values = new LinkedHashMap<>();
-        if (!versions.isEmpty()) {
-            try { values.putAll(json.readValue(versions.get(0).getParameterValues(), new TypeReference<>() {})); }
+        if (!baseline.isEmpty()) {
+            try { values.putAll(json.readValue(baseline.get(0).getParameterValues(), new TypeReference<>() {})); }
             catch (Exception e) { throw new IllegalStateException("Stored farm parameter JSON is invalid", e); }
         }
         if (req.parameters() != null) {
@@ -79,8 +83,6 @@ public class FarmParameterCommandService {
         int gestation = req.gestationLengthDays() == null ? intValue(values.getOrDefault("GESTATION_LENGTH_DAYS", 283)) : req.gestationLengthDays();
         validateRange("GESTATION_LENGTH_DAYS", gestation);
         values.put("GESTATION_LENGTH_DAYS", gestation);
-        LocalDate effectiveFrom = req.effectiveFrom() == null ? clock.today() : req.effectiveFrom();
-        if (effectiveFrom.isBefore(clock.today())) throw DomainException.invalid("effectiveFrom");
         FarmParameterVersion snapshot = new FarmParameterVersion(); snapshot.setFarm(farm); snapshot.setVersionNo(versionNo);
         snapshot.setGestationLengthDays(gestation); snapshot.setParameterValues(JsonSupport.toJson(values)); snapshot.setEffectiveFrom(effectiveFrom);
         snapshot.setSourceNote(req.sourceNote().trim()); snapshot.setChangedBy(ctx.user()); snapshot.setCreatedAt(clock.now()); em.persist(snapshot);

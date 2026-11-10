@@ -40,6 +40,7 @@ export interface CattleEvent {
   /** Id of the source record, passed to the source tab as ?r= to open its correction popup. */
   sourceId?: number
   sourceType?: string
+  revisionSource?: { version: number; occurredAt?: string | null; values: Record<string, unknown> }
 }
 export interface QrHistoryRow { code: string; status: string; from: string; to: string; reason: string; by: string; note?: string }
 export interface BarnHistoryRow { from: string; to: string; barn: string; reason: string; by: string }

@@ -38,6 +38,9 @@ class CareWorkflowIT extends DomainTestSupport {
     CareReadService reads;
 
     @Autowired
+    CattleTimelineService timeline;
+
+    @Autowired
     VaccinationCommandService vaccination;
 
     @Autowired
@@ -136,6 +139,13 @@ class CareWorkflowIT extends DomainTestSupport {
         CareDtos.HealthCaseResult closed = health.updateStatus(farm.getId(), opened.id(), key(),
             new CareDtos.CaseStatus(opened.version(), "CLOSE", "DIED", TODAY, "Found dead"));
         assertThat(closed.status()).isEqualTo("CLOSED");
+        assertThat(timeline.timeline(farm.getId(), cow.getId(), "HEALTH", false))
+            .filteredOn(event -> "HEALTH_CASE_CLOSED".equals(event.type())).singleElement().satisfies(event -> {
+                assertThat(event.sourceId()).isEqualTo(closed.id());
+                assertThat(event.values()).containsEntry("outcome", "DIED").containsEntry("closedDate", TODAY);
+                assertThat(event.recorder()).isEqualTo(manager.getFullName());
+                assertThat(event.canCorrect()).isFalse();
+            });
         List<HerdExitVoucher> pending = em.createQuery("select v from HerdExitVoucher v where v.farm.id = :f", HerdExitVoucher.class)
             .setParameter("f", farm.getId()).getResultList();
         assertThat(pending).singleElement().satisfies(v -> assertThat(v.getStatus().name()).isEqualTo("PENDING"));

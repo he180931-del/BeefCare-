@@ -32,7 +32,7 @@ import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
 import PayModal from '../components/PayModal'
-import { validateEntryForPost } from '../entryValidation'
+import { entryToday as localToday, validateEntryForPost } from '../entryValidation'
 import type { DocumentRow, EntryCalf, EntryCow, HerdEntry, Pen } from '../../../types'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
 import { userFacingError } from '../../../api/userFacingError'
@@ -47,10 +47,6 @@ type Calf = EntryCalf
 const barnLabel = (b: Pen & { showName?: boolean }) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` : b.code)
 const num = (v: unknown) => Number(v) || 0
 const displayError = userFacingError
-const localToday = () => {
-  const date = new Date()
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
 
 export default function ImportNew() {
   const [params] = useSearchParams()

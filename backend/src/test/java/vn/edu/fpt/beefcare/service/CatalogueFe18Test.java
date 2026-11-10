@@ -113,4 +113,22 @@ class CatalogueFe18Test extends DomainTestSupport {
         // TC-18-24: a later effective date is scheduled.
         assertThat(parameters.create(f.getId(), "p6-" + next(), new CareDtos.ParameterVersionCommand(Map.of(), null, TODAY.plusDays(20), "Từ tháng sau", base + 1)).scheduled()).isTrue();
     }
+
+    @Test
+    void partialVersionInheritsValuesEffectiveOnItsOwnDate() {
+        Farm f = farm();
+        actAs(memberWithRole(f, FarmRole.MANAGER));
+        var future = TODAY.plusDays(20);
+        var current = parameters.create(f.getId(), "current-" + next(), new CareDtos.ParameterVersionCommand(
+            Map.of("WEIGHING_INTERVAL_DAYS", 30), 283, TODAY, "Hiện tại"));
+        var scheduled = parameters.create(f.getId(), "scheduled-" + next(), new CareDtos.ParameterVersionCommand(
+            Map.of("WEIGHING_INTERVAL_DAYS", 60), 300, future, "Sau 20 ngày", current.versionNo()));
+        var immediate = parameters.create(f.getId(), "immediate-" + next(), new CareDtos.ParameterVersionCommand(
+            Map.of("TARGET_FINISHING_WEIGHT_KG", 450), null, TODAY, "Chỉnh cân đích", scheduled.versionNo()));
+
+        assertThat(immediate.parameters()).containsEntry("WEIGHING_INTERVAL_DAYS", 30);
+        assertThat(immediate.gestationLengthDays()).isEqualTo(283);
+        assertThat(parameters.effective(f.getId(), TODAY)).containsEntry("TARGET_FINISHING_WEIGHT_KG", 450);
+        assertThat(parameters.effective(f.getId(), future)).containsEntry("WEIGHING_INTERVAL_DAYS", 60).containsEntry("GESTATION_LENGTH_DAYS", 300);
+    }
 }

@@ -64,6 +64,10 @@ export default function TechnicianHomePage() {
           <input id="open-cattle" className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Nhập mã bò hoặc số thẻ tai" enterKeyHint="go" />
         </Field>
       </form>
+      <section className={card} aria-label="Tra cứu trại">
+        {cardHead('Chuồng trại', '/pens', 'Xem chuồng')}
+        {cardHead('Danh mục trại', '/danh-muc', 'Xem danh mục')}
+      </section>
 
       <section className={card} aria-label="Thông báo mới">
         {cardHead('Thông báo mới', '/kt/thong-bao', 'Xem tất cả')}

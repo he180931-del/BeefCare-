@@ -202,6 +202,8 @@ public class EntryLineValidator {
             }
         }
 
+        checkPurposeSex(issues, lineNo, purpose, sex);
+
         // birth date / age (GBR-23, SCR-24: either a date or an age in months)
         LocalDate birthDate = null;
         BirthDateAccuracy accuracy;
@@ -477,6 +479,7 @@ public class EntryLineValidator {
         if (purpose != null && full && !Boolean.TRUE.equals(purpose.getAvailable())) {
             issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE18_08, "purposeId", "field", "productionPurpose"));
         }
+        checkPurposeSex(issues, lineNo, purpose, sex);
 
         Pen pen = null;
         Long penId = r.penId() != null ? r.penId() : (calf != null && calf.getProposedPen() != null ? calf.getProposedPen().getId() : null);
@@ -541,9 +544,17 @@ public class EntryLineValidator {
 
     // ------------------------------------------------------------------ pieces
 
+    private void checkPurposeSex(List<Issue> issues, int lineNo, ProductionPurpose purpose, Sex sex) {
+        if (purpose == null || sex == null) return;
+        PurposeType type = purpose.getPurposeType();
+        if ((type == PurposeType.SIRE && sex != Sex.MALE) || (type == PurposeType.BREEDING && sex != Sex.FEMALE)) {
+            issues.add(error(lineNo, HttpStatus.UNPROCESSABLE_ENTITY, HerdEntryCodes.FE05_12, "purposeId",
+                "purpose", purpose.getName(), "purpose_type", type, "sex", sex));
+        }
+    }
+
     private void checkTag(List<Issue> issues, int lineNo, Long farmId, String tag, Set<String> tagsSeen, boolean full) {
         if (tag == null) {
-            issues.add(error(lineNo, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "earTagNumber", "field", "earTagNumber"));
             return;
         }
         if (tag.length() > 30) {

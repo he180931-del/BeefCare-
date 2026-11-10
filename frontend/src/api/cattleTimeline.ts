@@ -47,6 +47,7 @@ const REPRO_TYPE: Record<string, string> = { ESTRUS: 'Động dục', BREEDING: 
 const REPRO_METHOD: Record<string, string> = { AI: 'thụ tinh nhân tạo', NATURAL: 'phối tự nhiên' }
 const PREGNANCY_UPDATE: Record<string, string> = { COMPLICATION: 'biến chứng', LOSS: 'mất thai' }
 const QR_STATUS: Record<string, string> = { ACTIVE: 'đang dùng', REPLACED: 'đã thay', RETIRED: 'đã thu hồi' }
+const HEALTH_OUTCOME: Record<string, string> = { RECOVERED: 'Đã khỏi', DIED: 'Chết', MISSING: 'Mất', CLOSED_BY_EXIT: 'Đóng do xuất đàn' }
 
 const str = (value: unknown): string => (value == null ? '' : String(value))
 const num = (value: unknown): string => {
@@ -129,7 +130,10 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
         title: `Tiêm ${str(v.vaccine) || 'vắc-xin'}`,
         detail: join(v.batchNo && `Lô ${str(v.batchNo)}`, v.dose && `Liều ${str(v.dose)}`, v.withdrawalEndDate && `Ngưng sử dụng thịt đến ${dateOnly(v.withdrawalEndDate)}`),
         basis: v.source === 'HISTORICAL' ? 'Lịch sử' : 'Tại trại',
+        reason: str(v.reason) || undefined,
       }
+    case 'HEALTH_CASE_CLOSED':
+      return { title: `Đóng ca bệnh ${str(v.caseCode)}`.trim(), detail: HEALTH_OUTCOME[str(v.outcome)] ?? str(v.outcome) }
     case 'HEALTH_OBSERVATION':
       return { title: 'Theo dõi sức khỏe', detail: join(v.signs), reason: str(v.reason) || undefined }
     case 'TREATMENT':
@@ -139,9 +143,9 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
         reason: str(v.reason) || undefined,
       }
     case 'PREGNANCY_UPDATE':
-      return { title: `Cập nhật thai${PREGNANCY_UPDATE[str(v.type)] ? ` – ${PREGNANCY_UPDATE[str(v.type)]}` : ''}`, detail: join(v.details) }
+      return { title: `Cập nhật thai${PREGNANCY_UPDATE[str(v.type)] ? ` – ${PREGNANCY_UPDATE[str(v.type)]}` : ''}`, detail: join(v.details), reason: str(v.reason) || undefined }
     case 'CALVING_EVENT':
-      return { title: 'Đẻ', detail: join(v.course && `Diễn biến ${str(v.course).toLowerCase()}`, v.damCondition && `Mẹ ${str(v.damCondition).toLowerCase()}`, v.retainedPlacenta === true && 'Sót nhau') }
+      return { title: 'Đẻ', detail: join(v.course && `Diễn biến ${str(v.course).toLowerCase()}`, v.damCondition && `Mẹ ${str(v.damCondition).toLowerCase()}`, v.retainedPlacenta === true && 'Sót nhau'), reason: str(v.reason) || undefined }
     default:
       if (REPRO_TYPE[type]) {
         return {
@@ -196,12 +200,13 @@ export function mapTimeline(event: BackendTimeline, index: number): CattleEvent 
     basis: described.basis,
     reason: status === 'VALID' ? undefined : described.reason,
     badge: { label: marker ?? described.basis ?? '', tone },
-    tab: SOURCE_TAB[cat],
+    tab: type === 'PROFILE_CHANGE' ? '' : SOURCE_TAB[cat],
     voucher: voucherCode && event.canOpen !== false ? { kind: type === 'HERD_EXIT' ? 'exit' : 'entry', code: voucherCode } : undefined,
     correctable: typeof event.canCorrect === 'boolean' ? event.canCorrect && CORRECTABLE.has(cat) : heuristic,
     accessFromBackend: fromBackend,
     openDenied: event.canOpen === false,
     sourceId: typeof event.sourceId === 'number' ? event.sourceId : undefined,
     sourceType: type,
+    revisionSource: event.canCorrect && typeof values.version === 'number' ? { version: values.version, occurredAt: event.occurredAt, values } : undefined,
   }
 }

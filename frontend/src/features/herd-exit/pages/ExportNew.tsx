@@ -110,7 +110,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState<unknown>(null)
 
-  const isSale = type === 'Bán'
+  const needsBuyer = type === 'Bán' || type === 'Loại thải'
   const isLoss = type === 'Chết / mất'
   const hasPricing = !isLoss
   const typeLocked = Boolean(draftRow)
@@ -202,7 +202,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const buildDraftRecord = (): Partial<HerdExit> => ({
     date,
     type,
-    who: isSale ? (buyer?.name ?? '') : note || type,
+    who: needsBuyer ? (buyer?.name ?? '') : note,
     sub: `${picked.length} con · chuồng ${[...new Set(picked.map((c) => c.barn))].join(', ')}`,
     count: picked.length,
     weight: `${money(totalWeight)} kg`,
@@ -217,15 +217,26 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     },
   })
 
-  // GBR-34: every non-sale exit needs a reason.
-  const missingReason = () => {
-    if (!isSale && !note.trim()) { setFormError('Vui lòng nhập lý do xuất.'); return true }
+  const missingRequiredField = () => {
+    if (needsBuyer && !buyer) {
+      setFormError('Vui lòng chọn người mua.')
+      return true
+    }
+    if (!needsBuyer && !note.trim()) {
+      setFormError(isLoss ? 'Vui lòng nhập lý do xuất.' : 'Vui lòng nhập nơi đến.')
+      return true
+    }
     setFormError(null)
     return false
   }
 
   const saveDraftAndLoadChecks = async () => {
-    if (savingRef.current || missingReason()) return
+    if (savingRef.current || missingRequiredField()) return
+    const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
+    if (missingWeight) {
+      setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
+      return
+    }
     const revision = formRevision.current
     const snapshot = formSnapshot()
     const isCurrentForm = () => revision === formRevision.current && snapshot === formSnapshot()
@@ -254,7 +265,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   }
 
   const saveDraft = async () => {
-    if (savingRef.current || missingReason()) return
+    if (savingRef.current || missingRequiredField()) return
     savingRef.current = true
     try {
       await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
@@ -298,10 +309,11 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
               <Field label="Mã phiếu"><input className={inputCls} value={id} readOnly /></Field>
               <Field label="Ngày xuất *"><DateInput value={date} onChange={setDate} /></Field>
               <Field label="Loại xuất"><input className={inputCls} value={type} readOnly /></Field>
-              {isSale && (
+              {needsBuyer && (
                 <>
                   <Field label="Người mua / thương lái *" hint={`${buyer?.phone ?? ''} · + Thêm người mua`}>
-                    <Select value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className="w-full">
+                    <Select aria-label="Người mua / thương lái" value={buyerId} onChange={(e) => setBuyerId(e.target.value)} className="w-full">
+                      <option value="">Chọn người mua</option>
                       {buyers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </Select>
                   </Field>
@@ -310,8 +322,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                 </>
               )}
             </div>
-            <Field label={isSale ? 'Ghi chú' : 'Lý do *'}>
-              <input className={inputCls} value={note} placeholder={isSale ? '' : 'Nhập lý do xuất'} onChange={(e) => setNote(e.target.value)} />
+            <Field label={needsBuyer ? 'Ghi chú' : isLoss ? 'Lý do *' : 'Nơi đến *'}>
+              <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : undefined} onChange={(e) => setNote(e.target.value)} />
             </Field>
           </Box>
 
@@ -351,8 +363,9 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                       <Td className={TH}>{c.barn}</Td>
                       <Td className={TH}>
                         <input
+                          aria-label={`Cân xuất ${c.code}`}
                           inputMode="numeric"
-                          value={c.weight}
+                          value={c.weight || ''}
                           onChange={(e) => patch(c.code, { weight: Number(e.target.value.replace(/\D/g, '')) || 0, estimated: false })}
                           className="w-[4ch] border-0 bg-transparent p-0 text-xs outline-none focus:bg-chip"
                         />
@@ -399,7 +412,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
             ))}
           </Box>
 
-          <div className={cx('grid items-start gap-[18px]', isSale ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1 lg:grid-cols-[300px]')}>
+          <div className={cx('grid items-start gap-[18px]', needsBuyer ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1 lg:grid-cols-[300px]')}>
             <Box title="3. Chứng từ đính kèm" gap="gap-[10px]">
               <Dropzone hint="Hợp đồng, phiếu cân, giấy kiểm dịch · PDF, JPG ≤ 10MB" onFiles={addDocuments} />
               {documentError && <Note tone="err">{documentError}</Note>}
@@ -409,7 +422,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                 onRemove={removeDocument}
               />
             </Box>
-            {isSale && (
+            {needsBuyer && (
               <Box title="4. Thanh toán" gap="gap-3">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                   <div><div className="mb-[3px] text-[11px] text-faint">Tiền bò</div><div className="text-[13px] font-medium">{money(cowsMoney)} đ</div></div>

@@ -4,6 +4,7 @@ import { DateInput, Field, KV, Note, Select, Table, Td, Th } from '../../../comp
 import { BREEDS, PURPOSE_OPTIONS, STAGES } from '../data/importsData'
 import { money } from '../../../data/format'
 import { RadioRow } from './parts'
+import { entryToday } from '../entryValidation'
 import type { EntryCow, Pen } from '../../../types'
 import type { EntryBreedOption, EntryVaccineOption } from '../api/herdEntryBackendApi'
 
@@ -79,7 +80,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
       if (months != null && (!Number.isInteger(months) || months < 1 || months > 9)) return setValidationError('Số tháng mang thai phải từ 1 đến 9.')
       setHist({ pregnancyMonths: months, earlierCalvings: c.hist.earlierCalvings, pregnantAtEntry, reproductionNote: detailSource.slice(0, 1000) })
     } else if (detailModal === 'vaccine') {
-      if (detailDate && detailDate > new Date().toISOString().slice(0, 10)) return setValidationError('Ngày tiêm không được ở tương lai.')
+      if (detailDate && detailDate > entryToday()) return setValidationError('Ngày tiêm không được ở tương lai.')
       const items = vaccineRows.filter((item) => item.vaccineName.trim() || item.vaccineId != null || item.date || item.source).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName, vaccineDate: item.date, vaccineSource: item.source }))
       setHist({ vaccineItems: items, vaccineId: items[0]?.vaccineId, vaccineName: items[0]?.vaccineName, vaccineDate: items[0]?.vaccineDate, vaccineSource: items[0]?.vaccineSource, vaccineNote: items[0]?.vaccineSource || items[0]?.vaccineName })
     } else setHist({ diseaseNote: detailDraft.trim().slice(0, 1000) })

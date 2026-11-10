@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, Checkbox, Field, Note, Select, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Badge, Button, Checkbox, Field, Note, Select, Table, Td, Th, inputCls } from '../../../components/ui'
 import { Icon } from '../../../components/Icon'
 import { money } from '../../../data/format'
 import { TH } from './parts'
 import type { HerdExit } from '../../../types'
+import { scanCode } from '../../cattle/api/scanApi'
+import ExitQrCamera from './ExitQrCamera'
 type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number }
 
 // Bò đang nằm trong phiếu khác (Nháp / Chờ xác nhận / Đã xuất) thì không hiện để chọn.
@@ -16,6 +18,10 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
   const [group, setGroup] = useState('all')
   const [minWeight, setMinWeight] = useState(0)
   const [selected, setSelected] = useState(() => new Set(picked.map((c) => c.code)))
+  const [showQr, setShowQr] = useState(false)
+  const [qrCode, setQrCode] = useState('')
+  const [checkingQr, setCheckingQr] = useState(false)
+  const [qrFeedback, setQrFeedback] = useState<{ message: string; ok: boolean } | null>(null)
 
   const busy = new Set(
     herdExits
@@ -32,6 +38,31 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
       (group === 'all' || (c.groupKey ?? c.group) === group) &&
       c.weight >= minWeight,
   )
+
+  const selectFromQr = async (value: string) => {
+    setShowQr(false)
+    setQrFeedback(null)
+    setCheckingQr(true)
+    try {
+      const result = await scanCode(value)
+      if (result?.kind !== 'found') {
+        setQrFeedback({ message: result?.kind === 'otherFarm' ? 'Bò thuộc trại khác.' : 'Không tìm được bò theo mã này.', ok: false })
+        return
+      }
+      const code = result.cow.code
+      if (!candidates.some((candidate) => candidate.code === code)) {
+        setQrFeedback({ message: `Bò ${code} hiện không thể thêm vào phiếu này.`, ok: false })
+        return
+      }
+      setSelected((current) => new Set([...current, code]))
+      setQrCode('')
+      setQrFeedback({ message: `Đã chọn bò ${code}.`, ok: true })
+    } catch {
+      setQrFeedback({ message: 'Không tra được mã bò. Vui lòng thử lại.', ok: false })
+    } finally {
+      setCheckingQr(false)
+    }
+  }
 
   const toggle = (code: string) => {
     const next = new Set(selected)
@@ -74,6 +105,16 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
         </Field>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Mã thẻ QR">
+          <input aria-label="Mã thẻ QR" className={inputCls} value={qrCode} onChange={(e) => setQrCode(e.target.value)} />
+        </Field>
+        <Button disabled={checkingQr || !qrCode.trim()} onClick={() => void selectFromQr(qrCode)}>Chọn theo mã</Button>
+        <Button disabled={checkingQr} onClick={() => setShowQr(!showQr)}><Icon name="qrcode" />{showQr ? 'Tắt camera' : 'Quét QR'}</Button>
+      </div>
+      {showQr && <ExitQrCamera onCode={(code) => void selectFromQr(code)} />}
+      {qrFeedback && <Note tone={qrFeedback.ok ? undefined : 'warn'}>{qrFeedback.message}</Note>}
+
       <Table stack={false}>
         <thead>
           <tr>
@@ -90,7 +131,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
               <Td className={TH}>{c.group}<br />{c.stage}</Td>
               <Td className={TH}>{c.barn}</Td>
               <Td className={TH}>{c.age}</Td>
-              <Td className={TH}>{c.weight} kg<br />{c.weightNote}</Td>
+              <Td className={TH}>{c.weight > 0 ? `${c.weight} kg` : '—'}<br />{c.weightNote}</Td>
               <Td className={TH}>
                 {c.withdrawalUntil && <Badge tone="err" icon="ban">Ngưng GM → {c.withdrawalUntil.slice(8)}/{c.withdrawalUntil.slice(5, 7)}</Badge>}
                 {c.openCase && <Badge tone="warn">Ca mở {c.openCase}</Badge>}
@@ -104,7 +145,7 @@ export default function PickModal({ id, herdExits, candidates: availableCattle, 
 
       {occupancy.map(([pen, value]) => <Note key={pen}>Chuồng {pen}: {value.count}/{value.capacity} con</Note>)}
 
-      <Note>Cảnh báo không chặn việc chọn – Chủ trại xem lại ở bước "Kiểm tra trước khi xác nhận". Quét QR chưa được tích hợp với API hiện tại.</Note>
+      <Note>Cảnh báo không chặn việc chọn – Chủ trại xem lại ở bước "Kiểm tra trước khi xác nhận".</Note>
       <div className="-mt-2 text-[13px] font-semibold text-[#0b563c]">
         Đã chọn {selected.size} con · ~{money(selectedWeight)} kg theo cân gần nhất
       </div>

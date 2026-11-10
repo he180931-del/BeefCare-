@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const saveHerdExit = vi.fn()
 
 vi.mock('../../../src/features/herd-exit/api/index', () => ({
-  herdExitApi: { list: vi.fn().mockResolvedValue([]), get: vi.fn().mockResolvedValue(null), checks: vi.fn() },
+  herdExitApi: { list: async () => [], get: async () => null, checks: vi.fn() },
   getExitDraftState: (rows: unknown[], id?: string) => ({ type: 'Bán', row: id ? rows.find((row: any) => row.id === id) : undefined }),
   saveHerdExit,
   confirmHerdExit: vi.fn(),
@@ -14,9 +14,9 @@ vi.mock('../../../src/features/herd-exit/api/index', () => ({
   removeExitAttachment: vi.fn(),
   cancelHerdExit: vi.fn(),
   dismissHerdExit: vi.fn(),
-  listExitBuyers: vi.fn().mockResolvedValue([]),
-  listSelectableExitCattle: vi.fn().mockResolvedValue([]),
-  pens: { list: vi.fn().mockResolvedValue([]) },
+  listExitBuyers: async () => [],
+  listSelectableExitCattle: async () => [],
+  pens: { list: async () => [] },
 }))
 
 describe('herd-exit required-field validation', () => {
@@ -36,5 +36,17 @@ describe('herd-exit required-field validation', () => {
 
     expect(saveHerdExit).not.toHaveBeenCalled()
     expect(screen.getByText('Vui lòng nhập lý do xuất.')).toBeInTheDocument()
+  })
+
+  it('requires a buyer for a cull voucher', async () => {
+    const user = userEvent.setup()
+    const { default: ExportNew } = await import('../../../src/features/herd-exit/pages/ExportNew')
+    render(<MemoryRouter initialEntries={['/herd-exit/new']}><Routes><Route path="/herd-exit/new" element={<ExportNew />} /></Routes></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: 'Loại thải' }))
+    expect(screen.getByRole('combobox', { name: 'Người mua / thương lái' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    expect(screen.getByText('Vui lòng chọn người mua.')).toBeInTheDocument()
+    expect(saveHerdExit).not.toHaveBeenCalled()
   })
 })

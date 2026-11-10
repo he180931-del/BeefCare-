@@ -46,7 +46,7 @@ class FarmAccessServiceTest extends DomainTestSupport {
         MATRIX.put(FarmAction.MANAGE_HEALTH, managerOnly);
         MATRIX.put(FarmAction.VIEW_REPRODUCTION, all);
         MATRIX.put(FarmAction.MANAGE_REPRODUCTION, managerOnly);
-        MATRIX.put(FarmAction.VIEW_CARE_CATALOGUES, ownerManager);
+        MATRIX.put(FarmAction.VIEW_CARE_CATALOGUES, all);
         MATRIX.put(FarmAction.MANAGE_CARE_CATALOGUES, ownerManager);
         MATRIX.put(FarmAction.VIEW_PENS, all); // view pens, headcount, pen history: technician read-only
         MATRIX.put(FarmAction.MANAGE_PENS, ownerManager); // create / edit / criteria / stop / resume

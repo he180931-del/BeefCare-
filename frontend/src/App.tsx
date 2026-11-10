@@ -118,7 +118,7 @@ export default function App() {
         <Route path="/herd-exit" element={desk(<ExportList />)} />
         <Route path="/herd-exit/new" element={desk(<ExportNew />)} />
         <Route path="/herd-exit/:id" element={desk(<ExportDetail />)} />
-        <Route path="/pens" element={desk(<BarnList />)} />
+        <Route path="/pens" element={farmMember(<BarnList />)} />
         <Route path="/cattle" element={desk(<CowList />)} />
         <Route path="/cattle/:code/sinh-san/de" element={desk(<Calving />)} />
         <Route path="/cattle/:code" element={desk(<CowProfile />)} />
@@ -141,7 +141,7 @@ export default function App() {
         <Route path="/thuc-an/nhat-ky" element={farmMember(<FeedFeeding />)} />
         <Route path="/thuc-an/danh-muc" element={desk(<FeedCatalogue />)} />
         <Route path="/thuc-an/bao-cao" element={desk(<FeedConsumptionReport />)} />
-        <Route path="/danh-muc/*" element={desk(<Catalogue />)} />
+        <Route path="/danh-muc/*" element={farmMember(<Catalogue />)} />
         <Route path="/owner-registration" element={<OwnerRegistration />} />
         <Route path="/chon-trai" element={<FarmSelect />} />
         <Route path="/dang-ky-trai" element={<FarmRegistration />} />
