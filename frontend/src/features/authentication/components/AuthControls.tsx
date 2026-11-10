@@ -1,11 +1,12 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type MouseEventHandler, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../../../components/Icon'
 import type { AuthClient } from '../types'
 import { FormField, googleButtonClass } from './AuthShell'
+import { googleAuthorizationUrl } from '../googleOAuth'
 
-export function ActionLink({ to, children, state }: { to: string; children: ReactNode; state?: unknown }) {
-  return <Link to={to} state={state} className="font-bold text-brand underline-offset-4 hover:underline">{children}</Link>
+export function ActionLink({ to, children, state, onClick }: { to: string; children: ReactNode; state?: unknown; onClick?: MouseEventHandler<HTMLAnchorElement> }) {
+  return <Link to={to} state={state} onClick={onClick} className="font-bold text-brand underline-offset-4 hover:underline">{children}</Link>
 }
 
 export function PasswordField({ label, id, value, onChange, error, autoComplete, placeholder, maxLength = 128, invalid }: {
@@ -26,7 +27,7 @@ export function PasswordField({ label, id, value, onChange, error, autoComplete,
 export function GoogleButton({ client, label }: { client: AuthClient; label: string }) {
   const glyph = <span aria-hidden="true" className="absolute left-5 text-xl font-bold">G</span>
   if (client.mode === 'mock') return <button type="button" disabled className={googleButtonClass} title="Google OAuth chỉ khả dụng khi nối máy chủ">{glyph}{label}</button>
-  return <a href="/oauth2/authorization/google" className={`${googleButtonClass} no-underline`}>{glyph}{label}</a>
+  return <a href={googleAuthorizationUrl()} className={`${googleButtonClass} no-underline`}>{glyph}{label}</a>
 }
 
 export function Divider({ children }: { children: ReactNode }) {

@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../../../src/App'
 import { resetFeedCatalogueDemoStore } from '../../../src/features/feed-stock/data/feedReceiptDemoStore'
+import * as feedCatalogueApi from '../../../src/features/feed-stock/api/feedCatalogueApi'
 import { listFeedCatalogue } from '../../../src/features/feed-stock/api/feedCatalogueApi'
 
 function renderApp(path: string) {
@@ -12,12 +13,14 @@ function renderApp(path: string) {
 
 describe('SCR-84 feed catalogue', () => {
   beforeEach(async () => {
+    vi.restoreAllMocks()
     localStorage.clear()
     localStorage.setItem('beefcare:latency', '0')
     await resetFeedCatalogueDemoStore()
   })
 
   it('lists the 8 feeds with their purchase unit, minimum level and average cost, and edits the selected row in the side panel', async () => {
+    const saveFeed = vi.spyOn(feedCatalogueApi, 'saveFeedCatalogueItem')
     const user = userEvent.setup()
     renderApp('/thuc-an/danh-muc?feed=TA-06')
     await screen.findByRole('table')
@@ -35,6 +38,7 @@ describe('SCR-84 feed catalogue', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
 
     expect(await screen.findByText('Cám ngô đã được lưu.')).toBeInTheDocument()
+    expect(saveFeed).toHaveBeenCalledWith(expect.objectContaining({ id: 106, expectedVersion: 2 }))
     expect((await listFeedCatalogue()).find((item) => item.code === 'TA-06')?.minimumStockKg).toBe(300)
   })
 

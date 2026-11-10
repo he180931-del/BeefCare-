@@ -60,7 +60,7 @@ export function ResultForm({ ir, me, simulateFailure, initialOutcome, onlyReason
         <FieldError>{errors.outcome}</FieldError>
       </Field>
       <Field label="Nội dung kết quả *" id={`res-${ir.code}`}>
-        <Textarea id={`res-${ir.code}`} rows={3} maxLength={2000} value={result} onChange={(e) => setResult(e.target.value)} placeholder={outcome === 'PERFORMED' ? 'Mô tả kết quả đã làm sạch' : 'Lý do (CS dùng để hướng dẫn khách)'} />
+        <Textarea id={`res-${ir.code}`} rows={3} maxLength={2000} value={result} onChange={(e) => setResult(e.target.value)} placeholder={outcome === 'PERFORMED' ? 'Mô tả kết quả đã làm sạch' : 'Lý do (nhân viên hỗ trợ dùng để hướng dẫn khách)'} />
         <FieldError>{errors.result}</FieldError>
       </Field>
       {!onlyReasons && (
@@ -72,7 +72,7 @@ export function ResultForm({ ir, me, simulateFailure, initialOutcome, onlyReason
           <FieldError>{errors.ref}</FieldError>
         </Field>
       )}
-      <Note tone="grey">Kết quả gửi cho CS phụ trách {ir.from}. Chủ trại không thấy nội dung này.</Note>
+      <Note tone="grey">Kết quả gửi cho nhân viên hỗ trợ phụ trách {ir.from}. Chủ trại không thấy nội dung này.</Note>
       {error && <Note tone="err">{error}</Note>}
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={() => navigate(related.to)}>{related.label}</Button>

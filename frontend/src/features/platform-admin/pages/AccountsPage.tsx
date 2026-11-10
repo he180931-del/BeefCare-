@@ -10,7 +10,7 @@ import { AccountStatusBadge, PersonCell, SaPage, Toast, restPathId, searchWithou
 import { farmsJoinedText } from '../domain/platformRules'
 import type { AccountFilters, AccountSummary } from '../types'
 
-const PAGE_SIZE = 8
+const PAGE_SIZE = 50
 const TITLE = 'Tài khoản người dùng'
 
 function AccountsContent() {
@@ -54,9 +54,9 @@ function AccountsContent() {
         <FilterSelect className="w-[230px] max-w-full" aria-label="Lọc theo vai trò nền tảng" value={role} onChange={(e) => filterChange(() => setRole(e.target.value as typeof role))}>
           <option value="">Vai trò nền tảng: Tất cả</option>
           <option value="NONE">Vai trò nền tảng: Chưa có</option>
-          <option value="CS">Vai trò nền tảng: CS</option>
-          <option value="PM">Vai trò nền tảng: PM</option>
-          <option value="SA">Vai trò nền tảng: SA</option>
+          <option value="CS">Vai trò nền tảng: Nhân viên hỗ trợ (CS)</option>
+          <option value="PM">Vai trò nền tảng: Quản lý nền tảng (PM)</option>
+          <option value="SA">Vai trò nền tảng: Quản trị hệ thống (SA)</option>
         </FilterSelect>
       </div>
 
@@ -98,7 +98,7 @@ function AccountsContent() {
           />
         </div>
       )}
-      <Foot>Tài khoản người dùng (SA). Chọn một dòng để xem chi tiết ở khung phải; tạm khóa hoặc mở khóa bắt buộc nhập lý do và được ghi audit. Tạm khóa tài khoản không đổi trạng thái dịch vụ của trại.</Foot>
+      <Foot>Tài khoản người dùng (quản trị hệ thống). Chọn một dòng để xem chi tiết ở khung phải; tạm khóa hoặc mở khóa bắt buộc nhập lý do và được ghi vào lịch sử kiểm toán. Tạm khóa tài khoản không đổi trạng thái dịch vụ của trại.</Foot>
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   )

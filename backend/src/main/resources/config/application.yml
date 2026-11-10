@@ -42,6 +42,7 @@ beefcare:
       enabled: ${BEEFCARE_GOOGLE_ENABLED:false}
   public:
     contact-email: ${BEEFCARE_CONTACT_EMAIL:}
+    contact-phone: ${BEEFCARE_CONTACT_PHONE:}
   sepay:
     environment: ${BEEFCARE_SEPAY_ENVIRONMENT:MOCK}
     account-namespace: ${BEEFCARE_SEPAY_ACCOUNT_NAMESPACE:LOCAL-MOCK}
@@ -232,7 +233,7 @@ jhipster:
   #   allow-credentials: true
   #   max-age: 1800
   mail:
-    from: beefcare@localhost
+    from: ${BEEFCARE_MAIL_FROM:BeefCare@gmail.com}
   api-docs:
     default-include-pattern: /api/**
     management-include-pattern: /management/**

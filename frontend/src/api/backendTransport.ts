@@ -1,4 +1,6 @@
 import { createBackendClient } from './backendClient'
+import { notifySessionExpired } from './sessionLifecycle'
+import { readCurrentFarmId } from './currentFarm'
 
 export interface BackendTransport {
   get(path: string): Promise<unknown>
@@ -11,10 +13,16 @@ export type BackendMode = 'local' | 'backend'
 const env: Partial<ImportMetaEnv> = import.meta.env ?? {}
 
 export const backendMode: BackendMode = env.VITE_BEEFCARE_DATA_SOURCE === 'backend' ? 'backend' : 'local'
-export const backendFarmId = env.VITE_BEEFCARE_FARM_ID || '1'
+const enteredFarmId = readCurrentFarmId()
+/**
+ * The current farm for every feature API: the farm entered on Select Farm in this tab (UC-FE02-02), otherwise the
+ * configured one. Read once per page load; entering another farm reloads the page (see `currentFarm.ts`).
+ */
+export const backendFarmId = enteredFarmId != null ? String(enteredFarmId) : env.VITE_BEEFCARE_FARM_ID || '1'
 
 export const backendTransport: BackendTransport = createBackendClient({
   baseUrl: env.VITE_BEEFCARE_API_URL || '',
+  onUnauthorized: notifySessionExpired,
 })
 
 export const asRecord = (value: unknown): Record<string, unknown> =>

@@ -4,13 +4,15 @@ import { MemoryRouter } from 'react-router-dom'
 import App from '../../../src/App'
 
 const routeCases = [
+  ['/terms', 'Điều khoản sử dụng'],
+  ['/data-policy', 'Chính sách dữ liệu'],
   ['/owner-registration', 'Hoàn tất hồ sơ chủ trại'],
   ['/chon-trai', 'Chọn trang trại'],
   ['/dang-ky-trai', 'Đăng ký trang trại'],
   ['/thong-tin-trai?farmId=1', 'Thông tin trại'],
   ['/thanh-vien?farmId=1', 'Thành viên & vai trò'],
   ['/loi-moi?farmId=1', 'Lời mời thành viên'],
-  ['/chap-nhan-loi-moi?token=route-smoke', 'Lời mời không còn hiệu lực'],
+  ['/invitation/accept?token=route-smoke', 'Lời mời không còn hiệu lực'],
   ['/sinh-san', 'Sinh sản'],
   ['/cattle/BC-000087/sinh-san/de', 'Ghi sự kiện đẻ'],
   ['/thuc-an/hom-nay', 'Khẩu phần hôm nay'],

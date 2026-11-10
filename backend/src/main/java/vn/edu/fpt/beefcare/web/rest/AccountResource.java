@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
@@ -22,9 +24,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
+import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
 import vn.edu.fpt.beefcare.repository.UserRepository;
 import vn.edu.fpt.beefcare.security.SecurityUtils;
@@ -58,6 +62,7 @@ public class AccountResource {
     private final UserService userService;
 
     private final AppUserRepository appUserRepository;
+    private final FarmMembershipRepository farmMembershipRepository;
     private final FarmAccessService farmAccessService;
     private final IdentityService identityService;
     private final UserDetailsService userDetailsService;
@@ -76,6 +81,7 @@ public class AccountResource {
         UserRepository userRepository,
         UserService userService,
         AppUserRepository appUserRepository,
+        FarmMembershipRepository farmMembershipRepository,
         FarmAccessService farmAccessService,
         IdentityService identityService,
         UserDetailsService userDetailsService,
@@ -86,6 +92,7 @@ public class AccountResource {
         this.userRepository = userRepository;
         this.userService = userService;
         this.appUserRepository = appUserRepository;
+        this.farmMembershipRepository = farmMembershipRepository;
         this.farmAccessService = farmAccessService;
         this.identityService = identityService;
         this.userDetailsService = userDetailsService;
@@ -104,12 +111,16 @@ public class AccountResource {
      */
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public void registerAccount(@RequestBody RegistrationRequest request) {
-        identityService.register(request.fullName(), request.email(), request.password(), request.confirmPassword(), request.termsAccepted());
+    public RegistrationResponse registerAccount(@RequestBody RegistrationRequest request) {
+        return new RegistrationResponse(
+            identityService.register(request.fullName(), request.email(), request.password(), request.confirmPassword(), request.termsAccepted())
+        );
     }
 
     /** SCR-03 fields. Rules are enforced by {@link IdentityService} so each failure carries its MSG-FE01 / MSG-COM code. */
     public record RegistrationRequest(String fullName, String email, String password, String confirmPassword, boolean termsAccepted) {}
+
+    public record RegistrationResponse(String email) {}
 
     /**
      * {@code GET  /activate} : activate the registered user.
@@ -119,7 +130,16 @@ public class AccountResource {
      */
     @GetMapping("/activate")
     public ResponseEntity<Void> activateAccount(@RequestParam(value = "token") String token, HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
-        User activated = identityService.activateEmail(token);
+        User activated;
+        try {
+            activated = identityService.activateEmail(token);
+        } catch (DomainException invalid) {
+            if (!MessageCodes.FE01_06.equals(invalid.getCode())) throw invalid;
+            String destination = frontendBaseUrl.replaceAll("/+$", "") + "/lien-ket-khong-con-hieu-luc?type=verification";
+            String email = identityService.verificationEmail(token).orElse(null);
+            if (email != null) destination += "&email=" + URLEncoder.encode(email, StandardCharsets.UTF_8);
+            return ResponseEntity.status(HttpStatus.SEE_OTHER).location(URI.create(destination)).build();
+        }
         UserDetails details = userDetailsService.loadUserByUsername(activated.getEmail());
         Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(details, null, details.getAuthorities());
         SecurityContext context = SecurityContextHolder.createEmptyContext();
@@ -135,11 +155,13 @@ public class AccountResource {
 
     /** Same answer for every address (GBR-03). The body is a JSON object: a bare JSON string would arrive with its quotes. */
     @PostMapping("/account/verification/resend")
-    public void resendEmailVerification(@RequestBody EmailRequest request) {
-        identityService.resendVerification(request.email());
+    public ResendVerificationResponse resendEmailVerification(@RequestBody EmailRequest request) {
+        return new ResendVerificationResponse(identityService.resendVerification(request.email()));
     }
 
     public record EmailRequest(String email) {}
+
+    public record ResendVerificationResponse(Instant nextAllowedAt) {}
 
     /**
      * {@code GET  /account} : get the current user.
@@ -157,22 +179,33 @@ public class AccountResource {
 
     /** Completes the personal Owner profile; it does not create a farm or grant farm/platform access. */
     @PostMapping("/account/owner-registration")
+    @Transactional
     public OwnerRegistrationResponse completeOwnerRegistration(@RequestBody OwnerRegistrationRequest request) {
         String name = fullName(request.fullName());
-        String phone = phone(request.phone());
-        if (!request.termsAccepted()) throw DomainException.badRequest(MessageCodes.FE01_14, "field", "termsAccepted");
+        String phone = phone(request.contactPhone(), "contactPhone");
         AppUser user = farmAccessService.currentActiveUser();
+        // SCR-07 only asks for consent when it was not already recorded during SCR-03.
+        if (!request.termsAccepted() && !user.isTermsAccepted()) {
+            throw DomainException.badRequest(MessageCodes.FE01_14, "field", "termsAccepted");
+        }
         user.setFullName(name);
         user.setPhone(phone);
-        user.setOwnerRegistrationCompleted(true);
-        user.setOwnerRegistrationCompletedAt(Instant.now());
+        Instant now = Instant.now();
+        if (!user.isTermsAccepted()) {
+            user.setTermsAccepted(true);
+            user.setTermsAcceptedAt(now);
+        }
+        if (!user.isOwnerRegistrationCompleted()) {
+            user.setOwnerRegistrationCompleted(true);
+            user.setOwnerRegistrationCompletedAt(now);
+        }
         appUserRepository.save(user);
         return new OwnerRegistrationResponse(user.getId(), user.getEmail(), user.getFullName(), user.getPhone(), true);
     }
 
-    public record OwnerRegistrationRequest(String fullName, String phone, boolean termsAccepted) {}
+    public record OwnerRegistrationRequest(String fullName, String contactPhone, boolean termsAccepted) {}
 
-    public record OwnerRegistrationResponse(Long id, String email, String fullName, String phone, boolean completed) {}
+    public record OwnerRegistrationResponse(Long id, String email, String fullName, String contactPhone, boolean completed) {}
 
     @GetMapping("/account/profile")
     public ProfileResponse getProfile() {
@@ -180,9 +213,9 @@ public class AccountResource {
     }
 
     @PostMapping("/account/profile")
-    public ProfileResponse updateProfile(@RequestBody ProfileUpdate request) {
+    public ProfileResponse updateProfile(@RequestBody AccountProfileUpdate request) {
         String name = fullName(request.fullName());
-        String phone = phone(request.phone());
+        String phone = phone(request.contactPhone(), "contactPhone");
         AppUser account = farmAccessService.currentActiveUser();
         account.setFullName(name);
         account.setPhone(phone);
@@ -194,6 +227,56 @@ public class AccountResource {
         return profile(account);
     }
 
+    /** A10 / SCR-08: the permission matrix comes from the verified active membership, never from browser state. */
+    @GetMapping("/farms/{farmId}/my-permissions")
+    public FarmPermissionsResponse myPermissions(@PathVariable Long farmId) {
+        AppUser account = farmAccessService.currentActiveUser();
+        FarmRole role = farmMembershipRepository
+            .findFirstByFarmIdAndUserIdAndStatusIgnoreCase(farmId, account.getId(), "ACTIVE")
+            .map(membership -> parseFarmRole(membership.getRole()))
+            .orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
+        return new FarmPermissionsResponse(role.name(), permissionEntries(role));
+    }
+
+    private static FarmRole parseFarmRole(String value) {
+        try {
+            return FarmRole.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw DomainException.forbidden(MessageCodes.COM_01);
+        }
+    }
+
+    private static List<PermissionEntry> permissionEntries(FarmRole role) {
+        return List.of(
+            permission("CATTLE_PROFILE_QR", role, "FULL", "FULL", "RESTRICTED"),
+            permission("PENS_AND_MOVES", role, "FULL", "FULL", "RESTRICTED"),
+            permission("HERD_ENTRY_AND_PAYMENTS", role, "FULL", "FULL", "NO"),
+            permission("GROWTH_BCS", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("VACCINATION", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("HEALTH_AND_TREATMENT", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("REPRODUCTION", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("CATALOGUES_AND_PARAMETERS", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("FARM_ANNOUNCEMENTS", role, "FULL", "FULL", "RESTRICTED"),
+            permission("REMINDERS", role, "RESTRICTED", "RESTRICTED", "RESTRICTED"),
+            permission("DASHBOARD_AND_REPORTS", role, "RESTRICTED", "RESTRICTED", "NO"),
+            permission("MEMBERS_ROLES", role, "FULL", "RESTRICTED", "NO"),
+            permission("HERD_EXIT_AND_COLLECTIONS", role, "FULL", "RESTRICTED", "NO"),
+            permission("FEED_STOCK_AND_CATALOGUE", role, "FULL", "FULL", "RESTRICTED"),
+            permission("FEEDING_LOG", role, "RESTRICTED", "FULL", "RESTRICTED"),
+            permission("SUBSCRIPTION_AND_PAYMENT", role, "FULL", "NO", "NO"),
+            permission("FARM_INFORMATION", role, "FULL", "NO", "NO")
+        );
+    }
+
+    private static PermissionEntry permission(String area, FarmRole role, String owner, String manager, String technician) {
+        String value = switch (role) {
+            case OWNER -> owner;
+            case MANAGER -> manager;
+            case TECHNICIAN -> technician;
+        };
+        return new PermissionEntry(area, value);
+    }
+
     /** SCR-07 / SCR-08: full name 2-100 characters. */
     private static String fullName(String value) {
         if (value == null || value.isBlank()) throw DomainException.required("fullName");
@@ -203,19 +286,23 @@ public class AccountResource {
     }
 
     /** SCR-07 / SCR-08: optional Vietnamese phone, 10 digits starting with 0 or +84 followed by 9 digits (MSG-COM-10). */
-    private static String phone(String value) {
+    private static String phone(String value, String field) {
         if (value == null || value.isBlank()) return null;
-        String phone = value.trim();
-        if (!phone.matches("^(?:0[0-9]{9}|\\+84[0-9]{9})$")) throw DomainException.invalid("phone");
+        String phone = value.trim().replaceAll("[\\s.-]", "");
+        if (!phone.matches("^(?:0[0-9]{9}|\\+84[0-9]{9})$")) throw DomainException.invalid(field);
         return phone;
     }
 
     private ProfileResponse profile(AppUser account) {
         boolean verified = userRepository.findOneByEmailIgnoreCase(account.getEmail()).map(User::isActivated).orElse(false);
         String platformRole = platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").map(access -> access.getRole()).orElse(null);
-        List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role(), permissionsOf(farm.role()))).toList();
+        List<FarmRoleSummary> farms = workspace.list().stream().map(farm -> new FarmRoleSummary(farm.id(), farm.name(), farm.role(), farm.serviceStatus(), permissionsOf(farm.role()))).toList();
+        List<String> methods = new ArrayList<>();
+        if (account.isPasswordLoginEnabled()) methods.add("PASSWORD");
+        if (account.getGoogleSubject() != null) methods.add("GOOGLE");
         return new ProfileResponse(account.getId(), account.getEmail(), account.getFullName(), account.getPhone(), verified,
-            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), platformRole, farms);
+            account.isPasswordLoginEnabled(), account.getGoogleSubject() != null, account.isOwnerRegistrationCompleted(), account.isTermsAccepted(), account.getAccountStatus(),
+            methods, account.isPasswordLoginEnabled(), platformRole, farms);
     }
 
     /** UC-FE01-04 / SCR-08: the fixed permissions of a farm role (GBR-06, Table III-2), as FarmAction codes. */
@@ -230,14 +317,18 @@ public class AccountResource {
         return java.util.Arrays.stream(FarmAction.values()).filter(action -> action.allows(farmRole)).map(Enum::name).toList();
     }
 
-    public record ProfileUpdate(String fullName, String phone) {}
+    public record AccountProfileUpdate(String fullName, String contactPhone) {}
 
     /** SCR-08 header: the platform role (staff), and the role and its fixed GBR-06 permissions in each available farm. */
-    public record ProfileResponse(Long id, String email, String fullName, String phone, boolean emailVerified,
-        boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted,
-        String platformRole, List<FarmRoleSummary> farms) {}
+    public record ProfileResponse(Long id, String email, String fullName, String contactPhone, boolean emailVerified,
+        boolean passwordSignInEnabled, boolean googleSignInLinked, boolean ownerRegistrationCompleted, boolean termsAccepted,
+        String status, List<String> signInMethods, boolean hasPassword, String platformRole, List<FarmRoleSummary> farms) {}
 
-    public record FarmRoleSummary(Long farmId, String farmName, String role, List<String> permissions) {}
+    public record FarmRoleSummary(Long farmId, String farmName, String role, String serviceStatus, List<String> permissions) {}
+
+    public record FarmPermissionsResponse(String role, List<PermissionEntry> permissions) {}
+
+    public record PermissionEntry(String area, String value) {}
 
     /**
      * {@code POST  /account} : update the current user information.
@@ -293,14 +384,29 @@ public class AccountResource {
 
     /**
      * UC-FE01-06 AF1/AF2: the profile calls this, then sends the browser to {@code /oauth2/authorization/google}; after the
-     * Google sign-in the browser returns to {@code /profile?googleReauthenticated=true} and, for 5 minutes, change-password
+     * Google sign-in the browser returns to its server-verified profile route with {@code googleReauthenticated=true} and, for 5 minutes, change-password
      * accepts the new password without the current one.
      */
     @PostMapping(path = "/account/google-reauthentication")
     @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.NO_CONTENT)
-    public void startGoogleReauthentication(jakarta.servlet.http.HttpServletRequest request) {
-        request.getSession(true).setAttribute(GoogleReauthentication.RETURN_TO_PROFILE, Boolean.TRUE);
+    public void startGoogleReauthentication(@RequestBody(required = false) GoogleReauthenticationRequest request, HttpServletRequest httpRequest) {
+        AppUser account = farmAccessService.currentActiveUser();
+        String requested = request == null ? null : request.returnTo();
+        httpRequest.getSession(true).setAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH, reauthenticationReturnPath(account, requested));
     }
+
+    /** Only known account routes are retained, and each privileged route is derived from the active server-side role. */
+    private String reauthenticationReturnPath(AppUser account, String requested) {
+        if ("/nen-tang/ho-so".equals(requested) && platformStaffAccess.findOneByUserIdAndStatusIgnoreCase(account.getId(), "ACTIVE").isPresent()) {
+            return requested;
+        }
+        if ("/kt/tai-khoan".equals(requested) && farmMembershipRepository.existsByUserIdAndRoleIgnoreCaseAndStatusIgnoreCase(account.getId(), "TECHNICIAN", "ACTIVE")) {
+            return requested;
+        }
+        return "/ho-so";
+    }
+
+    public record GoogleReauthenticationRequest(String returnTo) {}
 
     /**
      * {@code POST   /account/reset-password/init} : Send an email to reset the password of the user.
@@ -314,10 +420,10 @@ public class AccountResource {
 
     @GetMapping(path = "/account/reset-password/validate")
     public ResetLinkValidation validateResetLink(@RequestParam("token") String token) {
-        return new ResetLinkValidation(identityService.isPasswordResetLinkValid(token));
+        return identityService.passwordResetEmail(token).map(email -> new ResetLinkValidation(true, email)).orElseGet(() -> new ResetLinkValidation(false, null));
     }
 
-    public record ResetLinkValidation(boolean valid) {}
+    public record ResetLinkValidation(boolean valid, String email) {}
 
     /**
      * {@code POST   /account/reset-password/finish} : Finish to reset the password of the user.

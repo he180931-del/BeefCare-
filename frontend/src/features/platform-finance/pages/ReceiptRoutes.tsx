@@ -20,17 +20,20 @@ export default function ReceiptRoutes() {
   const [m, open, close] = useModalParam()
   const [search, setSearch] = useState('')
   const [farmId, setFarmId] = useState<number | ''>('')
-  const [from, setFrom] = useState('2026-10-01')
-  const [to, setTo] = useState('2026-10-19')
+  const initialRange = financeApi.defaultDateRange()
+  const [from, setFrom] = useState(initialRange.from)
+  const [to, setTo] = useState(initialRange.to)
   const [page, setPage] = useState(1)
   const [picked, setPicked] = useState<Receipt | null>(null)
   const farms = useQuery(() => financeApi.listFarms(), [])
   const { data, loading, error, refetch } = useQuery(() => financeApi.listReceipts({ search, farmId, from, to, page }), [search, farmId, from, to, page])
+  const selectedCode = picked?.code ?? data?.rows[0]?.code ?? null
+  const { data: selectedDetail } = useQuery(() => selectedCode ? financeApi.getReceipt(selectedCode) : Promise.resolve(null), [selectedCode])
 
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được biên nhận.')} onRetry={refetch} /></Layout>
 
-  const current = (picked && data.rows.find((r) => r.code === picked.code)) || data.rows[0] || null
+  const current = selectedDetail ?? ((picked && data.rows.find((r) => r.code === picked.code)) || data.rows[0] || null)
   const reset = () => { setSearch(''); setFarmId(''); setPage(1) }
   const month = Number(to.slice(5, 7))
 

@@ -6,8 +6,13 @@ import { PRIORITY_LABEL, STATUS_LABEL, initials } from '../domain/supportRules'
 import type { Actor, TicketPriority, TicketStatus } from '../types'
 
 export function useActor(): Actor {
-  const role = useSession()?.role
-  return useMemo(() => actorForRole(role), [role])
+  const session = useSession()
+  return useMemo(() => {
+    const fallback = actorForRole(session?.role)
+    return typeof session?.id === 'number' && session.id > 0
+      ? { ...fallback, id: session.id, name: session.fullName }
+      : fallback
+  }, [session?.fullName, session?.id, session?.role])
 }
 
 export const errText = (e: unknown, fallback = 'Không lưu được dữ liệu. Vui lòng thử lại.') => (e instanceof Error && e.message ? e.message : fallback)

@@ -4,8 +4,8 @@ import { createAccountDemoStore } from '../../../src/features/account/data/accou
 import { validatePasswordChange, validateProfile } from '../../../src/features/account/domain/profileRules'
 import type { AccountIdentity } from '../../../src/features/account/types'
 
-const manager: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì' }
-const pm: AccountIdentity = { email: 'pm@beefcare.local', fullName: 'Đỗ Minh Quân', role: 'PM', farmName: null }
+const manager: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }
+const pm: AccountIdentity = { email: 'pm@beefcare.local', fullName: 'Đỗ Minh Quân', role: 'PM', farmName: null, farmId: null }
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
 const localApi = (now?: () => number) => createAccountApi({ mode: 'local', farmId: 1, transport: transport(), store: createAccountDemoStore({ now }) })
 
@@ -53,7 +53,7 @@ describe('account API (local mode)', () => {
     let clock = 1_000_000
     const api = localApi(() => clock)
     await api.getProfile(manager)
-    await api.reauthenticateWithGoogle(manager)
+    await api.reauthenticateWithGoogle(manager, '/ho-so')
     await expect(api.changePassword(manager, { newPassword: 'NewPassw0rd', confirmPassword: 'NewPassw0rd' })).resolves.toBeDefined()
     clock += 5 * 60 * 1000 + 1
     await expect(api.changePassword(manager, { newPassword: 'Another0ne', confirmPassword: 'Another0ne' })).rejects.toThrow('Mật khẩu hiện tại')
@@ -63,26 +63,32 @@ describe('account API (local mode)', () => {
     const api = localApi()
     expect((await api.getProfile(pm)).passwordSignInEnabled).toBe(false)
     await expect(api.changePassword(pm, { newPassword: 'NewPassw0rd', confirmPassword: 'NewPassw0rd' })).rejects.toThrow('xác thực lại với Google')
-    await api.reauthenticateWithGoogle(pm)
+    await api.reauthenticateWithGoogle(pm, '/nen-tang/ho-so')
     await api.changePassword(pm, { newPassword: 'NewPassw0rd', confirmPassword: 'NewPassw0rd' })
     expect((await api.getProfile(pm)).passwordSignInEnabled).toBe(true)
-    await expect(api.reauthenticateWithGoogle({ ...manager, role: 'TECHNICIAN', email: 'technician@beefcare.local' })).rejects.toThrow('chưa liên kết')
+    await expect(api.reauthenticateWithGoogle({ ...manager, role: 'TECHNICIAN', email: 'technician@beefcare.local' }, '/kt/tai-khoan')).rejects.toThrow('chưa liên kết')
   })
 })
 
 describe('account API (backend mode)', () => {
   it('calls the real routes and never reads the local store', async () => {
     const http = transport()
-    http.get.mockResolvedValue({ id: 7, email: 'a@b.vn', fullName: 'An', phone: '', emailVerified: true, passwordSignInEnabled: true, googleSignInLinked: false, ownerRegistrationCompleted: true, platformRole: null, farms: [] })
+    http.get.mockImplementation(async (path: string) => path === '/api/farms/1/my-permissions'
+      ? { role: 'MANAGER', permissions: [{ area: 'GROWTH_BCS', value: 'FULL' }] }
+      : { id: 7, email: 'a@b.vn', fullName: 'An', phone: '', emailVerified: true, passwordSignInEnabled: true, googleSignInLinked: false, ownerRegistrationCompleted: true, platformRole: null, farms: [] })
     http.command.mockResolvedValue({ id: 7, email: 'a@b.vn', fullName: 'An B', phone: '', farms: [] })
     const store = createAccountDemoStore()
     const spy = vi.spyOn(store, 'getProfile')
     const api = createAccountApi({ mode: 'backend', farmId: 1, transport: http, store })
     expect((await api.getProfile(manager)).id).toBe(7)
+    await expect(api.getFarmPermissions(manager, 1)).resolves.toEqual({ role: 'MANAGER', permissions: [{ area: 'GROWTH_BCS', value: 'FULL' }] })
     await api.updateProfile(manager, { fullName: 'An B', phone: '' })
+    await api.reauthenticateWithGoogle(manager, '/ho-so')
     await api.changePassword(manager, { currentPassword: 'a', newPassword: 'NewPassw0rd', confirmPassword: 'NewPassw0rd' })
     expect(http.get).toHaveBeenCalledWith('/api/account/profile')
-    expect(http.command).toHaveBeenCalledWith('/api/account/profile', { fullName: 'An B', phone: '' }, { method: 'POST' })
+    expect(http.get).toHaveBeenCalledWith('/api/farms/1/my-permissions')
+    expect(http.command).toHaveBeenCalledWith('/api/account/profile', { fullName: 'An B', contactPhone: '' }, { method: 'POST' })
+    expect(http.command).toHaveBeenCalledWith('/api/account/google-reauthentication', { returnTo: '/ho-so' }, { method: 'POST' })
     expect(http.command).toHaveBeenCalledWith('/api/account/change-password', expect.objectContaining({ newPassword: 'NewPassw0rd' }), { method: 'POST' })
     expect(spy).not.toHaveBeenCalled()
   })

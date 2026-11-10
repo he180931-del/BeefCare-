@@ -27,14 +27,14 @@ export function ReopenDialog({ ticket, resolution, onSubmit, onClose }: { ticket
     if (!result.ok) setError(result.message)
   }
   return (
-    <Modal title={`Mở lại ticket ${ticket.code}`} sub={`Kết quả phiên bản ${resolution.version}`} width={640} onClose={onClose}>
+    <Modal title={`Mở lại yêu cầu ${ticket.code}`} sub={`Kết quả phiên bản ${resolution.version}`} width={640} onClose={onClose}>
       <div className="flex flex-col gap-3.5">
-        <ReadOnly id="reopen-current" label="Ticket / kết quả hiện tại" value={`${ticket.code} · ${plainStatus(ticket).label} · kết quả v${resolution.version}`} />
+        <ReadOnly id="reopen-current" label="Yêu cầu / kết quả hiện tại" value={`${ticket.code} · ${plainStatus(ticket).label} · kết quả v${resolution.version}`} />
         <Field label="Lý do mở lại *" id="reopen-reason" hint={`Tối đa ${REASON_MAX.toLocaleString('vi-VN')} ký tự`}>
           <Textarea
             id="reopen-reason"
             rows={3}
-            placeholder="Nhập lý do mở lại ticket…"
+            placeholder="Nhập lý do mở lại yêu cầu…"
             value={reason}
             onChange={(e) => {
               setReason(e.target.value)
@@ -43,7 +43,7 @@ export function ReopenDialog({ ticket, resolution, onSubmit, onClose }: { ticket
           />
           <FieldError>{error}</FieldError>
         </Field>
-        <Note tone="warn">Lý do là bắt buộc. Mở lại đưa ticket về Đang mở, giữ CS phụ trách và lịch sử; xác nhận cho kết quả v{resolution.version} không còn hiệu lực.</Note>
+        <Note tone="warn">Lý do là bắt buộc. Mở lại đưa yêu cầu về Đang mở, giữ nhân viên hỗ trợ phụ trách và lịch sử; xác nhận cho kết quả v{resolution.version} không còn hiệu lực.</Note>
       </div>
       <ModalFooter>
         <ModalButton onClick={onClose}>
@@ -64,12 +64,12 @@ export function ReopenedDialog({ ticket, onViewPrevious, onClose }: { ticket: Ti
   const latest = latestResolution(ticket)
   const state = plainStatus(ticket).label
   return (
-    <Modal title={`Ticket ${ticket.code} đã mở lại`} width={640} onClose={onClose}>
+    <Modal title={`Yêu cầu ${ticket.code} đã mở lại`} width={640} onClose={onClose}>
       <div className="flex flex-col gap-3.5">
         <ReadOnly id="reopened-status" label="Trạng thái" value={`${state} · ${ticket.assignedCs ? `${ticket.assignedCs} tiếp tục phụ trách` : 'quay lại hàng chờ của bộ phận hỗ trợ'}`} />
         <ReadOnly id="reopened-reason" label="Lý do đã lưu" value={reopen.reason ?? ''} />
         <Note tone="info">
-          {latest ? `Kết quả v${latest.version} và trao đổi công khai` : 'Trao đổi công khai'} được giữ trong lịch sử. Xác nhận cũ đã mất hiệu lực; CS tiếp tục xử lý ticket {state}.
+          {latest ? `Kết quả v${latest.version} và trao đổi công khai` : 'Trao đổi công khai'} được giữ trong lịch sử. Xác nhận cũ đã mất hiệu lực; nhân viên hỗ trợ tiếp tục xử lý yêu cầu {state}.
         </Note>
       </div>
       {latest && (
@@ -97,15 +97,15 @@ export function ResolutionVersionDialog({ ticket, version, onClose }: { ticket: 
         </Field>
         <Note tone="warn">
           {superseded
-            ? `Kết quả v${version} đã được thay bằng phiên bản ${latest!.version}. Chỉ đọc; không thể xác nhận hoặc đóng ticket bằng phiên bản cũ.`
+            ? `Kết quả v${version} đã được thay bằng phiên bản ${latest!.version}. Chỉ đọc; không thể xác nhận hoặc đóng yêu cầu bằng phiên bản cũ.`
             : open
-              ? `Ticket đã được Chủ trại mở lại. Kết quả v${version} chỉ đọc; không thể xác nhận hoặc đóng ticket bằng xác nhận cũ.`
+              ? `Yêu cầu đã được Chủ trại mở lại. Kết quả v${version} chỉ đọc; không thể xác nhận hoặc đóng yêu cầu bằng xác nhận cũ.`
               : `Kết quả v${version} chỉ đọc.`}
         </Note>
       </div>
       <ModalFooter>
         <ModalButton onClick={onClose}>
-          <Icon name="arrow-left" size={16} /> {open ? 'Về ticket đang mở' : 'Về ticket'}
+          <Icon name="arrow-left" size={16} /> {open ? 'Về yêu cầu đang mở' : 'Về yêu cầu'}
         </ModalButton>
       </ModalFooter>
     </Modal>

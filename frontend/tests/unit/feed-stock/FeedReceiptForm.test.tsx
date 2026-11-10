@@ -50,6 +50,18 @@ describe('SCR-79 Feed Receipt form', () => {
     expect(await listFeedReceipts()).toHaveLength(6)
   })
 
+  it('sums multiple lots of the same feed in the projected stock', async () => {
+    const user = userEvent.setup()
+    renderApp('/thuc-an/phieu-nhap/moi')
+    await screen.findByRole('heading', { name: 'Phiếu nhập kho mới' })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Thức ăn dòng 1' }), '101')
+    await user.type(screen.getByLabelText('Số lượng dòng 1'), '10')
+    await user.click(screen.getByRole('button', { name: 'Thêm mặt hàng' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Thức ăn dòng 2' }), '101')
+    await user.type(screen.getByLabelText('Số lượng dòng 2'), '5')
+    expect(screen.getByText('1.850 → 1.865 kg')).toBeInTheDocument()
+  })
+
   it('saves, reopens, updates, and posts a local demo receipt while updating demo stock', async () => {
     const user = userEvent.setup()
     renderApp('/thuc-an/phieu-nhap/moi')

@@ -3,7 +3,7 @@ import type {
   ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
   FarmRegistrationInput, FarmRole, FarmServiceStatus, FarmSummary, FarmWorkspaceProfile,
   Invitation, InvitationPreview, InvitationStatus, InviteMemberInput, Membership, MemberStatus,
-  UpdateProfileInput,
+  RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { compactPhone } from '../validation'
 import { farmWorkspaceDemoStore, type FarmUpdateInput, type FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
@@ -55,6 +55,7 @@ function farmDetails(value: unknown, role?: FarmRole): FarmDetails {
     serviceUntil: typeof serviceUntil === 'string' ? serviceUntil : null,
     renewalOpensAt: typeof row.renewalOpensAt === 'string' ? row.renewalOpensAt : null,
     activeCattleCount: nullableNumber(row.activeCattleCount),
+    ownerName: typeof row.ownerName === 'string' ? row.ownerName : undefined,
     ownerEmail: typeof row.ownerEmail === 'string' ? row.ownerEmail : undefined,
   }
 }
@@ -63,9 +64,10 @@ function profile(value: unknown): FarmWorkspaceProfile {
   const row = asRecord(value)
   const farmRows = Array.isArray(row.farms) ? asRows(row.farms) : []
   return {
-    id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.phone),
+    id: numberValue(row.id), email: textValue(row.email), fullName: textValue(row.fullName), phone: textValue(row.contactPhone ?? row.phone),
     emailVerified: row.emailVerified === true, passwordSignInEnabled: row.passwordSignInEnabled === true,
     googleSignInLinked: row.googleSignInLinked === true, ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
+    termsAccepted: row.termsAccepted === true,
     platformRole: typeof row.platformRole === 'string' ? row.platformRole : null,
     farms: farmRows.map((farm) => ({ farmId: numberValue(farm.farmId), farmName: textValue(farm.farmName), role: requiredOneOf(farm.role, roles, 'vai trò trại'), permissions: breeds(farm.permissions) })),
   }
@@ -105,30 +107,48 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
     getProfile: async () => mode === 'backend' ? profile(await transport.get('/api/account/profile')) : demoStore.getProfile(),
     completeOwnerRegistration: async (input: CompleteOwnerProfileInput) => {
       if (mode !== 'backend') return demoStore.completeOwnerRegistration(input)
-      const result = asRecord(await command('/api/account/owner-registration', { ...input, phone: compactPhone(input.phone) }, 'POST'))
+      const result = asRecord(await command('/api/account/owner-registration', {
+        fullName: input.fullName,
+        contactPhone: compactPhone(input.phone),
+        termsAccepted: input.termsAccepted,
+      }, 'POST'))
       return profile({ ...result, ownerRegistrationCompleted: result.completed === true, farms: [] })
     },
     updateProfile: async (input: UpdateProfileInput) => mode === 'backend'
-      ? profile(await command('/api/account/profile', { ...input, phone: compactPhone(input.phone) }, 'POST'))
+      ? profile(await command('/api/account/profile', { fullName: input.fullName, contactPhone: compactPhone(input.phone) }, 'POST'))
       : demoStore.updateProfile(input),
     listFarms: async () => mode === 'backend'
       ? asRows(await transport.get('/api/farms')).map(farmSummary)
       : (await demoStore.listFarms()).map(({ id, name, role, serviceStatus, version, province, commune, detailedAddress, activeCattleCount, serviceUntil, renewalOpensAt, ownerEmail }) => ({ id, name, role, serviceStatus, version, province, commune, detailedAddress, activeCattleCount, serviceUntil, renewalOpensAt, ownerEmail })),
+    // UC-FE02-02 step 4: rechecks membership, role and service status right before the farm becomes current (GBR-09).
+    selectFarm: async (id: number) => mode === 'backend'
+      ? farmSummary(await transport.get(path(id, '/context')))
+      : demoStore.selectFarm(id),
     getFarm: async (id: number) => {
       if (mode !== 'backend') return demoStore.getFarm(id)
       const [details, context] = await Promise.all([transport.get(path(id, '')), transport.get(path(id, '/context'))])
       return farmDetails(details, farmSummary(context).role)
     },
-    registerFarm: async (input: FarmRegistrationInput) => mode === 'backend'
-      ? farmDetails(await command('/api/farms', { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'POST'), 'OWNER')
-      : demoStore.registerFarm(input),
-    updateFarm: async (id: number, input: FarmUpdateInput) => {
-      if (mode !== 'backend') return demoStore.updateFarm(id, input)
-      if (input.expectedVersion == null || !input.mainBreedIds) throw new Error('Thiếu phiên bản hoặc danh sách giống để lưu thông tin trại.')
-      const context = await transport.get(path(id, '/context'))
-      const role = farmSummary(context).role
-      const updated = await command(path(id, ''), { ...input, contactPhone: compactPhone(input.contactPhone ?? '') }, 'PUT')
-      return farmDetails(updated, role)
+    // UC-FE02-01: the page holds the request key so a retry or reload re-sends the same key (R-02-02, GBR-88).
+    registerFarm: async (input: FarmRegistrationInput, options?: RequestKeyOptions) => {
+      if (mode !== 'backend') return demoStore.registerFarm(input, options)
+      const body = { ...input, contactPhone: compactPhone(input.contactPhone ?? '') || null, expectedHerdSize: input.expectedHerdSize || null }
+      const key = options?.idempotencyKey
+      return farmDetails(await transport.command('/api/farms', body, key ? { method: 'POST', key } : { method: 'POST' }), 'OWNER')
+    },
+    // UC-FE02-03: SCR-11 has no main-breed field, so the save never sends main breeds and they stay as they are; the
+    // page holds the request key so a retry re-sends the same key (GBR-88). Only the Owner can save (GBR-07).
+    updateFarm: async (id: number, input: FarmUpdateInput, options?: RequestKeyOptions) => {
+      if (mode !== 'backend') return demoStore.updateFarm(id, input, options)
+      if (input.expectedVersion == null) throw new Error('Thiếu phiên bản để lưu thông tin trại. Tải lại trang rồi thử lại.')
+      const body = {
+        name: input.name, province: input.province, commune: input.commune, detailedAddress: input.detailedAddress ?? '',
+        contactPerson: input.contactPerson ?? '', contactPhone: compactPhone(input.contactPhone ?? '') || null,
+        registrationCertificateInfo: input.registrationCertificateInfo ?? '', timeZone: input.timeZone,
+        morningShiftStart: input.morningShiftStart || null, operatingNotes: input.operatingNotes ?? '', expectedVersion: input.expectedVersion,
+      }
+      const key = options?.idempotencyKey
+      return farmDetails(await transport.command(path(id, ''), body, key ? { method: 'PUT', key } : { method: 'PUT' }), 'OWNER')
     },
     listMembers: async (id: number) => mode === 'backend'
       ? asRows(await transport.get(path(id, '/members'))).map(member)

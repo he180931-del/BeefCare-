@@ -67,6 +67,12 @@ export function formatDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
 }
 
+/** A service period ends at an exclusive instant; show its last covered day, as SCR-57 does (`fmtEndDay`). */
+export function lastServiceDay(end: string) {
+  const ms = Date.parse(end)
+  return Number.isNaN(ms) ? formatDate(end) : formatDate(new Date(ms - 1).toISOString())
+}
+
 /** mm/yyyy (cột "Tham gia"). */
 export function formatMonth(value?: string | null) {
   if (!value) return MISSING
@@ -82,6 +88,22 @@ export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-edge text-xs font-semibold text-white">{initialsOf(name)}</span>
 }
 
+const fieldLabels: Record<string, string> = {
+  name: 'Tên trại', province: 'Tỉnh/thành', commune: 'Xã/phường', detailedAddress: 'Địa chỉ chi tiết',
+  contactPerson: 'Người liên hệ', contactPhone: 'Điện thoại liên hệ', registrationCertificateInfo: 'Thông tin giấy chứng nhận',
+  expectedHerdSize: 'Quy mô đàn dự kiến', timeZone: 'Múi giờ', morningShiftStart: 'Giờ bắt đầu ca sáng', operatingNotes: 'Ghi chú vận hành',
+}
+
+function validationFieldMessage(field: string | undefined, message: string | undefined) {
+  const label = fieldLabels[field ?? ''] ?? 'Trường dữ liệu'
+  const value = (message ?? '').toLowerCase()
+  if (field === 'contactPhone' && (value.includes('must match') || value.includes('pattern') || value.includes('phone'))) return `${label}: Nhập số điện thoại Việt Nam hợp lệ.`
+  if (value.includes('must not be blank') || value.includes('must not be null') || value === 'required') return `${label}: Đây là trường bắt buộc.`
+  if (value.includes('must match') || value.includes('invalid') || value.includes('validation') || /\b(must|should|required|valid|well-formed|between|positive|null|blank)\b/.test(value)) return `${label}: Dữ liệu không hợp lệ.`
+  if (value.includes('size must be') || value.includes('length')) return `${label}: Độ dài dữ liệu không hợp lệ.`
+  return `${label}: ${message ?? 'Dữ liệu không hợp lệ.'}`
+}
+
 export function farmWorkspaceError(error: unknown, fallback: string) {
   if (error instanceof BackendError) {
     const code = error.code?.toUpperCase()
@@ -90,6 +112,7 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
       'MSG-COM-06': 'Vui lòng điền đủ các trường bắt buộc.',
       'MSG-COM-07': 'Ngày hiệu lực không hợp lệ.',
       'MSG-COM-10': 'Email hoặc số điện thoại không hợp lệ.',
+      'MSG-FE02-02': 'Vui lòng hoàn tất hồ sơ Chủ trại trước khi đăng ký trại.',
       'MSG-FE02-03': 'Trang trại chưa thể sử dụng dịch vụ. Chủ trại cần kiểm tra gói dịch vụ.',
       'MSG-FE02-04': 'Chủ trại quản lý gói dịch vụ; thành viên chưa thể vào trang trại này.',
       'MSG-FE03-02': 'Email này đã là thành viên đang hoạt động.',
@@ -101,7 +124,7 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
     }
     if (code && known[code]) return known[code]
     const fieldErrors = [...error.fieldErrors, ...error.violations.map((item) => ({ field: item.field ?? item.propertyPath, message: item.message }))]
-    if (fieldErrors.length) return fieldErrors.map((item) => `${item.field ?? 'Trường dữ liệu'}: ${item.message ?? 'không hợp lệ'}`).join('; ')
+    if (fieldErrors.length) return fieldErrors.map((item) => validationFieldMessage(item.field, item.message)).join('; ')
     if (error.status === 401) return 'Phiên đăng nhập hết hạn. Đăng nhập lại rồi thử lại.'
     if (error.status === 403) return 'Tài khoản không có quyền thực hiện thao tác này hoặc dịch vụ trang trại chưa hoạt động.'
     if (error.status === 404) return 'Không tìm thấy dữ liệu. Tải lại danh sách rồi thử lại.'
@@ -116,3 +139,11 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
 export function Banner({ children }: { children: ReactNode }) {
   return <div role="status" className="rounded-lg bg-[#e8f2fa] px-3 py-2 text-xs text-[#296194]">{children}</div>
 }
+
+/** MSG-FE02-03: the Owner opened a farm that is not ACTIVE from Select Farm (UC-FE02-02 AF1 / AF2). */
+export function InactiveFarmBanner({ farmName, status }: { farmName: string; status: string }) {
+  return <Banner>{farmName} đang ở trạng thái {serviceLabel(status)}. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ.</Banner>
+}
+
+/** True when the page was opened from a card of Select Farm (`from=chon-trai`) for a farm that is not ACTIVE. */
+export const openedInactiveFromFarmSelect = (params: URLSearchParams, status: string) => params.get('from') === 'chon-trai' && status !== 'ACTIVE'

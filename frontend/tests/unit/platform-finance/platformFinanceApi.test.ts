@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFinanceApi } from '../../../src/features/platform-finance/api/financeApi'
 import { createFinanceDemoStore } from '../../../src/features/platform-finance/data/financeDemoStore'
-import { formatVnd, validateRecordFields } from '../../../src/features/platform-finance/domain/financeRules'
+import { formatVnd, validateCriteria, validateRecordFields } from '../../../src/features/platform-finance/domain/financeRules'
 import type { RecordFields } from '../../../src/features/platform-finance/types'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
@@ -16,6 +16,9 @@ const fields = (over: Partial<RecordFields> = {}): RecordFields => ({
 const ALL = { dateFrom: '2026-10-01', dateTo: '2026-10-18', farmId: null, sourceFilter: 'BOTH' as const }
 
 describe('quy tắc nhập khoản (SRS 21.3)', () => {
+  it('cho phép kỳ báo cáo đúng 24 tháng', () => {
+    expect(validateCriteria({ dateFrom: '2024-10-19', dateTo: '2026-10-19', farmId: null, sourceFilter: 'BOTH' })).toBeNull()
+  })
   it('số tiền phải là số nguyên đồng lớn hơn 0 (MSG-FE21-09)', () => {
     expect(validateRecordFields(fields({ amountVnd: 0 })).amountVnd).toBe('Số tiền phải là số nguyên đồng lớn hơn 0.')
     expect(validateRecordFields(fields({ amountVnd: 10.5 })).amountVnd).toBeTruthy()
@@ -156,11 +159,24 @@ describe('biên nhận và thông báo', () => {
     expect((await api.listNotices('RECON')).filter((n) => !n.readTime)).toHaveLength(0)
     expect((await api.listNotices('SUPPORT')).filter((n) => !n.readTime)).toHaveLength(2)
   })
-  it('chế độ backend từ chối và không đụng store', async () => {
+  it('chế độ backend gọi API thật và không đụng store', async () => {
     const store = createFinanceDemoStore()
     const spy = vi.spyOn(store, 'listRecords')
-    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listRecords({})).rejects.toThrow()
+    const http = transport()
+    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listRecords({})).resolves.toMatchObject({ rows: [], total: 0 })
     expect(spy).not.toHaveBeenCalled()
+    expect(http.get).toHaveBeenCalled()
+  })
+
+  it('thông báo nền tảng dùng notification API thật và lọc theo nhóm', async () => {
+    const store = createFinanceDemoStore()
+    const http = transport()
+    http.get.mockImplementation(async (path: string) => path === '/api/notifications/mine' ? [{ id: 5, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 77, title: 'IR-077', summary: 'Cần xử lý', createdTime: '2026-11-01T10:00:00Z', readTime: null }] : {})
+    http.command.mockResolvedValue({ id: 5, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 77, title: 'IR-077', summary: 'Cần xử lý', createdTime: '2026-11-01T10:00:00Z', readTime: '2026-11-01T10:01:00Z' })
+    const api = createFinanceApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listNotices('SUPPORT')).resolves.toMatchObject([{ href: '/nen-tang/yeu-cau/77', kind: 'SUPPORT' }])
+    await api.markNoticeRead(5)
+    expect(http.command).toHaveBeenCalledWith('/api/notifications/5/read', undefined, { method: 'PUT' })
   })
 })

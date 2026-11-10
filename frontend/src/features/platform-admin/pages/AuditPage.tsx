@@ -12,8 +12,8 @@ import {
 } from '../domain/platformRules'
 import type { AuditEntry, AuditFilters } from '../types'
 
-const PAGE_SIZE = 8
-const TITLE = 'Lịch sử audit nền tảng'
+const PAGE_SIZE = 50
+const TITLE = 'Lịch sử kiểm toán nền tảng'
 
 function AuditDetail({ entry }: { entry: AuditEntry }) {
   const { details } = entry
@@ -61,7 +61,7 @@ function AuditContent() {
   const actors = useQuery(() => platformAdminApi.listAuditActors(), [])
   const { data, loading, error, refetch } = useQuery(
     () => {
-      if (demo === 'load-error') return Promise.reject(new Error('Không tải được lịch sử audit.'))
+      if (demo === 'load-error') return Promise.reject(new Error('Không tải được lịch sử kiểm toán.'))
       if (rangeError) return Promise.resolve(null)
       return platformAdminApi.listAudit({ ...filters, page, size: PAGE_SIZE })
     },
@@ -85,7 +85,7 @@ function AuditContent() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <PageHeader title={TITLE} sub="Chỉ siêu dữ liệu audit được phép xem – không hiển thị dữ liệu chăm sóc bò, nội dung ticket riêng tư hay chứng từ tài chính">
+      <PageHeader title={TITLE} sub="Chỉ siêu dữ liệu kiểm toán được phép xem – không hiển thị dữ liệu chăm sóc bò, nội dung yêu cầu hỗ trợ riêng tư hay chứng từ tài chính">
         <Button className={ICON_BUTTON} onClick={exportCsv} disabled={!!rangeError}>
           <Icon name="table-export" size={16} />
           Xuất CSV
@@ -116,7 +116,7 @@ function AuditContent() {
       {rangeError && <p role="alert" className="m-0 text-xs text-err-fg">{rangeError}</p>}
 
       {loading && !data && !rangeError && <LoadingBlock />}
-      {error != null && <ErrorBlock message={userFacingError(error, 'Không tải được lịch sử audit.')} onRetry={refetch} />}
+      {error != null && <ErrorBlock message={userFacingError(error, 'Không tải được lịch sử kiểm toán.')} onRetry={refetch} />}
       {data && !error && data.content.length === 0 && <EmptyBlock title="Không có sự kiện nào trong khoảng đã chọn" sub="Mở rộng khoảng thời gian hoặc bỏ bớt bộ lọc." />}
       {data && !error && selected && (
         <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_376px]">
@@ -149,7 +149,7 @@ function AuditContent() {
           <AuditDetail entry={selected} />
         </div>
       )}
-      <Foot>Lịch sử audit nền tảng (SA). Mỗi dòng là một sự kiện kèm tên dễ đọc và mã hành động; chọn dòng để xem giá trị trước/sau và mã truy vết. Xuất CSV theo bộ lọc đang xem.</Foot>
+      <Foot>Lịch sử kiểm toán nền tảng (quản trị hệ thống). Mỗi dòng là một sự kiện kèm tên dễ đọc và mã hành động; chọn dòng để xem giá trị trước/sau và mã truy vết. Xuất CSV theo bộ lọc đang xem.</Foot>
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>
   )

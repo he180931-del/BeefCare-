@@ -5,12 +5,28 @@ import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, type AuthClient } from '../../../src/features/authentication'
 import { AuthGate } from '../../../src/features/authorization'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
+import { BackendError } from '../../../src/api/backendClient'
 
 function renderAuth(client: AuthClient, path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AuthProvider client={client}><AuthGate><div>Private content</div></AuthGate></AuthProvider></MemoryRouter>)
 }
 
 describe('guest authentication pages', () => {
+  it('opens the password reset form from the canonical resetpassword email route', async () => {
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+      validatePasswordReset: vi.fn().mockResolvedValue({ valid: true, email: 'owner@beefcare.vn' }),
+    }
+
+    renderAuth(client, '/resetpassword?token=email-token')
+
+    expect(await screen.findByRole('heading', { name: 'Đặt mật khẩu mới' })).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('owner@beefcare.vn')).toBeInTheDocument()
+  })
+
   it('navigates from registration to verification and keeps the mock session in memory', async () => {
     const user = userEvent.setup()
     const mock = createMockAuthClient()
@@ -26,6 +42,7 @@ describe('guest authentication pages', () => {
 
     expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
     expect(screen.getByText('owner@beefcare.vn')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /thử lại sau (?:59|60)s/ })).toBeDisabled()
     expect(await mock.isAuthenticated()).toBe(false)
 
     await user.click(screen.getByRole('link', { name: 'Quay lại đăng nhập' }))
@@ -46,7 +63,7 @@ describe('guest authentication pages', () => {
       login: vi.fn().mockRejectedValue(new Error('Failed to fetch')),
       logout: vi.fn().mockResolvedValue(undefined),
     }
-    renderAuth(client, '/dang-nhap')
+    renderAuth(client, '/sign-in')
 
     await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
@@ -60,6 +77,33 @@ describe('guest authentication pages', () => {
     expect(screen.queryByText(/Chế độ mô phỏng/)).not.toBeInTheDocument()
   })
 
+  it('explains a rejected Google sign-in from the OAuth callback', async () => {
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+    }
+
+    renderAuth(client, '/sign-in?error=google-sign-in')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể đăng nhập với Google')
+  })
+
+  it('keeps Google sign-in available during the password lockout', async () => {
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+    }
+
+    renderAuth(client, '/sign-in?error=google-sign-in')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể đăng nhập với Google')
+    expect(screen.getByRole('link', { name: 'Tiếp tục với Google' })).toBeEnabled()
+  })
+
   it('opens the suspended-account state for the backend suspension code', async () => {
     const user = userEvent.setup()
     const client: AuthClient = {
@@ -68,13 +112,28 @@ describe('guest authentication pages', () => {
       login: vi.fn().mockRejectedValue({ code: 'MSG-FE01-03', status: 403 }),
       logout: vi.fn().mockResolvedValue(undefined),
     }
-    renderAuth(client, '/dang-nhap')
+    renderAuth(client, '/sign-in')
     await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByRole('heading', { name: 'Tài khoản đang tạm ngưng' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'tuanpqhe181869@fpt.edu.vn' })).toHaveAttribute('href', 'mailto:tuanpqhe181869@fpt.edu.vn')
+    expect(screen.getByRole('link', { name: 'beefcare@gmail.com' })).toHaveAttribute('href', 'mailto:beefcare@gmail.com')
+  })
+
+  it('shows the suspended-account state instead of a generic session-check error', async () => {
+    const user = userEvent.setup()
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockRejectedValue(new BackendError(403, { code: 'MSG-FE01-03' })),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+    }
+    renderAuth(client, '/sign-in')
+    expect(await screen.findByRole('heading', { name: 'Tài khoản đang tạm ngưng' })).toBeInTheDocument()
+    expect(screen.queryByText('Không thể kiểm tra phiên đăng nhập với máy chủ')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('link', { name: 'Quay lại đăng nhập' }))
+    expect(await screen.findByRole('heading', { name: 'Đăng nhập' })).toBeInTheDocument()
   })
 
   it('keeps unverified-email errors distinct from incorrect credentials', async () => {
@@ -86,7 +145,7 @@ describe('guest authentication pages', () => {
       logout: vi.fn().mockResolvedValue(undefined),
       resendVerification: vi.fn().mockResolvedValue(undefined),
     }
-    renderAuth(client, '/dang-nhap')
+    renderAuth(client, '/sign-in')
     await screen.findByRole('heading', { name: 'Đăng nhập' })
     await user.type(screen.getByLabelText('Email'), 'owner@beefcare.vn')
     await user.type(screen.getByLabelText('Mật khẩu'), 'BeefCare123!')
@@ -96,5 +155,24 @@ describe('guest authentication pages', () => {
     await user.click(screen.getByRole('link', { name: 'Gửi lại email xác minh' }))
     expect(await screen.findByRole('heading', { name: 'Xác minh email' })).toBeInTheDocument()
     expect(screen.getByText('owner@beefcare.vn')).toBeInTheDocument()
+  })
+
+  it('uses the verification resend time returned by the server', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-11-08T12:00:00Z'))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const client: AuthClient = {
+      mode: 'backend',
+      isAuthenticated: vi.fn().mockResolvedValue(false),
+      login: vi.fn().mockResolvedValue(undefined),
+      logout: vi.fn().mockResolvedValue(undefined),
+      resendVerification: vi.fn().mockResolvedValue({ nextAllowedAt: '2026-11-08T12:02:00Z' }),
+    }
+    renderAuth(client, '/xac-minh-email?email=owner%40beefcare.vn')
+
+    await user.click(await screen.findByRole('button', { name: 'Gửi lại email xác minh' }))
+
+    expect(await screen.findByRole('button', { name: /thử lại sau 1(?:19|20)s/ })).toBeDisabled()
+    vi.useRealTimers()
   })
 })

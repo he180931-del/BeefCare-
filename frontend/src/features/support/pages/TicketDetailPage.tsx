@@ -17,7 +17,7 @@ import { formatDate } from '../domain/format'
 import { SupportError } from '../domain/supportError'
 import { categoryLabel, latestResolution } from '../domain/ticketRules'
 
-const TITLE = 'Chi tiết ticket'
+const TITLE = 'Chi tiết yêu cầu hỗ trợ'
 
 /**
  * SCR-66. Hộp thoại qua `?m=`: mo-lai, da-mo-lai, da-xac-nhan, da-dong, ket-qua-thay-doi, ket-qua-v<phiên bản>.
@@ -36,8 +36,8 @@ export default function TicketDetailPage() {
     return (
       <Layout title={TITLE}>
         <div className="flex flex-col items-start gap-4">
-          <ErrorBlock message={error instanceof SupportError ? error.message : userFacingError(error, 'Không tải được ticket.')} onRetry={refetch} />
-          <Button onClick={() => navigate('/ho-tro')}>Về danh sách ticket</Button>
+          <ErrorBlock message={error instanceof SupportError ? error.message : userFacingError(error, 'Không tải được yêu cầu hỗ trợ.')} onRetry={refetch} />
+          <Button onClick={() => navigate('/ho-tro')}>Về danh sách yêu cầu</Button>
         </div>
       </Layout>
     )
@@ -63,13 +63,13 @@ export default function TicketDetailPage() {
           <Note tone="err">
             {actions.notice}{' '}
             <Button variant="link" size="sm" onClick={reload}>
-              Tải lại ticket
+              Tải lại yêu cầu
             </Button>
           </Note>
         )}
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_376px]">
           <div className="flex min-w-0 flex-col gap-4">
-            <ConversationCard ticket={ticket} />
+            <ConversationCard ticket={ticket} onLoadOlder={(beforeId) => supportApi.getMessages(ticket.id, beforeId)} />
             <ResolutionCard
               ticket={ticket}
               busy={actions.busy}

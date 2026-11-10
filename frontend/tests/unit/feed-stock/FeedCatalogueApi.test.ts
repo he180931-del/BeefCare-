@@ -75,30 +75,109 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
     expect((await api.listSuppliers()).find((item) => item.id === 201)?.name).toBe('Đại lý TACN Hưng Thịnh – Sơn Tây')
   })
 
-  it('reads server catalogue and supplier lists without local fallback, and blocks backend mutations', async () => {
+  it('reads and mutates the backend catalogue with backend IDs, versions, and no demo fallback', async () => {
     const transport = makeTransport()
     vi.mocked(transport.get)
-      .mockResolvedValueOnce([{ id: 7, code: 'TA-77', name: 'Tồn server', feedGroup: 'TMR', purchaseUnit: 'bao', kgPerPurchaseUnit: 20, stockUnit: 'kg', minimumStockKg: 5, available: true, version: 1 }])
-      .mockResolvedValueOnce([{ id: 8, name: 'NCC server', supplier: true, phone: '', area: '', note: '', status: 'ACTIVE', version: 1 }])
+      .mockResolvedValueOnce([
+        { id: 7, code: 'TA-77', name: 'Tồn server', feedGroup: 'TMR', nutritionNote: 'Đạm 16%', purchaseUnit: 'bao', kgPerPurchaseUnit: 20, stockUnit: 'kg', minimumStockKg: 5, available: true, version: 1 },
+        { id: 9, code: 'TA-09', name: 'Không quy cách', feedGroup: 'CALF_FEED', nutritionNote: '', purchaseUnit: null, kgPerPurchaseUnit: null, stockUnit: 'kg', minimumStockKg: null, available: true, version: 0 },
+      ])
+      .mockResolvedValueOnce([{ id: 8, name: 'NCC server', seller: false, buyer: false, supplier: true, phone: '', area: '', note: '', status: 'ACTIVE', version: 1 }])
     const demoStore: FeedCatalogueDemoStore = {
       listFeeds: vi.fn(async () => []), saveFeed: vi.fn(), setFeedAvailable: vi.fn(),
       listSuppliers: vi.fn(async () => []), saveSupplier: vi.fn(), setSupplierActive: vi.fn(), reset: vi.fn(),
     }
     const api = createFeedCatalogueApi({ mode: 'backend', farmId: 32, transport, demoStore })
 
-    expect(await api.listFeeds()).toMatchObject([{ id: 7, code: 'TA-77', name: 'Tồn server', group: 'TMR', available: true }])
-    expect(await api.listSuppliers()).toMatchObject([{ id: 8, name: 'NCC server', active: true }])
+    expect(await api.listFeeds()).toMatchObject([
+      { id: 7, code: 'TA-77', name: 'Tồn server', group: 'TMR', nutritionNote: 'Đạm 16%', available: true, version: 1 },
+      { id: 9, purchaseUnit: '', kgPerPurchaseUnit: null, minimumStockKg: null },
+    ])
+    expect(await api.listSuppliers()).toMatchObject([{ id: 8, name: 'NCC server', seller: false, buyer: false, active: true, version: 1 }])
     expect(transport.get).toHaveBeenNthCalledWith(1, '/api/farms/32/feed/catalogue')
     expect(transport.get).toHaveBeenNthCalledWith(2, '/api/farms/32/trading-partners?role=SUPPLIER')
-    await expect(api.saveFeed(feedInput())).rejects.toThrow('bản demo')
-    await expect(api.setFeedAvailable(7, false)).rejects.toThrow('bản demo')
-    await expect(api.saveSupplier({ name: 'Không ghi', phone: '', area: '', note: '' })).rejects.toThrow('bản demo')
-    await expect(api.setSupplierActive(8, false)).rejects.toThrow('bản demo')
+    vi.mocked(transport.command)
+      .mockResolvedValueOnce({ id: 10, code: 'TA-09', name: 'Cỏ voi demo', feedGroup: 'GREEN_ROUGHAGE', purchaseUnit: 'bó', kgPerPurchaseUnit: 12, stockUnit: 'kg', onHandKg: 0, averageUnitCost: 0, minimumStockKg: 45, available: true, version: 0 })
+      .mockResolvedValueOnce({ id: 7, code: 'TA-77', name: 'Tồn server đã sửa', feedGroup: 'TMR', purchaseUnit: 'bao', kgPerPurchaseUnit: 20, stockUnit: 'kg', onHandKg: 0, averageUnitCost: 0, minimumStockKg: 5, available: true, version: 2 })
+    const created = await api.saveFeed(feedInput())
+    expect(created.id).toBe(10)
+    expect(transport.command).toHaveBeenNthCalledWith(1, '/api/farms/32/feed/catalogue', {
+      code: 'TA-09', name: 'Cỏ voi demo', feedGroup: 'GREEN_ROUGHAGE', purchaseUnit: 'bó', kgPerPurchaseUnit: 12,
+      minimumStockKg: 45, nutritionNote: 'Mẫu tổng hợp', available: true,
+    }, { method: 'POST' })
+    const updated = await api.saveFeed({ ...feedInput({ code: 'TA-77', name: 'Tồn server đã sửa' }), id: 7, expectedVersion: 1 })
+    expect(updated.version).toBe(2)
+    expect(transport.command).toHaveBeenNthCalledWith(2, '/api/farms/32/feed/catalogue/7', {
+      code: 'TA-77', name: 'Tồn server đã sửa', feedGroup: 'GREEN_ROUGHAGE', purchaseUnit: 'bó', kgPerPurchaseUnit: 12,
+      minimumStockKg: 45, nutritionNote: 'Mẫu tổng hợp', available: true, expectedVersion: 1,
+    }, { method: 'PUT' })
     expect(demoStore.saveFeed).not.toHaveBeenCalled()
     expect(demoStore.setFeedAvailable).not.toHaveBeenCalled()
     expect(demoStore.saveSupplier).not.toHaveBeenCalled()
     expect(demoStore.setSupplierActive).not.toHaveBeenCalled()
-    expect(transport.command).not.toHaveBeenCalled()
+  })
+
+  it('creates, edits, and changes supplier status through TradingPartner commands', async () => {
+    const transport = makeTransport()
+    const api = createFeedCatalogueApi({ mode: 'backend', farmId: 32, transport })
+    vi.mocked(transport.command)
+      .mockResolvedValueOnce({ id: 31, name: 'NCC mới', seller: false, buyer: false, supplier: true, phone: '0900000000', area: 'Ba Vì', note: 'Giao thứ 2', status: 'ACTIVE', version: 0 })
+      .mockResolvedValueOnce({ id: 31, name: 'NCC mới sửa', seller: true, buyer: false, supplier: true, phone: '0911111111', area: 'Sơn Tây', note: '', status: 'ACTIVE', version: 1 })
+      .mockResolvedValueOnce({ id: 31, name: 'NCC mới sửa', seller: true, buyer: false, supplier: true, phone: '0911111111', area: 'Sơn Tây', note: '', status: 'INACTIVE', version: 2 })
+
+    await api.saveSupplier({ name: 'NCC mới', phone: '0900000000', area: 'Ba Vì', note: '' })
+    await api.saveSupplier({ id: 31, expectedVersion: 0, name: 'NCC mới sửa', phone: '0911111111', area: 'Sơn Tây', note: '', seller: true, buyer: false })
+    await api.setSupplierActive(31, false, 1)
+
+    expect(transport.command).toHaveBeenNthCalledWith(1, '/api/farms/32/trading-partners', {
+      name: 'NCC mới', seller: false, buyer: false, supplier: true, phone: '0900000000', area: 'Ba Vì', note: '',
+    }, { method: 'POST' })
+    expect(transport.command).toHaveBeenNthCalledWith(2, '/api/farms/32/trading-partners/31', {
+      name: 'NCC mới sửa', seller: true, buyer: false, supplier: true, phone: '0911111111', area: 'Sơn Tây', note: '', expectedVersion: 0,
+    }, { method: 'PUT' })
+    expect(transport.command).toHaveBeenNthCalledWith(3, '/api/farms/32/trading-partners/31/status', {
+      status: 'INACTIVE', expectedVersion: 1,
+    }, { method: 'PATCH' })
+  })
+
+  it('uses server version for a feed availability change and propagates command failures without demo fallback', async () => {
+    const transport = makeTransport()
+    vi.mocked(transport.get).mockResolvedValueOnce([{
+      id: 7, code: 'TA-77', name: 'Tồn server', feedGroup: 'TMR', purchaseUnit: 'bao', kgPerPurchaseUnit: 20,
+      stockUnit: 'kg', onHandKg: 10, averageUnitCost: 1200, minimumStockKg: 5, available: true, version: 3,
+    }])
+    const demoStore: FeedCatalogueDemoStore = {
+      listFeeds: vi.fn(async () => []), saveFeed: vi.fn(), setFeedAvailable: vi.fn(),
+      listSuppliers: vi.fn(async () => []), saveSupplier: vi.fn(), setSupplierActive: vi.fn(), reset: vi.fn(),
+    }
+    const api = createFeedCatalogueApi({ mode: 'backend', farmId: 32, transport, demoStore })
+    vi.mocked(transport.command).mockRejectedValueOnce(new Error('backend unavailable'))
+
+    await expect(api.setFeedAvailable(7, false)).rejects.toThrow('backend unavailable')
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/32/feed/catalogue/7', {
+      code: 'TA-77', name: 'Tồn server', feedGroup: 'TMR', purchaseUnit: 'bao', kgPerPurchaseUnit: 20,
+      minimumStockKg: 5, nutritionNote: '', available: false, expectedVersion: 3,
+    }, { method: 'PUT' })
+    expect(demoStore.setFeedAvailable).not.toHaveBeenCalled()
+  })
+
+  it('sends unset purchase conversion and minimum level as null', async () => {
+    const transport = makeTransport()
+    const api = createFeedCatalogueApi({ mode: 'backend', farmId: 32, transport })
+    vi.mocked(transport.command).mockResolvedValueOnce({
+      id: 21, code: 'TA-21', name: 'Không ngưỡng', feedGroup: 'CALF_FEED', nutritionNote: '', purchaseUnit: null,
+      kgPerPurchaseUnit: null, stockUnit: 'kg', onHandKg: 0, averageUnitCost: 0, minimumStockKg: null, available: true, version: 0,
+    })
+
+    await api.saveFeed({
+      code: 'TA-21', name: 'Không ngưỡng', group: 'CALF_FEED', purchaseUnit: '', kgPerPurchaseUnit: null,
+      minimumStockKg: null, nutritionNote: '', available: true,
+    })
+
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/32/feed/catalogue', {
+      code: 'TA-21', name: 'Không ngưỡng', feedGroup: 'CALF_FEED', purchaseUnit: null, kgPerPurchaseUnit: null,
+      minimumStockKg: null, nutritionNote: '', available: true,
+    }, { method: 'POST' })
   })
 
   it('propagates backend failures without serving local mock rows', async () => {

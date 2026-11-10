@@ -18,7 +18,7 @@ export function periodState(p: PurchasedPeriod, today: string): PeriodState {
   if (p.start > today) return 'FUTURE'
   return p.end >= today ? 'CURRENT' : 'PAST'
 }
-/** GBR-13: trạng thái dịch vụ suy ra từ tạm ngừng và các kỳ đã mua. */
+/** GBR-13: trạng thái dịch vụ suy ra từ tạm ngưng và các kỳ đã mua. */
 export function deriveStatus(periods: PurchasedPeriod[], suspended: boolean, today: string): ServiceStatus {
   if (suspended) return 'SUSPENDED'
   if (currentPeriod(periods, today)) return 'ACTIVE'
@@ -38,7 +38,7 @@ export const STATUS_LABEL: Record<ServiceStatus, string> = {
   ACTIVE: 'Đang hoạt động',
   PENDING_PAYMENT: 'Chờ thanh toán',
   EXPIRED: 'Hết hạn',
-  SUSPENDED: 'Tạm ngừng',
+  SUSPENDED: 'Tạm ngưng',
 }
 export const PERIOD_STATE_LABEL: Record<PeriodState, string> = { CURRENT: 'Hiện tại', FUTURE: 'Tương lai', PAST: 'Đã qua' }
 export const shortFarmName = (name: string) => (name.replace(/^Trại( bò)?\s+/, '').split(' – ')[0] ?? name)

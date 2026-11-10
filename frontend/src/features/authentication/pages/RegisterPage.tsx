@@ -30,7 +30,10 @@ export function RegisterPage({ client }: { client: AuthClient }) {
     setSubmitting(true)
     try {
       await client.register(request)
-      navigate(AUTH_PATH.verification, { replace: true, state: { email: request.email } })
+      navigate(AUTH_PATH.verification, {
+        replace: true,
+        state: { email: request.email, nextAllowedAt: new Date(Date.now() + 60_000).toISOString() },
+      })
     } catch (reason) {
       setError(friendlyAccountError(reason))
       setDuplicate(typeof reason === 'object' && reason !== null && 'code' in reason && (reason as { code?: unknown }).code === 'MSG-FE01-10')

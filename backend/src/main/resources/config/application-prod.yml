@@ -64,13 +64,17 @@ spring:
   liquibase:
     contexts: prod
   mail:
-    host: ${BEEFCARE_SMTP_HOST:localhost}
-    port: ${BEEFCARE_SMTP_PORT:25}
-    username: ${BEEFCARE_SMTP_USERNAME:}
+    host: ${BEEFCARE_SMTP_HOST:smtp.gmail.com}
+    port: ${BEEFCARE_SMTP_PORT:587}
+    username: ${BEEFCARE_SMTP_USERNAME:BeefCare@gmail.com}
     password: ${BEEFCARE_SMTP_PASSWORD:}
     properties:
       mail:
         smtp:
+          auth: ${BEEFCARE_SMTP_AUTH:true}
+          starttls:
+            enable: ${BEEFCARE_SMTP_STARTTLS_ENABLE:true}
+            required: ${BEEFCARE_SMTP_STARTTLS_REQUIRED:true}
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
@@ -121,6 +125,7 @@ jhipster:
         token-validity-in-seconds: 86400
         token-validity-in-seconds-for-remember-me: 2592000
   mail: # specific JHipster mail property, for standard properties see MailProperties
+    from: ${BEEFCARE_MAIL_FROM:BeefCare@gmail.com}
     base-url: http://my-server-url-to-change # Modify according to your server's URL
   logging:
     use-json-format: false # By default, logs are not in Json format

@@ -57,7 +57,7 @@ describe('Tài khoản người dùng', () => {
     await user.click(screen.getByRole('button', { name: /Tạm khóa tài khoản/ }))
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Tạm khóa tài khoản' }))
-    expect(await within(dialog).findByText(/Phải còn ít nhất một System Admin/)).toBeInTheDocument()
+    expect(await within(dialog).findByText(/Phải còn ít nhất một Quản trị hệ thống/)).toBeInTheDocument()
   })
 
   it('báo lỗi tải và cho thử lại', async () => {
@@ -140,7 +140,7 @@ describe('Lịch sử audit nền tảng', () => {
 
   it('báo lỗi tải audit', async () => {
     renderAt('/nen-tang/audit?demo=load-error')
-    expect(await screen.findByText('Không tải được lịch sử audit.')).toBeInTheDocument()
+    expect(await screen.findByText('Không tải được lịch sử kiểm toán.')).toBeInTheDocument()
   })
 })
 

@@ -76,6 +76,29 @@ public class AppUser implements Serializable {
     @Column(name = "owner_registration_completed_at")
     private Instant ownerRegistrationCompletedAt;
 
+    @NotNull
+    @Column(name = "terms_accepted", nullable = false)
+    private boolean termsAccepted;
+
+    @Column(name = "terms_accepted_at")
+    private Instant termsAcceptedAt;
+
+    @Size(max = 30)
+    @Column(name = "password_method_status", length = 30)
+    private String passwordMethodStatus;
+
+    @Column(name = "password_linked_at")
+    private Instant passwordLinkedAt;
+
+    @Column(name = "password_last_used_at")
+    private Instant passwordLastUsedAt;
+
+    @Column(name = "google_linked_at")
+    private Instant googleLinkedAt;
+
+    @Column(name = "google_last_used_at")
+    private Instant googleLastUsedAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -199,6 +222,62 @@ public class AppUser implements Serializable {
 
     public void setOwnerRegistrationCompletedAt(Instant ownerRegistrationCompletedAt) {
         this.ownerRegistrationCompletedAt = ownerRegistrationCompletedAt;
+    }
+
+    public boolean isTermsAccepted() {
+        return termsAccepted;
+    }
+
+    public void setTermsAccepted(boolean termsAccepted) {
+        this.termsAccepted = termsAccepted;
+    }
+
+    public Instant getTermsAcceptedAt() {
+        return termsAcceptedAt;
+    }
+
+    public void setTermsAcceptedAt(Instant termsAcceptedAt) {
+        this.termsAcceptedAt = termsAcceptedAt;
+    }
+
+    public String getPasswordMethodStatus() {
+        return passwordMethodStatus;
+    }
+
+    public void setPasswordMethodStatus(String passwordMethodStatus) {
+        this.passwordMethodStatus = passwordMethodStatus;
+    }
+
+    public Instant getPasswordLinkedAt() {
+        return passwordLinkedAt;
+    }
+
+    public void setPasswordLinkedAt(Instant passwordLinkedAt) {
+        this.passwordLinkedAt = passwordLinkedAt;
+    }
+
+    public Instant getPasswordLastUsedAt() {
+        return passwordLastUsedAt;
+    }
+
+    public void setPasswordLastUsedAt(Instant passwordLastUsedAt) {
+        this.passwordLastUsedAt = passwordLastUsedAt;
+    }
+
+    public Instant getGoogleLinkedAt() {
+        return googleLinkedAt;
+    }
+
+    public void setGoogleLinkedAt(Instant googleLinkedAt) {
+        this.googleLinkedAt = googleLinkedAt;
+    }
+
+    public Instant getGoogleLastUsedAt() {
+        return googleLastUsedAt;
+    }
+
+    public void setGoogleLastUsedAt(Instant googleLastUsedAt) {
+        this.googleLastUsedAt = googleLastUsedAt;
     }
 
     public Long getVersion() {

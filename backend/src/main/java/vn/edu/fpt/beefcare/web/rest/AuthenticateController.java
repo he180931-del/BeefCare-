@@ -79,7 +79,8 @@ public class AuthenticateController {
             if (ex instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException || ex.getCause() instanceof vn.edu.fpt.beefcare.security.UserNotActivatedException) {
                 throw new DomainException(MessageCodes.FE01_11, DomainException.params("email", loginVM.getUsername().trim()), HttpStatus.UNAUTHORIZED);
             }
-            identityService.recordFailedPasswordAttempt(loginVM.getUsername());
+            java.util.Optional<java.time.Instant> lockedUntil = identityService.recordFailedPasswordAttempt(loginVM.getUsername());
+            if (lockedUntil.isPresent()) throw IdentityService.locked(lockedUntil.orElseThrow());
             throw new DomainException(MessageCodes.FE01_01, null, HttpStatus.UNAUTHORIZED);
         }
         identityService.clearFailedPasswordAttempts(loginVM.getUsername());

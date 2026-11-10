@@ -12,8 +12,11 @@ public final class GoogleReauthentication {
 
     /** Set by the Google success handler on every Google sign-in. */
     public static final String AUTHENTICATED_AT = "beefcare.google.authenticatedAt";
-    /** Set by the profile before it sends the user to Google, so the sign-in returns to the profile. */
-    public static final String RETURN_TO_PROFILE = "beefcare.google.returnToProfile";
+    /**
+     * Set by the verified account endpoint before it sends the user to Google, so the callback returns to that
+     * account's own profile surface. This is a server-validated internal path, never a client-provided redirect URL.
+     */
+    public static final String RETURN_TO_PROFILE_PATH = "beefcare.google.returnToProfilePath";
     public static final Duration WINDOW = Duration.ofMinutes(5);
 
     private GoogleReauthentication() {}

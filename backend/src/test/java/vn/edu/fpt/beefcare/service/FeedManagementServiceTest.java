@@ -29,7 +29,8 @@ import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.ReceiptLineRequest;
 @ExtendWith(MockitoExtension.class)
 class FeedManagementServiceTest {
     @Mock FarmAccessService access; @Mock FarmClock clock; @Mock FeedItemRepository feeds; @Mock TradingPartnerRepository partners;
-    @Mock FeedReceiptRepository receipts; @Mock FeedReceiptLineRepository lines; @Mock FeedStockMovementRepository movements;
+    @Mock FeedReceiptRepository receipts; @Mock FeedReceiptLineRepository lines; @Mock VoucherPaymentRepository payments;
+    @Mock VoucherPaymentService voucherPayments; @Mock AuditService audit; @Mock FeedAttachmentService attachments; @Mock FeedStockMovementRepository movements;
     @Mock OutboxService outbox; @Mock FeedRationVersionRepository rationVersions; @Mock FeedRationPenRepository rationPens;
     @Mock FeedRationComponentRepository rationComponents; @Mock PenRepository pens; @Mock PenAssignmentRepository assignments;
     @Mock FeedingRecordRepository feedingRecords; @Mock FeedingRecordLineRepository feedingLines; @Mock RecordRevisionService revisions;
@@ -46,12 +47,36 @@ class FeedManagementServiceTest {
         lenient().when(access.require(12L,FarmAction.MANAGE_FEED)).thenReturn(context);
     }
 
+    @Test void feedCatalogueRequiresStockPermission(){
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
+
+        assertThat(service.catalogue(12L)).hasSize(1);
+
+        verify(access).require(12L,FarmAction.VIEW_FEED_STOCK);
+    }
+
     @Test void postingReceiptUsesWeightedAverageAndWritesMovementAtomically(){
         when(clock.now()).thenReturn(Instant.parse("2026-10-28T00:00:00Z"));
         when(receipts.lockByIdAndFarm(77L,12L)).thenReturn(Optional.of(receipt));when(lines.findByReceipt_IdOrderByIdAsc(77L)).thenReturn(List.of(line));when(feeds.lockByIdAndFarm(99L,12L)).thenReturn(Optional.of(feed));when(receipts.saveAndFlush(receipt)).thenReturn(receipt);
         var result=service.postReceipt(12L,77L,0);
         assertThat(feed.getOnHandKg()).isEqualByComparingTo("15.000");assertThat(feed.getAvgUnitCost()).isEqualByComparingTo("133.33");assertThat(result.status()).isEqualTo("POSTED");
         verify(movements).save(any(FeedStockMovement.class));verify(outbox).enqueue(eq(12L),eq("FEED_RECEIPT_POSTED"),eq("FeedReceipt"),eq(77L),any());
+    }
+
+    @Test void postingMultipleLotsForOneFeedAggregatesAverageCostAndStockMovement(){
+        when(clock.now()).thenReturn(Instant.parse("2026-10-28T00:00:00Z"));
+        FeedReceiptLine second=new FeedReceiptLine();second.setReceipt(receipt);second.setFeedItem(feed);second.setFeedCodeSnapshot("TA-01");second.setFeedNameSnapshot("Hay");
+        second.setKgReceived(new BigDecimal("2.000"));second.setQuantityPurchase(new BigDecimal("2.000"));second.setPurchaseUnit("kg");second.setLineAmount(400L);second.setUnitPrice(200L);
+        when(receipts.lockByIdAndFarm(77L,12L)).thenReturn(Optional.of(receipt));when(lines.findByReceipt_IdOrderByIdAsc(77L)).thenReturn(List.of(line,second));
+        when(feeds.lockByIdAndFarm(99L,12L)).thenReturn(Optional.of(feed));when(receipts.saveAndFlush(receipt)).thenReturn(receipt);
+
+        service.postReceipt(12L,77L,0);
+
+        assertThat(feed.getOnHandKg()).isEqualByComparingTo("17.000");assertThat(feed.getAvgUnitCost()).isEqualByComparingTo("141.18");
+        verify(feeds,times(1)).lockByIdAndFarm(99L,12L);
+        var movementCaptor=org.mockito.ArgumentCaptor.forClass(FeedStockMovement.class);verify(movements,times(2)).save(movementCaptor.capture());
+        assertThat(movementCaptor.getAllValues()).extracting(FeedStockMovement::getBalanceAfterKg).containsExactly(new BigDecimal("15.000"),new BigDecimal("17.000"));
     }
 
     @Test void voidReceiptRejectsAnyLineNotCoveredByCurrentStock(){
@@ -61,6 +86,15 @@ class FeedManagementServiceTest {
             assertThat(e.getCode()).isEqualTo(MessageCodes.FE23_05);
             assertThat(e.getParams()).containsEntry("receipt_code","PNK-2026-000077").containsEntry("feed","Hay").containsEntry("stock",new BigDecimal("4.999"));});
         assertThat(feed.getOnHandKg()).isEqualByComparingTo("4.999");verify(movements,never()).save(any());
+    }
+
+    @Test void voidReceiptChecksCombinedQuantityAcrossLotsBeforeChangingStock(){
+        when(receipts.lockByIdAndFarm(77L,12L)).thenReturn(Optional.of(receipt));receipt.setStatus("POSTED");feed.setOnHandKg(new BigDecimal("9.000"));
+        FeedReceiptLine second=new FeedReceiptLine();second.setReceipt(receipt);second.setFeedItem(feed);second.setKgReceived(new BigDecimal("5.000"));second.setLineAmount(1_000L);
+        when(lines.findByReceipt_IdOrderByIdAsc(77L)).thenReturn(List.of(line,second));when(feeds.lockByIdAndFarm(99L,12L)).thenReturn(Optional.of(feed));
+
+        assertThatThrownBy(()->service.voidReceipt(12L,77L,new VoidReceiptRequest("recorded twice",0))).isInstanceOfSatisfying(DomainException.class,e->assertThat(e.getCode()).isEqualTo(MessageCodes.FE23_05));
+        assertThat(feed.getOnHandKg()).isEqualByComparingTo("9.000");verify(feeds,times(1)).lockByIdAndFarm(99L,12L);verify(movements,never()).save(any());
     }
 
     @Test void receiptLineExpiryMustBeAfterReceiptDate(){
@@ -79,7 +113,7 @@ class FeedManagementServiceTest {
     }
 
     @Test void lotNearExpiryIsTheNearestPostedLotWithinThirtyDays(){
-        when(access.require(12L,FarmAction.VIEW_FEED)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
         when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
         when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of(
             lot("OLD","POSTED",LocalDate.of(2026,10,27)),lot("VOID","VOIDED",LocalDate.of(2026,11,1)),lot("DRAFT","DRAFT",LocalDate.of(2026,11,2)),
@@ -89,7 +123,7 @@ class FeedManagementServiceTest {
     }
 
     @Test void lotNearExpiryIsEmptyWhenNoPostedLotExpiresWithinThirtyDays(){
-        when(access.require(12L,FarmAction.VIEW_FEED)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
+        when(access.require(12L,FarmAction.VIEW_FEED_STOCK)).thenReturn(context);when(clock.today()).thenReturn(LocalDate.of(2026,10,28));
         when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
         when(lines.findByFeedItem_IdOrderByExpiryDateAsc(99L)).thenReturn(List.of(lot("LATER","POSTED",LocalDate.of(2026,11,28)),lot("NONE","POSTED",null)));
         var view=service.stock(12L).get(0);

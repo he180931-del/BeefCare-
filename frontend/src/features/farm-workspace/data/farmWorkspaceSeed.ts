@@ -1,7 +1,7 @@
 import type { FarmDetails, Invitation, InvitationPreview, Membership } from '../types'
 
 export const YEN_BAI = 'Trại bò Yên Bài – Ba Vì'
-/** Mã liên kết mẫu cho chế độ mô phỏng (xem /chap-nhan-loi-moi?token=…). */
+/** Mã liên kết mẫu cho chế độ mô phỏng (xem /invitation/accept?token=…). */
 export const SAMPLE_TOKEN = 'mock-invitation-token'
 export const EXPIRED_TOKEN = 'mock-invitation-expired'
 /** Trại của lời mời mẫu; không trùng mã trại đã có hoặc sắp cấp. */
@@ -27,7 +27,7 @@ export function seedFarms(): FarmDetails[] {
     {
       ...base, id: 3, name: 'Trại Cẩm Lĩnh', role: 'MANAGER', serviceStatus: 'ACTIVE', province: 'Hà Nội', commune: 'Cẩm Lĩnh, Ba Vì', detailedAddress: '',
       contactPerson: '', contactPhone: '', registrationCertificateInfo: '', morningShiftStart: '', operatingNotes: '',
-      serviceUntil: null, renewalOpensAt: null, activeCattleCount: 132, ownerName: 'Chủ trại Cẩm Lĩnh',
+      serviceUntil: '2027-03-31', renewalOpensAt: null, activeCattleCount: 132, ownerName: 'Chủ trại Cẩm Lĩnh',
     },
     {
       ...base, id: 4, name: 'Trại Suối Hai', role: 'OWNER', serviceStatus: 'SUSPENDED', province: 'Hà Nội', commune: 'Suối Hai, Ba Vì', detailedAddress: '',

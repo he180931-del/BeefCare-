@@ -128,12 +128,52 @@ describe('supportApi: trả lời, xác nhận, mở lại (SCR-66)', () => {
 })
 
 describe('supportApi: chế độ backend', () => {
-  it('từ chối và không đụng tới store', async () => {
+  it('map con trỏ hội thoại và tải trang tin nhắn cũ', async () => {
+    const http = transport()
+    vi.mocked(http.get).mockImplementation(async (path) => {
+      if (path === '/api/support/tickets/9') {
+        return {
+          id: 9, code: 'TK-0009', subject: 'Cần hỗ trợ', category: 'OTHER', priority: 'NORMAL', status: 'IN_PROGRESS',
+          requesterId: 1, requester: 'Chủ trại', assignedCsId: 2, assignedCs: 'CS', createdAt: '2026-11-09T10:00:00Z',
+          updatedAt: '2026-11-09T11:00:00Z', version: 3, messagesBeforeId: 41, messagesHasMore: true,
+          messages: [{ id: 41, type: 'REPLY', content: 'Tin mới', author: 'CS', authorRole: 'CS', createdAt: '2026-11-09T11:00:00Z' }],
+          resolutions: [], history: [],
+        }
+      }
+      return {
+        items: [{ id: 21, type: 'DESCRIPTION', content: 'Tin cũ', author: 'Chủ trại', authorRole: 'OWNER', createdAt: '2026-11-09T10:00:00Z' }],
+        nextBeforeId: null, hasMore: false,
+      }
+    })
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store: createSupportDemoStore() })
+
+    await expect(api.getTicket(9)).resolves.toMatchObject({ messagesBeforeId: 41, messagesHasMore: true })
+    await expect(api.getMessages(9, 41)).resolves.toEqual({
+      items: [expect.objectContaining({ id: 21, text: 'Tin cũ' })], nextBeforeId: null, hasMore: false,
+    })
+    expect(http.get).toHaveBeenLastCalledWith('/api/support/tickets/9/messages?beforeId=41&size=20')
+  })
+
+  it('chỉ hiển thị các trại có vai trò OWNER khi tạo ticket', async () => {
+    const http = transport()
+    vi.mocked(http.get).mockResolvedValue([
+      { id: 1, name: 'Trại của tôi', role: 'OWNER' },
+      { id: 2, name: 'Trại được mời', role: 'MANAGER' },
+    ])
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store: createSupportDemoStore() })
+
+    await expect(api.listOwnedFarms()).resolves.toEqual([{ id: 1, name: 'Trại của tôi' }])
+  })
+
+  it('gọi API thật và không đụng tới store', async () => {
     const store = createSupportDemoStore()
     const spy = vi.spyOn(store, 'listTickets')
-    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listTickets()).rejects.toThrow()
-    await expect(api.createTicket({ category: 'OTHER', scope: 'ACCOUNT', farmId: null, subject: 'a', description: 'b' })).rejects.toThrow()
+    const http = transport()
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listTickets()).resolves.toMatchObject({ items: [], total: 0 })
+    await expect(api.createTicket({ category: 'OTHER', scope: 'ACCOUNT', farmId: null, subject: 'a', description: 'b' })).resolves.toMatchObject({ id: 0 })
     expect(spy).not.toHaveBeenCalled()
+    expect(http.get).toHaveBeenCalled()
+    expect(http.command).toHaveBeenCalled()
   })
 })

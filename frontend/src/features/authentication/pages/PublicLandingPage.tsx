@@ -10,8 +10,9 @@ import { usePublicPrices, usePublishedLanding } from '../components/landing/useP
 export function PublicLandingPage({ client }: { client: AuthClient }) {
   const demo = useDemoState()
   const { state, retry } = usePublicPrices(client, demo)
-  const { features, faq, contactEmail } = usePublishedLanding(client)
+  const { features, faq, contactEmail, contactPhone } = usePublishedLanding(client)
   const email = contactEmail ?? CONTACT.email
+  const phone = contactPhone ?? CONTACT.phone
   return (
     <main className="min-h-screen bg-page text-ink">
       <LandingHeader />
@@ -25,7 +26,7 @@ export function PublicLandingPage({ client }: { client: AuthClient }) {
         <div className="flex flex-col gap-4 rounded-[22px] bg-brand-dark px-6 py-6 text-white lg:flex-row lg:items-center lg:justify-between lg:rounded-3xl lg:px-8 lg:py-9">
           <div>
             <h2 className="m-0 text-xl font-bold lg:text-[25px]"><span className="lg:hidden">Cần tư vấn?</span><span className="hidden lg:inline">Cần tư vấn cho trang trại của bạn?</span></h2>
-            <p className="m-0 mt-2 text-[13px] leading-6 text-[#d7ebdf] lg:text-sm">Email: <a href={`mailto:${email}`} className="text-[#d7ebdf]">{email}</a><span className="hidden lg:inline">  ·  </span><br className="lg:hidden" />Điện thoại: <a href={CONTACT.phoneHref} className="text-[#d7ebdf]">{CONTACT.phone}</a></p>
+            <p className="m-0 mt-2 text-[13px] leading-6 text-[#d7ebdf] lg:text-sm">Email: <a href={`mailto:${email}`} className="text-[#d7ebdf]">{email}</a><span className="hidden lg:inline">  ·  </span><br className="lg:hidden" />Điện thoại: <a href={`tel:${phone.replace(/\s+/g, '')}`} className="text-[#d7ebdf]">{phone}</a></p>
           </div>
           <a href={`mailto:${email}`} className="inline-flex h-[42px] items-center justify-center rounded-[14px] bg-[#eef4ef] px-8 text-[15px] font-bold text-brand-dark no-underline lg:h-[54px] lg:w-[280px]"><span className="lg:hidden">Liên hệ</span><span className="hidden lg:inline">Liên hệ BeefCare</span></a>
         </div>

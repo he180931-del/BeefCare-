@@ -37,13 +37,20 @@ describe('notificationsApi (SCR-45)', () => {
     expect((await api.listMine()).every((n) => n.readTime !== null)).toBe(true)
   })
 
-  it('chế độ backend từ chối và không đụng tới store', async () => {
+  it('chế độ backend đọc và ghi notification qua API thật, không đụng tới store', async () => {
     const store = createNotificationsDemoStore()
     const spy = vi.spyOn(store, 'listMine')
-    const api = createNotificationsApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listMine()).rejects.toThrow()
-    await expect(api.markAllRead()).rejects.toThrow()
+    const http = transport()
+    http.get.mockResolvedValue([{ id: 9, category: 'SUPPORT', targetType: 'SUPPORT_TICKET', targetId: 42, title: 'Cập nhật', summary: 'Nội dung', createdTime: '2026-11-01T10:00:00Z', readTime: null }])
+    http.command.mockResolvedValue(1)
+    const api = createNotificationsApi({ mode: 'backend', farmId: 1, transport: http, store })
+    await expect(api.listMine()).resolves.toMatchObject([{ id: 9, category: 'SUPPORT', targetType: 'TICKET' }])
+    await api.markRead(9)
+    await api.markAllRead()
     expect(spy).not.toHaveBeenCalled()
+    expect(http.get).toHaveBeenCalledWith('/api/notifications/mine')
+    expect(http.command).toHaveBeenCalledWith('/api/notifications/9/read', undefined, { method: 'PUT' })
+    expect(http.command).toHaveBeenCalledWith('/api/notifications/read-all', undefined, { method: 'PUT' })
   })
 })
 

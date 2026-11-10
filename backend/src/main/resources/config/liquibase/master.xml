@@ -141,5 +141,6 @@
     <include file="config/liquibase/changelog/20261029001000_feed_stock_adjustment.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261029003000_feed_attachments.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261101000100_calf_parentage_assignment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261110000100_feed_receipt_completeness.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

@@ -27,7 +27,8 @@ export const CATEGORY_LABEL: Record<TicketCategory, string> = {
 }
 export const IR_STATUS_LABEL: Record<InternalStatus, string> = { OPEN: 'Mới mở', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy' }
 export const OUTCOME_LABEL = { PERFORMED: 'Đã thực hiện', UNABLE: 'Không thể thực hiện', OUTSIDE_DOMAIN: 'Ngoài phạm vi' } as const
-export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Platform Manager', SA: 'System Admin' }
+export const ROLE_LABEL: Record<TargetRole, string> = { PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
+export const PLATFORM_ROLE_LABEL: Record<'CS' | TargetRole, string> = { CS: 'Nhân viên hỗ trợ', PM: 'Quản lý nền tảng', SA: 'Quản trị hệ thống' }
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { HIGH: 0, NORMAL: 1, LOW: 2 }
 
@@ -49,7 +50,8 @@ export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slic
 export const isClosed = (t: Pick<Ticket, 'status'>) => t.status === 'CLOSED'
 export const openIrOf = (t: Pick<Ticket, 'internalRequests'>, role?: TargetRole): InternalView | undefined =>
   t.internalRequests.find((r) => r.status === 'OPEN' && (!role || r.targetRole === role))
-export const latestResolution = (t: Pick<Ticket, 'resolutions'>) => t.resolutions[t.resolutions.length - 1]
+/** Backend trả resolution mới nhất trước; luôn chọn theo version để không phụ thuộc thứ tự API. */
+export const latestResolution = (t: Pick<Ticket, 'resolutions'>) => t.resolutions.reduce((latest, current) => !latest || current.version > latest.version ? current : latest, undefined as Ticket['resolutions'][number] | undefined)
 
 export function isAssignedTo(t: Pick<Ticket, 'assignedCsId' | 'assignedAvailable'>, actor: Pick<Actor, 'id'>) {
   return t.assignedCsId === actor.id && t.assignedAvailable
@@ -78,7 +80,7 @@ export function closeConditions(t: Ticket) {
 
 export function toRow(t: Ticket): TicketRow {
   return {
-    id: t.id, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status,
+    id: t.id, version: t.version, code: t.code, subject: t.subject, category: t.category, priority: t.priority, status: t.status,
     farmName: t.farmName, requester: t.requester, assignedCsId: t.assignedCsId, assignedCs: t.assignedCs,
     assignedAvailable: t.assignedAvailable, createdAt: t.createdAt, updatedAt: t.updatedAt,
   }
@@ -94,7 +96,7 @@ const matchesTab = (t: Ticket, tab: QueueTab, actorId: number) => {
   }
 }
 
-/** Hàng đợi không chứa ticket đã đóng; sắp theo ưu tiên rồi thời gian tạo mới nhất trước. */
+/** Hàng đợi không chứa ticket đã đóng; ticket chưa có người xử lý luôn đứng trước. */
 export function filterQueue(all: Ticket[], f: QueueFilters, actorId: number): Ticket[] {
   const q = (f.q ?? '').trim().toLowerCase()
   return all
@@ -111,7 +113,11 @@ export function filterQueue(all: Ticket[], f: QueueFilters, actorId: number): Ti
       if (a === 'unavailable') return t.assignedCsId !== null && !t.assignedAvailable
       return String(t.assignedCsId) === a
     })
-    .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) => {
+      const aNeedsHandling = a.assignedCsId === null || !a.assignedAvailable ? 0 : 1
+      const bNeedsHandling = b.assignedCsId === null || !b.assignedAvailable ? 0 : 1
+      return aNeedsHandling - bNeedsHandling || PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || b.createdAt.localeCompare(a.createdAt)
+    })
 }
 
 export function queueCounts(all: Ticket[], actorId: number) {
