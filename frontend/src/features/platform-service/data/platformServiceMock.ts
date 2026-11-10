@@ -1,4 +1,4 @@
-import type { Evidence, PlatformFarm, PlatformPayment, PriceDraft, PriceVersion } from '../types'
+import type { Evidence, PlatformFarm, PlatformPayment, PriceVersion } from '../types'
 
 export const PM_NAME = 'Đỗ Minh Quân'
 const RECIPIENT = 'MB · 0386671863000 · CONG TY TNHH BEEFCARE'
@@ -53,7 +53,6 @@ const PRICE_VERSIONS: PriceVersion[] = [
   v(2, 2200000, 4180000, 5940000, '2024-06-01T00:00:00', '2024-05-20T10:00:00', 'Cùng chức năng; không tự gia hạn'),
   v(3, 1200000, 2160000, 3060000, '2026-09-01T00:00:00', '2026-08-25T14:30:00', 'Cùng chức năng; không tự gia hạn'),
 ]
-const DRAFT: PriceDraft = { price1y: '1.200.000', price2y: '2.160.000', price3y: '3.060.000', mode: 'SCHEDULE', effectiveAt: '2027-01-01T00:00', terms: 'Cùng chức năng; không tự gia hạn' }
 
 export const PLATFORM_SERVICE_DEMO = {
   farms: FARMS,
@@ -65,6 +64,5 @@ export const PLATFORM_SERVICE_DEMO = {
   tileBase: { pending: 6, hold: 1, locked: 1 },
   receiptSeq: 411,
   priceVersions: PRICE_VERSIONS,
-  draft: DRAFT,
 }
 export type PlatformServiceSeed = typeof PLATFORM_SERVICE_DEMO

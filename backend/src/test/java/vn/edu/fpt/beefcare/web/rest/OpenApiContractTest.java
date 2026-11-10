@@ -108,6 +108,25 @@ class OpenApiContractTest {
         for (String field : java.util.List.of("evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt")) {
             assertThat(allowsNull(pmPayment.path(field))).as("UC5 nullable " + field).isTrue();
         }
+        JsonNode pricePage = api.path("components").path("schemas").path("PlatformPlanPricePage").path("properties");
+        assertThat(paths.path("/api/platform/plan-prices").path("get").path("responses").path("200").toString()).contains("PlatformPlanPricePage");
+        assertThat(allowsNull(pricePage.path("current"))).isTrue();
+        assertThat(allowsNull(pricePage.path("nextEffectiveAt"))).isTrue();
+        JsonNode plan = api.path("components").path("schemas").path("PlatformPlanPriceVersion").path("properties");
+        assertThat(plan.path("status").path("enum").toString()).contains("SCHEDULED", "EFFECTIVE", "SUPERSEDED", "WITHDRAWN");
+        for (String field : java.util.List.of("terms", "publishedById", "publishedBy", "publishedAt", "withdrawnBy", "withdrawnAt", "withdrawReason")) {
+            assertThat(allowsNull(plan.path(field))).as("UC7 nullable " + field).isTrue();
+        }
+        for (String path : java.util.List.of("/api/platform/plan-prices", "/api/platform/plan-prices/{version}/withdraw")) {
+            assertThat(paths.path(path).path("post").path("parameters").toString()).contains("Idempotency-Key");
+        }
+        JsonNode priceRequest = api.path("components").path("schemas").path("PublishPriceRequest");
+        assertThat(priceRequest.path("required").toString()).contains("price1y", "price2y", "price3y", "applyNow");
+        assertThat(priceRequest.path("properties").path("terms").path("anyOf").get(0).path("maxLength").asInt()).isEqualTo(500);
+        JsonNode withdrawRequest = api.path("components").path("schemas").path("WithdrawPriceRequest");
+        assertThat(withdrawRequest.path("required").toString()).contains("reason", "expectedVersion");
+        assertThat(withdrawRequest.path("properties").path("reason").path("maxLength").asInt()).isEqualTo(1000);
+        assertThat(api.path("components").path("schemas").path("PriceVersion").path("properties").has("publishedBy")).isFalse();
         Files.writeString(Path.of("target","beefcare-openapi.json"),mapper.writerWithDefaultPrettyPrinter().writeValueAsString(api)+"\n",StandardCharsets.UTF_8);
     }
 

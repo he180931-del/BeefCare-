@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **220 paths, 269 operations, 296 schemas**, regenerated 10 November 2026 from the UC6 working tree after `OpenApiContractTest` passed. UC5 and UC6 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` and `docs/reviews/FE19_UC06_REVIEW.md`; this count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
+Current contract: **221 paths, 270 operations, 299 schemas**, regenerated 10 November 2026 from the UC7 working tree after `OpenApiContractTest` passed. UC5–UC7 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md`, `docs/reviews/FE19_UC06_REVIEW.md` and `docs/reviews/FE19_UC07_REVIEW.md`; this count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -12,6 +12,26 @@ Copy-Item target\beefcare-openapi.json ..\docs\api\openapi.json
 ```
 
 The test writes only to `backend/target/beefcare-openapi.json`; the copy step publishes it here. Commit the regenerated file in the same change as the DTO or route change.
+
+UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
+`GET /api/platform/plan-prices?page=0&size=20` returns
+`{items,total,page,size,asOf,current,nextEffectiveAt}` instead of an array.
+Current and next boundary are independent of the requested history page;
+history is publishedAt descending (unknown last), then id descending.
+POST requires `Idempotency-Key` and `{price1y,price2y,price3y,applyNow,
+effectiveAt?,terms?}`; all prices and applyNow are required. Apply now uses the
+server clock; otherwise effectiveAt is a required ISO instant (VN UI timezone).
+Whole VND limits are 1,000…1,000,000,000; optional trimmed terms max 500.
+`POST /api/platform/plan-prices/{version}/withdraw` requires the same header
+and `{reason,expectedVersion}`; version is the existing numeric PlanVersion ID,
+expectedVersion is its observed revision. Withdrawal reason is trimmed,
+5 non-space characters minimum, 1,000 maximum. Both commands return
+PlatformPlanPriceVersion with prices, effective status, real publication and
+withdrawal metadata; absent legacy metadata remains explicit null.
+Immediate publication retains future schedules; withdrawn schedules release
+their timestamp. Price/term/publication fields cannot be edited. Public
+`/api/public/prices` keeps its previous minimal schema and exposes no PM
+identity. Issued payment snapshots and purchased periods remain unchanged.
 
 UC5 / D18 contract change (10 November 2026): `GET /api/platform/payments`
 and `GET .../evidence` return `{items,total,page,size}` with a default size of

@@ -1,7 +1,7 @@
 import { PLATFORM_SERVICE_DEMO, PM_NAME, type PlatformServiceSeed } from './platformServiceMock'
 import type {
   ChangeFarmCommand, ChangeOptions, Evidence, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, FarmServicePreview, FarmSort, LockCommand, PaymentFilters, PaymentTiles, PlatformFarm, PlatformPayment,
-  PriceDraft, PriceVersionView, PublishPriceCommand, ReturnCommand, ReviewCommand, ReviewResult, SubscriptionDetail, SubscriptionFilters, SubscriptionRow, UnlockCommand,
+  PriceVersionView, PublishPriceCommand, ReturnCommand, ReviewCommand, ReviewResult, SubscriptionDetail, SubscriptionFilters, SubscriptionRow, UnlockCommand,
 } from '../types'
 import { toDate, vnNow } from '../domain/dates'
 import { blockReason, checkAcceptance, findCandidates } from '../domain/reconciliation'
@@ -233,8 +233,6 @@ export function createPlatformServiceDemoStore(seed: PlatformServiceSeed = PLATF
     },
 
     async listPriceVersions(): Promise<PriceVersionView[]> { return structuredClone(withStatuses(s.priceVersions, now())) },
-    async getPriceDraft(): Promise<PriceDraft> { return structuredClone(s.draft) },
-    async savePriceDraft(draft: PriceDraft) { s.draft = structuredClone(draft) },
     async publishPrice(cmd: PublishPriceCommand): Promise<PriceVersionView> {
       if (![cmd.price1y, cmd.price2y, cmd.price3y].every(validPrice)) fail(PRICE_ERROR)
       const current = now()

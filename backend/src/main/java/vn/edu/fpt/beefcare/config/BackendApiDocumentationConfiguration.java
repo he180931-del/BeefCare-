@@ -38,6 +38,9 @@ public class BackendApiDocumentationConfiguration {
                 nullableFields(api, "PlatformEvidenceHistory", "reason", "reference", "result", "returnDate", "pmId", "pmName",
                     "relatedPaymentId", "relatedPaymentCode");
                 nullableFields(api, "SePayLookupRow", "content", "referenceCode", "evidenceId");
+                nullableFields(api, "PlatformPlanPriceVersion", "terms", "publishedById", "publishedBy", "publishedAt", "withdrawnBy", "withdrawnAt", "withdrawReason");
+                nullableFields(api, "PlatformPlanPricePage", "current", "nextEffectiveAt");
+                nullableFields(api, "PublishPriceRequest", "effectiveAt", "terms");
                 nullableFields(api, "PlatformPaymentRead", "purchasedStart", "purchasedEnd", "receiptCode", "requestedByEmail",
                     "evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt");
             })
