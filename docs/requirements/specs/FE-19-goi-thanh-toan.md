@@ -346,6 +346,14 @@ suy từ phân bổ cuối cùng của chứng từ. Ma trận/bằng chứng t�
   soát (D20).
 
 ### UC-FE19-07 Công bố bảng giá
+Người dùng chốt năm đề xuất ngày 10/11/2026 (D23): backend + nối SCR-63 hiện có;
+Q1 thêm A14, Q4 lý do rút 5 ký tự không phải khoảng trắng đến 1.000 ký tự;
+bỏ Lưu nháp, giữ nội dung khi lỗi; công bố ngay giữ lịch tương lai; lịch đã rút
+giải phóng mốc. Lịch sử 20 dòng/trang, publishedAt desc (null cuối) / id desc,
+đủ giá chính xác và metadata; tải khi vào màn/thao tác/Làm mới/tới mốc hiệu lực,
+không polling. Thời điểm công bố server-owned, khác thời điểm hiệu lực PM chọn;
+dữ liệu cũ thiếu audit thật giữ null. Ma trận: `docs/reviews/FE19_UC07_REVIEW.md`.
+
 1. SCR-63: phiên bản hiệu lực + lịch sử.
 2. PM nhập giá 3 kỳ hạn, chọn Áp dụng ngay / Lên lịch (ngày giờ), mô tả điều khoản.
 3. **Công bố phiên bản** → kiểm giá, thời điểm, không trùng lịch.
@@ -486,8 +494,8 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | A11 | Tra cứu SePay theo mã (API-03, D21/D22) | `transactionId` (là request key, không có `Idempotency-Key`) | `WebhookResult {success, duplicate, evidenceId, reviewStatus, paymentId}`; lưu một lần theo BR-D24; đủ điều kiện tự PAID/cấp kỳ nguồn SEPAY, không khớp chỉ lưu chứng từ; audit ghi PM tra cứu; UI hiển thị đúng kết quả | 503 chưa cấu hình, 404 không có ở SePay, 502 lỗi SePay hoặc dữ liệu SePay không lưu được (cả A17), 409 khác dữ liệu nghiệp vụ | `POST /api/platform/payments/lookup/{transactionId}` |
 | A17 | Tra cứu SePay theo khoảng (API-03, Q2, D19) | `from, to` ngày VN bắt buộc, ≤31 ngày | `SePayLookupPage {items: SePayLookupRow[], limit=200}`; row `{transactionId, bankPaidAt, amount, direction, content?, referenceCode?, evidenceId?}` chỉ đọc | COM-06, COM-11 khoảng đảo, COM-10 quá 31 ngày, 503/502 | `GET /api/platform/payments/lookup` |
 | A12 | Danh sách/chi tiết yêu cầu UC5 | `state?, q?, page=0, size=20` / paymentId; size1..100/page0..floor(INT_MAX/size) | `PagePlatformPaymentRead {items,total,page,size}` / `PlatformPaymentRead`; giữ snapshot UC4, thêm evidenceId?, confirmedAt?, confirmationSource?, bankPaidAt?, receivedAt?; null giữ khóa | COM-01/08/10 | `GET /api/platform/payments` · `GET …/{paymentId}` |
-| A13 | Bảng giá | — / `PublishPriceRequest {price1, price2, price3, applyNow, effectiveFrom?, termsText?}` + `Idempotency-Key` | `[PriceVersion]` / `PriceVersion` | FE19-13, FE19-14, FE19-15, COM-02 | `GET` / `POST /api/platform/plan-prices` |
-| A14 | Rút phiên bản đã lên lịch | `{reason}` + `Idempotency-Key` | `PriceVersion` WITHDRAWN | COM-06, COM-05 | Chưa có – đề xuất `POST /api/platform/plan-prices/{version}/withdraw` |
+| A13 | Bảng giá (D23) | GET `page=0,size=20`; POST `{price1y,price2y,price3y,applyNow,effectiveAt?,terms?}` + `Idempotency-Key`; cả 3 giá và applyNow bắt buộc, effectiveAt bắt buộc khi lên lịch | `PlatformPlanPricePage {items,total,page,size,asOf,current?,nextEffectiveAt?}` / `PlatformPlanPriceVersion {id,revision,price1y,price2y,price3y,effectiveAt,terms?,status,publishedById?,publishedBy?,publishedAt?,withdrawnBy?,withdrawnAt?,withdrawReason?}`; nullable giữ khóa; id là số phiên bản; public PriceVersion không đổi | COM-01/06/10/19, FE19-13/14/15, COM-02 | `GET` / `POST /api/platform/plan-prices` |
+| A14 | Rút phiên bản đã lên lịch (D23) | `{reason,expectedVersion}` + `Idempotency-Key`; reason trim ≥5 ký tự không phải khoảng trắng, ≤1000; expectedVersion=revision đã đọc | `PlatformPlanPriceVersion` WITHDRAWN; không đổi giá/điều khoản/metadata công bố | COM-01/06/10/08/05/19/02 | `POST /api/platform/plan-prices/{version}/withdraw` |
 | A15 | Webhook SePay (API-02) | Header chữ ký + timestamp, raw body | `200 {"success": true}` / 401 | — | `POST /api/webhooks/sepay` |
 | A16 | Chi tiết chứng từ UC5/UC6 | evidenceId | `PlatformBankEvidenceDetail {summary,transactionId,receivingAccount?,bank?,referenceCode?,quoteRef?,firstReceivedAt?,returnReference?,returnDate?,returnResult?,history[]}`; mỗi history có `relatedPaymentId?`, `relatedPaymentCode?` riêng theo quyết định (D21), null cho dữ liệu cũ/sự kiện; PM/time/allowlisted reason/reference/result thực từ EvidenceReview/AuditLog; `history.action` = ACCEPT/HOLD/REJECT/LOCK/UNLOCK/RETURN_VERIFIED (REVIEW) hoặc EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED/EVIDENCE_LOCK_RETURN/EVIDENCE_RETURN_UNLOCK/EVIDENCE_RETURN_RECORDED (EVENT), không trả tên audit thô | COM-01/08 | `GET /api/platform/payments/evidence/{evidenceId}` |
 
@@ -629,10 +637,10 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
-| Q1 | Rút phiên bản đã lên lịch chưa có route | Thêm A14 |
+| Q1 | Rút phiên bản đã lên lịch chưa có route | Người dùng chốt thêm A14 (D23, 10/11/2026), có key và revision đã đọc |
 | Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Đã chốt D19 (10/11/2026): thêm A17 `GET …/lookup?from&to` (ngày VN, ≤31 ngày, ≤200 dòng, chỉ đọc); PM lưu từng dòng bằng A11 |
 | Q3 | UC-FE19-01, 03, 04, 05 không có đặc tả Part II | UC-01 đã chốt; UC-03 D16; UC-04 D17; phần xem UC-05 D18 ngày 10/11/2026 (luồng mục 5). Tra cứu API-03 và ghi đối soát để gói UC6 |
-| Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | ≤ 1.000 như quyết định. Đã chốt cho khóa/mở khóa và quyết định UC6 (D19); rút phiên bản thuộc UC-07 |
+| Q4 | Độ dài lý do khóa / mở khóa / rút phiên bản | UC6 theo D19; UC7 chốt D23 ngày 10/11/2026: rút cần ≥5 ký tự không phải khoảng trắng, ≤1.000 ký tự sau trim (Table III-1) |
 | Q5 | Email cho Owner khi PAID – mẫu nội dung | Theo MSG-FE19-06 |
 | Q6 | Cách làm tròn số ngày còn lại trên SCR-57 | Đã chốt DucNV 09/11/2026 (D14): làm tròn xuống theo số ngày tròn 24 giờ; còn 23 giờ → 0 ngày, vẫn có bao phủ tới end; không có kỳ hiện tại → "—" |
 | Q7 | Khi đúng mã/TK nhưng sai số tiền, bước nhận giao dịch SCR-59 có hoàn thành không? | Đã chốt trong phiên 09/11/2026 (D15): hiện đã nhận khi chứng từ xác thực, IN, đúng env/namespace/TK/mã; chưa PAID/cấp kỳ khi sai tiền. Mốc nhận và xác nhận tách biệt |

@@ -31,7 +31,7 @@ Tổng: 18 mục.
 | FE-15 | A3 | Đóng panel Bắt đầu | Chưa có – đề xuất `POST /api/farms/{farmId}/dashboard/getting-started/dismiss` | TaiDX | Chưa làm |
 | FE-17 | A3 | Danh sách mã hành động | Chưa có – đề xuất `GET /api/platform/audit/actions` (hoặc enum cố định ở FE) | DucNV | Chưa làm |
 | FE-18 | A7 | Kiểm trước khi ngưng | Chưa có riêng – trả `referencedCount` trong view A2, A3, A5, A6 | AnNT | Chưa làm |
-| FE-19 | A14 | Rút phiên bản đã lên lịch | Chưa có – đề xuất `POST /api/platform/plan-prices/{version}/withdraw` | DucNV | Chưa làm |
+| FE-19 | A14 | Rút phiên bản đã lên lịch | `POST /api/platform/plan-prices/{version}/withdraw` (D23) | DucNV | Đã có (UC7, D23); bằng chứng và giới hạn: docs/reviews/FE19_UC07_REVIEW.md; chưa READY_FOR_FE |
 | FE-23 | A5 | Bỏ nháp phiếu nhập | Chưa có – đề xuất `DELETE …/feed/receipts/{receiptId}` | TaiDX | Chưa làm |
 | FE-23 | A10 | Hủy phiên bản lên lịch / dừng khẩu phần | Chưa có – đề xuất `POST …/feed/rations/{rationId}/versions/{v}/cancel` · `POST …/feed/rations/{rationId}/stop` | TaiDX | Chưa làm |
 | FE-23 | A12 | Dữ liệu mở popup (kế hoạch theo chuồng, bữa) | Chưa có riêng – đề xuất `GET …/feed/feeding-records/plan` | TaiDX | Chưa làm |
@@ -59,7 +59,7 @@ Từ đối chiếu Figma với frontend ngày 02/11. Trong code FE, mỗi metho
 | FE-10 | Sức khỏe | Lựa chọn thuốc, thành viên, gợi ý chẩn đoán, phiếu chết chờ xác nhận, số đếm tab | Đóng ca chết hoặc mất phải tự tạo phiếu ở server | TuanPQ |
 | FE-18 | Danh mục | Lọc `q`, `status` cho vắc-xin và thuốc | `CatalogueItem` thiếu số lượng đang dùng; `ParameterVersionResult` thiếu `sourceNote`, `savedBy`, nội dung thay đổi; command thiếu `expectedVersion` | AnNT |
 | FE-19 | Gói dịch vụ (Owner) | | UC-02: Request cần `expectedPriceVersionId` (GBR-70); UC-02/03: `PaymentDTO` thiếu `bankPaidAt`, `receivedAt`, `confirmedAt`, danh sách thanh toán thiếu lọc và sắp xếp. UC-01 đã bổ sung đủ dữ liệu SCR-57 trong working tree 09/11/2026; trạng thái kiểm chứng / chưa bàn giao bản tích hợp xem `docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
-| FE-19 | PM dịch vụ | Bản nháp bảng giá, thu hồi bảng giá | UC5 đọc SCR-62 (D18) và UC6 đối soát (D19) đã có backend: quyết định/khóa/ghi hoàn trả/mở khóa có `Idempotency-Key`, tra cứu SePay theo mã và `GET /api/platform/payments/lookup` theo khoảng; BE_REVIEWED local, chưa READY_FOR_FE. Xem `docs/reviews/FE19_UC05_REVIEW.md`, `docs/reviews/FE19_UC06_REVIEW.md` | DucNV |
+| FE-19 | PM dịch vụ | | UC7 (D23): bỏ Lưu nháp bảng giá nên không cần route nháp; rút phiên bản đã lên lịch dùng A14 `POST /api/platform/plan-prices/{version}/withdraw`; BE_REVIEWED local, chưa READY_FOR_FE (`docs/reviews/FE19_UC07_REVIEW.md`). UC5 đọc SCR-62 (D18) và UC6 đối soát (D19) đã có backend: quyết định/khóa/ghi hoàn trả/mở khóa có `Idempotency-Key`, tra cứu SePay theo mã và `GET /api/platform/payments/lookup` theo khoảng; BE_REVIEWED local, chưa READY_FOR_FE. Xem `docs/reviews/FE19_UC05_REVIEW.md`, `docs/reviews/FE19_UC06_REVIEW.md` | DucNV |
 | FE-20 | Hỗ trợ của Owner | Danh sách trại cho form tạo ticket | `Message` thiếu `author`, `authorRole`, `createdAt`, `kind` | LamKD |
 | FE-20 | CS | Danh sách trại, CS, thông báo CS | `processing.action` chỉ khai báo là string, tên hành động đang là phỏng đoán | LamKD |
 | FE-21 | PM tài chính | Danh sách trại, danh sách và chi tiết biên nhận, báo cáo mới nhất | Tải XLSX chưa nối vì route trả về bytes | LamKD |

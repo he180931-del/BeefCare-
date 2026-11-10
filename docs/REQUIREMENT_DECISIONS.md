@@ -120,3 +120,28 @@ trước khi đọc subscription (GBR-72/73); tra cứu ghi PM thực hiện và
 (GBR-86), nguồn xác nhận vẫn SEPAY (D21); giao dịch chiều ra không gửi thông báo
 cần đối soát (D20); dữ liệu SePay không lưu được khi tra cứu là 502. Ma trận và
 bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D23 — UC-FE19-07: công bố, rút và lịch sử bảng giá (10/11/2026)
+
+Người dùng xác nhận cả năm đề xuất trong phiên, sau khi làm rõ rằng thời điểm
+công bố do hệ thống tự ghi và khác thời điểm hiệu lực do PM chọn:
+
+1. Hoàn thiện backend và nối SCR-63 hiện có; kiểm giá hiệu lực cho yêu cầu mới
+   và trang công khai; yêu cầu đã phát hành và kỳ đã mua giữ nguyên.
+2. Bổ sung `POST /api/platform/plan-prices/{version}/withdraw` (Q1), lý do rút
+   bắt buộc, ít nhất 5 ký tự không phải khoảng trắng và tối đa 1.000 ký tự theo
+   Table III-1 (chốt phần UC7 của Q4). Lưu lý do/người/giờ rút, giữ lịch sử;
+   backend kiểm lại điều kiện strictly before effectiveAt, revision và key.
+3. Bỏ nút Lưu nháp; không thêm API/bảng lưu nháp. Giữ nội dung khi lỗi, hỏi trước
+   khi hủy chỉnh sửa; không lấy dữ liệu demo để thay lỗi backend.
+4. Công bố ngay không tự hủy lịch tương lai, kể cả lịch có số phiên bản nhỏ hơn;
+   chọn giá bằng thời điểm hiệu lực. Phiên bản đã rút không chiếm mốc thời gian,
+   cho phép công bố phiên bản thay thế tại mốc đó.
+5. Lịch sử 20 dòng/trang, mới công bố trước; đủ giá chính xác, trạng thái, hiệu
+   lực, người/giờ công bố và thông tin rút. Tải khi vào màn, công bố/rút thành
+   công, Làm mới và tới mốc hiệu lực; không polling định kỳ.
+
+Giữ mã phiên bản backend hiện có (`PlanVersion.id`, không cam kết liên tiếp);
+frontend không tự dự đoán max+1. Metadata cũ chỉ lấy từ audit công bố thật, thiếu
+thì null / “—”, không suy từ effectiveAt. Ma trận, contract thay đổi và bằng
+chứng tại `docs/reviews/FE19_UC07_REVIEW.md`.
