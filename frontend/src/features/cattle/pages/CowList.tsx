@@ -23,6 +23,20 @@ const STATUS_OPTIONS = [['ACTIVE', 'Đang nuôi'], ['EXIT_PENDING', 'Chờ xuấ
 const HEALTH_OPTIONS = [['HEALTHY', 'Khỏe'], ['MONITORING', 'Theo dõi'], ['UNDER_TREATMENT', 'Đang điều trị'], ['MEAT_WITHDRAWAL', 'Ngưng sử dụng thịt']] as const
 const LOCAL_HEALTH: Record<string, string> = { HEALTHY: 'Khỏe', MONITORING: 'Theo dõi', UNDER_TREATMENT: 'Đang điều trị' }
 const SELECT_CLS = 'w-[calc(50%-5px)] sm:w-[170px] [&_select]:!leading-[normal]'
+const SORT_FIELDS = {
+  displayCode: ['Mã bò', (cow: CowSeed) => cow.code],
+  name: ['Tên bò', (cow: CowSeed) => cow.name],
+  breedName: ['Giống', (cow: CowSeed) => cow.breed],
+  birthDate: ['Ngày sinh', (cow: CowSeed) => cow.ageShort === '—' ? null : -cow.months],
+  penCode: ['Chuồng', (cow: CowSeed) => cow.barn],
+  purposeName: ['Mục đích', (cow: CowSeed) => cow.purpose],
+  latestWeightKg: ['Cân gần nhất', (cow: CowSeed) => cow.weight],
+} as const
+type SortField = keyof typeof SORT_FIELDS
+const SORT_OPTIONS = Object.entries(SORT_FIELDS).flatMap(([key, [label]]) =>
+  [[key, `${label} ↑`], [`-${key}`, `${label} ↓`]],
+)
+const textOrder = new Intl.Collator('vi', { sensitivity: 'base', numeric: true })
 
 const chip = (h?: StatusChip | null) => (h ? <Chip tone={h.tone} icon={chipIcon(h.label)}>{h.label}</Chip> : '—')
 const withdrawalLabel = (until?: string) => (until ? `Cách ly thịt đến ${/^\d{4}-/.test(until) ? dm(until) : until}` : '')
@@ -81,6 +95,10 @@ export default function CowList() {
   const [status, setStatus] = useState('ACTIVE')
   const [tab, setTab] = useState('Tất cả')
   const [page, setPage] = useState(0)
+  const [sort, setSort] = useState('displayCode')
+  const [weightFilter, setWeightFilter] = useState('')
+  const sortField = sort.replace(/^-/, '') as SortField
+  const descending = sort.startsWith('-')
 
   // Ô tìm kiếm trên thanh trên đổi ?q= ngay trên trang này.
   const urlQ = params.get('q') ?? ''
@@ -94,9 +112,9 @@ export default function CowList() {
   const group = status === 'ACTIVE' ? TAB_GROUP[tab] : undefined
   const listQuery = useQuery(
     () => backend
-      ? listCowsPage({ q: debouncedQ, breedId: breed, sex, penId: barn, purposeId: purpose, lifeStage: stageSel === 'ALL' ? '' : stageSel, health, herdStatus: status, herdGroup: group, page })
+      ? listCowsPage({ q: debouncedQ, breedId: breed, sex, penId: barn, purposeId: purpose, lifeStage: stageSel === 'ALL' ? '' : stageSel, health, herdStatus: status, herdGroup: group, page, sort, hasWeight: weightFilter ? weightFilter === 'yes' : undefined })
       : listCows().then((items) => ({ items, total: items.length, page: 0, size: items.length, counts: {} as Record<string, number> })),
-    [debouncedQ, breed, sex, barn, purpose, stageSel, health, status, group, page],
+    [debouncedQ, breed, sex, barn, purpose, stageSel, health, status, group, page, sort, weightFilter],
   )
   const barnsQuery = useQuery(listBarns, [])
   const breedsQuery = useQuery(() => listBreeds().catch(() => []), [])
@@ -130,6 +148,10 @@ export default function CowList() {
     setStatus(value)
     if (tab === EXPORTED && value !== 'EXITED') setTab('Tất cả')
   }
+  const changeSort = (value: string) => {
+    setPage(0)
+    setSort(value)
+  }
 
   // Chế độ mock lọc tại chỗ; chế độ backend để máy chủ lọc và phân trang.
   const rows = useMemo(() => {
@@ -146,9 +168,20 @@ export default function CowList() {
         (!purpose || c.purpose === purpose) &&
         (!health || (health === 'MEAT_WITHDRAWAL' ? !!c.withdrawalUntil : c.health?.label === LOCAL_HEALTH[health])) &&
         (!stageSel || stageSel === 'ALL' || c.stage === stageSel) &&
+        (!weightFilter || (c.weight != null) === (weightFilter === 'yes')) &&
         (!kw || [c.code, c.tag, c.name].some((v) => v && v.toLowerCase().includes(kw))),
-    )
-  }, [cows, debouncedQ, breed, sex, barn, purpose, health, status, stageSel, tab])
+    ).sort((left, right) => {
+      const value = SORT_FIELDS[sortField][1]
+      const a = value(left)
+      const b = value(right)
+      const missingA = a == null || a === ''
+      const missingB = b == null || b === ''
+      const order = missingA || missingB
+        ? Number(missingA) - Number(missingB)
+        : (typeof a === 'number' && typeof b === 'number' ? a - b : textOrder.compare(String(a), String(b))) * (descending ? -1 : 1)
+      return order || textOrder.compare(left.code, right.code)
+    })
+  }, [cows, debouncedQ, breed, sex, barn, purpose, health, status, stageSel, tab, weightFilter, sortField, descending])
 
   const barnTagOf = (c: CowSeed) => c.barnTag || barnsByCode[c.barn]?.tag || ''
   const size = listQuery.data?.size || rows.length || 1
@@ -169,6 +202,13 @@ export default function CowList() {
       <option value={allValue}>{label}: {all}</option>
       {options.map(([v, text]) => <option key={v} value={v}>{label}: {text}</option>)}
     </Select>
+  )
+  const sortableHeader = (field: SortField, label: string, className: string) => (
+    <Th className={className} aria-sort={sortField === field ? (descending ? 'descending' : 'ascending') : undefined}>
+      <button type="button" className="cursor-pointer hover:underline" onClick={() => changeSort(sort === field ? `-${field}` : field)}>
+        {label} <span aria-hidden="true">{sortField === field ? (descending ? '↓' : '↑') : '↕'}</span>
+      </button>
+    </Th>
   )
 
   return (
@@ -194,8 +234,12 @@ export default function CowList() {
           {filterSelect('Giai đoạn', stageSel, setStageSel, stageOptions, 'Tất cả', 'ALL')}
           {filterSelect('Mục đích', purpose, setPurpose, purposeOptions)}
           {filterSelect('Sức khỏe', health, setHealth, HEALTH_OPTIONS.map(([v, t]) => [v, t]))}
+          {filterSelect('Dữ liệu cân', weightFilter, (value) => { setPage(0); setWeightFilter(value) }, [['yes', 'Có số cân'], ['no', 'Chưa có số cân']])}
           <Select className="w-[calc(50%-5px)] sm:w-[230px] [&_select]:!leading-[normal]" aria-label="Trạng thái đàn" value={status} onChange={(e) => onStatus(e.target.value)}>
             {STATUS_OPTIONS.map(([v, text]) => <option key={v} value={v}>Trạng thái đàn: {text}</option>)}
+          </Select>
+          <Select className="w-[calc(50%-5px)] sm:w-[230px] [&_select]:!leading-[normal]" aria-label="Sắp xếp" value={sort} onChange={(e) => changeSort(e.target.value)}>
+            {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>Sắp xếp: {label}</option>)}
           </Select>
         </div>
 
@@ -221,12 +265,12 @@ export default function CowList() {
             <Table wide>
               <thead>
                 <tr className="bg-chip">
-                  <Th className="w-[150px]">Bò</Th>
-                  <Th className="w-[90px]">Giống</Th>
-                  <Th className="w-[110px]">Giới tính · Tuổi</Th>
-                  <Th className="w-[100px]">Chuồng</Th>
-                  <Th className="w-[140px]">Mục đích · Giai đoạn</Th>
-                  <Th className="w-[110px]">Cân gần nhất</Th>
+                  {sortableHeader('displayCode', 'Bò', 'w-[150px]')}
+                  {sortableHeader('breedName', 'Giống', 'w-[90px]')}
+                  {sortableHeader('birthDate', 'Giới tính · Tuổi', 'w-[110px]')}
+                  {sortableHeader('penCode', 'Chuồng', 'w-[100px]')}
+                  {sortableHeader('purposeName', 'Mục đích · Giai đoạn', 'w-[140px]')}
+                  {sortableHeader('latestWeightKg', 'Cân gần nhất', 'w-[110px]')}
                   <Th className="w-[92px]">Trạng thái</Th>
                   <Th className="w-[100px]">Sức khỏe</Th>
                   <Th className="w-[100px]">Sinh sản</Th>

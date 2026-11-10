@@ -64,6 +64,7 @@ export type CattlePage = { items: CowSeed[]; total: number; page: number; size: 
 export type CattleListOptions = {
   q?: string; purposeId?: string | number; health?: string; breedId?: string | number; sex?: string; penId?: string | number
   lifeStage?: string; herdStatus?: string; herdGroup?: string; page?: number; size?: number
+  sort?: string; hasWeight?: boolean
 }
 export type PurposeOption = { id: number; code: string; name: string; purposeType: string; available: boolean }
 export const LIFE_STAGE_OPTIONS = [
@@ -243,6 +244,8 @@ export function createCattleBackendApi({ transport, farmId }: { transport: Backe
     if (options.lifeStage) params.set('lifeStage', options.lifeStage)
     if (options.herdStatus) params.set('herdStatus', options.herdStatus)
     if (options.herdGroup) params.set('herdGroup', options.herdGroup)
+    if (options.sort) params.set('sort', options.sort)
+    if (options.hasWeight !== undefined) params.set('hasWeight', String(options.hasWeight))
     const body = await transport.get(`${root}?${params.toString()}`) as BackendList
     const record = asRecord(body)
     const items = (Array.isArray(record.items) ? record.items as BackendProfile[] : []).map((row) => mapBackendCattle(row))

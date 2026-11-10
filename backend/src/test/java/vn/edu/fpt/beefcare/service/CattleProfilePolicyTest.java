@@ -39,6 +39,23 @@ class CattleProfilePolicyTest extends DomainTestSupport {
         assertThatThrownBy(()->service.issueTag(f.getId(),c.getId(),new CattleDtos.TagRequest(ReplacementReason.DAMAGED,"TEST-TAG-C",null,oldVersion))).isInstanceOf(DomainException.class);
         assertThat(service.tags(f.getId(),c.getId())).extracting(CattleDtos.Tag::status).containsExactlyInAnyOrder("ACTIVE","REPLACED");
     }
+    @Test void latestWeightFilterAndDescendingSortApplyBeforePagination() {
+        Farm farm = farm();
+        Cattle light = animal(farm);
+        Cattle heavy = animal(farm);
+        Cattle unweighed = animal(farm);
+        weight(light, TODAY.minusDays(1), "220");
+        weight(heavy, TODAY.minusDays(1), "350");
+        actAs(memberWithRole(farm, FarmRole.MANAGER));
+
+        CattleDtos.Page first = service.list(farm.getId(), null, null, null, null, null, null, null, null, null, 0, 1, "-latestWeightKg", true);
+        assertThat(first.total()).isEqualTo(2);
+        assertThat(first.items()).extracting(CattleDtos.Profile::id).containsExactly(heavy.getId());
+        CattleDtos.Page missing = service.list(farm.getId(), null, null, null, null, null, null, null, null, null, 0, 10, "-latestWeightKg", false);
+        assertThat(missing.items()).extracting(CattleDtos.Profile::id).containsExactly(unweighed.getId());
+        CattleDtos.Page all = service.list(farm.getId(), null, null, null, null, null, null, null, null, null, 0, 10, "-latestWeightKg");
+        assertThat(all.items()).extracting(CattleDtos.Profile::id).containsExactly(heavy.getId(), light.getId(), unweighed.getId());
+    }
     @Test void foreignTagDoesNotRevealCattleAndAccessibleOtherFarmRequiresSwitch() {
         Farm f=farm(),other=farm();Cattle c=animal(other);AppUser actor=memberWithRole(f,FarmRole.OWNER),otherOwner=memberWithRole(other,FarmRole.OWNER);
         actAs(otherOwner);service.issueTag(other.getId(),c.getId(),new CattleDtos.TagRequest(null,"FOREIGN-TAG",null,c.getVersion()));

@@ -16,8 +16,9 @@ public class CattleProfileResource {
     @GetMapping public CattleDtos.Page list(@PathVariable Long farmId,@RequestParam(required=false) String q,@RequestParam(required=false) String herdStatus,
         @RequestParam(required=false) Long breedId,@RequestParam(required=false) Sex sex,@RequestParam(required=false) Long penId,
         @RequestParam(required=false) Long purposeId,@RequestParam(required=false) LifeStage lifeStage,@RequestParam(required=false) String health,
-        @RequestParam(required=false) String herdGroup,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="50") int size,@RequestParam(required=false) String sort){
-        return service.list(farmId,q,herdStatus,breedId,sex,penId,purposeId,lifeStage,health,herdGroup,page,size,sort);
+        @RequestParam(required=false) String herdGroup,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="50") int size,
+        @RequestParam(required=false) String sort,@RequestParam(required=false) Boolean hasWeight){
+        return service.list(farmId,q,herdStatus,breedId,sex,penId,purposeId,lifeStage,health,herdGroup,page,size,sort,hasWeight);
     }
     @GetMapping("/{id}") public CattleDtos.Profile get(@PathVariable Long farmId,@PathVariable Long id){return service.get(farmId,id);}
     @PutMapping("/{id}/profile") public CattleDtos.Profile update(@PathVariable Long farmId,@PathVariable Long id,@Valid @RequestBody CattleDtos.ProfileUpdate request,@RequestHeader("Idempotency-Key") String key){
