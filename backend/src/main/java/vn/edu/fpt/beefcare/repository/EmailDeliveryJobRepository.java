@@ -12,6 +12,7 @@ import vn.edu.fpt.beefcare.domain.EmailDeliveryJob;
 
 @Repository
 public interface EmailDeliveryJobRepository extends JpaRepository<EmailDeliveryJob, Long> {
+    java.util.Optional<EmailDeliveryJob> findByEventKey(String eventKey);
     long countByRecipientIgnoreCaseAndTemplateKeyAndCreatedAtAfter(String recipient, String templateKey, Instant after);
 
     boolean existsByRecipientIgnoreCaseAndTemplateKeyAndLinkSourceIdAndContextRoleAndContextName(

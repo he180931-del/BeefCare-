@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261110000500-sepay-evidence-text-widths" author="beefcare">
+        <!-- Review UC8 (R-19-08, E3): an authenticated transfer is always stored in full. The signed body is at most
+             65,536 bytes, so these columns hold any field it can carry; existing values are only widened, never changed. -->
+        <modifyDataType tableName="bank_transfer_evidence" columnName="receiving_account" newDataType="varchar(65536)"/>
+        <modifyDataType tableName="bank_transfer_evidence" columnName="gateway" newDataType="varchar(65536)"/>
+        <modifyDataType tableName="bank_transfer_evidence" columnName="reference_code" newDataType="varchar(65536)"/>
+        <modifyDataType tableName="bank_transfer_evidence" columnName="provider_code" newDataType="varchar(65536)"/>
+    </changeSet>
+</databaseChangeLog>

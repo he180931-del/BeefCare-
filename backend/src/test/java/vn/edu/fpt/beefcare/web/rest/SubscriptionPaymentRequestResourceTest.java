@@ -37,11 +37,13 @@ import vn.edu.fpt.beefcare.support.DomainTestSupport;
     "spring.datasource.url=jdbc:h2:mem:uc02-request;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
     "beefcare.sepay.bank-code=TESTBANK", "beefcare.sepay.account-number=TEST-ACCOUNT",
     "beefcare.sepay.account-name=TEST RECIPIENT", "beefcare.sepay.environment=TEST",
-    "beefcare.sepay.account-namespace=UC02-TEST", "beefcare.sepay.webhook-secret=uc02-fixture-signing-secret"
+    "beefcare.sepay.account-namespace=UC02-TEST", "beefcare.sepay.webhook-secret=uc02-fixture-signing-secret",
+    "beefcare.sepay.processing-delay-ms=86400000"
 })
 class SubscriptionPaymentRequestResourceTest extends DomainTestSupport {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
+    @Autowired vn.edu.fpt.beefcare.service.payment.SePayWebhookService evidenceProcessor;
 
     protected PlanVersion price() {
         return save(new PlanVersion().price1y(new BigDecimal("1200000")).price2y(new BigDecimal("2160000"))
@@ -199,6 +201,8 @@ class SubscriptionPaymentRequestResourceTest extends DomainTestSupport {
         assertThat(received.path("state").asText()).isEqualTo("PENDING");
         assertThat(received.get("confirmedAt").isNull()).isTrue();
         clock.set(createdAt.plusSeconds(30)); webhook(ref, "1200000", "TEST-ACCOUNT", createdAt.plusSeconds(8));
+        // UC8 acknowledges storage before settlement; advance JOB-06 explicitly instead of relying on a scheduler race.
+        evidenceProcessor.processDueEvidence();
         JsonNode confirmed = detail(owner, farm, id);
         assertThat(confirmed.path("state").asText()).isEqualTo("PAID");
         assertThat(confirmed.path("confirmedAt").asText()).isEqualTo(clock.instant().toString());

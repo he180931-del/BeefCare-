@@ -127,6 +127,23 @@ class OpenApiContractTest {
         assertThat(withdrawRequest.path("required").toString()).contains("reason", "expectedVersion");
         assertThat(withdrawRequest.path("properties").path("reason").path("maxLength").asInt()).isEqualTo(1000);
         assertThat(api.path("components").path("schemas").path("PriceVersion").path("properties").has("publishedBy")).isFalse();
+        for (String route : java.util.List.of("/api/webhooks/sepay", "/api/v1/payments/sepay/webhook")) {
+            JsonNode webhook = paths.path(route).path("post");
+            assertThat(webhook.path("parameters").toString()).contains("X-SePay-Timestamp", "X-SePay-Signature");
+            assertThat(webhook.path("requestBody").path("required").asBoolean()).isTrue();
+            assertThat(webhook.path("responses").path("200").toString()).contains("WebhookAcknowledgement");
+            assertThat(webhook.path("security").isArray()).as("Webhook authenticates HMAC, not a browser session").isTrue();
+            assertThat(webhook.path("security").size()).isZero();
+            assertThat(webhook.path("responses").has("401")).isTrue();
+        }
+        JsonNode ingress = api.path("components").path("schemas").path("SePayPayload");
+        assertThat(ingress.path("required").toString()).contains("id", "transactionDate", "transferType", "transferAmount");
+        assertThat(ingress.path("properties").has("description")).isTrue();
+        // Review UC8 #3: the signed body (≤ 65,536 bytes) bounds every provider text field; none is refused or cut shorter.
+        for (String field : java.util.List.of("gateway", "accountNumber", "code", "content", "referenceCode", "description")) {
+            assertThat(ingress.path("properties").path(field).path("anyOf").get(0).path("maxLength").asInt()).as(field).isEqualTo(65536);
+        }
+        assertThat(api.path("components").path("schemas").path("WebhookAcknowledgement").path("properties").size()).isEqualTo(1);
         Files.writeString(Path.of("target","beefcare-openapi.json"),mapper.writerWithDefaultPrettyPrinter().writeValueAsString(api)+"\n",StandardCharsets.UTF_8);
     }
 

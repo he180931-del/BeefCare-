@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -18,6 +19,8 @@ import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,6 +29,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
+import vn.edu.fpt.beefcare.domain.BankEvidenceJob;
+import vn.edu.fpt.beefcare.domain.SePayWebhookRejection;
 import vn.edu.fpt.beefcare.domain.EvidenceReview;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.FarmMembership;
@@ -34,6 +39,8 @@ import vn.edu.fpt.beefcare.domain.Subscription;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.BankTransferEvidenceRepository;
+import vn.edu.fpt.beefcare.repository.BankEvidenceJobRepository;
+import vn.edu.fpt.beefcare.repository.SePayWebhookRejectionRepository;
 import vn.edu.fpt.beefcare.repository.EvidenceReviewRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
@@ -46,6 +53,7 @@ import vn.edu.fpt.beefcare.service.NotificationService;
 import vn.edu.fpt.beefcare.service.PlatformAccessService;
 import vn.edu.fpt.beefcare.service.JsonSupport;
 import vn.edu.fpt.beefcare.service.MessageCodes;
+import vn.edu.fpt.beefcare.service.MailService;
 
 /** Authenticated SePay ingestion and the common, serialized payment confirmation rules. */
 @Service
@@ -56,6 +64,11 @@ public class SePayWebhookService {
     private static final int REASON_MAX = 1000;
     private static final int LOOKUP_MAX_DAYS = 31;
     private static final int LOOKUP_LIMIT = 200;
+    /** JOB-06 lease; an expired lease lets another worker resume the job after a crash. */
+    private static final Duration JOB_LEASE = Duration.ofMinutes(2);
+    /** The webhook body is at most 65,536 bytes, so no field of an authenticated transfer can be longer (R-19-08). */
+    private static final int TEXT_MAX = 65_536;
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SePayWebhookService.class);
 
     private final SePaySignatureVerifier signatures;
     private final SePayTransactionLookupClient lookupClient;
@@ -66,6 +79,9 @@ public class SePayWebhookService {
     private final FarmRepository farms;
     private final FarmMembershipRepository memberships;
     private final BankTransferEvidenceRepository evidenceRepository;
+    private final BankEvidenceJobRepository processingJobs;
+    private final SePayWebhookRejectionRepository rejectedDeliveries;
+    private final MailService mail;
     private final EvidenceReviewRepository reviews;
     private final AuditLogRepository auditLogs;
     private final NotificationService notifications;
@@ -87,6 +103,9 @@ public class SePayWebhookService {
         FarmRepository farms,
         FarmMembershipRepository memberships,
         BankTransferEvidenceRepository evidenceRepository,
+        BankEvidenceJobRepository processingJobs,
+        SePayWebhookRejectionRepository rejectedDeliveries,
+        MailService mail,
         EvidenceReviewRepository reviews,
         AuditLogRepository auditLogs,
         NotificationService notifications,
@@ -107,6 +126,9 @@ public class SePayWebhookService {
         this.farms = farms;
         this.memberships = memberships;
         this.evidenceRepository = evidenceRepository;
+        this.processingJobs = processingJobs;
+        this.rejectedDeliveries = rejectedDeliveries;
+        this.mail = mail;
         this.reviews = reviews;
         this.auditLogs = auditLogs;
         this.notifications = notifications;
@@ -125,16 +147,34 @@ public class SePayWebhookService {
 
     public WebhookResult receive(String timestamp, String signature, byte[] rawBody) {
         if (!signatures.verify(timestamp, signature, rawBody)) {
+            // E1 keeps restricted metadata (purged by JOB-08); failing to store it must not change the 401 answer.
+            try {
+                transactions.executeWithoutResult(status -> {
+                    SePayWebhookRejection rejected = new SePayWebhookRejection();
+                    rejected.setReceivedAt(clock.now()); rejected.setReason("INVALID_AUTHENTICATION");
+                    rejected.setBodyBytes(rawBody == null ? 0 : rawBody.length); rejectedDeliveries.save(rejected);
+                });
+            } catch (RuntimeException unavailable) {
+                LOG.warn("Rejected SePay webhook metadata could not be stored: {}", unavailable.getClass().getSimpleName());
+            }
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid webhook authentication");
         }
         final SePayPayload payload;
         try {
-            payload = mapper.readValue(rawBody, SePayPayload.class);
+            var json = mapper.readTree(rawBody);
+            if (json == null || !json.isObject() || !json.path("id").isIntegralNumber() || !json.path("id").canConvertToLong()
+                || !json.path("transferAmount").isNumber() || !json.path("transactionDate").isTextual() || !json.path("transferType").isTextual())
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid SePay field types");
+            for (String field : java.util.List.of("gateway", "accountNumber", "code", "content", "referenceCode", "description")) {
+                if (json.hasNonNull(field) && !json.path(field).isTextual())
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid SePay field types");
+            }
+            payload = mapper.treeToValue(json, SePayPayload.class);
         } catch (IOException invalidJson) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid SePay payload");
         }
         IncomingTransfer incoming = transfer(payload);
-        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming), null);
+        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming), null, false);
     }
 
     /** Local simulator calls the same normalization and settlement pipeline, after an explicit PM role check. */
@@ -145,7 +185,7 @@ public class SePayWebhookService {
         }
         IncomingTransfer incoming = transfer(payload);
         // The simulator plays SePay itself, so its events carry no actor, exactly like a delivered webhook.
-        return processWithReplayProtection(incoming, "MOCK", fingerprint(incoming), null);
+        return processWithReplayProtection(incoming, "MOCK", fingerprint(incoming), null, true);
     }
 
     /**
@@ -156,7 +196,7 @@ public class SePayWebhookService {
     public WebhookResult lookupAndImport(Long transactionId) {
         var pm = platformAccess.requireRole(PlatformRole.PM).user();
         IncomingTransfer incoming = providerTransfer(lookupClient.find(transactionId));
-        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming), pm);
+        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming), pm, true);
     }
 
     /** API-03 by period (D19): SePay rows of the receiving account; read-only, the PM stores a row by its ID. */
@@ -338,7 +378,8 @@ public class SePayWebhookService {
     private static IncomingTransfer storedTransfer(BankTransferEvidence evidence) {
         return new IncomingTransfer(
             evidence.getProviderTxnId(), evidence.getAmount(), evidence.getBankPaidAt(), evidence.getTransferDirection(),
-            evidence.getReceivingAccount(), evidence.getTransferContent(), evidence.getGateway(), evidence.getReferenceCode(), evidence.getQuoteRef()
+            evidence.getReceivingAccount(), evidence.getTransferContent(), evidence.getGateway(), evidence.getReferenceCode(), evidence.getQuoteRef(),
+            evidence.getProviderCode(), evidence.getDescription(), evidence.isConflictingReferences()
         );
     }
 
@@ -381,27 +422,42 @@ public class SePayWebhookService {
 
     /** {@code actor} is the PM who looked the transaction up (API-03), or null for a transfer delivered by SePay. */
     private WebhookResult processWithReplayProtection(IncomingTransfer incoming, String provider, String payloadHash,
-                                                      vn.edu.fpt.beefcare.domain.AppUser actor) {
+                                                      vn.edu.fpt.beefcare.domain.AppUser actor, boolean immediate) {
+        validate(incoming);
         String namespace = storedNamespace(accountNamespace);
         String env = storedEnvironment(environment);
         Optional<BankTransferEvidence> existing = evidenceRepository.findFirstByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnId(
             provider, env, namespace, incoming.transactionId()
         );
-        if (existing.isPresent()) return duplicateResult(existing.get(), incoming, payloadHash);
+        if (existing.isPresent()) return replay(existing.get().getId(), incoming, payloadHash, actor == null);
+        WebhookResult stored;
         try {
-            return transactions.execute(status -> process(incoming, provider, env, namespace, payloadHash, actor));
+            stored = transactions.execute(status -> store(incoming, provider, env, namespace, payloadHash, actor, immediate));
         } catch (DataIntegrityViolationException duplicateRace) {
             BankTransferEvidence saved = evidenceRepository.findFirstByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnId(
                 provider, env, namespace, incoming.transactionId()
             ).orElseThrow(() -> duplicateRace);
-            return duplicateResult(saved, incoming, payloadHash);
+            return replay(saved.getId(), incoming, payloadHash, actor == null);
         }
+        if (!immediate) return stored;
+        // D21: a successful lookup/simulator keeps its immediate result. The job was leased to this request when it was
+        // stored, so JOB-06 cannot take it in between; if processing fails, the committed job retries.
+        processingJobs.findByEvidence_Id(stored.evidenceId()).ifPresent(job -> runLeasedJob(job.getId()));
+        return transactions.execute(status -> result(evidenceRepository.findById(stored.evidenceId()).orElseThrow(), false));
     }
 
-    private WebhookResult process(IncomingTransfer incoming, String provider, String env, String namespace, String payloadHash,
-                                  vn.edu.fpt.beefcare.domain.AppUser actor) {
-        validate(incoming);
+    private WebhookResult replay(Long evidenceId, IncomingTransfer incoming, String hash, boolean delivered) {
+        return transactions.execute(status -> {
+            BankTransferEvidence e = evidenceRepository.lockById(evidenceId).orElseThrow();
+            WebhookResult replayed = duplicateResult(e, incoming, hash);
+            // A bulk update: counting a redelivery must not bump the version a PM has open on SCR-62.
+            if (delivered) evidenceRepository.countRepeatedDelivery(evidenceId);
+            return replayed;
+        });
+    }
 
+    private WebhookResult store(IncomingTransfer incoming, String provider, String env, String namespace, String payloadHash,
+                                  vn.edu.fpt.beefcare.domain.AppUser actor, boolean immediate) {
         BankTransferEvidence evidence = new BankTransferEvidence();
         evidence.setProvider(provider);
         evidence.setEnvironment(env);
@@ -413,13 +469,94 @@ public class SePayWebhookService {
         evidence.setQuoteRef(incoming.quoteRef());
         evidence.setTransferDirection(incoming.direction());
         evidence.setReceivingAccount(incoming.receivingAccount());
-        evidence.setTransferContent(limit(incoming.content(), 255));
-        evidence.setGateway(limit(incoming.gateway(), 100));
-        evidence.setReferenceCode(limit(incoming.referenceCode(), 100));
+        evidence.setTransferContent(incoming.content());
+        evidence.setGateway(incoming.gateway());
+        evidence.setReferenceCode(incoming.referenceCode());
+        evidence.setProviderCode(incoming.providerCode());
+        evidence.setDescription(incoming.description());
+        evidence.setConflictingReferences(incoming.conflictingReferences());
         evidence.setDeliveryOutcome("STORED");
         evidence.setAuthOutcome("VERIFIED");
         evidence.setFirstReceivedAt(clock.now());
-        evidence.setReviewStatus("UNMATCHED");
+        evidence.setReviewStatus("RECEIVED");
+        evidence.setDeliveryAttempts(actor == null ? 1 : 0);
+        evidenceRepository.saveAndFlush(evidence);
+        Instant now = clock.now();
+        BankEvidenceJob job = new BankEvidenceJob(); job.setEvidence(evidence); job.setRequestedBy(actor);
+        job.setCreatedAt(now); job.setAvailableAt(now); job.setStatus("PENDING");
+        // An immediate request (lookup/simulator) owns its first attempt from this commit on, exactly like a JOB-06 claim.
+        if (immediate) { job.setLeaseUntil(now.plus(JOB_LEASE)); job.setAttempts(1); }
+        processingJobs.saveAndFlush(job);
+        return result(evidence, false);
+    }
+
+    /** JOB-06: DB leases make work restartable; row locks and the shared farm lock make it safe under concurrency. */
+    @Scheduled(fixedDelayString = "${beefcare.sepay.processing-delay-ms:1000}")
+    public void processDueEvidence() {
+        for (Long id : processingJobs.findDue(clock.now(), PageRequest.of(0, 50))) processEvidenceJob(id);
+    }
+
+    private void processEvidenceJob(Long jobId) {
+        Instant now = clock.now();
+        Integer claimed = transactions.execute(status -> processingJobs.claim(jobId, now, now.plus(JOB_LEASE)));
+        if (claimed == null || claimed == 0) return;
+        runLeasedJob(jobId);
+    }
+
+    /** One attempt of a job whose lease the caller holds: claimed by JOB-06, or leased at storage by an immediate request. */
+    private void runLeasedJob(Long jobId) {
+        try {
+            transactions.executeWithoutResult(status -> {
+                BankEvidenceJob job = processingJobs.lockById(jobId).orElseThrow();
+                if (!"PENDING".equals(job.getStatus())) return;
+                BankTransferEvidence evidence = evidenceRepository.lockById(job.getEvidence().getId()).orElseThrow();
+                // A PM may decide or lock the evidence after ingress and before the worker. Never undo that decision.
+                if (evidence.getPayment() != null || evidence.isLockedForReturn() || !"RECEIVED".equals(evidence.getReviewStatus())) {
+                    finish(job, "DONE"); return;
+                }
+                if (job.getFirstFailureAt() != null && !clock.now().isBefore(job.getFirstFailureAt().plus(Duration.ofHours(24)))) {
+                    exhaust(job, evidence); return;
+                }
+                processStored(evidence, job.getRequestedBy());
+                finish(job, "DONE");
+            });
+        } catch (RuntimeException failure) {
+            transactions.executeWithoutResult(status -> {
+                BankEvidenceJob job = processingJobs.lockById(jobId).orElseThrow();
+                if (!"PENDING".equals(job.getStatus())) return;
+                Instant failedAt = clock.now();
+                if (job.getFirstFailureAt() == null) job.setFirstFailureAt(failedAt);
+                job.setLastError(failure.getClass().getSimpleName()); job.setLeaseUntil(null);
+                Instant deadline = job.getFirstFailureAt().plus(Duration.ofHours(24));
+                long minutes = switch (job.getAttempts()) { case 1 -> 1; case 2 -> 5; case 3 -> 15; default -> 60; };
+                Instant retryAt = failedAt.plus(Duration.ofMinutes(minutes)); job.setAvailableAt(retryAt.isBefore(deadline) ? retryAt : deadline);
+                if (!failedAt.isBefore(deadline)) {
+                    BankTransferEvidence evidence = evidenceRepository.lockById(job.getEvidence().getId()).orElseThrow();
+                    if (evidence.getPayment() == null && !evidence.isLockedForReturn() && "RECEIVED".equals(evidence.getReviewStatus())) exhaust(job, evidence);
+                    else finish(job, "DONE");
+                }
+            });
+        }
+    }
+
+    private void finish(BankEvidenceJob job, String state) {
+        job.setStatus(state); job.setCompletedAt(clock.now()); job.setLeaseUntil(null);
+        if ("DONE".equals(state)) job.setLastError(null);
+    }
+
+    private void exhaust(BankEvidenceJob job, BankTransferEvidence evidence) {
+        evidence.setReviewStatus("NEEDS_REVIEW");
+        evidence.setReviewReason("Automatic processing failed; manual reconciliation required");
+        if (evidence.getTransferDirection() == null || "IN".equalsIgnoreCase(evidence.getTransferDirection()))
+            reconciliationNotices.evidenceNeedsReview(evidence);
+        audit(job.getRequestedBy(), evidence.getProvider() + "_EVIDENCE", "BankTransferEvidence", evidence.getId(), null,
+            Map.of("reviewStatus", "NEEDS_REVIEW", "reason", evidence.getReviewReason()));
+        finish(job, "FAILED");
+    }
+
+    private WebhookResult processStored(BankTransferEvidence evidence, vn.edu.fpt.beefcare.domain.AppUser actor) {
+        IncomingTransfer incoming = storedTransfer(evidence);
+        String provider = evidence.getProvider(); String env = evidence.getEnvironment(); String namespace = evidence.getAccountNamespace();
 
         if (!"IN".equalsIgnoreCase(incoming.direction())) {
             evidence.setReviewReason("Not an incoming transfer");
@@ -432,6 +569,10 @@ public class SePayWebhookService {
         }
         if (!sameAccount(expectedAccount, incoming.receivingAccount())) {
             evidence.setReviewReason("Receiving account does not match the configured account");
+            return saveEvidence(evidence, provider, actor);
+        }
+        if (incoming.conflictingReferences()) {
+            evidence.setReviewReason("Conflicting payment references");
             return saveEvidence(evidence, provider, actor);
         }
         if (!StringUtils.hasText(incoming.quoteRef())) {
@@ -504,7 +645,7 @@ public class SePayWebhookService {
         Instant start = subscription.getLatestEnd() == null || subscription.getLatestEnd().isBefore(confirmedAt)
             ? confirmedAt
             : subscription.getLatestEnd();
-        Instant end = LocalDateTime.ofInstant(start, BUSINESS_ZONE).atZone(BUSINESS_ZONE).plusYears(payment.getDurationYears()).toInstant();
+        Instant end = purchasedEnd(subscription, start, confirmedAt, payment.getDurationYears());
         payment.setState("PAID");
         payment.setConfirmedAt(confirmedAt);
         payment.setConfirmationSource(source);
@@ -536,15 +677,33 @@ public class SePayWebhookService {
             "quoteRef", payment.getQuoteRef(),
             "reason", reason
         ));
-        memberships.findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(farm.getId(), "OWNER", "ACTIVE").ifPresent(owner ->
+        memberships.findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(farm.getId(), "OWNER", "ACTIVE").ifPresent(owner -> {
             notifications.notify(owner.getUser(), "subscription", "SUBSCRIPTION", farm.getId(), "Thanh toán gói dịch vụ đã được xác nhận",
                 "Mã biên nhận " + payment.getReceiptCode() + ". Thời hạn mới kết thúc ngày " + end.atZone(BUSINESS_ZONE).toLocalDate(),
-                "PAYMENT_PAID:" + payment.getId())
-        );
+                "PAYMENT_PAID:" + payment.getId());
+            mail.queuePaymentReceipt(payment, owner.getUser());
+        });
         return saved;
     }
 
+    /** GBR-73: derive the original anniversary from the committed contiguous periods, including legacy records. */
+    private Instant purchasedEnd(Subscription subscription, Instant start, Instant confirmedAt, int years) {
+        var localStart = start.atZone(BUSINESS_ZONE);
+        var end = localStart.plusYears(years);
+        if (subscription.getLatestEnd() == null || subscription.getLatestEnd().isBefore(confirmedAt)) return end.toInstant();
+        Instant anchor = start;
+        for (Payment period : payments.findPaidPeriods(subscription.getId())) {
+            if (period.getPurchasedEnd().isAfter(anchor)) continue;
+            if (!period.getPurchasedEnd().equals(anchor)) break;
+            anchor = period.getPurchasedStart();
+        }
+        // MonthDay.atYear applies Feb29 → Feb28 only in non-leap years; the next leap year restores Feb29.
+        var anniversary = java.time.MonthDay.from(anchor.atZone(BUSINESS_ZONE)).atYear(end.getYear());
+        return LocalDateTime.of(anniversary, localStart.toLocalTime()).atZone(BUSINESS_ZONE).toInstant();
+    }
+
     private WebhookResult saveEvidence(BankTransferEvidence evidence, String provider, vn.edu.fpt.beefcare.domain.AppUser actor) {
+        evidence.setReviewStatus("UNMATCHED");
         BankTransferEvidence saved = evidenceRepository.saveAndFlush(evidence);
         audit(actor, provider + "_EVIDENCE", "BankTransferEvidence", saved.getId(), null, Map.of(
             "providerTxnId", evidence.getProviderTxnId(),
@@ -622,10 +781,14 @@ public class SePayWebhookService {
         String direction = payload.transferType() == null ? null : payload.transferType().trim().toUpperCase(Locale.ROOT);
         if ("IN".equals(direction)) direction = "IN";
         else if ("OUT".equals(direction)) direction = "OUT";
-        String reference = firstText(payload.code(), payload.referenceCode());
         String content = payload.content();
-        String quote = findQuote(reference);
-        if (quote == null) quote = findQuote(content);
+        java.util.Set<String> references = new java.util.LinkedHashSet<>();
+        for (String text : new String[] {payload.code(), payload.referenceCode(), content}) {
+            if (!StringUtils.hasText(text)) continue;
+            Matcher matches = QUOTE.matcher(text);
+            while (matches.find()) references.add(matches.group(1).toUpperCase(Locale.ROOT));
+        }
+        String quote = references.size() == 1 ? references.iterator().next() : null;
         return new IncomingTransfer(
             payload.id(),
             payload.transferAmount(),
@@ -635,7 +798,7 @@ public class SePayWebhookService {
             content,
             payload.gateway(),
             payload.referenceCode(),
-            quote
+            quote, payload.code(), payload.description(), references.size() > 1
         );
     }
 
@@ -671,18 +834,17 @@ public class SePayWebhookService {
         if (transfer.transactionId() == null || transfer.transactionId() <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction id");
         if (transfer.amount() == null || transfer.amount().signum() <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transfer amount");
         if (!StringUtils.hasText(transfer.direction())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing transfer direction");
+        if (!java.util.Set.of("IN", "OUT").contains(transfer.direction())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transfer direction");
         if (transfer.paidAt() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing transaction time");
-    }
-
-    private static String findQuote(String text) {
-        if (!StringUtils.hasText(text)) return null;
-        Matcher matcher = QUOTE.matcher(text.toUpperCase(Locale.ROOT));
-        return matcher.find() ? matcher.group(1).toUpperCase(Locale.ROOT) : null;
-    }
-
-    private static String firstText(String first, String second) {
-        if (StringUtils.hasText(first)) return first.trim();
-        return StringUtils.hasText(second) ? second.trim() : null;
+        if (transfer.amount().stripTrailingZeros().scale() > 2 || transfer.amount().setScale(2).precision() > 21)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transfer amount precision");
+        // Every text column holds what a signed body can carry, so a webhook is never refused for length; only an
+        // API-03 row (no body limit) can exceed it, and that is a provider failure (502) rather than a truncation.
+        for (String text : new String[] {transfer.receivingAccount(), transfer.gateway(), transfer.referenceCode(), transfer.providerCode(),
+            transfer.content(), transfer.description()}) {
+            if (text != null && text.length() > TEXT_MAX)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Transfer field exceeds its supported length");
+        }
     }
 
     static boolean sameAccount(String expected, String actual) {
@@ -692,11 +854,6 @@ public class SePayWebhookService {
 
     private static String canonicalAccount(String value) {
         return value.trim().replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
-    }
-
-    private static String limit(String value, int max) {
-        if (value == null) return null;
-        return value.length() <= max ? value : value.substring(0, max);
     }
 
     private static String receiptCode(Long id, Instant paidAt) {
@@ -762,17 +919,25 @@ public class SePayWebhookService {
     @io.swagger.v3.oas.annotations.media.Schema(name = "SePayLookupPage")
     public record LookupPage(java.util.List<LookupRow> items, @io.swagger.v3.oas.annotations.media.Schema(description = "At most this many rows are returned") int limit) {}
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public record SePayPayload(
-        Long id,
-        String gateway,
-        String transactionDate,
-        String accountNumber,
-        String code,
-        String content,
-        String transferType,
-        BigDecimal transferAmount,
-        String referenceCode
-    ) {}
+        @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED, minimum = "1") Long id,
+        @io.swagger.v3.oas.annotations.media.Schema(maxLength = 65536) String gateway,
+        @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED,
+            description = "Bank time: ISO instant or yyyy-MM-dd HH:mm:ss in Asia/Ho_Chi_Minh") String transactionDate,
+        @io.swagger.v3.oas.annotations.media.Schema(maxLength = 65536) String accountNumber,
+        @io.swagger.v3.oas.annotations.media.Schema(maxLength = 65536) String code,
+        @io.swagger.v3.oas.annotations.media.Schema(maxLength = 65536) String content,
+        @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED, allowableValues = {"in", "out", "IN", "OUT"}) String transferType,
+        @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED, minimum = "0.01", maximum = "9999999999999999999.99") BigDecimal transferAmount,
+        @io.swagger.v3.oas.annotations.media.Schema(maxLength = 65536) String referenceCode,
+        @io.swagger.v3.oas.annotations.media.Schema(maxLength = 65536) String description
+    ) {
+        public SePayPayload(Long id, String gateway, String transactionDate, String accountNumber, String code, String content,
+                            String transferType, BigDecimal transferAmount, String referenceCode) {
+            this(id, gateway, transactionDate, accountNumber, code, content, transferType, transferAmount, referenceCode, null);
+        }
+    }
 
     private record IncomingTransfer(
         Long transactionId,
@@ -783,7 +948,10 @@ public class SePayWebhookService {
         String content,
         String gateway,
         String referenceCode,
-        String quoteRef
+        String quoteRef,
+        String providerCode,
+        String description,
+        boolean conflictingReferences
     ) {}
 
     public record WebhookResult(boolean success, boolean duplicate, Long evidenceId, String reviewStatus, Long paymentId) {}

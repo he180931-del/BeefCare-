@@ -151,3 +151,34 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 | 2026-10-28 (evening) | Feed receipt codes are `PNK-YYYY-nnnn` from a yearly sequence (previously `PNK-YYYY-` + 6-digit database id). Feed errors use `MSG-FE23-03`, `MSG-FE23-05` and `MSG-COM-08` instead of generic codes. | Treat codes as opaque display text; map the new message codes. Existing receipts keep their old codes. |
 
 The frontend submits one domain command, then reloads the returned aggregate or invalidates related queries. It must not compose raw entity writes to emulate transactions, grant its own service status after displaying a QR, infer ticket confirmation from reply text, or treat a reminder suggestion as a recorded event.
+
+### UC-FE19-08 (D24, 10/11/2026)
+
+`POST /api/webhooks/sepay` and its SRS alias `POST /api/v1/payments/sepay/webhook`
+authenticate the exact raw JSON with HMAC headers and ±300 seconds. They have no
+browser session, CSRF or Idempotency-Key requirement; the bank transaction identity
+is the key. OpenAPI declares both required headers, the typed SePayPayload and
+400/401/409/413/500 responses.
+
+**Webhook response change:** HTTP200 is exactly `{"success":true}` after evidence
+and one JOB-06 row commit. It acknowledges receipt, not PAID; settlement fields
+are read from existing Owner/PM APIs. API-03/simulator keep WebhookResult and
+immediate successful confirmation. Technical failures after storage are retried
+from the durable job; no second period/receipt is granted. The source transfer
+window and snapshot account, manual-income exclusion and suspension rules remain.
+
+JOB-06 uses a recoverable lease and retries1/5/15 minutes, then hourly until24h
+after the first failure; it then retains a manual-review error and alerts PM once
+(no outgoing reconciliation notice, D20). PM decisions/locks are never overwritten.
+Contradictory references do not auto-allocate. Full content/description/provider
+code and known delivery counts persist; historical unknown counts stay null.
+
+PAID atomically queues one payment email intent in the existing durable mail
+queue. The dispatcher resolves the current Owner, renders the Vietnamese receipt
+message and retries independently≤24h. It does not enable other outbox consumers.
+SCR-59 keeps D15 polling; SCR-62 reads PROCESSING or the completed result.
+
+Evidence and limits: `docs/reviews/FE19_UC08_REVIEW.md`. Local BE_REVIEWED only:
+99 Surefire tests +49 Failsafe cases (47 PostgreSQL16.15,2 H2 email), frontend158,
+typecheck/build, signed real HTTP/DB/Mailpit and manual runtime captures. No
+approved integrated checkpoint/READY_FOR_FE or SePay LIVE claim.

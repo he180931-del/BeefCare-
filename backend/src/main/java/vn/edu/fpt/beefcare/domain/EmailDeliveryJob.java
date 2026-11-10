@@ -84,6 +84,9 @@ public class EmailDeliveryJob {
     @Column(name = "sent_at")
     private Instant sentAt;
 
+    @Column(name = "event_key", length = 120, unique = true)
+    private String eventKey;
+
     @Version
     @Column(name = "version", nullable = false)
     private Integer version = 0;
@@ -119,6 +122,8 @@ public class EmailDeliveryJob {
     public void setLastError(String lastError) { this.lastError = lastError; }
     public Instant getSentAt() { return sentAt; }
     public void setSentAt(Instant sentAt) { this.sentAt = sentAt; }
+    public String getEventKey() { return eventKey; }
+    public void setEventKey(String eventKey) { this.eventKey = eventKey; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
 }

@@ -84,7 +84,8 @@ public class SecurityConfiguration {
         CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
 
         http.cors(withDefaults())
-            .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository).csrfTokenRequestHandler(csrfRequestHandler).ignoringRequestMatchers("/api/webhooks/sepay"))
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository).csrfTokenRequestHandler(csrfRequestHandler)
+                .ignoringRequestMatchers("/api/webhooks/sepay", "/api/v1/payments/sepay/webhook"))
             .addFilterAfter(new SpaWebFilter(), AnonymousAuthenticationFilter.class)
             .addFilterAfter(new ActiveAccountFilter(farmAccessService, sessionRegistry), AnonymousAuthenticationFilter.class)
             .headers(headers ->
@@ -119,7 +120,7 @@ public class SecurityConfiguration {
                     .requestMatchers(HttpMethod.GET, "/api/platform/subscriptions", "/api/platform/subscriptions/*").authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/public/prices").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/public/landing").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/webhooks/sepay").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/webhooks/sepay", "/api/v1/payments/sepay/webhook").permitAll()
                     .requestMatchers("/api/dev/sepay/**").authenticated()
                     .requestMatchers("/api/support/tickets/**", "/api/platform/support/tickets/**", "/api/platform/support/recipients", "/api/platform/internal-requests/**").authenticated()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)

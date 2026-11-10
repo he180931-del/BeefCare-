@@ -82,20 +82,35 @@ public class BankTransferEvidence implements Serializable {
     @Column(name = "transfer_direction", length = 20)
     private String transferDirection;
 
-    @Size(max = 50)
-    @Column(name = "receiving_account", length = 50)
+    // Provider text columns hold any field a signed webhook body (≤ 65,536 bytes) can carry: never refused or cut (R-19-08).
+    @Size(max = 65536)
+    @Column(name = "receiving_account", length = 65536)
     private String receivingAccount;
 
-    @Size(max = 255)
-    @Column(name = "transfer_content", length = 255)
+    @Size(max = 65536)
+    @Column(name = "transfer_content", length = 65536)
     private String transferContent;
 
-    @Size(max = 100)
-    @Column(name = "gateway", length = 100)
+    @Column(name = "delivery_attempts")
+    private Integer deliveryAttempts;
+
+    @Size(max = 65536)
+    @Column(name = "provider_code", length = 65536)
+    private String providerCode;
+
+    @Size(max = 65536)
+    @Column(name = "description", length = 65536)
+    private String description;
+
+    @Column(name = "conflicting_references", nullable = false)
+    private boolean conflictingReferences;
+
+    @Size(max = 65536)
+    @Column(name = "gateway", length = 65536)
     private String gateway;
 
-    @Size(max = 100)
-    @Column(name = "reference_code", length = 100)
+    @Size(max = 65536)
+    @Column(name = "reference_code", length = 65536)
     private String referenceCode;
 
     @NotNull
@@ -137,6 +152,15 @@ public class BankTransferEvidence implements Serializable {
 
     public Instant getFirstReceivedAt() { return firstReceivedAt; }
     public void setFirstReceivedAt(Instant firstReceivedAt) { this.firstReceivedAt = firstReceivedAt; }
+
+    public Integer getDeliveryAttempts() { return deliveryAttempts; }
+    public void setDeliveryAttempts(Integer value) { deliveryAttempts = value; }
+    public String getProviderCode() { return providerCode; }
+    public void setProviderCode(String value) { providerCode = value; }
+    public String getDescription() { return description; }
+    public void setDescription(String value) { description = value; }
+    public boolean isConflictingReferences() { return conflictingReferences; }
+    public void setConflictingReferences(boolean value) { conflictingReferences = value; }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

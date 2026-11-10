@@ -1241,19 +1241,127 @@
     "/api/webhooks/sepay" : {
       "post" : {
         "tags" : [ "se-pay-webhook-resource" ],
+        "summary" : "Store authenticated SePay evidence and its durable processing job",
+        "description" : "HMAC-SHA256 of timestamp + '.' + exact raw request bytes; ±300 seconds. HTTP 200 acknowledges committed storage, not PAID. No session/CSRF or Idempotency-Key is used; the provider/environment/namespace/transaction ID is the key.",
         "operationId" : "receive",
+        "parameters" : [ {
+          "name" : "X-SePay-Timestamp",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "[0-9]{1,12}"
+          }
+        }, {
+          "name" : "X-SePay-Signature",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "sha256=[0-9a-fA-F]{64}"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SePayPayload"
+              }
+            }
+          },
+          "required" : true
+        },
         "responses" : {
           "200" : {
-            "description" : "OK",
+            "description" : "Evidence and job committed; replay reuses them",
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/WebhookResult"
+                  "$ref" : "#/components/schemas/WebhookAcknowledgement"
                 }
               }
             }
+          },
+          "401" : {
+            "description" : "Invalid signature or timestamp; no bank evidence"
+          },
+          "400" : {
+            "description" : "Invalid JSON or transaction fields"
+          },
+          "409" : {
+            "description" : "Same bank transaction identity, conflicting business data"
+          },
+          "413" : {
+            "description" : "Body exceeds 65536 bytes"
+          },
+          "500" : {
+            "description" : "Evidence/job could not commit; provider must retry"
           }
-        }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/v1/payments/sepay/webhook" : {
+      "post" : {
+        "tags" : [ "se-pay-webhook-resource" ],
+        "summary" : "Store authenticated SePay evidence and its durable processing job",
+        "description" : "HMAC-SHA256 of timestamp + '.' + exact raw request bytes; ±300 seconds. HTTP 200 acknowledges committed storage, not PAID. No session/CSRF or Idempotency-Key is used; the provider/environment/namespace/transaction ID is the key.",
+        "operationId" : "receive_1",
+        "parameters" : [ {
+          "name" : "X-SePay-Timestamp",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "[0-9]{1,12}"
+          }
+        }, {
+          "name" : "X-SePay-Signature",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "pattern" : "sha256=[0-9a-fA-F]{64}"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SePayPayload"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Evidence and job committed; replay reuses them",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WebhookAcknowledgement"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Invalid signature or timestamp; no bank evidence"
+          },
+          "400" : {
+            "description" : "Invalid JSON or transaction fields"
+          },
+          "409" : {
+            "description" : "Same bank transaction identity, conflicting business data"
+          },
+          "413" : {
+            "description" : "Body exceeds 65536 bytes"
+          },
+          "500" : {
+            "description" : "Evidence/job could not commit; provider must retry"
+          }
+        },
+        "security" : [ ]
       }
     },
     "/api/support/tickets" : {
@@ -14249,25 +14357,83 @@
           }
         }
       },
-      "WebhookResult" : {
+      "SePayPayload" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 1
+          },
+          "gateway" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "maxLength" : 65536
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "transactionDate" : {
+            "type" : "string",
+            "description" : "Bank time: ISO instant or yyyy-MM-dd HH:mm:ss in Asia/Ho_Chi_Minh"
+          },
+          "accountNumber" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "maxLength" : 65536
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "code" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "maxLength" : 65536
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "content" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "maxLength" : 65536
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "transferType" : {
+            "type" : "string",
+            "enum" : [ "in", "out", "IN", "OUT" ]
+          },
+          "transferAmount" : {
+            "type" : "number",
+            "maximum" : 1.0E19,
+            "minimum" : 0.01
+          },
+          "referenceCode" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "maxLength" : 65536
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "description" : {
+            "anyOf" : [ {
+              "type" : "string",
+              "maxLength" : 65536
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "id", "transactionDate", "transferAmount", "transferType" ]
+      },
+      "WebhookAcknowledgement" : {
         "type" : "object",
         "properties" : {
           "success" : {
             "type" : "boolean"
-          },
-          "duplicate" : {
-            "type" : "boolean"
-          },
-          "evidenceId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "reviewStatus" : {
-            "type" : "string"
-          },
-          "paymentId" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },
@@ -14836,6 +15002,28 @@
           }
         },
         "required" : [ "expectedVersion", "reason" ]
+      },
+      "WebhookResult" : {
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "duplicate" : {
+            "type" : "boolean"
+          },
+          "evidenceId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reviewStatus" : {
+            "type" : "string"
+          },
+          "paymentId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
       },
       "ReturnChange" : {
         "type" : "object",
@@ -19357,13 +19545,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -19382,15 +19570,15 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
@@ -19410,6 +19598,12 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "paged" : {
+            "type" : "boolean"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
           "pageNumber" : {
             "type" : "integer",
             "format" : "int32"
@@ -19417,12 +19611,6 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "paged" : {
-            "type" : "boolean"
-          },
-          "unpaged" : {
-            "type" : "boolean"
           }
         }
       },
@@ -19432,10 +19620,10 @@
           "empty" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           }
         }
@@ -19772,13 +19960,13 @@
       "PageAuditEntry" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -19797,15 +19985,15 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
@@ -19818,13 +20006,13 @@
       "PageAccountSummary" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -19843,15 +20031,15 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
@@ -21538,13 +21726,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
+          "token" : {
+            "type" : "string"
+          },
           "parameterName" : {
             "type" : "string"
           },
           "headerName" : {
-            "type" : "string"
-          },
-          "token" : {
             "type" : "string"
           }
         }

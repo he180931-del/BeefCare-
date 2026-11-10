@@ -593,4 +593,21 @@ class PlatformReconciliationResourceTest extends DomainTestSupport {
         em.flush();
         assertThat(count("BankTransferEvidence")).isZero();
     }
+
+    /** Review UC8 #3: long provider text is a storable transaction, not a SePay failure (R-19-08); it is listed and stored in full. */
+    @Test
+    void longSePayFieldsAreListedAndStoredInFullInsteadOfFailingTheLookup() throws Exception {
+        AppUser pm = staff("PM");
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(clock.instant().minusSeconds(120));
+        String gateway = "Ngân hàng ".repeat(30), reference = "REF-".repeat(60);
+        SePayPayload transfer = new SePayPayload(9701L, gateway, time, "UC6-ACCOUNT", null, "Nội dung dài", "IN", new BigDecimal("1200000"), reference);
+        when(lookup.list(any(), any(), eq("UC6-ACCOUNT"), anyInt())).thenReturn(List.of(transfer));
+        when(lookup.find(9701L)).thenReturn(transfer);
+        JsonNode page = body(read(pm, "/lookup?from=2026-10-01&to=2026-10-31"));
+        assertThat(page.path("items").get(0).path("referenceCode").asText()).isEqualTo(reference);
+        JsonNode stored = body(command(pm, "/lookup/9701", Map.of(), null));
+        em.flush(); em.clear();
+        BankTransferEvidence e = em.find(BankTransferEvidence.class, stored.path("evidenceId").asLong());
+        assertThat(e.getGateway()).isEqualTo(gateway); assertThat(e.getReferenceCode()).isEqualTo(reference);
+    }
 }

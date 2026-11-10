@@ -48,6 +48,8 @@ export const REVIEW_TEXT: Record<string, string> = { TO_REVIEW: 'Cần xem', HOL
 export const CONFIRMATION_SOURCE_TEXT: Record<string, string> = { SEPAY: 'Tự động qua SePay', PM: 'PM xác nhận' }
 /** Fixed reasons written by SePayWebhookService during ingestion/settlement; PM-entered reasons are shown as stored. */
 const SYSTEM_REASON_TEXT: Record<string, string> = {
+  'Conflicting payment references': 'Có nhiều mã thanh toán mâu thuẫn; cần đối soát thủ công',
+  'Automatic processing failed; manual reconciliation required': 'Xử lý tự động lỗi sau thời gian thử lại; cần đối soát thủ công',
   'Not an incoming transfer': 'Không phải giao dịch tiền vào',
   'Receiving account is not configured': 'Chưa cấu hình tài khoản nhận',
   'Receiving account does not match the configured account': 'Tài khoản nhận không khớp tài khoản đã cấu hình',

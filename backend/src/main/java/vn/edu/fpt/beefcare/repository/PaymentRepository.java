@@ -15,6 +15,8 @@ import org.springframework.data.repository.query.Param;
 @SuppressWarnings("unused")
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpecificationExecutor<Payment> {
+    @Query("select p from Payment p where p.subscription.id=:subscriptionId and upper(p.state)='PAID' and p.purchasedStart is not null and p.purchasedEnd is not null order by p.purchasedEnd desc,p.id desc")
+    List<Payment> findPaidPeriods(@Param("subscriptionId") Long subscriptionId);
     Optional<Payment> findFirstBySubscription_IdAndStateIgnoreCaseOrderByRequestedAtDesc(Long subscriptionId, String state);
     List<Payment> findAllBySubscription_Farm_IdOrderByRequestedAtDescIdDesc(Long farmId);
     Optional<Payment> findFirstByQuoteRefIgnoreCase(String quoteRef);
