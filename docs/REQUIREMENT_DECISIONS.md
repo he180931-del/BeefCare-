@@ -100,3 +100,23 @@ Người dùng xác nhận hai đề xuất trong phiên:
 Bổ sung phần `related payment request` từng hoãn trong báo cáo UC6; thay quy
 ước HOLD/REJECT bỏ qua `paymentId` của D19. Không bật SePay LIVE hoặc mở rộng
 JOB-06. Ma trận và bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D22 — UC-FE19-06: mã chính xác chỉ cấp cho trại của mã; mã giao dịch là khóa tra cứu (10/11/2026)
+
+Người dùng chọn hai đề xuất sau review UC6:
+
+1. Khi nội dung chuyển khoản có mã chính xác của yêu cầu X, PM chỉ được chấp
+   nhận chứng từ cho một yêu cầu **cùng trại với X** (kể cả chính X). Danh sách
+   ứng viên chỉ gồm yêu cầu của trại đó; chọn yêu cầu trại khác bị MSG-FE19-11
+   `OTHER_FARM`, không phân bổ gì. Trường hợp Owner dùng lại mã của yêu cầu cũ
+   đã hết hạn để trả cho yêu cầu mới của cùng trại vẫn được chấp nhận. Mã gõ sai
+   hoặc không có mã: giữ GBR-72, ứng viên gồm mọi trại.
+2. Tra cứu SePay theo mã (`POST …/lookup/{transactionId}`) không thêm
+   `Idempotency-Key`: mã giao dịch SePay là request key theo BR-D24/GBR-88. Gọi
+   lại cùng mã luôn trả chứng từ và kết quả đầu, không cấp kỳ hai lần.
+
+Cùng đợt review (không cần quyết thêm, theo SRS): xác nhận và JOB-04 khóa trại
+trước khi đọc subscription (GBR-72/73); tra cứu ghi PM thực hiện vào audit
+(GBR-86), nguồn xác nhận vẫn SEPAY (D21); giao dịch chiều ra không gửi thông báo
+cần đối soát (D20); dữ liệu SePay không lưu được khi tra cứu là 502. Ma trận và
+bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.

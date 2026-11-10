@@ -241,8 +241,8 @@ new `20261110000200_evidence_review_payment.xml` + master include; reconciliatio
 OpenAPI and migration tests; platform-service read/command adapters, decision
 form, lookup and history page + tests; one existing subscription QR test clock;
 D21, FE-19 spec/open questions, this report, OpenAPI and API handoff catalog.
-Initial user changes: none. Final changes are uncommitted on the same feature
-branch, including the two new untracked migration/test files. No merge or push.
+Initial user changes: none. Committed on the same feature branch after the UC6
+review (10/11/2026) as `9a43cb6` (code) and `40066fc` (docs). No merge or push.
 
 Skills: the RTK TDD/React/verification paths referenced on the macOS host are
 not installed in this Windows checkout; used the entry-point/RTK test-first,
@@ -254,3 +254,62 @@ SePay client is mocked in HTTP tests; no SePay LIVE request or configuration
 change, full repository suite, new concurrency/rollback audit or integrated
 deployment. Existing lookup deduplication remains by BR-D24 identity rather
 than an Idempotency-Key; delivery-attempt count and JOB-06 remain outside scope.
+
+## UC6 review fixes and D22 — 10/11/2026
+
+Review of the committed UC6 slice (`f3e35e9`, `4aac1e2`) and D21 (`9a43cb6`,
+`40066fc`). The user chose: an exact code funds only its own farm; the SePay
+transaction ID stays the lookup request key; commit D21 before the fixes (D22).
+
+| # | Finding | Evidence | Fix |
+|---|---|---|---|
+| 1 | Confirmations were not serialized per farm as GBR-72 requires: PM ACCEPT, the SePay pipeline and JOB-04 loaded the request/subscription before the farm lock. `Payment.subscription` is EAGER and `Subscription` has no `@Version`, so `lockByFarmId` returned the earlier copy unchanged | A temporary test showed `lockByFarmId` returning `latestEnd = null` after another transaction committed a new end; the new concurrency tests reproduced it end to end (RED below) | Id-only reads before the lock (`findRequestFarmById`, `findRequestFarmsByQuoteRef`, `findFarmIdById`), then farm → subscription → request locks in all three paths |
+| 2 | With an exact code of request X, ACCEPT took any selected request, including another farm's | Candidate query listed every farm's matching request | D22: candidates and ACCEPT limited to X's farm; other farm → MSG-FE19-11 `OTHER_FARM`, nothing allocated; mistyped code unchanged |
+| 3 | A PM lookup that confirms a payment (D21) was audited without actor (GBR-86) and showed "Hệ thống" | `audit(null, …)` in the shared pipeline | Lookup passes the PM as audit actor for `SEPAY_EVIDENCE` / `SEPAY_PAYMENT_PAID`; `confirmationSource` stays SEPAY (decoupled from the actor) |
+| 4 | Outgoing transfers still notified every PM "cần đối soát" although D20 makes them NO_ACTION | `saveEvidence` always called `evidenceNeedsReview` | Notice only for incoming or legacy direction-less evidence; evidence and audit unchanged |
+| 5 | A malformed SePay row turned the lookup into 400 and the UI into a generic save error | `transfer()` client-error mapping reused for provider data | API-03 rows that cannot be stored are 502 (by ID and by period, the period list fails as a whole, nothing stored); UI text for 502 names both causes |
+
+The earlier PostgreSQL row "pessimistic locks" in this report only covered
+sequential tests; concurrent locking is now covered by
+`SubscriptionConfirmationConcurrencyTest` / `…PostgresIT`.
+
+### Field matrix (changed rows only)
+
+| Field | Type / requiredness | Validation / condition | Storage and round trip |
+|---|---|---|---|
+| Review.paymentId on ACCEPT | Long, optional when the code is exact | must exist (COM-08); if the evidence code exactly matches request X, the selected request must belong to X's farm, else FE19-11 `OTHER_FARM` | unchanged: `bank_transfer_evidence.payment_id`, `evidence_review.related_payment_id` |
+| Candidates (A8) | list | exact code → X's farm only; mistyped/missing code → all farms | read only |
+| Lookup actor (A11) | — | PM with ACTIVE access | `audit_log.actor_id` of `SEPAY_EVIDENCE` / `SEPAY_PAYMENT_PAID` → history `pmName` |
+| Lookup provider data (A11/A17) | — | unparsable time, missing direction, non-positive amount → 502 | nothing stored |
+
+Left unchanged, reported to the user: JOB-04 computes `entitlementChanged`
+after setting the entitlement on the same instance, so an entitlement-only
+change (for example a SUSPENDED farm whose coverage ends) is saved without the
+`SERVICE_STATUS_JOB` audit — existing behaviour, kept as is. `expireUnpaidRequests`
+still loads the request before the farm lock; `Payment` is versioned, so a
+concurrent change fails optimistically and the job retries — no wrong data.
+`audit_log` has no role column (GBR-86 "actor, role"), pre-existing.
+
+### Verification
+
+| Check | Result, 10/11/2026 |
+|---|---|
+| Backend RED | 7 expected failures: PM ACCEPT and SePay periods started at the confirmation time (2026-10-28T03:00Z) instead of the end committed meanwhile (2029-10-28T03:00Z); JOB-04 wrote `latestEnd` 2026-10-28T02:59Z back over the renewal; the other farm's request was a candidate; lookup audit actor null; invalid SePay data 400; outgoing notice sent. The 23 existing tests of the run passed |
+| Frontend RED | 1 expected failure (OTHER_FARM and 502 texts) |
+| Backend H2 | **98/98 PASS**: reconciliation 17, read workbench 13, concurrency 3, SePay flow 10, subscription 8, overview 11, history 9, request 7, finance workflow 12, OpenAPI 1, notification target 2, entity 5 |
+| PostgreSQL 16.15 | **34/34 PASS** via Failsafe: reconciliation 17, read workbench 13, concurrency 3 (own schema `uc6_concurrency`, asserted), migration 1 |
+| Checkstyle | 0 violations (Spotless, JaCoCo, Modernizer skipped) |
+| Frontend | **140/140 PASS** platform-service + subscription; typecheck PASS; production build PASS (existing chunk-size warning) |
+| OpenAPI | Only `Review.paymentId` description changed (220 paths / 269 operations / 296 schemas); the committed file equals the export semantically (springdoc reorders `Page` properties, so only the changed line was applied); catalog regenerated |
+
+Backend command (installed Maven 3.9.16, JDK 21, offline):
+
+```powershell
+mvn.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dmodernizer.skip=true' '-Dapi.version=1.44' '-Duser.timezone=UTC' '-Dtest=SubscriptionConfirmationConcurrencyTest,PlatformReconciliationResourceTest,PlatformPaymentReadResourceTest,PlatformSubscriptionResourceTest,SePayPaymentFlowTest,SubscriptionOverviewResourceTest,SubscriptionPaymentHistoryResourceTest,SubscriptionPaymentRequestResourceTest,OpenApiContractTest,PlatformFinanceWorkflowTest,NotificationTargetAccessServiceTest,BankTransferEvidenceTest,EvidenceReviewTest' '-Dit.test=SubscriptionConfirmationConcurrencyPostgresIT,PlatformReconciliationPostgresIT,PlatformPaymentReadPostgresIT,EvidenceReviewPaymentMigrationPostgresIT' verify
+```
+
+Frontend: `VITE_BEEFCARE_DATA_SOURCE=local node node_modules/vitest/vitest.mjs run tests/unit/platform-service tests/unit/subscription`,
+`npm.cmd run typecheck`, `npm.cmd run build`.
+
+Not verified: browser/runtime rerun, manual E2E by the user, SePay LIVE, the
+full repository suite. Handoff stays BE_REVIEWED local, not READY_FOR_FE.
