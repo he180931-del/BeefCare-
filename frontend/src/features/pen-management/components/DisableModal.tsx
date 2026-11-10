@@ -6,7 +6,7 @@ import { todayIso, validateAvailability } from '../domain/penRules'
 import type { Pen, PenStatus } from '../../../types'
 
 const ErrorText = ({ children }: { children: string }) => <span className="text-[11px] text-err-fg">{children}</span>
-const statusBadge = (status: PenStatus) => (status === 'ACTIVE' ? <Badge tone="ok" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>)
+const statusBadge = (status: PenStatus) => (status === 'ACTIVE' ? <Badge tone="ok" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>)
 
 /**
  * Stop / Resume Pen popup (UC-FE04-04). The new status is always the opposite of the current one (field 3); the

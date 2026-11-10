@@ -38,7 +38,7 @@ export default function BarnPanel({ barn, detail, loading = false, canManage = t
         <KV k="Số con">{barn.count}</KV>
         <KV k="Chỗ trống">{Math.max(0, barn.capacity - barn.count)}</KV>
         <KV k="Trạng thái">
-          {active ? <Badge tone="ok" icon="circle-check" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>}
+          {active ? <Badge tone="ok" icon="circle-check" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>}
         </KV>
       </div>
 

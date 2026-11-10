@@ -209,8 +209,8 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
         <div className="flex flex-col gap-2">
           <span className="text-xs font-medium text-ink">Trạng thái ban đầu</span>
           <div className="flex gap-[18px]">
-            <Radio name="status" checked={status === 'ACTIVE'} onChange={() => setStatus('ACTIVE')}>ACTIVE</Radio>
-            <Radio name="status" checked={status === 'INACTIVE'} onChange={() => setStatus('INACTIVE')}>INACTIVE</Radio>
+            <Radio name="status" checked={status === 'ACTIVE'} onChange={() => setStatus('ACTIVE')}>Đang hoạt động</Radio>
+            <Radio name="status" checked={status === 'INACTIVE'} onChange={() => setStatus('INACTIVE')}>Ngừng hoạt động</Radio>
           </div>
         </div>
       )}

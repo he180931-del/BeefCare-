@@ -45,7 +45,7 @@ export default function BarnTable({ rows, selected, onSelect, loading, emptyText
               <Td className={cx(TH, full && 'font-semibold text-err-fg')}>{barn.count} / {barn.capacity}</Td>
               <Td className={TH}>{acceptsSummary(criteriaOf(barn))}</Td>
               <Td className={TH}>
-                {barn.status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>}
+                {barn.status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>}
               </Td>
             </tr>
           )
