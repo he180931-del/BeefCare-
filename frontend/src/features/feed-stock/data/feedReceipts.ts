@@ -30,14 +30,14 @@ export function summarizeFeedReceipts(rows: readonly FeedReceipt[], today = new 
   const from = isoOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29))
   const posted = rows.filter((row) => row.status === 'POSTED')
   const recent = posted.filter((row) => row.receiptDate >= from && row.receiptDate <= to)
-  // Backend ReceiptView has no paid amount, so debt is only reported when every posted row carries it.
-  const debtKnown = posted.every((row) => row.amountPaid !== undefined)
-  const owing = debtKnown ? posted.filter((row) => row.totalPayable - (row.amountPaid ?? 0) > 0) : []
+  const outstanding = (row: FeedReceipt) => row.outstanding ?? (row.amountPaid === undefined ? undefined : row.totalPayable - row.amountPaid)
+  const debtKnown = posted.every((row) => outstanding(row) !== undefined)
+  const owing = debtKnown ? posted.filter((row) => (outstanding(row) ?? 0) > 0) : []
   return {
     receivedKg: recent.flatMap((row) => row.lines).reduce((total, line) => total + line.kgReceived, 0),
     receiptCount: recent.length,
     totalPayable: recent.reduce((total, row) => total + row.totalPayable, 0),
-    owedAmount: debtKnown ? owing.reduce((total, row) => total + row.totalPayable - (row.amountPaid ?? 0), 0) : null,
+    owedAmount: debtKnown ? owing.reduce((total, row) => total + (outstanding(row) ?? 0), 0) : null,
     owingCodes: owing.map((row) => row.code),
     counts: {
       all: rows.length,

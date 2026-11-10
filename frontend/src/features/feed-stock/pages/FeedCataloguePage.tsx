@@ -4,7 +4,6 @@ import Layout from '../../../components/Layout'
 import { Icon } from '../../../components/Icon'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Button, Card, Field, Foot, Note, PageHeader, Radio, Segmented, Select, Table, Td, Textarea, Th, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedSupplierActive } from '../api/feedCatalogueApi'
@@ -12,7 +11,7 @@ import { listFeedStock } from '../api/feedStockApi'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FEED_GROUP_LABELS, feedGroupLabel, formatNumber } from '../domain/feedLabels'
 import type { FeedGroup, FeedStockRow } from '../types'
-import type { FeedCatalogueInput, FeedCatalogueItem, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
+import type { FeedCatalogueItem, FeedCatalogueSaveInput, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
 
 type CatalogueSection = 'feeds' | 'suppliers'
 const GROUPS = Object.entries(FEED_GROUP_LABELS) as Array<[FeedGroup, string]>
@@ -66,7 +65,7 @@ export default function FeedCataloguePage() {
   const selected = adding ? undefined : items.find((item) => item.code === params.get('feed')) ?? filteredFeeds[0]
 
   const perform = async (action: () => Promise<unknown>, successMessage: string) => {
-    if (busyRef.current || backendMode === 'backend') return false
+    if (busyRef.current) return false
     busyRef.current = true
     setBusy(true)
     setActionError('')
@@ -86,7 +85,7 @@ export default function FeedCataloguePage() {
   }
 
   const select = (item: FeedCatalogueItem) => { setAdding(false); setActionError(''); setParams((current) => { const next = new URLSearchParams(current); next.set('feed', item.code); return next }) }
-  const saveFeed = async (input: FeedCatalogueInput) => {
+  const saveFeed = async (input: FeedCatalogueSaveInput) => {
     const saved = await perform(async () => {
       const result = await saveFeedCatalogueItem(input)
       setAdding(false)
@@ -102,7 +101,7 @@ export default function FeedCataloguePage() {
     if (saved) setSupplierDialog(null)
   }
   const toggleSupplier = (supplier: FeedSupplier) => perform(
-    () => setFeedSupplierActive(supplier.id, !supplier.active),
+    () => setFeedSupplierActive(supplier.id, !supplier.active, supplier.version),
     supplier.active ? `${supplier.name} đã ngừng hoạt động.` : `${supplier.name} đã hoạt động trở lại.`,
   )
 
@@ -127,7 +126,7 @@ export default function FeedCataloguePage() {
   return (
     <Layout title="Thức ăn › Danh mục" user="manager">
       <PageHeader title="Danh mục thức ăn" sub="Thức ăn dùng trong phiếu nhập, khẩu phần và nhật ký cho ăn">
-        <Button variant="primary" disabled={backendMode === 'backend'} title={backendMode === 'backend' ? 'Thao tác chưa sẵn sàng ở chế độ kết nối.' : undefined}
+        <Button variant="primary" disabled={busy}
           onClick={() => { setActionError(''); if (section === 'feeds') setAdding(true); else setSupplierDialog({}) }}>
           <span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />{section === 'feeds' ? 'Thêm thức ăn' : 'Thêm nhà cung cấp'}</span>
         </Button>
@@ -138,7 +137,6 @@ export default function FeedCataloguePage() {
         onChange={(value) => { setSection(value as CatalogueSection); setGroup('ALL'); setStatus('ACTIVE'); setSearch(''); setAdding(false) }}
         options={[{ value: 'feeds', label: `Thức ăn (${items.length})` }, { value: 'suppliers', label: `Nhà cung cấp (${suppliers.length})` }]}
       />
-      {backendMode === 'backend' && <Note tone="warn">Danh sách lấy từ hệ thống đã kết nối. Tạo, sửa và đổi trạng thái chưa sẵn sàng.</Note>}
       {message && <Note tone="ok">{message}</Note>}
       {actionError && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{actionError}</div>}
 
@@ -163,8 +161,8 @@ export default function FeedCataloguePage() {
                       <Td className="min-w-[110px]">{item.name}</Td>
                       <Td className="whitespace-nowrap">{feedGroupLabel(item.group)}</Td>
                       <Td>{item.stockUnit}</Td>
-                      <Td className="whitespace-nowrap">{item.kgPerPurchaseUnit <= 1 ? 'Theo kg' : `${item.purchaseUnit} ${formatNumber(item.kgPerPurchaseUnit, 3)} kg`}</Td>
-                      <Td className="whitespace-nowrap">{formatNumber(item.minimumStockKg, 3)}</Td>
+                      <Td className="whitespace-nowrap">{!item.purchaseUnit ? '—' : item.kgPerPurchaseUnit !== null && item.kgPerPurchaseUnit > 1 ? `${item.purchaseUnit} ${formatNumber(item.kgPerPurchaseUnit, 3)} kg` : 'Theo kg'}</Td>
+                      <Td className="whitespace-nowrap">{item.minimumStockKg === null ? '—' : formatNumber(item.minimumStockKg, 3)}</Td>
                       <Td className="whitespace-nowrap">{cost === null ? '—' : `${formatNumber(cost, 0)} đ`}</Td>
                       <Td className="whitespace-nowrap"><Badge tone={item.available ? 'ok' : 'warn'} icon={item.available ? 'circle-check' : undefined}>{item.available ? 'Đang dùng' : 'Ngừng dùng'}</Badge></Td>
                     </tr>
@@ -181,7 +179,7 @@ export default function FeedCataloguePage() {
                 <tr key={supplier.id}>
                   <Td className="font-semibold">{supplier.name}</Td><Td className="whitespace-nowrap">{supplier.phone || '—'}</Td><Td>{supplier.area || '—'}</Td><Td>{supplier.note || '—'}</Td>
                   <Td className="whitespace-nowrap"><Badge tone={supplier.active ? 'ok' : 'warn'}>{supplier.active ? 'Đang dùng' : 'Ngừng dùng'}</Badge></Td>
-                  <Td><div className="flex gap-2 whitespace-nowrap"><Button variant="link" size="sm" disabled={backendMode === 'backend'} onClick={() => { setActionError(''); setSupplierDialog({ supplier }) }}>Sửa</Button><Button variant="link" size="sm" disabled={busy || backendMode === 'backend'} onClick={() => void toggleSupplier(supplier)}>{supplier.active ? 'Ngừng' : 'Kích hoạt'}</Button></div></Td>
+                  <Td><div className="flex gap-2 whitespace-nowrap"><Button variant="link" size="sm" disabled={busy} onClick={() => { setActionError(''); setSupplierDialog({ supplier }) }}>Sửa</Button><Button variant="link" size="sm" disabled={busy} onClick={() => void toggleSupplier(supplier)}>{supplier.active ? 'Ngừng' : 'Kích hoạt'}</Button></div></Td>
                 </tr>
               ))}</tbody>
             </Table>
@@ -217,33 +215,34 @@ function FeedEditPanel({ item, suggested, stock, saving, onCancel, onSave }: {
   stock: readonly FeedStockRow[]
   saving: boolean
   onCancel: () => void
-  onSave: (input: FeedCatalogueInput) => void
+  onSave: (input: FeedCatalogueSaveInput) => void
 }) {
   const [code, setCode] = useState(item?.code ?? suggested)
   const [name, setName] = useState(item?.name ?? '')
   const [group, setGroup] = useState<FeedGroup | ''>((item?.group as FeedGroup | undefined) ?? '')
   const [purchaseUnit, setPurchaseUnit] = useState(item?.purchaseUnit ?? 'kg')
-  const [kgPerPurchaseUnit, setKgPerPurchaseUnit] = useState(String(item?.kgPerPurchaseUnit ?? 1))
-  const [minimumStockKg, setMinimumStockKg] = useState(String(item?.minimumStockKg ?? 0))
+  const [kgPerPurchaseUnit, setKgPerPurchaseUnit] = useState(item ? String(item.kgPerPurchaseUnit ?? '') : '1')
+  const [minimumStockKg, setMinimumStockKg] = useState(String(item?.minimumStockKg ?? ''))
   const [nutritionNote, setNutritionNote] = useState(item?.nutritionNote ?? '')
   const [available, setAvailable] = useState(item?.available ?? true)
   const [error, setError] = useState('')
   const stockRow = item ? stock.find((row) => row.feedItemId === item.id) : undefined
   const locked = Boolean(item && stockRow && stockRow.onHandKg > 0)
-  const units = PURCHASE_UNITS.includes(purchaseUnit) ? PURCHASE_UNITS : [...PURCHASE_UNITS, purchaseUnit]
+  const units = PURCHASE_UNITS.includes(purchaseUnit) || !purchaseUnit ? PURCHASE_UNITS : [...PURCHASE_UNITS, purchaseUnit]
 
   const submit = () => {
-    const conversion = Number(kgPerPurchaseUnit)
-    const minimum = Number(minimumStockKg)
+    const selectedUnit = purchaseUnit.trim()
+    const conversion = selectedUnit && kgPerPurchaseUnit.trim() ? Number(kgPerPurchaseUnit) : null
+    const minimum = minimumStockKg.trim() ? Number(minimumStockKg) : null
     if (!/^TA-\d{2,}$/i.test(code.trim())) return setError('Mã thức ăn theo dạng TA-nn.')
     if (!name.trim()) return setError('Nhập tên thức ăn.')
     if (!group) return setError('Chọn nhóm thức ăn.')
-    if (!purchaseUnit.trim()) return setError('Nhập đơn vị nhập.')
-    if (!Number.isFinite(conversion) || conversion <= 0) return setError('Quy đổi phải lớn hơn 0.')
-    if (!Number.isFinite(minimum) || minimum < 0) return setError('Mức tồn tối thiểu phải là số không âm.')
+    if (selectedUnit && ((conversion !== null && (!Number.isFinite(conversion) || conversion <= 0)) || (selectedUnit.toLocaleLowerCase() !== 'kg' && conversion === null))) return setError('Quy đổi phải lớn hơn 0.')
+    if (selectedUnit.toLocaleLowerCase() === 'kg' && conversion !== null && conversion !== 1) return setError('Đơn vị kg có quy đổi bằng 1 kg.')
+    if (minimum !== null && (!Number.isFinite(minimum) || minimum < 0)) return setError('Mức tồn tối thiểu phải là số không âm.')
     if (nutritionNote.length > 500) return setError('Ghi chú dinh dưỡng tối đa 500 ký tự.')
     setError('')
-    onSave({ ...(item ? { id: item.id } : {}), code, name, group, purchaseUnit, kgPerPurchaseUnit: conversion, minimumStockKg: minimum, nutritionNote, available })
+    onSave({ ...(item ? { id: item.id, expectedVersion: item.version } : {}), code, name, group, purchaseUnit, kgPerPurchaseUnit: conversion, minimumStockKg: minimum, nutritionNote, available })
   }
 
   return (
@@ -261,16 +260,22 @@ function FeedEditPanel({ item, suggested, stock, saving, onCancel, onSave }: {
       {locked && <p className="m-0 text-[11px] text-muted">Mã và đơn vị tính không đổi khi đã có giao dịch kho</p>}
       <div className="grid grid-cols-2 gap-3">
         <Field label="Quy cách nhập" id="feed-catalogue-purchase-unit">
-          <Select id="feed-catalogue-purchase-unit" disabled={saving} value={purchaseUnit} onChange={(event) => setPurchaseUnit(event.target.value)}>{units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</Select>
+          <Select id="feed-catalogue-purchase-unit" disabled={saving} value={purchaseUnit} onChange={(event) => {
+            const next = event.target.value
+            setPurchaseUnit(next)
+            if (!next) setKgPerPurchaseUnit('')
+            else if (next.toLocaleLowerCase() === 'kg') setKgPerPurchaseUnit('1')
+            else if (!kgPerPurchaseUnit) setKgPerPurchaseUnit('1')
+          }}><option value="">Không khai báo</option>{units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</Select>
         </Field>
         <Field label="Quy đổi" id="feed-catalogue-conversion">
           <div className="relative">
             <input id="feed-catalogue-conversion" type="number" min="0.001" step="0.001" readOnly={saving} value={kgPerPurchaseUnit} onChange={(event) => setKgPerPurchaseUnit(event.target.value)} className={`${inputCls} pr-[70px]`} />
-            <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">kg / {purchaseUnit.toLocaleLowerCase('vi')}</span>
+            <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">{purchaseUnit ? `kg / ${purchaseUnit.toLocaleLowerCase('vi')}` : 'không áp dụng'}</span>
           </div>
         </Field>
       </div>
-      <Field label="Mức tồn tối thiểu" id="feed-catalogue-minimum" hint="Tồn ≤ mức này → nhắc việc “Sắp hết thức ăn”">
+      <Field label="Mức tồn tối thiểu" id="feed-catalogue-minimum" hint="Để trống nếu không đặt ngưỡng. Tồn ≤ mức này → nhắc việc “Sắp hết thức ăn”">
         <div className="relative">
           <input id="feed-catalogue-minimum" type="number" min="0" step="0.001" readOnly={saving} value={minimumStockKg} onChange={(event) => setMinimumStockKg(event.target.value)} className={`${inputCls} pr-9`} />
           <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">kg</span>
@@ -287,7 +292,7 @@ function FeedEditPanel({ item, suggested, stock, saving, onCancel, onSave }: {
       <Note tone="info">Thức ăn đã có giao dịch kho chỉ ngừng dùng, không xóa. Thức ăn ngừng dùng không chọn được trong phiếu nhập, khẩu phần và nhật ký mới.</Note>
       <div className="flex justify-end gap-2">
         <Button disabled={saving} onClick={onCancel}>Hủy</Button>
-        <Button variant="primary" disabled={saving || backendMode === 'backend'} onClick={submit}>{saving ? 'Đang lưu…' : 'Lưu'}</Button>
+        <Button variant="primary" disabled={saving} onClick={submit}>{saving ? 'Đang lưu…' : 'Lưu'}</Button>
       </div>
     </Card>
   )
@@ -303,7 +308,6 @@ function SupplierFormDialog({ supplier, saving, onClose, onSave }: {
   const [phone, setPhone] = useState(supplier?.phone ?? '')
   const [area, setArea] = useState(supplier?.area ?? '')
   const [note, setNote] = useState(supplier?.note ?? '')
-  const [active, setActive] = useState(supplier?.active ?? true)
   const [error, setError] = useState('')
 
   const submit = () => {
@@ -313,7 +317,10 @@ function SupplierFormDialog({ supplier, saving, onClose, onSave }: {
     if (area.length > 255) return setError('Khu vực hoặc địa chỉ tối đa 255 ký tự.')
     if (note.length > 500) return setError('Ghi chú tối đa 500 ký tự.')
     setError('')
-    onSave({ ...(supplier ? { id: supplier.id } : {}), name, phone, area, note, active })
+    onSave({
+      ...(supplier ? { id: supplier.id, expectedVersion: supplier.version, seller: supplier.seller, buyer: supplier.buyer } : { seller: false, buyer: false }),
+      name, phone, area, note,
+    })
   }
 
   return (
@@ -324,10 +331,6 @@ function SupplierFormDialog({ supplier, saving, onClose, onSave }: {
         <Field label="Điện thoại" id="feed-supplier-phone"><input id="feed-supplier-phone" maxLength={50} disabled={saving} value={phone} onChange={(event) => setPhone(event.target.value)} className={inputCls} /></Field>
         <Field label="Khu vực / địa chỉ" id="feed-supplier-area"><input id="feed-supplier-area" maxLength={255} disabled={saving} value={area} onChange={(event) => setArea(event.target.value)} className={inputCls} /></Field>
         <Field label="Ghi chú" id="feed-supplier-note"><Textarea id="feed-supplier-note" maxLength={500} disabled={saving} value={note} onChange={(event) => setNote(event.target.value)} /></Field>
-        <div className="flex items-center gap-x-5 text-[13px] sm:col-span-2">
-          <Radio name="feed-supplier-active" checked={active} onChange={() => setActive(true)}>Đang dùng</Radio>
-          <Radio name="feed-supplier-active" checked={!active} onChange={() => setActive(false)}>Ngừng dùng</Radio>
-        </div>
       </div>
       <ModalFooter className="!px-0 !pb-0">
         <ModalButton disabled={saving} onClick={onClose}>Hủy</ModalButton>

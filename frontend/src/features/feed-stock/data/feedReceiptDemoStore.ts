@@ -351,7 +351,7 @@ function parseDemoState(value: unknown): FeedReceiptDemoState {
         minimumStockKg: item.minimumStockKg,
         available: item.available,
         purchaseUnit: item.purchaseUnit,
-        kgPerPurchaseUnit: item.kgPerPurchaseUnit,
+        kgPerPurchaseUnit: item.kgPerPurchaseUnit ?? undefined,
       } : stock
     }),
   }
@@ -691,7 +691,7 @@ async function saveCatalogueFeed(input: FeedCatalogueInput): Promise<FeedCatalog
       version: previous ? previous.version + 1 : 0,
       available: next.available,
       purchaseUnit: next.purchaseUnit,
-      kgPerPurchaseUnit: next.kgPerPurchaseUnit,
+      kgPerPurchaseUnit: next.kgPerPurchaseUnit ?? undefined,
     }
     const stocks = stockIndex < 0
       ? [...state.stocks, nextStock]

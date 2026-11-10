@@ -47,10 +47,20 @@ public class FeedManagementResource {
     @GetMapping("/receipts")
     public List<ReceiptView> receipts(@PathVariable Long farmId) { return service.receipts(farmId); }
 
+    @GetMapping("/receipts/{receiptId}")
+    public ReceiptView receipt(@PathVariable Long farmId,@PathVariable Long receiptId) { return service.receipt(farmId,receiptId); }
+
     @PostMapping("/receipts")
     public ResponseEntity<ReceiptView> createReceipt(@PathVariable Long farmId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CreateReceiptRequest request) {
         ReceiptView result=commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_RECEIPT_CREATE",key,request,ReceiptView.class,()->service.createReceipt(farmId,request,request.postNow()));
         return ResponseEntity.ok(result);
+    }
+
+    @DeleteMapping("/receipts/{receiptId}")
+    public ResponseEntity<Void> discardDraftReceipt(@PathVariable Long farmId,@PathVariable Long receiptId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody VersionRequest request){
+        record Command(Long receiptId,VersionRequest body){}
+        commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_RECEIPT_DISCARD:"+receiptId,key,new Command(receiptId,request),Boolean.class,()->{service.discardDraftReceipt(farmId,receiptId,request);return true;});
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/receipts/{receiptId}/draft")

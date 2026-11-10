@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFeedMovementApi } from '../../../src/features/feed-stock/api/feedMovementApi'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { recordFeedSessionDemo } from '../../../src/features/feed-stock/api/feedFeedingApi'
@@ -14,6 +14,8 @@ const makeTransport = (): BackendTransport => ({
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
 describe('SCR-77 stock movement history', () => {
+  afterEach(() => vi.useRealTimers())
+
   beforeEach(async () => {
     localStorage.clear()
     localStorage.setItem('beefcare:latency', '0')
@@ -59,6 +61,11 @@ describe('SCR-77 stock movement history', () => {
   it('adds one movement for a feeding session and one for a posted adjustment', async () => {
     const api = createFeedMovementApi({ mode: 'local', farmId: 1, transport: makeTransport() })
     const before = (await api.list(101)).length
+    // The fixture includes a 16:35 feeding today; make the test action later so newest-first ordering is stable.
+    const recordedAt = new Date()
+    recordedAt.setHours(18, 0, 0, 0)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(recordedAt)
     await recordFeedSessionDemo({
       penId: 6, feedingDate: today(), sessionNo: 1, time: '06:30', fedBy: 'Thử', leftoverKg: null, note: '', rationCode: null, rationVersion: null,
       lines: [{ feedItemId: 101, plannedKg: 0, actualKg: 10, inRation: false }],

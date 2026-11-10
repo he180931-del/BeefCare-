@@ -1,4 +1,5 @@
 import type { FeedStockRow } from '../types'
+import type { FeedReceipt } from '../types/feedReceipt'
 import type { FeedReceiptDemoRecord, FeedReceiptDraftInput, FeedReceiptDraftLineInput } from '../types/feedReceiptDemo'
 import type { FeedSupplier } from '../types/feedCatalogue'
 
@@ -45,7 +46,7 @@ export const blankFeedReceiptLine = (): FeedReceiptFormLine => ({
   unitPrice: '',
 })
 
-export function initialFeedReceiptForm(record: FeedReceiptDemoRecord | null, initialFeedItemId = ''): FeedReceiptFormValues {
+export function initialFeedReceiptForm(record: FeedReceipt | FeedReceiptDemoRecord | null, initialFeedItemId = ''): FeedReceiptFormValues {
   if (!record) return {
     receiptDate: todayIso(),
     supplierId: '',
@@ -63,15 +64,15 @@ export function initialFeedReceiptForm(record: FeedReceiptDemoRecord | null, ini
   return {
     receiptDate: record.receiptDate,
     supplierId: String(record.supplierId),
-    invoiceNumber: record.invoiceNumber,
-    receivedBy: record.receivedBy,
-    storageLocation: record.storageLocation,
-    note: record.note,
+    invoiceNumber: record.invoiceNumber ?? '',
+    receivedBy: record.receivedBy ?? '',
+    storageLocation: record.storageLocation ?? '',
+    note: record.note ?? '',
     transportFee: String(record.transportFee),
-    amountPaid: String(record.amountPaid),
+    amountPaid: String(record.status === 'DRAFT' ? record.initialPaymentAmount ?? record.amountPaid ?? 0 : record.amountPaid ?? 0),
     paymentMethod: record.paymentMethod ?? '',
-    paymentDate: record.paymentDate,
-    balanceDueDate: record.balanceDueDate,
+    paymentDate: record.paymentDate ?? '',
+    balanceDueDate: record.paymentDueDate ?? ('balanceDueDate' in record ? record.balanceDueDate : ''),
     lines: record.lines.map((line) => ({
       id: line.id,
       feedItemId: String(line.feedItemId),
@@ -96,6 +97,8 @@ export function validateFeedReceiptForm(values: FeedReceiptFormValues, feedRows:
   const transportFee = Number(values.transportFee)
   if (!values.transportFee || !Number.isInteger(transportFee) || transportFee < 0) return 'Phí vận chuyển phải là số nguyên không âm.'
   if (!values.lines.length) return 'Thêm ít nhất một dòng thức ăn.'
+  const selectedFeedIds = values.lines.map((line) => Number(line.feedItemId)).filter((id) => Number.isInteger(id) && id > 0)
+  if (new Set(selectedFeedIds).size !== selectedFeedIds.length) return 'Mỗi mặt hàng chỉ được có một dòng trong phiếu.'
   for (const [index, line] of values.lines.entries()) {
     const lineNumber = index + 1
     const feedItemId = Number(line.feedItemId)
@@ -111,8 +114,9 @@ export function validateFeedReceiptForm(values: FeedReceiptFormValues, feedRows:
   const amountPaid = Number(values.amountPaid)
   if (values.amountPaid === '' || !Number.isInteger(amountPaid) || amountPaid < 0) return 'Số tiền đã trả phải là số nguyên không âm.'
   if (amountPaid > goodsAmount + transportFee) return 'Số tiền đã trả không được vượt tổng phải trả.'
-  if (amountPaid > 0 && (!values.paymentMethod || !values.paymentDate)) return 'Chọn hình thức và ngày thanh toán.'
+  if (amountPaid > 0 && (!values.paymentMethod || !(values.paymentDate || values.receiptDate))) return 'Chọn hình thức và ngày thanh toán.'
   if (values.paymentDate && !isCalendarDate(values.paymentDate)) return 'Ngày thanh toán không hợp lệ.'
+  if (values.paymentDate && (values.paymentDate > today || values.paymentDate < values.receiptDate)) return 'Ngày thanh toán phải từ ngày nhập đến hôm nay.'
   if (values.balanceDueDate && !isCalendarDate(values.balanceDueDate)) return 'Hạn thanh toán không hợp lệ.'
   return null
 }
@@ -131,8 +135,8 @@ export function toFeedReceiptDraftInput(values: FeedReceiptFormValues, feedRows:
       lotNumber: line.lotNumber.trim() || null,
       expiryDate: line.expiryDate || null,
       quantityPurchase: Number(line.quantityPurchase),
-      purchaseUnit: feed.purchaseUnit || line.purchaseUnit || 'kg',
-      kgPerPurchaseUnit: feed.kgPerPurchaseUnit ?? 1,
+      purchaseUnit: line.purchaseUnit || 'kg',
+      kgPerPurchaseUnit: line.purchaseUnit.toLocaleLowerCase('vi') === 'kg' ? 1 : feed.kgPerPurchaseUnit ?? 1,
       unitPrice: Number(line.unitPrice),
     }
   })
