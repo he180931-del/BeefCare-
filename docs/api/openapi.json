@@ -20440,6 +20440,12 @@
             "additionalProperties" : {
               "type" : "object"
             }
+          },
+          "canOpen" : {
+            "type" : "boolean"
+          },
+          "canCorrect" : {
+            "type" : "boolean"
           }
         }
       },

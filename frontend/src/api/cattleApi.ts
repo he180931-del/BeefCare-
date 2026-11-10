@@ -10,6 +10,7 @@ import type { Cattle, CattleEvent, Pen, QrHistoryRow, Tone } from '../types'
 // Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
 const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
 const backendApi = createCattleBackendApi({ transport: backendTransport, farmId: backendFarmId })
+export const listCattleTimeline = backendApi.timeline
 
 const isCowSeed = (cow: Cattle): cow is CowSeed => Boolean(cow.ageLong && cow.stage && cow.purpose && cow.qr && cow.care)
 const asCowSeed = (cow: Cattle): CowSeed => {

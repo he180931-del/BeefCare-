@@ -280,6 +280,10 @@ export function createCattleBackendApi({ transport, farmId }: { transport: Backe
     cattleIds: [cattleId], toPenId, moveDate, reason, warningReasons: warningReason ? { [cattleId]: warningReason } : {},
     ...(cattleVersion == null ? {} : { cattleVersions: { [cattleId]: cattleVersion } }),
   }, { method: 'POST' })
+  const timelineRows = async (cattleId: number, showCorrections: boolean) =>
+    rows<BackendTimeline>(await transport.get(`${root}/${cattleId}/timeline?showCorrections=${showCorrections}`), 'items')
+  const timeline = async (cattleId: number, showCorrections: boolean) =>
+    (await timelineRows(cattleId, showCorrections)).filter((event) => event.occurredAt || event.recordedAt).map(mapTimeline)
   const profile = async (code: string): Promise<{ cow: CowSeed; barns: Pen[] }> => {
     const resolved = asRecord(await transport.get(`${root}/resolve?code=${encodeURIComponent(code)}`))
     const cattleId = number(resolved.cattleId)
@@ -289,9 +293,9 @@ export function createCattleBackendApi({ transport, farmId }: { transport: Backe
       transport.get(transport.farmPath(farmId, `/cattle/${cattleId}/pen-history`)) as Promise<BackendPenHistory>,
       pens(),
       transport.get(`${root}/${cattleId}/qr-tags`).then((value) => ({ ok: true as const, value })).catch(() => ({ ok: false as const, value: [] })),
-      transport.get(`${root}/${cattleId}/timeline?showCorrections=true`).then((value) => ({ ok: true as const, value })).catch(() => ({ ok: false as const, value: [] })),
+      timelineRows(cattleId, false).then((value) => ({ ok: true as const, value })).catch(() => ({ ok: false as const, value: [] })),
     ])
     return { cow: mapBackendCattle(body, history, rows<BackendQrTag>(tagResult.value, 'items'), rows<BackendTimeline>(timelineResult.value, 'items'), { qr: !tagResult.ok, timeline: !timelineResult.ok }), barns: barnRows }
   }
-  return { listPage, purposes, breeds, pens, profile, updateProfile, issueQr, uploadPhoto, removePhoto, resolveCode, checkPenMove, movePen }
+  return { listPage, purposes, breeds, pens, profile, timeline, updateProfile, issueQr, uploadPhoto, removePhoto, resolveCode, checkPenMove, movePen }
 }

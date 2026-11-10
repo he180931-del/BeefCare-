@@ -11,8 +11,21 @@ import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 /** FE-16: a projection of committed source records, never a separate editable event store. */
 @Service
 public class CattleTimelineService {
+    /**
+     * One timeline row (A1). {@code canOpen}: the viewer may open the source record (R-16-06; a Technician gets no
+     * entry / exit voucher). {@code canCorrect}: the viewer may correct or void it from the timeline, computed with the
+     * same permission and herd-status guard as the source command (R-16-07, R-16-08); the source command checks again.
+     */
     public record Event(String category,String type,Long sourceId,Instant occurredAt,Instant recordedAt,String recorder,
-        String status,boolean corrected,Map<String,Object> values,Map<String,Object> correction) {}
+        String status,boolean corrected,Map<String,Object> values,Map<String,Object> correction,boolean canOpen,boolean canCorrect) {
+        Event withAccess(boolean open,boolean correct){return new Event(category,type,sourceId,occurredAt,recordedAt,recorder,status,corrected,values,correction,open,correct);}
+    }
+    /** Source command permission of each correctable record type (FE-08, FE-09, FE-11, FE-12); health is not corrected here (Q5). */
+    private static final Map<String,FarmAction> CORRECT_ACTION=Map.of(
+        "GROWTH_ASSESSMENT",FarmAction.MANAGE_GROWTH,"VACCINATION_RECORD",FarmAction.MANAGE_HEALTH,
+        "ESTRUS",FarmAction.MANAGE_REPRODUCTION,"BREEDING",FarmAction.MANAGE_REPRODUCTION,"PREGNANCY_CHECK",FarmAction.MANAGE_REPRODUCTION,
+        "PREGNANCY_UPDATE",FarmAction.MANAGE_REPRODUCTION,"CALVING_EVENT",FarmAction.MANAGE_REPRODUCTION);
+    private static final Set<String> CLOSED=Set.of("VOIDED","VOID","EXCLUDED");
     private final EntityManager em;private final FarmAccessService access;
     public CattleTimelineService(EntityManager em,FarmAccessService access){this.em=em;this.access=access;}
     @Transactional(readOnly=true)
@@ -45,10 +58,19 @@ public class CattleTimelineService {
         if(showCorrections){List<Event> withRevisions=new ArrayList<>(selected);
             for(Event e:selected){if(e.sourceId()==null)continue;
                 for(RecordRevision revision:em.createQuery("select r from RecordRevision r where r.farm.id=:f and r.sourceId=:id and r.sourceType=:type order by r.changedAt",RecordRevision.class).setParameter("f",farmId).setParameter("id",e.sourceId()).setParameter("type",revisionType(e)).getResultList())
-                    withRevisions.add(new Event(e.category(),"REVISION",revision.getId(),e.occurredAt(),revision.getChangedAt(),revision.getActor().getFullName(),revision.getAction(),true,values("original",JsonSupport.fromJson(revision.getBeforeSnapshot(),Object.class)),values("reason",revision.getReason(),"sourceType",e.type(),"sourceId",e.sourceId())));
+                    withRevisions.add(new Event(e.category(),"REVISION",revision.getId(),e.occurredAt(),revision.getChangedAt(),revision.getActor().getFullName(),revision.getAction(),true,values("original",JsonSupport.fromJson(revision.getBeforeSnapshot(),Object.class)),values("reason",revision.getReason(),"sourceType",e.type(),"sourceId",e.sourceId()),false,false));
             }selected=withRevisions;
         }
-        return selected.stream().sorted(Comparator.comparing(Event::occurredAt,Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(Event::recordedAt,Comparator.nullsLast(Comparator.reverseOrder()))).toList();
+        boolean active=cattle.getHerdStatus()==vn.edu.fpt.beefcare.domain.enumeration.HerdStatus.ACTIVE;
+        return selected.stream().map(e->e.withAccess(canOpen(e,ctx),canCorrect(e,ctx,active))).sorted(Comparator.comparing(Event::occurredAt,Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(Event::recordedAt,Comparator.nullsLast(Comparator.reverseOrder()))).toList();
+    }
+    private static boolean canOpen(Event e,FarmContext ctx){
+        if("REVISION".equals(e.type()))return false;
+        return !(ctx.role()==FarmRole.TECHNICIAN&&"ENTRY_EXIT".equals(e.category()));
+    }
+    private static boolean canCorrect(Event e,FarmContext ctx,boolean activeCattle){
+        FarmAction action=CORRECT_ACTION.get(e.type());
+        return action!=null&&activeCattle&&e.sourceId()!=null&&!CLOSED.contains(Objects.toString(e.status(),"VALID"))&&action.allows(ctx.role());
     }
     private <T> List<T> rows(String jpql,Class<T> type,Long cattle){return em.createQuery(jpql,type).setParameter("c",cattle).getResultList();}
     private String revisionType(Event e) {
@@ -64,7 +86,7 @@ public class CattleTimelineService {
             default -> e.type();
         };
     }
-    private Event event(String category,String type,Long id,Instant occurred,Instant recorded,String recorder,String status,boolean corrected,Map<String,Object> values){return new Event(category,type,id,occurred,recorded,recorder,status,corrected,values,null);}
+    private Event event(String category,String type,Long id,Instant occurred,Instant recorded,String recorder,String status,boolean corrected,Map<String,Object> values){return new Event(category,type,id,occurred,recorded,recorder,status,corrected,values,null,false,false);}
     private Instant at(LocalDate date,ZoneId zone){return date==null?null:date.atStartOfDay(zone).toInstant();}
     private Map<String,Object> values(Object... pairs){Map<String,Object> map=new LinkedHashMap<>();for(int i=0;i<pairs.length;i+=2)map.put(pairs[i].toString(),pairs[i+1]);return map;}
 }

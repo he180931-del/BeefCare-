@@ -37,8 +37,16 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
     next.set('r', String(id))
     setParams(next)
   }
-  const saved = (message: string) => { setNotice(message); closeAll(); refetch() }
-  const correctTarget = modal === 'correct' ? (data.records.find((r) => String(r.id) === params.get('r')) ?? data.records.find((r) => r.status === 'VALID')) : undefined
+  const saved = (message: string) => {
+    if (params.get('from') === 'timeline') return setParams({ tab: 'timeline' })
+    setNotice(message); closeAll(); refetch()
+  }
+  const recordId = params.get('r')
+  const selectedRecord = recordId == null ? undefined : data.records.find((record) => String(record.id) === recordId)
+  // With ?r= (e.g. opened from the timeline) only that record opens; never fall back to another one.
+  const correctTarget = modal === 'correct'
+    ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
+    : undefined
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,7 +58,8 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
         </Card>
         {data.projection && <Projection profile={data} />}
       </div>
-      <History profile={data} canWrite={canWrite} onCorrect={openCorrect} />
+      {!modal && recordId != null && !selectedRecord && <Note tone="warn">Không tìm thấy bản ghi tăng trưởng này.</Note>}
+      <History profile={data} selectedRecord={!modal ? selectedRecord : undefined} canWrite={canWrite} onCorrect={openCorrect} />
       <Foot>Tab Tăng trưởng & BCS trong hồ sơ bò. Quản lý thấy nút Ghi nhận và cột Thao tác; Chủ trại và Kỹ thuật viên chỉ xem. ADG mỗi dòng tính từ lần cân hợp lệ trước đó; dòng đã loại trừ in xám và không tính. Dự kiến xuất bán chỉ hiện với bò Vỗ béo có mục tiêu cân xuất.</Foot>
       {canWrite && modal === 'record' && <GrowthRecordModal cattleCode={cattleCode} onClose={closeModal} onSaved={saved} />}
       {canWrite && correctTarget && <GrowthCorrectModal key={correctTarget.id} record={correctTarget} onClose={closeAll} onSaved={saved} />}
@@ -91,13 +100,13 @@ function Projection({ profile }: { profile: GrowthProfile }) {
   )
 }
 
-function History({ profile, canWrite, onCorrect }: { profile: GrowthProfile; canWrite: boolean; onCorrect: (id: number) => void }) {
+function History({ profile, selectedRecord, canWrite, onCorrect }: { profile: GrowthProfile; selectedRecord?: GrowthRecord; canWrite: boolean; onCorrect: (id: number) => void }) {
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
   const [all, setAll] = useState(false)
-  const rows = [...profile.records].sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
+  const rows = selectedRecord ? [selectedRecord] : [...profile.records].sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
   const shown = all ? rows : rows.slice(0, HISTORY_ROWS)
   return (
-    <Card title="Lịch sử đo" sub="Mới nhất ở trên · nhấn tiêu đề cột để sắp xếp">
+    <Card title={selectedRecord ? 'Bản ghi tăng trưởng đã chọn' : 'Lịch sử đo'} sub={selectedRecord ? undefined : 'Mới nhất ở trên · nhấn tiêu đề cột để sắp xếp'}>
       {rows.length === 0 ? (
         <EmptyBlock title="Chưa có lần đo nào" sub="Các lần cân và chấm BCS sẽ hiện ở đây." />
       ) : (
