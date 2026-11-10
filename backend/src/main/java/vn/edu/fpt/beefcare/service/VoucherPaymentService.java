@@ -87,12 +87,32 @@ public class VoucherPaymentService {
         if(!"POSTED".equals(receipt.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         long paid=paymentRepository.sumByFeedReceipt(receiptId,PaymentRecordStatus.RECORDED);
         long outstanding=MoneyCalculator.outstanding(receipt.getTotalPayable(),paid);
-        if(req.amount()==null||req.amount()<=0||req.amount()>outstanding) throw DomainException.unprocessable(MessageCodes.COM_15,"outstanding",outstanding);
+        if(req.amount()==null||req.amount()<=0||req.amount()>outstanding) throw DomainException.unprocessable(MessageCodes.FE06_13,"amount",outstanding);
         clock.assertNotFuture(req.paymentDate()); if(req.paymentDate().isBefore(receipt.getReceiptDate()))throw DomainException.unprocessable(MessageCodes.COM_15,"date",receipt.getReceiptDate());
         VoucherPayment payment=new VoucherPayment();payment.setFarm(ctx.farm());payment.setFeedReceipt(receipt);payment.setDirection(PaymentDirection.PAY);payment.setPaymentDate(req.paymentDate());payment.setAmount(req.amount());payment.setMethod(req.method());payment.setReference(blankToNull(req.reference()));payment.setNote(blankToNull(req.note()));payment.setStatus(PaymentRecordStatus.RECORDED);payment.setRecordedBy(ctx.user());payment.setRecordedAt(clock.now());paymentRepository.saveAndFlush(payment);
-        long newPaid=paid+req.amount(); PaymentSummaryDTO summary=new PaymentSummaryDTO("FEED_RECEIPT",receiptId,receipt.getCode(),receipt.getTotalPayable(),newPaid,MoneyCalculator.outstanding(receipt.getTotalPayable(),newPaid),MoneyCalculator.overpaid(receipt.getTotalPayable(),newPaid),MoneyCalculator.paymentState(receipt.getTotalPayable(),newPaid),receipt.getVersion());
+        long newPaid=paid+req.amount();receipt.setPaymentRevision(receipt.getPaymentRevision()+1);feedReceiptRepository.saveAndFlush(receipt);
+        PaymentSummaryDTO summary=new PaymentSummaryDTO("FEED_RECEIPT",receiptId,receipt.getCode(),receipt.getTotalPayable(),newPaid,MoneyCalculator.outstanding(receipt.getTotalPayable(),newPaid),MoneyCalculator.overpaid(receipt.getTotalPayable(),newPaid),MoneyCalculator.paymentState(receipt.getTotalPayable(),newPaid),receipt.getVersion());
         audit.log(ctx,"PAYMENT_RECORD","VoucherPayment",payment.getId(),Map.of("voucher",receipt.getCode(),"direction","PAY","amount",req.amount()));
         return PaymentResultDTO.of(VoucherPaymentDTO.from(payment),summary);
+    }
+
+    /** The first supplier payment is created as part of the receipt posting transaction (R-23-04). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public VoucherPayment recordInitialFeedReceiptPayment(FarmContext ctx, FeedReceipt receipt, long amount, LocalDate date, PaymentMethod method) {
+        if (amount == 0L) return null;
+        if (amount < 0L || amount > receipt.getTotalPayable()) {
+            throw DomainException.unprocessable(MessageCodes.FE06_13,"amount",receipt.getTotalPayable());
+        }
+        if (method == null) throw DomainException.required("method");
+        LocalDate paymentDate=date==null?receipt.getReceiptDate():date;
+        clock.assertNotFuture(paymentDate);
+        if(paymentDate.isBefore(receipt.getReceiptDate()))throw DomainException.unprocessable(MessageCodes.COM_15,"date",receipt.getReceiptDate());
+        VoucherPayment payment=new VoucherPayment();payment.setFarm(ctx.farm());payment.setFeedReceipt(receipt);payment.setDirection(PaymentDirection.PAY);
+        payment.setPaymentDate(paymentDate);payment.setAmount(amount);payment.setMethod(method);payment.setStatus(PaymentRecordStatus.RECORDED);
+        payment.setRecordedBy(ctx.user());payment.setRecordedAt(clock.now());paymentRepository.saveAndFlush(payment);
+        receipt.setPaymentRevision(receipt.getPaymentRevision()+1);feedReceiptRepository.saveAndFlush(receipt);
+        audit.log(ctx,"PAYMENT_RECORD","VoucherPayment",payment.getId(),Map.of("voucher",receipt.getCode(),"direction","PAY","amount",amount,"initial",true));
+        return payment;
     }
 
     /** POST /api/farms/{farmId}/vouchers/{type}/{id}/payments: PAY = Owner or Manager, COLLECT = Owner. */
@@ -155,7 +175,7 @@ public class VoucherPaymentService {
         Map<String,Object> before=snapshot(payment); payment.setStatus(PaymentRecordStatus.VOIDED);payment.setVoidReason(req.reason().trim());payment.setVoidedBy(ctx.user());payment.setVoidedAt(clock.now());paymentRepository.saveAndFlush(payment);
         revisions.record(ctx,"VoucherPayment",payment.getId(),RecordRevisionService.VOID,req.reason(),before,snapshot(payment));
         audit.log(ctx,"PAYMENT_VOID","VoucherPayment",payment.getId(),Map.of("voucher",receipt.getCode(),"amount",payment.getAmount()));
-        long paid=paymentRepository.sumByFeedReceipt(receipt.getId(),PaymentRecordStatus.RECORDED);
+        long paid=paymentRepository.sumByFeedReceipt(receipt.getId(),PaymentRecordStatus.RECORDED);receipt.setPaymentRevision(receipt.getPaymentRevision()+1);feedReceiptRepository.saveAndFlush(receipt);
         PaymentSummaryDTO summary=new PaymentSummaryDTO("FEED_RECEIPT",receipt.getId(),receipt.getCode(),receipt.getTotalPayable(),paid,MoneyCalculator.outstanding(receipt.getTotalPayable(),paid),MoneyCalculator.overpaid(receipt.getTotalPayable(),paid),MoneyCalculator.paymentState(receipt.getTotalPayable(),paid),receipt.getVersion());
         return PaymentResultDTO.of(VoucherPaymentDTO.from(payment),summary);
     }

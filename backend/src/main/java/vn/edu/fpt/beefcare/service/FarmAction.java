@@ -61,6 +61,8 @@ public enum FarmAction {
     /** Buyers: Owner only. */
     MANAGE_BUYERS(true, FarmRole.OWNER),
     VIEW_FEED(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
+    /** Feed stock and movement history are limited to Owner and Manager by FE-23. */
+    VIEW_FEED_STOCK(false, FarmRole.OWNER, FarmRole.MANAGER),
     MANAGE_FEED(true, FarmRole.OWNER, FarmRole.MANAGER),
     MANAGE_FEEDING(true, FarmRole.MANAGER),
     VIEW_ANNOUNCEMENTS(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),

@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.*;
 import vn.edu.fpt.beefcare.domain.enumeration.ActiveStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentState;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentRecordStatus;
 import vn.edu.fpt.beefcare.repository.*;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.*;
 
@@ -22,6 +25,10 @@ public class FeedManagementService {
     private final TradingPartnerRepository partners;
     private final FeedReceiptRepository receipts;
     private final FeedReceiptLineRepository lines;
+    private final VoucherPaymentRepository payments;
+    private final VoucherPaymentService voucherPayments;
+    private final AuditService audit;
+    private final FeedAttachmentService attachments;
     private final FeedStockMovementRepository movements;
     private final OutboxService outbox;
     private final FeedRationVersionRepository rationVersions;
@@ -35,18 +42,20 @@ public class FeedManagementService {
     private final CodeSequenceService codes;
 
     public FeedManagementService(FarmAccessService access, FarmClock clock, FeedItemRepository feeds, TradingPartnerRepository partners,
-        FeedReceiptRepository receipts, FeedReceiptLineRepository lines, FeedStockMovementRepository movements, OutboxService outbox,
+        FeedReceiptRepository receipts, FeedReceiptLineRepository lines, VoucherPaymentRepository payments, VoucherPaymentService voucherPayments,
+        AuditService audit, FeedAttachmentService attachments, FeedStockMovementRepository movements, OutboxService outbox,
         FeedRationVersionRepository rationVersions,FeedRationPenRepository rationPens,FeedRationComponentRepository rationComponents,
         PenRepository pens,PenAssignmentRepository assignments,FeedingRecordRepository feedingRecords,FeedingRecordLineRepository feedingLines,RecordRevisionService revisions,
         CodeSequenceService codes) {
-        this.access=access; this.clock=clock; this.feeds=feeds; this.partners=partners; this.receipts=receipts; this.lines=lines; this.movements=movements; this.outbox=outbox;
+        this.access=access; this.clock=clock; this.feeds=feeds; this.partners=partners; this.receipts=receipts; this.lines=lines;
+        this.payments=payments; this.voucherPayments=voucherPayments; this.audit=audit; this.attachments=attachments; this.movements=movements; this.outbox=outbox;
         this.rationVersions=rationVersions;this.rationPens=rationPens;this.rationComponents=rationComponents;this.pens=pens;this.assignments=assignments;this.feedingRecords=feedingRecords;this.feedingLines=feedingLines;
         this.revisions=revisions;this.codes=codes;
     }
 
     @Transactional(readOnly=true)
     public List<StockView> stock(Long farmId) {
-        access.require(farmId,FarmAction.VIEW_FEED);
+        access.require(farmId,FarmAction.VIEW_FEED_STOCK);
         return feeds.findByFarm_IdOrderByNameAsc(farmId).stream().map(f->stockProjection(farmId,f)).toList();
     }
 
@@ -57,13 +66,20 @@ public class FeedManagementService {
     }
 
     @Transactional(readOnly=true)
-    public List<FeedItemView> catalogue(Long farmId){access.require(farmId,FarmAction.VIEW_FEED);return feeds.findByFarm_IdOrderByNameAsc(farmId).stream().map(FeedManagementService::feedView).toList();}
+    public ReceiptView receipt(Long farmId, Long receiptId) {
+        access.require(farmId,FarmAction.MANAGE_FEED);
+        FeedReceipt receipt=receipts.findByIdAndFarm_Id(receiptId,farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
+        return view(receipt);
+    }
+
+    @Transactional(readOnly=true)
+    public List<FeedItemView> catalogue(Long farmId){access.require(farmId,FarmAction.VIEW_FEED_STOCK);return feeds.findByFarm_IdOrderByNameAsc(farmId).stream().map(FeedManagementService::feedView).toList();}
 
     @Transactional
     public FeedItemView createFeedItem(Long farmId,FeedItemRequest request){
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_FEED);String code=request.code().trim().toUpperCase(java.util.Locale.ROOT);
         if(feeds.existsByFarm_IdAndCodeIgnoreCase(farmId,code))throw DomainException.unprocessable(MessageCodes.COM_10,"field","code");validatePurchaseUnit(request.purchaseUnit(),request.kgPerPurchaseUnit());
-        FeedItem f=new FeedItem();f.setFarm(ctx.farm());f.setCode(code);f.setName(request.name().trim());f.setFeedGroup(request.feedGroup().trim());f.setPurchaseUnit(trim(request.purchaseUnit()));f.setKgPerPurchaseUnit(request.kgPerPurchaseUnit());f.setMinimumStockKg(request.minimumStockKg());f.setAvailable(request.available());f.setStockUnit("kg");f.setOnHandKg(BigDecimal.ZERO.setScale(3));f.setAvgUnitCost(BigDecimal.ZERO.setScale(2));FeedItem saved=feeds.saveAndFlush(f);
+        FeedItem f=new FeedItem();f.setFarm(ctx.farm());f.setCode(code);f.setName(request.name().trim());f.setFeedGroup(normalizeFeedGroup(request.feedGroup()));f.setNutritionNote(trim(request.nutritionNote()));f.setPurchaseUnit(trim(request.purchaseUnit()));f.setKgPerPurchaseUnit(request.kgPerPurchaseUnit());f.setMinimumStockKg(request.minimumStockKg());f.setAvailable(request.available());f.setStockUnit("kg");f.setOnHandKg(BigDecimal.ZERO.setScale(3));f.setAvgUnitCost(BigDecimal.ZERO.setScale(2));FeedItem saved=feeds.saveAndFlush(f);
         outbox.enqueue(farmId,"FEED_ITEM_CREATED","FeedItem",saved.getId(),Map.of("feedItemId",saved.getId()));return feedView(saved);
     }
 
@@ -73,13 +89,13 @@ public class FeedManagementService {
         boolean referenced=movements.existsByFeedItem_Id(feedId)||rationComponents.existsByFeedItem_Id(feedId);
         if(referenced&&!f.getCode().equalsIgnoreCase(code))throw DomainException.conflict(MessageCodes.COM_05,"reason","feed_identity_is_in_use");
         if(!f.getCode().equalsIgnoreCase(code)&&feeds.existsByFarm_IdAndCodeIgnoreCase(farmId,code))throw DomainException.unprocessable(MessageCodes.COM_10,"field","code");
-        f.setCode(code);f.setName(request.name().trim());f.setFeedGroup(request.feedGroup().trim());f.setPurchaseUnit(trim(request.purchaseUnit()));f.setKgPerPurchaseUnit(request.kgPerPurchaseUnit());f.setMinimumStockKg(request.minimumStockKg());f.setAvailable(request.available());FeedItem saved=feeds.saveAndFlush(f);
+        f.setCode(code);f.setName(request.name().trim());f.setFeedGroup(normalizeFeedGroup(request.feedGroup()));f.setNutritionNote(trim(request.nutritionNote()));f.setPurchaseUnit(trim(request.purchaseUnit()));f.setKgPerPurchaseUnit(request.kgPerPurchaseUnit());f.setMinimumStockKg(request.minimumStockKg());f.setAvailable(request.available());FeedItem saved=feeds.saveAndFlush(f);
         outbox.enqueue(farmId,"FEED_ITEM_UPDATED","FeedItem",feedId,Map.of("feedItemId",feedId));return feedView(saved);
     }
 
     @Transactional(readOnly=true)
     public List<MovementView> movements(Long farmId, Long feedId) {
-        access.require(farmId,FarmAction.VIEW_FEED);
+        access.require(farmId,FarmAction.VIEW_FEED_STOCK);
         feeds.findByIdAndFarm_Id(feedId,farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
         return movements.findByFarm_IdAndFeedItem_IdOrderByOccurredAtDescIdDesc(farmId,feedId).stream().map(m ->
             new MovementView(m.getId(),feedId,m.getFeedItem().getCode(),m.getMovementType(),m.getQuantityKg(),m.getUnitCost(),m.getBalanceAfterKg(),m.getSourceType(),m.getSourceId(),m.getOccurredAt())
@@ -95,6 +111,7 @@ public class FeedManagementService {
         FeedReceipt r=new FeedReceipt(); r.setFarm(ctx.farm()); r.setSupplier(supplier); r.setReceiptDate(request.receiptDate());
         r.setInvoiceNumber(trim(request.invoiceNumber())); r.setReceivedBy(trim(request.receivedBy())); r.setStorageLocation(trim(request.storageLocation()));
         r.setNote(trim(request.note())); r.setTransportFee(request.transportFee()==null?0:request.transportFee()); r.setCreatedBy(ctx.user()); r.setCreatedAt(clock.now());
+        setInitialPayment(r,request.amountPaid(),request.method(),request.paymentDate(),request.paymentDueDate());
         r.setCode(codes.nextFeedReceiptCode(farmId)); r=receipts.saveAndFlush(r);
         long goods=0;
         for (ReceiptLineRequest input:request.lines()) {
@@ -108,6 +125,7 @@ public class FeedManagementService {
             goods=Math.addExact(goods,amount);
         }
         r.setTotalPayable(Math.addExact(goods,r.getTransportFee()));
+        validateInitialPayment(r);
         if(postNow) post(r,ctx);
         receipts.saveAndFlush(r);
         return view(r);
@@ -125,6 +143,7 @@ public class FeedManagementService {
         receipt.setSupplier(supplier);receipt.setReceiptDate(request.receiptDate());receipt.setInvoiceNumber(trim(request.invoiceNumber()));
         receipt.setReceivedBy(trim(request.receivedBy()));receipt.setStorageLocation(trim(request.storageLocation()));receipt.setNote(trim(request.note()));
         receipt.setTransportFee(request.transportFee()==null?0:request.transportFee());
+        setInitialPayment(receipt,request.amountPaid(),request.method(),request.paymentDate(),request.paymentDueDate());
         List<FeedReceiptLine> old=lines.findByReceipt_IdOrderByIdAsc(receiptId);lines.deleteAll(old);lines.flush();
         long goods=0;
         for(ReceiptLineRequest input:request.lines()){
@@ -137,7 +156,7 @@ public class FeedManagementService {
             line.setLotNumber(trim(input.lotNumber()));line.setExpiryDate(input.expiryDate());line.setQuantityPurchase(input.quantityPurchase());
             line.setPurchaseUnit(trim(input.purchaseUnit())==null?feed.getStockUnit():input.purchaseUnit().trim());line.setKgReceived(kg);line.setUnitPrice(input.unitPrice());line.setLineAmount(amount);lines.save(line);goods=Math.addExact(goods,amount);
         }
-        receipt.setTotalPayable(Math.addExact(goods,receipt.getTransportFee()));receipts.saveAndFlush(receipt);
+        receipt.setTotalPayable(Math.addExact(goods,receipt.getTransportFee()));validateInitialPayment(receipt);receipts.saveAndFlush(receipt);
         outbox.enqueue(ctx.farmId(),"FEED_RECEIPT_DRAFT_UPDATED","FeedReceipt",receiptId,Map.of("receiptId",receiptId));
         return view(receipt);
     }
@@ -148,21 +167,48 @@ public class FeedManagementService {
         VersionGuard.requireExpected(r.getVersion(),expectedVersion); post(r,ctx); receipts.saveAndFlush(r); return view(r);
     }
 
+    @Transactional
+    public void discardDraftReceipt(Long farmId,Long receiptId,VersionRequest request){
+        FarmContext ctx=access.require(farmId,FarmAction.MANAGE_FEED);FeedReceipt receipt=receipts.lockByIdAndFarm(receiptId,farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
+        VersionGuard.requireExpected(receipt.getVersion(),request.expectedVersion());
+        if(!"DRAFT".equals(receipt.getStatus()))throw DomainException.conflict(MessageCodes.COM_05,"reason","receipt_is_not_draft");
+        if(!payments.findAllByFeedReceiptIdOrderByPaymentDateAscIdAsc(receiptId).isEmpty())throw DomainException.conflict(MessageCodes.COM_05,"reason","draft_has_payment_history");
+        attachments.retireReceiptAttachmentsForDiscard(farmId,receiptId);
+        lines.deleteAll(lines.findByReceipt_IdOrderByIdAsc(receiptId));lines.flush();
+        audit.log(ctx,"FEED_RECEIPT_DISCARD","FeedReceipt",receiptId,Map.of("code",receipt.getCode()));
+        receipts.delete(receipt);receipts.flush();
+    }
+
     private void post(FeedReceipt receipt,FarmContext ctx) {
         if(!"DRAFT".equals(receipt.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
+        validateInitialPayment(receipt);
         List<FeedReceiptLine> receiptLines=lines.findByReceipt_IdOrderByIdAsc(receipt.getId()).stream().sorted(java.util.Comparator.comparing(l->l.getFeedItem().getId())).toList();
         if(receiptLines.isEmpty()) throw DomainException.required("lines");
-        for(FeedReceiptLine line:receiptLines) {
-            FeedItem feed=feeds.lockByIdAndFarm(line.getFeedItem().getId(),ctx.farmId()).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
+        Map<Long,List<FeedReceiptLine>> linesByFeed=receiptLines.stream().collect(java.util.stream.Collectors.groupingBy(l->l.getFeedItem().getId(),java.util.TreeMap::new,java.util.stream.Collectors.toList()));
+        Map<Long,FeedItem> locked=new java.util.LinkedHashMap<>();
+        for(Long feedId:linesByFeed.keySet()){
+            FeedItem feed=feeds.lockByIdAndFarm(feedId,ctx.farmId()).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));
             if(!Boolean.TRUE.equals(feed.getAvailable())) throw DomainException.unprocessable(MessageCodes.COM_08,"field","feedItemId");
-            BigDecimal before=feed.getOnHandKg(); BigDecimal after=before.add(line.getKgReceived()).setScale(3,RoundingMode.HALF_UP);
-            BigDecimal oldValue=before.multiply(feed.getAvgUnitCost()); BigDecimal receivedValue=BigDecimal.valueOf(line.getLineAmount());
-            BigDecimal average=after.signum()==0?BigDecimal.ZERO:oldValue.add(receivedValue).divide(after,2,RoundingMode.HALF_UP);
-            BigDecimal unitCost=line.getLineAmount()==0?BigDecimal.ZERO:BigDecimal.valueOf(line.getLineAmount()).divide(line.getKgReceived(),2,RoundingMode.HALF_UP);
-            line.setUnitCostKg(unitCost); lines.save(line); feed.setOnHandKg(after); feed.setAvgUnitCost(average); feeds.saveAndFlush(feed);
-            movement(ctx,feed,"RECEIPT",line.getKgReceived(),unitCost,"FEED_RECEIPT",receipt.getId());
+            locked.put(feedId,feed);
         }
-        receipt.setStatus("POSTED"); receipt.setPostedAt(clock.now());
+        for(Map.Entry<Long,List<FeedReceiptLine>> entry:linesByFeed.entrySet()){
+            FeedItem feed=locked.get(entry.getKey());BigDecimal receivedKg=entry.getValue().stream().map(FeedReceiptLine::getKgReceived).reduce(BigDecimal.ZERO,BigDecimal::add).setScale(3,RoundingMode.HALF_UP);
+            long receivedValue=entry.getValue().stream().mapToLong(FeedReceiptLine::getLineAmount).sum();BigDecimal before=feed.getOnHandKg();BigDecimal after=before.add(receivedKg).setScale(3,RoundingMode.HALF_UP);
+            BigDecimal oldValue=before.multiply(feed.getAvgUnitCost());BigDecimal average=after.signum()==0?BigDecimal.ZERO:oldValue.add(BigDecimal.valueOf(receivedValue)).divide(after,2,RoundingMode.HALF_UP);
+            for(FeedReceiptLine line:entry.getValue()){
+                BigDecimal unitCost=line.getLineAmount()==0?BigDecimal.ZERO:BigDecimal.valueOf(line.getLineAmount()).divide(line.getKgReceived(),2,RoundingMode.HALF_UP);
+                line.setUnitCostKg(unitCost);lines.save(line);
+            }
+            feed.setOnHandKg(after);feed.setAvgUnitCost(average);feeds.saveAndFlush(feed);
+            BigDecimal movementBalance=before;
+            for(FeedReceiptLine line:entry.getValue()){
+                movementBalance=movementBalance.add(line.getKgReceived()).setScale(3,RoundingMode.HALF_UP);
+                movement(ctx,feed,"RECEIPT",line.getKgReceived(),line.getUnitCostKg(),"FEED_RECEIPT",receipt.getId(),movementBalance);
+            }
+        }
+        receipt.setStatus("POSTED"); receipt.setPostedBy(ctx.user()); receipt.setPostedAt(clock.now());
+        voucherPayments.recordInitialFeedReceiptPayment(ctx,receipt,receipt.getInitialPaymentAmount(),receipt.getInitialPaymentDate(),receipt.getInitialPaymentMethod());
+        audit.log(ctx,"FEED_RECEIPT_POST","FeedReceipt",receipt.getId(),Map.of("code",receipt.getCode(),"totalPayable",receipt.getTotalPayable()));
         outbox.enqueue(ctx.farmId(),"FEED_RECEIPT_POSTED","FeedReceipt",receipt.getId(),Map.of("receiptId",receipt.getId()));
     }
 
@@ -172,15 +218,22 @@ public class FeedManagementService {
         VersionGuard.requireExpected(r.getVersion(),request.expectedVersion());
         if(!"POSTED".equals(r.getStatus())) throw DomainException.conflict(MessageCodes.COM_05);
         List<FeedReceiptLine> receiptLines=lines.findByReceipt_IdOrderByIdAsc(r.getId()).stream().sorted(java.util.Comparator.comparing(l->l.getFeedItem().getId())).toList();
+        Map<Long,BigDecimal> receivedByFeed=receiptLines.stream().collect(java.util.stream.Collectors.groupingBy(l->l.getFeedItem().getId(),java.util.TreeMap::new,java.util.stream.Collectors.reducing(BigDecimal.ZERO,FeedReceiptLine::getKgReceived,BigDecimal::add)));
         List<FeedItem> locked=new ArrayList<>();
-        for(FeedReceiptLine l:receiptLines){FeedItem f=feeds.lockByIdAndFarm(l.getFeedItem().getId(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));if(f.getOnHandKg().compareTo(l.getKgReceived())<0)throw DomainException.unprocessable(MessageCodes.FE23_05,"receipt_code",r.getCode(),"feed",f.getName(),"stock",f.getOnHandKg());locked.add(f);}
-        for(int i=0;i<receiptLines.size();i++){
-            FeedReceiptLine l=receiptLines.get(i); FeedItem f=locked.get(i); BigDecimal after=f.getOnHandKg().subtract(l.getKgReceived());BigDecimal currentCost=f.getAvgUnitCost();
+        for(Map.Entry<Long,BigDecimal> received:receivedByFeed.entrySet()){FeedItem f=feeds.lockByIdAndFarm(received.getKey(),farmId).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));if(f.getOnHandKg().compareTo(received.getValue())<0)throw DomainException.unprocessable(MessageCodes.FE23_05,"receipt_code",r.getCode(),"feed",f.getName(),"stock",f.getOnHandKg());locked.add(f);}
+        Map<String,Object> before=receiptSnapshot(r,receiptLines);
+        for(int i=0;i<locked.size();i++){
+            FeedItem f=locked.get(i);BigDecimal currentCost=f.getAvgUnitCost();BigDecimal balance=f.getOnHandKg();
+            for(FeedReceiptLine line:receiptLines.stream().filter(l->l.getFeedItem().getId().equals(f.getId())).toList()){
+                balance=balance.subtract(line.getKgReceived()).setScale(3,RoundingMode.HALF_UP);
+                movement(ctx,f,"RECEIPT_VOID",line.getKgReceived().negate(),currentCost,"FEED_RECEIPT",r.getId(),balance);
+            }
             // The SRS void gate is quantity coverage; reverse at current weighted average after subsequent consumption.
-            f.setOnHandKg(after); if(after.signum()==0)f.setAvgUnitCost(BigDecimal.ZERO); feeds.saveAndFlush(f);
-            movement(ctx,f,"RECEIPT_VOID",l.getKgReceived().negate(),currentCost,"FEED_RECEIPT",r.getId());
+            f.setOnHandKg(balance); if(balance.signum()==0)f.setAvgUnitCost(BigDecimal.ZERO); feeds.saveAndFlush(f);
         }
-        r.setStatus("VOIDED"); r.setVoidReason(request.reason().trim()); receipts.saveAndFlush(r);
+        r.setStatus("VOIDED"); r.setVoidReason(request.reason().trim());r.setVoidedBy(ctx.user());r.setVoidedAt(clock.now());receipts.saveAndFlush(r);
+        revisions.record(ctx,"FeedReceipt",r.getId(),RecordRevisionService.VOID,request.reason(),before,receiptSnapshot(r,receiptLines));
+        audit.log(ctx,"FEED_RECEIPT_VOID","FeedReceipt",r.getId(),Map.of("code",r.getCode(),"reason",request.reason().trim()));
         outbox.enqueue(ctx.farmId(),"FEED_RECEIPT_VOIDED","FeedReceipt",r.getId(),Map.of("receiptId",r.getId()));
         return view(r);
     }
@@ -321,7 +374,29 @@ public class FeedManagementService {
     }
 
     private void movement(FarmContext ctx,FeedItem feed,String type,BigDecimal qty,BigDecimal unitCost,String source,Long sourceId){
-        FeedStockMovement m=new FeedStockMovement();m.setFarm(ctx.farm());m.setFeedItem(feed);m.setMovementType(type);m.setQuantityKg(qty);m.setUnitCost(unitCost);m.setBalanceAfterKg(feed.getOnHandKg());m.setSourceType(source);m.setSourceId(sourceId);m.setOccurredAt(clock.now());m.setRecordedBy(ctx.user());movements.save(m);
+        movement(ctx,feed,type,qty,unitCost,source,sourceId,feed.getOnHandKg());
+    }
+    private void movement(FarmContext ctx,FeedItem feed,String type,BigDecimal qty,BigDecimal unitCost,String source,Long sourceId,BigDecimal balanceAfter){
+        FeedStockMovement m=new FeedStockMovement();m.setFarm(ctx.farm());m.setFeedItem(feed);m.setMovementType(type);m.setQuantityKg(qty);m.setUnitCost(unitCost);m.setBalanceAfterKg(balanceAfter);m.setSourceType(source);m.setSourceId(sourceId);m.setOccurredAt(clock.now());m.setRecordedBy(ctx.user());movements.save(m);
+    }
+    private void setInitialPayment(FeedReceipt receipt,Long amount,PaymentMethod method,LocalDate date,LocalDate dueDate){
+        long initialAmount=amount==null?0L:amount;
+        receipt.setInitialPaymentAmount(initialAmount);receipt.setInitialPaymentMethod(method);
+        receipt.setInitialPaymentDate(date==null&&initialAmount>0?receipt.getReceiptDate():date);receipt.setPaymentDueDate(dueDate);
+    }
+    private void validateInitialPayment(FeedReceipt receipt){
+        long amount=receipt.getInitialPaymentAmount()==null?0L:receipt.getInitialPaymentAmount();
+        if(amount>receipt.getTotalPayable())throw DomainException.unprocessable(MessageCodes.FE06_13,"amount",receipt.getTotalPayable());
+        if(amount>0&&receipt.getInitialPaymentMethod()==null)throw DomainException.required("method");
+        LocalDate date=receipt.getInitialPaymentDate();
+        if(date!=null){clock.assertNotFuture(date);if(date.isBefore(receipt.getReceiptDate()))throw DomainException.unprocessable(MessageCodes.COM_15,"date",receipt.getReceiptDate());}
+    }
+    private static Map<String,Object> receiptSnapshot(FeedReceipt receipt,List<FeedReceiptLine> values){
+        Map<String,Object> snapshot=new java.util.LinkedHashMap<>();snapshot.put("status",receipt.getStatus());snapshot.put("totalPayable",receipt.getTotalPayable());
+        snapshot.put("initialPaymentAmount",receipt.getInitialPaymentAmount());snapshot.put("initialPaymentMethod",receipt.getInitialPaymentMethod()==null?null:receipt.getInitialPaymentMethod().name());
+        snapshot.put("paymentDueDate",receipt.getPaymentDueDate());snapshot.put("voidReason",receipt.getVoidReason());
+        snapshot.put("lines",values.stream().map(l->Map.of("feedItemId",l.getFeedItem().getId(),"kgReceived",l.getKgReceived(),"lineAmount",l.getLineAmount())).toList());
+        return snapshot;
     }
     private RationView rationView(FeedRationVersion v){
         String state=v.getEffectiveFrom().isAfter(clock.today())?"SCHEDULED":v.getEffectiveTo()!=null&&v.getEffectiveTo().isBefore(clock.today())?"ENDED":"EFFECTIVE";
@@ -334,11 +409,30 @@ public class FeedManagementService {
     }
     private FeedingView feedingView(FeedingRecord r){List<FeedingLineView> row=feedingLines.findByFeedingRecord_Id(r.getId()).stream().map(l->new FeedingLineView(l.getFeedItem().getId(),l.getFeedCodeSnapshot(),l.getPlannedKg(),l.getActualKg(),l.getCostPerKg(),l.getTotalCost())).toList();return new FeedingView(r.getId(),r.getPen().getId(),r.getFeedingDate(),r.getSessionNo(),r.getHeadCount(),r.getStatus(),r.getVersion(),r.getRationVersion()==null?null:r.getRationVersion().getId(),row);}
     private Map<String,Object> snapshot(FeedingRecord r,List<FeedingRecordLine> values){return Map.of("status",r.getStatus(),"fedBy",r.getFedBy()==null?"":r.getFedBy(),"lines",values.stream().map(l->Map.of("feedItemId",l.getFeedItem().getId(),"plannedKg",l.getPlannedKg(),"actualKg",l.getActualKg(),"unitCost",l.getCostPerKg(),"totalCost",l.getTotalCost())).toList());}
-    private ReceiptView view(FeedReceipt r){List<ReceiptLineView> content=lines.findByReceipt_IdOrderByIdAsc(r.getId()).stream().map(l->new ReceiptLineView(l.getId(),l.getFeedItem().getId(),l.getFeedCodeSnapshot(),l.getFeedNameSnapshot(),l.getLotNumber(),l.getExpiryDate(),l.getQuantityPurchase(),l.getPurchaseUnit(),l.getKgReceived(),l.getUnitPrice(),l.getLineAmount())).toList();long goods=content.stream().mapToLong(ReceiptLineView::lineAmount).sum();return new ReceiptView(r.getId(),r.getCode(),r.getReceiptDate(),r.getSupplier().getId(),r.getSupplier().getName(),r.getStatus(),goods,r.getTransportFee(),r.getTotalPayable(),r.getVersion(),content);}
+    private ReceiptView view(FeedReceipt r){
+        List<ReceiptLineView> content=lines.findByReceipt_IdOrderByIdAsc(r.getId()).stream()
+            .map(l->new ReceiptLineView(l.getId(),l.getFeedItem().getId(),l.getFeedCodeSnapshot(),l.getFeedNameSnapshot(),l.getLotNumber(),l.getExpiryDate(),l.getQuantityPurchase(),l.getPurchaseUnit(),l.getKgReceived(),l.getUnitPrice(),l.getLineAmount())).toList();
+        long goods=content.stream().mapToLong(ReceiptLineView::lineAmount).sum();
+        long paid=payments.sumByFeedReceipt(r.getId(),PaymentRecordStatus.RECORDED);
+        return new ReceiptView(r.getId(),r.getCode(),r.getReceiptDate(),r.getSupplier().getId(),r.getSupplier().getName(),
+            r.getInvoiceNumber(),r.getReceivedBy(),r.getStorageLocation(),r.getNote(),r.getStatus(),goods,r.getTransportFee(),r.getTotalPayable(),
+            paid,MoneyCalculator.outstanding(r.getTotalPayable(),paid),r.getInitialPaymentAmount(),r.getInitialPaymentMethod(),r.getInitialPaymentDate(),
+            r.getPaymentDueDate(),MoneyCalculator.paymentState(r.getTotalPayable(),paid),r.getVersion(),
+            userId(r.getCreatedBy()),userName(r.getCreatedBy()),r.getCreatedAt(),userId(r.getPostedBy()),userName(r.getPostedBy()),r.getPostedAt(),
+            r.getVoidReason(),userId(r.getVoidedBy()),userName(r.getVoidedBy()),r.getVoidedAt(),content);
+    }
     private StockView stockProjection(Long farmId,FeedItem f){BigDecimal daily=averageDailyUse(farmId,f.getId());BigDecimal cover=daily.signum()==0?null:f.getOnHandKg().divide(daily,1,RoundingMode.HALF_UP);FeedReceiptLine lot=lines.findByFeedItem_IdOrderByExpiryDateAsc(f.getId()).stream().filter(l->l.getExpiryDate()!=null&&!l.getExpiryDate().isBefore(clock.today())&&!l.getExpiryDate().isAfter(clock.today().plusDays(30))&&"POSTED".equals(l.getReceipt().getStatus())).findFirst().orElse(null);String status=f.getOnHandKg().signum()==0?"OUT_OF_STOCK":f.getMinimumStockKg()!=null&&f.getOnHandKg().compareTo(f.getMinimumStockKg())<=0?"LOW":"SUFFICIENT";return new StockView(f.getId(),f.getCode(),f.getName(),f.getFeedGroup(),f.getOnHandKg(),f.getMinimumStockKg(),daily,cover,f.getOnHandKg().multiply(f.getAvgUnitCost()).setScale(0,RoundingMode.HALF_UP),status,f.getVersion(),lot==null?null:lot.getLotNumber(),lot==null?null:lot.getExpiryDate());}
     private BigDecimal averageDailyUse(Long farmId,Long feedId){LocalDate today=clock.today();List<FeedingRecord> recent=feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(farmId,today.minusDays(6),today).stream().filter(r->"VALID".equals(r.getStatus())).toList();BigDecimal total=recent.stream().flatMap(r->feedingLines.findByFeedingRecord_Id(r.getId()).stream()).filter(l->l.getFeedItem().getId().equals(feedId)).map(FeedingRecordLine::getActualKg).reduce(BigDecimal.ZERO,BigDecimal::add);return total.divide(BigDecimal.valueOf(7),3,RoundingMode.HALF_UP);}
     private BigDecimal toKg(FeedItem f,ReceiptLineRequest l){String requested=trim(l.purchaseUnit());String unit=requested==null?f.getStockUnit():requested;BigDecimal conversion;if(unit.equalsIgnoreCase("kg")||unit.equalsIgnoreCase(f.getStockUnit()))conversion=BigDecimal.ONE;else if(f.getPurchaseUnit()!=null&&unit.equalsIgnoreCase(f.getPurchaseUnit())&&f.getKgPerPurchaseUnit()!=null)conversion=f.getKgPerPurchaseUnit();else throw DomainException.invalid("purchaseUnit");BigDecimal kg=l.quantityPurchase().multiply(conversion).setScale(3,RoundingMode.HALF_UP);if(kg.signum()<=0)throw DomainException.invalid("quantityPurchase");return kg;}
     private static String trim(String v){return v==null||v.isBlank()?null:v.trim();}
+    private static String normalizeFeedGroup(String value){
+        if(value==null||value.isBlank())throw DomainException.required("feedGroup");
+        String group=value.trim().toUpperCase(java.util.Locale.ROOT);
+        if(!List.of("GREEN_ROUGHAGE","DRY_ROUGHAGE","CONCENTRATE","TMR","MINERAL_ADDITIVE","CALF_FEED").contains(group))throw DomainException.invalid("feedGroup");
+        return group;
+    }
     private static void validatePurchaseUnit(String unit,BigDecimal kgPerUnit){if(unit==null||unit.isBlank()){if(kgPerUnit!=null)throw DomainException.invalid("kgPerPurchaseUnit");return;}if(unit.equalsIgnoreCase("kg")){if(kgPerUnit!=null&&kgPerUnit.compareTo(BigDecimal.ONE)!=0)throw DomainException.invalid("kgPerPurchaseUnit");return;}if(kgPerUnit==null||kgPerUnit.signum()<=0)throw DomainException.required("kgPerPurchaseUnit");}
-    private static FeedItemView feedView(FeedItem f){return new FeedItemView(f.getId(),f.getCode(),f.getName(),f.getFeedGroup(),f.getPurchaseUnit(),f.getKgPerPurchaseUnit(),f.getStockUnit(),f.getOnHandKg(),f.getAvgUnitCost(),f.getMinimumStockKg(),f.getAvailable(),f.getVersion());}
+    private static FeedItemView feedView(FeedItem f){return new FeedItemView(f.getId(),f.getCode(),f.getName(),f.getFeedGroup(),f.getNutritionNote(),f.getPurchaseUnit(),f.getKgPerPurchaseUnit(),f.getStockUnit(),f.getOnHandKg(),f.getAvgUnitCost(),f.getMinimumStockKg(),f.getAvailable(),f.getVersion());}
+    private static Long userId(AppUser user){return user==null?null:user.getId();}
+    private static String userName(AppUser user){return user==null?null:user.getFullName();}
 }

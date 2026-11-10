@@ -5,6 +5,8 @@ import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentState;
 
 public final class FeedManagementDtos {
     private FeedManagementDtos() {}
@@ -14,15 +16,33 @@ public final class FeedManagementDtos {
         @NotNull @PositiveOrZero Long unitPrice) {}
     public record CreateReceiptRequest(@NotNull LocalDate receiptDate, @NotNull Long supplierId,
         @Size(max=50) String invoiceNumber, @Size(max=100) String receivedBy, @Size(max=100) String storageLocation,
-        @Size(max=1000) String note, @PositiveOrZero Long transportFee,
-        @NotEmpty List<@Valid ReceiptLineRequest> lines, boolean postNow) {}
+        @Size(max=1000) String note, @PositiveOrZero Long transportFee, @PositiveOrZero Long amountPaid,
+        PaymentMethod method, LocalDate paymentDate, LocalDate paymentDueDate,
+        @NotEmpty List<@Valid ReceiptLineRequest> lines, boolean postNow) {
+        public CreateReceiptRequest(LocalDate receiptDate, Long supplierId, String invoiceNumber, String receivedBy,
+            String storageLocation, String note, Long transportFee, List<ReceiptLineRequest> lines, boolean postNow) {
+            this(receiptDate, supplierId, invoiceNumber, receivedBy, storageLocation, note, transportFee, null, null, null, null, lines, postNow);
+        }
+    }
     public record UpdateDraftReceiptRequest(@NotNull Integer expectedVersion, @NotNull LocalDate receiptDate, @NotNull Long supplierId,
         @Size(max=50) String invoiceNumber, @Size(max=100) String receivedBy, @Size(max=100) String storageLocation,
-        @Size(max=1000) String note, @PositiveOrZero Long transportFee, @NotEmpty List<@Valid ReceiptLineRequest> lines) {}
+        @Size(max=1000) String note, @PositiveOrZero Long transportFee, @PositiveOrZero Long amountPaid,
+        PaymentMethod method, LocalDate paymentDate, LocalDate paymentDueDate, @NotEmpty List<@Valid ReceiptLineRequest> lines) {
+        public UpdateDraftReceiptRequest(Integer expectedVersion, LocalDate receiptDate, Long supplierId, String invoiceNumber,
+            String receivedBy, String storageLocation, String note, Long transportFee, List<ReceiptLineRequest> lines) {
+            this(expectedVersion, receiptDate, supplierId, invoiceNumber, receivedBy, storageLocation, note, transportFee,
+                null, null, null, null, lines);
+        }
+    }
     public record ReceiptLineView(Long id, Long feedItemId, String feedCode, String feedName, String lotNumber,
         LocalDate expiryDate, BigDecimal quantityPurchase, String purchaseUnit, BigDecimal kgReceived, Long unitPrice, Long lineAmount) {}
     public record ReceiptView(Long id, String code, LocalDate receiptDate, Long supplierId, String supplierName,
-        String status, long goodsAmount, long transportFee, long totalPayable, Integer version, List<ReceiptLineView> lines) {}
+        String invoiceNumber, String receivedBy, String storageLocation, String note, String status,
+        long goodsAmount, long transportFee, long totalPayable, long amountPaid, long outstandingAmount,
+        Long initialPaymentAmount, PaymentMethod initialPaymentMethod, LocalDate initialPaymentDate, LocalDate paymentDueDate,
+        PaymentState paymentState, Integer version, Long createdById, String createdByName, java.time.Instant createdAt,
+        Long postedById, String postedByName, java.time.Instant postedAt, String voidReason,
+        Long voidedById, String voidedByName, java.time.Instant voidedAt, List<ReceiptLineView> lines) {}
     public record VoidReceiptRequest(@NotBlank @Size(max=500) String reason, @NotNull Integer expectedVersion) {}
     public record StockAdjustmentLine(@NotNull Long feedItemId, @NotNull @DecimalMin("0.0") BigDecimal countedKg,
         @Size(max=500) String reason) {}
@@ -69,10 +89,16 @@ public final class FeedManagementDtos {
         Long adjustmentLossValue,java.time.Instant generatedAt) {}
     public record ConsumptionReportRequest(@NotNull LocalDate from,@NotNull LocalDate to) {}
     public record FeedItemRequest(@NotBlank @Size(max=50) @Pattern(regexp="TA-[0-9]{2,}") String code,@NotBlank @Size(max=150) String name,
-        @NotBlank @Size(max=30) String feedGroup,@Size(max=30) String purchaseUnit,
+        @NotBlank @Pattern(regexp="GREEN_ROUGHAGE|DRY_ROUGHAGE|CONCENTRATE|TMR|MINERAL_ADDITIVE|CALF_FEED") String feedGroup,@Size(max=30) String purchaseUnit,
         @DecimalMin(value="0.001") BigDecimal kgPerPurchaseUnit,@DecimalMin("0.0") BigDecimal minimumStockKg,
-        @NotNull Boolean available,Integer expectedVersion) {}
-    public record FeedItemView(Long id,String code,String name,String feedGroup,String purchaseUnit,
+        @Size(max=500) String nutritionNote,
+        @NotNull Boolean available,Integer expectedVersion) {
+        public FeedItemRequest(String code, String name, String feedGroup, String purchaseUnit,
+            BigDecimal kgPerPurchaseUnit, BigDecimal minimumStockKg, Boolean available, Integer expectedVersion) {
+            this(code, name, feedGroup, purchaseUnit, kgPerPurchaseUnit, minimumStockKg, null, available, expectedVersion);
+        }
+    }
+    public record FeedItemView(Long id,String code,String name,String feedGroup,String nutritionNote,String purchaseUnit,
         BigDecimal kgPerPurchaseUnit,String stockUnit,BigDecimal onHandKg,BigDecimal averageUnitCost,
         BigDecimal minimumStockKg,Boolean available,Integer version) {}
 }

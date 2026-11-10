@@ -9,23 +9,48 @@ import {
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { FEED_RECEIPT_MOCK } from '../../../src/features/feed-stock/data/feedReceiptMock'
 import type { BackendTransport } from '../../../src/api/backendTransport'
-import type { FeedReceiptDemoStore } from '../../../src/features/feed-stock/types/feedReceiptDemo'
+import type { FeedReceiptPaymentResult } from '../../../src/features/feed-stock/types/feedReceipt'
 
 const makeTransport = (): BackendTransport => ({
-  get: vi.fn(async () => FEED_RECEIPT_MOCK),
-  command: vi.fn(),
+  get: vi.fn(async () => []),
+  command: vi.fn(async () => undefined),
   farmPath: vi.fn((farmId, suffix = '') => `/api/farms/${farmId}${suffix}`),
 })
 
+const receiptView = (overrides: Record<string, unknown> = {}) => ({
+  id: 8130, code: 'PNK-2026-0030', receiptDate: '2026-11-01', supplierId: 201, supplierName: 'NCC 1',
+  invoiceNumber: 'HD-01', receivedBy: 'Người nhận', storageLocation: 'Kho A', note: 'Ghi chú', status: 'POSTED',
+  goodsAmount: 1200, transportFee: 100, totalPayable: 1300, amountPaid: 300, outstandingAmount: 1000,
+  initialPaymentAmount: 300, initialPaymentMethod: 'CASH', initialPaymentDate: '2026-11-01', paymentDueDate: '2026-11-15',
+  paymentState: 'PARTIAL', version: 3, createdById: 1, createdByName: 'Quản lý', createdAt: '2026-11-01T08:00:00Z',
+  postedById: 1, postedByName: 'Quản lý', postedAt: '2026-11-01T08:05:00Z', voidReason: null, voidedById: null, voidedByName: null, voidedAt: null,
+  lines: [{ id: 22, feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ voi', lotNumber: 'LO-1', expiryDate: '2027-02-01', quantityPurchase: 2, purchaseUnit: 'Bao', kgReceived: 50, unitPrice: 600, lineAmount: 1200 }],
+  ...overrides,
+})
+
+const paymentResult: FeedReceiptPaymentResult = {
+  payment: null,
+  summary: { voucherType: 'FEED_RECEIPT', voucherId: 8130, voucherCode: 'PNK-2026-0030', total: 1300, paid: 300, outstanding: 1000, overpaid: 0, state: 'PARTIAL', voucherVersion: 3 },
+  payments: [{ id: 44, voucherType: 'FEED_RECEIPT', voucherId: 8130, voucherCode: 'PNK-2026-0030', direction: 'PAY', paymentDate: '2026-11-01', amount: 300, method: 'CASH', reference: null, note: null, status: 'RECORDED', recordedById: 1, recordedByName: 'Quản lý', recordedAt: '2026-11-01T08:05:00Z', voidReason: null, voidedAt: null, version: 0 }],
+}
+
 describe('SCR-78 feed receipt API boundary', () => {
-  it('requests the receipts endpoint in backend mode and propagates failures without mock fallback', async () => {
+  it('maps the backend ReceiptView and does not substitute demo rows after an endpoint failure', async () => {
     const transport = makeTransport()
-    vi.mocked(transport.get).mockRejectedValueOnce(new Error('backend unavailable'))
+    vi.mocked(transport.get).mockResolvedValueOnce([receiptView()])
     const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport })
 
-    await expect(api.list()).rejects.toThrow('backend unavailable')
+    const rows = await api.list()
+    expect(rows[0]).toMatchObject({
+      id: 8130, code: 'PNK-2026-0030', supplierId: 201, amountPaid: 300, outstanding: 1000,
+      initialPaymentAmount: 300, paymentMethod: 'CASH', paymentDueDate: '2026-11-15', invoiceNumber: 'HD-01',
+      lines: [{ feedItemId: 101, purchaseUnit: 'Bao', kgReceived: 50 }],
+    })
     expect(transport.farmPath).toHaveBeenCalledWith(32, '/feed/receipts')
     expect(transport.get).toHaveBeenCalledWith('/api/farms/32/feed/receipts')
+
+    vi.mocked(transport.get).mockRejectedValueOnce(new Error('backend unavailable'))
+    await expect(api.list()).rejects.toThrow('backend unavailable')
   })
 
   it('returns copied synthetic ReceiptView-shaped rows in local mode', async () => {
@@ -38,34 +63,39 @@ describe('SCR-78 feed receipt API boundary', () => {
     expect(transport.get).not.toHaveBeenCalled()
   })
 
-  it('keeps draft and post actions local-only and does not mutate the demo store in backend mode', async () => {
+  it('creates and updates drafts, and posts/voids with backend-owned IDs and versions', async () => {
     const transport = makeTransport()
-    const demoStore: FeedReceiptDemoStore = {
-      list: vi.fn(async () => []),
-      get: vi.fn(),
-      saveDraft: vi.fn(),
-      post: vi.fn(),
-      void: vi.fn(),
-      voidCheck: vi.fn(),
-      recordPayment: vi.fn(),
-      reset: vi.fn(),
+    vi.mocked(transport.get).mockResolvedValue(receiptView())
+    vi.mocked(transport.command).mockResolvedValue(receiptView({ status: 'DRAFT', version: 0 }))
+    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport })
+    const input = {
+      receiptDate: '2026-11-01', supplierId: 201, supplierName: 'NCC 1', invoiceNumber: 'HD-02', receivedBy: 'Long',
+      storageLocation: 'Kho A', note: 'Nhận đủ', transportFee: 50, amountPaid: 200, paymentMethod: 'CASH' as const,
+      paymentDate: '2026-11-01', balanceDueDate: '2026-11-15',
+      lines: [{ feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ voi', lotNumber: 'LO-2', expiryDate: '2027-02-01', quantityPurchase: 2, purchaseUnit: 'Bao', kgPerPurchaseUnit: 25, unitPrice: 600 }],
     }
-    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport, demoStore })
+    const created = await api.saveDraft(input, { key: 'create-intent' })
+    expect(created.status).toBe('DRAFT')
+    expect(transport.command).toHaveBeenNthCalledWith(1, '/api/farms/32/feed/receipts', {
+      receiptDate: input.receiptDate, supplierId: input.supplierId, invoiceNumber: 'HD-02', receivedBy: 'Long', storageLocation: 'Kho A', note: 'Nhận đủ',
+      transportFee: 50, amountPaid: 200, method: 'CASH', paymentDate: input.receiptDate, paymentDueDate: '2026-11-15',
+      lines: [{ feedItemId: 101, lotNumber: 'LO-2', expiryDate: '2027-02-01', quantityPurchase: 2, purchaseUnit: 'Bao', unitPrice: 600 }], postNow: false,
+    }, { key: 'create-intent' })
 
-    await expect(api.saveDraft({
-      receiptDate: '2026-11-01', supplierId: 1, supplierName: 'demo', invoiceNumber: '', receivedBy: '',
-      storageLocation: '', note: '', transportFee: 0, amountPaid: 0, paymentMethod: null,
-      paymentDate: '', balanceDueDate: '', lines: [],
-    })).rejects.toThrow(/bản demo/i)
-    await expect(api.post(8101)).rejects.toThrow(/bản demo/i)
-    await expect(api.get('8101')).rejects.toThrow(/bản demo/i)
-    await expect(api.voidCheck(8101)).rejects.toThrow(/bản demo/i)
-    await expect(api.recordPayment(8101, 1000, 'CASH', '2026-11-01')).rejects.toThrow(/Chưa tích hợp/)
-    expect(demoStore.recordPayment).not.toHaveBeenCalled()
-    expect(demoStore.void).not.toHaveBeenCalled()
-    expect(demoStore.saveDraft).not.toHaveBeenCalled()
-    expect(demoStore.post).not.toHaveBeenCalled()
-    expect(demoStore.get).not.toHaveBeenCalled()
+    vi.mocked(transport.get).mockResolvedValueOnce(receiptView({ status: 'DRAFT', version: 4 }))
+    vi.mocked(transport.command).mockResolvedValueOnce(receiptView({ status: 'DRAFT', version: 5 }))
+    await api.saveDraft({ ...input, id: 8130 }, { key: 'update-intent' })
+    expect(transport.get).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130')
+    expect(transport.command).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130/draft', expect.objectContaining({ expectedVersion: 4 }), { method: 'PUT', key: 'update-intent' })
+
+    vi.mocked(transport.command).mockResolvedValueOnce(receiptView({ status: 'POSTED', version: 6 }))
+    await api.post(8130, 5, { key: 'post-intent' })
+    expect(transport.command).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130/post', { expectedVersion: 5 }, { key: 'post-intent' })
+    vi.mocked(transport.command).mockResolvedValueOnce(receiptView({ status: 'VOIDED', version: 7, voidReason: 'Nhập nhầm' }))
+    await api.void(8130, 'Nhập nhầm', 6, { key: 'void-intent' })
+    expect(transport.command).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130/void', { reason: 'Nhập nhầm', expectedVersion: 6 }, { key: 'void-intent' })
+    await api.discardDraft(8130, 4, { key: 'discard-intent' })
+    expect(transport.command).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130', { expectedVersion: 4 }, { method: 'DELETE', key: 'discard-intent' })
   })
 
   it('updates receipt and stock together once, and ignores expiry dates outside the near-expiry window', async () => {
@@ -97,14 +127,89 @@ describe('SCR-78 feed receipt API boundary', () => {
     expect((await listFeedReceipts()).find((row) => row.id === draft.id)?.status).toBe('POSTED')
   })
 
-  it('voids a posted receipt through POST .../void in backend mode without touching the demo store', async () => {
+  it('records, lists, and voids supplier payments with voucher/payment versions', async () => {
     const transport = makeTransport()
-    const demoStore = { void: vi.fn() } as unknown as FeedReceiptDemoStore
-    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport, demoStore })
+    vi.mocked(transport.get).mockImplementation(async (path) => path.endsWith('/payments') ? paymentResult : receiptView({ version: 3 }))
+    vi.mocked(transport.command).mockImplementation(async () => ({ ...paymentResult, payment: paymentResult.payments?.[0] ?? null }))
+    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport })
 
-    await api.void(8130, 'Nhập trùng', 1)
-    expect(transport.command).toHaveBeenCalledWith('/api/farms/32/feed/receipts/8130/void', { reason: 'Nhập trùng', expectedVersion: 1 })
-    expect(demoStore.void).not.toHaveBeenCalled()
+    expect(await api.payments(8130)).toMatchObject({ summary: { outstanding: 1000 }, payments: [{ id: 44, method: 'CASH' }] })
+    const recorded = await api.recordPayment(8130, { amount: 500, method: 'BANK_TRANSFER', date: '2026-11-02', reference: 'MB-01', note: 'Trả đợt 2' }, { key: 'payment-intent' })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/32/feed/receipts/8130/payments', {
+      paymentDate: '2026-11-02', amount: 500, method: 'BANK_TRANSFER', reference: 'MB-01', note: 'Trả đợt 2', voucherVersion: 3,
+    }, { key: 'payment-intent' })
+    expect(recorded.payments?.[0].id).toBe(44)
+
+    const voided = await api.voidPayment(8130, 44, 'Sai số tiền', 2, { key: 'payment-void-intent' })
+    expect(transport.command).toHaveBeenLastCalledWith('/api/farms/32/payments/44/void', { reason: 'Sai số tiền', version: 2 }, { key: 'payment-void-intent' })
+    expect(voided.summary.outstanding).toBe(1000)
+  })
+
+  it('reuses the original voucher version with an idempotency key after an ambiguous payment failure', async () => {
+    const transport = makeTransport()
+    let receiptReads = 0
+    vi.mocked(transport.get).mockImplementation(async (path) => {
+      if (path.endsWith('/payments')) return paymentResult
+      if (path.endsWith('/attachments')) return []
+      receiptReads += 1
+      return receiptView({ version: receiptReads === 1 ? 3 : 4 })
+    })
+    vi.mocked(transport.command)
+      .mockRejectedValueOnce(new Error('response timed out'))
+      .mockResolvedValueOnce({ ...paymentResult, payment: paymentResult.payments?.[0] ?? null })
+    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport })
+    const input = { amount: 500, method: 'BANK_TRANSFER' as const, date: '2026-11-02' }
+
+    await expect(api.recordPayment(8130, input, { key: 'retry-same-payment' })).rejects.toThrow('response timed out')
+    await api.recordPayment(8130, input, { key: 'retry-same-payment' })
+    const firstBody = vi.mocked(transport.command).mock.calls[0]?.[1]
+    const retryBody = vi.mocked(transport.command).mock.calls[1]?.[1]
+    expect(firstBody).toEqual({ paymentDate: '2026-11-02', amount: 500, method: 'BANK_TRANSFER', reference: null, note: null, voucherVersion: 3 })
+    expect(retryBody).toEqual(firstBody)
+  })
+
+  it('uses the receipt attachment routes for list, upload, download, and draft removal', async () => {
+    const transport = makeTransport()
+    const attachment = { id: 71, contentType: 'application/pdf', fileSize: 12, originalFilename: 'invoice.pdf', createdAt: '2026-11-01T08:00:00Z' }
+    const fileBlob = new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+    vi.mocked(transport.get).mockImplementation(async (path) => path.endsWith('/attachments/71') ? fileBlob : [attachment])
+    vi.mocked(transport.command).mockResolvedValue(attachment)
+    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport })
+
+    expect(await api.attachments(8130)).toEqual([attachment])
+    const file = new File(['%PDF-1.7'], 'invoice.pdf', { type: 'application/pdf' })
+    expect(await api.uploadAttachment(8130, file, { key: 'attachment-intent' })).toEqual(attachment)
+    const uploadCall = vi.mocked(transport.command).mock.calls[0]
+    expect(uploadCall[0]).toBe('/api/farms/32/feed/receipts/8130/attachments')
+    expect((uploadCall[1] as FormData).get('file')).toBe(file)
+    expect(uploadCall[2]).toEqual({ key: 'attachment-intent' })
+    expect(await api.downloadAttachment(8130, 71)).toBe(fileBlob)
+    expect(transport.get).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130/attachments/71')
+    expect(await api.removeAttachment(8130, 71, { key: 'remove-intent' })).toEqual(attachment)
+    expect(transport.command).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130/attachments/71', undefined, { method: 'DELETE', key: 'remove-intent' })
+  })
+
+  it('loads payment attachment metadata and uses payment-scoped upload/download routes', async () => {
+    const transport = makeTransport()
+    const attachment = { id: 72, contentType: 'image/jpeg', fileSize: 3, originalFilename: 'transfer.jpg', createdAt: '2026-11-02T08:00:00Z' }
+    const fileBlob = new Blob(['jpg'], { type: 'image/jpeg' })
+    vi.mocked(transport.get).mockImplementation(async (path) => {
+      if (path === '/api/farms/32/feed/receipts/8130') return receiptView()
+      if (path === '/api/farms/32/feed/receipts/8130/payments') return paymentResult
+      if (path.endsWith('/payments/44/attachments')) return [attachment]
+      if (path.endsWith('/payments/44/attachments/72')) return fileBlob
+      return []
+    })
+    vi.mocked(transport.command).mockResolvedValue(attachment)
+    const api = createFeedReceiptApi({ mode: 'backend', farmId: 32, transport })
+
+    const receipt = await api.get('8130')
+    expect(receipt.payments?.[0].attachments).toEqual([attachment])
+    const file = new File(['jpg'], 'transfer.jpg', { type: 'image/jpeg' })
+    expect(await api.uploadPaymentAttachment(8130, 44, file, { key: 'payment-attachment-intent' })).toEqual(attachment)
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/32/feed/receipts/8130/payments/44/attachments', expect.any(FormData), { key: 'payment-attachment-intent' })
+    expect(await api.downloadPaymentAttachment(8130, 44, 72)).toBe(fileBlob)
+    expect(transport.get).toHaveBeenLastCalledWith('/api/farms/32/feed/receipts/8130/payments/44/attachments/72')
   })
 
   it('voids a posted receipt only while stock covers it, removes the stock and keeps the reason (GBR-99)', async () => {

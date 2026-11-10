@@ -61,6 +61,7 @@ class FarmAccessServiceTest extends DomainTestSupport {
         MATRIX.put(FarmAction.MANAGE_SELLERS, ownerManager);
         MATRIX.put(FarmAction.MANAGE_BUYERS, ownerOnly);
         MATRIX.put(FarmAction.VIEW_FEED, all);
+        MATRIX.put(FarmAction.VIEW_FEED_STOCK, ownerManager);
         MATRIX.put(FarmAction.MANAGE_FEED, ownerManager);
         MATRIX.put(FarmAction.MANAGE_FEEDING, managerOnly);
         MATRIX.put(FarmAction.VIEW_ANNOUNCEMENTS, all);
