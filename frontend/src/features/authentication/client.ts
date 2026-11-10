@@ -11,7 +11,7 @@ export function createBackendAuthClient(): AuthClient {
     login: api.login,
     logout: api.logout,
     register: (request: RegistrationRequest) => api.request<void>('/api/register', { method: 'POST', body: request }),
-    resendVerification: (email) => api.request<void>('/api/account/verification/resend', { method: 'POST', body: { email } }),
+    resendVerification: (email) => api.request<{ nextAllowedAt: string }>('/api/account/verification/resend', { method: 'POST', body: { email } }),
     requestPasswordReset: (email) => api.request<void>('/api/account/reset-password/init', { method: 'POST', body: { email } }),
     validatePasswordReset: (token) => api.get<{ valid: boolean; email?: string }>(`/api/account/reset-password/validate?token=${encodeURIComponent(token)}`),
     resetPassword: (token, newPassword, confirmPassword) => api.request<void>('/api/account/reset-password/finish', {
@@ -42,7 +42,7 @@ export function createMockAuthClient(): AuthClient {
     register: async (request) => {
       if (request.email.trim().toLowerCase() === MOCK_EXISTING_ACCOUNT_EMAIL) throw new MockAuthError(409, 'MSG-FE01-10', 'Email đã có tài khoản.')
     },
-    resendVerification: async () => undefined,
+    resendVerification: async () => ({ nextAllowedAt: new Date(Date.now() + 60_000).toISOString() }),
     requestPasswordReset: async () => undefined,
     validatePasswordReset: async (token) => ({ valid: token !== 'het-han' && Boolean(token), email: 'ngoc.tran@example.com' }),
     resetPassword: async () => undefined,

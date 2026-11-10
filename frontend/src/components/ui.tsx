@@ -372,7 +372,11 @@ export function SearchInput({ className, ...p }: InputHTMLAttributes<HTMLInputEl
 }
 
 /** Ô ngày: hiện dd/mm/yyyy + icon lịch (như Figma), bấm mở bộ chọn ngày. value/onChange dạng 'yyyy-mm-dd'. */
-export function DateInput({ value, onChange, className, readOnly, id }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean; id?: string }) {
+/**
+ * `label` names the hidden native input for assistive technology; it falls back to "Chọn ngày".
+ * Pass it whenever the field has a visible label, since an aria-label would otherwise hide that label.
+ */
+export function DateInput({ value, onChange, className, readOnly, id, label }: { value: string; onChange?: (value: string) => void; className?: string; readOnly?: boolean; id?: string; label?: string }) {
   const ref = useRef<HTMLInputElement>(null)
   const [y, m, d] = value ? value.split('-') : []
   return (
@@ -389,7 +393,7 @@ export function DateInput({ value, onChange, className, readOnly, id }: { value:
           value={value || ''}
           onChange={(e: ChangeEvent<HTMLInputElement>) => onChange?.(e.target.value)}
           onClick={() => ref.current?.showPicker?.()}
-          aria-label="Chọn ngày"
+          aria-label={label ?? 'Chọn ngày'}
           className="absolute inset-0 size-full cursor-pointer opacity-0"
         />
       )}

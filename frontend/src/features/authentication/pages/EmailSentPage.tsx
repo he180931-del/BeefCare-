@@ -9,8 +9,14 @@ import { AUTH_PATH, emailFromState, friendlyEmailRequestError } from '../domain/
 import { Link } from 'react-router-dom'
 
 /** Nút gửi lại: khóa 60 giây sau mỗi lần gửi (SCR-04, SCR-05). */
-function useResend(onSend: () => Promise<void>) {
-  const [seconds, setSeconds] = useState(0)
+function secondsUntil(value: unknown): number {
+  if (typeof value !== 'string') return 0
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? Math.max(0, Math.ceil((timestamp - Date.now()) / 1000)) : 0
+}
+
+function useResend(onSend: () => Promise<{ nextAllowedAt?: string } | void>, initialNextAllowedAt?: string) {
+  const [seconds, setSeconds] = useState(() => secondsUntil(initialNextAllowedAt))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -20,7 +26,11 @@ function useResend(onSend: () => Promise<void>) {
   }, [seconds])
   const send = async () => {
     setBusy(true); setError(null)
-    try { await onSend(); setSeconds(60) }
+    try {
+      const result = await onSend()
+      const next = result?.nextAllowedAt ? Date.parse(result.nextAllowedAt) : Date.now() + 60_000
+      setSeconds(Math.max(0, Math.ceil((next - Date.now()) / 1000)))
+    }
     catch (reason) { setError(friendlyEmailRequestError(reason)) }
     finally { setBusy(false) }
   }
@@ -41,9 +51,12 @@ function EmailCard({ email, tone }: { email: string; tone: 'verification' | 'res
 export function EmailSentPage({ client, kind }: { client: AuthClient; kind: 'verification' | 'reset' }) {
   const location = useLocation()
   const email = emailFromState(location.state) || normalizeEmail(new URLSearchParams(location.search).get('email') || '')
+  const initialNextAllowedAt = typeof location.state === 'object' && location.state !== null && 'nextAllowedAt' in location.state
+    ? String((location.state as { nextAllowedAt?: unknown }).nextAllowedAt ?? '')
+    : undefined
   const verification = kind === 'verification'
   const resendFn = verification ? client.resendVerification : client.requestPasswordReset
-  const { seconds, busy, error, send } = useResend(async () => { if (resendFn && email) await resendFn(email) })
+  const { seconds, busy, error, send } = useResend(async () => { if (resendFn && email) return resendFn(email) }, initialNextAllowedAt)
   const canResend = Boolean(resendFn && email)
 
   if (verification) {

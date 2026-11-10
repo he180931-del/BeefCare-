@@ -16,7 +16,8 @@ export function SignInPage({ client, onAuthenticated, initialError, startFailed 
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [errors, setErrors] = useState<ReturnType<typeof validateSignIn>>({})
-  const [error, setError] = useState<string | null>(startFailed ? CREDENTIAL_MESSAGE : initialError)
+  const googleSignInRejected = new URLSearchParams(location.search).get('error') === 'google-sign-in'
+  const [error, setError] = useState<string | null>(startFailed ? CREDENTIAL_MESSAGE : googleSignInRejected ? 'Không thể đăng nhập với Google. Vui lòng thử lại hoặc dùng email.' : initialError)
   const [credentialFailed, setCredentialFailed] = useState(startFailed)
   const [unverified, setUnverified] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -57,7 +58,7 @@ export function SignInPage({ client, onAuthenticated, initialError, startFailed 
       description={failed ? 'Kiểm tra thông tin và thử lại. Mật khẩu phân biệt chữ hoa, chữ thường.' : 'Tiếp tục quản lý trại của bạn.'}
       eyebrow={failed ? 'Thông tin chưa đúng' : 'Chào mừng trở lại'}
       alert={alert}
-      footer={failed ? undefined : <span className="flex flex-col gap-4"><span>Khôi phục mật khẩu chỉ áp dụng cho tài khoản đăng ký bằng email.</span><span>Chưa có tài khoản?{' '}<ActionLink to={AUTH_PATH.register}>Đăng ký chủ trại</ActionLink></span></span>}
+      footer={<span className="flex flex-col gap-4"><span>Khôi phục mật khẩu chỉ áp dụng cho tài khoản đăng ký bằng email.</span><span>Chưa có tài khoản?{' '}<ActionLink to={AUTH_PATH.register}>Đăng ký chủ trại</ActionLink></span></span>}
     >
       <div className="space-y-4">
         <GoogleButton client={client} label="Tiếp tục với Google" />

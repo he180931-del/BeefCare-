@@ -49,6 +49,51 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         actAs(owner(null)); assertThatThrownBy(() -> tickets.get(t.id(), false)).isInstanceOf(DomainException.class);
     }
 
+    @Test void ownerEndpointsRejectFarmNonOwnersAndPlatformStaffEvenWhenOwnerProfileFlagIsSet() {
+        Farm farm = farm();
+        AppUser manager = memberWithRole(farm, FarmRole.MANAGER);
+        AppUser technician = memberWithRole(farm, FarmRole.TECHNICIAN);
+        AppUser cs = staff(PlatformRole.CS);
+        AppUser pm = staff(PlatformRole.PM);
+        AppUser sa = staff(PlatformRole.SA);
+        List<AppUser> actors = List.of(manager, technician, cs, pm, sa);
+        actors.forEach(actor -> {
+            actor.setOwnerRegistrationCompleted(true);
+            actor.setOwnerRegistrationCompletedAt(clock.instant());
+        });
+        em.flush();
+
+        for (AppUser actor : actors) {
+            actAs(actor);
+            assertThatThrownBy(() -> tickets.mine(null, null, null, null, null, 0, 25))
+                .isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getStatus().value()).isEqualTo(403));
+            assertThatThrownBy(() -> tickets.create(new SupportDtos.Create(
+                "ACCOUNT_ACCESS", "ACCOUNT", null, "Cần hỗ trợ tài khoản", "Không thể đăng nhập"
+            ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getStatus().value()).isEqualTo(403));
+        }
+    }
+
+    @Test void detailReturnsLatestMessagePageAndOwnerCanLoadOlderPublicMessages() {
+        AppUser owner = owner(null);
+        SupportDtos.Ticket ticket = create(owner, null);
+        for (int index = 1; index <= 24; index++) {
+            ticket = tickets.reply(ticket.id(), new SupportDtos.Reply("Phản hồi " + index, ticket.version()), false, false);
+        }
+
+        SupportDtos.Ticket latest = tickets.get(ticket.id(), false);
+        assertThat(latest.messages()).hasSize(20);
+        assertThat(latest.messages()).extracting(SupportDtos.Message::content)
+            .containsExactlyElementsOf(java.util.stream.IntStream.rangeClosed(5, 24).mapToObj(i -> "Phản hồi " + i).toList());
+        assertThat(latest.messagesHasMore()).isTrue();
+        assertThat(latest.messagesBeforeId()).isEqualTo(latest.messages().getFirst().id());
+
+        SupportDtos.MessagePage older = tickets.messages(ticket.id(), latest.messagesBeforeId(), 20, false);
+        assertThat(older.items()).extracting(SupportDtos.Message::content)
+            .containsExactly("Mô tả riêng của chủ trại", "Phản hồi 1", "Phản hồi 2", "Phản hồi 3", "Phản hồi 4");
+        assertThat(older.hasMore()).isFalse();
+        assertThat(older.nextBeforeId()).isNull();
+    }
+
     @Test void closureRequiresLatestAcknowledgmentAndExplicitCsReview() {
         AppUser owner = owner(null), cs = staff(PlatformRole.CS); SupportDtos.Ticket t = claim(create(owner, null), cs);
         t = tickets.resolve(t.id(), new SupportDtos.Resolution("Đã hướng dẫn xử lý.", t.version())); Long id = t.id();

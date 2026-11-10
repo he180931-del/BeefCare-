@@ -59,7 +59,7 @@ function StaffContent() {
 
       {staff.loading && !staff.data && <LoadingBlock />}
       {staff.error != null && <ErrorBlock message={userFacingError(staff.error, 'Không tải được danh sách nhân sự nền tảng.')} onRetry={staff.refetch} />}
-      {staff.data && !staff.error && shown.length === 0 && <EmptyBlock title="Chưa có nhân sự nền tảng" sub={'Chọn "Cấp quyền nền tảng" để thêm CS, PM hoặc SA.'} />}
+      {staff.data && !staff.error && shown.length === 0 && <EmptyBlock title="Chưa có nhân sự nền tảng" sub={'Chọn "Cấp quyền nền tảng" để thêm nhân viên hỗ trợ, quản lý nền tảng hoặc quản trị hệ thống.'} />}
       {staff.data && !staff.error && shown.length > 0 && (
         <Card>
           <Table>
@@ -80,7 +80,7 @@ function StaffContent() {
           </Table>
         </Card>
       )}
-      <Foot>Hộp thoại cấp quyền nền tảng (SA). Chỉ cấp cho người đã đăng nhập Google ít nhất một lần; mỗi người tối đa một vai trò đang hoạt động. Không thu hồi được quyền SA cuối cùng. Quyền nền tảng không cho vào dữ liệu bất kỳ trang trại nào.</Foot>
+      <Foot>Hộp thoại cấp quyền nền tảng (quản trị hệ thống). Chỉ cấp cho người đã đăng nhập Google ít nhất một lần; mỗi người tối đa một vai trò đang hoạt động. Không thu hồi được quyền quản trị hệ thống cuối cùng. Quyền nền tảng không cho vào dữ liệu bất kỳ trang trại nào.</Foot>
 
       {m === 'access' && !accountId && <PickAccountDialog onClose={closeModal} />}
       {m === 'access' && accountId && target.data && (

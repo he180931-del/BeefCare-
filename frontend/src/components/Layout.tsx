@@ -39,15 +39,15 @@ const USERS = {
 const PLATFORM_PROFILE = '/nen-tang/ho-so'
 const PLATFORM: Partial<Record<AppRole, Shell>> = {
   CS: {
-    initials: 'PH', name: 'Phạm Thu Hà', role: 'Customer Support', gap: 'mt-[3px]', platformRole: 'Customer Support · CS',
-    search: 'Tìm ticket, trang trại, người dùng…', searchTo: '/nen-tang/ho-tro', notifications: '/nen-tang/ho-tro/thong-bao', profile: PLATFORM_PROFILE,
+    initials: 'PH', name: 'Phạm Thu Hà', role: 'Nhân viên hỗ trợ', gap: 'mt-[3px]', platformRole: 'Nhân viên hỗ trợ · CS',
+    search: 'Tìm yêu cầu hỗ trợ, trang trại, người dùng…', searchTo: '/nen-tang/ho-tro', notifications: '/nen-tang/ho-tro/thong-bao', profile: PLATFORM_PROFILE,
     groups: [
-      { label: 'HỖ TRỢ', items: [item('Hàng đợi hỗ trợ', '/nen-tang/ho-tro', 'inbox'), item('Ticket được giao', '/nen-tang/ho-tro/duoc-giao', 'ticket'), item('Thông báo hỗ trợ', '/nen-tang/ho-tro/thong-bao', 'bell')] },
+      { label: 'HỖ TRỢ', items: [item('Hàng đợi hỗ trợ', '/nen-tang/ho-tro', 'inbox'), item('Yêu cầu được giao', '/nen-tang/ho-tro/duoc-giao', 'ticket'), item('Thông báo hỗ trợ', '/nen-tang/ho-tro/thong-bao', 'bell')] },
       { label: 'TÀI KHOẢN', items: [item('Hồ sơ của tôi', PLATFORM_PROFILE, 'user-circle')] },
     ],
   },
   PM: {
-    initials: 'ĐQ', name: 'Đỗ Minh Quân', role: 'Platform Manager', gap: 'mt-[3px]', platformRole: 'Platform Manager · PM',
+    initials: 'ĐQ', name: 'Đỗ Minh Quân', role: 'Quản lý nền tảng', gap: 'mt-[3px]', platformRole: 'Quản lý nền tảng · PM',
     search: 'Tìm trại, chủ trại, mã đăng ký…', searchTo: '/nen-tang/dich-vu', notifications: '/nen-tang/thong-bao-doi-soat', profile: PLATFORM_PROFILE,
     groups: [
       { label: 'DỊCH VỤ', items: [item('Dịch vụ trang trại', '/nen-tang/dich-vu', 'building-community'), item('Gói đăng ký', '/nen-tang/goi-dang-ky', 'calendar-dollar'), item('Thanh toán & đối soát', '/nen-tang/thanh-toan', 'arrows-exchange'), item('Bảng giá gói', '/nen-tang/bang-gia', 'currency-dong'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
@@ -56,10 +56,10 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
     ],
   },
   SA: {
-    initials: 'VN', name: 'Vũ Hoàng Nam', role: 'System Admin', gap: 'mt-[3px]', platformRole: 'System Admin · SA',
+    initials: 'VN', name: 'Vũ Hoàng Nam', role: 'Quản trị hệ thống', gap: 'mt-[3px]', platformRole: 'Quản trị hệ thống · SA',
     search: 'Tìm tên, Gmail…', searchTo: '/nen-tang/tai-khoan', notifications: '/nen-tang/thong-bao', profile: PLATFORM_PROFILE,
     groups: [
-      { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Quyền nhân sự nền tảng', '/nen-tang/quyen', 'shield-lock'), item('Lịch sử audit', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
+      { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Quyền nhân sự nền tảng', '/nen-tang/quyen', 'shield-lock'), item('Lịch sử kiểm toán', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
       { label: 'KHÁC', items: [item('Thông báo', '/nen-tang/thong-bao', 'bell')] },
     ],
   },

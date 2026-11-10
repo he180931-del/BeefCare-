@@ -61,7 +61,7 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
           <Icon name="shield-lock" size={16} />
           Quyền nền tảng
         </Button>
-        <Note>SA không xem dữ liệu vận hành trại, nội dung ticket hay chứng từ tài chính – chỉ quản lý tài khoản và quyền nền tảng.</Note>
+        <Note>Quản trị hệ thống không xem dữ liệu vận hành trại, nội dung yêu cầu hỗ trợ hay chứng từ tài chính – chỉ quản lý tài khoản và quyền nền tảng.</Note>
       </div>
       {(m === 'suspend' || m === 'restore') && (
         <AccountStatusDialog

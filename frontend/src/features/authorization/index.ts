@@ -1,4 +1,5 @@
 export { AuthGate } from './AuthGate'
 export { HomeRedirect, RoleGate } from './RoleGate'
-export { SessionProvider, sessionFromProfile } from './SessionProvider'
+export { OWNER_REGISTRATION_COMPLETED_EVENT, SessionProvider, isStaleFarmSelection, sessionFromProfile } from './SessionProvider'
+export { markOwnerRegistrationCompleted } from './sessionContext'
 export { homePathFor, isFarmRole, useSession, type AppRole, type FarmRole, type PlatformRole, type Session, type SessionUser } from './sessionContext'

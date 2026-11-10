@@ -1,14 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../../../src/components/Layout'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
-import { HomeRedirect, RoleGate, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
+import { HomeRedirect, RoleGate, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/api/currentFarm'
+
+afterEach(() => clearCurrentFarmId())
 
 const sessionFor = (role: AppRole): Session => ({
-  role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại thử nghiệm', logout: async () => undefined,
+  role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại thử nghiệm',
+  ownerRegistrationCompleted: true, platformRole: null, activeFarmCount: 1, logout: async () => undefined,
 })
 
 const withSession = (role: AppRole, path: string, element: React.ReactElement) => render(
@@ -21,12 +25,22 @@ const withSession = (role: AppRole, path: string, element: React.ReactElement) =
         <Route path="/nen-tang/ho-tro" element={<div>Trang CS</div>} />
         <Route path="/nen-tang/dich-vu" element={<div>Trang PM</div>} />
         <Route path="/nen-tang/tai-khoan" element={<div>Trang SA</div>} />
+        <Route path="/owner-registration" element={<div>Hoàn tất Owner</div>} />
+        <Route path="/chon-trai" element={<div>Chọn trại</div>} />
       </Routes>
     </MemoryRouter>
   </SessionContext.Provider>,
 )
 
 describe('session from the backend profile', () => {
+  it('keeps the server account id for authorization checks', () => {
+    expect(sessionFromProfile({ id: 47, fullName: 'CS thật', email: 'cs@x', platformRole: 'CS', farms: [] })).toMatchObject({ id: 47, role: 'CS' })
+  })
+
+  it('marks the in-memory session complete after owner registration succeeds', () => {
+    expect(markOwnerRegistrationCompleted({ ...sessionFor('OWNER'), ownerRegistrationCompleted: false })).toMatchObject({ ownerRegistrationCompleted: true })
+  })
+
   it('prefers the platform role over any farm role', () => {
     const session = sessionFromProfile({ fullName: 'Đỗ Minh Quân', email: 'pm@x', platformRole: 'PM', farms: [{ farmId: 9, farmName: 'A', role: 'OWNER' }] })
     expect(session.role).toBe('PM')
@@ -37,22 +51,65 @@ describe('session from the backend profile', () => {
     expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 1, farmName: 'Trại A' })
   })
 
+  it('uses the farm selected on this device when the account has several farms', () => {
+    writeCurrentFarmId(9)
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+    ] })
+    expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 9, farmName: 'Trại B', activeFarmCount: 2 })
+  })
+
   it('treats an account with no farm as an owner still onboarding', () => {
     expect(sessionFromProfile({ fullName: 'Mới', email: 'n@x', platformRole: null, farms: [] })).toMatchObject({ role: 'OWNER', farmId: null, farmName: null })
+  })
+
+  it('keeps owner completion and active-farm facts from the server profile', () => {
+    const session = sessionFromProfile({ fullName: 'Mới', email: 'moi@x', ownerRegistrationCompleted: false, platformRole: null, farms: [{ farmId: 8, farmName: 'Chờ thanh toán', role: 'OWNER', serviceStatus: 'PENDING_PAYMENT' }] })
+    expect(session).toMatchObject({ ownerRegistrationCompleted: false, activeFarmCount: 0 })
   })
 })
 
 describe('role navigation', () => {
   it.each([
-    ['OWNER', 'Trang chủ trại'],
-    ['MANAGER', 'Trang chủ trại'],
-    ['TECHNICIAN', 'Trang kỹ thuật viên'],
+    ['OWNER', 'Chọn trại'],
+    ['MANAGER', 'Chọn trại'],
+    ['TECHNICIAN', 'Chọn trại'],
     ['CS', 'Trang CS'],
     ['PM', 'Trang PM'],
     ['SA', 'Trang SA'],
-  ] as const)('sends %s to its own home from /', (role, text) => {
+  ] as const)('sends %s through its correct landing route from /', (role, text) => {
     withSession(role, '/', <div>Trang chủ trại</div>)
     expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['OWNER', 'Trang chủ trại'],
+    ['MANAGER', 'Trang chủ trại'],
+    ['TECHNICIAN', 'Trang kỹ thuật viên'],
+  ] as const)('opens the selected farm home for %s', (role, text) => {
+    writeCurrentFarmId(1)
+    withSession(role, '/', <div>Trang chủ trại</div>)
+    expect(screen.getByText(text)).toBeInTheDocument()
+  })
+
+  it('sends an incomplete owner to owner registration before every role destination', () => {
+    const session = { ...sessionFor('PM'), ownerRegistrationCompleted: false }
+    render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/']}><Routes><Route path="/" element={<HomeRedirect />} /><Route path="/owner-registration" element={<div>Hoàn tất Owner</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
+    expect(screen.getByText('Hoàn tất Owner')).toBeInTheDocument()
+  })
+
+  it('keeps an incomplete owner out of a directly requested farm screen', () => {
+    const session = { ...sessionFor('OWNER'), ownerRegistrationCompleted: false }
+    render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/tong-quan']}><Routes><Route path="/tong-quan" element={<RoleGate allow={['OWNER', 'MANAGER']}><div>Bí mật</div></RoleGate>} /><Route path="/owner-registration" element={<div>Hoàn tất Owner</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
+    expect(screen.queryByText('Bí mật')).not.toBeInTheDocument()
+    expect(screen.getByText('Hoàn tất Owner')).toBeInTheDocument()
+  })
+
+  it('opens farm selection when there is not exactly one active farm', () => {
+    const session = { ...sessionFor('OWNER'), activeFarmCount: 2 }
+    render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/']}><Routes><Route path="/" element={<HomeRedirect />} /><Route path="/chon-trai" element={<div>Chọn trại</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
+    expect(screen.getByText('Chọn trại')).toBeInTheDocument()
   })
 
   it.each([
@@ -88,9 +145,15 @@ describe('shell menu by role', () => {
   it('gives platform roles their own menu without a farm selector', () => {
     shell('PM')
     expect(screen.getByRole('link', { name: 'Bảng giá gói' })).toBeInTheDocument()
-    expect(screen.getByText('Platform Manager · PM')).toBeInTheDocument()
+    expect(screen.getByText('Quản lý nền tảng · PM')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Đàn bò' })).not.toBeInTheDocument()
     expect(screen.queryByText('Trại thử nghiệm')).not.toBeInTheDocument()
+  })
+
+  it('shows the CS role in Vietnamese', () => {
+    shell('CS')
+    expect(screen.getByText('Nhân viên hỗ trợ · CS')).toBeInTheDocument()
+    expect(screen.getByText('Nhân viên hỗ trợ')).toBeInTheDocument()
   })
 
   it('takes the display name and initials from the session', () => {

@@ -22,11 +22,15 @@ public class CsSupportResource {
     @GetMapping("/tickets")
     public SupportDtos.Page queue(@RequestParam(required=false) String q, @RequestParam(required=false) String category,
         @RequestParam(required=false) String tab, @RequestParam(required=false) Instant from, @RequestParam(required=false) Instant to,
-        @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="25") int size, @RequestParam(required=false) Long farmId,
+        @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="50") int size, @RequestParam(required=false) Long farmId,
         @RequestParam(required=false) String priority, @RequestParam(required=false) String assignment) {
         return support.queue(q, category, tab, from, to, page, size, farmId, priority, assignment);
     }
     @GetMapping("/tickets/{id}") public SupportDtos.Ticket get(@PathVariable Long id) { return support.get(id, true); }
+    @GetMapping("/tickets/{id}/messages") public SupportDtos.MessagePage messages(@PathVariable Long id,
+        @RequestParam(required=false) Long beforeId, @RequestParam(defaultValue="20") int size) {
+        return support.messages(id, beforeId, size, true);
+    }
     @GetMapping("/recipients") public List<Map<String,Object>> recipients(@RequestParam PlatformRole role) { return internal.recipients(role); }
     @PostMapping("/tickets/{id}/processing") public SupportDtos.Ticket process(@PathVariable Long id, @Valid @RequestBody SupportDtos.Processing r, @RequestHeader("Idempotency-Key") String key) {
         if ("CLAIM".equals(r.action())) {

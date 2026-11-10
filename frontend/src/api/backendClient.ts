@@ -31,11 +31,11 @@ export class BackendError extends Error {
   }
 }
 
-type ClientOptions = { baseUrl?: string; fetchImpl?: typeof fetch; newKey?: () => string }
+type ClientOptions = { baseUrl?: string; fetchImpl?: typeof fetch; newKey?: () => string; onUnauthorized?: () => void }
 type RequestOptions = { method?: string; body?: unknown; key?: string; signal?: AbortSignal; headers?: Record<string, string> }
 type CsrfBody = { token: string; headerName?: string }
 
-export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch, newKey = () => globalThis.crypto.randomUUID() }: ClientOptions = {}) {
+export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch, newKey = () => globalThis.crypto.randomUUID(), onUnauthorized }: ClientOptions = {}) {
   let csrfToken: string | undefined
   let csrfHeader = 'X-XSRF-TOKEN'
   const pathUrl = (path: string): string => {
@@ -72,6 +72,7 @@ export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch
       body: body === undefined ? undefined : multipart ? body : JSON.stringify(body), signal,
     })
     const result = await responseBody(response)
+    if (response.status === 401) onUnauthorized?.()
     if (!response.ok) throw new BackendError(response.status, result)
     return result as T
   }
@@ -86,8 +87,13 @@ export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch
       await getCsrf()
     },
     async logout() {
-      await request('/api/logout', { method: 'POST' })
-      csrfToken = undefined
+      try {
+        await request('/api/logout', { method: 'POST' })
+      } catch (error) {
+        if (!(error instanceof BackendError && error.status === 401)) throw error
+      } finally {
+        csrfToken = undefined
+      }
     },
     async isAuthenticated() {
       try {

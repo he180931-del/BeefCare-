@@ -51,11 +51,15 @@ const specificBackendMessage = (error: unknown): string | null => {
   if (code === 'MSG-FE04-05') return `Chuồng ${params.pen_code ?? ''} không đủ chỗ nhận ${params.count ?? ''} con (còn ${params.free ?? 0} chỗ).`
   if (code === 'MSG-FE04-02') return `Mã chuồng ${params.pen_code ?? ''} đã tồn tại trong trại này.`
   if (code === 'MSG-FE04-03') return `Sức chứa phải là số nguyên tối thiểu ${params.min_capacity ?? 1}.`
-  if (code === 'MSG-COM-05') return 'Thông tin chuồng đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
+  if (code === 'MSG-COM-05') return 'Dữ liệu đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
   if (code === 'MSG-FE04-06') return `Chuồng ${params.pen_code ?? ''} chưa phù hợp với tiêu chí: ${params.criteria ?? 'vui lòng kiểm tra lại thông tin'}.`
   if (code === 'MSG-FE05-12') return 'Mục đích nuôi và giới tính không phù hợp. Vỗ béo/SIRE cần bò đực; BREEDING cần bò cái.'
   if (code === 'MSG-FE06-03') return 'Ngày nhập không được ở tương lai hoặc trước ngày sinh.'
   if (code === 'MSG-FE06-13') return `Số tiền thanh toán không được vượt quá ${params.amount ?? 0} đ.`
+  if (code === 'MSG-FE21-08') return 'Giao dịch ngân hàng này đã được ghi nhận ở một khoản khác. Hãy chọn chứng từ khác.'
+  if (code === 'MSG-FE21-09') return 'Số tiền phải là số nguyên VND lớn hơn 0.'
+  if (code === 'MSG-FE21-10') return `Danh mục ${params.category ?? ''} không dùng được cho ${params.type === 'INCOME' ? 'Thu' : 'Chi'}.`
+  if (code === 'MSG-FE21-12') return 'Kết quả báo cáo đã hết hạn. Hãy chạy lại báo cáo.'
   const fields = [
     ...(body.fieldErrors ?? []),
     ...(body.violations ?? []).map((item) => ({ field: item.field ?? item.propertyPath, message: item.message })),
@@ -77,7 +81,7 @@ export function userFacingError(error: unknown, fallback = 'Không thể hoàn t
   if ((status >= 500 && status <= 599) || /error\.http\.5\d\d|server error|internal server/.test(normalized)) return 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau ít phút.'
   if (/failed to fetch|networkerror|network error|network request|\bload failed|connection refused|err_connection|cors|error\.network/.test(normalized)) return 'Không thể kết nối máy chủ. Vui lòng kiểm tra máy chủ và kết nối mạng rồi thử lại.'
   if (status === 400 || status === 409 || status === 422 || error instanceof BackendError && (error.fieldErrors.length > 0 || error.violations.length > 0) || /error\.validation|validation failed/.test(normalized)) {
-    return specificBackendMessage(error) ?? 'Không thể lưu chuồng. Vui lòng kiểm tra lại mã, tên, sức chứa và tiêu chí tiếp nhận.'
+    return specificBackendMessage(error) ?? 'Không thể lưu dữ liệu. Vui lòng kiểm tra lại thông tin.'
   }
   if (/error\.http\.\d+|^http\s*\d+$/i.test(normalized)) return fallback
   if (message && !/^unknown error$/i.test(message)) return message

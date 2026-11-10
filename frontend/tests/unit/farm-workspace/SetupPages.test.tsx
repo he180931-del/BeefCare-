@@ -16,7 +16,7 @@ const sessions: Record<string, Session> = {
 }
 const renderAt = (who: string, path: string, route: string, element: JSX.Element) => render(
   <SessionContext.Provider value={sessions[who]}>
-    <MemoryRouter initialEntries={[path]}><Routes><Route path={route} element={element} /><Route path="/goi-dich-vu" element={<p>Trang gói dịch vụ</p>} /></Routes></MemoryRouter>
+    <MemoryRouter initialEntries={[path]}><Routes><Route path={route} element={element} /><Route path="/dang-ky-goi" element={<p>Trang gói dịch vụ</p>} /><Route path="/tong-quan" element={<p>Trang chủ trại</p>} /></Routes></MemoryRouter>
   </SessionContext.Provider>,
 )
 
@@ -27,9 +27,9 @@ describe('Select Farm', () => {
     expect(screen.getByText('4 trang trại bạn có quyền truy cập')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Vào trại' })).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Thanh toán để kích hoạt' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Gửi Ticket' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Gửi phiếu hỗ trợ' })).toBeEnabled()
     expect(screen.getByText('Đến 14/11/2026')).toBeInTheDocument()
-    expect(screen.getByText('Gói do chủ trại quản lý')).toBeInTheDocument()
+    expect(screen.getAllByText('Chưa có kỳ dịch vụ').length).toBeGreaterThan(0)
   })
 
   it('shows the empty and error states from ?demo=', async () => {
@@ -46,40 +46,39 @@ describe('Register Farm', () => {
   it('validates the required fields, then creates the farm and opens plan selection', async () => {
     const user = userEvent.setup()
     renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
-    await user.click(await screen.findByRole('button', { name: /Tạo trang trại và tiếp tục/ }))
+    await user.click(await screen.findByRole('button', { name: /Tạo trại và tiếp tục/ }))
     expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
-    expect(screen.getByText('Chọn quy mô đàn dự kiến.')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Tên trại *'), 'Trại Thung Mây')
     await user.selectOptions(screen.getByLabelText('Tỉnh/Thành *'), 'Phú Thọ')
     await user.type(screen.getByLabelText('Xã/Phường *'), 'Xã Minh Đài')
-    await user.selectOptions(screen.getByLabelText('Quy mô dự kiến *'), '150_300')
-    await user.click(screen.getByRole('button', { name: /Tạo trang trại và tiếp tục/ }))
+    await user.selectOptions(screen.getByLabelText('Quy mô dự kiến'), '150_300')
+    await user.click(screen.getByRole('button', { name: /Tạo trại và tiếp tục/ }))
     expect(await screen.findByText('Trang gói dịch vụ')).toBeInTheDocument()
   })
 })
 
 describe('Accept Invitation', () => {
   it('hides the farm details when the signed-in email differs from the invited one', async () => {
-    renderAt('owner', '/chap-nhan-loi-moi?token=mock-invitation-token', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    renderAt('owner', '/invitation/accept?token=mock-invitation-token', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText(/được gửi tới thư điện tử khác/)).toBeInTheDocument()
     expect(screen.queryByText('Trang trại')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Chấp nhận & vào trại' })).toBeDisabled()
   })
 
   it('shows the expired state for an expired or unknown link', async () => {
-    const expired = renderAt('technician', '/chap-nhan-loi-moi?token=mock-invitation-expired', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    const expired = renderAt('technician', '/invitation/accept?token=mock-invitation-expired', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Lời mời không còn hiệu lực')).toBeInTheDocument()
     expect(screen.getByText('Đã hết hạn')).toBeInTheDocument()
     expect(screen.getByText('24/10/2026 08:10')).toBeInTheDocument()
     expired.unmount()
-    renderAt('technician', '/chap-nhan-loi-moi', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    renderAt('technician', '/invitation/accept', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Liên kết không hợp lệ')).toBeInTheDocument()
   })
 
   it('accepts the invitation with the matching email', async () => {
     const user = userEvent.setup()
-    renderAt('technician', '/chap-nhan-loi-moi?token=mock-invitation-token', '/chap-nhan-loi-moi', <AcceptInvitationPage />)
+    renderAt('technician', '/invitation/accept?token=mock-invitation-token', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Chờ bạn chấp nhận')).toBeInTheDocument()
     expect(screen.getByText('Xem hồ sơ bò qua quét QR hoặc danh sách')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Chấp nhận & vào trại' }))
@@ -98,13 +97,12 @@ describe('Farm Information', () => {
     expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
     await user.type(name, 'Trại bò Yên Bài – Ba Vì')
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
-    expect(await screen.findByText('Thông tin trang trại đã được cập nhật.')).toBeInTheDocument()
+    expect(await screen.findByText('Đã cập nhật thông tin trại.')).toBeInTheDocument()
   })
 
-  it('is read-only for a Manager', async () => {
+  it('redirects a Manager away from the Owner-only farm information page', async () => {
     renderAt('manager', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
-    expect(await screen.findByText(/chỉ dành cho Chủ trại/)).toBeInTheDocument()
-    expect(screen.getByLabelText('Tên trại *')).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled()
+    expect(await screen.findByText('Trang chủ trại')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Tên trại *')).not.toBeInTheDocument()
   })
 })

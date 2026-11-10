@@ -183,7 +183,7 @@ E1 đã đổi người / hủy → MSG-FE20-19, mất quyền · E2 thiếu →
 | # | Trường | Loại | Nội dung / Lỗi |
 |---|---|---|---|
 | 1 | Header | Chỉ đọc | Mã · tiêu đề; nhóm · trại · ngày tạo; huy hiệu trạng thái |
-| 2 | Messages / Hội thoại | Danh sách | Chỉ PUBLIC: người viết ("bạn" / tên CS), thời điểm, nội dung |
+| 2 | Messages / Hội thoại | Danh sách phân trang | Chỉ PUBLIC: người viết ("bạn" / tên CS), thời điểm, nội dung; tải 20 tin mới nhất, "Xem trao đổi trước" tải thêm 20 tin bằng con trỏ; vùng hội thoại cuộn riêng |
 | 3 | Resolution card / Kết quả giải quyết | Thẻ | Phiên bản, CS, thời điểm, nội dung của kết quả mới nhất |
 | 4 | Confirm resolved / Xác nhận đã giải quyết | Nút (RESOLVED) | MSG-FE20-03; phiên bản mới MSG-FE20-05 |
 | 5 | Reopen with reason / Mở lại kèm lý do | Nút (RESOLVED) | Hộp thoại Lý do * (≤ 1.000); MSG-FE20-04 |
@@ -211,7 +211,7 @@ E1 đã đổi người / hủy → MSG-FE20-19, mất quyền · E2 thiếu →
 | 2 | Hand over / Bàn giao | Hộp thoại | * CS khả dụng, * Lý do | MSG-FE20-08 |
 | 3 | Record resolution / Ghi kết quả | Hộp thoại | * Nội dung ≤ 3.000 | Tắt khi có yêu cầu OPEN (MSG-FE20-12); MSG-FE20-11 |
 | 4 | Close ticket / Đóng ticket | Nút (RESOLVED) | — | Popup Đóng ticket |
-| 5 | Tabs | Tab | — | Hội thoại công khai, Ghi chú nội bộ CS, Lịch sử |
+| 5 | Tabs | Tab | — | Hội thoại công khai, Ghi chú nội bộ CS, Lịch sử; tải 20 tin mới nhất, "Xem trao đổi trước" tải thêm 20 tin bằng con trỏ; vùng hội thoại cuộn riêng |
 | 6 | Public reply / Trả lời công khai | Ô chữ dài | — | ≤ 3.000; MSG-FE20-02 |
 | 7 | Internal note / Ghi chú nội bộ | Ô chữ dài | — | ≤ 3.000; MSG-FE20-10; chỉ CS thấy |
 | 8 | Status / Trạng thái | Huy hiệu + nút | — | "Hỏi khách" (→ WAITING_CUSTOMER), "Trả về hàng đợi" (lý do *); MSG-FE20-20 |
@@ -256,12 +256,14 @@ E1 đã đổi người / hủy → MSG-FE20-19, mất quyền · E2 thiếu →
 |---|---|---|---|---|---|
 | A1 | Owner: danh sách | `q, category, tab, from, to, page, size` | `Page {counts{tab}, items[{code, subject, category, farm, status, awaitingAck, updatedAt}]}` | COM-11 | `GET /api/support/tickets` |
 | A2 | Owner: tạo | `Create {category, scope, farmId?, subject, description}` + `Idempotency-Key` | `Ticket` | COM-06, COM-01, COM-10, COM-02 | `POST /api/support/tickets` |
-| A3 | Owner: chi tiết | — | `Ticket {…, messages[PUBLIC], latestResolution{version, by, at, text}, acknowledged, history[], version}` | COM-08 | `GET /api/support/tickets/{id}` |
+| A3 | Owner: chi tiết | — | `Ticket {…, messages[PUBLIC] (20 mới nhất), messagesBeforeId, messagesHasMore, latestResolution{version, by, at, text}, acknowledged, history[], version}` | COM-08 | `GET /api/support/tickets/{id}` |
+| A3a | Owner: hội thoại cũ | `beforeId, size` (1–100; mặc định 20) | `MessagePage {items[PUBLIC], nextBeforeId, hasMore}` | COM-08, COM-10 | `GET /api/support/tickets/{id}/messages` |
 | A4 | Owner: trả lời | `Reply {content, version}` + `Idempotency-Key` | `Ticket` | FE20-06, COM-06 | `POST /api/support/tickets/{id}/replies` |
 | A5 | Owner: xác nhận | `Acknowledge {resolutionVersion, comment?}` + `Idempotency-Key` | `Ticket` | FE20-05, COM-05 | `POST /api/support/tickets/{id}/acknowledgments` |
 | A6 | Owner: mở lại | `Reopen {reason, resolutionVersion, version}` + `Idempotency-Key` | `Ticket` | COM-06, FE20-06, COM-05 | `POST /api/support/tickets/{id}/reopen` |
 | A7 | CS: hàng đợi | `q, category, tab, from, to, page, size, farmId, priority, assignee` | `Page {tiles, items[], needsAttention[]}` | — | `GET /api/platform/support/tickets` |
-| A8 | CS: chi tiết | — | `Ticket` + `notes[CS_ONLY]` + `internalRequests[]` | — | `GET /api/platform/support/tickets/{id}` |
+| A8 | CS: chi tiết | — | `Ticket` + 20 `messages` mới nhất (PUBLIC + CS_ONLY) + `messagesBeforeId`, `messagesHasMore` + `internalRequests[]` | — | `GET /api/platform/support/tickets/{id}` |
+| A8a | CS: hội thoại cũ | `beforeId, size` (1–100; mặc định 20) | `MessagePage {items[PUBLIC + CS_ONLY], nextBeforeId, hasMore}` | COM-08, COM-10 | `GET /api/platform/support/tickets/{id}/messages` |
 | A9 | CS: nhận / bàn giao / hỏi khách / trả về / đổi nhóm, ưu tiên | `Processing {action: CLAIM \| HANDOVER \| ASK_CUSTOMER \| RELEASE \| CLASSIFY, toCsId?, reason?, category?, priority?, version}` + `Idempotency-Key` | `Ticket` | COM-05, FE20-09, COM-06, FE20-06 | `POST /api/platform/support/tickets/{id}/processing` |
 | A10 | CS: trả lời / ghi chú | `Reply {content}` + `Idempotency-Key` | `Ticket` | FE20-09, COM-06 | `POST …/{id}/replies` · `POST …/{id}/internal-notes` |
 | A11 | CS: ghi kết quả | `Resolution {text, version}` + `Idempotency-Key` | `Ticket` | FE20-12, COM-06, FE20-09, COM-05 | `POST …/{id}/resolutions` |
@@ -334,6 +336,7 @@ E1 đã đổi người / hủy → MSG-FE20-19, mất quyền · E2 thiếu →
 | TC-20-26 | RESOLVED nhiều ngày, Owner không phản hồi | — | **Không** tự đóng | I | R-20-09 |
 | TC-20-27 | CLOSED | Owner trả lời / mở lại | MSG-FE20-06 | I | R-20-04 |
 | TC-20-28 | Gửi lại cùng Idempotency-Key khi tạo ticket | — | 1 ticket | I | R-20-12 |
+| TC-20-29 | Ticket có 25 tin PUBLIC và ghi chú CS_ONLY | Owner / CS mở chi tiết rồi tải trang trước | Chi tiết có 20 tin mới nhất; Owner chỉ nhận PUBLIC; CS nhận cả PUBLIC + CS_ONLY; trang trước không trùng / không mất tin | U, I, H | SCR-66, SCR-68, R-20-10 |
 
 ---
 
@@ -355,3 +358,4 @@ E1 đã đổi người / hủy → MSG-FE20-19, mất quyền · E2 thiếu →
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho LamKD duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 09/11/2026 | 28/10/2026 | Bổ sung phân trang hội thoại chi tiết Owner/CS theo con trỏ, 20 tin mỗi lượt và vùng cuộn riêng để trang không kéo dài vô hạn | Codex |

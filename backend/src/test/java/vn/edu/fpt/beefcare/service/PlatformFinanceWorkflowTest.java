@@ -283,10 +283,12 @@ class PlatformFinanceWorkflowTest extends DomainTestSupport {
         pm();
         BankTransferEvidence transfer = bankTransfer(1, "IN", 750_000, null);
         assertThat(finance.bankTransactions()).extracting(BankTransactionChoice::transactionId).contains(transfer.getProviderTxnId());
+        assertThat(finance.bankTransactions()).extracting(BankTransactionChoice::evidenceId).contains(transfer.getId());
 
         RecordDTO first = createFromBank(transfer, "INCOME", "OTHER_INCOME");
         assertThat(first.sourceType()).isEqualTo("BANK_TRANSACTION"); assertThat(first.amountVnd()).isEqualByComparingTo("750000");
         assertThat(first.sourceReference()).isEqualTo(PlatformFinanceService.sourceReference(transfer));
+        assertThat(first.sourceEvidenceId()).isEqualTo(transfer.getId());
         assertThat(claims.existsById(first.sourceReference())).isTrue();
         assertThat(finance.bankTransactions()).extracting(BankTransactionChoice::transactionId).doesNotContain(transfer.getProviderTxnId());
 

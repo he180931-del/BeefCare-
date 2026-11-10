@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
 import Layout from '../../../components/Layout'
 import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
 import { useDemoState } from '../../../hooks/useDemoState'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { useIsPhone, useTick } from '../components/shared'
@@ -11,8 +9,8 @@ import { useStateDialog } from '../components/StateDialog'
 import { PhoneTransfer, ProgressCard, QrCard, TransferInfoCard } from '../components/TransferParts'
 import { useFarmScope } from '../components/useFarmScope'
 import { fmtPeriod, fmtTimeDate, fmtVnd, stateFromError, termLabel, toMs } from '../domain/subscriptionRules'
-import type { Payment } from '../types'
 import { useOverview } from './useOverview'
+import { usePaymentStatus } from './usePaymentStatus'
 
 const TITLE = 'Hướng dẫn chuyển khoản'
 
@@ -24,12 +22,13 @@ export default function TransferPage() {
   const demo = useDemoState()
   const phone = useIsPhone()
   useTick() // bộ đếm ngược chạy theo đồng hồ của store
-  const payment = useQuery(() => subscriptionApi.getPayment(farmId, id), [farmId, id])
+  const payment = usePaymentStatus(farmId, id, demo === 'bank-paid' || demo === 'result-unavailable' ? demo : undefined)
   const overview = useOverview(farmId)
-  const [latest, setLatest] = useState<Payment | null>(null)
-  const [checking, setChecking] = useState(false)
-  const [notice, setNotice] = useState('')
-  const current = latest ?? payment.data ?? null
+  const now = subscriptionApi.now()
+  const loaded = payment.payment
+  const current = loaded?.state === 'PENDING' && now >= toMs(loaded.expiresAt) ? { ...loaded, state: 'EXPIRED' as const } : loaded
+  const checking = payment.checking
+  const notice = payment.notice
   const from = params.get('from')
   const expired = current?.state === 'EXPIRED'
   const dialog = useStateDialog({
@@ -37,33 +36,24 @@ export default function TransferPage() {
     forced: expired && current ? { kind: 'expired', payment: current } : null,
     onDismiss: expired ? () => navigate(to('/goi-dich-vu/lich-su')) : undefined,
   })
-  const now = subscriptionApi.now()
-  const clockExpired = current?.state === 'PENDING' && now >= toMs(current.expiresAt)
-
-  useEffect(() => { setLatest(null); setNotice('') }, [farmId, id])
-  // Hết giờ đếm ngược thì hỏi lại trạng thái một lần để chuyển sang EXPIRED
-  useEffect(() => { if (clockExpired) void check() }, [clockExpired]) // eslint-disable-line react-hooks/exhaustive-deps
-
   async function check() {
-    setChecking(true)
-    setNotice('')
     try {
-      setLatest(await subscriptionApi.refreshPayment(farmId, id, demo === 'bank-paid' || demo === 'result-unavailable' ? demo : undefined))
+      await payment.refresh()
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)
-      else setNotice(userFacingError(e, 'Không kiểm tra được trạng thái. Vui lòng thử lại.'))
-    } finally {
-      setChecking(false)
     }
   }
 
   if (payment.loading && !current) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (!current) return <Layout title={TITLE}><ErrorBlock message={userFacingError(payment.error, 'Không tìm thấy yêu cầu thanh toán.')} onRetry={payment.refetch} /></Layout>
+  if (!current) return <Layout title={TITLE}><ErrorBlock message={userFacingError(payment.error, 'Không tìm thấy yêu cầu thanh toán.')} onRetry={() => void payment.refresh().catch(() => {})} /></Layout>
 
   const closeTo = from === 'lich-su' ? to('/goi-dich-vu/lich-su') : from === 'onboarding' ? '/chon-trai' : to('/goi-dich-vu')
   const close = () => navigate(closeTo)
-  const farmName = overview.data?.farmName ?? ''
+  const farmOverview = overview.data?.farmId === farmId ? overview.data : null
+  const farmName = farmOverview?.farmName ?? ''
+  const firstPurchase = farmOverview != null && farmOverview.periods.every((p) => p.paymentCode === current.quoteRef
+    || current.purchasedStart != null && toMs(p.start) > toMs(current.purchasedStart))
   const paid = current.state === 'PAID'
   const pending = current.state === 'PENDING'
 
@@ -81,7 +71,7 @@ export default function TransferPage() {
           <Note tone="ok">
             <span className="flex flex-wrap items-center justify-between gap-2">
               <span>Thanh toán {current.quoteRef} đã được xác nhận. Kỳ dịch vụ {current.purchasedStart && current.purchasedEnd ? fmtPeriod(current.purchasedStart, current.purchasedEnd) : '—'}.</span>
-              {from === 'onboarding'
+              {firstPurchase
                 ? <Button variant="primary" size="sm" onClick={() => navigate('/tong-quan')}>Vào trại</Button>
                 : <Button variant="primary" size="sm" onClick={() => navigate(to('/goi-dich-vu'))}>Về gói dịch vụ</Button>}
             </span>

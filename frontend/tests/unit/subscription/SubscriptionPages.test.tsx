@@ -116,6 +116,26 @@ describe('Chọn thời hạn và tạo yêu cầu', () => {
   })
 })
 
+describe('Mở từ màn chọn trại (UC-FE02-02 AF1, MSG-FE02-03)', () => {
+  const banner = 'Trại Tản Lĩnh đang ở trạng thái Chờ thanh toán. Chỉ dùng được thông tin trại, gói dịch vụ và hỗ trợ.'
+
+  it('chọn thời hạn lần đầu hiện banner trạng thái khi Owner mở trại chưa hoạt động từ màn chọn trại', async () => {
+    renderAt('/dang-ky-goi?farm=2&from=chon-trai', 'OWNER')
+    expect(await screen.findByText(banner)).toBeInTheDocument()
+  })
+
+  it('luồng đăng ký trại mới không hiện banner', async () => {
+    renderAt('/dang-ky-goi?farm=2', 'OWNER')
+    expect(await screen.findByText('Đăng ký gói dịch vụ · Trại Tản Lĩnh')).toBeInTheDocument()
+    expect(screen.queryByText(banner)).not.toBeInTheDocument()
+  })
+
+  it('trang gia hạn cũng hiện banner khi mở từ màn chọn trại', async () => {
+    renderAt('/goi-dich-vu/gia-han?farm=2&from=chon-trai', 'OWNER')
+    expect(await screen.findByText(banner)).toBeInTheDocument()
+  })
+})
+
 describe('Hướng dẫn chuyển khoản', () => {
   it('hiện bộ đếm ngược, tiến trình và thông tin chuyển khoản của yêu cầu đang chờ', async () => {
     renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9', 'OWNER')
@@ -161,14 +181,14 @@ describe('Lịch sử thanh toán', () => {
     await user.type(screen.getByLabelText('Tìm mã thanh toán'), 'a9x')
     await waitFor(() => expect(screen.queryByText('BC77QK30')).not.toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'Xem BCA9X2M1' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Chi tiết thanh toán' })
+    const dialog = await screen.findByRole('region', { name: 'Chi tiết thanh toán' })
     expect(within(dialog).getByText('10/11/2025 09:15:40')).toBeInTheDocument()
     expect(within(dialog).getByText('15/11/2025 → 14/11/2026')).toBeInTheDocument()
     await user.click(within(dialog).getAllByRole('button', { name: 'Đóng' }).at(-1)!)
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Chi tiết thanh toán' })).not.toBeInTheDocument())
   })
 
-  it('yêu cầu đang chờ mở lại hướng dẫn; yêu cầu hết hạn hiện hộp thoại', async () => {
+  it('yêu cầu đang chờ mở lại hướng dẫn', async () => {
     const user = userEvent.setup()
     renderAt('/goi-dich-vu/lich-su', 'OWNER')
     await user.click(await screen.findByRole('button', { name: 'Mở lại' }))
@@ -177,8 +197,9 @@ describe('Lịch sử thanh toán', () => {
 
   it('xem yêu cầu đã hết hạn từ lịch sử', async () => {
     renderAt('/goi-dich-vu/lich-su/BCE3P8L2', 'OWNER')
-    expect(await screen.findByRole('dialog', { name: 'Yêu cầu đã hết hạn' })).toBeInTheDocument()
-    expect(screen.getByText('v3 · 2 năm · 2.160.000 đ')).toBeInTheDocument()
+    const detail = await screen.findByRole('region', { name: 'Chi tiết thanh toán' })
+    expect(within(detail).getByText('BCE3P8L2')).toBeInTheDocument()
+    expect(within(detail).getByText('2.160.000 đ')).toBeInTheDocument()
   })
 
   it('trại chưa có thanh toán: trạng thái rỗng dẫn về gói của trại', async () => {

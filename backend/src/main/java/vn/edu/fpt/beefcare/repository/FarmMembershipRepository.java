@@ -13,6 +13,7 @@ import vn.edu.fpt.beefcare.domain.FarmMembership;
 @Repository
 public interface FarmMembershipRepository extends JpaRepository<FarmMembership, Long> {
     Optional<FarmMembership> findFirstByFarmIdAndUserIdAndStatusIgnoreCase(Long farmId, Long userId, String status);
+    boolean existsByUserIdAndRoleIgnoreCaseAndStatusIgnoreCase(Long userId, String role, String status);
     Optional<FarmMembership> findFirstByFarmIdAndUserId(Long farmId, Long userId);
     List<FarmMembership> findByFarmIdOrderById(Long farmId);
     List<FarmMembership> findByFarm_IdAndStatusIgnoreCase(Long farmId,String status);

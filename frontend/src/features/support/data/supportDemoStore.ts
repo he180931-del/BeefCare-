@@ -44,6 +44,21 @@ export function createSupportDemoStore(seed: SupportSeed = SUPPORT_SEED, options
     t.updatedAt = at
     t.version += 1
   }
+  const messageId = (message: Ticket['messages'][number], index: number) => message.id ?? (Number(message.code.replace(/\D/g, '')) || index + 1)
+  const messagePage = (t: Ticket, beforeId: number | null, size: number) => {
+    const eligible = t.messages.filter((message, index) => beforeId == null || messageId(message, index) < beforeId)
+    const rows = eligible.slice(-size)
+    const hasMore = eligible.length > rows.length
+    return {
+      items: structuredClone(rows),
+      nextBeforeId: hasMore && rows.length > 0 ? messageId(rows[0], t.messages.indexOf(rows[0])) : null,
+      hasMore,
+    }
+  }
+  const pagedTicket = (t: Ticket): Ticket => {
+    const page = messagePage(t, null, 20)
+    return structuredClone({ ...t, messages: page.items, messagesBeforeId: page.nextBeforeId, messagesHasMore: page.hasMore })
+  }
 
   return {
     async listOwnedFarms() {
@@ -53,7 +68,10 @@ export function createSupportDemoStore(seed: SupportSeed = SUPPORT_SEED, options
       return structuredClone(buildPage(state.tickets.filter((t) => t.requesterId === state.ownerId), filters))
     },
     async getTicket(id: number) {
-      return structuredClone(find(id))
+      return pagedTicket(find(id))
+    },
+    async getMessages(id: number, beforeId: number, size = 20) {
+      return messagePage(find(id), beforeId, size)
     },
     async create(cmd: CreateTicketCommand) {
       const errors = validateCreate(cmd, state.farms.map((f) => f.id))
@@ -84,7 +102,7 @@ export function createSupportDemoStore(seed: SupportSeed = SUPPORT_SEED, options
       }
       addMessage(ticket, 'DESCRIPTION', cmd.description.trim(), at)
       state.tickets.push(ticket)
-      return structuredClone(ticket)
+      return pagedTicket(ticket)
     },
     async reply(id: number, cmd: ReplyCommand) {
       const t = find(id)
@@ -96,7 +114,7 @@ export function createSupportDemoStore(seed: SupportSeed = SUPPORT_SEED, options
       // Trả lời khi đang chờ chủ trại đưa phiếu về IN_PROGRESS; trả lời một phiếu RESOLVED không mở lại (GBR-78).
       if (t.status === 'WAITING_CUSTOMER') addHistory(t, { at, event: 'IN_PROGRESS', status: 'IN_PROGRESS', actor: state.ownerName })
       touch(t, at)
-      return structuredClone(t)
+      return pagedTicket(t)
     },
     async acknowledge(id: number, cmd: AcknowledgeCommand) {
       const t = find(id)
@@ -104,14 +122,14 @@ export function createSupportDemoStore(seed: SupportSeed = SUPPORT_SEED, options
       if (t.status !== 'RESOLVED') throw new SupportError('STATE_CHANGED', MESSAGES.stateChanged)
       const latest = latestResolution(t)
       if (!latest || cmd.resolutionVersion !== latest.version) throw new SupportError('RESULT_CHANGED', MESSAGES.resultChanged)
-      if (latest.acknowledged) return structuredClone(t)
+      if (latest.acknowledged) return pagedTicket(t)
       const at = stamp()
       latest.acknowledged = true
       latest.acknowledgedAt = at
       latest.acknowledgmentComment = cmd.comment?.trim() || null
       addMessage(t, 'ACKNOWLEDGMENT', `Chủ trại đã xác nhận kết quả giải quyết phiên bản ${latest.version}.`, at)
       touch(t, at)
-      return structuredClone(t)
+      return pagedTicket(t)
     },
     async reopen(id: number, cmd: ReopenCommand) {
       const t = find(id)
@@ -128,7 +146,7 @@ export function createSupportDemoStore(seed: SupportSeed = SUPPORT_SEED, options
       }
       addHistory(t, { at, event: 'REOPENED', status: 'OPEN', actor: state.ownerName, reason })
       touch(t, at)
-      return structuredClone(t)
+      return pagedTicket(t)
     },
 
     // ---- Mô phỏng phía CS (không thuộc API của Chủ trại): dùng cho test và để tái hiện "kết quả đã thay đổi" / "đã đóng" ----

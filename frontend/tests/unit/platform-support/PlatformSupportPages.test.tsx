@@ -7,11 +7,11 @@ import { supportDemoStore } from '../../../src/features/platform-support/data/su
 import InternalRequestRoutes from '../../../src/features/platform-support/pages/InternalRequestRoutes'
 import SupportDeskRoutes from '../../../src/features/platform-support/pages/SupportDeskRoutes'
 
-const session = (role: Session['role']): Session => ({ role, fullName: 'Người dùng', email: 'u@beefcare.vn', farmId: null, farmName: null, logout: async () => {} })
+const session = (role: Session['role'], id?: number, fullName = 'Người dùng'): Session => ({ id, role, fullName, email: 'u@beefcare.vn', farmId: null, farmName: null, logout: async () => {} })
 
-function renderAt(path: string, role: Session['role'] = 'CS') {
+function renderAt(path: string, role: Session['role'] = 'CS', id?: number, fullName = 'Người dùng') {
   return render(
-    <SessionContext.Provider value={session(role)}>
+    <SessionContext.Provider value={session(role, id, fullName)}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/nen-tang/ho-tro/*" element={<SupportDeskRoutes />} />
@@ -28,9 +28,9 @@ describe('hàng đợi hỗ trợ', () => {
   it('lọc theo tab và nhận ticket rồi mở màn xử lý', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/ho-tro')
-    expect(await screen.findByText('Hiển thị 6 / 21 ticket · sắp theo ưu tiên, rồi thời gian tạo')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 21 / 21 yêu cầu · chưa xử lý trước, rồi theo ưu tiên và thời gian tạo')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Chưa nhận 4' }))
-    expect(await screen.findByText('Hiển thị 4 / 4 ticket · sắp theo ưu tiên, rồi thời gian tạo')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 4 / 4 yêu cầu · chưa xử lý trước, rồi theo ưu tiên và thời gian tạo')).toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: 'Nhận' })[0])
     expect(await screen.findByRole('heading', { name: /TK-10\d\d · / })).toBeInTheDocument()
     expect(await screen.findByText(/Bạn đang phụ trách TK-/)).toBeInTheDocument()
@@ -43,12 +43,19 @@ describe('hàng đợi hỗ trợ', () => {
 })
 
 describe('xử lý ticket', () => {
+  it('dùng đúng id tài khoản CS đang đăng nhập để mở quyền xử lý ticket đã nhận', async () => {
+    renderAt('/nen-tang/ho-tro/TK-1027', 'CS', 2, 'Ngô Minh Khang')
+    expect(await screen.findByRole('button', { name: 'Chuyển giao' })).toBeInTheDocument()
+    expect(screen.getByText('Ngô Minh Khang (bạn)')).toBeInTheDocument()
+    expect(screen.queryByText('Chỉ nhân viên hỗ trợ đang phụ trách mới được thay đổi yêu cầu này.')).not.toBeInTheDocument()
+  })
+
   it('lưu ghi chú nội bộ trong hộp thoại', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/ho-tro/TK-1042?m=ghi-chu')
     await user.type(await screen.findByLabelText('Ghi chú mới'), 'Cần xác minh mã chính xác.')
     await user.click(screen.getByRole('button', { name: /Lưu ghi chú/ }))
-    expect(await screen.findByText('Đã thêm ghi chú nội bộ (chỉ CS thấy).')).toBeInTheDocument()
+    expect(await screen.findByText('Đã thêm ghi chú nội bộ (chỉ nhân viên hỗ trợ thấy).')).toBeInTheDocument()
     expect((await supportDemoStore.getTicket({ id: 1, name: 'Phạm Thu Hà', role: 'CS' }, 'TK-1042')).messages.some((m) => m.text === 'Cần xác minh mã chính xác.')).toBe(true)
   })
 
@@ -61,14 +68,14 @@ describe('xử lý ticket', () => {
 
   it('CS không phụ trách chỉ xem; ticket không tồn tại báo không tìm thấy', async () => {
     renderAt('/nen-tang/ho-tro/TK-1027')
-    expect(await screen.findByText('Chỉ CS đang phụ trách mới được thay đổi ticket này.')).toBeInTheDocument()
+    expect(await screen.findByText('Chỉ nhân viên hỗ trợ đang phụ trách mới được thay đổi yêu cầu này.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Chuyển giao' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Hủy yêu cầu nội bộ' })).toBeDisabled()
   })
 
   it('ticket không tồn tại', async () => {
     renderAt('/nen-tang/ho-tro/TK-9999')
-    expect(await screen.findByText('Không tìm thấy ticket TK-9999')).toBeInTheDocument()
+    expect(await screen.findByText('Không tìm thấy yêu cầu TK-9999')).toBeInTheDocument()
   })
 })
 

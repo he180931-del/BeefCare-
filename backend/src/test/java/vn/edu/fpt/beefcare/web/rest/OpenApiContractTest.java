@@ -38,6 +38,83 @@ class OpenApiContractTest {
         assertThat(paths.has("/api/cattle")).isFalse();
         assertThat(paths.has("/api/support-tickets")).isFalse();
         assertThat(api.path("components").path("securitySchemes").has("session")).isTrue();
+        JsonNode overview = api.path("components").path("schemas").path("SubscriptionOverview");
+        assertThat(overview.path("properties").size()).isEqualTo(15);
+        for (String field : java.util.List.of("farmName", "suspended", "suspendedSince", "currentPeriod", "daysRemaining", "futurePeriods", "periods", "eligibility")) {
+            assertThat(overview.path("properties").has(field)).as("SCR-57 " + field).isTrue();
+        }
+        assertThat(overview.path("properties").path("serviceStatus").path("enum").toString()).contains("SUSPENDED", "EXPIRED");
+        assertThat(api.path("components").path("schemas").has("SubscriptionPurchasedPeriod")).isTrue();
+        for (String field : java.util.List.of("latestEnd", "renewalOpensAt", "suspendedSince", "currentPeriod", "daysRemaining", "currentPrices", "pendingPayment")) {
+            assertThat(allowsNull(overview.path("properties").path(field))).as("SCR-57 nullable %s: %s", field, overview.path("properties").path(field)).isTrue();
+        }
+        JsonNode eligibility = api.path("components").path("schemas").path("SubscriptionRequestEligibility").path("properties");
+        assertThat(allowsNull(eligibility.path("reason"))).isTrue();
+        assertThat(allowsNull(eligibility.path("opensAt"))).isTrue();
+        JsonNode payment = api.path("components").path("schemas").path("PaymentDTO").path("properties");
+        for (String field : java.util.List.of("purchasedStart", "purchasedEnd", "receiptCode", "qrImageUrl", "bankCode", "accountNumber", "accountName",
+            "bankPaidAt", "receivedAt", "confirmedAt", "confirmationSource")) {
+            assertThat(allowsNull(payment.path(field))).as("pending payment nullable " + field).isTrue();
+        }
+        JsonNode postPayment = paths.path("/api/farms/{farmId}/subscription/payments").path("post");
+        JsonNode paymentHistory = paths.path("/api/farms/{farmId}/subscription/payments").path("get");
+        assertThat(paymentHistory.path("parameters").toString()).contains("\"q\"", "\"status\"", "\"from\"", "\"to\"", "\"sort\"", "\"dir\"", "\"page\"");
+        assertThat(paymentHistory.path("responses").path("200").toString()).contains("PaymentHistoryPage");
+        paymentHistory.path("parameters").forEach(parameter -> {
+            if ("page".equals(parameter.path("name").asText())) {
+                assertThat(parameter.path("schema").path("type").asText()).isEqualTo("integer");
+                assertThat(parameter.path("schema").path("minimum").asInt()).isZero();
+                assertThat(parameter.path("schema").path("maximum").asLong()).isEqualTo(Integer.MAX_VALUE / 20);
+            }
+        });
+        JsonNode historyPage = api.path("components").path("schemas").path("PaymentHistoryPage");
+        assertThat(historyPage.path("required").toString()).contains("content", "number", "size", "totalElements", "totalPages");
+        assertThat(historyPage.path("properties").path("content").path("items").path("$ref").asText()).endsWith("/PaymentDTO");
+        assertThat(postPayment.path("parameters").toString()).contains("Idempotency-Key");
+        JsonNode request = api.path("components").path("schemas").path("Request");
+        assertThat(request.path("required").toString()).contains("durationYears", "reviewedPriceVersion");
+        // D18: masked paged list, separately authorized full evidence detail, and exact payment allocation.
+        assertThat(paths.has("/api/platform/payments/evidence/{evidenceId}")).isTrue();
+        assertThat(paths.path("/api/platform/payments/evidence").path("get").path("parameters").toString())
+            .contains("\"page\"", "\"size\"", "\"status\"", "\"bankFrom\"", "\"bankTo\"");
+        JsonNode evidenceRow = api.path("components").path("schemas").path("PlatformBankEvidenceRow").path("properties");
+        assertThat(evidenceRow.has("maskedTransactionId")).isTrue();
+        assertThat(evidenceRow.has("transactionId")).isFalse();
+        assertThat(allowsNull(evidenceRow.path("receivingAccountMatches"))).isTrue();
+        // The strict SCR-62 adapter accepts only declared values; unknown stored states are read as PROCESSING.
+        assertThat(evidenceRow.path("reviewStatus").path("enum").toString()).contains("TO_REVIEW", "LOCKED", "PROCESSING", "NO_ACTION");
+        assertThat(evidenceRow.path("matchResult").path("enum").toString()).contains("PAID_AUTO", "EXACT_CODE", "ACCOUNT_MISMATCH");
+        JsonNode evidenceDetail = api.path("components").path("schemas").path("PlatformBankEvidenceDetail").path("properties");
+        assertThat(evidenceDetail.has("history")).isTrue();
+        assertThat(evidenceDetail.has("transactionId")).isTrue();
+        assertThat(allowsNull(evidenceDetail.path("firstReceivedAt"))).isTrue();
+        // D19 / UC6: keyed reconciliation commands, one reason field, dated return, period lookup and return state on detail.
+        for (String command : java.util.List.of("review", "lock-return", "record-return", "unlock-return")) {
+            assertThat(paths.path("/api/platform/payments/evidence/{evidenceId}/" + command).path("post").path("parameters").toString())
+                .as(command).contains("Idempotency-Key");
+        }
+        JsonNode reviewBody = api.path("components").path("schemas").path("Review").path("properties");
+        assertThat(reviewBody.has("references")).isFalse();
+        assertThat(reviewBody.path("reason").path("maxLength").asInt()).isEqualTo(1000);
+        assertThat(api.path("components").path("schemas").path("ReturnResult").path("properties").has("returnDate")).isTrue();
+        assertThat(paths.path("/api/platform/payments/lookup").path("get").path("parameters").toString()).contains("\"from\"", "\"to\"");
+        for (String field : java.util.List.of("returnReference", "returnDate", "returnResult")) {
+            assertThat(allowsNull(evidenceDetail.path(field))).as("UC6 nullable " + field).isTrue();
+        }
+        JsonNode pmPayment = api.path("components").path("schemas").path("PlatformPaymentRead").path("properties");
+        for (String field : java.util.List.of("evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt")) {
+            assertThat(allowsNull(pmPayment.path(field))).as("UC5 nullable " + field).isTrue();
+        }
         Files.writeString(Path.of("target","beefcare-openapi.json"),mapper.writerWithDefaultPrettyPrinter().writeValueAsString(api)+"\n",StandardCharsets.UTF_8);
+    }
+
+    private boolean allowsNull(JsonNode schema) {
+        JsonNode type = schema.path("type");
+        if (type.isTextual() && "null".equals(type.asText())) return true;
+        if (type.isArray()) for (JsonNode member : type) if ("null".equals(member.asText())) return true;
+        for (String union : java.util.List.of("anyOf", "oneOf")) {
+            for (JsonNode member : schema.path(union)) if (allowsNull(member)) return true;
+        }
+        return false;
     }
 }

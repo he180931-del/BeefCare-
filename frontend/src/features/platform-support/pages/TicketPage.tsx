@@ -1,18 +1,19 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
 import { supportApi } from '../api/supportApi'
 import { Avatar, StatusBadge, errText, useActor, useFlash } from '../components/common'
 import { ReasonDialog } from '../components/ReasonDialog'
 import { ClosedDialog, CloseDialog, CreateInternalDialog, HandOverDialog, ReassignDialog } from '../components/TicketDialogs'
 import { CATEGORY_LABEL, IR_STATUS_LABEL, OUTCOME_LABEL, PRIORITY_LABEL, ROLE_LABEL, STATUS_LABEL, formatStamp, isAssignedTo, isClaimable, latestResolution, openIrOf } from '../domain/supportRules'
-import type { InternalView, TargetRole, Ticket, TicketCategory, TicketPriority } from '../types'
+import type { InternalView, TargetRole, Ticket, TicketCategory, TicketMessage, TicketPriority } from '../types'
 
 type ConvTab = 'public' | 'internal' | 'history'
+const HISTORY_PAGE_SIZE = 50
 
 export default function TicketPage() {
   const { id = '' } = useParams()
@@ -23,22 +24,39 @@ export default function TicketPage() {
   const [flash, showFlash] = useFlash()
   const location = useLocation()
   const [tab, setTab] = useState<ConvTab>('public')
+  const [historyPage, setHistoryPage] = useState(1)
   const [reply, setReply] = useState('')
   const [replyError, setReplyError] = useState<string | null>(null)
   const { data: t, loading, error, refetch } = useQuery(() => supportApi.getTicket(me, id), [id, me])
+  const [loadedMessages, setLoadedMessages] = useState<TicketMessage[]>([])
+  const [messagesBeforeId, setMessagesBeforeId] = useState<number | null>(null)
+  const [messagesHasMore, setMessagesHasMore] = useState(false)
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [messagesError, setMessagesError] = useState('')
+  const messagesViewport = useRef<HTMLDivElement>(null)
 
   const carried = (location.state as { flash?: string } | null)?.flash
   useEffect(() => { if (carried) showFlash(carried) }, [carried, showFlash])
+  useEffect(() => {
+    if (!t) return
+    setLoadedMessages(t.messages)
+    setMessagesBeforeId(t.messagesBeforeId ?? null)
+    setMessagesHasMore(t.messagesHasMore === true)
+    setMessagesError('')
+    requestAnimationFrame(() => {
+      if (messagesViewport.current) messagesViewport.current.scrollTop = messagesViewport.current.scrollHeight
+    })
+  }, [t?.id, t?.updatedAt, t?.messages, t?.messagesBeforeId, t?.messagesHasMore])
 
-  const title = t ? `${t.code} · ${t.subject}` : 'Xử lý ticket'
-  if (loading && !t) return <Layout title="Xử lý ticket"><LoadingBlock /></Layout>
+  const title = t ? `${t.code} · ${t.subject}` : 'Xử lý yêu cầu hỗ trợ'
+  if (loading && !t) return <Layout title="Xử lý yêu cầu hỗ trợ"><LoadingBlock /></Layout>
   if (error || !t) {
-    const msg = error instanceof Error ? error.message : 'Không tải được ticket.'
+    const msg = error instanceof Error ? error.message : 'Không tải được yêu cầu hỗ trợ.'
     const notFound = msg.includes('Không tìm thấy')
     return (
-      <Layout title="Xử lý ticket">
+      <Layout title="Xử lý yêu cầu hỗ trợ">
         {notFound
-          ? <EmptyBlock title={`Không tìm thấy ticket ${id}`} sub="Mã ticket không tồn tại hoặc đã bị xóa." action={<Button onClick={() => navigate('/nen-tang/ho-tro')}>Về hàng đợi</Button>} />
+          ? <EmptyBlock title={`Không tìm thấy yêu cầu ${id}`} sub="Mã yêu cầu không tồn tại hoặc đã bị xóa." action={<Button onClick={() => navigate('/nen-tang/ho-tro')}>Về hàng đợi</Button>} />
           : <ErrorBlock message={msg} onRetry={refetch} />}
       </Layout>
     )
@@ -52,6 +70,10 @@ export default function TicketPage() {
   const targetIr = t.internalRequests.find((r) => r.code === irParam && r.status === 'OPEN') ?? openIr
   const res = latestResolution(t)
   const unavailableOwner = t.assignedCsId !== null && !t.assignedAvailable
+  const historyRows = [...t.history].reverse()
+  const historyPageCount = Math.max(1, Math.ceil(historyRows.length / HISTORY_PAGE_SIZE))
+  const safeHistoryPage = Math.min(historyPage, historyPageCount)
+  const visibleHistory = historyRows.slice((safeHistoryPage - 1) * HISTORY_PAGE_SIZE, safeHistoryPage * HISTORY_PAGE_SIZE)
 
   const go = (name: string, extra: Record<string, string> = {}) => {
     const next = new URLSearchParams(params)
@@ -85,12 +107,34 @@ export default function TicketPage() {
     <>
       {canEdit && <Button onClick={() => go('chuyen-giao')}>Chuyển giao</Button>}
       {canEdit && t.status !== 'RESOLVED' && <Button variant="primary" onClick={() => go('ghi-ket-qua')} disabled={resolveBlocked} title={resolveBlocked ? `Yêu cầu nội bộ ${openIr?.code} vẫn đang mở` : undefined}>Ghi kết quả giải quyết</Button>}
-      {canEdit && t.status === 'RESOLVED' && <Button variant="primary" onClick={() => go('dong-ticket')}>Đóng ticket</Button>}
+      {canEdit && t.status === 'RESOLVED' && <Button variant="primary" onClick={() => go('dong-ticket')}>Đóng yêu cầu</Button>}
       {!mine && isClaimable(t) && <Button variant="primary" onClick={() => void claim()}>{unavailableOwner ? 'Nhận lại' : 'Nhận'}</Button>}
     </>
   )
 
-  const messages = t.messages.filter((x) => x.visibility === (tab === 'internal' ? 'INTERNAL' : 'PUBLIC'))
+  const messages = loadedMessages.filter((x) => x.visibility === (tab === 'internal' ? 'INTERNAL' : 'PUBLIC'))
+  const loadOlderMessages = async () => {
+    if (messagesBeforeId == null || messagesLoading) return
+    setMessagesLoading(true)
+    setMessagesError('')
+    const previousHeight = messagesViewport.current?.scrollHeight ?? 0
+    try {
+      const page = await supportApi.getMessages(me, t.code, messagesBeforeId)
+      setLoadedMessages((current) => {
+        const existing = new Set(current.map((message) => message.id))
+        return [...page.items.filter((message) => !existing.has(message.id)), ...current]
+      })
+      setMessagesBeforeId(page.nextBeforeId)
+      setMessagesHasMore(page.hasMore)
+      requestAnimationFrame(() => {
+        if (messagesViewport.current) messagesViewport.current.scrollTop += messagesViewport.current.scrollHeight - previousHeight
+      })
+    } catch {
+      setMessagesError('Không tải được các trao đổi trước. Vui lòng thử lại.')
+    } finally {
+      setMessagesLoading(false)
+    }
+  }
   const action = (label: string, onClick: () => void, enabled: boolean, icon?: 'circle-plus') => (
     <Button block onClick={onClick} disabled={!enabled}>{icon && <Icon name={icon} size={16} />} {label}</Button>
   )
@@ -99,35 +143,50 @@ export default function TicketPage() {
     <Layout title={title}>
       <div className="flex flex-col gap-4">
         <PageHeader title={title} sub={`${t.requester} · ${t.farmName} · ${CATEGORY_LABEL[t.category]} · tạo ${formatStamp(t.createdAt, true)}`}>{header}</PageHeader>
-        {closed && <Note tone="grey">Ticket đã đóng và chỉ đọc. Hãy tạo ticket mới nếu cần hỗ trợ thêm.</Note>}
+        {closed && <Note tone="grey">Yêu cầu đã đóng và chỉ đọc. Hãy tạo yêu cầu mới nếu cần hỗ trợ thêm.</Note>}
         {!closed && !mine && (
-          <Note tone="warn">Chỉ CS đang phụ trách mới được thay đổi ticket này.{isClaimable(t) && <> <Button variant="link" size="sm" onClick={() => void claim()}>Nhận</Button></>}</Note>
+          <Note tone="warn">Chỉ nhân viên hỗ trợ đang phụ trách mới được thay đổi yêu cầu này.{isClaimable(t) && <> <Button variant="link" size="sm" onClick={() => void claim()}>Nhận</Button></>}</Note>
         )}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
           <div className="flex min-w-0 flex-col gap-4">
             <Card title="Trao đổi">
-              <div><Segmented options={[{ value: 'public', label: 'Trao đổi công khai' }, { value: 'internal', label: 'Ghi chú nội bộ (CS)' }, { value: 'history', label: 'Lịch sử' }]} value={tab} onChange={(v) => setTab(v as ConvTab)} /></div>
+              <div><Segmented options={[{ value: 'public', label: 'Trao đổi công khai' }, { value: 'internal', label: 'Ghi chú nội bộ (nhân viên hỗ trợ)' }, { value: 'history', label: 'Lịch sử' }]} value={tab} onChange={(v) => { setTab(v as ConvTab); if (v === 'history') setHistoryPage(1) }} /></div>
               {tab === 'internal' && (
                 <div className="flex items-center justify-between gap-2">
-                  <p className="m-0 text-[11px] text-muted">Chỉ CS và người nhận yêu cầu nội bộ được nêu tên thấy</p>
-                  <div className="flex items-center gap-2"><Badge tone="warn">Chỉ CS</Badge>{canEdit && <Button size="sm" onClick={() => go('ghi-chu')}>Thêm ghi chú</Button>}</div>
+                  <p className="m-0 text-[11px] text-muted">Chỉ nhân viên hỗ trợ và người nhận yêu cầu nội bộ được nêu tên thấy</p>
+                  <div className="flex items-center gap-2"><Badge tone="warn">Chỉ nhân viên hỗ trợ</Badge>{canEdit && <Button size="sm" onClick={() => go('ghi-chu')}>Thêm ghi chú</Button>}</div>
                 </div>
               )}
-              {tab !== 'history' && messages.length === 0 && <p className="m-0 text-xs text-muted">Chưa có nội dung.</p>}
-              {tab !== 'history' && messages.map((x) => (
-                <div key={x.id} className="flex gap-3">
-                  <Avatar name={x.author} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-xs"><span className="font-semibold text-ink">{x.author} · {x.authorRole === 'OWNER' ? 'Chủ trại' : 'CS'}</span><span className="text-muted">{formatStamp(x.at)}</span></div>
-                    <div className={`mt-1 rounded-md px-3 py-2.5 text-xs text-[#183528] ${x.visibility === 'INTERNAL' ? 'bg-warn-bg' : x.authorRole === 'CS' ? 'bg-[#eef4ef]' : 'bg-page'}`}>{x.text}</div>
+              {tab !== 'history' && messagesHasMore && messagesBeforeId != null && (
+                <div className="flex justify-center">
+                  <Button variant="link" size="sm" disabled={messagesLoading} onClick={() => void loadOlderMessages()}>
+                    {messagesLoading ? 'Đang tải…' : 'Xem trao đổi trước'}
+                  </Button>
+                </div>
+              )}
+              {tab !== 'history' && messagesError && <p role="alert" className="m-0 text-xs text-err-fg">{messagesError}</p>}
+              {tab !== 'history' && (
+                <div ref={messagesViewport} className="max-h-[480px] overflow-y-auto pr-1">
+                  <div className="flex flex-col gap-3">
+                    {messages.length === 0 && <p className="m-0 text-xs text-muted">Chưa có nội dung.</p>}
+                    {messages.map((x) => (
+                      <div key={x.id} className="flex gap-3">
+                        <Avatar name={x.author} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 text-xs"><span className="font-semibold text-ink">{x.author} · {x.authorRole === 'OWNER' ? 'Chủ trại' : 'Nhân viên hỗ trợ'}</span><span className="text-muted">{formatStamp(x.at)}</span></div>
+                          <div className={`mt-1 rounded-md px-3 py-2.5 text-xs text-[#183528] ${x.visibility === 'INTERNAL' ? 'bg-warn-bg' : x.authorRole === 'CS' ? 'bg-[#eef4ef]' : 'bg-page'}`}>{x.text}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
               {tab === 'history' && (
                 <ul className="m-0 flex list-none flex-col gap-2 p-0 text-xs">
-                  {[...t.history].reverse().map((h) => <li key={`${h.at}${h.text}`} className="flex gap-3"><span className="w-[84px] shrink-0 text-muted">{formatStamp(h.at)}</span><span className="text-ink"><b className="font-semibold">{h.actor}</b> · {h.text}</span></li>)}
+                  {visibleHistory.map((h) => <li key={`${h.at}${h.text}`} className="flex gap-3"><span className="w-[84px] shrink-0 text-muted">{formatStamp(h.at)}</span><span className="text-ink"><b className="font-semibold">{h.actor}</b> · {h.text}</span></li>)}
                 </ul>
               )}
+              {tab === 'history' && historyPageCount > 1 && <Pagination page={safeHistoryPage} pageCount={historyPageCount} onChange={setHistoryPage} summary={`Hiển thị ${visibleHistory.length} / ${historyRows.length} sự kiện`} />}
               {tab === 'public' && canEdit && (
                 <div>
                   <div className="flex gap-3">
@@ -158,19 +217,19 @@ export default function TicketPage() {
                   : CATEGORY_LABEL[t.category]],
                 ['Phụ trách', t.assignedCs ? `${t.assignedCs}${t.assignedCsId === me.id ? ' (bạn)' : ''}${unavailableOwner ? ' · không khả dụng' : ''}` : 'Chưa nhận', unavailableOwner],
               ]} />
-              {openIr && <Note tone="warn">{openIr.code} còn mở: chưa thể ghi kết quả giải quyết hoặc đóng ticket.</Note>}
+              {openIr && <Note tone="warn">{openIr.code} còn mở: chưa thể ghi kết quả giải quyết hoặc đóng yêu cầu.</Note>}
             </Card>
             <Card title="Thao tác được phép">
               {action('Yêu cầu khách bổ sung', () => go('yeu-cau-bo-sung'), canEdit && (t.status === 'OPEN' || t.status === 'IN_PROGRESS'))}
               {action('Trả về hàng đợi', () => go('tra-ve'), canEdit)}
               {action('Đổi người nhận yêu cầu nội bộ', () => go('doi-nguoi-nhan'), canEdit && !!openIr)}
               {action('Hủy yêu cầu nội bộ', () => go('huy-yeu-cau'), canEdit && !!openIr)}
-              {action('Tạo yêu cầu cho SA', () => go('tao-yeu-cau-sa'), canEdit, 'circle-plus')}
-              <Foot>Trạng thái chỉ đổi qua thao tác riêng; không đặt trực tiếp Đã giải quyết hay Đã đóng. PM/SA chỉ gửi kết quả cho yêu cầu nội bộ.</Foot>
+              {action('Tạo yêu cầu cho quản trị hệ thống', () => go('tao-yeu-cau-sa'), canEdit, 'circle-plus')}
+              <Foot>Trạng thái chỉ đổi qua thao tác riêng; không đặt trực tiếp Đã giải quyết hay Đã đóng. Quản lý nền tảng và quản trị hệ thống chỉ gửi kết quả cho yêu cầu nội bộ.</Foot>
             </Card>
           </div>
         </div>
-        <Foot>Xử lý ticket (CS đang phụ trách). Tab Trao đổi công khai là nội dung Chủ trại thấy; Ghi chú nội bộ chỉ CS thấy. Khi còn yêu cầu nội bộ đang mở, nút "Ghi kết quả giải quyết" bị khóa và có lời giải thích ở khung Xử lý.</Foot>
+        <Foot>Xử lý yêu cầu (nhân viên hỗ trợ đang phụ trách). Tab Trao đổi công khai là nội dung Chủ trại thấy; Ghi chú nội bộ chỉ nhân viên hỗ trợ thấy. Khi còn yêu cầu nội bộ đang mở, nút "Ghi kết quả giải quyết" bị khóa và có lời giải thích ở khung Xử lý.</Foot>
       </div>
       <TicketDialogsHost
         ticket={t} modal={m} targetIr={targetIr} me={me} closeModal={closeModal} act={act} reload={() => { void refetch(); closeModal() }}
@@ -182,14 +241,20 @@ export default function TicketPage() {
 }
 
 function InternalRequestsCard({ ticket, canEdit, onCreate, onReassign, onCancel }: { ticket: Ticket; canEdit: boolean; onCreate: () => void; onReassign: (r: InternalView) => void; onCancel: (r: InternalView) => void }) {
+  const [page, setPage] = useState(1)
+  const pageSize = 50
+  const pageCount = Math.max(1, Math.ceil(ticket.internalRequests.length / pageSize))
+  const safePage = Math.min(page, pageCount)
+  const rows = ticket.internalRequests.slice((safePage - 1) * pageSize, safePage * pageSize)
   const open = ticket.internalRequests.filter((r) => r.status === 'OPEN').length
   return (
     <Card title="Yêu cầu nội bộ" sub={open ? `${open} yêu cầu đang mở` : 'Không có yêu cầu đang mở'} actions={canEdit ? <Button size="sm" onClick={onCreate}><Icon name="circle-plus" size={16} /> Tạo yêu cầu</Button> : undefined}>
       {ticket.internalRequests.length === 0 ? <p className="m-0 text-xs text-muted">Chưa có yêu cầu nội bộ.</p> : (
+        <div>
         <Table stack={false}>
           <thead><tr><Th>Mã</Th><Th>Gửi tới</Th><Th>Nội dung</Th><Th>Trạng thái</Th>{canEdit && <Th><span className="sr-only">Thao tác</span></Th>}</tr></thead>
           <tbody>
-            {ticket.internalRequests.map((r) => (
+            {rows.map((r) => (
               <tr key={r.code}>
                 <Td className="font-medium">{r.code}</Td>
                 <Td><div className="font-medium">{r.recipient}</div><div className="text-[11px] text-muted">{ROLE_LABEL[r.targetRole as TargetRole]}</div></Td>
@@ -203,6 +268,8 @@ function InternalRequestsCard({ ticket, canEdit, onCreate, onReassign, onCancel 
             ))}
           </tbody>
         </Table>
+        {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setPage} summary={`Hiển thị ${rows.length} / ${ticket.internalRequests.length} yêu cầu`} />}
+        </div>
       )}
     </Card>
   )
@@ -225,15 +292,15 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
     case 'chuyen-giao':
       return <HandOverDialog onClose={closeModal} onSubmit={(to, reason) => act(() => supportApi.handOver(me, t.code, { toCsId: to, reason, expectedVersion: v }), `${t.code} đã được chuyển giao.`)} />
     case 'yeu-cau-bo-sung':
-      return <ReasonDialog title="Yêu cầu khách bổ sung thông tin" label="Nội dung gửi công khai *" max={3000} placeholder="Anh vui lòng gửi mã giao dịch và thời điểm ngân hàng ghi nhận." submitLabel="Gửi và chờ khách" submitIcon="send" note="Ticket chuyển Đang xử lý → Chờ khách phản hồi và lưu câu hỏi công khai. Chủ trại phản hồi thì chuyển lại Đang xử lý." onClose={closeModal}
-        onSubmit={(question) => act(() => supportApi.askCustomer(me, t.code, { question, expectedVersion: v }), `Ticket ${t.code} hiện ở trạng thái Chờ khách phản hồi.`)} />
+      return <ReasonDialog title="Yêu cầu khách bổ sung thông tin" label="Nội dung gửi công khai *" max={3000} placeholder="Anh vui lòng gửi mã giao dịch và thời điểm ngân hàng ghi nhận." submitLabel="Gửi và chờ khách" submitIcon="send" note="Yêu cầu chuyển Đang xử lý → Chờ khách phản hồi và lưu câu hỏi công khai. Chủ trại phản hồi thì chuyển lại Đang xử lý." onClose={closeModal}
+        onSubmit={(question) => act(() => supportApi.askCustomer(me, t.code, { question, expectedVersion: v }), `Yêu cầu ${t.code} hiện ở trạng thái Chờ khách phản hồi.`)} />
     case 'tra-ve':
-      return <ReasonDialog title="Trả ticket về hàng đợi" label="Lý do *" placeholder="Chưa có đủ thông tin chuyên môn, cần CS phù hợp nhận lại" submitLabel="Trả về hàng đợi" note="Ticket được bỏ CS phụ trách, giữ nguyên trạng thái và lịch sử. Các yêu cầu nội bộ giữ nguyên trạng thái/người nhận." onClose={closeModal}
-        onSubmit={(reason) => act(() => supportApi.returnToQueue(me, t.code, { reason, expectedVersion: v }), `Ticket ${t.code} đã trả về hàng đợi.`)} />
+      return <ReasonDialog title="Trả yêu cầu về hàng đợi" label="Lý do *" placeholder="Chưa có đủ thông tin chuyên môn, cần nhân viên hỗ trợ phù hợp nhận lại" submitLabel="Trả về hàng đợi" note="Yêu cầu được bỏ người phụ trách, giữ nguyên trạng thái và lịch sử. Các yêu cầu nội bộ giữ nguyên trạng thái/người nhận." onClose={closeModal}
+        onSubmit={(reason) => act(() => supportApi.returnToQueue(me, t.code, { reason, expectedVersion: v }), `Yêu cầu ${t.code} đã trả về hàng đợi.`)} />
     case 'ghi-chu':
-      return <ReasonDialog title="Ghi chú nội bộ của CS" label="Ghi chú mới *" max={3000} placeholder="Cần xác minh mã chính xác; không xác nhận thanh toán từ lời khách." submitLabel="Lưu ghi chú (chỉ CS thấy)" onClose={closeModal} secondary={{ label: 'Trao đổi công khai', onClick: onPublic }}
-        note={<>{lastNote && <span className="mb-1 block">Lịch sử (chỉ CS thấy): {lastNote.author} · {formatStamp(lastNote.at)}.</span>}Chỉ CS được phép xem; ghi chú này không xuất hiện ở hội thoại Chủ trại hoặc phần nhận của PM/SA.</>}
-        onSubmit={(text) => act(() => supportApi.addNote(me, t.code, { text, expectedVersion: v }), 'Đã thêm ghi chú nội bộ (chỉ CS thấy).')} />
+      return <ReasonDialog title="Ghi chú nội bộ của nhân viên hỗ trợ" label="Ghi chú mới *" max={3000} placeholder="Cần xác minh mã chính xác; không xác nhận thanh toán từ lời khách." submitLabel="Lưu ghi chú (chỉ nhân viên hỗ trợ thấy)" onClose={closeModal} secondary={{ label: 'Trao đổi công khai', onClick: onPublic }}
+        note={<>{lastNote && <span className="mb-1 block">Lịch sử (chỉ nhân viên hỗ trợ thấy): {lastNote.author} · {formatStamp(lastNote.at)}.</span>}Chỉ nhân viên hỗ trợ được phép xem; ghi chú này không xuất hiện ở hội thoại Chủ trại hoặc phần nhận của quản lý/quản trị hệ thống.</>}
+        onSubmit={(text) => act(() => supportApi.addNote(me, t.code, { text, expectedVersion: v }), 'Đã thêm ghi chú nội bộ (chỉ nhân viên hỗ trợ thấy).')} />
     case 'tao-yeu-cau':
     case 'tao-yeu-cau-sa':
       return <CreateInternalDialog ticket={t} initialRole={modal === 'tao-yeu-cau-sa' ? 'SA' : 'PM'} onClose={closeModal} onViewExisting={onViewExisting}
@@ -243,29 +310,29 @@ function TicketDialogsHost({ ticket: t, modal, targetIr, me, closeModal, act, re
     case 'huy-yeu-cau':
       return targetIr ? (
         <ReasonDialog title={`Hủy yêu cầu nội bộ ${targetIr.code}`} label="Lý do hủy *" placeholder="Yêu cầu sai phạm vi; sẽ gửi lại đúng vai trò" submitLabel="Xác nhận hủy IR" onClose={closeModal}
-          note="Chỉ CS hiện phụ trách được hủy IR Đang mở. Yêu cầu chuyển Đã hủy, giữ kết quả miền đã làm nếu có và toàn bộ lịch sử."
+          note="Chỉ nhân viên hỗ trợ hiện phụ trách được hủy yêu cầu nội bộ đang mở. Yêu cầu chuyển Đã hủy, giữ kết quả miền đã làm nếu có và toàn bộ lịch sử."
           onSubmit={(reason) => act(() => supportApi.manageInternal(me, t.code, targetIr.code, { action: 'CANCEL', reason }), `Yêu cầu ${targetIr.code} đã được hủy.`)} />
       ) : null
     case 'ghi-ket-qua': {
       const open = openIrOf(t)
       return (
         <ReasonDialog title="Ghi kết quả giải quyết công khai" label="Kết quả công khai *" max={3000} placeholder="Giao dịch BCF7K2Q9 đã được xác nhận. Kỳ mua từ 15/11/2026 đến 14/11/2027." submitLabel="Gửi kết quả và Đã giải quyết" submitIcon="send" onClose={closeModal}
-          readOnly={{ label: 'Ticket / điều kiện', value: `${t.code} · ${STATUS_LABEL[t.status]} · ${open ? `Còn ${open.code} Đang mở` : 'Không còn IR Đang mở'}` }}
-          blocked={!!open} warn={open ? `Yêu cầu nội bộ ${open.code} vẫn đang mở. Ticket chưa thể ghi kết quả hoặc đóng.` : undefined}
-          note="Chỉ CS được giao ghi kết quả. Tạo kết quả mới, chuyển Đã giải quyết và chờ Chủ trại xác nhận; không tự đóng ticket."
+          readOnly={{ label: 'Yêu cầu / điều kiện', value: `${t.code} · ${STATUS_LABEL[t.status]} · ${open ? `Còn ${open.code} Đang mở` : 'Không còn yêu cầu nội bộ đang mở'}` }}
+          blocked={!!open} warn={open ? `Yêu cầu nội bộ ${open.code} vẫn đang mở. Yêu cầu chưa thể ghi kết quả hoặc đóng.` : undefined}
+          note="Chỉ nhân viên hỗ trợ được giao mới ghi kết quả. Tạo kết quả mới, chuyển Đã giải quyết và chờ Chủ trại xác nhận; không tự đóng yêu cầu."
           onSubmit={(content) => act(() => supportApi.resolve(me, t.code, { content, expectedVersion: v }), `Đã ghi kết quả phiên bản ${t.resolutions.length + 1}. Chủ trại đã được thông báo.`)} />
       )
     }
     case 'dong-ticket':
       return <CloseDialog ticket={t} onClose={closeModal} onReload={reload}
-        onSubmit={(reviewed, note) => act(() => supportApi.close(me, t.code, { reviewed, note, expectedVersion: v }), `Ticket ${t.code} đã được đóng.`, 'da-dong')} />
+        onSubmit={(reviewed, note) => act(() => supportApi.close(me, t.code, { reviewed, note, expectedVersion: v }), `Yêu cầu ${t.code} đã được đóng.`, 'da-dong')} />
     case 'da-dong':
       return t.status === 'CLOSED' ? <ClosedDialog ticket={t} onClose={closeModal} /> : null
     case 'nhan-lai':
       return (
-        <ReasonDialog title="Nhận ticket chưa có CS khả dụng" label="Lý do nhận *" placeholder="Tiếp nhận lại để xem xác nhận mới nhất của Chủ trại" submitLabel="Xác nhận nhận ticket" onClose={closeModal}
-          readOnly={{ label: 'Ticket / trạng thái hiện tại', value: `${t.code} · ${STATUS_LABEL[t.status]} · CS cũ không khả dụng` }}
-          note="Nhận chỉ thay người phụ trách, giữ nguyên trạng thái hiện tại. Không ghi đè một CS vẫn đang phụ trách hợp lệ."
+        <ReasonDialog title="Nhận yêu cầu chưa có nhân viên hỗ trợ khả dụng" label="Lý do nhận *" placeholder="Tiếp nhận lại để xem xác nhận mới nhất của Chủ trại" submitLabel="Xác nhận nhận yêu cầu" onClose={closeModal}
+          readOnly={{ label: 'Yêu cầu / trạng thái hiện tại', value: `${t.code} · ${STATUS_LABEL[t.status]} · người phụ trách cũ không khả dụng` }}
+          note="Nhận chỉ thay người phụ trách, giữ nguyên trạng thái hiện tại. Không ghi đè một nhân viên hỗ trợ vẫn đang phụ trách hợp lệ."
           onSubmit={(reason) => act(() => supportApi.claim(me, t.code, { reason, expectedVersion: v }), `Bạn đang phụ trách ${t.code}.`)} />
       )
     default:

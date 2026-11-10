@@ -22,6 +22,7 @@ import { loadFarmServiceRoutes, loadPaymentReconciliationRoutes, loadPlanPriceRo
 import { loadCashReportRoutes, loadManualFinanceRoutes, loadPmSupportNoticePage, loadReceiptRoutes, loadReconciliationNoticePage } from './features/platform-finance'
 import { loadAdminNoticePage, loadAuditRoutes, loadStaffAccessRoutes, loadUserAccountRoutes } from './features/platform-admin'
 import { HomeRedirect, RoleGate, type AppRole } from './features/authorization'
+import { LegalPage } from './features/authentication/pages/LegalPage'
 
 // Mỗi trang tải lazy: lỗi ở một trang không làm hỏng các trang khác.
 const ImportList = lazy(loadImportListPage)
@@ -104,6 +105,8 @@ export default function App() {
   return (
     <Suspense fallback={null}>
       <Routes>
+        <Route path="/terms" element={<LegalPage kind="terms" />} />
+        <Route path="/data-policy" element={<LegalPage kind="data" />} />
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/tong-quan" element={desk(<FarmDashboard />)} />
         <Route path="/nhac-viec" element={desk(<Reminders />)} />
@@ -146,7 +149,7 @@ export default function App() {
         <Route path="/thong-tin-trai" element={owner(<FarmInformation />)} />
         <Route path="/thanh-vien" element={desk(<Members />)} />
         <Route path="/loi-moi" element={owner(<Invitations />)} />
-        <Route path="/chap-nhan-loi-moi" element={<AcceptInvitation />} />
+        <Route path="/invitation/accept" element={<AcceptInvitation />} />
         <Route path="/goi-dich-vu/*" element={owner(<Subscription />)} />
         <Route path="/ho-tro/*" element={owner(<Support />)} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />

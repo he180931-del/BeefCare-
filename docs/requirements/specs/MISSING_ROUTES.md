@@ -58,8 +58,8 @@ Từ đối chiếu Figma với frontend ngày 02/11. Trong code FE, mỗi metho
 | FE-09 | Tiêm phòng | Lựa chọn cho form, danh sách mũi, xem trước đối tượng và kế hoạch, ngữ cảnh ghi nhận | | TuanPQ |
 | FE-10 | Sức khỏe | Lựa chọn thuốc, thành viên, gợi ý chẩn đoán, phiếu chết chờ xác nhận, số đếm tab | Đóng ca chết hoặc mất phải tự tạo phiếu ở server | TuanPQ |
 | FE-18 | Danh mục | Lọc `q`, `status` cho vắc-xin và thuốc | `CatalogueItem` thiếu số lượng đang dùng; `ParameterVersionResult` thiếu `sourceNote`, `savedBy`, nội dung thay đổi; command thiếu `expectedVersion` | AnNT |
-| FE-19 | Gói dịch vụ (Owner) | | Request cần `expectedPriceVersionId` (GBR-70); `PaymentDTO` thiếu `bankPaidAt`, `receivedAt`, `confirmedAt`; `SubscriptionOverview` thiếu tên trại, cờ và ngày tạm ngưng, các kỳ đã mua, số ngày còn lại; danh sách thanh toán thiếu lọc và sắp xếp | DucNV |
-| FE-19 | PM dịch vụ | `getEvidence`, bản nháp bảng giá, thu hồi bảng giá | | DucNV |
+| FE-19 | Gói dịch vụ (Owner) | | UC-02: Request cần `expectedPriceVersionId` (GBR-70); UC-02/03: `PaymentDTO` thiếu `bankPaidAt`, `receivedAt`, `confirmedAt`, danh sách thanh toán thiếu lọc và sắp xếp. UC-01 đã bổ sung đủ dữ liệu SCR-57 trong working tree 09/11/2026; trạng thái kiểm chứng / chưa bàn giao bản tích hợp xem `docs/reviews/FE19_UC01_REVIEW.md` | DucNV |
+| FE-19 | PM dịch vụ | Bản nháp bảng giá, thu hồi bảng giá | UC5 đọc SCR-62 (D18) và UC6 đối soát (D19) đã có backend: quyết định/khóa/ghi hoàn trả/mở khóa có `Idempotency-Key`, tra cứu SePay theo mã và `GET /api/platform/payments/lookup` theo khoảng; BE_REVIEWED local, chưa READY_FOR_FE. Xem `docs/reviews/FE19_UC05_REVIEW.md`, `docs/reviews/FE19_UC06_REVIEW.md` | DucNV |
 | FE-20 | Hỗ trợ của Owner | Danh sách trại cho form tạo ticket | `Message` thiếu `author`, `authorRole`, `createdAt`, `kind` | LamKD |
 | FE-20 | CS | Danh sách trại, CS, thông báo CS | `processing.action` chỉ khai báo là string, tên hành động đang là phỏng đoán | LamKD |
 | FE-21 | PM tài chính | Danh sách trại, danh sách và chi tiết biên nhận, báo cáo mới nhất | Tải XLSX chưa nối vì route trả về bytes | LamKD |

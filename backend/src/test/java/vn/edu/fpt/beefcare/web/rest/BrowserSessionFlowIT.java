@@ -39,6 +39,7 @@ import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.email.ActionLinkSigner;
 import vn.edu.fpt.beefcare.service.email.EmailDeliveryJobService;
 import vn.edu.fpt.beefcare.service.email.MockEmailDelivery;
+import vn.edu.fpt.beefcare.security.GoogleReauthentication;
 
 /**
  * FE-01 / FE-03 end to end through the real Spring Security chain, the way the React client drives it:
@@ -85,8 +86,24 @@ class BrowserSessionFlowIT {
         assertThat(users.findOneByEmailIgnoreCase(email)).isEmpty();
 
         // UC-FE01-01 AF1: SRS fields only (no login name), the account is pending verification
-        guest.post("/api/register", registration(email, PASSWORD, PASSWORD, true)).andExpect(status().isCreated());
-        assertThat(users.findOneByEmailIgnoreCase(email)).get().satisfies(user -> assertThat(user.isActivated()).isFalse());
+        guest.post("/api/register", registration("  " + email.toUpperCase() + "  ", PASSWORD, PASSWORD, true))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.email").value(email))
+            .andExpect(jsonPath("$.password").doesNotExist())
+            .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        assertThat(users.findOneByEmailIgnoreCase(email)).get().satisfies(user -> {
+            assertThat(user.isActivated()).isFalse();
+            assertThat(user.getPassword()).startsWith("$2").doesNotContain(PASSWORD);
+        });
+        assertThat(accounts.findOneByEmailIgnoreCase(email)).get().satisfies(account -> {
+            assertThat(account.isTermsAccepted()).isTrue();
+            assertThat(account.getTermsAcceptedAt()).isNotNull();
+            assertThat(account.getPasswordMethodStatus()).isEqualTo("PENDING_VERIFICATION");
+            assertThat(account.getPasswordLinkedAt()).isNotNull();
+            assertThat(account.getPasswordLastUsedAt()).isNull();
+            assertThat(account.getGoogleLinkedAt()).isNull();
+            assertThat(account.getGoogleLastUsedAt()).isNull();
+        });
         guest.post("/api/register", registration(email.toUpperCase(), PASSWORD, PASSWORD, true))
             .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-FE01-10"));
         assertThat(accounts.findAll().stream().filter(account -> email.equalsIgnoreCase(account.getEmail()))).hasSize(1);
@@ -106,10 +123,19 @@ class BrowserSessionFlowIT {
             .andExpect(status().isSeeOther()).andExpect(header().string("Location", org.hamcrest.Matchers.endsWith("/owner-registration"))).andReturn();
         assertThat(activated.getResponse().getHeader("Location")).startsWith("http://127.0.0.1:8080");
         phone.get("/api/account/profile").andExpect(status().isOk()).andExpect(jsonPath("$.emailVerified").value(true));
+        // SCR-07 must know that the email registration already accepted the terms so it can hide the duplicate checkbox.
+        phone.get("/api/account/profile").andExpect(jsonPath("$.termsAccepted").value(true));
+        assertThat(accounts.findOneByEmailIgnoreCase(email)).get().satisfies(account ->
+            assertThat(account.getPasswordMethodStatus()).isEqualTo("ACTIVE")
+        );
         // MSG-FE01-06: a used link is refused, and it does not sign anybody in
         new Browser().get("/api/activate?token=" + verificationToken)
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-06"));
-        new Browser().get("/api/activate?token=not-a-real-token").andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-06"));
+            .andExpect(status().isSeeOther())
+            .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/lien-ket-khong-con-hieu-luc?type=verification")))
+            .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("email=")));
+        new Browser().get("/api/activate?token=not-a-real-token")
+            .andExpect(status().isSeeOther())
+            .andExpect(header().string("Location", org.hamcrest.Matchers.endsWith("/lien-ket-khong-con-hieu-luc?type=verification")));
 
         // UC-FE01-02: password sign-in is 204 + session cookie; the 8-hour idle timeout (30 days with Remember me)
         Browser desktop = new Browser();
@@ -130,26 +156,28 @@ class BrowserSessionFlowIT {
             .andExpect(jsonPath("$.email").value(email)).andExpect(jsonPath("$.fullName").value("Flow Owner"))
             .andExpect(jsonPath("$.emailVerified").value(true)).andExpect(jsonPath("$.passwordSignInEnabled").value(true))
             .andExpect(jsonPath("$.googleSignInLinked").value(false)).andExpect(jsonPath("$.ownerRegistrationCompleted").value(false))
+            .andExpect(jsonPath("$.status").value("ACTIVE")).andExpect(jsonPath("$.hasPassword").value(true))
+            .andExpect(jsonPath("$.signInMethods[0]").value("PASSWORD"))
             .andExpect(jsonPath("$.platformRole").doesNotExist()).andExpect(jsonPath("$.farms").isEmpty())
             .andExpect(jsonPath("$.password").doesNotExist()).andExpect(jsonPath("$.passwordHash").doesNotExist());
-        desktop.postWithoutCsrf("/api/account/profile", Map.of("fullName", "Changed Without Csrf", "phone", "")).andExpect(status().isForbidden());
+        desktop.postWithoutCsrf("/api/account/profile", Map.of("fullName", "Changed Without Csrf", "contactPhone", "")).andExpect(status().isForbidden());
         assertThat(accounts.findOneByEmailIgnoreCase(email).orElseThrow().getFullName()).isEqualTo("Flow Owner");
         // SCR-08: name 2-100 characters, Vietnamese phone only (MSG-COM-10)
-        desktop.post("/api/account/profile", Map.of("fullName", "A", "phone", "0901234567"))
+        desktop.post("/api/account/profile", Map.of("fullName", "A", "contactPhone", "0901234567"))
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("fullName"));
-        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner", "phone", "12345"))
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("phone"));
-        desktop.post("/api/account/profile", Map.of("fullName", "  Flow Owner Updated ", "phone", "+84901234567")).andExpect(status().isOk())
-            .andExpect(jsonPath("$.fullName").value("Flow Owner Updated")).andExpect(jsonPath("$.phone").value("+84901234567"));
+        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner", "contactPhone", "12345"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("contactPhone"));
+        desktop.post("/api/account/profile", Map.of("fullName", "  Flow Owner Updated ", "contactPhone", "+84901234567")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.fullName").value("Flow Owner Updated")).andExpect(jsonPath("$.contactPhone").value("+84901234567"));
         desktop.get("/api/account/profile").andExpect(jsonPath("$.fullName").value("Flow Owner Updated"));
         // the e-mail is the sign-in identity and cannot be edited through the profile
-        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner Updated", "phone", "+84901234567", "email", "other@example.test")).andExpect(status().isOk());
+        desktop.post("/api/account/profile", Map.of("fullName", "Flow Owner Updated", "contactPhone", "+84901234567", "email", "other@example.test")).andExpect(status().isOk());
         assertThat(accounts.findOneByEmailIgnoreCase(email)).isPresent();
 
-        // UC-FE01-01 step 7: Owner registration needs the terms (MSG-FE01-14)
-        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "phone", "0901234567", "termsAccepted", false))
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-14"));
-        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "phone", "0901234567", "termsAccepted", true))
+        // UC-FE01-01 step 7: email registration already recorded consent, so SCR-07 may omit the duplicate checkbox.
+        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "contactPhone", "0901234567", "termsAccepted", false))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.completed").value(true));
+        desktop.post("/api/account/owner-registration", Map.of("fullName", "Flow Owner", "contactPhone", "0901234567", "termsAccepted", true))
             .andExpect(status().isOk()).andExpect(jsonPath("$.completed").value(true));
         desktop.get("/api/account/profile").andExpect(jsonPath("$.ownerRegistrationCompleted").value(true));
 
@@ -191,6 +219,21 @@ class BrowserSessionFlowIT {
     }
 
     @Test
+    void verificationAndPasswordRecoveryRejectMalformedEmailAtTheApiBoundary() throws Exception {
+        Browser guest = new Browser();
+        guest.fetchCsrf();
+
+        guest.post("/api/account/verification/resend", Map.of("email", "not-an-email"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-COM-10"))
+            .andExpect(jsonPath("$.params.field").value("email"));
+        guest.post("/api/account/reset-password/init", Map.of("email", "not-an-email"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-COM-10"))
+            .andExpect(jsonPath("$.params.field").value("email"));
+    }
+
+    @Test
     void registrationCannotSelfGrantAuthoritiesOrActivation() throws Exception {
         String email = email("selfgrant");
         Browser guest = new Browser();
@@ -213,13 +256,38 @@ class BrowserSessionFlowIT {
         guest.fetchCsrf();
         guest.post("/api/register", registration(email, PASSWORD, PASSWORD, true)).andExpect(status().isCreated());
         String first = linkToken(email, "/api/activate?token=");
-        // AF4: the resend response is the same for a registered and an unregistered address (JSON object body)
-        guest.post("/api/account/verification/resend", Map.of("email", email)).andExpect(status().isOk());
-        guest.post("/api/account/verification/resend", Map.of("email", email("nobody"))).andExpect(status().isOk());
+        var firstLink = links.findOneByTokenHashAndTokenType(signer.hash(first), "EMAIL_VERIFICATION").orElseThrow();
+        // SCR-04: the server enforces the first 60 seconds; reloading the browser cannot issue another link.
+        guest.post("/api/account/verification/resend", Map.of("email", email))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nextAllowedAt").isString());
+        assertThat(linkToken(email, "/api/activate?token=")).isEqualTo(first);
+        firstLink.setCreatedAt(Instant.now().minusSeconds(61));
+        links.saveAndFlush(firstLink);
+        // AF4: the response shape is the same for a registered and an unregistered address.
+        guest.post("/api/account/verification/resend", Map.of("email", email))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nextAllowedAt").isString());
+        guest.post("/api/account/verification/resend", Map.of("email", email("nobody")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nextAllowedAt").isString());
         String second = linkToken(email, "/api/activate?token=");
         assertThat(second).isNotEqualTo(first);
-        new Browser().get("/api/activate?token=" + first).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE01-06"));
+        new Browser().get("/api/activate?token=" + first).andExpect(status().isSeeOther());
+        Long userId = users.findOneByEmailIgnoreCase(email).orElseThrow().getId();
+        String newest = second;
+        for (int sent = 2; sent < 5; sent++) {
+            var latest = links.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(userId, "EMAIL_VERIFICATION").orElseThrow();
+            latest.setCreatedAt(Instant.now().minusSeconds(61));
+            links.saveAndFlush(latest);
+            guest.post("/api/account/verification/resend", Map.of("email", email)).andExpect(status().isOk());
+            newest = linkToken(email, "/api/activate?token=");
+        }
+        assertThat(links.countByUserIdAndTokenTypeAndCreatedAtAfter(userId, "EMAIL_VERIFICATION", Instant.now().minus(Duration.ofHours(1)))).isEqualTo(5);
+        var fifth = links.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(userId, "EMAIL_VERIFICATION").orElseThrow();
+        fifth.setCreatedAt(Instant.now().minusSeconds(61));
+        links.saveAndFlush(fifth);
+        guest.post("/api/account/verification/resend", Map.of("email", email)).andExpect(status().isOk());
+        assertThat(links.countByUserIdAndTokenTypeAndCreatedAtAfter(userId, "EMAIL_VERIFICATION", Instant.now().minus(Duration.ofHours(1)))).isEqualTo(5);
         new Browser().get("/api/activate?token=" + second).andExpect(status().isSeeOther());
+        new Browser().get("/api/activate?token=" + newest).andExpect(status().isSeeOther());
     }
 
     @Test
@@ -230,11 +298,11 @@ class BrowserSessionFlowIT {
         attacker.fetchCsrf();
         // GBR-02 / E1: a wrong password and an unknown e-mail give the identical answer
         attacker.login(email("unknown"), "whatever-123", false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01")).andExpect(jsonPath("$.params").isEmpty());
-        for (int attempt = 0; attempt < 5; attempt++) {
+        for (int attempt = 0; attempt < 4; attempt++) {
             attacker.login(email, "wrong-password-" + attempt, false).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("MSG-FE01-01"));
         }
-        // E2: the 6th try is locked even with the right password (MSG-FE01-02, with the time sign-in reopens)
-        MvcResult locked = attacker.login(email, PASSWORD, false).andExpect(status().isLocked()).andExpect(jsonPath("$.code").value("MSG-FE01-02")).andReturn();
+        // E2: the fifth wrong password itself locks sign-in (MSG-FE01-02, with the time sign-in reopens).
+        MvcResult locked = attacker.login(email, "wrong-password-final", false).andExpect(status().isLocked()).andExpect(jsonPath("$.code").value("MSG-FE01-02")).andReturn();
         Instant until = Instant.parse(om.readTree(locked.getResponse().getContentAsString()).path("params").path("time").asText());
         assertThat(Duration.between(Instant.now(), until)).isBetween(Duration.ofMinutes(14), Duration.ofMinutes(15).plusSeconds(5));
         assertThat(users.findOneByEmailIgnoreCase(email).orElseThrow().getFailedPasswordAttempts()).isEqualTo(5);
@@ -364,6 +432,10 @@ class BrowserSessionFlowIT {
         // GBR-03: the answer is the same for a registered and an unknown address (status and body), and the unknown one gets no mail
         String unknown = email("ghost");
         MvcResult known = guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk()).andReturn();
+        // The API keeps the privacy-preserving success response, but must enforce the same 60-second resend cooldown as SCR-05.
+        guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk());
+        assertThat(links.countByUserIdAndTokenTypeAndCreatedAtAfter(
+            users.findOneByEmailIgnoreCase(email).orElseThrow().getId(), "PASSWORD_RESET", Instant.EPOCH)).isEqualTo(1);
         MvcResult ghost = guest.post("/api/account/reset-password/init", Map.of("email", unknown)).andExpect(status().isOk()).andReturn();
         assertThat(ghost.getResponse().getContentAsString()).isEqualTo(known.getResponse().getContentAsString());
         assertThat(ghost.getResponse().getHeaderNames()).containsExactlyInAnyOrderElementsOf(known.getResponse().getHeaderNames());
@@ -371,15 +443,17 @@ class BrowserSessionFlowIT {
         assertThat(inbox.findMessagesFor(unknown)).isEmpty();
         assertThat(inbox.findMessagesFor(email).size()).isEqualTo(mailsBefore + 1);
 
-        String first = linkToken(email, "/reset-password?token=");
+        String first = linkToken(email, "/resetpassword?token=");
         var stored = links.findOneByTokenHashAndTokenType(signer.hash(first), "PASSWORD_RESET").orElseThrow();
         assertThat(Duration.between(stored.getCreatedAt(), stored.getExpiresAt())).isEqualTo(Duration.ofMinutes(30));
-        guest.get("/api/account/reset-password/validate?token=" + first).andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(true));
+        guest.get("/api/account/reset-password/validate?token=" + first).andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(true)).andExpect(jsonPath("$.email").value(email));
         guest.get("/api/account/reset-password/validate?token=garbage").andExpect(status().isOk()).andExpect(jsonPath("$.valid").value(false));
 
-        // a new request replaces the earlier link (the address is matched case-insensitively)
+        // After the server cooldown, a new request replaces the earlier link (the address is matched case-insensitively).
+        stored.setCreatedAt(Instant.now().minusSeconds(61));
+        links.saveAndFlush(stored);
         guest.post("/api/account/reset-password/init", Map.of("email", email.toUpperCase())).andExpect(status().isOk());
-        String second = linkToken(email, "/reset-password?token=");
+        String second = linkToken(email, "/resetpassword?token=");
         assertThat(second).isNotEqualTo(first);
         guest.get("/api/account/reset-password/validate?token=" + first).andExpect(jsonPath("$.valid").value(false));
         guest.post("/api/account/reset-password/finish", reset(first, "ResetPassword-88", "ResetPassword-88"))
@@ -404,6 +478,10 @@ class BrowserSessionFlowIT {
 
         int mailsBeforeFinish = inbox.findMessagesFor(email).size();
         guest.post("/api/account/reset-password/finish", reset(second, "ResetPassword-88", "ResetPassword-88")).andExpect(status().isOk());
+        assertThat(accounts.findOneByEmailIgnoreCase(email).orElseThrow()).satisfies(account -> {
+            assertThat(account.getPasswordMethodStatus()).isEqualTo("ACTIVE");
+            assertThat(account.getPasswordLinkedAt()).isNotNull();
+        });
         // single use
         guest.get("/api/account/reset-password/validate?token=" + second).andExpect(jsonPath("$.valid").value(false));
         guest.post("/api/account/reset-password/finish", reset(second, "Another-Pass-99", "Another-Pass-99"))
@@ -428,7 +506,7 @@ class BrowserSessionFlowIT {
         Browser guest = new Browser();
         guest.fetchCsrf();
         guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk());
-        String token = linkToken(email, "/reset-password?token=");
+        String token = linkToken(email, "/resetpassword?token=");
         var link = links.findOneByTokenHashAndTokenType(signer.hash(token), "PASSWORD_RESET").orElseThrow();
         link.setExpiresAt(Instant.now().minusSeconds(1));
         links.saveAndFlush(link);
@@ -448,6 +526,12 @@ class BrowserSessionFlowIT {
         guest.fetchCsrf();
         int before = resetMails(email);
         for (int request = 1; request <= 7; request++) {
+            if (request > 1) {
+                var latest = links.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(
+                    users.findOneByEmailIgnoreCase(email).orElseThrow().getId(), "PASSWORD_RESET").orElseThrow();
+                latest.setCreatedAt(Instant.now().minusSeconds(61));
+                links.saveAndFlush(latest);
+            }
             guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk()); // always the same answer
             deliverAll();
             assertThat(resetMails(email) - before).isEqualTo(Math.min(request, 5));
@@ -464,7 +548,7 @@ class BrowserSessionFlowIT {
         Browser guest = new Browser();
         guest.fetchCsrf();
         guest.post("/api/account/reset-password/init", Map.of("email", email)).andExpect(status().isOk());
-        String token = linkToken(email, "/reset-password?token=");
+        String token = linkToken(email, "/resetpassword?token=");
         guest.post("/api/account/reset-password/finish", reset(token, "ResetPassword-88", "ResetPassword-88")).andExpect(status().isOk());
         guest.login(email, "ResetPassword-88", false).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE01-03"));
     }
@@ -612,6 +696,34 @@ class BrowserSessionFlowIT {
     }
 
     @Test
+    void profilePermissionTableUsesTheServerVerifiedFarmRole() throws Exception {
+        Signed owner = signedUp(email("permission-owner"), "Permission Owner");
+        long farmId = activeFarm(owner.browser);
+
+        owner.browser.get("/api/farms/" + farmId + "/my-permissions")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.role").value("OWNER"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='CATTLE_PROFILE_QR')].value").value("FULL"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='GROWTH_BCS')].value").value("RESTRICTED"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='MEMBERS_ROLES')].value").value("FULL"));
+
+        signedUp(email("permission-stranger"), "Permission Stranger").browser
+            .get("/api/farms/" + farmId + "/my-permissions")
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("MSG-COM-01"));
+    }
+
+    @Test
+    void googleReauthenticationStoresOnlyAServerAllowedProfileRoute() throws Exception {
+        Signed owner = signedUp(email("reauth-route"), "Reauthentication Route");
+
+        owner.browser.post("/api/account/google-reauthentication", Map.of("returnTo", "/nen-tang/ho-so"))
+            .andExpect(status().isNoContent());
+
+        assertThat(owner.browser.session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH)).isEqualTo("/ho-so");
+    }
+
+    @Test
     void theClosedGenericCrudRoutesStayClosedForAnonymousAndSignedInCallers() throws Exception {
         Browser anonymous = new Browser();
         anonymous.fetchCsrf();
@@ -645,9 +757,9 @@ class BrowserSessionFlowIT {
 
     /** Completes the Owner profile, registers a farm over HTTP and activates its service (payment is out of scope here). */
     private long activeFarm(Browser owner) throws Exception {
-        owner.post("/api/account/owner-registration", Map.of("fullName", "Flow Farm Owner", "phone", "0901234567", "termsAccepted", true)).andExpect(status().isOk());
+        owner.post("/api/account/owner-registration", Map.of("fullName", "Flow Farm Owner", "contactPhone", "0901234567", "termsAccepted", true)).andExpect(status().isOk());
         MvcResult result = owner.post("/api/farms",
-            Map.of("name", "Flow Farm", "province", "Dong Nai", "commune", "Xuan Loc", "expectedHerdSize", "UNDER_50"), UUID.randomUUID().toString())
+            Map.of("name", "Flow Farm", "province", "Đồng Nai", "commune", "Xuan Loc", "expectedHerdSize", "UNDER_50"), UUID.randomUUID().toString())
             .andExpect(status().isCreated()).andExpect(jsonPath("$.serviceStatus").value("PENDING_PAYMENT")).andReturn();
         long farmId = om.readTree(result.getResponse().getContentAsString()).path("id").asLong();
         var farm = farms.findById(farmId).orElseThrow();
@@ -677,7 +789,7 @@ class BrowserSessionFlowIT {
     }
 
     private int resetMails(String email) {
-        return (int) inbox.findMessagesFor(email).stream().filter(message -> message.plainText() != null && message.plainText().contains("/reset-password?token=")).count();
+        return (int) inbox.findMessagesFor(email).stream().filter(message -> message.plainText() != null && message.plainText().contains("/resetpassword?token=")).count();
     }
 
     /** Runs the durable mail dispatcher (the scheduler is slowed down in the test profile). */

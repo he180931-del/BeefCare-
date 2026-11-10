@@ -72,7 +72,7 @@ export default function MembersPage() {
           <PermissionChecklist role={permissionRole} />
         </Card>
       </div>
-      <Foot>Owner quản lý lời mời và vai trò; Manager chỉ xem. Bộ lọc tách người theo vai trò/trạng thái, còn bảng cho biết tên, Thư điện tử, ngày tham gia và thao tác được phép.</Foot>
+      <Foot>Chủ trại quản lý lời mời và vai trò; Quản lý chỉ xem. Bộ lọc tách người theo vai trò/trạng thái, còn bảng cho biết tên, Thư điện tử, ngày tham gia và thao tác được phép.</Foot>
       {m === 'invite' && owner && <InviteDialog farmId={farmId} farmName={farm?.name} active={farmActive} onClose={closeModal} onSent={(message) => { setNotice(message); closeModal(); void query.refetch() }} />}
       {selected && owner && <MemberChangeDialog farmId={farmId} member={selected} initialAction={(search.get('a') as ChangeMemberInput['action'] | null) ?? undefined} active={farmActive} onClose={closeChange} onDone={done} />}
     </Layout>

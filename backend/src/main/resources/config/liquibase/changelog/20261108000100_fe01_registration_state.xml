@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261108000100-fe01-registration-state" author="beefcare">
+        <addColumn tableName="app_user">
+            <column name="terms_accepted" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="terms_accepted_at" type="${datetimeType}"/>
+            <column name="password_method_status" type="varchar(30)"/>
+            <column name="password_linked_at" type="${datetimeType}"/>
+            <column name="password_last_used_at" type="${datetimeType}"/>
+            <column name="google_linked_at" type="${datetimeType}"/>
+            <column name="google_last_used_at" type="${datetimeType}"/>
+        </addColumn>
+        <sql>
+            UPDATE app_user
+            SET terms_accepted = owner_registration_completed,
+                terms_accepted_at = CASE WHEN owner_registration_completed THEN owner_registration_completed_at ELSE NULL END,
+                password_method_status = CASE WHEN password_login_enabled THEN 'ACTIVE' ELSE NULL END,
+                password_linked_at = CASE WHEN password_login_enabled THEN CURRENT_TIMESTAMP ELSE NULL END,
+                google_linked_at = CASE WHEN google_subject IS NOT NULL THEN CURRENT_TIMESTAMP ELSE NULL END,
+                google_last_used_at = CASE WHEN google_subject IS NOT NULL THEN CURRENT_TIMESTAMP ELSE NULL END
+        </sql>
+    </changeSet>
+</databaseChangeLog>

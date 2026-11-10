@@ -1,59 +1,96 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
+import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { financeDemoStore, type FinanceDemoStore } from '../data/financeDemoStore'
 import type { NoticeKind, ReceiptFilters, RecordFields, RecordFilters, ReportCriteria } from '../types'
+import { createFinanceBackendApi } from './financeBackendApi'
+import type { PmNotice } from '../types'
+
+const mapNotice = (value: unknown): PmNotice => {
+  const row = asRecord(value)
+  const category = textValue(row.category).toUpperCase()
+  const targetType = textValue(row.targetType).toUpperCase()
+  const targetId = numberValue(row.targetId)
+  const kind = category === 'SUPPORT' ? 'SUPPORT' : 'RECON'
+  const href = targetType === 'SUPPORT_TICKET' ? `/nen-tang/ho-tro/${targetId}`
+    : targetType === 'INTERNAL_REQUEST' ? `/nen-tang/yeu-cau/${targetId}`
+      : '/nen-tang/thanh-toan'
+  const actionLabel = targetType === 'INTERNAL_REQUEST' ? 'Mở yêu cầu' : targetType === 'SUPPORT_TICKET' ? 'Mở ticket' : 'Xem xét'
+  return { id: numberValue(row.id), kind, title: textValue(row.title), summary: textValue(row.summary), createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime), actionLabel, href }
+}
+const businessToday = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
 
 export function createFinanceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FinanceDemoStore }) {
-  // Kept for the later backend hookup; backend mode must never read the mock.
+  // Backend mode is always remote; local mode is the only mode allowed to read the demo store.
   void farmId
-  void transport
-  const requireLocal = () => { if (mode === 'backend') throw backendPending('tài chính nền tảng') }
+  const backend = createFinanceBackendApi(transport)
   return {
-    now() { return store.now() },
-    // chưa có API (danh sách trại cho bộ lọc)
-    async listFarms() { requireLocal(); return store.listFarms() },
+    isBackend() { return mode === 'backend' },
+    now() { return mode === 'local' ? store.now().slice(0, 10) : businessToday() },
+    defaultDateRange() {
+      const today = mode === 'backend' ? businessToday() : store.now().slice(0, 10)
+      return { from: `${today.slice(0, 8)}01`, to: today }
+    },
+    defaultReportCriteria(): ReportCriteria {
+      if (mode === 'local') return store.currentReport().criteria
+      const range = this.defaultDateRange()
+      return { dateFrom: range.from, dateTo: range.to, farmId: null, sourceFilter: 'BOTH' }
+    },
+    async listFarms() { return mode === 'backend' ? backend.listFarms() : store.listFarms() },
     // GET /api/platform/finance/categories
-    async listCategories() { requireLocal(); return store.listCategories() },
+    async listCategories() { return mode === 'backend' ? backend.listCategories() : store.listCategories() },
 
     // chưa có API (danh sách biên nhận gói; chỉ có chi tiết trong báo cáo)
-    async listReceipts(filters: ReceiptFilters = {}) { requireLocal(); return store.listReceipts(filters) },
-    // chưa có API
-    async getReceipt(code: string) { requireLocal(); return store.getReceipt(code) },
+    async listReceipts(filters: ReceiptFilters = {}) { return mode === 'backend' ? backend.listReceipts(filters) : store.listReceipts(filters) },
+    async getReceipt(code: string) { return mode === 'backend' ? backend.getReceipt(code) : store.getReceipt(code) },
 
     // GET /api/platform/finance/records
-    async listRecords(filters: RecordFilters = {}) { requireLocal(); return store.listRecords(filters) },
+    async listRecords(filters: RecordFilters = {}) { return mode === 'backend' ? backend.listRecords(filters) : store.listRecords(filters) },
     // GET /api/platform/finance/records/{id}
-    async getRecord(code: string) { requireLocal(); return store.getRecord(code) },
+    async getRecord(code: string) { return mode === 'backend' ? backend.getRecord(code) : store.getRecord(code) },
     // GET /api/platform/finance/bank-transactions
-    async listBankTransactions() { requireLocal(); return store.listBankTransactions() },
+    async listBankTransactions() { return mode === 'backend' ? backend.listBankTransactions() : store.listBankTransactions() },
     // POST /api/platform/finance/records
-    async createDraft(fields: RecordFields) { requireLocal(); return store.createDraft(fields) },
+    async createDraft(fields: RecordFields) { return mode === 'backend' ? backend.createDraft(fields) : store.createDraft(fields) },
     // PUT /api/platform/finance/records/{id} (VersionedRecord.version)
-    async saveDraft(code: string, fields: RecordFields, expectedVersion: number) { requireLocal(); return store.saveDraft(code, fields, expectedVersion) },
+    async saveDraft(code: string, fields: RecordFields, expectedVersion: number) { return mode === 'backend' ? backend.saveDraft(code, fields, expectedVersion) : store.saveDraft(code, fields, expectedVersion) },
     // POST /api/platform/finance/records/{id}/discard
-    async discard(code: string, expectedVersion: number) { requireLocal(); return store.discard(code, expectedVersion) },
+    async discard(code: string, expectedVersion: number) { return mode === 'backend' ? backend.discard(code, expectedVersion) : store.discard(code, expectedVersion) },
     // POST /api/platform/finance/records/{id}/post
-    async post(code: string, expectedVersion: number) { requireLocal(); return store.post(code, expectedVersion) },
+    async post(code: string, expectedVersion: number) { return mode === 'backend' ? backend.post(code, expectedVersion) : store.post(code, expectedVersion) },
     // POST /api/platform/finance/records/{id}/void
-    async voidRecord(code: string, expectedVersion: number, reason: string) { requireLocal(); return store.voidRecord(code, expectedVersion, reason) },
+    async voidRecord(code: string, expectedVersion: number, reason: string) { return mode === 'backend' ? backend.voidRecord(code, expectedVersion, reason) : store.voidRecord(code, expectedVersion, reason) },
     // POST /api/platform/finance/records/{id}/replacement
-    async createReplacement(code: string, expectedVersion: number, overrides: { amountVnd?: number; description?: string } = {}) { requireLocal(); return store.createReplacement(code, expectedVersion, overrides) },
+    async createReplacement(code: string, expectedVersion: number, overrides: { amountVnd?: number; description?: string } = {}) { return mode === 'backend' ? backend.createReplacement(code, expectedVersion, overrides) : store.createReplacement(code, expectedVersion, overrides) },
 
     // chưa có API (bản chốt đang xem gần nhất; backend chỉ có POST/GET theo id)
-    async currentReport() { requireLocal(); return store.currentReport() },
+    async currentReport() { return mode === 'backend' ? backend.currentReport() : store.currentReport() },
     // GET /api/platform/finance/reports/{id}
-    async getReport(id: number) { requireLocal(); return store.getReport(id) },
+    async getReport(id: number) { return mode === 'backend' ? backend.getReport(id) : store.getReport(id) },
     // POST /api/platform/finance/reports
-    async runReport(criteria: ReportCriteria) { requireLocal(); return store.runReport(criteria) },
+    async runReport(criteria: ReportCriteria) { return mode === 'backend' ? backend.runReport(criteria) : store.runReport(criteria) },
     // GET /api/platform/finance/reports/{id}/xlsx
-    async exportXlsx(id: number) { requireLocal(); return store.exportXlsx(id) },
+    async exportXlsx(id: number) { return mode === 'backend' ? backend.exportXlsx(id) : store.exportXlsx(id) },
 
-    // GET /api/notifications/mine (lọc theo loại ở client)
-    async listNotices(kind: NoticeKind) { requireLocal(); return store.listNotices(kind) },
+    // GET /api/notifications/mine (lọc nhóm nền tảng ở client)
+    async listNotices(kind: NoticeKind) {
+      if (mode === 'local') return store.listNotices(kind)
+      return asRows(await transport.get('/api/notifications/mine')).map(mapNotice).filter((notice) => notice.kind === kind)
+    },
     // PUT /api/notifications/{id}/read
-    async markNoticeRead(id: number) { requireLocal(); return store.markNoticeRead(id) },
-    // PUT /api/notifications/read-all
-    async markAllNoticesRead(kind: NoticeKind) { requireLocal(); return store.markAllNoticesRead(kind) },
+    async markNoticeRead(id: number) {
+      if (mode === 'local') return store.markNoticeRead(id)
+      return mapNotice(await transport.command(`/api/notifications/${id}/read`, undefined, { method: 'PUT' }))
+    },
+    // Backend endpoint đọc tất cả không có filter; chỉ đánh dấu các notice cùng nhóm để không làm đổi tab khác.
+    async markAllNoticesRead(kind: NoticeKind) {
+      if (mode === 'local') return store.markAllNoticesRead(kind)
+      const rows = asRows(await transport.get('/api/notifications/mine')).map(mapNotice).filter((notice) => notice.kind === kind && notice.readTime == null)
+      await Promise.all(rows.map((notice) => transport.command(`/api/notifications/${notice.id}/read`, undefined, { method: 'PUT' })))
+      return rows.length
+    },
   }
 }
 export type FinanceApi = ReturnType<typeof createFinanceApi>

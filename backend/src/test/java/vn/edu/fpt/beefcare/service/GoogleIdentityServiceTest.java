@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import vn.edu.fpt.beefcare.domain.Authority;
+import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.AuthorityRepository;
@@ -57,6 +58,68 @@ class GoogleIdentityServiceTest {
         assertThat(account.getValue().getGoogleSubject()).isEqualTo("google-subject");
         assertThat(account.getValue().isPasswordLoginEnabled()).isFalse();
         assertThat(account.getValue().isOwnerRegistrationCompleted()).isFalse();
+        assertThat(account.getValue().getPasswordMethodStatus()).isNull();
+        assertThat(account.getValue().getGoogleLinkedAt()).isNotNull();
+        assertThat(account.getValue().getGoogleLastUsedAt()).isEqualTo(account.getValue().getGoogleLinkedAt());
+        assertThat(account.getValue().isTermsAccepted()).isFalse();
+        assertThat(account.getValue().getTermsAcceptedAt()).isNull();
+    }
+
+    @Test
+    void refusesAChangedEmailForAnAlreadyLinkedGoogleSubject() {
+        AppUser linked = new AppUser();
+        linked.setEmail("original@example.test");
+        linked.setAccountStatus("ACTIVE");
+        linked.setGoogleSubject("google-subject");
+        when(appUsers.findOneByGoogleSubject("google-subject")).thenReturn(Optional.of(linked));
+
+        assertThatThrownBy(() -> service.provisionOrLink(profile("different@example.test", "google-subject", true)))
+            .isInstanceOf(OAuth2AuthenticationException.class);
+
+        verify(appUsers, never()).saveAndFlush(any());
+        verify(identities, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void reportsSuspendedAccountInsteadOfAGenericGoogleRejection() {
+        AppUser suspended = new AppUser();
+        suspended.setEmail("suspended@example.test");
+        suspended.setAccountStatus("SUSPENDED");
+        when(appUsers.findOneByGoogleSubject("google-subject")).thenReturn(Optional.empty());
+        when(appUsers.findOneByEmailIgnoreCase("suspended@example.test")).thenReturn(Optional.of(suspended));
+
+        assertThatThrownBy(() -> service.provisionOrLink(profile("suspended@example.test", "google-subject", true)))
+            .isInstanceOfSatisfying(DomainException.class, error -> {
+                assertThat(error.getCode()).isEqualTo(MessageCodes.FE01_03);
+                assertThat(error.getStatus()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+            });
+
+        verify(appUsers, never()).saveAndFlush(any());
+        verify(identities, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void allowsGoogleSignInWhileThePasswordLockoutIsActive() {
+        AppUser account = new AppUser();
+        account.setEmail("locked@example.test");
+        account.setFullName("Locked Person");
+        account.setAccountStatus("ACTIVE");
+        account.setPasswordLoginEnabled(true);
+        User identity = new User();
+        identity.setEmail(account.getEmail());
+        identity.setActivated(true);
+        identity.setPasswordLockedUntil(java.time.Instant.now().plusSeconds(900));
+        when(appUsers.findOneByGoogleSubject("google-subject")).thenReturn(Optional.empty());
+        when(appUsers.findOneByEmailIgnoreCase("locked@example.test")).thenReturn(Optional.of(account));
+        when(identities.findOneByEmailIgnoreCase("locked@example.test")).thenReturn(Optional.of(identity));
+
+        when(appUsers.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GoogleIdentityService.Result result = service.provisionOrLink(profile("locked@example.test", "google-subject", true));
+
+        assertThat(result.user()).isSameAs(identity);
+        verify(appUsers).saveAndFlush(account);
+        verify(identities, never()).saveAndFlush(any());
     }
 
     private OidcUser profile(String email, String subject, boolean verified) {
