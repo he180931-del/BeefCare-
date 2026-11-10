@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **221 paths, 270 operations, 299 schemas**, regenerated 10 November 2026 from the UC7 working tree after `OpenApiContractTest` passed. UC5–UC7 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md`, `docs/reviews/FE19_UC06_REVIEW.md` and `docs/reviews/FE19_UC07_REVIEW.md`; this count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
+Current contract: **222 paths, 271 operations, 301 schemas**, regenerated 10 November 2026 after the UC8 review fixes, when `OpenApiContractTest` passed. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations, recorded on the integrated tree, are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -182,3 +182,15 @@ Evidence and limits: `docs/reviews/FE19_UC08_REVIEW.md`. Local BE_REVIEWED only:
 99 Surefire tests +49 Failsafe cases (47 PostgreSQL16.15,2 H2 email), frontend158,
 typecheck/build, signed real HTTP/DB/Mailpit and manual runtime captures. No
 approved integrated checkpoint/READY_FOR_FE or SePay LIVE claim.
+
+Review fixes (10/11/2026): an authenticated transfer is stored in full (provider
+text columns widened to the 65,536-byte body bound, no 400/502 for length); a
+redelivery is counted without changing the evidence `version`; API-03/simulator
+jobs are leased to the request at storage; a rejected call still answers 401 when
+its metadata cannot be stored, and JOB-08 purges that metadata after 30 days.
+
+FE-19 integrated tree (feature branch with `main` merged, `4d83ab1`): Surefire
+138/138, Failsafe 128/128 (120 PostgreSQL 16.15, 8 H2), frontend 158/158, typecheck,
+build and a real-HTTP runtime on PostgreSQL covering all 23 operations (28/28
+checks; signed webhook to PAID in 0.77 s). Examples: `FE19_EXAMPLES.md`. Status
+stays BE_REVIEWED until the branch is merged into `main`.
