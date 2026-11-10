@@ -2,7 +2,7 @@ import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberV
 import { BackendError } from '../../../api/backendClient'
 import { catalogueDemoStore, type CatalogueDemoStore } from '../data/catalogueDemoStore'
 import { FieldErrors, todayIso, type FieldErrorMap } from '../domain/catalogueRules'
-import { DEFAULT_PARAMETERS, PARAMETER_FIELDS, describeChanges } from '../domain/parameterRules'
+import { DEFAULT_PARAMETERS, PARAMETER_FIELDS, describeChanges, effectiveVersion } from '../domain/parameterRules'
 import type {
   BcsScale, Breed, BreedCommand, CatalogueFilters, Medicine, MedicineCommand, NumericParameterKey, ParameterValues, ParameterVersion,
   ParameterVersionCommand, Purpose, PurposeCommand, PurposeType, Route, Vaccine, VaccineCommand,
@@ -73,7 +73,7 @@ export function decorateVersions(rows: Array<Record<string, unknown>>, today: st
     parameters: toParameterValues(asRecord(row.parameters), row.gestationLengthDays),
     sourceNote: textValue(row.sourceNote), savedBy: textValue(row.savedBy, '—'),
   })).sort((a, b) => a.versionNo - b.versionNo)
-  const current = [...records].reverse().find((v) => v.effectiveFrom <= today)
+  const current = effectiveVersion(records, today)
   return records.map((v, i) => ({
     ...v,
     changes: describeChanges(i === 0 ? null : records[i - 1]!.parameters, v.parameters),
@@ -179,8 +179,7 @@ export function createCatalogueApi({ mode, farmId, transport, store }: { mode: B
         parameters: toBackendParameters(c.parameters), gestationLengthDays: c.gestationLengthDays, effectiveFrom: c.effectiveFrom,
         sourceNote: c.sourceNote.trim(), baseVersion: c.baseVersion ?? null,
       }, { method: 'POST' }))
-      const all = decorateVersions(asRows(await transport.get(path('/parameters/versions'))), todayIso())
-      return all.find((v) => v.id === numberValue(saved.id)) ?? decorateVersions([saved], todayIso())[0]!
+      return decorateVersions([saved], todayIso())[0]!
     }),
   }
 }

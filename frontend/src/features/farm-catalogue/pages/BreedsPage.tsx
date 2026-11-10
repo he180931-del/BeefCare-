@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Field, Foot, Table, Td, Textarea, Th, Note } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
-import { catalogueApi } from '../api/catalogueApi'
+import { useCatalogueApi } from '../api/useCatalogueApi'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
 import { DeactivateDialog } from '../components/ConfirmDialogs'
 import { EditorEmpty, EditorFooter, EditorPanel } from '../components/EditorPanel'
@@ -17,6 +17,7 @@ const newDraft = (): BreedDraft => ({ code: '', name: '', group: '', description
 const toDraft = (b: Breed): BreedDraft => ({ code: b.code, name: b.name, group: b.group, description: b.description, available: b.available })
 
 export default function BreedsPage() {
+  const catalogueApi = useCatalogueApi()
   const canEdit = useCanEdit()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<AvailabilityFilter>('')

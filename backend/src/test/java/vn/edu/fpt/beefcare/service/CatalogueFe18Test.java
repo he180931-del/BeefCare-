@@ -101,11 +101,13 @@ class CatalogueFe18Test extends DomainTestSupport {
         assertCode(() -> parameters.create(f.getId(), "p2-" + next(), new CareDtos.ParameterVersionCommand(Map.of("WEANING_AGE_MONTHS", 12, "YOUNG_STOCK_AGE_MONTHS", 12), null, TODAY, "Thú y")), MessageCodes.FE18_06);
         assertCode(() -> parameters.create(f.getId(), "p3-" + next(), new CareDtos.ParameterVersionCommand(Map.of("BREEDING_WINDOW_START_HOURS", 12, "BREEDING_WINDOW_END_HOURS", 10), null, TODAY, "Thú y")), MessageCodes.FE18_06);
         int base = parameters.list(f.getId()).stream().mapToInt(CareDtos.ParameterVersionResult::versionNo).max().orElse(0);
-        CareDtos.ParameterVersionResult saved = parameters.create(f.getId(), "p4-" + next(), new CareDtos.ParameterVersionCommand(Map.of("WEIGHING_INTERVAL_DAYS", 45), null, TODAY, "Khuyến cáo thú y", base));
+        CareDtos.ParameterVersionResult saved = parameters.create(f.getId(), "p4-" + next(), new CareDtos.ParameterVersionCommand(
+            Map.of("WEIGHING_INTERVAL_DAYS", 45, "TARGET_FINISHING_WEIGHT_KG", 450.5), null, TODAY, "Khuyến cáo thú y", base));
         assertThat(saved.versionNo()).isEqualTo(base + 1);
         assertThat(saved.sourceNote()).isEqualTo("Khuyến cáo thú y");
         assertThat(saved.savedBy()).isNotBlank();
         assertThat(saved.scheduled()).isFalse();
+        assertThat(parameters.effective(f.getId(), TODAY)).containsEntry("TARGET_FINISHING_WEIGHT_KG", 450.5);
         // TC-18-26: a second editor who loaded the same base version gets MSG-COM-05.
         assertCode(() -> parameters.create(f.getId(), "p5-" + next(), new CareDtos.ParameterVersionCommand(Map.of("WEIGHING_INTERVAL_DAYS", 60), null, TODAY, "Người sau", base)), MessageCodes.COM_05);
         // TC-18-24: a later effective date is scheduled.
