@@ -8,8 +8,8 @@ export const PAST_ERROR = 'Thời điểm hiệu lực không được ở quá 
 
 /** "1.200.000" -> 1200000; NaN khi không phải số nguyên. */
 export function parseVnd(text: string) {
-  const t = text.replace(/[.\s]/g, '').replace(/đ$/i, '')
-  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+  const t = text.replace(/\s/g, '').replace(/đ$/i, '')
+  return /^(?:\d+|\d{1,3}(?:\.\d{3})+)$/.test(t) ? Number(t.replace(/\./g, '')) : Number.NaN
 }
 export const validPrice = (n: number) => Number.isInteger(n) && n >= MIN_PRICE && n <= MAX_PRICE
 

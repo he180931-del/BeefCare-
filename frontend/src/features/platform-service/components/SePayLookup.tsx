@@ -22,7 +22,9 @@ export default function SePayLookup({ onDone, onOpen }: Props) {
     setError(null)
     try {
       const result = await api.lookupById(id)
-      onDone(result.duplicate ? `Giao dịch ${id} đã có chứng từ.` : `Đã lưu giao dịch ${id} thành chứng từ.`)
+      onDone(result.paymentId !== null
+        ? result.duplicate ? `Giao dịch ${id} đã được xác nhận thanh toán trước đó.` : `Giao dịch ${id} đã được tự động xác nhận thanh toán.`
+        : result.duplicate ? `Giao dịch ${id} đã có chứng từ.` : `Đã lưu giao dịch ${id} thành chứng từ.`)
       onOpen(result.evidenceId)
       if (page) setPage({ ...page, data: await api.lookupPeriod(page.from, page.to) })
     } catch (failure) {

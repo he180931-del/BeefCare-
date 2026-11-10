@@ -81,3 +81,110 @@ có trạng thái hiển thị `NO_ACTION` ("Không cần xử lý"), không tí
 Chứng từ chưa có chiều (dữ liệu cũ) vẫn coi là cần xem. PM vẫn có thể Tạm giữ
 hoặc Từ chối chứng từ chiều ra; khi đó trạng thái theo quyết định. Điều chỉnh
 quy tắc đếm của D18. Bằng chứng: `docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D21 — UC-FE19-06: xác nhận từ tra cứu và yêu cầu liên quan trong lịch sử (10/11/2026)
+
+Người dùng xác nhận hai đề xuất trong phiên:
+
+1. Giao dịch tìm lại qua SePay được tự xác nhận nếu đủ toàn bộ điều kiện
+   GBR-72/84, dùng chung cơ chế xác nhận với webhook, nguồn SEPAY. Không thêm
+   bước PM duyệt cho giao dịch hợp lệ. Không khớp thì chỉ lưu chứng từ để PM
+   đối soát; tra cứu theo khoảng vẫn chỉ đọc. Chạy lại không cấp trùng kỳ hay
+   biên lai; thanh toán không gỡ SUSPENDED.
+2. Mỗi dòng Evidence Review lưu riêng yêu cầu thanh toán liên quan tại lúc
+   quyết định. ACCEPT luôn lưu yêu cầu được xác nhận (kể cả tìm bằng mã chính
+   xác); HOLD/REJECT lưu yêu cầu PM chọn nếu có và vẫn được lưu khi không chọn.
+   Liên kết này chỉ là ngữ cảnh lịch sử, không phân bổ tiền hay cấp dịch vụ.
+   Không suy liên kết của lịch sử cũ từ thanh toán được phân bổ cuối cùng.
+
+Bổ sung phần `related payment request` từng hoãn trong báo cáo UC6; thay quy
+ước HOLD/REJECT bỏ qua `paymentId` của D19. Không bật SePay LIVE hoặc mở rộng
+JOB-06. Ma trận và bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D22 — UC-FE19-06: mã chính xác chỉ cấp cho trại của mã; mã giao dịch là khóa tra cứu (10/11/2026)
+
+Người dùng chọn hai đề xuất sau review UC6:
+
+1. Khi nội dung chuyển khoản có mã chính xác của yêu cầu X, PM chỉ được chấp
+   nhận chứng từ cho một yêu cầu **cùng trại với X** (kể cả chính X). Danh sách
+   ứng viên chỉ gồm yêu cầu của trại đó; chọn yêu cầu trại khác bị MSG-FE19-11
+   `OTHER_FARM`, không phân bổ gì. Trường hợp Owner dùng lại mã của yêu cầu cũ
+   đã hết hạn để trả cho yêu cầu mới của cùng trại vẫn được chấp nhận. Mã gõ sai
+   hoặc không có mã: giữ GBR-72, ứng viên gồm mọi trại.
+2. Tra cứu SePay theo mã (`POST …/lookup/{transactionId}`) không thêm
+   `Idempotency-Key`: mã giao dịch SePay là request key theo BR-D24/GBR-88. Gọi
+   lại cùng mã luôn trả chứng từ và kết quả đầu, không cấp kỳ hai lần.
+
+Cùng đợt review (không cần quyết thêm, theo SRS): xác nhận và JOB-04 khóa trại
+trước khi đọc subscription (GBR-72/73); tra cứu ghi PM thực hiện vào audit
+(GBR-86), nguồn xác nhận vẫn SEPAY (D21); giao dịch chiều ra không gửi thông báo
+cần đối soát (D20); dữ liệu SePay không lưu được khi tra cứu là 502. Ma trận và
+bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D23 — UC-FE19-07: công bố, rút và lịch sử bảng giá (10/11/2026)
+
+Người dùng xác nhận cả năm đề xuất trong phiên, sau khi làm rõ rằng thời điểm
+công bố do hệ thống tự ghi và khác thời điểm hiệu lực do PM chọn:
+
+1. Hoàn thiện backend và nối SCR-63 hiện có; kiểm giá hiệu lực cho yêu cầu mới
+   và trang công khai; yêu cầu đã phát hành và kỳ đã mua giữ nguyên.
+2. Bổ sung `POST /api/platform/plan-prices/{version}/withdraw` (Q1), lý do rút
+   bắt buộc, ít nhất 5 ký tự không phải khoảng trắng và tối đa 1.000 ký tự theo
+   Table III-1 (chốt phần UC7 của Q4). Lưu lý do/người/giờ rút, giữ lịch sử;
+   backend kiểm lại điều kiện strictly before effectiveAt, revision và key.
+3. Bỏ nút Lưu nháp; không thêm API/bảng lưu nháp. Giữ nội dung khi lỗi, hỏi trước
+   khi hủy chỉnh sửa; không lấy dữ liệu demo để thay lỗi backend.
+4. Công bố ngay không tự hủy lịch tương lai, kể cả lịch có số phiên bản nhỏ hơn;
+   chọn giá bằng thời điểm hiệu lực. Phiên bản đã rút không chiếm mốc thời gian,
+   cho phép công bố phiên bản thay thế tại mốc đó.
+5. Lịch sử 20 dòng/trang, mới công bố trước; đủ giá chính xác, trạng thái, hiệu
+   lực, người/giờ công bố và thông tin rút. Tải khi vào màn, công bố/rút thành
+   công, Làm mới và tới mốc hiệu lực; không polling định kỳ.
+
+Giữ mã phiên bản backend hiện có (`PlanVersion.id`, không cam kết liên tiếp);
+frontend không tự dự đoán max+1. Metadata cũ chỉ lấy từ audit công bố thật, thiếu
+thì null / “—”, không suy từ effectiveAt. Ma trận, contract thay đổi và bằng
+chứng tại `docs/reviews/FE19_UC07_REVIEW.md`.
+
+### D24 — UC-FE19-08: nhận webhook, xử lý bền vững và email thanh toán (10/11/2026)
+
+Người dùng đồng ý cả năm đề xuất sau khi đọc spec19/UC8:
+
+1. Làm API-02, JOB-06 và phần JOB-07 của thanh toán, dùng chung cho webhook,
+   tra cứu và PM xác nhận; không kích hoạt consumer cho các sự kiện outbox của
+   feature khác (Chung Q1 vẫn mở).
+2. Giữ `POST /api/webhooks/sepay`, thêm alias SRS
+   `POST /api/v1/payments/sepay/webhook`. Cả hai xác thực HMAC/raw body như SRS,
+   chỉ trả `200 {"success":true}` sau khi chứng từ và job cùng commit; 200 chưa
+   có nghĩa PAID. API-03/simulator giữ kết quả thành công ngay như hiện có,
+   chạy chung bộ xử lý chứng từ đã lưu; lỗi kỹ thuật sau lưu còn job để retry.
+3. JOB-06 retry sau1/5/15 phút, rồi mỗi giờ, giới hạn24h tính từ lỗi đầu;
+   sau đó dừng tự động, giữ dữ liệu/lỗi để PM xử lý trên SCR-62, thông báo một
+   lần. Lỗi kỹ thuật phân biệt sai mã/số tiền; D20 vẫn loại thông báo đối soát
+   cho chiều ra. Job không ghi đè quyết định/khóa PM hoặc phân bổ đã commit.
+4. Mã trong `code`, `referenceCode`, `content` mâu thuẫn hoặc nhiều mã khác nhau
+   thì không chọn mã đầu; giữ chứng từ cho PM. Giao lặp vẫn theo dữ liệu nghiệp
+   vụ D19/D22, không theo hash payload đơn thuần.
+5. Q5 chốt email tiếng Việt cho Owner hiện tại: trại, mã thanh toán, số tiền,
+   kỳ hạn, kỳ đã xác nhận, biên lai và link đúng trại, dựa MSG-FE19-06. Không
+   tuyên bố gỡ SUSPENDED. Lưu ý định gửi cùng PAID, chống trùng; gửi/retry độc
+   lập đến24h, kiểm lại quyền/người nhận lúc gửi.
+
+Không quyết lại các luật đã rõ: GBR-72/73/84, cửa sổ ngân hàng [tạo,hết hạn),
+khóa theo trại, không cấp trùng, không gỡ tạm ngưng. Mốc kỷ niệm 29/02 theo
+GBR-73 suy từ chuỗi kỳ đã mua liên tục, không tạo mốc lịch sử giả. Chỉ kiểm
+MOCK/PostgreSQL/Mailpit local; chưa SePay LIVE hay READY_FOR_FE. Ma trận,
+test, readback và runtime: `docs/reviews/FE19_UC08_REVIEW.md`.
+
+Review UC8 (10/11/2026), người dùng đồng ý sửa cả bốn điểm:
+
+1. Tra cứu/simulator giữ lease job ngay trong commit lưu; JOB-06 không lấy chen
+   vào làm mất kết quả trả ngay của D21. Request chết thì lease hết hạn và job
+   retry như E3.
+2. Giao lặp tăng số lần giao bằng bulk update, không đổi version chứng từ, nên
+   quyết định PM đang mở không bị MSG-COM-05 vô cớ.
+3. Trường chữ của giao dịch đã xác thực (gateway, referenceCode, accountNumber,
+   code) luôn được lưu đủ: chọn nới cột theo giới hạn body 65.536 byte thay vì
+   từ chối 400 hoặc làm hỏng cả khoảng tra cứu 502 (R-19-08, E3).
+4. Metadata lời gọi bị 401 giữ 30 ngày rồi JOB-08 xóa; không lưu được metadata
+   vẫn trả 401.

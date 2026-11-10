@@ -109,24 +109,25 @@ describe('reconciliation', () => {
 
 describe('plan prices', () => {
   const cmd = { price1y: 1100000, price2y: 2000000, price3y: 2900000, mode: 'SCHEDULE' as const, effectiveAt: '2027-01-01T00:00', terms: 'Cùng chức năng' }
+  // The legacy demo price store behind planPriceApi's explicit local adapter (D23: no saved draft).
   it('publishes a scheduled v4, rejects bad input and withdraws only scheduled versions', async () => {
-    const { api } = setup()
-    await expect(api.publishPrice({ ...cmd, price1y: 0 })).rejects.toThrow('1.000')
-    await expect(api.publishPrice({ ...cmd, effectiveAt: '2026-10-01T00:00' })).rejects.toThrow('quá khứ')
-    const v4 = await api.publishPrice(cmd)
+    const { store } = setup()
+    await expect(store.publishPrice({ ...cmd, price1y: 0 })).rejects.toThrow('1.000')
+    await expect(store.publishPrice({ ...cmd, effectiveAt: '2026-10-01T00:00' })).rejects.toThrow('quá khứ')
+    const v4 = await store.publishPrice(cmd)
     expect([v4.version, v4.status]).toEqual([4, 'SCHEDULED'])
-    await expect(api.publishPrice(cmd)).rejects.toThrow('v4')
-    const list = await api.listPriceVersions()
+    await expect(store.publishPrice(cmd)).rejects.toThrow('v4')
+    const list = await store.listPriceVersions()
     expect(list.find((v) => v.version === 3)?.status).toBe('EFFECTIVE')
-    await expect(api.withdrawPrice(3, 'x')).rejects.toThrow('đã lên lịch')
-    await api.withdrawPrice(4, 'Nhập sai')
-    expect((await api.listPriceVersions())[0]?.status).toBe('WITHDRAWN')
+    await expect(store.withdrawPrice(3, 'x')).rejects.toThrow('đã lên lịch')
+    await store.withdrawPrice(4, 'Nhập sai')
+    expect((await store.listPriceVersions())[0]?.status).toBe('WITHDRAWN')
   })
   it('apply now supersedes the old version', async () => {
-    const { api } = setup()
-    const v4 = await api.publishPrice({ ...cmd, mode: 'NOW' })
+    const { store } = setup()
+    const v4 = await store.publishPrice({ ...cmd, mode: 'NOW' })
     expect(v4.status).toBe('EFFECTIVE')
-    expect((await api.listPriceVersions()).find((v) => v.version === 3)?.status).toBe('SUPERSEDED')
+    expect((await store.listPriceVersions()).find((v) => v.version === 3)?.status).toBe('SUPERSEDED')
   })
 })
 
@@ -167,12 +168,12 @@ describe('backend mode', () => {
     expect(restored).toMatchObject({ serviceStatus: 'ACTIVE', suspended: false, version: 6 })
   })
 
-  it('keeps reconciliation and prices unavailable in backend mode and never touches the store', async () => {
+  it('keeps legacy reconciliation unavailable in backend mode, never touches the store and has no legacy price/draft methods', async () => {
     const { store, transport } = setup()
     const spy = vi.spyOn(store, 'listEvidence')
     const api = createPlatformServiceApi({ mode: 'backend', farmId: 1, transport, store })
     await expect(api.listEvidence()).rejects.toThrow('Chưa tích hợp')
-    await expect(api.listPriceVersions()).rejects.toThrow('Chưa tích hợp')
+    for (const legacy of ['listPriceVersions', 'getPriceDraft', 'savePriceDraft', 'publishPrice', 'withdrawPrice']) expect(legacy in api).toBe(false)
     expect(spy).not.toHaveBeenCalled()
   })
 })

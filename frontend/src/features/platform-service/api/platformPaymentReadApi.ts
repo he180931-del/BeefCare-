@@ -12,6 +12,7 @@ export interface EvidenceRow {
 export interface EvidenceHistory {
   id: number; source: 'REVIEW' | 'EVENT'; action: string; reason: string | null; reference: string | null; result: string | null
   returnDate: string | null; pmId: number | null; pmName: string | null; at: string
+  relatedPaymentId: number | null; relatedPaymentCode: string | null
 }
 export interface EvidenceDetail {
   summary: EvidenceRow; transactionId: string; receivingAccount: string | null; bank: string | null; referenceCode: string | null
@@ -47,6 +48,8 @@ export const REVIEW_TEXT: Record<string, string> = { TO_REVIEW: 'Cần xem', HOL
 export const CONFIRMATION_SOURCE_TEXT: Record<string, string> = { SEPAY: 'Tự động qua SePay', PM: 'PM xác nhận' }
 /** Fixed reasons written by SePayWebhookService during ingestion/settlement; PM-entered reasons are shown as stored. */
 const SYSTEM_REASON_TEXT: Record<string, string> = {
+  'Conflicting payment references': 'Có nhiều mã thanh toán mâu thuẫn; cần đối soát thủ công',
+  'Automatic processing failed; manual reconciliation required': 'Xử lý tự động lỗi sau thời gian thử lại; cần đối soát thủ công',
   'Not an incoming transfer': 'Không phải giao dịch tiền vào',
   'Receiving account is not configured': 'Chưa cấu hình tài khoản nhận',
   'Receiving account does not match the configured account': 'Tài khoản nhận không khớp tài khoản đã cấu hình',
@@ -105,11 +108,14 @@ function readPage<T>(value: unknown, parse: (v: unknown) => T): ReadPage<T> {
 function history(value: unknown): EvidenceHistory {
   const h = asRecord(value)
   if (!id(h.id) || !['REVIEW', 'EVENT'].includes(h.source as string) || !text(h.action) || !instant(h.at)
-    || !['reason', 'reference', 'result', 'pmName'].every((key) => nullableText(h[key])) || !nullableDate(h.returnDate) || !nullableId(h.pmId)) throw invalid()
+    || !['reason', 'reference', 'result', 'pmName', 'relatedPaymentCode'].every((key) => nullableText(h[key])) || !nullableDate(h.returnDate)
+    || !nullableId(h.pmId) || !nullableId(h.relatedPaymentId)
+    || (h.relatedPaymentId === null) !== (h.relatedPaymentCode === null)) throw invalid()
   return {
     id: h.id, source: h.source as EvidenceHistory['source'], action: h.action as string, reason: h.reason as string | null,
     reference: h.reference as string | null, result: h.result as string | null, returnDate: h.returnDate as string | null,
     pmId: h.pmId as number | null, pmName: h.pmName as string | null, at: h.at as string,
+    relatedPaymentId: h.relatedPaymentId as number | null, relatedPaymentCode: h.relatedPaymentCode as string | null,
   }
 }
 function detail(value: unknown): EvidenceDetail {

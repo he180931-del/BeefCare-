@@ -146,6 +146,10 @@
     <include file="config/liquibase/changelog/20261109000200_evidence_quote_ref_upper_index.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261110000100_evidence_reconciliation.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261110000100_feed_receipt_completeness.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261110000200_evidence_review_payment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261110000300_plan_price_publication.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261110000400_sepay_durable_processing.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261110000500_sepay_evidence_text_widths.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
     <include file="config/liquibase/changelog/20261109000100_medicine_optional_dose.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

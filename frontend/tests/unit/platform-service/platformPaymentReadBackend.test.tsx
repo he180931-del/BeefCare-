@@ -16,7 +16,7 @@ const row = (id = 742) => ({ id, provider: 'SEPAY', environment: 'TEST', account
 const detail = (id = 742) => ({ summary: row(id), transactionId: '12345678', receivingAccount: 'UC5-ACCOUNT', bank: 'TESTBANK',
   referenceCode: 'BANK-REF', quoteRef: 'BCUC5', firstReceivedAt: '2026-10-28T01:02:04Z', returnReference: null, returnDate: null, returnResult: null,
   history: [{ id: 1, source: 'REVIEW', action: 'HOLD', reason: 'Stored reason TK-5', reference: null, result: null, returnDate: null,
-    pmId: 82, pmName: 'PM persisted', at: '2026-10-28T01:03:00Z' }] })
+    relatedPaymentId: null, relatedPaymentCode: null, pmId: 82, pmName: 'PM persisted', at: '2026-10-28T01:03:00Z' }] })
 const payment = (id = 502) => ({ id, farmId: 42, farmName: 'Trại UC5', quoteRef: 'BCUC5PAID', termYears: 1, amount: 1200000,
   state: 'PAID', requestedAt: '2026-10-28T00:00:00Z', expiresAt: '2026-10-29T00:00:00Z', purchasedStart: '2026-10-28T02:00:00Z',
   purchasedEnd: '2027-10-28T02:00:00Z', receiptCode: 'RC-UC5', requestedByEmail: 'requester@example.test', priceVersionId: 7,
@@ -185,7 +185,7 @@ describe('UC5 backend read workbench', () => {
   it('labels persisted handling events and system reasons in Vietnamese without exposing internal names', async () => {
     const original = http.get.getMockImplementation()!
     const event = (id: number, action: string, reason: string) => ({ id, source: 'EVENT', action, reason, reference: null,
-      result: null, returnDate: null, pmId: null, pmName: null, at: '2026-10-28T01:02:04Z' })
+      result: null, returnDate: null, relatedPaymentId: null, relatedPaymentCode: null, pmId: null, pmName: null, at: '2026-10-28T01:02:04Z' })
     http.get.mockImplementation(async (path: string) => /\/evidence\/\d+$/.test(path) ? {
       ...detail(), summary: { ...row(), reviewReason: 'No matching payment request' }, history: [
         ...detail().history, event(2, 'EVIDENCE_RECEIVED', 'Saved bank reason'),

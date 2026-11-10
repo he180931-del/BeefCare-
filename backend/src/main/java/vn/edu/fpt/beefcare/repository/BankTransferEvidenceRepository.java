@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -31,4 +32,12 @@ public interface BankTransferEvidenceRepository extends JpaRepository<BankTransf
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from BankTransferEvidence e where e.id = :id")
     Optional<BankTransferEvidence> lockById(@Param("id") Long id);
+
+    /**
+     * UC8 AF1: one more authenticated delivery of stored evidence. A bulk update leaves the entity version alone, so a
+     * PM's open decision stays valid; an unknown legacy count (null) stays unknown.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("update BankTransferEvidence e set e.deliveryAttempts = e.deliveryAttempts + 1 where e.id = :id and e.deliveryAttempts is not null")
+    int countRepeatedDelivery(@Param("id") Long id);
 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- D21 / SRS Evidence Review: retain the request considered by each decision, independently of the final allocation.
+         Existing rows stay null: the current evidence allocation cannot prove a previous review's context. -->
+    <changeSet id="20261110000200-evidence-review-payment" author="beefcare">
+        <addColumn tableName="evidence_review">
+            <column name="related_payment_id" type="bigint"/>
+        </addColumn>
+        <addForeignKeyConstraint baseColumnNames="related_payment_id" baseTableName="evidence_review"
+                                 constraintName="fk_evidence_review__related_payment_id"
+                                 referencedColumnNames="id" referencedTableName="payment"/>
+    </changeSet>
+</databaseChangeLog>

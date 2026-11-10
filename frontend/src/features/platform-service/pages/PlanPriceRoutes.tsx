@@ -1,241 +1,192 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Layout from '../../../components/Layout'
-import Modal, { ModalButton, ModalFooter, useModalParam } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader, Radio, inputCls } from '../../../components/ui'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, LoadingBlock, Note, PageHeader, Radio, inputCls } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import { platformServiceApi } from '../api/platformServiceApi'
-import { ReadField, ReasonField, useAction, usePmAccess } from '../components/common'
-import type { PriceDraft, PriceStatus, PriceVersionView, PublishPriceCommand } from '../types'
-import { fmtDate, fmtDateTime, fmtMoney, vnNow } from '../domain/dates'
-import { PAST_ERROR, PRICE_ERROR, parseVnd, validPrice, validateEffective } from '../domain/pricing'
-import { validateReason } from '../domain/servicePeriods'
+import { BackendError } from '../../../api/backendClient'
+import { planPriceApi, priceError, type PlanPrice, type PublishPrice } from '../api/planPriceApi'
+import { usePmAccess } from '../components/common'
+import { fmtDateTime, fmtMoney, fmtSeconds } from '../domain/dates'
+import { parseVnd, PRICE_ERROR, validPrice } from '../domain/pricing'
+import type { PriceDraft, PriceStatus } from '../types'
 
 const TITLE = 'Bảng giá gói'
+const DISCARD = 'Bạn có thay đổi chưa lưu. Bạn có muốn bỏ các thay đổi này không?'
 const STATUS: Record<PriceStatus, { label: string; tone: 'ok' | 'info' | 'outline' | 'err' }> = {
   EFFECTIVE: { label: 'Đang hiệu lực', tone: 'ok' }, SCHEDULED: { label: 'Lên lịch', tone: 'info' }, SUPERSEDED: { label: 'Hết hiệu lực', tone: 'outline' }, WITHDRAWN: { label: 'Đã rút lại', tone: 'err' },
 }
-const million = (n: number) => (n / 1_000_000).toFixed(2).replace('.', ',')
-const summary = (v: { price1y: number; price2y: number; price3y: number }) => `${million(v.price1y)} / ${million(v.price2y)} / ${million(v.price3y)} triệu`
-const triple = (c: { price1y: number; price2y: number; price3y: number }) => `${fmtMoney(c.price1y)} / ${fmtMoney(c.price2y)} / ${fmtMoney(c.price3y)} VND`
-const withSeconds = (s: string) => (s.length === 16 ? `${s}:00` : s)
-
-function toCommand(d: PriceDraft): PublishPriceCommand {
-  return { price1y: parseVnd(d.price1y), price2y: parseVnd(d.price2y), price3y: parseVnd(d.price3y), mode: d.mode, effectiveAt: d.effectiveAt, terms: d.terms }
-}
-
-function PriceCard({ title, sub, value, onChange, error, id }: { title: string; sub?: string; value: string; onChange: (v: string) => void; error?: boolean; id: string }) {
-  return (
-    <Field label={`${title} *`} id={id} hint={sub}>
-      <div className="relative">
-        <input id={id} inputMode="numeric" className={`${inputCls} pr-8 ${error ? 'border-err-fg' : ''}`} value={value} onChange={(e) => onChange(e.target.value)} />
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-muted">đ</span>
-      </div>
-    </Field>
-  )
-}
-
-function PublishDialog({ kind, draft, version, onClose, onPublished }: { kind: 'confirm' | 'now'; draft: PriceDraft; version: number; onClose: () => void; onPublished: (v: PriceVersionView) => void }) {
-  const { run, busy, error } = useAction()
-  const now = kind === 'now'
-  async function publish() {
-    const res = await run(() => platformServiceApi.publishPrice(toCommand({ ...draft, mode: now ? 'NOW' : 'SCHEDULE' })))
-    if (res) onPublished(res)
+function initial(p: PlanPrice | null): PriceDraft { return { price1y: p ? fmtMoney(p.price1y) : '', price2y: p ? fmtMoney(p.price2y) : '', price3y: p ? fmtMoney(p.price3y) : '', mode: 'NOW', effectiveAt: '', terms: p?.terms ?? '' } }
+/** One key per command intent: retries of the same body reuse it; a success ends it, so an identical later command is new. */
+function useIntentKey() {
+  const intent = useRef({ body: '', key: '' })
+  return {
+    keyFor(body: unknown) {
+      const serialized = JSON.stringify(body)
+      if (serialized !== intent.current.body) intent.current = { body: serialized, key: crypto.randomUUID() }
+      return intent.current.key
+    },
+    complete() { intent.current = { body: '', key: '' } },
   }
-  return (
-    <Modal title={now ? 'Công bố và áp dụng ngay' : `Xác nhận công bố bảng giá v${version}`} topTitle={TITLE} width={640} onClose={onClose}>
-      <div className="grid gap-3">
-        <ReadField id="pb-prices" label="Giá 1 / 2 / 3 năm" value={triple(toCommand(draft))} />
-        <ReadField id="pb-apply" label="Áp dụng" value={now ? 'Ngay khi công bố thành công' : `Lên lịch · ${fmtDateTime(withSeconds(draft.effectiveAt))}`} />
-        <ReadField id="pb-terms" label="Điều khoản" value={draft.terms || '—'} />
-      </div>
-      <Note tone="info">{now ? 'Hiệu lực được hệ thống chốt lúc công bố thành công. Không nhập thời điểm quá khứ.' : 'Thời hạn 1/2/3 năm và báo giá 24 giờ cố định. Bảng mới chỉ dùng khi đến hiệu lực; không sửa báo giá hay kỳ đã mua.'}</Note>
-      {error ? <p role="alert" className="mt-2 text-[12px] text-err-fg">{error}</p> : null}
-      <ModalFooter>
-        <ModalButton onClick={onClose}><Icon name="arrow-left" size={16} />Quay lại</ModalButton>
-        <ModalButton variant="primary" disabled={busy} onClick={publish}><Icon name="speakerphone" size={16} />{now ? 'Công bố ngay' : 'Công bố phiên bản'}</ModalButton>
-      </ModalFooter>
-    </Modal>
-  )
 }
-
-function InvalidDialog({ priceError, timeError, onClose, onReload }: { priceError: string | null; timeError: string | null; onClose: () => void; onReload: () => void }) {
-  return (
-    <Modal title="Chưa thể công bố bảng giá" topTitle={TITLE} width={640} onClose={onClose}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ReadField id="iv-price" label="Giá" value={priceError ?? 'Hợp lệ'} />
-        <ReadField id="iv-time" label="Hiệu lực" value={timeError ?? 'Hợp lệ'} />
-      </div>
-      <Note tone="info">Mỗi giá phải là số nguyên VND &gt; 0; đủ ba thời hạn. Lịch hiệu lực phải rõ ràng và không xung đột. Nếu phiên bản vừa thay đổi, tải lại trước khi công bố. Không công bố một phần.</Note>
-      <ModalFooter>
-        <ModalButton onClick={onClose}><Icon name="arrow-left" size={16} />Về chỉnh bảng giá</ModalButton>
-        <ModalButton variant="primary" onClick={onReload}><Icon name="refresh" size={16} />Tải lại phiên bản</ModalButton>
-      </ModalFooter>
-    </Modal>
-  )
-}
-
-function PublishedDialog({ v, onClose }: { v: PriceVersionView; onClose: () => void }) {
-  const now = v.status === 'EFFECTIVE'
-  return (
-    <Modal title={`Đã công bố bảng giá v${v.version}`} topTitle={TITLE} width={640} onClose={onClose}>
-      <div className="grid gap-3">
-        <ReadField id="pd-status" label="Trạng thái" value={now ? 'Đang hiệu lực · Áp dụng ngay' : 'Đã công bố · Chưa đến hiệu lực'} />
-        <ReadField id="pd-eff" label="Hiệu lực" value={`${fmtDateTime(v.effectiveAt)} · Asia/Ho_Chi_Minh`} />
-        <ReadField id="pd-by" label="Người / thời điểm công bố" value={`${v.publishedBy} · ${fmtDateTime(v.publishedAt)}`} />
-      </div>
-      <Note tone="info">{now ? `v${v.version} áp dụng cho bảng giá công khai và yêu cầu mới từ thời điểm công bố. Báo giá đã phát hành vẫn giữ giá cũ.` : `Bảng giá hiện hành vẫn áp dụng. Landing và báo giá mới dùng v${v.version} khi đến hiệu lực; báo giá cũ giữ giá cũ.`}</Note>
-      <ModalFooter><ModalButton variant="primary" onClick={onClose}><Icon name="arrow-left" size={16} />Về bảng giá</ModalButton></ModalFooter>
-    </Modal>
-  )
-}
-
-function WithdrawDialog({ version, onClose, onDone }: { version: number; onClose: () => void; onDone: (text: string) => void }) {
-  const [reason, setReason] = useState('')
-  const [fieldError, setFieldError] = useState<string | null>(null)
-  const { run, busy, error } = useAction()
+/** Same rule as the server: trimmed reason, at least 5 non-space code points, at most 1,000 characters. */
+const REASON_ERROR = 'Lý do phải có ít nhất 5 ký tự không phải khoảng trắng và tối đa 1.000 ký tự.'
+function WithdrawDialog({ version, onClose, onDone, onStale }: { version: PlanPrice; onClose: () => void; onDone: () => void; onStale: () => void }) {
+  const [reason, setReason] = useState(''); const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false)
+  const sending = useRef(false); const keys = useIntentKey()
+  function close() { if (!sending.current && (!reason || window.confirm(DISCARD))) onClose() }
   async function withdraw() {
-    const err = validateReason(reason)
-    setFieldError(err)
-    if (err) return
-    const ok = await run(async () => { await platformServiceApi.withdrawPrice(version, reason); return true })
-    if (ok) onDone(`Đã rút lại phiên bản v${version}; phiên bản được giữ trong lịch sử.`)
+    if (sending.current) return
+    const value = reason.trim()
+    if (!value) { setError('Vui lòng nhập lý do.'); return }
+    if (Array.from(value.replace(/\s/g, '')).length < 5) { setError('Lý do phải có ít nhất 5 ký tự không phải khoảng trắng.'); return }
+    if (value.length > 1000) { setError('Lý do tối đa 1.000 ký tự.'); return }
+    const body = { id: version.id, reason: value, expectedVersion: version.revision }
+    sending.current = true; setBusy(true); setError(null)
+    try { await planPriceApi.withdraw(version.id, value, version.revision, keys.keyFor(body)); keys.complete(); onDone() }
+    catch (e) {
+      setError(e instanceof BackendError && e.code === 'MSG-COM-10' && e.params.field === 'reason' ? REASON_ERROR : priceError(e, 'rút phiên bản'))
+      if (e instanceof BackendError && e.code === 'MSG-COM-05') onStale()
+    }
+    finally { sending.current = false; setBusy(false) }
   }
-  return (
-    <Modal title={`Rút lại bảng giá v${version}`} topTitle={TITLE} width={640} onClose={onClose}>
-      <ReasonField id="wd-reason" label="Lý do *" value={reason} onChange={setReason} error={fieldError} />
-      {error ? <p role="alert" className="mt-2 text-[12px] text-err-fg">{error}</p> : null}
-      <ModalFooter>
-        <ModalButton onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="danger" disabled={busy} onClick={withdraw}>Rút lại phiên bản</ModalButton>
-      </ModalFooter>
-    </Modal>
-  )
+  return <Modal title={`Rút lại bảng giá v${version.id}`} topTitle={TITLE} width={640} onClose={close}>
+    <p className="mb-3 text-sm text-muted">Hiệu lực từ {fmtSeconds(version.effectiveAt)}. Chỉ rút được trước thời điểm này.</p>
+    <Field label="Lý do *" id="withdraw-reason"><textarea id="withdraw-reason" className={inputCls} rows={4} value={reason} disabled={busy} onChange={e => { setReason(e.target.value); setError(null) }} /></Field>
+    {error ? <p role="alert" className="mt-2 text-sm text-err-fg">{error}</p> : null}
+    <ModalFooter><ModalButton disabled={busy} onClick={close}>Hủy</ModalButton><ModalButton variant="danger" disabled={busy} onClick={withdraw}>Rút lại phiên bản</ModalButton></ModalFooter>
+  </Modal>
 }
 
 export default function PlanPriceRoutes() {
   const canAct = usePmAccess()
-  const [m, openModal, closeModal] = useModalParam()
+  const [page, setPage] = useState(() => { try { const p = Number(sessionStorage.getItem('beefcare:plan-price-page')); return Number.isSafeInteger(p) && p >= 0 && p <= 107374182 ? p : 0 } catch { return 0 } })
   const [tick, setTick] = useState(0)
-  const versions = useQuery(() => platformServiceApi.listPriceVersions(), [tick])
-  const saved = useQuery(() => platformServiceApi.getPriceDraft(), [tick])
-  const [draft, setDraft] = useState<PriceDraft | null>(null)
-  const [published, setPublished] = useState<PriceVersionView | null>(null)
-  const [withdrawing, setWithdrawing] = useState<number | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
-  const [errors, setErrors] = useState<{ prices: boolean[]; priceMsg: string | null; timeMsg: string | null }>({ prices: [false, false, false], priceMsg: null, timeMsg: null })
-
-  useEffect(() => { if (saved.data && !draft) setDraft(saved.data) }, [saved.data, draft])
-
-  if ((versions.loading && !versions.data) || !draft) {
-    if (versions.error) return <Layout title={TITLE}><ErrorBlock message={userFacingError(versions.error, 'Không tải được bảng giá.')} onRetry={versions.refetch} /></Layout>
-    return <Layout title={TITLE}><LoadingBlock /></Layout>
+  const receivedAt = useRef(Date.now())
+  const query = useQuery(async () => { const value = await planPriceApi.list(page); receivedAt.current = Date.now(); return value }, [page, tick])
+  const [draft, setDraft] = useState<PriceDraft | null>(null); const baseline = useRef('')
+  const [error, setError] = useState<string | null>(null); const [message, setMessage] = useState<string | null>(null)
+  const [errorField, setErrorField] = useState<keyof PriceDraft | null>(null)
+  const [confirming, setConfirming] = useState(false); const [withdrawing, setWithdrawing] = useState<PlanPrice | null>(null)
+  const [busy, setBusy] = useState(false); const sending = useRef(false); const keys = useIntentKey()
+  const data = query.data
+  const dirty = draft !== null && JSON.stringify(draft) !== baseline.current
+  const refresh = () => setTick(t => t + 1)
+  useEffect(() => { try { sessionStorage.setItem('beefcare:plan-price-page', String(page)) } catch { /* session storage is optional */ } }, [page])
+  useEffect(() => { if (data && draft === null) { const d = initial(data.current); setDraft(d); baseline.current = JSON.stringify(d) } }, [data, draft])
+  useEffect(() => {
+    if (data && data.total > 0 && page * data.size >= data.total) setPage(Math.max(0, Math.ceil(data.total / data.size) - 1))
+  }, [data, page])
+  useEffect(() => {
+    if (!data?.nextEffectiveAt) return
+    const delay = Date.parse(data.nextEffectiveAt) - Date.parse(data.asOf) - (Date.now() - receivedAt.current) + 25
+    const target = Date.now() + Math.max(25, delay)
+    let timer: number
+    const arm = () => {
+      const remaining = target - Date.now()
+      if (remaining <= 0) { refresh(); return }
+      // Chaining timer chunks also supports schedules beyond the browser's 24.8-day timer limit, without HTTP polling.
+      timer = window.setTimeout(arm, Math.min(2147483647, remaining))
+    }
+    arm(); return () => window.clearTimeout(timer)
+  }, [data])
+  useEffect(() => {
+    if (!dirty) return
+    const unload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    const navigate = (e: MouseEvent) => {
+      const link = e.target instanceof Element ? e.target.closest('a[href]') as HTMLAnchorElement | null : null
+      if (link && new URL(link.href).pathname !== window.location.pathname && !window.confirm(DISCARD)) { e.preventDefault(); e.stopPropagation() }
+    }
+    window.addEventListener('beforeunload', unload); document.addEventListener('click', navigate, true)
+    return () => { window.removeEventListener('beforeunload', unload); document.removeEventListener('click', navigate, true) }
+  }, [dirty])
+  function set(patch: Partial<PriceDraft>) { if (draft) setDraft({ ...draft, ...patch }); setError(null); setErrorField(null) }
+  function reset() { if (!dirty || window.confirm(DISCARD)) { const d = initial(data?.current ?? null); setDraft(d); baseline.current = JSON.stringify(d); setError(null); setErrorField(null) } }
+  function invalid(message: string, field: keyof PriceDraft): null { setError(message); setErrorField(field); return null }
+  function payload(): PublishPrice | null {
+    if (!draft) return null
+    const prices = [draft.price1y, draft.price2y, draft.price3y].map(parseVnd)
+    const badPrice = prices.findIndex(p => !validPrice(p))
+    if (badPrice >= 0) return invalid(PRICE_ERROR, (['price1y', 'price2y', 'price3y'] as const)[badPrice])
+    if (draft.terms.trim().length > 500) return invalid('Mô tả điều khoản tối đa 500 ký tự.', 'terms')
+    let at: string | null = null
+    if (draft.mode === 'SCHEDULE') {
+      if (!draft.effectiveAt) return invalid('Vui lòng nhập thời điểm hiệu lực.', 'effectiveAt')
+      const parsed = Date.parse(`${draft.effectiveAt.length === 16 ? `${draft.effectiveAt}:00` : draft.effectiveAt}+07:00`)
+      if (!Number.isFinite(parsed)) return invalid('Thời điểm hiệu lực không hợp lệ.', 'effectiveAt')
+      const serverNow = data ? Date.parse(data.asOf) + Date.now() - receivedAt.current : Date.now()
+      if (parsed < serverNow) return invalid('Thời điểm hiệu lực không được ở quá khứ.', 'effectiveAt')
+      at = new Date(parsed).toISOString()
+    }
+    return { price1y: prices[0], price2y: prices[1], price3y: prices[2], applyNow: draft.mode === 'NOW', effectiveAt: at, terms: draft.terms.trim() || null }
   }
-  if (versions.error || !versions.data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(versions.error, 'Không tải được bảng giá.')} onRetry={versions.refetch} /></Layout>
-
-  const list = versions.data
-  const current = list.find((v) => v.status === 'EFFECTIVE')
-  const nextVersion = Math.max(0, ...list.map((v) => v.version)) + 1
-  const set = (patch: Partial<PriceDraft>) => setDraft({ ...draft, ...patch })
-
-  function validate() {
-    const prices = [draft!.price1y, draft!.price2y, draft!.price3y].map((p) => !validPrice(parseVnd(p)))
-    const priceMsg = prices.some(Boolean) ? PRICE_ERROR : null
-    const timeMsg = validateEffective(draft!.mode, draft!.effectiveAt, vnNow(), list.map((v) => ({ ...v })).filter((v) => v.status !== 'WITHDRAWN'))
-    setErrors({ prices, priceMsg, timeMsg })
-    return !priceMsg && !timeMsg
+  function openPublish() { setMessage(null); if (payload()) { setError(null); setErrorField(null); setConfirming(true) } }
+  async function publish() {
+    if (sending.current) return
+    const body = payload(); if (!body) { setConfirming(false); return }
+    sending.current = true; setBusy(true); setError(null)
+    try {
+      const p = await planPriceApi.publish(body, keys.keyFor(body)); keys.complete(); setConfirming(false)
+      setMessage(`Đã công bố bảng giá v${p.id}, hiệu lực ${fmtSeconds(p.effectiveAt)}.`)
+      const d = initial(p.status === 'EFFECTIVE' ? p : data?.current ?? null); setDraft(d); baseline.current = JSON.stringify(d); refresh()
+    } catch (e) { setError(priceError(e)); if (e instanceof BackendError && e.code === 'MSG-FE19-15') refresh() }
+    finally { sending.current = false; setBusy(false) }
   }
-  function publish() {
-    if (!validate()) { openModal('invalid'); return }
-    openModal(draft!.mode === 'NOW' ? 'now' : 'confirm')
-  }
-  async function saveDraft() {
-    await platformServiceApi.savePriceDraft(draft!)
-    setMessage('Đã lưu bản nháp bảng giá.')
-  }
-  const reload = () => { setDraft(null); setErrors({ prices: [false, false, false], priceMsg: null, timeMsg: null }); setTick((t) => t + 1); closeModal() }
 
-  return (
-    <Layout title={TITLE}>
-      <PageHeader title={TITLE} sub="Một gói duy nhất với giá theo 1, 2 hoặc 3 năm. Bảng giá mới chỉ áp dụng cho báo giá tạo sau thời điểm hiệu lực.">
-        <Button variant="primary" disabled={!canAct} onClick={publish}><Icon name="speakerphone" size={16} />Công bố bảng giá mới</Button>
-      </PageHeader>
-      {message ? <Note tone="ok">{message}</Note> : null}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_356px]">
-        <div className="grid content-start gap-4">
-          <Card title={`Bảng giá hiện hành${current ? ` · v${current.version}` : ''}`} sub={current ? `Hiệu lực từ ${fmtDateTime(current.effectiveAt)} · công bố bởi ${current.publishedBy}` : undefined} actions={<Badge tone="ok">Đang hiệu lực</Badge>}>
-            {current ? (
-              <div className="grid gap-3 sm:grid-cols-3">
-                {([['1 năm', current.price1y], ['2 năm', current.price2y], ['3 năm', current.price3y]] as const).map(([label, price]) => (
-                  <div key={label} className="rounded-md bg-page p-3"><div className="text-[12px] font-medium text-muted">{label}</div><div className="text-[20px] font-bold text-ink">{fmtMoney(price)} đ</div></div>
-                ))}
-              </div>
-            ) : <EmptyBlock title="Chưa có bảng giá hiệu lực" />}
-          </Card>
-          <Card title={`Soạn bảng giá v${nextVersion}`} sub="Bản nháp" actions={<Badge tone="info" icon="pencil">Nháp</Badge>}>
-            <fieldset disabled={!canAct} className="grid gap-3">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <PriceCard id="p1" title="Giá 1 năm" value={draft.price1y} onChange={(v) => set({ price1y: v })} error={errors.prices[0]} />
-                <PriceCard id="p2" title="Giá 2 năm" value={draft.price2y} onChange={(v) => set({ price2y: v })} error={errors.prices[1]} />
-                <PriceCard id="p3" title="Giá 3 năm" value={draft.price3y} onChange={(v) => set({ price3y: v })} error={errors.prices[2]} />
-              </div>
-              {errors.priceMsg ? <p role="alert" className="text-[12px] text-err-fg">{errors.priceMsg}</p> : null}
-              <div className="flex gap-6">
-                <Radio name="apply" checked={draft.mode === 'SCHEDULE'} onChange={() => set({ mode: 'SCHEDULE' })}>Lên lịch</Radio>
-                <Radio name="apply" checked={draft.mode === 'NOW'} onChange={() => set({ mode: 'NOW' })}>Áp dụng ngay</Radio>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Thời hạn (cố định)" id="terms-fixed"><input id="terms-fixed" readOnly className={inputCls} value="1, 2, 3 năm" /></Field>
-                {draft.mode === 'SCHEDULE' ? (
-                  <Field label="Hiệu lực từ *" id="eff" hint="Giờ Việt Nam (Asia/Ho_Chi_Minh)">
-                    <input id="eff" type="datetime-local" className={inputCls} value={draft.effectiveAt} onChange={(e) => set({ effectiveAt: e.target.value })} />
-                    {errors.timeMsg ? <p role="alert" className="mt-1 text-[12px] text-err-fg">{errors.timeMsg}</p> : null}
-                  </Field>
-                ) : <Field label="Hiệu lực từ" id="eff-now"><input id="eff-now" readOnly className={inputCls} value="Ngay khi công bố thành công" /></Field>}
-              </div>
-              <Field label="Điều khoản hỗ trợ" id="terms-text"><input id="terms-text" maxLength={500} className={inputCls} value={draft.terms} onChange={(e) => set({ terms: e.target.value })} /></Field>
-            </fieldset>
-            <div className="mt-3"><Note tone="info">Ba giá là số nguyên đồng, lớn hơn 0. Không chọn ngày quá khứ hoặc trùng lịch hiệu lực khác. Báo giá đã phát hành và kỳ đã mua giữ nguyên.</Note></div>
-          </Card>
-          <Card title="Hiệu lực và điều khoản công bố">
-            <Info cols={3} items={[
-              ['Cách áp dụng', draft.mode === 'NOW' ? 'Áp dụng ngay' : 'Lên lịch'],
-              ['Hiệu lực', draft.mode === 'NOW' ? 'Ngay khi công bố' : draft.effectiveAt ? fmtDateTime(withSeconds(draft.effectiveAt)) : '—', !!errors.timeMsg],
-              ['Điều khoản hỗ trợ', draft.terms || '—'],
-            ]} />
-            <p className="mt-2 text-[11px] text-muted">Thời hạn cố định 1 / 2 / 3 năm. Mỗi báo giá giữ giá trong 24 giờ.</p>
-            <div className="mt-3 flex gap-2">
-              <Button disabled={!canAct} onClick={saveDraft}>Lưu nháp</Button>
-              <Button variant="primary" disabled={!canAct} onClick={publish}><Icon name="speakerphone" size={16} />Công bố v{nextVersion}</Button>
-            </div>
-          </Card>
-        </div>
-        <Card title="Lịch sử công bố">
-          <ul className="grid gap-2">
-            {list.map((v) => (
-              <li key={v.version} className="flex items-center gap-3 rounded-md border border-rule p-3">
-                <span className="text-[14px] font-bold text-brand">v{v.version}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12px] font-medium text-ink">{summary(v)}</div>
-                  <div className="text-[11px] text-muted">Hiệu lực {fmtDate(v.effectiveAt)}</div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <Badge tone={STATUS[v.status].tone}>{STATUS[v.status].label}</Badge>
-                  {v.status === 'SCHEDULED' && canAct ? <Button variant="link" onClick={() => { setWithdrawing(v.version); openModal('withdraw') }}>Rút lại</Button> : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+  if (query.error && !data) return <Layout title={TITLE}><ErrorBlock message={priceError(query.error)} onRetry={query.refetch} /></Layout>
+  if (!data || !draft) return <Layout title={TITLE}><LoadingBlock /></Layout>
+  const current = data.current
+  const fieldError = (field: keyof PriceDraft) => error && errorField === field && !confirming ? <p role="alert" className="text-sm text-err-fg">{error}</p> : null
+  return <Layout title={TITLE}>
+    <PageHeader title={TITLE} sub="Một gói duy nhất với giá theo 1, 2 hoặc 3 năm. Giờ hiển thị theo Asia/Ho_Chi_Minh.">
+      <Button disabled={query.loading || busy} onClick={refresh}>Làm mới</Button>
+    </PageHeader>
+    {message ? <p role="status" className="mb-3 rounded-md bg-ok-bg p-3 text-sm text-ok-fg">{message}</p> : null}
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid min-w-0 content-start gap-4">
+        <Card title={`Bảng giá hiện hành${current ? ` · v${current.id}` : ''}`} sub={current ? `Hiệu lực từ ${fmtSeconds(current.effectiveAt)}` : undefined}>
+          {current ? <>
+            <div className="grid gap-3 sm:grid-cols-3">{([['1 năm', current.price1y], ['2 năm', current.price2y], ['3 năm', current.price3y]] as const).map(([label, value]) => <div key={label} className="min-w-0 rounded-md bg-page p-3"><p className="text-xs text-muted">{label}</p><p className="break-words text-xl font-bold">{fmtMoney(value)} đ</p></div>)}</div>
+            <p className="mt-3 text-xs text-muted">Công bố bởi {current.publishedBy ?? '—'} · {fmtSeconds(current.publishedAt)}</p>
+          </> : <EmptyBlock title="Chưa có bảng giá hiệu lực" />}
+        </Card>
+        <Card title="Soạn bảng giá mới" sub="Thời hạn cố định: 1, 2, 3 năm">
+          <fieldset disabled={!canAct || busy} className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-3">{(['price1y', 'price2y', 'price3y'] as const).map((field, i) => <Field key={field} id={field} label={`Giá ${i + 1} năm (VND) *`}><input id={field} className={inputCls} inputMode="numeric" aria-invalid={errorField === field && !!error} value={draft[field]} onChange={e => set({ [field]: e.target.value })} />{fieldError(field)}</Field>)}</div>
+            <div className="flex min-w-0 flex-col gap-1.5"><span className="text-xs font-medium text-ink">Áp dụng *</span>
+              <div role="radiogroup" aria-label="Áp dụng" aria-required="true" className="flex flex-wrap gap-6"><Radio name="application" checked={draft.mode === 'NOW'} onChange={() => set({ mode: 'NOW' })}>Áp dụng ngay</Radio><Radio name="application" checked={draft.mode === 'SCHEDULE'} onChange={() => set({ mode: 'SCHEDULE' })}>Lên lịch</Radio></div></div>
+            {draft.mode === 'SCHEDULE' ? <Field id="effectiveAt" label="Hiệu lực từ *" hint="Giờ Việt Nam (Asia/Ho_Chi_Minh)"><input id="effectiveAt" className={inputCls} type="datetime-local" aria-invalid={errorField === 'effectiveAt' && !!error} value={draft.effectiveAt} onChange={e => set({ effectiveAt: e.target.value })} />{fieldError('effectiveAt')}</Field> : <p className="text-sm text-muted">Hiệu lực ngay khi công bố thành công.</p>}
+            <Field id="terms" label="Mô tả điều khoản" hint="Tối đa 500 ký tự"><textarea id="terms" className={inputCls} rows={3} aria-invalid={errorField === 'terms' && !!error} value={draft.terms} onChange={e => set({ terms: e.target.value })} />{fieldError('terms')}</Field>
+          </fieldset>
+          {error && !confirming && !errorField ? <p role="alert" className="mt-3 text-sm text-err-fg">{error}</p> : null}
+          <div className="mt-4"><Note tone="info">Bảng giá mới chỉ dùng từ thời điểm hiệu lực. Các yêu cầu thanh toán đã phát hành và kỳ đã mua giữ nguyên. Công bố ngay vẫn giữ các lịch giá tương lai.</Note></div>
+          {canAct ? <div className="mt-4 flex flex-wrap justify-end gap-2"><Button disabled={busy} onClick={reset}>Hủy chỉnh sửa</Button><Button variant="primary" disabled={busy} onClick={openPublish}>Công bố phiên bản</Button></div> : null}
         </Card>
       </div>
-      <Foot>Bảng giá gói (PM). Bảng giá hiện hành chỉ xem; soạn phiên bản mới rồi công bố ngay hoặc lên lịch. Lịch sử công bố bên phải giữ mọi phiên bản cũ để đối chiếu báo giá đã phát hành.</Foot>
-      {m === 'confirm' || m === 'now' ? (
-        <PublishDialog kind={m} draft={draft} version={nextVersion} onClose={closeModal} onPublished={(v) => { setPublished(v); setMessage(`Đã công bố bảng giá v${v.version}, hiệu lực ${fmtDateTime(v.effectiveAt)}.`); setTick((t) => t + 1); openModal('published') }} />
-      ) : null}
-      {m === 'invalid' ? <InvalidDialog priceError={errors.priceMsg} timeError={errors.timeMsg ?? (draft.mode === 'SCHEDULE' && !draft.effectiveAt ? PAST_ERROR : null)} onClose={closeModal} onReload={reload} /> : null}
-      {m === 'published' && published ? <PublishedDialog v={published} onClose={closeModal} /> : null}
-      {m === 'withdraw' && withdrawing ? <WithdrawDialog version={withdrawing} onClose={closeModal} onDone={(t) => { setMessage(t); setTick((x) => x + 1); closeModal() }} /> : null}
-    </Layout>
-  )
+      <section aria-label="Lịch sử công bố" aria-busy={query.loading} className="min-w-0">
+        <Card title="Lịch sử công bố" sub={`${data.total} phiên bản · mới công bố trước`}>
+          {data.items.length === 0 ? <EmptyBlock title="Chưa có phiên bản công bố" /> : <ol className="grid gap-3">{data.items.map(v => <li key={v.id} className="min-w-0 rounded-md border border-rule p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><strong className="text-brand">v{v.id}</strong><Badge tone={STATUS[v.status].tone}>{STATUS[v.status].label}</Badge></div>
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+              <dt className="text-muted">Giá 1 / 2 / 3 năm</dt><dd className="break-words">{fmtMoney(v.price1y)} / {fmtMoney(v.price2y)} / {fmtMoney(v.price3y)} đ</dd>
+              <dt className="text-muted">Hiệu lực từ</dt><dd>{fmtSeconds(v.effectiveAt)}</dd>
+              <dt className="text-muted">Người công bố</dt><dd className="break-words">{v.publishedBy ?? '—'}</dd>
+              <dt className="text-muted">Công bố lúc</dt><dd>{fmtSeconds(v.publishedAt)}</dd>
+              <dt className="text-muted">Điều khoản</dt><dd className="whitespace-pre-wrap break-words">{v.terms ?? '—'}</dd>
+              {v.status === 'WITHDRAWN' ? <><dt className="text-muted">Người / giờ rút</dt><dd>{v.withdrawnBy ?? '—'} · {fmtSeconds(v.withdrawnAt)}</dd><dt className="text-muted">Lý do rút</dt><dd className="whitespace-pre-wrap break-words">{v.withdrawReason ?? '—'}</dd></> : null}
+            </dl>
+            {v.status === 'SCHEDULED' && canAct ? <div className="mt-2 text-right"><Button variant="link" disabled={busy} onClick={() => setWithdrawing(v)}>Rút v{v.id}</Button></div> : null}
+          </li>)}</ol>}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs"><span>Trang {page + 1} / {Math.max(1, Math.ceil(data.total / data.size))}</span><div className="flex gap-2"><Button disabled={query.loading || page === 0} onClick={() => setPage(p => p - 1)}>Trang trước</Button><Button disabled={query.loading || (page + 1) * data.size >= data.total} onClick={() => setPage(p => p + 1)}>Trang sau</Button></div></div>
+        </Card>
+      </section>
+    </div>
+    <Foot>Bảng giá đã công bố chỉ xem. Phiên bản đã lên lịch có thể rút trước khi hiệu lực và luôn được giữ trong lịch sử.</Foot>
+    {confirming ? <Modal title="Xác nhận công bố bảng giá" topTitle={TITLE} width={640} onClose={() => { if (!sending.current) { setConfirming(false); setError(null) } }}>
+      <p className="text-sm">Giá 1 / 2 / 3 năm: {[draft.price1y, draft.price2y, draft.price3y].map(v => `${fmtMoney(parseVnd(v))} đ`).join(' / ')}.</p><p className="mt-2 text-sm">{draft.mode === 'NOW' ? 'Áp dụng ngay khi công bố thành công.' : `Hiệu lực từ ${fmtDateTime(draft.effectiveAt)} (giờ Việt Nam).`}</p>
+      <p className="mt-2 whitespace-pre-wrap break-words text-sm">Điều khoản: {draft.terms.trim() || '—'}</p>
+      {error ? <p role="alert" className="mt-3 text-sm text-err-fg">{error}</p> : null}
+      <ModalFooter><ModalButton disabled={busy} onClick={() => { setConfirming(false); setError(null) }}>Quay lại</ModalButton><ModalButton variant="primary" disabled={busy} onClick={publish}>Xác nhận công bố</ModalButton></ModalFooter>
+    </Modal> : null}
+    {withdrawing ? <WithdrawDialog version={withdrawing} onClose={() => setWithdrawing(null)} onStale={refresh} onDone={() => { setMessage(`Đã rút lại phiên bản v${withdrawing.id}; phiên bản được giữ trong lịch sử.`); setWithdrawing(null); refresh() }} /> : null}
+  </Layout>
 }

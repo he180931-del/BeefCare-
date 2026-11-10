@@ -203,6 +203,9 @@ class PlatformReconciliationResourceTest extends DomainTestSupport {
         blocked(command(pm, "/evidence/" + typo.getId() + "/review", review("ACCEPT", null, "Không rõ yêu cầu", versionOf(typo)), "uc6-typo"), "NO_CANDIDATE");
         em.flush(); em.clear();
         assertThat(em.find(BankTransferEvidence.class, exact.getId()).getPayment().getId()).isEqualTo(p.getId());
+        JsonNode exactHistory = body(read(pm, "/evidence/" + exact.getId())).path("history").get(0);
+        assertThat(exactHistory.path("relatedPaymentId").asLong()).isEqualTo(p.getId());
+        assertThat(exactHistory.path("relatedPaymentCode").asText()).isEqualTo(p.getQuoteRef());
         assertThat(em.find(BankTransferEvidence.class, typo.getId()).getPayment()).isNull();
         assertThat(decisions(typo)).isEmpty();
     }
@@ -348,6 +351,124 @@ class PlatformReconciliationResourceTest extends DomainTestSupport {
     }
 
     @Test
+    void eachReviewKeepsItsOwnRelatedPaymentWithoutAllocatingHoldOrReject() throws Exception {
+        AppUser pm = staff("PM");
+        Payment first = pending("BCUC6HISTORYA1"), accepted = pending("BCUC6HISTORYB1");
+        BankTransferEvidence e = evidence(); String path = "/evidence/" + e.getId() + "/review";
+        var hold = review("HOLD", first.getId(), "Đang đối chiếu yêu cầu A", versionOf(e));
+        body(command(pm, path, hold, "history-hold"));
+        body(command(pm, path, hold, "history-hold"));
+        em.flush(); em.clear();
+        assertThat(em.find(BankTransferEvidence.class, e.getId()).getPayment()).isNull();
+        assertThat(em.find(Payment.class, first.getId()).getState()).isEqualTo("PENDING");
+        body(command(pm, path, review("REJECT", null, "Chưa tìm được yêu cầu", versionOf(e)), "history-reject"));
+        body(command(pm, path, review("ACCEPT", accepted.getId(), "Đã đối chiếu yêu cầu B", versionOf(e)), "history-accept"));
+        // A legacy review has no reliable related request; do not infer B from the current evidence allocation.
+        save(new EvidenceReview().evidence(em.find(BankTransferEvidence.class, e.getId())).pmUser(pm)
+            .decision("HOLD").reason("Lịch sử cũ").reviewedAt(clock.instant().minusSeconds(600)));
+        em.flush(); em.clear();
+        JsonNode history = body(read(pm, "/evidence/" + e.getId())).path("history");
+        assertThat(history.size()).isEqualTo(4);
+        for (JsonNode h : history) {
+            assertThat(h.has("relatedPaymentId")).isTrue();
+            assertThat(h.has("relatedPaymentCode")).isTrue();
+            if ("Đang đối chiếu yêu cầu A".equals(h.path("reason").asText())) {
+                assertThat(h.path("relatedPaymentId").asLong()).isEqualTo(first.getId());
+                assertThat(h.path("relatedPaymentCode").asText()).isEqualTo(first.getQuoteRef());
+            } else if ("ACCEPT".equals(h.path("action").asText())) {
+                assertThat(h.path("relatedPaymentId").asLong()).isEqualTo(accepted.getId());
+                assertThat(h.path("relatedPaymentCode").asText()).isEqualTo(accepted.getQuoteRef());
+            } else {
+                assertThat(h.path("relatedPaymentId").isNull()).isTrue();
+                assertThat(h.path("relatedPaymentCode").isNull()).isTrue();
+            }
+        }
+        @SuppressWarnings("unchecked")
+        List<Object[]> stored = em.createNativeQuery("select decision, related_payment_id from evidence_review where evidence_id=:id order by id")
+            .setParameter("id", e.getId()).getResultList();
+        assertThat(stored).hasSize(4);
+        assertThat(((Number) stored.get(0)[1]).longValue()).isEqualTo(first.getId());
+        assertThat(stored.get(1)[1]).isNull();
+        assertThat(((Number) stored.get(2)[1]).longValue()).isEqualTo(accepted.getId());
+        assertThat(stored.get(3)[1]).isNull();
+        assertThat(em.find(Payment.class, first.getId()).getState()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void holdAndRejectRejectAnUnknownRelatedRequestWithoutSavingAnything() throws Exception {
+        AppUser pm = staff("PM"); BankTransferEvidence e = evidence(); Long initialVersion = versionOf(e);
+        for (String decision : List.of("HOLD", "REJECT")) {
+            command(pm, "/evidence/" + e.getId() + "/review", review(decision, Long.MAX_VALUE, "Đối chiếu", initialVersion), "unknown-" + decision)
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("MSG-COM-08"));
+        }
+        em.flush(); em.clear();
+        assertThat(count("EvidenceReview")).isZero();
+        assertThat(em.find(BankTransferEvidence.class, e.getId()).getReviewStatus()).isEqualTo("UNMATCHED");
+        assertThat(em.find(BankTransferEvidence.class, e.getId()).getVersion()).isEqualTo(initialVersion);
+    }
+
+    @Test
+    void lookupAutomaticallyConfirmsAValidTransferWithoutPmAcceptanceAndNeverGrantsTwice() throws Exception {
+        AppUser pm = staff("PM"); Payment p = pending("BCUC6AUTO00001");
+        Instant bank = clock.instant().minusSeconds(120);
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(bank);
+        when(lookup.find(9201L)).thenReturn(new SePayPayload(9201L, "BIDV", time, "UC6-ACCOUNT", p.getQuoteRef(),
+            "Thanh toan " + p.getQuoteRef(), "IN", p.getAmountVnd(), "BANK-9201"));
+        long notices = count("Notification");
+        JsonNode first = body(command(pm, "/lookup/9201", Map.of(), null));
+        assertThat(first.path("paymentId").asLong()).isEqualTo(p.getId());
+        assertThat(first.path("reviewStatus").asText()).isEqualTo("ACCEPTED");
+        em.flush(); em.clear();
+        Payment paid = em.find(Payment.class, p.getId());
+        assertThat(paid.getState()).isEqualTo("PAID");
+        assertThat(paid.getConfirmationSource()).isEqualTo("SEPAY");
+        assertThat(paid.getPurchasedStart()).isEqualTo(clock.instant());
+        assertThat(paid.getPurchasedEnd()).isEqualTo(clock.instant().atZone(VN).plusYears(1).toInstant());
+        assertThat(paid.getReceiptCode()).startsWith("RC-");
+        assertThat(paid.getSubscription().getLatestEnd()).isEqualTo(paid.getPurchasedEnd());
+        assertThat(paid.getSubscription().getFarm().getServiceStatus()).isEqualTo("ACTIVE");
+        assertThat(em.find(BankTransferEvidence.class, first.path("evidenceId").asLong()).getPayment().getId()).isEqualTo(p.getId());
+        assertThat(count("EvidenceReview")).isZero();
+        assertThat(count("Notification")).isEqualTo(notices + 1);
+        Instant start = paid.getPurchasedStart(), end = paid.getPurchasedEnd(); String receipt = paid.getReceiptCode();
+        JsonNode replay = body(command(pm, "/lookup/9201", Map.of(), null));
+        assertThat(replay.path("duplicate").asBoolean()).isTrue();
+        assertThat(replay.path("evidenceId")).isEqualTo(first.path("evidenceId"));
+        em.flush(); em.clear();
+        paid = em.find(Payment.class, p.getId());
+        assertThat(paid.getPurchasedStart()).isEqualTo(start); assertThat(paid.getPurchasedEnd()).isEqualTo(end);
+        assertThat(paid.getReceiptCode()).isEqualTo(receipt);
+        assertThat(count("BankTransferEvidence")).isEqualTo(1);
+        assertThat(count("Notification")).isEqualTo(notices + 1);
+    }
+
+    @Test
+    void lookupRetainsMismatchedTransfersForReviewWithoutGrantingAServicePeriod() throws Exception {
+        AppUser pm = staff("PM"); Payment p = pending("BCUC6BAD000001");
+        Instant bank = clock.instant().minusSeconds(120);
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(bank);
+        List<SePayPayload> transfers = List.of(
+            new SePayPayload(9301L, "BIDV", time, "UC6-ACCOUNT", p.getQuoteRef(), p.getQuoteRef(), "IN", new BigDecimal("1199999"), "R1"),
+            new SePayPayload(9302L, "BIDV", time, "WRONG-ACCOUNT", p.getQuoteRef(), p.getQuoteRef(), "IN", p.getAmountVnd(), "R2"),
+            new SePayPayload(9303L, "BIDV", p.getExpiresAt().toString(), "UC6-ACCOUNT", p.getQuoteRef(), p.getQuoteRef(), "IN", p.getAmountVnd(), "R3"),
+            new SePayPayload(9304L, "BIDV", time, "UC6-ACCOUNT", null, "Sai noi dung", "IN", p.getAmountVnd(), "R4"),
+            new SePayPayload(9305L, "BIDV", time, "UC6-ACCOUNT", p.getQuoteRef(), p.getQuoteRef(), "OUT", p.getAmountVnd(), "R5"));
+        for (SePayPayload transfer : transfers) {
+            when(lookup.find(transfer.id())).thenReturn(transfer);
+            JsonNode found = body(command(pm, "/lookup/" + transfer.id(), Map.of(), null));
+            assertThat(found.path("paymentId").isNull()).isTrue();
+            assertThat(found.path("reviewStatus").asText()).isEqualTo("UNMATCHED");
+        }
+        em.flush(); em.clear();
+        Payment unchanged = em.find(Payment.class, p.getId());
+        assertThat(unchanged.getState()).isEqualTo("PENDING");
+        assertThat(unchanged.getPurchasedStart()).isNull(); assertThat(unchanged.getPurchasedEnd()).isNull();
+        assertThat(unchanged.getReceiptCode()).isNull();
+        assertThat(count("BankTransferEvidence")).isEqualTo(5);
+        assertThat(count("EvidenceReview")).isZero();
+    }
+
+    @Test
     void lookupStoresATransactionOnceAndProviderTextDifferencesAreStillDuplicates() throws Exception {
         AppUser pm = staff("PM");
         Instant bank = clock.instant().minusSeconds(120);
@@ -392,5 +513,101 @@ class PlatformReconciliationResourceTest extends DomainTestSupport {
         read(user(), "/lookup?from=2026-10-01&to=2026-10-31").andExpect(status().isForbidden());
         em.flush();
         assertThat(count("BankTransferEvidence")).isEqualTo(before);
+    }
+
+    /** Another request of the same farm and subscription as {@code existing} (BR-D23 allows it once the first expired). */
+    private Payment sameFarmRequest(Payment existing, String code, Instant requested, Instant expires) {
+        Payment p = new Payment(); p.setSubscription(existing.getSubscription()); p.setRequestedBy(existing.getRequestedBy());
+        p.setPriceVersion(existing.getPriceVersion()); p.setQuoteRef(code); p.setState("PENDING"); p.setDurationYears(1);
+        p.setAmountVnd(existing.getAmountVnd()); p.setRequestedAt(requested); p.setExpiresAt(expires);
+        p.setReceivingAccount("UC6-ACCOUNT"); p.setReceivingEnvironment("MOCK"); p.setReceivingAccountNamespace("UC6");
+        return save(p);
+    }
+
+    private Long auditActor(String action, Long targetId) {
+        return em.createQuery("select u.id from AuditLog a left join a.actor u where a.action=:action and a.targetId=:id", Long.class)
+            .setParameter("action", action).setParameter("id", targetId).getSingleResult();
+    }
+
+    @Test
+    void anExactCodeFundsOnlyRequestsOfItsOwnFarm() throws Exception {
+        AppUser pm = staff("PM"); Instant now = clock.instant();
+        // D22: farm A's Owner reused the code of expired request X to pay the new request Z of the same farm.
+        Payment x = payment("BCUC6OLDCODE01", "ACTIVE", "EXPIRED", now.minusSeconds(7200), now.minusSeconds(1800));
+        Payment z = sameFarmRequest(x, "BCUC6NEWCODE01", now.minusSeconds(600), now.plusSeconds(3600));
+        // Farm B has a request with the same amount and window: farm A's money must never fund it.
+        Payment y = payment("BCUC6OTHERFARM", "ACTIVE", "PENDING", now.minusSeconds(600), now.plusSeconds(3600));
+        BankTransferEvidence e = evidence(x.getQuoteRef(), now.minusSeconds(60));
+        String path = "/evidence/" + e.getId() + "/review";
+
+        assertThat(body(read(pm, "/evidence/" + e.getId() + "/candidates")).findValuesAsText("paymentId")).containsExactly(String.valueOf(z.getId()));
+        blocked(command(pm, path, review("ACCEPT", y.getId(), "Chọn yêu cầu trại khác", versionOf(e)), "uc6-other-farm"), "OTHER_FARM");
+        em.flush(); em.clear();
+        assertThat(em.find(Payment.class, y.getId()).getState()).isEqualTo("PENDING");
+        assertThat(em.find(BankTransferEvidence.class, e.getId()).getPayment()).isNull();
+        assertThat(decisions(e)).isEmpty();
+
+        body(command(pm, path, review("ACCEPT", z.getId(), "Owner dùng lại mã cũ của trại cho yêu cầu mới", versionOf(e)), "uc6-same-farm"));
+        em.flush(); em.clear();
+        assertThat(em.find(Payment.class, z.getId()).getState()).isEqualTo("PAID");
+        assertThat(em.find(BankTransferEvidence.class, e.getId()).getPayment().getId()).isEqualTo(z.getId());
+        // A mistyped code identifies no request, so a matching request of any farm stays a candidate (GBR-72).
+        BankTransferEvidence typo = evidence();
+        assertThat(body(read(pm, "/evidence/" + typo.getId() + "/candidates")).findValuesAsText("paymentId")).contains(String.valueOf(y.getId()));
+    }
+
+    @Test
+    void lookupRecordsThePmWhoLookedUpTheTransaction() throws Exception {
+        AppUser pm = staff("PM"); Payment p = pending("BCUC6ACTOR0001");
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(clock.instant().minusSeconds(120));
+        when(lookup.find(9501L)).thenReturn(new SePayPayload(9501L, "BIDV", time, "UC6-ACCOUNT", p.getQuoteRef(),
+            "Thanh toan " + p.getQuoteRef(), "IN", p.getAmountVnd(), "B-9501"));
+        when(lookup.find(9502L)).thenReturn(new SePayPayload(9502L, "BIDV", time, "UC6-ACCOUNT", null, "Khong ro noi dung", "IN",
+            new BigDecimal("700000"), "B-9502"));
+        long paidEvidence = body(command(pm, "/lookup/9501", Map.of(), null)).path("evidenceId").asLong();
+        long keptEvidence = body(command(pm, "/lookup/9502", Map.of(), null)).path("evidenceId").asLong();
+        em.flush(); em.clear();
+        // GBR-86: the acceptance and each stored evidence name the PM who looked them up; the source stays SePay (D21).
+        assertThat(em.find(Payment.class, p.getId()).getConfirmationSource()).isEqualTo("SEPAY");
+        assertThat(auditActor("SEPAY_PAYMENT_PAID", p.getId())).isEqualTo(pm.getId());
+        assertThat(auditActor("SEPAY_EVIDENCE", paidEvidence)).isEqualTo(pm.getId());
+        assertThat(auditActor("SEPAY_EVIDENCE", keptEvidence)).isEqualTo(pm.getId());
+        assertThat(body(read(pm, "/evidence/" + paidEvidence)).path("history").findValuesAsText("pmName")).contains(pm.getFullName());
+        assertThat(body(read(pm, "/evidence/" + keptEvidence)).path("history").findValuesAsText("pmName")).contains(pm.getFullName());
+    }
+
+    @Test
+    void invalidSePayDataIsAProviderFailureAndStoresNothing() throws Exception {
+        AppUser pm = staff("PM");
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(clock.instant().minusSeconds(120));
+        when(lookup.find(9601L)).thenReturn(new SePayPayload(9601L, "BIDV", "10/11/2026 10:00", "UC6-ACCOUNT", null, "Sai giờ", "IN",
+            new BigDecimal("500000"), null));
+        when(lookup.find(9602L)).thenReturn(new SePayPayload(9602L, "BIDV", time, "UC6-ACCOUNT", null, "Không có tiền", "IN", BigDecimal.ZERO, null));
+        command(pm, "/lookup/9601", Map.of(), null).andExpect(status().isBadGateway());
+        command(pm, "/lookup/9602", Map.of(), null).andExpect(status().isBadGateway());
+        // A malformed row fails the whole period read instead of hiding a transaction from the PM.
+        when(lookup.list(any(), any(), eq("UC6-ACCOUNT"), anyInt())).thenReturn(List.of(
+            new SePayPayload(9603L, "BIDV", time, "UC6-ACCOUNT", null, "Hợp lệ", "IN", new BigDecimal("1200000"), "R-9603"),
+            new SePayPayload(9604L, "BIDV", "", "UC6-ACCOUNT", null, "Thiếu giờ", "IN", new BigDecimal("1200000"), "R-9604")));
+        read(pm, "/lookup?from=2026-10-01&to=2026-10-31").andExpect(status().isBadGateway());
+        em.flush();
+        assertThat(count("BankTransferEvidence")).isZero();
+    }
+
+    /** Review UC8 #3: long provider text is a storable transaction, not a SePay failure (R-19-08); it is listed and stored in full. */
+    @Test
+    void longSePayFieldsAreListedAndStoredInFullInsteadOfFailingTheLookup() throws Exception {
+        AppUser pm = staff("PM");
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(clock.instant().minusSeconds(120));
+        String gateway = "Ngân hàng ".repeat(30), reference = "REF-".repeat(60);
+        SePayPayload transfer = new SePayPayload(9701L, gateway, time, "UC6-ACCOUNT", null, "Nội dung dài", "IN", new BigDecimal("1200000"), reference);
+        when(lookup.list(any(), any(), eq("UC6-ACCOUNT"), anyInt())).thenReturn(List.of(transfer));
+        when(lookup.find(9701L)).thenReturn(transfer);
+        JsonNode page = body(read(pm, "/lookup?from=2026-10-01&to=2026-10-31"));
+        assertThat(page.path("items").get(0).path("referenceCode").asText()).isEqualTo(reference);
+        JsonNode stored = body(command(pm, "/lookup/9701", Map.of(), null));
+        em.flush(); em.clear();
+        BankTransferEvidence e = em.find(BankTransferEvidence.class, stored.path("evidenceId").asLong());
+        assertThat(e.getGateway()).isEqualTo(gateway); assertThat(e.getReferenceCode()).isEqualTo(reference);
     }
 }

@@ -3,8 +3,8 @@ import { backendPending } from '../../../api/backendPending'
 import { platformServiceDemoStore, type PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
 import { lastVnDay, vnDateOf } from '../domain/dates'
 import type {
-  ChangeFarmCommand, ChangeOptions, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, FarmServicePreview, LockCommand, PaymentFilters, PriceDraft,
-  PublishPriceCommand, ReturnCommand, ReviewCommand, ServiceStatus, SourcePayment, SubscriptionDetail, SubscriptionFilters, SubscriptionPage, SubscriptionRow, PeriodState, PeriodView, TermYears, UnlockCommand,
+  ChangeFarmCommand, ChangeOptions, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, FarmServicePreview, LockCommand, PaymentFilters,
+  ReturnCommand, ReviewCommand, ServiceStatus, SourcePayment, SubscriptionDetail, SubscriptionFilters, SubscriptionPage, SubscriptionRow, PeriodState, PeriodView, TermYears, UnlockCommand,
 } from '../types'
 
 const STATUSES: readonly ServiceStatus[] = ['ACTIVE', 'PENDING_PAYMENT', 'EXPIRED', 'SUSPENDED']
@@ -206,16 +206,7 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
     async unlockReturn(evidenceId: number, cmd: UnlockCommand) { requireLocal(); return store.unlockReturn(evidenceId, cmd) },
     // POST /api/platform/payments/evidence/{evidenceId}/record-return
     async recordReturn(evidenceId: number, cmd: ReturnCommand) { requireLocal(); return store.recordReturn(evidenceId, cmd) },
-    // GET /api/platform/plan-prices
-    async listPriceVersions() { requireLocal(); return store.listPriceVersions() },
-    // chưa có API (bản nháp bảng giá)
-    async getPriceDraft() { requireLocal(); return store.getPriceDraft() },
-    // chưa có API (bản nháp bảng giá)
-    async savePriceDraft(draft: PriceDraft) { requireLocal(); return store.savePriceDraft(draft) },
-    // POST /api/platform/plan-prices
-    async publishPrice(cmd: PublishPriceCommand) { requireLocal(); return store.publishPrice(cmd) },
-    // chưa có API (rút lại phiên bản đã lên lịch, UC-FE19-07 AF1)
-    async withdrawPrice(version: number, reason: string) { requireLocal(); return store.withdrawPrice(version, reason) },
+    // SCR-63 bảng giá dùng planPriceApi (A13/A14, D23); không có API lưu nháp.
   }
 }
 export type PlatformServiceApi = ReturnType<typeof createPlatformServiceApi>

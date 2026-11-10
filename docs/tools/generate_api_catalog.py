@@ -93,7 +93,7 @@ def candidates(tag, path, method, op):
       'farm-dashboard-resource':{'getDashboard':[1],'gettingStarted':[1],'markStepDone':[1],'dismissGettingStarted':[1],'report':[2]},
       'platform-finance-resource':{'records':[3],'detail':[3],'create':[2],'update':[4],'discard':[5],'post':[6],'voidPosted':[7],'replacement':[2,7],'runReport':[8],'report':[8],'export':[9],'categories':[2],'bankTransactions':[2]},
       'subscription-payment-resource':{'overview':[1],'request':[2],'history':[3],'detail':[3]},
-      'platform-plan-price-resource':{'history':[7],'publish':[7]},
+      'platform-plan-price-resource':{'history':[7],'publish':[7],'withdraw':[7]},
       'platform-subscription-resource':{'subscriptions':[4],'subscription':[4]},
       'platform-payment-resource':{'list':[5],'get':[5],'summary':[5],'evidence':[5],'evidenceDetail':[5],'candidates':[5,6],'lookup':[6],'lookupPeriod':[6],'review':[6],'recordReturn':[6],'lockForReturn':[6],'unlockReturn':[6]},
       'se-pay-webhook-resource':{'receive':[8]},

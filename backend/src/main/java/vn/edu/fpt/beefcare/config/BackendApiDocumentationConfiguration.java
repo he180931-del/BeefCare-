@@ -20,12 +20,16 @@ public class BackendApiDocumentationConfiguration {
         return GroupedOpenApi.builder().group("beefcare")
             .pathsToMatch("/api/farms", "/api/farms/**", "/api/csrf", "/api/authenticate", "/api/register", "/api/activate",
                 "/api/account", "/api/account/**", "/api/invitations/**", "/api/support/tickets/**", "/api/platform/**",
-                "/api/public/**", "/api/notifications/mine", "/api/notifications/*/read", "/api/notifications/read-all", "/api/webhooks/sepay")
+                "/api/public/**", "/api/notifications/mine", "/api/notifications/*/read", "/api/notifications/read-all", "/api/webhooks/sepay", "/api/v1/payments/sepay/webhook")
             .addOpenApiCustomizer(api -> api.info(new Info().title("BeefCare backend API").version("2026-10-28")
                 .description("Work in progress. Session cookie authentication; fetch /api/csrf before login and commands. " +
                     "Mutating business commands require Idempotency-Key and observed versions where specified. " +
                     "Identifiers are numeric IDs; display codes are separate fields. See docs/api/README.md for integration and verification status.")))
             .addOpenApiCustomizer(api -> {
+                for (String route : java.util.List.of("/api/webhooks/sepay", "/api/v1/payments/sepay/webhook")) {
+                    if (api.getPaths().get(route) != null && api.getPaths().get(route).getPost() != null)
+                        api.getPaths().get(route).getPost().setSecurity(java.util.List.of());
+                }
                 // OpenAPI 3.1 needs an explicit null alternative; nullable=true is a 3.0 keyword and is omitted on export.
                 nullableFields(api, "SubscriptionOverview", "latestEnd", "renewalOpensAt", "suspendedSince", "currentPeriod",
                     "daysRemaining", "currentPrices", "pendingPayment");
@@ -35,8 +39,13 @@ public class BackendApiDocumentationConfiguration {
                 nullableFields(api, "PlatformBankEvidenceRow", "direction", "content", "reviewReason", "receivingAccountMatches", "paymentId", "paymentCode");
                 nullableFields(api, "PlatformBankEvidenceDetail", "receivingAccount", "bank", "referenceCode", "quoteRef", "firstReceivedAt",
                     "returnReference", "returnDate", "returnResult");
-                nullableFields(api, "PlatformEvidenceHistory", "reason", "reference", "result", "returnDate", "pmId", "pmName");
+                nullableFields(api, "PlatformEvidenceHistory", "reason", "reference", "result", "returnDate", "pmId", "pmName",
+                    "relatedPaymentId", "relatedPaymentCode");
                 nullableFields(api, "SePayLookupRow", "content", "referenceCode", "evidenceId");
+                nullableFields(api, "SePayPayload", "gateway", "accountNumber", "code", "content", "referenceCode", "description");
+                nullableFields(api, "PlatformPlanPriceVersion", "terms", "publishedById", "publishedBy", "publishedAt", "withdrawnBy", "withdrawnAt", "withdrawReason");
+                nullableFields(api, "PlatformPlanPricePage", "current", "nextEffectiveAt");
+                nullableFields(api, "PublishPriceRequest", "effectiveAt", "terms");
                 nullableFields(api, "PlatformPaymentRead", "purchasedStart", "purchasedEnd", "receiptCode", "requestedByEmail",
                     "evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt");
             })

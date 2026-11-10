@@ -152,6 +152,27 @@ class SePayPaymentFlowTest extends DomainTestSupport {
     }
 
     @Test
+    void outgoingTransfersAreKeptAsEvidenceWithoutAReconciliationNotice() {
+        createPlatformManager();
+        actAsPlatformManager();
+        SePayPayload in = event(81006L, null, "1200000");
+        SePayPayload out = new SePayPayload(81007L, in.gateway(), in.transactionDate(), in.accountNumber(), null, "Chuyen tien ra",
+            "OUT", new BigDecimal("300000"), "mock-reference-81007");
+
+        var unmatchedIn = service.receiveMock(in);
+        var outgoing = service.receiveMock(out);
+
+        // D20: only incoming money can need review, so only it is announced to the PMs (JOB-06 notice)
+        assertThat(notifications.findAll()).anyMatch(n -> ("EVIDENCE_REVIEW:" + unmatchedIn.evidenceId()).equals(n.getEventKey()));
+        assertThat(notifications.findAll()).noneMatch(n -> ("EVIDENCE_REVIEW:" + outgoing.evidenceId()).equals(n.getEventKey()));
+        var stored = evidences.findById(outgoing.evidenceId()).orElseThrow();
+        assertThat(stored.getTransferDirection()).isEqualTo("OUT");
+        assertThat(stored.getReviewStatus()).isEqualTo("UNMATCHED");
+        assertThat(em.createQuery("select count(a) from AuditLog a where a.action='MOCK_EVIDENCE' and a.targetId=:id", Long.class)
+            .setParameter("id", outgoing.evidenceId()).getSingleResult()).isEqualTo(1);
+    }
+
+    @Test
     void paidPaymentIsAReceiptAndACurrentSubscriptionInThePmViews() {
         Farm farm = farm("PENDING_PAYMENT");
         AppUser owner = memberWithRole(farm, vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER);

@@ -112,7 +112,7 @@ public class SubscriptionPaymentService {
         FarmServiceFacts.Suspension suspension = suspended ? serviceFacts.lastSuspension(List.of(farmId)).get(farmId) : null;
         String serviceStatus = suspended ? "SUSPENDED" : current != null ? "ACTIVE" : periods.isEmpty() ? "PENDING_PAYMENT" : "EXPIRED";
         String coverage = current != null ? "CURRENT" : future.isEmpty() ? "NONE" : "FUTURE_ONLY";
-        PlanVersion price = plans.findFirstByEffectiveAtLessThanEqualOrderByEffectiveAtDescIdDesc(now).orElse(null);
+        PlanVersion price = plans.findFirstByWithdrawnAtIsNullAndEffectiveAtLessThanEqualOrderByEffectiveAtDescIdDesc(now).orElse(null);
         Payment pending = requests.stream().filter(p -> "PENDING".equalsIgnoreCase(p.getState()) && p.getExpiresAt().isAfter(now))
             .findFirst().orElse(null);
         RequestEligibility eligibility = suspended ? new RequestEligibility(false, "SUSPENDED", null)
@@ -245,7 +245,7 @@ public class SubscriptionPaymentService {
     }
 
     private PlanVersion currentPrice() {
-        return plans.findFirstByEffectiveAtLessThanEqualOrderByEffectiveAtDescIdDesc(clock.now()).orElse(null);
+        return plans.findFirstByWithdrawnAtIsNullAndEffectiveAtLessThanEqualOrderByEffectiveAtDescIdDesc(clock.now()).orElse(null);
     }
 
     private BigDecimal amountFor(PlanVersion price, int years) {

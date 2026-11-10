@@ -25,6 +25,9 @@ import vn.edu.fpt.beefcare.repository.EmailDeliveryJobRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.service.FarmClock;
+import vn.edu.fpt.beefcare.repository.PaymentRepository;
+import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
+import vn.edu.fpt.beefcare.service.NotificationService;
 import vn.edu.fpt.beefcare.service.payment.SubscriptionNoticeJob;
 import vn.edu.fpt.beefcare.repository.SupportTicketRepository;
 
@@ -42,6 +45,9 @@ public class EmailDeliveryJobService {
     private final SupportTicketRepository supportTickets;
     private final AppUserRepository accounts;
     private final FarmRepository farms;
+    private final PaymentRepository payments;
+    private final FarmMembershipRepository memberships;
+    private final NotificationService notifications;
     private final ActionLinkSigner signer;
     private final EmailDelivery delivery;
     private final SpringTemplateEngine templates;
@@ -57,6 +63,9 @@ public class EmailDeliveryJobService {
         SupportTicketRepository supportTickets,
         AppUserRepository accounts,
         FarmRepository farms,
+        PaymentRepository payments,
+        FarmMembershipRepository memberships,
+        NotificationService notifications,
         ActionLinkSigner signer,
         EmailDelivery delivery,
         SpringTemplateEngine templates,
@@ -71,6 +80,9 @@ public class EmailDeliveryJobService {
         this.supportTickets = supportTickets;
         this.accounts = accounts;
         this.farms = farms;
+        this.payments = payments;
+        this.memberships = memberships;
+        this.notifications = notifications;
         this.signer = signer;
         this.delivery = delivery;
         this.templates = templates;
@@ -112,11 +124,14 @@ public class EmailDeliveryJobService {
                 if (!"PENDING".equals(job.getStatus())) return;
                 job.setLeaseUntil(null);
                 job.setLastError(failure.getClass().getSimpleName());
-                if (job.getAttempts() >= MAX_ATTEMPTS) {
+                boolean paymentNotice = "PAYMENT_RECEIPT".equals(job.getLinkSource());
+                Instant deadline = job.getCreatedAt().plus(Duration.ofHours(24));
+                if (paymentNotice ? !Instant.now().isBefore(deadline) : job.getAttempts() >= MAX_ATTEMPTS) {
                     job.setStatus("FAILED");
                 } else {
                     long delay = Math.min(3600, 1L << Math.min(12, job.getAttempts()));
-                    job.setAvailableAt(Instant.now().plusSeconds(delay));
+                    Instant available = Instant.now().plusSeconds(delay);
+                    job.setAvailableAt(paymentNotice && available.isAfter(deadline) ? deadline : available);
                 }
             }));
         }
@@ -125,6 +140,7 @@ public class EmailDeliveryJobService {
     private OutboundEmail prepare(Long id) {
         EmailDeliveryJob job = jobs.findById(id).orElse(null);
         if (job == null || !"PENDING".equals(job.getStatus())) return null;
+        if ("PAYMENT_RECEIPT".equals(job.getLinkSource())) return paymentReceipt(job);
         String bearer;
         Instant expiry;
         String expectedRecipient;
@@ -240,6 +256,41 @@ public class EmailDeliveryJobService {
         String html = templates.process("mail/srs/action", context);
         String plain = "BeefCare\n\n" + "Xin chào " + safeName + ",\n\n" + intro + "\n\n" + button + ": " + actionUrl + "\n\n" + expiryText + "\n";
         return new OutboundEmail(job.getRecipient(), job.getSubject(), html, true, Instant.now(), plain);
+    }
+
+    /** JOB-07 payment slice: resolve the current Owner at actual dispatch, not the historical requester. */
+    private OutboundEmail paymentReceipt(EmailDeliveryJob job) {
+        if (!Instant.now().isBefore(job.getCreatedAt().plus(Duration.ofHours(24)))) {
+            job.setStatus("FAILED"); job.setLeaseUntil(null); return null;
+        }
+        var payment = payments.findById(job.getLinkSourceId()).orElse(null);
+        if (payment == null || !"PAID".equals(payment.getState()) || payment.getReceiptCode() == null) return cancel(job);
+        Farm farm = payment.getSubscription().getFarm();
+        var owner = memberships.findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(farm.getId(), "OWNER", "ACTIVE")
+            .map(v -> v.getUser()).filter(v -> "ACTIVE".equalsIgnoreCase(v.getAccountStatus())).orElse(null);
+        if (owner == null) return cancel(job);
+        job.setRecipient(owner.getEmail()); job.setDisplayName(owner.getFullName());
+        String actionUrl = frontendBaseUrl + "/goi-dich-vu/lich-su?farm=" + farm.getId();
+        var vn = ZoneId.of("Asia/Ho_Chi_Minh");
+        var number = java.text.NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN"));
+        String amount = number.format(payment.getAmountVnd()) + " VND";
+        String period = DISPLAY_TIME.format(payment.getPurchasedStart().atZone(vn)) + " – " + DISPLAY_TIME.format(payment.getPurchasedEnd().atZone(vn));
+        String suspension = "SUSPENDED".equalsIgnoreCase(farm.getServiceStatus())
+            ? "Trang trại đang bị tạm ngưng. Thanh toán đã được xác nhận và không gỡ tạm ngưng." : "Kỳ dịch vụ đã được xác nhận.";
+        String intro = "Đã xác nhận thanh toán " + payment.getQuoteRef() + ".\nTrang trại: " + farm.getName() +
+            "\nSố tiền: " + amount + "\nKỳ hạn: " + payment.getDurationYears() + " năm\nKỳ dịch vụ: " + period +
+            "\nBiên lai: " + payment.getReceiptCode() + "\n" + suspension;
+        notifications.notify(owner, "subscription", "SUBSCRIPTION", farm.getId(), "Thanh toán gói dịch vụ đã được xác nhận",
+            "Mã biên nhận " + payment.getReceiptCode() + ". Thời hạn mới kết thúc ngày " + payment.getPurchasedEnd().atZone(vn).toLocalDate(),
+            "PAYMENT_PAID:" + payment.getId());
+        Context context = new Context(Locale.forLanguageTag("vi"));
+        context.setVariable("title", "Xác nhận thanh toán gói dịch vụ");
+        context.setVariable("greeting", "Xin chào " + blankDefault(owner.getFullName(), "bạn") + ",");
+        context.setVariable("intro", intro); context.setVariable("actionUrl", actionUrl);
+        context.setVariable("buttonLabel", "Xem lịch sử thanh toán"); context.setVariable("expiryText", "Đăng nhập vào BeefCare để xem chi tiết thanh toán và biên lai.");
+        String html = templates.process("mail/srs/action", context);
+        String plain = "BeefCare\n\nXin chào " + blankDefault(owner.getFullName(), "bạn") + ",\n\n" + intro + "\n\nXem lịch sử thanh toán: " + actionUrl + "\n";
+        return new OutboundEmail(owner.getEmail(), job.getSubject(), html, true, Instant.now(), plain);
     }
 
     private OutboundEmail cancel(EmailDeliveryJob job) {

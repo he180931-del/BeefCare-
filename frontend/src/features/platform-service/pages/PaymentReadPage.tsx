@@ -76,7 +76,9 @@ function EvidencePanel({ id, refresh, onDone, onStale }: { id: number; refresh: 
     <div className="mt-4"><Card title="Lịch sử xử lý">
       {e.history.length === 0 ? <p className="text-sm text-muted">Chưa có lịch sử xử lý.</p> : <Table stack={false}>
         <caption className="sr-only">Lịch sử xử lý</caption><thead><tr><Th>Sự kiện / Thời điểm</Th><Th>Người xử lý</Th><Th>Lý do / Tham chiếu</Th></tr></thead>
-        <tbody>{e.history.map((h) => <tr key={`${h.source}-${h.id}`}><Td>{HISTORY_LABEL[h.action] ?? 'Xử lý chứng từ'}<div>{fmtSeconds(h.at)}</div></Td><Td>{h.pmName ?? 'Hệ thống'}</Td>
+        <tbody>{e.history.map((h) => <tr key={`${h.source}-${h.id}`}><Td>{HISTORY_LABEL[h.action] ?? 'Xử lý chứng từ'}<div>{fmtSeconds(h.at)}</div>
+          {h.relatedPaymentId !== null && <div>Yêu cầu: <Link className="font-semibold text-brand underline" to={paymentLink(h.relatedPaymentId)}>{h.relatedPaymentCode}</Link></div>}
+        </Td><Td>{h.pmName ?? 'Hệ thống'}</Td>
           <Td>{h.reason ? reasonText(h.reason) : h.reference || h.result || h.returnDate ? null : '—'}
             {h.reference && <div>Tham chiếu: {h.reference}</div>}{h.result && <div>Kết quả: {h.result}</div>}
             {h.returnDate && <div>Ngày hoàn trả: {fmtDate(h.returnDate)}</div>}</Td></tr>)}</tbody></Table>}

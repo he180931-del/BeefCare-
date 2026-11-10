@@ -16,24 +16,29 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.fpt.beefcare.repository.AccountLinkTokenRepository;
 import vn.edu.fpt.beefcare.repository.CashReportSnapshotRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
+import vn.edu.fpt.beefcare.repository.SePayWebhookRejectionRepository;
 
 /**
  * JOB-08 (SRS 24.8): removes technical data that is no longer needed. Verification, reset and invitation link hashes
- * that expired more than 7 days ago are deleted (invitation records and statuses stay) and cash report snapshots past
- * their 30-day availability are deleted. Each batch of up to 5,000 rows commits on its own, so a failed batch is rolled
- * back and the rest is picked up by the next run; no business record is touched.
+ * that expired more than 7 days ago are deleted (invitation records and statuses stay), cash report snapshots past
+ * their 30-day availability are deleted, and the restricted metadata of rejected SePay webhook calls (UC-FE19-08 E1)
+ * is kept for 30 days, so unauthenticated traffic cannot grow that table without bound. Each batch of up to 5,000 rows
+ * commits on its own, so a failed batch is rolled back and the rest is picked up by the next run; no business record
+ * is touched.
  */
 @Component
 public class DataRetentionJob {
 
     static final int BATCH_SIZE = 5_000;
     static final Duration LINK_GRACE = Duration.ofDays(7);
+    static final Duration WEBHOOK_REJECTION_RETENTION = Duration.ofDays(30);
     private static final int MAX_BATCHES_PER_STEP = 200;
     private static final Logger LOG = LoggerFactory.getLogger(DataRetentionJob.class);
 
     private final AccountLinkTokenRepository accountLinks;
     private final FarmInvitationRepository invitations;
     private final CashReportSnapshotRepository snapshots;
+    private final SePayWebhookRejectionRepository webhookRejections;
     private final FarmClock clock;
     private final TransactionTemplate batch;
 
@@ -41,12 +46,14 @@ public class DataRetentionJob {
         AccountLinkTokenRepository accountLinks,
         FarmInvitationRepository invitations,
         CashReportSnapshotRepository snapshots,
+        SePayWebhookRejectionRepository webhookRejections,
         FarmClock clock,
         PlatformTransactionManager transactionManager
     ) {
         this.accountLinks = accountLinks;
         this.invitations = invitations;
         this.snapshots = snapshots;
+        this.webhookRejections = webhookRejections;
         this.clock = clock;
         this.batch = new TransactionTemplate(transactionManager);
     }
@@ -55,8 +62,8 @@ public class DataRetentionJob {
     public void purgeExpired() {
         Result result = purge();
         if (result.total() > 0) {
-            LOG.info("JOB-08 removed {} account links, cleared {} invitation links and deleted {} cash report snapshots",
-                result.accountLinks(), result.invitationLinks(), result.snapshots());
+            LOG.info("JOB-08 removed {} account links, cleared {} invitation links, deleted {} cash report snapshots and {} rejected webhook records",
+                result.accountLinks(), result.invitationLinks(), result.snapshots(), result.webhookRejections());
         }
     }
 
@@ -67,7 +74,10 @@ public class DataRetentionJob {
         int links = inBatches("account links", page -> accountLinks.findIdsExpiredBefore(linkCutoff, page), accountLinks::deleteByIdIn);
         int invitationLinks = inBatches("invitation links", page -> invitations.findIdsWithLinkExpiredBefore(linkCutoff, page), invitations::clearLinks);
         int reports = inBatches("cash report snapshots", page -> snapshots.findIdsExpiredAt(now, page), snapshots::deleteByIdIn);
-        return new Result(links, invitationLinks, reports);
+        Instant rejectionCutoff = now.minus(WEBHOOK_REJECTION_RETENTION);
+        int rejections = inBatches("rejected webhook records", page -> webhookRejections.findIdsReceivedBefore(rejectionCutoff, page),
+            webhookRejections::deleteByIdIn);
+        return new Result(links, invitationLinks, reports, rejections);
     }
 
     private int inBatches(String label, Function<Pageable, List<Long>> nextIds, ToIntFunction<List<Long>> apply) {
@@ -90,9 +100,9 @@ public class DataRetentionJob {
         return total;
     }
 
-    public record Result(int accountLinks, int invitationLinks, int snapshots) {
+    public record Result(int accountLinks, int invitationLinks, int snapshots, int webhookRejections) {
         int total() {
-            return accountLinks + invitationLinks + snapshots;
+            return accountLinks + invitationLinks + snapshots + webhookRejections;
         }
     }
 }

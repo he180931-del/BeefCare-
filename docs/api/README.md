@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **224 paths, 273 operations, 304 schemas** (file last regenerated 10 November 2026 after combining the current FE20 contract with FE19; the 9 November export had 221 paths, 270 operations and 293 schemas; the 1 November export at `127859b` had 216 paths). To regenerate, run from `backend/`:
+Current contract: **229 paths, 283 operations, 309 schemas**, regenerated 11 November 2026 on `dev` after merging `feat/fe19-goi-thanh-toan` (FE-19 UC1–UC8 and the UC8 review fixes), when `OpenApiContractTest` passed. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -12,6 +12,52 @@ Copy-Item target\beefcare-openapi.json ..\docs\api\openapi.json
 ```
 
 The test writes only to `backend/target/beefcare-openapi.json`; the copy step publishes it here. Commit the regenerated file in the same change as the DTO or route change.
+
+UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
+`GET /api/platform/plan-prices?page=0&size=20` returns
+`{items,total,page,size,asOf,current,nextEffectiveAt}` instead of an array.
+Current and next boundary are independent of the requested history page;
+history is publishedAt descending (unknown last), then id descending.
+POST requires `Idempotency-Key` and `{price1y,price2y,price3y,applyNow,
+effectiveAt?,terms?}`; all prices and applyNow are required. Apply now uses the
+server clock; otherwise effectiveAt is a required ISO instant (VN UI timezone).
+Whole VND limits are 1,000…1,000,000,000; optional trimmed terms max 500.
+`POST /api/platform/plan-prices/{version}/withdraw` requires the same header
+and `{reason,expectedVersion}`; version is the existing numeric PlanVersion ID,
+expectedVersion is its observed revision. Withdrawal reason is trimmed,
+5 non-space characters minimum, 1,000 maximum. Both commands return
+PlatformPlanPriceVersion with prices, effective status, real publication and
+withdrawal metadata; absent legacy metadata remains explicit null.
+Immediate publication retains future schedules; withdrawn schedules release
+their timestamp. Price/term/publication fields cannot be edited. Public
+`/api/public/prices` keeps its previous minimal schema and exposes no PM
+identity. Issued payment snapshots and purchased periods remain unchanged.
+
+UC5 / D18 contract change (10 November 2026): `GET /api/platform/payments`
+and `GET .../evidence` return `{items,total,page,size}` with a default size of
+20 (evidence previously returned an array; payments previously returned a
+Spring Page with default size 25). Evidence defaults to ALL and returns only
+`maskedTransactionId`; full provider transaction ID and committed handling
+history are in the new PM-only `GET .../evidence/{evidenceId}`. Payment detail
+preserves UC4 fields and adds exact `evidenceId`, stored bank/first-received/
+confirmation clocks and source, with explicit nulls. GETs never settle or
+change stored status; expired PENDING requests are read as EXPIRED. API-03
+lookup and all UC6 mutation behavior remain outside this read handoff.
+After the UC5 review (same day, counts unchanged): `reviewStatus`,
+`matchResult` and history `source` declare enums (undeclared stored review
+states read as `PROCESSING`); history `action` is a PM decision or a documented
+event code (`EVIDENCE_RECEIVED`, `EVIDENCE_AUTO_ACCEPTED`, ...), never a raw
+audit action; account checks and candidates use the ingestion/ACCEPT rule.
+
+UC6 / D19 contract change (10 November 2026): the four reconciliation commands
+(`POST .../evidence/{evidenceId}/review`, `lock-return`, `record-return`,
+`unlock-return`) require `Idempotency-Key` and the evidence `version`. `Review`
+has one `reason` field (max 1,000, no `references`); `ReturnResult` adds the
+required `returnDate`. Blocked acceptance is 409 `MSG-FE19-11` with
+`params.reason`; stale version or state is 409 `MSG-COM-05`. New read-only
+`GET .../lookup?from&to` lists SePay transactions for at most 31 days and 200
+rows. Evidence detail adds `returnReference`, `returnDate`, `returnResult`;
+history adds `returnDate` and the decisions LOCK / UNLOCK / RETURN_VERIFIED. D20: an unresolved outgoing transfer reads as `NO_ACTION` and is not counted or filtered as TO_REVIEW.
 
 ## Browser authentication
 
@@ -111,3 +157,46 @@ Feed messages the screens need: `MSG-FE23-03` (expiry not after the receipt date
 | 2026-10-28 (evening) | Feed receipt codes are `PNK-YYYY-nnnn` from a yearly sequence (previously `PNK-YYYY-` + 6-digit database id). Feed errors use `MSG-FE23-03`, `MSG-FE23-05` and `MSG-COM-08` instead of generic codes. | Treat codes as opaque display text; map the new message codes. Existing receipts keep their old codes. |
 
 The frontend submits one domain command, then reloads the returned aggregate or invalidates related queries. It must not compose raw entity writes to emulate transactions, grant its own service status after displaying a QR, infer ticket confirmation from reply text, or treat a reminder suggestion as a recorded event.
+
+### UC-FE19-08 (D24, 10/11/2026)
+
+`POST /api/webhooks/sepay` and its SRS alias `POST /api/v1/payments/sepay/webhook`
+authenticate the exact raw JSON with HMAC headers and ±300 seconds. They have no
+browser session, CSRF or Idempotency-Key requirement; the bank transaction identity
+is the key. OpenAPI declares both required headers, the typed SePayPayload and
+400/401/409/413/500 responses.
+
+**Webhook response change:** HTTP200 is exactly `{"success":true}` after evidence
+and one JOB-06 row commit. It acknowledges receipt, not PAID; settlement fields
+are read from existing Owner/PM APIs. API-03/simulator keep WebhookResult and
+immediate successful confirmation. Technical failures after storage are retried
+from the durable job; no second period/receipt is granted. The source transfer
+window and snapshot account, manual-income exclusion and suspension rules remain.
+
+JOB-06 uses a recoverable lease and retries1/5/15 minutes, then hourly until24h
+after the first failure; it then retains a manual-review error and alerts PM once
+(no outgoing reconciliation notice, D20). PM decisions/locks are never overwritten.
+Contradictory references do not auto-allocate. Full content/description/provider
+code and known delivery counts persist; historical unknown counts stay null.
+
+PAID atomically queues one payment email intent in the existing durable mail
+queue. The dispatcher resolves the current Owner, renders the Vietnamese receipt
+message and retries independently≤24h. It does not enable other outbox consumers.
+SCR-59 keeps D15 polling; SCR-62 reads PROCESSING or the completed result.
+
+Evidence and limits: `docs/reviews/FE19_UC08_REVIEW.md`. Local BE_REVIEWED only:
+99 Surefire tests +49 Failsafe cases (47 PostgreSQL16.15,2 H2 email), frontend158,
+typecheck/build, signed real HTTP/DB/Mailpit and manual runtime captures. No
+approved integrated checkpoint/READY_FOR_FE or SePay LIVE claim.
+
+Review fixes (10/11/2026): an authenticated transfer is stored in full (provider
+text columns widened to the 65,536-byte body bound, no 400/502 for length); a
+redelivery is counted without changing the evidence `version`; API-03/simulator
+jobs are leased to the request at storage; a rejected call still answers 401 when
+its metadata cannot be stored, and JOB-08 purges that metadata after 30 days.
+
+FE-19 integrated tree (feature branch with `main` merged, `4d83ab1`): Surefire
+138/138, Failsafe 128/128 (120 PostgreSQL 16.15, 8 H2), frontend 158/158, typecheck,
+build and a real-HTTP runtime on PostgreSQL covering all 23 operations (28/28
+checks; signed webhook to PAID in 0.77 s). Examples: `FE19_EXAMPLES.md`. Status
+stays BE_REVIEWED until the branch is merged into `main`.

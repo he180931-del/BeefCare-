@@ -7,7 +7,7 @@ export interface ReviewCommand { decision: Decision; paymentId: number | null; r
 export interface ReturnChange { reason: string; version: number }
 export interface ReturnRecord { reference: string; returnDate: string; result: string; version: number }
 export interface CommandResult { id: number; version: number; reviewStatus: string; lockedForReturn: boolean; paymentId: number | null }
-export interface LookupResult { duplicate: boolean; evidenceId: number }
+export interface LookupResult { duplicate: boolean; evidenceId: number; reviewStatus: string; paymentId: number | null }
 export interface LookupRow {
   transactionId: number; bankPaidAt: string; amount: number; direction: 'IN' | 'OUT'; content: string | null; referenceCode: string | null; evidenceId: number | null
 }
@@ -29,6 +29,8 @@ export const BLOCK_TEXT: Record<string, string> = {
   AMOUNT_MISMATCH: 'số tiền không khớp số tiền yêu cầu',
   ACCOUNT_MISMATCH: 'tài khoản nhận không khớp yêu cầu',
   MANUAL_INCOME: 'giao dịch đã được ghi là khoản thu thủ công',
+  // D22: an exact code identifies its farm; only that farm's requests can be funded by it.
+  OTHER_FARM: 'yêu cầu đã chọn thuộc trại khác với mã chuyển khoản',
 }
 
 const FIELD_TEXT: Record<string, string> = {
@@ -56,7 +58,8 @@ export function reconciliationError(error: unknown, decision?: Decision): string
   if (error.code === 'MSG-COM-19') return 'Thao tác trùng khóa với một yêu cầu khác. Vui lòng thử lại.'
   if (error.status === 503) return 'Chưa cấu hình tra cứu SePay ở môi trường này.'
   if (error.status === 404) return 'Không tìm thấy giao dịch trên SePay.'
-  if (error.status === 502) return 'Không kết nối được SePay. Vui lòng thử lại.'
+  // 502: SePay did not answer, or answered with data BeefCare cannot store (nothing was saved).
+  if (error.status === 502) return 'SePay không phản hồi hoặc trả dữ liệu không hợp lệ. Vui lòng thử lại.'
   if (error.status === 409) return 'Giao dịch đã có chứng từ với nội dung khác. Vui lòng kiểm tra lại.'
   return 'Không thể lưu dữ liệu. Vui lòng thử lại.'
 }
@@ -100,8 +103,9 @@ export function createPlatformReconciliationApi(transport: BackendTransport) {
     async lookupById(transactionId: number): Promise<LookupResult> {
       if (!id(transactionId)) throw invalid()
       const r = asRecord(await transport.command(`/api/platform/payments/lookup/${transactionId}`, {}, { method: 'POST' }))
-      if (typeof r.duplicate !== 'boolean' || !id(r.evidenceId)) throw invalid()
-      return { duplicate: r.duplicate, evidenceId: r.evidenceId }
+      if (typeof r.duplicate !== 'boolean' || !id(r.evidenceId) || typeof r.reviewStatus !== 'string'
+        || !(r.paymentId === null || id(r.paymentId))) throw invalid()
+      return { duplicate: r.duplicate, evidenceId: r.evidenceId, reviewStatus: r.reviewStatus, paymentId: r.paymentId as number | null }
     },
     /** API-03 by period (D19): read-only list; rows are stored one by one with lookupById. */
     async lookupPeriod(from: string, to: string): Promise<LookupPage> {

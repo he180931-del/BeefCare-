@@ -45,7 +45,11 @@ public class PlatformPaymentResource {
     @GetMapping("/{paymentId}")
     public PlatformPaymentQueryService.PaymentView get(@PathVariable Long paymentId) { return reads.payment(paymentId); }
 
-    /** API-03 by transaction ID: stores the transaction as evidence once (idempotent by the BR-D24 identity). */
+    /**
+     * API-03 by transaction ID: stores the transaction as evidence once and, when it matches, confirms it like a webhook
+     * (D21) with the PM audited. The SePay transaction ID is the request key (BR-D24, GBR-88, D22): a repeat returns the
+     * first result. Data SePay returns that cannot be stored is 502, like an unreachable SePay.
+     */
     @PostMapping("/lookup/{transactionId}")
     public vn.edu.fpt.beefcare.service.payment.SePayWebhookService.WebhookResult lookup(@PathVariable Long transactionId) {
         return service.lookupAndImport(transactionId);
@@ -99,7 +103,9 @@ public class PlatformPaymentResource {
 
     /** Domain rules return MSG-COM-06/COM-10 per field, so the body carries documentation limits rather than bean constraints. */
     public record Review(@Schema(allowableValues = {"ACCEPT", "HOLD", "REJECT"}) String decision,
-                         @Schema(description = "Required for ACCEPT unless the evidence payment code is exact") Long paymentId,
+                         @Schema(description = "ACCEPT: selected request, or resolved by exact code if omitted; when the transfer carries the exact code "
+                             + "of a request, only a request of that farm (MSG-FE19-11 OTHER_FARM, D22). HOLD/REJECT: optional related request saved in "
+                             + "review history only") Long paymentId,
                          @Schema(maxLength = 1000, description = "Reason and evidence references (one field)") String reason, Long version) {}
     public record ReturnChange(@Schema(maxLength = 1000) String reason, Long version) {}
     public record ReturnResult(@Schema(maxLength = 255, description = "Outgoing bank reference") String reference,
