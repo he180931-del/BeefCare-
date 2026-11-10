@@ -429,6 +429,21 @@ class PenMoveServiceTest extends DomainTestSupport {
     }
 
     @Test
+    void checkDoesNotCountCattleThatCannotMoveAgainstFreePlaces() {
+        Pen a = pen(farm, "A", 10);
+        Pen b = pen(farm, "B", 1);
+        Cattle ok = cowIn(a, TODAY.minusDays(10));
+        Cattle exited = cowIn(a, TODAY.minusDays(10));
+        exited.setHerdStatus(HerdStatus.EXITED);
+        exited.setExitDate(TODAY.minusDays(1));
+        em.flush();
+        PenMoveCheckDTO check = moves.check(farm.getId(), new PenMoveCheckRequest(List.of(ok.getId(), exited.getId()), b.getId(), TODAY));
+        assertThat(check.movingCount()).isEqualTo(1);
+        assertThat(check.blocked()).isFalse();
+        assertThat(check.cattle()).filteredOn(r -> r.cattleId().equals(exited.getId())).singleElement().satisfies(r -> assertThat(r.error().code()).isEqualTo(MessageCodes.COM_13));
+    }
+
+    @Test
     void penHistoryShowsCurrentPenAndRowsNewestFirst() {
         Pen a = pen(farm, "A", 10);
         Pen b = pen(farm, "B", 8);

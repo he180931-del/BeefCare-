@@ -111,7 +111,8 @@ public class PenMoveService {
                 error = new ApiMessage(e.getCode(), e.getParams());
             }
             boolean already = open.isPresent() && open.get().getPen().getId().equals(toPen.getId());
-            if (!already) {
+            // A cattle that cannot move (its own error) needs no place: MSG-FE04-05 counts the cattle that would arrive.
+            if (!already && error == null) {
                 moving++;
             }
             ReceptionCheck rc = receptionCriteria.check(toPen, cattle, moveDate);
