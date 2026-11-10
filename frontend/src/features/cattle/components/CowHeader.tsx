@@ -68,7 +68,7 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
           </div>
           <div className="text-xs leading-[normal] text-muted">{cowDesc(cow)}</div>
           <div className="flex flex-wrap gap-1.5">
-            {voided ? <Chip tone="err">VOIDED</Chip> : exited ? <Chip>{cow.exitStatusLabel ?? 'EXITED'}</Chip> : <Chip tone="ok" icon="circle-check">ACTIVE</Chip>}
+            {voided ? <Chip tone="err">Đã hủy</Chip> : exited ? <Chip>{cow.exitStatusLabel ?? 'Đã xuất đàn'}</Chip> : <Chip tone="ok" icon="circle-check">Đang hoạt động</Chip>}
             {active && cow.headerBadges.map(([label, tone]) => (
               <Chip key={label} tone={tone} icon={chipIcon(label)}>{label}</Chip>
             ))}

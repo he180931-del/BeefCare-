@@ -105,8 +105,8 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
         </Field>
         <Field label="Người thực hiện">
           <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
-            <option value={MANAGER}>{MANAGER}</option>
-            <option value={OWNER}>{OWNER}</option>
+            <option value={MANAGER}>Quản lý</option>
+            <option value={OWNER}>Chủ trại</option>
           </Select>
         </Field>
         <div className="sm:col-span-2">
