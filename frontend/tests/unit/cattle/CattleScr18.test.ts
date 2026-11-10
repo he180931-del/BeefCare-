@@ -35,7 +35,8 @@ describe('SCR-18 cattle contract', () => {
 
     expect(cow.weightDate).toBe('18/10/2026')
     expect(cow.withdrawalUntil).toBe('2026-10-25')
-    expect(cow.birth).toBe('01/01/2024 · ước tính')
+    // SCR-19 #9 / TC-05-37: ngày sinh ước tính có "~" và "(ước tính)".
+    expect(cow.birth).toBe('~01/01/2024 (ước tính)')
   })
 
   it('renders health, withdrawal, herd group and reproductive state as separate header badges', () => {

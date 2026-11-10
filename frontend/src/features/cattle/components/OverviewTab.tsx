@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Foot, Table } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
 import { Chip, Fields, Panel, Td, Th } from './parts'
+import { PURPOSE_TYPE_LABELS } from '../domain/profileRules'
 import type { CowSeed } from '../../../data/cowsData'
 
 const ageFull = (cow: CowSeed) => cow.ageLong.replace('tuổi', 'năm')
+const dmy = (value?: string) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split('-').reverse().join('/') : value ?? '')
 
 function QuickAction({ icon, label, note, to }: { icon: IconName; label: string; note: string; to: string }) {
   const nav = useNavigate()
@@ -20,6 +22,7 @@ function QuickAction({ icon, label, note, to }: { icon: IconName; label: string;
 }
 
 export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; canWrite: boolean; onOpenModal: (name: string) => void }) {
+  const nav = useNavigate()
   const weighDue = cow.care.reminders.find((r) => r.title.startsWith('Cân'))?.due.label
   const code = encodeURIComponent(cow.code)
   return (
@@ -38,7 +41,9 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
             <Fields
               cols="grid-cols-2 sm:grid-cols-4"
               items={[
-                ['Ảnh bò', <span key="p" className="inline-block rounded-xl bg-[#e8ede5] px-3 py-1 text-[11px] font-normal text-[#6b7870]">Ảnh bò</span>],
+                ['Ảnh bò', cow.photoUrl
+                  ? <a key="p" href={String(cow.photoUrl)} target="_blank" rel="noreferrer"><img src={String(cow.photoUrl)} alt={`Ảnh ${cow.code}`} className="size-16 rounded-md object-cover" /></a>
+                  : <span key="p" className="inline-block rounded-xl bg-[#e8ede5] px-3 py-1 text-[11px] font-normal text-[#6b7870]">Chưa có ảnh</span>],
                 ['Mã hiển thị', cow.code],
                 ['Số thẻ tai', cow.tag || 'Gắn sau'],
               ]}
@@ -57,11 +62,11 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
                 ['Ngày sinh', cow.birth],
                 ['Tuổi', ageFull(cow)],
                 ['Nguồn nhập đàn', cow.source],
-                ['Mục đích nuôi', `${cow.purpose} · từ ${cow.purposeSince}`],
+                ['Mục đích nuôi', `${cow.purpose}${cow.purposeType ? ` (${PURPOSE_TYPE_LABELS[String(cow.purposeType)] ?? cow.purposeType})` : ''} · từ ${cow.purposeSince}`],
                 ['Giai đoạn', cow.stage],
                 ['Chuồng hiện tại', cow.barn ? `${cow.barn} · từ ${cow.barnSince}` : '—'],
-                ['Mẹ', cow.mother],
-                ['Bố', cow.father],
+                ['Mẹ', cow.damCode ? <Button key="dam" variant="link" small className="leading-[normal]" onClick={() => nav(`/cattle/${encodeURIComponent(String(cow.damCode))}`)}>{String(cow.damCode)}</Button> : cow.mother],
+                ['Bố', cow.sireCode ? <Button key="sire" variant="link" small className="leading-[normal]" onClick={() => nav(`/cattle/${encodeURIComponent(String(cow.sireCode))}`)}>{String(cow.sireCode)}</Button> : cow.father],
                 ['Tên gọi', cow.name],
                 ['Mô tả', cow.description],
               ]}
@@ -79,7 +84,7 @@ export default function OverviewTab({ cow, canWrite, onOpenModal }: { cow: CowSe
                 ['Sức khỏe', cow.care.healthCase],
                 ['Sinh sản', cow.care.repro],
                 ['Tiêm phòng', <Chip key="v" tone={cow.care.vaccine.tone} icon={cow.care.vaccine.tone === 'err' ? 'alert-triangle' : undefined}>{cow.care.vaccine.label}</Chip>],
-                ['Ngưng sử dụng thịt', cow.withdrawalUntil ? `Đến ${cow.withdrawalUntil}` : 'Không'],
+                ['Cách ly thịt', cow.withdrawalUntil ? <span key="w" className="font-semibold text-warn-fg">{`Đến ${dmy(String(cow.withdrawalUntil))}`}</span> : 'Không'],
               ]}
             />
           </Panel>

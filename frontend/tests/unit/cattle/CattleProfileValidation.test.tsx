@@ -83,8 +83,8 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
       await user.click(saveButton)
 
       // Lỗi: Chưa chọn giai đoạn khác và chưa nhập lý do
-      expect(screen.getByText('Chọn giai đoạn khác giai đoạn hiện tại.')).toBeInTheDocument()
-      expect(screen.getByText('Nhập lý do.')).toBeInTheDocument()
+      expect(screen.getByText('Chọn giá trị khác giá trị hiện tại.')).toBeInTheDocument()
+      expect(screen.getByText('Vui lòng nhập Lý do.')).toBeInTheDocument()
       expect(onSaved).not.toHaveBeenCalled()
 
       // Chọn giai đoạn mới khác: 'Vỗ béo'
@@ -138,9 +138,9 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
 
       // Chọn lý do thay thẻ
       const reasonSelect = screen.getByRole('combobox')
-      await user.selectOptions(reasonSelect, 'Thẻ bị mất')
+      await user.selectOptions(reasonSelect, 'LOST')
 
-      const confirmButton = screen.getByRole('button', { name: /Xác nhận cấp thẻ mới/i })
+      const confirmButton = screen.getByRole('button', { name: /Xác nhận thẻ mới/i })
       await user.click(confirmButton)
 
       await waitFor(() => expect(onSaved).toHaveBeenCalled())

@@ -21,9 +21,12 @@ public final class CattleDtos {
         String healthState,LocalDate withdrawalEndDate,boolean withdrawalActive,Boolean suspectedContagious,String reproductiveStatus,
         LocalDate expectedCalvingDate,String expectedBasis,Boolean breedingEligible,List<String> failedBreedingConditions,
         String colourMarkings,String notes,Long damId,Long sireId,String externalSireCode,Boolean canUpdate,Boolean canChangePurpose,
-        Entry entry,LocalDate quarantineUntil) {}
+        Entry entry,LocalDate quarantineUntil,String damCode,String sireCode) {}
     public record Page(List<Profile> items,long total,int page,int size,Map<String,Long> counts) {}
+    /** A QR tag of a cattle (A5): who issued it and the note are shown in the SCR-21 tag history. */
     public record Tag(Long id,String tagCode,String status,String displayCode,String scanUrl,java.time.Instant issuedAt,
-        java.time.Instant endedAt,String reason,Integer version) {}
-    public record Resolved(Long farmId,Long cattleId,boolean switchFarmRequired,boolean replacedTag,Profile cattle,String messageCode) {}
+        java.time.Instant endedAt,String reason,Integer version,String issuedByName,String note) {}
+    /** Scan / manual lookup result (A7). A REPLACED tag also gives the current tag and when the scanned tag was replaced (MSG-FE05-05). */
+    public record Resolved(Long farmId,Long cattleId,boolean switchFarmRequired,boolean replacedTag,Profile cattle,String messageCode,
+        String currentTagCode,java.time.Instant replacedAt) {}
 }

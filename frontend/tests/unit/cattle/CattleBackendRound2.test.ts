@@ -33,6 +33,6 @@ describe('backend cattle round 2 contract', () => {
     expect(cow.qrHistory).toHaveLength(1)
     expect(cow.qrHistory[0]).toMatchObject({ code: 'QR-REAL', status: 'ACTIVE' })
     expect(cow.events).toHaveLength(1)
-    expect(cow.events[0]).toMatchObject({ cat: 'qr', detail: expect.stringContaining('QR-REAL') })
+    expect(cow.events[0]).toMatchObject({ cat: 'qr', title: 'Cấp thẻ QR QR-REAL' })
   })
 })

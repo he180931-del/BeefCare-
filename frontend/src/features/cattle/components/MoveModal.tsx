@@ -12,6 +12,15 @@ import type { Pen } from '../../../types'
 type MovePayload = { to: string; date: string; reason: string; by: string }
 type CheckResult = Awaited<ReturnType<typeof checkPenMove>>
 
+const CRITERION_TEXT: Record<string, string> = {
+  PURPOSE_TYPE: 'Loại mục đích phù hợp',
+  LIFE_STAGE: 'Giai đoạn phù hợp',
+  SEX: 'Giới tính phù hợp',
+  MIN_AGE_MONTHS: 'Tuổi tối thiểu',
+  MIN_WEIGHT_KG: 'Cân tối thiểu',
+}
+type CheckRow = [string, boolean | null]
+
 export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSeed; barns: Record<string, Pen>; onClose: () => void; onSaved: () => void }) {
   const backend = cow.backendId != null
   const from = barns[cow.barn]
@@ -21,6 +30,8 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
   const [date, setDate] = useState(backend ? new Date().toISOString().slice(0, 10) : TODAY)
   const [by, setBy] = useState(MANAGER)
   const [reason, setReason] = useState(isDemo ? 'Đủ 13 tháng & 236 kg – chuẩn bị theo dõi sinh sản' : '')
+  // R-04-05: lý do cảnh báo là trường riêng, lưu theo phân chuồng mới, không dùng lại lý do chuyển.
+  const [warningReason, setWarningReason] = useState('')
   const [check, setCheck] = useState<CheckResult>(null)
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
@@ -28,7 +39,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
   const dest = barns[to]
   const destId = typeof dest?.backendId === 'number' ? dest.backendId : undefined
   const warningRequired = check?.cattle?.some((c) => c.warningReasonRequired) === true
-  const move = useMutation((payload: MovePayload) => moveBarn(cow.code, payload, backend ? { backendId: cow.backendId, backendVersion: cow.backendVersion, toPenId: destId, warningReason: warningRequired ? payload.reason : undefined } : {}))
+  const move = useMutation((payload: MovePayload) => moveBarn(cow.code, payload, backend ? { backendId: cow.backendId, backendVersion: cow.backendVersion, toPenId: destId, warningReason: warningRequired ? warningReason.trim() : undefined } : {}))
 
   // Backend kiểm tra tiếp nhận (chuồng đích ACTIVE, còn chỗ, tiêu chí) trước khi cho chuyển.
   useEffect(() => {
@@ -44,15 +55,23 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
   }, [backend, destId, date, cow.code, cow.backendId])
 
   const blockText = check?.blocked ? check.block?.text ?? check.block?.message ?? 'Chuồng đích không nhận được bò này.' : ''
-  const checks: Array<[string, boolean]> = backend
-    ? [['Chuồng đích ACTIVE và còn chỗ', !!check && !check.blocked], ...(warningRequired ? [['Tiêu chí tiếp nhận của chuồng', false] as [string, boolean]] : [])]
+  // Backend trả kết quả theo từng tiêu chí (MET / NOT_MET / NOT_APPLICABLE); null = Không áp dụng.
+  const results = check?.cattle?.[0]?.results ?? []
+  const cattleError = check?.cattle?.[0]?.error
+  const checks: CheckRow[] = backend
+    ? [
+        ['Chuồng đích ACTIVE và còn chỗ', !!check && !check.blocked],
+        ...results.map((r): CheckRow => [CRITERION_TEXT[r.criterion ?? ''] ?? String(r.criterion), r.outcome === 'NOT_APPLICABLE' ? null : r.outcome === 'MET']),
+      ]
     : [
         ['Chuồng đích ACTIVE và còn chỗ', dest?.status === 'ACTIVE' && dest.count < dest.capacity],
         ['Mục đích nuôi khớp tiêu chí chuồng', cow.purpose === dest?.purpose],
         [`Ngưỡng ≥ ${dest?.minMonths ?? 0} tháng và ≥ ${dest?.minKg ?? 0} kg`, cow.months >= (dest?.minMonths ?? 0) && cow.weight != null && cow.weight >= (dest?.minKg ?? 0)],
         ['Giai đoạn khớp tiêu chí chuồng', cow.stage === dest?.stage],
       ]
-  const canSave = reason.trim() !== '' && (backend ? !!check && !check.blocked && !checking && !move.loading : checks[0][1])
+  const canSave = reason.trim() !== '' && (backend
+    ? !!check && !check.blocked && !cattleError && !checking && !move.loading && (!warningRequired || warningReason.trim() !== '')
+    : checks[0][1] === true)
 
   const confirm = async () => {
     setError('')
@@ -86,8 +105,8 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
         </Field>
         <Field label="Người thực hiện">
           <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
-            <option value={MANAGER}>{MANAGER}</option>
-            <option value={OWNER}>{OWNER}</option>
+            <option value={MANAGER}>Quản lý</option>
+            <option value={OWNER}>Chủ trại</option>
           </Select>
         </Field>
         <div className="sm:col-span-2">
@@ -100,6 +119,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
       <p className="m-0 text-[14px] font-semibold leading-[normal] text-[#212121]">Kiểm tra tiếp nhận</p>
       {blockText && <Note tone="err">{blockText}</Note>}
       {error && <Note tone="err">{error}</Note>}
+      {cattleError && <Note tone="err">{userFacingError(cattleError, 'Bò này không chuyển được chuồng.')}</Note>}
       <Table stack={false}>
         <thead>
           <tr>
@@ -111,11 +131,18 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
           {checks.map(([label, ok]) => (
             <tr key={label}>
               <Td className="!h-9">{label}</Td>
-              <Td>{ok ? <Chip tone="ok" icon="circle-check">Đạt</Chip> : <Chip tone="warn">Chưa khớp</Chip>}</Td>
+              <Td>{ok == null ? <Chip tone="grey">Không áp dụng</Chip> : ok ? <Chip tone="ok" icon="circle-check">Đạt</Chip> : <Chip tone="warn">Chưa khớp</Chip>}</Td>
             </tr>
           ))}
         </tbody>
       </Table>
+
+      {backend && warningRequired && (
+        <Field label="Lý do cảnh báo *">
+          <Note tone="warn">{check?.cattle?.[0]?.warning?.text ?? `${cow.code} không đạt tiêu chí nhận bò của chuồng đích. Nhập lý do để tiếp tục.`}</Note>
+          <input className={fieldCls} maxLength={500} value={warningReason} onChange={(e) => setWarningReason(e.target.value)} aria-label="Lý do cảnh báo" />
+        </Field>
+      )}
 
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>

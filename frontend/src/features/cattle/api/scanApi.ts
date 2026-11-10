@@ -1,21 +1,38 @@
 import { backendMode } from '../../../api/backendTransport'
-import { listCows, loadProfile } from './cattleApi'
+import { BackendError } from '../../../api/backendClient'
+import { listCows, resolveScannedCode } from './cattleApi'
 import type { CowSeed } from '../../../data/cowsData'
 
-export type ScanResult = { cow: CowSeed; replacedTag?: string } | null
-
 /**
- * Tra bò theo mã hiển thị, số thẻ tai hoặc mã thẻ QR (UC-FE05-05).
- * GET /api/farms/{farmId}/cattle/resolve?code=
+ * Outcome of a scan or a manual code (UC-FE05-05, R-05-14, R-05-15):
+ * - found: the cattle card; `replaced` when the scanned tag was REPLACED (MSG-FE05-05);
+ * - otherFarm: the cattle belongs to another farm the user may open (MSG-FE05-06) — no cattle data is returned;
+ * - rejected: unknown code, VietQR, a farm the user cannot access (MSG-FE05-09) or a draft calf (MSG-FE05-10).
  */
-export async function resolveCattle(input: string): Promise<ScanResult> {
+export type ScanOutcome =
+  | { kind: 'found'; cow: CowSeed; replaced?: { scannedTag: string; currentTag: string | null; date: string | null } }
+  | { kind: 'otherFarm'; farmId: number | null }
+  | { kind: 'rejected'; code: 'MSG-FE05-09' | 'MSG-FE05-10' }
+
+const dateLabel = (iso: string | null) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : null)
+
+/** GET /api/farms/{farmId}/cattle/resolve?code= — display code, ear tag or tag code (or an app link to the tag). */
+export async function scanCode(input: string): Promise<ScanOutcome | null> {
   const key = input.trim()
   if (!key) return null
   if (backendMode === 'backend') {
     try {
-      return { cow: (await loadProfile(key)).cow }
-    } catch {
-      return null
+      const result = await resolveScannedCode(key)
+      if (result.switchFarmRequired) return { kind: 'otherFarm', farmId: result.farmId }
+      if (!result.cattle) return { kind: 'rejected', code: 'MSG-FE05-09' }
+      return {
+        kind: 'found',
+        cow: result.cattle,
+        ...(result.replacedTag ? { replaced: { scannedTag: key, currentTag: result.currentTagCode, date: dateLabel(result.replacedAt) } } : {}),
+      }
+    } catch (error) {
+      if (error instanceof BackendError && error.code === 'MSG-FE05-10') return { kind: 'rejected', code: 'MSG-FE05-10' }
+      return { kind: 'rejected', code: 'MSG-FE05-09' }
     }
   }
   const needle = key.toLowerCase()
@@ -23,8 +40,11 @@ export async function resolveCattle(input: string): Promise<ScanResult> {
   for (const cow of cows) {
     const history = cow.qrHistory ?? []
     const tagRow = history.find((t) => t.code.toLowerCase() === needle)
-    if (tagRow) return { cow, replacedTag: tagRow.status === 'REPLACED' ? tagRow.code : undefined }
-    if ([cow.code, cow.tag, cow.qr].some((v) => v && v.toLowerCase() === needle)) return { cow }
+    if (tagRow) {
+      const current = history.find((t) => t.status === 'ACTIVE')?.code ?? null
+      return { kind: 'found', cow, ...(tagRow.status === 'REPLACED' ? { replaced: { scannedTag: tagRow.code, currentTag: current, date: tagRow.to } } : {}) }
+    }
+    if ([cow.code, cow.tag, cow.qr].some((v) => v && v.toLowerCase() === needle)) return { kind: 'found', cow }
   }
-  return null
+  return { kind: 'rejected', code: 'MSG-FE05-09' }
 }
