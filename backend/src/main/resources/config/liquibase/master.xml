@@ -147,4 +147,5 @@
     <include file="config/liquibase/changelog/20261110000100_evidence_reconciliation.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261110000100_feed_receipt_completeness.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
+    <include file="config/liquibase/changelog/20261109000100_medicine_optional_dose.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

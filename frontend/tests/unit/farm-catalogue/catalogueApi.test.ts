@@ -65,8 +65,8 @@ describe('catalogue api: vaccines, medicines and purposes', () => {
     const all = await api.listVaccines()
     const used = all.find((v) => v.code === 'AFT-O')!
     const unused = all.find((v) => v.code === 'ANTH-1')!
-    await expect(api.deleteVaccine(used.id)).rejects.toThrow(/đã được dùng/)
-    await api.deleteVaccine(unused.id)
+    await expect(api.deleteVaccine(used)).rejects.toThrow(/đã được dùng/)
+    await api.deleteVaccine(unused)
     expect((await api.listVaccines()).some((v) => v.code === 'ANTH-1')).toBe(false)
   })
 
@@ -125,13 +125,19 @@ describe('catalogue api: parameters', () => {
 })
 
 describe('catalogue api: backend mode', () => {
-  it('rejects without touching the mock store', async () => {
-    const transport = { get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }
+  it('uses backend routes without touching the mock store', async () => {
+    const transport = {
+      get: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 9, versionNo: 4, effectiveFrom: TODAY, parameters: {}, sourceNote: 'Nguồn', savedBy: 'An' }]),
+      command: vi.fn().mockResolvedValue({ id: 9 }),
+      farmPath: vi.fn((_farmId: number, suffix: string) => `/api/farms/1${suffix}`),
+    }
     const store = createCatalogueDemoStore()
     const spy = vi.spyOn(store, 'listBreeds')
     const api = createCatalogueApi({ mode: 'backend', farmId: 1, transport, store })
-    await expect(api.listBreeds()).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.saveParameterVersion(params())).rejects.toThrow(/Chưa tích hợp/)
+    await api.listBreeds({ q: 'lai', status: 'ACTIVE' })
+    await api.saveParameterVersion(params({}, { baseVersion: 3 }))
+    expect(transport.get).toHaveBeenNthCalledWith(1, '/api/farms/1/catalogues/breeds?q=lai&status=ACTIVE')
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/1/parameters/versions', expect.objectContaining({ baseVersion: 3, sourceNote: 'Phỏng vấn chủ trại 20/10/2026' }), { method: 'POST' })
     expect(spy).not.toHaveBeenCalled()
   })
 })

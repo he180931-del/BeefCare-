@@ -38,6 +38,7 @@ class HerdCatalogueCommandServiceTest extends DomainTestSupport {
         assertThatThrownBy(()->service.saveBreed(f.getId(),foreign.getId(),new BreedWrite(foreign.getCode(),"Lai",null,null,true,foreign.getVersion()))).isInstanceOf(DomainException.class);
         actAs(memberWithRole(f,FarmRole.TECHNICIAN));assertThat(service.breeds(f.getId(),null,"ACTIVE")).hasSize(1);
         assertThatThrownBy(()->service.saveBreed(f.getId(),null,new BreedWrite("NO","Lai",null,null,true,null))).isInstanceOf(DomainException.class);
-        assertThatThrownBy(()->service.purposes(f.getId(),null,null)).isInstanceOf(DomainException.class);
+        // FE-18 Q1 (decided 09/11): the Technician views every catalogue tab, read-only.
+        assertThat(service.purposes(f.getId(),null,null)).isNotNull();
     }
 }

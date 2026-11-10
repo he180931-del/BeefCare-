@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <!-- FE-18 §3.3: a medicine's reference dose and route are optional (only withdrawal days are required). -->
+  <changeSet id="20261109000100-medicine-optional-dose" author="beefcare">
+    <dropNotNullConstraint tableName="medicine" columnName="dose" columnDataType="varchar(255)"/>
+    <dropNotNullConstraint tableName="medicine" columnName="route" columnDataType="varchar(255)"/>
+  </changeSet>
+</databaseChangeLog>

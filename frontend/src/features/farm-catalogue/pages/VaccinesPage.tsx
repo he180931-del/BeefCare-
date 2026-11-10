@@ -48,7 +48,7 @@ export default function VaccinesPage() {
     setDeleting(true)
     setDeleteError(null)
     try {
-      await catalogueApi.deleteVaccine(item.id)
+      await catalogueApi.deleteVaccine(item)
       ed.closeModal()
       ed.clear()
       list.refetch()

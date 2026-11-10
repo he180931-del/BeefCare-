@@ -52,15 +52,31 @@ public final class CareDtos {
     public record CorrectVaccination(Integer expectedVersion, Long vaccineId, LocalDate vaccinationDate, Instant administeredAt,
                                      String batchNo, String dose, String route, String vaccinator, String reason) {}
     public record VaccinationResult(Long id, String status, Integer version, LocalDate withdrawalEndDate, Boolean corrected) {}
-    public record ParameterVersionCommand(Map<String, Object> parameters, Integer gestationLengthDays, LocalDate effectiveFrom, String sourceNote) {}
-    public record ParameterVersionResult(Long id, Integer versionNo, Integer gestationLengthDays, LocalDate effectiveFrom, Map<String, Object> parameters) {}
+    /**
+     * A10. {@code baseVersion}: the version number the form was loaded with; when another version was saved meanwhile
+     * the save answers MSG-COM-05 (R-18-15, TC-18-26). Null skips the check (older callers).
+     */
+    public record ParameterVersionCommand(Map<String, Object> parameters, Integer gestationLengthDays, LocalDate effectiveFrom, String sourceNote, Integer baseVersion) {
+        public ParameterVersionCommand(Map<String, Object> parameters, Integer gestationLengthDays, LocalDate effectiveFrom, String sourceNote) {
+            this(parameters, gestationLengthDays, effectiveFrom, sourceNote, null);
+        }
+    }
+    /** A9 / A10: a saved version with its source note, author and whether it starts later (scheduled, R-18-11). */
+    public record ParameterVersionResult(Long id, Integer versionNo, Integer gestationLengthDays, LocalDate effectiveFrom, Map<String, Object> parameters,
+                                         String sourceNote, String savedBy, java.time.Instant createdAt, boolean scheduled) {}
     public record VaccineCommand(Integer expectedVersion, String code, String name, String diseasePrevented, String manufacturer,
                                  String dose, String route, Integer withdrawalDays, Integer boosterInterval, Boolean available) {}
     public record MedicineCommand(Integer expectedVersion, String code, String name, String description, String dose, String route,
                                   Integer withdrawalDays, Boolean available) {}
+    /**
+     * Vaccine or medicine (A3, A5). {@code scheduleCount} / {@code recordCount}: vaccination schedules and vaccinations
+     * (or treatments) that use it; {@code referencedCount} = their sum (MSG-FE18-03; 0 = may be deleted).
+     * {@code completeFromLabel}: a vaccine without reference dose or route (R-18-07).
+     */
     public record CatalogueItem(Long id, String code, String name, String description, String diseasePrevented,
                                String manufacturer, String dose, String route, Integer withdrawalDays,
-                               Integer boosterInterval, Boolean available, Integer version) {}
+                               Integer boosterInterval, Boolean available, Integer version,
+                               long scheduleCount, long recordCount, long referencedCount, boolean completeFromLabel) {}
     public record HealthCaseResult(Long id, String caseCode, String status, Integer version, Long cattleId,
                                    Long observationId, String healthState) {}
     public record HealthCaseRow(Long id,String caseCode,Long cattleId,String cattleCode,String breed,String sex,Long penId,String penCode,
