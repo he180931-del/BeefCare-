@@ -22,7 +22,7 @@ evidence version the PM saw. All writes of one command commit together.
 | Field / input | Type, requiredness, condition | Validation and error | API | Storage |
 |---|---|---|---|---|
 | decision | enum ACCEPT / HOLD / REJECT, required | missing COM-06, other COM-10 | A9 body | `evidence_review.decision`; HOLD/REJECT also `bank_transfer_evidence.review_status` |
-| paymentId | Long; required for ACCEPT unless the evidence payment code identifies exactly one request; ignored for HOLD/REJECT | none and no exact code: FE19-11 NO_CANDIDATE; unknown COM-08 | A9 body | `bank_transfer_evidence.payment_id` on ACCEPT |
+| paymentId | Long; required for ACCEPT unless the evidence payment code identifies exactly one request; D21: optional related request for HOLD/REJECT | none and no exact code: FE19-11 NO_CANDIDATE; supplied unknown ID COM-08 | A9 body | `bank_transfer_evidence.payment_id` on ACCEPT; D21 `evidence_review.related_payment_id` per decision |
 | reason (decision) | text, required, trimmed 1–1,000 (D19) — one field "Reason and evidence references" | missing COM-06, longer COM-10 | A9 body | `evidence_review.reason` (clob); `bank_transfer_evidence.review_reason` varchar(1000) |
 | version | Long, required | missing COM-06; differs COM-05 (E4, e.g. SePay just confirmed) | A9/A10 body | `bank_transfer_evidence.version` (@Version) |
 | ACCEPT checks | shared GBR-72 + GBR-84, serialized per farm | FE19-11 with `reason`: EVIDENCE_ALLOCATED, LOCKED_FOR_RETURN, OUTGOING, REQUEST_NOT_PENDING, REQUEST_ALLOCATED, OUTSIDE_WINDOW, AMOUNT_MISMATCH, ACCOUNT_MISMATCH, MANUAL_INCOME; nothing allocated | A9 | Payment PAID + period + receipt; Subscription end; farm status (not if SUSPENDED); review row; audit; Owner notification |
@@ -49,8 +49,8 @@ is capped at 31 days and 200 rows; lookup has no `Idempotency-Key` because it is
 idempotent by the evidence identity; lock / unlock / record state errors use
 MSG-COM-05 because the UI only offers them in valid states.
 
-Not in this slice: delivery-attempt count, the separate "related payment request"
-attribute of Evidence Review (the allocated payment is on the evidence), JOB-06
+Not in the original D19 slice: delivery-attempt count, the separate "related
+payment request" attribute of Evidence Review (added by D21 below), JOB-06
 retry queue and SePay LIVE verification.
 
 ## Implementation and verification — 10/11/2026
@@ -135,3 +135,122 @@ five UI findings. Tests were written first (backend 2 RED, frontend 7 RED).
 | Frontend | **134/134 PASS** platform-service + subscription; typecheck PASS |
 | OpenAPI | 220 / 269 / 296 unchanged; `reviewStatus` enum adds `NO_ACTION`; catalog refreshed |
 | Runtime rerun | Same isolated harness: review tile 4 with an outgoing row present, "Không cần xử lý" in the list, one candidate list, error cleared on candidate selection, draft kept after MSG-COM-05, no leading dash in the return row, visible lookup labels; no page errors, no horizontal overflow, only the intended 409/503 responses |
+
+## D21 follow-up — approved 10/11/2026
+
+Owner: current agent, sequential test/code/review, writable current checkout
+`D:/Project/BeefCare-`, branch `feat/fe19-goi-thanh-toan`, initial HEAD
+`4aac1e23e50573f2992877d40e3e01e949c74325`, initially clean. No new worktree,
+commit, branch transfer or merge. User approved automatic confirmation of valid
+looked-up transfers and per-decision related payment history.
+
+Pre-edit sources: D12/D19/D20/D21; SRS Bank Transfer Evidence / Evidence Review
+(808–815), UC-FE19-06 (2440–2453), SCR-62 (4951–4964), API-03 (5654–5659),
+GBR-72/73/74/84/86/88/89; spec §3.4, §5 UC6, §6 SCR-62, A9/A11/A16/A17.
+Traced the resource, review/lookup service, evidence/review/payment entities,
+history query/DTO, OpenAPI, frontend read/command adapters, form and page.
+
+### Field matrix and rules before editing production
+
+| Field | Type / requiredness / default | Validation / condition | Storage and round trip |
+|---|---|---|---|
+| Review.paymentId | Long; default null; ACCEPT resolves exact code if omitted; optional for HOLD/REJECT | Supplied ID must exist (COM-08); HOLD/REJECT do not run acceptance rules or allocate money | Form candidate -> A9 -> service -> new nullable `evidence_review.related_payment_id` FK -> A16 history -> SCR-62 link |
+| History.relatedPaymentId / relatedPaymentCode | nullable Long / string; one pair per review; default null | Saved review relation only; ACCEPT stores the resolved request; legacy rows and handling events have null | Review relation -> history DTO -> strict frontend adapter -> link to that exact payment; never infer from current evidence allocation |
+| Lookup result reviewStatus / paymentId | existing string / nullable Long | Valid transfer automatically uses GBR-72/84; unmatched transfers remain unallocated; repeat returns original evidence/payment | Existing SePay ingestion -> payment/period/receipt/evidence -> API response -> frontend success message and refreshed detail |
+
+The related request is per decision, not per voucher/cattle or a replacement
+for evidence allocation. New migration only; existing review rows stay null.
+All original reason/version/permission/return rules still apply.
+
+### Regression record and test plan
+
+P2 history loss: choose request A on SCR-62, save HOLD, then choose request B
+and ACCEPT. Expected: HOLD retains A and ACCEPT retains B. Before: frontend
+discarded the HOLD choice and history had no related request field. Source:
+SRS 815; evidence: `EvidenceActions.submitDecision`, `EvidenceReview`,
+`PlatformPaymentQueryService.evidence`. Current agent performs Testing then
+Coding sequentially under the entry-point collaboration model.
+
+| What | Where | Why |
+|---|---|---|
+| Lookup exact valid transfer -> PAID, period, receipt, Owner notice; replay unchanged; mismatches remain pending | PlatformReconciliationResourceTest + inherited PlatformReconciliationPostgresIT | Prove automatic confirmation and persisted effects without PM ACCEPT |
+| HOLD A / REJECT without a request / ACCEPT B retain separate links; invalid optional ID writes nothing; legacy history stays null | Same backend classes; OpenApiContractTest | Prove history, optionality, database FK/readback and contract |
+| HOLD/REJECT send selected candidate or null; history links use each row's request; lookup reports automatic confirmation | platformReconciliationBackend.test.tsx | Prove payload and visible behavior on SCR-62 |
+
+Baseline: existing frontend reconciliation/read tests 24/24 PASS; existing
+backend reconciliation/OpenAPI tests 11/11 PASS. Maven offline failed inside
+the sandbox because the user cache was inaccessible; the same offline command
+passed outside the sandbox using existing dependencies. New test results and
+final verification are recorded below after the implementation.
+
+### D21 implementation and verification
+
+Implemented the optional per-review request as a nullable FK with insert-only
+JPA mapping. The review command validates any supplied ID before writing;
+ACCEPT saves the resolved/locked request, while HOLD/REJECT save context without
+allocation. The history query fetches that relation and returns a nullable
+`relatedPaymentId`/`relatedPaymentCode` pair. SCR-62 sends the selected candidate
+for all three decisions, offers "Không gắn yêu cầu", and links each history row
+to its own request. Lookup already used automatic confirmation; it retains
+that behavior and now shows the confirmation result in the UI.
+
+| Check | Fresh result, 10/11/2026 |
+|---|---|
+| Backend RED | 3 expected failures: missing history fields, unknown optional request accepted, OpenAPI missing nullable fields. Lookup behavior tests already passed after correcting the fixture code to the existing 14-character payment-code format. |
+| Frontend RED | 6 expected failures: HOLD/REJECT dropped the choice, no way to clear an exact candidate (2 cases), missing per-review links, missing automatic confirmation message. |
+| Backend H2/security/OpenAPI/domain | **42/42 PASS**: reconciliation 14, read workbench 13, SePay flow 9, OpenAPI 1, entity regressions 5. |
+| PostgreSQL 16.15 | **28/28 PASS** via Failsafe: reconciliation 14, read workbench 13, previous-schema upgrade 1. New column, FK and old-row preservation verified on real migrations. |
+| Frontend | **139/139 PASS**, platform-service + subscription; reconciliation/read subset 29/29. |
+| Typecheck / production build | PASS / PASS; existing chunk-size warning. |
+| Checkstyle | 0 violations; Spotless, JaCoCo and Modernizer explicitly skipped. |
+| Contract | Exported from passing OpenApiContractTest; 220 paths / 269 operations. New history fields are nullable in OpenAPI 3.1; A9 describes optional HOLD/REJECT context. Catalog refreshed and 3 relevant review records updated; status remains BE_REVIEWED local (`doing`), not READY_FOR_FE. |
+
+The broader frontend run first found one existing QR-test failure: the fixture
+expired at 2026-11-10T03:00Z while the test used wall-clock time. The smallest
+test-only fix freezes `Date.now()` at the fixture's NOW for that QR case; no
+subscription production code or expiry rule changed. The full selected suite
+then passed. The first OpenAPI GREEN attempt also exposed the existing 3.1
+nullable-field allowlist; the two new fields were added, without weakening
+the contract assertions.
+
+Backend command (offline installed Maven 3.9.16, JDK 21; executed outside the
+sandbox for access to the existing user Maven cache and Docker):
+
+```powershell
+mvn.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dmodernizer.skip=true' '-Dapi.version=1.44' '-Duser.timezone=UTC' '-Dtest=PlatformReconciliationResourceTest,PlatformPaymentReadResourceTest,SePayPaymentFlowTest,OpenApiContractTest,BankTransferEvidenceTest,EvidenceReviewTest' '-Dit.test=PlatformReconciliationPostgresIT,PlatformPaymentReadPostgresIT,EvidenceReviewPaymentMigrationPostgresIT' verify
+```
+
+Frontend commands: `VITE_BEEFCARE_DATA_SOURCE=local node node_modules/vitest/vitest.mjs run tests/unit/platform-service tests/unit/subscription`,
+`npm.cmd run typecheck`, `npm.cmd run build`. Tests mock the backend transport
+explicitly; this environment flag is not evidence of a live service mode.
+Contract refresh: copy the successful `backend/target/beefcare-openapi.json`
+to `docs/api/openapi.json`, then `py docs/tools/generate_api_catalog.py`.
+
+Persistence evidence: secured HTTP -> resource -> service -> FK row, followed
+by flush/clear + native SQL/read API on H2 and PostgreSQL. HOLD A remains linked
+to A after ACCEPT B; an unlinked REJECT and legacy HOLD remain null; replay
+adds no review. Exact-code ACCEPT also stores its resolved request. Valid
+lookup creates one allocation/period/receipt and Owner notification with source
+SEPAY; replay leaves them unchanged. Wrong amount/account/window/code and
+outgoing transfers grant no period. Upgrade test starts from the full prior
+schema in an isolated Testcontainers schema, preserves the old row and checks
+both a valid new FK and rejection of an invalid FK.
+
+Files changed: payment review entity/service/query/resource and OpenAPI config;
+new `20261110000200_evidence_review_payment.xml` + master include; reconciliation,
+OpenAPI and migration tests; platform-service read/command adapters, decision
+form, lookup and history page + tests; one existing subscription QR test clock;
+D21, FE-19 spec/open questions, this report, OpenAPI and API handoff catalog.
+Initial user changes: none. Final changes are uncommitted on the same feature
+branch, including the two new untracked migration/test files. No merge or push.
+
+Skills: the RTK TDD/React/verification paths referenced on the macOS host are
+not installed in this Windows checkout; used the entry-point/RTK test-first,
+feature-boundary and verification rules directly. No package was installed.
+
+Limits: no new browser/runtime/side-by-side capture, automated E2E or visual
+regression test in this follow-up; earlier runtime captures above are historical.
+SePay client is mocked in HTTP tests; no SePay LIVE request or configuration
+change, full repository suite, new concurrency/rollback audit or integrated
+deployment. Existing lookup deduplication remains by BR-D24 identity rather
+than an Idempotency-Key; delivery-attempt count and JOB-06 remain outside scope.

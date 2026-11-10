@@ -81,3 +81,22 @@ có trạng thái hiển thị `NO_ACTION` ("Không cần xử lý"), không tí
 Chứng từ chưa có chiều (dữ liệu cũ) vẫn coi là cần xem. PM vẫn có thể Tạm giữ
 hoặc Từ chối chứng từ chiều ra; khi đó trạng thái theo quyết định. Điều chỉnh
 quy tắc đếm của D18. Bằng chứng: `docs/reviews/FE19_UC06_REVIEW.md`.
+
+### D21 — UC-FE19-06: xác nhận từ tra cứu và yêu cầu liên quan trong lịch sử (10/11/2026)
+
+Người dùng xác nhận hai đề xuất trong phiên:
+
+1. Giao dịch tìm lại qua SePay được tự xác nhận nếu đủ toàn bộ điều kiện
+   GBR-72/84, dùng chung cơ chế xác nhận với webhook, nguồn SEPAY. Không thêm
+   bước PM duyệt cho giao dịch hợp lệ. Không khớp thì chỉ lưu chứng từ để PM
+   đối soát; tra cứu theo khoảng vẫn chỉ đọc. Chạy lại không cấp trùng kỳ hay
+   biên lai; thanh toán không gỡ SUSPENDED.
+2. Mỗi dòng Evidence Review lưu riêng yêu cầu thanh toán liên quan tại lúc
+   quyết định. ACCEPT luôn lưu yêu cầu được xác nhận (kể cả tìm bằng mã chính
+   xác); HOLD/REJECT lưu yêu cầu PM chọn nếu có và vẫn được lưu khi không chọn.
+   Liên kết này chỉ là ngữ cảnh lịch sử, không phân bổ tiền hay cấp dịch vụ.
+   Không suy liên kết của lịch sử cũ từ thanh toán được phân bổ cuối cùng.
+
+Bổ sung phần `related payment request` từng hoãn trong báo cáo UC6; thay quy
+ước HOLD/REJECT bỏ qua `paymentId` của D19. Không bật SePay LIVE hoặc mở rộng
+JOB-06. Ma trận và bằng chứng tại `docs/reviews/FE19_UC06_REVIEW.md`.
