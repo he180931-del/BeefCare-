@@ -29,6 +29,8 @@ export const BLOCK_TEXT: Record<string, string> = {
   AMOUNT_MISMATCH: 'số tiền không khớp số tiền yêu cầu',
   ACCOUNT_MISMATCH: 'tài khoản nhận không khớp yêu cầu',
   MANUAL_INCOME: 'giao dịch đã được ghi là khoản thu thủ công',
+  // D22: an exact code identifies its farm; only that farm's requests can be funded by it.
+  OTHER_FARM: 'yêu cầu đã chọn thuộc trại khác với mã chuyển khoản',
 }
 
 const FIELD_TEXT: Record<string, string> = {
@@ -56,7 +58,8 @@ export function reconciliationError(error: unknown, decision?: Decision): string
   if (error.code === 'MSG-COM-19') return 'Thao tác trùng khóa với một yêu cầu khác. Vui lòng thử lại.'
   if (error.status === 503) return 'Chưa cấu hình tra cứu SePay ở môi trường này.'
   if (error.status === 404) return 'Không tìm thấy giao dịch trên SePay.'
-  if (error.status === 502) return 'Không kết nối được SePay. Vui lòng thử lại.'
+  // 502: SePay did not answer, or answered with data BeefCare cannot store (nothing was saved).
+  if (error.status === 502) return 'SePay không phản hồi hoặc trả dữ liệu không hợp lệ. Vui lòng thử lại.'
   if (error.status === 409) return 'Giao dịch đã có chứng từ với nội dung khác. Vui lòng kiểm tra lại.'
   return 'Không thể lưu dữ liệu. Vui lòng thử lại.'
 }

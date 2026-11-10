@@ -26,4 +26,20 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Payment p where p.id = :id")
     Optional<Payment> lockById(@Param("id") Long id);
+
+    /**
+     * A request and its farm as ids only. Confirmations read these before taking the farm lock instead of loading the
+     * request: its EAGER subscription would stay in the persistence context and lockByFarmId would not refresh it.
+     */
+    interface RequestFarm {
+        Long getId();
+        Long getFarmId();
+    }
+
+    @Query("select p.id as id, p.subscription.farm.id as farmId from Payment p where p.id = :id")
+    Optional<RequestFarm> findRequestFarmById(@Param("id") Long id);
+
+    /** Same case-insensitive match as findFirstByQuoteRefIgnoreCase; the first by id when codes differ only in case. */
+    @Query("select p.id as id, p.subscription.farm.id as farmId from Payment p where upper(p.quoteRef) = upper(:quoteRef) order by p.id")
+    List<RequestFarm> findRequestFarmsByQuoteRef(@Param("quoteRef") String quoteRef);
 }

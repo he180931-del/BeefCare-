@@ -514,4 +514,83 @@ class PlatformReconciliationResourceTest extends DomainTestSupport {
         em.flush();
         assertThat(count("BankTransferEvidence")).isEqualTo(before);
     }
+
+    /** Another request of the same farm and subscription as {@code existing} (BR-D23 allows it once the first expired). */
+    private Payment sameFarmRequest(Payment existing, String code, Instant requested, Instant expires) {
+        Payment p = new Payment(); p.setSubscription(existing.getSubscription()); p.setRequestedBy(existing.getRequestedBy());
+        p.setPriceVersion(existing.getPriceVersion()); p.setQuoteRef(code); p.setState("PENDING"); p.setDurationYears(1);
+        p.setAmountVnd(existing.getAmountVnd()); p.setRequestedAt(requested); p.setExpiresAt(expires);
+        p.setReceivingAccount("UC6-ACCOUNT"); p.setReceivingEnvironment("MOCK"); p.setReceivingAccountNamespace("UC6");
+        return save(p);
+    }
+
+    private Long auditActor(String action, Long targetId) {
+        return em.createQuery("select u.id from AuditLog a left join a.actor u where a.action=:action and a.targetId=:id", Long.class)
+            .setParameter("action", action).setParameter("id", targetId).getSingleResult();
+    }
+
+    @Test
+    void anExactCodeFundsOnlyRequestsOfItsOwnFarm() throws Exception {
+        AppUser pm = staff("PM"); Instant now = clock.instant();
+        // D22: farm A's Owner reused the code of expired request X to pay the new request Z of the same farm.
+        Payment x = payment("BCUC6OLDCODE01", "ACTIVE", "EXPIRED", now.minusSeconds(7200), now.minusSeconds(1800));
+        Payment z = sameFarmRequest(x, "BCUC6NEWCODE01", now.minusSeconds(600), now.plusSeconds(3600));
+        // Farm B has a request with the same amount and window: farm A's money must never fund it.
+        Payment y = payment("BCUC6OTHERFARM", "ACTIVE", "PENDING", now.minusSeconds(600), now.plusSeconds(3600));
+        BankTransferEvidence e = evidence(x.getQuoteRef(), now.minusSeconds(60));
+        String path = "/evidence/" + e.getId() + "/review";
+
+        assertThat(body(read(pm, "/evidence/" + e.getId() + "/candidates")).findValuesAsText("paymentId")).containsExactly(String.valueOf(z.getId()));
+        blocked(command(pm, path, review("ACCEPT", y.getId(), "Chọn yêu cầu trại khác", versionOf(e)), "uc6-other-farm"), "OTHER_FARM");
+        em.flush(); em.clear();
+        assertThat(em.find(Payment.class, y.getId()).getState()).isEqualTo("PENDING");
+        assertThat(em.find(BankTransferEvidence.class, e.getId()).getPayment()).isNull();
+        assertThat(decisions(e)).isEmpty();
+
+        body(command(pm, path, review("ACCEPT", z.getId(), "Owner dùng lại mã cũ của trại cho yêu cầu mới", versionOf(e)), "uc6-same-farm"));
+        em.flush(); em.clear();
+        assertThat(em.find(Payment.class, z.getId()).getState()).isEqualTo("PAID");
+        assertThat(em.find(BankTransferEvidence.class, e.getId()).getPayment().getId()).isEqualTo(z.getId());
+        // A mistyped code identifies no request, so a matching request of any farm stays a candidate (GBR-72).
+        BankTransferEvidence typo = evidence();
+        assertThat(body(read(pm, "/evidence/" + typo.getId() + "/candidates")).findValuesAsText("paymentId")).contains(String.valueOf(y.getId()));
+    }
+
+    @Test
+    void lookupRecordsThePmWhoLookedUpTheTransaction() throws Exception {
+        AppUser pm = staff("PM"); Payment p = pending("BCUC6ACTOR0001");
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(clock.instant().minusSeconds(120));
+        when(lookup.find(9501L)).thenReturn(new SePayPayload(9501L, "BIDV", time, "UC6-ACCOUNT", p.getQuoteRef(),
+            "Thanh toan " + p.getQuoteRef(), "IN", p.getAmountVnd(), "B-9501"));
+        when(lookup.find(9502L)).thenReturn(new SePayPayload(9502L, "BIDV", time, "UC6-ACCOUNT", null, "Khong ro noi dung", "IN",
+            new BigDecimal("700000"), "B-9502"));
+        long paidEvidence = body(command(pm, "/lookup/9501", Map.of(), null)).path("evidenceId").asLong();
+        long keptEvidence = body(command(pm, "/lookup/9502", Map.of(), null)).path("evidenceId").asLong();
+        em.flush(); em.clear();
+        // GBR-86: the acceptance and each stored evidence name the PM who looked them up; the source stays SePay (D21).
+        assertThat(em.find(Payment.class, p.getId()).getConfirmationSource()).isEqualTo("SEPAY");
+        assertThat(auditActor("SEPAY_PAYMENT_PAID", p.getId())).isEqualTo(pm.getId());
+        assertThat(auditActor("SEPAY_EVIDENCE", paidEvidence)).isEqualTo(pm.getId());
+        assertThat(auditActor("SEPAY_EVIDENCE", keptEvidence)).isEqualTo(pm.getId());
+        assertThat(body(read(pm, "/evidence/" + paidEvidence)).path("history").findValuesAsText("pmName")).contains(pm.getFullName());
+        assertThat(body(read(pm, "/evidence/" + keptEvidence)).path("history").findValuesAsText("pmName")).contains(pm.getFullName());
+    }
+
+    @Test
+    void invalidSePayDataIsAProviderFailureAndStoresNothing() throws Exception {
+        AppUser pm = staff("PM");
+        String time = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(VN).format(clock.instant().minusSeconds(120));
+        when(lookup.find(9601L)).thenReturn(new SePayPayload(9601L, "BIDV", "10/11/2026 10:00", "UC6-ACCOUNT", null, "Sai giờ", "IN",
+            new BigDecimal("500000"), null));
+        when(lookup.find(9602L)).thenReturn(new SePayPayload(9602L, "BIDV", time, "UC6-ACCOUNT", null, "Không có tiền", "IN", BigDecimal.ZERO, null));
+        command(pm, "/lookup/9601", Map.of(), null).andExpect(status().isBadGateway());
+        command(pm, "/lookup/9602", Map.of(), null).andExpect(status().isBadGateway());
+        // A malformed row fails the whole period read instead of hiding a transaction from the PM.
+        when(lookup.list(any(), any(), eq("UC6-ACCOUNT"), anyInt())).thenReturn(List.of(
+            new SePayPayload(9603L, "BIDV", time, "UC6-ACCOUNT", null, "Hợp lệ", "IN", new BigDecimal("1200000"), "R-9603"),
+            new SePayPayload(9604L, "BIDV", "", "UC6-ACCOUNT", null, "Thiếu giờ", "IN", new BigDecimal("1200000"), "R-9604")));
+        read(pm, "/lookup?from=2026-10-01&to=2026-10-31").andExpect(status().isBadGateway());
+        em.flush();
+        assertThat(count("BankTransferEvidence")).isZero();
+    }
 }

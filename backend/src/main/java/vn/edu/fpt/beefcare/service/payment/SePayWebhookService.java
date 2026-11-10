@@ -134,7 +134,7 @@ public class SePayWebhookService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid SePay payload");
         }
         IncomingTransfer incoming = transfer(payload);
-        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming));
+        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming), null);
     }
 
     /** Local simulator calls the same normalization and settlement pipeline, after an explicit PM role check. */
@@ -144,14 +144,19 @@ public class SePayWebhookService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         IncomingTransfer incoming = transfer(payload);
-        return processWithReplayProtection(incoming, "MOCK", fingerprint(incoming));
+        // The simulator plays SePay itself, so its events carry no actor, exactly like a delivered webhook.
+        return processWithReplayProtection(incoming, "MOCK", fingerprint(incoming), null);
     }
 
-    /** D21: a valid looked-up transfer confirms automatically, exactly like an authenticated webhook. */
+    /**
+     * D21: a valid looked-up transfer confirms automatically, exactly like an authenticated webhook (source SEPAY).
+     * GBR-86: the audit names the PM who looked it up. D22: the SePay transaction ID is the request key (GBR-88), so a
+     * repeated lookup returns the first evidence and never confirms twice.
+     */
     public WebhookResult lookupAndImport(Long transactionId) {
-        platformAccess.requireRole(PlatformRole.PM);
-        IncomingTransfer incoming = transfer(lookupClient.find(transactionId));
-        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming));
+        var pm = platformAccess.requireRole(PlatformRole.PM).user();
+        IncomingTransfer incoming = providerTransfer(lookupClient.find(transactionId));
+        return processWithReplayProtection(incoming, "SEPAY", fingerprint(incoming), pm);
     }
 
     /** API-03 by period (D19): SePay rows of the receiving account; read-only, the PM stores a row by its ID. */
@@ -163,7 +168,7 @@ public class SePayWebhookService {
         if (to.isAfter(from.plusDays(LOOKUP_MAX_DAYS - 1L))) throw DomainException.invalid("to");
         if (!StringUtils.hasText(receivingAccount)) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "SePay lookup is not configured");
         java.util.List<IncomingTransfer> rows = lookupClient.list(from.atStartOfDay(BUSINESS_ZONE).toInstant(),
-            to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant(), receivingAccount.trim(), LOOKUP_LIMIT).stream().map(this::transfer).toList();
+            to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant(), receivingAccount.trim(), LOOKUP_LIMIT).stream().map(this::providerTransfer).toList();
         java.util.Map<Long, Long> stored = new java.util.HashMap<>();
         if (!rows.isEmpty()) {
             evidenceRepository.findAllByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnIdIn("SEPAY", storedEnvironment(environment),
@@ -191,21 +196,29 @@ public class SePayWebhookService {
 
         Instant now = clock.now();
         Farm farm = null;
-        Payment relatedPayment = command.paymentId() == null ? null : payments.findById(command.paymentId())
-            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+        Payment relatedPayment = null;
         if ("ACCEPT".equals(decision)) {
-            if (!"IN".equalsIgnoreCase(evidence.getTransferDirection())) throw blocked("OUTGOING");
-            Payment selected = relatedPayment != null ? relatedPayment : payments.findById(exactRequest(evidence))
+            // Lock before read (GBR-72 "one at a time" per farm): only ids are read before the farm lock, so the
+            // subscription is loaded after any confirmation of the same farm has committed.
+            PaymentRepository.RequestFarm chosen = command.paymentId() == null ? null : payments.findRequestFarmById(command.paymentId())
                 .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
-            Long farmId = selected.getSubscription().getFarm().getId();
-            farm = farms.lockById(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
-            Subscription subscription = subscriptions.lockByFarmId(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+            if (!"IN".equalsIgnoreCase(evidence.getTransferDirection())) throw blocked("OUTGOING");
+            PaymentRepository.RequestFarm exact = exactRequest(evidence);
+            if (chosen == null && exact == null) throw blocked("NO_CANDIDATE");
+            // D22: an exact code identifies its farm; the PM may pick another request only of that same farm.
+            if (chosen != null && exact != null && !exact.getFarmId().equals(chosen.getFarmId())) throw blocked("OTHER_FARM");
+            PaymentRepository.RequestFarm selected = chosen != null ? chosen : exact;
+            farm = farms.lockById(selected.getFarmId()).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+            Subscription subscription = subscriptions.lockByFarmId(selected.getFarmId())
+                .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
             Payment payment = payments.lockById(selected.getId()).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
             String rule = acceptanceBlock(payment, evidence);
             if (rule != null) throw blocked(rule);
-            confirm(payment, subscription, farm, evidence, storedTransfer(evidence), actor, "PM_ACCEPT", reason);
+            confirm(payment, subscription, farm, evidence, storedTransfer(evidence), actor, "PM", "PM_ACCEPT", reason);
             relatedPayment = payment;
         } else {
+            relatedPayment = command.paymentId() == null ? null : payments.findById(command.paymentId())
+                .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
             evidence.setReviewStatus("HOLD".equals(decision) ? "HOLD" : "REJECTED");
             evidence.setReviewReason(reason);
             evidenceRepository.saveAndFlush(evidence);
@@ -298,10 +311,10 @@ public class SePayWebhookService {
         return evidence;
     }
 
-    /** SRS 4959 / GBR-72: without a selected candidate only the exact payment code identifies the request. */
-    private Long exactRequest(BankTransferEvidence evidence) {
-        if (!StringUtils.hasText(evidence.getQuoteRef())) throw blocked("NO_CANDIDATE");
-        return payments.findFirstByQuoteRefIgnoreCase(evidence.getQuoteRef().trim()).map(Payment::getId).orElseThrow(() -> blocked("NO_CANDIDATE"));
+    /** SRS 4959 / GBR-72: the request the transfer's exact payment code identifies; null when the code is missing or mistyped. */
+    private PaymentRepository.RequestFarm exactRequest(BankTransferEvidence evidence) {
+        if (!StringUtils.hasText(evidence.getQuoteRef())) return null;
+        return payments.findRequestFarmsByQuoteRef(evidence.getQuoteRef().trim()).stream().findFirst().orElse(null);
     }
 
     /** GBR-72 and GBR-84 for PM acceptance, as rule codes for MSG-FE19-11; null when the request may be funded. */
@@ -366,7 +379,9 @@ public class SePayWebhookService {
         return !StringUtils.hasText(configured) && "MOCK".equalsIgnoreCase(provider) ? "MOCK-ACCOUNT" : configured;
     }
 
-    private WebhookResult processWithReplayProtection(IncomingTransfer incoming, String provider, String payloadHash) {
+    /** {@code actor} is the PM who looked the transaction up (API-03), or null for a transfer delivered by SePay. */
+    private WebhookResult processWithReplayProtection(IncomingTransfer incoming, String provider, String payloadHash,
+                                                      vn.edu.fpt.beefcare.domain.AppUser actor) {
         String namespace = storedNamespace(accountNamespace);
         String env = storedEnvironment(environment);
         Optional<BankTransferEvidence> existing = evidenceRepository.findFirstByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnId(
@@ -374,7 +389,7 @@ public class SePayWebhookService {
         );
         if (existing.isPresent()) return duplicateResult(existing.get(), incoming, payloadHash);
         try {
-            return transactions.execute(status -> process(incoming, provider, env, namespace, payloadHash));
+            return transactions.execute(status -> process(incoming, provider, env, namespace, payloadHash, actor));
         } catch (DataIntegrityViolationException duplicateRace) {
             BankTransferEvidence saved = evidenceRepository.findFirstByProviderAndEnvironmentAndAccountNamespaceAndProviderTxnId(
                 provider, env, namespace, incoming.transactionId()
@@ -383,7 +398,8 @@ public class SePayWebhookService {
         }
     }
 
-    private WebhookResult process(IncomingTransfer incoming, String provider, String env, String namespace, String payloadHash) {
+    private WebhookResult process(IncomingTransfer incoming, String provider, String env, String namespace, String payloadHash,
+                                  vn.edu.fpt.beefcare.domain.AppUser actor) {
         validate(incoming);
 
         BankTransferEvidence evidence = new BankTransferEvidence();
@@ -407,34 +423,35 @@ public class SePayWebhookService {
 
         if (!"IN".equalsIgnoreCase(incoming.direction())) {
             evidence.setReviewReason("Not an incoming transfer");
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
         String expectedAccount = expectedAccount(receivingAccount, provider);
         if (!StringUtils.hasText(expectedAccount)) {
             evidence.setReviewReason("Receiving account is not configured");
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
         if (!sameAccount(expectedAccount, incoming.receivingAccount())) {
             evidence.setReviewReason("Receiving account does not match the configured account");
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
         if (!StringUtils.hasText(incoming.quoteRef())) {
             evidence.setReviewReason("No payment reference found");
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
 
-        Payment candidate = payments.findFirstByQuoteRefIgnoreCase(incoming.quoteRef()).orElse(null);
-        if (candidate == null) {
+        // Lock before read (GBR-72): ids only until the farm lock, so the subscription is the committed one.
+        PaymentRepository.RequestFarm request = payments.findRequestFarmsByQuoteRef(incoming.quoteRef()).stream().findFirst().orElse(null);
+        if (request == null) {
             evidence.setReviewReason("No matching payment request");
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
-        Long farmId = candidate.getSubscription().getFarm().getId();
-        Farm farm = farms.lockById(farmId).orElseThrow(() -> new IllegalStateException("Subscription farm disappeared"));
-        Subscription subscription = subscriptions.lockByFarmId(farmId).orElseThrow(() -> new IllegalStateException("Payment request has no subscription"));
-        candidate = payments.lockById(candidate.getId()).orElseThrow(() -> new IllegalStateException("Payment request disappeared"));
+        Farm farm = farms.lockById(request.getFarmId()).orElseThrow(() -> new IllegalStateException("Subscription farm disappeared"));
+        Subscription subscription = subscriptions.lockByFarmId(request.getFarmId())
+            .orElseThrow(() -> new IllegalStateException("Payment request has no subscription"));
+        Payment candidate = payments.lockById(request.getId()).orElseThrow(() -> new IllegalStateException("Payment request disappeared"));
         if (evidenceRepository.existsByPayment_Id(candidate.getId())) {
             evidence.setReviewReason("Payment request already has evidence");
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
         String invalidReason = eligibilityReason(candidate, incoming);
         if (invalidReason == null && (!env.equals(candidate.getReceivingEnvironment()) ||
@@ -444,17 +461,22 @@ public class SePayWebhookService {
         }
         if (invalidReason != null) {
             evidence.setReviewReason(invalidReason);
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
         if (manualFinanceRecords.existsBySourceReferenceAndTypeIgnoreCaseAndStateIgnoreCase(
             vn.edu.fpt.beefcare.service.PlatformFinanceService.sourceReference(evidence), "INCOME", "POSTED")) {
             evidence.setReviewReason("Bank transaction is already recognized as manual income");
-            return saveEvidence(evidence, provider);
+            return saveEvidence(evidence, provider, actor);
         }
-        BankTransferEvidence saved = confirm(candidate, subscription, farm, evidence, incoming, null, provider, "Automatically matched by exact payment reference and amount");
+        BankTransferEvidence saved = confirm(candidate, subscription, farm, evidence, incoming, actor, "SEPAY", provider,
+            "Automatically matched by exact payment reference and amount");
         return result(saved, false);
     }
 
+    /**
+     * The shared GBR-72 confirmation. {@code source} is the confirmation source shown to users (SEPAY or PM, D21);
+     * {@code actor} is who is audited for it (GBR-86): the PM for acceptance or lookup, null for a SePay delivery.
+     */
     private BankTransferEvidence confirm(
         Payment payment,
         Subscription subscription,
@@ -462,6 +484,7 @@ public class SePayWebhookService {
         BankTransferEvidence evidence,
         IncomingTransfer transfer,
         vn.edu.fpt.beefcare.domain.AppUser actor,
+        String source,
         String channel,
         String reason
     ) {
@@ -484,7 +507,7 @@ public class SePayWebhookService {
         Instant end = LocalDateTime.ofInstant(start, BUSINESS_ZONE).atZone(BUSINESS_ZONE).plusYears(payment.getDurationYears()).toInstant();
         payment.setState("PAID");
         payment.setConfirmedAt(confirmedAt);
-        payment.setConfirmationSource(actor == null ? "SEPAY" : "PM");
+        payment.setConfirmationSource(source);
         payment.setPurchasedStart(start);
         payment.setPurchasedEnd(end);
         payment.setReceiptCode(receiptCode(payment.getId(), transfer.paidAt()));
@@ -521,16 +544,19 @@ public class SePayWebhookService {
         return saved;
     }
 
-    private WebhookResult saveEvidence(BankTransferEvidence evidence, String provider) {
+    private WebhookResult saveEvidence(BankTransferEvidence evidence, String provider, vn.edu.fpt.beefcare.domain.AppUser actor) {
         BankTransferEvidence saved = evidenceRepository.saveAndFlush(evidence);
-        audit(null, provider + "_EVIDENCE", "BankTransferEvidence", saved.getId(), null, Map.of(
+        audit(actor, provider + "_EVIDENCE", "BankTransferEvidence", saved.getId(), null, Map.of(
             "providerTxnId", evidence.getProviderTxnId(),
             "amount", evidence.getAmount(),
             "reviewStatus", evidence.getReviewStatus(),
             "quoteRef", evidence.getQuoteRef() == null ? "" : evidence.getQuoteRef(),
             "reason", evidence.getReviewReason() == null ? "" : evidence.getReviewReason()
         ));
-        reconciliationNotices.evidenceNeedsReview(saved);
+        // D20: only incoming money can need review (an outgoing transfer is NO_ACTION), so only it is announced.
+        if (evidence.getTransferDirection() == null || "IN".equalsIgnoreCase(evidence.getTransferDirection())) {
+            reconciliationNotices.evidenceNeedsReview(saved);
+        }
         return result(saved, false);
     }
 
@@ -611,6 +637,21 @@ public class SePayWebhookService {
             payload.referenceCode(),
             quote
         );
+    }
+
+    /**
+     * API-03 rows come from SePay, not from the caller: a transaction BeefCare cannot store is a provider failure (502),
+     * never a client error, and a period list fails as a whole rather than hide one transaction from the PM.
+     */
+    private IncomingTransfer providerTransfer(SePayPayload payload) {
+        try {
+            IncomingTransfer incoming = transfer(payload);
+            validate(incoming);
+            return incoming;
+        } catch (ResponseStatusException invalid) {
+            if (invalid.getStatusCode().value() != HttpStatus.BAD_REQUEST.value()) throw invalid;
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "SePay returned a transaction that cannot be stored");
+        }
     }
 
     private static Instant parsePaidAt(String value) {

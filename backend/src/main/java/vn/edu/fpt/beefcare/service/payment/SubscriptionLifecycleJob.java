@@ -87,9 +87,10 @@ public class SubscriptionLifecycleJob {
         Instant now = clock.now();
         AtomicInteger changedCount = new AtomicInteger();
         subscriptions.findAll().stream().map(Subscription::getId).forEach(subscriptionId -> runOne("subscription " + subscriptionId, () -> {
-            Subscription observed = subscriptions.findById(subscriptionId).orElse(null);
-            if (observed == null) return;
-            Long farmId = observed.getFarm().getId();
+            // Lock before read: only the farm id is read before the farm lock. A subscription loaded earlier would be
+            // returned unchanged by lockByFarmId and written back over a renewal confirmed meanwhile (GBR-72/73).
+            Long farmId = subscriptions.findFarmIdById(subscriptionId).orElse(null);
+            if (farmId == null) return;
             Farm farm = farms.lockById(farmId).orElse(null);
             if (farm == null) return;
             Subscription subscription = subscriptions.lockByFarmId(farmId).orElse(null);
@@ -100,7 +101,7 @@ public class SubscriptionLifecycleJob {
 
             String before = farm.getServiceStatus();
             if (!"SUSPENDED".equalsIgnoreCase(before) && !entitlement.equalsIgnoreCase(before)) farm.setServiceStatus(entitlement);
-            boolean entitlementChanged = !entitlement.equalsIgnoreCase(observed.getEntitlementStatus());
+            boolean entitlementChanged = !entitlement.equalsIgnoreCase(subscription.getEntitlementStatus());
             boolean serviceChanged = !before.equalsIgnoreCase(farm.getServiceStatus());
             if (!entitlementChanged && !serviceChanged) return;
             subscriptions.save(subscription);

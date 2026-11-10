@@ -134,11 +134,19 @@ public class PlatformPaymentQueryService {
         access.requireRole(PlatformRole.PM);
         BankTransferEvidence e = findEvidence(id);
         if (e.getPayment() != null || locked(e) || !"IN".equalsIgnoreCase(e.getTransferDirection())) return List.of();
-        return em.createQuery("select p" + PAYMENT_FETCH + " where upper(p.state) in ('PENDING','EXPIRED') and p.amountVnd=:amount " +
+        // D22, as UC6 ACCEPT enforces it: an exact code identifies its farm, so only that farm's requests are candidates;
+        // a mistyped or missing code identifies no request and keeps every farm.
+        Long exactFarm = e.getQuoteRef() == null || e.getQuoteRef().isBlank() ? null : em.createQuery(
+                "select p.subscription.farm.id from Payment p where upper(p.quoteRef)=upper(:code) order by p.id", Long.class)
+            .setParameter("code", e.getQuoteRef().trim()).setMaxResults(1).getResultList().stream().findFirst().orElse(null);
+        var query = em.createQuery("select p" + PAYMENT_FETCH + " where upper(p.state) in ('PENDING','EXPIRED') and p.amountVnd=:amount " +
             "and p.requestedAt<=:bank and p.expiresAt>:bank and p.receivingEnvironment=:env and p.receivingAccountNamespace=:ns " +
+            (exactFarm == null ? "" : "and s.farm.id=:farm ") +
             "and not exists (select x.id from BankTransferEvidence x where x.payment.id=p.id) order by p.requestedAt desc,p.id desc", Payment.class)
             .setParameter("amount", e.getAmount()).setParameter("bank", e.getBankPaidAt()).setParameter("env", e.getEnvironment())
-            .setParameter("ns", e.getAccountNamespace()).getResultList().stream()
+            .setParameter("ns", e.getAccountNamespace());
+        if (exactFarm != null) query.setParameter("farm", exactFarm);
+        return query.getResultList().stream()
             .filter(p -> Boolean.TRUE.equals(accountMatches(e, p)))
             .map(p -> new Candidate(p.getId(), p.getQuoteRef(), p.getSubscription().getFarm().getId(), p.getSubscription().getFarm().getName(),
                 p.getAmountVnd(), p.getDurationYears(), p.getExpiresAt(), p.getReceivingAccountNamespace())).toList();

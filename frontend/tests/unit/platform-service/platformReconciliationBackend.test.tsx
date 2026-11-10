@@ -246,6 +246,21 @@ describe('UC-FE19-06 reconciliation on SCR-62 (D19)', () => {
     expect(p.queryByRole('button', { name: 'Khóa hoàn trả' })).not.toBeInTheDocument()
   })
 
+  it('explains an exact code of another farm and a SePay provider failure (D22)', async () => {
+    page(); const p = await panel()
+    fireEvent.click(p.getByRole('radio', { name: 'Chấp nhận' }))
+    fireEvent.click(p.getByRole('radio', { name: /BCCANDIDATE/ }))
+    reason('Thử chấp nhận cho trại khác')
+    http.command.mockRejectedValueOnce(new BackendError(409, { code: 'MSG-FE19-11', params: { reason: 'OTHER_FARM' } }))
+    fireEvent.click(p.getByRole('button', { name: 'Kiểm tra và chấp nhận' }))
+    expect(await p.findByRole('alert')).toHaveTextContent('Không thể chấp nhận chứng từ này: yêu cầu đã chọn thuộc trại khác với mã chuyển khoản.')
+    const lookup = screen.getByRole('region', { name: 'Tra cứu giao dịch SePay' })
+    http.command.mockRejectedValueOnce(new BackendError(502, { title: 'Bad Gateway' }))
+    fireEvent.change(within(lookup).getByLabelText('Mã giao dịch SePay'), { target: { value: '9601' } })
+    fireEvent.click(within(lookup).getByRole('button', { name: 'Tra cứu theo mã' }))
+    expect(await within(lookup).findByRole('alert')).toHaveTextContent('SePay không phản hồi hoặc trả dữ liệu không hợp lệ. Vui lòng thử lại.')
+  })
+
   it('looks up a SePay transaction by ID, stores it once and opens the evidence', async () => {
     page(); await panel()
     const lookup = screen.getByRole('region', { name: 'Tra cứu giao dịch SePay' })

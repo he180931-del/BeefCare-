@@ -14765,7 +14765,7 @@
           "paymentId" : {
             "type" : "integer",
             "format" : "int64",
-            "description" : "ACCEPT: selected request, or resolved by exact code if omitted. HOLD/REJECT: optional related request saved in review history only"
+            "description" : "ACCEPT: selected request, or resolved by exact code if omitted; when the transfer carries the exact code of a request, only a request of that farm (MSG-FE19-11 OTHER_FARM, D22). HOLD/REJECT: optional related request saved in review history only"
           },
           "reason" : {
             "type" : "string",
