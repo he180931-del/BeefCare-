@@ -134,8 +134,8 @@ public class FarmParameterCommandService {
     private void validateRange(String name, Object raw) {
         int[] range = RANGES.get(name);
         if (range == null) throw DomainException.invalid("parameters." + name);
-        if ("MIN_BREEDING_WEIGHT_KG".equals(name)) {
-            java.math.BigDecimal value=decimalValue(raw);
+        if ("MIN_BREEDING_WEIGHT_KG".equals(name) || "TARGET_FINISHING_WEIGHT_KG".equals(name)) {
+            java.math.BigDecimal value=decimalValue(name, raw);
             if(value.compareTo(java.math.BigDecimal.valueOf(range[0]))<0||value.compareTo(java.math.BigDecimal.valueOf(range[1]))>0)
                 throw outOfRange(name, range[0], range[1]);
             return;
@@ -143,8 +143,8 @@ public class FarmParameterCommandService {
         int value = intValue(raw);
         if (value < range[0] || value > range[1]) throw outOfRange(name, range[0], range[1]);
     }
-    private java.math.BigDecimal decimalValue(Object value){
-        try{return new java.math.BigDecimal(String.valueOf(value));}catch(Exception e){throw DomainException.invalid("parameters");}
+    private java.math.BigDecimal decimalValue(String name, Object value){
+        try{return new java.math.BigDecimal(String.valueOf(value));}catch(NumberFormatException e){throw DomainException.invalid("parameters." + name);}
     }
     private void validateRelationships(Map<String,Object> values){
         if(values.get("BCS_SCALE")!=null&&!java.util.Set.of("1-5:0.5","1-9:1").contains(String.valueOf(values.get("BCS_SCALE"))))

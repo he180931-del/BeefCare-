@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { catalogueApi } from '../../../src/features/farm-catalogue/api/catalogueApi'
@@ -150,6 +150,26 @@ describe('parameters tab', () => {
     expect(await screen.findByText('Tham số trạng thái & nhắc việc · 3 phiên bản')).toBeInTheDocument()
     expect(screen.getByText('Cân xuất mục tiêu 450 → 380 kg')).toBeInTheDocument()
     expect(screen.getByText('v3 · hiện tại')).toBeInTheDocument()
+  })
+
+  it('keeps scheduled values out of the active form and can save again', async () => {
+    const user = userEvent.setup()
+    renderAt('/danh-muc/tham-so')
+    await screen.findByText('v3 · đang áp dụng')
+    const weaning = screen.getByLabelText('Tuổi cai sữa *')
+    await user.clear(weaning)
+    await user.type(weaning, '7')
+    const date = screen.getByLabelText('Áp dụng từ *')
+    fireEvent.change(date, { target: { value: '2099-01-01' } })
+    const source = screen.getByLabelText('Ghi chú nguồn *')
+    await user.type(source, 'Điều chỉnh lên lịch')
+    const save = screen.getAllByRole('button', { name: 'Lưu phiên bản mới' }).at(-1)!
+    await user.click(save)
+    expect(await screen.findByText(/Đã lên lịch phiên bản v4/)).toBeInTheDocument()
+    expect(weaning).toHaveValue('6')
+    await user.type(source, 'Điều chỉnh hôm nay')
+    await user.click(save)
+    expect(await screen.findByText('v5 · đang áp dụng')).toBeInTheDocument()
   })
 })
 

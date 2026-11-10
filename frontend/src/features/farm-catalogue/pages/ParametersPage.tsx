@@ -6,13 +6,13 @@ import { useModalParam } from '../../../components/Modal'
 import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, LoadingBlock, Note, Select } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
 import { useSession } from '../../authorization'
-import { catalogueApi } from '../api/catalogueApi'
+import { useCatalogueApi } from '../api/useCatalogueApi'
 import { HeaderActions } from '../components/CatalogueShell'
 import { TextInput, UnitInput, fieldError } from '../components/fields'
 import { useCanEdit } from '../components/useCanEdit'
 import { VersionHistoryDialog } from '../components/VersionHistoryDialog'
 import { FieldErrors, formatDate, numberToText, parseNumber, todayIso, type FieldErrorMap } from '../domain/catalogueRules'
-import { BCS_SCALES, PARAMETER_GROUPS, rangeHint, versionSavedMessage, type ParameterFieldDef } from '../domain/parameterRules'
+import { BCS_SCALES, DEFAULT_PARAMETERS, PARAMETER_GROUPS, rangeHint, validateParameterVersion, versionSavedMessage, type ParameterFieldDef } from '../domain/parameterRules'
 import { NUMERIC_PARAMETER_KEYS, type BcsScale, type NumericParameterKey, type ParameterValues } from '../types'
 
 type ParameterDraft = Record<NumericParameterKey, string> & { bcsScale: BcsScale }
@@ -28,11 +28,13 @@ const fromDraft = (d: ParameterDraft): ParameterValues => ({
 
 export default function ParametersPage({ historyOpen = false }: { historyOpen?: boolean }) {
   const session = useSession()
+  const catalogueApi = useCatalogueApi()
   const canEdit = useCanEdit()
   const navigate = useNavigate()
   const [modalName, , closeModal] = useModalParam()
   const { data, error, refetch } = useQuery(() => catalogueApi.listParameterVersions(), [])
   const [draft, setDraft] = useState<ParameterDraft | null>(null)
+  const [baseVersion, setBaseVersion] = useState(0)
   const [source, setSource] = useState('')
   const [effectiveFrom, setEffectiveFrom] = useState(todayIso())
   const [errors, setErrors] = useState<FieldErrorMap>({})
@@ -40,10 +42,12 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const latest = data?.[0]
+  const current = data?.find((v) => v.status === 'CURRENT')
   useEffect(() => {
-    if (latest && !draft) setDraft(toDraft(latest.parameters))
-  }, [latest, draft])
+    if (!data || draft) return
+    setBaseVersion(data[0]?.versionNo ?? 0)
+    setDraft(toDraft(current?.parameters ?? DEFAULT_PARAMETERS))
+  }, [data, current, draft])
 
   const clearError = (key: string) => setErrors((e) => {
     if (!(key in e)) return e
@@ -56,18 +60,23 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
   }
 
   async function submit() {
-    if (!draft || !canEdit) return
+    if (!draft || !canEdit || saving) return
     const parameters = fromDraft(draft)
-    setSaving(true)
-    setErrors({})
+    const command = { parameters, gestationLengthDays: parameters.gestationLengthDays, effectiveFrom, sourceNote: source, baseVersion }
+    const validation = validateParameterVersion(command, todayIso())
+    setErrors(validation)
     setFormError(null)
+    setNotice(null)
+    if (Object.keys(validation).length) {
+      if (Object.keys(validation).join() === 'sourceNote') document.getElementById('param-source')?.focus()
+      return
+    }
+    setSaving(true)
     try {
-      const saved = await catalogueApi.saveParameterVersion(
-        { parameters, gestationLengthDays: parameters.gestationLengthDays, effectiveFrom, sourceNote: source, baseVersion: current?.versionNo },
-        session?.fullName,
-      )
+      const saved = await catalogueApi.saveParameterVersion(command, session?.fullName)
       setNotice(versionSavedMessage(saved.versionNo, saved.effectiveFrom)) // MSG-FE18-05
-      setDraft(toDraft(saved.parameters))
+      setBaseVersion(saved.versionNo)
+      setDraft(toDraft(saved.status === 'SCHEDULED' ? current?.parameters ?? DEFAULT_PARAMETERS : saved.parameters))
       setSource('')
       setEffectiveFrom(todayIso())
       refetch()
@@ -100,7 +109,6 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
   if (error) return <>{actions}<ErrorBlock message={userFacingError(error, 'Không tải được tham số trại.')} onRetry={refetch} /></>
   if (!data || !draft) return <>{actions}<LoadingBlock /></>
 
-  const current = data.find((v) => v.status === 'CURRENT') ?? data[0]!
   const scheduled = data.find((v) => v.status === 'SCHEDULED')
 
   const renderField = (f: ParameterFieldDef) => (
@@ -115,8 +123,12 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
       {notice && <Note tone="ok"><span role="status">{notice}</span></Note>}
       {formError && <Note tone="err"><span role="alert">{formError}</span></Note>}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-edge bg-white px-3.5 py-2.5">
-        <Badge tone="ok">{`v${current.versionNo} · đang áp dụng`}</Badge>
-        <span className="text-xs text-ink">Áp dụng từ {formatDate(current.effectiveFrom)} · Nguồn: {current.sourceNote} · lưu bởi {current.savedBy}</span>
+        {current ? (
+          <>
+            <Badge tone="ok">{`v${current.versionNo} · đang áp dụng`}</Badge>
+            <span className="text-xs text-ink">Áp dụng từ {formatDate(current.effectiveFrom)} · Nguồn: {current.sourceNote} · lưu bởi {current.savedBy}</span>
+          </>
+        ) : <Badge tone="info">Chưa có phiên bản đang áp dụng</Badge>}
         <span className="text-[11px] text-muted lg:ml-auto">Gợi ý chỉ hỗ trợ quyết định, không tự tạo sự kiện hay đổi trạng thái</span>
       </div>
       {scheduled && <Note tone="info">{`Đã lên lịch phiên bản v${scheduled.versionNo}, áp dụng từ ${formatDate(scheduled.effectiveFrom)}.`}</Note>}

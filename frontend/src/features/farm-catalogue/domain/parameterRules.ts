@@ -119,6 +119,16 @@ export function validateParameterVersion(command: ParameterVersionCommand, today
   return errors
 }
 
+/** Match backend precedence: effective date first, then version number. */
+export function effectiveVersion<T extends { effectiveFrom: string; versionNo: number }>(versions: readonly T[], today: string): T | undefined {
+  return versions.reduce<T | undefined>((current, candidate) => {
+    if (candidate.effectiveFrom > today) return current
+    if (!current || candidate.effectiveFrom > current.effectiveFrom ||
+      (candidate.effectiveFrom === current.effectiveFrom && candidate.versionNo > current.versionNo)) return candidate
+    return current
+  }, undefined)
+}
+
 const fmt = (n: number | null) => (n === null ? 'tắt' : String(n).replace('.', ','))
 const bcsLabel = (s: BcsScale) => BCS_SCALES.find((b) => b.value === s)?.label ?? s
 

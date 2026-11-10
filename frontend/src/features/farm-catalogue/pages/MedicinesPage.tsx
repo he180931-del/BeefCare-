@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Field, Foot, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
-import { catalogueApi } from '../api/catalogueApi'
+import { useCatalogueApi } from '../api/useCatalogueApi'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
 import { DeactivateDialog } from '../components/ConfirmDialogs'
 import { EditorEmpty, EditorFooter, EditorPanel, PairGrid } from '../components/EditorPanel'
@@ -19,6 +19,7 @@ const toDraft = (m: Medicine): MedicineDraft => ({
 })
 
 export default function MedicinesPage() {
+  const catalogueApi = useCatalogueApi()
   const canEdit = useCanEdit()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<AvailabilityFilter>('')

@@ -122,22 +122,35 @@ describe('catalogue api: parameters', () => {
     expect(all).toHaveLength(5)
     expect(all.find((v) => v.status === 'CURRENT')?.versionNo).toBe(4)
   })
+
+  it('uses the newest effective date even if an earlier date was saved later', async () => {
+    let today = TODAY
+    const store = createCatalogueDemoStore(undefined, { today: () => today })
+    const scheduled = await store.saveParameterVersion(params({}, { effectiveFrom: '2026-12-01' }), 'An')
+    await store.saveParameterVersion(params({}, { baseVersion: scheduled.versionNo }), 'An')
+    today = '2026-12-01'
+    const all = await store.listParameterVersions()
+    expect(all.find((v) => v.status === 'CURRENT')?.versionNo).toBe(scheduled.versionNo)
+  })
 })
 
 describe('catalogue api: backend mode', () => {
   it('uses backend routes without touching the mock store', async () => {
     const transport = {
-      get: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 9, versionNo: 4, effectiveFrom: TODAY, parameters: {}, sourceNote: 'Nguồn', savedBy: 'An' }]),
-      command: vi.fn().mockResolvedValue({ id: 9 }),
+      get: vi.fn().mockResolvedValue([]),
+      command: vi.fn().mockResolvedValue({ id: 9, versionNo: 4, effectiveFrom: TODAY, parameters: {}, sourceNote: 'Nguồn', savedBy: 'An' }),
       farmPath: vi.fn((_farmId: number, suffix: string) => `/api/farms/1${suffix}`),
     }
     const store = createCatalogueDemoStore()
     const spy = vi.spyOn(store, 'listBreeds')
     const api = createCatalogueApi({ mode: 'backend', farmId: 1, transport, store })
     await api.listBreeds({ q: 'lai', status: 'ACTIVE' })
-    await api.saveParameterVersion(params({}, { baseVersion: 3 }))
+    expect(await api.saveParameterVersion(params({}, { baseVersion: 3 }))).toMatchObject({ id: 9, versionNo: 4 })
     expect(transport.get).toHaveBeenNthCalledWith(1, '/api/farms/1/catalogues/breeds?q=lai&status=ACTIVE')
     expect(transport.command).toHaveBeenCalledWith('/api/farms/1/parameters/versions', expect.objectContaining({ baseVersion: 3, sourceNote: 'Phỏng vấn chủ trại 20/10/2026' }), { method: 'POST' })
+    expect(transport.get).toHaveBeenCalledTimes(1)
+    await api.deleteVaccine({ id: 12, version: 3 })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/1/vaccines/12', undefined, { method: 'DELETE', headers: { 'If-Match': '3' } })
     expect(spy).not.toHaveBeenCalled()
   })
 })
