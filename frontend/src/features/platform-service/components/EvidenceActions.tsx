@@ -93,7 +93,7 @@ export default function EvidenceActions({ detail, candidates, draft, paymentHref
     }
     const checked = required(reason, 'lý do và tham chiếu chứng từ', REASON_MAX)
     if (checked.error) return setError(checked.error)
-    const body = { decision, paymentId: decision === 'ACCEPT' ? candidate : null, reason: checked.text, version: r.version }
+    const body = { decision, paymentId: candidate, reason: checked.text, version: r.version }
     void send('review', body, (key) => api.review(r.id, body, key), `Đã lưu quyết định ${DECISION_TEXT[decision]} cho giao dịch ${transaction}.`, decision)
   }
 
@@ -165,10 +165,12 @@ export default function EvidenceActions({ detail, candidates, draft, paymentHref
             </div>
           </fieldset>
           {!outgoing && <fieldset className="mt-3">
-            {/* SCR-62 #9: the single candidate list; the choice is used only when the decision is ACCEPT. */}
-            <legend className="mb-1 text-[12px] font-medium text-ink">Yêu cầu ứng viên {NO_EXACT_CODE.has(r.matchResult) ? '* (bắt buộc khi Chấp nhận)' : '(dùng khi Chấp nhận)'}</legend>
+            {/* D21: ACCEPT funds the selected request; HOLD/REJECT keep the choice only as review context. */}
+            <legend className="mb-1 text-[12px] font-medium text-ink">Yêu cầu ứng viên {NO_EXACT_CODE.has(r.matchResult) ? '* (bắt buộc khi Chấp nhận)' : '(không bắt buộc khi Tạm giữ/Từ chối)'}</legend>
             {candidates.length === 0 ? <p className="text-sm text-muted">Không có yêu cầu ứng viên đủ điều kiện.</p>
-              : <div className="flex flex-col gap-2">{candidates.map((c) => <div key={c.paymentId} className="flex flex-wrap items-center justify-between gap-2">
+              : <div className="flex flex-col gap-2">
+                <Radio name={`candidate-${r.id}`} checked={candidate === null} onChange={() => setCandidate(null)}>Không gắn yêu cầu</Radio>
+                {candidates.map((c) => <div key={c.paymentId} className="flex flex-wrap items-center justify-between gap-2">
                 <Radio name={`candidate-${r.id}`} checked={candidate === c.paymentId} onChange={() => setCandidate(c.paymentId)}>
                   {`${c.quoteRef} · ${c.farmName} · ${fmtVnd(c.amount)} · ${c.termYears} năm · hạn ${fmtSeconds(c.expiresAt)}`}
                 </Radio>

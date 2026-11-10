@@ -7,7 +7,7 @@ export interface ReviewCommand { decision: Decision; paymentId: number | null; r
 export interface ReturnChange { reason: string; version: number }
 export interface ReturnRecord { reference: string; returnDate: string; result: string; version: number }
 export interface CommandResult { id: number; version: number; reviewStatus: string; lockedForReturn: boolean; paymentId: number | null }
-export interface LookupResult { duplicate: boolean; evidenceId: number }
+export interface LookupResult { duplicate: boolean; evidenceId: number; reviewStatus: string; paymentId: number | null }
 export interface LookupRow {
   transactionId: number; bankPaidAt: string; amount: number; direction: 'IN' | 'OUT'; content: string | null; referenceCode: string | null; evidenceId: number | null
 }
@@ -96,8 +96,9 @@ export function createPlatformReconciliationApi(transport: BackendTransport) {
     async lookupById(transactionId: number): Promise<LookupResult> {
       if (!id(transactionId)) throw invalid()
       const r = asRecord(await transport.command(`/api/platform/payments/lookup/${transactionId}`, {}, { method: 'POST' }))
-      if (typeof r.duplicate !== 'boolean' || !id(r.evidenceId)) throw invalid()
-      return { duplicate: r.duplicate, evidenceId: r.evidenceId }
+      if (typeof r.duplicate !== 'boolean' || !id(r.evidenceId) || typeof r.reviewStatus !== 'string'
+        || !(r.paymentId === null || id(r.paymentId))) throw invalid()
+      return { duplicate: r.duplicate, evidenceId: r.evidenceId, reviewStatus: r.reviewStatus, paymentId: r.paymentId as number | null }
     },
     /** API-03 by period (D19): read-only list; rows are stored one by one with lookupById. */
     async lookupPeriod(from: string, to: string): Promise<LookupPage> {

@@ -12,6 +12,7 @@ export interface EvidenceRow {
 export interface EvidenceHistory {
   id: number; source: 'REVIEW' | 'EVENT'; action: string; reason: string | null; reference: string | null; result: string | null
   returnDate: string | null; pmId: number | null; pmName: string | null; at: string
+  relatedPaymentId: number | null; relatedPaymentCode: string | null
 }
 export interface EvidenceDetail {
   summary: EvidenceRow; transactionId: string; receivingAccount: string | null; bank: string | null; referenceCode: string | null
@@ -89,7 +90,9 @@ function readPage<T>(value: unknown, parse: (v: unknown) => T): ReadPage<T> {
 function history(value: unknown): EvidenceHistory {
   const h = asRecord(value)
   if (!id(h.id) || !['REVIEW', 'EVENT'].includes(h.source as string) || !text(h.action) || !instant(h.at)
-    || !['reason', 'reference', 'result', 'pmName'].every((key) => nullableText(h[key])) || !nullableDate(h.returnDate) || !nullableId(h.pmId)) throw invalid()
+    || !['reason', 'reference', 'result', 'pmName', 'relatedPaymentCode'].every((key) => nullableText(h[key])) || !nullableDate(h.returnDate)
+    || !nullableId(h.pmId) || !nullableId(h.relatedPaymentId)
+    || (h.relatedPaymentId === null) !== (h.relatedPaymentCode === null)) throw invalid()
   return h as unknown as EvidenceHistory
 }
 function detail(value: unknown): EvidenceDetail {

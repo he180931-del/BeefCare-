@@ -147,6 +147,7 @@ public class SePayWebhookService {
         return processWithReplayProtection(incoming, "MOCK", fingerprint(incoming));
     }
 
+    /** D21: a valid looked-up transfer confirms automatically, exactly like an authenticated webhook. */
     public WebhookResult lookupAndImport(Long transactionId) {
         platformAccess.requireRole(PlatformRole.PM);
         IncomingTransfer incoming = transfer(lookupClient.find(transactionId));
@@ -190,10 +191,12 @@ public class SePayWebhookService {
 
         Instant now = clock.now();
         Farm farm = null;
+        Payment relatedPayment = command.paymentId() == null ? null : payments.findById(command.paymentId())
+            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
         if ("ACCEPT".equals(decision)) {
             if (!"IN".equalsIgnoreCase(evidence.getTransferDirection())) throw blocked("OUTGOING");
-            Long paymentId = command.paymentId() != null ? command.paymentId() : exactRequest(evidence);
-            Payment selected = payments.findById(paymentId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
+            Payment selected = relatedPayment != null ? relatedPayment : payments.findById(exactRequest(evidence))
+                .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
             Long farmId = selected.getSubscription().getFarm().getId();
             farm = farms.lockById(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
             Subscription subscription = subscriptions.lockByFarmId(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "field", "paymentId"));
@@ -201,16 +204,18 @@ public class SePayWebhookService {
             String rule = acceptanceBlock(payment, evidence);
             if (rule != null) throw blocked(rule);
             confirm(payment, subscription, farm, evidence, storedTransfer(evidence), actor, "PM_ACCEPT", reason);
+            relatedPayment = payment;
         } else {
             evidence.setReviewStatus("HOLD".equals(decision) ? "HOLD" : "REJECTED");
             evidence.setReviewReason(reason);
             evidenceRepository.saveAndFlush(evidence);
         }
-        EvidenceReview saved = saveReview(evidence, actor, decision, reason, now);
+        EvidenceReview saved = saveReview(evidence, actor, decision, reason, now, relatedPayment);
         audit(actor, "EVIDENCE_REVIEW", "EvidenceReview", saved.getId(), farm, Map.of(
             "decision", decision,
             "evidenceId", evidence.getId(),
             "paymentId", evidence.getPayment() == null ? 0L : evidence.getPayment().getId(),
+            "relatedPaymentId", relatedPayment == null ? 0L : relatedPayment.getId(),
             "reason", reason
         ), now);
         return EvidenceDTO.from(evidence);
@@ -229,7 +234,7 @@ public class SePayWebhookService {
         evidence.setReviewStatus("LOCKED_FOR_RETURN");
         evidence.setReviewReason(reason);
         evidenceRepository.saveAndFlush(evidence);
-        saveReview(evidence, actor, "LOCK", reason, now);
+        saveReview(evidence, actor, "LOCK", reason, now, null);
         audit(actor, "EVIDENCE_LOCK_RETURN", "BankTransferEvidence", evidence.getId(), null, Map.of("reason", reason), now);
         return EvidenceDTO.from(evidence);
     }
@@ -250,7 +255,7 @@ public class SePayWebhookService {
         evidence.setReturnDate(command.returnDate());
         evidence.setReturnResult(result);
         evidenceRepository.saveAndFlush(evidence);
-        saveReview(evidence, actor, "RETURN_VERIFIED", null, now);
+        saveReview(evidence, actor, "RETURN_VERIFIED", null, now, null);
         audit(actor, "EVIDENCE_RETURN_RECORDED", "BankTransferEvidence", evidence.getId(), null,
             Map.of("reference", reference, "result", result, "returnDate", command.returnDate().toString()), now);
         return EvidenceDTO.from(evidence);
@@ -268,7 +273,7 @@ public class SePayWebhookService {
         evidence.setReviewStatus("UNMATCHED");
         evidence.setReviewReason(reason);
         evidenceRepository.saveAndFlush(evidence);
-        saveReview(evidence, actor, "UNLOCK", reason, now);
+        saveReview(evidence, actor, "UNLOCK", reason, now, null);
         audit(actor, "EVIDENCE_RETURN_UNLOCK", "BankTransferEvidence", evidence.getId(), null, Map.of("reason", reason), now);
         return EvidenceDTO.from(evidence);
     }
@@ -324,13 +329,15 @@ public class SePayWebhookService {
         );
     }
 
-    private EvidenceReview saveReview(BankTransferEvidence evidence, vn.edu.fpt.beefcare.domain.AppUser actor, String decision, String reason, Instant at) {
+    private EvidenceReview saveReview(BankTransferEvidence evidence, vn.edu.fpt.beefcare.domain.AppUser actor, String decision, String reason, Instant at,
+                                     Payment relatedPayment) {
         EvidenceReview review = new EvidenceReview();
         review.setEvidence(evidence);
         review.setPmUser(actor);
         review.setDecision(decision);
         review.setReason(reason);
         review.setReviewedAt(at);
+        review.setRelatedPayment(relatedPayment);
         return reviews.saveAndFlush(review);
     }
 

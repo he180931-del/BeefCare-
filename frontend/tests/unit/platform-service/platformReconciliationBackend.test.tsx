@@ -130,14 +130,55 @@ describe('UC-FE19-06 reconciliation on SCR-62 (D19)', () => {
     expect(commands()[2].body.version).toBe(4)
   })
 
-  it('saves HOLD and REJECT with a reason only and no candidate', async () => {
+  it.each([{ label: 'Tạm giữ', button: 'Lưu tạm giữ', decision: 'HOLD' }, { label: 'Từ chối', button: 'Lưu từ chối', decision: 'REJECT' }])('keeps the selected request as context for $decision', async ({ label, button, decision }) => {
     page(); const p = await panel()
     fireEvent.click(p.getByRole('radio', { name: /BCCANDIDATE/ }))
-    fireEvent.click(p.getByRole('radio', { name: 'Tạm giữ' }))
+    fireEvent.click(p.getByRole('radio', { name: label }))
     reason('Chờ khách gửi sao kê')
-    fireEvent.click(p.getByRole('button', { name: 'Lưu tạm giữ' }))
-    expect(await screen.findByRole('status', { name: 'Kết quả thao tác' })).toHaveTextContent('Đã lưu quyết định Tạm giữ cho giao dịch 12345678.')
-    expect(commands()[0].body).toEqual({ decision: 'HOLD', paymentId: null, reason: 'Chờ khách gửi sao kê', version: 3 })
+    fireEvent.click(p.getByRole('button', { name: button }))
+    expect(await screen.findByRole('status', { name: 'Kết quả thao tác' })).toHaveTextContent(`Đã lưu quyết định ${label} cho giao dịch 12345678.`)
+    expect(commands()[0].body).toEqual({ decision, paymentId: 601, reason: 'Chờ khách gửi sao kê', version: 3 })
+  })
+
+  it.each([{ label: 'Tạm giữ', button: 'Lưu tạm giữ' }, { label: 'Từ chối', button: 'Lưu từ chối' }])('allows $label with no related request even when an exact candidate was preselected', async ({ label, button }) => {
+    detailOverride = () => ({ quoteRef: 'BCCANDIDATE' })
+    page(); const p = await panel()
+    fireEvent.click(p.getByRole('radio', { name: label }))
+    fireEvent.click(p.getByRole('radio', { name: 'Không gắn yêu cầu' }))
+    reason('Chưa xác định yêu cầu liên quan')
+    fireEvent.click(p.getByRole('button', { name: button }))
+    await screen.findByRole('status', { name: 'Kết quả thao tác' })
+    expect(commands()[0].body.paymentId).toBeNull()
+  })
+
+  it('links each history decision to its own related request instead of the final allocation', async () => {
+    detailOverride = () => ({ summary: { paymentId: 602, paymentCode: 'BCFINAL', reviewStatus: 'ACCEPTED' }, history: [
+      { id: 10, source: 'REVIEW', action: 'ACCEPT', reason: 'Đối chiếu B', reference: null, result: null, returnDate: null,
+        relatedPaymentId: 602, relatedPaymentCode: 'BCFINAL', pmId: 7, pmName: 'PM UC6', at: '2026-10-28T02:00:00Z' },
+      { id: 9, source: 'REVIEW', action: 'HOLD', reason: 'Đối chiếu A', reference: null, result: null, returnDate: null,
+        relatedPaymentId: 601, relatedPaymentCode: 'BCFIRST', pmId: 7, pmName: 'PM UC6', at: '2026-10-28T01:00:00Z' },
+      { id: 8, source: 'REVIEW', action: 'HOLD', reason: 'Lịch sử cũ', reference: null, result: null, returnDate: null,
+        relatedPaymentId: null, relatedPaymentCode: null, pmId: 7, pmName: 'PM UC6', at: '2026-10-28T00:00:00Z' },
+    ] })
+    page()
+    const history = within(await screen.findByRole('table', { name: 'Lịch sử xử lý' }))
+    const first = within(history.getByText('Đối chiếu A').closest('tr')!)
+    const final = within(history.getByText('Đối chiếu B').closest('tr')!)
+    expect(first.getByRole('link', { name: 'BCFIRST' })).toHaveAttribute('href', '/nen-tang/thanh-toan?paymentId=601&origin=payments')
+    expect(final.getByRole('link', { name: 'BCFINAL' })).toHaveAttribute('href', '/nen-tang/thanh-toan?paymentId=602&origin=payments')
+    expect(within(history.getByText('Lịch sử cũ').closest('tr')!).queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('reports automatic payment confirmation after importing an eligible looked-up transfer', async () => {
+    page(); await panel()
+    const lookup = within(screen.getByRole('region', { name: 'Tra cứu giao dịch SePay' }))
+    http.command.mockResolvedValueOnce({ success: true, duplicate: false, evidenceId: 742, reviewStatus: 'ACCEPTED', paymentId: 601 })
+    fireEvent.change(lookup.getByLabelText('Mã giao dịch SePay'), { target: { value: '9201' } })
+    fireEvent.click(lookup.getByRole('button', { name: 'Tra cứu theo mã' }))
+    expect(await screen.findByRole('status', { name: 'Kết quả thao tác' })).toHaveTextContent('Giao dịch 9201 đã được tự động xác nhận thanh toán.')
+    expect(commands()).toHaveLength(1)
+    expect(commands()[0].path).toBe('/api/platform/payments/lookup/9201')
+    expect(commands().some((c) => c.path.endsWith('/review'))).toBe(false)
   })
 
   it('locks for return with a reason, then offers only record or unlock, and finally shows the recorded return', async () => {
@@ -167,7 +208,7 @@ describe('UC-FE19-06 reconciliation on SCR-62 (D19)', () => {
     http.command.mockResolvedValueOnce(done({ reviewStatus: 'LOCKED_FOR_RETURN', lockedForReturn: true, version: 5 }))
     detailOverride = () => ({ summary: { reviewStatus: 'LOCKED', version: 5 }, returnReference: 'FT-OUT-9', returnDate: '2026-10-28', returnResult: 'Đã hoàn đủ',
       history: [{ id: 9, source: 'REVIEW', action: 'RETURN_VERIFIED', reason: null, reference: 'FT-OUT-9', result: 'Đã hoàn đủ', returnDate: '2026-10-28',
-        pmId: 7, pmName: 'PM UC6', at: '2026-10-28T02:00:00Z' }] })
+        relatedPaymentId: null, relatedPaymentCode: null, pmId: 7, pmName: 'PM UC6', at: '2026-10-28T02:00:00Z' }] })
     fireEvent.click(p.getByRole('button', { name: 'Ghi hoàn trả' }))
     expect(await screen.findByRole('status', { name: 'Kết quả thao tác' })).toHaveTextContent('Đã ghi hoàn trả cho giao dịch 12345678.')
     expect(commands()[1]).toMatchObject({ path: '/api/platform/payments/evidence/742/record-return',

@@ -88,6 +88,9 @@ class OpenApiContractTest {
         assertThat(evidenceDetail.has("history")).isTrue();
         assertThat(evidenceDetail.has("transactionId")).isTrue();
         assertThat(allowsNull(evidenceDetail.path("firstReceivedAt"))).isTrue();
+        JsonNode reviewHistory = api.path("components").path("schemas").path("PlatformEvidenceHistory").path("properties");
+        assertThat(allowsNull(reviewHistory.path("relatedPaymentId"))).isTrue();
+        assertThat(allowsNull(reviewHistory.path("relatedPaymentCode"))).isTrue();
         // D19 / UC6: keyed reconciliation commands, one reason field, dated return, period lookup and return state on detail.
         for (String command : java.util.List.of("review", "lock-return", "record-return", "unlock-return")) {
             assertThat(paths.path("/api/platform/payments/evidence/{evidenceId}/" + command).path("post").path("parameters").toString())

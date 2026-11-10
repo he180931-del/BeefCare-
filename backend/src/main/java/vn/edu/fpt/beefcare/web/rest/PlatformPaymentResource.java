@@ -99,7 +99,7 @@ public class PlatformPaymentResource {
 
     /** Domain rules return MSG-COM-06/COM-10 per field, so the body carries documentation limits rather than bean constraints. */
     public record Review(@Schema(allowableValues = {"ACCEPT", "HOLD", "REJECT"}) String decision,
-                         @Schema(description = "Required for ACCEPT unless the evidence payment code is exact") Long paymentId,
+                         @Schema(description = "ACCEPT: selected request, or resolved by exact code if omitted. HOLD/REJECT: optional related request saved in review history only") Long paymentId,
                          @Schema(maxLength = 1000, description = "Reason and evidence references (one field)") String reason, Long version) {}
     public record ReturnChange(@Schema(maxLength = 1000) String reason, Long version) {}
     public record ReturnResult(@Schema(maxLength = 255, description = "Outgoing bank reference") String reference,

@@ -14765,7 +14765,7 @@
           "paymentId" : {
             "type" : "integer",
             "format" : "int64",
-            "description" : "Required for ACCEPT unless the evidence payment code is exact"
+            "description" : "ACCEPT: selected request, or resolved by exact code if omitted. HOLD/REJECT: optional related request saved in review history only"
           },
           "reason" : {
             "type" : "string",
@@ -19018,7 +19018,7 @@
           },
           "action" : {
             "type" : "string",
-            "description" : "REVIEW: stored PM decision ACCEPT/HOLD/REJECT. EVENT: EVIDENCE_RECEIVED, EVIDENCE_AUTO_ACCEPTED, EVIDENCE_LOCK_RETURN, EVIDENCE_RETURN_UNLOCK or EVIDENCE_RETURN_RECORDED; never a raw audit action name"
+            "description" : "REVIEW: stored PM decision ACCEPT/HOLD/REJECT/LOCK/UNLOCK/RETURN_VERIFIED. EVENT: EVIDENCE_RECEIVED, EVIDENCE_AUTO_ACCEPTED, EVIDENCE_LOCK_RETURN, EVIDENCE_RETURN_UNLOCK or EVIDENCE_RETURN_RECORDED; never a raw audit action name"
           },
           "reason" : {
             "anyOf" : [ {
@@ -19067,6 +19067,23 @@
           "at" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "relatedPaymentId" : {
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int64",
+              "description" : "Request considered by this review, independent of the final evidence allocation; absent on legacy rows"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Request considered by this review, independent of the final evidence allocation; absent on legacy rows"
+          },
+          "relatedPaymentCode" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
           }
         }
       },
@@ -21287,10 +21304,10 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "parameterName" : {
+          "headerName" : {
             "type" : "string"
           },
-          "headerName" : {
+          "parameterName" : {
             "type" : "string"
           },
           "token" : {

@@ -92,6 +92,8 @@ describe('UC2 backend contract and forms', () => {
   })
 
   it('renders the actual QR and retains copyable bank details when the image fails', async () => {
+    // Keep this quote inside its 24-hour window regardless of the day the suite runs.
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
     page()
     const qr = await screen.findByRole('img', { name: 'Mã VietQR thanh toán' })
     expect(qr).toHaveAttribute('src', pending.qrImageUrl)

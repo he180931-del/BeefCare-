@@ -35,7 +35,8 @@ public class BackendApiDocumentationConfiguration {
                 nullableFields(api, "PlatformBankEvidenceRow", "direction", "content", "reviewReason", "receivingAccountMatches", "paymentId", "paymentCode");
                 nullableFields(api, "PlatformBankEvidenceDetail", "receivingAccount", "bank", "referenceCode", "quoteRef", "firstReceivedAt",
                     "returnReference", "returnDate", "returnResult");
-                nullableFields(api, "PlatformEvidenceHistory", "reason", "reference", "result", "returnDate", "pmId", "pmName");
+                nullableFields(api, "PlatformEvidenceHistory", "reason", "reference", "result", "returnDate", "pmId", "pmName",
+                    "relatedPaymentId", "relatedPaymentCode");
                 nullableFields(api, "SePayLookupRow", "content", "referenceCode", "evidenceId");
                 nullableFields(api, "PlatformPaymentRead", "purchasedStart", "purchasedEnd", "receiptCode", "requestedByEmail",
                     "evidenceId", "confirmedAt", "confirmationSource", "bankPaidAt", "receivedAt");

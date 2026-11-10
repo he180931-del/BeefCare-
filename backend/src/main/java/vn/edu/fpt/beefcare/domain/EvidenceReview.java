@@ -52,6 +52,12 @@ public class EvidenceReview implements Serializable {
     @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
     private AppUser pmUser;
 
+    /** D21: request considered by this decision; never inferred from the evidence's later allocation. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "related_payment_id", updatable = false)
+    @JsonIgnoreProperties(value = { "subscription", "requestedBy", "priceVersion" }, allowSetters = true)
+    private Payment relatedPayment;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -130,6 +136,14 @@ public class EvidenceReview implements Serializable {
     public EvidenceReview pmUser(AppUser appUser) {
         this.setPmUser(appUser);
         return this;
+    }
+
+    public Payment getRelatedPayment() {
+        return this.relatedPayment;
+    }
+
+    public void setRelatedPayment(Payment payment) {
+        this.relatedPayment = payment;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
