@@ -274,15 +274,18 @@ const sameTarget = (a: ScheduleTarget, b: ScheduleTarget) =>
 
 export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
-  // Múi giờ trại đọc một lần (GET /api/farms/{farmId}); mọi thao tác chờ múi giờ trước khi đổi giờ.
+  // Múi giờ trại đọc một lần (GET /api/farms/{farmId}, có cache). Thao tác nào dùng giờ trại gọi syncZone() trước,
+  // sau các kiểm tra không cần backend (ví dụ "Chưa chọn bò").
   const zone = createFarmTimeZone(transport, farmId)
   let timeZone = DEFAULT_FARM_TIME_ZONE
+  const syncZone = async () => { timeZone = await zone() }
   const now = () => toFarmTime(clock().toISOString(), timeZone)
   const today = () => now().slice(0, 10)
   const records = new Map<number, VaccinationRecord>()
 
   async function run<T>(action: () => Promise<T>): Promise<T> {
     try {
+      await syncZone()
       return await action()
     } catch (error) {
       throw mapVaccinationError(error)
@@ -317,6 +320,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
 
   /** Ngữ cảnh đọc: lịch, mũi, bò và vắc-xin cần cho các màn suy ra. */
   async function snapshot() {
+    await syncZone()
     const [views, herd, catalogue] = await Promise.all([schedules(), cattle(), vaccines()])
     const byCode = new Map(herd.map((c) => [c.code, c]))
     const scheduleOf = (id: number) => views.find((v) => v.schedule.id === id)
@@ -361,7 +365,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
 
   const api = {
     async options(): Promise<VaccinationOptions> {
-      const [catalogue, people, pensList] = await Promise.all([vaccines(), members(), pens()])
+      const [catalogue, people, pensList] = await Promise.all([vaccines(), members(), pens(), syncZone()])
       return {
         vaccines: catalogue.filter((v) => v.active),
         members: people,
@@ -421,6 +425,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     },
 
     async previewPlan(cmd: ScheduleCommand, targetCount: number) {
+      await syncZone()
       return plannedDoseRows({ firstDueDate: cmd.firstDueDate || today(), intervalDays: cmd.intervalDays, doseCount: cmd.doseCount ?? 0, boosterIntervalMonths: cmd.boosterIntervalMonths }, [], targetCount, today())
     },
 
@@ -584,6 +589,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     },
 
     async deferDose(id: number, cmd: DeferDoseCommand) {
+      await syncZone()
       const errors = validateDefer(cmd, today())
       if (hasErrors(errors)) throw new VaccinationValidationError(errors)
       return run(async () => {
@@ -599,6 +605,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     },
 
     async listHistory(filters: HistoryFilters = {}): Promise<HistoryPage> {
+      await syncZone()
       const from = filters.from || addMonths(today(), -3)
       const to = filters.to || today()
       const rows = asRows(await transport.get(path(`/vaccinations/history${query({ search: filters.q?.trim(), vaccineId: filters.vaccineId, source: filters.source, from, to })}`)))
@@ -611,6 +618,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     },
 
     async getCattleVaccination(code: string): Promise<CattleVaccination> {
+      await syncZone()
       const resolved = asRecord(await transport.get(path(`/cattle/resolve${query({ code })}`)))
       const cattleId = num(resolved.cattleId)
       if (cattleId === undefined) throw new Error(`Không tìm thấy bò ${code}.`)
@@ -642,6 +650,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     },
 
     async correctRecord(id: number, cmd: CorrectVaccinationCommand): Promise<VaccinationRecord> {
+      await syncZone()
       const before = records.get(id)
       const reasonErrors = validateReason(cmd.reason)
       const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: before?.source ?? 'ON_FARM', administeredAt: cmd.administeredAt, batchNo: cmd.batchNo, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now() }), ...reasonErrors }
@@ -679,16 +688,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       })
     },
   }
-  // Mọi thao tác chờ múi giờ trại (đã cache) trước khi chạy, để now(), toInstant() và mapRecord() dùng đúng giờ trại.
-  const zoned = {} as typeof api
-  for (const key of Object.keys(api) as Array<keyof typeof api>) {
-    const action = api[key] as (...args: unknown[]) => Promise<unknown>
-    ;(zoned as Record<string, unknown>)[key] = async (...args: unknown[]) => {
-      timeZone = await zone()
-      return action(...args)
-    }
-  }
-  return zoned
+  return api
 }
 
 function stripId(c: VaccCattle & { id?: number }): VaccCattle {
