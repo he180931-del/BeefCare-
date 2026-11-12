@@ -274,7 +274,7 @@ const sameTarget = (a: ScheduleTarget, b: ScheduleTarget) =>
 
 export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
-  // Múi giờ trại đọc một lần (GET /api/farms/{farmId}, có cache). Thao tác nào dùng giờ trại gọi syncZone() trước,
+  // Múi giờ trại đọc một lần (GET /api/farms/{farmId}/context, có cache). Thao tác nào dùng giờ trại gọi syncZone() trước,
   // sau các kiểm tra không cần backend (ví dụ "Chưa chọn bò").
   const zone = createFarmTimeZone(transport, farmId)
   let timeZone = DEFAULT_FARM_TIME_ZONE

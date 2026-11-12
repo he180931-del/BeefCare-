@@ -88,4 +88,12 @@ class GrowthGapResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.total").value(1))
             .andExpect(jsonPath("$.activeCount").value(2));
     }
+
+    @Test
+    void everyMemberReadsTheFarmTimeZoneFromTheContextWhileDetailsStayOwnerOnly() throws Exception {
+        mvc.perform(get("/api/farms/" + farm.getId() + "/context").with(as(manager.getEmail())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.timeZone").value(farm.getTimeZone()));
+        mvc.perform(get("/api/farms/" + farm.getId()).with(as(manager.getEmail()))).andExpect(status().isForbidden());
+    }
 }

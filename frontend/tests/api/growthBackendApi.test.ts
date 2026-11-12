@@ -13,7 +13,7 @@ function fakeTransport(routes: Record<string, unknown | ((body: unknown) => unkn
   const answer = (path: string, body?: unknown) => {
     const bare = path.split('?')[0]
     // Trại hiện tại (múi giờ) mặc định Asia/Ho_Chi_Minh, trừ khi test khai báo route riêng.
-    const hit = routes[path] ?? routes[bare] ?? (bare === '/api/farms/1' ? { id: 1, timeZone: 'Asia/Ho_Chi_Minh' } : undefined)
+    const hit = routes[path] ?? routes[bare] ?? (bare === '/api/farms/1/context' ? { id: 1, timeZone: 'Asia/Ho_Chi_Minh' } : undefined)
     if (hit === undefined) throw new Error(`Unexpected request: ${path}`)
     return typeof hit === 'function' ? (hit as (b: unknown) => unknown)(body) : structuredClone(hit)
   }
@@ -54,7 +54,7 @@ test('Múi giờ trại: đọc timeZone của trại; trại ở UTC+9 đổi g
   assert.equal(toFarmTime('2026-10-01T01:00:00Z', 'Asia/Tokyo'), '2026-10-01T10:00')
   assert.equal(toInstant('2026-10-01T10:00', 'Asia/Tokyo'), '2026-10-01T10:00:00+09:00')
   const routes = {
-    '/api/farms/1': { id: 1, timeZone: 'Asia/Tokyo' },
+    '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' },
     '/api/farms/1/cattle/resolve': resolve,
     '/api/farms/1/cattle/203/growth': (body: unknown) => (body ? record(9, '2026-11-09T00:30:00Z', 300) : summary),
     '/api/farms/1/members': [],
@@ -65,11 +65,11 @@ test('Múi giờ trại: đọc timeZone của trại; trại ở UTC+9 đổi g
   const saved = await api.record('BC-000203', { measuredAt: '2026-11-09T09:30', method: 'SCALE', weightKg: 300 })
   assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).measuredAt, '2026-11-09T09:30:00+09:00')
   assert.equal(saved.measuredAt, '2026-11-09T09:30')
-  assert.equal(calls.filter((c) => c.path === '/api/farms/1').length, 1, 'đọc múi giờ một lần')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 1, 'đọc múi giờ một lần')
 
-  const fallback = fakeTransport({ ...routes, '/api/farms/1': { id: 1, timeZone: null } })
+  const fallback = fakeTransport({ ...routes, '/api/farms/1/context': { id: 1, timeZone: null } })
   assert.equal((await createGrowthBackend({ farmId: 1, transport: fallback.transport, clock }).formOptions('BC-000203')).now, '2026-11-09T10:00')
-  const invalid = fakeTransport({ ...routes, '/api/farms/1': { id: 1, timeZone: 'Mars/Olympus' } })
+  const invalid = fakeTransport({ ...routes, '/api/farms/1/context': { id: 1, timeZone: 'Mars/Olympus' } })
   assert.equal((await createGrowthBackend({ farmId: 1, transport: invalid.transport, clock }).formOptions('BC-000203')).now, '2026-11-09T10:00')
 })
 
@@ -157,7 +157,7 @@ test('TC-08-API04: hồ sơ tăng trưởng tra mã bò rồi đọc /cattle/{id
   const api = createGrowthBackend({ farmId: 1, transport, clock })
   const p = await api.getProfile('BC-000203')
 
-  const paths = calls.map((c) => c.path).filter((path) => path !== '/api/farms/1')
+  const paths = calls.map((c) => c.path).filter((path) => path !== '/api/farms/1/context')
   assert.equal(paths[0], '/api/farms/1/cattle/resolve?code=BC-000203')
   assert.equal(paths[1], '/api/farms/1/cattle/203/growth?windowDays=90')
   assert.equal(p.cattle.code, 'BC-000203')
@@ -200,7 +200,7 @@ test('TC-08-06: ghi nhận gửi Measurement đúng DTO, không gửi basis, có
     const url = String(input)
     if (url.endsWith('/api/csrf')) return Response.json({ token: 'csrf-ok' })
     if (url.includes('/cattle/resolve')) return Response.json(resolve)
-    if (url.endsWith('/api/farms/1')) return Response.json({ id: 1, timeZone: 'Asia/Ho_Chi_Minh' })
+    if (url.endsWith('/api/farms/1/context')) return Response.json({ id: 1, timeZone: 'Asia/Ho_Chi_Minh' })
     if (url.endsWith('/api/farms/1/cattle/203/growth') && init?.method === 'POST') {
       sent = JSON.parse(String(init.body))
       key = new Headers(init.headers).get('Idempotency-Key')

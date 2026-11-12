@@ -14,7 +14,7 @@ import type {
 /**
  * Adapter FE-08 cho chế độ backend.
  * Route: GET /growth, GET /cattle/resolve, GET /cattle/{id}/growth, POST /cattle/{id}/growth, POST .../{recordId}/correction,
- * GET /pens, GET /members. Giờ trại theo timeZone của trại (GET /api/farms/{farmId}); thiếu thì UTC+7.
+ * GET /pens, GET /members. Giờ trại theo timeZone của trại (GET /api/farms/{farmId}/context); thiếu thì UTC+7.
  */
 export const HERD_PAGE_SIZE = 7
 

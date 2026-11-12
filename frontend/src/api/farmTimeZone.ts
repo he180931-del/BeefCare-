@@ -52,13 +52,14 @@ export function fromFarmLocal(local: string, timeZone: string = DEFAULT_FARM_TIM
 }
 
 /**
- * Múi giờ của trại hiện tại, đọc một lần từ GET /api/farms/{farmId} (trường timeZone, FE-02).
+ * Múi giờ của trại hiện tại, đọc một lần từ GET /api/farms/{farmId}/context (trường timeZone). Route này mọi vai trò
+ * đều đọc được; GET /api/farms/{farmId} (SCR-11) chỉ dành cho Owner.
  * Thiếu hoặc không hợp lệ → UTC+7. Lỗi request được ném ra (không tự fallback) và lần gọi sau đọc lại.
  */
 export function createFarmTimeZone(transport: BackendTransport, farmId: string | number): () => Promise<string> {
   let cached: Promise<string> | undefined
   return () => {
-    cached ??= transport.get(transport.farmPath(farmId)).then(
+    cached ??= transport.get(transport.farmPath(farmId, '/context')).then(
       (body) => {
         const zone = asRecord(body).timeZone
         return typeof zone === 'string' && zone.trim() !== '' && isValidZone(zone.trim()) ? zone.trim() : DEFAULT_FARM_TIME_ZONE

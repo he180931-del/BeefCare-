@@ -21150,6 +21150,9 @@
           "serviceUntil" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "timeZone" : {
+            "type" : "string"
           }
         }
       },
