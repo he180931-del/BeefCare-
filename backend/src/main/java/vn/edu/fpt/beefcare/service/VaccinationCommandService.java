@@ -479,6 +479,7 @@ public class VaccinationCommandService {
         if (req.newExpectedDate() != null && req.newExpectedDate().isBefore(clock.today())) throw DomainException.invalid("newExpectedDate");
         dose.setStatus("DEFERRED"); dose.setDeferralReason(req.reason().trim()); dose.setNewExpectedDate(req.newExpectedDate());
         dose.setDeferralNote(trim(req.note())); dose.setDeferredBy(ctx.user());
+        em.flush(); // the answer carries the new version, so the next action on this dose is not refused as stale
         audit.log(ctx, "VACCINATION_DOSE_DEFER", "ScheduledDose", doseId, Map.of("newExpectedDate", req.newExpectedDate() == null ? "" : req.newExpectedDate(), "reason", req.reason().trim()));
         return new CareDtos.DoseResult(dose.getId(), dose.getStatus(), dose.getVersion(), dose.getDeferralReason(), dose.getNewExpectedDate());
     }
@@ -539,8 +540,10 @@ public class VaccinationCommandService {
     }
     private String upper(String value) { return value == null ? "" : value.trim().toUpperCase(java.util.Locale.ROOT); }
     private void assertAfterHerdEntry(Long farmId,Cattle cattle,LocalDate date){
-        LocalDate entry=em.createQuery("select e.entryDate from HerdEntry e where e.cattle.id=:cattle and e.voucher.farm.id=:farm and upper(e.status)='POSTED' order by e.id",LocalDate.class)
-            .setParameter("cattle",cattle.getId()).setParameter("farm",farmId).setMaxResults(1).getResultStream().findFirst().orElse(null);
+        // BR-D14: a posted herd-entry line is VALID (EntryLineStatus); there is no POSTED line status.
+        LocalDate entry=em.createQuery("select e.entryDate from HerdEntry e where e.cattle.id=:cattle and e.voucher.farm.id=:farm and e.status=:valid order by e.id",LocalDate.class)
+            .setParameter("cattle",cattle.getId()).setParameter("farm",farmId).setParameter("valid",vn.edu.fpt.beefcare.domain.enumeration.EntryLineStatus.VALID)
+            .setMaxResults(1).getResultStream().findFirst().orElse(null);
         if(entry!=null&&date.isBefore(entry))throw DomainException.unprocessable(MessageCodes.COM_15,"entryDate",entry);
     }
 }

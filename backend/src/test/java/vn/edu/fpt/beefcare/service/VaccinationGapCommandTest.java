@@ -451,4 +451,40 @@ class VaccinationGapCommandTest extends DomainTestSupport {
         assertThat(result.deferredCount()).isEqualTo(1);
         assertThat(em.find(ScheduledDose.class, dose.getId()).getStatus()).isEqualTo("DEFERRED");
     }
+
+    // ------------------------------------------------------------ Found while running against the real backend
+
+    @Test
+    void brD14_aVaccinationBeforeTheHerdEntryDateIsRejected() {
+        Cattle cow = herd.get(0);
+        var voucher = entryVoucher(farm, manager, partner(farm, manager, true, false), 0L, 0L, vn.edu.fpt.beefcare.domain.enumeration.EntryVoucherStatus.POSTED);
+        var line = new vn.edu.fpt.beefcare.domain.HerdEntry();
+        line.setFarm(farm); line.setVoucher(voucher); line.setLineNo(1); line.setCattle(cow);
+        line.setSource(vn.edu.fpt.beefcare.domain.enumeration.EntrySource.EXTERNAL); line.setEntryDate(TODAY.minusDays(3));
+        line.setInitialPen(pen(farm, "P" + next(), 10)); line.setStatus(vn.edu.fpt.beefcare.domain.enumeration.EntryLineStatus.VALID);
+        line.setCreatedAt(clock.instant()); line.setUpdatedAt(clock.instant());
+        save(line);
+        reload();
+
+        assertThatThrownBy(() -> vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null,
+            clock.instant().minusSeconds(5 * 86400L), "LOT-1", "2 ml", "SC", 21, "Manager",
+            List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null)))))
+            .isInstanceOfSatisfying(DomainException.class, e -> {
+                assertThat(e.getCode()).isEqualTo(MessageCodes.COM_15);
+                assertThat(e.getParams()).containsEntry("entryDate", TODAY.minusDays(3));
+            });
+        assertThat(vaccinations()).isZero();
+        assertThat(recordOnFarm(cow, 21)).isNotNull();
+    }
+
+    @Test
+    void deferringADoseAnswersTheSavedVersion() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd.subList(0, 1));
+        ScheduledDose dose = doses(created.id()).get(0);
+        CareDtos.DoseResult first = vaccination.deferDose(farm.getId(), dose.getId(), key(), new CareDtos.DeferDose(dose.getVersion(), "Bò sốt", null, null));
+        reload();
+        assertThat(first.version()).isEqualTo(versionOf(ScheduledDose.class, dose.getId()));
+        CareDtos.DoseResult again = vaccination.deferDose(farm.getId(), dose.getId(), key(), new CareDtos.DeferDose(first.version(), "Vẫn sốt", TODAY.plusDays(7), null));
+        assertThat(again.newExpectedDate()).isEqualTo(TODAY.plusDays(7));
+    }
 }
