@@ -110,4 +110,26 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}"))
             .andExpect(status().isForbidden());
     }
+
+    // ------------------------------------------------------------ GAP-FE09-04
+
+    @Test
+    void correctionAcceptsWithdrawalDaysAndAnswersTheCattleWithdrawalEnd() throws Exception {
+        Long id = vaccination.record(farm.getId(), UUID.randomUUID().toString(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null,
+            clock.instant().minusSeconds(3600), "LOT-1", "2 ml", "SC", 21, "Manager",
+            List.of(new CareDtos.VaccinationAnimal(herd.get(0).getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+        em.flush();
+        Integer version = versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id);
+        mvc.perform(post(url("/vaccinations/" + id + "/correction")).with(as(manager.getEmail())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"expectedVersion\":" + version + ",\"withdrawalDays\":30,\"reason\":\"Sửa ngưng thịt\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.withdrawalDays").value(30))
+            .andExpect(jsonPath("$.withdrawalEndDate").value(TODAY.plusDays(30).toString()))
+            .andExpect(jsonPath("$.cattleWithdrawalEndDate").value(TODAY.plusDays(30).toString()));
+        mvc.perform(post(url("/vaccinations/" + id + "/correction")).with(as(manager.getEmail())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"expectedVersion\":" + (version + 1) + ",\"withdrawalDays\":366,\"reason\":\"x\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-COM-10"))
+            .andExpect(jsonPath("$.params.field").value("withdrawalDays"));
+    }
 }

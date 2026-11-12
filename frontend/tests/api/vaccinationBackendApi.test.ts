@@ -314,21 +314,22 @@ test('TC-09-API04: tab tiêm của một con: tra mã bò, lịch sử toàn th�
   assert.equal(Object.hasOwn(view.records[0], 'penCode'), false)
 })
 
-test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do; chưa sửa được số ngày ngưng', async () => {
+test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do và số ngày ngưng (GAP-FE09-04)', async () => {
   const { api: a, calls } = api({ ...baseRoutes(),
     '/api/farms/1/vaccinations/history': [historyRow(1)],
-    '/api/farms/1/vaccinations/1/correction': { id: 1, status: 'VALID', version: 1, withdrawalEndDate: '2026-11-23', corrected: true },
+    '/api/farms/1/vaccinations/1/correction': { id: 1, status: 'VALID', version: 1, withdrawalEndDate: '2026-12-02', corrected: true, withdrawalDays: 30, cattleWithdrawalEndDate: '2026-12-02' },
     '/api/farms/1/vaccinations/1/void': { id: 1, status: 'VOIDED', version: 2, withdrawalEndDate: null, corrected: true } })
   await a.listHistory({})
   const base = { expectedVersion: 0, vaccineId: 1, administeredAt: '2026-11-02T08:30', batchNo: 'L-02', dose: '2 ml', route: 'IM' as const, withdrawalDays: 21, vaccinator: 'Trần Văn Kỹ', reason: 'Nhập nhầm ngày' }
-  await assert.rejects(a.correctRecord(1, { ...base, withdrawalDays: 30 }), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.withdrawalDays))
-  const corrected = await a.correctRecord(1, base)
+  await assert.rejects(a.correctRecord(1, { ...base, withdrawalDays: 366 }), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.withdrawalDays))
+  const corrected = await a.correctRecord(1, { ...base, withdrawalDays: 30 })
   assert.deepEqual(calls.at(-1)!.body, {
     expectedVersion: 0, vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T08:30:00+07:00', batchNo: 'L-02', dose: '2 ml', route: 'INTRAMUSCULAR',
-    vaccinator: 'Trần Văn Kỹ', reason: 'Nhập nhầm ngày',
+    vaccinator: 'Trần Văn Kỹ', reason: 'Nhập nhầm ngày', withdrawalDays: 30,
   })
   assert.equal(corrected.corrected, true)
-  assert.equal(corrected.withdrawalEndDate, '2026-11-23')
+  assert.equal(corrected.withdrawalDays, 30)
+  assert.equal(corrected.withdrawalEndDate, '2026-12-02')
   assert.equal(corrected.version, 1)
 
   await assert.rejects(a.voidRecord(1, { expectedVersion: 1, reason: '' }), VaccinationValidationError)

@@ -576,20 +576,22 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       const before = records.get(id)
       const reasonErrors = validateReason(cmd.reason)
       const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: before?.source ?? 'ON_FARM', administeredAt: cmd.administeredAt, batchNo: cmd.batchNo, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now() }), ...reasonErrors }
-      // Backend chưa nhận số ngày ngưng khi sửa (GAP-FE09-04): giữ số ngày cũ, báo ngay nếu người dùng đổi.
-      if (before && cmd.withdrawalDays !== undefined && cmd.withdrawalDays !== before.withdrawalDays && before.source === 'ON_FARM') fields.withdrawalDays = 'Chưa sửa được số ngày ngưng của bản ghi đã lưu.'
       if (hasErrors(fields)) throw new VaccinationValidationError(fields)
+      // TC-09-27: bản ghi tại trại sửa được số ngày ngưng; bản ghi lịch sử không có ngưng thịt (R-09-08).
+      const onFarm = (before?.source ?? 'ON_FARM') === 'ON_FARM'
       return run(async () => {
         const r = asRecord(await transport.command(path(`/vaccinations/${id}/correction`), {
           expectedVersion: cmd.expectedVersion, vaccineId: cmd.vaccineId ?? null,
           vaccinationDate: cmd.administeredAt.slice(0, 10), administeredAt: toInstant(cmd.administeredAt),
           batchNo: cmd.batchNo?.trim() || null, dose: cmd.dose?.trim() || null, route: cmd.route ? ROUTE_OUT[cmd.route] : null,
           vaccinator: cmd.vaccinator?.trim() || null, reason: cmd.reason.trim(),
+          withdrawalDays: onFarm ? cmd.withdrawalDays ?? null : null,
         }))
         const updated: VaccinationRecord = {
           ...(before ?? emptyRecord(id)),
           vaccineId: cmd.vaccineId ?? before?.vaccineId, administeredAt: cmd.administeredAt, batchNo: cmd.batchNo?.trim() || undefined, dose: cmd.dose, route: cmd.route,
-          vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalEndDate: text(r.withdrawalEndDate), status: 'VALID', corrected: r.corrected !== false,
+          vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: num(r.withdrawalDays) ?? (onFarm ? cmd.withdrawalDays : undefined) ?? before?.withdrawalDays ?? 0,
+          withdrawalEndDate: text(r.withdrawalEndDate), status: 'VALID', corrected: r.corrected !== false,
           version: num(r.version) ?? cmd.expectedVersion + 1, precision: 'EXACT',
         }
         records.set(id, updated)

@@ -121,4 +121,67 @@ class VaccinationGapCommandTest extends DomainTestSupport {
         assertThat(em.find(VaccinationSchedule.class, created.id()).getStatus()).isEqualTo("ACTIVE");
         assertThat(doses(created.id())).extracting(ScheduledDose::getStatus).containsOnly("PLANNED");
     }
+
+    // ------------------------------------------------------------ GAP-FE09-04 (R-09-14, TC-09-27)
+
+    Long recordOnFarm(Cattle cow, int withdrawalDays) {
+        return vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null, hoursAgo(1), "LOT-1", "2 ml", "SC",
+            withdrawalDays, "Manager", List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+    }
+
+    CareDtos.CorrectVaccination withdrawal(Long id, Integer days) {
+        return new CareDtos.CorrectVaccination(versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id), null, null, null, null, null, null, null,
+            "Sửa ngưng thịt", days);
+    }
+
+    @Test
+    void correctingTheWithdrawalPeriodRecalculatesTheEndDatesAndKeepsTheOldPeriodInTheRevision() {
+        Cattle cow = herd.get(0);
+        Long id = recordOnFarm(cow, 21);
+        reload();
+
+        CareDtos.VaccinationResult corrected = vaccination.correct(farm.getId(), id, key(), withdrawal(id, 30));
+        assertThat(corrected.withdrawalDays()).isEqualTo(30);
+        assertThat(corrected.withdrawalEndDate()).isEqualTo(TODAY.plusDays(30));
+        assertThat(corrected.cattleWithdrawalEndDate()).isEqualTo(TODAY.plusDays(30));
+        assertThat(corrected.corrected()).isTrue();
+        reload();
+
+        var record = em.find(vn.edu.fpt.beefcare.domain.Vaccination.class, id);
+        assertThat(record.getWithdrawalDays()).isEqualTo(30);
+        assertThat(record.getWithdrawalEndDate()).isEqualTo(TODAY.plusDays(30));
+        String before = em.createQuery("select r.beforeSnapshot from RecordRevision r where r.sourceType='Vaccination' and r.sourceId=:id", String.class)
+            .setParameter("id", id).getSingleResult();
+        assertThat(before).contains("\"withdrawalDays\":21").contains("\"withdrawalEndDate\":\"" + TODAY.plusDays(21) + "\"");
+
+        CareDtos.VaccinationResult none = vaccination.correct(farm.getId(), id, key(), withdrawal(id, 0));
+        assertThat(none.withdrawalEndDate()).isNull();
+        assertThat(none.cattleWithdrawalEndDate()).isNull();
+    }
+
+    @Test
+    void anOutOfRangeWithdrawalOrAWithdrawalOnAHistoricalRecordIsRejected() {
+        Cattle cow = herd.get(0);
+        Long onFarm = recordOnFarm(cow, 21);
+        reload();
+        assertThatThrownBy(() -> vaccination.correct(farm.getId(), onFarm, key(), withdrawal(onFarm, 366)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("field", "withdrawalDays"));
+
+        Long historical = vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(vaccine.id(), "HISTORICAL", TODAY.minusMonths(3), null, null,
+            "2 ml", "SC", null, "Trại cũ", List.of(new CareDtos.VaccinationAnimal(herd.get(1).getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+        reload();
+        assertThatThrownBy(() -> vaccination.correct(farm.getId(), historical, key(), withdrawal(historical, 5)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("field", "withdrawalDays"));
+    }
+
+    @Test
+    void voidingTheOnlyOnFarmRecordClearsTheWithdrawalOfTheCattle() {
+        Cattle cow = herd.get(0);
+        Long id = recordOnFarm(cow, 21);
+        reload();
+        CareDtos.VaccinationResult voided = vaccination.voidRecord(farm.getId(), id, key(),
+            new CareDtos.VoidRecord(versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id), "Ghi nhầm bò"));
+        assertThat(voided.status()).isEqualTo("VOIDED");
+        assertThat(voided.cattleWithdrawalEndDate()).isNull();
+    }
 }

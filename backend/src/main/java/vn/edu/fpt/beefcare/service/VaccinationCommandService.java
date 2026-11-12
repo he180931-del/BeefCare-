@@ -33,9 +33,10 @@ public class VaccinationCommandService {
     private final AuditService audit;
     private final FarmClock clock;
     private final RecordRevisionService revisions;
+    private final CattleStateService cattleState;
 
-    public VaccinationCommandService(FarmAccessService access, CattleGuardService cattleGuard, IdempotencyCommandService idempotency, AuditService audit, FarmClock clock, RecordRevisionService revisions) {
-        this.access = access; this.cattleGuard = cattleGuard; this.idempotency = idempotency; this.audit = audit; this.clock = clock; this.revisions = revisions;
+    public VaccinationCommandService(FarmAccessService access, CattleGuardService cattleGuard, IdempotencyCommandService idempotency, AuditService audit, FarmClock clock, RecordRevisionService revisions, CattleStateService cattleState) {
+        this.access = access; this.cattleGuard = cattleGuard; this.idempotency = idempotency; this.audit = audit; this.clock = clock; this.revisions = revisions; this.cattleState = cattleState;
     }
 
     public CareDtos.VaccinationScheduleResult createSchedule(Long farmId, String key, CareDtos.CreateVaccinationSchedule request) {
@@ -235,14 +236,22 @@ public class VaccinationCommandService {
                 clock.assertNotFuture(req.administeredAt()); record.setAdministeredAt(req.administeredAt());
                 record.setVaccinationDate(farmDate(req.administeredAt(), ctx.farm().getTimeZone()));
             }
-            if (record.getWithdrawalDays() != null && record.getWithdrawalDays() > 0) record.setWithdrawalEndDate(record.getVaccinationDate().plusDays(record.getWithdrawalDays()));
-        } else if (req.vaccinationDate() != null) {
-            clock.assertNotFuture(req.vaccinationDate()); record.setVaccinationDate(req.vaccinationDate());
+            // GAP-FE09-04 / TC-09-27: the withdrawal period can be corrected (0-365); the end date is always recalculated.
+            if (req.withdrawalDays() != null) {
+                if (req.withdrawalDays() < 0 || req.withdrawalDays() > 365) throw DomainException.invalid("withdrawalDays");
+                record.setWithdrawalDays(req.withdrawalDays());
+            }
+            int days = record.getWithdrawalDays() == null ? 0 : record.getWithdrawalDays();
+            record.setWithdrawalEndDate(days > 0 ? record.getVaccinationDate().plusDays(days) : null);
+        } else {
+            // R-09-08: a HISTORICAL record never carries a withdrawal period.
+            if (req.withdrawalDays() != null && req.withdrawalDays() != 0) throw DomainException.invalid("withdrawalDays");
+            if (req.vaccinationDate() != null) { clock.assertNotFuture(req.vaccinationDate()); record.setVaccinationDate(req.vaccinationDate()); }
         }
         record.setCorrected(Boolean.TRUE); em.flush();
         revisions.record(ctx, "Vaccination", vaccinationId, RecordRevisionService.CORRECT, req.reason(), before, vaccinationSnapshot(record));
         audit.log(ctx, "VACCINATION_CORRECT", "Vaccination", vaccinationId, Map.of("cattleId", cattle.getId()));
-        return new CareDtos.VaccinationResult(record.getId(), record.getStatus(), record.getVersion(), record.getWithdrawalEndDate(), record.getCorrected());
+        return result(record, cattle);
     }
 
     public CareDtos.VaccinationResult voidRecord(Long farmId, Long vaccinationId, String key, CareDtos.VoidRecord request) {
@@ -272,7 +281,7 @@ public class VaccinationCommandService {
         em.flush();
         revisions.record(ctx, "Vaccination", vaccinationId, RecordRevisionService.VOID, req.reason(), before, vaccinationSnapshot(record));
         audit.log(ctx, "VACCINATION_VOID", "Vaccination", vaccinationId, Map.of("cattleId", cattle.getId()));
-        return new CareDtos.VaccinationResult(record.getId(), record.getStatus(), record.getVersion(), record.getWithdrawalEndDate(), record.getCorrected());
+        return result(record, cattle);
     }
 
     @Transactional
@@ -380,10 +389,22 @@ public class VaccinationCommandService {
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccinationId", vaccinationId));
     }
     private Map<String, Object> vaccinationSnapshot(Vaccination record) {
-        return Map.of("status", record.getStatus(), "vaccineId", record.getVaccine().getId(), "vaccineName", record.getVaccineNameSnapshot() == null ? "" : record.getVaccineNameSnapshot(),
-            "vaccinationDate", record.getVaccinationDate(), "batchNo", record.getBatchNo() == null ? "" : record.getBatchNo(),
-            "dose", record.getDose(), "route", record.getRoute() == null ? "" : record.getRoute(), "vaccinator", record.getVaccinator(),
-            "withdrawalEndDate", record.getWithdrawalEndDate() == null ? "" : record.getWithdrawalEndDate());
+        Map<String, Object> snapshot = new java.util.LinkedHashMap<>();
+        snapshot.put("status", record.getStatus()); snapshot.put("vaccineId", record.getVaccine().getId());
+        snapshot.put("vaccineName", record.getVaccineNameSnapshot() == null ? "" : record.getVaccineNameSnapshot());
+        snapshot.put("vaccinationDate", record.getVaccinationDate()); snapshot.put("administeredAt", record.getAdministeredAt());
+        snapshot.put("batchNo", record.getBatchNo() == null ? "" : record.getBatchNo()); snapshot.put("dose", record.getDose());
+        snapshot.put("route", record.getRoute() == null ? "" : record.getRoute()); snapshot.put("vaccinator", record.getVaccinator());
+        // TC-09-27: the revision keeps the withdrawal period as well as its end date.
+        snapshot.put("withdrawalDays", record.getWithdrawalDays());
+        snapshot.put("withdrawalEndDate", record.getWithdrawalEndDate() == null ? "" : record.getWithdrawalEndDate());
+        return snapshot;
+    }
+    private CareDtos.VaccinationResult result(Vaccination record, Cattle cattle) {
+        em.flush();
+        Object cattleWithdrawal = cattleState.state(cattle).get("withdrawalEndDate");
+        return new CareDtos.VaccinationResult(record.getId(), record.getStatus(), record.getVersion(), record.getWithdrawalEndDate(), record.getCorrected(),
+            record.getWithdrawalDays(), cattleWithdrawal instanceof LocalDate date ? date : null);
     }
     private void planBooster(ScheduledDose completed, LocalDate administeredDate) {
         VaccinationSchedule schedule = completed.getSchedule();

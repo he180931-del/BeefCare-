@@ -51,9 +51,20 @@ public final class CareDtos {
     public record RecordVaccinations(Long vaccineId, String source, LocalDate vaccinationDate, Instant administeredAt, String batchNo, String dose,
                                      String route, Integer withdrawalDays, String vaccinator, List<VaccinationAnimal> animals) {}
     public record VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds) {}
+    /**
+     * A10. {@code withdrawalDays}: new withdrawal period (0-365) of an ON_FARM record; null keeps the current one
+     * (GAP-FE09-04, TC-09-27). A HISTORICAL record has no withdrawal (R-09-08).
+     */
     public record CorrectVaccination(Integer expectedVersion, Long vaccineId, LocalDate vaccinationDate, Instant administeredAt,
-                                     String batchNo, String dose, String route, String vaccinator, String reason) {}
-    public record VaccinationResult(Long id, String status, Integer version, LocalDate withdrawalEndDate, Boolean corrected) {}
+                                     String batchNo, String dose, String route, String vaccinator, String reason, Integer withdrawalDays) {
+        public CorrectVaccination(Integer expectedVersion, Long vaccineId, LocalDate vaccinationDate, Instant administeredAt,
+                                  String batchNo, String dose, String route, String vaccinator, String reason) {
+            this(expectedVersion, vaccineId, vaccinationDate, administeredAt, batchNo, dose, route, vaccinator, reason, null);
+        }
+    }
+    /** A10 / A11: the record and the withdrawal end of its cattle, recalculated after the change (R-09-13, R-09-14). */
+    public record VaccinationResult(Long id, String status, Integer version, LocalDate withdrawalEndDate, Boolean corrected,
+                                    Integer withdrawalDays, LocalDate cattleWithdrawalEndDate) {}
     /**
      * A10. {@code baseVersion}: the version number the form was loaded with; when another version was saved meanwhile
      * the save answers MSG-COM-05 (R-18-15, TC-18-26). Null skips the check (older callers).
