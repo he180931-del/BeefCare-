@@ -391,10 +391,6 @@ test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do và s
   assert.equal(voided.withdrawalEndDate, undefined)
 })
 
-test('TC-09-API05: giờ trại của Instant qua nửa đêm UTC', () => {
-  assert.equal(toFarmTime('2026-11-04T18:30:00Z'), '2026-11-05T01:30')
-})
-
 test('GAP-FE09-02: lịch đã dừng hiện lý do dừng do backend lưu (stopReason)', async () => {
   const stopped = schedules.map((s) => (s.status === 'STOPPED' ? { ...s, stopReason: 'Đổi sang vắc-xin khác' } : s))
   const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': stopped })
@@ -425,4 +421,8 @@ test('GAP-FE09-03: lịch sử tiêm map đường tiêm, số ngày ngưng và 
   assert.equal(record.revisions[1].before.administeredAt, '2026-11-02T00:00', 'revision cũ không có administeredAt: lấy ngày tiêm')
   assert.equal(record.revisions[1].before.withdrawalDays, 21, 'revision cũ không có withdrawalDays: suy từ ngày hết ngưng')
   assert.equal(record.revisions[1].before.route, undefined)
+})
+
+test('TC-09-API05: giờ trại của Instant qua nửa đêm UTC', () => {
+  assert.equal(toFarmTime('2026-11-04T18:30:00Z'), '2026-11-05T01:30')
 })
