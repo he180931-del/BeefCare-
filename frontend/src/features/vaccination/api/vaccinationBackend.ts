@@ -1,5 +1,6 @@
 import { BackendError } from '../../../api/backendClient'
 import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
+import { DEFAULT_FARM_TIME_ZONE, createFarmTimeZone, fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
 import { STATIC_OPTIONS } from '../data/vaccinationMock'
 import { addMonths, fmtDate } from '../domain/vaccinationFormat'
 import {
@@ -22,8 +23,6 @@ import type {
  * từ các route trên, theo đúng quy tắc trong domain/vaccinationRules (GBR-41, GBR-43).
  */
 export const DOSE_PAGE_SIZE = 6
-const FARM_OFFSET = '+07:00'
-const FARM_OFFSET_MS = 7 * 3600_000
 const CATTLE_PAGE = 200
 
 const num = (value: unknown): number | undefined => {
@@ -34,13 +33,10 @@ const num = (value: unknown): number | undefined => {
 const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() !== '' ? value : undefined)
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 
-/** Instant → 'yyyy-mm-ddTHH:mm' giờ trại (UTC+7). */
-export const toFarmTime = (instant: unknown): string => {
-  const ms = Date.parse(textValue(instant))
-  return Number.isNaN(ms) ? '' : new Date(ms + FARM_OFFSET_MS).toISOString().slice(0, 16)
-}
-/** 'yyyy-mm-ddTHH:mm' giờ trại → Instant có offset. */
-export const toInstant = (farmTime: string): string => (farmTime.length === 16 ? `${farmTime}:00${FARM_OFFSET}` : farmTime)
+/** Instant → 'yyyy-mm-ddTHH:mm' theo giờ trại (timeZone của trại; mặc định UTC+7). */
+export const toFarmTime = (instant: unknown, timeZone: string = DEFAULT_FARM_TIME_ZONE): string => toFarmLocal(textValue(instant), timeZone)
+/** 'yyyy-mm-ddTHH:mm' giờ trại → Instant có offset của trại. */
+export const toInstant = (farmTime: string, timeZone: string = DEFAULT_FARM_TIME_ZONE): string => fromFarmLocal(farmTime, timeZone)
 
 // Danh mục FE-18 lưu đường tiêm dạng đầy đủ; màn tiêm phòng dùng mã ngắn.
 const ROUTE_IN: Record<string, VaccineRoute> = { INTRAMUSCULAR: 'IM', IM: 'IM', SUBCUTANEOUS: 'SC', SC: 'SC', ORAL: 'ORAL', INTRANASAL: 'IN', IN: 'IN' }
@@ -134,18 +130,18 @@ const SOURCES = ['ON_FARM', 'HISTORICAL'] as const
 const daysBetween = (from: string, to: string | undefined) => (to && from ? Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) : 0)
 
 /** Revision của bản ghi tiêm (GAP-FE09-03): giá trị trước khi sửa / hủy, người, thời điểm, lý do (BR-D15). */
-export function mapRevision(raw: unknown): VaccinationRevision {
+export function mapRevision(raw: unknown, timeZone: string = DEFAULT_FARM_TIME_ZONE): VaccinationRevision {
   const r = asRecord(raw)
   const b = asRecord(r.before)
   const date = textValue(b.vaccinationDate)
   return {
-    at: toFarmTime(r.changedAt),
+    at: toFarmTime(r.changedAt, timeZone),
     by: textValue(r.changedBy),
     action: textValue(r.action).toUpperCase() === 'VOID' ? 'VOID' : 'CORRECT',
     reason: textValue(r.reason),
     before: {
       vaccineId: num(b.vaccineId) ?? 0,
-      administeredAt: text(b.administeredAt) ? toFarmTime(b.administeredAt) : date ? `${date}T00:00` : '',
+      administeredAt: text(b.administeredAt) ? toFarmTime(b.administeredAt, timeZone) : date ? `${date}T00:00` : '',
       batchNo: text(b.batchNo),
       dose: text(b.dose),
       route: toRoute(b.route),
@@ -155,10 +151,10 @@ export function mapRevision(raw: unknown): VaccinationRevision {
   }
 }
 
-export function mapRecord(raw: unknown): HistoryRow {
+export function mapRecord(raw: unknown, timeZone: string = DEFAULT_FARM_TIME_ZONE): HistoryRow {
   const r = asRecord(raw)
   const date = textValue(r.vaccinationDate)
-  const administeredAt = text(r.administeredAt) ? toFarmTime(r.administeredAt) : `${date}T00:00`
+  const administeredAt = text(r.administeredAt) ? toFarmTime(r.administeredAt, timeZone) : `${date}T00:00`
   const withdrawalEndDate = text(r.withdrawalEndDate)
   const source = (SOURCES as readonly string[]).includes(textValue(r.source).toUpperCase()) ? textValue(r.source).toUpperCase() as 'ON_FARM' | 'HISTORICAL' : 'ON_FARM'
   const days = num(r.withdrawalDays) ?? daysBetween(date, withdrawalEndDate)
@@ -181,7 +177,7 @@ export function mapRecord(raw: unknown): HistoryRow {
     status: textValue(r.status).toUpperCase() === 'VOIDED' ? 'VOIDED' : 'VALID',
     corrected: r.corrected === true,
     version: num(r.version) ?? 0,
-    revisions: asRows(r.revisions).map(mapRevision),
+    revisions: asRows(r.revisions).map((rev) => mapRevision(rev, timeZone)),
   }
 }
 
@@ -278,7 +274,10 @@ const sameTarget = (a: ScheduleTarget, b: ScheduleTarget) =>
 
 export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
-  const now = () => toFarmTime(clock().toISOString())
+  // Múi giờ trại đọc một lần (GET /api/farms/{farmId}); mọi thao tác chờ múi giờ trước khi đổi giờ.
+  const zone = createFarmTimeZone(transport, farmId)
+  let timeZone = DEFAULT_FARM_TIME_ZONE
+  const now = () => toFarmTime(clock().toISOString(), timeZone)
   const today = () => now().slice(0, 10)
   const records = new Map<number, VaccinationRecord>()
 
@@ -557,7 +556,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
           vaccineId: cmd.vaccineId,
           source: cmd.source,
           vaccinationDate: cmd.administeredAt.slice(0, 10),
-          administeredAt: onFarm ? toInstant(cmd.administeredAt) : null,
+          administeredAt: onFarm ? toInstant(cmd.administeredAt, timeZone) : null,
           batchNo: cmd.batchNo?.trim() || null,
           dose: cmd.dose?.trim() || null,
           route: cmd.route ? ROUTE_OUT[cmd.route] : null,
@@ -603,7 +602,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       const from = filters.from || addMonths(today(), -3)
       const to = filters.to || today()
       const rows = asRows(await transport.get(path(`/vaccinations/history${query({ search: filters.q?.trim(), vaccineId: filters.vaccineId, source: filters.source, from, to })}`)))
-        .map(mapRecord)
+        .map((r) => mapRecord(r, timeZone))
         .sort((a, b) => cmp(b.administeredAt, a.administeredAt) || cmp(a.cattleCode, b.cattleCode))
       rows.forEach((r) => records.set(r.id, r))
       const size = filters.size ?? DOSE_PAGE_SIZE
@@ -621,7 +620,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         // Tab của một con lấy toàn bộ lịch sử, không giới hạn 3 tháng như màn lịch sử đàn.
         transport.get(path(`/vaccinations/history${query({ cattleId, from: '1970-01-01', to: today() })}`)),
       ])
-      const list = asRows(history).map(mapRecord).sort((a, b) => cmp(b.administeredAt, a.administeredAt))
+      const list = asRows(history).map((r) => mapRecord(r, timeZone)).sort((a, b) => cmp(b.administeredAt, a.administeredAt))
       list.forEach((r) => records.set(r.id, r))
       const scheduleOf = (id: number) => views.find((v) => v.schedule.id === id)
       const doses = views.flatMap((v) => v.doses).filter((d) => d.cattleCode === code && (d.status === 'PLANNED' || d.status === 'DEFERRED') && scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE')
@@ -652,7 +651,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       return run(async () => {
         const r = asRecord(await transport.command(path(`/vaccinations/${id}/correction`), {
           expectedVersion: cmd.expectedVersion, vaccineId: cmd.vaccineId ?? null,
-          vaccinationDate: cmd.administeredAt.slice(0, 10), administeredAt: toInstant(cmd.administeredAt),
+          vaccinationDate: cmd.administeredAt.slice(0, 10), administeredAt: toInstant(cmd.administeredAt, timeZone),
           batchNo: cmd.batchNo?.trim() || null, dose: cmd.dose?.trim() || null, route: cmd.route ? ROUTE_OUT[cmd.route] : null,
           vaccinator: cmd.vaccinator?.trim() || null, reason: cmd.reason.trim(),
           withdrawalDays: onFarm ? cmd.withdrawalDays ?? null : null,
@@ -680,7 +679,16 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       })
     },
   }
-  return api
+  // Mọi thao tác chờ múi giờ trại (đã cache) trước khi chạy, để now(), toInstant() và mapRecord() dùng đúng giờ trại.
+  const zoned = {} as typeof api
+  for (const key of Object.keys(api) as Array<keyof typeof api>) {
+    const action = api[key] as (...args: unknown[]) => Promise<unknown>
+    ;(zoned as Record<string, unknown>)[key] = async (...args: unknown[]) => {
+      timeZone = await zone()
+      return action(...args)
+    }
+  }
+  return zoned
 }
 
 function stripId(c: VaccCattle & { id?: number }): VaccCattle {
