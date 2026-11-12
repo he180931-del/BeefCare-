@@ -181,9 +181,17 @@ const FIELD_MESSAGES: Record<string, string> = {
 export function mapVaccinationError(error: unknown): unknown {
   if (!(error instanceof BackendError)) return error
   const reason = textValue(error.params.reason)
-  if (error.code === 'COM-05' && reason === 'active_schedule_name_exists') return new VaccinationValidationError({ name: 'Đã có lịch đang chạy cùng tên.' })
-  if (error.code === 'COM-05' && reason === 'vaccine_inactive') return new VaccinationValidationError({ vaccineId: 'Vắc-xin đã ngừng sử dụng, không thể chọn cho bản ghi mới.' })
-  if (error.code === 'COM-05' || error.status === 409 || error.status === 412) return new Error(CONFLICT_MESSAGE)
+  // Backend trả mã đầy đủ "MSG-COM-05"; vẫn nhận dạng ngắn "COM-05".
+  const code = textValue(error.code).replace(/^MSG-/, '')
+  if (code === 'COM-05' && reason === 'active_schedule_name_exists') return new VaccinationValidationError({ name: 'Đã có lịch đang chạy cùng tên.' })
+  if (code === 'COM-05' && reason === 'vaccine_inactive') return new VaccinationValidationError({ vaccineId: 'Vắc-xin đã ngừng sử dụng, không thể chọn cho bản ghi mới.' })
+  if (code === 'COM-05' || error.status === 409 || error.status === 412) return new Error(CONFLICT_MESSAGE)
+  // SCR-33 #4: lỗi thời điểm tiêm của backend hiện dưới ô Thời điểm tiêm, không hiện câu tiếng Anh ở đầu form.
+  if (code === 'COM-07') return new VaccinationValidationError({ administeredAt: 'Thời điểm tiêm không được ở tương lai.' })
+  if (code === 'COM-15') {
+    const entryDate = textValue(error.params.entryDate, textValue(error.params.date))
+    return new VaccinationValidationError({ administeredAt: entryDate ? `Thời điểm không được trước ngày nhập đàn (${fmtDate(entryDate)}).` : 'Thời điểm không được trước ngày nhập đàn.' })
+  }
   const fields: FieldErrors = {}
   const field = textValue(error.params.field)
   if (field) {

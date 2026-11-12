@@ -255,3 +255,38 @@ test('TC-08-15: loại trừ không gửi values; xung đột version giữ nguy
   assert.equal((calls.at(-1)!.body as { values: unknown }).values, null)
   assert.equal(saved.status, 'EXCLUDED')
 })
+
+test('R-08-03 (backend thật): /cattle/resolve trả entry = null → ngày nhập đàn đọc từ /cattle/{id}', async () => {
+  const { transport, calls } = fakeTransport({
+    // Response thật của /cattle/resolve: cattle không có thông tin nhập đàn.
+    '/api/farms/1/cattle/resolve': { ...resolve, cattle: { ...profile, entry: null } },
+    '/api/farms/1/cattle/203': { ...profile, entry: { source: 'PURCHASE', entryDate: '2026-08-01', weightKg: 300 } },
+    '/api/farms/1/members': [],
+  })
+  const api = createGrowthBackend({ farmId: 1, transport, clock })
+  const options = await api.formOptions('BC-000203')
+  assert.equal(options.cattle.herdEntryDate, '2026-08-01')
+  await api.formOptions('BC-000203')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/cattle/203').length, 1, 'đọc hồ sơ chi tiết một lần rồi dùng lại')
+})
+
+test('R-08-03 (backend thật): resolve đã có ngày nhập đàn thì không đọc thêm /cattle/{id}', async () => {
+  const { transport, calls } = fakeTransport({ '/api/farms/1/cattle/resolve': resolve, '/api/farms/1/members': [] })
+  const options = await createGrowthBackend({ farmId: 1, transport, clock }).formOptions('BC-000203')
+  assert.equal(options.cattle.herdEntryDate, '2026-06-01')
+  assert.equal(calls.some((c) => c.path === '/api/farms/1/cattle/203'), false)
+})
+
+test('TC-08-04 (backend thật): MSG-COM-15 / MSG-COM-07 hiện dưới ô Thời điểm đo bằng tiếng Việt', async () => {
+  const failWith = (body: unknown) => fakeTransport({
+    '/api/farms/1/cattle/resolve': resolve,
+    '/api/farms/1/cattle/203/growth': () => { throw new BackendError(422, body) },
+  }).transport
+  const cmd = { measuredAt: '2026-11-09T07:30', method: 'SCALE' as const, weightKg: 300 }
+  await assert.rejects(
+    createGrowthBackend({ farmId: 1, transport: failWith({ code: 'MSG-COM-15', params: { date: '2026-08-01' }, message: 'The time cannot be earlier than the herd entry date (2026-08-01).' }), clock }).record('BC-000203', cmd),
+    (error: unknown) => error instanceof GrowthValidationError && error.fields.measuredAt === 'Thời điểm không được trước ngày nhập đàn (01/08/2026).')
+  await assert.rejects(
+    createGrowthBackend({ farmId: 1, transport: failWith({ code: 'MSG-COM-07', params: {}, message: 'The time cannot be in the future.' }), clock }).record('BC-000203', cmd),
+    (error: unknown) => error instanceof GrowthValidationError && error.fields.measuredAt === 'Thời điểm đo không được ở tương lai.')
+})
