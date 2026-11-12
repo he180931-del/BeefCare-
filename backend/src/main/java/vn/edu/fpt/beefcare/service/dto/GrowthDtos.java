@@ -36,7 +36,9 @@ public final class GrowthDtos {
      * A2. {@code targetKg} / {@code missingKg} / {@code adg60} / {@code finishingDays} (GAP-FE08-02, GBR-107): finishing target
      * of a FATTENING animal from the farm parameter TARGET_FINISHING_WEIGHT_KG, kg still missing from the latest VALID weight,
      * the 60-day ADG used and the days from that weight to the projected date; null when the projection does not apply.
+     * Schema name GrowthSummary: the plain name Summary is taken by the farm summary of FE-02 in the OpenAPI contract.
      */
+    @io.swagger.v3.oas.annotations.media.Schema(name = "GrowthSummary")
     public record Summary(Record currentWeight,BigDecimal latestBcs,BigDecimal adg,Integer windowDays,
         LocalDate nextWeighing,LocalDate projectedFinishingDate,String finishingStatus,int measurements,List<Record> records,
         BigDecimal targetKg,BigDecimal missingKg,BigDecimal adg60,Integer finishingDays) {}
