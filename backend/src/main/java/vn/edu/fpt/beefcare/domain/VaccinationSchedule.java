@@ -61,6 +61,10 @@ public class VaccinationSchedule implements Serializable {
     private String scheduleName;
     @Column(name = "booster_interval_months")
     private Integer boosterIntervalMonths;
+    /** R-09-06 / SCR-32 #11: reason given when the Manager stopped the schedule (≤ 500, Q1). */
+    @Size(max = 500)
+    @Column(name = "stop_reason", length = 500)
+    private String stopReason;
     @Version
     @Column(name = "version", nullable = false)
     private Integer version = 0;
@@ -166,6 +170,8 @@ public class VaccinationSchedule implements Serializable {
     public void setScheduleName(String scheduleName) { this.scheduleName = scheduleName; }
     public Integer getBoosterIntervalMonths() { return boosterIntervalMonths; }
     public void setBoosterIntervalMonths(Integer boosterIntervalMonths) { this.boosterIntervalMonths = boosterIntervalMonths; }
+    public String getStopReason() { return stopReason; }
+    public void setStopReason(String stopReason) { this.stopReason = stopReason; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
 

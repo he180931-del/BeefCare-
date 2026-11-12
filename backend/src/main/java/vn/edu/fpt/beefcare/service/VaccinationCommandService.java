@@ -52,7 +52,7 @@ public class VaccinationCommandService {
                     .setParameter("id", s.getId()).getResultList().stream().map(d -> new CareDtos.ScheduledDoseView(d.getId(),d.getCattle().getId(),d.getCattle().getDisplayCode(),
                         d.getDoseNo(),d.getDueDate(),d.getNewExpectedDate(),d.getStatus(),d.getDeferralReason(),d.getVersion())).toList();
                 return new CareDtos.VaccinationScheduleView(s.getId(),s.getScheduleName(),s.getTargetGroup(),s.getVaccine().getId(),s.getVaccine().getName(),
-                    s.getFirstDueDate(),s.getDoseCount(),s.getIntervalDays(),s.getBoosterIntervalMonths(),s.getStatus(),s.getVersion(),doses);
+                    s.getFirstDueDate(),s.getDoseCount(),s.getIntervalDays(),s.getBoosterIntervalMonths(),s.getStatus(),s.getVersion(),doses,s.getStopReason());
             }).toList();
     }
 
@@ -80,17 +80,20 @@ public class VaccinationCommandService {
         return new CareDtos.VaccinationScheduleResult(s.getId(),s.getScheduleName(),s.getStatus(),s.getVersion(),targets.intValue(),remaining.intValue());
     }
 
-    public CareDtos.VaccinationScheduleResult stopSchedule(Long farmId,Long scheduleId,String key,Integer expectedVersion){
-        return idempotency.execute(farmId,FarmAction.MANAGE_HEALTH,"VACCINATION_SCHEDULE_STOP",key,Map.of("scheduleId",scheduleId,"expectedVersion",expectedVersion),
-            CareDtos.VaccinationScheduleResult.class,()->stopScheduleInCommand(farmId,scheduleId,expectedVersion));
+    public CareDtos.VaccinationScheduleResult stopSchedule(Long farmId,Long scheduleId,String key,Integer expectedVersion,String reason){
+        Map<String,Object> fingerprint=new java.util.HashMap<>();fingerprint.put("scheduleId",scheduleId);fingerprint.put("expectedVersion",expectedVersion);fingerprint.put("reason",reason);
+        return idempotency.execute(farmId,FarmAction.MANAGE_HEALTH,"VACCINATION_SCHEDULE_STOP",key,fingerprint,
+            CareDtos.VaccinationScheduleResult.class,()->stopScheduleInCommand(farmId,scheduleId,expectedVersion,reason));
     }
     @Transactional
-    CareDtos.VaccinationScheduleResult stopScheduleInCommand(Long farmId,Long scheduleId,Integer expectedVersion){
+    CareDtos.VaccinationScheduleResult stopScheduleInCommand(Long farmId,Long scheduleId,Integer expectedVersion,String reason){
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_HEALTH);
         VaccinationSchedule s=em.createQuery("select s from VaccinationSchedule s where s.id=:id and s.farm.id=:farm",VaccinationSchedule.class).setParameter("id",scheduleId).setParameter("farm",farmId).getResultStream().findFirst().orElseThrow(()->DomainException.notFound(MessageCodes.COM_08,"scheduleId",scheduleId));
         VersionGuard.requireExpected(s.getVersion(),expectedVersion);if("STOPPED".equalsIgnoreCase(s.getStatus()))return new CareDtos.VaccinationScheduleResult(s.getId(),s.getScheduleName(),s.getStatus(),s.getVersion(),0,0);
-        s.setStatus("STOPPED");List<ScheduledDose> ds=em.createQuery("select d from ScheduledDose d where d.schedule.id=:id and d.status in ('PLANNED','DEFERRED')",ScheduledDose.class).setParameter("id",scheduleId).getResultList();for(ScheduledDose d:ds)d.setStatus("CANCELLED");em.flush();
-        Long targets=em.createQuery("select count(distinct d.cattle.id) from ScheduledDose d where d.schedule.id=:id",Long.class).setParameter("id",scheduleId).getSingleResult();audit.log(ctx,"VACCINATION_SCHEDULE_STOP","VaccinationSchedule",scheduleId,Map.of("cancelledDoses",ds.size()));
+        // R-09-06 / SCR-32 #11: a stop always records its reason (≤ 500, Q1).
+        String why=trim(reason);if(why==null)throw DomainException.required("reason");if(why.length()>500)throw DomainException.invalid("reason");
+        s.setStatus("STOPPED");s.setStopReason(why);List<ScheduledDose> ds=em.createQuery("select d from ScheduledDose d where d.schedule.id=:id and d.status in ('PLANNED','DEFERRED')",ScheduledDose.class).setParameter("id",scheduleId).getResultList();for(ScheduledDose d:ds)d.setStatus("CANCELLED");em.flush();
+        Long targets=em.createQuery("select count(distinct d.cattle.id) from ScheduledDose d where d.schedule.id=:id",Long.class).setParameter("id",scheduleId).getSingleResult();audit.log(ctx,"VACCINATION_SCHEDULE_STOP","VaccinationSchedule",scheduleId,Map.of("cancelledDoses",ds.size(),"reason",why));
         return new CareDtos.VaccinationScheduleResult(s.getId(),s.getScheduleName(),s.getStatus(),s.getVersion(),targets.intValue(),0);
     }
 

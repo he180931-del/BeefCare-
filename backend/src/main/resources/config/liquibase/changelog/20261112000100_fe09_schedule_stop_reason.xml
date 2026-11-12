@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261112000100-fe09-schedule-stop-reason" author="beefcare">
+        <!-- GAP-FE09-02 / R-09-06: the reason the Manager gave when stopping a vaccination schedule (≤ 500, FE-09 Q1).
+             Schedules stopped before this change keep a null reason. -->
+        <addColumn tableName="vaccination_schedule">
+            <column name="stop_reason" type="varchar(500)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

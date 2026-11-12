@@ -116,7 +116,7 @@ export function mapSchedule(raw: unknown): ScheduleView {
       id, name: textValue(s.name), vaccineId: num(s.vaccineId) ?? 0, firstDueDate: textValue(s.firstDueDate), doseCount,
       intervalDays: doseCount > 1 ? num(s.intervalDays) : undefined, boosterIntervalMonths: num(s.boosterIntervalMonths),
       status: textValue(s.status).toUpperCase() === 'STOPPED' ? 'STOPPED' : 'ACTIVE', version: num(s.version) ?? 0,
-      target: { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: codes },
+      target: { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: codes }, stopReason: text(s.stopReason),
     },
   }
 }
@@ -431,7 +431,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       const errors = validateReason(cmd.reason)
       if (hasErrors(errors)) throw new VaccinationValidationError(errors)
       return run(async () => {
-        // A5: phiên bản đi qua If-Match. Backend chưa lưu lý do dừng (GAP-FE09-02) nhưng lý do vẫn được gửi kèm.
+        // A5: phiên bản đi qua If-Match, lý do trong body (R-09-06); backend lưu lý do vào lịch (stopReason).
         const result = asRecord(await transport.command(path(`/vaccination-schedules/${id}/stop`), { reason: cmd.reason.trim() }, { headers: { 'If-Match': String(cmd.expectedVersion) } }))
         const name = textValue(result.name)
         const schedule: Schedule = {

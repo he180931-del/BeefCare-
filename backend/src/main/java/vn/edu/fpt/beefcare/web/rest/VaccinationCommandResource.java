@@ -56,8 +56,9 @@ public class VaccinationCommandResource {
     @org.springframework.web.bind.annotation.PostMapping("/vaccination-schedules/{scheduleId}/stop")
     public CareDtos.VaccinationScheduleResult stopSchedule(@PathVariable Long farmId,@PathVariable Long scheduleId,
                                                             @RequestHeader("Idempotency-Key") String key,
-                                                            @RequestHeader("If-Match") Integer expectedVersion) {
-        return commands.stopSchedule(farmId,scheduleId,key,expectedVersion);
+                                                            @RequestHeader("If-Match") Integer expectedVersion,
+                                                            @RequestBody(required = false) CareDtos.StopVaccinationSchedule request) {
+        return commands.stopSchedule(farmId,scheduleId,key,expectedVersion,request==null?null:request.reason());
     }
 
     @PostMapping("/scheduled-doses/{doseId}/defer")

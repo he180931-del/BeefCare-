@@ -41,7 +41,9 @@ public final class CareDtos {
                                     LocalDate newExpectedDate, String status, String deferralReason, Integer version) {}
     public record VaccinationScheduleView(Long id, String name, String targetGroup, Long vaccineId, String vaccineName,
                                           LocalDate firstDueDate, Integer doseCount, Integer intervalDays, Integer boosterIntervalMonths,
-                                          String status, Integer version, List<ScheduledDoseView> doses) {}
+                                          String status, Integer version, List<ScheduledDoseView> doses, String stopReason) {}
+    /** A5: stopping a schedule needs a reason (R-09-06, ≤ 500 characters, Q1). */
+    public record StopVaccinationSchedule(String reason) {}
     public record DeferDose(Integer expectedVersion, String reason, LocalDate newExpectedDate, String note) {}
     public record DoseResult(Long id, String status, Integer version, String reason, LocalDate newExpectedDate) {}
     public record VaccinationAnimal(Long cattleId, Long scheduledDoseId, Integer expectedDoseVersion, String decision,

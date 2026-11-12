@@ -341,3 +341,10 @@ test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do; chư
 test('TC-09-API05: giờ trại của Instant qua nửa đêm UTC', () => {
   assert.equal(toFarmTime('2026-11-04T18:30:00Z'), '2026-11-05T01:30')
 })
+
+test('GAP-FE09-02: lịch đã dừng hiện lý do dừng do backend lưu (stopReason)', async () => {
+  const stopped = schedules.map((s) => (s.status === 'STOPPED' ? { ...s, stopReason: 'Đổi sang vắc-xin khác' } : s))
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': stopped })
+  assert.equal((await a.getSchedule(8)).schedule.stopReason, 'Đổi sang vắc-xin khác')
+  assert.equal((await a.getSchedule(7)).schedule.stopReason, undefined)
+})
