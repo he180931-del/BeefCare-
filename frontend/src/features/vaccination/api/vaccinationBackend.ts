@@ -93,7 +93,11 @@ const doseStatus = (value: unknown): DoseStatus => {
 }
 
 interface ScheduleView { schedule: Schedule; vaccineName: string; doses: ScheduledDose[] }
-/** Backend chỉ lưu mô tả đối tượng (targetGroup), không lưu điều kiện: đối tượng dựng lại là danh sách bò có mũi. */
+const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [])
+/**
+ * Đối tượng lịch: backend lưu điều kiện (target, GAP-FE09-01) kèm mã chuồng / mã bò. Lịch lưu trước khi có target
+ * thì dựng lại là danh sách bò còn mũi.
+ */
 export function mapSchedule(raw: unknown): ScheduleView {
   const s = asRecord(raw)
   const doseCount = num(s.doseCount) ?? 1
@@ -109,6 +113,10 @@ export function mapSchedule(raw: unknown): ScheduleView {
     }
   })
   const codes = [...new Set(doses.filter((d) => d.status !== 'CANCELLED').map((d) => d.cattleCode))]
+  const stored = s.target === null || s.target === undefined ? undefined : asRecord(s.target)
+  const target: ScheduleTarget = stored
+    ? { penCodes: strings(stored.penCodes), herdGroups: strings(stored.herdGroups) as HerdGroup[], lifeStages: strings(stored.lifeStages) as LifeStage[], excluded: strings(stored.excludedCattleCodes), added: strings(stored.cattleCodes) }
+    : { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: codes }
   return {
     vaccineName: textValue(s.vaccineName),
     doses,
@@ -116,7 +124,7 @@ export function mapSchedule(raw: unknown): ScheduleView {
       id, name: textValue(s.name), vaccineId: num(s.vaccineId) ?? 0, firstDueDate: textValue(s.firstDueDate), doseCount,
       intervalDays: doseCount > 1 ? num(s.intervalDays) : undefined, boosterIntervalMonths: num(s.boosterIntervalMonths),
       status: textValue(s.status).toUpperCase() === 'STOPPED' ? 'STOPPED' : 'ACTIVE', version: num(s.version) ?? 0,
-      target: { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: codes }, stopReason: text(s.stopReason),
+      target, stopReason: text(s.stopReason),
     },
   }
 }
@@ -226,6 +234,24 @@ const query = (params: Record<string, string | number | undefined>) => {
   for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value))
   const s = search.toString()
   return s ? `?${s}` : ''
+}
+
+/**
+ * Đối tượng gửi lên backend (A3 / A4). Có chuồng / nhóm / giai đoạn: gửi điều kiện + bò thêm / bỏ từng con.
+ * Không có điều kiện nào: màn hình xem trước là cả đàn còn nuôi, nên gửi đúng danh sách bò đã chốt (cattleIds),
+ * vì backend chỉ lấy bò được chọn khi không có điều kiện.
+ */
+function targetBody(target: ScheduleTarget, herd: CattleRef[], pensList: Array<{ id: number; code: string }>) {
+  const idOf = (code: string) => herd.find((c) => c.code === code)?.id
+  const ids = (codes: string[]) => codes.map(idOf).filter((id): id is number => id !== undefined)
+  const hasSelector = target.penCodes.length > 0 || target.herdGroups.length > 0 || target.lifeStages.length > 0
+  return {
+    cattleIds: hasSelector ? ids(target.added) : resolveTarget(herd, target).map((c) => (c as CattleRef).id),
+    penIds: target.penCodes.map((code) => pensList.find((p) => p.code === code)?.id).filter((id): id is number => id !== undefined),
+    herdGroups: target.herdGroups,
+    lifeStages: target.lifeStages,
+    excludedCattleIds: hasSelector ? ids(target.excluded) : [],
+  }
 }
 
 const sameList = (a: string[], b: string[]) => a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i])
@@ -388,19 +414,15 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         if (cmd.firstDueDate && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày bắt đầu không được trước hôm nay.'
         if (!hasErrors(errors) && resolveTarget(herd, cmd.target).length === 0) errors.form = 'Không có bò đang nuôi nào khớp với nhóm đã chọn.'
         if (hasErrors(errors)) throw new VaccinationValidationError(errors)
-        const idOf = (code: string) => herd.find((c) => c.code === code)?.id
         const body = {
           name: cmd.name.trim(), vaccineId: cmd.vaccineId, firstDueDate: cmd.firstDueDate, doseCount: cmd.doseCount,
           // Backend bắt buộc intervalDays kể cả lịch 1 mũi; khi đó giá trị không dùng tới.
           intervalDays: cmd.doseCount! > 1 ? cmd.intervalDays : cmd.intervalDays ?? 1,
           boosterIntervalMonths: cmd.boosterIntervalMonths ?? null,
-          cattleIds: cmd.target.added.map(idOf).filter((id): id is number => id !== undefined),
-          penIds: cmd.target.penCodes.map((code) => pensList.find((p) => p.code === code)?.id).filter((id): id is number => id !== undefined),
-          herdGroups: cmd.target.herdGroups,
-          lifeStages: cmd.target.lifeStages,
-          excludedCattleIds: cmd.target.excluded.map(idOf).filter((id): id is number => id !== undefined),
+          ...targetBody(cmd.target, herd, pensList),
         }
         const result = asRecord(await transport.command(path('/vaccination-schedules'), body))
+        // MSG-FE09-07: backend xác nhận lại đối tượng; số bò lấy theo kết quả lưu.
         const targetCount = num(result.targetCount) ?? 0
         const planned = num(result.plannedDoseCount) ?? 0
         const schedule: Schedule = {
@@ -427,10 +449,11 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         if (changed.start && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày bắt đầu không được trước hôm nay.'
         // FE-09 Q3 (D13): đổi vắc-xin khi đã có mũi DONE thì dừng lịch và tạo lịch mới.
         if (changed.vaccine && view.doses.some((d) => d.status === 'DONE')) errors.vaccineId = 'Lịch đã có mũi được tiêm: hãy dừng lịch này và tạo lịch mới để đổi vắc-xin.'
-        // Backend chưa cho sửa số mũi, đối tượng hay bỏ nhắc lại của lịch đang chạy (GAP-FE09-01).
-        if (cmd.doseCount !== s.doseCount) errors.doseCount = 'Chưa đổi được số mũi của lịch đang chạy. Hãy dừng lịch và tạo lịch mới.'
-        if (!sameTarget(cmd.target, s.target)) errors.form = 'Chưa đổi được đối tượng của lịch đang chạy. Hãy dừng lịch và tạo lịch mới.'
-        if (changed.booster && cmd.boosterIntervalMonths === undefined) errors.boosterIntervalMonths = 'Chưa bỏ được nhắc lại của lịch đang chạy.'
+        // GAP-FE09-01 / R-09-05: đổi số mũi, đối tượng hoặc bỏ nhắc lại chỉ ảnh hưởng mũi chưa tiêm.
+        const doseCountChanged = cmd.doseCount !== s.doseCount
+        const targetChanged = !sameTarget(cmd.target, s.target)
+        const [herd, pensList] = targetChanged ? await Promise.all([cattle(), pens()]) : [[], []]
+        if (targetChanged && !hasErrors(errors) && resolveTarget(herd, cmd.target).length === 0) errors.form = 'Không có bò đang nuôi nào khớp với nhóm đã chọn.'
         if (hasErrors(errors)) throw new VaccinationValidationError(errors)
         const body = {
           expectedVersion: s.version,
@@ -439,13 +462,18 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
           firstDueDate: changed.start ? cmd.firstDueDate : null,
           intervalDays: changed.interval ? cmd.intervalDays ?? null : null,
           boosterIntervalMonths: changed.booster ? cmd.boosterIntervalMonths ?? null : null,
+          doseCount: doseCountChanged ? cmd.doseCount ?? null : null,
+          removeBooster: changed.booster && cmd.boosterIntervalMonths === undefined ? true : null,
+          target: targetChanged ? targetBody(cmd.target, herd, pensList) : null,
         }
         const result = asRecord(await transport.command(path(`/vaccination-schedules/${id}`), body, { method: 'PUT' }))
         const targetCount = num(result.targetCount) ?? targetCountOf(view)
         const planned = num(result.plannedDoseCount) ?? 0
+        const doseCount = cmd.doseCount ?? s.doseCount
         const schedule: Schedule = {
-          ...s, name: textValue(result.name, cmd.name.trim()), vaccineId: cmd.vaccineId ?? s.vaccineId, firstDueDate: cmd.firstDueDate,
-          intervalDays: s.doseCount > 1 ? cmd.intervalDays : undefined, boosterIntervalMonths: cmd.boosterIntervalMonths, version: num(result.version) ?? s.version + 1,
+          ...s, name: textValue(result.name, cmd.name.trim()), vaccineId: cmd.vaccineId ?? s.vaccineId, firstDueDate: cmd.firstDueDate, doseCount,
+          intervalDays: doseCount > 1 ? cmd.intervalDays : undefined, boosterIntervalMonths: cmd.boosterIntervalMonths, version: num(result.version) ?? s.version + 1,
+          target: structuredClone(cmd.target),
         }
         return { schedule, targetCount, plannedDoseCount: planned, message: `Đã lưu lịch ${schedule.name}: còn ${planned} mũi dự kiến cho ${targetCount} bò.` }
       })

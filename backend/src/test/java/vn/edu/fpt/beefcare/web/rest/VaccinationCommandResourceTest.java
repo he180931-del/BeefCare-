@@ -154,4 +154,35 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$[0].revisions[0].before.batchNo").value("LOT-1"))
             .andExpect(jsonPath("$[0].revisions[0].after.batchNo").value("LOT-2"));
     }
+
+    // ------------------------------------------------------------ GAP-FE09-01
+
+    @Test
+    void editTakesTheNewTargetAndDoseCountAndTheViewReturnsTheStoredTarget() throws Exception {
+        CareDtos.VaccinationScheduleResult created = schedule(1);
+        Integer version = versionOf(VaccinationSchedule.class, created.id());
+        Cattle kept = herd.get(0);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(url("/vaccination-schedules/" + created.id())).with(as(manager.getEmail()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"expectedVersion\":" + version + ",\"doseCount\":2,\"target\":{\"cattleIds\":[" + kept.getId() + "]}}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.targetCount").value(1))
+            .andExpect(jsonPath("$.plannedDoseCount").value(2));
+        mvc.perform(get(url("/vaccination-schedules")).with(as(owner.getEmail())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].doseCount").value(2))
+            .andExpect(jsonPath("$[0].target.cattleIds[0]").value(kept.getId()))
+            .andExpect(jsonPath("$[0].target.cattleCodes[0]").value(kept.getDisplayCode()));
+    }
+
+    @Test
+    void editWithAnEmptyTargetIs400TargetCattle() throws Exception {
+        CareDtos.VaccinationScheduleResult created = schedule(1);
+        Integer version = versionOf(VaccinationSchedule.class, created.id());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(url("/vaccination-schedules/" + created.id())).with(as(manager.getEmail()))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"expectedVersion\":" + version + ",\"target\":{\"cattleIds\":[]}}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MSG-COM-10"))
+            .andExpect(jsonPath("$.params.field").value("targetCattle"));
+    }
 }

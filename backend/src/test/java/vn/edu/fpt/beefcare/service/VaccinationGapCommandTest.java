@@ -211,4 +211,149 @@ class VaccinationGapCommandTest extends DomainTestSupport {
         assertThat(correction.after()).containsEntry("withdrawalDays", 30);
         assertThat(rows.stream().filter(r -> r.id().equals(other)).findFirst().orElseThrow().revisions()).isEmpty();
     }
+
+    // ------------------------------------------------------------ GAP-FE09-01 (R-09-05, TC-09-08, TC-09-09)
+
+    void giveDose(Long scheduleId, int doseNo, List<Cattle> cattle) {
+        List<CareDtos.VaccinationAnimal> animals = doses(scheduleId).stream()
+            .filter(d -> d.getDoseNo() == doseNo && cattle.stream().anyMatch(c -> c.getId().equals(d.getCattle().getId())) && !"CANCELLED".equals(d.getStatus()))
+            .map(d -> new CareDtos.VaccinationAnimal(d.getCattle().getId(), d.getId(), d.getVersion(), "VACCINATE", null, null)).toList();
+        vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null, hoursAgo(1), "LOT-1", "2 ml", "SC", 21, "Manager", animals));
+        reload();
+    }
+
+    CareDtos.VaccinationScheduleResult edit(Long scheduleId, CareDtos.EditVaccinationSchedule request) {
+        CareDtos.VaccinationScheduleResult result = vaccination.editSchedule(farm.getId(), scheduleId, key(), request);
+        reload();
+        return result;
+    }
+
+    CareDtos.EditVaccinationSchedule change(Long scheduleId, Integer interval, Integer doseCount, Boolean removeBooster, CareDtos.ScheduleTarget target) {
+        return new CareDtos.EditVaccinationSchedule(versionOf(VaccinationSchedule.class, scheduleId), null, null, null, interval, null, doseCount, removeBooster, target);
+    }
+
+    static CareDtos.ScheduleTarget cattleOnly(List<Cattle> cattle) {
+        return new CareDtos.ScheduleTarget(List.of(), List.of(), List.of(), cattle.stream().map(Cattle::getId).toList(), List.of());
+    }
+
+    List<ScheduledDose> dosesOf(Long scheduleId, Cattle cow) {
+        return doses(scheduleId).stream().filter(d -> d.getCattle().getId().equals(cow.getId())).toList();
+    }
+
+    @Test
+    void tc0908_changingTheIntervalMovesOnlyTheDosesNotYetGiven() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 2, herd);
+        giveDose(created.id(), 1, herd);
+
+        edit(created.id(), change(created.id(), 28, null, null, null));
+
+        assertThat(doses(created.id())).filteredOn(d -> d.getDoseNo() == 1).extracting(ScheduledDose::getStatus, ScheduledDose::getDueDate)
+            .containsOnly(org.assertj.core.groups.Tuple.tuple("DONE", TODAY));
+        assertThat(doses(created.id())).filteredOn(d -> d.getDoseNo() == 2).extracting(ScheduledDose::getStatus, ScheduledDose::getDueDate)
+            .containsOnly(org.assertj.core.groups.Tuple.tuple("PLANNED", TODAY.plusDays(28)));
+    }
+
+    @Test
+    void tc0909_removingAnAnimalCancelsItsOpenDoseAndKeepsTheGivenOne() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 2, herd);
+        giveDose(created.id(), 1, herd);
+        Cattle removed = herd.get(3);
+
+        CareDtos.VaccinationScheduleResult result = edit(created.id(), change(created.id(), null, null, null, cattleOnly(herd.subList(0, 3))));
+
+        assertThat(result.targetCount()).isEqualTo(3);
+        assertThat(result.plannedDoseCount()).isEqualTo(3);
+        assertThat(dosesOf(created.id(), removed)).extracting(ScheduledDose::getDoseNo, ScheduledDose::getStatus)
+            .containsExactly(org.assertj.core.groups.Tuple.tuple(1, "DONE"), org.assertj.core.groups.Tuple.tuple(2, "CANCELLED"));
+        assertThat(em.find(VaccinationSchedule.class, created.id()).getTargetCriteria()).contains("\"cattleIds\"");
+    }
+
+    @Test
+    void addingAnAnimalGivesItPlannedDosesAndReAddingItReopensOnlyTheMissingNumbers() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 2, herd.subList(0, 3));
+        Cattle added = herd.get(3);
+
+        CareDtos.VaccinationScheduleResult result = edit(created.id(), change(created.id(), null, null, null, cattleOnly(herd)));
+        assertThat(result.targetCount()).isEqualTo(4);
+        assertThat(dosesOf(created.id(), added)).extracting(ScheduledDose::getDoseNo, ScheduledDose::getStatus, ScheduledDose::getDueDate)
+            .containsExactly(org.assertj.core.groups.Tuple.tuple(1, "PLANNED", TODAY), org.assertj.core.groups.Tuple.tuple(2, "PLANNED", TODAY.plusDays(21)));
+
+        giveDose(created.id(), 1, List.of(added));
+        edit(created.id(), change(created.id(), null, null, null, cattleOnly(herd.subList(0, 3))));
+        edit(created.id(), change(created.id(), null, null, null, cattleOnly(herd)));
+        assertThat(dosesOf(created.id(), added)).filteredOn(d -> !"CANCELLED".equals(d.getStatus()))
+            .extracting(ScheduledDose::getDoseNo, ScheduledDose::getStatus)
+            .containsExactly(org.assertj.core.groups.Tuple.tuple(1, "DONE"), org.assertj.core.groups.Tuple.tuple(2, "PLANNED"));
+    }
+
+    @Test
+    void changingTheDoseCountAddsOrCancelsDosesButNeverBelowAGivenDose() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 2, herd);
+
+        CareDtos.VaccinationScheduleResult three = edit(created.id(), change(created.id(), null, 3, null, null));
+        assertThat(three.plannedDoseCount()).isEqualTo(12);
+        assertThat(doses(created.id())).filteredOn(d -> d.getDoseNo() == 3).extracting(ScheduledDose::getStatus, ScheduledDose::getDueDate)
+            .containsOnly(org.assertj.core.groups.Tuple.tuple("PLANNED", TODAY.plusDays(42)));
+
+        giveDose(created.id(), 1, herd);
+        giveDose(created.id(), 2, herd.subList(0, 1));
+        assertThatThrownBy(() -> vaccination.editSchedule(farm.getId(), created.id(), key(), change(created.id(), null, 1, null, null)))
+            .isInstanceOfSatisfying(DomainException.class, e -> {
+                assertThat(e.getCode()).isEqualTo(MessageCodes.COM_05);
+                assertThat(e.getParams()).containsEntry("reason", "dose_count_below_done");
+            });
+
+        edit(created.id(), change(created.id(), null, 2, null, null));
+        assertThat(doses(created.id())).filteredOn(d -> d.getDoseNo() == 3).extracting(ScheduledDose::getStatus).containsOnly("CANCELLED");
+        assertThat(em.find(VaccinationSchedule.class, created.id()).getDoseCount()).isEqualTo(2);
+    }
+
+    @Test
+    void removingTheBoosterCancelsItsOpenDosesAndAStartedBoosterBlocksADoseCountChange() {
+        CareDtos.VaccinationScheduleResult created = vaccination.createSchedule(farm.getId(), key(), new CareDtos.CreateVaccinationSchedule("THT 2026", vaccine.id(), TODAY, 1, 1, 6,
+            List.of(herd.get(0).getId())));
+        giveDose(created.id(), 1, herd.subList(0, 1));
+        assertThat(dosesOf(created.id(), herd.get(0))).extracting(ScheduledDose::getDoseNo, ScheduledDose::getStatus)
+            .containsExactly(org.assertj.core.groups.Tuple.tuple(1, "DONE"), org.assertj.core.groups.Tuple.tuple(2, "PLANNED"));
+
+        assertThatThrownBy(() -> vaccination.editSchedule(farm.getId(), created.id(), key(), change(created.id(), null, 2, null, null)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("reason", "booster_started"));
+
+        edit(created.id(), change(created.id(), null, null, true, null));
+        assertThat(em.find(VaccinationSchedule.class, created.id()).getBoosterIntervalMonths()).isNull();
+        assertThat(dosesOf(created.id(), herd.get(0))).extracting(ScheduledDose::getStatus).containsExactly("DONE", "CANCELLED");
+    }
+
+    @Test
+    void q3_theVaccineCannotChangeOnceADoseWasGivenAndAnotherActiveNameIsRejected() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 2, herd);
+        schedule("THT 2026", 1, herd);
+        CareDtos.CatalogueItem other = catalogue.saveVaccine(farm.getId(), null, key(),
+            new CareDtos.VaccineCommand(null, "THT" + next(), "THT", "Tụ huyết trùng", null, "2 ml", "IM", 0, null, true));
+        giveDose(created.id(), 1, herd.subList(0, 1));
+        Integer version = versionOf(VaccinationSchedule.class, created.id());
+
+        assertThatThrownBy(() -> vaccination.editSchedule(farm.getId(), created.id(), key(),
+            new CareDtos.EditVaccinationSchedule(version, null, other.id(), null, null, null)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("reason", "vaccine_change_after_done"));
+        assertThatThrownBy(() -> vaccination.editSchedule(farm.getId(), created.id(), key(),
+            new CareDtos.EditVaccinationSchedule(version, "tht 2026", null, null, null, null)))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("reason", "active_schedule_name_exists"));
+    }
+
+    @Test
+    void theStoredTargetIsReturnedWithCodesForTheEditScreen() {
+        Cattle left = herd.get(2);
+        CareDtos.VaccinationScheduleResult created = vaccination.createSchedule(farm.getId(), key(), new CareDtos.CreateVaccinationSchedule("LMLM 2026", vaccine.id(), TODAY, 1, 1, null,
+            List.of(), List.of(), List.of("FATTENING"), List.of(), List.of(left.getId())));
+        assertThat(created.targetCount()).isEqualTo(3);
+        reload();
+
+        CareDtos.ScheduleTargetView target = vaccination.schedules(farm.getId()).get(0).target();
+        assertThat(target.herdGroups()).containsExactly("FATTENING");
+        assertThat(target.excludedCattleIds()).containsExactly(left.getId());
+        assertThat(target.excludedCattleCodes()).containsExactly(left.getDisplayCode());
+        assertThat(target.cattleIds()).isEmpty();
+        assertThat(target.penCodes()).isEmpty();
+    }
 }

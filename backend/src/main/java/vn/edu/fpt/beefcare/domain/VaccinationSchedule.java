@@ -65,6 +65,10 @@ public class VaccinationSchedule implements Serializable {
     @Size(max = 500)
     @Column(name = "stop_reason", length = 500)
     private String stopReason;
+    /** GAP-FE09-01 / GBR-41: the target chosen on SCR-32 (pens, herd groups, life stages, added and removed cattle) as JSON. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.LONGVARCHAR)
+    @Column(name = "target_criteria")
+    private String targetCriteria;
     @Version
     @Column(name = "version", nullable = false)
     private Integer version = 0;
@@ -170,6 +174,8 @@ public class VaccinationSchedule implements Serializable {
     public void setScheduleName(String scheduleName) { this.scheduleName = scheduleName; }
     public Integer getBoosterIntervalMonths() { return boosterIntervalMonths; }
     public void setBoosterIntervalMonths(Integer boosterIntervalMonths) { this.boosterIntervalMonths = boosterIntervalMonths; }
+    public String getTargetCriteria() { return targetCriteria; }
+    public void setTargetCriteria(String targetCriteria) { this.targetCriteria = targetCriteria; }
     public String getStopReason() { return stopReason; }
     public void setStopReason(String stopReason) { this.stopReason = stopReason; }
     public Integer getVersion() { return version; }

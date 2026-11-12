@@ -35,13 +35,30 @@ public final class CareDtos {
         }
     }
     public record VaccinationScheduleResult(Long id, String name, String status, Integer version, int targetCount, int plannedDoseCount) {}
+    /** A3 / A4 target chosen on SCR-32: pens, herd groups and life stages (AND), plus cattle added / removed one by one (GBR-41). */
+    public record ScheduleTarget(List<Long> penIds, List<String> herdGroups, List<String> lifeStages, List<Long> cattleIds, List<Long> excludedCattleIds) {}
+    /**
+     * A4. Null fields keep the current value. {@code doseCount}: 1-10, only doses not yet given change (R-09-05);
+     * {@code removeBooster}: true drops the booster and cancels its open doses; {@code target}: the new target, resolved
+     * like A3 - added cattle get PLANNED doses, removed cattle lose their open doses, DONE doses never change (TC-09-09).
+     */
     public record EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
-                                          Integer intervalDays, Integer boosterIntervalMonths) {}
+                                          Integer intervalDays, Integer boosterIntervalMonths, Integer doseCount, Boolean removeBooster,
+                                          ScheduleTarget target) {
+        public EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
+                                       Integer intervalDays, Integer boosterIntervalMonths) {
+            this(expectedVersion, name, vaccineId, firstDueDate, intervalDays, boosterIntervalMonths, null, null, null);
+        }
+    }
+    /** The stored target with display codes, so SCR-32 shows the same selection when the schedule is edited (GAP-FE09-01). */
+    public record ScheduleTargetView(List<Long> penIds, List<String> penCodes, List<String> herdGroups, List<String> lifeStages,
+                                     List<Long> cattleIds, List<String> cattleCodes, List<Long> excludedCattleIds, List<String> excludedCattleCodes) {}
     public record ScheduledDoseView(Long id, Long cattleId, String cattleCode, Integer doseNo, LocalDate dueDate,
                                     LocalDate newExpectedDate, String status, String deferralReason, Integer version) {}
     public record VaccinationScheduleView(Long id, String name, String targetGroup, Long vaccineId, String vaccineName,
                                           LocalDate firstDueDate, Integer doseCount, Integer intervalDays, Integer boosterIntervalMonths,
-                                          String status, Integer version, List<ScheduledDoseView> doses, String stopReason) {}
+                                          String status, Integer version, List<ScheduledDoseView> doses, String stopReason,
+                                          ScheduleTargetView target) {}
     /** A5: stopping a schedule needs a reason (R-09-06, ≤ 500 characters, Q1). */
     public record StopVaccinationSchedule(String reason) {}
     public record DeferDose(Integer expectedVersion, String reason, LocalDate newExpectedDate, String note) {}
