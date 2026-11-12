@@ -544,6 +544,6 @@ public class VaccinationCommandService {
         LocalDate entry=em.createQuery("select e.entryDate from HerdEntry e where e.cattle.id=:cattle and e.voucher.farm.id=:farm and e.status=:valid order by e.id",LocalDate.class)
             .setParameter("cattle",cattle.getId()).setParameter("farm",farmId).setParameter("valid",vn.edu.fpt.beefcare.domain.enumeration.EntryLineStatus.VALID)
             .setMaxResults(1).getResultStream().findFirst().orElse(null);
-        if(entry!=null&&date.isBefore(entry))throw DomainException.unprocessable(MessageCodes.COM_15,"entryDate",entry);
+        if(entry!=null&&date.isBefore(entry))throw DomainException.unprocessable(MessageCodes.COM_15,"date",entry); // {date} of the MSG-COM-15 text
     }
 }

@@ -471,7 +471,7 @@ class VaccinationGapCommandTest extends DomainTestSupport {
             List.of(new CareDtos.VaccinationAnimal(cow.getId(), null, null, "VACCINATE", null, null)))))
             .isInstanceOfSatisfying(DomainException.class, e -> {
                 assertThat(e.getCode()).isEqualTo(MessageCodes.COM_15);
-                assertThat(e.getParams()).containsEntry("entryDate", TODAY.minusDays(3));
+                assertThat(e.getParams()).containsEntry("date", TODAY.minusDays(3));
             });
         assertThat(vaccinations()).isZero();
         assertThat(recordOnFarm(cow, 21)).isNotNull();
