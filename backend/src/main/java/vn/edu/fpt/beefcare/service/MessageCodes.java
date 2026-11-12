@@ -23,6 +23,8 @@ public final class MessageCodes {
     public static final String COM_15 = "MSG-COM-15";
     public static final String COM_16 = "MSG-COM-16";
     public static final String COM_17 = "MSG-COM-17";
+    /** FE-09 R-09-10: the animal already received this dose of the schedule and is skipped in a batch. */
+    public static final String FE09_09 = "MSG-FE09-09";
     public static final String COM_18 = "MSG-COM-18";
     public static final String COM_19 = "MSG-COM-19";
 

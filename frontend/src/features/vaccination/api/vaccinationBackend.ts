@@ -185,6 +185,16 @@ export function mapRecord(raw: unknown): HistoryRow {
   }
 }
 
+/** Một con bị bỏ qua khi ghi cả lô; câu thông báo giống chế độ local (kho demo). */
+export function mapSkipped(raw: unknown): { cattleCode: string; message: string } {
+  const s = asRecord(raw)
+  const code = textValue(s.cattleCode)
+  const messageCode = textValue(s.messageCode).replace(/^MSG-/, '')
+  if (messageCode === 'FE09-09') return { cattleCode: code, message: `${code} đã tiêm mũi ${num(s.doseNo) ?? ''} của lịch này nên được bỏ qua.` }
+  if (messageCode === 'COM-13') return { cattleCode: code, message: `${code} đã rời đàn nên được bỏ qua.` }
+  return { cattleCode: code, message: `${code} được bỏ qua.` }
+}
+
 // Mã lỗi COM-06 / COM-10 trả về {field}; tên trường backend → ô trên màn hình.
 const FIELD_ALIASES: Record<string, string> = {
   vaccinationDate: 'administeredAt', firstDueDate: 'firstDueDate', targetCattle: 'form', animals: 'form', scheduledDoseId: 'form',
@@ -559,8 +569,8 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         const deferredCount = num(result.deferredCount) ?? 0
         return {
           vaccinatedCount, deferredCount, vaccinationIds: (Array.isArray(result.vaccinationIds) ? result.vaccinationIds : []).map((v) => num(v) ?? 0),
-          // Backend xử lý cả lô trong một giao dịch: lỗi một con là lỗi cả lô, không có danh sách bỏ qua.
-          skipped: [],
+          // R-09-10 / TC-09-17: bò đã tiêm mũi đó (MSG-FE09-09) hoặc đã rời đàn (MSG-COM-13) được bỏ qua, các con khác vẫn ghi.
+          skipped: asRows(result.skipped).map(mapSkipped),
           message: `Đã ghi nhận ${vaccinatedCount} mũi tiêm; hoãn ${deferredCount} mũi.`,
         }
       })

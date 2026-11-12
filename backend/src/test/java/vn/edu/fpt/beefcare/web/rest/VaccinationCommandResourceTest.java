@@ -185,4 +185,27 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.code").value("MSG-COM-10"))
             .andExpect(jsonPath("$.params.field").value("targetCattle"));
     }
+
+    // ------------------------------------------------------------ TC-09-17
+
+    @Test
+    void aBatchWithOnlySkippedAnimalsAnswers200WithTheSkippedList() throws Exception {
+        CareDtos.VaccinationScheduleResult created = schedule(1);
+        var dose = em.createQuery("select d from vn.edu.fpt.beefcare.domain.ScheduledDose d where d.schedule.id=:id and d.cattle.id=:cattle", vn.edu.fpt.beefcare.domain.ScheduledDose.class)
+            .setParameter("id", created.id()).setParameter("cattle", herd.get(0).getId()).getSingleResult();
+        String body = "{\"vaccineId\":" + vaccine.id() + ",\"source\":\"ON_FARM\",\"administeredAt\":\"" + clock.instant().minusSeconds(3600) + "\",\"batchNo\":\"L1\","
+            + "\"dose\":\"2 ml\",\"route\":\"SC\",\"withdrawalDays\":21,\"vaccinator\":\"Manager\",\"animals\":[{\"cattleId\":" + herd.get(0).getId()
+            + ",\"scheduledDoseId\":" + dose.getId() + ",\"expectedDoseVersion\":" + dose.getVersion() + ",\"decision\":\"VACCINATE\"}]}";
+        mvc.perform(post(url("/vaccinations")).with(as(manager.getEmail())).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.vaccinatedCount").value(1))
+            .andExpect(jsonPath("$.skipped").isEmpty());
+        em.flush();
+        mvc.perform(post(url("/vaccinations")).with(as(manager.getEmail())).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.vaccinatedCount").value(0))
+            .andExpect(jsonPath("$.skipped[0].cattleCode").value(herd.get(0).getDisplayCode()))
+            .andExpect(jsonPath("$.skipped[0].messageCode").value("MSG-FE09-09"))
+            .andExpect(jsonPath("$.skipped[0].doseNo").value(1));
+    }
 }

@@ -356,4 +356,99 @@ class VaccinationGapCommandTest extends DomainTestSupport {
         assertThat(target.cattleIds()).isEmpty();
         assertThat(target.penCodes()).isEmpty();
     }
+
+    // ------------------------------------------------------------ TC-09-17 (R-09-09, R-09-10)
+
+    List<CareDtos.VaccinationAnimal> batchOf(List<ScheduledDose> doses) {
+        return doses.stream().map(d -> new CareDtos.VaccinationAnimal(d.getCattle().getId(), d.getId(), d.getVersion(), "VACCINATE", null, null)).toList();
+    }
+
+    CareDtos.RecordVaccinations onFarm(String batchNo, List<CareDtos.VaccinationAnimal> animals) {
+        return new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null, hoursAgo(1), batchNo, "2 ml", "SC", 21, "Manager", animals);
+    }
+
+    void exit(Cattle cow) {
+        Cattle managed = em.find(Cattle.class, cow.getId());
+        managed.setHerdStatus(vn.edu.fpt.beefcare.domain.enumeration.HerdStatus.EXITED);
+        managed.setExitDate(TODAY);
+        reload();
+    }
+
+    long vaccinations() {
+        return em.createQuery("select count(v) from Vaccination v where v.cattle.farm.id=:farm", Long.class).setParameter("farm", farm.getId()).getSingleResult();
+    }
+
+    @Test
+    void tc0917_anAnimalWhoseDoseWasGivenMeanwhileIsSkippedAndTheOthersAreRecorded() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd);
+        List<ScheduledDose> loaded = doses(created.id());
+        // Another Manager records the first animal while this batch is open (its dose version is now stale too).
+        giveDose(created.id(), 1, herd.subList(0, 1));
+
+        CareDtos.VaccinationBatchResult result = vaccination.record(farm.getId(), key(), onFarm("LOT-2", batchOf(loaded)));
+        reload();
+
+        assertThat(result.vaccinatedCount()).isEqualTo(3);
+        assertThat(result.skipped()).containsExactly(new CareDtos.SkippedAnimal(herd.get(0).getId(), herd.get(0).getDisplayCode(), "MSG-FE09-09", 1));
+        assertThat(doses(created.id())).extracting(ScheduledDose::getStatus).containsOnly("DONE");
+        assertThat(vaccinations()).isEqualTo(4);
+    }
+
+    @Test
+    void anAnimalThatLeftTheHerdMeanwhileIsSkippedWithCom13() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd);
+        List<ScheduledDose> loaded = doses(created.id());
+        Cattle gone = herd.get(3);
+        exit(gone);
+
+        CareDtos.VaccinationBatchResult result = vaccination.record(farm.getId(), key(), onFarm("LOT-2", batchOf(loaded)));
+        reload();
+
+        assertThat(result.vaccinatedCount()).isEqualTo(3);
+        assertThat(result.skipped()).extracting(CareDtos.SkippedAnimal::cattleCode, CareDtos.SkippedAnimal::messageCode)
+            .containsExactly(org.assertj.core.groups.Tuple.tuple(gone.getDisplayCode(), MessageCodes.COM_13));
+        assertThat(dosesOf(created.id(), gone)).extracting(ScheduledDose::getStatus).containsExactly("PLANNED");
+    }
+
+    @Test
+    void aBatchWhereEveryAnimalIsSkippedSavesNothingAndReportsEachOne() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd.subList(0, 2));
+        List<ScheduledDose> loaded = doses(created.id());
+        giveDose(created.id(), 1, herd.subList(0, 1));
+        exit(herd.get(1));
+        long before = vaccinations();
+
+        CareDtos.VaccinationBatchResult result = vaccination.record(farm.getId(), key(), onFarm("LOT-2", batchOf(loaded)));
+
+        assertThat(result.vaccinatedCount()).isZero();
+        assertThat(result.deferredCount()).isZero();
+        assertThat(result.skipped()).extracting(CareDtos.SkippedAnimal::messageCode).containsExactlyInAnyOrder(MessageCodes.FE09_09, MessageCodes.COM_13);
+        reload();
+        assertThat(vaccinations()).isEqualTo(before);
+    }
+
+    @Test
+    void r0909_aValidationErrorStillRejectsTheWholeBatch() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd);
+        List<ScheduledDose> loaded = doses(created.id());
+        giveDose(created.id(), 1, herd.subList(0, 1));
+        long before = vaccinations();
+
+        assertThatThrownBy(() -> vaccination.record(farm.getId(), key(), onFarm(" ", batchOf(loaded))))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("field", "batchNo"));
+        reload();
+        assertThat(vaccinations()).isEqualTo(before);
+        assertThat(doses(created.id())).extracting(ScheduledDose::getStatus).containsOnly("DONE", "PLANNED");
+    }
+
+    @Test
+    void aBatchWithOnlyDeferralsIsSavedAndAudited() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd.subList(0, 1));
+        ScheduledDose dose = doses(created.id()).get(0);
+        CareDtos.VaccinationBatchResult result = vaccination.record(farm.getId(), key(), onFarm("LOT-2",
+            List.of(new CareDtos.VaccinationAnimal(dose.getCattle().getId(), dose.getId(), dose.getVersion(), "DEFER", "Bò sốt", null))));
+        reload();
+        assertThat(result.deferredCount()).isEqualTo(1);
+        assertThat(em.find(ScheduledDose.class, dose.getId()).getStatus()).isEqualTo("DEFERRED");
+    }
 }

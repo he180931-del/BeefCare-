@@ -406,15 +406,25 @@ public class VaccinationCommandService {
         List<Long> ids = animals.stream().map(CareDtos.VaccinationAnimal::cattleId).distinct().sorted().toList();
         if (ids.size() != animals.size() || ids.stream().anyMatch(java.util.Objects::isNull)) throw DomainException.invalid("animals");
         var cattleById = new java.util.LinkedHashMap<Long, Cattle>();
-        for (Long id : ids) cattleById.put(id, cattleGuard.lockWritable(farmId, id));
+        List<CareDtos.SkippedAnimal> skipped = new ArrayList<>();
+        java.util.Set<Long> skippedIds = new java.util.HashSet<>();
+        for (Long id : ids) {
+            Cattle cattle = cattleGuard.lockCattle(farmId, id);
+            // R-09-10 / TC-09-17: an animal that left the herd meanwhile is skipped (MSG-COM-13); the batch goes on.
+            if (cattle.getHerdStatus() == HerdStatus.EXITED) { skipped.add(new CareDtos.SkippedAnimal(id, cattle.getDisplayCode(), MessageCodes.COM_13, null)); skippedIds.add(id); continue; }
+            cattleGuard.assertWritable(cattle);
+            cattleById.put(id, cattle);
+        }
         int vaccinated = 0; int deferred = 0; List<Long> vaccinationIds = new ArrayList<>();
         for (CareDtos.VaccinationAnimal item : animals) {
+            if (skippedIds.contains(item.cattleId())) continue;
             Cattle cattle = cattleById.get(item.cattleId());
             String decision = upper(item.decision());
             if (decision.equals("DEFER")) {
                 if (item.scheduledDoseId() == null) throw DomainException.required("scheduledDoseId");
                 ScheduledDose scheduled = doseForFarm(farmId, item.scheduledDoseId());
                 if (!scheduled.getCattle().getId().equals(cattle.getId())) throw DomainException.invalid("scheduledDoseId");
+                if (alreadyGiven(scheduled, cattle, skipped)) continue;
                 VersionGuard.requireExpected(scheduled.getVersion(), item.expectedDoseVersion());
                 if (!java.util.Set.of("PLANNED", "DEFERRED").contains(upper(scheduled.getStatus()))) throw DomainException.conflict(MessageCodes.COM_05);
                 if (item.deferralReason() == null || item.deferralReason().isBlank()) throw DomainException.required("deferralReason");
@@ -427,6 +437,7 @@ public class VaccinationCommandService {
             ScheduledDose scheduled = item.scheduledDoseId() == null || source.equals("HISTORICAL") ? null : doseForFarm(farmId, item.scheduledDoseId());
             if (scheduled != null) {
                 if (!scheduled.getCattle().getId().equals(cattle.getId()) || !scheduled.getSchedule().getVaccine().getId().equals(vaccine.getId())) throw DomainException.invalid("scheduledDoseId");
+                if (alreadyGiven(scheduled, cattle, skipped)) continue;
                 VersionGuard.requireExpected(scheduled.getVersion(), item.expectedDoseVersion());
                 if (!java.util.Set.of("PLANNED", "DEFERRED").contains(upper(scheduled.getStatus()))) throw DomainException.conflict(MessageCodes.COM_05);
             }
@@ -441,9 +452,17 @@ public class VaccinationCommandService {
             if (scheduled != null) planBooster(scheduled, date);
             vaccinationIds.add(record.getId()); vaccinated++;
         }
-        audit.log(ctx, "VACCINATION_RECORD_BATCH", "Vaccination", vaccinationIds.isEmpty() ? null : vaccinationIds.get(0),
-            Map.of("vaccinatedCount", vaccinated, "deferredCount", deferred, "source", source));
-        return new CareDtos.VaccinationBatchResult(vaccinated, deferred, List.copyOf(vaccinationIds));
+        // A batch with only deferrals or skipped animals creates no vaccination: the audit row then points at the first animal.
+        audit.log(ctx, "VACCINATION_RECORD_BATCH", vaccinationIds.isEmpty() ? "Cattle" : "Vaccination", vaccinationIds.isEmpty() ? ids.get(0) : vaccinationIds.get(0),
+            Map.of("vaccinatedCount", vaccinated, "deferredCount", deferred, "source", source, "skippedCount", skipped.size()));
+        return new CareDtos.VaccinationBatchResult(vaccinated, deferred, List.copyOf(vaccinationIds), List.copyOf(skipped));
+    }
+
+    /** R-09-10 / TC-09-17: a dose already given (by another batch meanwhile) skips this animal with MSG-FE09-09. */
+    private boolean alreadyGiven(ScheduledDose scheduled, Cattle cattle, List<CareDtos.SkippedAnimal> skipped) {
+        if (!"DONE".equalsIgnoreCase(scheduled.getStatus())) return false;
+        skipped.add(new CareDtos.SkippedAnimal(cattle.getId(), cattle.getDisplayCode(), MessageCodes.FE09_09, scheduled.getDoseNo()));
+        return true;
     }
 
     @Transactional

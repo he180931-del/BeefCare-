@@ -296,6 +296,26 @@ test('TC-09-13/14: tiêm tại trại bắt buộc số lô; nhập lịch sử 
   assert.equal((body.animals as Array<Record<string, unknown>>)[0].scheduledDoseId, null)
 })
 
+test('TC-09-17: bò đã tiêm mũi đó hoặc đã rời đàn được bỏ qua, các con khác vẫn ghi', async () => {
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': {
+    vaccinatedCount: 1, deferredCount: 0, vaccinationIds: [600],
+    skipped: [
+      { cattleId: 101, cattleCode: 'BC-101', messageCode: 'MSG-FE09-09', doseNo: 1 },
+      { cattleId: 103, cattleCode: 'BC-103', messageCode: 'MSG-COM-13', doseNo: null },
+    ],
+  } })
+  const result = await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [
+    { cattleCode: 'BC-101', scheduledDoseId: 1, expectedDoseVersion: 0, decision: 'VACCINATE' },
+    { cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' },
+    { cattleCode: 'BC-103', scheduledDoseId: 5, expectedDoseVersion: 0, decision: 'VACCINATE' },
+  ] })
+  assert.equal(result.vaccinatedCount, 1)
+  assert.deepEqual(result.skipped, [
+    { cattleCode: 'BC-101', message: 'BC-101 đã tiêm mũi 1 của lịch này nên được bỏ qua.' },
+    { cattleCode: 'BC-103', message: 'BC-103 đã rời đàn nên được bỏ qua.' },
+  ])
+})
+
 test('TC-09-16/17: lỗi một con là lỗi cả lô; mũi đã đổi trả CONFLICT', async () => {
   const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': () => { throw new BackendError(409, { code: 'COM-05' }) } })
   await assert.rejects(a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' }] }),

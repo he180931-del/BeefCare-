@@ -68,11 +68,12 @@ public class VaccinationCommandResource {
         return commands.deferDose(farmId, doseId, key, request);
     }
 
+    /** 201 when at least one animal was recorded or deferred; 200 when every animal was skipped (R-09-10). */
     @PostMapping("/vaccinations")
-    @ResponseStatus(HttpStatus.CREATED)
-    public CareDtos.VaccinationBatchResult record(@PathVariable Long farmId,
+    public org.springframework.http.ResponseEntity<CareDtos.VaccinationBatchResult> record(@PathVariable Long farmId,
                                                    @RequestHeader("Idempotency-Key") String key,
                                                    @Valid @RequestBody CareDtos.RecordVaccinations request) {
-        return commands.record(farmId, key, request);
+        CareDtos.VaccinationBatchResult result = commands.record(farmId, key, request);
+        return org.springframework.http.ResponseEntity.status(result.vaccinatedCount() + result.deferredCount() == 0 ? HttpStatus.OK : HttpStatus.CREATED).body(result);
     }
 }

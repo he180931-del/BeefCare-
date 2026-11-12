@@ -67,7 +67,17 @@ public final class CareDtos {
                                     String deferralReason, LocalDate newExpectedDate) {}
     public record RecordVaccinations(Long vaccineId, String source, LocalDate vaccinationDate, Instant administeredAt, String batchNo, String dose,
                                      String route, Integer withdrawalDays, String vaccinator, List<VaccinationAnimal> animals) {}
-    public record VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds) {}
+    /**
+     * A6. {@code skipped} (R-09-10, TC-09-17): animals left out of the batch - the dose was already given (MSG-FE09-09) or
+     * the animal left the herd meanwhile (MSG-COM-13); the other animals are still recorded.
+     */
+    public record VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds, List<SkippedAnimal> skipped) {
+        public VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds) {
+            this(vaccinatedCount, deferredCount, vaccinationIds, List.of());
+        }
+    }
+    /** One animal skipped in a batch: its code, the message code and, for MSG-FE09-09, the dose number. */
+    public record SkippedAnimal(Long cattleId, String cattleCode, String messageCode, Integer doseNo) {}
     /**
      * A10. {@code withdrawalDays}: new withdrawal period (0-365) of an ON_FARM record; null keeps the current one
      * (GAP-FE09-04, TC-09-27). A HISTORICAL record has no withdrawal (R-09-08).
