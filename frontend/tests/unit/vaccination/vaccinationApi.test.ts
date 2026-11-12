@@ -182,10 +182,12 @@ describe('chế độ backend', () => {
   it('không đọc hay ghi mock', async () => {
     const store = createVaccinationDemoStore()
     const spies = [vi.spyOn(store, 'listSchedules'), vi.spyOn(store, 'recordVaccinations'), vi.spyOn(store, 'listHistory')]
-    const api = createVaccinationApi({ mode: 'backend', farmId: 1, transport: { get: vi.fn(), command: vi.fn(), farmPath: vi.fn() } as never, store })
-    await expect(api.listSchedules()).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.recordVaccinations({ ...base, animals: [] })).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.listHistory({})).rejects.toThrow(/Chưa tích hợp/)
+    const transport = { get: vi.fn().mockRejectedValue(new Error('backend down')), command: vi.fn(), farmPath: (id: number, suffix = '') => `/api/farms/${id}${suffix}` }
+    const api = createVaccinationApi({ mode: 'backend', farmId: 1, transport: transport as never, store })
+    await expect(api.listSchedules()).rejects.toThrow(/backend down/)
+    await expect(api.recordVaccinations({ ...base, animals: [] })).rejects.toThrow(/Chưa chọn bò/)
+    await expect(api.listHistory({})).rejects.toThrow(/backend down/)
     spies.forEach((s) => expect(s).not.toHaveBeenCalled())
+    expect(transport.command).not.toHaveBeenCalled()
   })
 })
