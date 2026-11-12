@@ -1,23 +1,22 @@
 import { BackendError } from '../../../api/backendClient'
 import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
+import { DEFAULT_FARM_TIME_ZONE, createFarmTimeZone, fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
 import { GROWTH_FILTER_OPTIONS } from '../data/growthMock'
 import { fmtDate } from '../domain/growthFormat'
 import { buildProfile } from '../domain/growthSummary'
 import { GrowthLargeChangeError, GrowthValidationError, type GrowthFieldKey } from '../domain/growthRules'
 import type {
   CorrectGrowthCommand, GrowthBasis, GrowthCattle, GrowthFilterOptions, GrowthFilters, GrowthFormOptions, GrowthHerdPage,
-  GrowthHerdRow, GrowthHerdStatus, GrowthMethod, GrowthProfile, GrowthRecord, GrowthRecordStatus, GrowthWindow,
+  GrowthHerdRow, GrowthHerdStatus, GrowthMethod, GrowthProfile, GrowthProjection, GrowthRecord, GrowthRecordStatus, GrowthRevision, GrowthWindow,
   HerdGroup, LifeStage, RecordGrowthCommand,
 } from '../types'
 
 /**
  * Adapter FE-08 cho chế độ backend.
  * Route: GET /growth, GET /cattle/resolve, GET /cattle/{id}/growth, POST /cattle/{id}/growth, POST .../{recordId}/correction,
- * GET /pens, GET /members. Giờ trại cố định UTC+7 (Asia/Ho_Chi_Minh) vì trang trại đều ở Việt Nam.
+ * GET /pens, GET /members. Giờ trại theo timeZone của trại (GET /api/farms/{farmId}); thiếu thì UTC+7.
  */
 export const HERD_PAGE_SIZE = 7
-const FARM_OFFSET = '+07:00'
-const FARM_OFFSET_MS = 7 * 3600_000
 
 const num = (value: unknown): number | undefined => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -26,15 +25,11 @@ const num = (value: unknown): number | undefined => {
 }
 const text = (value: unknown): string | undefined => (typeof value === 'string' && value !== '' ? value : undefined)
 
-/** Instant ISO → 'yyyy-mm-ddTHH:mm' theo giờ trại. */
-export const toFarmTime = (instant: unknown): string => {
-  const ms = Date.parse(textValue(instant))
-  if (Number.isNaN(ms)) return ''
-  return new Date(ms + FARM_OFFSET_MS).toISOString().slice(0, 16)
-}
-/** 'yyyy-mm-ddTHH:mm' giờ trại → Instant có offset để backend đọc đúng. */
-export const toInstant = (farmTime: string): string => (farmTime.length === 16 ? `${farmTime}:00${FARM_OFFSET}` : farmTime)
-const farmNow = (clock: () => Date) => toFarmTime(clock().toISOString())
+/** Instant ISO → 'yyyy-mm-ddTHH:mm' theo giờ trại (mặc định UTC+7). */
+export const toFarmTime = (instant: unknown, timeZone: string = DEFAULT_FARM_TIME_ZONE): string => toFarmLocal(textValue(instant), timeZone)
+/** 'yyyy-mm-ddTHH:mm' giờ trại → Instant có offset của trại để backend đọc đúng. */
+export const toInstant = (farmTime: string, timeZone: string = DEFAULT_FARM_TIME_ZONE): string => fromFarmLocal(farmTime, timeZone)
+const farmNow = (clock: () => Date, timeZone: string) => toFarmTime(clock().toISOString(), timeZone)
 
 // Backend dùng OTHER cho "ước lượng" và cho bản ghi chỉ có BCS.
 const toMethod = (method: unknown, weightKg: number | undefined): GrowthMethod | undefined => {
@@ -45,14 +40,28 @@ const fromMethod = (method?: GrowthMethod) => (method === 'ESTIMATE' ? 'OTHER' :
 const toBasis = (value: unknown): GrowthBasis | undefined => (value === 'MEASURED' || value === 'ESTIMATED' ? value : undefined)
 const toStatus = (value: unknown): GrowthRecordStatus => (value === 'EXCLUDED' || value === 'VOIDED' ? value : 'VALID')
 
-export function mapRecord(raw: unknown, cattleCode: string): GrowthRecord {
+/** Revision của bản ghi cân (GAP-FE08-01): giá trị trước khi sửa / loại trừ, người, thời điểm, lý do (BR-D15). */
+export function mapRevision(raw: unknown, timeZone: string = DEFAULT_FARM_TIME_ZONE): GrowthRevision {
+  const r = asRecord(raw)
+  const b = asRecord(r.before)
+  const weightKg = num(b.weightKg)
+  return {
+    at: toFarmTime(r.changedAt, timeZone),
+    by: textValue(r.changedBy),
+    action: textValue(r.action).toUpperCase() === 'EXCLUDE' ? 'EXCLUDE' : 'CORRECT',
+    reason: textValue(r.reason),
+    before: { measuredAt: toFarmTime(b.measuredAt, timeZone), method: toMethod(b.method, weightKg), weightKg, bcs: num(b.bcs) },
+  }
+}
+
+export function mapRecord(raw: unknown, cattleCode: string, timeZone: string = DEFAULT_FARM_TIME_ZONE): GrowthRecord {
   const r = asRecord(raw)
   const weightKg = num(r.weightKg)
   return {
     id: num(r.id) ?? 0,
     cattleCode,
-    measuredAt: toFarmTime(r.measuredAt),
-    recordedAt: toFarmTime(r.recordedAt),
+    measuredAt: toFarmTime(r.measuredAt, timeZone),
+    recordedAt: toFarmTime(r.recordedAt, timeZone),
     measuredBy: num(r.measuredBy) ?? 0,
     measuredByName: textValue(r.measuredByName),
     method: toMethod(r.method, weightKg),
@@ -65,9 +74,26 @@ export function mapRecord(raw: unknown, cattleCode: string): GrowthRecord {
     status: toStatus(r.status),
     corrected: r.corrected === true || r.status === 'CORRECTED',
     version: num(r.version) ?? 0,
-    // Backend chưa trả lịch sử sửa (GAP-FE08-01).
-    revisions: [],
+    revisions: asRows(r.revisions).map((x) => mapRevision(x, timeZone)),
   }
+}
+
+// GBR-107: finishingStatus của backend → trạng thái dự kiến xuất chuồng trên SCR-30 #4.
+const PROJECTION_STATE: Record<string, GrowthProjection['state']> = { PROJECTED: 'PROJECTED', TARGET_REACHED: 'REACHED', INSUFFICIENT_WEIGHTS: 'INSUFFICIENT' }
+/** Dự kiến xuất chuồng (GAP-FE08-02): chỉ bò FATTENING khi trại có cân mục tiêu. */
+export function mapProjection(raw: unknown): GrowthProjection | undefined {
+  const body = asRecord(raw)
+  const targetKg = num(body.targetKg)
+  const state = PROJECTION_STATE[textValue(body.finishingStatus)]
+  if (targetKg === undefined || state === undefined) return undefined
+  const projection: GrowthProjection = { state, targetKg, missingKg: num(body.missingKg) ?? targetKg }
+  const adg60 = num(body.adg60)
+  const days = num(body.finishingDays)
+  const projectedDate = text(body.projectedFinishingDate)
+  if (adg60 !== undefined) projection.adg60 = adg60
+  if (days !== undefined) projection.days = days
+  if (projectedDate !== undefined) projection.projectedDate = projectedDate
+  return projection
 }
 
 export function mapCattle(raw: unknown): GrowthCattle {
@@ -83,7 +109,7 @@ export function mapCattle(raw: unknown): GrowthCattle {
     herdGroup: (text(p.herdGroup) ?? 'OTHER') as HerdGroup,
     lifeStage: textValue(p.lifeStage) as LifeStage,
     herdEntryDate: textValue(asRecord(p.entry).entryDate),
-    // Backend chưa trả cân mục tiêu (GAP-FE08-02).
+    // Cân mục tiêu lấy từ /cattle/{id}/growth (targetKg) khi mở hồ sơ tăng trưởng.
     targetWeightKg: undefined,
     status: p.herdStatus === 'ACTIVE' || p.herdStatus === undefined ? 'ACTIVE' : 'EXITED',
   }
@@ -162,6 +188,7 @@ const query = (params: Record<string, string | number | undefined>) => {
 
 export function createGrowthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
+  const zone = createFarmTimeZone(transport, farmId)
   const resolved = new Map<string, { cattleId: number; cattle: GrowthCattle }>()
   const records = new Map<number, GrowthRecord>()
 
@@ -194,8 +221,8 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
     }
   }
 
-  const measurement = (cmd: RecordGrowthCommand) => ({
-    measuredAt: toInstant(cmd.measuredAt),
+  const measurement = (cmd: RecordGrowthCommand, timeZone: string) => ({
+    measuredAt: toInstant(cmd.measuredAt, timeZone),
     measuredBy: cmd.measuredBy ?? null,
     method: fromMethod(cmd.method) ?? null,
     // Không gửi basis: backend suy ra từ method (GBR-37).
@@ -224,8 +251,8 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
         total,
         page: (num(body.page) ?? page - 1) + 1,
         size: num(body.size) ?? size,
-        // Backend chỉ trả tổng sau lọc; dùng làm số bò đang theo dõi (GAP-FE08-03).
-        activeCount: total,
+        // GAP-FE08-03: số bò ACTIVE của cả trại, không phụ thuộc bộ lọc.
+        activeCount: num(body.activeCount) ?? total,
         windowDays: (num(body.windowDays) ?? filters.windowDays ?? 90) as GrowthWindow,
         tiles: {
           overdue: num(summary.WEIGHING_OVERDUE) ?? 0,
@@ -245,11 +272,12 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
     },
 
     async getProfile(code: string): Promise<GrowthProfile> {
-      const { cattleId, cattle } = await resolve(code)
+      const [{ cattleId, cattle }, timeZone] = await Promise.all([resolve(code), zone()])
       const body = asRecord(await transport.get(path(`/cattle/${cattleId}/growth?windowDays=90`)))
-      const list = asRows(body.records).map((r) => mapRecord(r, code))
+      const list = asRows(body.records).map((r) => mapRecord(r, code, timeZone))
       list.forEach((r) => records.set(r.id, r))
-      const profile = buildProfile(cattle, list, farmNow(clock))
+      const projection = mapProjection(body)
+      const profile = buildProfile({ ...cattle, targetWeightKg: projection?.targetKg }, list, farmNow(clock, timeZone))
       // Số liệu tổng hợp lấy theo backend; phần còn lại (biểu đồ, ADG từng dòng) tính lại từ records.
       return {
         ...profile,
@@ -257,26 +285,27 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
         latestBcs: num(body.latestBcs),
         nextWeighingDate: text(body.nextWeighing),
         count: num(body.measurements) ?? profile.count,
-        projection: undefined,
+        // GAP-FE08-02 / GBR-107: dự kiến xuất chuồng theo backend (tham số trại, ADG 60 ngày).
+        projection,
       }
     },
 
     async formOptions(code: string): Promise<GrowthFormOptions> {
-      const [{ cattle }, members] = await Promise.all([resolve(code), transport.get(path('/members'))])
+      const [{ cattle }, members, timeZone] = await Promise.all([resolve(code), transport.get(path('/members')), zone()])
       const list = Array.isArray(members) ? asRows(members) : asRows(asRecord(members).members ?? asRecord(members).items)
       return {
         cattle,
         members: list
           .filter((m) => m.status === undefined || m.status === 'ACTIVE')
           .map((m) => ({ id: num(m.userId) ?? num(m.id) ?? 0, name: textValue(m.fullName, textValue(m.email)) })),
-        now: farmNow(clock),
+        now: farmNow(clock, timeZone),
       }
     },
 
     async record(code: string, command: RecordGrowthCommand): Promise<GrowthRecord> {
       return run(async () => {
-        const { cattleId } = await resolve(code)
-        const saved = mapRecord(await transport.command(path(`/cattle/${cattleId}/growth`), measurement(command)), code)
+        const [{ cattleId }, timeZone] = await Promise.all([resolve(code), zone()])
+        const saved = mapRecord(await transport.command(path(`/cattle/${cattleId}/growth`), measurement(command, timeZone)), code, timeZone)
         records.set(saved.id, saved)
         return saved
       })
@@ -284,7 +313,7 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
 
     async correct(code: string, recordId: number, command: CorrectGrowthCommand): Promise<GrowthRecord> {
       return run(async () => {
-        const { cattleId } = await resolve(code)
+        const [{ cattleId }, timeZone] = await Promise.all([resolve(code), zone()])
         const before = records.get(recordId)
         // Correction.values là Measurement đầy đủ (measuredAt bắt buộc): ghép giá trị cũ với phần người dùng sửa.
         const values = command.action === 'CORRECT'
@@ -298,11 +327,11 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
             bcs: pick(command.values, 'bcs', before?.bcs),
             note: before?.note,
             acknowledgedLargeChange: true,
-          })
+          }, timeZone)
           : null
         const saved = mapRecord(await transport.command(path(`/cattle/${cattleId}/growth/${recordId}/correction`), {
           action: command.action, values, reason: command.reason, expectedVersion: command.expectedVersion,
-        }), code)
+        }), code, timeZone)
         records.set(saved.id, saved)
         return saved
       })

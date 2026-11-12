@@ -12,7 +12,8 @@ function fakeTransport(routes: Record<string, unknown | ((body: unknown) => unkn
   const calls: Call[] = []
   const answer = (path: string, body?: unknown) => {
     const bare = path.split('?')[0]
-    const hit = routes[path] ?? routes[bare]
+    // Trại hiện tại (múi giờ) mặc định Asia/Ho_Chi_Minh, trừ khi test khai báo route riêng.
+    const hit = routes[path] ?? routes[bare] ?? (bare === '/api/farms/1' ? { id: 1, timeZone: 'Asia/Ho_Chi_Minh' } : undefined)
     if (hit === undefined) throw new Error(`Unexpected request: ${path}`)
     return typeof hit === 'function' ? (hit as (b: unknown) => unknown)(body) : structuredClone(hit)
   }
@@ -47,6 +48,62 @@ test('TC-08-API01: giờ trại đổi qua lại Instant theo UTC+7', () => {
   assert.equal(toFarmTime('2026-10-01T20:30:00Z'), '2026-10-02T03:30')
   assert.equal(toInstant('2026-10-02T03:30'), '2026-10-02T03:30:00+07:00')
   assert.equal(Date.parse(toInstant(toFarmTime('2026-10-01T20:30:00Z'))), Date.parse('2026-10-01T20:30:00Z'))
+})
+
+test('Múi giờ trại: đọc timeZone của trại; trại ở UTC+9 đổi giờ theo +09:00, thiếu timeZone thì UTC+7', async () => {
+  assert.equal(toFarmTime('2026-10-01T01:00:00Z', 'Asia/Tokyo'), '2026-10-01T10:00')
+  assert.equal(toInstant('2026-10-01T10:00', 'Asia/Tokyo'), '2026-10-01T10:00:00+09:00')
+  const routes = {
+    '/api/farms/1': { id: 1, timeZone: 'Asia/Tokyo' },
+    '/api/farms/1/cattle/resolve': resolve,
+    '/api/farms/1/cattle/203/growth': (body: unknown) => (body ? record(9, '2026-11-09T00:30:00Z', 300) : summary),
+    '/api/farms/1/members': [],
+  }
+  const { transport, calls } = fakeTransport(routes)
+  const api = createGrowthBackend({ farmId: 1, transport, clock })
+  assert.equal((await api.formOptions('BC-000203')).now, '2026-11-09T12:00', 'giờ hiện tại theo UTC+9')
+  const saved = await api.record('BC-000203', { measuredAt: '2026-11-09T09:30', method: 'SCALE', weightKg: 300 })
+  assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).measuredAt, '2026-11-09T09:30:00+09:00')
+  assert.equal(saved.measuredAt, '2026-11-09T09:30')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1').length, 1, 'đọc múi giờ một lần')
+
+  const fallback = fakeTransport({ ...routes, '/api/farms/1': { id: 1, timeZone: null } })
+  assert.equal((await createGrowthBackend({ farmId: 1, transport: fallback.transport, clock }).formOptions('BC-000203')).now, '2026-11-09T10:00')
+  const invalid = fakeTransport({ ...routes, '/api/farms/1': { id: 1, timeZone: 'Mars/Olympus' } })
+  assert.equal((await createGrowthBackend({ farmId: 1, transport: invalid.transport, clock }).formOptions('BC-000203')).now, '2026-11-09T10:00')
+})
+
+test('GAP-FE08-01/02: hồ sơ hiện lịch sử sửa (revision giữ 340) và dự kiến xuất chuồng theo backend', async () => {
+  const corrected = record(1, '2026-08-01T01:00:00Z', 342, { corrected: true, version: 1, revisions: [
+    { id: 7, changedAt: '2026-11-05T02:00:00Z', changedBy: 'Lê Quản Lý', action: 'CORRECT', reason: 'Đọc nhầm số',
+      before: { measuredAt: '2026-08-01T01:00:00Z', method: 'SCALE', weightKg: 340, bcs: null }, after: { weightKg: 342 } },
+  ] })
+  const { transport } = fakeTransport({
+    '/api/farms/1/cattle/resolve': resolve,
+    '/api/farms/1/cattle/203/growth': { ...summary, records: [record(2, '2026-10-01T01:00:00Z', 420, { revisions: [] }), corrected],
+      projectedFinishingDate: '2026-11-06', finishingStatus: 'PROJECTED', targetKg: 450, missingKg: 30, adg60: 0.85, finishingDays: 36 },
+  })
+  const profile = await createGrowthBackend({ farmId: 1, transport, clock }).getProfile('BC-000203')
+  const row = profile.records.find((r) => r.id === 1)!
+  assert.deepEqual(row.revisions, [{ at: '2026-11-05T09:00', by: 'Lê Quản Lý', action: 'CORRECT', reason: 'Đọc nhầm số',
+    before: { measuredAt: '2026-08-01T08:00', method: 'SCALE', weightKg: 340, bcs: undefined } }])
+  assert.deepEqual(profile.projection, { state: 'PROJECTED', targetKg: 450, missingKg: 30, adg60: 0.85, days: 36, projectedDate: '2026-11-06' })
+  assert.equal(profile.cattle.targetWeightKg, 450)
+
+  const reached = fakeTransport({ '/api/farms/1/cattle/resolve': resolve,
+    '/api/farms/1/cattle/203/growth': { ...summary, finishingStatus: 'TARGET_REACHED', targetKg: 450, missingKg: 0 } })
+  assert.deepEqual((await createGrowthBackend({ farmId: 1, transport: reached.transport, clock }).getProfile('BC-000203')).projection, { state: 'REACHED', targetKg: 450, missingKg: 0 })
+  const none = fakeTransport({ '/api/farms/1/cattle/resolve': resolve, '/api/farms/1/cattle/203/growth': summary })
+  assert.equal((await createGrowthBackend({ farmId: 1, transport: none.transport, clock }).getProfile('BC-000203')).projection, undefined, 'không phải bò vỗ béo / trại không có cân mục tiêu')
+})
+
+test('GAP-FE08-03: số bò đang theo dõi là activeCount của cả trại, không phải tổng sau lọc', async () => {
+  const { transport } = fakeTransport({
+    '/api/farms/1/growth': { items: [], total: 0, page: 0, size: 7, windowDays: 90, summary: {}, activeCount: 25 },
+  })
+  const page = await createGrowthBackend({ farmId: 1, transport, clock }).listHerd({ q: 'không có' })
+  assert.equal(page.total, 0)
+  assert.equal(page.activeCount, 25)
 })
 
 test('TC-08-API03: danh sách đàn gửi bộ lọc, đổi trang 1-based ↔ 0-based và map cờ cảnh báo', async () => {
@@ -100,8 +157,9 @@ test('TC-08-API04: hồ sơ tăng trưởng tra mã bò rồi đọc /cattle/{id
   const api = createGrowthBackend({ farmId: 1, transport, clock })
   const p = await api.getProfile('BC-000203')
 
-  assert.equal(calls[0].path, '/api/farms/1/cattle/resolve?code=BC-000203')
-  assert.equal(calls[1].path, '/api/farms/1/cattle/203/growth?windowDays=90')
+  const paths = calls.map((c) => c.path).filter((path) => path !== '/api/farms/1')
+  assert.equal(paths[0], '/api/farms/1/cattle/resolve?code=BC-000203')
+  assert.equal(paths[1], '/api/farms/1/cattle/203/growth?windowDays=90')
   assert.equal(p.cattle.code, 'BC-000203')
   assert.equal(p.cattle.sex, 'Cái')
   assert.equal(p.cattle.herdEntryDate, '2026-06-01')
@@ -142,6 +200,7 @@ test('TC-08-06: ghi nhận gửi Measurement đúng DTO, không gửi basis, có
     const url = String(input)
     if (url.endsWith('/api/csrf')) return Response.json({ token: 'csrf-ok' })
     if (url.includes('/cattle/resolve')) return Response.json(resolve)
+    if (url.endsWith('/api/farms/1')) return Response.json({ id: 1, timeZone: 'Asia/Ho_Chi_Minh' })
     if (url.endsWith('/api/farms/1/cattle/203/growth') && init?.method === 'POST') {
       sent = JSON.parse(String(init.body))
       key = new Headers(init.headers).get('Idempotency-Key')
@@ -170,7 +229,7 @@ test('TC-08-API05: phương pháp "ước lượng" gửi lên backend là OTHER
     '/api/farms/1/cattle/203/growth': record(10, '2026-11-09T00:30:00Z', 400, { method: 'OTHER', basis: 'ESTIMATED' }),
   })
   const saved = await createGrowthBackend({ farmId: 1, transport, clock }).record('BC-000203', { measuredAt: '2026-11-09T07:30', method: 'ESTIMATE', weightKg: 400 })
-  assert.equal((calls[1].body as Record<string, unknown>).method, 'OTHER')
+  assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).method, 'OTHER')
   assert.equal(saved.method, 'ESTIMATE')
 })
 
