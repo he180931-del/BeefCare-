@@ -95,13 +95,30 @@ public class CareReadService {
         List<Vaccination> vaccinations=em.createQuery("select v from Vaccination v join fetch v.cattle c join fetch c.breed left join fetch v.vaccine where c.farm.id=:farm and v.vaccinationDate between :from and :to order by v.administeredAt desc,v.vaccinationDate desc,v.id desc",Vaccination.class)
             .setParameter("farm",farmId).setParameter("from",start).setParameter("to",end).getResultList();
         Map<Long,PenAssignment> pens=currentPens(farmId,today);String query=search==null?"":search.trim().toLowerCase(Locale.ROOT);
-        List<CareDtos.VaccinationHistoryRow> result=new ArrayList<>();
+        List<Vaccination> selected=new ArrayList<>();
         for(Vaccination v:vaccinations){Cattle c=v.getCattle();if(cattleId!=null&&!cattleId.equals(c.getId()))continue;if(vaccineId!=null&&!vaccineId.equals(v.getVaccine().getId()))continue;if(src!=null&&!src.equals(upper(v.getSource())))continue;
-            String name=v.getVaccineNameSnapshot()==null?v.getVaccine().getName():v.getVaccineNameSnapshot();if(!query.isEmpty()&&!contains(c.getDisplayCode(),query)&&!contains(c.getEarTagNumber(),query))continue;
+            if(!query.isEmpty()&&!contains(c.getDisplayCode(),query)&&!contains(c.getEarTagNumber(),query))continue;selected.add(v);}
+        Map<Long,List<CareDtos.VaccinationRevision>> revisions=vaccinationRevisions(farmId,selected.stream().map(Vaccination::getId).toList());
+        List<CareDtos.VaccinationHistoryRow> result=new ArrayList<>();
+        for(Vaccination v:selected){Cattle c=v.getCattle();
+            String name=v.getVaccineNameSnapshot()==null?v.getVaccine().getName():v.getVaccineNameSnapshot();
             PenAssignment pa=pens.get(c.getId());HealthObservation reaction=em.createQuery("select o from HealthObservation o where o.vaccination.id=:id and upper(o.status)='VALID' order by o.observedTime desc",HealthObservation.class).setParameter("id",v.getId()).setMaxResults(1).getResultStream().findFirst().orElse(null);
             HealthCase hc=reaction==null?null:reaction.getHealthCase();
-            result.add(new CareDtos.VaccinationHistoryRow(v.getId(),v.getAdministeredAt(),v.getVaccinationDate(),c.getId(),c.getDisplayCode(),pa==null?null:pa.getPen().getId(),pa==null?null:pa.getPen().getCode(),pa==null?null:pa.getPen().getName(),v.getVaccine().getId(),name,v.getDose(),v.getBatchNo(),v.getSource(),v.getVaccinator(),v.getWithdrawalEndDate(),hc==null?null:hc.getId(),hc==null?null:hc.getCaseCode(),v.getStatus(),v.getCorrected(),v.getVersion()));
+            result.add(new CareDtos.VaccinationHistoryRow(v.getId(),v.getAdministeredAt(),v.getVaccinationDate(),c.getId(),c.getDisplayCode(),pa==null?null:pa.getPen().getId(),pa==null?null:pa.getPen().getCode(),pa==null?null:pa.getPen().getName(),v.getVaccine().getId(),name,v.getDose(),v.getBatchNo(),v.getSource(),v.getVaccinator(),v.getWithdrawalEndDate(),hc==null?null:hc.getId(),hc==null?null:hc.getCaseCode(),v.getStatus(),v.getCorrected(),v.getVersion(),
+                v.getRoute(),"ON_FARM".equalsIgnoreCase(v.getSource())?v.getWithdrawalDays():null,revisions.getOrDefault(v.getId(),List.of())));
         }
+        return result;
+    }
+
+    /** GAP-FE09-03: revisions of the listed records in one query (no per-row lookup), oldest first. */
+    @SuppressWarnings("unchecked")
+    private Map<Long,List<CareDtos.VaccinationRevision>> vaccinationRevisions(Long farmId,List<Long> ids){
+        Map<Long,List<CareDtos.VaccinationRevision>> result=new HashMap<>();if(ids.isEmpty())return result;
+        em.createQuery("select r from RecordRevision r left join fetch r.actor where r.farm.id=:farm and r.sourceType='Vaccination' and r.sourceId in :ids order by r.changedAt,r.id",vn.edu.fpt.beefcare.domain.RecordRevision.class)
+            .setParameter("farm",farmId).setParameter("ids",ids).getResultList()
+            .forEach(r->result.computeIfAbsent(r.getSourceId(),k->new ArrayList<>()).add(new CareDtos.VaccinationRevision(r.getId(),r.getChangedAt(),
+                r.getActor()==null?null:r.getActor().getFullName(),r.getAction(),r.getReason(),
+                r.getBeforeSnapshot()==null?null:JsonSupport.fromJson(r.getBeforeSnapshot(),Map.class),r.getAfterSnapshot()==null?null:JsonSupport.fromJson(r.getAfterSnapshot(),Map.class))));
         return result;
     }
 

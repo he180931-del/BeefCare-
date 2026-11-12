@@ -10,7 +10,7 @@ import type {
   CattleVaccination, CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, DosePage, DoseRow, DoseStatus, DoseTab, HerdGroup,
   HistoryFilters, HistoryPage, HistoryRow, LifeStage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,
   ScheduleDetail, ScheduleResult, ScheduleTarget, ScheduledDose, VaccCattle, VaccinationBatchResult, VaccinationOptions,
-  VaccinationRecord, VaccineItem, VaccineRoute, VoidRecordCommand,
+  VaccinationRecord, VaccinationRevision, VaccineItem, VaccineRoute, VoidRecordCommand,
 } from '../types'
 
 /**
@@ -122,13 +122,38 @@ export function mapSchedule(raw: unknown): ScheduleView {
 }
 
 const SOURCES = ['ON_FARM', 'HISTORICAL'] as const
+/** Số ngày ngưng suy từ ngày hết ngưng khi backend không trả số ngày (bản ghi / revision cũ). */
+const daysBetween = (from: string, to: string | undefined) => (to && from ? Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) : 0)
+
+/** Revision của bản ghi tiêm (GAP-FE09-03): giá trị trước khi sửa / hủy, người, thời điểm, lý do (BR-D15). */
+export function mapRevision(raw: unknown): VaccinationRevision {
+  const r = asRecord(raw)
+  const b = asRecord(r.before)
+  const date = textValue(b.vaccinationDate)
+  return {
+    at: toFarmTime(r.changedAt),
+    by: textValue(r.changedBy),
+    action: textValue(r.action).toUpperCase() === 'VOID' ? 'VOID' : 'CORRECT',
+    reason: textValue(r.reason),
+    before: {
+      vaccineId: num(b.vaccineId) ?? 0,
+      administeredAt: text(b.administeredAt) ? toFarmTime(b.administeredAt) : date ? `${date}T00:00` : '',
+      batchNo: text(b.batchNo),
+      dose: text(b.dose),
+      route: toRoute(b.route),
+      withdrawalDays: num(b.withdrawalDays) ?? daysBetween(date, text(b.withdrawalEndDate)),
+      vaccinator: text(b.vaccinator),
+    },
+  }
+}
+
 export function mapRecord(raw: unknown): HistoryRow {
   const r = asRecord(raw)
   const date = textValue(r.vaccinationDate)
   const administeredAt = text(r.administeredAt) ? toFarmTime(r.administeredAt) : `${date}T00:00`
   const withdrawalEndDate = text(r.withdrawalEndDate)
   const source = (SOURCES as readonly string[]).includes(textValue(r.source).toUpperCase()) ? textValue(r.source).toUpperCase() as 'ON_FARM' | 'HISTORICAL' : 'ON_FARM'
-  const days = withdrawalEndDate && date ? Math.round((Date.parse(withdrawalEndDate) - Date.parse(date)) / 86_400_000) : 0
+  const days = num(r.withdrawalDays) ?? daysBetween(date, withdrawalEndDate)
   return {
     id: num(r.id) ?? 0,
     cattleCode: textValue(r.cattleCode),
@@ -137,8 +162,7 @@ export function mapRecord(raw: unknown): HistoryRow {
     vaccineLabel: textValue(r.vaccineName),
     batchNo: text(r.batchNo),
     dose: text(r.dose),
-    // Lịch sử backend chưa trả đường tiêm và lịch sử sửa (GAP-FE09-03).
-    route: undefined,
+    route: toRoute(r.route),
     administeredAt,
     precision: 'EXACT',
     source,
@@ -149,7 +173,7 @@ export function mapRecord(raw: unknown): HistoryRow {
     status: textValue(r.status).toUpperCase() === 'VOIDED' ? 'VOIDED' : 'VALID',
     corrected: r.corrected === true,
     version: num(r.version) ?? 0,
-    revisions: [],
+    revisions: asRows(r.revisions).map(mapRevision),
   }
 }
 

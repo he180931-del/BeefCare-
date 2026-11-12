@@ -101,8 +101,16 @@ public final class CareDtos {
                                  LocalDate openedDate,LocalDate chronicSince,String outcome,Long treatmentCount,Integer version) {}
     public record HealthProfile(Long cattleId,String healthState,LocalDate withdrawalEndDate,Boolean suspectedContagious,
                                 List<HealthCaseCard> activeCases,List<HealthCaseCard> previousCases,List<HealthTimelineRow> timeline) {}
+    /**
+     * A8 / A9 history row. {@code route}, {@code withdrawalDays} and {@code revisions} (GAP-FE09-03): the stored route,
+     * the withdrawal period of an ON_FARM record and its correction / void history, oldest first (BR-D15, R-09-14).
+     */
     public record VaccinationHistoryRow(Long id,Instant administeredAt,LocalDate vaccinationDate,Long cattleId,String cattleCode,
                                         Long penId,String penCode,String penName,Long vaccineId,String vaccineName,String dose,
                                         String batchNo,String source,String vaccinator,LocalDate withdrawalEndDate,
-                                        Long reactionCaseId,String reactionCaseCode,String status,Boolean corrected,Integer version) {}
+                                        Long reactionCaseId,String reactionCaseCode,String status,Boolean corrected,Integer version,
+                                        String route,Integer withdrawalDays,List<VaccinationRevision> revisions) {}
+    /** One immutable correction / void of a vaccination record: who, when, why and the values before / after (BR-D15). */
+    public record VaccinationRevision(Long id,Instant changedAt,String changedBy,String action,String reason,
+                                      Map<String,Object> before,Map<String,Object> after) {}
 }

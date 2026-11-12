@@ -184,4 +184,31 @@ class VaccinationGapCommandTest extends DomainTestSupport {
         assertThat(voided.status()).isEqualTo("VOIDED");
         assertThat(voided.cattleWithdrawalEndDate()).isNull();
     }
+
+    // ------------------------------------------------------------ GAP-FE09-03 (A8 / A9, BR-D15)
+
+    @Test
+    void historyReturnsTheRouteTheWithdrawalPeriodAndTheRevisionsOldestFirst() {
+        Cattle cow = herd.get(0);
+        Long id = recordOnFarm(cow, 21);
+        reload();
+        vaccination.correct(farm.getId(), id, key(), withdrawal(id, 30));
+        reload();
+        vaccination.voidRecord(farm.getId(), id, key(), new CareDtos.VoidRecord(versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id), "Ghi nhầm bò"));
+        Long other = recordOnFarm(herd.get(1), 7);
+        reload();
+
+        List<CareDtos.VaccinationHistoryRow> rows = reads.vaccinationHistory(farm.getId(), null, null, null, null, null, null);
+        CareDtos.VaccinationHistoryRow row = rows.stream().filter(r -> r.id().equals(id)).findFirst().orElseThrow();
+        assertThat(row.route()).isEqualTo("SC");
+        assertThat(row.withdrawalDays()).isEqualTo(30);
+        assertThat(row.revisions()).extracting(CareDtos.VaccinationRevision::action).containsExactly("CORRECT", "VOID");
+        CareDtos.VaccinationRevision correction = row.revisions().get(0);
+        assertThat(correction.reason()).isEqualTo("Sửa ngưng thịt");
+        assertThat(correction.changedBy()).isEqualTo(manager.getFullName());
+        assertThat(correction.changedAt()).isNotNull();
+        assertThat(correction.before()).containsEntry("withdrawalDays", 21).containsEntry("route", "SC");
+        assertThat(correction.after()).containsEntry("withdrawalDays", 30);
+        assertThat(rows.stream().filter(r -> r.id().equals(other)).findFirst().orElseThrow().revisions()).isEmpty();
+    }
 }

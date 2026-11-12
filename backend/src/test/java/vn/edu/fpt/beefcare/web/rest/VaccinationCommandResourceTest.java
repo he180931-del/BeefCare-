@@ -132,4 +132,26 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.code").value("MSG-COM-10"))
             .andExpect(jsonPath("$.params.field").value("withdrawalDays"));
     }
+
+    // ------------------------------------------------------------ GAP-FE09-03
+
+    @Test
+    void historyRowsCarryTheRouteAndTheRevisions() throws Exception {
+        Long id = vaccination.record(farm.getId(), UUID.randomUUID().toString(), new CareDtos.RecordVaccinations(vaccine.id(), "ON_FARM", null,
+            clock.instant().minusSeconds(3600), "LOT-1", "2 ml", "SC", 21, "Manager",
+            List.of(new CareDtos.VaccinationAnimal(herd.get(0).getId(), null, null, "VACCINATE", null, null)))).vaccinationIds().get(0);
+        em.flush();
+        vaccination.correct(farm.getId(), id, UUID.randomUUID().toString(), new CareDtos.CorrectVaccination(versionOf(vn.edu.fpt.beefcare.domain.Vaccination.class, id),
+            null, null, null, "LOT-2", null, null, null, "Ghi nhầm số lô", null));
+        em.flush();
+        mvc.perform(get(url("/vaccinations/history?cattleId=" + herd.get(0).getId())).with(as(owner.getEmail())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].route").value("SC"))
+            .andExpect(jsonPath("$[0].withdrawalDays").value(21))
+            .andExpect(jsonPath("$[0].batchNo").value("LOT-2"))
+            .andExpect(jsonPath("$[0].revisions[0].action").value("CORRECT"))
+            .andExpect(jsonPath("$[0].revisions[0].reason").value("Ghi nhầm số lô"))
+            .andExpect(jsonPath("$[0].revisions[0].before.batchNo").value("LOT-1"))
+            .andExpect(jsonPath("$[0].revisions[0].after.batchNo").value("LOT-2"));
+    }
 }

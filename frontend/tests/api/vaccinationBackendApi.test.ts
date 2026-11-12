@@ -349,3 +349,28 @@ test('GAP-FE09-02: lịch đã dừng hiện lý do dừng do backend lưu (stop
   assert.equal((await a.getSchedule(8)).schedule.stopReason, 'Đổi sang vắc-xin khác')
   assert.equal((await a.getSchedule(7)).schedule.stopReason, undefined)
 })
+
+test('GAP-FE09-03: lịch sử tiêm map đường tiêm, số ngày ngưng và lịch sử sửa (revision cũ thiếu trường vẫn đọc được)', async () => {
+  const row = {
+    ...historyRow(1), route: 'SUBCUTANEOUS', withdrawalDays: 30, withdrawalEndDate: '2026-12-02', corrected: true,
+    revisions: [
+      { id: 9, changedAt: '2026-11-05T02:00:00Z', changedBy: 'Lê Quản Lý', action: 'CORRECT', reason: 'Sửa ngưng thịt',
+        before: { vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T01:30:00Z', batchNo: 'L-01', dose: '2 ml', route: 'SUBCUTANEOUS', vaccinator: 'Kỹ', withdrawalDays: 21, withdrawalEndDate: '2026-11-23' },
+        after: { withdrawalDays: 30 } },
+      { id: 10, changedAt: '2026-11-06T02:00:00Z', changedBy: 'Lê Quản Lý', action: 'VOID', reason: 'Ghi nhầm',
+        before: { vaccineId: 1, vaccinationDate: '2026-11-02', batchNo: 'L-01', dose: '2 ml', route: '', vaccinator: 'Kỹ', withdrawalEndDate: '2026-11-23' }, after: {} },
+    ],
+  }
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccinations/history': [row] })
+  const [record] = (await a.listHistory({})).rows
+  assert.equal(record.route, 'SC')
+  assert.equal(record.withdrawalDays, 30)
+  assert.deepEqual(record.revisions[0], {
+    at: '2026-11-05T09:00', by: 'Lê Quản Lý', action: 'CORRECT', reason: 'Sửa ngưng thịt',
+    before: { vaccineId: 1, administeredAt: '2026-11-02T08:30', batchNo: 'L-01', dose: '2 ml', route: 'SC', withdrawalDays: 21, vaccinator: 'Kỹ' },
+  })
+  assert.equal(record.revisions[1].action, 'VOID')
+  assert.equal(record.revisions[1].before.administeredAt, '2026-11-02T00:00', 'revision cũ không có administeredAt: lấy ngày tiêm')
+  assert.equal(record.revisions[1].before.withdrawalDays, 21, 'revision cũ không có withdrawalDays: suy từ ngày hết ngưng')
+  assert.equal(record.revisions[1].before.route, undefined)
+})
