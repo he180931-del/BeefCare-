@@ -3297,7 +3297,17 @@
         },
         "responses" : {
           "201" : {
-            "description" : "Created",
+            "description" : "At least one animal recorded or deferred; skipped lists the others",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VaccinationBatchResult"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "Every animal skipped (MSG-FE09-09 / MSG-COM-13); nothing saved",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -3521,6 +3531,15 @@
             "format" : "int32"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StopVaccinationSchedule"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -12606,6 +12625,54 @@
           "boosterIntervalMonths" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "doseCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "removeBooster" : {
+            "type" : "boolean"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/ScheduleTarget"
+          }
+        }
+      },
+      "ScheduleTarget" : {
+        "type" : "object",
+        "properties" : {
+          "penIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "herdGroups" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "lifeStages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "cattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "excludedCattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
           }
         }
       },
@@ -16415,6 +16482,25 @@
           }
         }
       },
+      "SkippedAnimal" : {
+        "type" : "object",
+        "properties" : {
+          "cattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cattleCode" : {
+            "type" : "string"
+          },
+          "messageCode" : {
+            "type" : "string"
+          },
+          "doseNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "VaccinationBatchResult" : {
         "type" : "object",
         "properties" : {
@@ -16431,6 +16517,12 @@
             "items" : {
               "type" : "integer",
               "format" : "int64"
+            }
+          },
+          "skipped" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SkippedAnimal"
             }
           }
         }
@@ -16467,6 +16559,14 @@
           },
           "corrected" : {
             "type" : "boolean"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cattleWithdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -16503,6 +16603,10 @@
           },
           "reason" : {
             "type" : "string"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -16564,6 +16668,14 @@
               "type" : "integer",
               "format" : "int64"
             }
+          }
+        }
+      },
+      "StopVaccinationSchedule" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
           }
         }
       },
@@ -20441,6 +20553,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
@@ -20449,10 +20565,6 @@
           },
           "last" : {
             "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -20473,15 +20585,15 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "unpaged" : {
             "type" : "boolean"
           },
           "paged" : {
             "type" : "boolean"
-          },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
           }
         }
       },
@@ -20491,10 +20603,10 @@
           "empty" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           }
         }
@@ -20860,6 +20972,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
@@ -20868,10 +20984,6 @@
           },
           "last" : {
             "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -20906,6 +21018,10 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
@@ -20914,10 +21030,6 @@
           },
           "last" : {
             "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -21072,6 +21184,109 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "route" : {
+            "type" : "string"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "revisions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VaccinationRevision"
+            }
+          }
+        }
+      },
+      "VaccinationRevision" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "changedBy" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "before" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "after" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          }
+        }
+      },
+      "ScheduleTargetView" : {
+        "type" : "object",
+        "properties" : {
+          "penIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "penCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "herdGroups" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "lifeStages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "cattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "cattleCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "excludedCattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "excludedCattleCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -21161,6 +21376,12 @@
             "items" : {
               "$ref" : "#/components/schemas/ScheduledDoseView"
             }
+          },
+          "stopReason" : {
+            "type" : "string"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/ScheduleTargetView"
           }
         }
       },
@@ -22639,13 +22860,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
+          "token" : {
+            "type" : "string"
+          },
           "headerName" : {
             "type" : "string"
           },
           "parameterName" : {
-            "type" : "string"
-          },
-          "token" : {
             "type" : "string"
           }
         }

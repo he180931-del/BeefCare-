@@ -69,6 +69,12 @@ public class VaccinationCommandResource {
     }
 
     /** 201 when at least one animal was recorded or deferred; 200 when every animal was skipped (R-09-10). */
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "At least one animal recorded or deferred; skipped lists the others",
+            content = @io.swagger.v3.oas.annotations.media.Content(schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = CareDtos.VaccinationBatchResult.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Every animal skipped (MSG-FE09-09 / MSG-COM-13); nothing saved",
+            content = @io.swagger.v3.oas.annotations.media.Content(schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = CareDtos.VaccinationBatchResult.class)))
+    })
     @PostMapping("/vaccinations")
     public org.springframework.http.ResponseEntity<CareDtos.VaccinationBatchResult> record(@PathVariable Long farmId,
                                                    @RequestHeader("Idempotency-Key") String key,
