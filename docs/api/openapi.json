@@ -4748,7 +4748,9 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string",
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
             "maximum" : 21474836,
             "minimum" : 0
           }
@@ -4757,7 +4759,9 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string",
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
             "maximum" : 100,
             "minimum" : 1
           }
@@ -4767,6 +4771,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
+            "default" : "lastSentAt",
             "enum" : [ "lastSentAt" ]
           }
         }, {
@@ -4775,6 +4780,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
+            "default" : "desc",
             "enum" : [ "asc", "desc" ]
           }
         }, {
@@ -4783,7 +4789,8 @@
           "description" : "Exact invitation lookup for UC1; still scoped to this Owner's farm",
           "required" : false,
           "schema" : {
-            "type" : "string",
+            "type" : "integer",
+            "format" : "int64",
             "minimum" : 1
           }
         } ],

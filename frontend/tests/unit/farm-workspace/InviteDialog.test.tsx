@@ -54,6 +54,13 @@ describe('UC-FE03-01 / D25', () => {
     expect(path === '/loi-moi' ? api.listInvitations.mock.calls.length : api.listMembers.mock.calls.length).toBeGreaterThan(1)
   })
 
+  it.each(['/loi-moi', '/thanh-vien'])('shows the expiry in the farm time zone from %s (D26)', async (path) => {
+    api.getFarm.mockResolvedValue({ ...farm, timeZone: 'UTC' })
+    open(path)
+    await fill('new@example.test')
+    expect(await screen.findByText(/Đã tạo lời mời tới new@example.test/)).toHaveTextContent('Hết hạn lúc 18/11/2026 03:00.')
+  })
+
   it.each(['/loi-moi', '/thanh-vien'])('offers an explicit resend from %s using the existing invitation and the observed version', async (path) => {
     api.inviteMember.mockRejectedValue(new BackendError(409, { code: 'MSG-FE03-03', params: { invitationId: 76, email: invitation.email } }))
     open(path)

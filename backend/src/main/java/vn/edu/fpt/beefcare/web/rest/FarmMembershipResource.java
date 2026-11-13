@@ -91,15 +91,16 @@ public class FarmMembershipResource {
     public InvitationPage invitations(@PathVariable Long farmId,
         @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(allowableValues = {"PENDING", "ACCEPTED", "EXPIRED", "CANCELLED"}))
         @RequestParam(required = false) String status,
-        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(minimum = "0", maximum = "21474836"))
+        // A schema annotation without a type is exported as a string; numeric query values keep their type and defaults (D26).
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "integer", format = "int32", defaultValue = "0", minimum = "0", maximum = "21474836"))
         @RequestParam(defaultValue = "0") int page,
-        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(minimum = "1", maximum = "100"))
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "integer", format = "int32", defaultValue = "20", minimum = "1", maximum = "100"))
         @RequestParam(defaultValue = "20") int size,
-        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(allowableValues = {"lastSentAt"}))
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string", allowableValues = {"lastSentAt"}, defaultValue = "lastSentAt"))
         @RequestParam(defaultValue = "lastSentAt") String sort,
-        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(allowableValues = {"asc", "desc"}))
+        @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(type = "string", allowableValues = {"asc", "desc"}, defaultValue = "desc"))
         @RequestParam(defaultValue = "desc") String dir,
-        @io.swagger.v3.oas.annotations.Parameter(description = "Exact invitation lookup for UC1; still scoped to this Owner's farm", schema = @io.swagger.v3.oas.annotations.media.Schema(minimum = "1"))
+        @io.swagger.v3.oas.annotations.Parameter(description = "Exact invitation lookup for UC1; still scoped to this Owner's farm", schema = @io.swagger.v3.oas.annotations.media.Schema(type = "integer", format = "int64", minimum = "1"))
         @RequestParam(required = false) Long invitationId) {
         return service.listInvitations(farmId, status, page, size, sort, dir, invitationId);
     }

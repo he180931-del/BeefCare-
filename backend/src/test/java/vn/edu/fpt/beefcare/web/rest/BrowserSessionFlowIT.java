@@ -580,7 +580,10 @@ class BrowserSessionFlowIT {
             .andExpect(status().isBadRequest());
         owner.browser.post("/api/farms/" + farmId + "/invitations", Map.of("email", email("other"), "role", "MANAGER", "validityDays", 5), UUID.randomUUID().toString())
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("validityDays"));
-        owner.browser.get("/api/farms/" + farmId + "/invitations?status=PENDING").andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        // D26: the list is one page {items,total,page,size,counts,asOf}, not a bare array
+        owner.browser.get("/api/farms/" + farmId + "/invitations?status=PENDING").andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].id").value(invitationId))
+            .andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.counts.PENDING").value(1));
 
         // AF4: the e-mail is a durable job; the invitee receives exactly one message with the single-use link
         String invitationToken = linkToken(inviteeEmail, "/invitation/accept?token=");
@@ -637,7 +640,9 @@ class BrowserSessionFlowIT {
         invitee.get("/api/farms").andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id==" + farmId + ")].role").value("MANAGER"));
         invitee.get("/api/account/profile").andExpect(jsonPath("$.farms[0].farmId").value(farmId)).andExpect(jsonPath("$.farms[0].role").value("MANAGER"));
         owner.browser.get("/api/farms/" + farmId + "/members").andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
-        owner.browser.get("/api/farms/" + farmId + "/invitations?status=ACCEPTED").andExpect(jsonPath("$.length()").value(1));
+        owner.browser.get("/api/farms/" + farmId + "/invitations?status=ACCEPTED").andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].status").value("ACCEPTED"))
+            .andExpect(jsonPath("$.counts.ACCEPTED").value(1)).andExpect(jsonPath("$.counts.PENDING").value(0));
         // an accepted invitation cannot be cancelled or resent: MSG-FE03-08 with its status
         var version = invitations.findById(invitationId).orElseThrow().getVersion();
         owner.browser.post("/api/farms/" + farmId + "/invitations/" + invitationId + "/cancel", Map.of("expectedVersion", version), UUID.randomUUID().toString())

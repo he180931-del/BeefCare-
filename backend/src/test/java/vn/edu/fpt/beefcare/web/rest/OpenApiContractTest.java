@@ -52,6 +52,26 @@ class OpenApiContractTest {
         JsonNode invitationList = paths.path("/api/farms/{farmId}/invitations").path("get");
         assertThat(invitationList.path("responses").path("200").toString()).contains("InvitationPage");
         assertThat(invitationList.path("parameters").toString()).contains("\"status\"", "\"page\"", "\"size\"", "\"sort\"", "\"dir\"", "\"invitationId\"");
+        // D26: numeric query values are integers with the server defaults; a typed client must not send them as strings.
+        java.util.Map<String, JsonNode> listQuery = new java.util.HashMap<>();
+        invitationList.path("parameters").forEach(parameter -> listQuery.put(parameter.path("name").asText(), parameter.path("schema")));
+        assertThat(listQuery.get("page").path("type").asText()).as("page %s", listQuery.get("page")).isEqualTo("integer");
+        assertThat(listQuery.get("page").path("minimum").asInt()).isZero();
+        assertThat(listQuery.get("page").path("maximum").asLong()).isEqualTo(Integer.MAX_VALUE / 100);
+        assertThat(listQuery.get("page").path("default").isNumber()).as("page default %s", listQuery.get("page")).isTrue();
+        assertThat(listQuery.get("page").path("default").asInt()).isZero();
+        assertThat(listQuery.get("size").path("type").asText()).as("size %s", listQuery.get("size")).isEqualTo("integer");
+        assertThat(listQuery.get("size").path("minimum").asInt()).isEqualTo(1);
+        assertThat(listQuery.get("size").path("maximum").asInt()).isEqualTo(100);
+        assertThat(listQuery.get("size").path("default").isNumber()).as("size default %s", listQuery.get("size")).isTrue();
+        assertThat(listQuery.get("size").path("default").asInt()).isEqualTo(20);
+        assertThat(listQuery.get("invitationId").path("type").asText()).as("invitationId %s", listQuery.get("invitationId")).isEqualTo("integer");
+        assertThat(listQuery.get("invitationId").path("format").asText()).isEqualTo("int64");
+        assertThat(listQuery.get("invitationId").path("minimum").asInt()).isEqualTo(1);
+        assertThat(listQuery.get("sort").path("default").asText()).as("sort %s", listQuery.get("sort")).isEqualTo("lastSentAt");
+        assertThat(listQuery.get("dir").path("enum").toString()).isEqualTo("[\"asc\",\"desc\"]");
+        assertThat(listQuery.get("dir").path("default").asText()).as("dir %s", listQuery.get("dir")).isEqualTo("desc");
+        assertThat(listQuery.get("status").path("default").isMissingNode()).as("status has no default: absent means every state").isTrue();
         JsonNode invitationPage = api.path("components").path("schemas").path("InvitationPage");
         assertThat(invitationPage.path("required").toString()).contains("items", "counts", "total", "page", "size", "asOf");
         JsonNode invitationFields = api.path("components").path("schemas").path("InvitationView");
