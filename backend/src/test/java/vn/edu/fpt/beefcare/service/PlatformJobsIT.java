@@ -126,7 +126,7 @@ class PlatformJobsIT extends DomainTestSupport {
 
         FarmInvitation expired = em.find(FarmInvitation.class, due.getId());
         assertThat(expired.getStatus()).isEqualTo("EXPIRED");
-        assertThat(expired.getTokenHash()).isNull();
+        assertThat(expired.getTokenHash()).isNotNull(); // D28: kept so the link can say EXPIRED until JOB-08
         assertThat(em.find(FarmInvitation.class, valid.getId()).getStatus()).isEqualTo("PENDING");
         assertThat(audits("INVITE_EXPIRED", due.getId())).isEqualTo(1);
         assertThat(audits("INVITE_EXPIRED", valid.getId())).isZero();

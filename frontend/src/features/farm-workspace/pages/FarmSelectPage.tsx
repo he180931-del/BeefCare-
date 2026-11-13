@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { BackendError } from '../../../api/backendClient'
 import { pageLoader, writeCurrentFarmId } from '../../../api/currentFarm'
+import { STORAGE_BLOCKED } from '../components/enterFarm'
 import { userFacingError } from '../../../api/userFacingError'
 import { Button, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
 import { useDemoState } from '../../../hooks/useDemoState'
@@ -13,7 +14,6 @@ import { farmWorkspaceError } from '../components/WorkspaceUi'
 import type { FarmSummary } from '../types'
 
 const NOT_ALLOWED = 'Bạn không có quyền thực hiện thao tác này.' // MSG-COM-01
-const STORAGE_BLOCKED = 'Trình duyệt đang chặn lưu dữ liệu của trang nên chưa ghi nhớ được trại đã chọn. Cho phép lưu dữ liệu cho trang này rồi thử lại.'
 
 /** Step 4 refused: E1 (membership or role changed, MSG-COM-01) or AF3 (service stopped, MSG-FE02-04) reload the list. */
 function enterFailure(error: unknown): { message: string; reloadList: boolean } {

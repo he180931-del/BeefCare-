@@ -233,10 +233,134 @@ class FarmInvitationCommandResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.code").value("MSG-FE03-08")).andExpect(jsonPath("$.params.status").value("ACCEPTED"))
             .andReturn().getResponse().getContentAsString();
         assertThat(body).doesNotContain("MSG-FE03-21", "membershipId");
+        // AF2 only shows an ACTIVE membership again (D28); a deactivated member sees a used link
+        preview(invitee, token).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE03-08"))
+            .andExpect(jsonPath("$.params.status").value("ACCEPTED"));
         em.flush(); em.clear();
         assertThat(em.find(FarmMembership.class, membership.getId()).getStatus()).isEqualTo("INACTIVE");
         assertThat(count("FarmMembership", farm)).isEqualTo(2);
     }
+
+    // ------------------------------------------------------------------ UC-FE03-04 (D28)
+
+    @Test
+    void previewShowsTheLastSendAndInviterOnlyToTheInvitedEmail() throws Exception {
+        Farm farm = farm(); farm.setTimeZone("Asia/Bangkok"); AppUser owner = memberWithRole(farm, FarmRole.OWNER); AppUser invitee = user();
+        JsonNode sent = created(owner, farm, invitee.getEmail(), "MANAGER", 7, "send");
+        clock.set(clock.instant().plus(Duration.ofDays(1)));
+        JsonNode resent = mapper.readTree(resend(owner, farm, sent, "resend").andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String token = tokenOf(sent.path("id").asLong());
+        // UC-FE03-04 step 4 / SCR-15: farm, role, inviter, last send and expiry, in the farm's time zone
+        preview(invitee, token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("PENDING")).andExpect(jsonPath("$.farmId").value(farm.getId()))
+            .andExpect(jsonPath("$.farmName").value(farm.getName())).andExpect(jsonPath("$.timeZone").value("Asia/Bangkok"))
+            .andExpect(jsonPath("$.email").value(invitee.getEmail())).andExpect(jsonPath("$.role").value("MANAGER"))
+            .andExpect(jsonPath("$.invitedBy").value(owner.getFullName()))
+            .andExpect(jsonPath("$.sentAt").value(resent.path("lastSentAt").asText())).andExpect(jsonPath("$.expiresAt").value(resent.path("expiresAt").asText()))
+            .andExpect(jsonPath("$.membershipId").doesNotExist());
+        // TC-03-14 / E2: another account learns neither the farm nor the role, and nothing changes
+        AppUser stranger = user();
+        String denied = preview(stranger, token).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE03-09"))
+            .andReturn().getResponse().getContentAsString();
+        assertThat(denied).doesNotContain(farm.getName(), "MANAGER", "PENDING", invitee.getEmail());
+        accept(stranger, token).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE03-09"));
+        assertThat(count("FarmMembership", farm)).isEqualTo(1);
+    }
+
+    @Test
+    void cancelledExpiredAndUnknownLinksNameTheirStatusAndExpiryButGrantNothing() throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER); AppUser invitee = user();
+        JsonNode cancelled = created(owner, farm, invitee.getEmail(), "TECHNICIAN", 7, "to-cancel");
+        cancel(owner, farm, cancelled.path("id").asLong(), cancelled.path("version").asInt(), "cancel").andExpect(status().isOk());
+        String cancelledToken = tokenOf(cancelled.path("id").asLong());
+        // D28 / Q6: SCR-15 shows MSG-FE03-08 with the status and expiry (SRS SCR-15), for the invited email only
+        for (ResultActions call : java.util.List.of(preview(invitee, cancelledToken), accept(invitee, cancelledToken))) {
+            call.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE03-08"))
+                .andExpect(jsonPath("$.params.status").value("CANCELLED")).andExpect(jsonPath("$.params.expiresAt").value(cancelled.path("expiresAt").asText()));
+        }
+        preview(user(), cancelledToken).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE03-09"))
+            .andExpect(jsonPath("$.params.status").doesNotExist());
+
+        JsonNode overdue = created(owner, farm, invitee.getEmail(), "MANAGER", 3, "overdue");
+        String overdueToken = tokenOf(overdue.path("id").asLong());
+        clock.set(clock.instant().plus(Duration.ofDays(3)));
+        // TC-03-13: before JOB-02 the expired link is refused with EXPIRED and creates nothing
+        accept(invitee, overdueToken).andExpect(status().isBadRequest()).andExpect(jsonPath("$.params.status").value("EXPIRED"));
+        memberships.expirePendingInvitations();
+        em.flush(); em.clear();
+        // after JOB-02 the hash is still there (until JOB-08), so the link keeps saying EXPIRED
+        assertThat(em.find(FarmInvitation.class, overdue.path("id").asLong()).getTokenHash()).isEqualTo(signer.hash(overdueToken));
+        preview(invitee, overdueToken).andExpect(status().isBadRequest()).andExpect(jsonPath("$.params.status").value("EXPIRED"))
+            .andExpect(jsonPath("$.params.expiresAt").value(overdue.path("expiresAt").asText()));
+        preview(invitee, "not-a-real-token").andExpect(status().isBadRequest()).andExpect(jsonPath("$.params.status").value("INVALID"))
+            .andExpect(jsonPath("$.params.expiresAt").doesNotExist());
+        assertThat(count("FarmMembership", farm)).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING_PAYMENT", "EXPIRED", "SUSPENDED"})
+    void anInactiveFarmCannotBeJoinedAndTheInvitationStaysPending(String serviceStatus) throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER); AppUser invitee = user();
+        long id = created(owner, farm, invitee.getEmail(), "MANAGER", 7, "send").path("id").asLong();
+        farm.setServiceStatus(serviceStatus); em.flush();
+        // TC-03-17 / E3
+        preview(invitee, tokenOf(id)).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE03-04"));
+        accept(invitee, tokenOf(id)).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE03-04"));
+        em.flush(); em.clear();
+        assertThat(em.find(FarmInvitation.class, id).getStatus()).isEqualTo("PENDING");
+        assertThat(count("FarmMembership", farm)).isEqualTo(1);
+    }
+
+    @Test
+    void acceptOpensTheFarmOnceAndReopeningTheLinkShowsTheSameMembership() throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER); AppUser invitee = user();
+        long id = created(owner, farm, invitee.getEmail(), "TECHNICIAN", 7, "send").path("id").asLong();
+        String token = tokenOf(id);
+        // TC-03-15 / A8 (D28): farm, role and membership to open next
+        JsonNode first = mapper.readTree(accept(invitee, token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.farmId").value(farm.getId())).andExpect(jsonPath("$.farmName").value(farm.getName()))
+            .andExpect(jsonPath("$.role").value("TECHNICIAN")).andExpect(jsonPath("$.status").value("ACTIVE"))
+            .andReturn().getResponse().getContentAsString());
+        // TC-03-16: the same token again returns the same membership and creates nothing more (no Idempotency-Key, D28)
+        assertThat(mapper.readTree(accept(invitee, token).andExpect(status().isOk()).andReturn().getResponse().getContentAsString())).isEqualTo(first);
+        // AF2: reopening the link shows the existing membership
+        preview(invitee, token).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ACCEPTED"))
+            .andExpect(jsonPath("$.membershipId").value(first.path("membershipId").asLong())).andExpect(jsonPath("$.role").value("TECHNICIAN"));
+        em.flush(); em.clear();
+        assertThat(em.find(FarmInvitation.class, id).getStatus()).isEqualTo("ACCEPTED");
+        assertThat(count("FarmMembership", farm)).isEqualTo(2);
+        assertThat(em.createQuery("select count(a) from AuditLog a where a.action='MEMBER_ACCEPT' and a.targetId=:m", Long.class)
+            .setParameter("m", first.path("membershipId").asLong()).getSingleResult()).isEqualTo(1);
+        // step 8 / GBR-64: one Owner e-mail intent per membership, saved with the acceptance
+        assertThat(em.createQuery("select j.recipient from EmailDeliveryJob j where j.linkSource='MEMBERSHIP' and j.linkSourceId=:m", String.class)
+            .setParameter("m", first.path("membershipId").asLong()).getResultList()).containsExactly(owner.getEmail());
+    }
+
+    @Test
+    void anOwnerOfAnotherFarmJoinsAsTechnicianWithoutGainingOwnerOrPlatformAuthority() throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER);
+        Farm own = farm(); AppUser invitee = memberWithRole(own, FarmRole.OWNER);
+        long id = created(owner, farm, invitee.getEmail(), "TECHNICIAN", 7, "send").path("id").asLong();
+        accept(invitee, tokenOf(id)).andExpect(status().isOk()).andExpect(jsonPath("$.role").value("TECHNICIAN"));
+        em.flush(); em.clear();
+        // TC-03-18 / POST-3
+        assertThat(em.createQuery("select m.role from FarmMembership m where m.user.id=:u order by m.farm.id", String.class)
+            .setParameter("u", invitee.getId()).getResultList()).containsExactlyInAnyOrder("OWNER", "TECHNICIAN");
+        assertThat(em.createQuery("select m.role from FarmMembership m where m.user.id=:u and m.farm.id=:f", String.class)
+            .setParameter("u", invitee.getId()).setParameter("f", own.getId()).getSingleResult()).isEqualTo("OWNER");
+        assertThat(em.createQuery("select count(p) from PlatformStaffAccess p where p.user.id=:u", Long.class)
+            .setParameter("u", invitee.getId()).getSingleResult()).isZero();
+    }
+
+    protected ResultActions preview(AppUser actor, String token) throws Exception {
+        return mvc.perform(get("/api/invitations/accept").with(SecurityMockMvcRequestPostProcessors.user(actor.getEmail())).param("token", token));
+    }
+
+    protected String tokenOf(long invitationId) {
+        return signer.bearer("FARM_INVITATION", invitationId, em.find(FarmInvitation.class, invitationId).getTokenNonce());
+    }
+
+    @Autowired vn.edu.fpt.beefcare.service.FarmMembershipService memberships;
 
     // ------------------------------------------------------------------ UC-FE03-03 (D27)
 
@@ -360,12 +484,13 @@ class FarmInvitationCommandResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.status").value("CANCELLED")).andReturn().getResponse().getContentAsString());
         assertThat(cancelled.path("version").asInt()).isGreaterThan(version);
         assertThat(mapper.readTree(cancel(owner, farm, id, version, "cancel-once").andExpect(status().isOk()).andReturn().getResponse().getContentAsString())).isEqualTo(cancelled);
-        // POST-2: the link grants nothing; POST-3: no membership
-        accept(invitee, token).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE03-08"));
+        // POST-2: the link grants nothing; POST-3: no membership. D28: the link still names its status for SCR-15.
+        accept(invitee, token).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE03-08"))
+            .andExpect(jsonPath("$.params.status").value("CANCELLED"));
         em.flush(); em.clear();
         FarmInvitation stored = em.find(FarmInvitation.class, id);
         assertThat(stored.getStatus()).isEqualTo("CANCELLED"); assertThat(stored.getCancelledAt()).isNotNull();
-        assertThat(stored.getTokenHash()).isNull();
+        assertThat(stored.getTokenHash()).isEqualTo(signer.hash(token)); // D28: kept until JOB-08
         assertThat(count("FarmMembership", farm)).isEqualTo(1);
         assertThat(jobStatuses(id)).containsExactly("CANCELLED"); // an unsent invitation e-mail is dropped
         assertThat(audits("INVITE_CANCEL", id)).singleElement().satisfies(details -> assertThat(details)

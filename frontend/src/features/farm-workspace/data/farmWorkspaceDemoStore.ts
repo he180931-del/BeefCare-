@@ -1,6 +1,6 @@
 import { BackendError } from '../../../api/backendClient'
 import type {
-  ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
+  AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
   FarmRole, FarmSummary, FarmWorkspaceProfile, Invitation, InvitationPreview, InvitationListQuery, InvitationPage, InvitationStatus, InviteMemberInput, Membership, MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { EXPIRED_TOKEN, FIRST_NEW_FARM_ID, INVITED_FARM_ID, SAMPLE_TOKEN, samplePreview, seedFarms, seedYenBaiInvitations, seedYenBaiMembers, YEN_BAI } from './farmWorkspaceSeed'
@@ -26,9 +26,9 @@ export interface FarmWorkspaceDemoStore {
   inviteMember(farmId: number, input: InviteMemberInput, options?: RequestKeyOptions): Promise<Invitation>
   resendInvitation(farmId: number, invitationId: number, options?: MemberCommandOptions): Promise<Invitation>
   cancelInvitation(farmId: number, invitationId: number, options?: MemberCommandOptions): Promise<Invitation>
-  previewInvitation(token: string): Promise<InvitationPreview>
-  /** `signedInEmail`: thư điện tử của phiên đang đăng nhập (chế độ mô phỏng); mặc định là hồ sơ của kho. */
-  acceptInvitation(token: string, signedInEmail?: string): Promise<Membership>
+  /** `signedInEmail`: thư điện tử của phiên đang đăng nhập (chế độ mô phỏng); mặc định là hồ sơ của kho. Lỗi giống backend (D28). */
+  previewInvitation(token: string, signedInEmail?: string): Promise<InvitationPreview>
+  acceptInvitation(token: string, signedInEmail?: string): Promise<AcceptedInvitation>
 }
 
 export type FarmUpdateInput = Omit<FarmInfoInput, 'expectedVersion' | 'mainBreedIds'> & Partial<Pick<FarmInfoInput, 'expectedVersion' | 'mainBreedIds'>>
@@ -37,6 +37,8 @@ const stamp = (date = new Date()) => date.toISOString()
 const cloneFarm = (farm: FarmDetails): FarmDetails => ({ ...farm, mainBreedIds: [...farm.mainBreedIds], mainBreedCodes: [...farm.mainBreedCodes] })
 const cloneMember = (member: Membership): Membership => ({ ...member })
 const cloneInvitation = (invitation: Invitation): Invitation => ({ ...invitation })
+/** Demo errors carry the backend code/params so SCR-15 handles both modes alike (D28). */
+const invitationError = (status: number, code: string, params: Record<string, unknown>, message: string) => new BackendError(status, { code, params, message })
 
 export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWorkspaceProfile> } = {}): FarmWorkspaceDemoStore {
   const defaultProfile: FarmWorkspaceProfile = {
@@ -53,6 +55,7 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
   let nextMemberId = 100
   let nextInvitationId = 100
   let previewStatus: InvitationPreview['status'] = 'PENDING'
+  let acceptedMembershipId: number | undefined
 
   const getFarm = (farmId: number) => {
     const farm = farms.get(farmId)
@@ -165,16 +168,17 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
       invitations.set(farmId, getInvitations(farmId).map((row) => row.id === invitationId ? updated : row))
       return cloneInvitation(updated)
     },
-    async previewInvitation(token) {
-      if (token === EXPIRED_TOKEN) return { ...samplePreview, status: 'EXPIRED' }
-      if (token !== SAMPLE_TOKEN) throw new Error('Lời mời không còn hiệu lực.')
-      return { ...samplePreview, status: previewStatus }
+    async previewInvitation(token, signedInEmail) {
+      // Same order and codes as A7 (D28): unknown link, then another e-mail (E2), then the invitation's own state.
+      if (token !== SAMPLE_TOKEN && token !== EXPIRED_TOKEN) throw invitationError(400, 'MSG-FE03-08', { status: 'INVALID' }, 'Lời mời không còn hiệu lực.')
+      if ((signedInEmail ?? profile.email).toLowerCase() !== samplePreview.email.toLowerCase()) throw invitationError(403, 'MSG-FE03-09', {}, 'Email đăng nhập không khớp với email được mời.')
+      if (token === EXPIRED_TOKEN) throw invitationError(400, 'MSG-FE03-08', { status: 'EXPIRED', expiresAt: samplePreview.expiresAt }, 'Lời mời không còn hiệu lực.')
+      return { ...samplePreview, status: previewStatus, membershipId: acceptedMembershipId }
     },
     async acceptInvitation(token, signedInEmail) {
-      const preview = await this.previewInvitation(token)
-      if (preview.status !== 'PENDING') throw new Error('Lời mời không còn hiệu lực.')
+      const preview = await this.previewInvitation(token, signedInEmail)
       const email = signedInEmail ?? profile.email
-      if (email.toLowerCase() !== preview.email.toLowerCase()) throw new Error('Email đăng nhập không khớp với email được mời.')
+      if (preview.status === 'ACCEPTED') return { membershipId: acceptedMembershipId!, farmId: preview.farmId, farmName: preview.farmName, role: preview.role }
       const farmId = preview.farmId ?? INVITED_FARM_ID
       const role = preview.role
       const created: Membership = { id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email, role, status: 'ACTIVE', effectiveDate: new Date().toISOString().slice(0, 10), reason: '', version: 1, joinedAt: stamp() }
@@ -187,9 +191,10 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
       }
       members.set(farmId, [...(members.get(farmId) ?? []), created])
       previewStatus = 'ACCEPTED'
+      acceptedMembershipId = created.id
       const farm = getFarm(farmId)
       profile = { ...profile, farms: [...profile.farms.filter((item) => item.farmId !== farmId), { farmId, farmName: farm.name, role, permissions: [] }] }
-      return cloneMember(created)
+      return { membershipId: created.id, farmId, farmName: farm.name, role }
     },
   }
 }

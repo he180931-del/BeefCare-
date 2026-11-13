@@ -1,6 +1,6 @@
 import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, nullableNumber, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import type {
-  ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
+  AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
   FarmRegistrationInput, FarmRole, FarmServiceStatus, FarmSummary, FarmWorkspaceProfile,
   Invitation, InvitationPreview, InvitationPage, InvitationListQuery, InvitationStatus, InviteMemberInput, Membership, MemberStatus,
   MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
@@ -14,6 +14,16 @@ const requiredOneOf = <T extends string>(value: unknown, values: readonly T[], f
   if (typeof value === 'string' && values.includes(value as T)) return value as T
   throw new Error(`Dữ liệu máy chủ không có ${field} hợp lệ.`)
 }
+/** IDs used to open a farm or a membership must come from the server; never default them to 0 (D28). */
+const requiredId = (value: unknown, field: string): number => {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return value
+  throw new Error(`Dữ liệu máy chủ không có ${field} hợp lệ.`)
+}
+const requiredText = (value: unknown, field: string): string => {
+  if (typeof value === 'string' && value.trim()) return value
+  throw new Error(`Dữ liệu máy chủ không có ${field} hợp lệ.`)
+}
+const invitedRoles = ['MANAGER', 'TECHNICIAN'] as const
 const roles = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const satisfies readonly FarmRole[]
 const serviceStatuses = ['ACTIVE', 'PENDING_PAYMENT', 'EXPIRED', 'SUSPENDED'] as const satisfies readonly FarmServiceStatus[]
 const invitationStatuses = ['PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED'] as const satisfies readonly InvitationStatus[]
@@ -204,21 +214,29 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
       if (options?.expectedVersion == null) throw new Error('Thiếu phiên bản lời mời. Tải lại danh sách trước khi thử lại.')
       return invitation(await transport.command(path(id, `/invitations/${invitationId}/cancel`), { expectedVersion: options.expectedVersion }, { method: 'POST', key: options.idempotencyKey }))
     },
-    previewInvitation: async (token: string) => {
-      if (mode !== 'backend') return demoStore.previewInvitation(token)
+    // A7 (D28): PENDING or the caller's ACCEPTED membership; other states arrive as MSG-FE03-04/08/09 errors.
+    previewInvitation: async (token: string, signedInEmail?: string): Promise<InvitationPreview> => {
+      if (mode !== 'backend') return demoStore.previewInvitation(token, signedInEmail)
       const value = asRecord(await transport.get(`/api/invitations/accept?token=${encodeURIComponent(token)}`))
+      const status = requiredOneOf(value.status, ['PENDING', 'ACCEPTED'] as const, 'trạng thái lời mời')
       return {
-        farmName: textValue(value.farmName), email: textValue(value.email),
-        role: requiredOneOf(value.role, ['MANAGER', 'TECHNICIAN'] as const, 'vai trò trong lời mời'),
-        invitedAt: textValue(value.invitedAt), expiresAt: textValue(value.expiresAt), status: 'PENDING',
-        // BE InvitationAcceptance currently omits invitedBy and farmId (tracked as a contract gap).
-        invitedBy: typeof value.invitedBy === 'string' ? value.invitedBy : undefined,
-        farmId: typeof value.farmId === 'number' ? value.farmId : undefined,
+        status, farmId: requiredId(value.farmId, 'mã trại'), farmName: requiredText(value.farmName, 'tên trại'),
+        timeZone: typeof value.timeZone === 'string' && value.timeZone ? value.timeZone : undefined,
+        email: requiredText(value.email, 'email được mời'), role: requiredOneOf(value.role, invitedRoles, 'vai trò trong lời mời'),
+        invitedBy: typeof value.invitedBy === 'string' && value.invitedBy ? value.invitedBy : undefined,
+        sentAt: requiredText(value.sentAt, 'thời điểm gửi'), expiresAt: requiredText(value.expiresAt, 'thời điểm hết hạn'),
+        membershipId: status === 'ACCEPTED' ? requiredId(value.membershipId, 'mã thành viên') : undefined,
       }
     },
-    acceptInvitation: async (token: string, signedInEmail?: string) => mode === 'backend'
-      ? member(await command('/api/invitations/accept', { token }, 'POST'))
-      : demoStore.acceptInvitation(token, signedInEmail),
+    // A8 (D28): no Idempotency-Key; the link token is the intent and a repeat returns the same membership.
+    acceptInvitation: async (token: string, signedInEmail?: string): Promise<AcceptedInvitation> => {
+      if (mode !== 'backend') return demoStore.acceptInvitation(token, signedInEmail)
+      const value = asRecord(await command('/api/invitations/accept', { token }, 'POST'))
+      return {
+        membershipId: requiredId(value.membershipId, 'mã thành viên'), farmId: requiredId(value.farmId, 'mã trại'),
+        farmName: requiredText(value.farmName, 'tên trại'), role: requiredOneOf(value.role, invitedRoles, 'vai trò trong trại'),
+      }
+    },
   }
 }
 

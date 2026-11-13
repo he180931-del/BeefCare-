@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { pageLoader } from '../../../src/api/currentFarm'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import AcceptInvitationPage from '../../../src/features/farm-workspace/pages/AcceptInvitationPage'
 import FarmInformationPage from '../../../src/features/farm-workspace/pages/FarmInformationPage'
@@ -61,28 +62,32 @@ describe('Register Farm', () => {
 describe('Accept Invitation', () => {
   it('hides the farm details when the signed-in email differs from the invited one', async () => {
     renderAt('owner', '/invitation/accept?token=mock-invitation-token', '/invitation/accept', <AcceptInvitationPage />)
-    expect(await screen.findByText(/được gửi tới thư điện tử khác/)).toBeInTheDocument()
+    expect(await screen.findByText('Lời mời này được gửi tới email khác. Hãy đăng nhập bằng email được mời để chấp nhận.')).toBeInTheDocument()
     expect(screen.queryByText('Trang trại')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Chấp nhận & vào trại' })).toBeDisabled()
+    expect(screen.queryByText('Trại bò Yên Bài – Ba Vì')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Chấp nhận & vào trại' })).not.toBeInTheDocument()
   })
 
   it('shows the expired state for an expired or unknown link', async () => {
     const expired = renderAt('technician', '/invitation/accept?token=mock-invitation-expired', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Lời mời không còn hiệu lực')).toBeInTheDocument()
-    expect(screen.getByText('Đã hết hạn')).toBeInTheDocument()
-    expect(screen.getByText('24/10/2026 08:10')).toBeInTheDocument()
+    expect(screen.getByText('Hết hạn')).toBeInTheDocument()
+    expect(screen.getByText('Lời mời không còn hiệu lực (Hết hạn). Hết hạn lúc 24/10/2026 08:10.')).toBeInTheDocument()
     expired.unmount()
     renderAt('technician', '/invitation/accept', '/invitation/accept', <AcceptInvitationPage />)
-    expect(await screen.findByText('Liên kết không hợp lệ')).toBeInTheDocument()
+    expect(await screen.findByText('Lời mời không còn hiệu lực (Liên kết không hợp lệ).')).toBeInTheDocument()
   })
 
   it('accepts the invitation with the matching email', async () => {
     const user = userEvent.setup()
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
     renderAt('technician', '/invitation/accept?token=mock-invitation-token', '/invitation/accept', <AcceptInvitationPage />)
     expect(await screen.findByText('Chờ bạn chấp nhận')).toBeInTheDocument()
     expect(screen.getByText('Xem hồ sơ bò qua quét QR hoặc danh sách')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Chấp nhận & vào trại' }))
     expect(await screen.findByText('Bạn đã tham gia Trại bò Yên Bài – Ba Vì với vai trò Kỹ thuật viên.')).toBeInTheDocument()
+    // then the Technician home of the joined farm opens with a fresh session (SCR-74, D28)
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/kt'), { timeout: 3000 })
   })
 })
 

@@ -132,15 +132,26 @@ export interface Invitation {
   accountHint?: 'HAS_ACCOUNT' | 'NO_ACCOUNT'
 }
 
+/** A7 / SCR-15 (D28): PENDING to review, or ACCEPTED with the signed-in person's own ACTIVE membership (AF2). */
 export interface InvitationPreview {
+  status: 'PENDING' | 'ACCEPTED'
+  farmId: number
   farmName: string
+  timeZone?: string
   email: string
   role: Exclude<FarmRole, 'OWNER'>
-  invitedAt: string
-  expiresAt: string
-  status: InvitationStatus
   invitedBy?: string
-  farmId?: number
+  sentAt: string
+  expiresAt: string
+  membershipId?: number
+}
+
+/** A8 (D28): the farm to open after joining; repeating the acceptance returns the same membership. */
+export interface AcceptedInvitation {
+  membershipId: number
+  farmId: number
+  farmName: string
+  role: Exclude<FarmRole, 'OWNER'>
 }
 
 export interface InviteMemberInput { email: string; role: Exclude<FarmRole, 'OWNER'>; validityDays: 3 | 7 | 14 }

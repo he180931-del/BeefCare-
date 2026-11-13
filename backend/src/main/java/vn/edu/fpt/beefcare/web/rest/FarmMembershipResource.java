@@ -134,13 +134,15 @@ public class FarmMembershipResource {
             () -> service.changeMember(farmId, membershipId, request));
     }
 
+    /** A7 / SCR-15: PENDING to review, or ACCEPTED with the caller's own membership (AF2); other states are MSG-FE03-08 (D28). */
     @GetMapping("/invitations/accept")
     public InvitationAcceptance preview(@RequestParam String token) {
         return service.preview(token);
     }
 
+    /** A8: no Idempotency-Key (D28); the link token is the intent and a repeat returns the same membership (GBR-17). */
     @PostMapping("/invitations/accept")
-    public MemberView accept(@Valid @RequestBody AcceptInvitation request) {
+    public AcceptedInvitation accept(@Valid @RequestBody AcceptInvitation request) {
         return service.accept(request.token());
     }
 }

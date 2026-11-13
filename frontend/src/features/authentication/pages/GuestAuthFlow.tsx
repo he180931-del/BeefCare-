@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { rememberInvitationLink } from '../invitationReturn'
 import type { AuthClient } from '../types'
 import { normalizeEmail } from '../validation'
 import { AUTH_PATH, emailFromState } from '../domain/authErrors'
@@ -14,6 +16,8 @@ export function GuestAuthFlow({ client, onAuthenticated, initialError = null, fo
   const location = useLocation()
   const search = new URLSearchParams(location.search)
   const path = location.pathname
+  // UC-FE03-04 AF3 / UC-FE01-02 AF2 (D28): sign in or register here, then come back to the invitation.
+  useEffect(() => { rememberInvitationLink(location.pathname + location.search) }, [location.pathname, location.search])
   const mockNotice = client.mode === 'mock' ? <div className="fixed bottom-3 right-3 z-30 rounded-full border border-[#c7dfcf] bg-white px-3 py-1.5 text-[11px] font-semibold text-brand shadow">Chế độ mô phỏng · dữ liệu chỉ ở bộ nhớ</div> : null
   let page
   if (forceSuspended || path === AUTH_PATH.suspended) page = <SuspendedPage onBackToSignIn={onExitSuspended} />

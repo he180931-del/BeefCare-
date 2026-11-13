@@ -36,7 +36,8 @@ export default function InvitationsPage() {
   const farmId = useFarmId()
   const [search, setSearch] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
-  const owner = session?.role === 'OWNER'
+  // Outside a SessionProvider (route smoke, page tests) no role rule applies, as for RoleGate; the API still checks the Owner.
+  const owner = session == null || session.role === 'OWNER'
   const preferencesKey = `beefcare:invitation-filters:${session?.email ?? ''}:${farmId}`
   const saved = useMemo(() => readPreferences(preferencesKey), [preferencesKey])
   const selectedStatus = STATUSES.find(status => status === search.get('status')) ?? saved.status

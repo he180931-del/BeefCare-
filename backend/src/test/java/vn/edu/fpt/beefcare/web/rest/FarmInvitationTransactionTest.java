@@ -224,7 +224,7 @@ class FarmInvitationTransactionTest extends DomainTestSupport {
         Fixture f = fixture(); JsonNode sent = created(f, "to-cancel"); long id = sent.path("id").asLong();
         command(f, id, "cancel", sent.path("version").asInt(), "cancel").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"));
         assertThat(jdbc.queryForObject("select status from farm_invitation where id=?", String.class, id)).isEqualTo("CANCELLED");
-        assertThat(jdbc.queryForObject("select token_hash from farm_invitation where id=?", String.class, id)).isNull();
+        assertThat(jdbc.queryForObject("select token_hash from farm_invitation where id=?", String.class, id)).isNotNull(); // D28
         assertThat(audits("INVITE_CANCEL", id)).isEqualTo(1);
         assertThat(job(f).getStatus()).isEqualTo("CANCELLED");
         dispatcher.dispatchDueJobs();
@@ -266,5 +266,71 @@ class FarmInvitationTransactionTest extends DomainTestSupport {
 
     protected boolean postgres() {
         return Boolean.TRUE.equals(jdbc.execute((java.sql.Connection connection) -> "PostgreSQL".equals(connection.getMetaData().getDatabaseProductName())));
+    }
+
+    // ------------------------------------------------------------------ UC-FE03-04 (D28)
+
+    protected String tokenOf(long invitationId) {
+        return signer.bearer("FARM_INVITATION", invitationId, jdbc.queryForObject("select token_nonce from farm_invitation where id=?", String.class, invitationId));
+    }
+
+    protected ResultActions accept(Fixture f, String token) throws Exception {
+        return mvc.perform(post("/api/invitations/accept").with(SecurityMockMvcRequestPostProcessors.user(f.email())).with(csrf())
+            .contentType("application/json").content(mapper.writeValueAsBytes(Map.of("token", token))));
+    }
+
+    protected java.util.List<EmailDeliveryJob> ownerJobs(long membershipId) {
+        return jobs.findAll().stream().filter(j -> "MEMBERSHIP".equals(j.getLinkSource()) && j.getLinkSourceId() == membershipId).toList();
+    }
+
+    @Test
+    void acceptCommitsTheMembershipAuditAndOneVietnameseOwnerEmailTogether() throws Exception {
+        Fixture f = fixture(); long id = created(f, "to-accept").path("id").asLong(); dispatcher.dispatchDueJobs();
+        String token = tokenOf(id);
+        JsonNode accepted = mapper.readTree(accept(f, token).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        long membershipId = accepted.path("membershipId").asLong();
+        accept(f, token).andExpect(status().isOk()).andExpect(jsonPath("$.membershipId").value(membershipId));
+        assertThat(jdbc.queryForObject("select status from farm_invitation where id=?", String.class, id)).isEqualTo("ACCEPTED");
+        assertThat(count("farm_membership", f)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from audit_log where action='MEMBER_ACCEPT' and target_id=?", Long.class, membershipId)).isEqualTo(1);
+        assertThat(ownerJobs(membershipId)).singleElement().satisfies(job -> assertThat(job.getRecipient()).isEqualTo(f.ownerEmail()));
+        dispatcher.dispatchDueJobs();
+        assertThat(ownerJobs(membershipId)).singleElement().satisfies(job -> assertThat(job.getStatus()).isEqualTo("SENT"));
+        var messages = inbox.findMessagesFor(f.ownerEmail());
+        assertThat(messages).hasSize(1);
+        assertThat(messages.get(0).subject()).isEqualTo("Thành viên mới đã tham gia trang trại");
+        assertThat(messages.get(0).plainText()).contains(f.email(), "Kỹ thuật viên", "/thanh-vien?farmId=" + f.farmId(), "giờ Việt Nam");
+    }
+
+    @Test
+    void aFailureAfterAcceptingRollsBackTheMembershipStatusAuditAndOwnerEmail() {
+        Fixture f = fixture();
+        long id;
+        try { id = created(f, "rollback").path("id").asLong(); } catch (Exception failure) { throw new IllegalStateException(failure); }
+        String token = tokenOf(id);
+        actAs(new vn.edu.fpt.beefcare.domain.AppUser().email(f.email()));
+        assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            membershipService.accept(token);
+            // A real failure inside the acceptance transaction, after membership, status, audit and e-mail intent were flushed.
+            throw DomainException.badRequest("MSG-COM-02");
+        })).isInstanceOf(DomainException.class);
+        assertThat(jdbc.queryForObject("select status from farm_invitation where id=?", String.class, id)).isEqualTo("PENDING");
+        assertThat(count("farm_membership", f)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from audit_log where action='MEMBER_ACCEPT' and farm_id=?", Long.class, f.farmId())).isZero();
+        assertThat(jobs.findAll().stream().noneMatch(j -> "MEMBERSHIP".equals(j.getLinkSource()) && f.ownerEmail().equals(j.getRecipient()))).isTrue();
+    }
+
+    @Test
+    void anOwnerWhoLostAccessBeforeDispatchGetsNoEmail() throws Exception {
+        Fixture f = fixture(); long id = created(f, "lost-owner").path("id").asLong(); dispatcher.dispatchDueJobs();
+        // Suspended before the acceptance: the scheduled JOB-07 poller (every 2 s in tests) cannot send in between.
+        // Hikari runs with auto-commit off, so a bare JdbcTemplate update would be rolled back when the connection returns.
+        Integer suspended = new TransactionTemplate(transactionManager).execute(tx -> jdbc.update("update app_user set account_status='SUSPENDED' where lower(email)=lower(?)", f.ownerEmail()));
+        assertThat(suspended).isEqualTo(1);
+        long membershipId = mapper.readTree(accept(f, tokenOf(id)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).path("membershipId").asLong();
+        dispatcher.dispatchDueJobs();
+        // JOB-07 "Recipient lost access": the event is closed without sending
+        assertThat(ownerJobs(membershipId)).singleElement().satisfies(job -> assertThat(job.getStatus()).isEqualTo("CANCELLED"));
+        assertThat(inbox.findMessagesFor(f.ownerEmail())).isEmpty();
     }
 }

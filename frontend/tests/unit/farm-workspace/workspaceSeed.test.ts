@@ -34,17 +34,19 @@ describe('farm workspace seed data (Figma frames)', () => {
 describe('invitation tokens', () => {
   it('previews the expired sample without accepting it', async () => {
     const store = createFarmWorkspaceDemoStore({ profile: { email: 'technician@beefcare.local' } })
-    expect((await store.previewInvitation(EXPIRED_TOKEN)).status).toBe('EXPIRED')
+    await expect(store.previewInvitation(EXPIRED_TOKEN)).rejects.toMatchObject({ code: 'MSG-FE03-08', params: { status: 'EXPIRED' } })
     await expect(store.acceptInvitation(EXPIRED_TOKEN)).rejects.toThrow('không còn hiệu lực')
-    await expect(store.previewInvitation('khong-co')).rejects.toThrow('không còn hiệu lực')
+    await expect(store.previewInvitation('khong-co')).rejects.toMatchObject({ code: 'MSG-FE03-08', params: { status: 'INVALID' } })
   })
 
   it('accepts with the signed-in session email, not the store profile', async () => {
     const store = createFarmWorkspaceDemoStore()
     await expect(store.acceptInvitation(SAMPLE_TOKEN, 'owner@beefcare.local')).rejects.toThrow('không khớp')
     const member = await store.acceptInvitation(SAMPLE_TOKEN, 'Technician@BeefCare.local')
-    expect(member).toMatchObject({ role: 'TECHNICIAN', status: 'ACTIVE' })
-    expect((await store.previewInvitation(SAMPLE_TOKEN)).status).toBe('ACCEPTED')
+    expect(member).toMatchObject({ role: 'TECHNICIAN' })
+    // AF2: reopening shows the same membership; accepting again returns it (D28)
+    expect(await store.previewInvitation(SAMPLE_TOKEN, 'technician@beefcare.local')).toMatchObject({ status: 'ACCEPTED', membershipId: member.membershipId })
+    expect(await store.acceptInvitation(SAMPLE_TOKEN, 'technician@beefcare.local')).toEqual(member)
   })
 })
 

@@ -57,13 +57,14 @@ describe('farm workspace local demo store', () => {
   it('blocks a mismatched invitation email and accepts a matching one', async () => {
     const token = 'mock-invitation-token'
     const owner = createFarmWorkspaceDemoStore()
-    const preview = await owner.previewInvitation(token)
-    expect(preview.farmName).toBe('Trại bò Yên Bài – Ba Vì')
+    // E2 like the backend (D28): another e-mail learns nothing about the farm
+    await expect(owner.previewInvitation(token)).rejects.toMatchObject({ code: 'MSG-FE03-09' })
     await expect(owner.acceptInvitation(token)).rejects.toThrow('Email đăng nhập không khớp')
 
     const invitee = createFarmWorkspaceDemoStore({ profile: { email: 'technician@beefcare.local' } })
+    expect((await invitee.previewInvitation(token)).farmName).toBe('Trại bò Yên Bài – Ba Vì')
     const accepted = await invitee.acceptInvitation(token)
-    expect(accepted.status).toBe('ACTIVE')
+    expect(accepted).toMatchObject({ role: 'TECHNICIAN', farmName: 'Trại bò Yên Bài – Ba Vì' })
     expect((await invitee.listFarms()).some((farm) => farm.name === 'Trại bò Yên Bài – Ba Vì' && farm.role === 'TECHNICIAN')).toBe(true)
   })
 

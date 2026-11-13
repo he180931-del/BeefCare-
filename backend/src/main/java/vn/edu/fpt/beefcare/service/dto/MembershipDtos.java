@@ -35,6 +35,14 @@ public final class MembershipDtos {
         @NotNull Integer expectedVersion
     ) {}
 
-    public record InvitationAcceptance(String farmName, String email, String role, Instant invitedAt, Instant expiresAt) {}
+    /**
+     * A7 (UC-FE03-04 step 4, AF2, D28): returned only to the signed-in invited email. PENDING can be accepted; ACCEPTED is the
+     * caller's own ACTIVE membership ({@code membershipId}). sentAt is the last send; times are instants shown in timeZone.
+     */
+    public record InvitationAcceptance(String status, Long farmId, String farmName, String timeZone, String email, String role,
+        String invitedBy, Instant sentAt, Instant expiresAt, Long membershipId) {}
+
+    /** A8 (D28): the link token identifies the intent; repeating the acceptance returns the same membership (GBR-17). */
+    public record AcceptedInvitation(Long membershipId, Long farmId, String farmName, String role, String status) {}
     public record AcceptInvitation(@NotBlank String token) {}
 }

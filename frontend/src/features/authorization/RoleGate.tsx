@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { readCurrentFarmId } from '../../api/currentFarm'
-import { homePathFor, isFarmRole, useSession, type AppRole } from './sessionContext'
+import { homePathFor, isFarmRole, needsOwnerRegistration, useSession, type AppRole } from './sessionContext'
 
 /** Chỉ ẩn màn hình theo vai trò để điều hướng đúng; quyền thật vẫn do backend kiểm tra trên từng lệnh. */
 export function RoleGate({ allow, children }: { allow: readonly AppRole[]; children: ReactNode }) {
   const session = useSession()
-  if (session?.ownerRegistrationCompleted === false) return <Navigate to="/owner-registration" replace />
+  if (needsOwnerRegistration(session)) return <Navigate to="/owner-registration" replace />
   if (session && !allow.includes(session.role)) return <Navigate to={homePathFor(session.role)} replace />
   return children
 }
@@ -18,7 +18,7 @@ export function RoleGate({ allow, children }: { allow: readonly AppRole[]; child
 export function HomeRedirect() {
   const session = useSession()
   const role = session?.role ?? 'OWNER'
-  if (session?.ownerRegistrationCompleted === false) return <Navigate to="/owner-registration" replace />
+  if (needsOwnerRegistration(session)) return <Navigate to="/owner-registration" replace />
   if (isFarmRole(role) && readCurrentFarmId() == null) return <Navigate to="/chon-trai" replace state={{ fromSignIn: true }} />
   return <Navigate to={homePathFor(role)} replace />
 }

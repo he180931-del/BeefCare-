@@ -70,6 +70,6 @@ export function seedYenBaiInvitations(): Invitation[] {
 
 /** Lời mời của Kỹ thuật viên Lê Thị Mai (Figma "Chấp nhận lời mời" và "Lời mời không còn hiệu lực"). */
 export const samplePreview: InvitationPreview = {
-  farmName: YEN_BAI, email: 'technician@beefcare.local', role: 'TECHNICIAN', status: 'PENDING',
-  invitedAt: '2026-10-17T08:10:00+07:00', expiresAt: '2026-10-24T08:10:00+07:00', invitedBy: 'Nguyễn Văn Hùng · Chủ trại', farmId: INVITED_FARM_ID,
+  farmName: YEN_BAI, email: 'technician@beefcare.local', role: 'TECHNICIAN', status: 'PENDING', timeZone: 'Asia/Ho_Chi_Minh',
+  sentAt: '2026-10-17T08:10:00+07:00', expiresAt: '2026-10-24T08:10:00+07:00', invitedBy: 'Nguyễn Văn Hùng', farmId: INVITED_FARM_ID,
 }

@@ -124,7 +124,7 @@ public class EmailDeliveryJobService {
                 if (!"PENDING".equals(job.getStatus())) return;
                 job.setLeaseUntil(null);
                 job.setLastError(failure.getClass().getSimpleName());
-                boolean dayLimited = "PAYMENT_RECEIPT".equals(job.getLinkSource()) || "INVITATION".equals(job.getLinkSource());
+                boolean dayLimited = "PAYMENT_RECEIPT".equals(job.getLinkSource()) || "INVITATION".equals(job.getLinkSource()) || "MEMBERSHIP".equals(job.getLinkSource());
                 Instant deadline = job.getCreatedAt().plus(Duration.ofHours(24));
                 if (dayLimited ? !Instant.now().isBefore(deadline) : job.getAttempts() >= MAX_ATTEMPTS) {
                     job.setStatus("FAILED");
@@ -146,7 +146,27 @@ public class EmailDeliveryJobService {
         String expectedRecipient;
         String actionUrl;
         Farm subscriptionFarm = null;
-        if ("ACCOUNT_LINK".equals(job.getLinkSource())) {
+        String joinedMember = null;
+        if ("MEMBERSHIP".equals(job.getLinkSource()) && "MEMBER_JOINED".equals(job.getTemplateKey())) {
+            // UC-FE03-04 step 8 / JOB-07 (D28): retried for 24 hours; the farm's current ACTIVE Owner is resolved now, and a lost
+            // recipient closes the event without sending.
+            if (!Instant.now().isBefore(job.getCreatedAt().plus(Duration.ofHours(24)))) {
+                job.setStatus("FAILED"); job.setLeaseUntil(null); return null;
+            }
+            var membership = memberships.findById(job.getLinkSourceId()).orElse(null);
+            if (membership == null) return cancel(job);
+            Farm farm = membership.getFarm();
+            AppUser owner = memberships.findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(farm.getId(), "OWNER", "ACTIVE")
+                .map(value -> value.getUser()).filter(value -> "ACTIVE".equalsIgnoreCase(value.getAccountStatus())).orElse(null);
+            if (owner == null) return cancel(job);
+            job.setRecipient(owner.getEmail()); job.setDisplayName(owner.getFullName()); job.setContextName(farm.getName());
+            AppUser member = membership.getUser();
+            joinedMember = blankDefault(member.getFullName(), member.getEmail()) + " (" + member.getEmail() + ")";
+            expectedRecipient = owner.getEmail();
+            expiry = job.getCreatedAt();
+            actionUrl = frontendBaseUrl + "/thanh-vien?farmId=" + farm.getId();
+            bearer = null;
+        } else if ("ACCOUNT_LINK".equals(job.getLinkSource())) {
             AccountLinkToken link = accountLinks.findById(job.getLinkSourceId()).orElse(null);
             if (link == null || link.getUsedAt() != null || link.getTokenNonce() == null || !link.getExpiresAt().isAfter(Instant.now())) return cancel(job);
             String templateKey = EMAIL_VERIFICATION.equals(link.getTokenType()) ? "VERIFY_EMAIL" : "PASSWORD_RESET".equals(link.getTokenType()) ? "RESET_PASSWORD" : null;
@@ -241,6 +261,14 @@ public class EmailDeliveryJobService {
                 intro = SubscriptionNoticeJob.summary(notice, subscriptionFarm, expiry.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate());
                 button = "Xem gói dịch vụ";
                 expiryText = "BeefCare không tự động gia hạn; bạn tạo yêu cầu thanh toán khi muốn gia hạn.";
+            }
+            case "MEMBER_JOINED" -> {
+                String farmName = blankDefault(job.getContextName(), "trang trại");
+                String role = "MANAGER".equalsIgnoreCase(job.getContextRole()) ? "Quản lý" : "Kỹ thuật viên";
+                title = "Thành viên mới đã tham gia trang trại";
+                intro = joinedMember + " đã chấp nhận lời mời và tham gia trang trại “" + farmName + "” với vai trò " + role + ".";
+                button = "Xem thành viên";
+                expiryText = "Thời điểm tham gia: " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
             }
             case "SUPPORT_TICKET_UPDATE" -> {
                 title = "Cập nhật yêu cầu hỗ trợ";

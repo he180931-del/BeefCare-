@@ -93,14 +93,26 @@ describe('role navigation', () => {
     expect(screen.getByText(text)).toBeInTheDocument()
   })
 
-  it('sends an incomplete owner to owner registration before every role destination', () => {
-    const session = { ...sessionFor('PM'), ownerRegistrationCompleted: false }
+  it('sends an account with no farm and no platform role to owner registration (UC-FE01-02 AF4)', () => {
+    const session = { ...sessionFor('OWNER'), farmId: null, farmName: null, activeFarmCount: 0, ownerRegistrationCompleted: false }
     render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/']}><Routes><Route path="/" element={<HomeRedirect />} /><Route path="/owner-registration" element={<div>Hoàn tất Owner</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
     expect(screen.getByText('Hoàn tất Owner')).toBeInTheDocument()
   })
 
-  it('keeps an incomplete owner out of a directly requested farm screen', () => {
-    const session = { ...sessionFor('OWNER'), ownerRegistrationCompleted: false }
+  it.each([
+    ['MANAGER', 'Trang chủ trại', null],
+    ['TECHNICIAN', 'Trang kỹ thuật viên', null],
+    ['PM', 'Trang PM', 'PM'],
+  ] as const)('lets a %s with an unfinished owner profile reach their own home (D28)', (role, text, platformRole) => {
+    writeCurrentFarmId(1)
+    const session = { ...sessionFor(role), platformRole, ownerRegistrationCompleted: false }
+    render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/']}><Routes><Route path="/" element={<HomeRedirect />} /><Route path="/tong-quan" element={<RoleGate allow={['OWNER', 'MANAGER']}><div>Trang chủ trại</div></RoleGate>} /><Route path="/kt" element={<RoleGate allow={['TECHNICIAN']}><div>Trang kỹ thuật viên</div></RoleGate>} /><Route path="/nen-tang/dich-vu" element={<div>Trang PM</div>} /><Route path="/owner-registration" element={<div>Hoàn tất Owner</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
+    expect(screen.getByText(text)).toBeInTheDocument()
+    expect(screen.queryByText('Hoàn tất Owner')).not.toBeInTheDocument()
+  })
+
+  it('keeps an incomplete owner without any farm out of a directly requested farm screen', () => {
+    const session = { ...sessionFor('OWNER'), farmId: null, farmName: null, activeFarmCount: 0, ownerRegistrationCompleted: false }
     render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={['/tong-quan']}><Routes><Route path="/tong-quan" element={<RoleGate allow={['OWNER', 'MANAGER']}><div>Bí mật</div></RoleGate>} /><Route path="/owner-registration" element={<div>Hoàn tất Owner</div>} /></Routes></MemoryRouter></SessionContext.Provider>)
     expect(screen.queryByText('Bí mật')).not.toBeInTheDocument()
     expect(screen.getByText('Hoàn tất Owner')).toBeInTheDocument()

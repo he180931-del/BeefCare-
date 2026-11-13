@@ -41,11 +41,12 @@ class FarmMembershipServiceTest extends DomainTestSupport {
         actAs(invitee);
         var member = service.accept(rawToken);
 
-        assertThat(member.id()).isNotNull();
+        assertThat(member.membershipId()).isNotNull();
+        assertThat(member.farmId()).isEqualTo(farm.getId());
         assertThat(member.role()).isEqualTo("MANAGER");
         assertThat(em.createQuery("select count(m) from FarmMembership m where m.farm.id=:farm and m.user.id=:user", Long.class)
             .setParameter("farm", farm.getId()).setParameter("user", invitee.getId()).getSingleResult()).isEqualTo(1L);
-        assertThat(service.accept(rawToken).id()).isEqualTo(member.id());
+        assertThat(service.accept(rawToken).membershipId()).isEqualTo(member.membershipId());
     }
 
     @Test

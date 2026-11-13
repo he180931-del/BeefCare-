@@ -3061,7 +3061,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/MemberView"
+                  "$ref" : "#/components/schemas/AcceptedInvitation"
                 }
               }
             }
@@ -16403,6 +16403,28 @@
           }
         }
       },
+      "AcceptedInvitation" : {
+        "type" : "object",
+        "properties" : {
+          "membershipId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
       "Registration" : {
         "type" : "object",
         "properties" : {
@@ -21117,7 +21139,17 @@
       "InvitationAcceptance" : {
         "type" : "object",
         "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "farmName" : {
+            "type" : "string"
+          },
+          "timeZone" : {
             "type" : "string"
           },
           "email" : {
@@ -21126,13 +21158,20 @@
           "role" : {
             "type" : "string"
           },
-          "invitedAt" : {
+          "invitedBy" : {
+            "type" : "string"
+          },
+          "sentAt" : {
             "type" : "string",
             "format" : "date-time"
           },
           "expiresAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "membershipId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
