@@ -10607,10 +10607,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/MemberView"
-                  }
+                  "$ref" : "#/components/schemas/MemberList"
                 }
               }
             }
@@ -13152,16 +13149,19 @@
           "status" : {
             "type" : "string"
           },
-          "effectiveDate" : {
+          "joinedAt" : {
             "type" : "string",
-            "format" : "date"
-          },
-          "reason" : {
-            "type" : "string"
+            "format" : "date-time"
           },
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -21692,6 +21692,50 @@
           }
         }
       },
+      "MemberCounts" : {
+        "type" : "object",
+        "properties" : {
+          "all" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "managers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "technicians" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inactive" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "MemberList" : {
+        "type" : "object",
+        "properties" : {
+          "farmName" : {
+            "type" : "string"
+          },
+          "timeZone" : {
+            "type" : "string"
+          },
+          "serviceStatus" : {
+            "type" : "string"
+          },
+          "counts" : {
+            "$ref" : "#/components/schemas/MemberCounts"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MemberView"
+            }
+          }
+        }
+      },
       "InvitationPage" : {
         "type" : "object",
         "properties" : {
@@ -22903,13 +22947,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "token" : {
-            "type" : "string"
-          },
           "parameterName" : {
             "type" : "string"
           },
           "headerName" : {
+            "type" : "string"
+          },
+          "token" : {
             "type" : "string"
           }
         }

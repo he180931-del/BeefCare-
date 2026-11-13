@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261114000100-membership-joined-at" author="beefcare">
+        <!-- D29 / UC-FE03-05: SRS Part I §3.2 Farm Membership "joined time", shown as Joined (mm/yyyy) on SCR-13. It is set
+             once when the membership is created; role changes, deactivation and reactivation never move it. -->
+        <addColumn tableName="farm_membership">
+            <column name="joined_at" type="${datetimeType}"/>
+        </addColumn>
+        <!-- Existing rows, best source first: the acceptance audit entry, the farm registration audit entry for the Owner,
+             the accepted invitation of the member's email, and finally the last effective date (start of that day). -->
+        <sql>UPDATE farm_membership SET joined_at = (SELECT MIN(a.logged_at) FROM audit_log a WHERE a.action = 'MEMBER_ACCEPT' AND a.target_type = 'FarmMembership' AND a.target_id = farm_membership.id) WHERE joined_at IS NULL</sql>
+        <sql>UPDATE farm_membership SET joined_at = (SELECT MIN(a.logged_at) FROM audit_log a WHERE a.action = 'FARM_REGISTER' AND a.target_type = 'Farm' AND a.target_id = farm_membership.farm_id) WHERE joined_at IS NULL AND UPPER(role) = 'OWNER'</sql>
+        <sql>UPDATE farm_membership SET joined_at = (SELECT MIN(i.accepted_at) FROM farm_invitation i JOIN app_user u ON LOWER(u.email) = LOWER(i.invited_email) WHERE i.farm_id = farm_membership.farm_id AND u.id = farm_membership.user_id AND UPPER(i.status) = 'ACCEPTED') WHERE joined_at IS NULL</sql>
+        <sql>UPDATE farm_membership SET joined_at = CAST(effective_date AS TIMESTAMP) WHERE joined_at IS NULL</sql>
+        <addNotNullConstraint tableName="farm_membership" columnName="joined_at" columnDataType="${datetimeType}"/>
+    </changeSet>
+</databaseChangeLog>

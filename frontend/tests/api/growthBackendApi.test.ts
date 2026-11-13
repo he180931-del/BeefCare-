@@ -135,6 +135,21 @@ test('TC-08-20: hộp thoại ghi nhận lấy người đo từ /members (userI
   assert.equal(options.cattle.penCode, 'A1')
 })
 
+test('TC-08-20 với A1 dạng {items, counts} (FE-03 D29): vẫn lấy người đo đang hoạt động theo userId', async () => {
+  const { transport } = fakeTransport({
+    '/api/farms/1/cattle/resolve': resolve,
+    '/api/farms/1/members': {
+      farmName: 'Trại', timeZone: 'Asia/Ho_Chi_Minh', serviceStatus: 'ACTIVE', counts: { all: 2, managers: 1, technicians: 1 },
+      items: [
+        { id: 1, userId: 5, fullName: 'Trần Quốc Long', email: 'long@example.test', role: 'MANAGER', status: 'ACTIVE', joinedAt: '2024-05-02T02:00:00Z', version: 1, actions: [] },
+        { id: 2, userId: 6, fullName: 'Lê Thị Mai', email: 'mai@example.test', role: 'TECHNICIAN', status: 'ACTIVE', joinedAt: '2025-01-02T02:00:00Z', version: 1, actions: [] },
+      ],
+    },
+  })
+  const options = await createGrowthBackend({ farmId: 1, transport, clock }).formOptions('BC-000203')
+  assert.deepEqual(options.members, [{ id: 5, name: 'Trần Quốc Long' }, { id: 6, name: 'Lê Thị Mai' }])
+})
+
 test('TC-08-06: ghi nhận gửi Measurement đúng DTO, không gửi basis, có Idempotency-Key', async () => {
   let sent: Record<string, unknown> = {}
   let key: string | null = null

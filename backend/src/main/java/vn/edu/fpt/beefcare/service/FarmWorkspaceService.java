@@ -23,9 +23,10 @@ public class FarmWorkspaceService {
     private final AuditService audit;
     private final OutboxService outbox;
     private final FarmServiceFacts facts;
+    private final FarmClock clock;
     public FarmWorkspaceService(EntityManager em,FarmAccessService access,FarmRepository farms,
-        StarterCatalogueService starters,AuditService audit,OutboxService outbox,FarmServiceFacts facts) {
-        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;this.facts=facts;
+        StarterCatalogueService starters,AuditService audit,OutboxService outbox,FarmServiceFacts facts,FarmClock clock) {
+        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;this.facts=facts;this.clock=clock;
     }
     /**
      * UC-FE02-02 step 2: every farm where the caller has an ACTIVE membership, whatever its service status. A Manager or
@@ -57,7 +58,7 @@ public class FarmWorkspaceService {
             blankDefault(request.contactPerson(),owner.getFullName()),blankDefault(request.contactPhone(),owner.getPhone()),request.registrationCertificateInfo());
         farm.setExpectedHerdSize(blankDefault(request.expectedHerdSize(),null)); em.persist(farm);
         FarmMembership membership=new FarmMembership();membership.setFarm(farm);membership.setUser(owner);
-        membership.setRole("OWNER");membership.setStatus("ACTIVE");em.persist(membership);
+        membership.setRole("OWNER");membership.setStatus("ACTIVE");membership.setJoinedAt(clock.now());em.persist(membership); // SCR-13 Joined (D29)
         starters.create(farm,owner,request.mainBreedCodes());
         audit.log(farm,owner,"FARM_REGISTER","Farm",farm.getId(),Map.of("name",farm.getName()));
         outbox.enqueue(farm.getId(),"FARM_REGISTERED","Farm",farm.getId(),Map.of("farmId",farm.getId(),"ownerId",owner.getId()));

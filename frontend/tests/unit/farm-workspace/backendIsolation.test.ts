@@ -79,7 +79,7 @@ describe('farm workspace backend adapter isolation', () => {
     const api = createFarmWorkspaceApi({ mode: 'backend', farmId: 901, transport, demoStore: store })
     await api.resendInvitation(901, 61, { expectedVersion: 3, idempotencyKey: 'resend-one' })
     expect(transport.command).toHaveBeenCalledWith('/api/farms/901/invitations/61/resend', { expectedVersion: 3 }, { method: 'POST', key: 'resend-one' })
-    vi.mocked(transport.command).mockResolvedValue({ id: 52, userId: 8, email: 'member@example.test', role: 'MANAGER', status: 'ACTIVE', version: 5 })
+    vi.mocked(transport.command).mockResolvedValue({ id: 52, userId: 8, email: 'member@example.test', role: 'MANAGER', status: 'ACTIVE', joinedAt: '2025-04-10T03:00:00Z', version: 5, actions: ['CHANGE_ROLE', 'DEACTIVATE'] })
     const input = { action: 'REACTIVATE' as const, effectiveDate: '2026-11-11', reason: 'Tiếp tục công việc' }
     await api.changeMember(901, 52, input, { expectedVersion: 4, idempotencyKey: 'reactivate-one' })
     expect(transport.command).toHaveBeenCalledWith('/api/farms/901/members/52', { ...input, expectedVersion: 4 }, { method: 'PUT', key: 'reactivate-one' })

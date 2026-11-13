@@ -150,6 +150,7 @@
     <include file="config/liquibase/changelog/20261110000300_plan_price_publication.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261110000400_sepay_durable_processing.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261110000500_sepay_evidence_text_widths.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261114000100_membership_joined_at.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
     <include file="config/liquibase/changelog/20261109000100_medicine_optional_dose.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

@@ -2,7 +2,7 @@ import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberV
 import type {
   AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
   FarmRegistrationInput, FarmRole, FarmServiceStatus, FarmSummary, FarmWorkspaceProfile,
-  Invitation, InvitationPreview, InvitationPage, InvitationListQuery, InvitationStatus, InviteMemberInput, Membership, MemberStatus,
+  Invitation, InvitationPreview, InvitationPage, InvitationListQuery, InvitationStatus, InviteMemberInput, MemberAction, MemberList, Membership, MemberStatus,
   MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { compactPhone } from '../validation'
@@ -28,6 +28,7 @@ const roles = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const satisfies readonly Far
 const serviceStatuses = ['ACTIVE', 'PENDING_PAYMENT', 'EXPIRED', 'SUSPENDED'] as const satisfies readonly FarmServiceStatus[]
 const invitationStatuses = ['PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED'] as const satisfies readonly InvitationStatus[]
 const memberStatuses = ['ACTIVE', 'INACTIVE'] as const satisfies readonly MemberStatus[]
+const memberActions = ['CHANGE_ROLE', 'DEACTIVATE', 'REACTIVATE'] as const satisfies readonly MemberAction[]
 const breeds = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
 const ids = (value: unknown) => Array.isArray(value) ? value.filter((item): item is number => typeof item === 'number' && Number.isFinite(item)) : []
 
@@ -83,15 +84,35 @@ function profile(value: unknown): FarmWorkspaceProfile {
   }
 }
 
+/** A1 row (D29): ids, joined time and actions come from the server; a missing one is an error, not a silent default. */
 function member(value: unknown): Membership {
   const row = asRecord(value)
-  const effectiveDate = textValue(row.effectiveDate)
+  if (!Array.isArray(row.actions)) throw new Error('Dữ liệu máy chủ không có thao tác thành viên hợp lệ.')
+  if (typeof row.version !== 'number' || !Number.isInteger(row.version)) throw new Error('Dữ liệu máy chủ không có phiên bản thành viên hợp lệ.')
   return {
-    id: numberValue(row.id), userId: numberValue(row.userId), fullName: textValue(row.fullName), email: textValue(row.email),
+    id: requiredId(row.id, 'mã thành viên'), userId: requiredId(row.userId, 'mã tài khoản'), fullName: textValue(row.fullName),
+    email: requiredText(row.email, 'thư điện tử thành viên'),
     role: requiredOneOf(row.role, roles, 'vai trò thành viên'), status: requiredOneOf(row.status, memberStatuses, 'trạng thái thành viên'),
-    effectiveDate, reason: textValue(row.reason), version: numberValue(row.version),
-    // Current BE MemberView has no joinedAt; keep that gap empty rather than present effectiveDate as a join date.
-    joinedAt: textValue(row.joinedAt),
+    joinedAt: requiredText(row.joinedAt, 'ngày tham gia'), version: row.version,
+    actions: row.actions.map((action) => requiredOneOf(action, memberActions, 'thao tác thành viên')),
+  }
+}
+
+function memberList(value: unknown): MemberList {
+  const row = asRecord(value)
+  const counts = asRecord(row.counts)
+  const count = (field: string) => {
+    const amount = counts[field]
+    if (typeof amount === 'number' && Number.isInteger(amount) && amount >= 0) return amount
+    throw new Error('Dữ liệu máy chủ không có số lượng thành viên hợp lệ.')
+  }
+  if (!Array.isArray(row.items)) throw new Error('Dữ liệu máy chủ không có danh sách thành viên hợp lệ.')
+  return {
+    farmName: requiredText(row.farmName, 'tên trại'), timeZone: requiredText(row.timeZone, 'múi giờ trại'),
+    serviceStatus: requiredOneOf(row.serviceStatus, serviceStatuses, 'trạng thái dịch vụ'),
+    // `inactive` is sent to the Owner only (no Inactive tab for a Manager).
+    counts: { all: count('all'), managers: count('managers'), technicians: count('technicians'), ...(counts.inactive === undefined ? {} : { inactive: count('inactive') }) },
+    items: row.items.map(member),
   }
 }
 
@@ -185,9 +206,10 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
       const key = options?.idempotencyKey
       return farmDetails(await transport.command(path(id, ''), body, key ? { method: 'PUT', key } : { method: 'PUT' }), 'OWNER')
     },
-    listMembers: async (id: number) => mode === 'backend'
-      ? asRows(await transport.get(path(id, '/members'))).map(member)
-      : demoStore.listMembers(id),
+    /** A1 (D29). `viewer` only drives the local demo; the backend decides rows, counts and actions from the session. */
+    listMembers: async (id: number, viewer: FarmRole = 'OWNER'): Promise<MemberList> => mode === 'backend'
+      ? memberList(await transport.get(path(id, '/members')))
+      : demoStore.listMembers(id, viewer),
     changeMember: async (id: number, memberId: number, input: ChangeMemberInput, options?: MemberCommandOptions) => {
       if (mode !== 'backend') return demoStore.changeMember(id, memberId, input, options)
       if (options?.expectedVersion == null) throw new Error('Thiếu phiên bản thành viên. Tải lại danh sách trước khi thử lại.')

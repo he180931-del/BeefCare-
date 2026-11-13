@@ -63,18 +63,41 @@ public class FarmMembershipService {
         this.linkSigner = linkSigner;
     }
 
+    /**
+     * A1 / SCR-13 (UC-FE03-05, D29). The Owner reads every membership in any service status (GBR-14 read exception that
+     * supports deactivation); a Manager reads the ACTIVE memberships of an ACTIVE farm; a Technician is refused (Table III-2).
+     */
     @Transactional(readOnly = true)
-    public List<MemberView> listMembers(Long farmId) {
-        AppUser caller = access.currentActiveUser();
-        FarmMembership callerMembership = memberships.findFirstByFarmIdAndUserIdAndStatusIgnoreCase(farmId, caller.getId(), ACTIVE)
-            .orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
-        boolean owner = "OWNER".equalsIgnoreCase(callerMembership.getRole());
-        if (owner) access.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
-        else access.require(farmId, FarmAction.VIEW_CATALOGUES);
-        return memberships.findByFarmIdOrderById(farmId).stream()
+    public MemberList listMembers(Long farmId) {
+        FarmContext context = access.require(farmId, FarmAction.VIEW_MEMBERS);
+        boolean owner = context.role() == FarmRole.OWNER;
+        Farm farm = context.farm();
+        boolean farmActive = ACTIVE.equalsIgnoreCase(farm.getServiceStatus());
+        java.text.Collator collator = java.text.Collator.getInstance(Locale.forLanguageTag("vi"));
+        collator.setStrength(java.text.Collator.SECONDARY); // letter case ignored, Vietnamese accents kept
+        List<FarmMembership> rows = memberships.findWithUserByFarmId(farmId).stream()
             .filter(membership -> owner || ACTIVE.equalsIgnoreCase(membership.getStatus()))
-            .map(this::memberView)
+            .sorted(java.util.Comparator.<FarmMembership, String>comparing(FarmMembershipService::sortName, collator)
+                .thenComparing(membership -> membership.getUser().getEmail(), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(FarmMembership::getId))
             .toList();
+        long managers = rows.stream().filter(m -> ACTIVE.equalsIgnoreCase(m.getStatus()) && "MANAGER".equalsIgnoreCase(m.getRole())).count();
+        long technicians = rows.stream().filter(m -> ACTIVE.equalsIgnoreCase(m.getStatus()) && "TECHNICIAN".equalsIgnoreCase(m.getRole())).count();
+        Long inactive = owner ? rows.stream().filter(m -> !ACTIVE.equalsIgnoreCase(m.getStatus())).count() : null;
+        List<MemberView> items = rows.stream().map(membership -> memberView(membership, owner, farmActive)).toList();
+        return new MemberList(farm.getName(), farm.getTimeZone(), farm.getServiceStatus(), new MemberCounts(rows.size(), managers, technicians, inactive), items);
+    }
+
+    private static String sortName(FarmMembership membership) {
+        String name = membership.getUser().getFullName();
+        return name == null || name.isBlank() ? membership.getUser().getEmail() : name.trim();
+    }
+
+    /** The Owner's commands on a row now (GBR-18, D29); a Manager gets none and the Owner row has none. */
+    private static List<String> memberActions(FarmMembership membership, boolean ownerCaller, boolean farmActive) {
+        if (!ownerCaller || "OWNER".equalsIgnoreCase(membership.getRole())) return List.of();
+        if (ACTIVE.equalsIgnoreCase(membership.getStatus())) return farmActive ? List.of("CHANGE_ROLE", "DEACTIVATE") : List.of("DEACTIVATE");
+        return farmActive ? List.of("REACTIVATE") : List.of();
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
@@ -226,6 +249,7 @@ public class FarmMembershipService {
         created.setRole(parseInviteRole(invitation.getProposedRole()).name());
         created.setStatus(ACTIVE);
         created.setEffectiveDate(clock.today());
+        created.setJoinedAt(clock.now());
         created.setChangeReason("Invitation accepted");
         FarmMembership membership = memberships.saveAndFlush(created);
         invitation.setStatus(ACCEPTED);
@@ -296,7 +320,7 @@ public class FarmMembershipService {
         audit.log(owner, "MEMBER_" + action, "FarmMembership", membership.getId(),
             java.util.Map.of("role", membership.getRole(), "status", membership.getStatus(), "effectiveDate", effectiveDate.toString()));
         memberships.flush();
-        return memberView(membership);
+        return memberView(membership, true, farmActive);
     }
 
     private FarmContext requireOwner(Long farmId, boolean requireActiveFarm) {
@@ -358,9 +382,10 @@ public class FarmMembershipService {
         return invitation;
     }
 
-    private MemberView memberView(FarmMembership membership) {
+    private static MemberView memberView(FarmMembership membership, boolean ownerCaller, boolean farmActive) {
         AppUser user = membership.getUser();
-        return new MemberView(membership.getId(), user.getId(), user.getFullName(), user.getEmail(), membership.getRole(), membership.getStatus(), membership.getEffectiveDate(), membership.getChangeReason(), membership.getVersion());
+        return new MemberView(membership.getId(), user.getId(), user.getFullName(), user.getEmail(), membership.getRole(), membership.getStatus(),
+            membership.getJoinedAt(), membership.getVersion(), memberActions(membership, ownerCaller, farmActive));
     }
 
     private InvitationView invitationView(FarmInvitation invitation) {

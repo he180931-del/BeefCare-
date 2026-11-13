@@ -51,8 +51,9 @@ export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSe
         setAlternative({ kind: 'resend', invitation: existing }); return
       }
       if (reason.code === 'MSG-FE03-21') {
-        const rows = await farmWorkspaceApi.listMembers(farmId)
-        const existing = rows.find((row) => row.id === Number(reason.params.membershipId))
+        // A1 is the whole member list (D29), so the inactive membership named by MSG-FE03-21 is always in it.
+        const { items } = await farmWorkspaceApi.listMembers(farmId)
+        const existing = items.find((row) => row.id === Number(reason.params.membershipId))
         if (!existing || existing.status !== 'INACTIVE') throw new Error('Thành viên đã thay đổi. Tải lại danh sách rồi thử lại.')
         setAlternative({ kind: 'reactivate', member: existing }); return
       }

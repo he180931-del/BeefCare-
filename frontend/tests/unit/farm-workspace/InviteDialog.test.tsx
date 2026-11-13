@@ -14,7 +14,9 @@ const api = vi.hoisted(() => ({
 vi.mock('../../../src/features/farm-workspace/api/farmWorkspaceApi', () => ({ farmWorkspaceApi: api }))
 
 const farm = { id: 401, name: 'Trại kiểm thử', role: 'OWNER', serviceStatus: 'ACTIVE', version: 1 }
-const member = { id: 52, userId: 152, email: 'inactive@example.test', fullName: 'Thành viên đã ngưng', role: 'MANAGER', status: 'INACTIVE', effectiveDate: '2026-10-20', reason: 'Tạm ngưng', version: 4, joinedAt: '2026-01-01' }
+const member = { id: 52, userId: 152, email: 'inactive@example.test', fullName: 'Thành viên đã ngưng', role: 'MANAGER', status: 'INACTIVE', joinedAt: '2026-01-01T03:00:00Z', version: 4, actions: ['REACTIVATE'] }
+// A1 (D29): the whole list with the farm name, time zone and service status SCR-13 needs.
+const memberList = (changes = {}) => ({ farmName: 'Trại kiểm thử', timeZone: 'Asia/Ho_Chi_Minh', serviceStatus: 'ACTIVE', counts: { all: 1, managers: 0, technicians: 0, inactive: 1 }, items: [member], ...changes })
 const invitation = { id: 76, email: 'pending@example.test', role: 'MANAGER', status: 'PENDING', validityDays: 7, createdAt: '2026-11-11T03:00:00Z', lastSentAt: '2026-11-11T03:00:00Z', expiresAt: '2026-11-18T03:00:00Z', version: 3 }
 const owner: Session = { role: 'OWNER', fullName: 'Chủ trại kiểm thử', email: 'owner@example.test', farmId: farm.id, farmName: farm.name, logout: vi.fn() }
 const open = (path = '/loi-moi') => render(
@@ -34,11 +36,11 @@ async function fill(email: string) {
 beforeEach(() => {
   vi.resetAllMocks()
   api.getFarm.mockResolvedValue(farm)
-  api.listMembers.mockResolvedValue([member])
+  api.listMembers.mockResolvedValue(memberList())
   api.listInvitations.mockResolvedValue({ items: [invitation], total: 1, page: 0, size: 20, counts: { PENDING: 1, ACCEPTED: 0, EXPIRED: 0, CANCELLED: 0 }, asOf: '2026-11-11T03:00:00Z' })
   api.inviteMember.mockResolvedValue({ ...invitation, id: 77, email: 'new@example.test', role: 'TECHNICIAN' })
   api.resendInvitation.mockResolvedValue({ ...invitation, version: 4 })
-  api.changeMember.mockResolvedValue({ ...member, status: 'ACTIVE', version: 5 })
+  api.changeMember.mockResolvedValue({ ...member, status: 'ACTIVE', version: 5, actions: ['CHANGE_ROLE', 'DEACTIVATE'] })
 })
 
 describe('UC-FE03-01 / D25', () => {
@@ -56,6 +58,7 @@ describe('UC-FE03-01 / D25', () => {
 
   it.each(['/loi-moi', '/thanh-vien'])('shows the expiry in the farm time zone from %s (D26)', async (path) => {
     api.getFarm.mockResolvedValue({ ...farm, timeZone: 'UTC' })
+    api.listMembers.mockResolvedValue(memberList({ timeZone: 'UTC' }))
     open(path)
     await fill('new@example.test')
     expect(await screen.findByText(/Đã tạo lời mời tới new@example.test/)).toHaveTextContent('Hết hạn lúc 18/11/2026 03:00.')

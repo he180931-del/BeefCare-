@@ -58,7 +58,12 @@ public class FarmAccessService {
                 if (role != FarmRole.OWNER) {
                     throw DomainException.forbidden(MessageCodes.FE02_04, "farm", farm.getName(), "status", farm.getServiceStatus());
                 }
-            } else if (action != FarmAction.VIEW_FARM_INFORMATION && action != FarmAction.MANAGE_FARM_INFORMATION) {
+            } else if (
+                action != FarmAction.VIEW_FARM_INFORMATION &&
+                action != FarmAction.MANAGE_FARM_INFORMATION &&
+                // GBR-14 Owner-only read exception (D29): the member list stays readable so members can be deactivated.
+                !(action == FarmAction.VIEW_MEMBERS && role == FarmRole.OWNER)
+            ) {
                 throw DomainException.forbidden(MessageCodes.COM_12, "farm", farm.getName(), "status", farm.getServiceStatus());
             }
         }

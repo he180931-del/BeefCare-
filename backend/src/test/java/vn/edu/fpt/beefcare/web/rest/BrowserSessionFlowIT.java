@@ -645,7 +645,12 @@ class BrowserSessionFlowIT {
         // GBR-14: the new Manager sees the farm with the Manager role, the Owner roster lists both, the profile shows the role
         invitee.get("/api/farms").andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id==" + farmId + ")].role").value("MANAGER"));
         invitee.get("/api/account/profile").andExpect(jsonPath("$.farms[0].farmId").value(farmId)).andExpect(jsonPath("$.farms[0].role").value("MANAGER"));
-        owner.browser.get("/api/farms/" + farmId + "/members").andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        // A1 (D29): whole list with tab counts; the Manager reads it too, without actions or an inactive count
+        owner.browser.get("/api/farms/" + farmId + "/members").andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.counts.all").value(2)).andExpect(jsonPath("$.counts.managers").value(1)).andExpect(jsonPath("$.counts.inactive").value(0))
+            .andExpect(jsonPath("$.items[?(@.role=='MANAGER')].actions[0]").value("CHANGE_ROLE"));
+        invitee.get("/api/farms/" + farmId + "/members").andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.counts.inactive").doesNotExist()).andExpect(jsonPath("$.items[0].actions.length()").value(0));
         owner.browser.get("/api/farms/" + farmId + "/invitations?status=ACCEPTED").andExpect(status().isOk())
             .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].status").value("ACCEPTED"))
             .andExpect(jsonPath("$.counts.ACCEPTED").value(1)).andExpect(jsonPath("$.counts.PENDING").value(0));

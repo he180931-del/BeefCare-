@@ -21,23 +21,23 @@ describe('Members and Roles', () => {
     renderAs(owner, '/thanh-vien')
     expect(await screen.findByRole('button', { name: 'Tất cả (7)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Quản lý (2)' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Kỹ thuật viên (4)' })).toBeInTheDocument()
+    // D29 Q3: Technicians counts ACTIVE technicians; the deactivated one is only under Inactive
+    expect(screen.getByRole('button', { name: 'Kỹ thuật viên (3)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mời thành viên' })).toBeEnabled()
     expect(screen.getByText('03/2024')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Ngừng hoạt động (1)' }))
+    await user.click(screen.getByRole('button', { name: 'Đã ngưng (1)' }))
     expect(screen.getByText('Bùi Văn Khoa')).toBeInTheDocument()
     expect(screen.queryByText('Phạm Văn Tú')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Kích hoạt lại' })).toBeInTheDocument()
   })
 
-  it('shows the permissions of the chosen role', async () => {
-    const user = userEvent.setup()
-    renderAs(owner, '/thanh-vien')
+  it('shows Table III-2 for the three roles, also to a Manager', async () => {
+    renderAs(manager, '/thanh-vien')
     await screen.findByText('Quyền theo vai trò')
-    expect(screen.getByLabelText('Thành viên & vai trò')).not.toBeChecked()
-    await user.click(screen.getByRole('button', { name: 'Kỹ thuật viên' }))
-    expect(screen.getByLabelText(/Báo cáo & tổng quan/)).not.toBeChecked()
-    expect(screen.getByLabelText(/Tiêm phòng/)).toBeChecked()
+    const table = screen.getAllByRole('table')[1]
+    expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Nhóm quyền', 'Chủ trại', 'Quản lý', 'Kỹ thuật viên'])
+    const reports = within(table).getByText('Tổng quan & báo cáo').closest('tr')!
+    expect(within(reports).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Tổng quan & báo cáo', 'Xem', 'Xem', '—'])
   })
 
   it('is read-only for a Manager: no actions, no invitations, no inactive tab or members', async () => {
@@ -46,7 +46,7 @@ describe('Members and Roles', () => {
     expect(screen.queryByRole('columnheader', { name: 'Thao tác' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Mời thành viên' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Lời mời' })).not.toBeInTheDocument()
-    expect(screen.queryByText(/Ngừng hoạt động \(/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Đã ngưng \(/)).not.toBeInTheDocument()
     expect(screen.queryByText('Bùi Văn Khoa')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Tất cả (6)' })).toBeInTheDocument()
   })
@@ -63,7 +63,7 @@ describe('Members and Roles', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Xác nhận thay đổi' }))
     expect(await screen.findByText('Đã cập nhật tư cách thành viên của Đinh Văn Sơn.')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Ngừng hoạt động (2)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Đã ngưng (2)' })).toBeInTheDocument()
   })
 })
 

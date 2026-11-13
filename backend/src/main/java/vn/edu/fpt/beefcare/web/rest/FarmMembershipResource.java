@@ -1,7 +1,6 @@
 package vn.edu.fpt.beefcare.web.rest;
 
 import jakarta.validation.Valid;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.dao.DataAccessException;
@@ -82,8 +81,9 @@ public class FarmMembershipResource {
         return problem;
     }
 
+    /** A1 / SCR-13 (D29): the whole list with tab counts; Owner in any service status, Manager read-only, Technician 403. */
     @GetMapping("/farms/{farmId}/members")
-    public List<MemberView> members(@PathVariable Long farmId) {
+    public MemberList members(@PathVariable Long farmId) {
         return service.listMembers(farmId);
     }
 

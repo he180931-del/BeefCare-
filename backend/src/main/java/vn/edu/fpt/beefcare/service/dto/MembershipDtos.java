@@ -25,7 +25,28 @@ public final class MembershipDtos {
 
     public record InvitationAction(@NotNull Integer expectedVersion) {}
 
-    public record MemberView(Long id, Long userId, String fullName, String email, String role, String status, LocalDate effectiveDate, String reason, Integer version) {}
+    /**
+     * A1 row (UC-FE03-05, D29). {@code joinedAt} is the instant the membership was created (shown as mm/yyyy in the farm
+     * time zone). {@code actions} are the Owner's commands available now: CHANGE_ROLE and REACTIVATE need an ACTIVE farm,
+     * DEACTIVATE is always available on an ACTIVE member; empty on the Owner row and for a Manager. The reason and effective
+     * date of the last change are not part of SCR-13 and are not returned.
+     */
+    public record MemberView(Long id, Long userId, String fullName, String email, String role, String status, Instant joinedAt, Integer version,
+        java.util.List<String> actions) {}
+
+    /**
+     * SCR-13 tabs (D29): {@code all} counts every row returned (the Owner and inactive members included for the Owner),
+     * {@code managers} / {@code technicians} only ACTIVE members of that role, {@code inactive} the INACTIVE members and
+     * only for the Owner (omitted for a Manager, who has no Inactive tab).
+     */
+    public record MemberCounts(long all, long managers, long technicians,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) Long inactive) {}
+
+    /**
+     * A1 (D29): the whole member list of the farm, ordered by name (Vietnamese, case-insensitive; email when there is no
+     * name; then id). The farm name, time zone and stored service status let SCR-13 render without the Owner-only farm API.
+     */
+    public record MemberList(String farmName, String timeZone, String serviceStatus, MemberCounts counts, java.util.List<MemberView> items) {}
 
     public record MemberChange(
         @NotBlank @Pattern(regexp = "CHANGE_ROLE|DEACTIVATE|REACTIVATE") String action,

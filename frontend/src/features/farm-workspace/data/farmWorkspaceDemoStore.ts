@@ -1,8 +1,9 @@
 import { BackendError } from '../../../api/backendClient'
 import type {
   AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
-  FarmRole, FarmSummary, FarmWorkspaceProfile, Invitation, InvitationPreview, InvitationListQuery, InvitationPage, InvitationStatus, InviteMemberInput, Membership, MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
+  FarmRole, FarmSummary, FarmWorkspaceProfile, Invitation, InvitationPreview, InvitationListQuery, InvitationPage, InvitationStatus, InviteMemberInput, MemberList, Membership, MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
+import { compareMembers, memberActions } from '../domain/members'
 import { EXPIRED_TOKEN, FIRST_NEW_FARM_ID, INVITED_FARM_ID, SAMPLE_TOKEN, samplePreview, seedFarms, seedYenBaiInvitations, seedYenBaiMembers, YEN_BAI } from './farmWorkspaceSeed'
 
 export interface FarmWorkspaceDemoStore {
@@ -20,7 +21,8 @@ export interface FarmWorkspaceDemoStore {
   registerFarm(input: FarmRegistrationInput, options?: RequestKeyOptions): Promise<FarmDetails>
   /** UC-FE02-03. `options` mirrors the backend call; the demo store has no request-key replay for this save. */
   updateFarm(farmId: number, input: FarmUpdateInput, options?: RequestKeyOptions): Promise<FarmDetails>
-  listMembers(farmId: number): Promise<Membership[]>
+  /** A1 (D29): same rows, counts and actions as the backend for the viewer's role; a Technician is refused. */
+  listMembers(farmId: number, viewer?: FarmRole): Promise<MemberList>
   changeMember(farmId: number, memberId: number, input: ChangeMemberInput, options?: MemberCommandOptions): Promise<Membership>
   listInvitations(farmId: number, query?: InvitationListQuery): Promise<InvitationPage>
   inviteMember(farmId: number, input: InviteMemberInput, options?: RequestKeyOptions): Promise<Invitation>
@@ -35,7 +37,7 @@ export type FarmUpdateInput = Omit<FarmInfoInput, 'expectedVersion' | 'mainBreed
 
 const stamp = (date = new Date()) => date.toISOString()
 const cloneFarm = (farm: FarmDetails): FarmDetails => ({ ...farm, mainBreedIds: [...farm.mainBreedIds], mainBreedCodes: [...farm.mainBreedCodes] })
-const cloneMember = (member: Membership): Membership => ({ ...member })
+const cloneMember = (member: Membership): Membership => ({ ...member, actions: [...member.actions] })
 const cloneInvitation = (invitation: Invitation): Invitation => ({ ...invitation })
 /** Demo errors carry the backend code/params so SCR-15 handles both modes alike (D28). */
 const invitationError = (status: number, code: string, params: Record<string, unknown>, message: string) => new BackendError(status, { code, params, message })
@@ -108,7 +110,7 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
         activeCattleCount: 0, serviceUntil: null, renewalOpensAt: null, ownerName: profile.fullName, ownerEmail: profile.email,
       }
       farms.set(id, farm)
-      members.set(id, [{ id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email: profile.email, role: 'OWNER', status: 'ACTIVE', effectiveDate: new Date().toISOString().slice(0, 10), reason: '', version: 1, joinedAt: stamp() }])
+      members.set(id, [{ id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email: profile.email, role: 'OWNER', status: 'ACTIVE', joinedAt: stamp(), version: 1, actions: [] }])
       invitations.set(id, [])
       profile = { ...profile, farms: [...profile.farms, { farmId: id, farmName: farm.name, role: 'OWNER', permissions: ['MANAGE_FARM_INFORMATION'] }] }
       return cloneFarm(farm)
@@ -121,15 +123,27 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
       profile = { ...profile, farms: profile.farms.map((farm) => farm.farmId === farmId ? { ...farm, farmName: updated.name } : farm) }
       return cloneFarm(updated)
     },
-    async listMembers(farmId) { return getMembers(farmId).map(cloneMember) },
+    async listMembers(farmId, viewer = 'OWNER') {
+      const farm = getFarm(farmId)
+      if (viewer === 'TECHNICIAN') throw invitationError(403, 'MSG-COM-01', {}, 'Bạn không có quyền thực hiện thao tác này.')
+      const owner = viewer === 'OWNER'
+      const active = farm.serviceStatus === 'ACTIVE'
+      const rows = getMembers(farmId).filter((row) => owner || row.status === 'ACTIVE').sort(compareMembers)
+      const activeOf = (role: FarmRole) => rows.filter((row) => row.status === 'ACTIVE' && row.role === role).length
+      return {
+        farmName: farm.name, timeZone: farm.timeZone, serviceStatus: farm.serviceStatus,
+        counts: { all: rows.length, managers: activeOf('MANAGER'), technicians: activeOf('TECHNICIAN'), ...(owner ? { inactive: rows.filter((row) => row.status === 'INACTIVE').length } : {}) },
+        items: rows.map((row) => ({ ...cloneMember(row), actions: memberActions(row, owner, active) })),
+      }
+    },
     async changeMember(farmId, memberId, input) {
       const rows = getMembers(farmId)
       const member = rows.find((row) => row.id === memberId)
       if (!member || member.role === 'OWNER') throw new Error('Không thể thay đổi thành viên chủ trại.')
       if (input.action === 'CHANGE_ROLE' && input.role === member.role) throw new Error('Thành viên đang có vai trò này.')
-      const updated = { ...member, role: input.action === 'CHANGE_ROLE' ? input.role as Exclude<FarmRole, 'OWNER'> : member.role, status: input.action === 'DEACTIVATE' ? 'INACTIVE' : input.action === 'REACTIVATE' ? 'ACTIVE' : member.status, effectiveDate: input.effectiveDate, reason: input.reason, version: member.version + 1 }
+      const updated = { ...member, role: input.action === 'CHANGE_ROLE' ? input.role as Exclude<FarmRole, 'OWNER'> : member.role, status: input.action === 'DEACTIVATE' ? 'INACTIVE' : input.action === 'REACTIVATE' ? 'ACTIVE' : member.status, version: member.version + 1 } as Membership
       members.set(farmId, rows.map((row) => row.id === memberId ? updated : row))
-      return cloneMember(updated)
+      return { ...cloneMember(updated), actions: memberActions(updated, true, getFarm(farmId).serviceStatus === 'ACTIVE') }
     },
     async listInvitations(farmId, query = {}) {
       // The local demo retains the historical Figma fixture states; backend reads own live expiry.
@@ -181,7 +195,7 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
       if (preview.status === 'ACCEPTED') return { membershipId: acceptedMembershipId!, farmId: preview.farmId, farmName: preview.farmName, role: preview.role }
       const farmId = preview.farmId ?? INVITED_FARM_ID
       const role = preview.role
-      const created: Membership = { id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email, role, status: 'ACTIVE', effectiveDate: new Date().toISOString().slice(0, 10), reason: '', version: 1, joinedAt: stamp() }
+      const created: Membership = { id: nextMemberId++, userId: profile.id, fullName: profile.fullName, email, role, status: 'ACTIVE', joinedAt: stamp(), version: 1, actions: [] }
       if (!farms.has(farmId)) {
         const invitedFarm = cloneFarm(farms.get(1)!)
         Object.assign(invitedFarm, { id: farmId, name: preview.farmName || YEN_BAI, role, ownerEmail: undefined })

@@ -78,12 +78,12 @@ export function lastServiceDay(end: string) {
   return Number.isNaN(ms) ? formatDate(end) : formatDate(new Date(ms - 1).toISOString())
 }
 
-/** mm/yyyy (cột "Tham gia"). */
-export function formatMonth(value?: string | null) {
+/** mm/yyyy (cột "Tham gia" của SCR-13) theo múi giờ trại (Table III-1, D29). */
+export function formatMonth(value?: string | null, timeZone = ZONE) {
   if (!value) return MISSING
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return MISSING
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, month: '2-digit', year: 'numeric' }).formatToParts(date).map((part) => [part.type, part.value]))
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone, month: '2-digit', year: 'numeric' }).formatToParts(date).map((part) => [part.type, part.value]))
   return `${parts.month}/${parts.year}`
 }
 

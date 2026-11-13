@@ -329,6 +329,8 @@ class FarmInvitationCommandResourceTest extends DomainTestSupport {
         em.flush(); em.clear();
         assertThat(em.find(FarmInvitation.class, id).getStatus()).isEqualTo("ACCEPTED");
         assertThat(count("FarmMembership", farm)).isEqualTo(2);
+        // D29: the joined time shown on SCR-13 is the acceptance instant
+        assertThat(em.find(FarmMembership.class, first.path("membershipId").asLong()).getJoinedAt()).isEqualTo(clock.instant());
         assertThat(em.createQuery("select count(a) from AuditLog a where a.action='MEMBER_ACCEPT' and a.targetId=:m", Long.class)
             .setParameter("m", first.path("membershipId").asLong()).getSingleResult()).isEqualTo(1);
         // step 8 / GBR-64: one Owner e-mail intent per membership, saved with the acceptance

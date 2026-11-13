@@ -17,7 +17,7 @@ describe('farm workspace local demo store', () => {
     expect(farm.serviceStatus).toBe('PENDING_PAYMENT')
     expect(farm.timeZone).toBe('Asia/Ho_Chi_Minh')
     expect(farm.name).toBe('Trại bò Thung Mây')
-    expect((await store.listMembers(farm.id)).filter((member) => member.role === 'OWNER')).toHaveLength(1)
+    expect((await store.listMembers(farm.id)).items.filter((member) => member.role === 'OWNER')).toHaveLength(1)
   })
 
   it('R-02-02 returns the farm already created for a repeated request key and rejects that key with other data', async () => {
@@ -47,11 +47,12 @@ describe('farm workspace local demo store', () => {
     expect(resent.version).toBe(invitation.version + 1)
     expect((await store.cancelInvitation(farm.id, invitation.id)).status).toBe('CANCELLED')
 
-    const manager = (await store.listMembers(farm.id)).find((member) => member.role === 'MANAGER')!
+    const manager = (await store.listMembers(farm.id)).items.find((member) => member.role === 'MANAGER')!
     const deactivated = await store.changeMember(farm.id, manager.id, { action: 'DEACTIVATE', effectiveDate: '2026-11-01', reason: 'Thay đổi nhân sự' })
     expect(deactivated.status).toBe('INACTIVE')
     const reactivated = await store.changeMember(farm.id, manager.id, { action: 'REACTIVATE', effectiveDate: '2026-11-01', reason: 'Quay lại làm việc' })
     expect(reactivated.status).toBe('ACTIVE')
+    expect(reactivated.actions).toEqual(['CHANGE_ROLE', 'DEACTIVATE'])
   })
 
   it('blocks a mismatched invitation email and accepts a matching one', async () => {

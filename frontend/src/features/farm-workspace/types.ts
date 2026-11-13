@@ -106,6 +106,7 @@ export interface FarmInfoInput extends Omit<FarmRegistrationInput, 'mainBreedCod
   expectedVersion: number
 }
 
+/** A1 row (D29). The last change's reason and effective date are not part of SCR-13 and are not read. */
 export interface Membership {
   id: number
   userId: number
@@ -113,10 +114,23 @@ export interface Membership {
   email: string
   role: FarmRole
   status: MemberStatus
-  effectiveDate: string
-  reason: string
-  version: number
+  /** Instant the membership was created (registration or invitation acceptance); shown as mm/yyyy in the farm time zone. */
   joinedAt: string
+  version: number
+  /** Owner commands available now; empty on the Owner row and for a Manager (D29). */
+  actions: MemberAction[]
+}
+
+/** SCR-13 tabs (D29): all rows; ACTIVE managers / technicians; INACTIVE only for the Owner. */
+export interface MemberCounts { all: number; managers: number; technicians: number; inactive?: number }
+
+/** A1 (D29): the whole member list of the farm, ordered by name, with what SCR-13 needs about the farm. */
+export interface MemberList {
+  farmName: string
+  timeZone: string
+  serviceStatus: FarmServiceStatus
+  counts: MemberCounts
+  items: Membership[]
 }
 
 export interface Invitation {
