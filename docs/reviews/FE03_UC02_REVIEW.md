@@ -172,3 +172,34 @@ after replacing grouped parameterized CASE with conditional aggregates.
   account login/session end-to-end are not newly certified by these MockMvc
   tests. GET idempotency/version/rollback are N/A because it is read-only;
   linked command behavior is covered by the scoped UC1/withdrawal regression.
+
+## Review lần 2 (14/11/2026)
+
+Review UC2 trên `feat/fe03-thanh-vien-quyen` (đã push tại `401fece`), so bản sao
+`.run/fe03-uc02-before/` với HEAD. Người dùng yêu cầu sửa cả ba điểm.
+
+| # | Phát hiện | Xử lý | Regression |
+|---|---|---|---|
+| 1 | Đổi `GET /invitations` sang trang là breaking, nhưng `BrowserSessionFlowIT#ownerInvitesOverHttpAndTheInviteeAcceptsExactlyOnce` vẫn đọc mảng (`$.length()` mong 1, thực tế 6). Bộ test ở mục "Final verification" không gồm IT này nên không thấy; phần sau của luồng HTTP (link email, chấp nhận đúng một lần) bị dừng | Khẳng định `$.items.length()`, `$.items[0].id`, `$.total`, `$.counts.PENDING` | Chính IT đó: RED 17/18 (log `%TEMP%/claude-fe03-uc2-browserflow.log`) |
+| 2 | OpenAPI xuất `page`, `size`, `invitationId` là `"type":"string"` kèm min/max, không có giá trị mặc định: `@Schema` thiếu `type` | `type="integer"`, `format`, `defaultValue` theo mẫu FE-19 (`SubscriptionPaymentResource`); `sort`/`dir` thêm default | `OpenApiContractTest`: kiểu, min/max, default số của từng tham số; `status` không có default. RED lấy từ `docs/api/openapi.json` đã commit, không chạy riêng |
+| 3 | SCR-13 mở popup Mời không truyền `timeZone`, nên toast "Hết hạn lúc" theo giờ Việt Nam trong khi SCR-14 theo múi giờ trại (D26) | `MembersPage` truyền `farm.timeZone` | `InviteDialog.test.tsx`: trại UTC, cả `/loi-moi` và `/thanh-vien` hiện `03:00`; RED `/thanh-vien` |
+
+### Kết quả kiểm lại
+
+| Kiểm tra | Kết quả | Bằng chứng |
+|---|---|---|
+| Frontend feature unit | **90/90 PASS**, 13 file | `VITE_BEEFCARE_DATA_SOURCE=local`, `vitest run tests/unit/farm-workspace` |
+| Frontend typecheck + build | **PASS** | `npm run typecheck`, `npm run build` |
+| Backend Surefire (H2) | **54/54 PASS** | FarmInvitationListResourceTest 22, FarmInvitationCommandResourceTest 17, FarmInvitationTransactionTest 5, FarmMembershipServiceTest 5, FarmMembershipResourceErrorsTest 4, OpenApiContractTest 1 |
+| Backend Failsafe | **62/64**; 2 lỗi email flaky | PostgreSQL 16.15: FarmInvitationListPostgresIT 22, FarmInvitationCommandPostgresIT 17, FarmInvitationPostgresIT 5; H2: EmailActivationFlowIT 2, BrowserSessionFlowIT 18. Fail: `BrowserSessionFlowIT#verificationLinkCanBeResentAndOnlyTheNewestLinkWorks`, `EmailActivationFlowIT#failedMailProviderDeliveryIsRetriedFromThePersistedJob` (FE-01, xác minh email); chạy riêng **3/3 PASS** (log `%TEMP%/claude-fe03-uc2-email.log`), cùng loại lỗi flaky đã biết khi nhiều IT email chạy chung |
+| Checkstyle | **0 vi phạm** | cùng lệnh `verify` (log `%TEMP%/claude-fe03-uc2-fix2.log`) |
+| OpenAPI | **PASS** | Bản export khác bản commit đúng 10 điểm ở tham số `GET /invitations`; chỉ ghép khối `parameters` (export còn đảo thứ tự schema `Page`, không chép nguyên file) và khẳng định tương đương ngữ nghĩa với export |
+| API catalog | **PASS** | `docs/tools/generate_api_catalog.py` (Python 3.12): 229 paths / 283 operations; signature GET đổi `62daba960ea9b5f3ee24` → `51a2a18ce7956cd7a576`, cập nhật `review-state` của GET sau khi kiểm round-trip JSON |
+
+`BrowserSessionFlowIT` còn một chỗ đọc mảng thứ hai (`?status=ACCEPTED`, sau bước
+chấp nhận); chỗ này chỉ lộ ra khi chỗ đầu đã sửa, và cũng đã đổi sang `items`/`counts`.
+
+### Chưa kiểm chứng
+
+- Chưa chạy browser với backend thật (bằng chứng runtime phía trên là chế độ demo).
+- Không chạy lại toàn repository suite.
