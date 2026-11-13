@@ -435,6 +435,22 @@ test('GAP-FE09-03: lịch sử tiêm map đường tiêm, số ngày ngưng và 
   assert.equal(record.revisions[1].before.route, undefined)
 })
 
+test('Múi giờ trại: lịch sử sửa (revision) đổi giờ theo múi giờ trại, không theo chỉ số mảng', async () => {
+  const row = {
+    ...historyRow(1),
+    revisions: [
+      { id: 9, changedAt: '2026-11-05T02:00:00Z', changedBy: 'Lê Quản Lý', action: 'CORRECT', reason: 'Sửa lô',
+        before: { vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T01:30:00Z' }, after: {} },
+      { id: 10, changedAt: '2026-11-06T02:00:00Z', changedBy: 'Lê Quản Lý', action: 'VOID', reason: 'Ghi nhầm',
+        before: { vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T01:30:00Z' }, after: {} },
+    ],
+  }
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' }, '/api/farms/1/vaccinations/history': [row] })
+  const [record] = (await a.listHistory({})).rows
+  assert.deepEqual(record.revisions.map((r) => r.at), ['2026-11-05T11:00', '2026-11-06T11:00'])
+  assert.deepEqual(record.revisions.map((r) => r.before.administeredAt), ['2026-11-02T10:30', '2026-11-02T10:30'])
+})
+
 test('TC-09-API05: giờ trại của Instant qua nửa đêm UTC', () => {
   assert.equal(toFarmTime('2026-11-04T18:30:00Z'), '2026-11-05T01:30')
 })
