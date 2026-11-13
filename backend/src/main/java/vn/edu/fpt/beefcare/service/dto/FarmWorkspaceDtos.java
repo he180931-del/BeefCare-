@@ -42,8 +42,12 @@ public final class FarmWorkspaceDtos {
      * SCR-09 farm card (UC-FE02-02 step 2) and the farm context (step 4): commune and province, the caller's role, the
      * service status, the number of ACTIVE cattle and the latest confirmed service end ({@code null}: no period yet).
      */
+    /**
+     * {@code timeZone}: the farm's IANA time zone, so every member (not only the Owner, who alone may read SCR-11
+     * details) shows and sends farm times in the farm's zone (FE-08 / FE-09 adapters).
+     */
     public record Summary(Long id,String name,String role,String serviceStatus,Integer version,
-        String province,String commune,long activeCattleCount,Instant serviceUntil) {}
+        String province,String commune,long activeCattleCount,Instant serviceUntil,String timeZone) {}
     /**
      * SCR-11 farm information plus its read-only service summary: end of the period covering now ({@code null}: none),
      * renewal opening date (latest confirmed end - 90 days, GBR-71), suspension date, whole days left in the current

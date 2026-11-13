@@ -11,7 +11,8 @@ type Call = { method: string; path: string; body?: unknown; headers?: Record<str
 function fakeTransport(routes: Record<string, unknown | ((body: unknown, path: string) => unknown)>) {
   const calls: Call[] = []
   const answer = (path: string, body?: unknown) => {
-    const hit = routes[path] ?? routes[path.split('?')[0]]
+    // Trại hiện tại (múi giờ) mặc định Asia/Ho_Chi_Minh, trừ khi test khai báo route riêng.
+    const hit = routes[path] ?? routes[path.split('?')[0]] ?? (path === '/api/farms/1/context' ? { id: 1, timeZone: 'Asia/Ho_Chi_Minh' } : undefined)
     if (hit === undefined) throw new Error(`Unexpected request: ${path}`)
     return typeof hit === 'function' ? (hit as (b: unknown, p: string) => unknown)(body, path) : structuredClone(hit)
   }
@@ -89,6 +90,17 @@ test('TC-09-API01: danh mục vắc-xin đổi đường tiêm và tách liều 
   assert.equal(options.now, '2026-11-05T10:00')
 })
 
+test('Múi giờ trại: trại ở UTC+9 gửi thời điểm tiêm +09:00 và hiện lịch sử theo giờ trại', async () => {
+  const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' },
+    '/api/farms/1/vaccinations': { vaccinatedCount: 1, deferredCount: 0, vaccinationIds: [700] },
+    '/api/farms/1/vaccinations/history': [{ id: 1, administeredAt: '2026-11-01T01:30:00Z', vaccinationDate: '2026-11-01', cattleCode: 'BC-101', source: 'ON_FARM', status: 'VALID', version: 0 }] })
+  assert.equal((await a.options()).now, '2026-11-05T12:00', 'giờ hiện tại theo UTC+9')
+  await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', decision: 'VACCINATE' }] })
+  assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).administeredAt, '2026-11-05T08:30:00+09:00')
+  assert.equal((await a.listHistory({})).rows[0].administeredAt, '2026-11-01T10:30')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 1, 'đọc múi giờ một lần')
+})
+
 test('TC-09-29: danh sách mũi chia tab Quá hạn / Đến hạn / Sắp tới / Đã hoãn theo hôm nay 05/11', async () => {
   const { api: a } = api()
   const page = await a.listDoses({})
@@ -144,7 +156,7 @@ test('TC-09-06: tạo lịch gửi id chuồng / bò từ mã, có Idempotency-K
       key = new Headers(init.headers).get('Idempotency-Key')
       return Response.json({ id: 30, name: 'Viêm da nổi cục 2026', status: 'ACTIVE', version: 0, targetCount: 2, plannedDoseCount: 4 }, { status: 201 })
     }
-    const body = (routes as Record<string, unknown>)[url.pathname]
+    const body = url.pathname === '/api/farms/1/context' ? { id: 1, timeZone: 'Asia/Ho_Chi_Minh' } : (routes as Record<string, unknown>)[url.pathname]
     if (body === undefined) throw new Error(`Unexpected request: ${url.pathname}`)
     return Response.json(body)
   }
@@ -342,7 +354,7 @@ const historyRow = (id: number, extra: Record<string, unknown> = {}) => ({
 test('TC-09-API03: lịch sử toàn đàn mặc định 3 tháng, đổi giờ trại và số ngày ngưng', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/vaccinations/history': [historyRow(1), historyRow(2, { administeredAt: null, vaccinationDate: '2026-09-01', source: 'HISTORICAL', withdrawalEndDate: null, batchNo: null })] })
   const page = await a.listHistory({ q: ' BC ' })
-  const params = new URL(calls[0].path, 'http://x').searchParams
+  const params = new URL(calls.find((c) => c.path.includes('/vaccinations/history'))!.path, 'http://x').searchParams
   assert.equal(params.get('from'), '2026-08-05')
   assert.equal(params.get('to'), '2026-11-05')
   assert.equal(params.get('search'), 'BC')
@@ -421,6 +433,22 @@ test('GAP-FE09-03: lịch sử tiêm map đường tiêm, số ngày ngưng và 
   assert.equal(record.revisions[1].before.administeredAt, '2026-11-02T00:00', 'revision cũ không có administeredAt: lấy ngày tiêm')
   assert.equal(record.revisions[1].before.withdrawalDays, 21, 'revision cũ không có withdrawalDays: suy từ ngày hết ngưng')
   assert.equal(record.revisions[1].before.route, undefined)
+})
+
+test('Múi giờ trại: lịch sử sửa (revision) đổi giờ theo múi giờ trại, không theo chỉ số mảng', async () => {
+  const row = {
+    ...historyRow(1),
+    revisions: [
+      { id: 9, changedAt: '2026-11-05T02:00:00Z', changedBy: 'Lê Quản Lý', action: 'CORRECT', reason: 'Sửa lô',
+        before: { vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T01:30:00Z' }, after: {} },
+      { id: 10, changedAt: '2026-11-06T02:00:00Z', changedBy: 'Lê Quản Lý', action: 'VOID', reason: 'Ghi nhầm',
+        before: { vaccineId: 1, vaccinationDate: '2026-11-02', administeredAt: '2026-11-02T01:30:00Z' }, after: {} },
+    ],
+  }
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' }, '/api/farms/1/vaccinations/history': [row] })
+  const [record] = (await a.listHistory({})).rows
+  assert.deepEqual(record.revisions.map((r) => r.at), ['2026-11-05T11:00', '2026-11-06T11:00'])
+  assert.deepEqual(record.revisions.map((r) => r.before.administeredAt), ['2026-11-02T10:30', '2026-11-02T10:30'])
 })
 
 test('TC-09-API05: giờ trại của Instant qua nửa đêm UTC', () => {

@@ -44,7 +44,7 @@ public class FarmWorkspaceService {
     }
     private static Summary summary(Farm farm,String role,Map<Long,Long> cattle,Map<Long,Instant> until) {
         return new Summary(farm.getId(),farm.getName(),role,farm.getServiceStatus(),farm.getVersion(),farm.getProvince(),farm.getCommune(),
-            cattle.getOrDefault(farm.getId(),0L),until.get(farm.getId()));
+            cattle.getOrDefault(farm.getId(),0L),until.get(farm.getId()),farm.getTimeZone());
     }
     /** UC-FE02-01: one farm in PENDING_PAYMENT with its OWNER membership, parameters, starter catalogue and audit (R-02-03). */
     @Transactional

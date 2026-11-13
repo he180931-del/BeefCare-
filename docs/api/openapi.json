@@ -7712,7 +7712,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Summary"
+                  "$ref" : "#/components/schemas/GrowthSummary"
                 }
               }
             }
@@ -10662,7 +10662,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Page"
+                  "$ref" : "#/components/schemas/GrowthHerdPage"
                 }
               }
             }
@@ -19019,6 +19019,46 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "revisions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Revision"
+            }
+          }
+        }
+      },
+      "Revision" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "changedBy" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "before" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "after" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
           }
         }
       },
@@ -21110,6 +21150,9 @@
           "serviceUntil" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "timeZone" : {
+            "type" : "string"
           }
         }
       },
@@ -21917,6 +21960,44 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "GrowthHerdPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Row"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "summary" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "windowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "activeCount" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -22772,6 +22853,58 @@
             "items" : {
               "$ref" : "#/components/schemas/Row"
             }
+          }
+        }
+      },
+      "GrowthSummary" : {
+        "type" : "object",
+        "properties" : {
+          "currentWeight" : {
+            "$ref" : "#/components/schemas/Record"
+          },
+          "latestBcs" : {
+            "type" : "number"
+          },
+          "adg" : {
+            "type" : "number"
+          },
+          "windowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextWeighing" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "projectedFinishingDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "finishingStatus" : {
+            "type" : "string"
+          },
+          "measurements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "records" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Record"
+            }
+          },
+          "targetKg" : {
+            "type" : "number"
+          },
+          "missingKg" : {
+            "type" : "number"
+          },
+          "adg60" : {
+            "type" : "number"
+          },
+          "finishingDays" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
