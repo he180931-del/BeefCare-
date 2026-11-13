@@ -341,3 +341,26 @@ test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do; chư
 test('TC-09-API05: giờ trại của Instant qua nửa đêm UTC', () => {
   assert.equal(toFarmTime('2026-11-04T18:30:00Z'), '2026-11-05T01:30')
 })
+
+test('TC-09-03b (backend thật): mã MSG-COM-05 kèm reason vẫn hiện lỗi ở ô tên / ô vắc-xin', async () => {
+  const failWith = (reason: string) => api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': (body: unknown) => {
+    if (body) throw new BackendError(409, { code: 'MSG-COM-05', params: { reason } })
+    return schedules
+  } }).api
+  await assert.rejects(failWith('active_schedule_name_exists').createSchedule(scheduleCmd()),
+    (e: unknown) => e instanceof VaccinationValidationError && e.fields.name === 'Đã có lịch đang chạy cùng tên.')
+  await assert.rejects(failWith('vaccine_inactive').createSchedule(scheduleCmd()),
+    (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.vaccineId))
+  const { api: conflict } = api({ ...baseRoutes(), '/api/farms/1/vaccinations': () => { throw new BackendError(409, { code: 'MSG-COM-05', params: { expected: 0, actual: 1 } }) } })
+  await assert.rejects(conflict.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' }] }),
+    (e: unknown) => e instanceof Error && e.message === CONFLICT_MESSAGE)
+})
+
+test('SCR-33 #4 (backend thật): MSG-COM-15 / MSG-COM-07 hiện dưới ô Thời điểm tiêm bằng tiếng Việt', async () => {
+  const failWith = (body: unknown) => api({ ...baseRoutes(), '/api/farms/1/vaccinations': () => { throw new BackendError(422, body) } }).api
+  const cmd = { vaccineId: 1, source: 'ON_FARM' as const, administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', scheduledDoseId: 3, expectedDoseVersion: 0, decision: 'VACCINATE' as const }] }
+  await assert.rejects(failWith({ code: 'MSG-COM-15', params: { entryDate: '2026-08-01' }, message: 'The time cannot be earlier than the herd entry date (2026-08-01).' }).recordVaccinations(cmd),
+    (e: unknown) => e instanceof VaccinationValidationError && e.fields.administeredAt === 'Thời điểm không được trước ngày nhập đàn (01/08/2026).')
+  await assert.rejects(failWith({ code: 'MSG-COM-07', params: {}, message: 'The time cannot be in the future.' }).recordVaccinations(cmd),
+    (e: unknown) => e instanceof VaccinationValidationError && e.fields.administeredAt === 'Thời điểm tiêm không được ở tương lai.')
+})

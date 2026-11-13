@@ -1,6 +1,7 @@
 import { BackendError } from '../../../api/backendClient'
 import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
 import { GROWTH_FILTER_OPTIONS } from '../data/growthMock'
+import { fmtDate } from '../domain/growthFormat'
 import { buildProfile } from '../domain/growthSummary'
 import { GrowthLargeChangeError, GrowthValidationError, type GrowthFieldKey } from '../domain/growthRules'
 import type {
@@ -133,6 +134,14 @@ export function mapGrowthError(error: unknown): unknown {
     return new GrowthLargeChangeError(num(p.new) ?? 0, num(p.last) ?? 0, textValue(p.date))
   }
   if (error.code === 'MSG-FE08-02') return new GrowthValidationError({ form: 'Nhập ít nhất cân nặng hoặc BCS.' })
+  // R-08-03: lỗi thời điểm đo của backend hiện dưới ô Thời điểm đo, không hiện câu tiếng Anh ở đầu form.
+  // Backend trả mã đầy đủ "MSG-COM-07"; vẫn nhận dạng ngắn "COM-07".
+  const code = textValue(error.code).replace(/^MSG-/, '')
+  if (code === 'COM-07') return new GrowthValidationError({ measuredAt: 'Thời điểm đo không được ở tương lai.' })
+  if (code === 'COM-15') {
+    const entryDate = textValue(error.params.date)
+    return new GrowthValidationError({ measuredAt: entryDate ? `Thời điểm không được trước ngày nhập đàn (${fmtDate(entryDate)}).` : 'Thời điểm không được trước ngày nhập đàn.' })
+  }
   const fields: Partial<Record<GrowthFieldKey, string>> = {}
   const field = textValue(error.params.field)
   if (field === 'tapeDimensions') fields.heartGirthCm = 'Chỉ nhập vòng ngực, dài thân khi đo bằng thước dây.'
@@ -162,7 +171,11 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
     const body = asRecord(await transport.get(path(`/cattle/resolve${query({ code })}`)))
     const cattleId = num(body.cattleId)
     if (cattleId === undefined) throw new Error(`Không tìm thấy bò ${code}.`)
-    const value = { cattleId, cattle: mapCattle(body.cattle) }
+    const cattle = mapCattle(body.cattle)
+    // /cattle/resolve không trả thông tin nhập đàn (entry = null); ngày nhập đàn lấy từ hồ sơ chi tiết /cattle/{id}
+    // để popup chặn được thời điểm đo trước ngày nhập đàn (R-08-03).
+    if (!cattle.herdEntryDate) cattle.herdEntryDate = textValue(asRecord(asRecord(await transport.get(path(`/cattle/${cattleId}`))).entry).entryDate)
+    const value = { cattleId, cattle }
     resolved.set(code, value)
     return value
   }
