@@ -2,8 +2,8 @@ import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberV
 import type {
   ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
   FarmRegistrationInput, FarmRole, FarmServiceStatus, FarmSummary, FarmWorkspaceProfile,
-  Invitation, InvitationPreview, InvitationStatus, InviteMemberInput, Membership, MemberStatus,
-  RequestKeyOptions, UpdateProfileInput,
+  Invitation, InvitationPreview, InvitationPage, InvitationListQuery, InvitationStatus, InviteMemberInput, Membership, MemberStatus,
+  MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { compactPhone } from '../validation'
 import { farmWorkspaceDemoStore, type FarmUpdateInput, type FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
@@ -92,7 +92,32 @@ function invitation(value: unknown): Invitation {
     status: requiredOneOf(row.status, invitationStatuses, 'trạng thái lời mời'), createdAt: textValue(row.createdAt),
     lastSentAt: textValue(row.lastSentAt), expiresAt: textValue(row.expiresAt),
     validityDays: row.validityDays === 3 || row.validityDays === 7 || row.validityDays === 14 ? row.validityDays : 7, version: numberValue(row.version),
-    ...(row.accountHint === 'HAS_ACCOUNT' || row.accountHint === 'NO_ACCOUNT' ? { accountHint: row.accountHint } : {}),
+    ...(typeof row.hasAccount === 'boolean' ? { accountHint: row.hasAccount ? 'HAS_ACCOUNT' as const : 'NO_ACCOUNT' as const }
+      : row.accountHint === 'HAS_ACCOUNT' || row.accountHint === 'NO_ACCOUNT' ? { accountHint: row.accountHint } : {}),
+  }
+}
+
+function invitationPage(value: unknown): InvitationPage {
+  const row = asRecord(value)
+  const counts = asRecord(row.counts)
+  const nonnegativeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+  if (!Array.isArray(row.items) || !nonnegativeInteger(row.total) || !nonnegativeInteger(row.page)
+    || !nonnegativeInteger(row.size) || row.size < 1 || row.size > 100 || row.items.length > row.size
+    || !row.items.every(value => {
+      const item = asRecord(value)
+      return nonnegativeInteger(item.id) && item.id > 0 && nonnegativeInteger(item.version)
+        && typeof item.hasAccount === 'boolean' && typeof item.email === 'string' && item.email.length > 0
+        && ['MANAGER', 'TECHNICIAN'].includes(String(item.role)) && invitationStatuses.includes(item.status as InvitationStatus)
+        && [3, 7, 14].includes(item.validityDays as number)
+        && ['createdAt', 'lastSentAt', 'expiresAt'].every(field => typeof item[field] === 'string' && Number.isFinite(Date.parse(item[field] as string)))
+    })
+    || !invitationStatuses.every(status => nonnegativeInteger(counts[status]))
+    || typeof row.asOf !== 'string' || !Number.isFinite(Date.parse(row.asOf))) {
+    throw new Error('Dữ liệu danh sách lời mời từ máy chủ không hợp lệ.')
+  }
+  return {
+    items: row.items.map(invitation), total: row.total, page: row.page, size: row.size,
+    counts: Object.fromEntries(invitationStatuses.map(status => [status, counts[status]])) as Record<InvitationStatus, number>, asOf: row.asOf,
   }
 }
 
@@ -153,23 +178,32 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
     listMembers: async (id: number) => mode === 'backend'
       ? asRows(await transport.get(path(id, '/members'))).map(member)
       : demoStore.listMembers(id),
-    changeMember: async (id: number, memberId: number, input: ChangeMemberInput) => mode === 'backend'
-      ? member(await command(path(id, `/members/${memberId}`), { ...input, expectedVersion: await versionForMember(id, memberId, transport) }, 'PUT'))
-      : demoStore.changeMember(id, memberId, input),
-    listInvitations: async (id: number, status?: string) => {
-      if (mode !== 'backend') return demoStore.listInvitations(id, status)
-      const query = status && status !== 'ALL' ? `?status=${encodeURIComponent(status)}` : ''
-      return asRows(await transport.get(path(id, `/invitations${query}`))).map(invitation)
+    changeMember: async (id: number, memberId: number, input: ChangeMemberInput, options?: MemberCommandOptions) => {
+      if (mode !== 'backend') return demoStore.changeMember(id, memberId, input, options)
+      if (options?.expectedVersion == null) throw new Error('Thiếu phiên bản thành viên. Tải lại danh sách trước khi thử lại.')
+      return member(await transport.command(path(id, `/members/${memberId}`), { ...input, expectedVersion: options.expectedVersion }, { method: 'PUT', key: options.idempotencyKey }))
     },
-    inviteMember: async (id: number, input: InviteMemberInput) => mode === 'backend'
-      ? invitation(await command(path(id, '/invitations'), input, 'POST'))
-      : demoStore.inviteMember(id, input),
-    resendInvitation: async (id: number, invitationId: number) => mode === 'backend'
-      ? invitation(await command(path(id, `/invitations/${invitationId}/resend`), { expectedVersion: await versionForInvitation(id, invitationId, transport) }, 'POST'))
-      : demoStore.resendInvitation(id, invitationId),
-    cancelInvitation: async (id: number, invitationId: number) => mode === 'backend'
-      ? invitation(await command(path(id, `/invitations/${invitationId}/cancel`), { expectedVersion: await versionForInvitation(id, invitationId, transport) }, 'POST'))
-      : demoStore.cancelInvitation(id, invitationId),
+    listInvitations: async (id: number, input: InvitationListQuery = {}) => {
+      if (mode !== 'backend') return demoStore.listInvitations(id, input)
+      const query = new URLSearchParams()
+      for (const field of ['status', 'page', 'size', 'sort', 'dir', 'invitationId'] as const) {
+        if (input[field] != null) query.set(field, String(input[field]))
+      }
+      return invitationPage(await transport.get(path(id, `/invitations${query.size ? `?${query}` : ''}`)))
+    },
+    inviteMember: async (id: number, input: InviteMemberInput, options?: RequestKeyOptions) => mode === 'backend'
+      ? invitation(await transport.command(path(id, '/invitations'), input, { method: 'POST', key: options?.idempotencyKey }))
+      : demoStore.inviteMember(id, input, options),
+    resendInvitation: async (id: number, invitationId: number, options?: MemberCommandOptions) => {
+      if (mode !== 'backend') return demoStore.resendInvitation(id, invitationId, options)
+      if (options?.expectedVersion == null) throw new Error('Thiếu phiên bản lời mời. Tải lại danh sách trước khi thử lại.')
+      return invitation(await transport.command(path(id, `/invitations/${invitationId}/resend`), { expectedVersion: options.expectedVersion }, { method: 'POST', key: options.idempotencyKey }))
+    },
+    cancelInvitation: async (id: number, invitationId: number, options?: MemberCommandOptions) => {
+      if (mode !== 'backend') return demoStore.cancelInvitation(id, invitationId, options)
+      if (options?.expectedVersion == null) throw new Error('Thiếu phiên bản lời mời. Tải lại danh sách trước khi thử lại.')
+      return invitation(await transport.command(path(id, `/invitations/${invitationId}/cancel`), { expectedVersion: options.expectedVersion }, { method: 'POST', key: options.idempotencyKey }))
+    },
     previewInvitation: async (token: string) => {
       if (mode !== 'backend') return demoStore.previewInvitation(token)
       const value = asRecord(await transport.get(`/api/invitations/accept?token=${encodeURIComponent(token)}`))
@@ -186,21 +220,6 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorksp
       ? member(await command('/api/invitations/accept', { token }, 'POST'))
       : demoStore.acceptInvitation(token, signedInEmail),
   }
-}
-
-async function versionForInvitation(farmId: number, invitationId: number, transport: BackendTransport) {
-  const rows = asRows(await transport.get(transport.farmPath(farmId, '/invitations')))
-  const row = rows.find((item) => numberValue(item.id) === invitationId)
-  if (!row) throw new Error('Không tìm thấy lời mời hoặc dữ liệu đã thay đổi. Tải lại danh sách.')
-  if (typeof row.version !== 'number') throw new Error('Máy chủ chưa trả phiên bản lời mời. Tải lại danh sách trước khi thử lại.')
-  return row.version
-}
-
-async function versionForMember(farmId: number, memberId: number, transport: BackendTransport) {
-  const rows = asRows(await transport.get(transport.farmPath(farmId, '/members')))
-  const row = rows.find((item) => numberValue(item.id) === memberId)
-  if (!row || typeof row.version !== 'number') throw new Error('Không tìm thấy thành viên hoặc phiên bản đã thay đổi. Tải lại danh sách.')
-  return row.version
 }
 
 export const farmWorkspaceApi = createFarmWorkspaceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })

@@ -21,6 +21,34 @@ public interface FarmInvitationRepository extends JpaRepository<FarmInvitation, 
     @Query("select i from FarmInvitation i where i.tokenHash = :hash")
     Optional<FarmInvitation> lockByTokenHash(@Param("hash") String tokenHash);
     List<FarmInvitation> findByFarmIdOrderByCreatedAtDesc(Long farmId);
+
+    /** D26: effective status, filtering and pagination share the caller's one read clock. */
+    @Query("""
+        select i from FarmInvitation i where i.farm.id = :farmId
+        and (:invitationId is null or i.id = :invitationId)
+        and (:status is null or (case when upper(i.status) = 'PENDING' and i.expiresAt <= :now
+            then 'EXPIRED' else upper(i.status) end) = :status)
+        """)
+    org.springframework.data.domain.Page<FarmInvitation> searchInvitations(@Param("farmId") Long farmId,
+        @Param("status") String status, @Param("invitationId") Long invitationId, @Param("now") Instant now,
+        org.springframework.data.domain.Pageable page);
+
+    interface InvitationCounts {
+        Long getPending();
+        Long getAccepted();
+        Long getExpired();
+        Long getCancelled();
+    }
+
+    // Conditional aggregates avoid PostgreSQL treating repeated bound CASE expressions as different GROUP BY keys.
+    @Query("""
+        select coalesce(sum(case when upper(i.status) = 'PENDING' and i.expiresAt > :now then 1 else 0 end), 0) as pending,
+            coalesce(sum(case when upper(i.status) = 'ACCEPTED' then 1 else 0 end), 0) as accepted,
+            coalesce(sum(case when upper(i.status) = 'EXPIRED' or (upper(i.status) = 'PENDING' and i.expiresAt <= :now) then 1 else 0 end), 0) as expired,
+            coalesce(sum(case when upper(i.status) = 'CANCELLED' then 1 else 0 end), 0) as cancelled
+        from FarmInvitation i where i.farm.id = :farmId
+        """)
+    InvitationCounts countInvitationStatuses(@Param("farmId") Long farmId, @Param("now") Instant now);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from FarmInvitation i where upper(i.status) = 'PENDING' and i.expiresAt <= :now order by i.id")
     List<FarmInvitation> lockPendingExpiredBefore(@Param("now") Instant now);

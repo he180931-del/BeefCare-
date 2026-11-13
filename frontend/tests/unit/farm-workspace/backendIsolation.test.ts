@@ -64,4 +64,25 @@ describe('farm workspace backend adapter isolation', () => {
     await api.registerFarm({ name: 'Trại không có số', province: 'Phú Thọ', commune: 'Minh Đài', expectedHerdSize: 'UNDER_50', mainBreedCodes: [] })
     expect(transport.command).toHaveBeenCalledWith('/api/farms', expect.objectContaining({ contactPhone: null }), { method: 'POST' })
   })
+
+  it('holds the invitation intent key and maps the backend account hint without using local rows', async () => {
+    vi.mocked(transport.command).mockResolvedValue({ id: 61, email: 'new@example.test', role: 'TECHNICIAN', status: 'PENDING', validityDays: 14, hasAccount: true, version: 0 })
+    const api = createFarmWorkspaceApi({ mode: 'backend', farmId: 901, transport, demoStore: store })
+    const input = { email: 'new@example.test', role: 'TECHNICIAN' as const, validityDays: 14 as const }
+    const result = await api.inviteMember(901, input, { idempotencyKey: 'intent-one' })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/901/invitations', input, { method: 'POST', key: 'intent-one' })
+    expect(result.accountHint).toBe('HAS_ACCOUNT')
+  })
+
+  it('resends and reactivates with the version already shown instead of fetching a newer one', async () => {
+    vi.mocked(transport.command).mockResolvedValue({ id: 61, email: 'member@example.test', role: 'MANAGER', status: 'PENDING', version: 4 })
+    const api = createFarmWorkspaceApi({ mode: 'backend', farmId: 901, transport, demoStore: store })
+    await api.resendInvitation(901, 61, { expectedVersion: 3, idempotencyKey: 'resend-one' })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/901/invitations/61/resend', { expectedVersion: 3 }, { method: 'POST', key: 'resend-one' })
+    vi.mocked(transport.command).mockResolvedValue({ id: 52, userId: 8, email: 'member@example.test', role: 'MANAGER', status: 'ACTIVE', version: 5 })
+    const input = { action: 'REACTIVATE' as const, effectiveDate: '2026-11-11', reason: 'Tiếp tục công việc' }
+    await api.changeMember(901, 52, input, { expectedVersion: 4, idempotencyKey: 'reactivate-one' })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/901/members/52', { ...input, expectedVersion: 4 }, { method: 'PUT', key: 'reactivate-one' })
+    expect(transport.get).not.toHaveBeenCalled()
+  })
 })

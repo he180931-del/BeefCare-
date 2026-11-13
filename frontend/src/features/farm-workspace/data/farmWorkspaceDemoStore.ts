@@ -1,7 +1,7 @@
 import { BackendError } from '../../../api/backendClient'
 import type {
   ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
-  FarmRole, FarmSummary, FarmWorkspaceProfile, Invitation, InvitationPreview, InviteMemberInput, Membership, RequestKeyOptions, UpdateProfileInput,
+  FarmRole, FarmSummary, FarmWorkspaceProfile, Invitation, InvitationPreview, InvitationListQuery, InvitationPage, InvitationStatus, InviteMemberInput, Membership, MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { EXPIRED_TOKEN, FIRST_NEW_FARM_ID, INVITED_FARM_ID, SAMPLE_TOKEN, samplePreview, seedFarms, seedYenBaiInvitations, seedYenBaiMembers, YEN_BAI } from './farmWorkspaceSeed'
 
@@ -21,11 +21,11 @@ export interface FarmWorkspaceDemoStore {
   /** UC-FE02-03. `options` mirrors the backend call; the demo store has no request-key replay for this save. */
   updateFarm(farmId: number, input: FarmUpdateInput, options?: RequestKeyOptions): Promise<FarmDetails>
   listMembers(farmId: number): Promise<Membership[]>
-  changeMember(farmId: number, memberId: number, input: ChangeMemberInput): Promise<Membership>
-  listInvitations(farmId: number, status?: string): Promise<Invitation[]>
-  inviteMember(farmId: number, input: InviteMemberInput): Promise<Invitation>
-  resendInvitation(farmId: number, invitationId: number): Promise<Invitation>
-  cancelInvitation(farmId: number, invitationId: number): Promise<Invitation>
+  changeMember(farmId: number, memberId: number, input: ChangeMemberInput, options?: MemberCommandOptions): Promise<Membership>
+  listInvitations(farmId: number, query?: InvitationListQuery): Promise<InvitationPage>
+  inviteMember(farmId: number, input: InviteMemberInput, options?: RequestKeyOptions): Promise<Invitation>
+  resendInvitation(farmId: number, invitationId: number, options?: MemberCommandOptions): Promise<Invitation>
+  cancelInvitation(farmId: number, invitationId: number, options?: MemberCommandOptions): Promise<Invitation>
   previewInvitation(token: string): Promise<InvitationPreview>
   /** `signedInEmail`: thư điện tử của phiên đang đăng nhập (chế độ mô phỏng); mặc định là hồ sơ của kho. */
   acceptInvitation(token: string, signedInEmail?: string): Promise<Membership>
@@ -128,11 +128,23 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
       members.set(farmId, rows.map((row) => row.id === memberId ? updated : row))
       return cloneMember(updated)
     },
-    async listInvitations(farmId, status) { return getInvitations(farmId).filter((row) => !status || status === 'ALL' || row.status === status).map(cloneInvitation) },
+    async listInvitations(farmId, query = {}) {
+      // The local demo retains the historical Figma fixture states; backend reads own live expiry.
+      const all = getInvitations(farmId)
+      const counts: Record<InvitationStatus, number> = { PENDING: 0, ACCEPTED: 0, EXPIRED: 0, CANCELLED: 0 }
+      all.forEach(row => { counts[row.status]++ })
+      const rows = all.filter(row => (!query.status || row.status === query.status) && (query.invitationId == null || row.id === query.invitationId))
+        .sort((a, b) => (Date.parse(a.lastSentAt) - Date.parse(b.lastSentAt)) * (query.dir === 'asc' ? 1 : -1) || b.id - a.id)
+      const page = query.page ?? 0; const size = query.size ?? 20
+      return { items: rows.slice(page * size, (page + 1) * size).map(cloneInvitation), total: rows.length, page, size, counts, asOf: stamp() }
+    },
     async inviteMember(farmId, input) {
       const email = input.email.trim().toLowerCase()
-      if (getMembers(farmId).some((member) => member.email.toLowerCase() === email && member.status === 'ACTIVE')) throw new Error('Email này đã là thành viên đang hoạt động.')
-      if (getInvitations(farmId).some((invitation) => invitation.email.toLowerCase() === email && invitation.status === 'PENDING')) throw new Error('Đã có lời mời đang chờ cho email này.')
+      const member = getMembers(farmId).find((row) => row.email.toLowerCase() === email)
+      if (member?.status === 'ACTIVE') throw new BackendError(409, { code: 'MSG-FE03-02' })
+      if (member) throw new BackendError(409, { code: 'MSG-FE03-21', params: { membershipId: member.id, email } })
+      const pending = getInvitations(farmId).find((row) => row.email.toLowerCase() === email && row.status === 'PENDING')
+      if (pending) throw new BackendError(409, { code: 'MSG-FE03-03', params: { invitationId: pending.id, email } })
       const created = new Date()
       const invitation: Invitation = { id: nextInvitationId++, email, role: input.role, status: 'PENDING', createdAt: stamp(created), lastSentAt: stamp(created), expiresAt: stamp(new Date(created.getTime() + input.validityDays * 86_400_000)), validityDays: input.validityDays, version: 1, accountHint: 'NO_ACCOUNT' }
       invitations.set(farmId, [...getInvitations(farmId), invitation])

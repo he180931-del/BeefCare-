@@ -41,7 +41,7 @@ describe('farm workspace local demo store', () => {
     const farm = (await store.listFarms())[0]
     const invitation = await store.inviteMember(farm.id, { email: 'new.manager@beefcare.vn', role: 'MANAGER', validityDays: 7 })
     expect(invitation.status).toBe('PENDING')
-    expect((await store.listInvitations(farm.id, 'PENDING')).some((item) => item.id === invitation.id)).toBe(true)
+    expect((await store.listInvitations(farm.id, { status: 'PENDING' })).items.some((item) => item.id === invitation.id)).toBe(true)
 
     const resent = await store.resendInvitation(farm.id, invitation.id)
     expect(resent.version).toBe(invitation.version + 1)

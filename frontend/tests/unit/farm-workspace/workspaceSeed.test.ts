@@ -19,7 +19,7 @@ describe('farm workspace seed data (Figma frames)', () => {
     const members = await store.listMembers(1)
     expect(members).toHaveLength(7)
     expect(members.filter((member) => member.status === 'INACTIVE').map((member) => member.fullName)).toEqual(['Bùi Văn Khoa'])
-    const counts = Object.fromEntries(await Promise.all(['PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED'].map(async (status) => [status, (await store.listInvitations(1, status)).length])))
+    const counts = Object.fromEntries(await Promise.all((['PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED'] as const).map(async (status) => [status, (await store.listInvitations(1, { status })).total])))
     expect(counts).toEqual({ PENDING: 2, ACCEPTED: 6, EXPIRED: 1, CANCELLED: 1 })
   })
 

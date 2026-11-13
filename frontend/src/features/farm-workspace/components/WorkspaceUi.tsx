@@ -52,12 +52,17 @@ const MISSING = 'Chưa có dữ liệu từ máy chủ'
 const ZONE = 'Asia/Ho_Chi_Minh'
 
 /** dd/mm/yyyy HH:mm theo múi giờ mặc định của trại (GBR-66). */
-export function formatDateTime(value?: string | null) {
+export function formatDateTime(value?: string | null, timeZone = ZONE) {
   if (!value) return MISSING
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return MISSING
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date).map((part) => [part.type, part.value]))
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date).map((part) => [part.type, part.value]))
   return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`
+}
+
+/** D25: lưu thành công xác nhận ý định gửi mail, chưa xác nhận email đã tới. */
+export function invitationNotice(invitation: { email: string; expiresAt: string }, resend = false, timeZone?: string) {
+  return `${resend ? 'Đã cập nhật' : 'Đã tạo'} lời mời tới ${invitation.email}. Hệ thống đang gửi email. Hết hạn lúc ${formatDateTime(invitation.expiresAt, timeZone)}.`
 }
 
 /** dd/mm/yyyy. */
@@ -121,6 +126,7 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
       'MSG-FE03-08': 'Lời mời đã hết hạn, bị hủy hoặc đã được sử dụng.',
       'MSG-FE03-09': 'Email đăng nhập không trùng với email được mời. Thông tin trang trại đã được ẩn.',
       'MSG-FE03-20': 'Thành viên đã có vai trò hoặc trạng thái này.',
+      'MSG-FE03-21': 'Email này là thành viên đã ngưng. Kích hoạt lại thay vì gửi lời mời mới.',
     }
     if (code && known[code]) return known[code]
     const fieldErrors = [...error.fieldErrors, ...error.violations.map((item) => ({ field: item.field ?? item.propertyPath, message: item.message }))]

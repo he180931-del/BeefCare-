@@ -18,7 +18,10 @@ public final class MembershipDtos {
         Integer validityDays
     ) {}
 
-    public record InvitationView(Long id, String email, String role, String status, Instant createdAt, Instant lastSentAt, Instant expiresAt, Integer validityDays, Integer version) {}
+    public record InvitationView(Long id, String email, String role, String status, Instant createdAt, Instant lastSentAt, Instant expiresAt, Integer validityDays, Integer version, boolean hasAccount) {}
+
+    public record InvitationPage(java.util.List<InvitationView> items, long total, int page, int size,
+        java.util.Map<String, Long> counts, Instant asOf) {}
 
     public record InvitationAction(@NotNull Integer expectedVersion) {}
 

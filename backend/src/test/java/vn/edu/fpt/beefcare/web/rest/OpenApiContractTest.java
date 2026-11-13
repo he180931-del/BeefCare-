@@ -38,6 +38,25 @@ class OpenApiContractTest {
         assertThat(paths.has("/api/cattle")).isFalse();
         assertThat(paths.has("/api/support-tickets")).isFalse();
         assertThat(api.path("components").path("securitySchemes").has("session")).isTrue();
+        // D25: a typed client must send a numeric duration, and must collect both required invitation fields.
+        JsonNode invite = api.path("components").path("schemas").path("InviteRequest");
+        assertThat(invite.path("required").toString()).contains("email", "role");
+        JsonNode days = invite.path("properties").path("validityDays");
+        assertThat(allowsNull(days)).isTrue();
+        JsonNode numericDays = days.path("anyOf").get(0);
+        assertThat(numericDays.path("type").asText()).isEqualTo("integer");
+        assertThat(numericDays.path("enum").toString()).isEqualTo("[3,7,14]");
+        assertThat(numericDays.path("default").isNumber()).isTrue();
+        assertThat(numericDays.path("default").asInt()).isEqualTo(7);
+        assertThat(api.path("components").path("schemas").path("InvitationView").path("properties").has("hasAccount")).isTrue();
+        JsonNode invitationList = paths.path("/api/farms/{farmId}/invitations").path("get");
+        assertThat(invitationList.path("responses").path("200").toString()).contains("InvitationPage");
+        assertThat(invitationList.path("parameters").toString()).contains("\"status\"", "\"page\"", "\"size\"", "\"sort\"", "\"dir\"", "\"invitationId\"");
+        JsonNode invitationPage = api.path("components").path("schemas").path("InvitationPage");
+        assertThat(invitationPage.path("required").toString()).contains("items", "counts", "total", "page", "size", "asOf");
+        JsonNode invitationFields = api.path("components").path("schemas").path("InvitationView");
+        assertThat(invitationFields.path("required").toString()).contains("id", "email", "role", "status", "createdAt", "lastSentAt", "expiresAt", "validityDays", "version", "hasAccount");
+        assertThat(invitationFields.path("properties").path("status").path("enum").toString()).contains("PENDING", "ACCEPTED", "EXPIRED", "CANCELLED");
         JsonNode overview = api.path("components").path("schemas").path("SubscriptionOverview");
         assertThat(overview.path("properties").size()).isEqualTo(15);
         for (String field : java.util.List.of("farmName", "suspended", "suspendedSince", "currentPeriod", "daysRemaining", "futurePeriods", "periods", "eligibility")) {

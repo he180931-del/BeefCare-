@@ -124,14 +124,14 @@ public class EmailDeliveryJobService {
                 if (!"PENDING".equals(job.getStatus())) return;
                 job.setLeaseUntil(null);
                 job.setLastError(failure.getClass().getSimpleName());
-                boolean paymentNotice = "PAYMENT_RECEIPT".equals(job.getLinkSource());
+                boolean dayLimited = "PAYMENT_RECEIPT".equals(job.getLinkSource()) || "INVITATION".equals(job.getLinkSource());
                 Instant deadline = job.getCreatedAt().plus(Duration.ofHours(24));
-                if (paymentNotice ? !Instant.now().isBefore(deadline) : job.getAttempts() >= MAX_ATTEMPTS) {
+                if (dayLimited ? !Instant.now().isBefore(deadline) : job.getAttempts() >= MAX_ATTEMPTS) {
                     job.setStatus("FAILED");
                 } else {
                     long delay = Math.min(3600, 1L << Math.min(12, job.getAttempts()));
                     Instant available = Instant.now().plusSeconds(delay);
-                    job.setAvailableAt(paymentNotice && available.isAfter(deadline) ? deadline : available);
+                    job.setAvailableAt(dayLimited && available.isAfter(deadline) ? deadline : available);
                 }
             }));
         }
@@ -158,6 +158,10 @@ public class EmailDeliveryJobService {
             String base = templateKey.equals("VERIFY_EMAIL") ? backendBaseUrl + "/api/activate?token=" : frontendBaseUrl + "/resetpassword?token=";
             actionUrl = base + bearer;
         } else if ("INVITATION".equals(job.getLinkSource())) {
+            // JOB-07 / D25: retries are bounded by elapsed time, not a fixed attempt count.
+            if (!Instant.now().isBefore(job.getCreatedAt().plus(Duration.ofHours(24)))) {
+                job.setStatus("FAILED"); job.setLeaseUntil(null); return null;
+            }
             FarmInvitation invitation = invitations.findById(job.getLinkSourceId()).orElse(null);
             if (invitation == null || !"PENDING".equalsIgnoreCase(invitation.getStatus()) || invitation.getTokenNonce() == null || !invitation.getExpiresAt().isAfter(farmClock.now())) return cancel(job);
             bearer = signer.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce());

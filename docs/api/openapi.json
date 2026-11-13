@@ -557,6 +557,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -3000,6 +3010,16 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -3026,6 +3046,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -4710,19 +4740,70 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "CANCELLED" ]
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maximum" : 21474836,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "lastSentAt" ]
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "asc", "desc" ]
+          }
+        }, {
+          "name" : "invitationId",
+          "in" : "query",
+          "description" : "Exact invitation lookup for UC1; still scoped to this Owner's farm",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "minimum" : 1
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/InvitationView"
-                  }
+                  "$ref" : "#/components/schemas/InvitationPage"
                 }
               }
             }
@@ -4759,6 +4840,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "201" : {
             "description" : "Created",
             "content" : {
@@ -4811,6 +4902,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -4863,6 +4964,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -10474,6 +10585,16 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -12168,6 +12289,35 @@
   },
   "components" : {
     "schemas" : {
+      "ProblemDetail" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "instance" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "properties" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          }
+        }
+      },
       "RecordFields" : {
         "type" : "object",
         "properties" : {
@@ -17344,19 +17494,26 @@
         "properties" : {
           "email" : {
             "type" : "string",
+            "format" : "email",
             "maxLength" : 254,
-            "minLength" : 0
+            "minLength" : 1
           },
           "role" : {
             "type" : "string",
-            "minLength" : 1,
-            "pattern" : "MANAGER|TECHNICIAN"
+            "enum" : [ "MANAGER", "TECHNICIAN" ]
           },
           "validityDays" : {
-            "type" : "integer",
-            "format" : "int32"
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int32",
+              "default" : 7,
+              "enum" : [ 3, 7, 14 ]
+            }, {
+              "type" : "null"
+            } ]
           }
-        }
+        },
+        "required" : [ "email", "role" ]
       },
       "InvitationView" : {
         "type" : "object",
@@ -17369,10 +17526,12 @@
             "type" : "string"
           },
           "role" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "MANAGER", "TECHNICIAN" ]
           },
           "status" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "CANCELLED" ]
           },
           "createdAt" : {
             "type" : "string",
@@ -17388,13 +17547,18 @@
           },
           "validityDays" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int32",
+            "enum" : [ 3, 7, 14 ]
           },
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "hasAccount" : {
+            "type" : "boolean"
           }
-        }
+        },
+        "required" : [ "createdAt", "email", "expiresAt", "hasAccount", "id", "lastSentAt", "role", "status", "validityDays", "version" ]
       },
       "InvitationAction" : {
         "type" : "object",
@@ -20416,13 +20580,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -20441,9 +20605,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
@@ -20453,6 +20614,9 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -20473,15 +20637,15 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "unpaged" : {
-            "type" : "boolean"
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "paged" : {
             "type" : "boolean"
           },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
+          "unpaged" : {
+            "type" : "boolean"
           }
         }
       },
@@ -20835,13 +20999,13 @@
       "PageAuditEntry" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -20860,9 +21024,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
@@ -20873,6 +21034,9 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "empty" : {
             "type" : "boolean"
           }
@@ -20881,13 +21045,13 @@
       "PageAccountSummary" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -20906,9 +21070,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
@@ -20918,6 +21079,9 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -21481,6 +21645,60 @@
             "type" : "string"
           }
         }
+      },
+      "InvitationPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationView"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "counts" : {
+            "additionalProperties" : false,
+            "properties" : {
+              "PENDING" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              },
+              "ACCEPTED" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              },
+              "EXPIRED" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              },
+              "CANCELLED" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              }
+            },
+            "required" : [ "ACCEPTED", "CANCELLED", "EXPIRED", "PENDING" ]
+          },
+          "asOf" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "asOf", "counts", "items", "page", "size", "total" ]
       },
       "VoidCheckRow" : {
         "type" : "object",
@@ -22639,13 +22857,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "headerName" : {
+          "token" : {
             "type" : "string"
           },
           "parameterName" : {
             "type" : "string"
           },
-          "token" : {
+          "headerName" : {
             "type" : "string"
           }
         }

@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **229 paths, 283 operations, 309 schemas**, regenerated 11 November 2026 on `dev` after merging `feat/fe19-goi-thanh-toan` (FE-19 UC1–UC8 and the UC8 review fixes), when `OpenApiContractTest` passed. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
+Current contract: **229 paths, 283 operations, 311 schemas**, regenerated 13 November 2026 on `dev` after the D26 / FE-03 UC2 review and its UC1 regression tests passed. This working copy includes the preceding D25 / UC1 changes; no merge or READY_FOR_FE deployment is implied. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -12,6 +12,17 @@ Copy-Item target\beefcare-openapi.json ..\docs\api\openapi.json
 ```
 
 The test writes only to `backend/target/beefcare-openapi.json`; the copy step publishes it here. Commit the regenerated file in the same change as the DTO or route change.
+
+UC2 / D26 contract change (13 November 2026): **breaking invitation list contract**.
+`GET /api/farms/{farmId}/invitations` now returns
+`{items,total,page,size,counts,asOf}` instead of an array. Query parameters are
+optional status, zero-based page, size (default 20), sort=lastSentAt, dir and
+an exact invitationId lookup for UC1. Counts cover all four effective states
+of the farm before filtering or paging; expired PENDING rows read as EXPIRED
+without GET writes. Only the Owner reads, including during inactive service;
+sending/resending still require ACTIVE service. Frontend callers in this working
+copy were updated together. See `FE03_UC02_EXAMPLES.md` and
+`docs/reviews/FE03_UC02_REVIEW.md` for tested behavior and deployment limits.
 
 UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
 `GET /api/platform/plan-prices?page=0&size=20` returns

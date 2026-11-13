@@ -65,13 +65,22 @@ export function validateFarmInfo(input: Partial<FarmInfoInput>): FormErrors<Farm
 export function validateInvite(input: Partial<Omit<InviteMemberInput, 'role' | 'validityDays'>> & { role?: string; validityDays?: number }): FormErrors<InviteMemberInput> {
   const errors: FormErrors<InviteMemberInput> = {}
   const email = input.email?.trim() ?? ''
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Nhập địa chỉ email hợp lệ.'
-  if (input.role !== 'MANAGER' && input.role !== 'TECHNICIAN') errors.role = 'Chọn Quản lý hoặc Kỹ thuật viên.'
+  // TC-03-01/02: thiếu giá trị là MSG-COM-06, sai định dạng / quá 254 ký tự là MSG-COM-10.
+  if (!email) errors.email = 'Thư điện tử người nhận là bắt buộc.'
+  else if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Nhập địa chỉ email hợp lệ.'
+  if (!input.role) errors.role = 'Vai trò là bắt buộc.'
+  else if (input.role !== 'MANAGER' && input.role !== 'TECHNICIAN') errors.role = 'Chọn Quản lý hoặc Kỹ thuật viên.'
   if (![3, 7, 14].includes(Number(input.validityDays))) errors.validityDays = 'Thời hạn lời mời là 3, 7 hoặc 14 ngày.'
   return errors
 }
 
-export function validateMemberChange(input: Partial<ChangeMemberInput>, today = new Date().toISOString().slice(0, 10)): FormErrors<ChangeMemberInput> {
+/** GBR-66: ngày nghiệp vụ Việt Nam, kể cả khi UTC còn ở ngày hôm trước. */
+export function farmToday() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map((part) => [part.type, part.value]))
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+export function validateMemberChange(input: Partial<ChangeMemberInput>, today = farmToday()): FormErrors<ChangeMemberInput> {
   const errors: FormErrors<ChangeMemberInput> = {}
   if (!['CHANGE_ROLE', 'DEACTIVATE', 'REACTIVATE'].includes(String(input.action))) errors.action = 'Chọn thao tác cần thực hiện.'
   if (input.action === 'CHANGE_ROLE' && input.role !== 'MANAGER' && input.role !== 'TECHNICIAN') errors.role = 'Chọn vai trò mới.'

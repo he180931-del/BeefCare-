@@ -2,11 +2,11 @@ import { useState, type FormEvent } from 'react'
 import Modal, { ModalFooter } from '../../../components/Modal'
 import { Button, DateInput, Field, inputCls, Note, Segmented } from '../../../components/ui'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
+import { useRequestKey } from '../hooks/useRequestKey'
 import type { ChangeMemberInput, Membership } from '../types'
-import { validateMemberChange, type FormErrors } from '../validation'
+import { farmToday, validateMemberChange, type FormErrors } from '../validation'
 import { farmWorkspaceError, FieldError, roleLabel } from './WorkspaceUi'
 
-const today = () => new Date().toISOString().slice(0, 10)
 const fullWidth = '[&>div]:flex [&>div]:w-full [&_button]:flex-1'
 
 /** UC-FE03-06 (popup "Change Role / Deactivate Member"), mở bằng `?m=doi-vai-tro&id=<mã thành viên>`. */
@@ -16,23 +16,28 @@ export function MemberChangeDialog({ farmId, member, initialAction, active, onCl
   const inactive = member.status === 'INACTIVE'
   const [action, setAction] = useState<ChangeMemberInput['action']>(inactive ? 'REACTIVATE' : initialAction ?? 'CHANGE_ROLE')
   const [role, setRole] = useState<'MANAGER' | 'TECHNICIAN'>(member.role === 'MANAGER' ? 'TECHNICIAN' : 'MANAGER')
-  const [effectiveDate, setEffectiveDate] = useState(today())
+  const [effectiveDate, setEffectiveDate] = useState(farmToday())
   const [reason, setReason] = useState('')
   const [errors, setErrors] = useState<FormErrors<ChangeMemberInput>>({})
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
+  const requestKey = useRequestKey(`member-change:${farmId}:${member.id}`)
   const needsActiveFarm = action !== 'DEACTIVATE' && !active
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
+    if (saving) return
     const payload: ChangeMemberInput = { action, role: action === 'CHANGE_ROLE' ? role : undefined, effectiveDate, reason }
     const next = validateMemberChange(payload)
     setErrors(next)
     if (Object.keys(next).length) return
     if (!confirming) { setConfirming(true); return }
     setSaving(true); setError(null)
-    try { await farmWorkspaceApi.changeMember(farmId, member.id, payload); onDone(`Đã cập nhật tư cách thành viên của ${member.fullName}.`) }
+    try {
+      await farmWorkspaceApi.changeMember(farmId, member.id, payload, { expectedVersion: member.version, idempotencyKey: requestKey.keyFor({ ...payload, version: member.version }) })
+      requestKey.clear(); onDone(`Đã cập nhật tư cách thành viên của ${member.fullName}.`)
+    }
     catch (reasonError) { setError(farmWorkspaceError(reasonError, 'Không thể cập nhật thành viên.')); setConfirming(false) }
     finally { setSaving(false) }
   }

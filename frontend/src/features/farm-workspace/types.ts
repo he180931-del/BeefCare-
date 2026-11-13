@@ -2,6 +2,23 @@ export type FarmRole = 'OWNER' | 'MANAGER' | 'TECHNICIAN'
 export type MemberStatus = 'ACTIVE' | 'INACTIVE'
 export type FarmServiceStatus = 'ACTIVE' | 'PENDING_PAYMENT' | 'EXPIRED' | 'SUSPENDED'
 export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED'
+export interface InvitationListQuery {
+  status?: InvitationStatus
+  page?: number
+  size?: number
+  sort?: 'lastSentAt'
+  dir?: 'asc' | 'desc'
+  /** Exact UC1 conflict lookup; it must not depend on the current list page. */
+  invitationId?: number
+}
+export interface InvitationPage {
+  items: Invitation[]
+  total: number
+  page: number
+  size: number
+  counts: Record<InvitationStatus, number>
+  asOf: string
+}
 export type ExpectedHerdSize = 'UNDER_50' | '50_149' | '150_300' | 'OVER_300'
 export type MemberAction = 'CHANGE_ROLE' | 'DEACTIVATE' | 'REACTIVATE'
 
@@ -77,6 +94,9 @@ export interface FarmRegistrationInput {
 export interface RequestKeyOptions {
   idempotencyKey?: string
 }
+
+/** Phiên bản bản ghi người dùng đã xem; không thay bằng version mới trước khi ghi. */
+export interface MemberCommandOptions extends RequestKeyOptions { expectedVersion: number }
 
 export interface FarmInfoInput extends Omit<FarmRegistrationInput, 'mainBreedCodes' | 'expectedHerdSize'> {
   timeZone: string
