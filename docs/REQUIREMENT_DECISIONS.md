@@ -188,3 +188,60 @@ Review UC8 (10/11/2026), người dùng đồng ý sửa cả bốn điểm:
    từ chối 400 hoặc làm hỏng cả khoảng tra cứu 502 (R-19-08, E3).
 4. Metadata lời gọi bị 401 giữ 30 ngày rồi JOB-08 xóa; không lưu được metadata
    vẫn trả 401.
+
+### D25 — UC-FE03-01: gửi lời mời thành viên (11/11/2026)
+
+Người dùng đồng ý cả bốn đề xuất trong phiên:
+
+1. Email thuộc membership INACTIVE trả `MSG-FE03-21`, kèm `email` và
+   `membershipId`, để Owner mở popup Kích hoạt lại của UC6. Không tạo lời mời,
+   không tự kích hoạt hoặc đổi vai trò. Popup vẫn yêu cầu ngày hiệu lực và lý
+   do; kích hoạt lại giữ vai trò hiện tại của membership.
+2. Tài khoản SUSPENDED chưa là thành viên trại vẫn được nhận lời mời. Trạng thái
+   này tiếp tục chặn đăng nhập/chấp nhận; chỉ có thể chấp nhận sau khi tài khoản
+   được khôi phục và lời mời còn hạn. Quy tắc membership ACTIVE/INACTIVE vẫn
+   được kiểm trước; không công bố trạng thái tài khoản platform cho Owner.
+3. Thành công lưu lời mời và ý định gửi email dùng `MSG-FE03-01` với nội dung
+   “Đã tạo lời mời tới {email}. Hệ thống đang gửi email.”, kèm hạn chính xác.
+   Không coi HTTP thành công là email đã đến. Lỗi nhà cung cấp giữ lời mời
+   PENDING, retry tăng dần tối đa 24 giờ theo JOB-07; không rollback nghiệp vụ.
+   Gửi lại dùng thông báo tương ứng: đã cập nhật lời mời, hệ thống đang gửi
+   email (MSG-FE03-05), giữ cùng lời mời thay vì tuyên bố tạo lời mời mới.
+4. Scope gồm backend, popup Mời từ SCR-13/SCR-14, gửi email và đọc lại kết quả;
+   nối nhánh Gửi lại (UC3) và Kích hoạt lại (UC6), kiểm phần phụ thuộc được dùng.
+   UC4 Chấp nhận lời mời là gói riêng; không chứng nhận toàn UC3/UC6 hoặc FE-03.
+
+Chốt FE-03 Q1 và riêng phần nhận lời mời của Q4; phần cấp quyền platform của
+Q4 vẫn mở. Giữ tên field API hiện có `validityDays` (3/7/14, mặc định 7), đồng
+bộ spec thay cho tên mô tả `validDays`; không đổi route. Ghi kiểm thử và giới
+hạn tại `docs/reviews/FE03_UC01_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+
+### D26 — UC-FE03-02: xem lời mời của trại (12/11/2026)
+
+Người dùng xác nhận cả sáu đề xuất trong phiên, sau khi đọc spec FE-03 Q2:
+
+1. Hoàn thiện backend và SCR-14: danh sách, tab, số lượng, phân trang, sắp xếp,
+   tải/lỗi/rỗng. Tái dùng popup Mời UC1 và các lệnh UC3; chỉ kiểm phần phụ thuộc
+   được sử dụng, không chứng nhận toàn UC3/UC4 hoặc toàn FE-03.
+2. Owner có membership ACTIVE được xem lời mời đúng trại ở mọi trạng thái dịch
+   vụ, gồm PENDING_PAYMENT/EXPIRED/SUSPENDED, để thu hồi quyền truy cập. Mời và
+   Gửi lại vẫn cần trại ACTIVE; Hủy chỉ áp dụng lời mời còn PENDING, chưa hết hạn.
+   Đây là ngoại lệ đọc phục vụ việc hủy ở GBR-14, không mở dữ liệu vận hành khác.
+3. Lần đầu mở chọn PENDING; mặc định lastSentAt giảm dần, bấm cột để đảo chiều.
+   Khi bằng thời điểm, id giảm dần giữ thứ tự ổn định. Giữ lựa chọn theo từng
+   trại/tài khoản trong phiên; đổi tab hoặc chiều sắp xếp trở về trang đầu.
+4. Tại một clock của mỗi lần đọc, PENDING có expiresAt <= now được trả và đếm
+   như EXPIRED, không có thao tác. GET không sửa bản ghi/version/audit/mail;
+   JOB-02 và luồng ghi tiếp tục quản lý trạng thái lưu.
+5. API danh sách trả `{items,total,page,size,counts,asOf}`, thay cho mảng.
+   `counts` có đủ PENDING/ACCEPTED/EXPIRED/CANCELLED, tính trên toàn trại trước
+   lọc/phân trang; `total` theo bộ lọc hiện tại. UI 20 dòng/trang theo Table III-1.
+   Cập nhật đồng bộ UC1; tra lời mời xung đột bằng ID, không chỉ tìm ở trang đầu.
+6. Tải lại khi vào/quay lại màn, đổi tab/trang/sắp xếp, sau Mời/Gửi lại/Hủy hoặc
+   bấm Làm mới. Không polling định kỳ.
+
+Chốt riêng UC2 của FE-03 Q2; UC5 và UC7 vẫn mở. `hasAccount` tiếp tục chỉ báo
+có tài khoản tại lần đọc, không công bố trạng thái tài khoản platform (D25).
+Ngày giờ hiển thị theo múi giờ trại (Table III-1), mặc định Asia/Ho_Chi_Minh.
+Ma trận, kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC02_REVIEW.md`;
+quyết định yêu cầu không tự tạo bằng chứng READY_FOR_FE.
