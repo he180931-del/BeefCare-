@@ -310,3 +310,47 @@ MSG-FE03-08 kèm `status` và `expiresAt`. "Gửi lúc" là lần gửi cuối. 
 khi chấp nhận đi qua kiểm tra của SCR-09 (quyền và dịch vụ) rồi tải lại phiên.
 Kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC04_REVIEW.md`; quyết định chưa
 phải READY_FOR_FE.
+
+### D29 — UC-FE03-05: xem thành viên trại (14/11/2026)
+
+Người dùng đồng ý cả sáu đề xuất trong phiên, sau khi đọc SRS SCR-13 (dòng
+3043–3080), Table III-1, GBR-14 và đối chiếu code. Chốt phần UC5 của FE-03 Q2:
+
+1. Phạm vi UC5 là A1 và SCR-13: danh sách, tab, số đếm, sắp xếp, phân trang,
+   bảng quyền, tải/rỗng/lỗi và nút thao tác đúng điều kiện. Nút mở popup có sẵn
+   của UC6; popup và lệnh đổi vai trò / ngưng / kích hoạt lại không được chứng
+   nhận ở UC5.
+2. Owner có membership ACTIVE xem SCR-13 ở mọi trạng thái dịch vụ, vì GBR-14 cho
+   Owner ngưng thành viên khi trại không ACTIVE và việc đó cần thấy danh sách.
+   Khi trại không ACTIVE chỉ còn Ngưng; Mời, Đổi vai trò, Kích hoạt lại bị khóa
+   kèm ghi chú (cách làm của SCR-14). Manager chỉ xem khi trại ACTIVE (MSG-COM-12);
+   Technician không xem (Table III-2, TC-03-26). GBR-14 trong SRS 28/10 ghi ngoại
+   lệ chỉ đọc này, như D26 đã làm cho lời mời.
+3. Tab: "Tất cả" là mọi dòng trả về (với Owner gồm chính Owner và người đã ngưng);
+   "Quản lý" / "Kỹ thuật viên" chỉ người ACTIVE của vai trò đó; "Đã ngưng" là
+   membership INACTIVE. Mỗi người chỉ thuộc một trong các nhóm Owner, Quản lý,
+   Kỹ thuật viên, Đã ngưng. Manager không có tab Đã ngưng nên không nhận số này.
+4. Ngày tham gia là cột `joined_at` mới (SRS Part I §3.2 "joined time"), ghi một
+   lần khi tạo membership (đăng ký trại cho Owner, chấp nhận lời mời); đổi vai trò,
+   ngưng, kích hoạt lại không đổi. Dữ liệu cũ lấy từ audit `MEMBER_ACCEPT`, rồi
+   `FARM_REGISTER` (Owner), rồi `accepted_at` của lời mời cùng email, cuối cùng
+   `effective_date`. SCR-13 hiện mm/yyyy theo múi giờ trại.
+5. A1 trả cả danh sách của trại (trại nhỏ; FE-08 chọn người cân và popup Mời khi
+   gặp MSG-FE03-21 cần cả danh sách) dạng `{farmName, timeZone, serviceStatus,
+   counts{all, managers, technicians, inactive?}, items}`; mỗi dòng `{id, userId,
+   fullName, email, role, status, joinedAt, version, actions[]}`. Bỏ `reason` và
+   `effectiveDate` của lần đổi gần nhất (SCR-13 không có; Manager không được thấy
+   ghi chú của Owner). Giữ tên `id`/`userId` như code, spec A1 sửa theo. Thứ tự
+   mặc định theo tên tiếng Việt A→Z, không phân biệt hoa thường; chưa có tên thì
+   theo email; bằng nhau theo id; bấm cột để đảo; không ghim Owner. Frontend chia
+   20 dòng/trang và nhớ tab/chiều sắp xếp theo tài khoản + trại trong phiên.
+6. Bảng "Quyền theo vai trò" theo đúng Table III-2: 17 nhóm × 3 vai trò, nội dung
+   ô lấy từ SRS. Bảng dùng chung nên popup Mời và dữ liệu mô phỏng của SCR-08 đổi
+   theo; mức FULL/RESTRICTED/NO khớp backend SCR-08 (`AccountResource`). Tóm tắt 3
+   dòng ở SCR-15 giữ nguyên.
+
+Đi kèm, không cần quyết riêng: Technician bị chặn ở A1 (trước đây lọt qua quyền
+`VIEW_CATALOGUES`); Manager mở được SCR-13 (trước đây trang gọi API chi tiết trại
+chỉ dành cho Owner); nhãn "Đã ngưng" / "Ngưng" theo spec; tải lại khi vào màn,
+sau thao tác và nút Làm mới, không polling. Kiểm thử và giới hạn ghi tại
+`docs/reviews/FE03_UC05_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
