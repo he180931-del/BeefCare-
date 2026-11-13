@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **229 paths, 283 operations, 311 schemas**, regenerated 13 November 2026 on `dev` after the D26 / FE-03 UC2 review and its UC1 regression tests passed. This working copy includes the preceding D25 / UC1 changes; no merge or READY_FOR_FE deployment is implied. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
+Current contract: **229 paths, 283 operations, 312 schemas**, updated 14 November 2026 on `feat/fe03-thanh-vien-quyen` after the D28 / FE-03 UC4 tests passed (only the invitation-link schemas changed; the export otherwise matched apart from Spring `Page` property order). Previous: 311 schemas, regenerated 13 November 2026 on `dev` after the D26 / FE-03 UC2 review and its UC1 regression tests passed. This working copy includes the preceding D25 / UC1 changes; no merge or READY_FOR_FE deployment is implied. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -30,6 +30,17 @@ Errors are checked in the order COM-01 → FE03-04 (resend only) → COM-08 →
 FE03-08 with `params.status` (also for an outdated version) → COM-05. Resend
 replaces the e-mail link and has no count limit; cancel works in every service
 status. See `FE03_UC03_EXAMPLES.md` and `docs/reviews/FE03_UC03_REVIEW.md`.
+
+UC4 / D28 (14 November 2026): **breaking change of the invitation link API**.
+`GET /api/invitations/accept?token=` returns `{status, farmId, farmName, timeZone,
+email, role, invitedBy, sentAt, expiresAt, membershipId?}`; `invitedAt` is gone and
+`sentAt` is the last send. ACCEPTED is returned only for the caller's own ACTIVE
+membership (AF2). `POST /api/invitations/accept` returns `AcceptedInvitation`
+`{membershipId, farmId, farmName, role, status}` instead of `MemberView` and takes no
+Idempotency-Key. MSG-FE03-08 carries `params.status` and `params.expiresAt`; cancelled
+and expired links keep naming their status until JOB-08. Contract now 229 paths,
+283 operations, 312 schemas. See `FE03_UC04_EXAMPLES.md` and
+`docs/reviews/FE03_UC04_REVIEW.md`.
 
 UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
 `GET /api/platform/plan-prices?page=0&size=20` returns

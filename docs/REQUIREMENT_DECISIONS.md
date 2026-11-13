@@ -277,3 +277,36 @@ statusBefore/statusAfter (GBR-86). Frontend hiện MSG-FE03-08 kèm trạng thá
 tải lại danh sách khi lời mời đã đổi; lỗi lưu giữ hộp thoại và cùng key để thử
 lại. Spec A5/A6 dùng tên field `expectedVersion` như code. Kiểm thử và giới hạn
 ghi tại `docs/reviews/FE03_UC03_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+
+### D28 — UC-FE03-04: chấp nhận lời mời (14/11/2026)
+
+Người dùng chọn cả bốn đề xuất trong phiên, sau khi đọc SRS UC-FE03-04, SCR-15 và
+đối chiếu code:
+
+1. Sửa tối thiểu phần đăng nhập/điều hướng dùng chung (FE-01) trong UC4, chỉ ở
+   frontend: link lời mời đang mở khi chưa đăng nhập được nhớ trong trình duyệt
+   (localStorage, 24 giờ, xóa khi dùng) và mở lại sau khi đăng nhập Google hoặc
+   xác minh email (UC-FE01-02 AF2, UC4 AF3). Complete Owner Profile (SCR-07) chỉ
+   là đích khi tài khoản chưa có trại nào và chưa có vai trò platform (UC-FE01-02
+   bước 6, AF4); Manager/Technician được mời vào thẳng trại của mình. Không đổi
+   backend FE-01; ghi chú cho chủ FE-01 (LamKD) trong review.
+2. Báo Owner khi lời mời được chấp nhận bằng email tiếng Việt qua hàng đợi JOB-07:
+   ý định gửi lưu cùng transaction chấp nhận (GBR-64), một email mỗi membership
+   (BR-D22), retry tối đa 24 giờ, xác định lại Owner ACTIVE lúc gửi và bỏ nếu
+   người nhận mất quyền. Không thêm thông báo trong app (SCR-45 chỉ có tab gói
+   dịch vụ và hỗ trợ).
+3. Mở lại link đã chấp nhận (AF2): nếu đúng email và membership còn ACTIVE thì
+   SCR-15 hiện "đã tham gia" với nút Vào trại; membership đã ngưng hoặc trường hợp
+   khác là link đã dùng (E1, MSG-FE03-08 kèm ACCEPTED).
+4. Lệnh Chấp nhận không dùng Idempotency-Key: token trong link là khóa của ý định,
+   gọi lại trả cùng membership (GBR-17). Spec A8 sửa theo, response trả
+   `{membershipId, farmId, farmName, role, status}`.
+
+Đi kèm theo quyết định UC3 (D27 mục 4, FE-03 Q6): hash của link được giữ sau khi
+Hủy hoặc hết hạn (kể cả JOB-02) đến khi JOB-08 xóa sau 7 ngày; link vẫn không cấp
+gì vì trạng thái được kiểm. A7 trả `{status, farmId, farmName, timeZone, email,
+role, invitedBy, sentAt, expiresAt, membershipId?}` cho đúng email được mời; lỗi
+MSG-FE03-08 kèm `status` và `expiresAt`. "Gửi lúc" là lần gửi cuối. Vào trại sau
+khi chấp nhận đi qua kiểm tra của SCR-09 (quyền và dịch vụ) rồi tải lại phiên.
+Kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC04_REVIEW.md`; quyết định chưa
+phải READY_FOR_FE.

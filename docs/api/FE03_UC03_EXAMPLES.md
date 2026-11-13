@@ -70,8 +70,8 @@ Content-Type: application/json
 200 trả InvitationView với `"status":"CANCELLED"` và version mới. Link của lời
 mời không còn cấp gì (chấp nhận bằng link đó → 400 MSG-FE03-08); email chưa gửi
 bị bỏ; không tạo membership. UI hiện MSG-FE03-07 "Đã hủy lời mời." và tải lại.
-Hiện SCR-15 mở link đã hủy báo "Liên kết không hợp lệ"; việc hiện "Đã hủy" kèm
-hạn để UC4 (FE-03 Q6).
+Từ D28 (UC4), hash của link được giữ tới JOB-08 nên SCR-15 mở link đã hủy báo
+"Lời mời không còn hiệu lực (Đã hủy)" kèm hạn (FE-03 Q6).
 
 ## Lỗi
 
