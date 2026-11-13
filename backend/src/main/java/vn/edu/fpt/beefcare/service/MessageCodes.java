@@ -28,6 +28,13 @@ public final class MessageCodes {
     public static final String COM_18 = "MSG-COM-18";
     public static final String COM_19 = "MSG-COM-19";
 
+    /** FE-10 R-10-04: body temperature outside 35.0–43.0 °C. */
+    public static final String FE10_06 = "MSG-FE10-06";
+    /** FE-10 R-10-05: a follow-up, treatment, closure or corrected time earlier than the latest record of the case; params.date. */
+    public static final String FE10_07 = "MSG-FE10-07";
+    /** FE-10 R-10-11: the opening observation of a case cannot be voided. */
+    public static final String FE10_13 = "MSG-FE10-13";
+
     /** UC-FE02-01 E1: Owner registration is not complete. */
     public static final String FE02_02 = "MSG-FE02-02";
     /** UC-FE02-02 AF3: a Manager or Technician enters a farm that is not ACTIVE. */
@@ -44,6 +51,8 @@ public final class MessageCodes {
     public static final String FE18_02 = "MSG-FE18-02";
     public static final String FE18_04 = "MSG-FE18-04";
     public static final String FE18_06 = "MSG-FE18-06";
+    /** A catalogue value (medicine, vaccine) that is not ACTIVE; params.field. */
+    public static final String FE18_08 = "MSG-FE18-08";
     public static final String FE18_09 = "MSG-FE18-09";
     public static final String FE04_01 = "MSG-FE04-01";
     public static final String FE04_02 = "MSG-FE04-02";
