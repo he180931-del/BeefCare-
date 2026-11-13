@@ -192,7 +192,7 @@ class CareWorkflowIT extends DomainTestSupport {
         assertThat(deferred.status()).isEqualTo("DEFERRED");
 
         Integer scheduleVersion = versionOf(vn.edu.fpt.beefcare.domain.VaccinationSchedule.class, schedule.id());
-        assertThat(vaccination.stopSchedule(farm.getId(), schedule.id(), key(), scheduleVersion).status()).isEqualTo("STOPPED");
+        assertThat(vaccination.stopSchedule(farm.getId(), schedule.id(), key(), scheduleVersion, "Season over").status()).isEqualTo("STOPPED");
         em.flush();
         em.clear();
         assertThat(doses(schedule.id())).extracting(ScheduledDose::getStatus).containsOnly("CANCELLED");

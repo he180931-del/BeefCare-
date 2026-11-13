@@ -35,23 +35,63 @@ public final class CareDtos {
         }
     }
     public record VaccinationScheduleResult(Long id, String name, String status, Integer version, int targetCount, int plannedDoseCount) {}
+    /** A3 / A4 target chosen on SCR-32: pens, herd groups and life stages (AND), plus cattle added / removed one by one (GBR-41). */
+    public record ScheduleTarget(List<Long> penIds, List<String> herdGroups, List<String> lifeStages, List<Long> cattleIds, List<Long> excludedCattleIds) {}
+    /**
+     * A4. Null fields keep the current value. {@code doseCount}: 1-10, only doses not yet given change (R-09-05);
+     * {@code removeBooster}: true drops the booster and cancels its open doses; {@code target}: the new target, resolved
+     * like A3 - added cattle get PLANNED doses, removed cattle lose their open doses, DONE doses never change (TC-09-09).
+     */
     public record EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
-                                          Integer intervalDays, Integer boosterIntervalMonths) {}
+                                          Integer intervalDays, Integer boosterIntervalMonths, Integer doseCount, Boolean removeBooster,
+                                          ScheduleTarget target) {
+        public EditVaccinationSchedule(Integer expectedVersion, String name, Long vaccineId, LocalDate firstDueDate,
+                                       Integer intervalDays, Integer boosterIntervalMonths) {
+            this(expectedVersion, name, vaccineId, firstDueDate, intervalDays, boosterIntervalMonths, null, null, null);
+        }
+    }
+    /** The stored target with display codes, so SCR-32 shows the same selection when the schedule is edited (GAP-FE09-01). */
+    public record ScheduleTargetView(List<Long> penIds, List<String> penCodes, List<String> herdGroups, List<String> lifeStages,
+                                     List<Long> cattleIds, List<String> cattleCodes, List<Long> excludedCattleIds, List<String> excludedCattleCodes) {}
     public record ScheduledDoseView(Long id, Long cattleId, String cattleCode, Integer doseNo, LocalDate dueDate,
                                     LocalDate newExpectedDate, String status, String deferralReason, Integer version) {}
     public record VaccinationScheduleView(Long id, String name, String targetGroup, Long vaccineId, String vaccineName,
                                           LocalDate firstDueDate, Integer doseCount, Integer intervalDays, Integer boosterIntervalMonths,
-                                          String status, Integer version, List<ScheduledDoseView> doses) {}
+                                          String status, Integer version, List<ScheduledDoseView> doses, String stopReason,
+                                          ScheduleTargetView target) {}
+    /** A5: stopping a schedule needs a reason (R-09-06, ≤ 500 characters, Q1). */
+    public record StopVaccinationSchedule(String reason) {}
     public record DeferDose(Integer expectedVersion, String reason, LocalDate newExpectedDate, String note) {}
     public record DoseResult(Long id, String status, Integer version, String reason, LocalDate newExpectedDate) {}
     public record VaccinationAnimal(Long cattleId, Long scheduledDoseId, Integer expectedDoseVersion, String decision,
                                     String deferralReason, LocalDate newExpectedDate) {}
     public record RecordVaccinations(Long vaccineId, String source, LocalDate vaccinationDate, Instant administeredAt, String batchNo, String dose,
                                      String route, Integer withdrawalDays, String vaccinator, List<VaccinationAnimal> animals) {}
-    public record VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds) {}
+    /**
+     * A6. {@code skipped} (R-09-10, TC-09-17): animals left out of the batch - the dose was already given (MSG-FE09-09) or
+     * the animal left the herd meanwhile (MSG-COM-13); the other animals are still recorded.
+     */
+    public record VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds, List<SkippedAnimal> skipped) {
+        public VaccinationBatchResult(int vaccinatedCount, int deferredCount, List<Long> vaccinationIds) {
+            this(vaccinatedCount, deferredCount, vaccinationIds, List.of());
+        }
+    }
+    /** One animal skipped in a batch: its code, the message code and, for MSG-FE09-09, the dose number. */
+    public record SkippedAnimal(Long cattleId, String cattleCode, String messageCode, Integer doseNo) {}
+    /**
+     * A10. {@code withdrawalDays}: new withdrawal period (0-365) of an ON_FARM record; null keeps the current one
+     * (GAP-FE09-04, TC-09-27). A HISTORICAL record has no withdrawal (R-09-08).
+     */
     public record CorrectVaccination(Integer expectedVersion, Long vaccineId, LocalDate vaccinationDate, Instant administeredAt,
-                                     String batchNo, String dose, String route, String vaccinator, String reason) {}
-    public record VaccinationResult(Long id, String status, Integer version, LocalDate withdrawalEndDate, Boolean corrected) {}
+                                     String batchNo, String dose, String route, String vaccinator, String reason, Integer withdrawalDays) {
+        public CorrectVaccination(Integer expectedVersion, Long vaccineId, LocalDate vaccinationDate, Instant administeredAt,
+                                  String batchNo, String dose, String route, String vaccinator, String reason) {
+            this(expectedVersion, vaccineId, vaccinationDate, administeredAt, batchNo, dose, route, vaccinator, reason, null);
+        }
+    }
+    /** A10 / A11: the record and the withdrawal end of its cattle, recalculated after the change (R-09-13, R-09-14). */
+    public record VaccinationResult(Long id, String status, Integer version, LocalDate withdrawalEndDate, Boolean corrected,
+                                    Integer withdrawalDays, LocalDate cattleWithdrawalEndDate) {}
     /**
      * A10. {@code baseVersion}: the version number the form was loaded with; when another version was saved meanwhile
      * the save answers MSG-COM-05 (R-18-15, TC-18-26). Null skips the check (older callers).
@@ -88,8 +128,16 @@ public final class CareDtos {
                                  LocalDate openedDate,LocalDate chronicSince,String outcome,Long treatmentCount,Integer version) {}
     public record HealthProfile(Long cattleId,String healthState,LocalDate withdrawalEndDate,Boolean suspectedContagious,
                                 List<HealthCaseCard> activeCases,List<HealthCaseCard> previousCases,List<HealthTimelineRow> timeline) {}
+    /**
+     * A8 / A9 history row. {@code route}, {@code withdrawalDays} and {@code revisions} (GAP-FE09-03): the stored route,
+     * the withdrawal period of an ON_FARM record and its correction / void history, oldest first (BR-D15, R-09-14).
+     */
     public record VaccinationHistoryRow(Long id,Instant administeredAt,LocalDate vaccinationDate,Long cattleId,String cattleCode,
                                         Long penId,String penCode,String penName,Long vaccineId,String vaccineName,String dose,
                                         String batchNo,String source,String vaccinator,LocalDate withdrawalEndDate,
-                                        Long reactionCaseId,String reactionCaseCode,String status,Boolean corrected,Integer version) {}
+                                        Long reactionCaseId,String reactionCaseCode,String status,Boolean corrected,Integer version,
+                                        String route,Integer withdrawalDays,List<VaccinationRevision> revisions) {}
+    /** One immutable correction / void of a vaccination record: who, when, why and the values before / after (BR-D15). */
+    public record VaccinationRevision(Long id,Instant changedAt,String changedBy,String action,String reason,
+                                      Map<String,Object> before,Map<String,Object> after) {}
 }

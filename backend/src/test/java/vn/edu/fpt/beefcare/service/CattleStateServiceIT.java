@@ -76,7 +76,7 @@ class CattleStateServiceIT extends DomainTestSupport {
         schedule.setTargetGroup("EXPLICIT");schedule.setFirstDueDate(TODAY);schedule.setDoseCount(2);schedule.setIntervalDays(21);schedule.setStatus("ACTIVE");save(schedule);
         for(int i=1;i<=2;i++){ScheduledDose dose=new ScheduledDose();dose.setSchedule(schedule);dose.setCattle(cow);dose.setDoseNo(i);dose.setDueDate(TODAY.plusDays((i-1)*21L));dose.setStatus("PLANNED");save(dose);}
 
-        vaccinationCommands.stopScheduleInCommand(farm.getId(),schedule.getId(),schedule.getVersion());
+        vaccinationCommands.stopScheduleInCommand(farm.getId(),schedule.getId(),schedule.getVersion(),"Test stop");
 
         assertThat(em.createQuery("select count(d) from ScheduledDose d where d.schedule.id=:id and d.status='CANCELLED'",Long.class)
             .setParameter("id",schedule.getId()).getSingleResult()).isEqualTo(2);

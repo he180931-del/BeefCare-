@@ -79,7 +79,7 @@ Từ báo cáo triển khai backend và bàn giao ngày 28–29/10. Mỗi dòng 
 | FE-02 | Test ranh giới thời hạn dịch vụ và chuyển trạng thái; màn lịch sử chuyển trạng thái | DucNV |
 | FE-05 | Mã QR duy nhất khi tạo đồng thời; đối chiếu đủ trường SCR-19 | AnNT |
 | FE-08 | Fixture và truy vấn dữ liệu lớn cho tổng quan đàn | TuanPQ |
-| FE-09 | Test khớp đối tượng tiêm, lọc lịch sử, sửa lịch, khôi phục mũi, ca ON_FARM và HISTORICAL; JOB-01 dời nhắc việc khi đổi lịch; lưu lý do dừng lịch | TuanPQ |
+| FE-09 | Test lọc lịch sử; JOB-01 dời nhắc việc khi đổi lịch. (12/11/2026: đã có lưu lý do dừng lịch, sửa đối tượng / số mũi, khôi phục mũi khi hủy, ca ON_FARM và HISTORICAL khi sửa ngưng thịt – `VaccinationGapCommandTest`, `VaccinationCommandResourceTest`) | TuanPQ |
 | FE-10 | Test lọc ngày Open / Chronic / Closed, liên kết phản ứng, người ghi và người quan sát, sửa bản ghi, thứ tự ngày đóng ca; ánh xạ đủ MSG-FE10 | TuanPQ |
 | FE-11, FE-12 | Các nhánh sửa / hủy của lần đẻ và kết quả bê; đối chiếu đủ trường SCR-38, SCR-39; mọi nơi chọn snapshot tham số theo ngày hiệu lực rồi phiên bản | TuanPQ |
 | FE-14 | REM-11 (bữa ăn chưa ghi) chưa có test; JOB-07 bước 4 (nhắc yêu cầu nội bộ sau 4 giờ) chưa có test riêng | TaiDX |
