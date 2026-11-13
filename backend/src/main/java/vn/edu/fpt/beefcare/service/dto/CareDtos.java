@@ -10,22 +10,46 @@ import java.util.Map;
 public final class CareDtos {
     private CareDtos() {}
 
+    /**
+     * FE-10 A3: open a case ({@code existingCaseId} null) or add an observation to an OPEN / CHRONIC case of the same
+     * cattle ({@code existingCaseId} + {@code expectedVersion}). {@code vaccinationId}: the vaccination the case is opened
+     * for (post-vaccination reaction, GBR-47). {@code observerId}: an ACTIVE member; defaults to the recorder.
+     */
     public record OpenHealthCase(Long cattleId, Long existingCaseId, Integer expectedVersion, Instant observedAt, Long observerId, BigDecimal temperatureC,
-                                 String signs, String diagnosis, Boolean suspectedContagious, String severity) {}
-    public record FollowUp(Integer expectedVersion, Instant observedAt, BigDecimal temperatureC, String progress, String description) {}
-    public record CaseStatus(Integer expectedVersion, String action, String outcome, LocalDate closingDate, String reason) {}
-    public record CorrectClosure(Integer expectedVersion, String outcome, LocalDate closingDate, String reason) {}
-    public record TreatmentCommand(Long medicineId, Instant treatmentTime, String treatmentDetail, String dose, String route,
-                                   Integer courseDays, Integer withdrawalDays, String performer, String veterinaryAdvice) {}
+                                 String signs, String diagnosis, Boolean suspectedContagious, String severity, Long vaccinationId) {}
+    /** FE-10 A4: one follow-up of an OPEN / CHRONIC case; {@code progress} IMPROVED / UNCHANGED / WORSENED (required). */
+    public record FollowUp(Integer expectedVersion, Instant observedAt, BigDecimal temperatureC, String progress, String description, Long observerId) {}
+    /**
+     * FE-10 A5 (popup Cập nhật / Đóng ca). {@code action}: KEEP (only the follow-up), TO_CHRONIC (OPEN → CHRONIC),
+     * TO_OPEN (CHRONIC → OPEN), CLOSE (outcome RECOVERED / DIED / MISSING, {@code closedAt} not before the latest
+     * record, {@code confirmedById} an ACTIVE member, default the actor). {@code latestProgress} is stored as one
+     * follow-up ({@code progress} optional, default UNCHANGED): required for KEEP, optional otherwise (Q1).
+     * {@code suspectedDiagnosis} / {@code suspectedContagious} update the case when present.
+     */
+    public record CaseStatus(Integer expectedVersion, String action, String latestProgress, String progress, String suspectedDiagnosis,
+                             Boolean suspectedContagious, String outcome, Instant closedAt, Long confirmedById) {}
+    /**
+     * FE-10 A6: {@code medicineId} an ACTIVE medicine of the farm (name snapshotted), {@code route} one of
+     * INTRAMUSCULAR / SUBCUTANEOUS / INTRAVENOUS / ORAL / TOPICAL / OTHER, {@code courseDays} 1–30 (default 1),
+     * {@code withdrawalDays} 0–365 (default: the medicine's), {@code performerId} an ACTIVE member or
+     * {@code performerName} ≤ 100, {@code veterinaryAdvice} ≤ 500, {@code expectedVersion} of the case.
+     */
+    public record TreatmentCommand(Integer expectedVersion, Long medicineId, Instant administeredAt, String dose, String route,
+                                   Integer courseDays, Integer withdrawalDays, Long performerId, String performerName, String veterinaryAdvice) {}
+    /** A6 result: the treatment's withdrawal end, the cattle's overall withdrawal end (treatments + on-farm vaccinations, GBR-46) and the derived health state. */
     public record TreatmentResult(Long id, Long caseId, Integer caseVersion, String caseStatus, LocalDate withdrawalEndDate,
-                                  Integer courseDays, String medicineName) {}
+                                  LocalDate cattleWithdrawalEndDate, String healthState, Integer courseDays, String medicineName, boolean returnedToOpen) {}
     public record VoidRecord(Integer expectedVersion, String reason) {}
+    /** A8: fields of a follow-up (or the opening observation) to correct; null = unchanged. */
     public record CorrectObservation(Integer expectedVersion, String reason, Instant observedAt, BigDecimal temperatureC,
-                                     String signs, String progress) {}
-    public record CorrectTreatment(Integer expectedVersion, String reason, Long medicineId, Instant treatmentTime,
-                                   String treatmentDetail, String dose, String route, Integer courseDays,
-                                   Integer withdrawalDays, String performer, String veterinaryAdvice) {}
-    public record RecordStatus(Long id, String status, Integer version, String healthState) {}
+                                     String signs, String progress, Long observerId) {}
+    /** A7: fields of a treatment to correct; null = unchanged. Same rules as {@link TreatmentCommand}. */
+    public record CorrectTreatment(Integer expectedVersion, String reason, Long medicineId, Instant administeredAt,
+                                   String dose, String route, Integer courseDays, Integer withdrawalDays,
+                                   Long performerId, String performerName, String veterinaryAdvice) {}
+    /** A7 / A8 result: the cattle's withdrawal end before and after the change (MSG-FE10-12 when they differ) and the health state. */
+    public record RecordStatus(Long id, String status, Integer version, String healthState, Long caseId, String caseStatus,
+                               LocalDate withdrawalBefore, LocalDate withdrawalAfter) {}
     public record CreateVaccinationSchedule(String name, Long vaccineId, LocalDate firstDueDate, Integer doseCount,
                                             Integer intervalDays, Integer boosterIntervalMonths, List<Long> cattleIds,
                                             List<Long> penIds, List<String> herdGroups, List<String> lifeStages, List<Long> excludedCattleIds) {
@@ -117,17 +141,40 @@ public final class CareDtos {
                                String manufacturer, String dose, String route, Integer withdrawalDays,
                                Integer boosterInterval, Boolean available, Integer version,
                                long scheduleCount, long recordCount, long referencedCount, boolean completeFromLabel) {}
-    public record HealthCaseResult(Long id, String caseCode, String status, Integer version, Long cattleId,
-                                   Long observationId, String healthState) {}
+    /**
+     * A3 / A4 / A5 result. {@code observationId}: the observation written by this command (null for a pure status
+     * change). {@code pendingExitVoucherId}: the PENDING loss voucher created when the case was closed as DIED /
+     * MISSING (R-10-07). {@code cattleWithdrawalEndDate}: the cattle's current withdrawal end (GBR-46).
+     */
+    public record HealthCaseResult(Long id, String caseCode, String status, Integer version, Long cattleId, String cattleCode,
+                                   Long observationId, String healthState, LocalDate cattleWithdrawalEndDate, String outcome,
+                                   LocalDate chronicSince, Instant closedAt, Long pendingExitVoucherId) {}
+    /** A1 row (SCR-36). {@code openedAt}: the opening observation; {@code dayN}: days since opening (day 1 = opening day) for OPEN cases. */
     public record HealthCaseRow(Long id,String caseCode,Long cattleId,String cattleCode,String breed,String sex,Long penId,String penCode,
                                 String penName,String diagnosis,String signs,Boolean suspectedContagious,String severity,
-                                LocalDate openedDate,String status,LocalDate chronicSince,String outcome,Long treatmentCount,Integer version) {}
-    public record HealthTimelineRow(Long id,String type,Instant occurredAt,String details,String recordedBy,String status,
-                                    Boolean corrected,Long linkedVaccinationId,Integer version) {}
-    public record HealthCaseCard(Long id,String caseCode,String status,String severity,String diagnosis,String openingSigns,
-                                 LocalDate openedDate,LocalDate chronicSince,String outcome,Long treatmentCount,Integer version) {}
-    public record HealthProfile(Long cattleId,String healthState,LocalDate withdrawalEndDate,Boolean suspectedContagious,
-                                List<HealthCaseCard> activeCases,List<HealthCaseCard> previousCases,List<HealthTimelineRow> timeline) {}
+                                LocalDate openedDate,Instant openedAt,Integer dayN,String status,LocalDate chronicSince,String outcome,
+                                LocalDate closedDate,Long treatmentCount,Integer version) {}
+    /** A1 page: {@code counts} per tab (open, chronic, closed, all) with the same search / severity / pen / period filters. */
+    public record HealthCasePage(List<HealthCaseRow> items,long total,int page,int size,Map<String,Long> counts) {}
+    /**
+     * A2 timeline row of one case: OPENING (the observation that opened the case), FOLLOW_UP or TREATMENT, with
+     * every stored field so the correction popup can show current values (UC-FE10-05).
+     */
+    public record HealthTimelineRow(Long id,Long caseId,String type,Instant occurredAt,String recordedBy,String observer,Long observerId,
+                                    String status,Boolean corrected,Integer version,BigDecimal temperatureC,String progress,String description,
+                                    Long linkedVaccinationId,Long medicineId,String medicineName,String dose,String route,Integer courseDays,
+                                    Integer withdrawalDays,LocalDate withdrawalEndDate,String performer,String veterinaryAdvice) {}
+    /** A2 open case (OPEN / CHRONIC) with its own timeline; {@code latestEntryAt}: the latest VALID record (lower bound for closing). */
+    public record HealthCaseView(Long id,String caseCode,String status,String severity,String diagnosis,Boolean suspectedContagious,
+                                 String openingSigns,LocalDate openedDate,Instant openedAt,Integer dayN,LocalDate chronicSince,
+                                 Long treatmentCount,Long linkedVaccinationId,Instant latestEntryAt,List<HealthTimelineRow> timeline,Integer version) {}
+    /** A2 previous (CLOSED) case: code, opening signs, outcome and the month it was closed ({@code month} yyyy-MM). */
+    public record PreviousHealthCase(Long id,String caseCode,String openingSigns,String diagnosis,String severity,LocalDate openedDate,
+                                     String outcome,LocalDate closedDate,String month,String confirmedBy) {}
+    /** A2: the PENDING loss voucher (DIED / MISSING) proposed from one of the cattle's cases and awaiting the Owner (GBR-26). */
+    public record PendingHealthExit(Long voucherId,String code,String lossKind,LocalDate exitDate,Long caseId,String caseCode) {}
+    public record HealthProfile(Long cattleId,String cattleCode,String healthState,LocalDate withdrawalEndDate,Boolean suspectedContagious,
+                                PendingHealthExit pendingExit,List<HealthCaseView> openCases,List<PreviousHealthCase> previousCases) {}
     /**
      * A8 / A9 history row. {@code route}, {@code withdrawalDays} and {@code revisions} (GAP-FE09-03): the stored route,
      * the withdrawal period of an ON_FARM record and its correction / void history, oldest first (BR-D15, R-09-14).

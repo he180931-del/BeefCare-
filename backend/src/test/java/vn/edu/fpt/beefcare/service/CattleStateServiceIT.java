@@ -170,7 +170,7 @@ class CattleStateServiceIT extends DomainTestSupport {
     }
 
     @Test
-    void treatmentCorrectionRecomputesWithdrawalAndCannotMoveBeforeLaterObservation() {
+    void treatmentCorrectionRecomputesWithdrawalAndCannotMoveAfterLaterObservation() {
         var farm=farm();var manager=memberWithRole(farm,FarmRole.MANAGER);actAs(manager);
         var cow=cattle(farm,breed(farm),purpose(farm,PurposeType.BREEDING),Sex.FEMALE,LifeStage.ADULT);
         HealthCase hc=new HealthCase();hc.setCattle(cow);hc.setOpenedDate(TODAY.minusDays(5));hc.setStatus("OPEN");hc.setIsSuspectedContagious(false);hc.setCaseCode("HC-IT");hc.setSeverity("MILD");save(hc);
@@ -180,11 +180,11 @@ class CattleStateServiceIT extends DomainTestSupport {
         treatment.setResult("GIVEN");treatment.setStatus("VALID");save(treatment);
         HealthObservation later=new HealthObservation();later.setHealthCase(hc);later.setObservedTime(Instant.parse("2026-10-27T04:00:00Z"));
         later.setEntryTime(clock.instant());later.setSignsProgress("Later observation");later.setSource("ON_FARM");later.setStatus("VALID");later.setOpening(false);save(later);
-        var invalid=new CareDtos.CorrectTreatment(treatment.getVersion(),"chronology correction",null,Instant.parse("2026-10-26T04:00:00Z"),
+        var invalid=new CareDtos.CorrectTreatment(treatment.getVersion(),"chronology correction",null,Instant.parse("2026-10-27T10:00:00Z"),
             null,null,null,null,null,null,null);
 
-        assertThatThrownBy(()->healthCommands.correctTreatmentInCommand(farm.getId(),treatment.getId(),invalid)).isInstanceOf(DomainException.class);
-        var valid=new CareDtos.CorrectTreatment(treatment.getVersion(),"withdrawal correction",null,null,null,null,null,2,3,null,null);
+        assertThatThrownBy(()->healthCommands.correctTreatmentInCommand(farm.getId(),treatment.getId(),invalid)).isInstanceOfSatisfying(DomainException.class,e->assertThat(e.getCode()).isEqualTo(MessageCodes.FE10_07));
+        var valid=new CareDtos.CorrectTreatment(treatment.getVersion(),"withdrawal correction",null,null,null,null,2,3,null,null,null);
         healthCommands.correctTreatmentInCommand(farm.getId(),treatment.getId(),valid);
 
         assertThat(em.find(Treatment.class,treatment.getId()).getWithdrawalEndDate()).isEqualTo(TODAY.plusDays(1));
