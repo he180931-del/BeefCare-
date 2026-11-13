@@ -20,6 +20,10 @@
 > cuối mới nhất trước, 20 dòng/trang, giữ lựa chọn theo trại trong phiên;
 > số lượng toàn trại, hết hạn tính tại lần đọc; làm mới theo thao tác, không polling.
 
+> UC-FE03-03 được làm rõ theo D27 (người dùng xác nhận 14/11/2026): Gửi lại
+> thay link cũ bằng link mới, không giới hạn số lần; xác nhận Hủy là hộp thoại
+> [Quay lại] [Hủy lời mời]; cách SCR-15 hiển thị link đã hủy để sang UC4 (Q6).
+
 ---
 
 ## 1. Phạm vi
@@ -122,7 +126,7 @@ Duy nhất: tối đa 1 lời mời `PENDING` cho mỗi cặp trại + email (BR
 | R-03-01 | Chỉ Owner mời, chỉ khi trại ACTIVE, chỉ vai trò Manager / Technician. | GBR-16 |
 | R-03-02 | Tối đa 1 lời mời `PENDING` mỗi trại + email (không phân biệt hoa thường). Đã có → MSG-FE03-03 đề nghị Gửi lại, không tạo lời mời thứ hai. | BR-D05, UC-01 AF1 |
 | R-03-03 | Email đã là thành viên ACTIVE → MSG-FE03-02. Email của thành viên INACTIVE → MSG-FE03-21 kèm membershipId/email, đề nghị Kích hoạt lại (UC-06), không gửi lời mời. Tài khoản SUSPENDED chưa có membership vẫn được mời, chưa được đăng nhập/chấp nhận khi còn bị ngưng. | UC-01 E4, AF2; D25 |
-| R-03-04 | Hiệu lực tính từ lần gửi cuối. Gửi lại giữ **cùng** lời mời (email, vai trò không đổi), đặt lại hiệu lực. | GBR-16 |
+| R-03-04 | Hiệu lực tính từ lần gửi cuối. Gửi lại giữ **cùng** lời mời (email, vai trò, số ngày không đổi), đặt lại hiệu lực; link mới thay link cũ; không giới hạn số lần gửi lại. | GBR-16, D27 |
 | R-03-05 | `ACCEPTED`, `CANCELLED`, `EXPIRED` là trạng thái cuối; thao tác trên đó → MSG-FE03-08. | GBR-16 |
 | R-03-06 | Lời mời chưa tạo membership trước khi được chấp nhận. Lưu lời mời/audit/mail intent cùng giao dịch, sau đó gửi email; thông báo là đã tạo lời mời, email đang gửi. Lỗi gửi email: lời mời vẫn `PENDING`, retry tăng dần tối đa 24 giờ, chỉ gửi khi link còn hiệu lực. | UC-01 POST-3, AF4; JOB-07; D25 |
 | R-03-07 | Chấp nhận chỉ khi: đã đăng nhập, email đã xác minh **bằng** email được mời, lời mời `PENDING` và chưa hết hạn, trại ACTIVE. Email khác → MSG-FE03-09 và **không hiện thông tin trại**. | GBR-17 |
@@ -159,9 +163,14 @@ E1 không phải Owner → MSG-COM-01 · E2 trại không ACTIVE → MSG-FE03-04
 5. Hiển thị đủ trường SCR-14, ngày giờ theo múi giờ trại. hasAccount phản ánh tồn tại tài khoản tại lần đọc, không tiết lộ accountStatus.
 6. Tải khi vào/quay lại, đổi tab/trang/sắp xếp, sau Mời/Gửi lại/Hủy hoặc Làm mới; không polling. Rỗng → MSG-COM-04 + Xóa bộ lọc; lỗi tải → MSG-COM-03 + Thử lại.
 
-### UC-FE03-03 Gửi lại, hủy lời mời
-SCR-14 theo tab trạng thái. **Gửi lại** (chỉ khi trại ACTIVE): cập nhật gửi lần cuối và hạn, gửi lại email → MSG-FE03-05. **Hủy** (mọi trạng thái dịch vụ): xác nhận MSG-FE03-06 → `CANCELLED` + audit → MSG-FE03-07; link không còn tác dụng. Cả hai chỉ áp dụng PENDING chưa hết hạn.
-E2 lời mời không còn `PENDING` → MSG-FE03-08 · E3 gửi lại khi trại không ACTIVE → MSG-FE03-04 · E4 sửa đồng thời → MSG-COM-05.
+### UC-FE03-03 Gửi lại, hủy lời mời (D27)
+1. SCR-14, chỉ dòng PENDING chưa hết hạn có nút. Owner bấm **Gửi lại** (không hỏi xác nhận) hoặc **Hủy** (hộp thoại MSG-FE03-06 [Quay lại] [Hủy lời mời]; Quay lại không đổi gì).
+2. Hệ thống khóa dòng lời mời rồi kiểm theo thứ tự: Owner của trại (COM-01) → trại ACTIVE, chỉ với Gửi lại (FE03-04) → lời mời thuộc trại ở URL (COM-08) → PENDING chưa hết hạn theo clock của lần gọi (FE03-08 kèm trạng thái hiện tại, kể cả khi version cũ) → version (COM-05). Lệnh bị từ chối không ghi gì; PENDING quá hạn chỉ được báo EXPIRED, JOB-02 vẫn chuyển trạng thái lưu.
+3. **Gửi lại**: cùng lời mời, email, vai trò, số ngày; gửi lần cuối = now, hạn = now + số ngày; token mới, link cũ hết tác dụng; bỏ email cũ chưa gửi và xếp email mới (retry tối đa 24 giờ) + audit trước/sau → MSG-FE03-05. Không giới hạn số lần.
+4. **Hủy** (mọi trạng thái dịch vụ): `CANCELLED`, ghi thời điểm hủy, xóa hash link, bỏ email chưa gửi + audit → MSG-FE03-07. Không tạo membership.
+5. Thành công: tải lại danh sách. Lỗi FE03-08 / FE03-04 / COM-05 / COM-08: hiện lý do (FE03-08 kèm trạng thái), đóng hộp thoại, tải lại danh sách; không tự thử lại bằng version mới. Lỗi lưu / mạng: giữ hộp thoại và cùng Idempotency-Key để thử lại.
+
+E1 không phải Owner → MSG-COM-01 · E2 lời mời không còn `PENDING` → MSG-FE03-08 · E3 gửi lại khi trại không ACTIVE → MSG-FE03-04 · E4 sửa đồng thời → MSG-COM-05 · E5 lỗi lưu → MSG-COM-02.
 
 ### UC-FE03-04 Chấp nhận lời mời
 1. Mở link từ email.
@@ -224,7 +233,7 @@ E2 không có tài khoản → MSG-FE03-18 · E3 không còn SA ACTIVE → MSG-F
 | 5 | Last sent / Gửi lần cuối | Cột | dd/mm/yyyy HH:mm theo múi giờ trại; sắp xếp được, mặc định giảm dần, id giảm dần khi bằng thời điểm (D26) |
 | 6 | Expires / Hết hạn | Cột | dd/mm/yyyy HH:mm |
 | 7 | Status / Trạng thái | Huy hiệu | PENDING, ACCEPTED, EXPIRED, CANCELLED |
-| 8 | Actions / Thao tác | Nút | Chỉ PENDING: "Gửi lại" (trại ACTIVE), "Hủy" (xác nhận MSG-FE03-06) |
+| 8 | Actions / Thao tác | Nút | Chỉ PENDING: "Gửi lại" (trại ACTIVE), "Hủy" (hộp thoại xác nhận MSG-FE03-06: Quay lại / Hủy lời mời, D27) |
 | 9 | Pagination / Phân trang | Điều hướng | 20 dòng/trang; số trên tab là toàn trại, không theo trang/lọc (D26) |
 | 10 | Refresh / Làm mới | Nút | Đọc lại dữ liệu, không polling (D26) |
 
@@ -296,8 +305,8 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | A2 | Đổi vai trò / ngưng / kích hoạt lại | `action: CHANGE_ROLE\|DEACTIVATE\|REACTIVATE, newRole?, effectiveDate, reason, version` + `Idempotency-Key` | Thành viên (A1) | COM-01, FE03-04, FE03-20, COM-06, COM-07, COM-05, COM-02 | `PUT /api/farms/{farmId}/members/{membershipId}` |
 | A3 | Danh sách lời mời (D26) | `status?` (bỏ trống = tất cả), `page=0`, `size=20` (1–100), `sort=lastSentAt`, `dir=desc` (asc/desc); `invitationId?` số dương để UC1 tra chính xác | `{items[{id,email,hasAccount,role,createdAt,lastSentAt,expiresAt,validityDays,status,version}],total,page,size,counts{PENDING,ACCEPTED,EXPIRED,CANCELLED},asOf}`; counts toàn trại trước lọc, total sau lọc; một clock, không ghi khi GET | COM-01, COM-10 (query sai) | `GET /api/farms/{farmId}/invitations` |
 | A4 | Gửi lời mời | `email, role, validityDays? (3\|7\|14, mặc định 7)` + `Idempotency-Key` | Lời mời (A3), chưa xác nhận email đã tới | COM-01, FE03-02, FE03-03 (`{invitationId, email}`), FE03-04, FE03-21 (`{membershipId, email}`), COM-06, COM-10, COM-02 | `POST /api/farms/{farmId}/invitations` |
-| A5 | Gửi lại | `version` + `Idempotency-Key` | Lời mời | FE03-04, FE03-08, COM-05 | `POST …/invitations/{id}/resend` |
-| A6 | Hủy | `version` + `Idempotency-Key` | Lời mời | FE03-08, COM-05 | `POST …/invitations/{id}/cancel` |
+| A5 | Gửi lại (D27) | `expectedVersion` (bắt buộc) + `Idempotency-Key` | Lời mời (item A3) với lastSentAt/expiresAt/version mới | COM-01, FE03-04, COM-08, FE03-08 (`{status}`), COM-05, COM-06 (thiếu version/key), COM-19, COM-02 | `POST …/invitations/{id}/resend` |
+| A6 | Hủy (D27) | `expectedVersion` (bắt buộc) + `Idempotency-Key` | Lời mời (item A3) `CANCELLED` | COM-01, COM-08, FE03-08 (`{status}`), COM-05, COM-06, COM-19, COM-02 | `POST …/invitations/{id}/cancel` |
 | A7 | Xem lời mời từ link | `token` | `{status, farmName, role, invitedBy, sentAt, expiresAt, invitedEmail, signedInEmail, rolePermissions[]}`; email khác → chỉ `{status, code: MSG-FE03-09}`, không có thông tin trại | FE03-08, FE03-09, FE03-04 | `GET /api/invitations/accept?token=` |
 | A8 | Chấp nhận | `token` + `Idempotency-Key` | `{farmId, role, membershipId}` | FE03-08, FE03-09, FE03-04, COM-02 | `POST /api/invitations/accept` |
 | A9 | Danh sách tài khoản (SA) | `q?, status?, platformRole?, page, size, sort?` | `{items[{accountId, fullName, email, platformRole, farmsCount, farmRoleSummary, status}], total}` | COM-01 | `GET /api/platform/accounts` (thiếu lọc `platformRole`) |
@@ -317,7 +326,7 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | MSG-FE03-03 | Hộp thoại | Đã có lời mời đang chờ cho {email}. Gửi lại lời mời đó? [Gửi lại] [Hủy] |
 | MSG-FE03-04 | Trong hộp thoại | Mời thành viên, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE). |
 | MSG-FE03-05 | Toast thành công | Đã cập nhật lời mời tới {email}. Hệ thống đang gửi email. Hết hạn lúc {expiry}. (D25) |
-| MSG-FE03-06 | Hộp thoại xác nhận | Hủy lời mời gửi {email}? Link sẽ không còn tác dụng. |
+| MSG-FE03-06 | Hộp thoại xác nhận | Hủy lời mời gửi {email}? Link sẽ không còn tác dụng. [Quay lại] [Hủy lời mời] (D27) |
 | MSG-FE03-07 | Toast thành công | Đã hủy lời mời. |
 | MSG-FE03-08 | Trạng thái màn hình | Lời mời không còn hiệu lực ({status}). |
 | MSG-FE03-09 | Trạng thái màn hình | Lời mời này được gửi tới email khác. Hãy đăng nhập bằng email được mời để chấp nhận. |
@@ -385,6 +394,13 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | TC-03-43 | Lời mời xung đột UC1 nằm ngoài trang đầu | Tra theo invitationId | Đọc đúng lời mời/version; ID thuộc trại khác không trả item | U, H, I | D26, UC1 AF1 |
 | TC-03-44 | Tài khoản mới tạo hoặc SUSPENDED trùng email mời | Đọc hasAccount | Phản ánh tồn tại hiện tại, không công bố trạng thái/xác minh/token | H, I | D25, D26 |
 | TC-03-45 | Đã mở xác nhận Hủy; danh sách được làm mới với version mới | Xác nhận | Gửi version đã thấy khi mở xác nhận, không tự thay bằng version mới | U | D25, D26, BR-D31 |
+| TC-03-46 | Lời mời PENDING trên SCR-14 | Bấm Hủy → Quay lại | Hộp thoại MSG-FE03-06 có email; Quay lại đóng hộp thoại, không gọi API | U | D27 |
+| TC-03-47 | Lời mời đã gửi email | Gửi lại; gửi lặp cùng key | Link email trước bị từ chối (MSG-FE03-08), link mới mở được; cùng key trả kết quả đầu, không thêm email; 1 audit có giá trị trước/sau | H, I | D27, GBR-88, GBR-86 |
+| TC-03-48 | Lời mời ACCEPTED / CANCELLED / EXPIRED, version cũ hoặc đúng | Gửi lại / Hủy | MSG-FE03-08 kèm trạng thái đó (không phải MSG-COM-05); version và audit không đổi | H, I | D27, UC-03 E2 |
+| TC-03-49 | PENDING đúng hạn bằng now, JOB-02 chưa chạy | Gửi lại / Hủy | MSG-FE03-08 (EXPIRED); DB vẫn PENDING, hash, version, audit, email không đổi | H, I | D27, R-03-19 |
+| TC-03-50 | Lời mời PENDING | Chấp nhận và Hủy cùng lúc | Đúng một lệnh thành công; Hủy thắng thì không có membership, Chấp nhận thắng thì Hủy nhận MSG-FE03-08 | I | D27, POST-2 |
+| TC-03-51 | Manager / Technician / Owner trại khác; Owner trại khác dùng URL trại mình với ID lời mời trại này | Gửi lại / Hủy | 403 MSG-COM-01; 404 MSG-COM-08; lời mời không đổi | H, I | GBR-09, UC-03 E1 |
+| TC-03-52 | SCR-14 | Gửi lại / Hủy bị MSG-FE03-08, MSG-COM-05 hoặc MSG-FE03-04; Hủy lỗi lưu | Hiện lý do (FE03-08 kèm trạng thái) và tải lại danh sách, không tự thử lại; lỗi lưu giữ hộp thoại và cùng key | U | D27, BR-D31, GBR-88 |
 
 ---
 
@@ -396,6 +412,7 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | Q2 | UC-FE03-02, 05, 07 không có đặc tả Part II; luồng suy từ SCR | Đã chốt riêng UC2 theo D26 (12/11/2026), luồng ở mục 5; UC5/UC7 còn mở |
 | Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử |
 | Q4 | Tài khoản bị tạm ngưng có được nhận lời mời / được cấp quyền platform không? | Phần lời mời đã chốt D25: được nhận nếu chưa có membership; chỉ chấp nhận sau khi khôi phục và còn hạn. Phần cấp quyền platform vẫn mở |
+| Q6 | Link của lời mời đã Hủy / hết hạn: SCR-15 phải hiện MSG-FE03-08 kèm trạng thái và hạn (SRS dòng 3146), JOB-08 chỉ xóa hash sau 7 ngày (dòng 5628), nhưng code xóa hash ngay khi Hủy / JOB-02 nên SCR-15 chỉ báo "Liên kết không hợp lệ" | Giữ hash tới JOB-08; backend trả FE03-08 kèm trạng thái và hạn, SCR-15 hiển thị. Làm ở UC4 (D27 mục 4) |
 
 ---
 

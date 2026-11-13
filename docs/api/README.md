@@ -24,6 +24,13 @@ sending/resending still require ACTIVE service. Frontend callers in this working
 copy were updated together. See `FE03_UC02_EXAMPLES.md` and
 `docs/reviews/FE03_UC02_REVIEW.md` for tested behavior and deployment limits.
 
+UC3 / D27 (14 November 2026): **no contract change**. Resend and cancel keep
+their routes and the required `{expectedVersion}` body with `Idempotency-Key`.
+Errors are checked in the order COM-01 → FE03-04 (resend only) → COM-08 →
+FE03-08 with `params.status` (also for an outdated version) → COM-05. Resend
+replaces the e-mail link and has no count limit; cancel works in every service
+status. See `FE03_UC03_EXAMPLES.md` and `docs/reviews/FE03_UC03_REVIEW.md`.
+
 UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
 `GET /api/platform/plan-prices?page=0&size=20` returns
 `{items,total,page,size,asOf,current,nextEffectiveAt}` instead of an array.

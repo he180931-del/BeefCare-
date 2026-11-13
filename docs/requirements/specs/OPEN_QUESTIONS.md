@@ -4,11 +4,13 @@ Nguồn: mục 10 của 23 spec theo SRS 28/10/2026 (quyết định D12). Mỗi
 
 Cột **Quyết định**: để trống = chưa chốt; ghi `Theo đề xuất`, `Khác: …` hoặc `Hoãn`. **Người chốt** mặc định là chủ feature; câu chạm feature khác thì trao đổi với chủ feature đó.
 
-Tổng: 121 câu – AnNT 28, DucNV 25, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
+Tổng: 122 câu – AnNT 28, DucNV 26, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
 
 Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Chung Q1) khi dọn thư mục `docs/`: lấy từ đối chiếu FE–BE phần thức ăn (01/11), đối chiếu Figma với frontend (02/11) và báo cáo triển khai backend (28–29/10).
 
 Ngày 08/11/2026 thêm 5 câu (FE-02 Q5–Q9) khi làm UC-FE02-02 đến UC-FE02-05: chỗ SRS mâu thuẫn, đọc được hai cách hoặc cần chọn cách lưu.
+
+Ngày 14/11/2026 thêm FE-03 Q6 khi làm UC-FE03-03 (D27): cách SCR-15 hiển thị link của lời mời đã hủy / hết hạn, hoãn sang UC4.
 
 Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại trên SCR-57 (D14), sau đó xác nhận làm UC-FE19-01 gồm backend và nối SCR-57. FE-19 Q3 chốt riêng UC-01, còn UC-03, 04, 05 chờ xác nhận.
 
@@ -33,6 +35,7 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-03 | Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử |  | DucNV |  |
 | FE-03 | Q4 | Tài khoản bị tạm ngưng có được nhận lời mời / được cấp quyền platform không? | Không được cấp quyền platform khi đang tạm ngưng | Chốt riêng lời mời theo D25: được nhận nếu chưa là thành viên; chỉ chấp nhận sau khôi phục và còn hạn. Phần cấp quyền platform vẫn mở | DucNV / người dùng xác nhận | 11/11/2026 (một phần) |
 | FE-03 | Q5 | Sidebar SA có mục riêng "Quyền nhân sự nền tảng" theo Figma; SRS SCR-16 coi đây là popup của Tài khoản người dùng. FE đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | DucNV |  |
+| FE-03 | Q6 | Link của lời mời đã Hủy / hết hạn: SCR-15 phải hiện trạng thái và hạn (SRS dòng 3146), JOB-08 chỉ xóa hash sau 7 ngày (dòng 5628); code xóa hash ngay khi Hủy / JOB-02 nên chỉ báo "Liên kết không hợp lệ" | Giữ hash tới JOB-08; backend trả FE03-08 kèm trạng thái và hạn; SCR-15 hiển thị | Hoãn sang UC4 (D27 mục 4); UC3 giữ hành vi hiện có, link vẫn không cấp gì | DucNV / người dùng xác nhận | 14/11/2026 |
 | FE-04 | Q1 | UC-FE04-01 → 04 không có đặc tả Part II; luồng suy từ SCR-17 và popup | Chủ dự án xác nhận |  | AnNT |  |
 | FE-04 | Q2 | "Tuổi / cân tối thiểu" khi bò chưa có lần cân nào | Kết quả "Không áp dụng" cho tiêu chí cân |  | AnNT |  |
 | FE-04 | Q3 | Mã chuồng phân biệt hoa thường không (`c-01` và `C-01`)? | Không phân biệt; lưu chữ hoa |  | AnNT |  |

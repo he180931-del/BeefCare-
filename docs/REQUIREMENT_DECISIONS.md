@@ -245,3 +245,35 @@ có tài khoản tại lần đọc, không công bố trạng thái tài khoả
 Ngày giờ hiển thị theo múi giờ trại (Table III-1), mặc định Asia/Ho_Chi_Minh.
 Ma trận, kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC02_REVIEW.md`;
 quyết định yêu cầu không tự tạo bằng chứng READY_FOR_FE.
+
+### D27 — UC-FE03-03: gửi lại / hủy lời mời đang chờ (14/11/2026)
+
+Người dùng chọn cả bốn đề xuất trong phiên, sau khi đọc spec FE-03 và SRS
+UC-FE03-03:
+
+1. Gửi lại vô hiệu link cũ: mỗi lần gửi lại tạo token mới, chỉ link trong email
+   mới nhất mở được lời mời; link cũ báo lời mời không còn hiệu lực. Theo mẫu
+   "link mới thay link cũ" của FE-01 (UC-FE01-01 AF4, UC-FE01-05 AF2, SCR-04).
+   Vẫn là cùng lời mời; email, vai trò, số ngày hiệu lực giữ nguyên, hạn tính
+   lại từ lần gửi (GBR-16).
+2. Không giới hạn số lần Gửi lại: SRS không đặt giới hạn cho lời mời, không áp
+   giới hạn 60 giây / 5 lần mỗi giờ của email xác minh FE-01. Chống bấm trùng
+   bằng Idempotency-Key và khóa nút khi đang gửi; rủi ro Owner gửi lặp email
+   được ghi trong review.
+3. Xác nhận Hủy (MSG-FE03-06) là hộp thoại modal với nút "Quay lại" /
+   "Hủy lời mời", giữ version đã thấy khi mở (TC-03-45). Thông báo thành công
+   MSG-FE03-05/07 vẫn là banner như UC1.
+4. Hiển thị link sau khi Hủy (SCR-15 "Lời mời không còn hiệu lực" kèm trạng thái
+   và hạn, JOB-08 chỉ xóa hash sau 7 ngày) chuyển sang UC4, làm cùng trường hợp
+   EXPIRED (FE-03 Q6). UC3 giữ hành vi hiện có: Hủy xóa hash, link không cấp gì
+   (POST-2) và SCR-15 báo "Liên kết không hợp lệ".
+
+Triển khai đi kèm, không đổi route/DTO: khóa dòng lời mời khi Gửi lại/Hủy; thứ tự
+lỗi COM-01 → FE03-04 (chỉ Gửi lại) → COM-08 (lời mời không thuộc trại) →
+FE03-08 kèm trạng thái hiện tại, kể cả khi version cũ → COM-05. PENDING đã quá
+hạn báo EXPIRED theo clock của lần gọi mà không ghi; JOB-02 vẫn quản lý trạng
+thái lưu. Audit Gửi lại ghi lastSentAt/expiresAt trước/sau, audit Hủy ghi
+statusBefore/statusAfter (GBR-86). Frontend hiện MSG-FE03-08 kèm trạng thái và
+tải lại danh sách khi lời mời đã đổi; lỗi lưu giữ hộp thoại và cùng key để thử
+lại. Spec A5/A6 dùng tên field `expectedVersion` như code. Kiểm thử và giới hạn
+ghi tại `docs/reviews/FE03_UC03_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
