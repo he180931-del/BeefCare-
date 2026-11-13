@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { BackendError } from '../../../src/api/backendClient'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import InvitationsPage from '../../../src/features/farm-workspace/pages/InvitationsPage'
 
@@ -70,7 +71,7 @@ describe('UC-FE03-02 / SCR-14', () => {
     await waitFor(() => expect(api.listInvitations.mock.calls.length).toBe(initial + 1))
     await screen.findByText('invite23@example.test')
     await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
-    await user.click(screen.getByRole('button', { name: 'Xác nhận hủy' }))
+    await user.click(screen.getByRole('button', { name: 'Hủy lời mời' }))
     await waitFor(() => expect(api.cancelInvitation).toHaveBeenCalledWith(401, 23, { expectedVersion: 3, idempotencyKey: expect.any(String) }))
     await waitFor(() => expect(api.listInvitations.mock.calls.length).toBe(initial + 2))
     expect(await screen.findByText('Đã hủy lời mời.')).toBeInTheDocument()
@@ -116,7 +117,7 @@ describe('UC-FE03-02 / SCR-14', () => {
     api.cancelInvitation.mockImplementation(async () => { cancelled = true; return { ...row(1), status: 'CANCELLED' } })
     open('/loi-moi?farmId=401&page=1'); await screen.findByText('invite1@example.test')
     await user.click(screen.getByRole('button', { name: 'Hủy' }))
-    await user.click(screen.getByRole('button', { name: 'Xác nhận hủy' }))
+    await user.click(screen.getByRole('button', { name: 'Hủy lời mời' }))
     expect(await screen.findByText('invite21@example.test')).toBeInTheDocument()
     expect(api.listInvitations).toHaveBeenLastCalledWith(401, expect.objectContaining({ page: 0 }))
     expect(screen.getByText('Đã hủy lời mời.')).toBeInTheDocument()
@@ -127,7 +128,71 @@ describe('UC-FE03-02 / SCR-14', () => {
     await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
     api.listInvitations.mockResolvedValue(page([{ ...row(23), version: 7 }]))
     await user.click(screen.getByRole('button', { name: 'Làm mới' }))
-    await user.click(await screen.findByRole('button', { name: 'Xác nhận hủy' }))
+    await user.click(await screen.findByRole('button', { name: 'Hủy lời mời' }))
     expect(api.cancelInvitation).toHaveBeenCalledWith(401, 23, { expectedVersion: 3, idempotencyKey: expect.any(String) })
+  })
+})
+
+describe('UC-FE03-03 / SCR-14 resend and cancel', () => {
+  const pending = () => screen.findByText('invite23@example.test')
+
+  it('asks MSG-FE03-06 in a dialog and Back closes it without a request', async () => {
+    const user = userEvent.setup(); open(); await pending()
+    await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
+    const dialog = screen.getByRole('dialog', { name: 'Hủy lời mời' })
+    expect(within(dialog).getByText('Hủy lời mời gửi invite23@example.test? Link sẽ không còn tác dụng.')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.cancelInvitation).not.toHaveBeenCalled()
+  })
+
+  it('resends with the observed version, shows MSG-FE03-05 with the new expiry and reloads the list', async () => {
+    const user = userEvent.setup(); open(); await pending()
+    const initial = api.listInvitations.mock.calls.length
+    api.resendInvitation.mockResolvedValue({ ...row(23), version: 4, lastSentAt: '2026-11-14T02:00:00Z', expiresAt: '2026-11-21T02:00:00Z' })
+    await user.click(screen.getAllByRole('button', { name: 'Gửi lại' })[0])
+    expect(api.resendInvitation).toHaveBeenCalledWith(401, 23, { expectedVersion: 3, idempotencyKey: expect.any(String) })
+    expect(await screen.findByText('Đã cập nhật lời mời tới invite23@example.test. Hệ thống đang gửi email. Hết hạn lúc 21/11/2026 02:00.')).toBeInTheDocument()
+    await waitFor(() => expect(api.listInvitations.mock.calls.length).toBe(initial + 1))
+  })
+
+  it('shows the current status and reloads when the invitation is no longer pending', async () => {
+    const user = userEvent.setup(); open(); await pending()
+    const initial = api.listInvitations.mock.calls.length
+    api.cancelInvitation.mockRejectedValue(new BackendError(409, { code: 'MSG-FE03-08', params: { status: 'ACCEPTED' } }))
+    await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
+    await user.click(screen.getByRole('button', { name: 'Hủy lời mời' }))
+    expect(await screen.findByText('Lời mời không còn hiệu lực (Đã chấp nhận).')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(api.listInvitations.mock.calls.length).toBe(initial + 1))
+    expect(api.cancelInvitation).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['MSG-COM-05', 409, 'Dữ liệu đã thay đổi ở phiên khác. Tải lại trang rồi thử lại.'],
+    ['MSG-FE03-04', 403, 'Mời thành viên, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).'],
+  ])('reloads after a resend rejected with %s and does not retry with a newer version', async (code, status, message) => {
+    const user = userEvent.setup(); open(); await pending()
+    const initial = api.listInvitations.mock.calls.length
+    api.resendInvitation.mockRejectedValue(new BackendError(status, { code }))
+    await user.click(screen.getAllByRole('button', { name: 'Gửi lại' })[0])
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    await waitFor(() => expect(api.listInvitations.mock.calls.length).toBe(initial + 1))
+    expect(api.resendInvitation).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the dialog and the same request key after a save failure so the same intent can be retried', async () => {
+    const user = userEvent.setup(); open(); await pending()
+    const initial = api.listInvitations.mock.calls.length
+    api.cancelInvitation.mockRejectedValueOnce(new BackendError(500, { code: 'MSG-COM-02' }))
+    await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
+    const dialog = screen.getByRole('dialog', { name: 'Hủy lời mời' })
+    await user.click(within(dialog).getByRole('button', { name: 'Hủy lời mời' }))
+    expect(await within(dialog).findByText('Máy chủ chưa xử lý được yêu cầu. Dữ liệu chưa được xác nhận đã lưu.')).toBeInTheDocument()
+    expect(api.listInvitations.mock.calls.length).toBe(initial)
+    await user.click(within(dialog).getByRole('button', { name: 'Hủy lời mời' }))
+    expect(await screen.findByText('Đã hủy lời mời.')).toBeInTheDocument()
+    const [first, second] = api.cancelInvitation.mock.calls
+    expect(second[2]).toEqual(first[2])
   })
 })

@@ -109,6 +109,13 @@ function validationFieldMessage(field: string | undefined, message: string | und
   return `${label}: ${message ?? 'Dữ liệu không hợp lệ.'}`
 }
 
+/** MSG-FE03-08 carries the invitation's current status (UC-FE03-03 E2); INVALID means the link no longer identifies one. */
+function invalidInvitationMessage(status: unknown) {
+  const value = typeof status === 'string' ? status.toUpperCase() : ''
+  const label = value === 'INVALID' ? 'Liên kết không hợp lệ' : value ? inviteStatusLabel(value) : ''
+  return label ? `Lời mời không còn hiệu lực (${label}).` : 'Lời mời đã hết hạn, bị hủy hoặc đã được sử dụng.'
+}
+
 export function farmWorkspaceError(error: unknown, fallback: string) {
   if (error instanceof BackendError) {
     const code = error.code?.toUpperCase()
@@ -122,8 +129,8 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
       'MSG-FE02-04': 'Chủ trại quản lý gói dịch vụ; thành viên chưa thể vào trang trại này.',
       'MSG-FE03-02': 'Email này đã là thành viên đang hoạt động.',
       'MSG-FE03-03': 'Đã có lời mời đang chờ cho email này.',
-      'MSG-FE03-04': 'Dịch vụ trang trại chưa hoạt động nên chưa thể gửi hoặc chấp nhận lời mời.',
-      'MSG-FE03-08': 'Lời mời đã hết hạn, bị hủy hoặc đã được sử dụng.',
+      'MSG-FE03-04': 'Mời thành viên, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).',
+      'MSG-FE03-08': invalidInvitationMessage(error.params.status),
       'MSG-FE03-09': 'Email đăng nhập không trùng với email được mời. Thông tin trang trại đã được ẩn.',
       'MSG-FE03-20': 'Thành viên đã có vai trò hoặc trạng thái này.',
       'MSG-FE03-21': 'Email này là thành viên đã ngưng. Kích hoạt lại thay vì gửi lời mời mới.',

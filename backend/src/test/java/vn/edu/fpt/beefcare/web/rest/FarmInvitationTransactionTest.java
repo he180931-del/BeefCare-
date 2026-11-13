@@ -177,4 +177,94 @@ class FarmInvitationTransactionTest extends DomainTestSupport {
         assertThat(count("farm_invitation", f)).isEqualTo(1);
         assertThat(jobs.findAll().stream().filter(j -> f.email().equals(j.getRecipient())).toList()).hasSize(1);
     }
+
+    // ------------------------------------------------------------------ UC-FE03-03 (D27)
+
+    protected ResultActions command(Fixture f, long invitationId, String action, int version, String key) throws Exception {
+        return mvc.perform(post("/api/farms/{f}/invitations/{i}/" + action, f.farmId(), invitationId).with(SecurityMockMvcRequestPostProcessors.user(f.ownerEmail())).with(csrf())
+            .header("Idempotency-Key", key).contentType("application/json").content("{\"expectedVersion\":" + version + "}"));
+    }
+
+    protected long audits(String action, long invitationId) {
+        return jdbc.queryForObject("select count(*) from audit_log where action=? and target_type='FarmInvitation' and target_id=?", Long.class, action, invitationId);
+    }
+
+    protected String linkIn(String plainText) {
+        var matcher = java.util.regex.Pattern.compile("token=([A-Za-z0-9_-]+)").matcher(plainText);
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
+    }
+
+    @Test
+    void resendCommitsANewPeriodAndMailsOnlyTheNewestLinkOnce() throws Exception {
+        Fixture f = fixture(); JsonNode sent = created(f, "first-send"); long id = sent.path("id").asLong();
+        dispatcher.dispatchDueJobs();
+        assertThat(inbox.findMessagesFor(f.email())).hasSize(1);
+        clock.set(clock.instant().plus(Duration.ofHours(2)));
+        JsonNode resent = mapper.readTree(command(f, id, "resend", sent.path("version").asInt(), "resend").andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString());
+        assertThat(mapper.readTree(command(f, id, "resend", sent.path("version").asInt(), "resend").andExpect(status().isOk()).andReturn().getResponse().getContentAsString()))
+            .isEqualTo(resent);
+        assertThat(Duration.between(Instant.parse(sent.path("expiresAt").asText()), Instant.parse(resent.path("expiresAt").asText()))).isEqualTo(Duration.ofHours(2));
+        assertThat(jdbc.queryForObject("select status from farm_invitation where id=?", String.class, id)).isEqualTo("PENDING");
+        assertThat(audits("INVITE_RESEND", id)).isEqualTo(1);
+        assertThat(jobs.findAll().stream().filter(j -> f.email().equals(j.getRecipient())).toList()).hasSize(2);
+        dispatcher.dispatchDueJobs();
+        var messages = inbox.findMessagesFor(f.email());
+        assertThat(messages).hasSize(2);
+        String hash = jdbc.queryForObject("select token_hash from farm_invitation where id=?", String.class, id);
+        // the mock inbox lists the newest message first
+        assertThat(signer.hash(linkIn(messages.get(0).plainText()))).isEqualTo(hash);
+        assertThat(signer.hash(linkIn(messages.get(1).plainText()))).isNotEqualTo(hash);
+        assertThat(count("farm_membership", f)).isEqualTo(1);
+    }
+
+    @Test
+    void cancelCommitsTheStatusAndAuditAndDropsTheUnsentEmail() throws Exception {
+        Fixture f = fixture(); JsonNode sent = created(f, "to-cancel"); long id = sent.path("id").asLong();
+        command(f, id, "cancel", sent.path("version").asInt(), "cancel").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"));
+        assertThat(jdbc.queryForObject("select status from farm_invitation where id=?", String.class, id)).isEqualTo("CANCELLED");
+        assertThat(jdbc.queryForObject("select token_hash from farm_invitation where id=?", String.class, id)).isNull();
+        assertThat(audits("INVITE_CANCEL", id)).isEqualTo(1);
+        assertThat(job(f).getStatus()).isEqualTo("CANCELLED");
+        dispatcher.dispatchDueJobs();
+        assertThat(inbox.findMessagesFor(f.email())).isEmpty();
+        assertThat(count("farm_membership", f)).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentAcceptAndCancelHaveOneWinnerAndACancelledLinkNeverGrantsAccess() throws Exception {
+        Fixture f = fixture(); JsonNode sent = created(f, "race"); long id = sent.path("id").asLong();
+        String token = signer.bearer("FARM_INVITATION", id, jdbc.queryForObject("select token_nonce from farm_invitation where id=?", String.class, id));
+        CountDownLatch start = new CountDownLatch(1);
+        java.util.function.Function<Call, org.springframework.mock.web.MockHttpServletResponse> run = call -> {
+            try { start.await(); return call.perform().andReturn().getResponse(); }
+            catch (Exception failure) { throw new IllegalStateException(failure); }
+        };
+        var accept = CompletableFuture.supplyAsync(() -> run.apply(() -> mvc.perform(post("/api/invitations/accept").with(SecurityMockMvcRequestPostProcessors.user(f.email())).with(csrf())
+            .contentType("application/json").content(mapper.writeValueAsBytes(Map.of("token", token))))));
+        var cancel = CompletableFuture.supplyAsync(() -> run.apply(() -> command(f, id, "cancel", sent.path("version").asInt(), "race-cancel")));
+        start.countDown();
+        var accepted = accept.get(20, java.util.concurrent.TimeUnit.SECONDS); var cancelled = cancel.get(20, java.util.concurrent.TimeUnit.SECONDS);
+        String stored = jdbc.queryForObject("select status from farm_invitation where id=?", String.class, id);
+        // On PostgreSQL the row locks make the loser read the committed row (MSG-FE03-08); H2 may report the race as MSG-COM-05.
+        var loserCodes = postgres() ? java.util.Set.of("MSG-FE03-08") : java.util.Set.of("MSG-FE03-08", "MSG-COM-05");
+        if ("ACCEPTED".equals(stored)) {
+            assertThat(accepted.getStatus()).isEqualTo(200); assertThat(count("farm_membership", f)).isEqualTo(2);
+            assertThat(cancelled.getStatus()).isEqualTo(409);
+            assertThat(mapper.readTree(cancelled.getContentAsString()).path("code").asText()).isIn(loserCodes);
+            assertThat(audits("INVITE_CANCEL", id)).isZero();
+        } else {
+            assertThat(stored).isEqualTo("CANCELLED");
+            assertThat(cancelled.getStatus()).isEqualTo(200); assertThat(count("farm_membership", f)).isEqualTo(1);
+            assertThat(accepted.getStatus()).isIn(postgres() ? java.util.Set.of(400) : java.util.Set.of(400, 409));
+            assertThat(mapper.readTree(accepted.getContentAsString()).path("code").asText()).isIn(loserCodes);
+        }
+    }
+
+    interface Call { ResultActions perform() throws Exception; }
+
+    protected boolean postgres() {
+        return Boolean.TRUE.equals(jdbc.execute((java.sql.Connection connection) -> "PostgreSQL".equals(connection.getMetaData().getDatabaseProductName())));
+    }
 }

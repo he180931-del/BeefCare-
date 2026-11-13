@@ -155,37 +155,38 @@ public class FarmMembershipService {
         return invitationView(invitation, invitationStatus(invitation), account.isPresent());
     }
 
+    /** UC-FE03-03 / GBR-16: same invitation, email, role and validity; the period restarts and only the newest link works (D27). */
     @Transactional
     public InvitationView resend(Long farmId, Long invitationId, Integer expectedVersion) {
         FarmContext owner = requireOwner(farmId, true);
-        FarmInvitation invitation = ownInvitation(farmId, invitationId);
-        requirePending(invitation);
-        VersionGuard.requireExpected(invitation.getVersion(), expectedVersion);
+        FarmInvitation invitation = lockPendingInvitation(farmId, invitationId, expectedVersion);
         Instant now = clock.now();
+        var before = java.util.Map.of("lastSentAt", invitation.getLastSentAt().toString(), "expiresAt", invitation.getExpiresAt().toString());
         mail.cancelActionLink("INVITATION", invitation.getId());
         invitation.setTokenNonce(linkSigner.newNonce());
         String raw = linkSigner.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce());
         invitation.setTokenHash(linkSigner.hash(raw)); // invalidates every previously sent link
         invitation.setLastSentAt(now);
         invitation.setExpiresAt(now.plusSeconds(invitation.getValidityDays() * 86_400L));
-        audit.log(owner, "INVITE_RESEND", "FarmInvitation", invitation.getId(),
-            java.util.Map.of("role", invitation.getProposedRole(), "validityDays", invitation.getValidityDays()));
+        audit.log(owner, "INVITE_RESEND", "FarmInvitation", invitation.getId(), java.util.Map.of(
+            "role", invitation.getProposedRole(), "validityDays", invitation.getValidityDays(), "before", before,
+            "after", java.util.Map.of("lastSentAt", invitation.getLastSentAt().toString(), "expiresAt", invitation.getExpiresAt().toString())));
         mail.queueActionLink(invitation.getInvitedEmail(), "FARM_INVITATION", "INVITATION", invitation.getId(), null, owner.farm().getName(), invitation.getProposedRole());
         invitations.flush();
         return invitationView(invitation);
     }
 
+    /** UC-FE03-03 / GBR-14: allowed in every service status so the Owner can withdraw access. */
     @Transactional
     public InvitationView cancel(Long farmId, Long invitationId, Integer expectedVersion) {
         FarmContext owner = requireOwner(farmId, false);
-        FarmInvitation invitation = ownInvitation(farmId, invitationId);
-        requirePending(invitation);
-        VersionGuard.requireExpected(invitation.getVersion(), expectedVersion);
+        FarmInvitation invitation = lockPendingInvitation(farmId, invitationId, expectedVersion);
         invitation.setStatus("CANCELLED");
         invitation.setCancelledAt(clock.now());
         invitation.setTokenHash(null);
         mail.cancelActionLink("INVITATION", invitation.getId());
-        audit.log(owner, "INVITE_CANCEL", "FarmInvitation", invitation.getId(), java.util.Map.of("status", "CANCELLED"));
+        audit.log(owner, "INVITE_CANCEL", "FarmInvitation", invitation.getId(),
+            java.util.Map.of("role", invitation.getProposedRole(), "statusBefore", PENDING, "statusAfter", "CANCELLED"));
         invitations.flush();
         return invitationView(invitation);
     }
@@ -284,14 +285,17 @@ public class FarmMembershipService {
         return context;
     }
 
-    private FarmInvitation ownInvitation(Long farmId, Long invitationId) {
-        return invitations.findById(invitationId).filter(invitation -> farmId.equals(invitation.getFarm().getId()))
+    /**
+     * UC-FE03-03 step 4: the row lock makes a concurrent command wait and then see the committed status. Status is checked
+     * before the version (E2 before E4) and with the read clock, so an expired PENDING row reports EXPIRED without writing.
+     */
+    private FarmInvitation lockPendingInvitation(Long farmId, Long invitationId, Integer expectedVersion) {
+        FarmInvitation invitation = invitations.lockByIdAndFarmId(invitationId, farmId)
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
-    }
-
-    private void requirePending(FarmInvitation invitation) {
-        expireIfNecessary(invitation);
-        if (!PENDING.equalsIgnoreCase(invitation.getStatus())) throw DomainException.conflict("MSG-FE03-08", "status", invitation.getStatus());
+        String status = invitationStatus(invitation).toUpperCase(Locale.ROOT);
+        if (!PENDING.equals(status)) throw DomainException.conflict(MessageCodes.FE03_08, "status", status);
+        VersionGuard.requireExpected(invitation.getVersion(), expectedVersion);
+        return invitation;
     }
 
     private void expireIfNecessary(FarmInvitation invitation) {

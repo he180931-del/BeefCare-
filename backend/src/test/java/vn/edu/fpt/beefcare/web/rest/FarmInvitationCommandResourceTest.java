@@ -238,10 +238,166 @@ class FarmInvitationCommandResourceTest extends DomainTestSupport {
         assertThat(count("FarmMembership", farm)).isEqualTo(2);
     }
 
+    // ------------------------------------------------------------------ UC-FE03-03 (D27)
+
+    @Test
+    void resendOnDayFiveRestartsTheChosenPeriodOnTheSameInvitationAndOnlyTheNewLinkWorks() throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER); AppUser invitee = user();
+        JsonNode sent = created(owner, farm, invitee.getEmail(), "MANAGER", 7, "day-1");
+        long id = sent.path("id").asLong();
+        FarmInvitation first = em.find(FarmInvitation.class, id);
+        String oldToken = signer.bearer("FARM_INVITATION", id, first.getTokenNonce());
+        clock.set(clock.instant().plus(Duration.ofDays(4)));
+        String body = resend(owner, farm, sent, "day-5").andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        JsonNode resent = mapper.readTree(body);
+        for (String field : java.util.List.of("id", "email", "role", "validityDays", "createdAt", "hasAccount")) assertThat(resent.path(field)).as(field).isEqualTo(sent.path(field));
+        assertThat(resent.path("status").asText()).isEqualTo("PENDING");
+        assertThat(resent.path("version").asInt()).isGreaterThan(sent.path("version").asInt());
+        java.time.Instant created = java.time.Instant.parse(resent.path("createdAt").asText());
+        java.time.Instant lastSent = java.time.Instant.parse(resent.path("lastSentAt").asText());
+        // TC-03-10: sent on day 1, resent on day 5, a 7-day invitation now expires on day 12
+        assertThat(Duration.between(created, lastSent)).isEqualTo(Duration.ofDays(4));
+        assertThat(Duration.between(created, java.time.Instant.parse(resent.path("expiresAt").asText()))).isEqualTo(Duration.ofDays(11));
+        // the same key replays the first result without a second email intent (GBR-88)
+        assertThat(mapper.readTree(resend(owner, farm, sent, "day-5").andExpect(status().isOk()).andReturn().getResponse().getContentAsString())).isEqualTo(resent);
+        em.flush(); em.clear();
+        FarmInvitation stored = em.find(FarmInvitation.class, id);
+        assertThat(stored.getProposedRole()).isEqualTo("MANAGER"); assertThat(stored.getInvitedEmail()).isEqualTo(invitee.getEmail());
+        assertThat(jobStatuses(id)).containsExactly("CANCELLED", "PENDING");
+        assertThat(audits("INVITE_RESEND", id)).singleElement().satisfies(details -> assertThat(details)
+            .contains("\"before\"", "\"after\"", stored.getExpiresAt().toString(), "\"role\":\"MANAGER\""));
+        // D27: resending replaces the link; the earlier e-mail no longer opens the invitation
+        accept(invitee, oldToken).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE03-08"))
+            .andExpect(jsonPath("$.params.status").value("INVALID"));
+        mvc.perform(get("/api/invitations/accept").with(SecurityMockMvcRequestPostProcessors.user(invitee.getEmail()))
+            .param("token", signer.bearer("FARM_INVITATION", id, stored.getTokenNonce()))).andExpect(status().isOk());
+        assertThat(count("FarmMembership", farm)).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING_PAYMENT", "EXPIRED", "SUSPENDED"})
+    void inactiveServiceBlocksResendButTheOwnerCanStillCancel(String serviceStatus) throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER);
+        JsonNode sent = created(owner, farm, "inactive-farm@example.test", "TECHNICIAN", 7, "send");
+        long id = sent.path("id").asLong(); int version = sent.path("version").asInt();
+        farm.setServiceStatus(serviceStatus); em.flush();
+        // TC-03-07: MSG-FE03-04; nothing about the invitation changes
+        resend(owner, farm, id, version, "resend").andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-FE03-04"));
+        em.flush(); em.clear();
+        FarmInvitation unchanged = em.find(FarmInvitation.class, id);
+        assertThat(unchanged.getVersion()).isEqualTo(version);
+        assertThat(unchanged.getLastSentAt()).isEqualTo(java.time.Instant.parse(sent.path("lastSentAt").asText()));
+        assertThat(audits("INVITE_RESEND", id)).isEmpty();
+        // TC-03-08 / TC-03-38: cancellation stays available in every service status (GBR-14)
+        cancel(owner, farm, id, version, "cancel").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ACCEPTED", "CANCELLED", "EXPIRED"})
+    void aFinishedInvitationReportsItsStatusBeforeAnyVersionConflict(String finalStatus) throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER);
+        long id = created(owner, farm, "final@example.test", "MANAGER", 7, "send").path("id").asLong();
+        FarmInvitation stored = em.find(FarmInvitation.class, id);
+        stored.setStatus(finalStatus); em.flush();
+        int current = stored.getVersion();
+        // TC-03-11: MSG-FE03-08 with the current status, also for an outdated version (E2 before E4)
+        for (int version : new int[] {current, current - 1}) {
+            resend(owner, farm, id, version, "resend-" + version).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MSG-FE03-08")).andExpect(jsonPath("$.params.status").value(finalStatus));
+            cancel(owner, farm, id, version, "cancel-" + version).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MSG-FE03-08")).andExpect(jsonPath("$.params.status").value(finalStatus));
+        }
+        em.flush(); em.clear();
+        assertThat(em.find(FarmInvitation.class, id).getVersion()).isEqualTo(current);
+        assertThat(audits("INVITE_RESEND", id)).isEmpty(); assertThat(audits("INVITE_CANCEL", id)).isEmpty();
+    }
+
+    @Test
+    void anOverduePendingInvitationIsReportedExpiredWithoutWritingBeforeTheExpiryJob() throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER);
+        JsonNode sent = created(owner, farm, "overdue@example.test", "MANAGER", 3, "send");
+        long id = sent.path("id").asLong(); int version = sent.path("version").asInt();
+        String hash = em.find(FarmInvitation.class, id).getTokenHash();
+        clock.set(clock.instant().plus(Duration.ofDays(3))); // expiresAt == now: no longer valid (R-03-19)
+        resend(owner, farm, id, version, "resend").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("MSG-FE03-08")).andExpect(jsonPath("$.params.status").value("EXPIRED"));
+        cancel(owner, farm, id, version, "cancel").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("MSG-FE03-08")).andExpect(jsonPath("$.params.status").value("EXPIRED"));
+        em.flush(); em.clear();
+        // a rejected command does not take over JOB-02: the stored row, link and history stay as they were
+        FarmInvitation stored = em.find(FarmInvitation.class, id);
+        assertThat(stored.getStatus()).isEqualTo("PENDING"); assertThat(stored.getVersion()).isEqualTo(version);
+        assertThat(stored.getTokenHash()).isEqualTo(hash);
+        assertThat(audits("INVITE_EXPIRED", id)).isEmpty();
+        assertThat(jobStatuses(id)).containsExactly("PENDING");
+    }
+
+    @Test
+    void onlyThisFarmsOwnerCanResendOrCancelAndAnotherFarmsInvitationIsNotFound() throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER);
+        JsonNode sent = created(owner, farm, "scope@example.test", "MANAGER", 7, "send");
+        long id = sent.path("id").asLong(); int version = sent.path("version").asInt();
+        Farm other = farm(); AppUser otherOwner = memberWithRole(other, FarmRole.OWNER);
+        for (AppUser actor : java.util.List.of(memberWithRole(farm, FarmRole.MANAGER), memberWithRole(farm, FarmRole.TECHNICIAN), otherOwner)) {
+            resend(actor, farm, id, version, "resend-" + actor.getId()).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-COM-01"));
+            cancel(actor, farm, id, version, "cancel-" + actor.getId()).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-COM-01"));
+        }
+        // another Owner addressing this invitation through their own farm learns nothing about it
+        resend(otherOwner, other, id, version, "cross-resend").andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("MSG-COM-08"));
+        cancel(otherOwner, other, id, version, "cross-cancel").andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("MSG-COM-08"));
+        em.flush(); em.clear();
+        FarmInvitation stored = em.find(FarmInvitation.class, id);
+        assertThat(stored.getStatus()).isEqualTo("PENDING"); assertThat(stored.getVersion()).isEqualTo(version);
+    }
+
+    @Test
+    void cancelEndsTheLinkWithOneAuditCreatesNoMembershipAndReplaysTheFirstResult() throws Exception {
+        Farm farm = farm(); AppUser owner = memberWithRole(farm, FarmRole.OWNER); AppUser invitee = user();
+        JsonNode sent = created(owner, farm, invitee.getEmail(), "TECHNICIAN", 7, "send");
+        long id = sent.path("id").asLong(); int version = sent.path("version").asInt();
+        String token = signer.bearer("FARM_INVITATION", id, em.find(FarmInvitation.class, id).getTokenNonce());
+        JsonNode cancelled = mapper.readTree(cancel(owner, farm, id, version, "cancel-once").andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("CANCELLED")).andReturn().getResponse().getContentAsString());
+        assertThat(cancelled.path("version").asInt()).isGreaterThan(version);
+        assertThat(mapper.readTree(cancel(owner, farm, id, version, "cancel-once").andExpect(status().isOk()).andReturn().getResponse().getContentAsString())).isEqualTo(cancelled);
+        // POST-2: the link grants nothing; POST-3: no membership
+        accept(invitee, token).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-FE03-08"));
+        em.flush(); em.clear();
+        FarmInvitation stored = em.find(FarmInvitation.class, id);
+        assertThat(stored.getStatus()).isEqualTo("CANCELLED"); assertThat(stored.getCancelledAt()).isNotNull();
+        assertThat(stored.getTokenHash()).isNull();
+        assertThat(count("FarmMembership", farm)).isEqualTo(1);
+        assertThat(jobStatuses(id)).containsExactly("CANCELLED"); // an unsent invitation e-mail is dropped
+        assertThat(audits("INVITE_CANCEL", id)).singleElement().satisfies(details -> assertThat(details)
+            .contains("\"statusBefore\":\"PENDING\"", "\"statusAfter\":\"CANCELLED\"", "\"role\":\"TECHNICIAN\""));
+    }
+
     protected ResultActions resend(AppUser actor, Farm farm, JsonNode invitation, String key) throws Exception {
-        return mvc.perform(post("/api/farms/{f}/invitations/{i}/resend", farm.getId(), invitation.path("id").asLong())
+        return resend(actor, farm, invitation.path("id").asLong(), invitation.path("version").asInt(), key);
+    }
+
+    protected ResultActions resend(AppUser actor, Farm farm, long invitationId, int version, String key) throws Exception {
+        return command(actor, farm, invitationId, "resend", version, key);
+    }
+
+    protected ResultActions cancel(AppUser actor, Farm farm, long invitationId, int version, String key) throws Exception {
+        return command(actor, farm, invitationId, "cancel", version, key);
+    }
+
+    private ResultActions command(AppUser actor, Farm farm, long invitationId, String action, int version, String key) throws Exception {
+        return mvc.perform(post("/api/farms/{f}/invitations/{i}/" + action, farm.getId(), invitationId)
             .with(SecurityMockMvcRequestPostProcessors.user(actor.getEmail())).with(csrf()).header("Idempotency-Key", key)
-            .contentType("application/json").content("{\"expectedVersion\":" + invitation.path("version").asInt() + "}"));
+            .contentType("application/json").content("{\"expectedVersion\":" + version + "}"));
+    }
+
+    protected java.util.List<String> audits(String action, long invitationId) {
+        return em.createQuery("select a.details from AuditLog a where a.action=:a and a.targetType='FarmInvitation' and a.targetId=:id order by a.id", String.class)
+            .setParameter("a", action).setParameter("id", invitationId).getResultList();
+    }
+
+    protected java.util.List<String> jobStatuses(long invitationId) {
+        return em.createQuery("select j.status from EmailDeliveryJob j where j.linkSource='INVITATION' and j.linkSourceId=:id order by j.id", String.class)
+            .setParameter("id", invitationId).getResultList();
     }
 
     protected ResultActions accept(AppUser actor, String token) throws Exception {

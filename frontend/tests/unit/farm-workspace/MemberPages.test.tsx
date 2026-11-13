@@ -108,7 +108,7 @@ describe('Farm Invitations', () => {
     renderAs(owner, '/loi-moi')
     await screen.findByText('dinhthuy.kt@gmail.com')
     await user.click(screen.getAllByRole('button', { name: 'Hủy' })[0])
-    await user.click(await screen.findByRole('button', { name: 'Xác nhận hủy' }))
+    await user.click(await screen.findByRole('button', { name: 'Hủy lời mời' }))
     expect(await screen.findByText('Đã hủy lời mời.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Đã hủy (2)' })).toBeInTheDocument()
   })

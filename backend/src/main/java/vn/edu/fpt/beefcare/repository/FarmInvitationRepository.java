@@ -22,6 +22,11 @@ public interface FarmInvitationRepository extends JpaRepository<FarmInvitation, 
     Optional<FarmInvitation> lockByTokenHash(@Param("hash") String tokenHash);
     List<FarmInvitation> findByFarmIdOrderByCreatedAtDesc(Long farmId);
 
+    /** UC-FE03-03: resend/cancel wait for a concurrent acceptance, JOB-02 or other command and then read its committed status. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from FarmInvitation i where i.id = :id and i.farm.id = :farmId")
+    Optional<FarmInvitation> lockByIdAndFarmId(@Param("id") Long id, @Param("farmId") Long farmId);
+
     /** D26: effective status, filtering and pagination share the caller's one read clock. */
     @Query("""
         select i from FarmInvitation i where i.farm.id = :farmId
