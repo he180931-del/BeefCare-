@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { accountsPath, createPlatformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
+import { accountsPath, auditDetail, auditPath, createPlatformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
 import { createPlatformAdminDemoStore } from '../../../src/features/platform-admin/data/platformAdminDemoStore'
 import { createPlatformAdminSeed } from '../../../src/features/platform-admin/data/platformAdminMock'
 
@@ -215,31 +215,76 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
   })
 })
 
-describe('audit nền tảng', () => {
-  it('mặc định 7 ngày, mới nhất trước, chỉ trả trường được phép và lọc theo hành động', async () => {
+describe('audit nền tảng (UC-FE17-01, D34)', () => {
+  it('mặc định 7 ngày gồm hôm nay, mới nhất trước, đảo chiều, lọc theo hành động, loại đối tượng, người thực hiện và "Hệ thống"', async () => {
     const { api, store } = make()
     const range = api.auditDefaultRange()
-    expect(range).toEqual({ from: '2026-10-11', to: '2026-10-18' })
+    expect(range).toEqual({ from: '2026-10-12', to: '2026-10-18' })
     const page = await api.listAudit(range)
     expect(page.content.map((e) => e.action)).toEqual(['PLATFORM_ACCESS_GRANTED', 'PAYMENT_CONFIRMED', 'FARM_SERVICE_RESTORED', 'ACCOUNT_SUSPENDED', 'MEMBERSHIP_ROLE_CHANGED'])
-    const wide = await api.listAudit({ from: '2026-10-01', to: '2026-10-18' })
-    expect(wide.content).toHaveLength(8)
-    const closed = wide.content.find((e) => e.action === 'TICKET_CLOSED')!
-    expect(JSON.stringify(closed)).not.toContain('Nội dung ticket')
-    expect(Object.keys(closed.details).sort()).toEqual(['after', 'before', 'correlationId', 'scope'])
+    expect((await api.listAudit({ ...range, dir: 'asc' })).content.map((e) => e.id)).toEqual([5, 4, 3, 2, 1])
+    expect((await api.listAudit({ from: '2026-10-01', to: '2026-10-18' })).content).toHaveLength(8)
     expect((await api.listAudit({ ...range, action: 'ACCOUNT_SUSPENDED' })).content).toHaveLength(1)
-    expect((await api.listAudit({ ...range, actorId: 'SYSTEM' })).content.map((e) => e.action)).toEqual(['PAYMENT_CONFIRMED'])
+    expect((await api.listAudit({ ...range, targetType: 'PLATFORM_ACCESS' })).content.map((e) => e.id)).toEqual([1])
+    expect((await api.listAudit({ ...range, actor: 'Hệ thống' })).content.map((e) => e.action)).toEqual(['PAYMENT_CONFIRMED'])
+    expect((await api.listAudit({ ...range, actor: 'quan.dm' })).content.map((e) => e.id)).toEqual([3])
+    expect((await api.listAudit({ ...range, actor: 'hoàng nam' })).content.map((e) => e.id)).toEqual([1, 4])
     await expect(api.listAudit({ from: '2025-01-01', to: '2026-10-18' })).rejects.toMatchObject({ code: 'VALIDATION' })
     await expect(store.getAuditEntry(999)).rejects.toMatchObject({ code: 'NOT_FOUND' })
+    expect((await api.listAuditActions()).map((a) => a.code)).toContain('TICKET_CLOSED')
   })
 
-  it('xuất CSV theo bộ lọc đang xem', async () => {
+  it('chi tiết chỉ có trường được phép: không nội dung ticket, chứng từ hay lý do', async () => {
     const { api } = make()
-    const csv = await api.exportAuditCsv({ from: '2026-10-11', to: '2026-10-18', action: 'ACCOUNT_SUSPENDED' })
-    const lines = csv.split('\r\n')
-    expect(lines).toHaveLength(2)
-    expect(lines[1]).toContain('ACCOUNT_SUSPENDED')
-    expect(lines[1]).toContain('Vũ Hoàng Nam')
+    const closed = await api.getAuditEntry(8)
+    expect(closed).toMatchObject({ before: { status: 'RESOLVED' }, after: { status: 'CLOSED' }, correlationId: null, actor: null })
+    expect(JSON.stringify(closed)).not.toContain('Nội dung ticket')
+    const paid = await api.getAuditEntry(2)
+    expect(paid.after).toEqual({ amountVnd: '1200000', termYears: '1', receiptCode: 'RC-5012' })
+    expect(JSON.stringify(paid)).not.toContain('FT26291')
+    expect(JSON.stringify(await api.getAuditEntry(3))).not.toContain('xác minh lại giấy tờ')
+  })
+
+  it('tạm ngưng tài khoản ghi một mục ACCOUNT_SUSPENDED có vai trò, mã truy vết và trạng thái trước / sau', async () => {
+    const { api } = make()
+    const acc = await api.getAccount(HUNG)
+    await api.suspendAccount(HUNG, { reason: 'Nghi ngờ lộ tài khoản', expectedVersion: acc.version })
+    const [row] = (await api.listAudit({ from: '2026-10-18', to: '2026-10-18', action: 'ACCOUNT_SUSPENDED' })).content
+    expect(row).toMatchObject({ targetType: 'ACCOUNT', targetLabel: 'Nguyễn Văn Hùng', actor: { name: 'Vũ Hoàng Nam', role: 'SA' } })
+    const detail = await api.getAuditEntry(row.id)
+    expect(detail).toMatchObject({ before: { status: 'ACTIVE' }, after: { status: 'SUSPENDED' } })
+    expect(detail.correlationId).toMatch(/^req-/)
+    expect(JSON.stringify(detail)).not.toContain('Nghi ngờ lộ tài khoản')
+  })
+})
+
+describe('audit nền tảng: hợp đồng A1/A2/A3 ở chế độ backend (D34)', () => {
+  it('dựng query: ngày, "Hệ thống" thành system=true, trang từ 0, mặc định mới nhất trước', () => {
+    expect(auditPath({ from: '2026-10-12', to: '2026-10-18' })).toBe('/api/platform/audit?from=2026-10-12&to=2026-10-18&dir=desc&page=0&size=20')
+    expect(auditPath({ from: '2026-10-12', to: '2026-10-18', actor: ' Hệ thống ', action: 'PAYMENT_CONFIRMED', targetType: 'PAYMENT', dir: 'asc', page: 3 }))
+      .toBe('/api/platform/audit?from=2026-10-12&to=2026-10-18&system=true&action=PAYMENT_CONFIRMED&targetType=PAYMENT&dir=asc&page=2&size=20')
+    expect(auditPath({ from: '2026-10-12', to: '2026-10-18', actor: 'nam@' })).toContain('actor=nam%40')
+  })
+
+  it('đọc A1, A2, A3 từ máy chủ, không đụng store mock, và báo lỗi khi thiếu trường', async () => {
+    const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
+    const local = vi.spyOn(store, 'listAudit')
+    const t = { get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }
+    const api = createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: t as never, store })
+    const row = { id: 41, time: '2026-10-18T01:02:00Z', actor: { id: 4, name: 'Vũ Hoàng Nam', initials: 'VN', role: 'SA' }, action: 'ACCOUNT_SUSPENDED', targetType: 'ACCOUNT', targetLabel: 'Hồ Văn Tài' }
+    t.get.mockResolvedValueOnce({ items: [row, { ...row, id: 42, actor: null }], total: 21, page: 1, size: 20 })
+    const page = await api.listAudit({ from: '2026-10-12', to: '2026-10-18', page: 2 })
+    expect(t.get).toHaveBeenLastCalledWith('/api/platform/audit?from=2026-10-12&to=2026-10-18&dir=desc&page=1&size=20')
+    expect(page).toMatchObject({ totalElements: 21, totalPages: 2, number: 1 })
+    expect(page.content[1].actor).toBeNull()
+    t.get.mockResolvedValueOnce({ ...row, farm: null, targetId: 6, before: { status: 'ACTIVE' }, after: { status: 'SUSPENDED' }, correlationId: 'req-1' })
+    expect(await api.getAuditEntry(41)).toMatchObject({ targetId: 6, before: { status: 'ACTIVE' }, correlationId: 'req-1' })
+    expect(t.get).toHaveBeenLastCalledWith('/api/platform/audit/41')
+    t.get.mockResolvedValueOnce([{ code: 'TICKET_CLOSED', targetType: 'TICKET' }])
+    expect(await api.listAuditActions()).toEqual([{ code: 'TICKET_CLOSED', targetType: 'TICKET' }])
+    expect(local).not.toHaveBeenCalled()
+    expect(() => auditDetail({ ...row, farm: null, targetId: 6, before: { status: 1 }, after: {}, correlationId: null })).toThrow(/giá trị trước/)
+    expect(() => auditDetail({ ...row, targetType: 'COW', farm: null, targetId: 6, before: {}, after: {} })).toThrow(/loại đối tượng/)
   })
 })
 
@@ -263,11 +308,8 @@ describe('chế độ backend', () => {
   it('các chức năng chưa nối từ chối và không đụng tới store mock', async () => {
     const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
     const notices = vi.spyOn(store, 'listNotifications')
-    const audit = vi.spyOn(store, 'listAudit')
     const api = createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: transport(), store })
     await expect(api.listNotifications()).rejects.toThrow('Chưa tích hợp')
-    await expect(api.listAudit({ from: '2026-10-11', to: '2026-10-18' })).rejects.toThrow('Chưa tích hợp')
     expect(notices).not.toHaveBeenCalled()
-    expect(audit).not.toHaveBeenCalled()
   })
 })

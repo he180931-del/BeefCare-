@@ -66,17 +66,6 @@ export function SaPage({ title, children }: { title: string; children: ReactNode
   )
 }
 
-export function downloadTextFile(name: string, text: string) {
-  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return
-  const url = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = name
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
 
 export const restPathId = (rest: string | undefined) => Number((rest ?? '').split('/')[0]) || null
 

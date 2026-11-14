@@ -1,5 +1,5 @@
 import type {
-  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AccountStatusAction, AuditDetails, AuditEntry, AuditFilters, AuditTargetType, FarmRole,
+  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AccountStatusAction, AuditActionOption, AuditFilters, AuditRow, AuditTargetType, FarmRole,
   PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole,
 } from '../types'
 
@@ -276,22 +276,46 @@ export function formatNoticeTime(iso: string, now: Date) {
 export const noticeActionLabel = (category: string) =>
   category === 'REQUEST_ASSIGNED' || category === 'REQUEST_REMINDER' ? 'Mở yêu cầu' : 'Xem'
 
-// ---------- Audit ----------
+// ---------- Audit (UC-FE17-01, SCR-51, D34) ----------
 
-export const AUDIT_ACTIONS: ReadonlyArray<{ code: string; label: string }> = [
-  { code: 'ACCOUNT_SUSPENDED', label: 'Tạm khóa tài khoản' },
-  { code: 'ACCOUNT_RESTORED', label: 'Mở khóa tài khoản' },
-  { code: 'PLATFORM_ACCESS_GRANTED', label: 'Cấp quyền nền tảng' },
-  { code: 'PLATFORM_ACCESS_CHANGED', label: 'Đổi quyền nền tảng' },
-  { code: 'PLATFORM_ACCESS_REVOKED', label: 'Thu hồi quyền nền tảng' },
-  { code: 'PLATFORM_ACCESS_RESTORED', label: 'Khôi phục quyền nền tảng' },
-  { code: 'MEMBERSHIP_ROLE_CHANGED', label: 'Đổi quyền thành viên' },
-  { code: 'FARM_SERVICE_RESTORED', label: 'Khôi phục dịch vụ trại' },
-  { code: 'PAYMENT_CONFIRMED', label: 'Xác nhận thanh toán' },
-  { code: 'FINANCE_RECORD_POSTED', label: 'Ghi sổ thu chi' },
-  { code: 'TICKET_CLOSED', label: 'Đóng yêu cầu hỗ trợ' },
+/** Danh mục audit trung tâm (cùng thứ tự A3): mã công khai, loại đích, nhãn tiếng Việt. */
+const AUDIT_CATALOGUE: ReadonlyArray<readonly [string, AuditTargetType, string]> = [
+  ['ACCOUNT_SUSPENDED', 'ACCOUNT', 'Tạm ngưng tài khoản'],
+  ['ACCOUNT_RESTORED', 'ACCOUNT', 'Khôi phục tài khoản'],
+  ['PLATFORM_ACCESS_GRANTED', 'PLATFORM_ACCESS', 'Cấp quyền nền tảng'],
+  ['PLATFORM_ACCESS_CHANGED', 'PLATFORM_ACCESS', 'Đổi quyền nền tảng'],
+  ['PLATFORM_ACCESS_REVOKED', 'PLATFORM_ACCESS', 'Thu hồi quyền nền tảng'],
+  ['PLATFORM_ACCESS_RESTORED', 'PLATFORM_ACCESS', 'Khôi phục quyền nền tảng'],
+  ['MEMBERSHIP_JOINED', 'MEMBERSHIP', 'Tham gia trang trại'],
+  ['MEMBERSHIP_ROLE_CHANGED', 'MEMBERSHIP', 'Đổi vai trò thành viên'],
+  ['MEMBERSHIP_DEACTIVATED', 'MEMBERSHIP', 'Ngừng thành viên'],
+  ['MEMBERSHIP_REACTIVATED', 'MEMBERSHIP', 'Kích hoạt lại thành viên'],
+  ['FARM_REGISTERED', 'FARM', 'Đăng ký trang trại'],
+  ['FARM_SERVICE_SUSPENDED', 'FARM', 'Tạm ngưng dịch vụ trại'],
+  ['FARM_SERVICE_RESTORED', 'FARM', 'Khôi phục dịch vụ trại'],
+  ['FARM_SERVICE_STATUS_CHANGED', 'FARM', 'Cập nhật trạng thái dịch vụ (tự động)'],
+  ['PAYMENT_CONFIRMED', 'PAYMENT', 'Xác nhận thanh toán'],
+  ['EVIDENCE_REVIEWED', 'PAYMENT', 'Duyệt chứng từ thanh toán'],
+  ['FINANCE_RECORD_POSTED', 'FINANCE_RECORD', 'Ghi sổ thu chi'],
+  ['FINANCE_RECORD_VOIDED', 'FINANCE_RECORD', 'Hủy bản ghi thu chi'],
+  ['TICKET_CREATED', 'TICKET', 'Tạo yêu cầu hỗ trợ'],
+  ['TICKET_ASSIGNED', 'TICKET', 'Nhận xử lý yêu cầu'],
+  ['TICKET_HANDED_OVER', 'TICKET', 'Chuyển giao yêu cầu'],
+  ['TICKET_RELEASED', 'TICKET', 'Trả yêu cầu về hàng chờ'],
+  ['TICKET_WAITING_CUSTOMER', 'TICKET', 'Chờ khách hàng phản hồi'],
+  ['TICKET_RESOLVED', 'TICKET', 'Giải quyết yêu cầu'],
+  ['TICKET_ACKNOWLEDGED', 'TICKET', 'Chủ trại xác nhận kết quả'],
+  ['TICKET_CLOSED', 'TICKET', 'Đóng yêu cầu hỗ trợ'],
+  ['TICKET_REOPENED', 'TICKET', 'Mở lại yêu cầu'],
+  ['INTERNAL_REQUEST_CREATED', 'INTERNAL_REQUEST', 'Tạo yêu cầu nội bộ'],
+  ['INTERNAL_REQUEST_UPDATED', 'INTERNAL_REQUEST', 'Cập nhật yêu cầu nội bộ'],
+  ['INTERNAL_REQUEST_COMPLETED', 'INTERNAL_REQUEST', 'Hoàn tất yêu cầu nội bộ'],
 ]
-export const auditActionLabel = (code: string) => AUDIT_ACTIONS.find((a) => a.code === code)?.label ?? code
+
+/** A3 của chế độ mô phỏng; chế độ backend đọc từ máy chủ. */
+export const AUDIT_ACTIONS: ReadonlyArray<AuditActionOption> = AUDIT_CATALOGUE.map(([code, targetType]) => ({ code, targetType }))
+/** Mã lạ (máy chủ thêm sau) vẫn hiện nguyên mã thay vì biến mất. */
+export const auditActionLabel = (code: string) => AUDIT_CATALOGUE.find(([c]) => c === code)?.[2] ?? code
 
 export const AUDIT_TARGET_TYPES: ReadonlyArray<{ value: AuditTargetType; label: string }> = [
   { value: 'ACCOUNT', label: 'Tài khoản' },
@@ -299,52 +323,111 @@ export const AUDIT_TARGET_TYPES: ReadonlyArray<{ value: AuditTargetType; label: 
   { value: 'MEMBERSHIP', label: 'Thành viên' },
   { value: 'FARM', label: 'Trang trại' },
   { value: 'PAYMENT', label: 'Thanh toán' },
-  { value: 'FINANCE_RECORD', label: 'Sổ thu chi' },
-  { value: 'TICKET', label: 'Yêu cầu hỗ trợ' },
+  { value: 'FINANCE_RECORD', label: 'Bản ghi thu chi' },
+  { value: 'TICKET', label: 'Ticket' },
   { value: 'INTERNAL_REQUEST', label: 'Yêu cầu nội bộ' },
 ]
+export const AUDIT_TARGET_TYPE_VALUES = AUDIT_TARGET_TYPES.map((t) => t.value)
 export const targetTypeLabel = (type: AuditTargetType) => AUDIT_TARGET_TYPES.find((t) => t.value === type)?.label ?? type
 
-const AUDIT_DETAIL_KEYS = ['before', 'after', 'correlationId', 'scope'] as const
+/** Vai trò của người thực hiện (nền tảng hoặc trong trại); rỗng với mục ghi trước D34. */
+export const auditRoleLabel = (role: string | null) =>
+  !role ? '' : (ROLE_LABEL as Record<string, string>)[role] ?? (FARM_ROLE_LABEL as Record<string, string>)[role] ?? role
 
-/** GBR-86: chỉ giữ các khóa cho phép và giá trị chuỗi; thân ticket, bằng chứng ngân hàng, bí mật... bị loại. */
-export function allowedAuditDetails(raw: Record<string, unknown> | null | undefined): AuditDetails {
-  const out: AuditDetails = { before: '', after: '', correlationId: '', scope: '' }
-  for (const key of AUDIT_DETAIL_KEYS) {
-    const value = raw?.[key]
-    if (typeof value === 'string') out[key] = value
-  }
-  return out
+/** Các trường trước / sau được phép hiện (GBR-86, D34), theo thứ tự hiển thị. */
+const AUDIT_FIELDS: ReadonlyArray<readonly [string, string]> = [
+  ['role', 'Vai trò'],
+  ['status', 'Trạng thái'],
+  ['assignee', 'Người phụ trách'],
+  ['name', 'Tên trang trại'],
+  ['decision', 'Quyết định'],
+  ['amountVnd', 'Số tiền'],
+  ['termYears', 'Số năm'],
+  ['periodStart', 'Bắt đầu thời hạn'],
+  ['periodEnd', 'Kết thúc thời hạn'],
+  ['receiptCode', 'Mã biên nhận'],
+]
+export const AUDIT_FIELD_KEYS = AUDIT_FIELDS.map(([key]) => key)
+
+export interface AuditChangeRow { field: string; label: string; before: string; after: string }
+
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+const auditValue = (field: string, value: string | undefined) => {
+  if (!value) return '—'
+  if (field === 'amountVnd' && /^\d+$/.test(value)) return `${Number(value).toLocaleString('vi-VN')} ₫`
+  return ISO_TIME.test(value) ? formatPlatformDateTime(value) : value
 }
 
-export const defaultAuditRange = (todayYmd: string) => ({ from: addDaysYmd(todayYmd, -7), to: todayYmd })
+/** Một dòng mỗi trường có ở trước hoặc sau; bên thiếu hiện "—" (ví dụ SRS "vai trò: — → CS · ACTIVE"). */
+export function auditChanges(before: Record<string, string>, after: Record<string, string>): AuditChangeRow[] {
+  const known = AUDIT_FIELDS.filter(([key]) => key in before || key in after)
+  const extra = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((key) => !AUDIT_FIELD_KEYS.includes(key))
+  return [...known, ...extra.map((key) => [key, key] as const)].map(([field, label]) => ({
+    field, label, before: auditValue(field, before[field]), after: auditValue(field, after[field]),
+  }))
+}
 
+/** Chế độ mô phỏng: như máy chủ, chỉ giữ trường cho phép và giá trị đơn (GBR-86); nội dung ticket, chứng từ, bí mật bị bỏ. */
+export function allowedAuditChange(details: Record<string, unknown> | null | undefined) {
+  const pick = (side: unknown) => {
+    const out: Record<string, string> = {}
+    if (!side || typeof side !== 'object') return out
+    for (const key of AUDIT_FIELD_KEYS) {
+      const value = (side as Record<string, unknown>)[key]
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') out[key] = String(value)
+    }
+    return out
+  }
+  return { before: pick(details?.before), after: pick(details?.after) }
+}
+
+/** Gợi ý cố định cạnh ô Khoảng thời gian (R-17-05). */
+export const AUDIT_RANGE_HINT = 'Tối đa 12 tháng'
+
+/** "7 ngày gần nhất" gồm cả hôm nay (D34): từ hôm nay − 6 đến hôm nay. */
+export const defaultAuditRange = (todayYmd: string) => ({ from: addDaysYmd(todayYmd, -6), to: todayYmd })
+
+/** Cộng tháng như máy chủ (LocalDate.plusMonths): 29/02 + 12 tháng = 28/02. */
+const plusMonthsClamped = (ymd: string, months: number) => {
+  const [y, m, d] = ymdParts(ymd)
+  const last = new Date(y, m - 1 + months + 1, 0).getDate()
+  return toYmd(new Date(y, m - 1 + months, Math.min(d, last)))
+}
+
+/** MSG-COM-06 / MSG-COM-11 / MSG-COM-10, cùng thứ tự kiểm của máy chủ. */
 export function validateAuditRange({ from, to }: { from: string; to: string }): string | null {
-  if (!from || !to) return 'Thời gian là bắt buộc.'
-  if (to < from) return 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.'
-  if (to > addMonthsYmd(from, 12)) return 'Khoảng thời gian tối đa là 12 tháng.'
+  if (!from || !to) return 'Vui lòng nhập Khoảng thời gian.'
+  if (from > to) return 'Ngày bắt đầu không được sau ngày kết thúc.'
+  if (to > plusMonthsClamped(from, 12)) return 'Khoảng thời gian không hợp lệ.'
   return null
 }
 
-export function filterAudit<T extends Omit<AuditEntry, 'details'>>(entries: T[], { from, to, action = '', targetType = '', actorId = '' }: AuditFilters) {
-  return entries
-    .filter((e) => {
-      const day = toYmd(new Date(e.loggedAt))
-      if (day < from || day > to) return false
-      if (action && e.action !== action) return false
-      if (targetType && e.targetType !== targetType) return false
-      if (actorId === 'SYSTEM') return e.actorId === null
-      if (actorId && String(e.actorId) !== actorId) return false
-      return true
-    })
-    .sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime())
+const SYSTEM_ACTOR_WORDS = ['hệ thống', 'system']
+
+/** Ô Người thực hiện: tên / email (một phần) hoặc "Hệ thống" / "System" (chỉ hành động hệ thống). */
+export function auditActorQuery(text = ''): { actor?: string; system?: true } {
+  const value = text.trim()
+  if (!value) return {}
+  return SYSTEM_ACTOR_WORDS.includes(value.toLocaleLowerCase('vi')) ? { system: true } : { actor: value }
 }
 
-export function auditToCsv(rows: AuditEntry[]) {
-  const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
-  const lines = [['Thời điểm', 'Người thực hiện', 'Vai trò', 'Hành động', 'Mã hành động', 'Đối tượng']]
-  for (const e of rows) {
-    lines.push([formatDateTime(e.loggedAt), e.actorName ?? 'Hệ thống', e.actorRole ?? '', auditActionLabel(e.action), e.action, `${targetTypeLabel(e.targetType)} · ${e.targetLabel}`])
-  }
-  return lines.map((line) => line.map(cell).join(',')).join('\r\n')
+/** Ngày theo giờ Asia/Ho_Chi_Minh của một thời điểm (yyyy-mm-dd). */
+export const platformDay = (iso: string) => { const p = platformParts(iso); return `${p.year}-${p.month}-${p.day}` }
+
+/** Chế độ mô phỏng: lọc như A1 (ngày nền tảng, cả hai đầu; người thực hiện; hành động; loại đích; thứ tự). */
+export function filterAudit<T extends AuditRow & { actorEmail: string | null }>(entries: T[], filters: AuditFilters): T[] {
+  const { from, to, action = '', targetType = '', dir = 'desc' } = filters
+  const who = auditActorQuery(filters.actor)
+  const needle = who.actor?.toLocaleLowerCase('vi') ?? ''
+  const rows = entries.filter((e) => {
+    const day = platformDay(e.time)
+    if (day < from || day > to) return false
+    if (action && e.action !== action) return false
+    if (targetType && e.targetType !== targetType) return false
+    if (who.system) return e.actor === null
+    if (needle) return !!e.actor && (e.actor.name.toLocaleLowerCase('vi').includes(needle) || (e.actorEmail ?? '').toLocaleLowerCase('vi').includes(needle))
+    return true
+  })
+  const order = (a: T, b: T) => new Date(a.time).getTime() - new Date(b.time).getTime() || a.id - b.id
+  return rows.sort((a, b) => (dir === 'asc' ? order(a, b) : order(b, a)))
 }

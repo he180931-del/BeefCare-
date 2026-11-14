@@ -1,4 +1,4 @@
-// Tên trường theo DTO trong openapi.json (AccountListItem, AccountDetail, AccountChange, PlatformAccessRequest, AuditEntry, NotificationView).
+// Tên trường theo DTO trong openapi.json (AccountListItem, AccountDetail, AccountChange, PlatformAccessRequest, AuditRow, AuditDetail, NotificationView).
 // Các trường đánh dấu "giao diện" chưa có trong DTO: màn hình cần nhưng OpenAPI chưa trả về.
 
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED'
@@ -103,38 +103,46 @@ export interface AccessHistoryItem {
 
 export type AuditTargetType = 'ACCOUNT' | 'PLATFORM_ACCESS' | 'MEMBERSHIP' | 'FARM' | 'PAYMENT' | 'FINANCE_RECORD' | 'TICKET' | 'INTERNAL_REQUEST'
 
-/** Chỉ các khóa trong danh sách cho phép (GBR-86) mới tới được giao diện. */
-export interface AuditDetails { before: string; after: string; correlationId: string; scope: string }
+/** Người thực hiện của một mục audit (A1/A2, D34); `null` ở chỗ dùng nghĩa là "Hệ thống". `role` rỗng với mục ghi trước D34. */
+export interface AuditActor { id: number; name: string; initials: string; role: string | null }
 
-export interface AuditEntry {
+/** Một dòng SCR-51 (A1). `action` là mã công khai, `targetLabel` là tên hiển thị hoặc định danh đã che. */
+export interface AuditRow {
   id: number
-  loggedAt: string
-  actorEmail: string | null
-  actorName: string | null
-  farmName: string | null
+  time: string
+  actor: AuditActor | null
   action: string
   targetType: AuditTargetType
-  targetId: number | null
-  details: AuditDetails
-  // giao diện
-  actorId: number | null
-  actorRole: string | null
   targetLabel: string
-  targetRef: string
 }
 
+/** Chi tiết (A2): chỉ giá trị trước / sau trong danh sách cho phép (GBR-86); thiếu một bên hiện "—". */
+export interface AuditDetail extends AuditRow {
+  farm: { id: number; name: string } | null
+  targetId: number
+  before: Record<string, string>
+  after: Record<string, string>
+  /** Rỗng với mục ghi trước D34. */
+  correlationId: string | null
+}
+
+/** A3: mã hành động của bộ lọc Hành động. */
+export interface AuditActionOption { code: string; targetType: AuditTargetType }
+
 export interface AuditFilters {
+  /** yyyy-mm-dd, cả hai đầu đều tính, tối đa 12 tháng (R-17-05). */
   from: string
   to: string
+  /** Tên hoặc email (một phần), hoặc "Hệ thống" / "System". */
+  actor?: string
   action?: string
   targetType?: '' | AuditTargetType
-  /** '' tất cả, 'SYSTEM' hoặc id tài khoản. */
-  actorId?: string
+  /** Mặc định mới nhất trước (R-17-06). */
+  dir?: 'asc' | 'desc'
+  /** Trang bắt đầu từ 1 trên màn hình. */
   page?: number
   size?: number
 }
-
-export interface AuditActorOption { value: string; label: string }
 
 export interface NotificationView {
   id: number

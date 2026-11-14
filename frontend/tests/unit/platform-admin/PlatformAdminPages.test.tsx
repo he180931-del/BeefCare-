@@ -218,32 +218,55 @@ describe('Quyền nhân viên nền tảng trên SCR-16 (UC9, D33)', () => {
   })
 })
 
-describe('Lịch sử audit nền tảng', () => {
-  it('mặc định 7 ngày, chọn dòng xem trước/sau và lọc theo hành động', async () => {
+describe('Lịch sử audit nền tảng (SCR-51, D34)', () => {
+  it('mặc định 7 ngày, chọn dòng xem trước / sau, đảo chiều thời gian và lọc theo hành động', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/audit')
-    expect(await screen.findByText('5 sự kiện trong khoảng đã chọn')).toBeInTheDocument()
-    expect(screen.getByText('req-7f21-aa90')).toBeInTheDocument()
-    expect(screen.getByText('role: CS · đang hoạt động')).toBeInTheDocument()
+    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+    expect(screen.getByText('Tối đa 12 tháng')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Xuất CSV/ })).not.toBeInTheDocument()
+    expect(await screen.findByText('req-7f21-aa90')).toBeInTheDocument()
+    const detail = screen.getByText('Chi tiết mục audit').closest('div')!.parentElement!
+    expect(within(detail).getAllByText('Vai trò')).toHaveLength(2)
+    expect(within(detail).getAllByText('—').length).toBeGreaterThan(0)
 
-    await user.click(screen.getByRole('button', { name: '17/10 10:12' }))
+    await user.click(screen.getByRole('button', { name: '17/10/2026 10:12' }))
     expect(await screen.findByText('req-9a10-c3e1')).toBeInTheDocument()
+    expect(screen.getByText('SUSPENDED')).toBeInTheDocument()
+
+    const times = () => screen.getAllByRole('button', { name: /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/ }).map((b) => b.textContent)
+    expect(times()[0]).toBe('18/10/2026 08:02')
+    await user.click(screen.getByRole('button', { name: /Thời gian/ }))
+    await waitFor(() => expect(times()[0]).toBe('16/10/2026 14:05'))
 
     await user.selectOptions(screen.getByLabelText('Lọc theo hành động'), 'PAYMENT_CONFIRMED')
-    expect(await screen.findByText('1 sự kiện trong khoảng đã chọn')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Xuất CSV/ }))
-    expect(await screen.findByText('Đã xuất 1 sự kiện theo bộ lọc đang xem.')).toBeInTheDocument()
+    expect(await screen.findByText('1 mục trong khoảng đã chọn')).toBeInTheDocument()
   })
 
-  it('không bao giờ hiển thị nội dung ngoài danh sách cho phép', async () => {
+  it('ô người thực hiện tìm theo tên hoặc "Hệ thống"; không có kết quả thì hiện MSG-COM-04 và Xóa bộ lọc', async () => {
+    const user = userEvent.setup()
+    renderAt('/nen-tang/audit')
+    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Tìm người thực hiện'), 'Hệ thống')
+    expect(await screen.findByText('1 mục trong khoảng đã chọn')).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Tìm người thực hiện'))
+    await user.type(screen.getByLabelText('Tìm người thực hiện'), 'không có ai')
+    expect(await screen.findByText('Không có bản ghi phù hợp.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
+    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+  })
+
+  it('mở trực tiếp một mục ngoài khoảng đang xem; không bao giờ hiển thị nội dung ngoài danh sách cho phép', async () => {
     renderAt('/nen-tang/audit/8')
-    expect(await screen.findByText('1 sự kiện trong khoảng đã chọn').catch(() => null)).toBeNull()
+    expect(await screen.findByText('CLOSED')).toBeInTheDocument()
+    expect(screen.getByText('RESOLVED')).toBeInTheDocument()
     expect(screen.queryByText(/Nội dung ticket/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sao chép mã truy vết' })).not.toBeInTheDocument()
   })
 
-  it('báo lỗi tải audit', async () => {
+  it('báo lỗi tải audit (MSG-COM-03) có Thử lại', async () => {
     renderAt('/nen-tang/audit?demo=load-error')
-    expect(await screen.findByText('Không tải được lịch sử kiểm toán.')).toBeInTheDocument()
+    expect(await screen.findByText('Không thể tải dữ liệu.')).toBeInTheDocument()
   })
 })
 

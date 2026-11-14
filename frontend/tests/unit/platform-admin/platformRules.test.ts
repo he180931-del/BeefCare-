@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  accessActionsOf, allowedAuditDetails, auditToCsv, compareAccounts, farmsJoinedText, formatNoticeTime, formatPlatformDate,
-  formatPlatformDateTime, initials, platformRoleText, revokedRoleNote, validateAuditRange, validateReason, verificationText,
+  accessActionsOf, allowedAuditChange, auditActionLabel, auditActorQuery, auditChanges, auditRoleLabel, compareAccounts, defaultAuditRange,
+  farmsJoinedText, formatNoticeTime, formatPlatformDate, formatPlatformDateTime, initials, platformRoleText, revokedRoleNote, validateAuditRange,
+  validateReason, verificationText,
 } from '../../../src/features/platform-admin/domain/platformRules'
-import type { AccountListItem, AccountRecord, AuditEntry } from '../../../src/features/platform-admin/types'
+import type { AccountListItem, AccountRecord } from '../../../src/features/platform-admin/types'
 
 describe('platformRules', () => {
   it('lý do bắt buộc và tối đa 500 ký tự', () => {
@@ -13,16 +14,38 @@ describe('platformRules', () => {
     expect(validateReason('Hợp lệ')).toBeNull()
   })
 
-  it('khoảng thời gian audit bắt buộc, không đảo ngược và tối đa 12 tháng', () => {
-    expect(validateAuditRange({ from: '', to: '2026-10-18' })).toBe('Thời gian là bắt buộc.')
-    expect(validateAuditRange({ from: '2026-10-18', to: '2026-10-11' })).toMatch(/sau hoặc bằng/)
-    expect(validateAuditRange({ from: '2025-10-17', to: '2026-10-18' })).toMatch(/12 tháng/)
+  it('khoảng thời gian audit (R-17-05, D34): MSG-COM-06 / 11 / 10, tối đa 12 tháng như máy chủ, mặc định 7 ngày gồm hôm nay', () => {
+    expect(validateAuditRange({ from: '', to: '2026-10-18' })).toBe('Vui lòng nhập Khoảng thời gian.')
+    expect(validateAuditRange({ from: '2026-10-18', to: '2026-10-11' })).toBe('Ngày bắt đầu không được sau ngày kết thúc.')
+    expect(validateAuditRange({ from: '2025-10-17', to: '2026-10-18' })).toBe('Khoảng thời gian không hợp lệ.')
     expect(validateAuditRange({ from: '2025-10-18', to: '2026-10-18' })).toBeNull()
+    expect(validateAuditRange({ from: '2026-10-18', to: '2026-10-18' })).toBeNull()
+    // LocalDate.plusMonths: 29/02 + 12 tháng = 28/02
+    expect(validateAuditRange({ from: '2028-02-29', to: '2029-02-28' })).toBeNull()
+    expect(validateAuditRange({ from: '2028-02-29', to: '2029-03-01' })).toBe('Khoảng thời gian không hợp lệ.')
+    expect(defaultAuditRange('2026-10-18')).toEqual({ from: '2026-10-12', to: '2026-10-18' })
   })
 
-  it('chi tiết audit chỉ giữ khóa cho phép', () => {
-    const out = allowedAuditDetails({ before: 'role: —', after: 'role: CS', correlationId: 'req-1', ticketBody: 'bí mật', scope: 5 })
-    expect(out).toEqual({ before: 'role: —', after: 'role: CS', correlationId: 'req-1', scope: '' })
+  it('ô người thực hiện: "Hệ thống" / "System" là hành động hệ thống, còn lại là tên hoặc email', () => {
+    expect(auditActorQuery('  ')).toEqual({})
+    expect(auditActorQuery(' Hệ thống ')).toEqual({ system: true })
+    expect(auditActorQuery('SYSTEM')).toEqual({ system: true })
+    expect(auditActorQuery('nam.vh@')).toEqual({ actor: 'nam.vh@' })
+  })
+
+  it('trước / sau chỉ giữ trường cho phép (GBR-86); bên thiếu hiện "—"; nhãn hành động và vai trò', () => {
+    expect(allowedAuditChange({ before: {}, after: { role: 'CS', status: 'ACTIVE', ticketBody: 'bí mật', reason: 'lý do' }, ticketBody: 'bí mật' }))
+      .toEqual({ before: {}, after: { role: 'CS', status: 'ACTIVE' } })
+    expect(auditChanges({}, { role: 'CS', status: 'ACTIVE' })).toEqual([
+      { field: 'role', label: 'Vai trò', before: '—', after: 'CS' },
+      { field: 'status', label: 'Trạng thái', before: '—', after: 'ACTIVE' },
+    ])
+    expect(auditChanges({}, { amountVnd: '1200000', periodEnd: '2027-10-28T03:00:00Z' }).map((c) => c.after)).toEqual(['1.200.000 ₫', '28/10/2027 10:00'])
+    expect(auditActionLabel('TICKET_CLOSED')).toBe('Đóng yêu cầu hỗ trợ')
+    expect(auditActionLabel('NEW_CODE')).toBe('NEW_CODE')
+    expect(auditRoleLabel('SA')).toBe('Quản trị hệ thống (SA)')
+    expect(auditRoleLabel('OWNER')).toBe('Chủ trại')
+    expect(auditRoleLabel(null)).toBe('')
   })
 
   it('accessActions (D33) theo quyền, tài khoản của chính mình, tạm ngưng, chưa xác minh; chữ viết tắt', () => {
@@ -69,10 +92,4 @@ describe('platformRules', () => {
     expect(formatNoticeTime('2026-10-10T09:00:00', now)).toBe('10/10/2026')
   })
 
-  it('CSV thoát dấu phẩy và ngoặc kép', () => {
-    const entry = { loggedAt: '2026-10-18T08:02:00', actorName: 'Vũ "Nam", SA', actorRole: 'SA', action: 'ACCOUNT_SUSPENDED', targetType: 'ACCOUNT', targetLabel: 'Hồ Văn Tài' } as AuditEntry
-    const [head, row] = auditToCsv([entry]).split('\r\n')
-    expect(head.split(',')[0]).toBe('Thời điểm')
-    expect(row).toContain('"Vũ ""Nam"", SA"')
-  })
 })

@@ -59,7 +59,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
     initials: 'VN', name: 'Vũ Hoàng Nam', role: 'Quản trị hệ thống', gap: 'mt-[3px]', platformRole: 'Quản trị hệ thống · SA',
     search: 'Tìm tên, Gmail…', searchTo: '/nen-tang/tai-khoan', notifications: '/nen-tang/thong-bao', profile: PLATFORM_PROFILE,
     groups: [
-      { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Lịch sử kiểm toán', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
+      { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Lịch sử audit', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
       { label: 'KHÁC', items: [item('Thông báo', '/nen-tang/thong-bao', 'bell')] },
     ],
   },

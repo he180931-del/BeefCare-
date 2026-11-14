@@ -28,14 +28,12 @@ import org.springframework.util.StringUtils;
 import vn.edu.fpt.beefcare.config.VietnameseSortFunctionContributor;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.AppUserStatusChange;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.PlatformAccessChange;
 import vn.edu.fpt.beefcare.domain.PlatformStaffAccess;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.AppUserStatusChangeRepository;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.PlatformAccessChangeRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
@@ -59,7 +57,7 @@ public class PlatformAccountAdministrationService {
     private final UserRepository users;
     private final PlatformStaffAccessRepository staffAccess;
     private final FarmMembershipRepository farmMemberships;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final AppUserStatusChangeRepository statusChanges;
     private final PlatformAccessChangeRepository accessChanges;
     private final SupportTicketCommandService supportTickets;
@@ -72,7 +70,7 @@ public class PlatformAccountAdministrationService {
         UserRepository users,
         PlatformStaffAccessRepository staffAccess,
         FarmMembershipRepository farmMemberships,
-        AuditLogRepository auditLogs,
+        AuditService audit,
         AppUserStatusChangeRepository statusChanges,
         PlatformAccessChangeRepository accessChanges,
         SupportTicketCommandService supportTickets,
@@ -84,7 +82,7 @@ public class PlatformAccountAdministrationService {
         this.users = users;
         this.staffAccess = staffAccess;
         this.farmMemberships = farmMemberships;
-        this.auditLogs = auditLogs;
+        this.audit = audit;
         this.statusChanges = statusChanges;
         this.accessChanges = accessChanges;
         this.supportTickets = supportTickets;
@@ -458,14 +456,7 @@ public class PlatformAccountAdministrationService {
     }
 
     private void audit(AppUser actor, String action, AppUser target, Object details) {
-        AuditLog event = new AuditLog();
-        event.setActor(actor);
-        event.setAction(action);
-        event.setTargetType("AppUser");
-        event.setTargetId(target.getId());
-        event.setLoggedAt(clock.now());
-        event.setDetails(JsonSupport.toJson(details));
-        auditLogs.save(event);
+        audit.log(null, actor, action, "AppUser", target.getId(), details);
     }
 
     private void verifyVersion(Long expected, Long actual) {

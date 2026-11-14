@@ -22,14 +22,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.PlanVersion;
 import vn.edu.fpt.beefcare.domain.Subscription;
 import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
 import vn.edu.fpt.beefcare.repository.BankTransferEvidenceRepository;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.repository.PaymentRepository;
 import vn.edu.fpt.beefcare.repository.PlanVersionRepository;
@@ -52,7 +50,7 @@ public class SubscriptionPaymentService {
     private final SubscriptionRepository subscriptions;
     private final PaymentRepository payments;
     private final PlanVersionRepository plans;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final BankTransferEvidenceRepository evidences;
     private final FarmClock clock;
     private final FarmServiceFacts serviceFacts;
@@ -68,7 +66,7 @@ public class SubscriptionPaymentService {
         SubscriptionRepository subscriptions,
         PaymentRepository payments,
         PlanVersionRepository plans,
-        AuditLogRepository auditLogs,
+        AuditService audit,
         BankTransferEvidenceRepository evidences,
         FarmClock clock,
         FarmServiceFacts serviceFacts,
@@ -83,7 +81,7 @@ public class SubscriptionPaymentService {
         this.subscriptions = subscriptions;
         this.payments = payments;
         this.plans = plans;
-        this.auditLogs = auditLogs;
+        this.audit = audit;
         this.evidences = evidences;
         this.clock = clock;
         this.serviceFacts = serviceFacts;
@@ -227,20 +225,12 @@ public class SubscriptionPaymentService {
         payment.setReceivingBankCode(StringUtils.hasText(bankCode) ? bankCode.trim() : null);
         payment.setReceivingAccountName(StringUtils.hasText(accountName) ? accountName.trim() : null);
         Payment saved = payments.saveAndFlush(payment);
-        AuditLog event = new AuditLog();
-        event.setFarm(farm);
-        event.setActor(context.user());
-        event.setAction("PAYMENT_REQUEST");
-        event.setTargetType("Payment");
-        event.setTargetId(saved.getId());
-        event.setLoggedAt(now);
-        event.setDetails(JsonSupport.toJson(Map.of(
+        audit.logAt(farm, context.user(), "PAYMENT_REQUEST", "Payment", saved.getId(), Map.of(
             "quoteRef", saved.getQuoteRef(),
             "termYears", saved.getDurationYears(),
             "amountVnd", saved.getAmountVnd(),
             "priceVersionId", price.getId()
-        )));
-        auditLogs.save(event);
+        ), now);
         return toDto(saved);
     }
 

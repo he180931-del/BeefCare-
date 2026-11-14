@@ -1,13 +1,14 @@
 import { asRecord, backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { backendPending } from '../../../api/backendPending'
 import { platformAdminDemoStore, type PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
-import { auditToCsv, defaultAuditRange, toYmd } from '../domain/platformRules'
+import { AUDIT_TARGET_TYPE_VALUES, auditActorQuery, defaultAuditRange, platformDay } from '../domain/platformRules'
 import type {
-  AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditFilters, FarmRole, PageResult,
-  PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole, SignInMethod,
+  AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditActionOption, AuditActor, AuditDetail,
+  AuditFilters, AuditRow, FarmRole, PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole, SignInMethod,
 } from '../types'
 
 const ACCOUNTS_PATH = '/api/platform/accounts'
+const AUDIT_PATH = '/api/platform/audit'
 const PAGE_SIZE = 20
 
 const invalid = (field: string) => new Error(`Dữ liệu máy chủ không có ${field} hợp lệ.`)
@@ -131,6 +132,88 @@ export function accountPage(value: unknown): PageResult<AccountListItem> {
   }
 }
 
+/** A1/A2 actor (D34): `null` is "System"; `role` may be null for entries written before D34. */
+function auditActor(value: unknown): AuditActor | null {
+  if (value === null || value === undefined) return null
+  const row = asRecord(value)
+  return {
+    id: requiredId(row.id, 'mã người thực hiện'),
+    name: requiredText(row.name, 'tên người thực hiện'),
+    initials: requiredText(row.initials, 'chữ viết tắt người thực hiện'),
+    role: nullableText(row.role, 'vai trò người thực hiện'),
+  }
+}
+
+/** A1 row (D34): every column of SCR-51 comes from the server; a missing one is an error. */
+export function auditRow(value: unknown): AuditRow {
+  const row = asRecord(value)
+  return {
+    id: requiredId(row.id, 'mã mục audit'),
+    time: requiredText(row.time, 'thời điểm'),
+    actor: auditActor(row.actor),
+    action: requiredText(row.action, 'mã hành động'),
+    targetType: requiredOneOf(row.targetType, AUDIT_TARGET_TYPE_VALUES, 'loại đối tượng'),
+    targetLabel: requiredText(row.targetLabel, 'đối tượng'),
+  }
+}
+
+/** Before / after values: an object of text values only (GBR-86 allowlist applied by the server). */
+const textMap = (value: unknown, field: string): Record<string, string> => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw invalid(field)
+  const out: Record<string, string> = {}
+  for (const [key, text] of Object.entries(value)) out[key] = requiredString(text, field)
+  return out
+}
+
+/** A2 (D34): the SCR-51 detail. */
+export function auditDetail(value: unknown): AuditDetail {
+  const row = asRecord(value)
+  const farm = row.farm === null || row.farm === undefined ? null : asRecord(row.farm)
+  return {
+    ...auditRow(value),
+    farm: farm && { id: requiredId(farm.id, 'mã trang trại'), name: requiredText(farm.name, 'tên trang trại') },
+    targetId: requiredId(row.targetId, 'mã đối tượng'),
+    before: textMap(row.before, 'giá trị trước'),
+    after: textMap(row.after, 'giá trị sau'),
+    correlationId: nullableText(row.correlationId, 'mã truy vết'),
+  }
+}
+
+/** A1 envelope `{items, total, page (from 0), size}` → the page shape of the screen (page from 1). */
+export function auditPage(value: unknown): PageResult<AuditRow> {
+  const body = asRecord(value)
+  if (!Array.isArray(body.items)) throw invalid('lịch sử audit')
+  const total = requiredCount(body.total, 'tổng số mục audit')
+  const size = requiredId(body.size, 'cỡ trang')
+  return {
+    content: body.items.map(auditRow),
+    totalElements: total,
+    totalPages: Math.max(1, Math.ceil(total / size)),
+    number: requiredCount(body.page, 'số trang'),
+    size,
+  }
+}
+
+/** A3 row (D34). */
+export function auditActionOption(value: unknown): AuditActionOption {
+  const row = asRecord(value)
+  return { code: requiredText(row.code, 'mã hành động'), targetType: requiredOneOf(row.targetType, AUDIT_TARGET_TYPE_VALUES, 'loại đối tượng') }
+}
+
+/** GET /api/platform/audit query (D34): days yyyy-mm-dd; "Hệ thống" / "System" becomes `system=true`; page from 1 → from 0. */
+export function auditPath({ from, to, actor = '', action = '', targetType = '', dir = 'desc', page = 1, size = PAGE_SIZE }: AuditFilters) {
+  const query = new URLSearchParams({ from, to })
+  const who = auditActorQuery(actor)
+  if (who.system) query.set('system', 'true')
+  if (who.actor) query.set('actor', who.actor)
+  if (action) query.set('action', action)
+  if (targetType) query.set('targetType', targetType)
+  query.set('dir', dir)
+  query.set('page', String(Math.max(0, page - 1)))
+  query.set('size', String(size))
+  return `${AUDIT_PATH}?${query.toString()}`
+}
+
 /** A12 body (D32): the trimmed reason and the version of the account shown in A10. */
 export const statusBody = ({ reason, expectedVersion }: AccountChange) => ({ reason: reason.trim(), version: expectedVersion })
 
@@ -185,19 +268,25 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
       return accountDetail(await transport.command(`${ACCOUNTS_PATH}/${requiredId(id, 'mã tài khoản')}/platform-access`, accessBody(command), { key }))
     },
 
-    // GET /api/platform/audit ?from,to,action,targetType,actorId,page,size
-    async listAudit(filters: AuditFilters) { requireLocal(); return store.listAudit(filters) },
-    // GET /api/platform/audit/{id}
-    async getAuditEntry(id: number) { requireLocal(); return store.getAuditEntry(id) },
-    // chưa có API (danh sách người thực hiện để lọc; backend lọc theo actorId)
-    async listAuditActors() { requireLocal(); return store.listAuditActors() },
-    // chưa có API (xuất CSV theo bộ lọc đang xem; hiện dựng từ danh sách audit)
-    async exportAuditCsv(filters: AuditFilters) {
-      requireLocal()
-      return auditToCsv((await store.listAudit({ ...filters, page: 1, size: 10_000 })).content)
+    // A1 GET /api/platform/audit ?from,to,actor|system,action,targetType,dir,page,size (UC-FE17-01, D34)
+    async listAudit(filters: AuditFilters): Promise<PageResult<AuditRow>> {
+      if (mode !== 'backend') return store.listAudit(filters)
+      return auditPage(await transport.get(auditPath(filters)))
     },
-    // chưa có API (mặc định 7 ngày gần nhất; mock lấy "hôm nay" của dữ liệu mẫu)
-    auditDefaultRange() { return defaultAuditRange(mode === 'backend' ? toYmd(new Date()) : store.today()) },
+    // A2 GET /api/platform/audit/{id} (D34): giá trị trước / sau trong danh sách cho phép, mã truy vết
+    async getAuditEntry(id: number): Promise<AuditDetail> {
+      if (mode !== 'backend') return store.getAuditEntry(id)
+      return auditDetail(await transport.get(`${AUDIT_PATH}/${requiredId(id, 'mã mục audit')}`))
+    },
+    // A3 GET /api/platform/audit/actions (D34): mã của bộ lọc Hành động
+    async listAuditActions(): Promise<AuditActionOption[]> {
+      if (mode !== 'backend') return store.listAuditActions()
+      const rows = await transport.get(`${AUDIT_PATH}/actions`)
+      if (!Array.isArray(rows)) throw invalid('danh sách mã hành động')
+      return rows.map(auditActionOption)
+    },
+    // Mặc định 7 ngày gần nhất gồm hôm nay (D34); mock lấy "hôm nay" của dữ liệu mẫu
+    auditDefaultRange() { return defaultAuditRange(mode === 'backend' ? platformDay(new Date().toISOString()) : store.today()) },
 
     // GET /api/notifications/mine
     async listNotifications() { requireLocal(); return store.listNotifications() },

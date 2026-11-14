@@ -14,13 +14,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.session.SessionRegistry;
 import vn.edu.fpt.beefcare.domain.AppUser;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.PlatformStaffAccess;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.AppUserStatusChangeRepository;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.PlatformAccessChangeRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
@@ -33,7 +31,7 @@ class PlatformAccountAdministrationServiceTest {
     @Mock UserRepository users;
     @Mock PlatformStaffAccessRepository staffAccess;
     @Mock FarmMembershipRepository farmMemberships;
-    @Mock AuditLogRepository auditLogs;
+    @Mock AuditService audit;
     @Mock AppUserStatusChangeRepository statusChanges;
     @Mock PlatformAccessChangeRepository accessChanges;
     @Mock SupportTicketCommandService supportTickets;
@@ -44,7 +42,7 @@ class PlatformAccountAdministrationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PlatformAccountAdministrationService(platformAccess, accounts, users, staffAccess, farmMemberships, auditLogs, statusChanges, accessChanges, supportTickets, clock, sessions);
+        service = new PlatformAccountAdministrationService(platformAccess, accounts, users, staffAccess, farmMemberships, audit, statusChanges, accessChanges, supportTickets, clock, sessions);
         actor = account(90L, "sa@example.test", "ACTIVE", 2L);
         when(platformAccess.requireRole(PlatformRole.SA)).thenReturn(new PlatformContext(actor, null, PlatformRole.SA));
     }
@@ -75,12 +73,10 @@ class PlatformAccountAdministrationServiceTest {
             "GRANT".equals(row.getAction()) && row.getRoleBefore() == null && "PM".equals(row.getRoleAfter()) &&
             "ACTIVE".equals(row.getStatusAfter()) && "Staff onboarding".equals(row.getReason()) && row.getChangedBy() == actor
         ));
-        verify(auditLogs).save(argThat(event ->
-            "AppUser".equals(event.getTargetType()) &&
-            Long.valueOf(12L).equals(event.getTargetId()) &&
-            "PLATFORM_ACCESS_GRANT".equals(event.getAction()) &&
-            event.getDetails().contains("\"toRole\":\"PM\"") &&
-            !event.getDetails().contains("Staff onboarding")
+        // D33 / D34: before / after only, through the shared writer (role and correlation ID are filled there)
+        verify(audit).log(isNull(), same(actor), eq("PLATFORM_ACCESS_GRANT"), eq("AppUser"), eq(12L), argThat(details ->
+            details instanceof java.util.Map<?, ?> values && "PM".equals(values.get("toRole")) && "NONE".equals(values.get("fromRole")) &&
+            !values.containsValue("Staff onboarding")
         ));
         verifyNoInteractions(supportTickets);
     }
@@ -105,7 +101,7 @@ class PlatformAccountAdministrationServiceTest {
         order.verify(staffAccess).countOtherActiveAdministrators(12L);
         verify(staffAccess, never()).saveAndFlush(any());
         verify(accessChanges, never()).save(any());
-        verify(auditLogs, never()).save(any());
+        verifyNoInteractions(audit);
     }
 
     /** D32 (G9): a suspension locks both accounts in id order, so two SAs suspending each other cannot deadlock or both pass. */
@@ -127,7 +123,7 @@ class PlatformAccountAdministrationServiceTest {
         order.verify(staffAccess).countOtherActiveAdministrators(12L);
         verify(accounts, never()).saveAndFlush(any());
         verify(statusChanges, never()).save(any());
-        verify(auditLogs, never()).save(any());
+        verifyNoInteractions(audit);
         verifyNoInteractions(supportTickets);
     }
 

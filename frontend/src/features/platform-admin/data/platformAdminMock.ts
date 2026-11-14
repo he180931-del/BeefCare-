@@ -1,4 +1,4 @@
-import type { AccessHistoryItem, AccountRecord, AuditEntry, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
+import type { AccessHistoryItem, AccountRecord, AuditDetail, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
 
 /** Một dòng A11 kèm tài khoản của nó (D33). */
 export type AccessHistoryRecord = AccessHistoryItem & { accountId: number }
@@ -12,8 +12,11 @@ const change = (
 })
 const BY_NAM = { name: 'Vũ Hoàng Nam', email: 'nam.vh@beefcare.vn' }
 
-/** Bản ghi audit thô: có thể chứa khóa ngoài danh sách cho phép; store lọc khi trả ra. */
-export type RawAuditEntry = Omit<AuditEntry, 'details'> & { details: Record<string, unknown> }
+/**
+ * Bản ghi audit thô như trong DB: `details` có thể chứa khóa ngoài danh sách cho phép (lý do, nội dung ticket…); store
+ * chỉ trả trường được phép (GBR-86, D34), giống A2. `actorEmail` chỉ dùng để tìm, không hiện.
+ */
+export type RawAuditEntry = Omit<AuditDetail, 'before' | 'after'> & { actorEmail: string | null; details: Record<string, unknown> }
 export type StoredNotification = NotificationView & { targetAssigned: boolean }
 
 export interface PlatformAdminSeed {
@@ -83,29 +86,34 @@ const HISTORY: AccessHistoryRecord[] = [
   change(8, 10, 'REVOKE', ['CS', 'ACTIVE'], ['CS', 'REVOKED'], 'Kết thúc hợp đồng thời vụ', BY_NAM, '2026-10-10T09:15:00+07:00'),
 ]
 
-const NAM = { id: 4, name: 'Vũ Hoàng Nam', email: 'nam.vh@beefcare.vn', role: 'SA' }
-const QUAN = { id: 3, name: 'Đỗ Minh Quân', email: 'quan.dm@beefcare.vn', role: 'PM' }
-const HUNG = { id: 1, name: 'Nguyễn Văn Hùng', email: 'hung.nv@gmail.com', role: 'Chủ trại' }
+const NAM = { id: 4, name: 'Vũ Hoàng Nam', initials: 'VN', role: 'SA', email: 'nam.vh@beefcare.vn' }
+const QUAN = { id: 3, name: 'Đỗ Minh Quân', initials: 'ĐQ', role: 'PM', email: 'quan.dm@beefcare.vn' }
+const HUNG = { id: 1, name: 'Nguyễn Văn Hùng', initials: 'NH', role: 'OWNER', email: 'hung.nv@gmail.com' }
 
 type Actor = typeof NAM | null
+// Thời điểm ghi kèm +07:00: SCR-51 hiện giờ Asia/Ho_Chi_Minh (Table III-1) dù máy chạy ở múi giờ nào.
 const audit = (
-  id: number, loggedAt: string, actor: Actor, action: string, targetType: RawAuditEntry['targetType'], targetId: number,
-  targetLabel: string, targetRef: string, details: Record<string, unknown>, farmName: string | null = null,
+  id: number, time: string, actor: Actor, action: string, targetType: RawAuditEntry['targetType'], targetId: number,
+  targetLabel: string, details: Record<string, unknown>, correlationId: string | null, farm: RawAuditEntry['farm'] = null,
 ): RawAuditEntry => ({
-  id, loggedAt, actorId: actor?.id ?? null, actorEmail: actor?.email ?? null, actorName: actor?.name ?? null, actorRole: actor?.role ?? null,
-  farmName, action, targetType, targetId, targetLabel, targetRef, details,
+  id, time, actor: actor && { id: actor.id, name: actor.name, initials: actor.initials, role: actor.role }, actorEmail: actor?.email ?? null,
+  action, targetType, targetId, targetLabel, farm, correlationId, details,
 })
 
 const AUDIT: RawAuditEntry[] = [
-  audit(1, '2026-10-18T08:02:00', NAM, 'PLATFORM_ACCESS_GRANTED', 'ACCOUNT', 7, 'Ngô Minh Khang', 'c41e…09ab', { before: 'role: —', after: 'role: CS · đang hoạt động', correlationId: 'req-7f21-aa90', scope: 'CS' }),
-  audit(2, '2026-10-18T07:31:00', null, 'PAYMENT_CONFIRMED', 'PAYMENT', 5012, 'BCA9K2Q8', 'pay…4410', { before: 'status: PENDING', after: 'status: CONFIRMED', correlationId: 'req-31b0-77d2' }),
-  audit(3, '2026-10-17T16:40:00', QUAN, 'FARM_SERVICE_RESTORED', 'FARM', 12, 'Trại Mai Pha', 'frm…0012', { before: 'service: SUSPENDED', after: 'service: ACTIVE', correlationId: 'req-52c9-1e04' }, 'Trại Mai Pha'),
-  audit(4, '2026-10-17T10:12:00', NAM, 'ACCOUNT_SUSPENDED', 'ACCOUNT', 6, 'Hồ Văn Tài', 'a77d…31c0', { before: 'status: ACTIVE', after: 'status: SUSPENDED', correlationId: 'req-9a10-c3e1' }),
-  audit(5, '2026-10-16T14:05:00', HUNG, 'MEMBERSHIP_ROLE_CHANGED', 'MEMBERSHIP', 31, 'T. Q. Long', 'mbr…0031', { before: 'role: Kỹ thuật viên', after: 'role: Quản lý trại', correlationId: 'req-0d44-5be2' }, 'Trại bò Yên Bài – Ba Vì'),
-  audit(6, '2026-10-10T09:15:00', NAM, 'PLATFORM_ACCESS_REVOKED', 'ACCOUNT', 10, 'Trịnh Văn Lộc', 'e5b2…77f4', { before: 'role: CS · đang hoạt động', after: 'role: CS · đã thu hồi', correlationId: 'req-6c18-2d77', scope: 'CS' }),
-  audit(7, '2026-10-05T14:20:00', QUAN, 'FINANCE_RECORD_POSTED', 'FINANCE_RECORD', 88, 'TC-0042', 'fin…0088', { before: 'record: —', after: 'record: POSTED', correlationId: 'req-18aa-90f3' }),
-  // Khóa ticketBody không nằm trong danh sách cho phép: không bao giờ được hiển thị.
-  audit(8, '2026-10-03T11:00:00', null, 'TICKET_CLOSED', 'TICKET', 1031, 'TK-1031', 'tkt…1031', { before: 'status: RESOLVED', after: 'status: CLOSED', correlationId: 'req-44e0-bb12', ticketBody: 'Nội dung ticket riêng tư của chủ trại' }),
+  audit(1, '2026-10-18T08:02:00+07:00', NAM, 'PLATFORM_ACCESS_GRANTED', 'PLATFORM_ACCESS', 7, 'Ngô Minh Khang', { before: {}, after: { role: 'CS', status: 'ACTIVE' } }, 'req-7f21-aa90'),
+  audit(2, '2026-10-18T07:31:00+07:00', null, 'PAYMENT_CONFIRMED', 'PAYMENT', 5012, 'BCA9K2Q8',
+    { after: { amountVnd: 1200000, termYears: 1, receiptCode: 'RC-5012' }, providerTxnId: 'FT26291', transferContent: 'BCA9K2Q8 chuyen khoan' }, 'req-31b0-77d2'),
+  audit(3, '2026-10-17T16:40:00+07:00', QUAN, 'FARM_SERVICE_RESTORED', 'FARM', 12, 'Trại Mai Pha',
+    { before: { status: 'SUSPENDED' }, after: { status: 'ACTIVE' }, reason: 'Đã xác minh lại giấy tờ' }, 'req-52c9-1e04', { id: 12, name: 'Trại Mai Pha' }),
+  audit(4, '2026-10-17T10:12:00+07:00', NAM, 'ACCOUNT_SUSPENDED', 'ACCOUNT', 6, 'Hồ Văn Tài', { before: { status: 'ACTIVE' }, after: { status: 'SUSPENDED' } }, 'req-9a10-c3e1'),
+  audit(5, '2026-10-16T14:05:00+07:00', HUNG, 'MEMBERSHIP_ROLE_CHANGED', 'MEMBERSHIP', 31, 'Trần Quốc Long · Trại bò Yên Bài – Ba Vì',
+    { before: { role: 'TECHNICIAN', status: 'ACTIVE' }, after: { role: 'MANAGER', status: 'ACTIVE' } }, 'req-0d44-5be2', { id: 2, name: 'Trại bò Yên Bài – Ba Vì' }),
+  audit(6, '2026-10-10T09:15:00+07:00', NAM, 'PLATFORM_ACCESS_REVOKED', 'PLATFORM_ACCESS', 10, 'Trịnh Văn Lộc', { before: { role: 'CS', status: 'ACTIVE' }, after: { role: 'CS', status: 'REVOKED' } }, 'req-6c18-2d77'),
+  audit(7, '2026-10-05T14:20:00+07:00', QUAN, 'FINANCE_RECORD_POSTED', 'FINANCE_RECORD', 88, 'FR-0042', { before: { status: 'DRAFT' }, after: { status: 'POSTED' } }, 'req-18aa-90f3'),
+  // Khóa ticketBody nằm ngoài danh sách cho phép: không bao giờ được hiển thị. Mục ghi trước D34 không có mã truy vết.
+  audit(8, '2026-10-03T11:00:00+07:00', null, 'TICKET_CLOSED', 'TICKET', 1031, 'TK-1031',
+    { before: { status: 'RESOLVED' }, after: { status: 'CLOSED', ticketBody: 'Nội dung ticket riêng tư của chủ trại' }, ticketBody: 'Nội dung ticket riêng tư của chủ trại' }, null),
 ]
 
 export function createPlatformAdminSeed(now: Date = new Date()): PlatformAdminSeed {
