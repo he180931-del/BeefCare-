@@ -1,50 +1,68 @@
-// Tên trường theo DTO trong openapi.json (AccountSummary, AccountChange, PlatformAccessRequest, AuditEntry, NotificationView).
+// Tên trường theo DTO trong openapi.json (AccountListItem, AccountDetail, AccountChange, PlatformAccessRequest, AuditEntry, NotificationView).
 // Các trường đánh dấu "giao diện" chưa có trong DTO: màn hình cần nhưng OpenAPI chưa trả về.
 
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED'
 export type PlatformRole = 'CS' | 'PM' | 'SA'
 export type PlatformAccessStatus = 'ACTIVE' | 'REVOKED'
 export type PlatformAccessOperation = 'GRANT' | 'CHANGE' | 'REVOKE' | 'RESTORE'
-export type SignInProvider = 'GOOGLE' | 'PASSWORD'
+export type SignInMethod = 'GOOGLE' | 'PASSWORD'
+export type FarmRole = 'OWNER' | 'MANAGER' | 'TECHNICIAN'
 
-export interface AccountSummary {
+/**
+ * A9 – một dòng SCR-16 (D31). `platformRole` / `platformAccessStatus` là quyền đang lưu: vai trò đã thu hồi vẫn được
+ * trả về (REVOKED) để UC9 khôi phục; cột "Vai trò nền tảng" chỉ coi vai trò ACTIVE là có vai trò.
+ */
+export interface AccountListItem {
   id: number
   email: string
   fullName: string
-  phone: string | null
   accountStatus: AccountStatus
   platformRole: PlatformRole | null
   platformAccessStatus: PlatformAccessStatus | null
-  platformAccessVersion: number
-  ownerRegistrationCompleted: boolean
-  version: number
-  // giao diện (SCR-16)
   emailVerified: boolean
-  signInProvider: SignInProvider
-  createdAt: string
-  ownerRegisteredAt: string | null
-  lastSignInAt: string | null
+  /** Số membership ACTIVE. */
   farmCount: number
-  farmRoleSummary: string
+  /** Vai trò của các membership ACTIVE, theo thứ tự Chủ trại → Quản lý → Kỹ thuật viên. */
+  farmRoles: FarmRole[]
+}
+
+/** A10 – chi tiết tài khoản (D31); không có SĐT, mật khẩu hay dữ liệu vận hành trại (GBR-11). */
+export interface AccountDetail extends AccountListItem {
+  /** null khi chưa từng có quyền nền tảng. */
+  platformAccessVersion: number | null
+  signInMethods: SignInMethod[]
+  createdAt: string
+  lastSignInAt: string | null
+  ownerRegistrationCompleted: boolean
+  ownerRegistrationCompletedAt: string | null
   ownedFarms: string[]
+  version: number
 }
 
 /** DTO AccountChange: `version` được gửi là `expectedVersion` của account. */
 export interface AccountChange { reason: string; expectedVersion: number }
 
-/** DTO PlatformAccessRequest: `version` được gửi là `platformAccessVersion` của account. */
+/** DTO PlatformAccessRequest: `version` được gửi là `platformAccessVersion` của account (null khi chưa có quyền). */
 export interface PlatformAccessChange {
   operation: PlatformAccessOperation
   role?: PlatformRole
   reason: string
-  expectedVersion: number
+  expectedVersion: number | null
 }
+
+export type SortDir = 'asc' | 'desc'
 
 export interface AccountFilters {
   q?: string
   status?: '' | AccountStatus
-  /** '' tất cả, NONE chưa có vai trò, STAFF bất kỳ vai trò nền tảng, hoặc một vai trò (OpenAPI chưa có tham số này: lọc phía client). */
+  /**
+   * '' tất cả, NONE không có vai trò ACTIVE (gồm cả vai trò đã thu hồi), CS / PM / SA vai trò đó đang ACTIVE (D31).
+   * STAFF (mọi người từng có vai trò, kể cả đã thu hồi) chỉ dùng cho trang "Quyền nhân sự" bản mô phỏng (FE-03 Q5).
+   */
   platformRole?: '' | 'NONE' | 'STAFF' | PlatformRole
+  /** Chiều sắp xếp theo tên (cột Người dùng); mặc định A→Z. */
+  dir?: SortDir
+  /** Trang bắt đầu từ 1 ở giao diện. */
   page?: number
   size?: number
 }
@@ -53,7 +71,7 @@ export interface PageResult<T> {
   content: T[]
   totalElements: number
   totalPages: number
-  /** Số trang bắt đầu từ 0 như PageAccountSummary. */
+  /** Số trang bắt đầu từ 0 như `page` của A9 (AccountPage). */
   number: number
   size: number
 }

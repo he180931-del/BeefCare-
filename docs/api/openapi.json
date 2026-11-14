@@ -2910,12 +2910,22 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -2947,12 +2957,22 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -2984,12 +3004,22 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -10163,6 +10193,7 @@
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
+          "description" : "Matches the name or email; trimmed, case-insensitive, at most 100 characters",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -10172,7 +10203,17 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SUSPENDED" ]
+          }
+        }, {
+          "name" : "platformRole",
+          "in" : "query",
+          "description" : "ACTIVE platform role; NONE = no ACTIVE role (a REVOKED one included)",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "NONE", "CS", "PM", "SA" ]
           }
         }, {
           "name" : "page",
@@ -10181,7 +10222,9 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 0
+            "default" : 0,
+            "maximum" : 21474836,
+            "minimum" : 0
           }
         }, {
           "name" : "size",
@@ -10190,16 +10233,46 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 25
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "name",
+            "enum" : [ "name" ]
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "asc",
+            "enum" : [ "asc", "desc" ]
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageAccountSummary"
+                  "$ref" : "#/components/schemas/AccountPage"
                 }
               }
             }
@@ -10221,12 +10294,22 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -10248,6 +10331,16 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -16334,37 +16427,77 @@
         },
         "required" : [ "version" ]
       },
-      "AccountSummary" : {
+      "AccountDetail" : {
         "type" : "object",
         "properties" : {
           "id" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "email" : {
-            "type" : "string"
-          },
           "fullName" : {
             "type" : "string"
           },
-          "phone" : {
+          "email" : {
             "type" : "string"
           },
           "accountStatus" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SUSPENDED" ]
           },
           "platformRole" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
           },
           "platformAccessStatus" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
           },
           "platformAccessVersion" : {
             "type" : "integer",
             "format" : "int64"
           },
+          "emailVerified" : {
+            "type" : "boolean"
+          },
+          "signInMethods" : {
+            "type" : "array",
+            "description" : "PASSWORD and/or GOOGLE",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastSignInAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Latest password or Google sign-in; null when never signed in"
+          },
           "ownerRegistrationCompleted" : {
             "type" : "boolean"
+          },
+          "ownerRegistrationCompletedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "ownedFarms" : {
+            "type" : "array",
+            "description" : "Names of the farms this account owns, Vietnamese order",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "farmCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmRoles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "version" : {
             "type" : "integer",
@@ -20636,18 +20769,18 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "first" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "last" : {
+            "type" : "boolean"
+          },
+          "first" : {
             "type" : "boolean"
           },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -20672,10 +20805,10 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "paged" : {
+          "unpaged" : {
             "type" : "boolean"
           },
-          "unpaged" : {
+          "paged" : {
             "type" : "boolean"
           }
         }
@@ -21055,67 +21188,86 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "first" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "last" : {
+            "type" : "boolean"
+          },
+          "first" : {
             "type" : "boolean"
           },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
           }
         }
       },
-      "PageAccountSummary" : {
+      "AccountListItem" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
+          "id" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "totalPages" : {
+          "fullName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "accountStatus" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SUSPENDED" ]
+          },
+          "platformRole" : {
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
+          },
+          "platformAccessStatus" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
+          },
+          "emailVerified" : {
+            "type" : "boolean"
+          },
+          "farmCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "ACTIVE farm memberships"
+          },
+          "farmRoles" : {
+            "type" : "array",
+            "description" : "Roles of the ACTIVE memberships, ordered OWNER, MANAGER, TECHNICIAN",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "AccountPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AccountListItem"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
             "type" : "integer",
             "format" : "int32"
           },
           "size" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/AccountSummary"
-            }
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "empty" : {
-            "type" : "boolean"
           }
         }
       },
@@ -22949,13 +23101,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "parameterName" : {
+          "token" : {
             "type" : "string"
           },
           "headerName" : {
             "type" : "string"
           },
-          "token" : {
+          "parameterName" : {
             "type" : "string"
           }
         }

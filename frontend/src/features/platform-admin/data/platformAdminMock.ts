@@ -1,4 +1,4 @@
-import type { AccountSummary, AuditEntry, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
+import type { AccountDetail, AuditEntry, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
 
 export interface AccessHistoryRecord {
   id: number
@@ -18,56 +18,56 @@ export interface PlatformAdminSeed {
   currentUserId: number
   /** Ngày "hôm nay" của mock (yyyy-mm-dd): khớp frame 18/10/2026. */
   today: string
-  accounts: AccountSummary[]
+  accounts: AccountDetail[]
   history: AccessHistoryRecord[]
   audit: RawAuditEntry[]
   notifications: StoredNotification[]
 }
 
-const account = (a: Partial<AccountSummary> & Pick<AccountSummary, 'id' | 'email' | 'fullName'>): AccountSummary => ({
-  phone: null,
+// Thời điểm của tài khoản ghi kèm +07:00: SCR-16 hiện giờ Asia/Ho_Chi_Minh (Table III-1) dù máy chạy ở múi giờ nào.
+const account = (a: Partial<AccountDetail> & Pick<AccountDetail, 'id' | 'email' | 'fullName'>): AccountDetail => ({
   accountStatus: 'ACTIVE',
   platformRole: null,
   platformAccessStatus: null,
   platformAccessVersion: 1,
   ownerRegistrationCompleted: false,
+  ownerRegistrationCompletedAt: null,
   version: 1,
   emailVerified: true,
-  signInProvider: 'GOOGLE',
-  createdAt: '2025-06-02T09:00:00',
-  ownerRegisteredAt: null,
-  lastSignInAt: '2026-10-17T16:30:00',
+  signInMethods: ['GOOGLE'],
+  createdAt: '2025-06-02T09:00:00+07:00',
+  lastSignInAt: '2026-10-17T16:30:00+07:00',
   farmCount: 0,
-  farmRoleSummary: '',
+  farmRoles: [],
   ownedFarms: [],
   ...a,
 })
 
-const ACCOUNTS: AccountSummary[] = [
+const ACCOUNTS: AccountDetail[] = [
   account({
-    id: 1, email: 'hung.nv@gmail.com', fullName: 'Nguyễn Văn Hùng', phone: '0912345678', version: 3, ownerRegistrationCompleted: true,
-    createdAt: '2024-03-12T09:20:00', ownerRegisteredAt: '2024-03-12T09:20:00', lastSignInAt: '2026-10-18T07:12:00',
-    farmCount: 3, farmRoleSummary: 'Chủ trại', ownedFarms: ['Trại bò Yên Bài – Ba Vì', 'Trại Tản Lĩnh', 'Trại Suối Hai'],
+    id: 1, email: 'hung.nv@gmail.com', fullName: 'Nguyễn Văn Hùng', version: 3, ownerRegistrationCompleted: true,
+    createdAt: '2024-03-12T09:20:00+07:00', ownerRegistrationCompletedAt: '2024-03-12T09:20:00+07:00', lastSignInAt: '2026-10-18T07:12:00+07:00',
+    farmCount: 3, farmRoles: ['OWNER'], ownedFarms: ['Trại bò Yên Bài – Ba Vì', 'Trại Tản Lĩnh', 'Trại Suối Hai'],
   }),
-  account({ id: 2, email: 'ha.pt@beefcare.vn', fullName: 'Phạm Thu Hà', platformRole: 'CS', platformAccessStatus: 'ACTIVE', platformAccessVersion: 2, createdAt: '2025-01-15T08:00:00', lastSignInAt: '2026-10-18T07:40:00' }),
-  account({ id: 3, email: 'quan.dm@beefcare.vn', fullName: 'Đỗ Minh Quân', platformRole: 'PM', platformAccessStatus: 'ACTIVE', platformAccessVersion: 2, createdAt: '2025-01-15T08:10:00', lastSignInAt: '2026-10-18T06:55:00' }),
-  account({ id: 4, email: 'nam.vh@beefcare.vn', fullName: 'Vũ Hoàng Nam', platformRole: 'SA', platformAccessStatus: 'ACTIVE', platformAccessVersion: 1, createdAt: '2025-01-10T08:00:00', lastSignInAt: '2026-10-18T07:58:00' }),
+  account({ id: 2, email: 'ha.pt@beefcare.vn', fullName: 'Phạm Thu Hà', platformRole: 'CS', platformAccessStatus: 'ACTIVE', platformAccessVersion: 2, createdAt: '2025-01-15T08:00:00+07:00', lastSignInAt: '2026-10-18T07:40:00+07:00' }),
+  account({ id: 3, email: 'quan.dm@beefcare.vn', fullName: 'Đỗ Minh Quân', platformRole: 'PM', platformAccessStatus: 'ACTIVE', platformAccessVersion: 2, createdAt: '2025-01-15T08:10:00+07:00', lastSignInAt: '2026-10-18T06:55:00+07:00' }),
+  account({ id: 4, email: 'nam.vh@beefcare.vn', fullName: 'Vũ Hoàng Nam', platformRole: 'SA', platformAccessStatus: 'ACTIVE', platformAccessVersion: 1, createdAt: '2025-01-10T08:00:00+07:00', lastSignInAt: '2026-10-18T07:58:00+07:00' }),
   account({
-    id: 5, email: 'mai.lt@gmail.com', fullName: 'Lê Thị Mai', createdAt: '2025-08-20T14:05:00', lastSignInAt: '2026-10-17T18:20:00',
-    farmCount: 1, farmRoleSummary: 'Kỹ thuật viên',
+    id: 5, email: 'mai.lt@gmail.com', fullName: 'Lê Thị Mai', createdAt: '2025-08-20T14:05:00+07:00', lastSignInAt: '2026-10-17T18:20:00+07:00',
+    farmCount: 1, farmRoles: ['TECHNICIAN'],
   }),
   account({
-    id: 6, email: 'tai.hv@gmail.com', fullName: 'Hồ Văn Tài', accountStatus: 'SUSPENDED', version: 4, signInProvider: 'PASSWORD', ownerRegistrationCompleted: true,
-    createdAt: '2024-03-12T10:30:00', ownerRegisteredAt: '2024-03-12T10:30:00', lastSignInAt: '2026-10-17T09:48:00',
-    farmCount: 1, farmRoleSummary: 'Chủ trại', ownedFarms: ['Trại Hồ Tài – Sóc Sơn (đang tạm ngưng dịch vụ)'],
+    id: 6, email: 'tai.hv@gmail.com', fullName: 'Hồ Văn Tài', accountStatus: 'SUSPENDED', version: 4, signInMethods: ['PASSWORD'], ownerRegistrationCompleted: true,
+    createdAt: '2024-03-12T10:30:00+07:00', ownerRegistrationCompletedAt: '2024-03-12T10:30:00+07:00', lastSignInAt: '2026-10-17T09:48:00+07:00',
+    farmCount: 1, farmRoles: ['OWNER'], ownedFarms: ['Trại Hồ Tài – Sóc Sơn (đang tạm ngưng dịch vụ)'],
   }),
-  account({ id: 7, email: 'khang.nm@beefcare.vn', fullName: 'Ngô Minh Khang', createdAt: '2026-10-15T13:00:00', lastSignInAt: '2026-10-17T16:30:00' }),
+  account({ id: 7, email: 'khang.nm@beefcare.vn', fullName: 'Ngô Minh Khang', createdAt: '2026-10-15T13:00:00+07:00', lastSignInAt: '2026-10-17T16:30:00+07:00' }),
   account({
-    id: 8, email: 'hoa.tt@gmail.com', fullName: 'Trần Thị Hoa', ownerRegistrationCompleted: true, createdAt: '2025-04-09T10:00:00', ownerRegisteredAt: '2025-04-09T10:00:00',
-    lastSignInAt: '2026-10-18T06:20:00', farmCount: 1, farmRoleSummary: 'Chủ trại', ownedFarms: ['Trại Thị Hoa – Gia Lâm'],
+    id: 8, email: 'hoa.tt@gmail.com', fullName: 'Trần Thị Hoa', ownerRegistrationCompleted: true, createdAt: '2025-04-09T10:00:00+07:00', ownerRegistrationCompletedAt: '2025-04-09T10:00:00+07:00',
+    lastSignInAt: '2026-10-18T06:20:00+07:00', farmCount: 1, farmRoles: ['OWNER'], ownedFarms: ['Trại Thị Hoa – Gia Lâm'],
   }),
-  account({ id: 9, email: 'bao.lq@gmail.com', fullName: 'Lý Quốc Bảo', emailVerified: false, createdAt: '2026-10-16T21:10:00', lastSignInAt: null }),
-  account({ id: 10, email: 'loc.tv@beefcare.vn', fullName: 'Trịnh Văn Lộc', platformRole: 'CS', platformAccessStatus: 'REVOKED', platformAccessVersion: 3, createdAt: '2025-05-02T08:00:00', lastSignInAt: '2026-10-09T17:00:00' }),
+  account({ id: 9, email: 'bao.lq@gmail.com', fullName: 'Lý Quốc Bảo', emailVerified: false, createdAt: '2026-10-16T21:10:00+07:00', lastSignInAt: null }),
+  account({ id: 10, email: 'loc.tv@beefcare.vn', fullName: 'Trịnh Văn Lộc', platformRole: 'CS', platformAccessStatus: 'REVOKED', platformAccessVersion: 3, createdAt: '2025-05-02T08:00:00+07:00', lastSignInAt: '2026-10-09T17:00:00+07:00' }),
 ]
 
 const HISTORY: AccessHistoryRecord[] = [

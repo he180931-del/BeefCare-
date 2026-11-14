@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createPlatformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
+import { accountsPath, createPlatformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
 import { createPlatformAdminDemoStore } from '../../../src/features/platform-admin/data/platformAdminDemoStore'
 import { createPlatformAdminSeed } from '../../../src/features/platform-admin/data/platformAdminMock'
 
 const NOW = new Date('2026-10-18T08:30:00')
-const HUNG = 1, HA = 2, NAM = 4, TAI = 6, KHANG = 7, BAO = 9
+const HUNG = 1, HA = 2, NAM = 4, TAI = 6, KHANG = 7, BAO = 9, LOC = 10
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }) as never
 
 function make() {
@@ -50,7 +50,7 @@ describe('quyền nhân sự nền tảng', () => {
     expect(acc).toMatchObject({ platformRole: 'CS', platformAccessStatus: 'ACTIVE' })
     await expect(api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'PM', reason: 'x', expectedVersion: v() })).rejects.toMatchObject({ code: 'INVALID_STATE' })
     await expect(api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'CS', reason: 'x', expectedVersion: v() })).rejects.toMatchObject({ code: 'NO_CHANGE' })
-    const stale = v() - 1
+    const stale = (v() ?? 0) - 1
     await expect(api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'PM', reason: 'x', expectedVersion: stale })).rejects.toMatchObject({ code: 'STALE' })
     acc = await api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'PM', reason: 'Chuyển sang nhóm đối soát thanh toán', expectedVersion: v() })
     expect(acc.platformRole).toBe('PM')
@@ -83,16 +83,90 @@ describe('quyền nhân sự nền tảng', () => {
   })
 })
 
-describe('danh sách tài khoản', () => {
-  it('lọc theo tên hoặc email không dấu, trạng thái và vai trò nền tảng', async () => {
+describe('danh sách tài khoản (A9, D31)', () => {
+  it('tìm theo tên hoặc email, không phân biệt hoa thường, giữ dấu; không tìm theo SĐT', async () => {
     const { api } = make()
-    expect((await api.listAccounts({ q: 'hung' })).content.map((a) => a.id)).toEqual([HUNG])
-    expect((await api.listAccounts({ q: 'ho van' })).content.map((a) => a.id)).toEqual([TAI])
+    expect((await api.listAccounts({ q: 'hung' })).content.map((a) => a.id)).toEqual([HUNG]) // khớp email
+    expect((await api.listAccounts({ q: '  hồ VĂN ' })).content.map((a) => a.id)).toEqual([TAI])
+    expect((await api.listAccounts({ q: 'ho van' })).content).toEqual([]) // giữ dấu: "ho van" không khớp "Hồ Văn"
+    expect((await api.listAccounts({ q: '0912345678' })).content).toEqual([])
+  })
+
+  it('lọc trạng thái và vai trò nền tảng đang ACTIVE; "Không có" gồm cả vai trò đã thu hồi', async () => {
+    const { api } = make()
     expect((await api.listAccounts({ status: 'SUSPENDED' })).content.map((a) => a.id)).toEqual([TAI])
-    expect((await api.listAccounts({ platformRole: 'CS' })).content.map((a) => a.id)).toContain(HA)
-    const none = await api.listAccounts({ platformRole: 'NONE' })
-    expect(none.content.every((a) => a.platformRole === null)).toBe(true)
+    const cs = (await api.listAccounts({ platformRole: 'CS' })).content.map((a) => a.id)
+    expect(cs).toEqual([HA]) // Trịnh Văn Lộc có CS đã thu hồi
+    const none = (await api.listAccounts({ platformRole: 'NONE' })).content
+    expect(none.map((a) => a.id)).toContain(LOC)
+    expect(none.every((a) => a.platformRole === null || a.platformAccessStatus === 'REVOKED')).toBe(true)
+  })
+
+  it('xếp theo tên tiếng Việt, đảo chiều, 20 dòng/trang và chỉ trả cột của danh sách', async () => {
+    const { api } = make()
+    const page = await api.listAccounts()
+    expect(page.size).toBe(20)
+    expect(page.content.map((a) => a.fullName)).toEqual([
+      'Đỗ Minh Quân', 'Hồ Văn Tài', 'Lê Thị Mai', 'Lý Quốc Bảo', 'Ngô Minh Khang', 'Nguyễn Văn Hùng', 'Phạm Thu Hà', 'Trần Thị Hoa', 'Trịnh Văn Lộc', 'Vũ Hoàng Nam',
+    ])
+    const desc = await api.listAccounts({ dir: 'desc' })
+    expect(desc.content.map((a) => a.id)).toEqual([...page.content.map((a) => a.id)].reverse())
     expect((await api.listAccounts({ size: 3, page: 2 })).content).toHaveLength(3)
+    expect(Object.keys(page.content[0]).sort()).toEqual(['accountStatus', 'email', 'emailVerified', 'farmCount', 'farmRoles', 'fullName', 'id', 'platformAccessStatus', 'platformRole'])
+    const hung = await api.getAccount(HUNG)
+    expect(hung).toMatchObject({ farmCount: 3, farmRoles: ['OWNER'], ownedFarms: ['Trại bò Yên Bài – Ba Vì', 'Trại Tản Lĩnh', 'Trại Suối Hai'] })
+    expect(hung).not.toHaveProperty('phone')
+  })
+})
+
+describe('A9 / A10 ở chế độ backend (D31)', () => {
+  const row = { id: 12, email: 'an@x.vn', fullName: 'An', accountStatus: 'ACTIVE', platformRole: 'CS', platformAccessStatus: 'REVOKED', emailVerified: true, farmCount: 2, farmRoles: ['MANAGER', 'TECHNICIAN'] }
+  const detail = {
+    ...row, platformAccessVersion: 3, signInMethods: ['PASSWORD', 'GOOGLE'], createdAt: '2025-01-15T02:30:00Z', lastSignInAt: null,
+    ownerRegistrationCompleted: false, ownerRegistrationCompletedAt: null, ownedFarms: [], version: 4,
+  }
+  const backend = (get: (path: string) => Promise<unknown>) => {
+    const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
+    const list = vi.spyOn(store, 'listAccounts')
+    const one = vi.spyOn(store, 'getAccount')
+    const http = { get: vi.fn(get), command: vi.fn(), farmPath: vi.fn() }
+    return { api: createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: http as never, store }), http, list, one }
+  }
+
+  it('gửi bộ lọc, trang từ 0, 20 dòng, sắp theo tên và đổi phong bì sang trang của màn hình', async () => {
+    const { api, http, list } = backend(async () => ({ items: [row], total: 21, page: 1, size: 20 }))
+    const page = await api.listAccounts({ q: '  an ', status: 'ACTIVE', platformRole: 'NONE', dir: 'desc', page: 2 })
+    expect(http.get).toHaveBeenCalledWith('/api/platform/accounts?q=an&status=ACTIVE&platformRole=NONE&page=1&size=20&sort=name&dir=desc')
+    expect(page).toEqual({ content: [row], totalElements: 21, totalPages: 2, number: 1, size: 20 })
+    expect(accountsPath()).toBe('/api/platform/accounts?page=0&size=20&sort=name&dir=asc')
+    expect(list).not.toHaveBeenCalled()
+  })
+
+  it('đọc chi tiết theo id và giữ nguyên các trường null', async () => {
+    const { api, http, one } = backend(async () => detail)
+    await expect(api.getAccount(12)).resolves.toEqual(detail)
+    expect(http.get).toHaveBeenCalledWith('/api/platform/accounts/12')
+    expect(one).not.toHaveBeenCalled()
+  })
+
+  it('báo lỗi khi máy chủ thiếu hoặc sai trường, không tự gán mặc định', async () => {
+    for (const broken of [{ ...row, farmCount: undefined }, { ...row, accountStatus: 'BLOCKED' }, { ...row, farmRoles: ['OWNER', 'CS'] }, { ...row, id: 0 }]) {
+      const { api } = backend(async () => ({ items: [broken], total: 1, page: 0, size: 20 }))
+      await expect(api.listAccounts()).rejects.toThrow('Dữ liệu máy chủ không có')
+    }
+    for (const broken of [{ ...detail, createdAt: undefined }, { ...detail, signInMethods: 'GOOGLE' }, { ...detail, ownedFarms: [1] }, { ...detail, version: undefined }]) {
+      const { api } = backend(async () => broken)
+      await expect(api.getAccount(12)).rejects.toThrow('Dữ liệu máy chủ không có')
+    }
+    const { api } = backend(async () => [row])
+    await expect(api.listAccounts()).rejects.toThrow('danh sách tài khoản')
+  })
+
+  it('trang "Quyền nhân sự" (STAFF) và các lệnh UC8/UC9 vẫn chưa nối, không đụng tới store mock', async () => {
+    const { api, http } = backend(async () => ({ items: [], total: 0, page: 0, size: 20 }))
+    await expect(api.listAccounts({ platformRole: 'STAFF' })).rejects.toThrow('Chưa tích hợp')
+    await expect(api.suspendAccount(HUNG, { reason: 'x', expectedVersion: 1 })).rejects.toThrow('Chưa tích hợp')
+    expect(http.get).not.toHaveBeenCalled()
   })
 })
 
@@ -141,14 +215,14 @@ describe('thông báo của SA', () => {
 })
 
 describe('chế độ backend', () => {
-  it('từ chối và không đụng tới store mock', async () => {
+  it('các chức năng chưa nối từ chối và không đụng tới store mock', async () => {
     const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
-    const spy = vi.spyOn(store, 'listAccounts')
     const suspend = vi.spyOn(store, 'suspendAccount')
+    const audit = vi.spyOn(store, 'listAudit')
     const api = createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listAccounts()).rejects.toThrow('Chưa tích hợp')
     await expect(api.suspendAccount(HUNG, { reason: 'x', expectedVersion: 1 })).rejects.toThrow('Chưa tích hợp')
-    expect(spy).not.toHaveBeenCalled()
+    await expect(api.listAudit({ from: '2026-10-11', to: '2026-10-18' })).rejects.toThrow('Chưa tích hợp')
     expect(suspend).not.toHaveBeenCalled()
+    expect(audit).not.toHaveBeenCalled()
   })
 })

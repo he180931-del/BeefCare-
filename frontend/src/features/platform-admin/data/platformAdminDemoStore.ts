@@ -3,12 +3,18 @@ import {
   planAccessChange, validateAuditRange,
 } from '../domain/platformRules'
 import type {
-  AccountChange, AccountFilters, AccountSummary, AuditActorOption, AuditEntry, AuditFilters, AuditItem, NotificationOpenResult,
+  AccountChange, AccountDetail, AccountFilters, AccountListItem, AuditActorOption, AuditEntry, AuditFilters, AuditItem, NotificationOpenResult,
   NotificationView, PlatformAccessChange,
 } from '../types'
 import { createPlatformAdminSeed, type PlatformAdminSeed, type RawAuditEntry } from './platformAdminMock'
 
 const ACCOUNT_PAGE_SIZE = 20
+
+/** A9 chỉ trả các cột của danh sách; chi tiết đọc riêng bằng A10 (D31). */
+const listItem = (a: AccountDetail): AccountListItem => ({
+  id: a.id, email: a.email, fullName: a.fullName, accountStatus: a.accountStatus, platformRole: a.platformRole,
+  platformAccessStatus: a.platformAccessStatus, emailVerified: a.emailVerified, farmCount: a.farmCount, farmRoles: [...a.farmRoles],
+})
 const AUDIT_PAGE_SIZE = 20
 
 export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPlatformAdminSeed()) {
@@ -31,7 +37,7 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
     if (!actor || !isActiveSa(actor)) throw new PlatformAdminError('FORBIDDEN', MSG.forbidden)
     return actor
   }
-  const log = (actor: AccountSummary, action: string, target: AccountSummary, before: string, after: string, scope = '') => {
+  const log = (actor: AccountDetail, action: string, target: AccountDetail, before: string, after: string, scope = '') => {
     state.audit.push({
       id: nextId(), loggedAt: nowIso(), actorId: actor.id, actorEmail: actor.email, actorName: actor.fullName, actorRole: actor.platformRole,
       farmName: null, action, targetType: 'ACCOUNT', targetId: target.id, targetLabel: target.fullName, targetRef: `a${String(target.id).padStart(3, '0')}…${String(nextId()).slice(-4)}`,
@@ -55,7 +61,7 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
 
     async listAccounts(filters: AccountFilters = {}) {
       requireSa()
-      return structuredClone(paginate(filterAccounts(state.accounts, filters), filters.page ?? 1, filters.size ?? ACCOUNT_PAGE_SIZE))
+      return paginate(filterAccounts(state.accounts, filters).map(listItem), filters.page ?? 1, filters.size ?? ACCOUNT_PAGE_SIZE)
     },
     async getAccount(id: number) { requireSa(); return structuredClone(find(id)) },
     async accountHistory(id: number): Promise<AuditItem[]> {
@@ -76,7 +82,7 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
       const next = planAccessChange(state.accounts, target, command)
       target.platformRole = next.role
       target.platformAccessStatus = next.status
-      target.platformAccessVersion += 1
+      target.platformAccessVersion = (target.platformAccessVersion ?? 0) + 1
       state.history.push({ id: nextId(), accountId: id, operation: command.operation, role: next.role, reason: command.reason.trim(), by: actor.fullName, at: nowIso() })
       const action = { GRANT: 'PLATFORM_ACCESS_GRANTED', CHANGE: 'PLATFORM_ACCESS_CHANGED', REVOKE: 'PLATFORM_ACCESS_REVOKED', RESTORE: 'PLATFORM_ACCESS_RESTORED' }[command.operation]
       log(actor, action, target, before, accessText(next.role, next.status), next.role)

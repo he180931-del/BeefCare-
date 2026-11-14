@@ -6,14 +6,14 @@ import { platformAdminApi } from '../api/platformAdminApi'
 import {
   MSG, OPERATION_LABEL, PLATFORM_ROLES, REASON_MAX, ROLE_LABEL, accessButtonLabel, availableOperations, formatDateTime, validateReason,
 } from '../domain/platformRules'
-import type { AccountSummary, PlatformAccessOperation, PlatformRole } from '../types'
+import type { AccountDetail, PlatformAccessOperation, PlatformRole } from '../types'
 import { AccountStatusBadge, PersonCell, errorMessage, isStale } from './common'
 
 const DONE_VERB: Record<PlatformAccessOperation, string> = { GRANT: 'cấp', CHANGE: 'đổi', REVOKE: 'thu hồi', RESTORE: 'khôi phục' }
 
 /** Hộp thoại "Platform Staff Access" (UC-FE03-09): cấp, đổi vai trò, thu hồi hoặc khôi phục quyền nền tảng. */
 export default function AccessDialog({ account, onClose, onDone, onReload }: {
-  account: AccountSummary
+  account: AccountDetail
   onClose: () => void
   onDone: (message: string) => void
   onReload: () => void

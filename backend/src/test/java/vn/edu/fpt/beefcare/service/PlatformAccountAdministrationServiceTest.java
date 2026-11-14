@@ -20,6 +20,7 @@ import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.AuditLogRepository;
+import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
 import vn.edu.fpt.beefcare.repository.UserRepository;
 
@@ -29,6 +30,7 @@ class PlatformAccountAdministrationServiceTest {
     @Mock AppUserRepository accounts;
     @Mock UserRepository users;
     @Mock PlatformStaffAccessRepository staffAccess;
+    @Mock FarmMembershipRepository farmMemberships;
     @Mock AuditLogRepository auditLogs;
     @Mock FarmClock clock;
     @Mock SessionRegistry sessions;
@@ -37,7 +39,7 @@ class PlatformAccountAdministrationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PlatformAccountAdministrationService(platformAccess, accounts, users, staffAccess, auditLogs, clock, sessions);
+        service = new PlatformAccountAdministrationService(platformAccess, accounts, users, staffAccess, farmMemberships, auditLogs, clock, sessions);
         actor = account(90L, "sa@example.test", "ACTIVE", 2L);
         when(platformAccess.requireRole(PlatformRole.SA)).thenReturn(new PlatformContext(actor, null, PlatformRole.SA));
     }

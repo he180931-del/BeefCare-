@@ -31,5 +31,13 @@ public interface FarmMembershipRepository extends JpaRepository<FarmMembership, 
     @Query("select m from FarmMembership m where m.farm.id = :farmId")
     List<FarmMembership> findWithUserByFarmId(@org.springframework.data.repository.query.Param("farmId") Long farmId);
     List<FarmMembership> findByFarm_IdAndStatusIgnoreCase(Long farmId,String status);
+
+    /** SCR-16 "Farms joined" (D31): ACTIVE memberships of a page of accounts per role, in one query; [userId, ROLE, count]. */
+    @Query("select m.user.id, upper(m.role), count(m) from FarmMembership m where m.user.id in :userIds and upper(m.status) = 'ACTIVE' group by m.user.id, upper(m.role)")
+    List<Object[]> countActiveByUserAndRole(@org.springframework.data.repository.query.Param("userIds") java.util.Collection<Long> userIds);
+
+    /** SCR-16 account detail: names of the farms the account owns (any service status). */
+    @Query("select f.name from FarmMembership m join m.farm f where m.user.id = :userId and upper(m.role) = 'OWNER'")
+    List<String> findOwnedFarmNames(@org.springframework.data.repository.query.Param("userId") Long userId);
     Optional<FarmMembership> findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(Long farmId, String role, String status);
 }

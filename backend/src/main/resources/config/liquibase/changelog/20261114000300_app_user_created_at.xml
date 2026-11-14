@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261114000300-app-user-created-at" author="beefcare">
+        <!-- D31 / UC-FE03-07: SRS Part I §3.2 User Account "created time", shown as Created at on SCR-16. Set once when the
+             account row is inserted (AppUser @PrePersist); the default covers rows inserted outside JPA. -->
+        <addColumn tableName="app_user">
+            <column name="created_at" type="${datetimeType}"/>
+        </addColumn>
+        <!-- Existing rows, best source first: the sign-in identity created with the account (same email), then the earliest
+             time a sign-in method was linked, then the Owner terms acceptance, finally the time of this migration. -->
+        <sql>UPDATE app_user SET created_at = (SELECT MIN(j.created_date) FROM jhi_user j WHERE LOWER(j.email) = LOWER(app_user.email)) WHERE created_at IS NULL</sql>
+        <sql>UPDATE app_user SET created_at = CASE WHEN password_linked_at IS NULL THEN google_linked_at WHEN google_linked_at IS NULL OR password_linked_at &lt;= google_linked_at THEN password_linked_at ELSE google_linked_at END WHERE created_at IS NULL</sql>
+        <sql>UPDATE app_user SET created_at = terms_accepted_at WHERE created_at IS NULL</sql>
+        <sql>UPDATE app_user SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL</sql>
+        <addNotNullConstraint tableName="app_user" columnName="created_at" columnDataType="${datetimeType}"/>
+        <addDefaultValue tableName="app_user" columnName="created_at" columnDataType="${datetimeType}" defaultValueComputed="${now}"/>
+    </changeSet>
+</databaseChangeLog>

@@ -72,7 +72,7 @@ function StaffContent() {
                   <Td><PersonCell name={a.fullName} sub={a.email} /></Td>
                   <Td>{a.platformRole ? ROLE_LABEL[a.platformRole] : '—'}</Td>
                   <Td><AccessStatusBadge status={a.platformAccessStatus} /></Td>
-                  <Td>{a.accountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm khóa'}</Td>
+                  <Td>{a.accountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm ngưng'}</Td>
                   <Td><Button size="sm" onClick={() => manage(a.id)} aria-label={`Quản lý quyền của ${a.fullName}`}>Quản lý quyền</Button></Td>
                 </tr>
               ))}

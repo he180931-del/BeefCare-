@@ -3,12 +3,12 @@ import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Field, Note, Textarea, Button } from '../../../components/ui'
 import { platformAdminApi } from '../api/platformAdminApi'
 import { REASON_MAX, validateReason } from '../domain/platformRules'
-import type { AccountSummary } from '../types'
+import type { AccountDetail } from '../types'
 import { errorMessage, isStale } from './common'
 
-/** Hộp thoại xác nhận tạm khóa / mở khóa (MSG-FE03-14, MSG-FE03-15). */
+/** Hộp thoại xác nhận tạm ngưng / khôi phục tài khoản (MSG-FE03-14, MSG-FE03-15; UC-FE03-08). */
 export default function AccountStatusDialog({ account, reason, onReason, onClose, onDone, onReload }: {
-  account: AccountSummary
+  account: AccountDetail
   reason: string
   onReason: (reason: string) => void
   onClose: () => void
@@ -31,7 +31,7 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
       const next = suspending
         ? await platformAdminApi.suspendAccount(account.id, command)
         : await platformAdminApi.restoreAccount(account.id, command)
-      onDone(`Tài khoản ${next.email} đã chuyển sang trạng thái ${next.accountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm khóa'}.`)
+      onDone(`Tài khoản ${next.email} đã chuyển sang trạng thái ${next.accountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm ngưng'}.`)
     } catch (e) {
       setError(e)
     } finally {
@@ -41,10 +41,10 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
 
   return (
     <Modal
-      title={suspending ? 'Tạm khóa tài khoản' : 'Mở khóa tài khoản'}
+      title={suspending ? 'Tạm ngưng tài khoản' : 'Khôi phục tài khoản'}
       sub={suspending
-        ? `Tạm khóa tài khoản ${account.email}? Người dùng sẽ không thể đăng nhập.`
-        : `Mở khóa tài khoản ${account.email}? Vai trò và quyền thành viên đã thu hồi sẽ không được khôi phục.`}
+        ? `Tạm ngưng tài khoản ${account.email}? Người dùng sẽ không đăng nhập được.`
+        : `Khôi phục tài khoản ${account.email}? Các vai trò và membership đã thu hồi sẽ không được trả lại.`}
       width={560}
       onClose={onClose}
     >
@@ -61,7 +61,7 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
       <ModalFooter className="!px-0 !pb-0">
         <ModalButton onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={suspending ? 'danger' : 'primary'} onClick={submit} disabled={busy}>
-          {suspending ? 'Tạm khóa tài khoản' : 'Mở khóa tài khoản'}
+          {suspending ? 'Tạm ngưng tài khoản' : 'Khôi phục tài khoản'}
         </ModalButton>
       </ModalFooter>
     </Modal>

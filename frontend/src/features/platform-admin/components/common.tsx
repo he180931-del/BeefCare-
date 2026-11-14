@@ -36,7 +36,7 @@ export function PersonCell({ name, sub, system, wrap }: { name: string; sub?: st
 }
 
 export const AccountStatusBadge = ({ status }: { status: AccountStatus }) =>
-  status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : <Badge tone="err" icon="player-pause">Tạm khóa</Badge>
+  status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : <Badge tone="err" icon="player-pause">Tạm ngưng</Badge>
 
 export const AccessStatusBadge = ({ status }: { status: PlatformAccessStatus | null }) =>
   status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : status === 'REVOKED' ? <Badge tone="warn" icon="ban">Đã thu hồi</Badge> : <Badge tone="outline">Chưa có quyền</Badge>

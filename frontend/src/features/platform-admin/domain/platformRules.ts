@@ -1,6 +1,6 @@
 import type {
-  AccountChange, AccountFilters, AccountSummary, AuditDetails, AuditEntry, AuditFilters, AuditTargetType, PageResult,
-  PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole,
+  AccountChange, AccountDetail, AccountFilters, AccountListItem, AuditDetails, AuditEntry, AuditFilters, AuditTargetType, FarmRole,
+  PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole,
 } from '../types'
 
 export const REASON_MAX = 500
@@ -26,7 +26,7 @@ export class PlatformAdminError extends Error {
 export const MSG = {
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   stale: 'Bản ghi này đã được thay đổi. Vui lòng tải lại và kiểm tra trước khi thử lại.',
-  lastSa: 'Phải còn ít nhất một Quản trị hệ thống đang hoạt động, và bạn không thể tạm khóa tài khoản của chính mình.',
+  lastSa: 'Phải còn ít nhất một Quản trị hệ thống đang hoạt động, và bạn không thể tạm ngưng tài khoản của chính mình.',
   noAccount: 'Không có tài khoản BeefCare nào cho email này. Người đó cần đăng nhập một lần trước khi được cấp quyền.',
   unverified: 'Email của tài khoản chưa được xác minh nên chưa thể cấp quyền nền tảng.',
   noLongerAssigned: 'Yêu cầu này không còn được giao cho bạn.',
@@ -44,17 +44,17 @@ export function validateReason(reason: string): string | null {
 
 // ---------- Tài khoản và quyền nền tảng ----------
 
-export const hasActiveAccess = (a: AccountSummary) => a.platformRole !== null && a.platformAccessStatus === 'ACTIVE'
-export const hasRevokedAccess = (a: AccountSummary) => a.platformRole !== null && a.platformAccessStatus === 'REVOKED'
-export const isActiveSa = (a: AccountSummary) => a.platformRole === 'SA' && a.platformAccessStatus === 'ACTIVE' && a.accountStatus === 'ACTIVE'
+export const hasActiveAccess = (a: AccountListItem) => a.platformRole !== null && a.platformAccessStatus === 'ACTIVE'
+export const hasRevokedAccess = (a: AccountListItem) => a.platformRole !== null && a.platformAccessStatus === 'REVOKED'
+export const isActiveSa = (a: AccountListItem) => a.platformRole === 'SA' && a.platformAccessStatus === 'ACTIVE' && a.accountStatus === 'ACTIVE'
 
-export function isLastActiveSa(accounts: AccountSummary[], id: number) {
+export function isLastActiveSa(accounts: AccountListItem[], id: number) {
   const target = accounts.find((a) => a.id === id)
   return !!target && isActiveSa(target) && !accounts.some((a) => a.id !== id && isActiveSa(a))
 }
 
 /** Hành động hộp thoại cấp quyền được phép theo trạng thái hiện tại (UC-FE03-09). */
-export function availableOperations(a: AccountSummary): PlatformAccessOperation[] {
+export function availableOperations(a: AccountListItem): PlatformAccessOperation[] {
   if (a.platformRole === null) return ['GRANT']
   return a.platformAccessStatus === 'ACTIVE' ? ['CHANGE', 'REVOKE'] : ['RESTORE']
 }
@@ -79,7 +79,7 @@ export const accessText = (role: PlatformRole | null, status: PlatformAccessStat
   role ? `role: ${role} · ${status === 'ACTIVE' ? 'đang hoạt động' : 'đã thu hồi'}` : 'role: —'
 
 /** Kiểm tra và tính trạng thái mới của một lệnh đổi quyền nền tảng; ném PlatformAdminError nếu vi phạm quy tắc. */
-export function planAccessChange(accounts: AccountSummary[], target: AccountSummary, req: PlatformAccessChange) {
+export function planAccessChange(accounts: AccountDetail[], target: AccountDetail, req: PlatformAccessChange) {
   if (!target.emailVerified) throw new PlatformAdminError('UNVERIFIED', MSG.unverified)
   if (req.expectedVersion !== target.platformAccessVersion) throw new PlatformAdminError('STALE', MSG.stale)
   const reasonError = validateReason(req.reason)
@@ -123,8 +123,8 @@ export function planAccessChange(accounts: AccountSummary[], target: AccountSumm
   }
 }
 
-/** Kiểm tra tạm khóa hoặc mở khóa tài khoản (UC-FE03-08). */
-export function checkAccountChange(accounts: AccountSummary[], target: AccountSummary, actorId: number, req: AccountChange, op: 'suspend' | 'restore') {
+/** Kiểm tra tạm ngưng hoặc khôi phục tài khoản (UC-FE03-08). */
+export function checkAccountChange(accounts: AccountDetail[], target: AccountDetail, actorId: number, req: AccountChange, op: 'suspend' | 'restore') {
   if (req.expectedVersion !== target.version) throw new PlatformAdminError('STALE', MSG.stale)
   const reasonError = validateReason(req.reason)
   if (reasonError) throw new PlatformAdminError('VALIDATION', reasonError)
@@ -136,18 +136,32 @@ export function checkAccountChange(accounts: AccountSummary[], target: AccountSu
   }
 }
 
-const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase()
 
-export function filterAccounts(accounts: AccountSummary[], { q = '', status = '', platformRole = '' }: AccountFilters) {
-  const needle = fold(q.trim())
-  return accounts.filter((a) => {
-    if (needle && !fold(`${a.fullName} ${a.email}`).includes(needle)) return false
-    if (status && a.accountStatus !== status) return false
-    if (platformRole === 'NONE') return a.platformRole === null
-    if (platformRole === 'STAFF') return a.platformRole !== null
-    if (platformRole) return a.platformRole === platformRole
-    return true
-  })
+const nameOrder = new Intl.Collator('vi', { sensitivity: 'accent' })
+
+/** Thứ tự cột Người dùng như A9 (D31): tên tiếng Việt, không phân biệt hoa thường; chưa có tên theo email; rồi email, id. */
+export function compareAccounts(a: AccountListItem, b: AccountListItem): number {
+  const name = (row: AccountListItem) => row.fullName.trim() || row.email
+  return nameOrder.compare(name(a), name(b)) || nameOrder.compare(a.email, b.email) || a.id - b.id
+}
+
+/**
+ * Lọc như A9 (D31): `q` khớp tên hoặc email (bỏ khoảng trắng đầu cuối, không phân biệt hoa thường, giữ dấu); vai trò
+ * CS / PM / SA là vai trò đang ACTIVE; NONE là không có vai trò ACTIVE (gồm vai trò đã thu hồi). STAFF chỉ cho bản
+ * mô phỏng trang "Quyền nhân sự" (FE-03 Q5).
+ */
+export function filterAccounts<T extends AccountListItem>(accounts: T[], { q = '', status = '', platformRole = '', dir = 'asc' }: AccountFilters): T[] {
+  const needle = q.trim().toLocaleLowerCase('vi')
+  return accounts
+    .filter((a) => {
+      if (needle && !a.fullName.toLocaleLowerCase('vi').includes(needle) && !a.email.toLocaleLowerCase('vi').includes(needle)) return false
+      if (status && a.accountStatus !== status) return false
+      if (platformRole === 'NONE') return !hasActiveAccess(a)
+      if (platformRole === 'STAFF') return a.platformRole !== null
+      if (platformRole) return hasActiveAccess(a) && a.platformRole === platformRole
+      return true
+    })
+    .sort((a, b) => (dir === 'desc' ? compareAccounts(b, a) : compareAccounts(a, b)))
 }
 
 export function paginate<T>(rows: T[], page: number, size: number): PageResult<T> {
@@ -168,10 +182,19 @@ export function initials(name: string) {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase()
 }
 
-export const farmsJoinedText = (a: AccountSummary) => (a.farmCount === 0 ? '0' : `${a.farmCount} (${a.farmRoleSummary})`)
+export const FARM_ROLE_LABEL: Record<FarmRole, string> = { OWNER: 'Chủ trại', MANAGER: 'Quản lý', TECHNICIAN: 'Kỹ thuật viên' }
 
-export const verificationText = (a: AccountSummary) =>
-  !a.emailVerified ? 'Email chưa xác minh' : a.signInProvider === 'GOOGLE' ? 'Google đã xác minh' : 'Email đã xác minh'
+/** Cột "Trại tham gia" (D31): số membership ACTIVE và các vai trò, ví dụ "3 (Chủ trại, Quản lý)". */
+export const farmsJoinedText = (a: Pick<AccountListItem, 'farmCount' | 'farmRoles'>) =>
+  a.farmCount === 0 ? '0' : `${a.farmCount} (${a.farmRoles.map((role) => FARM_ROLE_LABEL[role]).join(', ')})`
+
+/** Cột "Vai trò nền tảng" (D31): chỉ vai trò ACTIVE; vai trò đã thu hồi hiện thành "Không có" kèm chú thích. */
+export const platformRoleText = (a: AccountListItem) => (hasActiveAccess(a) ? a.platformRole as PlatformRole : 'Không có')
+export const revokedRoleNote = (a: AccountListItem) => (hasRevokedAccess(a) ? `${a.platformRole} đã thu hồi` : null)
+
+/** Email và xác minh (D31): Google xác nhận email, hoặc đã bấm link xác minh; tài khoản đăng ký mật khẩu chưa bấm link vẫn hiện. */
+export const verificationText = (a: Pick<AccountDetail, 'emailVerified' | 'signInMethods'>) =>
+  !a.emailVerified ? 'Chưa xác minh' : a.signInMethods.includes('GOOGLE') ? 'Đã xác minh (Google)' : 'Đã xác minh (email)'
 
 // ---------- Ngày giờ ----------
 
@@ -183,6 +206,13 @@ export const addMonthsYmd = (ymd: string, months: number) => { const [y, m, d] =
 
 export const formatDate = (iso: string) => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` }
 export const formatDateTime = (iso: string) => { const d = new Date(iso); return `${formatDate(iso)} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
+const PLATFORM_ZONE = 'Asia/Ho_Chi_Minh'
+const platformParts = (iso: string) =>
+  Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: PLATFORM_ZONE, hourCycle: 'h23', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    .formatToParts(new Date(iso)).map((p) => [p.type, p.value]))
+/** Màn hình nền tảng hiện giờ Asia/Ho_Chi_Minh (Table III-1), không theo múi giờ của máy. */
+export const formatPlatformDate = (iso: string) => { const p = platformParts(iso); return `${p.day}/${p.month}/${p.year}` }
+export const formatPlatformDateTime = (iso: string) => { const p = platformParts(iso); return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}` }
 export const formatShortDateTime = (iso: string) => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
 
 /** Thời gian thông báo: "n phút trước", giờ trong ngày, "Hôm qua", rồi ngày. */
