@@ -2,7 +2,7 @@ import { caseDay, computeHealthState, HealthValidationError, intError, latestWit
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
   CorrectEntryCommand, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
-  HealthTimelineRow, OpenCaseCommand, PendingExit, RecordResult, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
+  HealthTimelineRow, OpenCaseCommand, PendingExit, Progress, RecordResult, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
 } from '../types'
 import { HEALTH_DEMO_NOW, HEALTH_SEED, type CaseRecord, type EntryRecord, type HealthSeed } from './healthMock'
 
@@ -244,7 +244,9 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const allowed = c.status === 'OPEN' ? ['KEEP', 'TO_CHRONIC', 'CLOSE'] : ['KEEP', 'TO_OPEN', 'CLOSE']
       if (!allowed.includes(cmd.action)) throw new Error(MSG.changed)
       const errors: Record<string, string> = {}
-      const progress = textError('Diễn biến mới', cmd.progressText, { max: 1000 }); if (progress) errors.progressText = progress
+      const progressText = textError('Diễn biến mới', cmd.progressText, { required: cmd.action === 'KEEP', max: 1000 }); if (progressText) errors.progressText = progressText
+      // D25: lần theo dõi tạo từ popup này cần diễn biến người dùng chọn.
+      if ((cmd.action === 'KEEP' || cmd.progressText.trim()) && !cmd.progress) errors.progress = MSG.required('Diễn biến')
       const diagnosis = textError('Chẩn đoán nghi ngờ', cmd.diagnosis, { max: 100 }); if (diagnosis) errors.diagnosis = diagnosis
       const closing = cmd.action === 'CLOSE'
       if (closing) {
@@ -258,9 +260,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       c.suspectedContagious = cmd.suspectedContagious
       let observationId: number | null = null
       if (cmd.progressText.trim()) {
-        // Diễn biến nhập trong hộp thoại đóng ca không có ô "tiến triển": suy ra từ kết quả.
-        const progressValue = closing && cmd.outcome === 'RECOVERED' ? 'IMPROVED' : closing && cmd.outcome === 'DIED' ? 'WORSENED' : 'UNCHANGED'
-        observationId = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: closing ? cmd.closedAt! : now(), recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: null, progress: progressValue, description: cmd.progressText.trim() }).id
+        observationId = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: closing ? cmd.closedAt! : now(), recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: null, progress: cmd.progress as Progress, description: cmd.progressText.trim() }).id
       }
       let kind: HealthCaseResult['kind'] = 'KEPT'
       let voucher: PendingExit | null = null

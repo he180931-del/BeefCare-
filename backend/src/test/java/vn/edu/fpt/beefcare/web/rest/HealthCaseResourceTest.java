@@ -354,6 +354,28 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.healthState").value("UNDER_TREATMENT"));
     }
 
+    /** D25: a follow-up written by A5 carries the progress the user picked; the backend never fills a default. */
+    @Test
+    void tc10_28_statusChangeFollowUpNeedsTheChosenProgress() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        String base = "/health-cases/" + opened.id() + "/status";
+        for (String action : List.of("KEEP", "TO_CHRONIC")) {
+            postJson(base, manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"" + action + "\",\"latestProgress\":\"Còn ho\"}")
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-06")).andExpect(jsonPath("$.params.field").value("progress"));
+        }
+        postJson(base, manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"CLOSE\",\"outcome\":\"RECOVERED\",\"latestProgress\":\"Ăn lại\",\"progress\":\"  \"}")
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.params.field").value("progress"));
+        assertThat(versionOf(HealthCase.class, opened.id())).isEqualTo(opened.version());
+        postJson(base, manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"KEEP\",\"latestProgress\":\"Ăn lại\",\"progress\":\"IMPROVED\"}")
+            .andExpect(status().isOk());
+        mvc.perform(get(url("/health-cases/cattle/" + cow.getId())).with(as(manager.getEmail())))
+            .andExpect(jsonPath("$.openCases[0].timeline[1].type").value("FOLLOW_UP"))
+            .andExpect(jsonPath("$.openCases[0].timeline[1].progress").value("IMPROVED"));
+        // No follow-up is written when the text is empty, so the progress is not needed.
+        postJson(base, manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"action\":\"CLOSE\",\"outcome\":\"RECOVERED\",\"closedAt\":\"" + hoursAgo(0) + "\"}")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.observationId").doesNotExist());
+    }
+
     /**
      * Found while running against the real backend (Việc 5c): the follow-up written by a status change was stored at
      * the exact instant (with seconds), so a treatment or follow-up saved right after with the popup's default "now"
@@ -363,7 +385,7 @@ class HealthCaseResourceTest extends DomainTestSupport {
     void aStatusChangeFollowUpDoesNotBlockARecordSavedInTheSameMinute() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
         clock.set(TODAY.atTime(10, 0, 40).atZone(FARM_ZONE).toInstant());
-        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"TO_CHRONIC\",\"latestProgress\":\"Còn ho\"}")
+        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"TO_CHRONIC\",\"latestProgress\":\"Còn ho\",\"progress\":\"UNCHANGED\"}")
             .andExpect(status().isOk());
         Instant sameMinute = TODAY.atTime(10, 0).atZone(FARM_ZONE).toInstant();
         postJson("/health-cases/" + opened.id() + "/treatments", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"medicineId\":" + medicine.id()
@@ -399,7 +421,7 @@ class HealthCaseResourceTest extends DomainTestSupport {
     void tc10_14_18_closingAsDiedProposesAPendingVoucherAndTheCattleStaysActive() throws Exception {
         CareDtos.HealthCaseResult opened = open(daysAgo(6));
         CareDtos.TreatmentResult treated = treat(opened, daysAgo(5), 1, 7);
-        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"action\":\"CLOSE\",\"outcome\":\"DIED\",\"latestProgress\":\"Chết sáng nay\"}")
+        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"action\":\"CLOSE\",\"outcome\":\"DIED\",\"latestProgress\":\"Chết sáng nay\",\"progress\":\"WORSENED\"}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("CLOSED"))
             .andExpect(jsonPath("$.outcome").value("DIED"))

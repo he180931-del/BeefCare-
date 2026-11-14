@@ -137,7 +137,7 @@ class CareWorkflowIT extends DomainTestSupport {
         CareDtos.HealthCaseResult opened = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(5), null,
             null, "Bloat", null, false, "SEVERE", null));
         CareDtos.HealthCaseResult closed = health.updateStatus(farm.getId(), opened.id(), key(),
-            new CareDtos.CaseStatus(opened.version(), "CLOSE", "Found dead", null, null, null, "DIED", null, null));
+            new CareDtos.CaseStatus(opened.version(), "CLOSE", "Found dead", "WORSENED", null, null, "DIED", null, null));
         assertThat(closed.status()).isEqualTo("CLOSED");
         assertThat(timeline.timeline(farm.getId(), cow.getId(), "HEALTH", false))
             .filteredOn(event -> "HEALTH_CASE_CLOSED".equals(event.type())).singleElement().satisfies(event -> {

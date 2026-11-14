@@ -384,10 +384,9 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       const closing = cmd.action === 'CLOSE'
       return run(async () => {
         const confirmedById = await memberId(cmd.confirmedBy)
-        // Popup Cập nhật / Đóng ca không có ô "diễn biến" dạng enum: suy ra từ kết quả (3.2 yêu cầu theo dõi có diễn biến).
-        const progress: Progress = closing && cmd.outcome === 'RECOVERED' ? 'IMPROVED' : closing && cmd.outcome === 'DIED' ? 'WORSENED' : 'UNCHANGED'
+        // D25: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu thiếu khi có theo dõi.
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), {
-          expectedVersion: cmd.expectedVersion ?? null, action: cmd.action, latestProgress: cmd.progressText.trim() || null, progress, suspectedDiagnosis: cmd.diagnosis.trim() || null,
+          expectedVersion: cmd.expectedVersion ?? null, action: cmd.action, latestProgress: cmd.progressText.trim() || null, progress: cmd.progress || null, suspectedDiagnosis: cmd.diagnosis.trim() || null,
           suspectedContagious: cmd.suspectedContagious, outcome: closing ? cmd.outcome || null : null, closedAt: closing && cmd.closedAt ? toInstant(cmd.closedAt, timeZone) : null,
           confirmedById: confirmedById ?? null,
         }))

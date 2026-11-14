@@ -1,7 +1,7 @@
 import type { CaseOutcome, CaseStatus, EntryType, HealthState, Progress, Severity, TreatmentRoute } from '../types'
 
 export const SEVERITY_LABEL: Record<Severity, string> = { MILD: 'Nhẹ', MODERATE: 'Trung bình', SEVERE: 'Nặng' }
-export const PROGRESS_LABEL: Record<Progress, string> = { IMPROVED: 'Cải thiện', UNCHANGED: 'Không đổi', WORSENED: 'Xấu đi' }
+export const PROGRESS_LABEL: Record<Progress, string> = { IMPROVED: 'Tốt hơn', UNCHANGED: 'Không đổi', WORSENED: 'Xấu hơn' }
 export const ROUTE_LABEL: Record<TreatmentRoute, string> = {
   INTRAMUSCULAR: 'Tiêm bắp', SUBCUTANEOUS: 'Tiêm dưới da', INTRAVENOUS: 'Tiêm tĩnh mạch', ORAL: 'Uống', TOPICAL: 'Bôi ngoài da', OTHER: 'Khác',
 }

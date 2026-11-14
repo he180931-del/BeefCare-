@@ -218,17 +218,37 @@ test('TC-10-11/12/13: đổi trạng thái gửi action, diễn biến mới nh�
   const statusRoute = (status: string, extra: Record<string, unknown> = {}) => ({ id: 412, caseCode: 'HC-000412', status, version: 3, cattleId: 101, cattleCode: 'BC-101', observationId: 62, healthState: 'MONITORING', outcome: null, ...extra })
   let answer = statusRoute('CHRONIC', { chronicSince: '2026-11-05' })
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/health-cases/412/status': () => answer })
-  const chronic = await a.updateStatus(412, { expectedVersion: 2, action: 'TO_CHRONIC', progressText: ' Vẫn sốt nhẹ ', diagnosis: 'Viêm phổi mạn', suspectedContagious: true, confirmedBy: 'Lê Quản Lý' })
-  assert.deepEqual(post(calls, '/412/status'), { expectedVersion: 2, action: 'TO_CHRONIC', latestProgress: 'Vẫn sốt nhẹ', progress: 'UNCHANGED', suspectedDiagnosis: 'Viêm phổi mạn', suspectedContagious: true, outcome: null, closedAt: null, confirmedById: 7 })
+  const chronic = await a.updateStatus(412, { expectedVersion: 2, action: 'TO_CHRONIC', progressText: ' Vẫn sốt nhẹ ', progress: 'WORSENED', diagnosis: 'Viêm phổi mạn', suspectedContagious: true, confirmedBy: 'Lê Quản Lý' })
+  assert.deepEqual(post(calls, '/412/status'), { expectedVersion: 2, action: 'TO_CHRONIC', latestProgress: 'Vẫn sốt nhẹ', progress: 'WORSENED', suspectedDiagnosis: 'Viêm phổi mạn', suspectedContagious: true, outcome: null, closedAt: null, confirmedById: 7 })
   assert.deepEqual([chronic.kind, chronic.status, chronic.observationId, chronic.deathVoucher], ['CHRONIC', 'CHRONIC', 62, null])
   answer = statusRoute('OPEN')
   assert.equal((await a.updateStatus(412, { expectedVersion: 3, action: 'TO_OPEN', progressText: '', diagnosis: '', suspectedContagious: false, confirmedBy: '' })).kind, 'REOPENED')
-  assert.equal((await a.updateStatus(412, { expectedVersion: 3, action: 'KEEP', progressText: 'Như cũ', diagnosis: '', suspectedContagious: false, confirmedBy: '' })).kind, 'KEPT')
+  assert.equal((await a.updateStatus(412, { expectedVersion: 3, action: 'KEEP', progressText: 'Như cũ', progress: 'UNCHANGED', diagnosis: '', suspectedContagious: false, confirmedBy: '' })).kind, 'KEPT')
   answer = statusRoute('CLOSED', { outcome: 'RECOVERED', closedAt: '2026-11-05T02:00:00Z', healthState: 'HEALTHY' })
-  const closed = await a.updateStatus(412, { expectedVersion: 3, action: 'CLOSE', progressText: 'Khỏe lại', diagnosis: '', suspectedContagious: false, outcome: 'RECOVERED', closedAt: '2026-11-05T09:00', confirmedBy: 'Lê Quản Lý' })
+  const closed = await a.updateStatus(412, { expectedVersion: 3, action: 'CLOSE', progressText: 'Khỏe lại', progress: 'UNCHANGED', diagnosis: '', suspectedContagious: false, outcome: 'RECOVERED', closedAt: '2026-11-05T09:00', confirmedBy: 'Lê Quản Lý' })
   const body = calls.filter((c) => c.path.endsWith('/412/status')).at(-1)!.body as Record<string, unknown>
-  assert.deepEqual([body.action, body.outcome, body.closedAt, body.progress, body.latestProgress, body.confirmedById], ['CLOSE', 'RECOVERED', '2026-11-05T09:00:00+07:00', 'IMPROVED', 'Khỏe lại', 7])
+  assert.deepEqual([body.action, body.outcome, body.closedAt, body.progress, body.latestProgress, body.confirmedById], ['CLOSE', 'RECOVERED', '2026-11-05T09:00:00+07:00', 'UNCHANGED', 'Khỏe lại', 7])
   assert.deepEqual([closed.kind, closed.status, closed.outcome, closed.healthState, closed.deathVoucher], ['CLOSED', 'CLOSED', 'RECOVERED', 'HEALTHY', null])
+})
+
+test('TC-10-27/28: gửi đúng diễn biến người dùng chọn, không tự suy; thiếu → MSG-COM-06 dưới ô Diễn biến', async () => {
+  const { api: a, calls } = api({
+    ...baseRoutes(),
+    '/api/farms/1/health-cases/412/status': (body: unknown) => {
+      const b = body as Record<string, unknown>
+      if (b.latestProgress && !b.progress) throw backendError(400, 'MSG-COM-06', { field: 'progress' })
+      return { id: 412, caseCode: 'HC-000412', status: 'CLOSED', version: 3, cattleId: 101, cattleCode: 'BC-101', observationId: null, healthState: 'HEALTHY', outcome: b.outcome, closedAt: '2026-11-05T02:00:00Z', pendingExitVoucherId: b.outcome === 'DIED' ? 900 : null }
+    },
+  })
+  const close = (over: Record<string, unknown>) => a.updateStatus(412, { expectedVersion: 2, action: 'CLOSE', progressText: '', diagnosis: '', suspectedContagious: false, closedAt: '2026-11-05T09:00', confirmedBy: '', ...over })
+  const sent = () => (calls.filter((c) => c.path.endsWith('/412/status')).at(-1)!.body as Record<string, unknown>).progress
+  await close({ outcome: 'DIED', progressText: 'Nằm yên', progress: 'IMPROVED' })
+  assert.equal(sent(), 'IMPROVED')
+  await close({ outcome: 'RECOVERED' })
+  assert.equal(sent(), null)
+  const missing = await rejection(close({ outcome: 'RECOVERED', progressText: 'Ăn lại' }))
+  assert.equal(sent(), null)
+  assert.equal((missing as HealthValidationError).errors.progress, 'Diễn biến là bắt buộc.')
 })
 
 test('TC-10-14/15: đóng Chết / Mất tích trả phiếu xuất chờ từ pendingExitVoucherId; lỗi thời điểm đóng vào ô closedAt', async () => {
