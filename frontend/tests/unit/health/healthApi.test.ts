@@ -193,14 +193,19 @@ describe('sửa và hủy bản ghi', () => {
 })
 
 describe('chế độ backend', () => {
-  it('từ chối và không đụng vào store hay transport', async () => {
+  it('chỉ gọi API qua transport, không đụng vào store (adapter chi tiết: tests/api/healthBackendApi.test.ts)', async () => {
     const { store, transport } = setup()
     const spy = vi.spyOn(store, 'listCases')
+    transport.farmPath.mockImplementation((farmId: string | number, suffix = '') => `/api/farms/${farmId}${suffix}`)
+    transport.get.mockImplementation(async (path: string) => {
+      if (path.endsWith('/context')) return { id: 1, timeZone: 'Asia/Ho_Chi_Minh' }
+      if (path.endsWith('/pens')) return []
+      return { items: [], total: 0, page: 0, size: 200, counts: { open: 0, chronic: 0, closed: 0, all: 0 } }
+    })
     const api = createHealthApi({ mode: 'backend', farmId: 1, transport, store })
-    await expect(api.listCases()).rejects.toThrow('Chưa tích hợp')
-    await expect(api.getProfile('BC-000203')).rejects.toThrow('Chưa tích hợp')
+    expect((await api.listCases()).rows).toEqual([])
     expect(spy).not.toHaveBeenCalled()
-    expect(transport.get).not.toHaveBeenCalled()
+    expect(transport.get).toHaveBeenCalledWith('/api/farms/1/health-cases?tab=OPEN&page=0&size=200')
     expect(transport.command).not.toHaveBeenCalled()
   })
 })
