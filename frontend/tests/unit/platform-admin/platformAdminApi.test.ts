@@ -12,15 +12,19 @@ function make() {
   return { store, api: createPlatformAdminApi({ mode: 'local', farmId: 1, transport: transport(), store }) }
 }
 
-describe('tạm khóa và mở khóa tài khoản', () => {
-  it('bắt buộc lý do, đúng phiên bản, ghi audit và không tạm khóa hai lần', async () => {
+describe('tạm ngưng và khôi phục tài khoản (UC8, D32)', () => {
+  it('bắt buộc lý do 5–500 ký tự, đúng phiên bản, ghi audit và không tạm ngưng hai lần', async () => {
     const { api } = make()
     const acc = await api.getAccount(HUNG)
-    await expect(api.suspendAccount(HUNG, { reason: '  ', expectedVersion: acc.version })).rejects.toMatchObject({ code: 'VALIDATION' })
+    expect(acc.actions).toEqual(['SUSPEND'])
+    await expect(api.suspendAccount(HUNG, { reason: '  ', expectedVersion: acc.version })).rejects.toMatchObject({ code: 'VALIDATION', message: 'Lý do là bắt buộc.' })
+    await expect(api.suspendAccount(HUNG, { reason: ' a b c d ', expectedVersion: acc.version })).rejects.toMatchObject({ code: 'VALIDATION', message: /từ 5 đến 500/ })
+    await expect(api.suspendAccount(HUNG, { reason: 'x'.repeat(501), expectedVersion: acc.version })).rejects.toMatchObject({ code: 'VALIDATION' })
     await expect(api.suspendAccount(HUNG, { reason: 'Nghi ngờ lộ tài khoản', expectedVersion: acc.version + 1 })).rejects.toMatchObject({ code: 'STALE' })
     const done = await api.suspendAccount(HUNG, { reason: 'Nghi ngờ lộ tài khoản', expectedVersion: acc.version })
-    expect(done).toMatchObject({ accountStatus: 'SUSPENDED', version: acc.version + 1 })
-    await expect(api.suspendAccount(HUNG, { reason: 'Lần hai', expectedVersion: done.version })).rejects.toMatchObject({ code: 'NO_CHANGE' })
+    expect(done).toMatchObject({ accountStatus: 'SUSPENDED', version: acc.version + 1, actions: ['RESTORE'] })
+    // Đã ở trạng thái yêu cầu: MSG-FE03-20 trước lỗi version (D32)
+    await expect(api.suspendAccount(HUNG, { reason: 'Lần hai', expectedVersion: acc.version })).rejects.toMatchObject({ code: 'NO_CHANGE' })
     const audit = await api.listAudit({ from: '2026-10-18', to: '2026-10-18' })
     expect(audit.content[0]).toMatchObject({ action: 'ACCOUNT_SUSPENDED', targetLabel: 'Nguyễn Văn Hùng' })
   })
@@ -33,10 +37,13 @@ describe('tạm khóa và mở khóa tài khoản', () => {
     await expect(api.restoreAccount(TAI, { reason: 'Lại mở', expectedVersion: restored.version })).rejects.toMatchObject({ code: 'NO_CHANGE' })
   })
 
-  it('không tạm khóa chính mình hoặc System Admin cuối cùng', async () => {
+  it('không tạm ngưng chính mình: A10 không có SUSPEND, lệnh báo MSG-FE03-17 sau khi kiểm lý do', async () => {
     const { api } = make()
     const nam = await api.getAccount(NAM)
-    await expect(api.suspendAccount(NAM, { reason: 'Thử', expectedVersion: nam.version })).rejects.toMatchObject({ code: 'LAST_SA' })
+    expect(nam.actions).toEqual([])
+    await expect(api.suspendAccount(NAM, { reason: 'Thử', expectedVersion: nam.version })).rejects.toMatchObject({ code: 'VALIDATION' })
+    await expect(api.suspendAccount(NAM, { reason: 'Thử tự tạm ngưng', expectedVersion: nam.version + 9 }))
+      .rejects.toMatchObject({ code: 'LAST_SA', message: /Phải luôn còn ít nhất một System Admin/ })
   })
 })
 
@@ -123,14 +130,14 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
   const row = { id: 12, email: 'an@x.vn', fullName: 'An', accountStatus: 'ACTIVE', platformRole: 'CS', platformAccessStatus: 'REVOKED', emailVerified: true, farmCount: 2, farmRoles: ['MANAGER', 'TECHNICIAN'] }
   const detail = {
     ...row, platformAccessVersion: 3, signInMethods: ['PASSWORD', 'GOOGLE'], createdAt: '2025-01-15T02:30:00Z', lastSignInAt: null,
-    ownerRegistrationCompleted: false, ownerRegistrationCompletedAt: null, ownedFarms: [], version: 4,
+    ownerRegistrationCompleted: false, ownerRegistrationCompletedAt: null, ownedFarms: [], version: 4, actions: ['SUSPEND'],
   }
   const backend = (get: (path: string) => Promise<unknown>) => {
     const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
     const list = vi.spyOn(store, 'listAccounts')
     const one = vi.spyOn(store, 'getAccount')
-    const http = { get: vi.fn(get), command: vi.fn(), farmPath: vi.fn() }
-    return { api: createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: http as never, store }), http, list, one }
+    const http = { get: vi.fn(get), command: vi.fn(async () => ({ ...detail, accountStatus: 'SUSPENDED', version: 5, actions: ['RESTORE'] })), farmPath: vi.fn() }
+    return { api: createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: http as never, store }), http, list, one, store }
   }
 
   it('gửi bộ lọc, trang từ 0, 20 dòng, sắp theo tên và đổi phong bì sang trang của màn hình', async () => {
@@ -154,7 +161,10 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
       const { api } = backend(async () => ({ items: [broken], total: 1, page: 0, size: 20 }))
       await expect(api.listAccounts()).rejects.toThrow('Dữ liệu máy chủ không có')
     }
-    for (const broken of [{ ...detail, createdAt: undefined }, { ...detail, signInMethods: 'GOOGLE' }, { ...detail, ownedFarms: [1] }, { ...detail, version: undefined }]) {
+    for (const broken of [
+      { ...detail, createdAt: undefined }, { ...detail, signInMethods: 'GOOGLE' }, { ...detail, ownedFarms: [1] }, { ...detail, version: undefined },
+      { ...detail, actions: undefined }, { ...detail, actions: ['DELETE'] },
+    ]) {
       const { api } = backend(async () => broken)
       await expect(api.getAccount(12)).rejects.toThrow('Dữ liệu máy chủ không có')
     }
@@ -162,11 +172,25 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
     await expect(api.listAccounts()).rejects.toThrow('danh sách tài khoản')
   })
 
-  it('trang "Quyền nhân sự" (STAFF) và các lệnh UC8/UC9 vẫn chưa nối, không đụng tới store mock', async () => {
+  it('A12 (D32): gửi lý do đã bỏ khoảng trắng, version và Idempotency-Key; đọc phản hồi là A10', async () => {
+    const { api, http, store } = backend(async () => detail)
+    const suspend = vi.spyOn(store, 'suspendAccount')
+    const done = await api.suspendAccount(12, { reason: '  Nghi ngờ lộ mật khẩu  ', expectedVersion: 4 }, 'key-1')
+    expect(http.command).toHaveBeenCalledWith('/api/platform/accounts/12/suspend', { reason: 'Nghi ngờ lộ mật khẩu', version: 4 }, { key: 'key-1' })
+    expect(done).toMatchObject({ accountStatus: 'SUSPENDED', version: 5, actions: ['RESTORE'] })
+    await api.restoreAccount(12, { reason: 'Đã đổi mật khẩu', expectedVersion: 5 }, 'key-2')
+    expect(http.command).toHaveBeenLastCalledWith('/api/platform/accounts/12/restore', { reason: 'Đã đổi mật khẩu', version: 5 }, { key: 'key-2' })
+    expect(suspend).not.toHaveBeenCalled()
+    http.command.mockResolvedValueOnce({ ...detail, actions: undefined } as never)
+    await expect(api.suspendAccount(12, { reason: 'Nghi ngờ lộ mật khẩu', expectedVersion: 4 }, 'key-3')).rejects.toThrow('thao tác tài khoản')
+  })
+
+  it('trang "Quyền nhân sự" (STAFF) và lệnh UC9 vẫn chưa nối, không đụng tới store mock', async () => {
     const { api, http } = backend(async () => ({ items: [], total: 0, page: 0, size: 20 }))
     await expect(api.listAccounts({ platformRole: 'STAFF' })).rejects.toThrow('Chưa tích hợp')
-    await expect(api.suspendAccount(HUNG, { reason: 'x', expectedVersion: 1 })).rejects.toThrow('Chưa tích hợp')
+    await expect(api.changePlatformAccess(HUNG, { operation: 'GRANT', role: 'CS', reason: 'Bổ sung nhân sự', expectedVersion: null })).rejects.toThrow('Chưa tích hợp')
     expect(http.get).not.toHaveBeenCalled()
+    expect(http.command).not.toHaveBeenCalled()
   })
 })
 
@@ -217,12 +241,12 @@ describe('thông báo của SA', () => {
 describe('chế độ backend', () => {
   it('các chức năng chưa nối từ chối và không đụng tới store mock', async () => {
     const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
-    const suspend = vi.spyOn(store, 'suspendAccount')
+    const access = vi.spyOn(store, 'changePlatformAccess')
     const audit = vi.spyOn(store, 'listAudit')
     const api = createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.suspendAccount(HUNG, { reason: 'x', expectedVersion: 1 })).rejects.toThrow('Chưa tích hợp')
+    await expect(api.changePlatformAccess(HUNG, { operation: 'REVOKE', reason: 'Nghỉ việc', expectedVersion: 1 })).rejects.toThrow('Chưa tích hợp')
     await expect(api.listAudit({ from: '2026-10-11', to: '2026-10-18' })).rejects.toThrow('Chưa tích hợp')
-    expect(suspend).not.toHaveBeenCalled()
+    expect(access).not.toHaveBeenCalled()
     expect(audit).not.toHaveBeenCalled()
   })
 })

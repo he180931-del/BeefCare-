@@ -13,9 +13,13 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.transaction.TransactionException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.service.DomainMessages;
+import vn.edu.fpt.beefcare.service.IdempotencyCommandService;
 import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService;
 import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService.AccountDetail;
@@ -27,10 +31,16 @@ import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService.AuditIte
 @RequestMapping("/api/platform/accounts")
 public class PlatformAccountAdministrationResource {
     private final PlatformAccountAdministrationService service;
+    private final IdempotencyCommandService commands;
     private final DomainMessages messages;
 
-    public PlatformAccountAdministrationResource(PlatformAccountAdministrationService service, DomainMessages messages) {
+    public PlatformAccountAdministrationResource(
+        PlatformAccountAdministrationService service,
+        IdempotencyCommandService commands,
+        DomainMessages messages
+    ) {
         this.service = service;
+        this.commands = commands;
         this.messages = messages;
     }
 
@@ -39,6 +49,24 @@ public class PlatformAccountAdministrationResource {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ProblemDetail invalidQuery(MethodArgumentTypeMismatchException failure) {
         return problem(MessageCodes.COM_10, Map.of("field", failure.getName()), HttpStatus.BAD_REQUEST);
+    }
+
+    /** A12 body (D32): a missing reason / version is MSG-COM-06, a reason over 500 characters MSG-COM-10, with the field name. */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail invalidFields(MethodArgumentNotValidException failure) {
+        var errors = failure.getBindingResult().getFieldErrors();
+        var required = errors.stream().filter(error -> "NotBlank".equals(error.getCode()) || "NotNull".equals(error.getCode())).findFirst();
+        String code = required.isPresent() ? MessageCodes.COM_06 : MessageCodes.COM_10;
+        String field = required.orElseGet(errors::getFirst).getField();
+        return problem(code, Map.of("field", field), HttpStatus.BAD_REQUEST);
+    }
+
+    /** A12 without an Idempotency-Key header (D32): MSG-COM-06 naming the header. */
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ProblemDetail missingHeader(MissingRequestHeaderException failure) {
+        return problem(MessageCodes.COM_06, Map.of("field", failure.getHeaderName()), HttpStatus.BAD_REQUEST);
     }
 
     /** Table III-1: a list that cannot be loaded is MSG-COM-03; a command that cannot be saved is MSG-COM-02 / COM-05. */
@@ -83,14 +111,24 @@ public class PlatformAccountAdministrationResource {
         return service.history(id);
     }
 
+    /**
+     * A12 / UC-FE03-08 (D32): suspend an ACTIVE account. The same key and body replay the first result (GBR-88); the same
+     * key with other data is MSG-COM-19. Errors: COM-01, COM-08 (404), COM-06 / COM-10 (`reason`), FE03-17, FE03-20,
+     * COM-05, COM-02.
+     */
     @PostMapping("/{id}/suspend")
-    public AccountDetail suspend(@PathVariable Long id, @Valid @RequestBody AccountChange request) {
-        return service.suspend(id, new PlatformAccountAdministrationService.ChangeRequest(request.reason(), request.version()));
+    public AccountDetail suspend(@PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody AccountChange request) {
+        return commands.executePlatform(PlatformRole.SA, "ACCOUNT_SUSPEND", key, new KeyedChange(id, request), AccountDetail.class, () ->
+            service.suspend(id, new PlatformAccountAdministrationService.ChangeRequest(request.reason(), request.version()))
+        );
     }
 
+    /** A12 / UC-FE03-08 (D32): restore a SUSPENDED account; revoked roles and memberships stay revoked. Errors as suspend. */
     @PostMapping("/{id}/restore")
-    public AccountDetail restore(@PathVariable Long id, @Valid @RequestBody AccountChange request) {
-        return service.restore(id, new PlatformAccountAdministrationService.ChangeRequest(request.reason(), request.version()));
+    public AccountDetail restore(@PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody AccountChange request) {
+        return commands.executePlatform(PlatformRole.SA, "ACCOUNT_RESTORE", key, new KeyedChange(id, request), AccountDetail.class, () ->
+            service.restore(id, new PlatformAccountAdministrationService.ChangeRequest(request.reason(), request.version()))
+        );
     }
 
     @PostMapping("/{id}/platform-access")
@@ -109,7 +147,14 @@ public class PlatformAccountAdministrationResource {
         return problem;
     }
 
-    public record AccountChange(@NotBlank @Size(max = 500) String reason, @NotNull Long version) {}
+    public record AccountChange(
+        // The 5-character minimum is checked in the service, after the permission checks (D32), so it is not a bean constraint.
+        @Schema(description = "Trimmed; 5–500 characters with at least 5 that are not spaces (Table III-1)") @NotBlank @Size(max = 500) String reason,
+        @Schema(description = "The account version shown in A10") @NotNull Long version
+    ) {}
+
+    /** The request fingerprint names the account, so one key can never replay a change of another account. */
+    public record KeyedChange(Long accountId, AccountChange change) {}
 
     public record PlatformAccessRequest(
         @NotBlank @Size(max = 20) String operation,

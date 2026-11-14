@@ -27,11 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import vn.edu.fpt.beefcare.config.VietnameseSortFunctionContributor;
 import vn.edu.fpt.beefcare.domain.AppUser;
+import vn.edu.fpt.beefcare.domain.AppUserStatusChange;
 import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.PlatformStaffAccess;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
+import vn.edu.fpt.beefcare.repository.AppUserStatusChangeRepository;
 import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
@@ -55,6 +57,8 @@ public class PlatformAccountAdministrationService {
     private final PlatformStaffAccessRepository staffAccess;
     private final FarmMembershipRepository farmMemberships;
     private final AuditLogRepository auditLogs;
+    private final AppUserStatusChangeRepository statusChanges;
+    private final SupportTicketCommandService supportTickets;
     private final FarmClock clock;
     private final SessionRegistry sessions;
 
@@ -65,6 +69,8 @@ public class PlatformAccountAdministrationService {
         PlatformStaffAccessRepository staffAccess,
         FarmMembershipRepository farmMemberships,
         AuditLogRepository auditLogs,
+        AppUserStatusChangeRepository statusChanges,
+        SupportTicketCommandService supportTickets,
         FarmClock clock,
         SessionRegistry sessions
     ) {
@@ -74,6 +80,8 @@ public class PlatformAccountAdministrationService {
         this.staffAccess = staffAccess;
         this.farmMemberships = farmMemberships;
         this.auditLogs = auditLogs;
+        this.statusChanges = statusChanges;
+        this.supportTickets = supportTickets;
         this.clock = clock;
         this.sessions = sessions;
     }
@@ -158,48 +166,85 @@ public class PlatformAccountAdministrationService {
     /** A10 / SCR-16 account detail (D31): no phone, no farm operational data, no password information (GBR-11). */
     @Transactional(readOnly = true)
     public AccountDetail get(Long id) {
-        platformAccess.requireRole(PlatformRole.SA);
-        return detail(load(id));
+        var actor = platformAccess.requireRole(PlatformRole.SA).user();
+        return detail(load(id), actor.getId());
     }
 
+    /** A12 suspend / UC-FE03-08 (D32); see {@link #changeStatus}. */
     @Transactional
     public AccountDetail suspend(Long id, ChangeRequest request) {
-        var actor = platformAccess.requireRole(PlatformRole.SA).user();
-        validateRequest(request);
-        AppUser target = loadForUpdate(id);
-        verifyVersion(request.version(), target.getVersion());
-        if (!ACTIVE.equalsIgnoreCase(target.getAccountStatus())) throw DomainException.conflict(MessageCodes.FE03_20);
-        if (actor.getId().equals(target.getId())) throw DomainException.forbidden(MessageCodes.FE03_17);
-
-        PlatformStaffAccess access = staffAccess.findOneByUserIdForUpdate(id).orElse(null);
-        if (access != null && ACTIVE.equalsIgnoreCase(access.getStatus()) && isSa(access.getRole())) {
-            if (countActiveAdministrators(id) == 0) {
-                throw DomainException.conflict(MessageCodes.FE03_17);
-            }
-        }
-        String oldStatus = target.getAccountStatus();
-        target.setAccountStatus(SUSPENDED);
-        AppUser saved = appUsers.saveAndFlush(target);
-        User identity = users.findOneByEmailIgnoreCaseAndActivatedTrue(target.getEmail()).orElse(null);
-        if (identity != null) expireSessions(identity);
-        audit(actor, "ACCOUNT_SUSPEND", saved, java.util.Map.of("from", oldStatus, "to", SUSPENDED, "reason", request.reason().trim()));
-        return detail(saved);
+        return changeStatus(id, request, SUSPENDED);
     }
 
+    /** A12 restore / UC-FE03-08 (D32); see {@link #changeStatus}. */
     @Transactional
     public AccountDetail restore(Long id, ChangeRequest request) {
-        var actor = platformAccess.requireRole(PlatformRole.SA).user();
-        validateRequest(request);
-        AppUser target = loadForUpdate(id);
-        verifyVersion(request.version(), target.getVersion());
-        if (!SUSPENDED.equalsIgnoreCase(target.getAccountStatus())) throw DomainException.conflict(MessageCodes.FE03_20);
-        if (users.findOneByEmailIgnoreCaseAndActivatedTrue(target.getEmail()).isEmpty()) {
-            throw DomainException.conflict(MessageCodes.FE03_18);
+        return changeStatus(id, request, ACTIVE);
+    }
+
+    /**
+     * UC-FE03-08 (D32). Rows are locked first (a suspension also locks the acting SA's own account, in id order, so two SAs
+     * suspending each other run one after the other), then checked in this order: ACTIVE SA access (COM-01, before the
+     * call), account exists (COM-08), reason 5–500 non-space characters (COM-06 / COM-10), not one's own account (FE03-17),
+     * requested status already in place (FE03-20, also with an outdated version), version (COM-05), then for a suspension
+     * the acting SA still ACTIVE (COM-01) and another ACTIVE SA left (FE03-17). A refused command writes nothing.
+     * Suspension blocks every sign-in from the next request (GBR-04) and returns the account's tickets to the queue
+     * (GBR-77); it does not revoke the platform role or any membership, and restoring gives back neither (D32 Q1).
+     */
+    private AccountDetail changeStatus(Long id, ChangeRequest request, String requested) {
+        AppUser actor = platformAccess.requireRole(PlatformRole.SA).user();
+        boolean suspending = SUSPENDED.equals(requested);
+        AppUser target = suspending ? lockWithActor(id, actor.getId()) : loadForUpdate(id);
+        String reason = validReason(request);
+        if (suspending && actor.getId().equals(target.getId())) throw DomainException.conflict(MessageCodes.FE03_17);
+        String before = target.getAccountStatus() == null ? null : target.getAccountStatus().trim().toUpperCase(Locale.ROOT);
+        if (requested.equals(before)) {
+            throw DomainException.conflict(MessageCodes.FE03_20, "target", target.getEmail(), "value", "status");
         }
-        target.setAccountStatus(ACTIVE);
+        verifyVersion(request.version(), target.getVersion());
+        if (suspending) {
+            // Read from the database after the locks: a suspension or revocation of the acting SA may have just committed.
+            if (!staffAccess.isActiveAdministrator(actor.getId())) throw DomainException.forbidden(MessageCodes.COM_01);
+            PlatformStaffAccess access = staffAccess.findOneByUserIdForUpdate(id).orElse(null);
+            boolean activeAdministrator = access != null && ACTIVE.equalsIgnoreCase(access.getStatus()) && isSa(access.getRole());
+            if (activeAdministrator && staffAccess.countOtherActiveAdministrators(id) == 0) throw DomainException.conflict(MessageCodes.FE03_17);
+        }
+
+        target.setAccountStatus(requested);
         AppUser saved = appUsers.saveAndFlush(target);
-        audit(actor, "ACCOUNT_RESTORE", saved, java.util.Map.of("from", SUSPENDED, "to", ACTIVE, "reason", request.reason().trim()));
-        return detail(saved);
+        String action = suspending ? "SUSPEND" : "RESTORE";
+        statusChanges.save(new AppUserStatusChange(saved, action, before, reason, actor, clock.now()));
+        // GBR-86: before / after values only; the reason stays in the account status history, not in the central audit.
+        audit(actor, "ACCOUNT_" + action, saved, Map.of("statusBefore", before, "statusAfter", requested));
+        if (suspending) {
+            users.findOneByEmailIgnoreCaseAndActivatedTrue(saved.getEmail()).ifPresent(this::expireSessions);
+            supportTickets.requeueTicketsOf(saved);
+        }
+        return detail(saved, actor.getId());
+    }
+
+    /**
+     * Locks the target and the acting SA's account in id order (no deadlock between two SAs); COM-08 when the target is
+     * missing. The acting SA's row is locked without loading it: its state is then read from the database.
+     */
+    private AppUser lockWithActor(Long targetId, Long actorId) {
+        if (targetId.equals(actorId)) return loadForUpdate(targetId);
+        if (targetId < actorId) {
+            AppUser target = loadForUpdate(targetId);
+            appUsers.lockRow(actorId);
+            return target;
+        }
+        appUsers.lockRow(actorId);
+        return loadForUpdate(targetId);
+    }
+
+    /** Table III-1 / D32: trimmed, required (COM-06), 5–500 characters with at least 5 that are not spaces (COM-10). */
+    private static String validReason(ChangeRequest request) {
+        String reason = request == null || request.reason() == null ? "" : request.reason().trim();
+        if (reason.isEmpty()) throw DomainException.required("reason");
+        long visible = reason.codePoints().filter(c -> !Character.isWhitespace(c) && !Character.isSpaceChar(c)).count();
+        if (reason.length() > 500 || visible < 5) throw DomainException.invalid("reason");
+        return reason;
     }
 
     @Transactional
@@ -262,7 +307,7 @@ public class PlatformAccountAdministrationService {
             "toStatus", savedAccess.getStatus(),
             "reason", request.reason().trim()
         ));
-        return detail(target);
+        return detail(target, actor.getId());
     }
 
     @Transactional(readOnly = true)
@@ -283,7 +328,11 @@ public class PlatformAccountAdministrationService {
         return appUsers.findByIdForUpdate(id).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
     }
 
-    private AccountDetail detail(AppUser account) {
+    /**
+     * A10 for the acting SA. {@code actions} (D32): SUSPEND for an ACTIVE account other than the caller's own, RESTORE for
+     * a SUSPENDED one; the last-SA rule is rechecked on save (another ACTIVE SA, the caller, exists while the caller acts).
+     */
+    private AccountDetail detail(AppUser account, Long actorId) {
         PlatformStaffAccess access = staffAccess.findOneByUserId(account.getId()).orElse(null);
         FarmsJoined farms = farmsJoined(farmRolesOf(List.of(account.getId())).get(account.getId()));
         boolean activated = users.findOneByEmailIgnoreCaseAndActivatedTrue(account.getEmail()).isPresent();
@@ -293,6 +342,10 @@ public class PlatformAccountAdministrationService {
         Collator collator = Collator.getInstance(Locale.forLanguageTag("vi"));
         collator.setStrength(Collator.SECONDARY);
         List<String> ownedFarms = farmMemberships.findOwnedFarmNames(account.getId()).stream().sorted(collator).toList();
+        List<String> actions;
+        if (SUSPENDED.equalsIgnoreCase(account.getAccountStatus())) actions = List.of("RESTORE");
+        else if (ACTIVE.equalsIgnoreCase(account.getAccountStatus()) && !account.getId().equals(actorId)) actions = List.of("SUSPEND");
+        else actions = List.of();
         return new AccountDetail(
             account.getId(),
             account.getFullName(),
@@ -310,7 +363,8 @@ public class PlatformAccountAdministrationService {
             ownedFarms,
             farms.count(),
             farms.roles(),
-            account.getVersion()
+            account.getVersion(),
+            actions
         );
     }
 
@@ -361,32 +415,21 @@ public class PlatformAccountAdministrationService {
         auditLogs.save(event);
     }
 
-    private void validateRequest(ChangeRequest request) {
-        if (request == null || !StringUtils.hasText(request.reason())) throw DomainException.required("reason");
-        if (request.reason().trim().length() > 500) throw DomainException.invalid("reason");
-    }
-
     private void verifyVersion(Long expected, Long actual) {
         if (expected == null || !Objects.equals(expected, actual)) throw DomainException.conflict(MessageCodes.COM_05);
     }
 
     private void requireAnotherActiveSa(Long excludedUserId) {
-        long otherAdmins = countActiveAdministrators(excludedUserId);
-        if (otherAdmins < 1) throw DomainException.conflict(MessageCodes.FE03_17);
+        // Counted in the database (D32), not from accounts already loaded in this persistence context.
+        if (staffAccess.countOtherActiveAdministrators(excludedUserId) < 1) throw DomainException.conflict(MessageCodes.FE03_17);
     }
 
-    private long countActiveAdministrators(Long excludedUserId) {
-        List<PlatformStaffAccess> active = staffAccess.findAllByRoleIgnoreCaseAndStatusIgnoreCaseOrderById(PlatformRole.SA.name(), ACTIVE);
-        return active.stream()
-            .filter(access -> !excludedUserId.equals(access.getUser().getId()))
-            .filter(access -> ACTIVE.equalsIgnoreCase(access.getUser().getAccountStatus()))
-            .count();
-    }
-
+    /** Registered sessions of both principal names; the login usually equals the email (Set.of would reject the duplicate). */
     private void expireSessions(User user) {
-        Set<String> principals = Set.of(user.getLogin(), user.getEmail());
+        Set<String> principals = new java.util.LinkedHashSet<>();
+        if (user.getLogin() != null) principals.add(user.getLogin());
+        if (user.getEmail() != null) principals.add(user.getEmail());
         for (String principal : principals) {
-            if (principal == null) continue;
             for (SessionInformation information : sessions.getAllSessions(principal, false)) information.expireNow();
         }
     }
@@ -443,7 +486,10 @@ public class PlatformAccountAdministrationService {
         @Schema(description = "Names of the farms this account owns, Vietnamese order") List<String> ownedFarms,
         long farmCount,
         List<String> farmRoles,
-        Long version
+        Long version,
+        // springdoc 3.0 drops the item type and the description of an @ArraySchema list, so the values are described here.
+        @Schema(description = "Status commands this SA may use now (D32): SUSPEND for an ACTIVE account other than the caller's own, RESTORE for a SUSPENDED one; empty otherwise")
+        List<String> actions
     ) {}
 
     public record AuditItem(Long id, String action, Instant at, String details) {}

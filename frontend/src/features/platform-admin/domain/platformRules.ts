@@ -1,5 +1,5 @@
 import type {
-  AccountChange, AccountDetail, AccountFilters, AccountListItem, AuditDetails, AuditEntry, AuditFilters, AuditTargetType, FarmRole,
+  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AccountStatusAction, AuditDetails, AuditEntry, AuditFilters, AuditTargetType, FarmRole,
   PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole,
 } from '../types'
 
@@ -26,11 +26,16 @@ export class PlatformAdminError extends Error {
 export const MSG = {
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   stale: 'Bản ghi này đã được thay đổi. Vui lòng tải lại và kiểm tra trước khi thử lại.',
-  lastSa: 'Phải còn ít nhất một Quản trị hệ thống đang hoạt động, và bạn không thể tạm ngưng tài khoản của chính mình.',
   noAccount: 'Không có tài khoản BeefCare nào cho email này. Người đó cần đăng nhập một lần trước khi được cấp quyền.',
   unverified: 'Email của tài khoản chưa được xác minh nên chưa thể cấp quyền nền tảng.',
   noLongerAssigned: 'Yêu cầu này không còn được giao cho bạn.',
   reasonRequired: 'Lý do là bắt buộc.',
+  /** Table III-1 / D32: lý do tạm ngưng / khôi phục. */
+  statusReasonRule: 'Lý do cần từ 5 đến 500 ký tự, trong đó ít nhất 5 ký tự không phải khoảng trắng.',
+  /** MSG-FE03-17 (spec FE-03 mục 8). */
+  lastSa: 'Phải luôn còn ít nhất một System Admin đang hoạt động, và bạn không thể tạm ngưng tài khoản của chính mình.',
+  /** MSG-COM-08. */
+  gone: 'Mục đã chọn không còn khả dụng. Vui lòng chọn mục khác.',
 }
 
 const noChange = (target: string, value: string) => new PlatformAdminError('NO_CHANGE', `Không có thay đổi: ${target} đã ở ${value} này.`)
@@ -41,6 +46,24 @@ export function validateReason(reason: string): string | null {
   if (text.length > REASON_MAX) return `Lý do tối đa ${REASON_MAX} ký tự.`
   return null
 }
+
+/** Lý do tạm ngưng / khôi phục (UC8, D32): bỏ khoảng trắng đầu cuối, 5–500 ký tự, ít nhất 5 ký tự không phải khoảng trắng. */
+export function validateStatusReason(reason: string): string | null {
+  const text = reason.trim()
+  if (!text) return MSG.reasonRequired
+  if (text.length > REASON_MAX || text.replace(/\s/g, '').length < 5) return MSG.statusReasonRule
+  return null
+}
+
+/** `actions` của A10 (D32), dùng cho bản mô phỏng: máy chủ tính cùng quy tắc. */
+export function statusActions(a: Pick<AccountRecord, 'id' | 'accountStatus'>, actorId: number): AccountStatusAction[] {
+  if (a.accountStatus === 'SUSPENDED') return ['RESTORE']
+  return a.id === actorId ? [] : ['SUSPEND']
+}
+
+/** MSG-FE03-16. */
+export const accountStatusDone = (email: string, status: AccountDetail['accountStatus']) =>
+  `Tài khoản ${email} hiện là ${status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm ngưng'}.`
 
 // ---------- Tài khoản và quyền nền tảng ----------
 
@@ -79,7 +102,7 @@ export const accessText = (role: PlatformRole | null, status: PlatformAccessStat
   role ? `role: ${role} · ${status === 'ACTIVE' ? 'đang hoạt động' : 'đã thu hồi'}` : 'role: —'
 
 /** Kiểm tra và tính trạng thái mới của một lệnh đổi quyền nền tảng; ném PlatformAdminError nếu vi phạm quy tắc. */
-export function planAccessChange(accounts: AccountDetail[], target: AccountDetail, req: PlatformAccessChange) {
+export function planAccessChange(accounts: AccountRecord[], target: AccountRecord, req: PlatformAccessChange) {
   if (!target.emailVerified) throw new PlatformAdminError('UNVERIFIED', MSG.unverified)
   if (req.expectedVersion !== target.platformAccessVersion) throw new PlatformAdminError('STALE', MSG.stale)
   const reasonError = validateReason(req.reason)
@@ -123,17 +146,17 @@ export function planAccessChange(accounts: AccountDetail[], target: AccountDetai
   }
 }
 
-/** Kiểm tra tạm ngưng hoặc khôi phục tài khoản (UC-FE03-08). */
-export function checkAccountChange(accounts: AccountDetail[], target: AccountDetail, actorId: number, req: AccountChange, op: 'suspend' | 'restore') {
-  if (req.expectedVersion !== target.version) throw new PlatformAdminError('STALE', MSG.stale)
-  const reasonError = validateReason(req.reason)
+/**
+ * Kiểm tra tạm ngưng hoặc khôi phục tài khoản (UC-FE03-08) theo thứ tự của máy chủ (D32): lý do → tài khoản của chính
+ * mình (MSG-FE03-17) → đã ở trạng thái yêu cầu (MSG-FE03-20, kể cả version cũ) → version (MSG-COM-05) → SA cuối cùng.
+ */
+export function checkAccountChange(accounts: AccountRecord[], target: AccountRecord, actorId: number, req: AccountChange, op: 'suspend' | 'restore') {
+  const reasonError = validateStatusReason(req.reason)
   if (reasonError) throw new PlatformAdminError('VALIDATION', reasonError)
-  if (op === 'suspend') {
-    if (target.accountStatus === 'SUSPENDED') throw noChange(target.email, 'trạng thái')
-    if (target.id === actorId || isLastActiveSa(accounts, target.id)) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
-  } else if (target.accountStatus === 'ACTIVE') {
-    throw noChange(target.email, 'trạng thái')
-  }
+  if (op === 'suspend' && target.id === actorId) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
+  if (target.accountStatus === (op === 'suspend' ? 'SUSPENDED' : 'ACTIVE')) throw noChange(target.email, 'trạng thái')
+  if (req.expectedVersion !== target.version) throw new PlatformAdminError('STALE', MSG.stale)
+  if (op === 'suspend' && isLastActiveSa(accounts, target.id)) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
 }
 
 

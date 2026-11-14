@@ -4,7 +4,7 @@ import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
 import { Button, Card, Field, Info, Note, Textarea } from '../../../components/ui'
 import {
-  REASON_MAX, farmsJoinedText, formatPlatformDate, formatPlatformDateTime, platformRoleText, revokedRoleNote, validateReason, verificationText,
+  REASON_MAX, farmsJoinedText, formatPlatformDate, formatPlatformDateTime, platformRoleText, revokedRoleNote, validateStatusReason, verificationText,
 } from '../domain/platformRules'
 import type { AccountDetail } from '../types'
 import AccountStatusDialog from './AccountStatusDialog'
@@ -12,8 +12,9 @@ import { AccountStatusBadge, ICON_BUTTON, PersonCell } from './common'
 
 /**
  * Chi tiết tài khoản của SCR-16 (A10, D31): email và xác minh, tạo lúc, đăng nhập cuối (giờ Asia/Ho_Chi_Minh), đăng ký
- * Chủ trại và trại sở hữu. Không có SĐT, mật khẩu hay dữ liệu vận hành trại (GBR-11). Nút Tạm ngưng / Khôi phục (UC8)
- * và Quyền nền tảng (UC9) giữ như trước, chưa được kiểm chứng ở UC7.
+ * Chủ trại và trại sở hữu. Không có SĐT, mật khẩu hay dữ liệu vận hành trại (GBR-11). Lý do + Tạm ngưng / Khôi phục
+ * (UC8, D32) chỉ hiện theo `actions` của máy chủ; tài khoản của chính SA không có Tạm ngưng. Nút Quyền nền tảng (UC9)
+ * giữ như trước, chưa được kiểm chứng.
  */
 export default function AccountDetailPanel({ account, onChanged, onReload }: {
   account: AccountDetail
@@ -24,12 +25,15 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
   const navigate = useNavigate()
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
+  const [refused, setRefused] = useState<string | null>(null)
   const suspended = account.accountStatus === 'SUSPENDED'
+  const canChange = account.actions.includes(suspended ? 'RESTORE' : 'SUSPEND')
   const revoked = revokedRoleNote(account)
 
   const requestChange = () => {
-    const invalid = validateReason(reason)
+    const invalid = validateStatusReason(reason)
     setReasonError(invalid)
+    setRefused(null)
     if (!invalid) openModal(suspended ? 'restore' : 'suspend')
   }
   const ownerRegistration = !account.ownerRegistrationCompleted
@@ -51,21 +55,26 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
           ['Trại tham gia', farmsJoinedText(account)],
           ['Trại sở hữu', account.ownedFarms.length ? account.ownedFarms.join(', ') : '—'],
         ]} />
-        <Field label="Lý do *" id="account-reason" hint="Bắt buộc khi đổi trạng thái tài khoản">
-          <Textarea
-            id="account-reason"
-            rows={3}
-            value={reason}
-            maxLength={REASON_MAX}
-            placeholder={suspended ? 'Nhập lý do khôi phục…' : 'Nhập lý do tạm ngưng…'}
-            onChange={(e) => { setReason(e.target.value); setReasonError(null) }}
-          />
-        </Field>
-        {reasonError && <p role="alert" className="m-0 -mt-2 text-xs text-err-fg">{reasonError}</p>}
-        <Button variant={suspended ? 'primary' : 'danger'} block className={ICON_BUTTON} onClick={requestChange}>
-          <Icon name={suspended ? 'circle-check' : 'player-pause'} size={16} />
-          {suspended ? 'Khôi phục tài khoản' : 'Tạm ngưng tài khoản'}
-        </Button>
+        {refused && <Note tone="err"><span role="alert">{refused}</span></Note>}
+        {canChange ? (
+          <>
+            <Field label="Lý do *" id="account-reason" hint="Bắt buộc khi đổi trạng thái tài khoản; 5–500 ký tự">
+              <Textarea
+                id="account-reason"
+                rows={3}
+                value={reason}
+                maxLength={REASON_MAX}
+                placeholder={suspended ? 'Nhập lý do khôi phục…' : 'Nhập lý do tạm ngưng…'}
+                onChange={(e) => { setReason(e.target.value); setReasonError(null) }}
+              />
+            </Field>
+            {reasonError && <p role="alert" className="m-0 -mt-2 text-xs text-err-fg">{reasonError}</p>}
+            <Button variant={suspended ? 'primary' : 'danger'} block className={ICON_BUTTON} onClick={requestChange}>
+              <Icon name={suspended ? 'circle-check' : 'player-pause'} size={16} />
+              {suspended ? 'Khôi phục tài khoản' : 'Tạm ngưng tài khoản'}
+            </Button>
+          </>
+        ) : !suspended ? <Note>Bạn không thể tạm ngưng tài khoản của chính mình.</Note> : null}
         <Button block className={ICON_BUTTON} onClick={() => navigate(`/nen-tang/quyen/${account.id}?m=access`)}>
           <Icon name="shield-lock" size={16} />
           Quyền nền tảng
@@ -78,8 +87,8 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
           reason={reason}
           onReason={setReason}
           onClose={closeModal}
-          onReload={() => { closeModal(); onReload() }}
-          onDone={(message) => { setReason(''); closeModal(); onChanged(message) }}
+          onRefused={(message) => { closeModal(); setRefused(message); onReload() }}
+          onDone={(message) => { setReason(''); setRefused(null); closeModal(); onChanged(message) }}
         />
       )}
     </Card>

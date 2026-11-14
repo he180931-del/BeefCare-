@@ -2898,6 +2898,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -2944,6 +2951,13 @@
           "schema" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
           }
         } ],
         "requestBody" : {
@@ -15480,6 +15494,10 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "needsReassignment" : {
+            "type" : "boolean",
+            "description" : "OPEN request whose recipient is no longer available (account suspended or platform role lost): the CS should change the recipient (UC-FE03-08 step 6, D32)"
           }
         }
       },
@@ -16417,12 +16435,14 @@
         "properties" : {
           "reason" : {
             "type" : "string",
+            "description" : "Trimmed; 5–500 characters with at least 5 that are not spaces (Table III-1)",
             "maxLength" : 500,
             "minLength" : 0
           },
           "version" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "The account version shown in A10"
           }
         },
         "required" : [ "version" ]
@@ -16502,6 +16522,13 @@
           "version" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "actions" : {
+            "type" : "array",
+            "description" : "Status commands this SA may use now (D32): SUSPEND for an ACTIVE account other than the caller's own, RESTORE for a SUSPENDED one; empty otherwise",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },

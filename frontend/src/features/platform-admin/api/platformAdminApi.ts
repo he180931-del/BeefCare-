@@ -3,8 +3,8 @@ import { backendPending } from '../../../api/backendPending'
 import { platformAdminDemoStore, type PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
 import { auditToCsv, defaultAuditRange, toYmd } from '../domain/platformRules'
 import type {
-  AccountChange, AccountDetail, AccountFilters, AccountListItem, AuditFilters, FarmRole, PageResult, PlatformAccessChange,
-  PlatformAccessStatus, PlatformRole, SignInMethod,
+  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditFilters, FarmRole, PageResult,
+  PlatformAccessChange, PlatformAccessStatus, PlatformRole, SignInMethod,
 } from '../types'
 
 const ACCOUNTS_PATH = '/api/platform/accounts'
@@ -48,6 +48,7 @@ const platformRoles = ['CS', 'PM', 'SA'] as const satisfies readonly PlatformRol
 const accessStatuses = ['ACTIVE', 'REVOKED'] as const satisfies readonly PlatformAccessStatus[]
 const farmRoles = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const satisfies readonly FarmRole[]
 const signInMethods = ['PASSWORD', 'GOOGLE'] as const satisfies readonly SignInMethod[]
+const statusActions = ['SUSPEND', 'RESTORE'] as const satisfies readonly AccountStatusAction[]
 
 /** A9 row (D31): ids, status, roles and counts come from the server; a missing one is an error, never a silent default. */
 export function accountListItem(value: unknown): AccountListItem {
@@ -84,6 +85,7 @@ export function accountDetail(value: unknown): AccountDetail {
     ownerRegistrationCompletedAt: nullableText(row.ownerRegistrationCompletedAt, 'thời điểm đăng ký Chủ trại'),
     ownedFarms: row.ownedFarms as string[],
     version: requiredCount(row.version, 'phiên bản tài khoản'),
+    actions: oneOfList(row.actions, statusActions, 'thao tác tài khoản'),
   }
 }
 
@@ -101,6 +103,9 @@ export function accountPage(value: unknown): PageResult<AccountListItem> {
     size,
   }
 }
+
+/** A12 body (D32): the trimmed reason and the version of the account shown in A10. */
+export const statusBody = ({ reason, expectedVersion }: AccountChange) => ({ reason: reason.trim(), version: expectedVersion })
 
 /** GET /api/platform/accounts query (D31); page in the screen starts at 1, in the API at 0. */
 export function accountsPath({ q = '', status = '', platformRole = '', dir = 'asc', page = 1, size = PAGE_SIZE }: AccountFilters = {}) {
@@ -134,10 +139,16 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
     },
     // GET /api/platform/accounts/{id}/history (UC-FE03-09, chưa nối)
     async accountHistory(id: number) { requireLocal(); return store.accountHistory(id) },
-    // POST /api/platform/accounts/{id}/suspend  (UC-FE03-08, chưa nối; AccountChange: reason, version = expectedVersion)
-    async suspendAccount(id: number, command: AccountChange) { requireLocal(); return store.suspendAccount(id, command) },
-    // POST /api/platform/accounts/{id}/restore  (UC-FE03-08, chưa nối; AccountChange: reason, version = expectedVersion)
-    async restoreAccount(id: number, command: AccountChange) { requireLocal(); return store.restoreAccount(id, command) },
+    // A12 POST /api/platform/accounts/{id}/suspend (UC-FE03-08, D32): {reason, version} + Idempotency-Key → A10
+    async suspendAccount(id: number, command: AccountChange, key?: string): Promise<AccountDetail> {
+      if (mode !== 'backend') return store.suspendAccount(id, command)
+      return accountDetail(await transport.command(`${ACCOUNTS_PATH}/${requiredId(id, 'mã tài khoản')}/suspend`, statusBody(command), { key }))
+    },
+    // A12 POST /api/platform/accounts/{id}/restore (UC-FE03-08, D32): {reason, version} + Idempotency-Key → A10
+    async restoreAccount(id: number, command: AccountChange, key?: string): Promise<AccountDetail> {
+      if (mode !== 'backend') return store.restoreAccount(id, command)
+      return accountDetail(await transport.command(`${ACCOUNTS_PATH}/${requiredId(id, 'mã tài khoản')}/restore`, statusBody(command), { key }))
+    },
     // POST /api/platform/accounts/{id}/platform-access  (UC-FE03-09, chưa nối; PlatformAccessRequest: operation, role, reason, version)
     async changePlatformAccess(id: number, command: PlatformAccessChange) { requireLocal(); return store.changePlatformAccess(id, command) },
 

@@ -19,6 +19,7 @@ import vn.edu.fpt.beefcare.domain.PlatformStaffAccess;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
+import vn.edu.fpt.beefcare.repository.AppUserStatusChangeRepository;
 import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
@@ -32,6 +33,8 @@ class PlatformAccountAdministrationServiceTest {
     @Mock PlatformStaffAccessRepository staffAccess;
     @Mock FarmMembershipRepository farmMemberships;
     @Mock AuditLogRepository auditLogs;
+    @Mock AppUserStatusChangeRepository statusChanges;
+    @Mock SupportTicketCommandService supportTickets;
     @Mock FarmClock clock;
     @Mock SessionRegistry sessions;
     PlatformAccountAdministrationService service;
@@ -39,7 +42,7 @@ class PlatformAccountAdministrationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PlatformAccountAdministrationService(platformAccess, accounts, users, staffAccess, farmMemberships, auditLogs, clock, sessions);
+        service = new PlatformAccountAdministrationService(platformAccess, accounts, users, staffAccess, farmMemberships, auditLogs, statusChanges, supportTickets, clock, sessions);
         actor = account(90L, "sa@example.test", "ACTIVE", 2L);
         when(platformAccess.requireRole(PlatformRole.SA)).thenReturn(new PlatformContext(actor, null, PlatformRole.SA));
     }
@@ -78,7 +81,7 @@ class PlatformAccountAdministrationServiceTest {
         when(accounts.findByIdForUpdate(12L)).thenReturn(Optional.of(target));
         when(users.findOneByEmailIgnoreCaseAndActivatedTrue(target.getEmail())).thenReturn(Optional.of(new User()));
         when(staffAccess.findOneByUserIdForUpdate(12L)).thenReturn(Optional.of(existing));
-        when(staffAccess.findAllByRoleIgnoreCaseAndStatusIgnoreCaseOrderById("SA", "ACTIVE")).thenReturn(List.of(existing));
+        when(staffAccess.countOtherActiveAdministrators(12L)).thenReturn(0L);
 
         assertThatThrownBy(() -> service.changePlatformAccess(
             12L,
@@ -87,6 +90,29 @@ class PlatformAccountAdministrationServiceTest {
 
         verify(staffAccess, never()).saveAndFlush(any());
         verify(auditLogs, never()).save(any());
+    }
+
+    /** D32 (G9): a suspension locks both accounts in id order, so two SAs suspending each other cannot deadlock or both pass. */
+    @Test
+    void suspensionLocksBothAccountsInIdOrderBeforeCheckingTheLastAdministrator() {
+        AppUser target = account(12L, "other-sa@example.test", "ACTIVE", 4L);
+        when(accounts.findByIdForUpdate(12L)).thenReturn(Optional.of(target));
+        when(staffAccess.isActiveAdministrator(90L)).thenReturn(true);
+        when(staffAccess.findOneByUserIdForUpdate(12L)).thenReturn(Optional.of(newAccess(target, "SA", "ACTIVE", 1L)));
+        when(staffAccess.countOtherActiveAdministrators(12L)).thenReturn(0L);
+
+        assertThatThrownBy(() -> service.suspend(12L, new PlatformAccountAdministrationService.ChangeRequest("Nghi ngờ lộ mật khẩu", 4L)))
+            .isInstanceOf(DomainException.class).hasMessageContaining(MessageCodes.FE03_17);
+
+        var order = inOrder(accounts, staffAccess);
+        order.verify(accounts).findByIdForUpdate(12L);
+        order.verify(accounts).lockRow(90L);
+        order.verify(staffAccess).isActiveAdministrator(90L);
+        order.verify(staffAccess).countOtherActiveAdministrators(12L);
+        verify(accounts, never()).saveAndFlush(any());
+        verify(statusChanges, never()).save(any());
+        verify(auditLogs, never()).save(any());
+        verifyNoInteractions(supportTickets);
     }
 
     private static AppUser account(long id, String email, String status, long version) {

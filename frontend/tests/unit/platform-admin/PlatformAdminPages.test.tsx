@@ -47,19 +47,41 @@ describe('Tài khoản người dùng', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Khôi phục tài khoản' })
     await user.click(within(dialog).getByRole('button', { name: 'Khôi phục tài khoản' }))
 
-    expect(await screen.findByText(/Tài khoản tai\.hv@gmail\.com đã chuyển sang trạng thái Đang hoạt động/)).toBeInTheDocument()
+    expect(await screen.findByText('Tài khoản tai.hv@gmail.com hiện là Đang hoạt động.')).toBeInTheDocument() // MSG-FE03-16
     expect(await screen.findByRole('button', { name: /Tạm ngưng tài khoản/ })).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('không cho tạm ngưng chính mình hoặc SA cuối cùng', async () => {
-    const user = userEvent.setup()
+  it('tài khoản của chính SA không có lý do / nút Tạm ngưng (D32)', async () => {
     renderAt('/nen-tang/tai-khoan/4')
-    await user.type(await screen.findByPlaceholderText(/Nhập lý do/), 'Thử tạm ngưng')
+    expect(await screen.findByText('Bạn không thể tạm ngưng tài khoản của chính mình.')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/Nhập lý do/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Tạm ngưng tài khoản/ })).not.toBeInTheDocument()
+  })
+
+  it('lý do dưới 5 ký tự bị chặn; xác nhận MSG-FE03-14; lỗi nghiệp vụ đóng hộp thoại, hiện lý do và tải lại, giữ lý do', async () => {
+    const user = userEvent.setup()
+    renderAt('/nen-tang/tai-khoan/1')
+    const reason = await screen.findByPlaceholderText(/Nhập lý do tạm ngưng/)
+    await user.type(reason, 'a b c')
     await user.click(screen.getByRole('button', { name: /Tạm ngưng tài khoản/ }))
-    const dialog = await screen.findByRole('dialog')
+    expect(screen.getByText(/Lý do cần từ 5 đến 500 ký tự/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.clear(reason)
+    await user.type(reason, 'Nghi ngờ lộ mật khẩu')
+    await user.click(screen.getByRole('button', { name: /Tạm ngưng tài khoản/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Tạm ngưng tài khoản' })
+    expect(within(dialog).getByText(/Người dùng sẽ không đăng nhập được\./)).toBeInTheDocument()
+    // Một SA khác vừa tạm ngưng tài khoản này ở phiên khác
+    const account = await platformAdminDemoStore.getAccount(1)
+    await platformAdminDemoStore.suspendAccount(1, { reason: 'Phiên khác tạm ngưng', expectedVersion: account.version })
     await user.click(within(dialog).getByRole('button', { name: 'Tạm ngưng tài khoản' }))
-    expect(await within(dialog).findByText(/Phải còn ít nhất một Quản trị hệ thống/)).toBeInTheDocument()
+
+    expect(await screen.findByText(`Không có thay đổi: ${account.email} đã ở trạng thái này.`)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Khôi phục tài khoản/ })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/Nhập lý do khôi phục/)).toHaveValue('Nghi ngờ lộ mật khẩu')
   })
 
   it('báo lỗi tải và cho thử lại', async () => {

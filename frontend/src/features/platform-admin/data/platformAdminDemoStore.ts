@@ -1,9 +1,9 @@
 import {
   MSG, PlatformAdminError, allowedAuditDetails, accessText, checkAccountChange, filterAccounts, filterAudit, isActiveSa, paginate,
-  planAccessChange, validateAuditRange,
+  planAccessChange, statusActions, validateAuditRange,
 } from '../domain/platformRules'
 import type {
-  AccountChange, AccountDetail, AccountFilters, AccountListItem, AuditActorOption, AuditEntry, AuditFilters, AuditItem, NotificationOpenResult,
+  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AuditActorOption, AuditEntry, AuditFilters, AuditItem, NotificationOpenResult,
   NotificationView, PlatformAccessChange,
 } from '../types'
 import { createPlatformAdminSeed, type PlatformAdminSeed, type RawAuditEntry } from './platformAdminMock'
@@ -11,7 +11,7 @@ import { createPlatformAdminSeed, type PlatformAdminSeed, type RawAuditEntry } f
 const ACCOUNT_PAGE_SIZE = 20
 
 /** A9 chỉ trả các cột của danh sách; chi tiết đọc riêng bằng A10 (D31). */
-const listItem = (a: AccountDetail): AccountListItem => ({
+const listItem = (a: AccountRecord): AccountListItem => ({
   id: a.id, email: a.email, fullName: a.fullName, accountStatus: a.accountStatus, platformRole: a.platformRole,
   platformAccessStatus: a.platformAccessStatus, emailVerified: a.emailVerified, farmCount: a.farmCount, farmRoles: [...a.farmRoles],
 })
@@ -37,13 +37,16 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
     if (!actor || !isActiveSa(actor)) throw new PlatformAdminError('FORBIDDEN', MSG.forbidden)
     return actor
   }
-  const log = (actor: AccountDetail, action: string, target: AccountDetail, before: string, after: string, scope = '') => {
+  const log = (actor: AccountRecord, action: string, target: AccountRecord, before: string, after: string, scope = '') => {
     state.audit.push({
       id: nextId(), loggedAt: nowIso(), actorId: actor.id, actorEmail: actor.email, actorName: actor.fullName, actorRole: actor.platformRole,
       farmName: null, action, targetType: 'ACCOUNT', targetId: target.id, targetLabel: target.fullName, targetRef: `a${String(target.id).padStart(3, '0')}…${String(nextId()).slice(-4)}`,
       details: { before, after, correlationId: `req-${seq.toString(16)}-${(seq * 7919).toString(16).slice(-4)}`, scope },
     })
   }
+
+  /** A10 như máy chủ trả (D32): `actions` tính theo SA đang xem. */
+  const detailOf = (a: AccountRecord): AccountDetail => ({ ...structuredClone(a), actions: statusActions(a, state.currentUserId) })
 
   function changeStatus(id: number, command: AccountChange, op: 'suspend' | 'restore') {
     const actor = requireSa()
@@ -53,7 +56,7 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
     target.version += 1
     log(actor, op === 'suspend' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_RESTORED', target,
       `status: ${op === 'suspend' ? 'ACTIVE' : 'SUSPENDED'}`, `status: ${target.accountStatus}`)
-    return structuredClone(target)
+    return detailOf(target)
   }
 
   return {
@@ -63,7 +66,7 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
       requireSa()
       return paginate(filterAccounts(state.accounts, filters).map(listItem), filters.page ?? 1, filters.size ?? ACCOUNT_PAGE_SIZE)
     },
-    async getAccount(id: number) { requireSa(); return structuredClone(find(id)) },
+    async getAccount(id: number) { requireSa(); return detailOf(find(id)) },
     async accountHistory(id: number): Promise<AuditItem[]> {
       requireSa()
       find(id)
@@ -86,7 +89,7 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
       state.history.push({ id: nextId(), accountId: id, operation: command.operation, role: next.role, reason: command.reason.trim(), by: actor.fullName, at: nowIso() })
       const action = { GRANT: 'PLATFORM_ACCESS_GRANTED', CHANGE: 'PLATFORM_ACCESS_CHANGED', REVOKE: 'PLATFORM_ACCESS_REVOKED', RESTORE: 'PLATFORM_ACCESS_RESTORED' }[command.operation]
       log(actor, action, target, before, accessText(next.role, next.status), next.role)
-      return structuredClone(target)
+      return detailOf(target)
     },
 
     async listAudit(filters: AuditFilters) {

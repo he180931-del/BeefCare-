@@ -26,6 +26,9 @@ export interface AccountListItem {
   farmRoles: FarmRole[]
 }
 
+/** Lệnh đổi trạng thái SA đang xem được dùng (D32): SUSPEND cho tài khoản ACTIVE không phải của chính mình, RESTORE cho SUSPENDED. */
+export type AccountStatusAction = 'SUSPEND' | 'RESTORE'
+
 /** A10 – chi tiết tài khoản (D31); không có SĐT, mật khẩu hay dữ liệu vận hành trại (GBR-11). */
 export interface AccountDetail extends AccountListItem {
   /** null khi chưa từng có quyền nền tảng. */
@@ -37,9 +40,14 @@ export interface AccountDetail extends AccountListItem {
   ownerRegistrationCompletedAt: string | null
   ownedFarms: string[]
   version: number
+  /** Do máy chủ tính theo SA đang xem (D32); nút Tạm ngưng / Khôi phục chỉ hiện khi có trong danh sách. */
+  actions: AccountStatusAction[]
 }
 
-/** DTO AccountChange: `version` được gửi là `expectedVersion` của account. */
+/** Tài khoản trong dữ liệu mô phỏng: A10 trừ `actions`, vốn tính theo SA đang xem lúc đọc. */
+export type AccountRecord = Omit<AccountDetail, 'actions'>
+
+/** DTO AccountChange (A12, D32): giao diện giữ `expectedVersion`, adapter gửi thành `version`. */
 export interface AccountChange { reason: string; expectedVersion: number }
 
 /** DTO PlatformAccessRequest: `version` được gửi là `platformAccessVersion` của account (null khi chưa có quyền). */

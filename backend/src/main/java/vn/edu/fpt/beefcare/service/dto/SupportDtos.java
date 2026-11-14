@@ -23,7 +23,9 @@ public final class SupportDtos {
     public record MessagePage(List<Message> items,Long nextBeforeId,boolean hasMore) {}
     public record ResolutionView(Long id,int version,String content,String resolvedBy,Instant resolvedAt,boolean acknowledged,Instant acknowledgedAt,String acknowledgmentComment,boolean reviewed) {}
     public record InternalView(Long id,String code,Long ticketId,String ticketCode,Long farmId,String farmName,String targetRole,Long recipientId,String recipient,
-        String from,Instant createdAt,String question,List<ContextReference> context,String status,String outcome,String result,Long domainResultAuditId,Instant completedAt,Integer version) {}
+        String from,Instant createdAt,String question,List<ContextReference> context,String status,String outcome,String result,Long domainResultAuditId,Instant completedAt,Integer version,
+        @io.swagger.v3.oas.annotations.media.Schema(description = "OPEN request whose recipient is no longer available (account suspended or platform role lost): the CS should change the recipient (UC-FE03-08 step 6, D32)")
+        boolean needsReassignment) {}
     public record Ticket(Long id,String code,String subject,String category,String priority,String status,Long farmId,String farmName,
         Long requesterId,String requester,Long assignedCsId,String assignedCs,boolean assignedCsAvailable,Instant createdAt,Instant updatedAt,Integer version,
         List<Message> messages,Long messagesBeforeId,boolean messagesHasMore,List<ResolutionView> resolutions,List<Map<String,Object>> history,List<InternalView> internalRequests,

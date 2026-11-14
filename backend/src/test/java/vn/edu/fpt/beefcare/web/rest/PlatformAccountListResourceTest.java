@@ -326,13 +326,13 @@ class PlatformAccountListResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("id"));
     }
 
-    /** UC8 / UC9 commands return the same A10 detail: no phone either (D31; their rules are certified in UC8 / UC9). */
+    /** UC8 / UC9 commands return the same A10 detail: no phone either (D31; UC8 rules: PlatformAccountStatusResourceTest, D32). */
     @Test
     void suspendRespondsWithTheAccountDetail() throws Exception {
         AppUser admin = sa();
         AppUser target = account("target", "uc7s" + next(), "Bị Tạm Ngưng");
         String body = "{\"reason\":\"Nghi ngờ lộ tài khoản\",\"version\":" + target.getVersion() + "}";
-        String response = call(admin, post(BASE + "/{id}/suspend", target.getId()).with(csrf()).contentType("application/json").content(body))
+        String response = call(admin, post(BASE + "/{id}/suspend", target.getId()).with(csrf()).header("Idempotency-Key", "uc7-suspend").contentType("application/json").content(body))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         JsonNode detail = mapper.readTree(response);
         assertThat(detail.path("accountStatus").asText()).isEqualTo("SUSPENDED");

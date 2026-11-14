@@ -198,12 +198,27 @@ public class SupportTicketCommandService {
         List<SupportTicket> tickets = em.createQuery("select t from SupportTicket t where t.assignedCs is not null and t.status<>'CLOSED'", SupportTicket.class)
             .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
         for (SupportTicket t : tickets) if (!available(t.getAssignedCs(), PlatformRole.CS)) {
-            t.setAssignedCs(null); t.setUpdatedAt(clock.now());
-            history(t, null, "AUTO_REQUEUE", t.getStatus(), null, Map.of("actorType", "SYSTEM"));
-            outbox.enqueue(t.getFarm() == null ? null : t.getFarm().getId(), "SUPPORT_REQUEUED", "SupportTicket", t.getId(), Map.of());
-            em.flush(); notifyCs(t, "requeued"); count++;
+            requeue(t, Map.of("actorType", "SYSTEM")); count++;
         }
         return count;
+    }
+
+    /**
+     * UC-FE03-08 step 6 / GBR-77 (D32): in the suspension transaction, every non-CLOSED ticket assigned to the account
+     * returns to the unassigned queue with its status unchanged; the job above stays as the safety net.
+     */
+    public int requeueTicketsOf(AppUser suspended) {
+        List<SupportTicket> tickets = em.createQuery("select t from SupportTicket t where t.assignedCs.id=:u and t.status<>'CLOSED' order by t.id", SupportTicket.class)
+            .setParameter("u", suspended.getId()).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+        for (SupportTicket t : tickets) requeue(t, Map.of("actorType", "SYSTEM", "cause", "ACCOUNT_SUSPENDED"));
+        return tickets.size();
+    }
+
+    private void requeue(SupportTicket t, Map<String, ?> details) {
+        t.setAssignedCs(null); t.setUpdatedAt(clock.now());
+        history(t, null, "AUTO_REQUEUE", t.getStatus(), null, details);
+        outbox.enqueue(t.getFarm() == null ? null : t.getFarm().getId(), "SUPPORT_REQUEUED", "SupportTicket", t.getId(), Map.of());
+        em.flush(); notifyCs(t, "requeued");
     }
 
     AppUser requireOwner() {
@@ -413,13 +428,30 @@ public class SupportTicketCommandService {
             .setParameter("farm", farmId).setMaxResults(20).getResultList().forEach(id -> refs.add(new SupportDtos.ContextReference("FINANCE_SNAPSHOT", id)));
         return refs;
     }
+    /** The CS view of an internal request: an OPEN request whose recipient is no longer available needs reassignment (D32). */
     SupportDtos.InternalView internalView(InternalRequest r) {
+        if (!"OPEN".equalsIgnoreCase(r.getState())) return internalView(r, false);
+        PlatformRole role = targetRole(r);
+        return internalView(r, role == null || !available(r.getRecipient(), role));
+    }
+
+    /** The recipient's own view (SCR-69): the signed-in recipient is available, so nothing needs reassignment. */
+    SupportDtos.InternalView recipientInternalView(InternalRequest r) {
+        return internalView(r, false);
+    }
+
+    private SupportDtos.InternalView internalView(InternalRequest r, boolean needsReassignment) {
         List<SupportDtos.ContextReference> context = r.getContextJson() == null ? List.of() : Arrays.asList(JsonSupport.fromJson(r.getContextJson(), SupportDtos.ContextReference[].class));
         SupportTicket t = r.getTicket();
         return new SupportDtos.InternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getFarm() == null ? null : t.getFarm().getId(),
             t.getFarm() == null ? null : t.getFarm().getName(), r.getTargetRole(), r.getRecipient().getId(), r.getRecipient().getFullName(),
             r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getQuestion(), context, r.getState(), r.getOutcome(),
-            r.getResultText(), r.getDomainAudit() == null ? null : r.getDomainAudit().getId(), r.getCompletedAt(), r.getVersion());
+            r.getResultText(), r.getDomainAudit() == null ? null : r.getDomainAudit().getId(), r.getCompletedAt(), r.getVersion(), needsReassignment);
+    }
+
+    private static PlatformRole targetRole(InternalRequest r) {
+        try { return PlatformRole.valueOf(r.getTargetRole().trim().toUpperCase(Locale.ROOT)); }
+        catch (RuntimeException unknown) { return null; }
     }
     static String text(String value, int max, String field) {
         if (value == null || value.isBlank()) throw DomainException.required(field);

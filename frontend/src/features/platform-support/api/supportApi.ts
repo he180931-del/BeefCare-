@@ -26,6 +26,7 @@ const mapInternal = (value: unknown): InternalView => {
     status, outcome: row.outcome == null ? undefined : textValue(row.outcome) as InternalView['outcome'], result: row.result == null ? undefined : textValue(row.result),
     domainResultAuditId: row.domainResultAuditId == null ? undefined : numberValue(row.domainResultAuditId), completedAt: row.completedAt == null ? undefined : textValue(row.completedAt),
     version: numberValue(row.version), history: [],
+    needsReassignment: row.needsReassignment === true,
   }
 }
 

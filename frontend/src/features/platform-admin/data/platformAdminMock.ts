@@ -1,4 +1,4 @@
-import type { AccountDetail, AuditEntry, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
+import type { AccountRecord, AuditEntry, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
 
 export interface AccessHistoryRecord {
   id: number
@@ -18,14 +18,14 @@ export interface PlatformAdminSeed {
   currentUserId: number
   /** Ngày "hôm nay" của mock (yyyy-mm-dd): khớp frame 18/10/2026. */
   today: string
-  accounts: AccountDetail[]
+  accounts: AccountRecord[]
   history: AccessHistoryRecord[]
   audit: RawAuditEntry[]
   notifications: StoredNotification[]
 }
 
 // Thời điểm của tài khoản ghi kèm +07:00: SCR-16 hiện giờ Asia/Ho_Chi_Minh (Table III-1) dù máy chạy ở múi giờ nào.
-const account = (a: Partial<AccountDetail> & Pick<AccountDetail, 'id' | 'email' | 'fullName'>): AccountDetail => ({
+const account = (a: Partial<AccountRecord> & Pick<AccountRecord, 'id' | 'email' | 'fullName'>): AccountRecord => ({
   accountStatus: 'ACTIVE',
   platformRole: null,
   platformAccessStatus: null,
@@ -43,7 +43,7 @@ const account = (a: Partial<AccountDetail> & Pick<AccountDetail, 'id' | 'email' 
   ...a,
 })
 
-const ACCOUNTS: AccountDetail[] = [
+const ACCOUNTS: AccountRecord[] = [
   account({
     id: 1, email: 'hung.nv@gmail.com', fullName: 'Nguyễn Văn Hùng', version: 3, ownerRegistrationCompleted: true,
     createdAt: '2024-03-12T09:20:00+07:00', ownerRegistrationCompletedAt: '2024-03-12T09:20:00+07:00', lastSignInAt: '2026-10-18T07:12:00+07:00',
