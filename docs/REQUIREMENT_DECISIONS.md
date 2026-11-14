@@ -429,3 +429,49 @@ GBR-10/11, Table III-1 (2789–2794) và đối chiếu code. Chốt phần UC7 
 trên SCR-16 và hộp thoại UC8; bỏ N+1 (fetch join quyền platform, đếm membership và kiểm xác
 minh theo cả trang); lỗi DB khi GET → MSG-COM-03. Kiểm thử và giới hạn ghi tại
 `docs/reviews/FE03_UC07_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+
+### D32 — UC-FE03-08: tạm ngưng / khôi phục tài khoản (14/11/2026)
+
+Người dùng đồng ý cả bảy đề xuất trong phiên ("theo đề xuất"), sau khi đọc SRS UC-FE03-08 (dòng
+1833–1850), SCR-16 (3154–3174), ma trận quyền (1376, chú thích 1440), User Account (461–468),
+Table III-1 (2789, 2794, 2795), GBR-04 (5771), GBR-10 (5777), GBR-77 (5872), BR-D06 (934),
+MSG-FE03-14 → 20 (5981–5987), SCR-67 "Needs attention" (5061) và đối chiếu code:
+
+1. Tạm ngưng chỉ chặn đăng nhập (mọi cách, phiên đang mở bị từ chối ở request kế tiếp); không thu
+   hồi vai trò platform hay membership. Khôi phục đưa tài khoản về ACTIVE; vai trò / membership đã
+   bị thu hồi hoặc ngưng riêng vẫn giữ nguyên (MSG-FE03-15, POST-2). CS bị tạm ngưng vẫn có vai trò
+   CS ACTIVE trong DB nhưng không còn "khả dụng"; SA bị tạm ngưng không được tính là SA ACTIVE.
+2. Lịch sử ở bảng mới `app_user_status_change` (Liquibase `20261114000400`), chỉ thêm: hành động
+   (SUSPEND / RESTORE), trạng thái trước / sau, lý do, SA thực hiện, thời điểm; cùng transaction với
+   tài khoản và audit. Audit `ACCOUNT_SUSPEND` / `ACCOUNT_RESTORE` ghi trước / sau, không ghi lý do
+   (như D30). SCR-16 không có trường lịch sử nên UC8 không thêm UI; A11 để sang UC9.
+3. Lý do bỏ khoảng trắng đầu cuối, 5–500 ký tự, ít nhất 5 ký tự không phải khoảng trắng (Table III-1
+   dòng 2789 + SCR-16 dòng 3171): trống → MSG-COM-06, ngoài khoảng → MSG-COM-10 (`field=reason`).
+4. Tạm ngưng và khôi phục được cả tài khoản chưa xác minh email (D31 cho hiện loại này); bỏ lỗi
+   MSG-FE03-18 của lệnh khôi phục (thông báo đó thuộc UC9).
+5. Phiếu hỗ trợ chưa CLOSED của CS bị tạm ngưng về hàng đợi chưa giao ngay trong transaction tạm
+   ngưng (giữ trạng thái, lịch sử `AUTO_REQUEUE`, thông báo CS khả dụng); job 60 giây giữ làm lưới an
+   toàn (bước 6 dòng 1842, GBR-77).
+6. "Đánh dấu cần giao lại" yêu cầu nội bộ OPEN được tính lúc đọc: `InternalView.needsReassignment`
+   = OPEN và người nhận không còn khả dụng (tài khoản bị tạm ngưng hoặc mất vai trò); SCR-68 hiện
+   "Người nhận không còn khả dụng – cần đổi người nhận". Không thêm cột; tự hết khi khôi phục; UC9
+   dùng lại. Màn của chính người nhận (SCR-69) luôn `false`.
+7. A10 trả `actions[]` do backend tính: `SUSPEND` cho tài khoản ACTIVE không phải của SA đang xem,
+   `RESTORE` cho tài khoản SUSPENDED. Frontend chỉ hiện ô lý do và nút theo `actions`; tài khoản của
+   chính SA hiện "Bạn không thể tạm ngưng tài khoản của chính mình." Backend vẫn kiểm FE03-17 khi lưu.
+
+Đi kèm, không cần quyết riêng: thứ tự kiểm sau khi khóa dòng COM-01 → COM-08 (404) → dữ liệu
+(COM-06 / COM-10; thiếu `reason` / `version` / `Idempotency-Key` bị chặn ở tầng HTTP với `field`) →
+FE03-17 (tự tạm ngưng) → FE03-20 (`{target: email, value: status}`, kể cả version cũ) → COM-05 →
+FE03-17 (SA cuối cùng); FE03-17 là 409 cho cả hai trường hợp; lệnh bị từ chối không ghi gì.
+`Idempotency-Key` bắt buộc (cùng key + dữ liệu trả kết quả đầu, khác dữ liệu → COM-19). Sửa race SA
+cuối cùng: lệnh tạm ngưng khóa cả dòng tài khoản của SA đang thao tác (khóa dòng, không nạp entity)
+theo thứ tự id, đọc lại từ DB rằng SA đó còn ACTIVE (không → COM-01) và còn SA ACTIVE khác; đếm SA
+bằng truy vấn đọc DB, dùng chung cho thu hồi quyền ở UC9 (khóa dòng SA đang thao tác cho UC9 làm khi
+làm UC9). Frontend: MSG-FE03-14 / 15 / 16 / 17 theo spec; lỗi FE03-17 / FE03-20 / COM-05 / COM-08
+đóng hộp thoại, hiện lý do trên khung chi tiết, tải lại A9 + A10, giữ lý do đã nhập; lỗi lưu / mạng
+giữ hộp thoại và cùng khóa. Runtime tìm ra lỗi có từ trước: hết hạn phiên dùng `Set.of(login, email)`
+nên tài khoản có login trùng email (mọi tài khoản thật) làm lệnh tạm ngưng trả 500; đã sửa, có test
+hồi quy. Phiên đã đăng ký bị hết hạn khi tạm ngưng nên request kế tiếp là 401, đăng nhập lại là
+MSG-FE01-03. Kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC08_REVIEW.md`; quyết định chưa phải
+READY_FOR_FE.

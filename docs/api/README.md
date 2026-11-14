@@ -4,7 +4,7 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **229 paths, 283 operations, 315 schemas**, updated 14 November 2026 on `feat/fe03-thanh-vien-quyen` after the D31 / FE-03 UC7 tests passed (only the six `/api/platform/accounts` operations changed: new `AccountPage`, `AccountListItem`, `AccountDetail`, removed `AccountSummary`, `PageAccountSummary`). Previous: 314 schemas after D29 / UC5 on the same day (member list and its two new schemas); 312 schemas after D28 / UC4 on the same day; 311 schemas, regenerated 13 November 2026 on `dev` after the D26 / FE-03 UC2 review and its UC1 regression tests passed. This working copy includes the preceding D25 / UC1 changes; no merge or READY_FOR_FE deployment is implied. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
+Current contract: **229 paths, 283 operations, 315 schemas**, updated 14 November 2026 on `feat/fe03-thanh-vien-quyen` after the D32 / FE-03 UC8 tests passed (suspend / restore now require `Idempotency-Key`; `AccountChange`, `AccountDetail.actions` and `InternalView.needsReassignment` changed; no path or schema added). Before that: the same counts after D31 / UC7 (only the six `/api/platform/accounts` operations changed: new `AccountPage`, `AccountListItem`, `AccountDetail`, removed `AccountSummary`, `PageAccountSummary`). Previous: 314 schemas after D29 / UC5 on the same day (member list and its two new schemas); 312 schemas after D28 / UC4 on the same day; 311 schemas, regenerated 13 November 2026 on `dev` after the D26 / FE-03 UC2 review and its UC1 regression tests passed. This working copy includes the preceding D25 / UC1 changes; no merge or READY_FOR_FE deployment is implied. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -73,6 +73,19 @@ platform-access commands return `AccountDetail` (adds `signInMethods`, `createdA
 `phone` is no longer returned. New column `app_user.created_at` (Liquibase
 `20261114000300`, filled for existing rows). See `FE03_UC07_EXAMPLES.md` and
 `docs/reviews/FE03_UC07_REVIEW.md`.
+
+FE-03 UC8 / D32 (14 November 2026): **breaking change of the account status commands**.
+`POST /api/platform/accounts/{id}/suspend` and `/restore` now require `Idempotency-Key` (missing →
+400 MSG-COM-06 `field=Idempotency-Key`; same key + body replays, other body → MSG-COM-19). The
+reason is trimmed, 5–500 characters with at least 5 non-space ones (MSG-COM-06 / MSG-COM-10
+`field=reason`). Order: COM-01 → COM-08 → data → FE03-17 (own account) → FE03-20 `{target, value}`
+(also with an outdated version) → COM-05 → FE03-17 (last SA); FE03-17 is 409. `AccountDetail`
+adds `actions[]` (`SUSPEND` / `RESTORE` for the calling SA). Suspension does not revoke the
+platform role or memberships, returns the account's non-CLOSED tickets to the queue in the same
+transaction and expires its registered sessions (next request 401, sign-in MSG-FE01-03). New
+append-only table `app_user_status_change` (Liquibase `20261114000400`); the audit keeps
+before / after only. FE-20 `InternalView` adds `needsReassignment` (OPEN request whose recipient is
+no longer available). See `FE03_UC08_EXAMPLES.md` and `docs/reviews/FE03_UC08_REVIEW.md`.
 
 UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
 `GET /api/platform/plan-prices?page=0&size=20` returns
