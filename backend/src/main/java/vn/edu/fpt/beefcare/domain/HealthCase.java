@@ -62,6 +62,18 @@ public class HealthCase implements Serializable {
     @Column(name = "version", nullable = false)
     private Integer version = 0;
 
+    /** BR-D33: the member who confirmed the closure (column added by 20261028000200, mapped for FE-10 A5). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "closed_by_id")
+    @JsonIgnoreProperties(value = { "memberships" }, allowSetters = true)
+    private AppUser closedBy;
+
+    /** GBR-47: the vaccination this case was opened for (post-vaccination reaction, FE-10 A3). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reaction_vaccination_id")
+    @JsonIgnoreProperties(value = { "cattle", "vaccine", "scheduledDose" }, allowSetters = true)
+    private Vaccination reactionVaccination;
+
     @ManyToOne(optional = false)
     @NotNull
     @JsonIgnoreProperties(value = { "farm", "breed", "purpose", "dam", "sire", "herdEntry", "herdExit" }, allowSetters = true)
@@ -148,6 +160,10 @@ public class HealthCase implements Serializable {
     public void setClosedAt(java.time.Instant closedAt) { this.closedAt = closedAt; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
+    public AppUser getClosedBy() { return closedBy; }
+    public void setClosedBy(AppUser closedBy) { this.closedBy = closedBy; }
+    public Vaccination getReactionVaccination() { return reactionVaccination; }
+    public void setReactionVaccination(Vaccination reactionVaccination) { this.reactionVaccination = reactionVaccination; }
 
     public Cattle getCattle() {
         return this.cattle;

@@ -196,6 +196,8 @@ export interface StatusCommand {
   action: StatusAction
   /** Diễn biến mới, lưu thành một lần theo dõi khi có nội dung. */
   progressText: string
+  /** Diễn biến người dùng chọn; bắt buộc khi lệnh tạo lần theo dõi (KEEP, hoặc ô chữ có nội dung) – D30. */
+  progress?: Progress | ''
   diagnosis: string
   suspectedContagious: boolean
   outcome?: CaseOutcome | ''

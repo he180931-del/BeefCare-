@@ -78,13 +78,13 @@ class CareWorkflowIT extends DomainTestSupport {
         CareDtos.CatalogueItem medicine = catalogue.saveMedicine(farm.getId(), null, key(),
             new CareDtos.MedicineCommand(null, "OXY" + next(), "Oxytetracycline", null, "1 ml/10 kg", "IM", 28, true));
         CareDtos.HealthCaseResult opened = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(3), null,
-            new BigDecimal("40.1"), "Fever, low appetite", "Suspected pneumonia", false, "moderate"));
+            new BigDecimal("40.1"), "Fever, low appetite", "Suspected pneumonia", false, "moderate", null));
         assertThat(opened.status()).isEqualTo("OPEN");
 
         CareDtos.HealthCaseResult followed = health.followUp(farm.getId(), opened.id(), key(),
-            new CareDtos.FollowUp(opened.version(), hoursAgo(2), new BigDecimal("39.5"), "improved", "Eating again"));
+            new CareDtos.FollowUp(opened.version(), hoursAgo(2), new BigDecimal("39.5"), "improved", "Eating again", null));
         CareDtos.TreatmentResult treated = health.recordTreatment(farm.getId(), opened.id(), key(),
-            new CareDtos.TreatmentCommand(medicine.id(), hoursAgo(1), "Oxytetracycline LA", "25 ml", "IM", 3, 28, "Manager", null));
+            new CareDtos.TreatmentCommand(followed.version(), medicine.id(), hoursAgo(1), "25 ml", "IM", 3, 28, null, "Manager", null));
         // GBR-46: first administration + course days - 1 + withdrawal days
         assertThat(treated.withdrawalEndDate()).isEqualTo(TODAY.plusDays(3 - 1 + 28));
 
@@ -97,13 +97,13 @@ class CareWorkflowIT extends DomainTestSupport {
         assertThat(em.find(Treatment.class, treated.id()).getMedicineNameSnapshot()).isEqualTo(medicine.name());
 
         // FE-10 reads: open tab and the cattle profile with case card and chronology
-        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null)).extracting(CareDtos.HealthCaseRow::id).contains(opened.id());
+        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null, null, null, null, null).items()).extracting(CareDtos.HealthCaseRow::id).contains(opened.id());
         actAs(technician); // read-only access
         CareDtos.HealthProfile profile = reads.healthProfile(farm.getId(), cow.getId());
-        assertThat(profile.activeCases()).extracting(CareDtos.HealthCaseCard::id).containsExactly(opened.id());
+        assertThat(profile.openCases()).extracting(CareDtos.HealthCaseView::id).containsExactly(opened.id());
         assertThat(profile.withdrawalEndDate()).isEqualTo(TODAY.plusDays(3 - 1 + 28));
-        assertThat(profile.timeline()).hasSizeGreaterThanOrEqualTo(3);
-        assertThatThrownBy(() -> health.followUp(farm.getId(), opened.id(), key(), new CareDtos.FollowUp(followed.version(), hoursAgo(1), null, "unchanged", "x")))
+        assertThat(profile.openCases().get(0).timeline()).hasSizeGreaterThanOrEqualTo(3);
+        assertThatThrownBy(() -> health.followUp(farm.getId(), opened.id(), key(), new CareDtos.FollowUp(followed.version(), hoursAgo(1), null, "unchanged", "x", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
 
         // UC-FE10-05: a void keeps the row, needs the version and a reason, and recalculates the withdrawal
@@ -119,15 +119,15 @@ class CareWorkflowIT extends DomainTestSupport {
     @Test
     void ownerCannotRecordCareAndAnotherFarmSeesNothing() {
         actAs(owner);
-        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD")))
+        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
-        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null)).isEmpty(); // Owner reads
+        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null, null, null, null, null).items()).isEmpty(); // Owner reads
 
         Farm other = farm();
         AppUser otherManager = memberWithRole(other, FarmRole.MANAGER);
         actAs(otherManager);
         assertThatThrownBy(() -> reads.healthProfile(farm.getId(), cow.getId())).isInstanceOf(DomainException.class);
-        assertThatThrownBy(() -> health.open(other.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD")))
+        assertThatThrownBy(() -> health.open(other.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getStatus().value()).isEqualTo(404));
     }
 
@@ -135,9 +135,9 @@ class CareWorkflowIT extends DomainTestSupport {
     void closingACaseAsDiedProposesAPendingDeathVoucherForTheOwner() {
         actAs(manager);
         CareDtos.HealthCaseResult opened = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(5), null,
-            null, "Bloat", null, false, "SEVERE"));
+            null, "Bloat", null, false, "SEVERE", null));
         CareDtos.HealthCaseResult closed = health.updateStatus(farm.getId(), opened.id(), key(),
-            new CareDtos.CaseStatus(opened.version(), "CLOSE", "DIED", TODAY, "Found dead"));
+            new CareDtos.CaseStatus(opened.version(), "CLOSE", "Found dead", "WORSENED", null, null, "DIED", null, null));
         assertThat(closed.status()).isEqualTo("CLOSED");
         assertThat(timeline.timeline(farm.getId(), cow.getId(), "HEALTH", false))
             .filteredOn(event -> "HEALTH_CASE_CLOSED".equals(event.type())).singleElement().satisfies(event -> {
@@ -150,7 +150,7 @@ class CareWorkflowIT extends DomainTestSupport {
             .setParameter("f", farm.getId()).getResultList();
         assertThat(pending).singleElement().satisfies(v -> assertThat(v.getStatus().name()).isEqualTo("PENDING"));
         // the animal accepts no new event while the death voucher is pending (GBR-26)
-        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "x", null, false, "MILD")))
+        assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "x", null, false, "MILD", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_17));
     }
 

@@ -188,3 +188,24 @@ Review UC8 (10/11/2026), người dùng đồng ý sửa cả bốn điểm:
    từ chối 400 hoặc làm hỏng cả khoảng tra cứu 502 (R-19-08, E3).
 4. Metadata lời gọi bị 401 giữ 30 ngày rồi JOB-08 xóa; không lưu được metadata
    vẫn trả 401.
+
+### D30 — FE-10: popup Cập nhật / Đóng ca có ô chọn diễn biến; bắt buộc khi lưu thành lần theo dõi (14/11/2026)
+
+SRS mục 3.2 yêu cầu mỗi lần theo dõi có diễn biến (Tốt hơn / Không đổi / Xấu
+hơn), nhưng popup Cập nhật / Đóng ca (Part III §10) chỉ có ô chữ "Diễn biến mới
+nhất". Bản trước của adapter tự suy diễn biến từ kết quả (Khỏi → Tốt hơn, Chết →
+Xấu hơn, còn lại → Không đổi), tức là ghi một giá trị người dùng không chọn.
+
+Quyết định (TuanPQ):
+
+1. Popup có nhóm radio "Diễn biến" cạnh ô "Diễn biến mới", không chọn sẵn.
+2. Bắt buộc khi lệnh tạo lần theo dõi: Giữ trạng thái (ô chữ bắt buộc theo
+   FE-10 Q1), hoặc ô chữ có nội dung. Thiếu → `MSG-COM-06` dưới nhóm radio.
+   Đổi trạng thái / Đóng ca mà ô chữ trống thì không tạo theo dõi, không bắt buộc.
+3. A5 `POST …/health-cases/{caseId}/status` thêm `progress?`; có
+   `latestProgress` mà thiếu `progress` → 400 `MSG-COM-06 {field: progress}`.
+   Backend không tự điền giá trị mặc định. Frontend (backend và local) gửi / lưu
+   đúng giá trị người dùng chọn; bỏ đoạn tự suy.
+
+Nhãn diễn biến trong FE theo spec FE-10 (Tốt hơn / Không đổi / Xấu hơn). Test:
+TC-10-27, TC-10-28.

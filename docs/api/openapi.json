@@ -5108,6 +5108,36 @@
             "type" : "string",
             "format" : "date"
           }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -5115,10 +5145,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/HealthCaseRow"
-                  }
+                  "$ref" : "#/components/schemas/HealthCasePage"
                 }
               }
             }
@@ -5313,58 +5340,6 @@
         "responses" : {
           "201" : {
             "description" : "Created",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/HealthCaseResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/farms/{farmId}/health-cases/{caseId}/closure-correction" : {
-      "post" : {
-        "tags" : [ "health-care-command-resource" ],
-        "operationId" : "correctClosure",
-        "parameters" : [ {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "caseId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CorrectClosure"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -16695,6 +16670,21 @@
           },
           "healthState" : {
             "type" : "string"
+          },
+          "caseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "caseStatus" : {
+            "type" : "string"
+          },
+          "withdrawalBefore" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "withdrawalAfter" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -16712,12 +16702,9 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "treatmentTime" : {
+          "administeredAt" : {
             "type" : "string",
             "format" : "date-time"
-          },
-          "treatmentDetail" : {
-            "type" : "string"
           },
           "dose" : {
             "type" : "string"
@@ -16733,7 +16720,11 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "performer" : {
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
             "type" : "string"
           },
           "veterinaryAdvice" : {
@@ -17592,6 +17583,10 @@
           },
           "progress" : {
             "type" : "string"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -17632,6 +17627,10 @@
           },
           "severity" : {
             "type" : "string"
+          },
+          "vaccinationId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -17656,28 +17655,51 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "cattleCode" : {
+            "type" : "string"
+          },
           "observationId" : {
             "type" : "integer",
             "format" : "int64"
           },
           "healthState" : {
             "type" : "string"
+          },
+          "cattleWithdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "chronicSince" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "closedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "pendingExitVoucherId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
       "TreatmentCommand" : {
         "type" : "object",
         "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "medicineId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "treatmentTime" : {
+          "administeredAt" : {
             "type" : "string",
             "format" : "date-time"
-          },
-          "treatmentDetail" : {
-            "type" : "string"
           },
           "dose" : {
             "type" : "string"
@@ -17693,7 +17715,11 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "performer" : {
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
             "type" : "string"
           },
           "veterinaryAdvice" : {
@@ -17723,12 +17749,22 @@
             "type" : "string",
             "format" : "date"
           },
+          "cattleWithdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "healthState" : {
+            "type" : "string"
+          },
           "courseDays" : {
             "type" : "integer",
             "format" : "int32"
           },
           "medicineName" : {
             "type" : "string"
+          },
+          "returnedToOpen" : {
+            "type" : "boolean"
           }
         }
       },
@@ -17742,15 +17778,28 @@
           "action" : {
             "type" : "string"
           },
+          "latestProgress" : {
+            "type" : "string"
+          },
+          "progress" : {
+            "type" : "string"
+          },
+          "suspectedDiagnosis" : {
+            "type" : "string"
+          },
+          "suspectedContagious" : {
+            "type" : "boolean"
+          },
           "outcome" : {
             "type" : "string"
           },
-          "closingDate" : {
+          "closedAt" : {
             "type" : "string",
-            "format" : "date"
+            "format" : "date-time"
           },
-          "reason" : {
-            "type" : "string"
+          "confirmedById" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -17773,25 +17822,10 @@
           },
           "description" : {
             "type" : "string"
-          }
-        }
-      },
-      "CorrectClosure" : {
-        "type" : "object",
-        "properties" : {
-          "expectedVersion" : {
+          },
+          "observerId" : {
             "type" : "integer",
-            "format" : "int32"
-          },
-          "outcome" : {
-            "type" : "string"
-          },
-          "closingDate" : {
-            "type" : "string",
-            "format" : "date"
-          },
-          "reason" : {
-            "type" : "string"
+            "format" : "int64"
           }
         }
       },
@@ -20593,8 +20627,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -20602,9 +20637,8 @@
           "last" : {
             "type" : "boolean"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -20621,19 +20655,19 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "unpaged" : {
-            "type" : "boolean"
-          },
-          "paged" : {
             "type" : "boolean"
           },
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "paged" : {
+            "type" : "boolean"
           }
         }
       },
@@ -20643,10 +20677,10 @@
           "empty" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           }
         }
@@ -21012,8 +21046,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -21021,9 +21056,8 @@
           "last" : {
             "type" : "boolean"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -21058,8 +21092,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -21067,9 +21102,8 @@
           "last" : {
             "type" : "boolean"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -21778,6 +21812,36 @@
           }
         }
       },
+      "HealthCasePage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HealthCaseRow"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "counts" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
       "HealthCaseRow" : {
         "type" : "object",
         "properties" : {
@@ -21827,6 +21891,14 @@
             "type" : "string",
             "format" : "date"
           },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dayN" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "status" : {
             "type" : "string"
           },
@@ -21836,6 +21908,10 @@
           },
           "outcome" : {
             "type" : "string"
+          },
+          "closedDate" : {
+            "type" : "string",
+            "format" : "date"
           },
           "treatmentCount" : {
             "type" : "integer",
@@ -21847,7 +21923,7 @@
           }
         }
       },
-      "HealthCaseCard" : {
+      "HealthCaseView" : {
         "type" : "object",
         "properties" : {
           "id" : {
@@ -21866,6 +21942,9 @@
           "diagnosis" : {
             "type" : "string"
           },
+          "suspectedContagious" : {
+            "type" : "boolean"
+          },
           "openingSigns" : {
             "type" : "string"
           },
@@ -21873,16 +21952,35 @@
             "type" : "string",
             "format" : "date"
           },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dayN" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "chronicSince" : {
             "type" : "string",
             "format" : "date"
           },
-          "outcome" : {
-            "type" : "string"
-          },
           "treatmentCount" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "linkedVaccinationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "latestEntryAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "timeline" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HealthTimelineRow"
+            }
           },
           "version" : {
             "type" : "integer",
@@ -21897,6 +21995,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "cattleCode" : {
+            "type" : "string"
+          },
           "healthState" : {
             "type" : "string"
           },
@@ -21907,22 +22008,19 @@
           "suspectedContagious" : {
             "type" : "boolean"
           },
-          "activeCases" : {
+          "pendingExit" : {
+            "$ref" : "#/components/schemas/PendingHealthExit"
+          },
+          "openCases" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/HealthCaseCard"
+              "$ref" : "#/components/schemas/HealthCaseView"
             }
           },
           "previousCases" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/HealthCaseCard"
-            }
-          },
-          "timeline" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HealthTimelineRow"
+              "$ref" : "#/components/schemas/PreviousHealthCase"
             }
           }
         }
@@ -21934,6 +22032,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "caseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "type" : {
             "type" : "string"
           },
@@ -21941,11 +22043,15 @@
             "type" : "string",
             "format" : "date-time"
           },
-          "details" : {
-            "type" : "string"
-          },
           "recordedBy" : {
             "type" : "string"
+          },
+          "observer" : {
+            "type" : "string"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "status" : {
             "type" : "string"
@@ -21953,13 +22059,117 @@
           "corrected" : {
             "type" : "boolean"
           },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "temperatureC" : {
+            "type" : "number"
+          },
+          "progress" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
           "linkedVaccinationId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "version" : {
+          "medicineId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "medicineName" : {
+            "type" : "string"
+          },
+          "dose" : {
+            "type" : "string"
+          },
+          "route" : {
+            "type" : "string"
+          },
+          "courseDays" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "withdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "performer" : {
+            "type" : "string"
+          },
+          "veterinaryAdvice" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PendingHealthExit" : {
+        "type" : "object",
+        "properties" : {
+          "voucherId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "lossKind" : {
+            "type" : "string"
+          },
+          "exitDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "caseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "caseCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PreviousHealthCase" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "caseCode" : {
+            "type" : "string"
+          },
+          "openingSigns" : {
+            "type" : "string"
+          },
+          "diagnosis" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "openedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "closedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "confirmedBy" : {
+            "type" : "string"
           }
         }
       },
@@ -22993,13 +23203,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "headerName" : {
-            "type" : "string"
-          },
           "parameterName" : {
             "type" : "string"
           },
           "token" : {
+            "type" : "string"
+          },
+          "headerName" : {
             "type" : "string"
           }
         }

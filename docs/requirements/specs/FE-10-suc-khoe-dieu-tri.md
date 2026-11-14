@@ -125,7 +125,7 @@ E1 thiếu dấu hiệu / mức độ → MSG-COM-06 · E2 thân nhiệt → MSG
 
 ### UC-FE10-03 Theo dõi / đổi trạng thái / đóng ca
 **Ghi theo dõi:** popup → thời điểm, thân nhiệt, diễn biến, mô tả → **Lưu** → MSG-FE10-02.
-**Cập nhật trạng thái:** popup → diễn biến mới nhất (lưu thành 1 lần theo dõi), sửa chẩn đoán / cờ truyền nhiễm, chọn trạng thái:
+**Cập nhật trạng thái:** popup → diễn biến mới nhất kèm ô chọn diễn biến (lưu thành 1 lần theo dõi; D30), sửa chẩn đoán / cờ truyền nhiễm, chọn trạng thái:
 - Giữ OPEN / Giữ CHRONIC → chỉ thêm theo dõi → MSG-FE10-02.
 - Chuyển theo dõi mãn tính (từ OPEN) → CHRONIC → MSG-FE10-08.
 - Mở lại (từ CHRONIC) → OPEN → MSG-FE10-09.
@@ -228,13 +228,14 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
 |---|---|---|---|---|---|
 | 1 | Case / Ca | Chỉ đọc | — | Mã, bò, ngày mở, trạng thái hiện tại | — |
-| 2 | Latest progress / Diễn biến mới nhất | Ô chữ dài | — (Q1) | ≤ 1.000; lưu thành 1 lần theo dõi | MSG-COM-10 |
-| 3 | Suspected diagnosis, Contagious | Như popup Mở ca | — | — | — |
-| 4 | Case status / Trạng thái ca | Radio | * | OPEN: Giữ OPEN (mặc định) / Chuyển theo dõi mãn tính / Đóng ca. CHRONIC: Giữ CHRONIC (mặc định) / Mở lại / Đóng ca | — |
-| 5 | Outcome / Kết quả | Radio | * khi Đóng ca | Hồi phục / Chết / Mất tích; Chết, Mất tích → hiện MSG-FE10-05 trước khi lưu | MSG-COM-06 |
-| 6 | Closed at / Thời điểm đóng | Ngày giờ | * khi Đóng ca | Mặc định bây giờ; không trước bản ghi mới nhất của ca | MSG-COM-07, MSG-FE10-07 |
-| 7 | Confirmed by / Người xác nhận | Dropdown | — | Thành viên ACTIVE, mặc định người dùng | — |
-| 8 | Cancel / Save | Nút | — | — | MSG-COM-05, MSG-COM-02; thành công MSG-FE10-04 / 08 / 09 / 02 |
+| 2 | Latest progress / Diễn biến mới nhất | Ô chữ dài | * khi Giữ trạng thái (Q1) | ≤ 1.000; có nội dung thì lưu thành 1 lần theo dõi | MSG-COM-06, MSG-COM-10 |
+| 3 | Progress / Diễn biến | Radio, cạnh ô Diễn biến mới nhất | * khi tạo theo dõi (Giữ trạng thái, hoặc ô 2 có nội dung) – D30 | Tốt hơn / Không đổi / Xấu hơn (`IMPROVED` / `UNCHANGED` / `WORSENED`); không chọn sẵn; lưu vào lần theo dõi. Đổi trạng thái / Đóng ca mà ô 2 để trống thì không bắt buộc | MSG-COM-06 |
+| 4 | Suspected diagnosis, Contagious | Như popup Mở ca | — | — | — |
+| 5 | Case status / Trạng thái ca | Radio | * | OPEN: Giữ OPEN (mặc định) / Chuyển theo dõi mãn tính / Đóng ca. CHRONIC: Giữ CHRONIC (mặc định) / Mở lại / Đóng ca | — |
+| 6 | Outcome / Kết quả | Radio | * khi Đóng ca | Hồi phục / Chết / Mất tích; Chết, Mất tích → hiện MSG-FE10-05 trước khi lưu | MSG-COM-06 |
+| 7 | Closed at / Thời điểm đóng | Ngày giờ | * khi Đóng ca | Mặc định bây giờ; không trước bản ghi mới nhất của ca | MSG-COM-07, MSG-FE10-07 |
+| 8 | Confirmed by / Người xác nhận | Dropdown | — | Thành viên ACTIVE, mặc định người dùng | — |
+| 9 | Cancel / Save | Nút | — | — | MSG-COM-05, MSG-COM-02; thành công MSG-FE10-04 / 08 / 09 / 02 |
 
 ### Popup Sửa / Hủy điều trị hoặc theo dõi
 
@@ -257,7 +258,7 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 | A2 | Tab sức khỏe của bò | — | `{healthState, withdrawalUntil, openCases[{caseId, code, signs, status, dayN, chronicSince, severity, openedAt, treatmentCount, timeline[{recordId, type: OPENING\|FOLLOW_UP\|TREATMENT, at, details, recordedBy, corrected, status, version}], version}], previousCases[{code, signs, outcome, month}]}` | COM-08 | `GET /api/farms/{farmId}/health-cases/cattle/{cattleId}` |
 | A3 | Mở ca / thêm quan sát | `cattleId, observedAt, temperature?, signs, suspectedDiagnosis?, contagious, severity, caseId? (thêm vào ca), observerId?, vaccinationId?` + `Idempotency-Key` | `{caseId, caseCode, healthState}` | COM-06, FE10-06, COM-07, COM-15, COM-13, COM-17, COM-05, COM-02 | `POST /api/farms/{farmId}/health-cases` |
 | A4 | Ghi theo dõi | `observedAt, temperature?, progress, description, version` + `Idempotency-Key` | Ca | COM-06, FE10-06, FE10-07, COM-05 | `POST …/health-cases/{caseId}/observations` |
-| A5 | Đổi trạng thái / đóng ca | `action: KEEP\|TO_CHRONIC\|TO_OPEN\|CLOSE, latestProgress?, suspectedDiagnosis?, contagious?, outcome?, closedAt?, confirmedById?, version` + `Idempotency-Key` | `{case, healthState, pendingExitVoucherId?}` | COM-06, COM-07, FE10-07, COM-05, COM-13 | `POST …/health-cases/{caseId}/status` |
+| A5 | Đổi trạng thái / đóng ca | `action: KEEP\|TO_CHRONIC\|TO_OPEN\|CLOSE, latestProgress?, progress? (IMPROVED\|UNCHANGED\|WORSENED; bắt buộc khi có latestProgress, không tự điền – D30), suspectedDiagnosis?, contagious?, outcome?, closedAt?, confirmedById?, version` + `Idempotency-Key` | `{case, healthState, pendingExitVoucherId?}` | COM-06, COM-07, FE10-07, COM-05, COM-13 | `POST …/health-cases/{caseId}/status` |
 | A6 | Ghi điều trị | `medicineId, dose, route, administeredAt, courseDays?, withdrawalDays?, performerId? \| performerName?, vetAdvice?, version` + `Idempotency-Key` | `{treatmentId, withdrawalEnd, cattleWithdrawalUntil, healthState, caseStatus}` | COM-06, FE18-08, COM-07, FE10-07, COM-05, COM-13 | `POST …/health-cases/{caseId}/treatments` |
 | A7 | Sửa / hủy điều trị | `changes?, reason, version` + `Idempotency-Key` | `{status, withdrawalBefore, withdrawalAfter, healthState}` | COM-06, FE10-07, COM-05, COM-13, COM-18 | `POST /api/farms/{farmId}/treatments/{id}/correction` · `/void` |
 | A8 | Sửa / hủy theo dõi | Như A7 | Như A7 | + FE10-13 (hủy quan sát mở ca), FE10-06 | `POST /api/farms/{farmId}/health-observations/{id}/correction` · `/void` |
@@ -316,6 +317,8 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | TC-10-24 | Owner / Technician | Gọi mở ca / ghi điều trị | 403 | H | R-10-14 |
 | TC-10-25 | Thuốc ngưng | Ghi điều trị | MSG-FE18-08 | I | UC-04 E2 |
 | TC-10-26 | 3 ca OPEN, 1 CHRONIC, 2 CLOSED (tháng trước) | Mở SCR-36, tab Đang mở | 3 dòng, bỏ qua khoảng ngày | E | SCR-36 |
+| TC-10-27 | Popup Cập nhật / Đóng ca | Giữ trạng thái không chọn diễn biến; Đóng ca có chữ không chọn diễn biến; Đóng ca ô chữ trống | MSG-COM-06 dưới ô Diễn biến / MSG-COM-06 / lưu được, không tạo theo dõi; lưu đúng diễn biến đã chọn | U, H | D30 |
+| TC-10-28 | A5 | Có `latestProgress`, thiếu `progress` | 400 MSG-COM-06 `{field: progress}`; ca không đổi; backend không tự điền | H | D30 |
 
 ---
 
@@ -337,3 +340,4 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 14/11/2026 | 28/10/2026 | D30: popup Cập nhật / Đóng ca thêm ô chọn Diễn biến (mục 6 dòng 3), A5 thêm `progress?` (mục 7), TC-10-27/28; bỏ cách tự suy diễn biến từ kết quả | Tuấn |
