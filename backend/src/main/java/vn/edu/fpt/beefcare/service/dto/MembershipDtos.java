@@ -48,10 +48,17 @@ public final class MembershipDtos {
      */
     public record MemberList(String farmName, String timeZone, String serviceStatus, MemberCounts counts, java.util.List<MemberView> items) {}
 
+    /**
+     * A2 / UC-FE03-06 (D30). {@code role} is the new role and is required only for CHANGE_ROLE (Manager ⇄ Technician);
+     * REACTIVATE keeps the current role. The effective date is history only (not after today in the farm time zone).
+     */
     public record MemberChange(
         @NotBlank @Pattern(regexp = "CHANGE_ROLE|DEACTIVATE|REACTIVATE") String action,
+        @io.swagger.v3.oas.annotations.media.Schema(description = "New role; required for CHANGE_ROLE, ignored otherwise")
         @Pattern(regexp = "MANAGER|TECHNICIAN") String role,
         @NotNull LocalDate effectiveDate,
+        // The 5-character minimum is checked in the service, after the permission checks (D30), so it is not a bean constraint.
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Trimmed; at least 5 non-space characters (Table III-1)")
         @NotBlank @Size(max = 500) String reason,
         @NotNull Integer expectedVersion
     ) {}

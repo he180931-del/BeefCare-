@@ -56,6 +56,7 @@ export default function MembersPage() {
   const current = preferences.key === preferencesKey ? preferences : { ...saved, key: preferencesKey }
   const [page, setPage] = useState(1)
   const [notice, setNotice] = useState<string | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
   const query = useQuery(async () => ({ farmId, list: await farmWorkspaceApi.listMembers(farmId, viewer) }), [farmId, viewer])
   // A response for another farm must never be shown while the new farm loads.
   const list = query.data?.farmId === farmId ? query.data.list : undefined
@@ -75,8 +76,10 @@ export default function MembersPage() {
   const selected = m === 'doi-vai-tro' ? list?.items.find((member) => member.id === Number(search.get('id'))) : undefined
   const openChange = (id: number, action: MemberAction) => { const next = new URLSearchParams(search); next.set('m', 'doi-vai-tro'); next.set('id', String(id)); next.set('a', action); setSearch(next) }
   const closeChange = () => { const next = new URLSearchParams(search); ['m', 'id', 'a'].forEach((key) => next.delete(key)); setSearch(next) }
-  const refresh = () => { setNotice(null); query.refetch() }
-  const done = (message: string) => { setNotice(message); closeChange(); query.refetch() }
+  const refresh = () => { setNotice(null); setFailure(null); query.refetch() }
+  const done = (message: string) => { setNotice(message); setFailure(null); closeChange(); query.refetch() }
+  // UC6 refused because the row changed (D30): show why, close the popup and read the list again.
+  const stale = (message: string) => { setFailure(message); setNotice(null); closeChange(); query.refetch() }
 
   if (query.error) return <Layout title={TITLE}><ErrorBlock message={userFacingError(query.error, 'Không tải được danh sách thành viên. Vui lòng thử lại.')} onRetry={query.refetch} /></Layout>
   if (!list) return <Layout title={TITLE}><LoadingBlock /></Layout>
@@ -97,6 +100,7 @@ export default function MembersPage() {
           <Button variant="primary" onClick={() => openModal('invite')} disabled={!farmActive}><Icon name="user-plus" size={16} className="mr-1.5" />Mời thành viên</Button>
         </>}
       </PageHeader>
+      {failure && <Note tone="err">{failure}</Note>}
       {notice && <Note tone="ok">{notice}</Note>}
       {owner && !farmActive && <Note>Dịch vụ trại hiện không hoạt động. Bạn vẫn có thể xem và ngưng thành viên; mời, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).</Note>}
       {!owner && <Note>Chế độ xem chỉ đọc. Chỉ Chủ trại được gửi lời mời hoặc thay đổi vai trò, trạng thái thành viên.</Note>}
@@ -112,7 +116,7 @@ export default function MembersPage() {
       <Card title="Quyền theo vai trò"><PermissionTable /></Card>
       <Foot>Mỗi vai trò có bộ quyền cố định, không cấp quyền riêng cho từng người (GBR-06). Thay đổi vai trò hoặc trạng thái áp dụng từ thao tác kế tiếp của thành viên.</Foot>
       {m === 'invite' && owner && <InviteDialog farmId={farmId} farmName={list.farmName} timeZone={list.timeZone} active={farmActive} onClose={closeModal} onSent={(message) => { setNotice(message); closeModal(); query.refetch() }} />}
-      {selected && owner && <MemberChangeDialog farmId={farmId} member={selected} initialAction={(search.get('a') as MemberAction | null) ?? undefined} active={farmActive} onClose={closeChange} onDone={done} />}
+      {selected && owner && <MemberChangeDialog farmId={farmId} farmName={list.farmName} timeZone={list.timeZone} member={selected} initialAction={(search.get('a') as MemberAction | null) ?? undefined} active={farmActive} onClose={closeChange} onDone={done} onStale={stale} />}
     </Layout>
   )
 }

@@ -17,6 +17,15 @@ public interface FarmMembershipRepository extends JpaRepository<FarmMembership, 
     Optional<FarmMembership> findFirstByFarmIdAndUserId(Long farmId, Long userId);
     List<FarmMembership> findByFarmIdOrderById(Long farmId);
 
+    /**
+     * UC-FE03-06 (D30): the target row is locked before any check, so a concurrent command waits and then sees the
+     * committed role and status (MSG-FE03-20) instead of overwriting it.
+     */
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from FarmMembership m where m.id = :id and m.farm.id = :farmId")
+    Optional<FarmMembership> lockByIdAndFarmId(@org.springframework.data.repository.query.Param("id") Long id,
+        @org.springframework.data.repository.query.Param("farmId") Long farmId);
+
     /** SCR-13 (A1): every membership with its account in one query; the inverse platform access is joined to avoid N+1. */
     @EntityGraph(attributePaths = { "user", "user.platformStaffAccess" })
     @Query("select m from FarmMembership m where m.farm.id = :farmId")

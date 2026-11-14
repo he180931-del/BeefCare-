@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261114000200-membership-change-history" author="beefcare">
+        <!-- D30 / UC-FE03-06 step 6, spec FE-03 §3.2: every role change, deactivation and reactivation keeps an append-only
+             history row (action, role and status before / after, effective date, reason, actor, time), saved with the
+             membership and its audit entry in one transaction. Existing memberships have no change rows to recover. -->
+        <createTable tableName="farm_membership_change">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="membership_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="action" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="role_before" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="role_after" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="status_before" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="status_after" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="effective_date" type="date"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"><constraints nullable="false"/></column>
+            <column name="changed_by_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="changed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="farm_membership_change" baseColumnNames="membership_id" constraintName="fk_farm_membership_change_membership"
+                                 referencedTableName="farm_membership" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="farm_membership_change" baseColumnNames="farm_id" constraintName="fk_farm_membership_change_farm"
+                                 referencedTableName="farm" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="farm_membership_change" baseColumnNames="changed_by_id" constraintName="fk_farm_membership_change_actor"
+                                 referencedTableName="app_user" referencedColumnNames="id"/>
+        <createIndex tableName="farm_membership_change" indexName="ix_farm_membership_change_membership">
+            <column name="membership_id"/><column name="changed_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

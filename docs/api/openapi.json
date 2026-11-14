@@ -13108,6 +13108,7 @@
           },
           "role" : {
             "type" : "string",
+            "description" : "New role; required for CHANGE_ROLE, ignored otherwise",
             "pattern" : "MANAGER|TECHNICIAN"
           },
           "effectiveDate" : {
@@ -13116,6 +13117,7 @@
           },
           "reason" : {
             "type" : "string",
+            "description" : "Trimmed; at least 5 non-space characters (Table III-1)",
             "maxLength" : 500,
             "minLength" : 0
           },

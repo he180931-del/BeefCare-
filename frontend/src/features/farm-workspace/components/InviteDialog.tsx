@@ -85,7 +85,12 @@ export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSe
     finally { setSaving(false) }
   }
 
-  if (reactivating) return <MemberChangeDialog farmId={farmId} member={reactivating} initialAction="REACTIVATE" active={active} onClose={() => setReactivating(null)} onDone={done} />
+  if (reactivating) {
+    return <MemberChangeDialog farmId={farmId} farmName={farmName ?? ''} timeZone={timeZone ?? 'Asia/Ho_Chi_Minh'} member={reactivating} initialAction="REACTIVATE" active={active}
+      onClose={() => setReactivating(null)} onDone={done}
+      // The member changed meanwhile (D30): back to the invite form with the reason; the Owner decides again.
+      onStale={(message) => { setReactivating(null); setAlternative(null); setError(message) }} />
+  }
 
   return (
     <Modal title="Mời thành viên" sub={farmName} width={560} onClose={close}>

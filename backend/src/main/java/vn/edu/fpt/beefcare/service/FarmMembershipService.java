@@ -14,9 +14,11 @@ import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.FarmInvitation;
 import vn.edu.fpt.beefcare.domain.FarmMembership;
+import vn.edu.fpt.beefcare.domain.FarmMembershipChange;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
+import vn.edu.fpt.beefcare.repository.FarmMembershipChangeRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.service.dto.MembershipDtos.*;
@@ -40,6 +42,7 @@ public class FarmMembershipService {
     private final MailService mail;
     private final FarmClock clock;
     private final ActionLinkSigner linkSigner;
+    private final FarmMembershipChangeRepository changes;
 
     public FarmMembershipService(
         FarmAccessService access,
@@ -50,7 +53,8 @@ public class FarmMembershipService {
         AuditService audit,
         MailService mail,
         FarmClock clock,
-        ActionLinkSigner linkSigner
+        ActionLinkSigner linkSigner,
+        FarmMembershipChangeRepository changes
     ) {
         this.access = access;
         this.farms = farms;
@@ -61,6 +65,7 @@ public class FarmMembershipService {
         this.mail = mail;
         this.clock = clock;
         this.linkSigner = linkSigner;
+        this.changes = changes;
     }
 
     /**
@@ -283,44 +288,69 @@ public class FarmMembershipService {
         return new AcceptedInvitation(membership.getId(), membership.getFarm().getId(), membership.getFarm().getName(), membership.getRole(), membership.getStatus());
     }
 
+    /**
+     * A2 / UC-FE03-06 (D30). The row is locked first, then checked in this order: Owner of the farm (COM-01), membership of
+     * this farm (COM-08), not the Owner membership (COM-01), input (COM-06 / COM-07 / COM-10, reason 5–500 non-space
+     * characters, date not after today in the farm time zone), action allowed for the status (change role of an INACTIVE
+     * member: COM-10), ACTIVE farm for change role / reactivate (FE03-04), requested value already in place (FE03-20, also
+     * with an outdated version), version (COM-05). A refused command writes nothing. The effective date is history only:
+     * the new permissions apply from the member's next request (FE-03 Q3).
+     */
     @Transactional
     public MemberView changeMember(Long farmId, Long membershipId, MemberChange request) {
         FarmContext owner = requireOwner(farmId, false);
-        FarmMembership membership = memberships.findById(membershipId).filter(value -> farmId.equals(value.getFarm().getId()))
-            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        FarmMembership membership = memberships.lockByIdAndFarmId(membershipId, farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
         if ("OWNER".equalsIgnoreCase(membership.getRole())) throw DomainException.forbidden(MessageCodes.COM_01);
-        VersionGuard.requireExpected(membership.getVersion(), request.expectedVersion());
+        String action = request.action().trim().toUpperCase(Locale.ROOT);
+        if (!List.of("CHANGE_ROLE", "DEACTIVATE", "REACTIVATE").contains(action)) throw DomainException.invalid("action");
+        FarmRole newRole = null;
+        if ("CHANGE_ROLE".equals(action)) {
+            if (request.role() == null || request.role().isBlank()) throw DomainException.required("role");
+            newRole = parseInviteRole(request.role());
+            if (newRole == null || newRole == FarmRole.OWNER) throw DomainException.invalid("role");
+        }
         LocalDate effectiveDate = request.effectiveDate();
-        if (effectiveDate.isAfter(clock.today())) throw DomainException.badRequest(MessageCodes.COM_07, "field", "effectiveDate");
+        if (effectiveDate.isAfter(farmToday(owner.farm()))) throw DomainException.badRequest(MessageCodes.COM_07, "field", "effectiveDate");
         String reason = request.reason().trim();
         if (reason.isEmpty()) throw DomainException.required("reason");
-        String action = request.action().trim().toUpperCase(Locale.ROOT);
+        long visible = reason.codePoints().filter(c -> !Character.isWhitespace(c) && !Character.isSpaceChar(c)).count();
+        if (reason.length() > 500 || visible < 5) throw DomainException.invalid("reason");
+        boolean active = ACTIVE.equalsIgnoreCase(membership.getStatus());
+        if ("CHANGE_ROLE".equals(action) && !active) throw DomainException.invalid("action");
         boolean farmActive = ACTIVE.equalsIgnoreCase(owner.farm().getServiceStatus());
-        if (("CHANGE_ROLE".equals(action) || "REACTIVATE".equals(action)) && !farmActive) throw DomainException.forbidden("MSG-FE03-04");
+        if (!"DEACTIVATE".equals(action) && !farmActive) throw DomainException.forbidden(MessageCodes.FE03_04);
+        boolean unchanged = switch (action) {
+            case "CHANGE_ROLE" -> newRole.name().equalsIgnoreCase(membership.getRole());
+            case "DEACTIVATE" -> !active;
+            default -> active;
+        };
+        if (unchanged) {
+            throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "CHANGE_ROLE".equals(action) ? "role" : "status");
+        }
+        VersionGuard.requireExpected(membership.getVersion(), request.expectedVersion());
 
+        String roleBefore = membership.getRole();
+        String statusBefore = membership.getStatus();
         switch (action) {
-            case "CHANGE_ROLE" -> {
-                FarmRole role = parseInviteRole(request.role());
-                if (role == null || role == FarmRole.OWNER) throw DomainException.invalid("role");
-                if (role.name().equalsIgnoreCase(membership.getRole())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "role");
-                membership.setRole(role.name());
-            }
-            case "DEACTIVATE" -> {
-                if (!ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "status");
-                membership.setStatus("INACTIVE");
-            }
-            case "REACTIVATE" -> {
-                if (ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "status");
-                membership.setStatus(ACTIVE);
-            }
-            default -> throw DomainException.invalid("action");
+            case "CHANGE_ROLE" -> membership.setRole(newRole.name());
+            case "DEACTIVATE" -> membership.setStatus("INACTIVE");
+            default -> membership.setStatus(ACTIVE);
         }
         membership.setEffectiveDate(effectiveDate);
         membership.setChangeReason(reason);
-        audit.log(owner, "MEMBER_" + action, "FarmMembership", membership.getId(),
-            java.util.Map.of("role", membership.getRole(), "status", membership.getStatus(), "effectiveDate", effectiveDate.toString()));
+        changes.save(new FarmMembershipChange(membership, action, roleBefore, statusBefore, effectiveDate, reason, owner.user(), clock.now()));
+        // GBR-86: before / after values only; the reason stays in the membership history, not in the central audit.
+        audit.log(owner, "MEMBER_" + action, "FarmMembership", membership.getId(), java.util.Map.of(
+            "roleBefore", roleBefore, "roleAfter", membership.getRole(), "statusBefore", statusBefore, "statusAfter", membership.getStatus(),
+            "effectiveDate", effectiveDate.toString()));
         memberships.flush();
         return memberView(membership, true, farmActive);
+    }
+
+    /** "Today" of the farm (Table III-1): the farm's own time zone, the platform zone when it has none. */
+    private LocalDate farmToday(Farm farm) {
+        String zone = farm.getTimeZone();
+        return zone == null || zone.isBlank() ? clock.today() : clock.now().atZone(java.time.ZoneId.of(zone)).toLocalDate();
     }
 
     private FarmContext requireOwner(Long farmId, boolean requireActiveFarm) {

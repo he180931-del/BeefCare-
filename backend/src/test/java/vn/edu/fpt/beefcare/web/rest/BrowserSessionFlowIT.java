@@ -708,7 +708,11 @@ class BrowserSessionFlowIT {
         String changeKey = UUID.randomUUID().toString();
         owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, changeKey).andExpect(status().isOk()).andExpect(jsonPath("$.role").value("MANAGER"));
         owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, changeKey).andExpect(status().isOk()).andExpect(jsonPath("$.role").value("MANAGER"));
-        owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, UUID.randomUUID().toString()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
+        // D30: a new key asking for the role already in place reports MSG-FE03-20 before the outdated version ...
+        owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, UUID.randomUUID().toString()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-FE03-20"));
+        // ... while a real change with the outdated version is MSG-COM-05
+        Map<String, Object> staleChange = Map.of("action", "CHANGE_ROLE", "role", "TECHNICIAN", "effectiveDate", farmClock.today().toString(), "reason", "Back to the field", "expectedVersion", membershipVersion);
+        owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, staleChange, UUID.randomUUID().toString()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
         // the Manager role applies from the member's next request without signing in again (GBR-14)
         invitee.get("/api/farms").andExpect(jsonPath("$[?(@.id==" + farmId + ")].role").value("MANAGER"));
     }

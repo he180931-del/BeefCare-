@@ -136,11 +136,19 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
         items: rows.map((row) => ({ ...cloneMember(row), actions: memberActions(row, owner, active) })),
       }
     },
-    async changeMember(farmId, memberId, input) {
+    /** Same check order and codes as A2 (D30); the effective date and reason are accepted as validated by the popup. */
+    async changeMember(farmId, memberId, input, options) {
       const rows = getMembers(farmId)
+      const farmActive = getFarm(farmId).serviceStatus === 'ACTIVE'
       const member = rows.find((row) => row.id === memberId)
-      if (!member || member.role === 'OWNER') throw new Error('Không thể thay đổi thành viên chủ trại.')
-      if (input.action === 'CHANGE_ROLE' && input.role === member.role) throw new Error('Thành viên đang có vai trò này.')
+      if (!member) throw invitationError(404, 'MSG-COM-08', {}, 'Không tìm thấy thành viên.')
+      if (member.role === 'OWNER') throw invitationError(403, 'MSG-COM-01', {}, 'Không thể thay đổi thành viên chủ trại.')
+      const active = member.status === 'ACTIVE'
+      if (input.action === 'CHANGE_ROLE' && !active) throw invitationError(400, 'MSG-COM-10', { field: 'action' }, 'Thành viên đã ngưng chỉ có thể được kích hoạt lại.')
+      if (input.action !== 'DEACTIVATE' && !farmActive) throw invitationError(403, 'MSG-FE03-04', {}, 'Cần trại đang hoạt động.')
+      const unchanged = input.action === 'CHANGE_ROLE' ? input.role === member.role : input.action === 'DEACTIVATE' ? !active : active
+      if (unchanged) throw invitationError(409, 'MSG-FE03-20', { target: member.email, value: input.action === 'CHANGE_ROLE' ? 'role' : 'status' }, 'Không có thay đổi.')
+      if (options?.expectedVersion != null && options.expectedVersion !== member.version) throw invitationError(409, 'MSG-COM-05', {}, 'Dữ liệu đã thay đổi ở phiên khác.')
       const updated = { ...member, role: input.action === 'CHANGE_ROLE' ? input.role as Exclude<FarmRole, 'OWNER'> : member.role, status: input.action === 'DEACTIVATE' ? 'INACTIVE' : input.action === 'REACTIVATE' ? 'ACTIVE' : member.status, version: member.version + 1 } as Membership
       members.set(farmId, rows.map((row) => row.id === memberId ? updated : row))
       return { ...cloneMember(updated), actions: memberActions(updated, true, getFarm(farmId).serviceStatus === 'ACTIVE') }

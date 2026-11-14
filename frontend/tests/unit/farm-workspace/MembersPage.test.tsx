@@ -7,7 +7,7 @@ import { SessionContext, type Session } from '../../../src/features/authorizatio
 import MembersPage from '../../../src/features/farm-workspace/pages/MembersPage'
 import type { MemberList, Membership } from '../../../src/features/farm-workspace/types'
 
-const api = vi.hoisted(() => ({ listMembers: vi.fn(), getFarm: vi.fn() }))
+const api = vi.hoisted(() => ({ listMembers: vi.fn(), getFarm: vi.fn(), changeMember: vi.fn() }))
 vi.mock('../../../src/features/farm-workspace/api/farmWorkspaceApi', () => ({ farmWorkspaceApi: api }))
 
 const owner: Session = { role: 'OWNER', email: 'owner@example.test', fullName: 'Chủ trại', farmId: 401, farmName: 'Trại kiểm thử', logout: vi.fn() }
@@ -141,6 +141,19 @@ describe('UC-FE03-05 / SCR-13 (D29)', () => {
     open(owner, '/thanh-vien?farmId=402')
     await screen.findByText('Bùi Văn Khoa')
     expect(names()[0]).toBe('Chưa có tên')
+  })
+
+  it('closes the UC6 popup on an outdated row, shows the reason and reads the list again (D30)', async () => {
+    api.changeMember.mockRejectedValue(new BackendError(409, { code: 'MSG-FE03-20', params: { value: 'status' } }))
+    const user = userEvent.setup(); open(owner, '/thanh-vien?farmId=401&m=doi-vai-tro&id=2&a=DEACTIVATE')
+    const dialog = await screen.findByRole('dialog', { name: 'Đổi vai trò / ngưng thành viên' })
+    await user.type(within(dialog).getByLabelText('Lý do * (5–500 ký tự)'), 'Nghỉ việc')
+    await user.click(within(dialog).getByRole('button', { name: 'Lưu thay đổi' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Xác nhận' }))
+    expect(await screen.findByText('Thành viên đã có vai trò hoặc trạng thái này.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(api.listMembers).toHaveBeenCalledTimes(2)
+    expect(api.changeMember).toHaveBeenCalledTimes(1)
   })
 
   it('shows Table III-2 for the three roles', async () => {
