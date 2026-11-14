@@ -354,6 +354,26 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.healthState").value("UNDER_TREATMENT"));
     }
 
+    /**
+     * Found while running against the real backend (Việc 5c): the follow-up written by a status change was stored at
+     * the exact instant (with seconds), so a treatment or follow-up saved right after with the popup's default "now"
+     * (minute precision) in the same minute was refused with MSG-FE10-07.
+     */
+    @Test
+    void aStatusChangeFollowUpDoesNotBlockARecordSavedInTheSameMinute() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        clock.set(TODAY.atTime(10, 0, 40).atZone(FARM_ZONE).toInstant());
+        postJson("/health-cases/" + opened.id() + "/status", manager, "{\"expectedVersion\":" + opened.version() + ",\"action\":\"TO_CHRONIC\",\"latestProgress\":\"Còn ho\"}")
+            .andExpect(status().isOk());
+        Instant sameMinute = TODAY.atTime(10, 0).atZone(FARM_ZONE).toInstant();
+        postJson("/health-cases/" + opened.id() + "/treatments", manager, "{\"expectedVersion\":" + versionOf(HealthCase.class, opened.id()) + ",\"medicineId\":" + medicine.id()
+                + ",\"administeredAt\":\"" + sameMinute + "\",\"dose\":\"20 ml\",\"route\":\"IM\"}")
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.returnedToOpen").value(true));
+        mvc.perform(get(url("/health-cases/cattle/" + cow.getId())).with(as(manager.getEmail())))
+            .andExpect(jsonPath("$.openCases[0].timeline[1].occurredAt").value(sameMinute.toString()));
+    }
+
     @Test
     void tc10_13_closingAsRecoveredMakesTheCattleHealthy() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));

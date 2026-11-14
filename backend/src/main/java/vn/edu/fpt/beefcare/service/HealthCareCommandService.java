@@ -174,7 +174,9 @@ public class HealthCareCommandService {
         if (req.suspectedDiagnosis() != null) healthCase.setSuspectedDiagnosis(optionalText(req.suspectedDiagnosis(), "suspectedDiagnosis", 100));
         if (req.suspectedContagious() != null) healthCase.setIsSuspectedContagious(req.suspectedContagious());
         Map<String, Object> before = snapshot(healthCase);
-        Instant now = clock.now();
+        // Popups work at minute precision: a follow-up written "now" with seconds would make a record saved right after
+        // with the default "now" of the same minute look earlier than it (MSG-FE10-07).
+        Instant now = clock.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
         Long pendingVoucherId = null;
         Long observationId = null;
         switch (action) {
