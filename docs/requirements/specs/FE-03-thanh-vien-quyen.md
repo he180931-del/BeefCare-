@@ -38,6 +38,11 @@
 > `farm_membership_change`, audit có giá trị trước/sau; ngày hiệu lực chỉ để ghi lịch sử;
 > lý do 5–500 ký tự; xác nhận cả khi kích hoạt lại; thứ tự kiểm FE03-20 trước COM-05.
 
+> UC-FE03-07 được làm rõ theo D31 (người dùng xác nhận 14/11/2026): A9/A10 + SCR-16; hiện cả
+> tài khoản chưa xác minh; tìm tên/email giữ dấu; lọc vai trò platform ACTIVE ("Không có" gồm
+> vai trò đã thu hồi); xếp theo tên tiếng Việt, 20 dòng/trang; trại tham gia = membership
+> ACTIVE; thêm `created_at`; bỏ SĐT khỏi phản hồi tài khoản; giờ Asia/Ho_Chi_Minh.
+
 ---
 
 ## 1. Phạm vi
@@ -132,6 +137,20 @@ Duy nhất: tối đa 1 lời mời `PENDING` cho mỗi cặp trại + email (BR
 | Gói dịch vụ và thanh toán | Quản lý | — | — |
 | Thông tin trại | Quản lý | — | — |
 
+### 3.5 Tài khoản người dùng (User Account – SCR-16, D31)
+
+| Thuộc tính | Ràng buộc / nguồn |
+|---|---|
+| Email | Duy nhất, không phân biệt hoa thường (Part I §3.2) |
+| Họ tên | Có thể trống: SCR-16 hiện "Chưa có tên" và xếp theo email |
+| Trạng thái | `ACTIVE ⇄ SUSPENDED` (SA, có lý do – UC8) |
+| Xác minh email | Đã xác minh khi có Google subject hoặc identity cùng email đã kích hoạt; tài khoản đăng ký mật khẩu chưa bấm link vẫn hiện "Chưa xác minh" (D31) |
+| Cách đăng nhập | `PASSWORD` và/hoặc `GOOGLE` |
+| Thời điểm tạo (`created_at`) | Ghi một lần khi tạo dòng tài khoản (D31, migration `20261114000300`) |
+| Đăng nhập cuối | Giá trị mới hơn giữa lần dùng mật khẩu và lần dùng Google gần nhất; chưa có → "Chưa đăng nhập" |
+| Đăng ký Chủ trại | Có / Không và thời điểm; tên các trại sở hữu |
+| SĐT liên hệ | Có trong tài khoản nhưng **không** hiện ở SCR-16 và không trả trong A9/A10 (GBR-11, D31) |
+
 ---
 
 ## 4. Quy tắc nghiệp vụ
@@ -216,8 +235,16 @@ E1 lời mời hết hạn / hủy / đã dùng / link sai → trạng thái "L�
 
 E1 đích là Owner / người làm không phải Owner → MSG-COM-01 · E2 đổi vai trò / kích hoạt lại khi trại không ACTIVE → MSG-FE03-04 · E3 đã đúng vai trò / trạng thái → MSG-FE03-20 · E4 lý do trống / ngày tương lai → MSG-COM-06 / MSG-COM-07; lý do ngoài 5–500 → MSG-COM-10 · E5 sửa đồng thời → MSG-COM-05.
 
-### UC-FE03-07 / 08 Tài khoản người dùng (SA)
-SCR-16: tìm, lọc → mở chi tiết tài khoản → nhập lý do → **Tạm ngưng / Khôi phục tài khoản** → xác nhận MSG-FE03-14 / 15 → kiểm R-03-15 → lưu + lịch sử + audit → MSG-FE03-16 → áp dụng R-03-17.
+### UC-FE03-07 Xem tài khoản người dùng (D31)
+1. SA có quyền SA ACTIVE mở SCR-16 (trang chủ của SA). Vai trò khác, SA đã bị thu hồi → MSG-COM-01; tài khoản bị tạm ngưng → MSG-FE01-03; chưa đăng nhập → 401.
+2. A9 trả một trang 20 dòng (`page` từ 0) và tổng số sau lọc. Tìm theo tên hoặc email (bỏ khoảng trắng đầu cuối, không phân biệt hoa thường, giữ dấu, tối đa 100 ký tự; `%` `_` là ký tự thường); lọc trạng thái (Tất cả / ACTIVE / SUSPENDED) và vai trò platform đang ACTIVE (Tất cả / Không có / CS / PM / SA; "Không có" gồm vai trò đã thu hồi). Tham số sai → MSG-COM-10 kèm tên tham số.
+3. Thứ tự theo tên tiếng Việt A→Z, không phân biệt hoa thường; chưa có tên theo email; bằng nhau theo email rồi id. Bấm cột Người dùng để đảo. Đổi bộ lọc / chiều về trang 1; ô tìm, bộ lọc và chiều được giữ trong phiên theo tài khoản SA; ô tìm trên thanh trên mở trang với `?q=`.
+4. Mỗi dòng: chữ viết tắt, họ tên, email; vai trò platform ACTIVE hoặc "Không có" (kèm "CS đã thu hồi" khi bị thu hồi); số trại tham gia = membership ACTIVE kèm vai trò "3 (Chủ trại, Quản lý)"; trạng thái.
+5. Chọn dòng (URL `/nen-tang/tai-khoan/{id}`; không có id thì dòng đầu) → A10: email và xác minh, tạo lúc, đăng nhập cuối (dd/mm/yyyy HH:mm, Asia/Ho_Chi_Minh), đăng ký Chủ trại và trại sở hữu, vai trò platform, trại tham gia. Id không tồn tại → MSG-COM-08, danh sách vẫn dùng được.
+6. Tải khi vào màn, đổi bộ lọc / trang / chiều, sau thao tác UC8/UC9 hoặc bấm Làm mới; không polling. Rỗng → MSG-COM-04 + Xóa bộ lọc; lỗi tải → MSG-COM-03 + Thử lại. Không hiện SĐT, dữ liệu vận hành trại, nội dung phiếu hỗ trợ, mật khẩu (GBR-11).
+
+### UC-FE03-08 Tạm ngưng / khôi phục tài khoản (SA)
+SCR-16: mở chi tiết tài khoản → nhập lý do → **Tạm ngưng / Khôi phục tài khoản** → xác nhận MSG-FE03-14 / 15 → kiểm R-03-15 → lưu + lịch sử + audit → MSG-FE03-16 → áp dụng R-03-17. Phản hồi là chi tiết A10 (D31).
 E3 tạm ngưng SA cuối cùng hoặc chính mình → MSG-FE03-17 · E4 đã ở trạng thái yêu cầu → MSG-FE03-20.
 
 ### UC-FE03-09 Quyền nhân viên platform (SA)
@@ -305,17 +332,18 @@ E2 không có tài khoản → MSG-FE03-18 · E3 không còn SA ACTIVE → MSG-F
 
 | # | Trường | Loại | Bắt buộc | Ràng buộc / Nội dung | Lỗi / Hành vi |
 |---|---|---|---|---|---|
-| 1 | Search / Tìm | Ô chữ | — | Khớp tên hoặc email | — |
-| 2 | Status / Trạng thái | Dropdown | — | Tất cả, ACTIVE, SUSPENDED | — |
-| 3 | Platform role / Vai trò platform | Dropdown | — | Tất cả, Không có, CS, PM, SA | — |
-| 4 | User / Người dùng | Cột | — | Chữ viết tắt, họ tên, email (sắp xếp được) | — |
-| 5 | Platform role | Cột | — | Không có / CS / PM / SA | — |
-| 6 | Farms joined / Số trại tham gia | Cột | — | Số trại + tóm tắt vai trò, ví dụ "3 (Chủ trại)" | — |
-| 7 | Status | Cột | — | ACTIVE / SUSPENDED | — |
-| **Chi tiết tài khoản** | | | | | |
-| 8 | Email and verification / Email và xác minh | Chỉ đọc | — | — | — |
-| 9 | Created at, Last sign-in / Tạo lúc, đăng nhập cuối | Chỉ đọc | — | dd/mm/yyyy HH:mm | — |
-| 10 | Owner registration / Đăng ký Chủ trại | Chỉ đọc | — | Có / Không; tên các trại sở hữu | — |
+| 1 | Search / Tìm | Ô chữ | — | Khớp tên hoặc email; bỏ khoảng trắng đầu cuối, không phân biệt hoa thường, giữ dấu; ≤ 100 (D31) | MSG-COM-10 |
+| 2 | Status / Trạng thái | Dropdown | — | Tất cả, ACTIVE "Đang hoạt động", SUSPENDED "Tạm ngưng" | — |
+| 3 | Platform role / Vai trò platform | Dropdown | — | Tất cả, Không có (gồm vai trò đã thu hồi), CS, PM, SA – theo vai trò ACTIVE (D31) | — |
+| 4 | User / Người dùng | Cột | — | Chữ viết tắt, họ tên ("Chưa có tên" khi trống), email; mặc định tên tiếng Việt A→Z, bấm để đảo (D31) | — |
+| 5 | Platform role | Cột | — | Vai trò ACTIVE CS / PM / SA, hoặc "Không có"; vai trò đã thu hồi kèm chú thích "CS đã thu hồi" (D31) | — |
+| 6 | Farms joined / Số trại tham gia | Cột | — | Số membership ACTIVE + vai trò theo thứ tự Chủ trại → Quản lý → Kỹ thuật viên, ví dụ "3 (Chủ trại, Quản lý)"; không có → "0" (D31) | — |
+| 7 | Status | Cột | — | ACTIVE "Đang hoạt động" / SUSPENDED "Tạm ngưng" | — |
+| — | Pagination / Phân trang, Refresh / Làm mới | Điều hướng, nút | — | 20 dòng/trang; Làm mới đọc lại A9 và A10, không polling (D31) | MSG-COM-03, MSG-COM-04 + Xóa bộ lọc |
+| **Chi tiết tài khoản (A10, theo id trên URL)** | | | | | |
+| 8 | Email and verification / Email và xác minh | Chỉ đọc | — | "Đã xác minh (Google)", "Đã xác minh (email)" hoặc "Chưa xác minh" (D31) | MSG-COM-08 khi id không còn |
+| 9 | Created at, Last sign-in / Tạo lúc, đăng nhập cuối | Chỉ đọc | — | dd/mm/yyyy HH:mm theo Asia/Ho_Chi_Minh; chưa đăng nhập → "Chưa đăng nhập" (D31) | — |
+| 10 | Owner registration / Đăng ký Chủ trại | Chỉ đọc | — | Có (dd/mm/yyyy) / Không; tên các trại sở hữu theo thứ tự tên | — |
 | 11 | Reason / Lý do | Ô chữ dài | * (khi đổi trạng thái) | ≤ 500 | MSG-COM-06 |
 | 12 | Suspend account / Restore account | Nút | — | Theo trạng thái; xác nhận MSG-FE03-14 / 15 | MSG-FE03-17, MSG-FE03-20, MSG-COM-05; thành công MSG-FE03-16 |
 | 13 | Platform access / Quyền platform | Nút | — | — | Mở popup Quyền nhân viên platform |
@@ -348,8 +376,8 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | A6 | Hủy (D27) | `expectedVersion` (bắt buộc) + `Idempotency-Key` | Lời mời (item A3) `CANCELLED` | COM-01, COM-08, FE03-08 (`{status}`), COM-05, COM-06, COM-19, COM-02 | `POST …/invitations/{id}/cancel` |
 | A7 | Xem lời mời từ link (D28) | `token` | `{status: PENDING\|ACCEPTED, farmId, farmName, timeZone, email, role, invitedBy, sentAt, expiresAt, membershipId?}` (membershipId khi ACCEPTED); quyền của vai trò là bảng cố định Table III-2 ở FE; email khác → 403 MSG-FE03-09 không có thông tin trại/trạng thái | 400 FE03-08 `{status, expiresAt?}` (INVALID không có hạn), 403 FE03-09, 403 FE03-04, 401 | `GET /api/invitations/accept?token=` |
 | A8 | Chấp nhận (D28) | `token`; không Idempotency-Key (token là khóa ý định, GBR-17) | `{membershipId, farmId, farmName, role, status}`; gọi lại trả cùng kết quả khi membership còn ACTIVE | 400 FE03-08 `{status, expiresAt?}`, 403 FE03-09, 403 FE03-04, 409 COM-05, 500 COM-02, 401 | `POST /api/invitations/accept` |
-| A9 | Danh sách tài khoản (SA) | `q?, status?, platformRole?, page, size, sort?` | `{items[{accountId, fullName, email, platformRole, farmsCount, farmRoleSummary, status}], total}` | COM-01 | `GET /api/platform/accounts` (thiếu lọc `platformRole`) |
-| A10 | Chi tiết tài khoản | — | `{…A9, emailVerified, createdAt, lastSignInAt, ownerRegistrationCompleted, ownedFarms[], platformAccess {role, status}, version}` | COM-01 | `GET /api/platform/accounts/{id}` |
+| A9 | Danh sách tài khoản (SA, D31) | `q?` (≤ 100), `status?` (ACTIVE\|SUSPENDED), `platformRole?` (NONE\|CS\|PM\|SA, theo vai trò ACTIVE), `page=0`, `size=20` (1–100), `sort=name`, `dir=asc\|desc` | `{items[{id, fullName, email, accountStatus, platformRole, platformAccessStatus, emailVerified, farmCount, farmRoles[]}], total, page, size}`; `platformRole`/`platformAccessStatus` là quyền đang lưu (REVOKED vẫn trả); `farmCount`/`farmRoles` chỉ membership ACTIVE; không có SĐT | 401, COM-01, FE01-03, COM-10 (`params.field`), COM-03 | `GET /api/platform/accounts` |
+| A10 | Chi tiết tài khoản (D31) | — | `{…A9, platformAccessVersion, signInMethods[], createdAt, lastSignInAt, ownerRegistrationCompleted, ownerRegistrationCompletedAt, ownedFarms[], version}`; không có SĐT, mật khẩu, Google subject. Cũng là phản hồi của A12, A13 | 401, COM-01, FE01-03, COM-08 (404), COM-10 (id sai kiểu), COM-03 | `GET /api/platform/accounts/{id}` |
 | A11 | Lịch sử tài khoản / vai trò | — | `[{action, role?, reason, by, at}]` | COM-01 | `GET /api/platform/accounts/{id}/history` |
 | A12 | Tạm ngưng / khôi phục | `reason, version` + `Idempotency-Key` | A10 | COM-01, COM-06, FE03-17, FE03-20, COM-05, COM-02 | `POST /api/platform/accounts/{id}/suspend` · `/restore` |
 | A13 | Quyền platform | `action: GRANT\|CHANGE\|REVOKE\|RESTORE, role?, reason, version` + `Idempotency-Key` | A10 | COM-01, FE03-17, FE03-18, FE03-20, COM-06, COM-05, COM-02 | `POST /api/platform/accounts/{id}/platform-access` |
@@ -462,6 +490,15 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | TC-03-71 | Đã INACTIVE / đã đúng vai trò, version cũ | Ngưng / đổi sang cùng vai trò | MSG-FE03-20 (không phải COM-05); không ghi gì | H | D30 |
 | TC-03-72 | Manager có thông báo nháp và thông báo đã gửi | Bị ngưng | Manager không sửa được nháp; Owner không thấy nháp; Kỹ thuật viên vẫn thấy tên tác giả | H | AF2, POST-2 |
 | TC-03-73 | Popup | Xác nhận / Quay lại / Hủy khi đã nhập / lỗi FE03-20, FE03-04, COM-05, COM-08 / lỗi mạng | Câu MSG-FE03-11/12/kích hoạt lại; MSG-COM-14; đóng popup và tải lại danh sách; lỗi mạng giữ popup và cùng key | U | D30 |
+| TC-03-74 | Tài khoản có / không tên (Đ, ă, â…), vai trò platform ACTIVE / REVOKED, membership ACTIVE / INACTIVE, đã / chưa xác minh | SA mở SCR-16 | Tên tiếng Việt A→Z (chưa có tên theo email), đảo được; vai trò ACTIVE hoặc "Không có" + "CS đã thu hồi"; trại tham gia chỉ membership ACTIVE; xác minh đúng; không có SĐT | H, I (PostgreSQL), U | D31, SCR-16 |
+| TC-03-75 | Tài khoản đủ trạng thái và vai trò | Lọc status / platformRole CS, PM, SA, NONE; tìm tên, email hoa thường; tìm SĐT; `%`, `_` | Đúng kết quả; NONE gồm REVOKED; SĐT không khớp; `%` `_` là ký tự thường | H, I, U | D31 |
+| TC-03-76 | 5 tài khoản, 2 trùng tên | `size=2`, trang 0–3, `dir=desc` | Trang từ 0, total sau lọc, trùng tên theo email, desc đảo cả thứ tự | H, I | D31, Table III-1 |
+| TC-03-77 | — | status / platformRole / page / size / sort / dir sai, sai kiểu, q 101 ký tự | 400 MSG-COM-10 đúng `params.field` | H | D31 |
+| TC-03-78 | CS, PM, SA đã thu hồi, Owner, SA bị tạm ngưng, chưa đăng nhập | Gọi A9, A10 | 403 MSG-COM-01 / 403 MSG-FE01-03 / 401 | H | Permission Matrix, GBR-09/10 |
+| TC-03-79 | Tài khoản Google + mật khẩu sở hữu 2 trại; tài khoản chờ xác minh; id không tồn tại | Gọi A10 | createdAt, đăng nhập cuối mới hơn, signInMethods, trại sở hữu theo tên, farmCount/farmRoles; "Chưa xác minh", chưa đăng nhập; 404 MSG-COM-08; không có SĐT / Google subject | H, I | D31, GBR-11 |
+| TC-03-80 | 2 và 12 tài khoản có quyền platform, membership, identity | Gọi A9 | Số câu SQL như nhau (không N+1) | I | D31 |
+| TC-03-81 | Dữ liệu trước D31 | Nâng cấp DB | `created_at` từ `jhi_user.created_date` → liên kết sớm nhất → chấp nhận điều khoản → lúc nâng cấp; NOT NULL, có default; cột khác không đổi | I (PostgreSQL) | D31 |
+| TC-03-82 | SCR-16 | Đảo sắp xếp, 20 dòng/trang, rỗng + Xóa bộ lọc, rời rồi quay lại, mở link tới tài khoản ngoài trang đang lọc, id không còn | Giữ bộ lọc / chiều trong phiên; chi tiết đúng tài khoản trên URL, giờ Asia/Ho_Chi_Minh; MSG-COM-08 trong khung chi tiết | U | D31, Table III-1 |
 
 ---
 
@@ -470,7 +507,7 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
 | Q1 | UC-01 AF2 (email của thành viên INACTIVE): SRS không có mã thông báo | Đã chốt D25 (11/11/2026): MSG-FE03-21 kèm nút mở popup, ngày/lý do bắt buộc, giữ vai trò hiện tại |
-| Q2 | UC-FE03-02, 05, 07 không có đặc tả Part II; luồng suy từ SCR | Đã chốt UC2 theo D26 (12/11/2026) và UC5 theo D29 (14/11/2026), luồng ở mục 5; UC7 còn mở |
+| Q2 | UC-FE03-02, 05, 07 không có đặc tả Part II; luồng suy từ SCR | Đã chốt UC2 theo D26 (12/11/2026), UC5 theo D29 và UC7 theo D31 (14/11/2026); luồng ở mục 5 |
 | Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Đã chốt D30 (14/11/2026): áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử, chỉ chặn ngày tương lai theo múi giờ trại |
 | Q4 | Tài khoản bị tạm ngưng có được nhận lời mời / được cấp quyền platform không? | Phần lời mời đã chốt D25: được nhận nếu chưa có membership; chỉ chấp nhận sau khi khôi phục và còn hạn. Phần cấp quyền platform vẫn mở |
 | Q6 | Link của lời mời đã Hủy / hết hạn: SCR-15 phải hiện MSG-FE03-08 kèm trạng thái và hạn (SRS dòng 3146), JOB-08 chỉ xóa hash sau 7 ngày (dòng 5628), nhưng code xóa hash ngay khi Hủy / JOB-02 nên SCR-15 chỉ báo "Liên kết không hợp lệ" | Đã chốt D28 (14/11/2026): giữ hash tới JOB-08; backend trả FE03-08 kèm trạng thái và hạn; SCR-15 hiển thị |

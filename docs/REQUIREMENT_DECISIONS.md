@@ -388,3 +388,44 @@ giả; thông báo nháp của Manager bị ngưng vẫn riêng tư và không s
 không làm trong UC6: thành viên vừa bị ngưng đang mở trang sẽ nhận MSG-COM-01 ở thao tác
 kế tiếp, chưa tự chuyển về SCR-09 (SRS không quy định). Kiểm thử và giới hạn ghi tại
 `docs/reviews/FE03_UC06_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+
+### D31 — UC-FE03-07: xem tài khoản người dùng (14/11/2026)
+
+Người dùng đồng ý cả tám đề xuất trong phiên, sau khi đọc SRS SCR-16 (dòng 3150–3177), danh
+sách UC (1114), ma trận quyền (1375), User Account (461–468), UC-FE03-09 PRE-2 (1858),
+GBR-10/11, Table III-1 (2789–2794) và đối chiếu code. Chốt phần UC7 của FE-03 Q2:
+
+1. Phạm vi: A9, A10 và SCR-16 (tìm, lọc, sắp xếp, phân trang, khung chi tiết, tải / rỗng /
+   lỗi), nối chế độ backend cho danh sách và chi tiết. Nút Tạm ngưng / Khôi phục (UC8), Quyền
+   nền tảng (UC9) và lịch sử A11 giữ như cũ, không được chứng nhận ở UC7; ở chế độ backend
+   chúng vẫn báo "chưa tích hợp". FE-03 Q4, Q5 để sang UC8 / UC9.
+2. Danh sách gồm cả tài khoản đăng ký mật khẩu chưa xác minh email, hiện "Chưa xác minh". SRS
+   tự mâu thuẫn: dòng 467 nói tài khoản chỉ được tạo khi đã xác minh, còn dòng 1858 và 3168
+   ngầm có tài khoản chưa xác minh; code tạo `app_user` ngay khi đăng ký. Đã xác minh = có
+   Google subject hoặc identity `jhi_user` cùng email đã kích hoạt (như SCR-08).
+3. Tìm kiếm chỉ theo tên hoặc email (bỏ SĐT): bỏ khoảng trắng đầu cuối, không phân biệt hoa
+   thường, giữ dấu, tìm chứa chuỗi; `%` và `_` là ký tự thường; tối đa 100 ký tự (short text,
+   Table III-1).
+4. Lọc CS / PM / SA theo vai trò platform đang ACTIVE; "Không có" (`NONE`) gồm người chưa có
+   vai trò và người bị thu hồi. API vẫn trả vai trò đang lưu kèm `platformAccessStatus`; cột
+   hiện "Không có" kèm chú thích "CS đã thu hồi". Tham số sai (`status`, `platformRole`,
+   `page`, `size`, `sort`, `dir`, `q` quá dài, sai kiểu) → 400 MSG-COM-10 kèm `params.field`.
+5. Sắp xếp theo tên tiếng Việt A→Z (collation ICU `vi-x-icu` có sẵn trong PostgreSQL 16.15;
+   chưa có tên thì theo email), rồi email, rồi id; `dir=desc` đảo cả ba. Backend phân trang 20
+   dòng (`page` từ 0, `size` 1–100). Đổi bộ lọc hoặc chiều sắp xếp về trang 1; ô tìm, bộ lọc
+   và chiều sắp xếp được giữ trong phiên theo tài khoản SA.
+6. "Trại tham gia" chỉ đếm membership ACTIVE, không xét trạng thái dịch vụ; vai trò theo thứ tự
+   Chủ trại → Quản lý → Kỹ thuật viên, ví dụ "3 (Chủ trại, Quản lý)"; không có trại → "0".
+7. A10: cột mới `app_user.created_at` (Part I §3.2 "created time", migration
+   `20261114000300`; dữ liệu cũ lấy từ `jhi_user.created_date`, rồi thời điểm liên kết cách
+   đăng nhập sớm nhất, rồi lúc chấp nhận điều khoản, cuối cùng lúc nâng cấp). Đăng nhập cuối là
+   giá trị mới hơn giữa `password_last_used_at` và `google_last_used_at`. Thêm `signInMethods`,
+   đăng ký Chủ trại kèm thời điểm, tên các trại sở hữu, vai trò / trạng thái / version quyền
+   platform. Bỏ `phone` khỏi mọi phản hồi tài khoản (cả tạm ngưng, khôi phục, quyền platform).
+   Frontend đọc chi tiết bằng A10 theo id trên URL; id không tồn tại → 404 MSG-COM-08.
+8. Ngày giờ SCR-16 hiện dd/mm/yyyy HH:mm theo Asia/Ho_Chi_Minh (Table III-1 dòng 2790).
+
+Đi kèm, không cần quyết riêng: nhãn "Tạm khóa / Mở khóa" đổi thành "Tạm ngưng / Khôi phục"
+trên SCR-16 và hộp thoại UC8; bỏ N+1 (fetch join quyền platform, đếm membership và kiểm xác
+minh theo cả trang); lỗi DB khi GET → MSG-COM-03. Kiểm thử và giới hạn ghi tại
+`docs/reviews/FE03_UC07_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
