@@ -3006,6 +3006,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -10362,7 +10369,7 @@
                 "schema" : {
                   "type" : "array",
                   "items" : {
-                    "$ref" : "#/components/schemas/AuditItem"
+                    "$ref" : "#/components/schemas/AccessHistoryItem"
                   }
                 }
               }
@@ -16529,6 +16536,13 @@
             "items" : {
               "type" : "string"
             }
+          },
+          "accessActions" : {
+            "type" : "array",
+            "description" : "Platform access commands this SA may use now (D33): GRANT (no access), CHANGE and REVOKE (ACTIVE access), RESTORE (REVOKED access); only REVOKE for a SUSPENDED or unverified account; empty on one's own account",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -16537,22 +16551,26 @@
         "properties" : {
           "operation" : {
             "type" : "string",
+            "enum" : [ "GRANT", "CHANGE", "REVOKE", "RESTORE" ],
             "maxLength" : 20,
             "minLength" : 0
           },
           "role" : {
             "type" : "string",
+            "description" : "CS, PM or SA; required for GRANT and CHANGE, ignored otherwise",
             "maxLength" : 30,
             "minLength" : 0
           },
           "reason" : {
             "type" : "string",
+            "description" : "Trimmed; 5–500 characters with at least 5 that are not spaces (Table III-1)",
             "maxLength" : 500,
             "minLength" : 0
           },
           "version" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "platformAccessVersion shown in A10; null or 0 when the account has no access yet"
           }
         }
       },
@@ -21298,7 +21316,7 @@
           }
         }
       },
-      "AuditItem" : {
+      "AccessHistoryItem" : {
         "type" : "object",
         "properties" : {
           "id" : {
@@ -21306,14 +21324,37 @@
             "format" : "int64"
           },
           "action" : {
+            "type" : "string",
+            "enum" : [ "GRANT", "CHANGE", "REVOKE", "RESTORE" ]
+          },
+          "roleBefore" : {
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
+          },
+          "statusBefore" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
+          },
+          "roleAfter" : {
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
+          },
+          "statusAfter" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "byName" : {
+            "type" : "string"
+          },
+          "byEmail" : {
             "type" : "string"
           },
           "at" : {
             "type" : "string",
             "format" : "date-time"
-          },
-          "details" : {
-            "type" : "string"
           }
         }
       },

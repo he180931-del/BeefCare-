@@ -29,6 +29,7 @@ import vn.edu.fpt.beefcare.config.VietnameseSortFunctionContributor;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.AppUserStatusChange;
 import vn.edu.fpt.beefcare.domain.AuditLog;
+import vn.edu.fpt.beefcare.domain.PlatformAccessChange;
 import vn.edu.fpt.beefcare.domain.PlatformStaffAccess;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
@@ -36,6 +37,7 @@ import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.AppUserStatusChangeRepository;
 import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
+import vn.edu.fpt.beefcare.repository.PlatformAccessChangeRepository;
 import vn.edu.fpt.beefcare.repository.PlatformStaffAccessRepository;
 import vn.edu.fpt.beefcare.repository.UserRepository;
 
@@ -48,6 +50,7 @@ public class PlatformAccountAdministrationService {
     /** Table III-1: a search box is short text (max 100 characters). */
     static final int MAX_SEARCH_LENGTH = 100;
     private static final Set<String> ACCOUNT_STATUSES = Set.of(ACTIVE, SUSPENDED);
+    private static final Set<String> ACCESS_OPERATIONS = Set.of("GRANT", "CHANGE", "REVOKE", "RESTORE");
     /** SCR-16 Platform role filter: All (absent), None, CS, PM, SA. */
     private static final Set<String> PLATFORM_ROLE_FILTERS = Set.of("NONE", "CS", "PM", "SA");
     private static final List<String> FARM_ROLE_ORDER = List.of("OWNER", "MANAGER", "TECHNICIAN");
@@ -58,6 +61,7 @@ public class PlatformAccountAdministrationService {
     private final FarmMembershipRepository farmMemberships;
     private final AuditLogRepository auditLogs;
     private final AppUserStatusChangeRepository statusChanges;
+    private final PlatformAccessChangeRepository accessChanges;
     private final SupportTicketCommandService supportTickets;
     private final FarmClock clock;
     private final SessionRegistry sessions;
@@ -70,6 +74,7 @@ public class PlatformAccountAdministrationService {
         FarmMembershipRepository farmMemberships,
         AuditLogRepository auditLogs,
         AppUserStatusChangeRepository statusChanges,
+        PlatformAccessChangeRepository accessChanges,
         SupportTicketCommandService supportTickets,
         FarmClock clock,
         SessionRegistry sessions
@@ -81,6 +86,7 @@ public class PlatformAccountAdministrationService {
         this.farmMemberships = farmMemberships;
         this.auditLogs = auditLogs;
         this.statusChanges = statusChanges;
+        this.accessChanges = accessChanges;
         this.supportTickets = supportTickets;
         this.clock = clock;
         this.sessions = sessions;
@@ -195,7 +201,7 @@ public class PlatformAccountAdministrationService {
         AppUser actor = platformAccess.requireRole(PlatformRole.SA).user();
         boolean suspending = SUSPENDED.equals(requested);
         AppUser target = suspending ? lockWithActor(id, actor.getId()) : loadForUpdate(id);
-        String reason = validReason(request);
+        String reason = validReason(request == null ? null : request.reason());
         if (suspending && actor.getId().equals(target.getId())) throw DomainException.conflict(MessageCodes.FE03_17);
         String before = target.getAccountStatus() == null ? null : target.getAccountStatus().trim().toUpperCase(Locale.ROOT);
         if (requested.equals(before)) {
@@ -218,7 +224,7 @@ public class PlatformAccountAdministrationService {
         audit(actor, "ACCOUNT_" + action, saved, Map.of("statusBefore", before, "statusAfter", requested));
         if (suspending) {
             users.findOneByEmailIgnoreCaseAndActivatedTrue(saved.getEmail()).ifPresent(this::expireSessions);
-            supportTickets.requeueTicketsOf(saved);
+            supportTickets.requeueTicketsOf(saved, "ACCOUNT_SUSPENDED");
         }
         return detail(saved, actor.getId());
     }
@@ -239,84 +245,117 @@ public class PlatformAccountAdministrationService {
     }
 
     /** Table III-1 / D32: trimmed, required (COM-06), 5–500 characters with at least 5 that are not spaces (COM-10). */
-    private static String validReason(ChangeRequest request) {
-        String reason = request == null || request.reason() == null ? "" : request.reason().trim();
+    private static String validReason(String value) {
+        String reason = value == null ? "" : value.trim();
         if (reason.isEmpty()) throw DomainException.required("reason");
         long visible = reason.codePoints().filter(c -> !Character.isWhitespace(c) && !Character.isSpaceChar(c)).count();
         if (reason.length() > 500 || visible < 5) throw DomainException.invalid("reason");
         return reason;
     }
 
+    /**
+     * A13 / UC-FE03-09 (D33). Both accounts are locked in id order (two SAs revoking each other run one after the other),
+     * then checked in this order: ACTIVE SA access (COM-01, before the call), account exists (COM-08), input (operation,
+     * role, reason 5–500: COM-06 / COM-10), not one's own access (COM-01), SUSPENDED account only for a revoke
+     * (FE03-22), verified email except for a revoke (FE03-18), current state (FE03-20 when the requested value is already
+     * in place, COM-05 when the access changed since the popup was opened), version (COM-05), the acting SA still ACTIVE
+     * (COM-01) and another ACTIVE SA left when an SA loses access (FE03-17). A refused command writes nothing. Saves the
+     * access, one {@code platform_access_change} row and a before / after audit entry; a CS who loses CS access has their
+     * open tickets returned to the queue (GBR-77). The new access applies from the person's next request.
+     */
     @Transactional
-    public AccountDetail changePlatformAccess(Long id, PlatformAccessChange request) {
-        var actor = platformAccess.requireRole(PlatformRole.SA).user();
-        if (request == null || !StringUtils.hasText(request.operation()) || !StringUtils.hasText(request.reason())) {
-            throw DomainException.required("operation and reason");
+    public AccountDetail changePlatformAccess(Long id, AccessChangeRequest request) {
+        AppUser actor = platformAccess.requireRole(PlatformRole.SA).user();
+        AppUser target = lockWithActor(id, actor.getId());
+        String operation = request == null || request.operation() == null ? "" : request.operation().trim().toUpperCase(Locale.ROOT);
+        if (operation.isEmpty()) throw DomainException.required("operation");
+        if (!ACCESS_OPERATIONS.contains(operation)) throw DomainException.invalid("operation");
+        PlatformRole requestedRole = null;
+        if ("GRANT".equals(operation) || "CHANGE".equals(operation)) {
+            if (!StringUtils.hasText(request.role())) throw DomainException.required("role");
+            requestedRole = parseRole(request.role());
         }
-        if (request.reason().trim().length() > 500) throw DomainException.invalid("reason");
-        AppUser target = loadForUpdate(id);
-        if (!ACTIVE.equalsIgnoreCase(target.getAccountStatus())) throw DomainException.forbidden(MessageCodes.COM_01);
-        if (users.findOneByEmailIgnoreCaseAndActivatedTrue(target.getEmail()).isEmpty()) {
-            throw DomainException.conflict(MessageCodes.FE03_18);
+        String reason = validReason(request.reason());
+        if (actor.getId().equals(target.getId())) throw DomainException.forbidden(MessageCodes.COM_01);
+        boolean revoke = "REVOKE".equals(operation);
+        if (!revoke && SUSPENDED.equalsIgnoreCase(target.getAccountStatus())) {
+            throw DomainException.conflict(MessageCodes.FE03_22, "email", target.getEmail());
         }
-        PlatformStaffAccess current = staffAccess.findOneByUserIdForUpdate(id).orElse(null);
-        if (current != null) verifyVersion(request.version(), current.getVersion());
-        else if (request.version() != null && request.version() != 0) throw DomainException.conflict(MessageCodes.COM_05);
-        String operation = request.operation().trim().toUpperCase(Locale.ROOT);
-        String oldRole = current == null ? null : current.getRole();
-        String oldStatus = current == null ? null : current.getStatus();
-        PlatformRole nextRole = request.role() == null || request.role().isBlank() ? null : parseRole(request.role());
+        if (!revoke && !emailVerified(target, users.findOneByEmailIgnoreCaseAndActivatedTrue(target.getEmail()).isPresent())) {
+            throw DomainException.conflict(MessageCodes.FE03_18, "email", target.getEmail());
+        }
 
+        PlatformStaffAccess current = staffAccess.findOneByUserIdForUpdate(id).orElse(null);
+        String roleBefore = current == null ? null : current.getRole();
+        String statusBefore = current == null ? null : current.getStatus();
+        boolean active = current != null && ACTIVE.equalsIgnoreCase(statusBefore);
+        boolean revoked = current != null && REVOKED.equalsIgnoreCase(statusBefore);
+        // D33 Q5: the requested value already in place is FE03-20; any other mismatch means the access changed since the
+        // popup offered this action (COM-05). A second ACTIVE role is never created (BR-D06).
         switch (operation) {
             case "GRANT" -> {
-                if (current != null && ACTIVE.equalsIgnoreCase(current.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20);
-                if (nextRole == null) throw DomainException.required("role");
-                if (current == null) {
-                    current = new PlatformStaffAccess();
-                    current.setUser(target);
-                }
-                current.setRole(nextRole.name());
-                current.setStatus(ACTIVE);
+                if (active && requestedRole.name().equalsIgnoreCase(roleBefore)) throw noAccessChange(target, "role");
+                if (current != null) throw DomainException.conflict(MessageCodes.COM_05);
             }
             case "CHANGE" -> {
-                if (current == null || !ACTIVE.equalsIgnoreCase(current.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20);
-                if (nextRole == null) throw DomainException.required("role");
-                if (nextRole.name().equalsIgnoreCase(current.getRole())) throw DomainException.conflict(MessageCodes.FE03_20);
-                current.setRole(nextRole.name());
-                current.setStatus(ACTIVE);
+                if (!active) throw DomainException.conflict(MessageCodes.COM_05);
+                if (requestedRole.name().equalsIgnoreCase(roleBefore)) throw noAccessChange(target, "role");
             }
             case "REVOKE" -> {
-                if (current == null || !ACTIVE.equalsIgnoreCase(current.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20);
-                current.setStatus(REVOKED);
+                if (revoked) throw noAccessChange(target, "status");
+                if (!active) throw DomainException.conflict(MessageCodes.COM_05);
             }
-            case "RESTORE" -> {
-                if (current == null || !REVOKED.equalsIgnoreCase(current.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20);
+            default -> {
+                if (active) throw noAccessChange(target, "status");
+                if (!revoked) throw DomainException.conflict(MessageCodes.COM_05);
+            }
+        }
+        if (current != null) verifyVersion(request.version(), current.getVersion());
+        else if (request.version() != null && request.version() != 0) throw DomainException.conflict(MessageCodes.COM_05);
+        // Read from the database after the locks: the acting SA may have been suspended or revoked by a command that just committed.
+        if (!staffAccess.isActiveAdministrator(actor.getId())) throw DomainException.forbidden(MessageCodes.COM_01);
+        boolean losesAdministrator = active && isSa(roleBefore) && (revoke || ("CHANGE".equals(operation) && requestedRole != PlatformRole.SA));
+        if (losesAdministrator) requireAnotherActiveSa(id);
+
+        if (current == null) {
+            current = new PlatformStaffAccess();
+            current.setUser(target);
+        }
+        switch (operation) {
+            case "GRANT", "CHANGE" -> {
+                current.setRole(requestedRole.name());
                 current.setStatus(ACTIVE);
             }
-            default -> throw DomainException.invalid("operation");
+            case "REVOKE" -> current.setStatus(REVOKED);
+            default -> current.setStatus(ACTIVE);
         }
-
-        if (isSa(oldRole) && ACTIVE.equalsIgnoreCase(oldStatus) && !(isSa(current.getRole()) && ACTIVE.equalsIgnoreCase(current.getStatus()))) {
-            requireAnotherActiveSa(id);
-        }
-        PlatformStaffAccess savedAccess = staffAccess.saveAndFlush(current);
-        audit(actor, "PLATFORM_ACCESS_" + operation, target, java.util.Map.of(
-            "fromRole", oldRole == null ? "NONE" : oldRole,
-            "fromStatus", oldStatus == null ? "NONE" : oldStatus,
-            "toRole", savedAccess.getRole(),
-            "toStatus", savedAccess.getStatus(),
-            "reason", request.reason().trim()
-        ));
+        PlatformStaffAccess saved = staffAccess.saveAndFlush(current);
+        accessChanges.save(new PlatformAccessChange(target, operation, roleBefore, statusBefore, saved, reason, actor, clock.now()));
+        // GBR-86: before / after values only; the reason stays in the access history, not in the central audit.
+        Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("fromRole", roleBefore == null ? "NONE" : roleBefore);
+        details.put("fromStatus", statusBefore == null ? "NONE" : statusBefore);
+        details.put("toRole", saved.getRole());
+        details.put("toStatus", saved.getStatus());
+        audit(actor, "PLATFORM_ACCESS_" + operation, target, details);
+        boolean losesCustomerSupport = active && PlatformRole.CS.name().equalsIgnoreCase(roleBefore) &&
+            !(PlatformRole.CS.name().equalsIgnoreCase(saved.getRole()) && ACTIVE.equalsIgnoreCase(saved.getStatus()));
+        if (losesCustomerSupport) supportTickets.requeueTicketsOf(target, "CS_ACCESS_REMOVED");
         return detail(target, actor.getId());
     }
 
+    private static DomainException noAccessChange(AppUser target, String value) {
+        return DomainException.conflict(MessageCodes.FE03_20, "target", target.getEmail(), "value", value);
+    }
+
+    /** A11 / popup "Role history" (D33): role, action, reason, by, time; newest first, at most 100 rows. */
     @Transactional(readOnly = true)
-    public List<AuditItem> history(Long id) {
+    public List<AccessHistoryItem> history(Long id) {
         platformAccess.requireRole(PlatformRole.SA);
         load(id);
-        return auditLogs.findTop100ByTargetTypeAndTargetIdOrderByLoggedAtDescIdDesc("AppUser", id).stream()
-            .filter(entry -> entry.getAction().startsWith("ACCOUNT_") || entry.getAction().startsWith("PLATFORM_ACCESS_"))
-            .map(entry -> new AuditItem(entry.getId(), entry.getAction(), entry.getLoggedAt(), entry.getDetails()))
+        return accessChanges.findHistory(id, PageRequest.of(0, 100)).stream()
+            .map(row -> new AccessHistoryItem(row.getId(), row.getAction(), row.getRoleBefore(), row.getStatusBefore(), row.getRoleAfter(),
+                row.getStatusAfter(), row.getReason(), row.getByName(), row.getByEmail(), row.getChangedAt()))
             .toList();
     }
 
@@ -346,6 +385,7 @@ public class PlatformAccountAdministrationService {
         if (SUSPENDED.equalsIgnoreCase(account.getAccountStatus())) actions = List.of("RESTORE");
         else if (ACTIVE.equalsIgnoreCase(account.getAccountStatus()) && !account.getId().equals(actorId)) actions = List.of("SUSPEND");
         else actions = List.of();
+        boolean verified = emailVerified(account, activated);
         return new AccountDetail(
             account.getId(),
             account.getFullName(),
@@ -354,7 +394,7 @@ public class PlatformAccountAdministrationService {
             access == null ? null : access.getRole(),
             access == null ? null : access.getStatus(),
             access == null ? null : access.getVersion(),
-            emailVerified(account, activated),
+            verified,
             methods,
             account.getCreatedAt(),
             latest(account.getPasswordLastUsedAt(), account.getGoogleLastUsedAt()),
@@ -364,8 +404,21 @@ public class PlatformAccountAdministrationService {
             farms.count(),
             farms.roles(),
             account.getVersion(),
-            actions
+            actions,
+            accessActions(account, access, verified, actorId)
         );
+    }
+
+    /**
+     * Platform access commands this SA may use now (D33 Q6): none on one's own account; by the stored access GRANT (no
+     * access), CHANGE / REVOKE (ACTIVE), RESTORE (REVOKED); a SUSPENDED or unverified account keeps only REVOKE.
+     */
+    private static List<String> accessActions(AppUser account, PlatformStaffAccess access, boolean verified, Long actorId) {
+        if (account.getId().equals(actorId)) return List.of();
+        boolean usable = ACTIVE.equalsIgnoreCase(account.getAccountStatus()) && verified;
+        if (access != null && ACTIVE.equalsIgnoreCase(access.getStatus())) return usable ? List.of("CHANGE", "REVOKE") : List.of("REVOKE");
+        if (!usable) return List.of();
+        return access == null ? List.of("GRANT") : List.of("RESTORE");
     }
 
     /** userId → (ROLE → ACTIVE memberships) for the given accounts; nothing is queried for an empty page. */
@@ -448,7 +501,7 @@ public class PlatformAccountAdministrationService {
 
     public record ChangeRequest(String reason, Long version) {}
 
-    public record PlatformAccessChange(String operation, String role, String reason, Long version) {}
+    public record AccessChangeRequest(String operation, String role, String reason, Long version) {}
 
     private record FarmsJoined(long count, List<String> roles) {}
 
@@ -489,8 +542,23 @@ public class PlatformAccountAdministrationService {
         Long version,
         // springdoc 3.0 drops the item type and the description of an @ArraySchema list, so the values are described here.
         @Schema(description = "Status commands this SA may use now (D32): SUSPEND for an ACTIVE account other than the caller's own, RESTORE for a SUSPENDED one; empty otherwise")
-        List<String> actions
+        List<String> actions,
+        // springdoc 3.0 drops the item type and the description of an @ArraySchema list, so the values are described here.
+        @Schema(description = "Platform access commands this SA may use now (D33): GRANT (no access), CHANGE and REVOKE (ACTIVE access), RESTORE (REVOKED access); only REVOKE for a SUSPENDED or unverified account; empty on one's own account")
+        List<String> accessActions
     ) {}
 
-    public record AuditItem(Long id, String action, Instant at, String details) {}
+    /** A11 row (D33): a role / status before is null for the first grant; {@code byName} / {@code byEmail} null for rows copied without an actor. */
+    public record AccessHistoryItem(
+        Long id,
+        @Schema(allowableValues = { "GRANT", "CHANGE", "REVOKE", "RESTORE" }) String action,
+        @Schema(allowableValues = { "CS", "PM", "SA" }, nullable = true) String roleBefore,
+        @Schema(allowableValues = { "ACTIVE", "REVOKED" }, nullable = true) String statusBefore,
+        @Schema(allowableValues = { "CS", "PM", "SA" }) String roleAfter,
+        @Schema(allowableValues = { "ACTIVE", "REVOKED" }) String statusAfter,
+        String reason,
+        @Schema(nullable = true) String byName,
+        @Schema(nullable = true) String byEmail,
+        Instant at
+    ) {}
 }

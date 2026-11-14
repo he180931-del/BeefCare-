@@ -3,8 +3,8 @@ import { backendPending } from '../../../api/backendPending'
 import { platformAdminDemoStore, type PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
 import { auditToCsv, defaultAuditRange, toYmd } from '../domain/platformRules'
 import type {
-  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditFilters, FarmRole, PageResult,
-  PlatformAccessChange, PlatformAccessStatus, PlatformRole, SignInMethod,
+  AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditFilters, FarmRole, PageResult,
+  PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole, SignInMethod,
 } from '../types'
 
 const ACCOUNTS_PATH = '/api/platform/accounts'
@@ -49,6 +49,7 @@ const accessStatuses = ['ACTIVE', 'REVOKED'] as const satisfies readonly Platfor
 const farmRoles = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const satisfies readonly FarmRole[]
 const signInMethods = ['PASSWORD', 'GOOGLE'] as const satisfies readonly SignInMethod[]
 const statusActions = ['SUSPEND', 'RESTORE'] as const satisfies readonly AccountStatusAction[]
+const accessOperations = ['GRANT', 'CHANGE', 'REVOKE', 'RESTORE'] as const satisfies readonly PlatformAccessOperation[]
 
 /** A9 row (D31): ids, status, roles and counts come from the server; a missing one is an error, never a silent default. */
 export function accountListItem(value: unknown): AccountListItem {
@@ -86,8 +87,34 @@ export function accountDetail(value: unknown): AccountDetail {
     ownedFarms: row.ownedFarms as string[],
     version: requiredCount(row.version, 'phiên bản tài khoản'),
     actions: oneOfList(row.actions, statusActions, 'thao tác tài khoản'),
+    accessActions: oneOfList(row.accessActions, accessOperations, 'thao tác quyền nền tảng'),
   }
 }
+
+/** A11 row (D33): every field is checked; a missing one is an error. Rows copied from the old audit may have no actor. */
+export function accessHistoryItem(value: unknown): AccessHistoryItem {
+  const row = asRecord(value)
+  return {
+    id: requiredId(row.id, 'mã lịch sử'),
+    action: requiredOneOf(row.action, accessOperations, 'hành động quyền nền tảng'),
+    roleBefore: nullableOneOf(row.roleBefore, platformRoles, 'vai trò trước'),
+    statusBefore: nullableOneOf(row.statusBefore, accessStatuses, 'trạng thái trước'),
+    roleAfter: requiredOneOf(row.roleAfter, platformRoles, 'vai trò sau'),
+    statusAfter: requiredOneOf(row.statusAfter, accessStatuses, 'trạng thái sau'),
+    reason: requiredText(row.reason, 'lý do'),
+    byName: nullableText(row.byName, 'người thực hiện'),
+    byEmail: nullableText(row.byEmail, 'email người thực hiện'),
+    at: requiredText(row.at, 'thời điểm'),
+  }
+}
+
+/** A13 body (D33): the trimmed reason, the role only for GRANT / CHANGE, and the platform access version shown in A10. */
+export const accessBody = ({ operation, role, reason, expectedVersion }: PlatformAccessChange) => ({
+  operation,
+  ...(operation === 'GRANT' || operation === 'CHANGE' ? { role } : {}),
+  reason: reason.trim(),
+  version: expectedVersion,
+})
 
 /** A9 envelope `{items, total, page (from 0), size}` → the page shape of the screen (page from 1). */
 export function accountPage(value: unknown): PageResult<AccountListItem> {
@@ -128,8 +155,6 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
     // A9 GET /api/platform/accounts ?q,status,platformRole,page,size,sort,dir (UC-FE03-07, D31)
     async listAccounts(filters: AccountFilters = {}): Promise<PageResult<AccountListItem>> {
       if (mode !== 'backend') return store.listAccounts(filters)
-      // STAFF (every account that has or had a role) only backs the mock "Quyền nhân sự" page until FE-03 Q5 / UC9.
-      if (filters.platformRole === 'STAFF') throw backendPending('danh sách nhân sự nền tảng')
       return accountPage(await transport.get(accountsPath(filters)))
     },
     // A10 GET /api/platform/accounts/{id} (UC-FE03-07, D31)
@@ -137,8 +162,13 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
       if (mode !== 'backend') return store.getAccount(id)
       return accountDetail(await transport.get(`${ACCOUNTS_PATH}/${requiredId(id, 'mã tài khoản')}`))
     },
-    // GET /api/platform/accounts/{id}/history (UC-FE03-09, chưa nối)
-    async accountHistory(id: number) { requireLocal(); return store.accountHistory(id) },
+    // A11 GET /api/platform/accounts/{id}/history (UC-FE03-09, D33): lịch sử vai trò, mới nhất trước
+    async accountHistory(id: number): Promise<AccessHistoryItem[]> {
+      if (mode !== 'backend') return store.accountHistory(id)
+      const rows = await transport.get(`${ACCOUNTS_PATH}/${requiredId(id, 'mã tài khoản')}/history`)
+      if (!Array.isArray(rows)) throw invalid('lịch sử vai trò')
+      return rows.map(accessHistoryItem)
+    },
     // A12 POST /api/platform/accounts/{id}/suspend (UC-FE03-08, D32): {reason, version} + Idempotency-Key → A10
     async suspendAccount(id: number, command: AccountChange, key?: string): Promise<AccountDetail> {
       if (mode !== 'backend') return store.suspendAccount(id, command)
@@ -149,8 +179,11 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
       if (mode !== 'backend') return store.restoreAccount(id, command)
       return accountDetail(await transport.command(`${ACCOUNTS_PATH}/${requiredId(id, 'mã tài khoản')}/restore`, statusBody(command), { key }))
     },
-    // POST /api/platform/accounts/{id}/platform-access  (UC-FE03-09, chưa nối; PlatformAccessRequest: operation, role, reason, version)
-    async changePlatformAccess(id: number, command: PlatformAccessChange) { requireLocal(); return store.changePlatformAccess(id, command) },
+    // A13 POST /api/platform/accounts/{id}/platform-access (UC-FE03-09, D33): {operation, role?, reason, version} + Idempotency-Key → A10
+    async changePlatformAccess(id: number, command: PlatformAccessChange, key?: string): Promise<AccountDetail> {
+      if (mode !== 'backend') return store.changePlatformAccess(id, command)
+      return accountDetail(await transport.command(`${ACCOUNTS_PATH}/${requiredId(id, 'mã tài khoản')}/platform-access`, accessBody(command), { key }))
+    },
 
     // GET /api/platform/audit ?from,to,action,targetType,actorId,page,size
     async listAudit(filters: AuditFilters) { requireLocal(); return store.listAudit(filters) },

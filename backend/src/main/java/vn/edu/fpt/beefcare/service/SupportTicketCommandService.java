@@ -204,13 +204,14 @@ public class SupportTicketCommandService {
     }
 
     /**
-     * UC-FE03-08 step 6 / GBR-77 (D32): in the suspension transaction, every non-CLOSED ticket assigned to the account
-     * returns to the unassigned queue with its status unchanged; the job above stays as the safety net.
+     * UC-FE03-08 / 09 step 6, GBR-77 (D32, D33): in the transaction that makes the CS unavailable (account suspended, CS
+     * access revoked or changed), every non-CLOSED ticket assigned to them returns to the unassigned queue with its status
+     * unchanged; the job above stays as the safety net. {@code cause} is kept in the ticket history.
      */
-    public int requeueTicketsOf(AppUser suspended) {
+    public int requeueTicketsOf(AppUser unavailable, String cause) {
         List<SupportTicket> tickets = em.createQuery("select t from SupportTicket t where t.assignedCs.id=:u and t.status<>'CLOSED' order by t.id", SupportTicket.class)
-            .setParameter("u", suspended.getId()).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
-        for (SupportTicket t : tickets) requeue(t, Map.of("actorType", "SYSTEM", "cause", "ACCOUNT_SUSPENDED"));
+            .setParameter("u", unavailable.getId()).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+        for (SupportTicket t : tickets) requeue(t, Map.of("actorType", "SYSTEM", "cause", cause));
         return tickets.size();
     }
 

@@ -39,6 +39,8 @@ public final class MessageCodes {
     public static final String FE03_18 = "MSG-FE03-18";
     public static final String FE03_20 = "MSG-FE03-20";
     public static final String FE03_21 = "MSG-FE03-21";
+    /** D33 (FE-03 Q4): grant / change / restore platform access of a SUSPENDED account. */
+    public static final String FE03_22 = "MSG-FE03-22";
 
     public static final String FE18_02 = "MSG-FE18-02";
     public static final String FE18_04 = "MSG-FE18-04";

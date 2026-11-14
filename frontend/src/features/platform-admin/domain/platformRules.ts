@@ -12,7 +12,7 @@ export const ROLE_LABEL: Record<PlatformRole, string> = {
 }
 
 export type PlatformAdminErrorCode =
-  | 'FORBIDDEN' | 'NOT_FOUND' | 'VALIDATION' | 'STALE' | 'LAST_SA' | 'NO_CHANGE' | 'UNVERIFIED' | 'INVALID_STATE' | 'NOT_ASSIGNED'
+  | 'FORBIDDEN' | 'NOT_FOUND' | 'VALIDATION' | 'STALE' | 'LAST_SA' | 'NO_CHANGE' | 'UNVERIFIED' | 'SUSPENDED_ACCOUNT' | 'NOT_ASSIGNED'
 
 export class PlatformAdminError extends Error {
   code: PlatformAdminErrorCode
@@ -26,32 +26,37 @@ export class PlatformAdminError extends Error {
 export const MSG = {
   forbidden: 'Bạn không có quyền thực hiện thao tác này.',
   stale: 'Bản ghi này đã được thay đổi. Vui lòng tải lại và kiểm tra trước khi thử lại.',
-  noAccount: 'Không có tài khoản BeefCare nào cho email này. Người đó cần đăng nhập một lần trước khi được cấp quyền.',
-  unverified: 'Email của tài khoản chưa được xác minh nên chưa thể cấp quyền nền tảng.',
+  /** MSG-FE03-18. */
+  noAccount: 'Chưa có tài khoản BeefCare cho email này. Người đó cần đăng nhập một lần trước khi được cấp quyền.',
   noLongerAssigned: 'Yêu cầu này không còn được giao cho bạn.',
   reasonRequired: 'Lý do là bắt buộc.',
-  /** Table III-1 / D32: lý do tạm ngưng / khôi phục. */
-  statusReasonRule: 'Lý do cần từ 5 đến 500 ký tự, trong đó ít nhất 5 ký tự không phải khoảng trắng.',
+  /** Table III-1 (D32, D33): lý do tạm ngưng / khôi phục và lý do đổi quyền nền tảng. */
+  reasonRule: 'Lý do cần từ 5 đến 500 ký tự, trong đó ít nhất 5 ký tự không phải khoảng trắng.',
   /** MSG-FE03-17 (spec FE-03 mục 8). */
   lastSa: 'Phải luôn còn ít nhất một System Admin đang hoạt động, và bạn không thể tạm ngưng tài khoản của chính mình.',
+  /** Ghi chú cố định "Last SA notice" của popup quyền nền tảng (SCR-16, MSG-FE03-17). */
+  lastSaNotice: 'Phải luôn còn ít nhất một System Admin đang hoạt động: không thể thu hồi hay đổi vai trò của System Admin đang hoạt động cuối cùng.',
+  /** D33 Q4: SA không đổi / thu hồi quyền của chính mình (SRS: thu hồi bởi một System Admin khác). */
+  ownAccess: 'Bạn không thể thay đổi quyền nền tảng của chính mình.',
   /** MSG-COM-08. */
   gone: 'Mục đã chọn không còn khả dụng. Vui lòng chọn mục khác.',
 }
 
-const noChange = (target: string, value: string) => new PlatformAdminError('NO_CHANGE', `Không có thay đổi: ${target} đã ở ${value} này.`)
+/** MSG-FE03-22 (D33 Q3). */
+export const accountSuspendedMessage = (email: string) =>
+  `Tài khoản ${email} đang tạm ngưng. Hãy khôi phục tài khoản trước khi cấp, đổi hoặc khôi phục quyền.`
 
+/** MSG-FE03-20: {value} là `role` (vai trò) hoặc `status` (trạng thái). */
+export const noChangeMessage = (target: string, value: string) =>
+  `Không có thay đổi: ${target} đã ở ${value === 'role' ? 'vai trò' : 'trạng thái'} này.`
+
+const noChange = (target: string, value: 'role' | 'status') => new PlatformAdminError('NO_CHANGE', noChangeMessage(target, value))
+
+/** Lý do của SCR-16 (D32, D33): bỏ khoảng trắng đầu cuối, 5–500 ký tự, ít nhất 5 ký tự không phải khoảng trắng. */
 export function validateReason(reason: string): string | null {
   const text = reason.trim()
   if (!text) return MSG.reasonRequired
-  if (text.length > REASON_MAX) return `Lý do tối đa ${REASON_MAX} ký tự.`
-  return null
-}
-
-/** Lý do tạm ngưng / khôi phục (UC8, D32): bỏ khoảng trắng đầu cuối, 5–500 ký tự, ít nhất 5 ký tự không phải khoảng trắng. */
-export function validateStatusReason(reason: string): string | null {
-  const text = reason.trim()
-  if (!text) return MSG.reasonRequired
-  if (text.length > REASON_MAX || text.replace(/\s/g, '').length < 5) return MSG.statusReasonRule
+  if (text.length > REASON_MAX || text.replace(/\s/g, '').length < 5) return MSG.reasonRule
   return null
 }
 
@@ -76,10 +81,24 @@ export function isLastActiveSa(accounts: AccountListItem[], id: number) {
   return !!target && isActiveSa(target) && !accounts.some((a) => a.id !== id && isActiveSa(a))
 }
 
-/** Hành động hộp thoại cấp quyền được phép theo trạng thái hiện tại (UC-FE03-09). */
-export function availableOperations(a: AccountListItem): PlatformAccessOperation[] {
-  if (a.platformRole === null) return ['GRANT']
-  return a.platformAccessStatus === 'ACTIVE' ? ['CHANGE', 'REVOKE'] : ['RESTORE']
+/**
+ * `accessActions` của A10 (D33 Q6), dùng cho bản mô phỏng: máy chủ tính cùng quy tắc. Không có gì trên tài khoản của chính
+ * SA; theo quyền đang lưu GRANT / CHANGE + REVOKE / RESTORE; tài khoản bị tạm ngưng hoặc chưa xác minh chỉ còn REVOKE.
+ */
+export function accessActionsOf(a: AccountRecord, actorId: number): PlatformAccessOperation[] {
+  if (a.id === actorId) return []
+  const usable = a.accountStatus === 'ACTIVE' && a.emailVerified
+  if (hasActiveAccess(a)) return usable ? ['CHANGE', 'REVOKE'] : ['REVOKE']
+  if (!usable) return []
+  return a.platformRole === null ? ['GRANT'] : ['RESTORE']
+}
+
+/** Vì sao popup không có thao tác nào (D33): tài khoản của chính mình, bị tạm ngưng hoặc chưa xác minh. */
+export function noAccessActionReason(a: AccountDetail): string | null {
+  if (a.accessActions.length) return null
+  if (a.accountStatus === 'SUSPENDED') return accountSuspendedMessage(a.email)
+  if (!a.emailVerified) return MSG.noAccount
+  return MSG.ownAccess
 }
 
 export const OPERATION_LABEL: Record<PlatformAccessOperation, string> = {
@@ -89,6 +108,7 @@ export const OPERATION_LABEL: Record<PlatformAccessOperation, string> = {
   RESTORE: 'Khôi phục quyền',
 }
 
+/** Nhãn nút xác nhận theo hành động (SCR-16 popup, ví dụ "Cấp quyền CS"). */
 export function accessButtonLabel(operation: PlatformAccessOperation, role: PlatformRole | undefined, current: PlatformRole | null) {
   switch (operation) {
     case 'GRANT': return `Cấp quyền ${role ?? ''}`.trim()
@@ -98,52 +118,56 @@ export function accessButtonLabel(operation: PlatformAccessOperation, role: Plat
   }
 }
 
+const DONE_VERB: Record<PlatformAccessOperation, string> = { GRANT: 'cấp', CHANGE: 'đổi', REVOKE: 'thu hồi', RESTORE: 'khôi phục' }
+
+/** MSG-FE03-19: "Quyền {role} của {email} đã được {action}." */
+export const accessDoneMessage = (role: PlatformRole, email: string, operation: PlatformAccessOperation) =>
+  `Quyền ${role} của ${email} đã được ${DONE_VERB[operation]}.`
+
 export const accessText = (role: PlatformRole | null, status: PlatformAccessStatus | null) =>
   role ? `role: ${role} · ${status === 'ACTIVE' ? 'đang hoạt động' : 'đã thu hồi'}` : 'role: —'
 
-/** Kiểm tra và tính trạng thái mới của một lệnh đổi quyền nền tảng; ném PlatformAdminError nếu vi phạm quy tắc. */
-export function planAccessChange(accounts: AccountRecord[], target: AccountRecord, req: PlatformAccessChange) {
-  if (!target.emailVerified) throw new PlatformAdminError('UNVERIFIED', MSG.unverified)
-  if (req.expectedVersion !== target.platformAccessVersion) throw new PlatformAdminError('STALE', MSG.stale)
+/**
+ * Kiểm tra lệnh quyền nền tảng theo thứ tự của máy chủ (D33): dữ liệu → tài khoản của chính mình (FORBIDDEN) → tài khoản
+ * bị tạm ngưng trừ thu hồi (MSG-FE03-22) → email chưa xác minh trừ thu hồi (MSG-FE03-18) → trạng thái (MSG-FE03-20 khi giá
+ * trị đã có hiệu lực, STALE khi quyền đã đổi) → version (STALE) → SA cuối cùng (MSG-FE03-17). Trả quyền mới.
+ */
+export function planAccessChange(accounts: AccountRecord[], target: AccountRecord, actorId: number, req: PlatformAccessChange) {
+  const needsRole = req.operation === 'GRANT' || req.operation === 'CHANGE'
+  if (needsRole && !req.role) throw new PlatformAdminError('VALIDATION', 'Vai trò là bắt buộc.')
   const reasonError = validateReason(req.reason)
   if (reasonError) throw new PlatformAdminError('VALIDATION', reasonError)
+  if (target.id === actorId) throw new PlatformAdminError('FORBIDDEN', MSG.ownAccess)
+  const revoke = req.operation === 'REVOKE'
+  if (!revoke && target.accountStatus === 'SUSPENDED') throw new PlatformAdminError('SUSPENDED_ACCOUNT', accountSuspendedMessage(target.email))
+  if (!revoke && !target.emailVerified) throw new PlatformAdminError('UNVERIFIED', MSG.noAccount)
   const active = hasActiveAccess(target)
   const revoked = hasRevokedAccess(target)
-  const lastSa = target.platformRole === 'SA' && isLastActiveSa(accounts, target.id)
-  const name = target.fullName
-  const needRole = () => {
-    if (!req.role) throw new PlatformAdminError('VALIDATION', 'Vai trò là bắt buộc.')
-    return req.role
-  }
+  const stale = () => new PlatformAdminError('STALE', MSG.stale)
   switch (req.operation) {
-    case 'GRANT': {
-      const role = needRole()
-      if (active) {
-        if (target.platformRole === role) throw noChange(name, 'vai trò')
-        throw new PlatformAdminError('INVALID_STATE', 'Mỗi người chỉ có tối đa một vai trò nền tảng đang hoạt động. Hãy dùng "Đổi vai trò".')
-      }
-      if (revoked) throw new PlatformAdminError('INVALID_STATE', `Quyền nền tảng của ${name} đã bị thu hồi. Hãy khôi phục quyền.`)
-      return { role, status: 'ACTIVE' as const }
-    }
-    case 'CHANGE': {
-      if (!active) throw new PlatformAdminError('INVALID_STATE', `${name} chưa có vai trò nền tảng đang hoạt động.`)
-      const role = needRole()
-      if (role === target.platformRole) throw noChange(name, 'vai trò')
-      if (lastSa) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
-      return { role, status: 'ACTIVE' as const }
-    }
-    case 'REVOKE': {
-      if (revoked) throw noChange(name, 'trạng thái')
-      if (!active) throw new PlatformAdminError('INVALID_STATE', `${name} chưa có vai trò nền tảng.`)
-      if (lastSa) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
-      return { role: target.platformRole as PlatformRole, status: 'REVOKED' as const }
-    }
-    case 'RESTORE': {
-      if (active) throw noChange(name, 'trạng thái')
-      if (!revoked) throw new PlatformAdminError('INVALID_STATE', `${name} chưa từng có vai trò nền tảng để khôi phục.`)
-      return { role: target.platformRole as PlatformRole, status: 'ACTIVE' as const }
-    }
+    case 'GRANT':
+      if (active && target.platformRole === req.role) throw noChange(target.email, 'role')
+      if (target.platformRole !== null) throw stale()
+      break
+    case 'CHANGE':
+      if (!active) throw stale()
+      if (target.platformRole === req.role) throw noChange(target.email, 'role')
+      break
+    case 'REVOKE':
+      if (revoked) throw noChange(target.email, 'status')
+      if (!active) throw stale()
+      break
+    case 'RESTORE':
+      if (active) throw noChange(target.email, 'status')
+      if (!revoked) throw stale()
+      break
   }
+  if ((target.platformAccessVersion ?? 0) !== (req.expectedVersion ?? 0)) throw stale()
+  const losesSa = active && target.platformRole === 'SA' && (revoke || (req.operation === 'CHANGE' && req.role !== 'SA'))
+  if (losesSa && isLastActiveSa(accounts, target.id)) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
+  if (req.operation === 'REVOKE') return { role: target.platformRole as PlatformRole, status: 'REVOKED' as const }
+  if (req.operation === 'RESTORE') return { role: target.platformRole as PlatformRole, status: 'ACTIVE' as const }
+  return { role: req.role as PlatformRole, status: 'ACTIVE' as const }
 }
 
 /**
@@ -151,10 +175,10 @@ export function planAccessChange(accounts: AccountRecord[], target: AccountRecor
  * mình (MSG-FE03-17) → đã ở trạng thái yêu cầu (MSG-FE03-20, kể cả version cũ) → version (MSG-COM-05) → SA cuối cùng.
  */
 export function checkAccountChange(accounts: AccountRecord[], target: AccountRecord, actorId: number, req: AccountChange, op: 'suspend' | 'restore') {
-  const reasonError = validateStatusReason(req.reason)
+  const reasonError = validateReason(req.reason)
   if (reasonError) throw new PlatformAdminError('VALIDATION', reasonError)
   if (op === 'suspend' && target.id === actorId) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
-  if (target.accountStatus === (op === 'suspend' ? 'SUSPENDED' : 'ACTIVE')) throw noChange(target.email, 'trạng thái')
+  if (target.accountStatus === (op === 'suspend' ? 'SUSPENDED' : 'ACTIVE')) throw noChange(target.email, 'status')
   if (req.expectedVersion !== target.version) throw new PlatformAdminError('STALE', MSG.stale)
   if (op === 'suspend' && isLastActiveSa(accounts, target.id)) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
 }
@@ -170,8 +194,7 @@ export function compareAccounts(a: AccountListItem, b: AccountListItem): number 
 
 /**
  * Lọc như A9 (D31): `q` khớp tên hoặc email (bỏ khoảng trắng đầu cuối, không phân biệt hoa thường, giữ dấu); vai trò
- * CS / PM / SA là vai trò đang ACTIVE; NONE là không có vai trò ACTIVE (gồm vai trò đã thu hồi). STAFF chỉ cho bản
- * mô phỏng trang "Quyền nhân sự" (FE-03 Q5).
+ * CS / PM / SA là vai trò đang ACTIVE; NONE là không có vai trò ACTIVE (gồm vai trò đã thu hồi).
  */
 export function filterAccounts<T extends AccountListItem>(accounts: T[], { q = '', status = '', platformRole = '', dir = 'asc' }: AccountFilters): T[] {
   const needle = q.trim().toLocaleLowerCase('vi')
@@ -180,7 +203,6 @@ export function filterAccounts<T extends AccountListItem>(accounts: T[], { q = '
       if (needle && !a.fullName.toLocaleLowerCase('vi').includes(needle) && !a.email.toLocaleLowerCase('vi').includes(needle)) return false
       if (status && a.accountStatus !== status) return false
       if (platformRole === 'NONE') return !hasActiveAccess(a)
-      if (platformRole === 'STAFF') return a.platformRole !== null
       if (platformRole) return hasActiveAccess(a) && a.platformRole === platformRole
       return true
     })

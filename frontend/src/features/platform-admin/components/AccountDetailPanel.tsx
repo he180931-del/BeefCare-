@@ -1,20 +1,20 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
 import { Button, Card, Field, Info, Note, Textarea } from '../../../components/ui'
 import {
-  REASON_MAX, farmsJoinedText, formatPlatformDate, formatPlatformDateTime, platformRoleText, revokedRoleNote, validateStatusReason, verificationText,
+  REASON_MAX, farmsJoinedText, formatPlatformDate, formatPlatformDateTime, platformRoleText, revokedRoleNote, validateReason, verificationText,
 } from '../domain/platformRules'
 import type { AccountDetail } from '../types'
+import AccessDialog from './AccessDialog'
 import AccountStatusDialog from './AccountStatusDialog'
 import { AccountStatusBadge, ICON_BUTTON, PersonCell } from './common'
 
 /**
  * Chi tiết tài khoản của SCR-16 (A10, D31): email và xác minh, tạo lúc, đăng nhập cuối (giờ Asia/Ho_Chi_Minh), đăng ký
  * Chủ trại và trại sở hữu. Không có SĐT, mật khẩu hay dữ liệu vận hành trại (GBR-11). Lý do + Tạm ngưng / Khôi phục
- * (UC8, D32) chỉ hiện theo `actions` của máy chủ; tài khoản của chính SA không có Tạm ngưng. Nút Quyền nền tảng (UC9)
- * giữ như trước, chưa được kiểm chứng.
+ * (UC8, D32) chỉ hiện theo `actions` của máy chủ; tài khoản của chính SA không có Tạm ngưng. Nút Quyền nền tảng mở popup
+ * "Quyền nhân viên nền tảng" ngay trên SCR-16 (`?m=access`, UC9, D33).
  */
 export default function AccountDetailPanel({ account, onChanged, onReload }: {
   account: AccountDetail
@@ -22,7 +22,6 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
   onReload: () => void
 }) {
   const [m, openModal, closeModal] = useModalParam()
-  const navigate = useNavigate()
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
   const [refused, setRefused] = useState<string | null>(null)
@@ -31,7 +30,7 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
   const revoked = revokedRoleNote(account)
 
   const requestChange = () => {
-    const invalid = validateStatusReason(reason)
+    const invalid = validateReason(reason)
     setReasonError(invalid)
     setRefused(null)
     if (!invalid) openModal(suspended ? 'restore' : 'suspend')
@@ -75,7 +74,7 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
             </Button>
           </>
         ) : !suspended ? <Note>Bạn không thể tạm ngưng tài khoản của chính mình.</Note> : null}
-        <Button block className={ICON_BUTTON} onClick={() => navigate(`/nen-tang/quyen/${account.id}?m=access`)}>
+        <Button block className={ICON_BUTTON} onClick={() => { setRefused(null); openModal('access') }}>
           <Icon name="shield-lock" size={16} />
           Quyền nền tảng
         </Button>
@@ -89,6 +88,14 @@ export default function AccountDetailPanel({ account, onChanged, onReload }: {
           onClose={closeModal}
           onRefused={(message) => { closeModal(); setRefused(message); onReload() }}
           onDone={(message) => { setReason(''); setRefused(null); closeModal(); onChanged(message) }}
+        />
+      )}
+      {m === 'access' && (
+        <AccessDialog
+          account={account}
+          onClose={closeModal}
+          onRefused={(message) => { closeModal(); setRefused(message); onReload() }}
+          onDone={(message) => { setRefused(null); closeModal(); onChanged(message) }}
         />
       )}
     </Card>

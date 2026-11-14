@@ -42,10 +42,15 @@ export interface AccountDetail extends AccountListItem {
   version: number
   /** Do máy chủ tính theo SA đang xem (D32); nút Tạm ngưng / Khôi phục chỉ hiện khi có trong danh sách. */
   actions: AccountStatusAction[]
+  /**
+   * Lệnh quyền nền tảng SA đang xem được dùng (D33): GRANT (chưa có quyền), CHANGE / REVOKE (quyền ACTIVE), RESTORE
+   * (quyền REVOKED); tài khoản bị tạm ngưng hoặc chưa xác minh chỉ còn REVOKE; tài khoản của chính mình rỗng.
+   */
+  accessActions: PlatformAccessOperation[]
 }
 
-/** Tài khoản trong dữ liệu mô phỏng: A10 trừ `actions`, vốn tính theo SA đang xem lúc đọc. */
-export type AccountRecord = Omit<AccountDetail, 'actions'>
+/** Tài khoản trong dữ liệu mô phỏng: A10 trừ `actions` / `accessActions`, vốn tính theo SA đang xem lúc đọc. */
+export type AccountRecord = Omit<AccountDetail, 'actions' | 'accessActions'>
 
 /** DTO AccountChange (A12, D32): giao diện giữ `expectedVersion`, adapter gửi thành `version`. */
 export interface AccountChange { reason: string; expectedVersion: number }
@@ -63,11 +68,8 @@ export type SortDir = 'asc' | 'desc'
 export interface AccountFilters {
   q?: string
   status?: '' | AccountStatus
-  /**
-   * '' tất cả, NONE không có vai trò ACTIVE (gồm cả vai trò đã thu hồi), CS / PM / SA vai trò đó đang ACTIVE (D31).
-   * STAFF (mọi người từng có vai trò, kể cả đã thu hồi) chỉ dùng cho trang "Quyền nhân sự" bản mô phỏng (FE-03 Q5).
-   */
-  platformRole?: '' | 'NONE' | 'STAFF' | PlatformRole
+  /** '' tất cả, NONE không có vai trò ACTIVE (gồm cả vai trò đã thu hồi), CS / PM / SA vai trò đó đang ACTIVE (D31). */
+  platformRole?: '' | 'NONE' | PlatformRole
   /** Chiều sắp xếp theo tên (cột Người dùng); mặc định A→Z. */
   dir?: SortDir
   /** Trang bắt đầu từ 1 ở giao diện. */
@@ -84,8 +86,20 @@ export interface PageResult<T> {
   size: number
 }
 
-/** DTO AuditItem: lịch sử vai trò của một tài khoản. */
-export interface AuditItem { id: number; action: string; at: string; details: string }
+/** A11 (D33): một dòng lịch sử vai trò, mới nhất trước. Lần cấp đầu không có vai trò / trạng thái trước. */
+export interface AccessHistoryItem {
+  id: number
+  action: PlatformAccessOperation
+  roleBefore: PlatformRole | null
+  statusBefore: PlatformAccessStatus | null
+  roleAfter: PlatformRole
+  statusAfter: PlatformAccessStatus
+  reason: string
+  /** null với dòng chép từ audit cũ không có người làm. */
+  byName: string | null
+  byEmail: string | null
+  at: string
+}
 
 export type AuditTargetType = 'ACCOUNT' | 'PLATFORM_ACCESS' | 'MEMBERSHIP' | 'FARM' | 'PAYMENT' | 'FINANCE_RECORD' | 'TICKET' | 'INTERNAL_REQUEST'
 

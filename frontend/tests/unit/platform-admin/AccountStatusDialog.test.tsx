@@ -4,20 +4,21 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BackendError } from '../../../src/api/backendClient'
 import { platformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
-import AccountStatusDialog, { statusChangeOutcome } from '../../../src/features/platform-admin/components/AccountStatusDialog'
+import AccountStatusDialog from '../../../src/features/platform-admin/components/AccountStatusDialog'
+import { commandOutcome as statusChangeOutcome } from '../../../src/features/platform-admin/components/commandOutcome'
 import type { AccountDetail } from '../../../src/features/platform-admin/types'
 
 const account: AccountDetail = {
   id: 12, email: 'an@x.vn', fullName: 'An', accountStatus: 'ACTIVE', platformRole: 'CS', platformAccessStatus: 'ACTIVE', emailVerified: true,
   farmCount: 0, farmRoles: [], platformAccessVersion: 1, signInMethods: ['GOOGLE'], createdAt: '2025-01-15T02:30:00Z', lastSignInAt: null,
-  ownerRegistrationCompleted: false, ownerRegistrationCompletedAt: null, ownedFarms: [], version: 4, actions: ['SUSPEND'],
+  ownerRegistrationCompleted: false, ownerRegistrationCompletedAt: null, ownedFarms: [], version: 4, actions: ['SUSPEND'], accessActions: ['CHANGE', 'REVOKE'],
 }
 
 const backendError = (status: number, code: string, params: Record<string, unknown> = {}) => new BackendError(status, { code, params })
 
 afterEach(() => { vi.restoreAllMocks() })
 
-describe('A12: phân loại lỗi (D32)', () => {
+describe('A12 / A13: phân loại lỗi (D32, D33)', () => {
   it('lỗi nghiệp vụ đóng hộp thoại và tải lại; lỗi lý do về trường; lỗi lưu / mạng giữ hộp thoại', () => {
     expect(statusChangeOutcome(backendError(409, 'MSG-FE03-20', { target: 'an@x.vn', value: 'status' }), 'x@x.vn'))
       .toEqual({ kind: 'refused', message: 'Không có thay đổi: an@x.vn đã ở trạng thái này.' })
@@ -26,7 +27,13 @@ describe('A12: phân loại lỗi (D32)', () => {
     expect(statusChangeOutcome(backendError(404, 'MSG-COM-08'), 'an@x.vn')).toMatchObject({ kind: 'refused', message: /không còn khả dụng/ })
     expect(statusChangeOutcome(backendError(403, 'MSG-COM-01'), 'an@x.vn')).toMatchObject({ kind: 'refused' })
     expect(statusChangeOutcome(backendError(400, 'MSG-COM-10', { field: 'reason' }), 'an@x.vn')).toMatchObject({ kind: 'field', message: /từ 5 đến 500/ })
-    expect(statusChangeOutcome(backendError(400, 'MSG-COM-06', { field: 'reason' }), 'an@x.vn')).toEqual({ kind: 'field', message: 'Lý do là bắt buộc.' })
+    expect(statusChangeOutcome(backendError(400, 'MSG-COM-06', { field: 'reason' }), 'an@x.vn')).toEqual({ kind: 'field', message: 'Lý do là bắt buộc.', field: 'reason' })
+    // A13 (D33): tài khoản chưa xác minh / bị tạm ngưng / vai trò sai
+    expect(statusChangeOutcome(backendError(409, 'MSG-FE03-18', { email: 'an@x.vn' }), 'an@x.vn')).toMatchObject({ kind: 'refused', message: /Chưa có tài khoản BeefCare/ })
+    expect(statusChangeOutcome(backendError(409, 'MSG-FE03-22', { email: 'an@x.vn' }), 'x@x.vn'))
+      .toEqual({ kind: 'refused', message: 'Tài khoản an@x.vn đang tạm ngưng. Hãy khôi phục tài khoản trước khi cấp, đổi hoặc khôi phục quyền.' })
+    expect(statusChangeOutcome(backendError(409, 'MSG-FE03-20', { target: 'an@x.vn', value: 'role' }), 'an@x.vn').message).toBe('Không có thay đổi: an@x.vn đã ở vai trò này.')
+    expect(statusChangeOutcome(backendError(400, 'MSG-COM-06', { field: 'role' }), 'an@x.vn')).toEqual({ kind: 'field', message: 'Chọn vai trò.', field: 'role' })
     expect(statusChangeOutcome(backendError(500, 'MSG-COM-02'), 'an@x.vn').kind).toBe('retry')
     expect(statusChangeOutcome(new TypeError('Failed to fetch'), 'an@x.vn').kind).toBe('retry')
   })

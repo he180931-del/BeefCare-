@@ -162,45 +162,59 @@ describe('Tài khoản người dùng', () => {
   })
 })
 
-describe('Quyền nhân sự nền tảng', () => {
-  it('liệt kê nhân sự và cấp quyền CS cho người chưa có vai trò', async () => {
+describe('Quyền nhân viên nền tảng trên SCR-16 (UC9, D33)', () => {
+  it('nút Quyền nền tảng mở popup trên SCR-16; cấp quyền CS có lý do 5–500 và hiện MSG-FE03-19', async () => {
     const user = userEvent.setup()
-    renderAt('/nen-tang/quyen')
-    expect(await screen.findByText('Phạm Thu Hà')).toBeInTheDocument()
-    expect(screen.queryByText('Ngô Minh Khang')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Cấp quyền nền tảng/ }))
-    const pick = await screen.findByRole('dialog')
-    await user.selectOptions(await within(pick).findByRole('combobox'), '7')
-    await user.click(within(pick).getByRole('button', { name: 'Tiếp tục' }))
-
-    await screen.findByText(/khang\.nm@beefcare\.vn · chưa có vai trò/)
-    const dialog = screen.getByRole('dialog')
+    renderAt('/nen-tang/tai-khoan/7')
+    await user.click(await screen.findByRole('button', { name: /Quyền nền tảng/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Quyền nhân viên nền tảng' })
+    expect(within(dialog).getByText(/khang\.nm@beefcare\.vn · chưa có vai trò/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/không thể thu hồi hay đổi vai trò của System Admin đang hoạt động cuối cùng/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Cấp quyền CS' }))
     expect(await within(dialog).findByText('Lý do là bắt buộc.')).toBeInTheDocument()
+    await user.type(within(dialog).getByPlaceholderText(/Nhập lý do/), 'abc')
+    await user.click(within(dialog).getByRole('button', { name: 'Cấp quyền CS' }))
+    expect(await within(dialog).findByText(/Lý do cần từ 5 đến 500 ký tự/)).toBeInTheDocument()
+    await user.clear(within(dialog).getByPlaceholderText(/Nhập lý do/))
     await user.type(within(dialog).getByPlaceholderText(/Nhập lý do/), 'Bổ sung nhân sự hỗ trợ ca chiều')
     await user.click(within(dialog).getByRole('button', { name: 'Cấp quyền CS' }))
 
     expect(await screen.findByText('Quyền CS của khang.nm@beefcare.vn đã được cấp.')).toBeInTheDocument()
-    expect(await screen.findByText('Ngô Minh Khang')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('thu hồi quyền CS và hiển thị trạng thái đã thu hồi', async () => {
+  it('link cũ /nen-tang/quyen/{id} mở popup trên SCR-16; thu hồi CS, lịch sử vai trò hiện người làm và lý do', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/quyen/2?m=access')
-    const dialog = await screen.findByRole('dialog', { name: 'Cấp quyền nền tảng' })
-    await user.click(await within(dialog).findByLabelText('Thu hồi quyền'))
+    const dialog = await screen.findByRole('dialog', { name: 'Quyền nhân viên nền tảng' })
+    expect(await within(dialog).findByText(/Quay lại làm việc · Vũ Hoàng Nam/)).toBeInTheDocument()
+    await user.click(within(dialog).getByLabelText('Thu hồi quyền'))
     await user.type(within(dialog).getByPlaceholderText(/Nhập lý do/), 'Chuyển bộ phận')
     await user.click(within(dialog).getByRole('button', { name: 'Thu hồi quyền CS' }))
     expect(await screen.findByText('Quyền CS của ha.pt@beefcare.vn đã được thu hồi.')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getAllByText('Đã thu hồi')).toHaveLength(2))
   })
 
-  it('email chưa xác minh không nhận được quyền nền tảng', async () => {
-    renderAt('/nen-tang/quyen/9?m=access')
-    const dialog = await screen.findByRole('dialog')
-    expect(await within(dialog).findAllByText(/chưa được xác minh/)).not.toHaveLength(0)
-    expect(within(dialog).getByRole('button', { name: 'Cấp quyền CS' })).toBeDisabled()
+  it('tài khoản chưa xác minh / của chính mình chỉ xem lịch sử; hủy khi đã nhập lý do hỏi lại (MSG-COM-14)', async () => {
+    const user = userEvent.setup()
+    const first = renderAt('/nen-tang/tai-khoan/9?m=access')
+    let dialog = await screen.findByRole('dialog', { name: 'Quyền nhân viên nền tảng' })
+    expect(within(dialog).getByText(/Chưa có tài khoản BeefCare cho email này/)).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /Cấp quyền/ })).not.toBeInTheDocument()
+    first.unmount()
+
+    const second = renderAt('/nen-tang/tai-khoan/4?m=access')
+    dialog = await screen.findByRole('dialog', { name: 'Quyền nhân viên nền tảng' })
+    expect(within(dialog).getByText('Bạn không thể thay đổi quyền nền tảng của chính mình.')).toBeInTheDocument()
+    expect(await within(dialog).findByText(/Quản trị viên đầu tiên khi triển khai · Hệ thống/)).toBeInTheDocument()
+    second.unmount()
+
+    renderAt('/nen-tang/tai-khoan/3?m=access')
+    dialog = await screen.findByRole('dialog', { name: 'Quyền nhân viên nền tảng' })
+    await user.type(within(dialog).getByPlaceholderText(/Nhập lý do/), 'Đổi nhóm')
+    await user.click(within(dialog).getByRole('button', { name: 'Hủy' }))
+    expect(within(dialog).getByText('Bỏ thông tin bạn đã nhập?')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục nhập' }))
+    expect(within(dialog).getByPlaceholderText(/Nhập lý do/)).toHaveValue('Đổi nhóm')
   })
 })
 

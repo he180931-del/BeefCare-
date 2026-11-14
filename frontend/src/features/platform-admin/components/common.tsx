@@ -5,12 +5,10 @@ import { Icon } from '../../../components/Icon'
 import { Badge, Note } from '../../../components/ui'
 import { useSession } from '../../authorization'
 import { MSG, PlatformAdminError, initials } from '../domain/platformRules'
-import type { AccountStatus, PlatformAccessStatus } from '../types'
+import type { AccountStatus } from '../types'
 
 export const errorMessage = (error: unknown, fallback = 'Không thể lưu dữ liệu. Vui lòng thử lại.') =>
   error instanceof PlatformAdminError ? error.message : userFacingError(error, fallback)
-
-export const isStale = (error: unknown) => error instanceof PlatformAdminError && error.code === 'STALE'
 
 export function Avatar({ name, system }: { name: string; system?: boolean }) {
   return (
@@ -37,9 +35,6 @@ export function PersonCell({ name, sub, system, wrap }: { name: string; sub?: st
 
 export const AccountStatusBadge = ({ status }: { status: AccountStatus }) =>
   status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : <Badge tone="err" icon="player-pause">Tạm ngưng</Badge>
-
-export const AccessStatusBadge = ({ status }: { status: PlatformAccessStatus | null }) =>
-  status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : status === 'REVOKED' ? <Badge tone="warn" icon="ban">Đã thu hồi</Badge> : <Badge tone="outline">Chưa có quyền</Badge>
 
 /** Thông báo thành công (MSG-FE03-16, MSG-FE03-19, MSG-FE14-02...) tự tắt sau vài giây. */
 export function Toast({ message, onClose }: { message: string | null; onClose: () => void }) {

@@ -1,9 +1,9 @@
 import {
-  MSG, PlatformAdminError, allowedAuditDetails, accessText, checkAccountChange, filterAccounts, filterAudit, isActiveSa, paginate,
-  planAccessChange, statusActions, validateAuditRange,
+  MSG, PlatformAdminError, accessActionsOf, allowedAuditDetails, accessText, checkAccountChange, filterAccounts, filterAudit, isActiveSa,
+  paginate, planAccessChange, statusActions, validateAuditRange,
 } from '../domain/platformRules'
 import type {
-  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AuditActorOption, AuditEntry, AuditFilters, AuditItem, NotificationOpenResult,
+  AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AuditActorOption, AuditEntry, AuditFilters, NotificationOpenResult,
   NotificationView, PlatformAccessChange,
 } from '../types'
 import { createPlatformAdminSeed, type PlatformAdminSeed, type RawAuditEntry } from './platformAdminMock'
@@ -45,8 +45,10 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
     })
   }
 
-  /** A10 như máy chủ trả (D32): `actions` tính theo SA đang xem. */
-  const detailOf = (a: AccountRecord): AccountDetail => ({ ...structuredClone(a), actions: statusActions(a, state.currentUserId) })
+  /** A10 như máy chủ trả (D32, D33): `actions` và `accessActions` tính theo SA đang xem. */
+  const detailOf = (a: AccountRecord): AccountDetail => ({
+    ...structuredClone(a), actions: statusActions(a, state.currentUserId), accessActions: accessActionsOf(a, state.currentUserId),
+  })
 
   function changeStatus(id: number, command: AccountChange, op: 'suspend' | 'restore') {
     const actor = requireSa()
@@ -67,13 +69,14 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
       return paginate(filterAccounts(state.accounts, filters).map(listItem), filters.page ?? 1, filters.size ?? ACCOUNT_PAGE_SIZE)
     },
     async getAccount(id: number) { requireSa(); return detailOf(find(id)) },
-    async accountHistory(id: number): Promise<AuditItem[]> {
+    /** A11 (D33): lịch sử vai trò, mới nhất trước. */
+    async accountHistory(id: number): Promise<AccessHistoryItem[]> {
       requireSa()
       find(id)
       return state.history
         .filter((h) => h.accountId === id)
         .sort((a, b) => b.id - a.id)
-        .map((h) => ({ id: h.id, action: h.operation, at: h.at, details: `${h.role} · ${h.reason} · bởi ${h.by}` }))
+        .map(({ accountId: _accountId, ...item }) => structuredClone(item))
     },
     async suspendAccount(id: number, command: AccountChange) { return changeStatus(id, command, 'suspend') },
     async restoreAccount(id: number, command: AccountChange) { return changeStatus(id, command, 'restore') },
@@ -82,11 +85,16 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
       const actor = requireSa()
       const target = find(id)
       const before = accessText(target.platformRole, target.platformAccessStatus)
-      const next = planAccessChange(state.accounts, target, command)
+      const roleBefore = target.platformRole
+      const statusBefore = target.platformAccessStatus
+      const next = planAccessChange(state.accounts, target, actor.id, command)
       target.platformRole = next.role
       target.platformAccessStatus = next.status
       target.platformAccessVersion = (target.platformAccessVersion ?? 0) + 1
-      state.history.push({ id: nextId(), accountId: id, operation: command.operation, role: next.role, reason: command.reason.trim(), by: actor.fullName, at: nowIso() })
+      state.history.push({
+        id: nextId(), accountId: id, action: command.operation, roleBefore, statusBefore, roleAfter: next.role, statusAfter: next.status,
+        reason: command.reason.trim(), byName: actor.fullName, byEmail: actor.email, at: nowIso(),
+      })
       const action = { GRANT: 'PLATFORM_ACCESS_GRANTED', CHANGE: 'PLATFORM_ACCESS_CHANGED', REVOKE: 'PLATFORM_ACCESS_REVOKED', RESTORE: 'PLATFORM_ACCESS_RESTORED' }[command.operation]
       log(actor, action, target, before, accessText(next.role, next.status), next.role)
       return detailOf(target)

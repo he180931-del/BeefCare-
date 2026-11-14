@@ -47,46 +47,53 @@ describe('tạm ngưng và khôi phục tài khoản (UC8, D32)', () => {
   })
 })
 
-describe('quyền nhân sự nền tảng', () => {
-  it('cấp, đổi, thu hồi, khôi phục có lý do, phiên bản và lịch sử', async () => {
+describe('quyền nhân viên nền tảng (UC9, D33)', () => {
+  it('cấp, đổi, thu hồi, khôi phục: lý do 5–500, giá trị đã có (FE03-20), quyền đã đổi (STALE), accessActions và lịch sử', async () => {
     const { api } = make()
     let acc = await api.getAccount(KHANG)
+    expect(acc.accessActions).toEqual(['GRANT'])
     const v = () => acc.platformAccessVersion
     await expect(api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'CS', reason: '', expectedVersion: v() })).rejects.toMatchObject({ code: 'VALIDATION' })
-    acc = await api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'CS', reason: 'Bổ sung nhân sự hỗ trợ ca chiều', expectedVersion: v() })
-    expect(acc).toMatchObject({ platformRole: 'CS', platformAccessStatus: 'ACTIVE' })
-    await expect(api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'PM', reason: 'x', expectedVersion: v() })).rejects.toMatchObject({ code: 'INVALID_STATE' })
-    await expect(api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'CS', reason: 'x', expectedVersion: v() })).rejects.toMatchObject({ code: 'NO_CHANGE' })
-    const stale = (v() ?? 0) - 1
-    await expect(api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'PM', reason: 'x', expectedVersion: stale })).rejects.toMatchObject({ code: 'STALE' })
+    await expect(api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'CS', reason: 'a b c d', expectedVersion: v() })).rejects.toMatchObject({ code: 'VALIDATION' })
+    acc = await api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'CS', reason: '  Bổ sung nhân sự hỗ trợ ca chiều  ', expectedVersion: v() })
+    expect(acc).toMatchObject({ platformRole: 'CS', platformAccessStatus: 'ACTIVE', accessActions: ['CHANGE', 'REVOKE'] })
+    await expect(api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'CS', reason: 'Cấp lại CS', expectedVersion: v() }))
+      .rejects.toMatchObject({ code: 'NO_CHANGE', message: 'Không có thay đổi: khang.nm@beefcare.vn đã ở vai trò này.' })
+    await expect(api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'PM', reason: 'Thêm vai trò PM', expectedVersion: v() })).rejects.toMatchObject({ code: 'STALE' })
+    await expect(api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'CS', reason: 'Đổi sang CS', expectedVersion: v() })).rejects.toMatchObject({ code: 'NO_CHANGE' })
+    await expect(api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'PM', reason: 'Đổi sang PM', expectedVersion: (v() ?? 0) - 1 })).rejects.toMatchObject({ code: 'STALE' })
     acc = await api.changePlatformAccess(KHANG, { operation: 'CHANGE', role: 'PM', reason: 'Chuyển sang nhóm đối soát thanh toán', expectedVersion: v() })
     expect(acc.platformRole).toBe('PM')
     acc = await api.changePlatformAccess(KHANG, { operation: 'REVOKE', reason: 'Nghỉ việc', expectedVersion: v() })
-    expect(acc).toMatchObject({ platformRole: 'PM', platformAccessStatus: 'REVOKED' })
+    expect(acc).toMatchObject({ platformRole: 'PM', platformAccessStatus: 'REVOKED', accessActions: ['RESTORE'] })
+    await expect(api.changePlatformAccess(KHANG, { operation: 'REVOKE', reason: 'Nghỉ việc lần hai', expectedVersion: v() }))
+      .rejects.toMatchObject({ code: 'NO_CHANGE', message: 'Không có thay đổi: khang.nm@beefcare.vn đã ở trạng thái này.' })
     acc = await api.changePlatformAccess(KHANG, { operation: 'RESTORE', reason: 'Quay lại làm việc', expectedVersion: v() })
     expect(acc.platformAccessStatus).toBe('ACTIVE')
-    await expect(api.changePlatformAccess(KHANG, { operation: 'RESTORE', reason: 'x', expectedVersion: v() })).rejects.toMatchObject({ code: 'NO_CHANGE' })
+    await expect(api.changePlatformAccess(KHANG, { operation: 'RESTORE', reason: 'Khôi phục lần hai', expectedVersion: v() })).rejects.toMatchObject({ code: 'NO_CHANGE' })
     const history = await api.accountHistory(KHANG)
     expect(history.map((h) => h.action)).toEqual(['RESTORE', 'REVOKE', 'CHANGE', 'GRANT'])
+    expect(history[2]).toMatchObject({ roleBefore: 'CS', statusBefore: 'ACTIVE', roleAfter: 'PM', statusAfter: 'ACTIVE', reason: 'Chuyển sang nhóm đối soát thanh toán', byName: 'Vũ Hoàng Nam' })
+    expect(history[3]).toMatchObject({ roleBefore: null, statusBefore: null, reason: 'Bổ sung nhân sự hỗ trợ ca chiều' })
   })
 
-  it('chỉ email đã xác minh mới nhận được quyền nền tảng', async () => {
+  it('tài khoản của chính mình, chưa xác minh, bị tạm ngưng (D33 Q3, Q4)', async () => {
     const { api } = make()
+    const nam = await api.getAccount(NAM)
+    expect(nam.accessActions).toEqual([])
+    await expect(api.changePlatformAccess(NAM, { operation: 'REVOKE', reason: 'Tự thu hồi thử', expectedVersion: nam.platformAccessVersion }))
+      .rejects.toMatchObject({ code: 'FORBIDDEN', message: 'Bạn không thể thay đổi quyền nền tảng của chính mình.' })
     const bao = await api.getAccount(BAO)
-    await expect(api.changePlatformAccess(BAO, { operation: 'GRANT', role: 'CS', reason: 'Thử', expectedVersion: bao.platformAccessVersion })).rejects.toMatchObject({ code: 'UNVERIFIED' })
-  })
-
-  it('luôn còn ít nhất một System Admin đang hoạt động', async () => {
-    const { api } = make()
-    let nam = await api.getAccount(NAM)
-    await expect(api.changePlatformAccess(NAM, { operation: 'REVOKE', reason: 'Thử', expectedVersion: nam.platformAccessVersion })).rejects.toMatchObject({ code: 'LAST_SA' })
-    await expect(api.changePlatformAccess(NAM, { operation: 'CHANGE', role: 'PM', reason: 'Thử', expectedVersion: nam.platformAccessVersion })).rejects.toMatchObject({ code: 'LAST_SA' })
-    let khang = await api.getAccount(KHANG)
-    khang = await api.changePlatformAccess(KHANG, { operation: 'GRANT', role: 'SA', reason: 'Dự phòng SA', expectedVersion: khang.platformAccessVersion })
-    khang = await api.changePlatformAccess(KHANG, { operation: 'REVOKE', reason: 'Hết nhiệm vụ', expectedVersion: khang.platformAccessVersion })
-    expect(khang.platformAccessStatus).toBe('REVOKED')
-    nam = await api.getAccount(NAM)
-    await expect(api.changePlatformAccess(NAM, { operation: 'REVOKE', reason: 'Thử', expectedVersion: nam.platformAccessVersion })).rejects.toMatchObject({ code: 'LAST_SA' })
+    expect(bao.accessActions).toEqual([])
+    await expect(api.changePlatformAccess(BAO, { operation: 'GRANT', role: 'CS', reason: 'Bổ sung nhân sự', expectedVersion: bao.platformAccessVersion }))
+      .rejects.toMatchObject({ code: 'UNVERIFIED', message: /Chưa có tài khoản BeefCare cho email này/ })
+    let ha = await api.getAccount(HA)
+    ha = await api.suspendAccount(HA, { reason: 'Nghi ngờ lộ mật khẩu', expectedVersion: ha.version })
+    expect(ha.accessActions).toEqual(['REVOKE'])
+    await expect(api.changePlatformAccess(HA, { operation: 'CHANGE', role: 'PM', reason: 'Đổi sang PM', expectedVersion: ha.platformAccessVersion }))
+      .rejects.toMatchObject({ code: 'SUSPENDED_ACCOUNT', message: 'Tài khoản ha.pt@beefcare.vn đang tạm ngưng. Hãy khôi phục tài khoản trước khi cấp, đổi hoặc khôi phục quyền.' })
+    ha = await api.changePlatformAccess(HA, { operation: 'REVOKE', reason: 'Tài khoản nghi bị lộ', expectedVersion: ha.platformAccessVersion })
+    expect(ha).toMatchObject({ platformAccessStatus: 'REVOKED', accountStatus: 'SUSPENDED', accessActions: [] })
   })
 })
 
@@ -131,6 +138,7 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
   const detail = {
     ...row, platformAccessVersion: 3, signInMethods: ['PASSWORD', 'GOOGLE'], createdAt: '2025-01-15T02:30:00Z', lastSignInAt: null,
     ownerRegistrationCompleted: false, ownerRegistrationCompletedAt: null, ownedFarms: [], version: 4, actions: ['SUSPEND'],
+    accessActions: ['REVOKE'],
   }
   const backend = (get: (path: string) => Promise<unknown>) => {
     const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
@@ -163,7 +171,7 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
     }
     for (const broken of [
       { ...detail, createdAt: undefined }, { ...detail, signInMethods: 'GOOGLE' }, { ...detail, ownedFarms: [1] }, { ...detail, version: undefined },
-      { ...detail, actions: undefined }, { ...detail, actions: ['DELETE'] },
+      { ...detail, actions: undefined }, { ...detail, actions: ['DELETE'] }, { ...detail, accessActions: undefined }, { ...detail, accessActions: ['DELETE'] },
     ]) {
       const { api } = backend(async () => broken)
       await expect(api.getAccount(12)).rejects.toThrow('Dữ liệu máy chủ không có')
@@ -185,12 +193,25 @@ describe('A9 / A10 ở chế độ backend (D31)', () => {
     await expect(api.suspendAccount(12, { reason: 'Nghi ngờ lộ mật khẩu', expectedVersion: 4 }, 'key-3')).rejects.toThrow('thao tác tài khoản')
   })
 
-  it('trang "Quyền nhân sự" (STAFF) và lệnh UC9 vẫn chưa nối, không đụng tới store mock', async () => {
-    const { api, http } = backend(async () => ({ items: [], total: 0, page: 0, size: 20 }))
-    await expect(api.listAccounts({ platformRole: 'STAFF' })).rejects.toThrow('Chưa tích hợp')
-    await expect(api.changePlatformAccess(HUNG, { operation: 'GRANT', role: 'CS', reason: 'Bổ sung nhân sự', expectedVersion: null })).rejects.toThrow('Chưa tích hợp')
-    expect(http.get).not.toHaveBeenCalled()
-    expect(http.command).not.toHaveBeenCalled()
+  it('A13 (D33): gửi operation, role chỉ khi Cấp / Đổi, lý do đã bỏ khoảng trắng, version và Idempotency-Key; đọc A10', async () => {
+    const { api, http, store } = backend(async () => detail)
+    const local = vi.spyOn(store, 'changePlatformAccess')
+    await api.changePlatformAccess(12, { operation: 'GRANT', role: 'PM', reason: '  Bổ sung nhân sự  ', expectedVersion: null }, 'key-g')
+    expect(http.command).toHaveBeenLastCalledWith('/api/platform/accounts/12/platform-access', { operation: 'GRANT', role: 'PM', reason: 'Bổ sung nhân sự', version: null }, { key: 'key-g' })
+    await api.changePlatformAccess(12, { operation: 'REVOKE', role: 'PM', reason: 'Nghỉ việc', expectedVersion: 3 }, 'key-r')
+    expect(http.command).toHaveBeenLastCalledWith('/api/platform/accounts/12/platform-access', { operation: 'REVOKE', reason: 'Nghỉ việc', version: 3 }, { key: 'key-r' })
+    expect(local).not.toHaveBeenCalled()
+  })
+
+  it('A11 (D33): đọc lịch sử vai trò, giữ null của dòng không có người làm, báo lỗi khi thiếu trường', async () => {
+    const row = { id: 5, action: 'CHANGE', roleBefore: 'CS', statusBefore: 'ACTIVE', roleAfter: 'PM', statusAfter: 'ACTIVE', reason: 'Đổi nhóm', byName: null, byEmail: null, at: '2026-11-01T01:00:00Z' }
+    const { api, http } = backend(async () => [row])
+    await expect(api.accountHistory(12)).resolves.toEqual([row])
+    expect(http.get).toHaveBeenCalledWith('/api/platform/accounts/12/history')
+    for (const broken of [{ ...row, action: 'DELETE' }, { ...row, roleAfter: null }, { ...row, reason: '' }]) {
+      const { api: next } = backend(async () => [broken])
+      await expect(next.accountHistory(12)).rejects.toThrow('Dữ liệu máy chủ không có')
+    }
   })
 })
 
@@ -241,12 +262,12 @@ describe('thông báo của SA', () => {
 describe('chế độ backend', () => {
   it('các chức năng chưa nối từ chối và không đụng tới store mock', async () => {
     const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
-    const access = vi.spyOn(store, 'changePlatformAccess')
+    const notices = vi.spyOn(store, 'listNotifications')
     const audit = vi.spyOn(store, 'listAudit')
     const api = createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.changePlatformAccess(HUNG, { operation: 'REVOKE', reason: 'Nghỉ việc', expectedVersion: 1 })).rejects.toThrow('Chưa tích hợp')
+    await expect(api.listNotifications()).rejects.toThrow('Chưa tích hợp')
     await expect(api.listAudit({ from: '2026-10-11', to: '2026-10-18' })).rejects.toThrow('Chưa tích hợp')
-    expect(access).not.toHaveBeenCalled()
+    expect(notices).not.toHaveBeenCalled()
     expect(audit).not.toHaveBeenCalled()
   })
 })

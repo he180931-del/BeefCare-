@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
-  allowedAuditDetails, auditToCsv, availableOperations, compareAccounts, farmsJoinedText, formatNoticeTime, formatPlatformDate,
+  accessActionsOf, allowedAuditDetails, auditToCsv, compareAccounts, farmsJoinedText, formatNoticeTime, formatPlatformDate,
   formatPlatformDateTime, initials, platformRoleText, revokedRoleNote, validateAuditRange, validateReason, verificationText,
 } from '../../../src/features/platform-admin/domain/platformRules'
-import type { AccountListItem, AuditEntry } from '../../../src/features/platform-admin/types'
+import type { AccountListItem, AccountRecord, AuditEntry } from '../../../src/features/platform-admin/types'
 
 describe('platformRules', () => {
   it('lý do bắt buộc và tối đa 500 ký tự', () => {
     expect(validateReason('   ')).toBe('Lý do là bắt buộc.')
     expect(validateReason('a'.repeat(501))).toMatch(/500/)
+    expect(validateReason(' a b c d ')).toMatch(/từ 5 đến 500/)
     expect(validateReason('Hợp lệ')).toBeNull()
   })
 
@@ -24,11 +25,15 @@ describe('platformRules', () => {
     expect(out).toEqual({ before: 'role: —', after: 'role: CS', correlationId: 'req-1', scope: '' })
   })
 
-  it('hành động cấp quyền theo trạng thái và chữ viết tắt', () => {
-    const base = { platformRole: null, platformAccessStatus: null } as AccountListItem
-    expect(availableOperations(base)).toEqual(['GRANT'])
-    expect(availableOperations({ ...base, platformRole: 'CS', platformAccessStatus: 'ACTIVE' })).toEqual(['CHANGE', 'REVOKE'])
-    expect(availableOperations({ ...base, platformRole: 'CS', platformAccessStatus: 'REVOKED' })).toEqual(['RESTORE'])
+  it('accessActions (D33) theo quyền, tài khoản của chính mình, tạm ngưng, chưa xác minh; chữ viết tắt', () => {
+    const base = { id: 5, accountStatus: 'ACTIVE', emailVerified: true, platformRole: null, platformAccessStatus: null } as unknown as AccountRecord
+    expect(accessActionsOf(base, 4)).toEqual(['GRANT'])
+    expect(accessActionsOf({ ...base, platformRole: 'CS', platformAccessStatus: 'ACTIVE' }, 4)).toEqual(['CHANGE', 'REVOKE'])
+    expect(accessActionsOf({ ...base, platformRole: 'CS', platformAccessStatus: 'REVOKED' }, 4)).toEqual(['RESTORE'])
+    expect(accessActionsOf({ ...base, platformRole: 'CS', platformAccessStatus: 'ACTIVE' }, 5)).toEqual([])
+    expect(accessActionsOf({ ...base, accountStatus: 'SUSPENDED', platformRole: 'CS', platformAccessStatus: 'ACTIVE' }, 4)).toEqual(['REVOKE'])
+    expect(accessActionsOf({ ...base, accountStatus: 'SUSPENDED' }, 4)).toEqual([])
+    expect(accessActionsOf({ ...base, emailVerified: false, platformRole: 'CS', platformAccessStatus: 'REVOKED' }, 4)).toEqual([])
     expect(initials('Nguyễn Văn Hùng')).toBe('NH')
     expect(initials('Đỗ Minh Quân')).toBe('ĐQ')
   })

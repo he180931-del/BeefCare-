@@ -1,14 +1,16 @@
-import type { AccountRecord, AuditEntry, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
+import type { AccessHistoryItem, AccountRecord, AuditEntry, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
 
-export interface AccessHistoryRecord {
-  id: number
-  accountId: number
-  operation: PlatformAccessOperation
-  role: PlatformRole
-  reason: string
-  by: string
-  at: string
-}
+/** Một dòng A11 kèm tài khoản của nó (D33). */
+export type AccessHistoryRecord = AccessHistoryItem & { accountId: number }
+
+const change = (
+  id: number, accountId: number, action: PlatformAccessOperation, before: [PlatformRole, 'ACTIVE' | 'REVOKED'] | null,
+  after: [PlatformRole, 'ACTIVE' | 'REVOKED'], reason: string, by: { name: string; email: string } | null, at: string,
+): AccessHistoryRecord => ({
+  id, accountId, action, roleBefore: before?.[0] ?? null, statusBefore: before?.[1] ?? null, roleAfter: after[0], statusAfter: after[1],
+  reason, byName: by?.name ?? null, byEmail: by?.email ?? null, at,
+})
+const BY_NAM = { name: 'Vũ Hoàng Nam', email: 'nam.vh@beefcare.vn' }
 
 /** Bản ghi audit thô: có thể chứa khóa ngoài danh sách cho phép; store lọc khi trả ra. */
 export type RawAuditEntry = Omit<AuditEntry, 'details'> & { details: Record<string, unknown> }
@@ -71,14 +73,14 @@ const ACCOUNTS: AccountRecord[] = [
 ]
 
 const HISTORY: AccessHistoryRecord[] = [
-  { id: 1, accountId: 4, operation: 'GRANT', role: 'SA', reason: 'Quản trị viên đầu tiên khi triển khai', by: 'Hệ thống', at: '2025-01-10T08:00:00' },
-  { id: 2, accountId: 2, operation: 'GRANT', role: 'CS', reason: 'Bổ sung nhân sự hỗ trợ khách hàng', by: 'Vũ Hoàng Nam', at: '2025-01-15T08:05:00' },
-  { id: 3, accountId: 2, operation: 'REVOKE', role: 'CS', reason: 'Nghỉ phép dài ngày', by: 'Vũ Hoàng Nam', at: '2026-06-01T09:00:00' },
-  { id: 4, accountId: 2, operation: 'RESTORE', role: 'CS', reason: 'Quay lại làm việc', by: 'Vũ Hoàng Nam', at: '2026-07-01T09:00:00' },
-  { id: 5, accountId: 3, operation: 'GRANT', role: 'PM', reason: 'Phụ trách đối soát thanh toán', by: 'Vũ Hoàng Nam', at: '2025-01-15T08:15:00' },
-  { id: 6, accountId: 3, operation: 'CHANGE', role: 'PM', reason: 'Chuyển từ CS sang PM', by: 'Vũ Hoàng Nam', at: '2025-09-01T10:00:00' },
-  { id: 7, accountId: 10, operation: 'GRANT', role: 'CS', reason: 'Hỗ trợ mùa cao điểm', by: 'Vũ Hoàng Nam', at: '2025-05-02T08:10:00' },
-  { id: 8, accountId: 10, operation: 'REVOKE', role: 'CS', reason: 'Kết thúc hợp đồng thời vụ', by: 'Vũ Hoàng Nam', at: '2026-10-10T09:15:00' },
+  change(1, 4, 'GRANT', null, ['SA', 'ACTIVE'], 'Quản trị viên đầu tiên khi triển khai', null, '2025-01-10T08:00:00+07:00'),
+  change(2, 2, 'GRANT', null, ['CS', 'ACTIVE'], 'Bổ sung nhân sự hỗ trợ khách hàng', BY_NAM, '2025-01-15T08:05:00+07:00'),
+  change(3, 2, 'REVOKE', ['CS', 'ACTIVE'], ['CS', 'REVOKED'], 'Nghỉ phép dài ngày', BY_NAM, '2026-06-01T09:00:00+07:00'),
+  change(4, 2, 'RESTORE', ['CS', 'REVOKED'], ['CS', 'ACTIVE'], 'Quay lại làm việc', BY_NAM, '2026-07-01T09:00:00+07:00'),
+  change(5, 3, 'GRANT', null, ['CS', 'ACTIVE'], 'Hỗ trợ khách hàng ca sáng', BY_NAM, '2025-01-15T08:15:00+07:00'),
+  change(6, 3, 'CHANGE', ['CS', 'ACTIVE'], ['PM', 'ACTIVE'], 'Phụ trách đối soát thanh toán', BY_NAM, '2025-09-01T10:00:00+07:00'),
+  change(7, 10, 'GRANT', null, ['CS', 'ACTIVE'], 'Hỗ trợ mùa cao điểm', BY_NAM, '2025-05-02T08:10:00+07:00'),
+  change(8, 10, 'REVOKE', ['CS', 'ACTIVE'], ['CS', 'REVOKED'], 'Kết thúc hợp đồng thời vụ', BY_NAM, '2026-10-10T09:15:00+07:00'),
 ]
 
 const NAM = { id: 4, name: 'Vũ Hoàng Nam', email: 'nam.vh@beefcare.vn', role: 'SA' }

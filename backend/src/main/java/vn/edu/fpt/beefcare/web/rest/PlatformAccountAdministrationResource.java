@@ -24,7 +24,7 @@ import vn.edu.fpt.beefcare.service.MessageCodes;
 import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService;
 import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService.AccountDetail;
 import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService.AccountPage;
-import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService.AuditItem;
+import vn.edu.fpt.beefcare.service.PlatformAccountAdministrationService.AccessHistoryItem;
 
 /** Safe, use-case-specific System Administrator account API; generated entity CRUD stays closed. */
 @RestController
@@ -106,8 +106,9 @@ public class PlatformAccountAdministrationResource {
         return service.get(id);
     }
 
+    /** A11 / popup "Role history" (D33): platform access changes of the account, newest first (at most 100). */
     @GetMapping("/{id}/history")
-    public List<AuditItem> history(@PathVariable Long id) {
+    public List<AccessHistoryItem> history(@PathVariable Long id) {
         return service.history(id);
     }
 
@@ -131,11 +132,18 @@ public class PlatformAccountAdministrationResource {
         );
     }
 
+    /**
+     * A13 / UC-FE03-09 (D33): grant, change, revoke or restore CS / PM / SA access. The same key and body replay the first
+     * result (GBR-88); the same key with other data is MSG-COM-19. Errors: COM-01, COM-08 (404), COM-06 / COM-10
+     * (`operation`, `role`, `reason`), FE03-22, FE03-18, FE03-20, COM-05, FE03-17, COM-02.
+     */
     @PostMapping("/{id}/platform-access")
-    public AccountDetail changeAccess(@PathVariable Long id, @Valid @RequestBody PlatformAccessRequest request) {
-        return service.changePlatformAccess(
-            id,
-            new PlatformAccountAdministrationService.PlatformAccessChange(request.operation(), request.role(), request.reason(), request.version())
+    public AccountDetail changeAccess(@PathVariable Long id, @RequestHeader("Idempotency-Key") String key, @Valid @RequestBody PlatformAccessRequest request) {
+        return commands.executePlatform(PlatformRole.SA, "PLATFORM_ACCESS", key, new KeyedAccessChange(id, request), AccountDetail.class, () ->
+            service.changePlatformAccess(
+                id,
+                new PlatformAccountAdministrationService.AccessChangeRequest(request.operation(), request.role(), request.reason(), request.version())
+            )
         );
     }
 
@@ -157,9 +165,13 @@ public class PlatformAccountAdministrationResource {
     public record KeyedChange(Long accountId, AccountChange change) {}
 
     public record PlatformAccessRequest(
-        @NotBlank @Size(max = 20) String operation,
-        @Size(max = 30) String role,
-        @NotBlank @Size(max = 500) String reason,
-        Long version
+        @Schema(allowableValues = { "GRANT", "CHANGE", "REVOKE", "RESTORE" }) @NotBlank @Size(max = 20) String operation,
+        @Schema(description = "CS, PM or SA; required for GRANT and CHANGE, ignored otherwise") @Size(max = 30) String role,
+        // The 5-character minimum is checked in the service, after the permission checks (D33), so it is not a bean constraint.
+        @Schema(description = "Trimmed; 5–500 characters with at least 5 that are not spaces (Table III-1)") @NotBlank @Size(max = 500) String reason,
+        @Schema(description = "platformAccessVersion shown in A10; null or 0 when the account has no access yet") Long version
     ) {}
+
+    /** The request fingerprint names the account, so one key can never replay a change of another account. */
+    public record KeyedAccessChange(Long accountId, PlatformAccessRequest change) {}
 }
