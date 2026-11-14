@@ -34,6 +34,10 @@
 > Quản lý/Kỹ thuật viên chỉ người ACTIVE; thêm thời điểm tham gia; A1 trả cả danh
 > sách kèm số đếm và thao tác, bỏ lý do lần đổi; bảng quyền đủ Table III-2.
 
+> UC-FE03-06 được làm rõ theo D30 (người dùng xác nhận 14/11/2026): lưu lịch sử ở bảng
+> `farm_membership_change`, audit có giá trị trước/sau; ngày hiệu lực chỉ để ghi lịch sử;
+> lý do 5–500 ký tự; xác nhận cả khi kích hoạt lại; thứ tự kiểm FE03-20 trước COM-05.
+
 ---
 
 ## 1. Phạm vi
@@ -98,7 +102,7 @@ Duy nhất: tối đa 1 lời mời `PENDING` cho mỗi cặp trại + email (BR
 | Trạng thái | `ACTIVE ⇄ INACTIVE`; không bao giờ xóa (BR-D13) |
 | Lời mời nguồn | — |
 | Thời điểm tham gia (`joined_at`) | Ghi một lần khi tạo membership (đăng ký trại / chấp nhận lời mời); đổi vai trò, ngưng, kích hoạt lại không đổi (D29) |
-| Lịch sử thay đổi | Mỗi lần: hành động, vai trò cũ / mới, ngày hiệu lực, lý do (≤ 500), người làm, thời điểm |
+| Lịch sử thay đổi | Bảng `farm_membership_change`, chỉ thêm: mỗi lần đổi vai trò / ngưng / kích hoạt lại lưu hành động, vai trò và trạng thái cũ / mới, ngày hiệu lực, lý do (5–500), người làm, thời điểm; cùng transaction với membership và audit (D30) |
 
 ### 3.3 Quyền nhân viên platform (CS / PM / SA)
 
@@ -144,7 +148,7 @@ Duy nhất: tối đa 1 lời mời `PENDING` cho mỗi cặp trại + email (BR
 | R-03-08 | Chấp nhận tạo đúng 1 membership; chấp nhận lặp lại (cùng token, không cần Idempotency-Key) trả membership đã có khi còn ACTIVE. Tạo membership + đổi lời mời sang `ACCEPTED` + audit + ý định email báo Owner trong một transaction; JOB-07 gửi sau. | GBR-17, GBR-64, UC-04 bước 7–8, D28 |
 | R-03-09 | Chấp nhận lời mời không cấp quyền Owner hay quyền platform. | UC-04 POST-3 |
 | R-03-10 | Membership OWNER không đổi, không ngưng được. | GBR-18 |
-| R-03-11 | Đổi vai trò (Manager ⇄ Technician), ngưng, kích hoạt lại đều cần ngày hiệu lực (mặc định hôm nay, không ở tương lai) và lý do. Ngưng luôn được phép; đổi vai trò và kích hoạt lại cần trại ACTIVE. Vai trò / trạng thái đã đúng như yêu cầu → MSG-FE03-20. | GBR-18, UC-06 |
+| R-03-11 | Đổi vai trò (Manager ⇄ Technician, chỉ thành viên ACTIVE), ngưng, kích hoạt lại đều cần ngày hiệu lực (mặc định hôm nay theo múi giờ trại, không ở tương lai) và lý do 5–500 ký tự không tính khoảng trắng. Ngưng luôn được phép; đổi vai trò và kích hoạt lại cần trại ACTIVE. Vai trò / trạng thái đã đúng như yêu cầu → MSG-FE03-20. Ngày hiệu lực chỉ để ghi lịch sử (Q3). | GBR-18, UC-06, Table III-1, D30 |
 | R-03-12 | Thay đổi có hiệu lực từ request kế tiếp của thành viên; bản ghi người đó đã tạo giữ nguyên tác giả. Ngưng một Manager có thông báo nháp → nháp vẫn riêng tư với tác giả và không sửa được nữa. | UC-06 POST-2, AF2 |
 | R-03-13 | Không bao giờ xóa membership, tài khoản. | BR-D13 |
 | R-03-14 | Quyền platform chỉ do SA cấp / đổi / thu hồi / khôi phục, chỉ cho tài khoản đã tồn tại và đã xác minh email (người đó phải đăng nhập ít nhất 1 lần); không có tài khoản → MSG-FE03-18, không gửi lời mời. | GBR-10, UC-09 E2 |
@@ -201,9 +205,16 @@ E1 lời mời hết hạn / hủy / đã dùng / link sai → trạng thái "L�
 5. Nút trên dòng theo trạng thái: ACTIVE "Đổi vai trò · Ngưng", INACTIVE "Kích hoạt lại", dòng Owner không có. Nút chỉ bấm được khi có trong `actions` (đổi vai trò, kích hoạt lại cần trại ACTIVE; Ngưng luôn được); trại không ACTIVE hiện ghi chú, Mời bị khóa.
 6. Tải khi vào màn, sau Mời / thao tác UC6 hoặc bấm Làm mới; không polling. Rỗng → MSG-COM-04 + Xóa bộ lọc; lỗi tải → MSG-COM-03 + Thử lại. Ngày tham gia hiện mm/yyyy theo múi giờ trại.
 
-### UC-FE03-06 Đổi vai trò / ngưng / kích hoạt lại
-SCR-13 → Owner bấm thao tác trên dòng thành viên → popup: chọn hành động, vai trò mới (nếu đổi vai trò), ngày hiệu lực, lý do → **Lưu thay đổi** → xác nhận (MSG-FE03-11 ngưng / MSG-FE03-12 đổi vai trò) → kiểm lại → cập nhật membership + lịch sử + audit → MSG-FE03-13.
-E1 đích là Owner / người làm không phải Owner → MSG-COM-01 · E2 đổi vai trò / kích hoạt lại khi trại không ACTIVE → MSG-FE03-04 · E3 đã đúng vai trò / trạng thái → MSG-FE03-20 · E4 lý do trống / ngày tương lai → MSG-COM-06 / MSG-COM-07 · E5 sửa đồng thời → MSG-COM-05.
+### UC-FE03-06 Đổi vai trò / ngưng / kích hoạt lại (D30)
+1. SCR-13 → Owner bấm thao tác trên dòng (hoặc Kích hoạt lại từ popup Mời khi gặp MSG-FE03-21) → popup hiện thành viên, vai trò và trạng thái hiện tại.
+2. Chọn hành động, vai trò mới (nếu đổi vai trò), ngày hiệu lực (mặc định hôm nay theo múi giờ trại, không ở tương lai), lý do (5–500 ký tự không tính khoảng trắng) → **Lưu thay đổi**.
+3. Xác nhận ngay trong popup [Quay lại] [Xác nhận]: MSG-FE03-11 (ngưng), MSG-FE03-12 (đổi vai trò), câu riêng cho kích hoạt lại (mục 8). Hủy khi đã nhập → MSG-COM-14.
+4. Hệ thống khóa dòng membership rồi kiểm theo thứ tự: Owner của trại (COM-01) → membership thuộc trại (COM-08) → không phải membership Owner (COM-01) → dữ liệu (COM-06 / 07 / 10; trường thiếu hoặc sai dạng bị chặn ở tầng HTTP trước) → đổi vai trò người INACTIVE (COM-10, `field=action`) → trại ACTIVE cho đổi vai trò / kích hoạt lại (FE03-04) → đã đúng vai trò / trạng thái (FE03-20, kể cả khi version cũ) → version (COM-05). Lệnh bị từ chối không ghi gì.
+5. Cập nhật membership + 1 dòng `farm_membership_change` + audit (vai trò / trạng thái trước-sau, ngày hiệu lực; lý do chỉ ở lịch sử) trong một transaction; cùng Idempotency-Key trả kết quả đầu → MSG-FE03-13 → tải lại SCR-13.
+6. Quyền mới áp dụng từ request kế tiếp của thành viên, bất kể ngày hiệu lực; bản ghi người đó đã tạo giữ tác giả; thông báo nháp của Manager bị ngưng vẫn chỉ tác giả thấy và không sửa được (AF2).
+7. Lỗi FE03-20 / FE03-04 / COM-05 / COM-08: hiện lý do, đóng popup, tải lại danh sách, không tự thử lại bằng version mới. Lỗi lưu / mạng: giữ popup và cùng Idempotency-Key.
+
+E1 đích là Owner / người làm không phải Owner → MSG-COM-01 · E2 đổi vai trò / kích hoạt lại khi trại không ACTIVE → MSG-FE03-04 · E3 đã đúng vai trò / trạng thái → MSG-FE03-20 · E4 lý do trống / ngày tương lai → MSG-COM-06 / MSG-COM-07; lý do ngoài 5–500 → MSG-COM-10 · E5 sửa đồng thời → MSG-COM-05.
 
 ### UC-FE03-07 / 08 Tài khoản người dùng (SA)
 SCR-16: tìm, lọc → mở chi tiết tài khoản → nhập lý do → **Tạm ngưng / Khôi phục tài khoản** → xác nhận MSG-FE03-14 / 15 → kiểm R-03-15 → lưu + lịch sử + audit → MSG-FE03-16 → áp dụng R-03-17.
@@ -263,12 +274,12 @@ E2 không có tài khoản → MSG-FE03-18 · E3 không còn SA ACTIVE → MSG-F
 
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Mặc định | Lỗi |
 |---|---|---|---|---|---|---|
-| 1 | Member / Thành viên | Chỉ đọc | — | Tên, email, vai trò hiện tại | — | — |
-| 2 | Action / Hành động | Radio | * | ACTIVE: Đổi vai trò / Ngưng; INACTIVE: Kích hoạt lại | — | MSG-COM-06 |
+| 1 | Member / Thành viên | Chỉ đọc | — | Tên, email, vai trò và trạng thái hiện tại | — | — |
+| 2 | Action / Hành động | Radio | * | ACTIVE: Đổi vai trò / Ngưng; INACTIVE: Kích hoạt lại; trại không ACTIVE chỉ còn Ngưng | Theo nút đã bấm | MSG-COM-06, MSG-COM-10, MSG-FE03-04 |
 | 3 | New role / Vai trò mới | Radio | * (khi Đổi vai trò) | Quản lý / Kỹ thuật viên, khác vai trò hiện tại | — | MSG-FE03-20 |
-| 4 | Effective date / Ngày hiệu lực | Ngày | * | Không ở tương lai | Hôm nay | MSG-COM-06, MSG-COM-07 |
-| 5 | Reason / Lý do | Ô chữ dài | * | ≤ 500 | Trống | MSG-COM-06, MSG-COM-10 |
-| 6 | Cancel / Save changes – Hủy / Lưu thay đổi | Nút | — | Xác nhận MSG-FE03-11 / 12 | — | MSG-FE03-04, MSG-COM-05, MSG-COM-02; thành công MSG-FE03-13 |
+| 4 | Effective date / Ngày hiệu lực | Ngày | * | Không ở tương lai theo múi giờ trại; chỉ để ghi lịch sử | Hôm nay | MSG-COM-06, MSG-COM-07 |
+| 5 | Reason / Lý do | Ô chữ dài | * | Bỏ khoảng trắng đầu cuối; 5–500 ký tự, ít nhất 5 không phải khoảng trắng (Table III-1) | Trống | MSG-COM-06, MSG-COM-10 |
+| 6 | Cancel / Save changes – Hủy / Lưu thay đổi | Nút | — | Xác nhận trong popup: MSG-FE03-11 / 12 / câu kích hoạt lại; Hủy khi đã nhập → MSG-COM-14 | — | MSG-FE03-04, MSG-FE03-20, MSG-COM-05, MSG-COM-08, MSG-COM-02; thành công MSG-FE03-13 |
 
 ### SCR-15 Chấp nhận lời mời
 
@@ -330,7 +341,7 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Danh sách thành viên (D29) | — | `{farmName, timeZone, serviceStatus, counts{all, managers, technicians, inactive?}, items[{id, userId, fullName, email, role, status, joinedAt, version, actions[]}]}`; cả danh sách, theo tên; `actions` ⊂ CHANGE_ROLE/DEACTIVATE/REACTIVATE; Manager không nhận dòng INACTIVE, `inactive` hay thao tác; không trả lý do / ngày hiệu lực của lần đổi | COM-01, COM-12 (Manager, trại không ACTIVE), FE01-03, COM-03 | `GET /api/farms/{farmId}/members` |
-| A2 | Đổi vai trò / ngưng / kích hoạt lại | `action: CHANGE_ROLE\|DEACTIVATE\|REACTIVATE, newRole?, effectiveDate, reason, version` + `Idempotency-Key` | Một dòng A1 (D29) | COM-01, FE03-04, FE03-20, COM-06, COM-07, COM-05, COM-02 | `PUT /api/farms/{farmId}/members/{membershipId}` |
+| A2 | Đổi vai trò / ngưng / kích hoạt lại (D30) | `{action: CHANGE_ROLE\|DEACTIVATE\|REACTIVATE, role? (bắt buộc khi CHANGE_ROLE), effectiveDate, reason (5–500), expectedVersion}` + `Idempotency-Key` | Một dòng A1 (D29) | COM-01, COM-08 (404), COM-06, COM-07, COM-10 (`reason`, `role`, `action`), FE03-04, FE03-20 (`{target, value}`), COM-05, COM-19, COM-02 | `PUT /api/farms/{farmId}/members/{membershipId}` |
 | A3 | Danh sách lời mời (D26) | `status?` (bỏ trống = tất cả), `page=0`, `size=20` (1–100), `sort=lastSentAt`, `dir=desc` (asc/desc); `invitationId?` số dương để UC1 tra chính xác | `{items[{id,email,hasAccount,role,createdAt,lastSentAt,expiresAt,validityDays,status,version}],total,page,size,counts{PENDING,ACCEPTED,EXPIRED,CANCELLED},asOf}`; counts toàn trại trước lọc, total sau lọc; một clock, không ghi khi GET | COM-01, COM-10 (query sai) | `GET /api/farms/{farmId}/invitations` |
 | A4 | Gửi lời mời | `email, role, validityDays? (3\|7\|14, mặc định 7)` + `Idempotency-Key` | Lời mời (A3), chưa xác nhận email đã tới | COM-01, FE03-02, FE03-03 (`{invitationId, email}`), FE03-04, FE03-21 (`{membershipId, email}`), COM-06, COM-10, COM-02 | `POST /api/farms/{farmId}/invitations` |
 | A5 | Gửi lại (D27) | `expectedVersion` (bắt buộc) + `Idempotency-Key` | Lời mời (item A3) với lastSentAt/expiresAt/version mới | COM-01, FE03-04, COM-08, FE03-08 (`{status}`), COM-05, COM-06 (thiếu version/key), COM-19, COM-02 | `POST …/invitations/{id}/resend` |
@@ -362,6 +373,7 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | MSG-FE03-11 | Hộp thoại xác nhận | Ngưng {member}? Người này sẽ mất quyền vào {farm} từ thao tác kế tiếp. |
 | MSG-FE03-12 | Hộp thoại xác nhận | Đổi {member} từ {old_role} sang {new_role}? Quyền mới áp dụng từ thao tác kế tiếp. |
 | MSG-FE03-13 | Toast thành công | Đã cập nhật thành viên {member}. |
+| (D30) | Xác nhận kích hoạt lại, không có mã trong SRS | Kích hoạt lại {member} với vai trò {role}? Người này vào lại {farm} từ thao tác kế tiếp. |
 | MSG-FE03-14 | Hộp thoại xác nhận | Tạm ngưng tài khoản {email}? Người dùng sẽ không đăng nhập được. |
 | MSG-FE03-15 | Hộp thoại xác nhận | Khôi phục tài khoản {email}? Các vai trò và membership đã thu hồi sẽ không được trả lại. |
 | MSG-FE03-16 | Toast thành công | Tài khoản {email} hiện là {status}. |
@@ -442,6 +454,14 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | TC-03-63 | Dữ liệu trước D29 | Nâng cấp DB | `joined_at` lấy từ audit MEMBER_ACCEPT → FARM_REGISTER (Owner) → lời mời ACCEPTED cùng email → effective_date; cột NOT NULL; dữ liệu khác không đổi | I (PostgreSQL) | D29 |
 | TC-03-64 | 2 và 12 thành viên | Gọi A1 | Số câu SQL như nhau (không N+1) | I | D29 |
 | TC-03-65 | SCR-13 có 25 thành viên; tab rỗng; lỗi tải; rời màn rồi quay lại | Phân trang / Xóa bộ lọc / Thử lại / mở lại | 20 dòng/trang, đổi tab về trang 1; có đường phục hồi; giữ tab và chiều theo tài khoản + trại | U | D29, Table III-1 |
+| TC-03-66 | Owner đổi vai trò / ngưng / kích hoạt lại | Lưu | 1 dòng `farm_membership_change` đủ trước/sau, ngày, lý do, người làm, thời điểm; audit có trước/sau, không có lý do / email; cùng key trả kết quả đầu, key cũ khác dữ liệu → COM-19 | H, I | D30, GBR-86/88 |
+| TC-03-67 | Lỗi sau khi đã ghi trong cùng transaction | Lưu | Membership, lịch sử, audit đều không đổi | I (PostgreSQL) | D30, GBR-88 |
+| TC-03-68 | Hai lệnh ngưng cùng lúc trên một thành viên | Lưu | Một thành công, một MSG-FE03-20 (PostgreSQL); đúng 1 dòng lịch sử | I (PostgreSQL) | D30 |
+| TC-03-69 | Không phải Owner / membership trại khác / membership Owner với lý do sai | Lưu | MSG-COM-01 / MSG-COM-08 / MSG-COM-01 trước lỗi dữ liệu | H | D30 |
+| TC-03-70 | Lý do 4 ký tự hiện / 501 ký tự / trống; ngày trống / ngày mai theo múi giờ trại; đổi vai trò thiếu vai trò; đổi vai trò người INACTIVE | Lưu | COM-10 / COM-10 / COM-06; COM-06 / COM-07; COM-06 `role`; COM-10 `action` | U, H | D30, Table III-1 |
+| TC-03-71 | Đã INACTIVE / đã đúng vai trò, version cũ | Ngưng / đổi sang cùng vai trò | MSG-FE03-20 (không phải COM-05); không ghi gì | H | D30 |
+| TC-03-72 | Manager có thông báo nháp và thông báo đã gửi | Bị ngưng | Manager không sửa được nháp; Owner không thấy nháp; Kỹ thuật viên vẫn thấy tên tác giả | H | AF2, POST-2 |
+| TC-03-73 | Popup | Xác nhận / Quay lại / Hủy khi đã nhập / lỗi FE03-20, FE03-04, COM-05, COM-08 / lỗi mạng | Câu MSG-FE03-11/12/kích hoạt lại; MSG-COM-14; đóng popup và tải lại danh sách; lỗi mạng giữ popup và cùng key | U | D30 |
 
 ---
 
@@ -451,7 +471,7 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 |---|---|---|
 | Q1 | UC-01 AF2 (email của thành viên INACTIVE): SRS không có mã thông báo | Đã chốt D25 (11/11/2026): MSG-FE03-21 kèm nút mở popup, ngày/lý do bắt buộc, giữ vai trò hiện tại |
 | Q2 | UC-FE03-02, 05, 07 không có đặc tả Part II; luồng suy từ SCR | Đã chốt UC2 theo D26 (12/11/2026) và UC5 theo D29 (14/11/2026), luồng ở mục 5; UC7 còn mở |
-| Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử |
+| Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Đã chốt D30 (14/11/2026): áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử, chỉ chặn ngày tương lai theo múi giờ trại |
 | Q4 | Tài khoản bị tạm ngưng có được nhận lời mời / được cấp quyền platform không? | Phần lời mời đã chốt D25: được nhận nếu chưa có membership; chỉ chấp nhận sau khi khôi phục và còn hạn. Phần cấp quyền platform vẫn mở |
 | Q6 | Link của lời mời đã Hủy / hết hạn: SCR-15 phải hiện MSG-FE03-08 kèm trạng thái và hạn (SRS dòng 3146), JOB-08 chỉ xóa hash sau 7 ngày (dòng 5628), nhưng code xóa hash ngay khi Hủy / JOB-02 nên SCR-15 chỉ báo "Liên kết không hợp lệ" | Đã chốt D28 (14/11/2026): giữ hash tới JOB-08; backend trả FE03-08 kèm trạng thái và hạn; SCR-15 hiển thị |
 

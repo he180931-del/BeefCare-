@@ -354,3 +354,37 @@ Người dùng đồng ý cả sáu đề xuất trong phiên, sau khi đọc SR
 chỉ dành cho Owner); nhãn "Đã ngưng" / "Ngưng" theo spec; tải lại khi vào màn,
 sau thao tác và nút Làm mới, không polling. Kiểm thử và giới hạn ghi tại
 `docs/reviews/FE03_UC05_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+
+### D30 — UC-FE03-06: đổi vai trò / ngưng / kích hoạt lại thành viên (14/11/2026)
+
+Người dùng đồng ý cả sáu đề xuất trong phiên, sau khi đọc SRS UC-FE03-06 (dòng
+1817–1830), popup (3115–3130), MSG-FE03-11/12/13, Table III-1 và đối chiếu code:
+
+1. Phạm vi: popup "Đổi vai trò / Ngưng thành viên", lệnh A2 và tải lại SCR-13, gồm cả
+   lối Kích hoạt lại từ popup Mời (MSG-FE03-21, D25). Giữ tên trường `role` như code;
+   spec A2 sửa theo (trước ghi `newRole`).
+2. Lịch sử lưu ở bảng mới `farm_membership_change`, chỉ thêm: hành động, vai trò và
+   trạng thái cũ/mới, ngày hiệu lực, lý do, người làm, thời điểm; cùng transaction với
+   membership và audit. Audit ghi giá trị trước/sau (GBR-86), không ghi lý do.
+3. Ngày hiệu lực chỉ để ghi lịch sử (chốt FE-03 Q3): quyền đổi từ request kế tiếp của
+   thành viên kể cả khi chọn ngày trong quá khứ; chỉ chặn ngày tương lai, "hôm nay" theo
+   múi giờ trại.
+4. Lý do bỏ khoảng trắng đầu cuối, 5–500 ký tự, ít nhất 5 ký tự không phải khoảng trắng
+   (Table III-1 dòng 2789 + popup); ngắn hơn hoặc dài hơn → MSG-COM-10, trống → MSG-COM-06.
+5. Xác nhận ngay trong popup [Quay lại] [Xác nhận]: MSG-FE03-11 (ngưng), MSG-FE03-12
+   (đổi vai trò) và câu riêng cho kích hoạt lại (SRS không có mã): "Kích hoạt lại
+   {member} với vai trò {role}? Người này vào lại {farm} từ thao tác kế tiếp." Thành
+   công MSG-FE03-13. Hủy khi đã nhập → MSG-COM-14.
+6. Thứ tự kiểm sau khi khóa dòng membership: COM-01 (không phải Owner) → COM-08
+   (membership không thuộc trại) → COM-01 (đích là Owner) → dữ liệu COM-06/07/10 →
+   đổi vai trò người INACTIVE (COM-10, `field=action`) → FE03-04 (trại không ACTIVE, chỉ
+   đổi vai trò / kích hoạt lại) → FE03-20 (đã đúng, kể cả version cũ) → COM-05. Lệnh bị
+   từ chối không ghi gì. Frontend: FE03-20 / FE03-04 / COM-05 / COM-08 hiện lý do, đóng
+   popup, tải lại danh sách, không tự thử lại bằng version mới; lỗi lưu / mạng giữ popup
+   và cùng Idempotency-Key.
+
+Đã có sẵn, chỉ thêm test: quyền mới áp dụng từ request kế tiếp (GBR-09); bản ghi giữ tác
+giả; thông báo nháp của Manager bị ngưng vẫn riêng tư và không sửa được (AF2). Ghi nhận,
+không làm trong UC6: thành viên vừa bị ngưng đang mở trang sẽ nhận MSG-COM-01 ở thao tác
+kế tiếp, chưa tự chuyển về SCR-09 (SRS không quy định). Kiểm thử và giới hạn ghi tại
+`docs/reviews/FE03_UC06_REVIEW.md`; quyết định chưa phải READY_FOR_FE.

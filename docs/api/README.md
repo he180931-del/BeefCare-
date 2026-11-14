@@ -52,6 +52,15 @@ column `farm_membership.joined_at` (Liquibase `20261114000100`, filled for exist
 rows). Contract now 229 paths, 283 operations, 314 schemas. See
 `FE03_UC05_EXAMPLES.md` and `docs/reviews/FE03_UC05_REVIEW.md`.
 
+UC6 / D30 (14 November 2026): **same route and shapes, new rules**.
+`PUT /api/farms/{farmId}/members/{membershipId}` now locks the row and checks COM-01 →
+COM-08 → COM-01 (Owner target) → input (reason 5–500 with at least 5 non-space
+characters, COM-10; `role` required for CHANGE_ROLE, COM-06; CHANGE_ROLE on an INACTIVE
+member, COM-10 `field=action`) → FE03-04 → FE03-20 (also with an outdated version) →
+COM-05. Every change writes one `farm_membership_change` row (Liquibase
+`20261114000200`) and a before/after audit entry. See `FE03_UC06_EXAMPLES.md` and
+`docs/reviews/FE03_UC06_REVIEW.md`.
+
 UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
 `GET /api/platform/plan-prices?page=0&size=20` returns
 `{items,total,page,size,asOf,current,nextEffectiveAt}` instead of an array.
