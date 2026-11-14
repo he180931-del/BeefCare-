@@ -95,11 +95,11 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-16 | Q3 | Thứ tự mới nhất trước hay cũ nhất trước | Mới nhất trước |  | AnNT |  |
 | FE-16 | Q4 | Trạng thái rỗng, phân trang | "Chưa có sự kiện"; tải thêm theo tháng |  | AnNT |  |
 | FE-16 | Q5 | Sự kiện điều trị / đóng ca (FE-10) có Sửa / Hủy từ dòng thời gian? | Không – SRS chỉ liệt kê 5 popup |  | AnNT |  |
-| FE-17 | Q1 | Không có đặc tả Part II, không có MSG riêng | Dùng MSG-COM |  | DucNV |  |
-| FE-17 | Q2 | Danh sách đầy đủ mã hành động + allowlist trường trước / sau cho từng mã | Lập bảng ở §3.2 thành phụ lục; mỗi FE nguồn khai báo khi ghi |  | DucNV |  |
-| FE-17 | Q3 | Kích thước trang | 20 |  | DucNV |  |
-| FE-17 | Q4 | Thời gian lưu giữ audit | Không xóa (append-only) |  | DucNV |  |
-| FE-17 | Q5 | Audit trong trại (thay đổi dữ liệu bò) | Không thuộc audit trung tâm; dùng Record Revision (FE-16) |  | DucNV |  |
+| FE-17 | Q1 | Không có đặc tả Part II, không có MSG riêng | Dùng MSG-COM | Theo đề xuất, D34; sửa mã theo bảng MSG-COM của SRS: COM-01 (không phải SA), COM-03 (tải lỗi), COM-04 (rỗng), COM-06 / 11 / 10 (khoảng ngày, kèm gợi ý cố định "Tối đa 12 tháng") | DucNV | 15/11/2026 |
+| FE-17 | Q2 | Danh sách đầy đủ mã hành động + allowlist trường trước / sau cho từng mã | Lập bảng ở §3.2 thành phụ lục; mỗi FE nguồn khai báo khi ghi | Khác: D34, danh mục trung tâm ở backend (`PlatformAuditCatalog`, spec §3.2): 30 mã công khai / 8 loại đích, mã lưu giữ nguyên; trường trước / sau chọn khi đọc, không hiện lý do; FE nguồn giữ cách ghi | DucNV | 15/11/2026 |
+| FE-17 | Q3 | Kích thước trang | 20 | Theo đề xuất, D34: 20, tối đa 100 | DucNV | 15/11/2026 |
+| FE-17 | Q4 | Thời gian lưu giữ audit | Không xóa (append-only) | Theo đề xuất, D34: không có route sửa / xóa (405), không có job dọn | DucNV | 15/11/2026 |
+| FE-17 | Q5 | Audit trong trại (thay đổi dữ liệu bò) | Không thuộc audit trung tâm; dùng Record Revision (FE-16) | Theo đề xuất, D34: vẫn ghi vào `audit_log` cho lịch sử trong trại nhưng ngoài danh mục, SCR-51 không hiện (A2 → MSG-COM-08) | DucNV | 15/11/2026 |
 | FE-18 | Q1 | Technician có xem SCR-55, SCR-56 không? (SRS nói SCR-55 "Owner or a Manager"; SCR-52 → 54 "farm members") | Technician chỉ xem giống, vắc-xin, thuốc |  | AnNT |  |
 | FE-18 | Q2 | SCR-54 không nêu mã và tên thuốc | Mã như giống; tên ≤ 150 như vắc-xin |  | AnNT |  |
 | FE-18 | Q3 | SCR-55 không có trường Mô tả dù entity có | Thêm Mô tả ≤ 500 |  | AnNT |  |

@@ -517,3 +517,69 @@ OPEN tự có `needsReassignment=true` (D32). Frontend: popup "Quyền nhân vi�
 ghi chú SA cuối cùng cố định, MSG-FE03-18 / 19 / 22 theo spec, hủy khi đã nhập hỏi lại (MSG-COM-14), lỗi
 nghiệp vụ đóng popup và tải lại, lỗi lưu / mạng giữ popup và cùng khóa. Kiểm thử và giới hạn ghi tại
 `docs/reviews/FE03_UC09_REVIEW.md`; quyết định chưa phải READY_FOR_FE.
+
+### D34 — UC-FE17-01: lịch sử audit nền tảng (15/11/2026)
+
+Người dùng đồng ý toàn bộ đề xuất K1–K12 trong phiên ("theo đề xuất"), sau khi đọc spec FE-17, SRS §3.2 J
+Audit Log Entry (dòng 870–876), SCR-51 (4647–4667), GBR-86 (5885), GBR-88 (5887), NFR-S11 / NFR-R01 (5748,
+5755), bảng MSG-COM (5925–5935), các UC có ghi audit (FE-02 1715, FE-06 1953 / 1989, FE-13 2373 / 2391, FE-19
+2465 / 2483, FE-23 2720, JOB 5574) và đối chiếu code. Chốt FE-17 Q1–Q5:
+
+1. (K1, Q5) Một bảng `audit_log`. SCR-51 chỉ hiện các mã trong **danh mục audit trung tâm**
+   (`PlatformAuditCatalog`) theo 6 nhóm của GBR-86; audit của dữ liệu trại (bò, chăm sóc, lâm sàng, phiếu,
+   thức ăn, danh mục…) vẫn ghi và vẫn phục vụ lịch sử trong trại nhưng SA không thấy; A2 của mục ngoài danh
+   mục trả 404 MSG-COM-08 như mục không tồn tại.
+2. (K2) Không đổi mã đã lưu (các nơi khác đọc lại). Danh mục ánh xạ mã lưu → mã công khai dạng SRS; API trả
+   và nhận mã công khai.
+3. (K3, Q2) Danh mục 30 mã / 8 loại đích của SCR-51: ACCOUNT_SUSPENDED / RESTORED; PLATFORM_ACCESS_GRANTED /
+   CHANGED / REVOKED / RESTORED; MEMBERSHIP_JOINED / ROLE_CHANGED / DEACTIVATED / REACTIVATED;
+   FARM_REGISTERED, FARM_SERVICE_SUSPENDED / RESTORED, FARM_SERVICE_STATUS_CHANGED (JOB-04, "System");
+   PAYMENT_CONFIRMED (mọi `*_PAYMENT_PAID`), EVIDENCE_REVIEWED; FINANCE_RECORD_POSTED / VOIDED; TICKET_CREATED /
+   ASSIGNED / HANDED_OVER / RELEASED / WAITING_CUSTOMER / RESOLVED / ACKNOWLEDGED / CLOSED / REOPENED;
+   INTERNAL_REQUEST_CREATED / UPDATED / COMPLETED. Không hiện: lời mời, yêu cầu / hết hạn thanh toán, lưu và
+   hoàn trả chứng từ, giá gói (`PlanVersion` không thuộc 8 loại đích), nháp và báo cáo thu chi, trả lời /
+   ghi chú / phân loại ticket, sửa hồ sơ trại. `OWNERSHIP_TRANSFERRED` của spec bỏ (SRS không có UC chuyển chủ
+   trại); `MEMBERSHIP_REMOVED` đổi thành `MEMBERSHIP_DEACTIVATED` theo FE-03.
+4. (K4) Cột mới `audit_log.actor_role`: vai trò lúc thực hiện. Hành động nền tảng lấy vai trò nhân viên
+   ACTIVE (SA / PM / CS), hành động trong trại lấy vai trò thành viên ACTIVE (OWNER / MANAGER / TECHNICIAN),
+   thiếu bên này thì lấy bên kia; lệnh có `FarmContext` dùng vai trò đã kiểm. Hệ thống: rỗng. Dòng cũ để
+   trống ("—"), không suy từ vai trò hiện tại.
+5. (K5) Cột mới `audit_log.correlation_id`. Filter `CorrelationIdFilter` nhận `X-Request-Id` của client nếu
+   là chuỗi 8–64 ký tự `[A-Za-z0-9._-]`, nếu không thì tạo UUID; trả lại trong header `X-Request-Id`, đưa vào
+   MDC (`[%X{correlationId}]` trong log). Mỗi lượt job định kỳ có ID riêng (task decorator của scheduler).
+   Dòng cũ để trống. Liquibase `20261114000600` (2 cột + index `logged_at,id` và `action,logged_at`).
+6. (K6) Một chỗ ghi duy nhất `AuditService` (MANDATORY transaction; lặp key không ghi thêm theo GBR-88): 6
+   service nền tảng và job (FE-02, FE-03, FE-19, FE-21, SePay, JOB-04) thôi tự tạo `AuditLog`, nội dung
+   details giữ nguyên. Ticket: `SUPPORT_PROCESS` tách thành `SUPPORT_<CLAIM|HANDOVER|RELEASE|CLASSIFY|
+   ASK_CUSTOMER>`; details ticket có `statusBefore` (khi biết), `status`, `assignee` (tên CS phụ trách). Yêu
+   cầu nội bộ ghi đích `InternalRequest` (id của yêu cầu) với trạng thái trước / sau và người nhận.
+7. (K7, R-17-04) Trước / sau: mỗi mã có danh sách trường riêng (role, status, assignee, name, decision,
+   amountVnd, termYears, periodStart, periodEnd, receiptCode), đọc từ các dạng nguồn đang ghi
+   (`xBefore/xAfter`, `fromX/toX`, `before{x}/after{x}`, một giá trị = sau); "NONE" bỏ. **Không hiện lý do**
+   (như D30 / D32 / D33), nội dung ticket, chứng từ ngân hàng, bí mật. Không sửa cách ghi của FE nguồn (SCR-11
+   của FE-02 vẫn đọc lý do từ audit).
+8. (K8, Q1, Q3) A1 `from`, `to` bắt buộc (ngày lịch giờ Asia/Ho_Chi_Minh, tính cả hai đầu, MSG-COM-06);
+   `from` sau `to` → MSG-COM-11; quá 12 tháng (`to` > `from` + 12 tháng theo `plusMonths`) → MSG-COM-10
+   `field=dateRange`. Mặc định 7 ngày gồm hôm nay (hôm nay − 6 → hôm nay). Ô Người thực hiện: tìm một phần tên
+   hoặc email (không phân biệt hoa thường); "Hệ thống" / "System" → `system=true` (không dùng chung với
+   `actor`). `dir=desc|asc` (mặc định mới nhất trước), 20 dòng / trang, tối đa 100. Spec ghi sai mã MSG, sửa
+   theo bảng MSG-COM của SRS: không phải SA → MSG-COM-01, tải lỗi → MSG-COM-03, không có kết quả → MSG-COM-04
+   [Xóa bộ lọc]. Màn hình có dòng gợi ý cố định "Tối đa 12 tháng" vì nội dung MSG-COM-10 cố định.
+9. (K9) Đích hiện tên lúc đọc (gom theo loại, không N+1): tài khoản → họ tên, không có tên thì email che
+   (`ng***@domain`); thành viên → "tên · trại"; trại → tên; thanh toán / duyệt chứng từ → mã thanh toán; bản
+   ghi thu chi, ticket, yêu cầu nội bộ → mã. Người thực hiện: tên (hoặc email che), chữ viết tắt, vai trò; danh
+   sách không hiện email.
+10. (K10) A3 `GET /api/platform/audit/actions` trả `[{code, targetType}]` từ danh mục; frontend giữ nhãn tiếng
+    Việt, mã lạ hiện nguyên mã.
+11. (K11) Bỏ nút Xuất CSV và dropdown người thực hiện của frontend (SRS không có); thay bằng ô tìm theo SRS.
+    Tên mục menu đổi thành "Lịch sử audit" theo tên SCR-51.
+12. (K12) Ngoài phạm vi: đổi / đặt lại mật khẩu (FE-01) chưa ghi audit, TC-17-06 kiểm bằng allowlist; job trả
+    ticket về hàng đợi không ghi audit; mục `SUPPORT_PROCESS` cũ không hiện. Ghi ở `MISSING_ROUTES.md`.
+    Q4: audit không xóa, không có job dọn.
+
+Hợp đồng (thay đổi phá vỡ, FE chưa nối trước đây): A1 `GET /api/platform/audit?from&to&actor|system&action&
+targetType&dir&page&size` → `{items[{id, time, actor{id, name, initials, role}|null, action, targetType,
+targetLabel}], total, page, size}`; A2 `GET /api/platform/audit/{id}` → `{id, time, actor, farm{id, name}|null,
+action, targetType, targetId, targetLabel, before{}, after{}, correlationId}`; A3 như trên. Không có route sửa /
+xóa (405). Kiểm thử và giới hạn ghi tại `docs/reviews/FE17_UC01_REVIEW.md`; quyết định chưa phải
+READY_FOR_FE.
