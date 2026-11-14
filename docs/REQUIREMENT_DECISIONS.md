@@ -475,3 +475,45 @@ nên tài khoản có login trùng email (mọi tài khoản thật) làm lệnh
 hồi quy. Phiên đã đăng ký bị hết hạn khi tạm ngưng nên request kế tiếp là 401, đăng nhập lại là
 MSG-FE01-03. Kiểm thử và giới hạn ghi tại `docs/reviews/FE03_UC08_REVIEW.md`; quyết định chưa phải
 READY_FOR_FE.
+
+### D33 — UC-FE03-09: quyền nhân viên nền tảng (14/11/2026)
+
+Người dùng đồng ý cả sáu đề xuất trong phiên ("thực hiện theo đề xuất"), sau khi đọc SRS UC-FE03-09
+(dòng 1852–1869), popup "Platform Staff Access" (3179–3190), thực thể CS / PM / SA (497–517), GBR-10
+(5777), GBR-11 (5778), BR-D06 (934), ma trận quyền (1377, chú thích 1440), SCR-16 (1514),
+MSG-FE03-17 → 20 (5984–5987) và đối chiếu code. Chốt FE-03 Q4 (phần quyền nền tảng) và Q5:
+
+1. (FE-03 Q5) Theo SRS: bỏ mục sidebar và trang "Quyền nhân sự nền tảng" (`/nen-tang/quyen`) làm theo
+   Figma; nút "Quyền nền tảng" mở popup ngay trên SCR-16 (`/nen-tang/tai-khoan/{id}?m=access`); link cũ
+   `/nen-tang/quyen/{id}` chuyển sang đó, `/nen-tang/quyen` về SCR-16. Danh sách nhân sự = bộ lọc vai trò
+   CS / PM / SA của SCR-16.
+2. Lịch sử ở bảng mới `platform_access_change` (Liquibase `20261114000500`), chỉ thêm: hành động, vai
+   trò và trạng thái trước / sau, lý do, SA thực hiện, thời điểm; cùng transaction với quyền và audit.
+   Audit `PLATFORM_ACCESS_*` chỉ ghi trước / sau (bỏ lý do, như D30 / D32). A11 đọc bảng này, trả
+   `[{id, action, roleBefore, statusBefore, roleAfter, statusAfter, reason, byName, byEmail, at}]`, mới nhất
+   trước, tối đa 100 dòng; chỉ lịch sử vai trò. Khi nâng cấp (PostgreSQL), các mục audit
+   `PLATFORM_ACCESS_*` cũ được chép sang (NONE → null, thiếu lý do → "(không ghi lý do)"); audit giữ
+   nguyên.
+3. (FE-03 Q4) Tài khoản đang SUSPENDED: chặn Cấp / Đổi / Khôi phục bằng mã mới **MSG-FE03-22** "Tài khoản
+   {email} đang tạm ngưng. Hãy khôi phục tài khoản trước khi cấp, đổi hoặc khôi phục quyền."; vẫn cho
+   Thu hồi.
+4. SA không đổi / thu hồi quyền của chính mình (SRS dòng 517: thu hồi "by another System Admin"): popup
+   trên tài khoản của chính mình chỉ xem lịch sử; backend trả MSG-COM-01.
+5. Lệnh không khớp trạng thái: giá trị yêu cầu đã có hiệu lực (Cấp / Đổi sang đúng vai trò đang ACTIVE,
+   Thu hồi khi đã REVOKED, Khôi phục khi đã ACTIVE) → MSG-FE03-20 `{target: email, value: role|status}`;
+   còn lại (Cấp khi đã có quyền khác, Đổi / Thu hồi khi không có vai trò ACTIVE, Khôi phục khi chưa có
+   quyền) → MSG-COM-05. Không bao giờ tạo vai trò ACTIVE thứ hai (TC-03-29).
+6. A10 trả `accessActions[]` do backend tính: theo quyền đang lưu GRANT / CHANGE + REVOKE / RESTORE; tài
+   khoản bị tạm ngưng hoặc chưa xác minh chỉ còn REVOKE (nếu có vai trò ACTIVE); tài khoản của chính SA
+   rỗng. Frontend chỉ hiện hành động có trong danh sách; rỗng thì popup hiện lý do và lịch sử.
+
+Đi kèm, không cần quyết riêng (theo D32): `Idempotency-Key` bắt buộc; lý do 5–500 ký tự; thứ tự kiểm sau
+khi khóa dòng (cả dòng của SA đang thao tác, theo thứ tự id) COM-01 → COM-08 → dữ liệu (`operation`,
+`role`, `reason`) → của chính mình (COM-01) → tạm ngưng (FE03-22) → chưa xác minh (FE03-18) → trạng thái
+(FE03-20 / COM-05) → version (COM-05) → SA đang thao tác còn ACTIVE (COM-01) → SA cuối cùng (FE03-17);
+lệnh bị từ chối không ghi gì. CS mất quyền (thu hồi, hoặc đổi sang PM / SA) → phiếu chưa CLOSED về hàng
+đợi trong cùng lệnh (lịch sử `AUTO_REQUEUE` cause `CS_ACCESS_REMOVED`); PM / SA mất quyền → yêu cầu nội bộ
+OPEN tự có `needsReassignment=true` (D32). Frontend: popup "Quyền nhân viên nền tảng", lý do là ô chữ dài,
+ghi chú SA cuối cùng cố định, MSG-FE03-18 / 19 / 22 theo spec, hủy khi đã nhập hỏi lại (MSG-COM-14), lỗi
+nghiệp vụ đóng popup và tải lại, lỗi lưu / mạng giữ popup và cùng khóa. Kiểm thử và giới hạn ghi tại
+`docs/reviews/FE03_UC09_REVIEW.md`; quyết định chưa phải READY_FOR_FE.

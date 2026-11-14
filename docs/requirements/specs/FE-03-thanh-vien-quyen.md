@@ -48,6 +48,11 @@
 > lý do 5–500 ký tự; khôi phục được cả tài khoản chưa xác minh; phiếu của CS về hàng đợi ngay trong
 > lệnh; yêu cầu nội bộ OPEN có `needsReassignment` tính lúc đọc; A10 trả `actions[]`.
 
+> UC-FE03-09 được làm rõ theo D33 (người dùng xác nhận 14/11/2026): quyền nền tảng là popup trên SCR-16, bỏ
+> trang "Quyền nhân sự" (Q5); lịch sử ở bảng `platform_access_change` (chép audit cũ khi nâng cấp), audit không
+> ghi lý do; tài khoản bị tạm ngưng chỉ còn Thu hồi, mã mới MSG-FE03-22 (Q4); SA không đổi quyền của chính
+> mình; giá trị đã có → FE03-20, quyền đã đổi → COM-05; A10 trả `accessActions[]`.
+
 ---
 
 ## 1. Phạm vi
@@ -119,6 +124,7 @@ Duy nhất: tối đa 1 lời mời `PENDING` cho mỗi cặp trại + email (BR
 | Thuộc tính | Ràng buộc |
 |---|---|
 | Tài khoản, vai trò platform, trạng thái quyền (`ACTIVE ⇄ REVOKED`), lý do, người đổi, thời điểm | Mỗi tài khoản tối đa 1 vai trò platform ACTIVE; luôn còn ít nhất 1 SA ACTIVE (BR-D06); độc lập với membership trại; lưu lịch sử mọi lần đổi |
+| Lịch sử quyền (`platform_access_change`, D33) | Chỉ thêm: hành động GRANT / CHANGE / REVOKE / RESTORE, vai trò và trạng thái trước / sau (trước là trống ở lần cấp đầu), lý do (5–500), SA thực hiện, thời điểm; cùng transaction với quyền và audit. Migration `20261114000500` chép các mục audit `PLATFORM_ACCESS_*` cũ (người làm có thể trống) |
 
 ### 3.4 Bảng quyền theo vai trò trại (Table III-2 – hiển thị ở SCR-08, SCR-13, popup Mời, SCR-15)
 
@@ -176,10 +182,10 @@ Duy nhất: tối đa 1 lời mời `PENDING` cho mỗi cặp trại + email (BR
 | R-03-11 | Đổi vai trò (Manager ⇄ Technician, chỉ thành viên ACTIVE), ngưng, kích hoạt lại đều cần ngày hiệu lực (mặc định hôm nay theo múi giờ trại, không ở tương lai) và lý do 5–500 ký tự không tính khoảng trắng. Ngưng luôn được phép; đổi vai trò và kích hoạt lại cần trại ACTIVE. Vai trò / trạng thái đã đúng như yêu cầu → MSG-FE03-20. Ngày hiệu lực chỉ để ghi lịch sử (Q3). | GBR-18, UC-06, Table III-1, D30 |
 | R-03-12 | Thay đổi có hiệu lực từ request kế tiếp của thành viên; bản ghi người đó đã tạo giữ nguyên tác giả. Ngưng một Manager có thông báo nháp → nháp vẫn riêng tư với tác giả và không sửa được nữa. | UC-06 POST-2, AF2 |
 | R-03-13 | Không bao giờ xóa membership, tài khoản. | BR-D13 |
-| R-03-14 | Quyền platform chỉ do SA cấp / đổi / thu hồi / khôi phục, chỉ cho tài khoản đã tồn tại và đã xác minh email (người đó phải đăng nhập ít nhất 1 lần); không có tài khoản → MSG-FE03-18, không gửi lời mời. | GBR-10, UC-09 E2 |
-| R-03-15 | Mỗi tài khoản tối đa 1 vai trò platform ACTIVE; luôn còn ít nhất 1 SA ACTIVE (SA ACTIVE = quyền SA ACTIVE trên tài khoản ACTIVE); SA không tự tạm ngưng tài khoản mình → MSG-FE03-17. Hai SA tạm ngưng nhau cùng lúc: lệnh sau chờ khóa dòng rồi bị từ chối (D32). | BR-D06, GBR-10 |
+| R-03-14 | Quyền platform chỉ do SA cấp / đổi / thu hồi / khôi phục, chỉ cho tài khoản đã tồn tại và đã xác minh email (người đó phải đăng nhập ít nhất 1 lần); chưa xác minh → MSG-FE03-18, không gửi lời mời. Tài khoản SUSPENDED chỉ được thu hồi (Cấp / Đổi / Khôi phục → MSG-FE03-22). SA không đổi / thu hồi quyền của chính mình (MSG-COM-01). Thu hồi vẫn làm được với tài khoản chưa xác minh hoặc bị tạm ngưng. | GBR-10, UC-09 E2, D33 |
+| R-03-15 | Mỗi tài khoản tối đa 1 vai trò platform ACTIVE; luôn còn ít nhất 1 SA ACTIVE (SA ACTIVE = quyền SA ACTIVE trên tài khoản ACTIVE); SA không tự tạm ngưng tài khoản mình → MSG-FE03-17. Hai SA tạm ngưng nhau hoặc thu hồi quyền SA của nhau cùng lúc: lệnh sau chờ khóa dòng rồi bị từ chối (D32, D33). | BR-D06, GBR-10 |
 | R-03-16 | Tạm ngưng tài khoản chặn mọi cách đăng nhập (MSG-FE01-03), phiên đang mở bị từ chối ở request kế tiếp (phiên đã đăng ký hết hạn → 401; còn lại → 403 MSG-FE01-03). Tạm ngưng không thu hồi vai trò platform hay membership; khôi phục đưa tài khoản về ACTIVE và không trả lại vai trò / membership đã bị thu hồi hoặc ngưng riêng (D32). Tạm ngưng / khôi phục được cả tài khoản chưa xác minh email. | GBR-04, D32 |
-| R-03-17 | Khi một CS bị tạm ngưng hoặc mất quyền CS: phiếu hỗ trợ chưa CLOSED của họ về hàng đợi chưa giao (trạng thái phiếu không đổi; UC8 làm ngay trong lệnh, job làm lưới an toàn). Khi người nhận PM / SA mất quyền hoặc bị tạm ngưng: yêu cầu nội bộ OPEN giao cho họ có `needsReassignment=true` (tính lúc đọc, hết khi người đó khả dụng lại) để CS đổi người nhận. | GBR-77, UC-08 bước 6, UC-09 bước 6, D32 |
+| R-03-17 | Khi một CS bị tạm ngưng hoặc mất quyền CS: phiếu hỗ trợ chưa CLOSED của họ về hàng đợi chưa giao (trạng thái phiếu không đổi; UC8 / UC9 làm ngay trong lệnh, job làm lưới an toàn). Khi người nhận PM / SA mất quyền hoặc bị tạm ngưng: yêu cầu nội bộ OPEN giao cho họ có `needsReassignment=true` (tính lúc đọc, hết khi người đó khả dụng lại) để CS đổi người nhận. | GBR-77, UC-08 bước 6, UC-09 bước 6, D32 |
 | R-03-18 | Mọi thay đổi lời mời, membership, tài khoản, quyền platform đều ghi audit trong cùng transaction. | GBR-86 |
 | R-03-19 | JOB-02 mỗi 15 phút chuyển `PENDING` đã quá hạn sang `EXPIRED`. Kể cả trước khi job chạy, chấp nhận lời mời đã quá hạn vẫn bị chặn. | JOB-02, GBR-17 |
 
@@ -259,9 +265,16 @@ E1 đích là Owner / người làm không phải Owner → MSG-COM-01 · E2 đ�
 
 E1 không có quyền SA ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 (ngoài 5–500 → MSG-COM-10) · E3 tạm ngưng SA cuối cùng hoặc chính mình → MSG-FE03-17 · E4 đã ở trạng thái yêu cầu → MSG-FE03-20 · E5 sửa đồng thời → MSG-COM-05 · E6 lỗi lưu → MSG-COM-02.
 
-### UC-FE03-09 Quyền nhân viên platform (SA)
-Popup hiện tài khoản, vai trò platform hiện tại, lịch sử → hành động tùy trạng thái hiện tại (Cấp / Đổi vai trò / Thu hồi / Khôi phục) → chọn vai trò khi cần, nhập lý do → **Xác nhận** → kiểm R-03-14, R-03-15 → lưu + lịch sử + audit → MSG-FE03-19 → áp dụng R-03-17.
-E2 không có tài khoản → MSG-FE03-18 · E3 không còn SA ACTIVE → MSG-FE03-17 · E4 vai trò đó đã ACTIVE → MSG-FE03-20.
+### UC-FE03-09 Quyền nhân viên platform (D33)
+1. SCR-16, khung chi tiết → **Quyền nền tảng** mở popup ngay trên SCR-16 (`/nen-tang/tai-khoan/{id}?m=access`; link cũ `/nen-tang/quyen/{id}` chuyển sang đây). Không còn trang "Quyền nhân sự nền tảng" riêng (FE-03 Q5).
+2. Popup hiện tài khoản (tên, email, vai trò và trạng thái hiện tại), ghi chú SA cuối cùng (MSG-FE03-17) và lịch sử vai trò (A11: hành động, vai trò, lý do, người làm, thời điểm theo Asia/Ho_Chi_Minh, mới nhất trước).
+3. Hành động lấy từ `accessActions` của A10: GRANT (chưa có quyền), CHANGE / REVOKE (quyền ACTIVE), RESTORE (quyền REVOKED); tài khoản bị tạm ngưng hoặc chưa xác minh chỉ còn REVOKE; tài khoản của chính SA không có hành động. Không có hành động → popup hiện lý do (MSG-FE03-22 / MSG-FE03-18 / "Bạn không thể thay đổi quyền nền tảng của chính mình.") và lịch sử.
+4. SA chọn hành động, vai trò (Cấp / Đổi), nhập lý do 5–500 → nút theo hành động ("Cấp quyền CS", "Đổi sang PM", "Thu hồi quyền CS", "Khôi phục quyền CS"). Hủy khi đã nhập lý do → MSG-COM-14.
+5. A13 với `{operation, role?, reason, version}` + `Idempotency-Key`. Hệ thống khóa dòng tài khoản đích và dòng của SA đang thao tác theo thứ tự id rồi kiểm: quyền SA ACTIVE (COM-01) → tài khoản tồn tại (COM-08) → dữ liệu (COM-06 / COM-10 `operation`, `role`, `reason`) → quyền của chính mình (COM-01) → tài khoản SUSPENDED khi không phải thu hồi (FE03-22) → email chưa xác minh khi không phải thu hồi (FE03-18) → trạng thái: giá trị đã có hiệu lực → FE03-20 `{target, value: role|status}`, quyền đã đổi kể từ khi mở popup → COM-05 → version (COM-05) → SA đang thao tác còn ACTIVE (COM-01) → còn SA ACTIVE khác khi một SA mất quyền (FE03-17). Lệnh bị từ chối không ghi gì.
+6. Lưu quyền + 1 dòng `platform_access_change` + audit trước / sau (không có lý do) trong một transaction; CS mất quyền CS (thu hồi hoặc đổi sang PM / SA) → phiếu chưa CLOSED của họ về hàng đợi trong cùng lệnh; PM / SA mất quyền → yêu cầu nội bộ OPEN giao cho họ có `needsReassignment=true`. Quyền mới áp dụng từ request kế tiếp của người đó. Phản hồi A10 → MSG-FE03-19 → tải lại A9 + A10.
+7. Lỗi FE03-17 / FE03-18 / FE03-20 / FE03-22 / COM-05 / COM-08: đóng popup, hiện lý do trên khung chi tiết, tải lại. Lỗi lưu / mạng: giữ popup và cùng `Idempotency-Key`.
+
+E1 không có quyền SA ACTIVE → MSG-COM-01 · E2 email chưa xác minh → MSG-FE03-18 · E3 không còn SA ACTIVE → MSG-FE03-17 · E4 vai trò / trạng thái đó đã có hiệu lực → MSG-FE03-20 · E5 lý do trống → MSG-COM-06 (ngoài 5–500 → MSG-COM-10) · E6 sửa đồng thời → MSG-COM-05 · E7 lỗi lưu → MSG-COM-02 · (D33) tài khoản bị tạm ngưng → MSG-FE03-22; quyền của chính mình → MSG-COM-01.
 
 ---
 
@@ -366,13 +379,13 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi / Hành vi |
 |---|---|---|---|---|---|
-| 1 | Account / Tài khoản | Chỉ đọc | — | Tên, email, vai trò platform hiện tại, trạng thái | — |
-| 2 | Action / Hành động | Tự xác định | — | Chưa có vai trò → Cấp; vai trò ACTIVE → Đổi vai trò / Thu hồi; vai trò REVOKED → Khôi phục | — |
-| 3 | Role / Vai trò | Radio | * (Cấp, Đổi) | CS / PM / SA | MSG-FE03-20 |
-| 4 | Reason / Lý do | Ô chữ dài | * | ≤ 500 | MSG-COM-06 |
-| 5 | Last SA notice / Lưu ý SA cuối | Chỉ đọc | — | SA ACTIVE cuối cùng không thể bị thu hồi | MSG-FE03-17 |
-| 6 | Role history / Lịch sử vai trò | Danh sách chỉ đọc | — | Vai trò, hành động, lý do, người làm, thời điểm | — |
-| 7 | Cancel / Confirm – Hủy / Xác nhận | Nút | — | Nhãn theo hành động, ví dụ "Cấp quyền CS" | MSG-FE03-18, MSG-COM-05; thành công MSG-FE03-19 |
+| 1 | Account / Tài khoản | Chỉ đọc | — | Tên ("Chưa có tên" khi trống), email, vai trò platform hiện tại ("đã thu hồi" khi REVOKED), trạng thái tài khoản | — |
+| 2 | Action / Hành động | Radio theo `accessActions` (D33) | * | GRANT → Cấp quyền; CHANGE / REVOKE → Đổi vai trò / Thu hồi quyền; RESTORE → Khôi phục quyền; rỗng → hiện lý do (MSG-FE03-22 / MSG-FE03-18 / quyền của chính mình) | — |
+| 3 | Role / Vai trò | Radio | * (Cấp, Đổi) | CS / PM / SA; mặc định vai trò khác vai trò đang ACTIVE | MSG-FE03-20, MSG-COM-06 / 10 |
+| 4 | Reason / Lý do | Ô chữ dài | * | Bỏ khoảng trắng đầu cuối; 5–500 ký tự, ít nhất 5 không phải khoảng trắng (D33) | MSG-COM-06, MSG-COM-10 |
+| 5 | Last SA notice / Lưu ý SA cuối | Chỉ đọc | — | Cố định: phải luôn còn ít nhất một SA đang hoạt động | MSG-FE03-17 |
+| 6 | Role history / Lịch sử vai trò | Danh sách chỉ đọc | — | A11: hành động, vai trò (Đổi: cũ → mới), lý do, người làm ("Hệ thống" khi trống), thời điểm dd/mm/yyyy HH:mm Asia/Ho_Chi_Minh; mới nhất trước | Lỗi tải: thông báo + Thử lại |
+| 7 | Cancel / Confirm – Hủy / Xác nhận | Nút | — | Nhãn theo hành động, ví dụ "Cấp quyền CS"; Hủy khi đã nhập lý do → MSG-COM-14; không có hành động → chỉ "Đóng" | MSG-FE03-17, MSG-FE03-18, MSG-FE03-20, MSG-FE03-22, MSG-COM-05, MSG-COM-08 (đóng popup, tải lại); thành công MSG-FE03-19 |
 
 ---
 
@@ -389,10 +402,10 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | A7 | Xem lời mời từ link (D28) | `token` | `{status: PENDING\|ACCEPTED, farmId, farmName, timeZone, email, role, invitedBy, sentAt, expiresAt, membershipId?}` (membershipId khi ACCEPTED); quyền của vai trò là bảng cố định Table III-2 ở FE; email khác → 403 MSG-FE03-09 không có thông tin trại/trạng thái | 400 FE03-08 `{status, expiresAt?}` (INVALID không có hạn), 403 FE03-09, 403 FE03-04, 401 | `GET /api/invitations/accept?token=` |
 | A8 | Chấp nhận (D28) | `token`; không Idempotency-Key (token là khóa ý định, GBR-17) | `{membershipId, farmId, farmName, role, status}`; gọi lại trả cùng kết quả khi membership còn ACTIVE | 400 FE03-08 `{status, expiresAt?}`, 403 FE03-09, 403 FE03-04, 409 COM-05, 500 COM-02, 401 | `POST /api/invitations/accept` |
 | A9 | Danh sách tài khoản (SA, D31) | `q?` (≤ 100), `status?` (ACTIVE\|SUSPENDED), `platformRole?` (NONE\|CS\|PM\|SA, theo vai trò ACTIVE), `page=0`, `size=20` (1–100), `sort=name`, `dir=asc\|desc` | `{items[{id, fullName, email, accountStatus, platformRole, platformAccessStatus, emailVerified, farmCount, farmRoles[]}], total, page, size}`; `platformRole`/`platformAccessStatus` là quyền đang lưu (REVOKED vẫn trả); `farmCount`/`farmRoles` chỉ membership ACTIVE; không có SĐT | 401, COM-01, FE01-03, COM-10 (`params.field`), COM-03 | `GET /api/platform/accounts` |
-| A10 | Chi tiết tài khoản (D31, D32) | — | `{…A9, platformAccessVersion, signInMethods[], createdAt, lastSignInAt, ownerRegistrationCompleted, ownerRegistrationCompletedAt, ownedFarms[], version, actions[]}`; `actions` ⊂ SUSPEND (tài khoản ACTIVE không phải của SA đang xem) / RESTORE (tài khoản SUSPENDED); không có SĐT, mật khẩu, Google subject. Cũng là phản hồi của A12, A13 | 401, COM-01, FE01-03, COM-08 (404), COM-10 (id sai kiểu), COM-03 | `GET /api/platform/accounts/{id}` |
-| A11 | Lịch sử tài khoản / vai trò | — | `[{action, role?, reason, by, at}]` | COM-01 | `GET /api/platform/accounts/{id}/history` |
+| A10 | Chi tiết tài khoản (D31, D32) | — | `{…A9, platformAccessVersion, signInMethods[], createdAt, lastSignInAt, ownerRegistrationCompleted, ownerRegistrationCompletedAt, ownedFarms[], version, actions[]}`; `actions` ⊂ SUSPEND (tài khoản ACTIVE không phải của SA đang xem) / RESTORE (tài khoản SUSPENDED); `accessActions` ⊂ GRANT / CHANGE / REVOKE / RESTORE (D33); không có SĐT, mật khẩu, Google subject. Cũng là phản hồi của A12, A13 | 401, COM-01, FE01-03, COM-08 (404), COM-10 (id sai kiểu), COM-03 | `GET /api/platform/accounts/{id}` |
+| A11 | Lịch sử vai trò (D33) | — | `[{id, action, roleBefore?, statusBefore?, roleAfter, statusAfter, reason, byName?, byEmail?, at}]` từ `platform_access_change`, mới nhất trước, tối đa 100; không gồm lịch sử tạm ngưng tài khoản | 401, COM-01, FE01-03, COM-08 (404), COM-03 | `GET /api/platform/accounts/{id}/history` |
 | A12 | Tạm ngưng / khôi phục (D32) | `{reason (5–500), version}` + `Idempotency-Key` (bắt buộc) | A10 | 401, COM-01 (403), COM-08 (404), COM-06 (`reason` / `version` / `Idempotency-Key`), COM-10 (`reason`), FE03-17 (409, chính mình / SA cuối), FE03-20 (409, `{target: email, value: status}`), COM-05, COM-19, COM-02 | `POST /api/platform/accounts/{id}/suspend` · `/restore` |
-| A13 | Quyền platform | `action: GRANT\|CHANGE\|REVOKE\|RESTORE, role?, reason, version` + `Idempotency-Key` | A10 | COM-01, FE03-17, FE03-18, FE03-20, COM-06, COM-05, COM-02 | `POST /api/platform/accounts/{id}/platform-access` |
+| A13 | Quyền platform (D33) | `{operation: GRANT\|CHANGE\|REVOKE\|RESTORE, role? (bắt buộc khi GRANT / CHANGE), reason (5–500), version (platformAccessVersion; null / 0 khi chưa có quyền)}` + `Idempotency-Key` (bắt buộc) | A10 | 401, COM-01 (403; cả quyền của chính mình), COM-08 (404), COM-06 / COM-10 (`operation`, `role`, `reason`, `Idempotency-Key`), FE03-22 (409, `{email}`), FE03-18 (409), FE03-20 (409, `{target, value: role\|status}`), COM-05, FE03-17 (409), COM-19, COM-02 | `POST /api/platform/accounts/{id}/platform-access` |
 
 ---
 
@@ -419,9 +432,10 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | MSG-FE03-16 | Toast thành công | Tài khoản {email} hiện là {status}. ({status}: "Đang hoạt động" / "Tạm ngưng", D32) |
 | MSG-FE03-17 | Trong hộp thoại | Phải luôn còn ít nhất một System Admin đang hoạt động, và bạn không thể tạm ngưng tài khoản của chính mình. |
 | MSG-FE03-18 | Trong hộp thoại | Chưa có tài khoản BeefCare cho email này. Người đó cần đăng nhập một lần trước khi được cấp quyền. |
-| MSG-FE03-19 | Toast thành công | Quyền {role} của {email} đã được {action}. |
+| MSG-FE03-19 | Toast thành công | Quyền {role} của {email} đã được {action}. ({action}: cấp / đổi / thu hồi / khôi phục) |
 | MSG-FE03-20 | Trong hộp thoại | Không có thay đổi: {target} đã ở {value} này. |
 | MSG-FE03-21 | Đề nghị trong popup Mời | {email} là thành viên đã ngưng. Kích hoạt lại thay vì mời? [Kích hoạt lại] [Quay lại]. Mở UC6, giữ vai trò hiện tại, bắt buộc ngày hiệu lực/lý do. (D25) |
+| MSG-FE03-22 | Trong hộp thoại | Tài khoản {email} đang tạm ngưng. Hãy khôi phục tài khoản trước khi cấp, đổi hoặc khôi phục quyền. (D33, FE-03 Q4; SRS không có mã) |
 
 ---
 
@@ -519,6 +533,14 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | TC-03-88 | CS giữ phiếu IN_PROGRESS, WAITING_CUSTOMER, RESOLVED, CLOSED; CS khác giữ 1 phiếu | Tạm ngưng CS | 3 phiếu chưa CLOSED về hàng đợi, trạng thái không đổi, 3 lịch sử AUTO_REQUEUE; phiếu CLOSED và phiếu của CS khác không đổi | H, I | D32, GBR-77, TC-03-31 |
 | TC-03-89 | Ticket có yêu cầu nội bộ OPEN và DONE gửi PM | Tạm ngưng rồi khôi phục PM; CS mở ticket | OPEN: `needsReassignment` false → true → false; DONE luôn false; SCR-68 hiện "Người nhận không còn khả dụng – cần đổi người nhận" | H, U | D32, UC-08 bước 6 |
 | TC-03-90 | SCR-16 | Tài khoản của chính mình; lý do 3 ký tự; xác nhận; lỗi nghiệp vụ; lỗi lưu rồi thử lại | Không có ô lý do / nút Tạm ngưng; lý do bị chặn trước hộp thoại; MSG-FE03-14 / 15 / 16; hộp thoại đóng, lý do hiện trên khung chi tiết, tải lại, giữ lý do; lỗi lưu giữ hộp thoại và cùng key | U | D32 |
+| TC-03-91 | Tài khoản đã xác minh, chưa có quyền | Cấp PM → đổi sang CS → thu hồi → khôi phục | Mỗi bước 200, `accessActions` đúng trạng thái; 4 dòng `platform_access_change` (trước / sau, lý do đã bỏ khoảng trắng, SA); A11 mới nhất trước; 4 audit không có lý do; request kế tiếp của người đó theo quyền mới (PM vào được `/api/platform/farms`, CS thì 403 COM-01) | H, I | D33, POST-2 |
+| TC-03-92 | CS gọi; id lạ; operation / role sai; thiếu role; lý do "a b c d" / trống; thiếu key; quyền của chính mình; Cấp đúng vai trò đang có (version cũ); Cấp vai trò khác khi đang có quyền; Đổi sang cùng vai trò; Khôi phục khi ACTIVE; Đổi / Thu hồi khi chưa có quyền; version cũ | Gọi A13 | COM-01 trước COM-08; COM-08 trước dữ liệu; 401; COM-10 / COM-06 đúng `field`; COM-01 (sau lý do), A10 của chính mình `accessActions=[]`; FE03-20 `value=role`; COM-05; FE03-20; FE03-20 `value=status`; COM-05; COM-05; không ghi gì | H | D33 |
+| TC-03-93 | Tài khoản PM bị tạm ngưng; tài khoản bị tạm ngưng chưa có quyền; chưa xác minh; chưa xác minh có quyền REVOKED | A10, Cấp / Đổi / Khôi phục / Thu hồi | `accessActions` [REVOKE] / [] / [] / []; Cấp, Đổi → FE03-22 `{email}`; Cấp, Khôi phục chưa xác minh → FE03-18; Thu hồi PM bị tạm ngưng 200 | H | D33 Q3, FE-03 Q4 |
+| TC-03-94 | CS giữ phiếu IN_PROGRESS và CLOSED; CS khác giữ phiếu WAITING; PM nhận yêu cầu nội bộ OPEN | Thu hồi CS; đổi CS kia sang PM; thu hồi PM | Phiếu chưa CLOSED về hàng đợi (lịch sử `CS_ACCESS_REMOVED`), CLOSED giữ nguyên; `needsReassignment=true` | H, I | D33, GBR-77, TC-03-29, TC-03-31 |
+| TC-03-95 | CS giữ phiếu | Thu hồi; lặp cùng key; cùng key khác lý do; lỗi sau khi đã ghi | Quyền, lịch sử, audit, phiếu commit cùng nhau; cùng key trả kết quả đầu; COM-19; lỗi → tất cả không đổi | I (H2, PostgreSQL) | D33, GBR-88 |
+| TC-03-96 | Chỉ còn 2 SA ACTIVE, A đang giữ khóa lệnh thu hồi quyền SA của B | B thu hồi quyền SA của A | Lệnh của B chờ khóa, sau khi A commit bị 403 COM-01; còn đúng 1 SA ACTIVE; bỏ khóa dòng SA đang thao tác thì test đỏ | I (PostgreSQL) | D33, BR-D06 |
+| TC-03-97 | Audit `PLATFORM_ACCESS_*` cũ (có / không lý do, không người làm), audit tạm ngưng, details không phải JSON | Nâng cấp DB | Chép 3 dòng đúng hành động, vai trò / trạng thái (NONE → trống), lý do (thiếu → "(không ghi lý do)"), người làm, thời điểm; bỏ qua audit tạm ngưng và details hỏng; audit giữ nguyên | I (PostgreSQL) | D33 Q2 |
+| TC-03-98 | SCR-16 | Nút Quyền nền tảng; link cũ `/nen-tang/quyen/{id}`; lý do trống / 3 ký tự; thu hồi; tài khoản chưa xác minh / của chính mình / bị tạm ngưng; hủy khi đã nhập; lỗi lưu rồi thử lại; lỗi nghiệp vụ | Popup trên SCR-16; MSG-FE03-19; lịch sử có người làm ("Hệ thống" khi trống); chỉ xem lịch sử + lý do; MSG-COM-14; cùng key; đóng popup và tải lại | U | D33 |
 
 ---
 
@@ -529,7 +551,8 @@ Không hiện: dữ liệu nghiệp vụ trại, nội dung phiếu hỗ trợ, 
 | Q1 | UC-01 AF2 (email của thành viên INACTIVE): SRS không có mã thông báo | Đã chốt D25 (11/11/2026): MSG-FE03-21 kèm nút mở popup, ngày/lý do bắt buộc, giữ vai trò hiện tại |
 | Q2 | UC-FE03-02, 05, 07 không có đặc tả Part II; luồng suy từ SCR | Đã chốt UC2 theo D26 (12/11/2026), UC5 theo D29 và UC7 theo D31 (14/11/2026); luồng ở mục 5 |
 | Q3 | Đổi vai trò với ngày hiệu lực trong quá khứ: quyền áp dụng ngay hay tính lại quá khứ? | Đã chốt D30 (14/11/2026): áp dụng từ request kế tiếp; ngày hiệu lực chỉ để ghi lịch sử, chỉ chặn ngày tương lai theo múi giờ trại |
-| Q4 | Tài khoản bị tạm ngưng có được nhận lời mời / được cấp quyền platform không? | Phần lời mời đã chốt D25: được nhận nếu chưa có membership; chỉ chấp nhận sau khi khôi phục và còn hạn. Phần cấp quyền platform vẫn mở |
+| Q4 | Tài khoản bị tạm ngưng có được nhận lời mời / được cấp quyền platform không? | Phần lời mời đã chốt D25: được nhận nếu chưa có membership; chỉ chấp nhận sau khi khôi phục và còn hạn. Phần quyền platform chốt D33 (14/11/2026): chỉ còn Thu hồi; Cấp / Đổi / Khôi phục → MSG-FE03-22 |
+| Q5 | Sidebar SA có mục riêng "Quyền nhân sự nền tảng" theo Figma; SRS SCR-16 coi đây là popup của Tài khoản người dùng | Đã chốt D33 (14/11/2026): theo SRS, bỏ trang và mục sidebar; popup mở trên SCR-16, link cũ chuyển hướng |
 | Q6 | Link của lời mời đã Hủy / hết hạn: SCR-15 phải hiện MSG-FE03-08 kèm trạng thái và hạn (SRS dòng 3146), JOB-08 chỉ xóa hash sau 7 ngày (dòng 5628), nhưng code xóa hash ngay khi Hủy / JOB-02 nên SCR-15 chỉ báo "Liên kết không hợp lệ" | Đã chốt D28 (14/11/2026): giữ hash tới JOB-08; backend trả FE03-08 kèm trạng thái và hạn; SCR-15 hiển thị |
 
 ---
