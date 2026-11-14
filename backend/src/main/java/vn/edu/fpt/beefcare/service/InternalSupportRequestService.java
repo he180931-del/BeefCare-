@@ -40,7 +40,7 @@ public class InternalSupportRequestService {
         ir.setQuestion(SupportTicketCommandService.text(r.question(), 2000, "question")); ir.setContextJson(JsonSupport.toJson(refs));
         em.persist(ir); em.flush(); ir.setCode("IR-%04d".formatted(ir.getId()));
         tickets.history(t, cs, "IR_CREATED", t.getStatus(), null, Map.of("requestId", ir.getId(), "targetRole", ir.getTargetRole()));
-        tickets.changed(t, cs, "SUPPORT_INTERNAL_CREATE"); notice(ir, recipient, "created"); return tickets.internalView(ir);
+        tickets.changed(t, cs, "SUPPORT_INTERNAL_CREATE", ir, null); notice(ir, recipient, "created"); return tickets.internalView(ir);
     }
 
     /** Recheck mutable assignment before a cached response is read. */
@@ -67,7 +67,7 @@ public class InternalSupportRequestService {
             default -> throw DomainException.invalid("action");
         }
         em.flush(); tickets.history(t, cs, "IR_" + r.action(), t.getStatus(), reason, Map.of("requestId", ir.getId()));
-        tickets.changed(t, cs, "SUPPORT_INTERNAL_MANAGE"); notice(ir, former, "changed");
+        tickets.changed(t, cs, "SUPPORT_INTERNAL_MANAGE", ir, "OPEN"); notice(ir, former, "changed");
         if (!former.equals(ir.getRecipient())) notice(ir, ir.getRecipient(), "assigned");
         return tickets.internalView(ir);
     }
@@ -78,11 +78,11 @@ public class InternalSupportRequestService {
         if (state != null && !Set.of("OPEN", "DONE", "CANCELLED").contains(state)) throw DomainException.invalid("state");
         return em.createQuery("select r from InternalRequest r where r.recipient.id=:u and r.targetRole=:role order by r.createdAt desc,r.id desc", InternalRequest.class)
             .setParameter("u", ctx.user().getId()).setParameter("role", ctx.role().name()).getResultList().stream()
-            .filter(r -> state == null || state.equals(r.getState())).map(tickets::internalView).toList();
+            .filter(r -> state == null || state.equals(r.getState())).map(tickets::recipientInternalView).toList();
     }
 
     @Transactional(readOnly = true)
-    public SupportDtos.InternalView get(Long id) { InternalRequest ir = find(id, false); named(ir); return tickets.internalView(ir); }
+    public SupportDtos.InternalView get(Long id) { InternalRequest ir = find(id, false); named(ir); return tickets.recipientInternalView(ir); }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> domainResults(Long id) {
@@ -108,7 +108,7 @@ public class InternalSupportRequestService {
         } else if (r.domainResultAuditId() != null) throw DomainException.invalid("domainResultAuditId");
         ir.setOutcome(r.outcome()); ir.setResultText(result); ir.setState("DONE"); ir.setCompletedAt(clock.now());
         em.flush(); tickets.history(t, actor, "IR_COMPLETED", t.getStatus(), null, Map.of("requestId", ir.getId(), "outcome", ir.getOutcome()));
-        tickets.changed(t, actor, "SUPPORT_INTERNAL_DONE"); tickets.notifyCs(t, "internal-done"); return tickets.internalView(ir);
+        tickets.changed(t, actor, "SUPPORT_INTERNAL_DONE", ir, "OPEN"); tickets.notifyCs(t, "internal-done"); return tickets.recipientInternalView(ir);
     }
 
     @Transactional(readOnly = true)

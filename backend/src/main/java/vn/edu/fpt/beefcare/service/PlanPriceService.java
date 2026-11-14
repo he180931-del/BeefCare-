@@ -12,11 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import vn.edu.fpt.beefcare.domain.AppUser;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.PlanVersion;
 import vn.edu.fpt.beefcare.domain.PlanPriceLock;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.PlanVersionRepository;
 
 /** UC7: immutable publications, withdrawn schedules and one effective version at the server clock. */
@@ -24,12 +22,12 @@ import vn.edu.fpt.beefcare.repository.PlanVersionRepository;
 public class PlanPriceService {
     private final PlatformAccessService access;
     private final PlanVersionRepository plans;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final FarmClock clock;
     private final EntityManager em;
 
-    public PlanPriceService(PlatformAccessService access, PlanVersionRepository plans, AuditLogRepository auditLogs, FarmClock clock, EntityManager em) {
-        this.access = access; this.plans = plans; this.auditLogs = auditLogs; this.clock = clock; this.em = em;
+    public PlanPriceService(PlatformAccessService access, PlanVersionRepository plans, AuditService audit, FarmClock clock, EntityManager em) {
+        this.access = access; this.plans = plans; this.audit = audit; this.clock = clock; this.em = em;
     }
 
     @Transactional(readOnly = true)
@@ -92,8 +90,7 @@ public class PlanPriceService {
     }
     private PlanVersion effective(Instant now) { return plans.findFirstByWithdrawnAtIsNullAndEffectiveAtLessThanEqualOrderByEffectiveAtDescIdDesc(now).orElse(null); }
     private void audit(AppUser actor, PlanVersion p, Instant now, String action, Map<String, Object> details) {
-        AuditLog audit = new AuditLog(); audit.setActor(actor); audit.setAction(action); audit.setTargetType("PlanVersion");
-        audit.setTargetId(p.getId()); audit.setLoggedAt(now); audit.setDetails(JsonSupport.toJson(details)); auditLogs.saveAndFlush(audit);
+        audit.logAndFlush(null, actor, action, "PlanVersion", p.getId(), details, now);
     }
     private static void validatePrice(BigDecimal value, String field) {
         if (value == null) throw DomainException.required(field);

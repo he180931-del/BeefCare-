@@ -65,17 +65,35 @@ export function validateFarmInfo(input: Partial<FarmInfoInput>): FormErrors<Farm
 export function validateInvite(input: Partial<Omit<InviteMemberInput, 'role' | 'validityDays'>> & { role?: string; validityDays?: number }): FormErrors<InviteMemberInput> {
   const errors: FormErrors<InviteMemberInput> = {}
   const email = input.email?.trim() ?? ''
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Nhập địa chỉ email hợp lệ.'
-  if (input.role !== 'MANAGER' && input.role !== 'TECHNICIAN') errors.role = 'Chọn Quản lý hoặc Kỹ thuật viên.'
+  // TC-03-01/02: thiếu giá trị là MSG-COM-06, sai định dạng / quá 254 ký tự là MSG-COM-10.
+  if (!email) errors.email = 'Thư điện tử người nhận là bắt buộc.'
+  else if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Nhập địa chỉ email hợp lệ.'
+  if (!input.role) errors.role = 'Vai trò là bắt buộc.'
+  else if (input.role !== 'MANAGER' && input.role !== 'TECHNICIAN') errors.role = 'Chọn Quản lý hoặc Kỹ thuật viên.'
   if (![3, 7, 14].includes(Number(input.validityDays))) errors.validityDays = 'Thời hạn lời mời là 3, 7 hoặc 14 ngày.'
   return errors
 }
 
-export function validateMemberChange(input: Partial<ChangeMemberInput>, today = new Date().toISOString().slice(0, 10)): FormErrors<ChangeMemberInput> {
+/** GBR-66: ngày nghiệp vụ Việt Nam, kể cả khi UTC còn ở ngày hôm trước. */
+/** yyyy-mm-dd "today" in the farm time zone (Table III-1); Asia/Ho_Chi_Minh when the farm has none. */
+export function farmToday(timeZone = 'Asia/Ho_Chi_Minh', now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now).map((part) => [part.type, part.value]))
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+/** Same rule as the server (Table III-1, D30): trimmed, at least 5 non-space characters, at most 500. */
+export const MEMBER_REASON_RULE = 'Lý do cần ít nhất 5 ký tự (không tính khoảng trắng) và tối đa 500 ký tự.'
+const visibleCharacters = (value: string) => [...value].filter((character) => !/\s/u.test(character)).length
+
+/** UC-FE03-06 popup (D30): COM-06 for an empty field, COM-07 for a future date, COM-10 for a reason outside 5–500. */
+export function validateMemberChange(input: Partial<ChangeMemberInput>, today = farmToday()): FormErrors<ChangeMemberInput> {
   const errors: FormErrors<ChangeMemberInput> = {}
-  if (!['CHANGE_ROLE', 'DEACTIVATE', 'REACTIVATE'].includes(String(input.action))) errors.action = 'Chọn thao tác cần thực hiện.'
+  if (!['CHANGE_ROLE', 'DEACTIVATE', 'REACTIVATE'].includes(String(input.action))) errors.action = 'Chọn hành động.'
   if (input.action === 'CHANGE_ROLE' && input.role !== 'MANAGER' && input.role !== 'TECHNICIAN') errors.role = 'Chọn vai trò mới.'
-  if (!input.effectiveDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveDate) || input.effectiveDate > today) errors.effectiveDate = 'Ngày hiệu lực không được ở tương lai.'
-  if (!NAME(input.reason, 1, 500)) errors.reason = 'Nhập lý do (tối đa 500 ký tự).'
+  if (!input.effectiveDate) errors.effectiveDate = 'Ngày hiệu lực là bắt buộc.'
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveDate) || input.effectiveDate > today) errors.effectiveDate = 'Ngày hiệu lực không được ở tương lai.'
+  const reason = typeof input.reason === 'string' ? input.reason.trim() : ''
+  if (!reason) errors.reason = 'Lý do là bắt buộc.'
+  else if (reason.length > 500 || visibleCharacters(reason) < 5) errors.reason = MEMBER_REASON_RULE
   return errors
 }

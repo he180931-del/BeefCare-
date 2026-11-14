@@ -18,20 +18,59 @@ public final class MembershipDtos {
         Integer validityDays
     ) {}
 
-    public record InvitationView(Long id, String email, String role, String status, Instant createdAt, Instant lastSentAt, Instant expiresAt, Integer validityDays, Integer version) {}
+    public record InvitationView(Long id, String email, String role, String status, Instant createdAt, Instant lastSentAt, Instant expiresAt, Integer validityDays, Integer version, boolean hasAccount) {}
+
+    public record InvitationPage(java.util.List<InvitationView> items, long total, int page, int size,
+        java.util.Map<String, Long> counts, Instant asOf) {}
 
     public record InvitationAction(@NotNull Integer expectedVersion) {}
 
-    public record MemberView(Long id, Long userId, String fullName, String email, String role, String status, LocalDate effectiveDate, String reason, Integer version) {}
+    /**
+     * A1 row (UC-FE03-05, D29). {@code joinedAt} is the instant the membership was created (shown as mm/yyyy in the farm
+     * time zone). {@code actions} are the Owner's commands available now: CHANGE_ROLE and REACTIVATE need an ACTIVE farm,
+     * DEACTIVATE is always available on an ACTIVE member; empty on the Owner row and for a Manager. The reason and effective
+     * date of the last change are not part of SCR-13 and are not returned.
+     */
+    public record MemberView(Long id, Long userId, String fullName, String email, String role, String status, Instant joinedAt, Integer version,
+        java.util.List<String> actions) {}
 
+    /**
+     * SCR-13 tabs (D29): {@code all} counts every row returned (the Owner and inactive members included for the Owner),
+     * {@code managers} / {@code technicians} only ACTIVE members of that role, {@code inactive} the INACTIVE members and
+     * only for the Owner (omitted for a Manager, who has no Inactive tab).
+     */
+    public record MemberCounts(long all, long managers, long technicians,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) Long inactive) {}
+
+    /**
+     * A1 (D29): the whole member list of the farm, ordered by name (Vietnamese, case-insensitive; email when there is no
+     * name; then id). The farm name, time zone and stored service status let SCR-13 render without the Owner-only farm API.
+     */
+    public record MemberList(String farmName, String timeZone, String serviceStatus, MemberCounts counts, java.util.List<MemberView> items) {}
+
+    /**
+     * A2 / UC-FE03-06 (D30). {@code role} is the new role and is required only for CHANGE_ROLE (Manager ⇄ Technician);
+     * REACTIVATE keeps the current role. The effective date is history only (not after today in the farm time zone).
+     */
     public record MemberChange(
         @NotBlank @Pattern(regexp = "CHANGE_ROLE|DEACTIVATE|REACTIVATE") String action,
+        @io.swagger.v3.oas.annotations.media.Schema(description = "New role; required for CHANGE_ROLE, ignored otherwise")
         @Pattern(regexp = "MANAGER|TECHNICIAN") String role,
         @NotNull LocalDate effectiveDate,
+        // The 5-character minimum is checked in the service, after the permission checks (D30), so it is not a bean constraint.
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Trimmed; at least 5 non-space characters (Table III-1)")
         @NotBlank @Size(max = 500) String reason,
         @NotNull Integer expectedVersion
     ) {}
 
-    public record InvitationAcceptance(String farmName, String email, String role, Instant invitedAt, Instant expiresAt) {}
+    /**
+     * A7 (UC-FE03-04 step 4, AF2, D28): returned only to the signed-in invited email. PENDING can be accepted; ACCEPTED is the
+     * caller's own ACTIVE membership ({@code membershipId}). sentAt is the last send; times are instants shown in timeZone.
+     */
+    public record InvitationAcceptance(String status, Long farmId, String farmName, String timeZone, String email, String role,
+        String invitedBy, Instant sentAt, Instant expiresAt, Long membershipId) {}
+
+    /** A8 (D28): the link token identifies the intent; repeating the acceptance returns the same membership (GBR-17). */
+    public record AcceptedInvitation(Long membershipId, Long farmId, String farmName, String role, String status) {}
     public record AcceptInvitation(@NotBlank String token) {}
 }

@@ -1,39 +1,51 @@
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, Note, Textarea, Button } from '../../../components/ui'
+import { Field, Note, Textarea } from '../../../components/ui'
 import { platformAdminApi } from '../api/platformAdminApi'
-import { REASON_MAX, validateReason } from '../domain/platformRules'
-import type { AccountSummary } from '../types'
-import { errorMessage, isStale } from './common'
+import { REASON_MAX, accountStatusDone, validateReason } from '../domain/platformRules'
+import { useCommandKey } from '../hooks/useCommandKey'
+import type { AccountDetail } from '../types'
+import { commandOutcome } from './commandOutcome'
 
-/** Hộp thoại xác nhận tạm khóa / mở khóa (MSG-FE03-14, MSG-FE03-15). */
-export default function AccountStatusDialog({ account, reason, onReason, onClose, onDone, onReload }: {
-  account: AccountSummary
+/**
+ * Hộp thoại xác nhận tạm ngưng / khôi phục tài khoản (UC-FE03-08, D32): MSG-FE03-14 / MSG-FE03-15, lý do 5–500 ký tự,
+ * thành công MSG-FE03-16. Bấm lặp hoặc thử lại sau lỗi lưu / mạng dùng cùng Idempotency-Key (GBR-88); lỗi nghiệp vụ
+ * (FE03-17, FE03-20, COM-05, COM-08) đóng hộp thoại và để màn tải lại dữ liệu.
+ */
+export default function AccountStatusDialog({ account, reason, onReason, onClose, onDone, onRefused }: {
+  account: AccountDetail
   reason: string
   onReason: (reason: string) => void
   onClose: () => void
   onDone: (message: string) => void
-  onReload: () => void
+  onRefused: (message: string) => void
 }) {
   const suspending = account.accountStatus === 'ACTIVE'
   const [fieldError, setFieldError] = useState<string | null>(null)
-  const [error, setError] = useState<unknown>(null)
+  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const requestKey = useCommandKey()
 
   const submit = async () => {
+    if (busy) return
     const invalid = validateReason(reason)
     setFieldError(invalid)
     if (invalid) return
     setBusy(true)
     setError(null)
+    const command = { reason: reason.trim(), expectedVersion: account.version }
+    const key = requestKey.keyFor([account.id, suspending ? 'suspend' : 'restore', command.reason, command.expectedVersion])
     try {
-      const command = { reason: reason.trim(), expectedVersion: account.version }
       const next = suspending
-        ? await platformAdminApi.suspendAccount(account.id, command)
-        : await platformAdminApi.restoreAccount(account.id, command)
-      onDone(`Tài khoản ${next.email} đã chuyển sang trạng thái ${next.accountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm khóa'}.`)
-    } catch (e) {
-      setError(e)
+        ? await platformAdminApi.suspendAccount(account.id, command, key)
+        : await platformAdminApi.restoreAccount(account.id, command, key)
+      requestKey.clear()
+      onDone(accountStatusDone(next.email, next.accountStatus))
+    } catch (failure) {
+      const outcome = commandOutcome(failure, account.email)
+      if (outcome.kind === 'refused') { requestKey.clear(); onRefused(outcome.message); return }
+      if (outcome.kind === 'field') { requestKey.clear(); setFieldError(outcome.message); return }
+      setError(outcome.message) // lỗi lưu / mạng: giữ hộp thoại và khóa để thử lại (GBR-88)
     } finally {
       setBusy(false)
     }
@@ -41,27 +53,22 @@ export default function AccountStatusDialog({ account, reason, onReason, onClose
 
   return (
     <Modal
-      title={suspending ? 'Tạm khóa tài khoản' : 'Mở khóa tài khoản'}
+      title={suspending ? 'Tạm ngưng tài khoản' : 'Khôi phục tài khoản'}
       sub={suspending
-        ? `Tạm khóa tài khoản ${account.email}? Người dùng sẽ không thể đăng nhập.`
-        : `Mở khóa tài khoản ${account.email}? Vai trò và quyền thành viên đã thu hồi sẽ không được khôi phục.`}
+        ? `Tạm ngưng tài khoản ${account.email}? Người dùng sẽ không đăng nhập được.` // MSG-FE03-14
+        : `Khôi phục tài khoản ${account.email}? Các vai trò và membership đã thu hồi sẽ không được trả lại.`} // MSG-FE03-15
       width={560}
       onClose={onClose}
     >
-      <Field label="Lý do *" id="status-dialog-reason" hint="Bắt buộc khi đổi trạng thái tài khoản">
-        <Textarea id="status-dialog-reason" value={reason} maxLength={REASON_MAX} onChange={(e) => onReason(e.target.value)} />
+      <Field label="Lý do *" id="status-dialog-reason" hint="5–500 ký tự; được lưu vào lịch sử tài khoản">
+        <Textarea id="status-dialog-reason" value={reason} maxLength={REASON_MAX} onChange={(e) => { onReason(e.target.value); setFieldError(null) }} />
       </Field>
       {fieldError && <p role="alert" className="m-0 -mt-2 text-xs text-err-fg">{fieldError}</p>}
-      {error != null && (
-        <Note tone="err">
-          <span role="alert">{errorMessage(error)}</span>
-          {isStale(error) && <Button size="sm" className="ml-2" onClick={() => { setError(null); onReload() }}>Tải lại</Button>}
-        </Note>
-      )}
+      {error != null && <Note tone="err"><span role="alert">{error}</span></Note>}
       <ModalFooter className="!px-0 !pb-0">
-        <ModalButton onClick={onClose}>Hủy</ModalButton>
+        <ModalButton onClick={onClose}>Quay lại</ModalButton>
         <ModalButton variant={suspending ? 'danger' : 'primary'} onClick={submit} disabled={busy}>
-          {suspending ? 'Tạm khóa tài khoản' : 'Mở khóa tài khoản'}
+          {suspending ? 'Tạm ngưng tài khoản' : 'Khôi phục tài khoản'}
         </ModalButton>
       </ModalFooter>
     </Modal>

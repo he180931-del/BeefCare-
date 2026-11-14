@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation'
 
 describe('farm workspace validation', () => {
@@ -60,10 +60,23 @@ describe('farm workspace validation', () => {
     expect(validateInvite({ email: 'manager@beefcare.vn', role: 'MANAGER', validityDays: 7 })).toEqual({})
   })
 
+  it('separates a missing invitation field (MSG-COM-06) from an invalid one (MSG-COM-10) — TC-03-01/02', () => {
+    expect(validateInvite({ email: '   ', validityDays: 7 })).toEqual({ email: 'Thư điện tử người nhận là bắt buộc.', role: 'Vai trò là bắt buộc.' })
+    expect(validateInvite({ email: 'abc', role: 'OWNER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.', role: 'Chọn Quản lý hoặc Kỹ thuật viên.' })
+    expect(validateInvite({ email: `a@${'x'.repeat(248)}.test`, role: 'MANAGER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.' })
+  })
+
   it('requires valid member action and prevents future effective dates', () => {
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
-    expect(validateMemberChange({ action: 'CHANGE_ROLE', role: 'TECHNICIAN', effectiveDate: tomorrow, reason: 'Thay đổi phân công' })).toHaveProperty('effectiveDate')
-    expect(validateMemberChange({ action: 'DEACTIVATE', effectiveDate: new Date().toISOString().slice(0, 10), reason: 'Kết thúc hợp đồng' })).toEqual({})
+    expect(validateMemberChange({ action: 'CHANGE_ROLE', role: 'TECHNICIAN', effectiveDate: '2026-11-12', reason: 'Thay đổi phân công' }, '2026-11-11')).toHaveProperty('effectiveDate')
+    expect(validateMemberChange({ action: 'DEACTIVATE', effectiveDate: '2026-11-11', reason: 'Kết thúc hợp đồng' }, '2026-11-11')).toEqual({})
+  })
+
+  it('uses the Vietnam business date for reactivation around midnight, rather than the previous UTC date', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-10T18:00:00Z'))
+    try {
+      expect(validateMemberChange({ action: 'REACTIVATE', effectiveDate: '2026-11-11', reason: 'Tiếp tục công việc' })).toEqual({})
+      expect(validateMemberChange({ action: 'REACTIVATE', effectiveDate: '2026-11-12', reason: 'Tiếp tục công việc' })).toHaveProperty('effectiveDate')
+    } finally { vi.useRealTimers() }
   })
 
   it('caps farm information notes and validates the contact phone when present', () => {

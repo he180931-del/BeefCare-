@@ -14,9 +14,11 @@ import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.FarmInvitation;
 import vn.edu.fpt.beefcare.domain.FarmMembership;
+import vn.edu.fpt.beefcare.domain.FarmMembershipChange;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
 import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
+import vn.edu.fpt.beefcare.repository.FarmMembershipChangeRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.service.dto.MembershipDtos.*;
@@ -30,6 +32,7 @@ public class FarmMembershipService {
 
     private static final String ACTIVE = "ACTIVE";
     private static final String PENDING = "PENDING";
+    private static final String ACCEPTED = "ACCEPTED";
     private final FarmAccessService access;
     private final FarmRepository farms;
     private final FarmInvitationRepository invitations;
@@ -39,6 +42,7 @@ public class FarmMembershipService {
     private final MailService mail;
     private final FarmClock clock;
     private final ActionLinkSigner linkSigner;
+    private final FarmMembershipChangeRepository changes;
 
     public FarmMembershipService(
         FarmAccessService access,
@@ -49,7 +53,8 @@ public class FarmMembershipService {
         AuditService audit,
         MailService mail,
         FarmClock clock,
-        ActionLinkSigner linkSigner
+        ActionLinkSigner linkSigner,
+        FarmMembershipChangeRepository changes
     ) {
         this.access = access;
         this.farms = farms;
@@ -60,36 +65,70 @@ public class FarmMembershipService {
         this.mail = mail;
         this.clock = clock;
         this.linkSigner = linkSigner;
+        this.changes = changes;
     }
 
+    /**
+     * A1 / SCR-13 (UC-FE03-05, D29). The Owner reads every membership in any service status (GBR-14 read exception that
+     * supports deactivation); a Manager reads the ACTIVE memberships of an ACTIVE farm; a Technician is refused (Table III-2).
+     */
     @Transactional(readOnly = true)
-    public List<MemberView> listMembers(Long farmId) {
-        AppUser caller = access.currentActiveUser();
-        FarmMembership callerMembership = memberships.findFirstByFarmIdAndUserIdAndStatusIgnoreCase(farmId, caller.getId(), ACTIVE)
-            .orElseThrow(() -> DomainException.forbidden(MessageCodes.COM_01));
-        boolean owner = "OWNER".equalsIgnoreCase(callerMembership.getRole());
-        if (owner) access.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
-        else access.require(farmId, FarmAction.VIEW_CATALOGUES);
-        return memberships.findByFarmIdOrderById(farmId).stream()
+    public MemberList listMembers(Long farmId) {
+        FarmContext context = access.require(farmId, FarmAction.VIEW_MEMBERS);
+        boolean owner = context.role() == FarmRole.OWNER;
+        Farm farm = context.farm();
+        boolean farmActive = ACTIVE.equalsIgnoreCase(farm.getServiceStatus());
+        java.text.Collator collator = java.text.Collator.getInstance(Locale.forLanguageTag("vi"));
+        collator.setStrength(java.text.Collator.SECONDARY); // letter case ignored, Vietnamese accents kept
+        List<FarmMembership> rows = memberships.findWithUserByFarmId(farmId).stream()
             .filter(membership -> owner || ACTIVE.equalsIgnoreCase(membership.getStatus()))
-            .map(this::memberView)
+            .sorted(java.util.Comparator.<FarmMembership, String>comparing(FarmMembershipService::sortName, collator)
+                .thenComparing(membership -> membership.getUser().getEmail(), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(FarmMembership::getId))
             .toList();
+        long managers = rows.stream().filter(m -> ACTIVE.equalsIgnoreCase(m.getStatus()) && "MANAGER".equalsIgnoreCase(m.getRole())).count();
+        long technicians = rows.stream().filter(m -> ACTIVE.equalsIgnoreCase(m.getStatus()) && "TECHNICIAN".equalsIgnoreCase(m.getRole())).count();
+        Long inactive = owner ? rows.stream().filter(m -> !ACTIVE.equalsIgnoreCase(m.getStatus())).count() : null;
+        List<MemberView> items = rows.stream().map(membership -> memberView(membership, owner, farmActive)).toList();
+        return new MemberList(farm.getName(), farm.getTimeZone(), farm.getServiceStatus(), new MemberCounts(rows.size(), managers, technicians, inactive), items);
     }
 
-    @Transactional(readOnly = true)
-    public List<InvitationView> listInvitations(Long farmId, String status) {
+    private static String sortName(FarmMembership membership) {
+        String name = membership.getUser().getFullName();
+        return name == null || name.isBlank() ? membership.getUser().getEmail() : name.trim();
+    }
+
+    /** The Owner's commands on a row now (GBR-18, D29); a Manager gets none and the Owner row has none. */
+    private static List<String> memberActions(FarmMembership membership, boolean ownerCaller, boolean farmActive) {
+        if (!ownerCaller || "OWNER".equalsIgnoreCase(membership.getRole())) return List.of();
+        if (ACTIVE.equalsIgnoreCase(membership.getStatus())) return farmActive ? List.of("CHANGE_ROLE", "DEACTIVATE") : List.of("DEACTIVATE");
+        return farmActive ? List.of("REACTIVATE") : List.of();
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public InvitationPage listInvitations(Long farmId, String status, int page, int size, String sort, String dir, Long invitationId) {
         access.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
         String filter = status == null || status.isBlank() ? null : status.trim().toUpperCase(Locale.ROOT);
         if (filter != null && !List.of("PENDING", "ACCEPTED", "CANCELLED", "EXPIRED").contains(filter)) {
             throw DomainException.invalid("status");
         }
-        return invitations.findByFarmIdOrderByCreatedAtDesc(farmId).stream()
-            .filter(invitation -> {
-                String currentStatus = invitationStatus(invitation);
-                return filter == null || filter.equalsIgnoreCase(currentStatus);
-            })
-            .map(invitation -> invitationView(invitation, invitationStatus(invitation)))
-            .toList();
+        if (page < 0 || page > Integer.MAX_VALUE / 100) throw DomainException.invalid("page");
+        if (size < 1 || size > 100) throw DomainException.invalid("size");
+        if (!"lastSentAt".equals(sort)) throw DomainException.invalid("sort");
+        if (dir == null || !List.of("asc", "desc").contains(dir.toLowerCase(Locale.ROOT))) throw DomainException.invalid("dir");
+        if (invitationId != null && invitationId < 1) throw DomainException.invalid("invitationId");
+        java.time.Instant asOf = clock.now();
+        var order = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.fromString(dir), "lastSentAt")
+            .and(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id"));
+        var found = invitations.searchInvitations(farmId, filter, invitationId, asOf, org.springframework.data.domain.PageRequest.of(page, size, order));
+        var counts = new java.util.LinkedHashMap<String, Long>();
+        var totals = invitations.countInvitationStatuses(farmId, asOf);
+        counts.put("PENDING", totals.getPending()); counts.put("ACCEPTED", totals.getAccepted());
+        counts.put("EXPIRED", totals.getExpired()); counts.put("CANCELLED", totals.getCancelled());
+        var emails = found.stream().map(row -> row.getInvitedEmail().toLowerCase(Locale.ROOT)).toList();
+        java.util.Set<String> existing = emails.isEmpty() ? java.util.Set.of() : users.findExistingInvitationEmails(emails);
+        var items = found.stream().map(row -> invitationView(row, invitationStatus(row, asOf), existing.contains(row.getInvitedEmail().toLowerCase(Locale.ROOT)))).toList();
+        return new InvitationPage(items, found.getTotalElements(), page, size, counts, asOf);
     }
 
     @Transactional
@@ -110,7 +149,7 @@ public class FarmMembershipService {
                 throw DomainException.conflict("MSG-FE03-02", "email", email);
             }
             if (existing.isPresent()) {
-                throw DomainException.conflict("MSG-FE03-REACTIVATE", "membershipId", existing.get().getId());
+                throw DomainException.conflict(MessageCodes.FE03_21, "membershipId", existing.get().getId(), "email", email);
             }
         }
         Optional<FarmInvitation> existingInvite = invitations.findFirstByFarmIdAndInvitedEmailIgnoreCaseAndStatusIgnoreCase(farmId, email, PENDING);
@@ -142,126 +181,176 @@ public class FarmMembershipService {
         audit.log(owner, "MEMBER_INVITE", "FarmInvitation", invitation.getId(),
             java.util.Map.of("role", role.name(), "validityDays", validityDays));
         mail.queueActionLink(invitation.getInvitedEmail(), "FARM_INVITATION", "INVITATION", invitation.getId(), null, farm.getName(), role.name());
-        return invitationView(invitation);
+        return invitationView(invitation, invitationStatus(invitation), account.isPresent());
     }
 
+    /** UC-FE03-03 / GBR-16: same invitation, email, role and validity; the period restarts and only the newest link works (D27). */
     @Transactional
     public InvitationView resend(Long farmId, Long invitationId, Integer expectedVersion) {
         FarmContext owner = requireOwner(farmId, true);
-        FarmInvitation invitation = ownInvitation(farmId, invitationId);
-        requirePending(invitation);
-        VersionGuard.requireExpected(invitation.getVersion(), expectedVersion);
+        FarmInvitation invitation = lockPendingInvitation(farmId, invitationId, expectedVersion);
         Instant now = clock.now();
+        var before = java.util.Map.of("lastSentAt", invitation.getLastSentAt().toString(), "expiresAt", invitation.getExpiresAt().toString());
         mail.cancelActionLink("INVITATION", invitation.getId());
         invitation.setTokenNonce(linkSigner.newNonce());
         String raw = linkSigner.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce());
         invitation.setTokenHash(linkSigner.hash(raw)); // invalidates every previously sent link
         invitation.setLastSentAt(now);
         invitation.setExpiresAt(now.plusSeconds(invitation.getValidityDays() * 86_400L));
-        audit.log(owner, "INVITE_RESEND", "FarmInvitation", invitation.getId(),
-            java.util.Map.of("role", invitation.getProposedRole(), "validityDays", invitation.getValidityDays()));
+        audit.log(owner, "INVITE_RESEND", "FarmInvitation", invitation.getId(), java.util.Map.of(
+            "role", invitation.getProposedRole(), "validityDays", invitation.getValidityDays(), "before", before,
+            "after", java.util.Map.of("lastSentAt", invitation.getLastSentAt().toString(), "expiresAt", invitation.getExpiresAt().toString())));
         mail.queueActionLink(invitation.getInvitedEmail(), "FARM_INVITATION", "INVITATION", invitation.getId(), null, owner.farm().getName(), invitation.getProposedRole());
         invitations.flush();
         return invitationView(invitation);
     }
 
+    /** UC-FE03-03 / GBR-14: allowed in every service status so the Owner can withdraw access. */
     @Transactional
     public InvitationView cancel(Long farmId, Long invitationId, Integer expectedVersion) {
         FarmContext owner = requireOwner(farmId, false);
-        FarmInvitation invitation = ownInvitation(farmId, invitationId);
-        requirePending(invitation);
-        VersionGuard.requireExpected(invitation.getVersion(), expectedVersion);
+        FarmInvitation invitation = lockPendingInvitation(farmId, invitationId, expectedVersion);
         invitation.setStatus("CANCELLED");
         invitation.setCancelledAt(clock.now());
-        invitation.setTokenHash(null);
+        // D28: the hash stays until JOB-08 so the link can still say CANCELLED; the status check means it grants nothing.
         mail.cancelActionLink("INVITATION", invitation.getId());
-        audit.log(owner, "INVITE_CANCEL", "FarmInvitation", invitation.getId(), java.util.Map.of("status", "CANCELLED"));
+        audit.log(owner, "INVITE_CANCEL", "FarmInvitation", invitation.getId(),
+            java.util.Map.of("role", invitation.getProposedRole(), "statusBefore", PENDING, "statusAfter", "CANCELLED"));
         invitations.flush();
         return invitationView(invitation);
     }
 
+    /**
+     * A7 / SCR-15. Only the signed-in invited email learns anything (E2 first). PENDING and unexpired: reviewable while the
+     * farm is ACTIVE (E3). ACCEPTED: the caller's own ACTIVE membership is shown again (AF2, D28); otherwise the link is used (E1).
+     */
     @Transactional(readOnly = true)
     public InvitationAcceptance preview(String rawToken) {
-        FarmInvitation invitation = findValidInviteForCaller(rawToken);
-        if (!ACTIVE.equalsIgnoreCase(invitation.getFarm().getServiceStatus())) throw DomainException.forbidden("MSG-FE03-04");
-        return new InvitationAcceptance(invitation.getFarm().getName(), invitation.getInvitedEmail(), invitation.getProposedRole(), invitation.getCreatedAt(), invitation.getExpiresAt());
+        FarmInvitation invitation = findInviteForCaller(rawToken, true, false);
+        Farm farm = invitation.getFarm();
+        if (ACCEPTED.equalsIgnoreCase(invitation.getStatus())) {
+            return acceptance(invitation, ACCEPTED, activeMembershipOfCaller(invitation).getId());
+        }
+        if (!ACTIVE.equalsIgnoreCase(farm.getServiceStatus())) throw DomainException.forbidden(MessageCodes.FE03_04);
+        return acceptance(invitation, PENDING, null);
     }
 
+    /** A8 / UC-FE03-04 steps 6-8. The token is the intent (D28): repeating the acceptance returns the same membership (GBR-17). */
     @Transactional
-    public MemberView accept(String rawToken) {
+    public AcceptedInvitation accept(String rawToken) {
         FarmInvitation invitation = findInviteForCaller(rawToken, true, true);
         Farm farm = farms.lockById(invitation.getFarm().getId()).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
-        if (!ACTIVE.equalsIgnoreCase(farm.getServiceStatus())) throw DomainException.forbidden("MSG-FE03-04");
+        // MSG-FE03-21 and the membership id are for the Owner's invite popup only (D25); a used link is MSG-FE03-08 (E1).
+        if (ACCEPTED.equalsIgnoreCase(invitation.getStatus())) return accepted(activeMembershipOfCaller(invitation));
+        if (!ACTIVE.equalsIgnoreCase(farm.getServiceStatus())) throw DomainException.forbidden(MessageCodes.FE03_04);
         AppUser caller = access.currentActiveUser();
-        Optional<FarmMembership> prior = memberships.findFirstByFarmIdAndUserId(farm.getId(), caller.getId());
-        if (prior.isPresent()) {
-            FarmMembership existing = prior.get();
-            if ("ACCEPTED".equalsIgnoreCase(invitation.getStatus()) && ACTIVE.equalsIgnoreCase(existing.getStatus())) return memberView(existing);
-            if ("INACTIVE".equalsIgnoreCase(existing.getStatus())) throw DomainException.conflict("MSG-FE03-REACTIVATE", "membershipId", existing.getId());
-            throw DomainException.conflict(MessageCodes.COM_05);
-        }
+        if (memberships.findFirstByFarmIdAndUserId(farm.getId(), caller.getId()).isPresent()) throw DomainException.conflict(MessageCodes.COM_05);
         if (!PENDING.equalsIgnoreCase(invitation.getStatus()) || !invitation.getExpiresAt().isAfter(clock.now())) {
-            throw invitationInvalid(invitationStatus(invitation));
+            throw invitationInvalid(invitation);
         }
-        FarmMembership membership = new FarmMembership();
-        membership.setFarm(farm);
-        membership.setUser(caller);
-        membership.setRole(parseInviteRole(invitation.getProposedRole()).name());
-        membership.setStatus(ACTIVE);
-        membership.setEffectiveDate(clock.today());
-        membership.setChangeReason("Invitation accepted");
-        membership = memberships.saveAndFlush(membership);
-        invitation.setStatus("ACCEPTED");
+        FarmMembership created = new FarmMembership();
+        created.setFarm(farm);
+        created.setUser(caller);
+        created.setRole(parseInviteRole(invitation.getProposedRole()).name());
+        created.setStatus(ACTIVE);
+        created.setEffectiveDate(clock.today());
+        created.setJoinedAt(clock.now());
+        created.setChangeReason("Invitation accepted");
+        FarmMembership membership = memberships.saveAndFlush(created);
+        invitation.setStatus(ACCEPTED);
         invitation.setAcceptedAt(clock.now());
         mail.cancelActionLink("INVITATION", invitation.getId());
         audit.log(farm, caller, "MEMBER_ACCEPT", "FarmMembership", membership.getId(), java.util.Map.of("role", membership.getRole()));
+        // Step 8 / GBR-64 (D28): the Owner e-mail intent commits with the acceptance; JOB-07 resolves the Owner again and retries.
+        memberships.findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(farm.getId(), "OWNER", ACTIVE)
+            .ifPresent(owner -> mail.queueMemberJoined(owner.getUser(), membership));
         memberships.flush();
         invitations.flush();
-        AppUser owner = memberships.findByFarmIdOrderById(farm.getId()).stream()
-            .filter(value -> "OWNER".equalsIgnoreCase(value.getRole()) && ACTIVE.equalsIgnoreCase(value.getStatus()))
-            .map(FarmMembership::getUser).findFirst().orElse(null);
-        if (owner != null) mail.sendEmail(owner.getEmail(), "Farm invitation accepted", caller.getFullName() + " joined " + farm.getName() + " as Farm " + membership.getRole().toLowerCase(Locale.ROOT) + ".", false, false);
-        return memberView(membership);
+        return accepted(membership);
     }
 
+    /** AF2 / GBR-17: an ACCEPTED link stays usable only by the person whose membership it created, while that membership is ACTIVE. */
+    private FarmMembership activeMembershipOfCaller(FarmInvitation invitation) {
+        AppUser caller = access.currentActiveUser();
+        return memberships.findFirstByFarmIdAndUserId(invitation.getFarm().getId(), caller.getId())
+            .filter(membership -> ACTIVE.equalsIgnoreCase(membership.getStatus()))
+            .orElseThrow(() -> invitationInvalid(invitation));
+    }
+
+    private InvitationAcceptance acceptance(FarmInvitation invitation, String status, Long membershipId) {
+        Farm farm = invitation.getFarm();
+        String invitedBy = invitation.getInvitedBy() == null ? null : invitation.getInvitedBy().getFullName();
+        return new InvitationAcceptance(status, farm.getId(), farm.getName(), farm.getTimeZone(), invitation.getInvitedEmail(),
+            invitation.getProposedRole(), invitedBy, invitation.getLastSentAt(), invitation.getExpiresAt(), membershipId);
+    }
+
+    private static AcceptedInvitation accepted(FarmMembership membership) {
+        return new AcceptedInvitation(membership.getId(), membership.getFarm().getId(), membership.getFarm().getName(), membership.getRole(), membership.getStatus());
+    }
+
+    /**
+     * A2 / UC-FE03-06 (D30). The row is locked first, then checked in this order: Owner of the farm (COM-01), membership of
+     * this farm (COM-08), not the Owner membership (COM-01), input (COM-06 / COM-07 / COM-10, reason 5–500 non-space
+     * characters, date not after today in the farm time zone), action allowed for the status (change role of an INACTIVE
+     * member: COM-10), ACTIVE farm for change role / reactivate (FE03-04), requested value already in place (FE03-20, also
+     * with an outdated version), version (COM-05). A refused command writes nothing. The effective date is history only:
+     * the new permissions apply from the member's next request (FE-03 Q3).
+     */
     @Transactional
     public MemberView changeMember(Long farmId, Long membershipId, MemberChange request) {
         FarmContext owner = requireOwner(farmId, false);
-        FarmMembership membership = memberships.findById(membershipId).filter(value -> farmId.equals(value.getFarm().getId()))
-            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        FarmMembership membership = memberships.lockByIdAndFarmId(membershipId, farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
         if ("OWNER".equalsIgnoreCase(membership.getRole())) throw DomainException.forbidden(MessageCodes.COM_01);
-        VersionGuard.requireExpected(membership.getVersion(), request.expectedVersion());
+        String action = request.action().trim().toUpperCase(Locale.ROOT);
+        if (!List.of("CHANGE_ROLE", "DEACTIVATE", "REACTIVATE").contains(action)) throw DomainException.invalid("action");
+        FarmRole newRole = null;
+        if ("CHANGE_ROLE".equals(action)) {
+            if (request.role() == null || request.role().isBlank()) throw DomainException.required("role");
+            newRole = parseInviteRole(request.role());
+            if (newRole == null || newRole == FarmRole.OWNER) throw DomainException.invalid("role");
+        }
         LocalDate effectiveDate = request.effectiveDate();
-        if (effectiveDate.isAfter(clock.today())) throw DomainException.invalid("effectiveDate");
+        if (effectiveDate.isAfter(farmToday(owner.farm()))) throw DomainException.badRequest(MessageCodes.COM_07, "field", "effectiveDate");
         String reason = request.reason().trim();
         if (reason.isEmpty()) throw DomainException.required("reason");
-        String action = request.action().trim().toUpperCase(Locale.ROOT);
+        long visible = reason.codePoints().filter(c -> !Character.isWhitespace(c) && !Character.isSpaceChar(c)).count();
+        if (reason.length() > 500 || visible < 5) throw DomainException.invalid("reason");
+        boolean active = ACTIVE.equalsIgnoreCase(membership.getStatus());
+        if ("CHANGE_ROLE".equals(action) && !active) throw DomainException.invalid("action");
         boolean farmActive = ACTIVE.equalsIgnoreCase(owner.farm().getServiceStatus());
-        if (("CHANGE_ROLE".equals(action) || "REACTIVATE".equals(action)) && !farmActive) throw DomainException.forbidden("MSG-FE03-04");
+        if (!"DEACTIVATE".equals(action) && !farmActive) throw DomainException.forbidden(MessageCodes.FE03_04);
+        boolean unchanged = switch (action) {
+            case "CHANGE_ROLE" -> newRole.name().equalsIgnoreCase(membership.getRole());
+            case "DEACTIVATE" -> !active;
+            default -> active;
+        };
+        if (unchanged) {
+            throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "CHANGE_ROLE".equals(action) ? "role" : "status");
+        }
+        VersionGuard.requireExpected(membership.getVersion(), request.expectedVersion());
 
+        String roleBefore = membership.getRole();
+        String statusBefore = membership.getStatus();
         switch (action) {
-            case "CHANGE_ROLE" -> {
-                FarmRole role = parseInviteRole(request.role());
-                if (role == null || role == FarmRole.OWNER) throw DomainException.invalid("role");
-                if (role.name().equalsIgnoreCase(membership.getRole())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "role");
-                membership.setRole(role.name());
-            }
-            case "DEACTIVATE" -> {
-                if (!ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "status");
-                membership.setStatus("INACTIVE");
-            }
-            case "REACTIVATE" -> {
-                if (ACTIVE.equalsIgnoreCase(membership.getStatus())) throw DomainException.conflict(MessageCodes.FE03_20, "target", membership.getUser().getEmail(), "value", "status");
-                membership.setStatus(ACTIVE);
-            }
-            default -> throw DomainException.invalid("action");
+            case "CHANGE_ROLE" -> membership.setRole(newRole.name());
+            case "DEACTIVATE" -> membership.setStatus("INACTIVE");
+            default -> membership.setStatus(ACTIVE);
         }
         membership.setEffectiveDate(effectiveDate);
         membership.setChangeReason(reason);
-        audit.log(owner, "MEMBER_" + action, "FarmMembership", membership.getId(),
-            java.util.Map.of("role", membership.getRole(), "status", membership.getStatus(), "effectiveDate", effectiveDate.toString()));
+        changes.save(new FarmMembershipChange(membership, action, roleBefore, statusBefore, effectiveDate, reason, owner.user(), clock.now()));
+        // GBR-86: before / after values only; the reason stays in the membership history, not in the central audit.
+        audit.log(owner, "MEMBER_" + action, "FarmMembership", membership.getId(), java.util.Map.of(
+            "roleBefore", roleBefore, "roleAfter", membership.getRole(), "statusBefore", statusBefore, "statusAfter", membership.getStatus(),
+            "effectiveDate", effectiveDate.toString()));
         memberships.flush();
-        return memberView(membership);
+        return memberView(membership, true, farmActive);
+    }
+
+    /** "Today" of the farm (Table III-1): the farm's own time zone, the platform zone when it has none. */
+    private LocalDate farmToday(Farm farm) {
+        String zone = farm.getTimeZone();
+        return zone == null || zone.isBlank() ? clock.today() : clock.now().atZone(java.time.ZoneId.of(zone)).toLocalDate();
     }
 
     private FarmContext requireOwner(Long farmId, boolean requireActiveFarm) {
@@ -272,40 +361,45 @@ public class FarmMembershipService {
         return context;
     }
 
-    private FarmInvitation ownInvitation(Long farmId, Long invitationId) {
-        return invitations.findById(invitationId).filter(invitation -> farmId.equals(invitation.getFarm().getId()))
+    /**
+     * UC-FE03-03 step 4: the row lock makes a concurrent command wait and then see the committed status. Status is checked
+     * before the version (E2 before E4) and with the read clock, so an expired PENDING row reports EXPIRED without writing.
+     */
+    private FarmInvitation lockPendingInvitation(Long farmId, Long invitationId, Integer expectedVersion) {
+        FarmInvitation invitation = invitations.lockByIdAndFarmId(invitationId, farmId)
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
-    }
-
-    private void requirePending(FarmInvitation invitation) {
-        expireIfNecessary(invitation);
-        if (!PENDING.equalsIgnoreCase(invitation.getStatus())) throw DomainException.conflict("MSG-FE03-08", "status", invitation.getStatus());
+        String status = invitationStatus(invitation).toUpperCase(Locale.ROOT);
+        if (!PENDING.equals(status)) throw DomainException.conflict(MessageCodes.FE03_08, "status", status);
+        VersionGuard.requireExpected(invitation.getVersion(), expectedVersion);
+        return invitation;
     }
 
     private void expireIfNecessary(FarmInvitation invitation) {
         if (PENDING.equalsIgnoreCase(invitation.getStatus()) && invitation.getExpiresAt() != null && !invitation.getExpiresAt().isAfter(clock.now())) {
-            invitation.setStatus("EXPIRED");
-            invitation.setTokenHash(null);
+            invitation.setStatus("EXPIRED"); // D28: the link hash stays until JOB-08 so SCR-15 can still say EXPIRED
+            // Release the partial unique PENDING key before inserting a replacement invitation.
+            invitations.flush();
+            mail.cancelActionLink("INVITATION", invitation.getId());
+            audit.log(invitation.getFarm(), access.currentActiveUser(), "INVITE_EXPIRED", "FarmInvitation", invitation.getId(), java.util.Map.of("status", "EXPIRED"));
         }
     }
 
-    /** JOB-02: every 15 minutes; acceptance and resend also check the expiry in real time. */
+    /**
+     * JOB-02: every 15 minutes; acceptance and resend also check the expiry in real time. The link hash is kept (D28): the
+     * status alone makes the link grant nothing, and JOB-08 removes the hash 7 days after expiry.
+     */
     @Scheduled(cron = "${beefcare.jobs.invitation-expiry-cron:0 */15 * * * *}")
     @Transactional
     public void expirePendingInvitations() {
         List<FarmInvitation> expired = invitations.lockPendingExpiredBefore(clock.now());
         for (FarmInvitation invitation : expired) {
             invitation.setStatus("EXPIRED");
-            invitation.setTokenHash(null);
             audit.log(invitation.getFarm(), null, "INVITE_EXPIRED", "FarmInvitation", invitation.getId(), java.util.Map.of("status", "EXPIRED"));
         }
         if (!expired.isEmpty()) LOG.info("Expired {} farm invitations", expired.size());
     }
 
-    private FarmInvitation findValidInviteForCaller(String rawToken) {
-        return findInviteForCaller(rawToken, false, false);
-    }
-
+    /** E2 before anything else: a link opened by another account reveals neither the farm nor the invitation's status. */
     private FarmInvitation findInviteForCaller(String rawToken, boolean allowAccepted, boolean lock) {
         if (rawToken == null || rawToken.isBlank()) throw invitationInvalid("INVALID");
         String tokenHash = linkSigner.hash(rawToken);
@@ -313,14 +407,15 @@ public class FarmMembershipService {
         AppUser caller = access.currentActiveUser();
         if (!invitation.getInvitedEmail().equalsIgnoreCase(caller.getEmail())) throw DomainException.forbidden(MessageCodes.FE03_09);
         if (!linkSigner.matchesHash(linkSigner.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce()), invitation.getTokenHash())) throw invitationInvalid("INVALID");
-        boolean acceptedReplay = allowAccepted && "ACCEPTED".equalsIgnoreCase(invitation.getStatus());
-        if (!acceptedReplay && (!PENDING.equalsIgnoreCase(invitation.getStatus()) || !invitation.getExpiresAt().isAfter(clock.now()))) throw invitationInvalid(invitationStatus(invitation));
+        boolean acceptedReplay = allowAccepted && ACCEPTED.equalsIgnoreCase(invitation.getStatus());
+        if (!acceptedReplay && (!PENDING.equalsIgnoreCase(invitation.getStatus()) || !invitation.getExpiresAt().isAfter(clock.now()))) throw invitationInvalid(invitation);
         return invitation;
     }
 
-    private MemberView memberView(FarmMembership membership) {
+    private static MemberView memberView(FarmMembership membership, boolean ownerCaller, boolean farmActive) {
         AppUser user = membership.getUser();
-        return new MemberView(membership.getId(), user.getId(), user.getFullName(), user.getEmail(), membership.getRole(), membership.getStatus(), membership.getEffectiveDate(), membership.getChangeReason(), membership.getVersion());
+        return new MemberView(membership.getId(), user.getId(), user.getFullName(), user.getEmail(), membership.getRole(), membership.getStatus(),
+            membership.getJoinedAt(), membership.getVersion(), memberActions(membership, ownerCaller, farmActive));
     }
 
     private InvitationView invitationView(FarmInvitation invitation) {
@@ -328,11 +423,19 @@ public class FarmMembershipService {
     }
 
     private InvitationView invitationView(FarmInvitation invitation, String status) {
-        return new InvitationView(invitation.getId(), invitation.getInvitedEmail(), invitation.getProposedRole(), status, invitation.getCreatedAt(), invitation.getLastSentAt(), invitation.getExpiresAt(), invitation.getValidityDays(), invitation.getVersion());
+        return invitationView(invitation, status, users.existsByEmailIgnoreCase(invitation.getInvitedEmail()));
+    }
+
+    private InvitationView invitationView(FarmInvitation invitation, String status, boolean hasAccount) {
+        return new InvitationView(invitation.getId(), invitation.getInvitedEmail(), invitation.getProposedRole(), status, invitation.getCreatedAt(), invitation.getLastSentAt(), invitation.getExpiresAt(), invitation.getValidityDays(), invitation.getVersion(), hasAccount);
     }
 
     private String invitationStatus(FarmInvitation invitation) {
-        return PENDING.equalsIgnoreCase(invitation.getStatus()) && invitation.getExpiresAt() != null && !invitation.getExpiresAt().isAfter(clock.now())
+        return invitationStatus(invitation, clock.now());
+    }
+
+    private String invitationStatus(FarmInvitation invitation, java.time.Instant asOf) {
+        return PENDING.equalsIgnoreCase(invitation.getStatus()) && invitation.getExpiresAt() != null && !invitation.getExpiresAt().isAfter(asOf)
             ? "EXPIRED"
             : invitation.getStatus();
     }
@@ -352,5 +455,11 @@ public class FarmMembershipService {
     /** MSG-FE03-08: the invitation is expired, cancelled, already used or the link is invalid ({@code status} is INVALID when unknown). */
     private static DomainException invitationInvalid(String status) {
         return DomainException.badRequest(MessageCodes.FE03_08, "status", status);
+    }
+
+    /** SCR-15 "Invitation no longer valid": MSG-FE03-08 with the status and expiry, for the invited email only (D28). */
+    private DomainException invitationInvalid(FarmInvitation invitation) {
+        return DomainException.badRequest(MessageCodes.FE03_08, "status", invitationStatus(invitation).toUpperCase(Locale.ROOT),
+            "expiresAt", invitation.getExpiresAt().toString());
     }
 }

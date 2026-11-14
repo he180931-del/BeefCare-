@@ -41,11 +41,12 @@ class FarmMembershipServiceTest extends DomainTestSupport {
         actAs(invitee);
         var member = service.accept(rawToken);
 
-        assertThat(member.id()).isNotNull();
+        assertThat(member.membershipId()).isNotNull();
+        assertThat(member.farmId()).isEqualTo(farm.getId());
         assertThat(member.role()).isEqualTo("MANAGER");
         assertThat(em.createQuery("select count(m) from FarmMembership m where m.farm.id=:farm and m.user.id=:user", Long.class)
             .setParameter("farm", farm.getId()).setParameter("user", invitee.getId()).getSingleResult()).isEqualTo(1L);
-        assertThat(service.accept(rawToken).id()).isEqualTo(member.id());
+        assertThat(service.accept(rawToken).membershipId()).isEqualTo(member.membershipId());
     }
 
     @Test
@@ -61,8 +62,11 @@ class FarmMembershipServiceTest extends DomainTestSupport {
 
         assertThat(changed.role()).isEqualTo("TECHNICIAN");
         assertThat(changed.status()).isEqualTo("ACTIVE");
-        assertThat(changed.reason()).isEqualTo("Duties changed");
-        assertThat(changed.effectiveDate()).isEqualTo(TODAY);
+        // The reason and effective date are stored with the membership; SCR-13 does not show them, so A1 does not return them (D29).
+        FarmMembership stored = em.find(FarmMembership.class, membership.getId());
+        assertThat(stored.getChangeReason()).isEqualTo("Duties changed");
+        assertThat(stored.getEffectiveDate()).isEqualTo(TODAY);
+        assertThat(changed.actions()).containsExactly("CHANGE_ROLE", "DEACTIVATE");
         String details = em.createQuery("select a.details from AuditLog a where a.targetId=:id", String.class)
             .setParameter("id", membership.getId()).getSingleResult();
         assertThat(details).contains("TECHNICIAN", "ACTIVE", TODAY.toString()).doesNotContain(manager.getEmail());

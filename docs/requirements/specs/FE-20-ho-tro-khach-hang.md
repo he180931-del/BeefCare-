@@ -97,7 +97,7 @@ Ticket, số phiên bản (duy nhất trong ticket), nội dung (≤ 3.000), ng�
 | R-20-02 | CS đọc cả hàng đợi; **chỉ CS đang phụ trách và khả dụng** thay đổi ticket chưa CLOSED (MSG-FE20-09). | GBR-77 |
 | R-20-03 | Nhận và bàn giao là nguyên tử; bàn giao và trả về hàng đợi cần lý do; lưu lịch sử. CS không khả dụng → ticket về hàng đợi, giữ trạng thái. | GBR-77 |
 | R-20-04 | Vòng đời: Nhận → OPEN thành IN_PROGRESS (RESOLVED giữ nguyên); Hỏi khách → WAITING_CUSTOMER; Owner trả lời khi WAITING → IN_PROGRESS; ghi kết quả → RESOLVED; Owner mở lại (lý do) → OPEN, cùng CS; trả lời công khai **không** mở lại RESOLVED; CLOSED chỉ đọc. | GBR-78 |
-| R-20-05 | Yêu cầu nội bộ: tối đa 1 OPEN / vai trò (MSG-FE20-16); chỉ khi ticket IN_PROGRESS / WAITING_CUSTOMER; người nhận đang khả dụng; đổi người nhận / hủy cần lý do; người nhận cũ mất quyền ngay. | GBR-79, BR-D26 |
+| R-20-05 | Yêu cầu nội bộ: tối đa 1 OPEN / vai trò (MSG-FE20-16); chỉ khi ticket IN_PROGRESS / WAITING_CUSTOMER; người nhận đang khả dụng; đổi người nhận / hủy cần lý do; người nhận cũ mất quyền ngay. Yêu cầu OPEN có người nhận không còn khả dụng (tài khoản bị tạm ngưng hoặc mất vai trò) có `needsReassignment=true` (tính lúc đọc); SCR-68 hiện "Người nhận không còn khả dụng – cần đổi người nhận" (UC-FE03-08 bước 6, D32). | GBR-79, BR-D26, D32 |
 | R-20-06 | Người nhận chỉ thấy ngữ cảnh yêu cầu, không thấy hội thoại hay ghi chú CS; DONE **không** giải quyết / đóng ticket; yêu cầu OPEN chặn giải quyết và đóng (MSG-FE20-12). | GBR-79 |
 | R-20-07 | PERFORMED phải tham chiếu thay đổi nghiệp vụ đã commit (MSG-COM-08 nếu sai); lưu DONE lỗi sau khi nghiệp vụ đã commit → thử lại với cùng tham chiếu, không làm lại nghiệp vụ. | UC-13 |
 | R-20-08 | Kết quả giải quyết là phiên bản mới bất biến; Owner xác nhận phiên bản mới nhất; phiên bản mới hoặc mở lại vô hiệu xác nhận cũ. | GBR-80 |
@@ -271,7 +271,7 @@ E1 đã đổi người / hủy → MSG-FE20-19, mất quyền · E2 thiếu →
 | A13 | CS: người nhận khả dụng | `role` | `[{id, name, role}]` | — | `GET /api/platform/support/recipients` |
 | A14 | CS: tạo yêu cầu nội bộ | `InternalCreate {targetRole, recipientId, question, contextRefs[]}` + `Idempotency-Key` | `InternalView` | FE20-16, COM-05, COM-08, COM-06, FE20-09 | `POST …/{id}/internal-requests` |
 | A15 | CS: đổi người nhận / hủy | `InternalManage {action: REASSIGN \| CANCEL, recipientId?, reason, version}` + `Idempotency-Key` | `InternalView` | COM-06, COM-08, COM-05 | `POST /api/platform/support/tickets/{ticketId}/internal-requests/{id}/management` |
-| A16 | PM / SA: danh sách / chi tiết | `state` / — | `[InternalView]` / `InternalView` (không có hội thoại, ghi chú) | FE20-19 | `GET /api/platform/internal-requests` · `GET …/{id}` |
+| A16 | PM / SA: danh sách / chi tiết | `state` / — | `[InternalView]` / `InternalView` (không có hội thoại, ghi chú; `needsReassignment` luôn false vì người xem là người nhận) | FE20-19 | `GET /api/platform/internal-requests` · `GET …/{id}` |
 | A17 | PM / SA: kết quả nghiệp vụ chọn được | — | `[{ref, type, summary, committedAt}]` | — | `GET …/internal-requests/{id}/domain-results` |
 | A18 | PM / SA: hoàn thành | `Complete {outcome, result, domainRef?, version}` + `Idempotency-Key` | `InternalView` | COM-06, COM-08, FE20-19 | `POST …/internal-requests/{id}/completion` |
 
@@ -359,3 +359,4 @@ E1 đã đổi người / hủy → MSG-FE20-19, mất quyền · E2 thiếu →
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho LamKD duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 09/11/2026 | 28/10/2026 | Bổ sung phân trang hội thoại chi tiết Owner/CS theo con trỏ, 20 tin mỗi lượt và vùng cuộn riêng để trang không kéo dài vô hạn | Codex |
+| 14/11/2026 | 28/10/2026 | `InternalView.needsReassignment` và ghi chú trên SCR-68 cho yêu cầu OPEN có người nhận bị tạm ngưng / mất vai trò; phiếu của CS bị tạm ngưng về hàng đợi ngay trong lệnh tạm ngưng (UC-FE03-08, D32) | DucNV / Claude |

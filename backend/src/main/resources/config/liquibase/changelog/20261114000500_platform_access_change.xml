@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261114000500-platform-access-change" author="beefcare">
+        <!-- D33 / UC-FE03-09 step 5, popup "Role history" (role, action, reason, by, time): every grant, change, revoke and
+             restore of platform access keeps an append-only history row, saved with the access row and its audit entry in
+             one transaction. The central audit keeps the before / after values only. -->
+        <createTable tableName="platform_access_change">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="app_user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="action" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="role_before" type="varchar(30)"/>
+            <column name="status_before" type="varchar(30)"/>
+            <column name="role_after" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="status_after" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"><constraints nullable="false"/></column>
+            <column name="changed_by_id" type="bigint"/>
+            <column name="changed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="platform_access_change" baseColumnNames="app_user_id" constraintName="fk_platform_access_change_account"
+                                 referencedTableName="app_user" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="platform_access_change" baseColumnNames="changed_by_id" constraintName="fk_platform_access_change_actor"
+                                 referencedTableName="app_user" referencedColumnNames="id"/>
+        <createIndex tableName="platform_access_change" indexName="ix_platform_access_change_account">
+            <column name="app_user_id"/><column name="changed_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261114000500-platform-access-change-from-audit" author="beefcare" dbms="postgresql">
+        <!-- D33 Q2: earlier changes were only kept in the audit (details {fromRole, fromStatus, toRole, toStatus, reason};
+             "NONE" = no access before). Copy them so the role history shows them; the audit rows stay unchanged. -->
+        <sql>
+            insert into platform_access_change (id, app_user_id, action, role_before, status_before, role_after, status_after, reason, changed_by_id, changed_at)
+            select nextval('sequence_generator'), a.target_id, substr(a.action, 17),
+                   nullif(a.details::json ->> 'fromRole', 'NONE'), nullif(a.details::json ->> 'fromStatus', 'NONE'),
+                   a.details::json ->> 'toRole', a.details::json ->> 'toStatus',
+                   left(coalesce(nullif(btrim(a.details::json ->> 'reason'), ''), '(không ghi lý do)'), 500),
+                   a.actor_id, a.logged_at
+            from audit_log a
+            join app_user u on u.id = a.target_id
+            where a.target_type = 'AppUser'
+              and a.action in ('PLATFORM_ACCESS_GRANT', 'PLATFORM_ACCESS_CHANGE', 'PLATFORM_ACCESS_REVOKE', 'PLATFORM_ACCESS_RESTORE')
+              and a.details is not null and a.details like '{%'
+              and a.details::json ->> 'toRole' is not null and a.details::json ->> 'toStatus' is not null
+              and a.logged_at is not null
+            order by a.logged_at, a.id
+        </sql>
+    </changeSet>
+</databaseChangeLog>

@@ -25,6 +25,13 @@ export const SessionContext = createContext<Session | null>(null)
 /** Null khi trang được render ngoài `SessionProvider` (vd. test từng trang): khi đó không áp quyền theo vai trò. */
 export const useSession = () => useContext(SessionContext)
 
+/**
+ * UC-FE01-02 step 6 / AF4: Complete Owner Profile is the destination only for an account that has no farm and no
+ * platform role. A Manager or Technician who joined by invitation enters their farm (UC-FE03-04, D28).
+ */
+export const needsOwnerRegistration = (session: SessionUser | null | undefined): boolean =>
+  session?.ownerRegistrationCompleted === false && session.farmId == null && !session.platformRole
+
 /** Optimistic session update after the server accepts the Owner profile form. */
 export const markOwnerRegistrationCompleted = <T extends SessionUser>(session: T): T => ({ ...session, ownerRegistrationCompleted: true })
 
@@ -43,7 +50,7 @@ export function homePathFor(role: AppRole): string {
 
 /** SCR-02 priority after a successful sign-in; requested/invitation routes are retained by the router before this is reached. */
 export function homePathForSession(session: SessionUser): string {
-  if (session.ownerRegistrationCompleted === false) return '/owner-registration'
+  if (needsOwnerRegistration(session)) return '/owner-registration'
   if (session.platformRole || ['CS', 'PM', 'SA'].includes(session.role)) return homePathFor(session.role)
   if ((session.activeFarmCount ?? (session.farmId == null ? 0 : 1)) !== 1) return '/chon-trai'
   return homePathFor(session.role)

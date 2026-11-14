@@ -11,11 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import vn.edu.fpt.beefcare.domain.AppUser;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.FarmMembership;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 
 /**
@@ -37,20 +35,20 @@ public class PlatformFarmService {
 
     private final PlatformAccessService access;
     private final FarmRepository farms;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final NotificationService notifications;
     private final FarmServiceFacts facts;
 
     public PlatformFarmService(
         PlatformAccessService access,
         FarmRepository farms,
-        AuditLogRepository auditLogs,
+        AuditService audit,
         NotificationService notifications,
         FarmServiceFacts facts
     ) {
         this.access = access;
         this.farms = farms;
-        this.auditLogs = auditLogs;
+        this.audit = audit;
         this.notifications = notifications;
         this.facts = facts;
     }
@@ -223,15 +221,7 @@ public class PlatformFarmService {
     }
 
     private void recordAndNotify(AppUser actor, Farm farm, String action, String before, String after, String reason) {
-        AuditLog event = new AuditLog();
-        event.setFarm(farm);
-        event.setActor(actor);
-        event.setAction(action);
-        event.setTargetType("Farm");
-        event.setTargetId(farm.getId());
-        event.setLoggedAt(facts.now());
-        event.setDetails(JsonSupport.toJson(Map.of("statusBefore", before, "statusAfter", after, "reason", reason.trim())));
-        auditLogs.save(event);
+        audit.logAt(farm, actor, action, "Farm", farm.getId(), Map.of("statusBefore", before, "statusAfter", after, "reason", reason.trim()), facts.now());
         String summary = "Dịch vụ của " + farm.getName() + " hiện là " + STATUS_LABEL.getOrDefault(after, after) + ". Lý do: " + reason.trim();
         AppUser owner = facts.owners(List.of(farm.getId())).get(farm.getId());
         if (owner != null) {

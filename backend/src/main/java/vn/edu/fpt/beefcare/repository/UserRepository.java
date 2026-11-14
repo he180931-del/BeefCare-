@@ -28,4 +28,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findOneWithAuthoritiesByEmailIgnoreCase(String email);
 
     Page<User> findAllByIdNotNullAndActivatedIsTrue(Pageable pageable);
+
+    /** SCR-16 (D31): which of these lower-cased emails belong to a verified (activated) sign-in identity, in one query. */
+    @org.springframework.data.jpa.repository.Query("select lower(u.email) from User u where u.activated = true and lower(u.email) in :emails")
+    java.util.Set<String> findActivatedEmails(@org.springframework.data.repository.query.Param("emails") java.util.Collection<String> emails);
 }

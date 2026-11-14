@@ -580,7 +580,10 @@ class BrowserSessionFlowIT {
             .andExpect(status().isBadRequest());
         owner.browser.post("/api/farms/" + farmId + "/invitations", Map.of("email", email("other"), "role", "MANAGER", "validityDays", 5), UUID.randomUUID().toString())
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("MSG-COM-10")).andExpect(jsonPath("$.params.field").value("validityDays"));
-        owner.browser.get("/api/farms/" + farmId + "/invitations?status=PENDING").andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        // D26: the list is one page {items,total,page,size,counts,asOf}, not a bare array
+        owner.browser.get("/api/farms/" + farmId + "/invitations?status=PENDING").andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].id").value(invitationId))
+            .andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.counts.PENDING").value(1));
 
         // AF4: the e-mail is a durable job; the invitee receives exactly one message with the single-use link
         String invitationToken = linkToken(inviteeEmail, "/invitation/accept?token=");
@@ -614,11 +617,14 @@ class BrowserSessionFlowIT {
 
         // SCR-15 preview, then accept: one ACTIVE membership with the invited fixed role
         invitee.get("/api/invitations/accept?token=" + invitationToken).andExpect(status().isOk())
-            .andExpect(jsonPath("$.farmName").value(farmName)).andExpect(jsonPath("$.role").value("MANAGER")).andExpect(jsonPath("$.email").value(inviteeEmail));
+            .andExpect(jsonPath("$.status").value("PENDING")).andExpect(jsonPath("$.farmId").value(farmId))
+            .andExpect(jsonPath("$.farmName").value(farmName)).andExpect(jsonPath("$.role").value("MANAGER")).andExpect(jsonPath("$.email").value(inviteeEmail))
+            .andExpect(jsonPath("$.invitedBy").value("Flow Farm Owner"));
+        // A8 (D28): the farm to open next, the role and the membership; no Idempotency-Key, the token is the intent
         MvcResult accepted = invitee.post("/api/invitations/accept", Map.of("token", invitationToken))
             .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("MANAGER")).andExpect(jsonPath("$.status").value("ACTIVE"))
-            .andExpect(jsonPath("$.email").value(inviteeEmail)).andReturn();
-        long membershipId = om.readTree(accepted.getResponse().getContentAsString()).path("id").asLong();
+            .andExpect(jsonPath("$.farmId").value(farmId)).andExpect(jsonPath("$.farmName").value(farmName)).andReturn();
+        long membershipId = om.readTree(accepted.getResponse().getContentAsString()).path("membershipId").asLong();
         assertThat(membershipId).isPositive();
         AppUser inviteeAccount = accounts.findOneByEmailIgnoreCase(inviteeEmail).orElseThrow();
         assertThat(memberships.findFirstByFarmIdAndUserId(farmId, inviteeAccount.getId())).get().satisfies(membership -> {
@@ -629,22 +635,34 @@ class BrowserSessionFlowIT {
         assertThat(memberships.findByFarmIdOrderById(farmId)).hasSize(2);
 
         // the same call again (lost response, double click) returns the same membership and creates nothing
-        invitee.post("/api/invitations/accept", Map.of("token", invitationToken)).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(membershipId));
+        invitee.post("/api/invitations/accept", Map.of("token", invitationToken)).andExpect(status().isOk()).andExpect(jsonPath("$.membershipId").value(membershipId));
+        // AF2 (D28): reopening the used link shows the existing membership instead of "no longer valid"
+        invitee.get("/api/invitations/accept?token=" + invitationToken).andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ACCEPTED")).andExpect(jsonPath("$.membershipId").value(membershipId));
         assertThat(memberships.findByFarmIdOrderById(farmId)).hasSize(2);
         assertThat(invitations.findById(invitationId).orElseThrow().getStatus()).isEqualTo("ACCEPTED");
 
         // GBR-14: the new Manager sees the farm with the Manager role, the Owner roster lists both, the profile shows the role
         invitee.get("/api/farms").andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id==" + farmId + ")].role").value("MANAGER"));
         invitee.get("/api/account/profile").andExpect(jsonPath("$.farms[0].farmId").value(farmId)).andExpect(jsonPath("$.farms[0].role").value("MANAGER"));
-        owner.browser.get("/api/farms/" + farmId + "/members").andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
-        owner.browser.get("/api/farms/" + farmId + "/invitations?status=ACCEPTED").andExpect(jsonPath("$.length()").value(1));
+        // A1 (D29): whole list with tab counts; the Manager reads it too, without actions or an inactive count
+        owner.browser.get("/api/farms/" + farmId + "/members").andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.counts.all").value(2)).andExpect(jsonPath("$.counts.managers").value(1)).andExpect(jsonPath("$.counts.inactive").value(0))
+            .andExpect(jsonPath("$.items[?(@.role=='MANAGER')].actions[0]").value("CHANGE_ROLE"));
+        invitee.get("/api/farms/" + farmId + "/members").andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.counts.inactive").doesNotExist()).andExpect(jsonPath("$.items[0].actions.length()").value(0));
+        owner.browser.get("/api/farms/" + farmId + "/invitations?status=ACCEPTED").andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.items[0].status").value("ACCEPTED"))
+            .andExpect(jsonPath("$.counts.ACCEPTED").value(1)).andExpect(jsonPath("$.counts.PENDING").value(0));
         // an accepted invitation cannot be cancelled or resent: MSG-FE03-08 with its status
         var version = invitations.findById(invitationId).orElseThrow().getVersion();
         owner.browser.post("/api/farms/" + farmId + "/invitations/" + invitationId + "/cancel", Map.of("expectedVersion", version), UUID.randomUUID().toString())
             .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-FE03-08")).andExpect(jsonPath("$.params.status").value("ACCEPTED"));
-        // the Owner is told (fixed text e-mail after commit)
+        // UC-FE03-04 step 8: the Owner is told
         deliverAll();
-        assertThat(inbox.findMessagesFor(owner.email).stream().anyMatch(message -> message.subject().contains("Farm invitation accepted"))).isTrue();
+        // D28: a Vietnamese JOB-07 e-mail queued with the acceptance, naming the member, farm and role
+        assertThat(inbox.findMessagesFor(owner.email).stream().filter(message -> message.subject().equals("Thành viên mới đã tham gia trang trại")))
+            .singleElement().satisfies(message -> assertThat(message.plainText()).contains(inviteeEmail, farmName, "Quản lý", "/thanh-vien?farmId=" + farmId));
     }
 
     @Test
@@ -684,13 +702,17 @@ class BrowserSessionFlowIT {
         owner.browser.post("/api/farms/" + farmId + "/invitations", Map.of("email", inviteeEmail, "role", "TECHNICIAN", "validityDays", 3), UUID.randomUUID().toString()).andExpect(status().isCreated());
         String thirdLink = linkToken(inviteeEmail, "/invitation/accept?token=");
         long membershipId = om.readTree(invitee.post("/api/invitations/accept", Map.of("token", thirdLink)).andExpect(status().isOk())
-            .andReturn().getResponse().getContentAsString()).path("id").asLong();
+            .andReturn().getResponse().getContentAsString()).path("membershipId").asLong();
         int membershipVersion = memberships.findById(membershipId).orElseThrow().getVersion();
         Map<String, Object> change = Map.of("action", "CHANGE_ROLE", "role", "MANAGER", "effectiveDate", farmClock.today().toString(), "reason", "Promoted", "expectedVersion", membershipVersion);
         String changeKey = UUID.randomUUID().toString();
         owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, changeKey).andExpect(status().isOk()).andExpect(jsonPath("$.role").value("MANAGER"));
         owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, changeKey).andExpect(status().isOk()).andExpect(jsonPath("$.role").value("MANAGER"));
-        owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, UUID.randomUUID().toString()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
+        // D30: a new key asking for the role already in place reports MSG-FE03-20 before the outdated version ...
+        owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, change, UUID.randomUUID().toString()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-FE03-20"));
+        // ... while a real change with the outdated version is MSG-COM-05
+        Map<String, Object> staleChange = Map.of("action", "CHANGE_ROLE", "role", "TECHNICIAN", "effectiveDate", farmClock.today().toString(), "reason", "Back to the field", "expectedVersion", membershipVersion);
+        owner.browser.put("/api/farms/" + farmId + "/members/" + membershipId, staleChange, UUID.randomUUID().toString()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
         // the Manager role applies from the member's next request without signing in again (GBR-14)
         invitee.get("/api/farms").andExpect(jsonPath("$[?(@.id==" + farmId + ")].role").value("MANAGER"));
     }
