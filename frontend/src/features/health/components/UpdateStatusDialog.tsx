@@ -24,7 +24,7 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
   const { errors } = form
   const closing = action === 'CLOSE'
   const lost = closing && (outcome === 'DIED' || outcome === 'MISSING')
-  // D25: lưu thành lần theo dõi khi Giữ trạng thái (ô chữ bắt buộc theo Q1) hoặc khi ô chữ có nội dung.
+  // D30: lưu thành lần theo dõi khi Giữ trạng thái (ô chữ bắt buộc theo Q1) hoặc khi ô chữ có nội dung.
   const keeping = action === 'KEEP'
   const needsProgress = keeping || progressText.trim() !== ''
 

@@ -189,7 +189,7 @@ Review UC8 (10/11/2026), người dùng đồng ý sửa cả bốn điểm:
 4. Metadata lời gọi bị 401 giữ 30 ngày rồi JOB-08 xóa; không lưu được metadata
    vẫn trả 401.
 
-### D25 — FE-10: popup Cập nhật / Đóng ca có ô chọn diễn biến; bắt buộc khi lưu thành lần theo dõi (14/11/2026)
+### D30 — FE-10: popup Cập nhật / Đóng ca có ô chọn diễn biến; bắt buộc khi lưu thành lần theo dõi (14/11/2026)
 
 SRS mục 3.2 yêu cầu mỗi lần theo dõi có diễn biến (Tốt hơn / Không đổi / Xấu
 hơn), nhưng popup Cập nhật / Đóng ca (Part III §10) chỉ có ô chữ "Diễn biến mới

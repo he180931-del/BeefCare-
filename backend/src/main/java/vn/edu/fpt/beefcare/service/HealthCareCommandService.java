@@ -169,7 +169,7 @@ public class HealthCareCommandService {
         String action = upper(req.action());
         String status = upper(healthCase.getStatus());
         String latestProgress = optionalText(req.latestProgress(), "latestProgress", 1000);
-        // D25: the popup has its own progress radio; a follow-up written from this command needs it, never a default.
+        // D30: the popup has its own progress radio; a follow-up written from this command needs it, never a default.
         String progress = req.progress() == null || req.progress().isBlank() ? null : upper(req.progress());
         if (progress != null && !PROGRESS.contains(progress)) throw DomainException.invalid("progress");
         if (latestProgress != null && progress == null) throw DomainException.required("progress");

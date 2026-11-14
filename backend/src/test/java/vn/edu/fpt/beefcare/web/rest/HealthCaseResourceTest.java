@@ -354,7 +354,7 @@ class HealthCaseResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.healthState").value("UNDER_TREATMENT"));
     }
 
-    /** D25: a follow-up written by A5 carries the progress the user picked; the backend never fills a default. */
+    /** D30: a follow-up written by A5 carries the progress the user picked; the backend never fills a default. */
     @Test
     void tc10_28_statusChangeFollowUpNeedsTheChosenProgress() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));

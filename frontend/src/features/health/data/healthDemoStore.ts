@@ -245,7 +245,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       if (!allowed.includes(cmd.action)) throw new Error(MSG.changed)
       const errors: Record<string, string> = {}
       const progressText = textError('Diễn biến mới', cmd.progressText, { required: cmd.action === 'KEEP', max: 1000 }); if (progressText) errors.progressText = progressText
-      // D25: lần theo dõi tạo từ popup này cần diễn biến người dùng chọn.
+      // D30: lần theo dõi tạo từ popup này cần diễn biến người dùng chọn.
       if ((cmd.action === 'KEEP' || cmd.progressText.trim()) && !cmd.progress) errors.progress = MSG.required('Diễn biến')
       const diagnosis = textError('Chẩn đoán nghi ngờ', cmd.diagnosis, { max: 100 }); if (diagnosis) errors.diagnosis = diagnosis
       const closing = cmd.action === 'CLOSE'

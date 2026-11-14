@@ -384,7 +384,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       const closing = cmd.action === 'CLOSE'
       return run(async () => {
         const confirmedById = await memberId(cmd.confirmedBy)
-        // D25: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu thiếu khi có theo dõi.
+        // D30: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu thiếu khi có theo dõi.
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), {
           expectedVersion: cmd.expectedVersion ?? null, action: cmd.action, latestProgress: cmd.progressText.trim() || null, progress: cmd.progress || null, suspectedDiagnosis: cmd.diagnosis.trim() || null,
           suspectedContagious: cmd.suspectedContagious, outcome: closing ? cmd.outcome || null : null, closedAt: closing && cmd.closedAt ? toInstant(cmd.closedAt, timeZone) : null,
