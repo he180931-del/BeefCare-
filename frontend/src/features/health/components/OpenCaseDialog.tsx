@@ -36,12 +36,12 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thời điểm quan sát *" id="hc-observed" hint={hint(errors.observedAt)}><DateTimeInput id="hc-observed" value={observedAt} onChange={setObservedAt} /></Field>
         <Field label="Thân nhiệt" id="hc-temp" hint={hint(errors.temperatureC, '35,0 – 43,0 · không bắt buộc')}>
-          <div className="relative"><input id="hc-temp" inputMode="decimal" value={temp} onChange={(e) => setTemp(e.target.value)} className={`${inputCls} pr-10`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">°C</span></div>
+          <div className="relative"><input id="hc-temp" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => setTemp(e.target.value)} className={`${inputCls} pr-10`} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">°C</span></div>
         </Field>
       </div>
-      <Field label="Dấu hiệu / mô tả *" id="hc-signs" hint={hint(errors.signs, 'Tối đa 1.000 ký tự')}><Textarea id="hc-signs" rows={2} value={signs} onChange={(e) => setSigns(e.target.value)} /></Field>
+      <Field label="Dấu hiệu / mô tả *" id="hc-signs" hint={hint(errors.signs, 'Tối đa 1.000 ký tự')}><Textarea id="hc-signs" rows={2} maxLength={1000} value={signs} onChange={(e) => setSigns(e.target.value)} /></Field>
       <Field label="Chẩn đoán nghi ngờ" id="hc-diagnosis" hint={hint(errors.diagnosis)}>
-        <input id="hc-diagnosis" list="hc-diagnosis-list" value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={inputCls} />
+        <input id="hc-diagnosis" list="hc-diagnosis-list" maxLength={100} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={inputCls} />
         <datalist id="hc-diagnosis-list">{options.diagnoses.map((d) => <option key={d} value={d} />)}</datalist>
       </Field>
       <Field label="Nghi truyền nhiễm – cách ly">

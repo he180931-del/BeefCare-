@@ -1,7 +1,7 @@
 import { BackendError } from '../../../api/backendClient'
 import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
 import { DEFAULT_FARM_TIME_ZONE, createFarmTimeZone, fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
-import { ReproductionValidationError, breedingDetails, calvingSummary, formatDate } from '../domain/reproductionRules'
+import { ReproductionValidationError, breedingDetails, calvingSummary, formatDate, validateReproductionCommand } from '../domain/reproductionRules'
 import type {
   BreedingEligibility, CalfOutcome, CalvingCommand, CalvingRecord, DataSource, OpenPregnancy, ReproductionCommand, ReproductionEvent,
   ReproductionEventType, ReproductionFemale, ReproductionFormOptions, ReproductionIssue, ReproductiveStatus,
@@ -560,7 +560,15 @@ export function createReproductionBackend({ farmId, transport }: { farmId: strin
         return { ...visible, healthCases }
       })
     },
-    recordEvent: (code: string, command: ReproductionCommand) => run(async () => { await eventCommand(code, command); return profile(code) }),
+    recordEvent: (code: string, command: ReproductionCommand) => run(async () => {
+      // Kiểm tra trước khi gửi bằng đúng quy tắc của chế độ local (spec FE-11 / FE-12 mục 6), cùng cách báo lỗi.
+      // Ca sức khỏe chỉ đi kèm Biến chứng (R-12-06); ô này ẩn với loại khác nên giá trị cũ được bỏ khi gửi, không báo lỗi.
+      const checked = command.type === 'PREGNANCY_UPDATE' && command.updateType !== 'COMPLICATION' ? { ...command, linkedHealthCaseId: undefined } : command
+      const errors = validateReproductionCommand(checked, { today: toFarmLocal(new Date().toISOString(), timeZone), profile: await known(code) })
+      if (errors.length) throw new Error(errors[0])
+      await eventCommand(code, command)
+      return profile(code)
+    }),
     recordCalving: (code: string, command: CalvingCommand) => run(async () => { await calving(code, command); return profile(code) }),
     correctEvent: (code: string, eventId: string, patch: Partial<ReproductionEvent>, reason: string) =>
       run(async () => { await correctEvent(code, eventId, patch, reason); return profile(code) }),
