@@ -36,9 +36,10 @@ describe('calving rules (GBR-57, GBR-58, MSG-FE12-06/07/08, MSG-FE05-12)', () =>
     expect(issues.map((issue) => [issue.calf, issue.field])).toEqual([[1, 'earTag']])
   })
 
-  it('needs a tag only when the live calf is registered now, not for a draft', () => {
-    expect(calvingIssues(command([{ ...live, earTag: '' }]), context)[0]).toMatchObject({ calf: 0, field: 'earTag' })
+  it('FE-12 Q5 / D36: a tag is optional even when the live calf is registered now, but still at most 50 characters', () => {
+    expect(calvingIssues(command([{ ...live, earTag: '' }]), context)).toEqual([])
     expect(calvingIssues(command([{ ...live, earTag: '', registration: 'DRAFT' }]), context)).toEqual([])
+    expect(calvingIssues(command([{ ...live, earTag: 'T'.repeat(51) }]), context)[0]).toMatchObject({ calf: 0, field: 'earTag' })
   })
 
   it('needs a weight basis with a weight and keeps the weight between 1 and 80 kg', () => {

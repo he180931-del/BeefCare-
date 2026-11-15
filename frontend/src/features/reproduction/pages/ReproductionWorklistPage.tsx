@@ -7,7 +7,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { useSession } from '../../authorization'
 import { reproductionApi } from '../api/reproductionApi'
-import { dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
+import { NO_WEIGHING, dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
 import type { ReproductionRole, ReproductiveStatus, WorklistFilters } from '../types'
 import { reproductionNow } from '../domain/reproductionClock'
 
@@ -90,7 +90,7 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
                       <Td>{row.breed}</Td>
                       <Td>{row.penCode}</Td>
                       <Td><div className="font-medium">{row.status ? STATUS_LABEL[row.status] : '—'}</div><div className="text-[11px] text-muted">từ {formatShort(row.statusAt)}</div></Td>
-                      <Td>{row.eligibility && notMet(row.status) ? <Badge tone={row.eligibility.status === 'MET' ? 'ok' : 'err'} icon={row.eligibility.status === 'MET' ? 'circle-check' : undefined}>{row.eligibility.status === 'MET' ? 'Đạt' : eligibilityLabel(row.eligibility).replace('Chưa đạt · ', 'Chưa đạt · ')}</Badge> : '—'}</Td>
+                      <Td>{row.eligibility && notMet(row.status) ? <Badge tone={row.eligibility.status === 'MET' ? 'ok' : eligibilityLabel(row.eligibility) === NO_WEIGHING ? 'warn' : 'err'} icon={row.eligibility.status === 'MET' ? 'circle-check' : undefined}>{row.eligibility.status === 'MET' ? 'Đạt' : eligibilityLabel(row.eligibility).replace('Chưa đạt · ', 'Chưa đạt · ')}</Badge> : '—'}</Td>
                       <Td>{latest ? `${latest.summary.split(' · ')[0]} · ${formatDateTime(latest.occurredAt)}` : 'Chưa ghi nhận'}</Td>
                       <Td>{row.nextAction}</Td>
                       <Td>{dueLabel(row) === '—' ? '—' : <Badge tone="warn">{dueLabel(row)}</Badge>}</Td>
