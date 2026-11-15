@@ -29,7 +29,7 @@ function readOverview(value: unknown, farmId: number): SubscriptionOverview {
 function readPayment(value: unknown): Payment {
   const row = asRecord(value)
   if (typeof row.id !== 'number' || typeof row.quoteRef !== 'string' || ![1, 2, 3].includes(Number(row.durationYears))
-    || typeof row.amountVnd !== 'number' || !['PENDING', 'PAID', 'EXPIRED'].includes(String(row.state))
+    || typeof row.amountVnd !== 'number' || !['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(String(row.state))
     || typeof row.requestedAt !== 'string' || typeof row.expiresAt !== 'string' || typeof row.priceVersionId !== 'number') {
     throw new Error('Dữ liệu yêu cầu thanh toán từ máy chủ không đầy đủ.')
   }
@@ -43,8 +43,12 @@ function readPayment(value: unknown): Payment {
     reopened: row.reopened as boolean | undefined,
     bankPaidAt: row.bankPaidAt as string | null | undefined, receivedAt: row.receivedAt as string | null | undefined,
     confirmedAt: row.confirmedAt as string | null | undefined, confirmationSource: row.confirmationSource as Payment['confirmationSource'],
+    cancelledAt: row.cancelledAt as string | null | undefined, cancelReason: row.cancelReason as string | null | undefined,
   }
 }
+
+/** D38: reason after trim, as on the backend. */
+export const CANCEL_REASON_MAX = 1000
 
 export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SubscriptionDemoStore }) {
   void farmId
@@ -111,6 +115,29 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
     },
     // GET /api/farms/{farmId}/subscription/payments/{paymentId} (Kiểm tra lại)
     async refreshPayment(farm: number, code: string, demo?: RefreshDemo) { return mode === 'backend' ? getPayment(farm, code) : store.refreshPayment(farm, code, demo) },
+    /**
+     * POST /api/farms/{farmId}/subscription/payments/{paymentId}/cancel (D38, A18). Reuse `idempotencyKey` when retrying
+     * the same confirmation. MSG-FE19-19 → CANCEL_BLOCKED (transfer received); MSG-COM-05 → STALE (no longer cancellable).
+     */
+    async cancelPayment(farm: number, payment: Payment, reason: string, idempotencyKey: string): Promise<Payment> {
+      const note = reason.trim()
+      if (note.length > CANCEL_REASON_MAX) throw new Error(`Lý do tối đa ${CANCEL_REASON_MAX.toLocaleString('vi-VN')} ký tự.`)
+      if (mode !== 'backend') return store.cancelPayment(farm, payment.quoteRef, note)
+      try {
+        return readPayment(await transport.command(transport.farmPath(farm, `/subscription/payments/${payment.id}/cancel`),
+          note ? { reason: note } : {}, { key: idempotencyKey }))
+      } catch (error) {
+        if (!(error instanceof BackendError)) throw error
+        if (error.code === 'MSG-FE19-19') {
+          throw new SubscriptionError('CANCEL_BLOCKED', error.message, {
+            code: typeof error.params.code === 'string' ? error.params.code : payment.quoteRef,
+            receivedAt: typeof error.params.receivedAt === 'string' ? error.params.receivedAt : null,
+          })
+        }
+        if (error.code === 'MSG-COM-05') throw new SubscriptionError('STALE', 'Yêu cầu đã thay đổi trạng thái. Trang đã tải lại trạng thái mới nhất.')
+        throw error
+      }
+    },
   }
 }
 export type SubscriptionApi = ReturnType<typeof createSubscriptionApi>

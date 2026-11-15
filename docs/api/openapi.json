@@ -3859,7 +3859,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           }
         }, {
           "name" : "from",
@@ -9497,7 +9497,8 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           }
         }, {
           "name" : "q",
@@ -10596,6 +10597,57 @@
             "format" : "int64"
           }
         } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/subscription/payments/{paymentId}/cancel" : {
+      "post" : {
+        "tags" : [ "subscription-payment-resource" ],
+        "operationId" : "cancelPayment",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "paymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PaymentCancelRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -17272,7 +17324,7 @@
           },
           "state" : {
             "type" : "string",
-            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           },
           "requestedAt" : {
             "type" : "string",
@@ -17371,6 +17423,15 @@
             }, {
               "type" : "null"
             } ]
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "D38: when the Owner cancelled the request; kept if a transfer banked earlier still pays it"
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "description" : "D38: optional reason given when cancelling"
           }
         }
       },
@@ -20858,7 +20919,8 @@
             "type" : "number"
           },
           "state" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           },
           "requestedAt" : {
             "type" : "string",
@@ -20940,6 +21002,14 @@
             }, {
               "type" : "null"
             } ]
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "D38: set when the Owner cancelled the request"
+          },
+          "cancelReason" : {
+            "type" : "string"
           }
         }
       },
@@ -21093,7 +21163,7 @@
           },
           "matchResult" : {
             "type" : "string",
-            "enum" : [ "PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST", "REQUEST_EXPIRED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE" ]
+            "enum" : [ "PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST", "REQUEST_EXPIRED", "REQUEST_CANCELLED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE" ]
           },
           "reviewReason" : {
             "anyOf" : [ {
@@ -24145,6 +24215,16 @@
           },
           "email" : {
             "type" : "string"
+          }
+        }
+      },
+      "PaymentCancelRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "description" : "Optional; trimmed, at most 1,000 characters",
+            "maxLength" : 1000
           }
         }
       }

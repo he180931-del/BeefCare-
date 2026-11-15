@@ -62,4 +62,4 @@ export const REVIEW_LABEL: Record<ReviewStatus, string> = {
 export function evidenceStatusLabel(ev: Evidence) {
   return ev.lockedForReturn ? 'Đã khóa chờ hoàn' : REVIEW_LABEL[ev.reviewStatus]
 }
-export const PAYMENT_STATE_LABEL = { PENDING: 'Chờ thanh toán', PAID: 'Đã thanh toán', EXPIRED: 'Hết hạn' } as const
+export const PAYMENT_STATE_LABEL = { PENDING: 'Chờ thanh toán', PAID: 'Đã thanh toán', EXPIRED: 'Hết hạn', CANCELLED: 'Đã hủy' } as const

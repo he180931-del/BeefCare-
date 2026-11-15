@@ -72,6 +72,8 @@ public final class MessageCodes {
     public static final String FE02_09 = "MSG-FE02-09";
     /** UC-FE19-06 E1/E2: PM acceptance blocked; params.reason names the rule (D19). */
     public static final String FE19_11 = "MSG-FE19-11";
+    /** D38 (UC-FE19-02 E7): a transfer was already received for the request; params.code, params.receivedAt. */
+    public static final String FE19_19 = "MSG-FE19-19";
 
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";

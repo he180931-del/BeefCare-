@@ -37,7 +37,7 @@ public class SubscriptionPaymentResource {
     @GetMapping("/payments")
     public PaymentHistoryPage history(@PathVariable Long farmId,
         @Parameter(description = "Partial payment code, case-insensitive; trimmed, maximum 100 characters.") @RequestParam(required = false) String q,
-        @Parameter(schema = @Schema(allowableValues = {"PENDING", "PAID", "EXPIRED"})) @RequestParam(required = false) String status,
+        @Parameter(schema = @Schema(allowableValues = {"PENDING", "PAID", "EXPIRED", "CANCELLED"})) @RequestParam(required = false) String status,
         @Parameter(description = "Inclusive created date in Asia/Ho_Chi_Minh.") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
         @Parameter(description = "Inclusive created date in Asia/Ho_Chi_Minh.") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
         @Parameter(schema = @Schema(allowableValues = {"requestedAt", "expiresAt"})) @RequestParam(defaultValue = "requestedAt") String sort,
@@ -67,5 +67,33 @@ public class SubscriptionPaymentResource {
         }
     }
 
+    /**
+     * D38 A18 (UC-FE19-02 AF6): the Owner cancels an unexpired PENDING request that has not received a transfer.
+     * The body is optional; the reason is trimmed and checked (≤ 1,000) by the service so whitespace never fails it.
+     */
+    @PostMapping("/payments/{paymentId}/cancel")
+    public PaymentDTO cancelPayment(@PathVariable Long farmId, @PathVariable Long paymentId,
+        @RequestBody(required = false) CancelRequest request,
+        // Missing key → MSG-COM-19 from the command service (as the PM commands), not a bare Spring 400.
+        @Parameter(required = true, in = io.swagger.v3.oas.annotations.enums.ParameterIn.HEADER)
+        @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        CancelCommand command = new CancelCommand(paymentId, request == null ? null : request.reason());
+        try {
+            return commands.execute(farmId, FarmAction.MANAGE_FARM_INFORMATION, "SUBSCRIPTION_PAYMENT_CANCEL", key, command, PaymentDTO.class,
+                () -> service.cancelPayment(farmId, paymentId, command.reason()));
+        } catch (DomainException businessFailure) {
+            throw businessFailure;
+        } catch (RuntimeException saveFailure) {
+            DomainException failure = new DomainException(MessageCodes.COM_02, Map.of(), HttpStatus.INTERNAL_SERVER_ERROR);
+            failure.initCause(saveFailure);
+            throw failure;
+        }
+    }
+
     public record Request(@NotNull @Min(1) @Max(3) Integer durationYears, @NotNull @Positive Long reviewedPriceVersion) {}
+    /** D38: {@code reason} optional; blank means none. */
+    @Schema(name = "PaymentCancelRequest")
+    public record CancelRequest(@Schema(nullable = true, maxLength = 1000, description = "Optional; trimmed, at most 1,000 characters") String reason) {}
+    /** Idempotency fingerprint: the same key replays only for the same request and reason. */
+    public record CancelCommand(Long paymentId, String reason) {}
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { BackendError } from '../../../src/api/backendClient'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
@@ -260,5 +260,109 @@ describe('local transfer simulator on SCR-59 (dev only)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Giả lập chuyển khoản' }))
     expect(screen.getByText('Số tiền phải là số nguyên dương.')).toBeInTheDocument()
     expect(http.command).not.toHaveBeenCalled()
+  })
+})
+
+describe('D38: the Owner cancels a payment request on SCR-59', () => {
+  const api = () => createSubscriptionApi({ mode: 'backend', farmId: 42, transport: http, store: subscriptionDemoStore })
+  const cancelledDto = { ...pending, state: 'CANCELLED' as const, cancelledAt: new Date(NOW + 2000).toISOString(), cancelReason: 'Chọn nhầm kỳ hạn' }
+
+  it('TC-19-107: posts the trimmed reason with the caller key and maps MSG-FE19-19 / MSG-COM-05', async () => {
+    http.command.mockResolvedValueOnce(cancelledDto)
+    expect(await api().cancelPayment(42, pending, '  Chọn nhầm kỳ hạn  ', 'key-1')).toMatchObject({ state: 'CANCELLED', cancelReason: 'Chọn nhầm kỳ hạn' })
+    expect(http.command).toHaveBeenLastCalledWith('/api/farms/42/subscription/payments/501/cancel', { reason: 'Chọn nhầm kỳ hạn' }, { key: 'key-1' })
+    http.command.mockResolvedValueOnce({ ...cancelledDto, cancelReason: null })
+    await api().cancelPayment(42, pending, '   ', 'key-2')
+    expect(http.command).toHaveBeenLastCalledWith('/api/farms/42/subscription/payments/501/cancel', {}, { key: 'key-2' })
+    http.command.mockRejectedValueOnce(new BackendError(409, { code: 'MSG-FE19-19', params: { code: 'BC-UC02', receivedAt: '2026-11-09T03:00:10Z' } }))
+    await expect(api().cancelPayment(42, pending, '', 'key-3')).rejects.toMatchObject({ code: 'CANCEL_BLOCKED', detail: { code: 'BC-UC02', receivedAt: '2026-11-09T03:00:10Z' } })
+    http.command.mockRejectedValueOnce(new BackendError(409, { code: 'MSG-COM-05' }))
+    await expect(api().cancelPayment(42, pending, '', 'key-4')).rejects.toMatchObject({ code: 'STALE' })
+    await expect(api().cancelPayment(42, pending, 'x'.repeat(1001), 'key-5')).rejects.toThrow(/tối đa 1\.000/)
+    expect(http.command).toHaveBeenCalledTimes(4)
+    expect(subscriptionDemoStore.getOverview).not.toHaveBeenCalled()
+  })
+
+  it('TC-19-107: confirms once with one key, then shows MSG-FE19-18 without QR, copy or cancel buttons', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    let finish!: (body: unknown) => void
+    http.command.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+    page()
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    let dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(/Nếu bạn đã chuyển khoản, đừng hủy/)).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(http.command).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy yêu cầu' }))
+    dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Lý do (không bắt buộc)'), { target: { value: ' Chọn nhầm kỳ hạn ' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Hủy yêu cầu' }))
+    const busy = await within(dialog).findByRole('button', { name: 'Đang hủy…' })
+    expect(busy).toBeDisabled()
+    fireEvent.click(busy)
+    expect(http.command).toHaveBeenCalledTimes(1)
+    const [path, body, options] = http.command.mock.calls[0]
+    expect(path).toBe('/api/farms/42/subscription/payments/501/cancel')
+    expect(body).toEqual({ reason: 'Chọn nhầm kỳ hạn' })
+    expect(options.key).toMatch(/^[0-9a-f-]{36}$/)
+    value = cancelledDto
+    await act(async () => { finish(cancelledDto) })
+
+    expect(await screen.findByText(/Yêu cầu thanh toán BC-UC02 đã hủy lúc/)).toBeInTheDocument()
+    expect(screen.getByText(/Đừng chuyển khoản vào mã này/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Mã VietQR thanh toán' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Yêu cầu đã hủy').length).toBeGreaterThan(0)
+    expect(screen.queryAllByRole('button', { name: /^Sao chép/ })).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Hủy yêu cầu' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tạo yêu cầu mới' })).toBeInTheDocument()
+    // The bank step no longer says "Đang chờ" once the request is cancelled.
+    const bankStep = screen.getByText('Ngân hàng ghi nhận giao dịch').closest('tr')!
+    expect(within(bankStep).getByText('Chưa')).toBeInTheDocument()
+    expect(within(bankStep).queryByText('Đang chờ')).not.toBeInTheDocument()
+    expect(within(screen.getByText('Đã hủy yêu cầu').closest('tr')!).getByText('Xong')).toBeInTheDocument()
+  })
+
+  it('TC-19-108: no cancel button once a transfer was received; a refused cancel shows MSG-FE19-19 and reloads', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    const received = { ...pending, receivedAt: new Date(NOW - 5000).toISOString() }
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : received)
+    const view = page()
+    await screen.findByText('Ngân hàng ghi nhận giao dịch')
+    expect(screen.queryByRole('button', { name: 'Hủy yêu cầu' })).not.toBeInTheDocument()
+    view.unmount()
+
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.command.mockImplementation(async () => {
+      value = received
+      throw new BackendError(409, { code: 'MSG-FE19-19', params: { code: 'BC-UC02', receivedAt: received.receivedAt } })
+    })
+    page()
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hủy yêu cầu' }))
+    expect(await screen.findByText('Không hủy được yêu cầu')).toBeInTheDocument()
+    expect(screen.getByText(/đã nhận giao dịch ngân hàng lúc .* nên không hủy được nữa/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Hủy yêu cầu' })).not.toBeInTheDocument())
+  })
+
+  it('TC-19-108: a stale request (MSG-COM-05) closes the dialog, reloads and explains why', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.command.mockImplementation(async () => {
+      value = { ...pending, state: 'PAID', confirmedAt: new Date(NOW).toISOString(), purchasedStart: pending.requestedAt, purchasedEnd: '2027-11-09T03:00:00Z' }
+      throw new BackendError(409, { code: 'MSG-COM-05' })
+    })
+    page()
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hủy yêu cầu' }))
+    expect(await screen.findByText(/Yêu cầu đã thay đổi trạng thái/)).toBeInTheDocument()
+    expect(await screen.findByText(/Thanh toán BC-UC02 đã được xác nhận/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

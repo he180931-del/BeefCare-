@@ -32,7 +32,7 @@ function stored(key: string) {
     const s = JSON.parse(sessionStorage.getItem(key) ?? 'null')
     if (s && ['evidence', 'requests'].includes(s.tab) && ['ALL', 'TO_REVIEW', 'HOLD', 'REJECTED', 'ACCEPTED', 'LOCKED'].includes(s.evidence?.status)
       && validDate(s.evidence.bankFrom) && validDate(s.evidence.bankTo) && validPage(s.evidence.page) && !invalidRange(s.evidence)
-      && typeof s.payments?.q === 'string' && s.payments.q.length <= 100 && ['', 'PENDING', 'PAID', 'EXPIRED'].includes(s.payments.state) && validPage(s.payments.page)) {
+      && typeof s.payments?.q === 'string' && s.payments.q.length <= 100 && ['', 'PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(s.payments.state) && validPage(s.payments.page)) {
       return s as { tab: Tab; evidence: EvidenceReadFilters; payments: PaymentReadFilters }
     }
   } catch { /* Session preferences are optional; business data always comes from the API. */ }
@@ -105,6 +105,7 @@ function PaymentDetail({ id }: { id: number | null }) {
           ['Ngân hàng ghi nhận', fmtSeconds(p.bankPaidAt)], ['Hệ thống nhận giao dịch', fmtSeconds(p.receivedAt)], ['Xác nhận lúc', fmtSeconds(p.confirmedAt)],
           ['Nguồn xác nhận', p.confirmationSource === null ? '—' : CONFIRMATION_SOURCE_TEXT[p.confirmationSource] ?? p.confirmationSource], ['Biên lai', p.receiptCode ?? '—'],
           ['Kỳ đã mua', p.purchasedStart && p.purchasedEnd ? `${fmtDate(p.purchasedStart)} → ${fmtEndDate(p.purchasedEnd)}` : '—'],
+          ...(p.cancelledAt ? [['Owner hủy lúc', fmtSeconds(p.cancelledAt)] as [string, string], ['Lý do hủy', p.cancelReason ?? '—'] as [string, string]] : []),
         ]} />{p.evidenceId && <Link className="mt-4 inline-flex text-brand underline" to={`/nen-tang/thanh-toan?evidenceId=${p.evidenceId}`}>Xem chứng từ ngân hàng</Link>}</Card>}
     </section>
     <Link className="mt-4 inline-flex font-semibold text-brand underline" to="/nen-tang/thanh-toan">Quay lại danh sách thanh toán</Link>
@@ -223,7 +224,7 @@ function Workbench({ account }: { account: string }) {
     </> : <>
       <div className="mb-4 flex flex-wrap gap-3"><input className={`${inputCls} w-[280px] max-w-full`} maxLength={100} aria-label="Tìm mã thanh toán hoặc tên trại" placeholder="Mã thanh toán / tên trại…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <FilterSelect aria-label="Trạng thái thanh toán" value={payments.state} onChange={(e) => setPayments((old) => ({ ...old, state: e.target.value, page: 0 }))}>
-          <option value="">Trạng thái: Tất cả</option>{['PENDING', 'PAID', 'EXPIRED'].map((s) => <option key={s} value={s}>{PAYMENT_STATE_LABEL[s as keyof typeof PAYMENT_STATE_LABEL]}</option>)}
+          <option value="">Trạng thái: Tất cả</option>{['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].map((s) => <option key={s} value={s}>{PAYMENT_STATE_LABEL[s as keyof typeof PAYMENT_STATE_LABEL]}</option>)}
         </FilterSelect></div>
       <PaymentList filters={payments} refresh={refresh} changePage={(page) => { if (page < 0) { setSearch(''); setPayments(PAYMENTS) } else setPayments((old) => ({ ...old, page })) }} reload={reload} />
     </>}

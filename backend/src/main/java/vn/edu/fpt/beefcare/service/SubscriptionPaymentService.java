@@ -38,6 +38,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Service
 public class SubscriptionPaymentService {
     private static final Duration REQUEST_TTL = Duration.ofHours(24);
+    /** D38: cancellation reason after trim, as the other FE-19 reasons (Table III-1). */
+    private static final int CANCEL_REASON_MAX = 1000;
     private static final ZoneId FARM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     /** GBR-71: renewal opens 90 days before the latest confirmed end (also shown on SCR-11 by FarmWorkspaceService). */
     static final Duration RENEWAL_WINDOW = Duration.ofDays(90);
@@ -131,7 +133,7 @@ public class SubscriptionPaymentService {
         farmAccess.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
         String search = q == null ? "" : q.trim();
         if (search.length() > 100) throw DomainException.invalid("q");
-        if (status != null && !List.of("PENDING", "PAID", "EXPIRED").contains(status)) throw DomainException.invalid("status");
+        if (status != null && !List.of("PENDING", "PAID", "EXPIRED", "CANCELLED").contains(status)) throw DomainException.invalid("status");
         if (from != null && to != null && from.isAfter(to)) throw DomainException.badRequest(MessageCodes.COM_11, "field", "from");
         if (!List.of("requestedAt", "expiresAt").contains(sort)) throw DomainException.invalid("sort");
         if (!List.of("asc", "desc").contains(dir)) throw DomainException.invalid("dir");
@@ -234,6 +236,43 @@ public class SubscriptionPaymentService {
         return toDto(saved);
     }
 
+    /**
+     * D38 (UC-FE19-02 AF6): the Owner cancels an unexpired PENDING request that has not received a transfer.
+     * The farm row is locked first, in the same order as payment confirmation, so a concurrent confirmation either
+     * finishes first (this then sees PAID / received) or sees CANCELLED and applies the [requested, cancelled) window.
+     */
+    @Transactional
+    public PaymentDTO cancelPayment(Long farmId, Long paymentId, String reason) {
+        FarmContext context = farmAccess.require(farmId, FarmAction.MANAGE_FARM_INFORMATION);
+        Farm farm = farms.lockById(farmId).orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        Payment payment = payments.findFirstByIdAndSubscription_Farm_Id(paymentId, farmId)
+            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        String note = reason == null ? null : reason.trim();
+        if (note != null && note.length() > CANCEL_REASON_MAX) throw DomainException.invalid("reason");
+        Instant now = clock.now();
+        if (!"PENDING".equalsIgnoreCase(payment.getState()) || !payment.getExpiresAt().isAfter(now)) {
+            throw DomainException.conflict(MessageCodes.COM_05);
+        }
+        // Same rule as the "Bank transaction received" step of SCR-59 (D15), so the button and the command agree.
+        PaymentDTO current = toDto(payment, false, now);
+        if (current.receivedAt() != null || evidences.existsByPayment_Id(payment.getId())) {
+            throw DomainException.conflict(MessageCodes.FE19_19, "code", payment.getQuoteRef(), "receivedAt", current.receivedAt());
+        }
+        payment.setState("CANCELLED");
+        payment.setCancelledAt(now);
+        payment.setCancelledBy(context.user());
+        payment.setCancelReason(note == null || note.isEmpty() ? null : note);
+        Payment saved = payments.saveAndFlush(payment);
+        java.util.Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("quoteRef", saved.getQuoteRef());
+        details.put("termYears", saved.getDurationYears());
+        details.put("amountVnd", saved.getAmountVnd());
+        details.put("stateBefore", "PENDING");
+        details.put("stateAfter", "CANCELLED");
+        audit.logAt(farm, context.user(), "PAYMENT_REQUEST_CANCELLED", "Payment", saved.getId(), details, now);
+        return toDto(saved, false, now);
+    }
+
     private PlanVersion currentPrice() {
         return plans.findFirstByWithdrawnAtIsNullAndEffectiveAtLessThanEqualOrderByEffectiveAtDescIdDesc(clock.now()).orElse(null);
     }
@@ -306,7 +345,8 @@ public class SubscriptionPaymentService {
             p.getReceivingAccountName(),
             qrUrl(p), reopened,
             allocated != null ? allocated.getBankPaidAt() : first == null ? null : first.getBankPaidAt(),
-            first == null ? null : first.getFirstReceivedAt(), p.getConfirmedAt(), p.getConfirmationSource()
+            first == null ? null : first.getFirstReceivedAt(), p.getConfirmedAt(), p.getConfirmationSource(),
+            p.getCancelledAt(), p.getCancelReason()
         );
     }
 
@@ -328,7 +368,7 @@ public class SubscriptionPaymentService {
         String quoteRef,
         Integer durationYears,
         BigDecimal amountVnd,
-        @Schema(allowableValues = {"PENDING", "PAID", "EXPIRED"}) String state,
+        @Schema(allowableValues = {"PENDING", "PAID", "EXPIRED", "CANCELLED"}) String state,
         Instant requestedAt,
         Instant expiresAt,
         Instant purchasedStart,
@@ -343,7 +383,9 @@ public class SubscriptionPaymentService {
         @Schema(nullable = true) Instant bankPaidAt,
         @Schema(nullable = true) Instant receivedAt,
         @Schema(nullable = true) Instant confirmedAt,
-        @Schema(nullable = true, allowableValues = {"SEPAY", "PM"}) String confirmationSource
+        @Schema(nullable = true, allowableValues = {"SEPAY", "PM"}) String confirmationSource,
+        @Schema(nullable = true, description = "D38: when the Owner cancelled the request; kept if a transfer banked earlier still pays it") Instant cancelledAt,
+        @Schema(nullable = true, description = "D38: optional reason given when cancelling") String cancelReason
     ) {
     }
     @Schema(requiredProperties = {"farmId", "serviceStatus", "latestEnd", "entitlementStatus", "currentPrices", "pendingPayment",

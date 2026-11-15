@@ -154,3 +154,31 @@ describe('subscriptionApi (store demo)', () => {
     expect(store.createPayment).not.toHaveBeenCalled()
   })
 })
+
+describe('D38 hủy yêu cầu (store demo, cùng quy tắc backend)', () => {
+  it('hủy yêu cầu đang chờ và tạo được yêu cầu mới; tiền trước lúc hủy vẫn xác nhận, từ lúc hủy thì không', async () => {
+    const { api, store, advance } = setup()
+    const pending = (await api.getOverview(1)).pendingPayment!
+    advance(1000)
+    const cancelled = await api.cancelPayment(1, pending, '  Đổi ý ', 'key')
+    expect(cancelled).toMatchObject({ state: 'CANCELLED', cancelReason: 'Đổi ý' })
+    expect((await rejects(api.cancelPayment(1, pending, '', 'key-2'))).code).toBe('STALE')
+    expect((await api.createPayment(1, { durationYears: 1 })).state).toBe('PENDING')
+    const at = Date.parse(cancelled.cancelledAt!)
+    const late = await store.receiveBankTransfer({ transactionId: 'D38-late', direction: 'IN', amountVnd: pending.amountVnd, content: pending.quoteRef, paidAt: toIso(at) })
+    expect(late.status).toBe('WINDOW_MISSED')
+    const early = await store.receiveBankTransfer({ transactionId: 'D38-early', direction: 'IN', amountVnd: pending.amountVnd, content: pending.quoteRef, paidAt: toIso(at - 1) })
+    expect(early.status).toBe('CONFIRMED')
+    expect(early.payment).toMatchObject({ state: 'PAID', cancelledAt: cancelled.cancelledAt })
+  })
+
+  it('đã nhận giao dịch đúng mã (kể cả sai số tiền) thì không hủy được', async () => {
+    const { api, store } = setup()
+    const pending = (await api.getOverview(1)).pendingPayment!
+    await store.receiveBankTransfer({ transactionId: 'D38-wrong', direction: 'IN', amountVnd: 1000, content: pending.quoteRef, paidAt: toIso(DEMO_START) })
+    const e = await rejects(api.cancelPayment(1, pending, '', 'key'))
+    expect(e.code).toBe('CANCEL_BLOCKED')
+    expect(e.detail.code).toBe(pending.quoteRef)
+    expect((await api.getPayment(1, pending.quoteRef)).state).toBe('PENDING')
+  })
+})
