@@ -84,7 +84,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
             </tr>
             <tr>
               <Td className="font-medium">Số lô</Td><Td>{record.batchNo ?? 'Không rõ'}</Td>
-              <Td><input aria-label="Số lô mới" className={inputCls} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} /><FieldError>{errors.batchNo}</FieldError></Td>
+              <Td><input aria-label="Số lô mới" maxLength={50} className={inputCls} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} /><FieldError>{errors.batchNo}</FieldError></Td>
             </tr>
             <tr>
               <Td className="font-medium">Thời điểm tiêm</Td><Td>{when}</Td>
@@ -101,7 +101,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
             {onFarm && (
               <tr>
                 <Td className="font-medium">Ngưng sử dụng</Td><Td>{record.withdrawalDays} ngày</Td>
-                <Td><UnitInput aria-label="Số ngày ngưng mới" unit="ngày" value={withdrawal} onChange={(e) => setWithdrawal(e.target.value)} /><FieldError>{errors.withdrawalDays}</FieldError></Td>
+                <Td><UnitInput aria-label="Số ngày ngưng mới" unit="ngày" min={0} max={365} step={1} value={withdrawal} onChange={(e) => setWithdrawal(e.target.value)} /><FieldError>{errors.withdrawalDays}</FieldError></Td>
               </tr>
             )}
             <tr>
@@ -112,7 +112,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
         </Table>
       )}
       <Field label="Lý do *" id="cv-reason" hint="Tối đa 500 ký tự">
-        <Textarea id="cv-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Textarea id="cv-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         <FieldError>{errors.reason}</FieldError>
       </Field>
       {errors.form && <Note tone="err">{errors.form}</Note>}

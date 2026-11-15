@@ -4,7 +4,7 @@ import { DEFAULT_FARM_TIME_ZONE, createFarmTimeZone, fromFarmLocal, toFarmLocal 
 import { GROWTH_FILTER_OPTIONS } from '../data/growthMock'
 import { fmtDate } from '../domain/growthFormat'
 import { buildProfile } from '../domain/growthSummary'
-import { GrowthLargeChangeError, GrowthValidationError, type GrowthFieldKey } from '../domain/growthRules'
+import { GrowthLargeChangeError, GrowthValidationError, tapeWeightKg, validateMeasurement, validateReason, type GrowthFieldErrors, type GrowthFieldKey, type MeasurementInput } from '../domain/growthRules'
 import type {
   CorrectGrowthCommand, GrowthBasis, GrowthCattle, GrowthFilterOptions, GrowthFilters, GrowthFormOptions, GrowthHerdPage,
   GrowthHerdRow, GrowthHerdStatus, GrowthMethod, GrowthProfile, GrowthProjection, GrowthRecord, GrowthRecordStatus, GrowthRevision, GrowthWindow,
@@ -304,7 +304,9 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
 
     async record(code: string, command: RecordGrowthCommand): Promise<GrowthRecord> {
       return run(async () => {
-        const [{ cattleId }, timeZone] = await Promise.all([resolve(code), zone()])
+        const [{ cattleId, cattle }, timeZone] = await Promise.all([resolve(code), zone()])
+        // Kiểm tra trước khi gửi bằng đúng quy tắc của chế độ local (spec FE-08 mục 6): lỗi hiện ngay dưới ô.
+        assertValid(validateMeasurement(withTapeWeight(command), { now: farmNow(clock, timeZone), herdEntryDate: cattle.herdEntryDate }))
         const saved = mapRecord(await transport.command(path(`/cattle/${cattleId}/growth`), measurement(command, timeZone)), code, timeZone)
         records.set(saved.id, saved)
         return saved
@@ -312,9 +314,21 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
     },
 
     async correct(code: string, recordId: number, command: CorrectGrowthCommand): Promise<GrowthRecord> {
+      assertValid(validateReason(command.reason))
       return run(async () => {
-        const [{ cattleId }, timeZone] = await Promise.all([resolve(code), zone()])
+        const [{ cattleId, cattle }, timeZone] = await Promise.all([resolve(code), zone()])
         const before = records.get(recordId)
+        if (command.action === 'CORRECT') {
+          assertValid(validateMeasurement(withTapeWeight({
+            measuredAt: command.values?.measuredAt ?? before?.measuredAt ?? '',
+            method: command.values?.method ?? before?.method,
+            weightKg: pick(command.values, 'weightKg', before?.weightKg),
+            heartGirthCm: pick(command.values, 'heartGirthCm', before?.heartGirthCm),
+            bodyLengthCm: pick(command.values, 'bodyLengthCm', before?.bodyLengthCm),
+            bcs: pick(command.values, 'bcs', before?.bcs),
+            note: before?.note,
+          }), { now: farmNow(clock, timeZone), herdEntryDate: cattle.herdEntryDate }))
+        }
         // Correction.values là Measurement đầy đủ (measuredAt bắt buộc): ghép giá trị cũ với phần người dùng sửa.
         const values = command.action === 'CORRECT'
           ? measurement({
@@ -342,4 +356,15 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
 // Giữ giá trị cũ khi người dùng không đụng tới trường; trường có trong values (kể cả undefined) là ý định xoá.
 function pick<K extends 'weightKg' | 'heartGirthCm' | 'bodyLengthCm' | 'bcs'>(values: CorrectGrowthCommand['values'], key: K, fallback: number | undefined) {
   return values && Object.hasOwn(values, key) ? values[key] : fallback
+}
+
+function assertValid(errors: GrowthFieldErrors) {
+  if (Object.keys(errors).length) throw new GrowthValidationError(errors)
+}
+
+/** Thước dây: cân ước tính từ vòng ngực × dài thân khi người dùng chưa nhập cân (GBR-39), như chế độ local. */
+function withTapeWeight<T extends MeasurementInput>(v: T): T {
+  return v.method === 'TAPE' && v.weightKg === undefined && v.heartGirthCm !== undefined && v.bodyLengthCm !== undefined
+    ? { ...v, weightKg: tapeWeightKg(v.heartGirthCm, v.bodyLengthCm) }
+    : v
 }

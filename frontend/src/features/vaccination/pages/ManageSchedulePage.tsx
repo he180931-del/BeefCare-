@@ -114,9 +114,9 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Ngày bắt đầu *" id="ms-first"><DateInput id="ms-first" value={firstDue} onChange={setFirstDue} /><FieldError>{errors.firstDueDate}</FieldError></Field>
-              <Field label="Số mũi *" id="ms-count" hint="1 – 10"><input id="ms-count" type="number" className={inputCls} value={doseCount} onChange={(e) => setDoseCount(e.target.value)} /><FieldError>{errors.doseCount}</FieldError></Field>
-              <Field label="Cách giữa mũi" id="ms-gap" hint={parseNum(doseCount) && parseNum(doseCount)! > 1 ? 'Bắt buộc khi có từ 2 mũi · ngày' : 'ngày'}><input id="ms-gap" type="number" className={inputCls} value={interval} onChange={(e) => setInterval(e.target.value)} /><FieldError>{errors.intervalDays}</FieldError></Field>
-              <Field label="Nhắc lại sau" id="ms-booster" hint="Không bắt buộc · tháng"><input id="ms-booster" type="number" className={inputCls} value={booster} onChange={(e) => setBooster(e.target.value)} /><FieldError>{errors.boosterIntervalMonths}</FieldError></Field>
+              <Field label="Số mũi *" id="ms-count" hint="1 – 10"><input id="ms-count" type="number" min={1} max={10} step={1} className={inputCls} value={doseCount} onChange={(e) => setDoseCount(e.target.value)} /><FieldError>{errors.doseCount}</FieldError></Field>
+              <Field label="Cách giữa mũi" id="ms-gap" hint={parseNum(doseCount) && parseNum(doseCount)! > 1 ? 'Bắt buộc khi có từ 2 mũi · ngày' : 'ngày'}><input id="ms-gap" type="number" min={1} max={365} step={1} className={inputCls} value={interval} onChange={(e) => setInterval(e.target.value)} /><FieldError>{errors.intervalDays}</FieldError></Field>
+              <Field label="Nhắc lại sau" id="ms-booster" hint="Không bắt buộc · tháng"><input id="ms-booster" type="number" min={1} max={60} step={1} className={inputCls} value={booster} onChange={(e) => setBooster(e.target.value)} /><FieldError>{errors.boosterIntervalMonths}</FieldError></Field>
             </div>
           </Card>
           <Card title="Nhóm bò áp dụng" sub="Các điều kiện kết hợp với nhau (VÀ)" actions={<Badge tone={matches.length ? 'ok' : 'err'}>{matches.length} con khớp</Badge>}>
@@ -199,7 +199,7 @@ function StopModal({ name, version, onClose }: { name: string; version: number; 
     <Modal title="Dừng lịch tiêm" sub={name} width={560} onClose={onClose}>
       <Note tone="warn">Dừng lịch {name}? Các mũi chưa tiêm hoặc đang hoãn sẽ bị hủy. Các mũi đã tiêm vẫn được giữ.</Note>
       <Field label="Lý do *" id="st-reason" hint="Tối đa 500 ký tự">
-        <Textarea id="st-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Textarea id="st-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         <FieldError>{error.reason}</FieldError>
       </Field>
       {error.form && <Note tone="err">{error.form}</Note>}
