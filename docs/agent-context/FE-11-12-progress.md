@@ -2,7 +2,15 @@
 
 Nhánh `feature/FE-11-12-sinh-san` tách từ `dev` 94aa6af (15/11/2026). Spec: `docs/requirements/specs/FE-11-dong-duc-phoi-giong.md`, `FE-12-mang-thai-de.md`. Người làm: TuanPQ. Phiên sau chỉ đọc file này.
 
-## Tóm tắt 6b (15/11/2026 – xong 6b, còn 6c)
+## Tóm tắt 6c (15/11/2026 – xong; chờ review, không merge)
+
+- Chạy adapter `reproductionBackend` với backend thật trên DB QA riêng (`compose.qa-fixtures.yml`, cổng 15433, Farm A id 1151; changeset `20261115000100` đã áp). Dữ liệu tạo qua API: chuồng mới + phiếu mua 2 bò cái BREEDING (BC-000003, BC-000004) và 1 bò đực SIRE (BC-000005), ghi sổ. Manager gọi adapter; script ở scratchpad `fe1112-runtime.ts` (không commit).
+- **18/18 bước đạt:** động dục có khung phối (+8h → +12h); trùng 12 giờ → MSG-FE11-03 rồi `confirmDuplicate` lưu được; phối đực trong trại (liên kết động dục) và tinh ngoài AI; đực là chính bò cái → MSG-FE11-04; khám KHÔNG CÓ THAI → Chờ phối; khám CÓ THAI liên kết phối → CONFIRMED; diễn biến thai; CÓ THAI ước 3 tháng → ESTIMATED rồi sẩy thai → Chờ phối; ghi đẻ 1 bê nháp + 1 bê đăng ký ngay không thẻ → bò BC-000006, thẻ QR tự cấp `QR-1151-000006`; hủy phối có khám liên kết / sửa khám CÓ THAI → KHÔNG CÓ THAI sau khi đẻ / hủy lần đẻ / hủy bê đã đăng ký → MSG-FE11-07 kèm danh sách bản ghi; sửa bê nháp và mã tinh được (Đã sửa); A1 đúng trạng thái; bò đực ghi động dục → MSG-FE11-11.
+- Không phát hiện lỗi code cần sửa.
+- **Câu hỏi mở (cần TuanPQ chốt):** cân lúc nhập đàn (dòng phiếu nhập) không tạo bản ghi cân, nên bò vừa nhập 320 kg vẫn "Chưa đạt cân tối thiểu" và "Cân gần nhất: —" (spec §3.4 "dùng cân VALID mới nhất"). Đề xuất: tính cân nhập đàn VALID là lần cân đầu khi chưa có cân nào (cần thống nhất với FE-08 / FE-05 vì ảnh hưởng cả cân hiện tại, REM-01).
+- Chưa thử trên trình duyệt (E2E thủ công do người dùng theo CLAUDE.md).
+
+## Tóm tắt 6b (15/11/2026)
 
 - `features/reproduction/api/reproductionBackend.ts` (mới): A1 → dòng SCR-38, A2 → `ReproductionFemale`; mã UI có tiền tố theo bảng (`e-` sự kiện, `u-` diễn biến, `c-` lần đẻ, `f-` bê, `p-` thai) để không trùng id; giờ theo `farmTimeZone`; lệnh gửi version + Idempotency-Key (transport); sửa chỉ gửi trường đã đổi; lỗi → `ReproductionValidationError` (ô, bê) hoặc câu VN; MSG-FE11-03 → `ReproductionDuplicateError`, popup hỏi lại rồi gửi `confirmDuplicate`.
 - Danh sách chọn qua `formOptions` + context `components/reproductionOptions.tsx` (mặc định = mock cho local/test); popup, `PersonInput`, `MemberSelect`, `ReviseDialog`, `CalvingPage` dùng context, không import mock trực tiếp. Tên thành viên → `xxxId`, tên ngoài → `xxxName` (P1).
