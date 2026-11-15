@@ -2,7 +2,18 @@
 
 Nhánh `feature/FE-11-12-sinh-san` tách từ `dev` 94aa6af (15/11/2026). Spec: `docs/requirements/specs/FE-11-dong-duc-phoi-giong.md`, `FE-12-mang-thai-de.md`. Người làm: TuanPQ. Phiên sau chỉ đọc file này.
 
-## Tóm tắt (cập nhật cuối: 15/11/2026 – xong 6a, còn 6b, 6c)
+## Tóm tắt 6b (15/11/2026 – xong 6b, còn 6c)
+
+- `features/reproduction/api/reproductionBackend.ts` (mới): A1 → dòng SCR-38, A2 → `ReproductionFemale`; mã UI có tiền tố theo bảng (`e-` sự kiện, `u-` diễn biến, `c-` lần đẻ, `f-` bê, `p-` thai) để không trùng id; giờ theo `farmTimeZone`; lệnh gửi version + Idempotency-Key (transport); sửa chỉ gửi trường đã đổi; lỗi → `ReproductionValidationError` (ô, bê) hoặc câu VN; MSG-FE11-03 → `ReproductionDuplicateError`, popup hỏi lại rồi gửi `confirmDuplicate`.
+- Danh sách chọn qua `formOptions` + context `components/reproductionOptions.tsx` (mặc định = mock cho local/test); popup, `PersonInput`, `MemberSelect`, `ReviseDialog`, `CalvingPage` dùng context, không import mock trực tiếp. Tên thành viên → `xxxId`, tên ngoài → `xxxName` (P1).
+- `reproductionApi.ts`: backend dùng adapter, không fallback mock; local giữ demo store. Bỏ banner "chưa nối backend" ở tab Sinh sản và SCR-40.
+- Q5: bỏ lỗi bắt buộc thẻ tai (`reproductionRules.ts`), gợi ý trên SCR-40, demo store tự cấp mã `BC-xxxxxx` khi Đăng ký ngay không thẻ.
+- Backend thêm `name`, `ageMonths` (A1, A2), `latestWeightKg` và `eligibility.criteria` (A1) cho màn danh sách; OpenAPI + catalog cập nhật.
+- Test: `tests/api/reproductionBackendApi.test.ts` 11 (TC-11-01/04/06/07/08/13/17/18/19/24, TC-12-08/11/12/14/15/17/20..24, BR-D14), unit sinh sản 63 (Q5 rules + SCR-40), backend sinh sản 40 + 3 + 6.
+- Lỗi có sẵn không liên quan: `migrationBoundary` (App.tsx), FE-19 SCR-61 `PlatformServicePages` (phụ thuộc ngày), 2 file node:test bị vitest quét.
+- 6c còn lại: chạy adapter với backend thật trên DB QA theo 9 luồng của yêu cầu.
+
+## Tóm tắt 6a (15/11/2026)
 
 - **6a xong (backend):** `ReproductionReadService` mới (A1 tiles/counts/tab/lọc; A2 status, statusSince, servicesInCycle, parity, chỉ số GBR-106, allowedActions/otherActions, criteria, window, latestBreeding, currentPregnancy, timeline chi tiết, calvings); `ReproductionCommandService` viết lại theo P1–P7; DTO theo tên trường spec (`ReproductionDtos`); changeset `20261115000100_reproduction_people.xml`; mã FE11_03..11, FE12_02/06/07/08/11/12 + câu VN/EN; BR-D14 → COM-15; OpenAPI + catalog; D36, Q5 ghi `OPEN_QUESTIONS.md`.
 - Test: `ReproductionResourceTest` 40 (TC-11-01..20 trừ 21/24, TC-12-01..26 trừ 07/16/18), `ReproductionWorkflowIT`, `CattleStateServiceIT` qua.

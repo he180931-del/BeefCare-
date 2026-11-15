@@ -172,7 +172,11 @@ class ReproductionResourceTest extends HerdEntryTestBase {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.counts.awaitingBreeding").value(1))
             .andExpect(jsonPath("$.items[0].code").value(cow.getDisplayCode()))
-            .andExpect(jsonPath("$.items[0].nextAction").value("CONSIDER_BREEDING"));
+            .andExpect(jsonPath("$.items[0].nextAction").value("CONSIDER_BREEDING"))
+            .andExpect(jsonPath("$.items[0].ageMonths").value(30))
+            .andExpect(jsonPath("$.items[0].latestWeightKg").value(320))
+            .andExpect(jsonPath("$.items[0].eligibility.criteria[1].value").value("320"));
+        get_("/cattle/" + cow.getId() + "/reproduction-history", manager).andExpect(jsonPath("$.ageMonths").value(30));
     }
 
     @Test

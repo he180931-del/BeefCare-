@@ -85,7 +85,7 @@ export function LastBreedingCard({ profile }: { profile: ReproductionFemale }) {
         <KV k="Phương pháp">{breeding.method ? METHOD_TEXT[breeding.method as keyof typeof METHOD_TEXT] : '—'}</KV>
         <KV k="Giống tinh · mã lô">{sire}</KV>
         <KV k="Người thực hiện">{breeding.performer || '—'}</KV>
-        <KV k="Ngày dự kiến đẻ (tạm tính)"><span className="whitespace-nowrap">{formatDate(expectedCalvingDate(breeding.occurredAt))}</span></KV>
+        <KV k="Ngày dự kiến đẻ (tạm tính)"><span className="whitespace-nowrap">{breeding.expectedCalvingAt === null ? 'Chưa cấu hình thời gian mang thai' : formatDate(breeding.expectedCalvingAt ?? expectedCalvingDate(breeding.occurredAt))}</span></KV>
         <KV k="Số ngày sau phối">{days} ngày</KV>
         <KV k="Số lần khám">{checks}</KV>
         <KV k="Có thể khám từ"><span className="whitespace-nowrap">{formatDate(addDaysText(breeding.occurredAt, 30))}</span></KV>
@@ -144,8 +144,8 @@ export function CalfHistoryCard({ profile }: { profile: ReproductionFemale }) {
               <Td className="whitespace-nowrap">
                 {calfLine(calving).map(({ calf, key }) => (
                   <div key={key}>
-                    {calf.outcome === 'STILLBORN' ? '—' : calf.registrationStatus === 'REGISTERED' && calf.earTag
-                      ? <Link className="font-medium text-brand" to={`/cattle/${encodeURIComponent(calf.earTag)}`}>{calf.earTag}</Link>
+                    {calf.outcome === 'STILLBORN' ? '—' : calf.registrationStatus === 'REGISTERED' && (calf.cattleCode || calf.earTag)
+                      ? <Link className="font-medium text-brand" to={`/cattle/${encodeURIComponent(calf.cattleCode || calf.earTag || '')}`}>{calf.cattleCode || calf.earTag}</Link>
                       : 'Bê nháp'}
                   </div>
                 ))}

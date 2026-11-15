@@ -21338,14 +21338,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "last" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "first" : {
             "type" : "boolean"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "last" : {
+            "type" : "boolean"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -21366,12 +21366,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "paged" : {
-            "type" : "boolean"
-          },
-          "unpaged" : {
-            "type" : "boolean"
-          },
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
@@ -21379,6 +21373,12 @@
           "pageNumber" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "paged" : {
+            "type" : "boolean"
           }
         }
       },
@@ -22513,6 +22513,23 @@
           }
         }
       },
+      "Criterion" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          },
+          "met" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "Due" : {
         "type" : "object",
         "properties" : {
@@ -22540,6 +22557,12 @@
             "type" : "array",
             "items" : {
               "type" : "string"
+            }
+          },
+          "criteria" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Criterion"
             }
           }
         }
@@ -22620,8 +22643,18 @@
           "code" : {
             "type" : "string"
           },
+          "name" : {
+            "type" : "string"
+          },
           "earTag" : {
             "type" : "string"
+          },
+          "ageMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "latestWeightKg" : {
+            "type" : "number"
           },
           "breed" : {
             "$ref" : "#/components/schemas/Ref"
@@ -24077,10 +24110,10 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "token" : {
+          "headerName" : {
             "type" : "string"
           },
-          "headerName" : {
+          "token" : {
             "type" : "string"
           },
           "parameterName" : {

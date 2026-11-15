@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, Foot, KV, Note } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
-import { backendMode } from '../../../api/backendTransport'
 import { reproductionApi } from '../api/reproductionApi'
+import { ReproductionOptionsProvider } from './reproductionOptions'
 import { useModalParam } from '../../../components/Modal'
 import { useSession } from '../../authorization'
 import {
@@ -151,7 +151,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   const revise = (record: TimelineRecord, action: 'correct' | 'void') => setDialog({ mode: 'revise', record, action })
 
   if (loading && !profile) return <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ sinh sản…</p></Card>
-  if (!profile) return <Card>{error && <Note tone={backendMode === 'backend' ? 'warn' : 'err'}>{error}</Note>}<p className="m-0 text-sm text-muted">Chưa có dữ liệu sinh sản cho {cattleCode}.</p></Card>
+  if (!profile) return <Card>{error && <Note tone="err">{error}</Note>}<p className="m-0 text-sm text-muted">Chưa có dữ liệu sinh sản cho {cattleCode}.</p></Card>
 
   const status = profile.status
   const showEligibility = !!profile.eligibility && (status === 'AWAITING_BREEDING' || status === 'IN_ESTRUS' || status === 'POST_CALVING')
@@ -161,8 +161,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
-      {error && <Note tone={backendMode === 'backend' ? 'warn' : 'err'}>{error}</Note>}
-      {backendMode === 'backend' && <Note tone="warn">Hồ sơ sinh sản chưa nối API. Dữ liệu minh họa không được dùng trong chế độ backend.</Note>}
+      {error && <Note tone="err">{error}</Note>}
       {!canManage && <Note tone="info">{role === 'TECHNICIAN' ? 'Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.' : 'Chủ trại xem hồ sơ sinh sản ở chế độ chỉ đọc.'}</Note>}
       {profile.herdStatus !== 'ACTIVE' && <Note tone="warn">Bò đã rời đàn hoặc đang chờ xác nhận xuất; hồ sơ sinh sản chỉ xem.</Note>}
 
@@ -195,6 +194,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
       {status && CAPTION[status] && <Foot>{CAPTION[status]}</Foot>}
 
       {dialog && (
+        <ReproductionOptionsProvider cattleCode={cattleCode}>
         <ReproductionActionDialog
           target={dialog} profile={profile} onClose={() => setDialog(null)}
           onRecord={async (command) => setProfile(await reproductionApi.recordEvent(cattleCode, command, role))}
@@ -204,6 +204,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
           onVoidCalving={async (id, reason) => setProfile(await reproductionApi.voidCalving(cattleCode, id, reason, role))}
           onVoidCalf={async (calvingId, calfId, reason) => setProfile(await reproductionApi.voidCalf(cattleCode, calvingId, calfId, reason, role))}
         />
+        </ReproductionOptionsProvider>
       )}
     </div>
   )

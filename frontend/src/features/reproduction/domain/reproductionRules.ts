@@ -176,8 +176,8 @@ export function calvingIssues(command: CalvingCommand, context: CalvingContext):
         const other = calf.sex === 'FEMALE' ? 'đực' : 'cái'
         add('purpose', `${label}: mục đích này chỉ dành cho bò ${other}, còn bê là bò ${sex}. Chọn Vỗ béo, Chưa xác định hoặc mục đích hợp giới tính.`)
       }
+      // FE-12 Q5 / D36: thẻ tai không bắt buộc, kể cả khi Đăng ký ngay (hệ thống cấp mã khi ghi sổ phiếu nhập bê).
       const tag = calf.earTag?.trim() ?? ''
-      if (!tag && registerNow) add('earTag', `${label}: nhập mã thẻ tai / QR để đăng ký ngay.`)
       if (tag) {
         if (tag.length > 50) add('earTag', `Mã thẻ tai ${label.toLocaleLowerCase('vi')}: tối đa 50 ký tự.`)
         const owner = context.tagOwners?.[normalize(tag)]

@@ -305,13 +305,17 @@ export function createReproductionDemoStore(
       if (issues.length) throw new ReproductionValidationError(issues)
       const now = clock()
       const id = makeId('calving', ++sequence)
+      // Q5 / D36: bê đăng ký ngay không có thẻ được cấp mã như khi backend ghi sổ phiếu FARM_BORN.
+      let lastCode = Math.max(0, ...Object.keys(usage).concat(rows.map((row) => row.cattleCode.toLocaleLowerCase('vi')))
+        .map((tag) => /^bc-(\d+)$/.exec(tag)?.[1]).filter(Boolean).map(Number))
       const calves: CalfOutcome[] = command.calves.map((calf, index): CalfOutcome => {
         const live = calf.outcome === 'LIVE'
         const choice = live ? calf.registration ?? 'DRAFT' : null
+        const tag = calf.earTag?.trim() || (choice === 'REGISTER_NOW' ? `BC-${String(++lastCode).padStart(6, '0')}` : null)
         return {
           id: makeId('calf', ++sequence), number: index + 1, outcome: calf.outcome, sex: calf.sex,
           weightKg: calf.weightKg ?? null, weightBasis: calf.weightBasis ?? null,
-          earTag: calf.earTag?.trim() || null, penId: live ? calf.penId ?? null : null,
+          earTag: tag, cattleCode: choice === 'REGISTER_NOW' ? tag : null, penId: live ? calf.penId ?? null : null,
           penCode: live ? calf.penCode ?? null : null, breed: live ? calf.breed ?? null : null,
           registrationChoice: choice,
           registrationStatus: choice === 'REGISTER_NOW' ? 'REGISTERED' : choice === 'DRAFT' ? 'PENDING_CONFIRMATION' : null,

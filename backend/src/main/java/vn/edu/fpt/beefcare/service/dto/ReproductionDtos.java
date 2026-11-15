@@ -79,10 +79,10 @@ public final class ReproductionDtos {
 
     public record Ref(Long id, String code, String name) {}
     public record Person(Long id, String name) {}
-    public record Eligibility(Boolean met, List<String> failed) {}
+    public record Eligibility(Boolean met, List<String> failed, List<Criterion> criteria) {}
     public record LatestEvent(String type, Instant at, LocalDate date, Long daysAgo) {}
     public record Due(LocalDate date, Instant windowFrom, Instant windowTo) {}
-    public record WorklistItem(Long cattleId, String code, String earTag, Ref breed, Ref pen, String status, Instant statusSince,
+    public record WorklistItem(Long cattleId, String code, String name, String earTag, Integer ageMonths, BigDecimal latestWeightKg, Ref breed, Ref pen, String status, Instant statusSince,
                                Eligibility eligibility, LatestEvent latestEvent, String nextAction, Due due,
                                LocalDate expectedCalvingDate, String expectedBasis, Integer version) {}
     public record Tiles(int inEstrus, int inWindow, int checkDue, int calving30, int postCalvingReady, int notEligible) {}
@@ -117,7 +117,7 @@ public final class ReproductionDtos {
     public record CalvingRow(Long calvingId, Instant at, String status, boolean corrected, Integer version, String source,
                              Person attendant, String course, String damCondition, Boolean retainedPlacenta, Long episodeId,
                              List<CalfRow> calves) {}
-    public record Profile(Long cattleId, String code, String earTag, String sex, String lifeStage, String purposeType,
+    public record Profile(Long cattleId, String code, String name, String earTag, Integer ageMonths, String sex, String lifeStage, String purposeType,
                           String herdStatus, Ref breed, Ref pen, Integer version, boolean applicable, String notApplicableReason,
                           String status, Instant statusSince, int servicesInCycle, int parity, LastCalving lastCalving,
                           LatestWeight latestWeight, Integer declaredPregnancyMonths, Indicators indicators,

@@ -82,8 +82,11 @@ public class ReproductionReadService {
             }
             PenAssignment pa = pens.get(c.getId());
             LatestEvent latest = latestOfAll(c.getId(), zone, today);
-            all.add(new WorklistItem(c.getId(), c.getDisplayCode(), c.getEarTagNumber(), ref(c.getBreed()), pa == null ? null : ref(pa.getPen()), status,
-                statusSince(c, status, latest), ELIGIBILITY_STATUSES.contains(status) ? new Eligibility(eligible, failed) : null, latest, nextAction, due,
+            Eligibility eligibilityRow = ELIGIBILITY_STATUSES.contains(status) ? new Eligibility(eligible, failed,
+                cattleState.breedingCriteria(c, today).stream().map(x -> new Criterion(x.name(), x.required(), x.value(), x.met())).toList()) : null;
+            all.add(new WorklistItem(c.getId(), c.getDisplayCode(), c.getName(), c.getEarTagNumber(), ageMonths(c, today), latestWeight(c.getId()),
+                ref(c.getBreed()), pa == null ? null : ref(pa.getPen()), status,
+                statusSince(c, status, latest), eligibilityRow, latest, nextAction, due,
                 expected, (String) state.get("expectedBasis"), c.getVersion()));
         }
         Tiles tiles = new Tiles(inEstrus, inWindow, checkDue, calving30, postReady, notEligible);
@@ -203,7 +206,7 @@ public class ReproductionReadService {
             .sorted(Comparator.comparing(TimelineRow::at).thenComparing(TimelineRow::id).reversed()).toList();
         List<CalvingRow> calvingRows = calvings.stream().sorted(Comparator.comparing(CalvingEvent::getBirthTime).reversed()).map(this::calvingRow).toList();
 
-        return new Profile(c.getId(), c.getDisplayCode(), c.getEarTagNumber(), c.getSex() == null ? null : c.getSex().name(),
+        return new Profile(c.getId(), c.getDisplayCode(), c.getName(), c.getEarTagNumber(), ageMonths(c, today), c.getSex() == null ? null : c.getSex().name(),
             c.getLifeStage() == null ? null : c.getLifeStage().name(),
             c.getPurpose() == null || c.getPurpose().getPurposeType() == null ? null : c.getPurpose().getPurposeType().name(),
             c.getHerdStatus() == null ? null : c.getHerdStatus().name(), ref(c.getBreed()), pa == null ? null : ref(pa.getPen()), c.getVersion(),
@@ -326,6 +329,13 @@ public class ReproductionReadService {
         em.createQuery("select p from PenAssignment p join fetch p.pen where p.farm.id=:farm and p.fromDate<=:date and (p.toDate is null or p.toDate>=:date) order by p.fromDate desc", PenAssignment.class)
             .setParameter("farm", farmId).setParameter("date", date).getResultList().forEach(p -> result.putIfAbsent(p.getCattle().getId(), p));
         return result;
+    }
+    private static Integer ageMonths(Cattle c, LocalDate today) {
+        return c.getBirthDate() == null ? null : (int) ChronoUnit.MONTHS.between(c.getBirthDate(), today);
+    }
+    private java.math.BigDecimal latestWeight(Long cattleId) {
+        return em.createQuery("select g.weightKg from Growth g where g.cattle.id=:id and upper(g.status)='VALID' and g.weightKg is not null order by g.checkDate desc, g.id desc", java.math.BigDecimal.class)
+            .setParameter("id", cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
     }
     private static int count(List<WorklistItem> items, String status) { return (int) items.stream().filter(i -> status.equals(i.status())).count(); }
     private static Instant latest(Instant... values) {
