@@ -20,7 +20,7 @@ export default function DisableModal({ barn, onConfirm, onClose }: { barn: Pen; 
     >
       <div className="grid grid-cols-2 gap-4">
         <KV k="Trạng thái hiện tại">
-          {isInactive ? <Badge>INACTIVE</Badge> : <Badge tone="ok" className="!border-0">ACTIVE</Badge>}
+          {isInactive ? <Badge>Ngừng hoạt động</Badge> : <Badge tone="ok" className="!border-0">Đang hoạt động</Badge>}
         </KV>
         <KV k="Đang có">{barn.count} / {barn.capacity} con</KV>
       </div>
@@ -28,8 +28,8 @@ export default function DisableModal({ barn, onConfirm, onClose }: { barn: Pen; 
       <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-ink">Trạng thái mới *</span>
         <div className="flex gap-[18px]">
-          <Radio name="nextStatus" checked={nextStatus === 'ACTIVE'} onChange={() => setNextStatus('ACTIVE')}>ACTIVE</Radio>
-          <Radio name="nextStatus" checked={nextStatus === 'INACTIVE'} onChange={() => setNextStatus('INACTIVE')}>INACTIVE</Radio>
+          <Radio name="nextStatus" checked={nextStatus === 'ACTIVE'} onChange={() => setNextStatus('ACTIVE')}>Đang hoạt động</Radio>
+          <Radio name="nextStatus" checked={nextStatus === 'INACTIVE'} onChange={() => setNextStatus('INACTIVE')}>Ngừng hoạt động</Radio>
         </div>
       </div>
 

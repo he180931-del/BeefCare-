@@ -22,7 +22,7 @@ export default function BarnPanel({ barn, onEdit, onToggle, onMoveCow, onViewAll
         <KV k="Đang có">{barn.count}</KV>
         <KV k="Còn trống">{barn.capacity - barn.count}</KV>
         <KV k="Trạng thái">
-          {active ? <Badge tone="ok" icon="circle-check" className="!border-0">ACTIVE</Badge> : <Badge>INACTIVE</Badge>}
+          {active ? <Badge tone="ok" icon="circle-check" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>}
         </KV>
       </div>
 

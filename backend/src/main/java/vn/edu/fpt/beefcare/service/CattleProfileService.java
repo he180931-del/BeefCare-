@@ -22,6 +22,9 @@ public class CattleProfileService {
         this.em=em;this.access=access;this.guard=guard;this.clock=clock;this.assignments=assignments;this.growth=growth;this.state=state;this.audit=audit;this.codes=codes;this.tags=tags;this.outbox=outbox;this.mapper=mapper;
     }
     @Transactional(readOnly=true) public CattleDtos.Page list(Long farmId,String q,String herdStatus,Long breedId,Sex sex,Long penId,Long purposeId,LifeStage lifeStage,String health,String herdGroup,int page,int size,String sort) {
+        return list(farmId,q,herdStatus,breedId,sex,penId,purposeId,lifeStage,health,herdGroup,page,size,sort,null);
+    }
+    @Transactional(readOnly=true) public CattleDtos.Page list(Long farmId,String q,String herdStatus,Long breedId,Sex sex,Long penId,Long purposeId,LifeStage lifeStage,String health,String herdGroup,int page,int size,String sort,Boolean hasWeight) {
         FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATTLE);
         if(page<0 || page>100000 || size<1 || size>200)throw DomainException.invalid("page");
         if(herdStatus!=null&&!Set.of("ACTIVE","EXITED","VOIDED","EXIT_PENDING","ALL").contains(herdStatus))throw DomainException.invalid("herdStatus");
@@ -38,19 +41,27 @@ public class CattleProfileService {
             else if(!"ALL".equals(wanted)&&!wanted.equals(c.getHerdStatus().name()))continue;
             if(penId!=null&&!penId.equals(row.get("penId")))continue;
             if(herdGroup!=null&&!herdGroup.equals(row.get("herdGroup")))continue;
+            if(hasWeight!=null && hasWeight!=(row.get("latestWeightKg")!=null))continue;
             if(health!=null&&!health.isBlank()){
                 if("MEAT_WITHDRAWAL".equals(health)){if(!Boolean.TRUE.equals(row.get("withdrawalActive")))continue;}
                 else if(!health.equals(row.get("healthState")))continue;
             }
             rows.add(row);
         }
-        Set<String> sortable=Set.of("displayCode","name","latestWeightKg","birthDate");String key=sort==null?"displayCode":sort.replaceFirst("^-","");
+        Set<String> sortable=Set.of("displayCode","name","latestWeightKg","birthDate","breedName","penCode","purposeName");String key=sort==null?"displayCode":sort.replaceFirst("^-","");
         if(!sortable.contains(key))throw DomainException.invalid("sort");
-        Comparator<Map<String,Object>> comparator=(a,b)->compare(a.get(key),b.get(key));if(sort!=null&&sort.startsWith("-"))comparator=comparator.reversed();rows.sort(comparator);
+        boolean descending = sort != null && sort.startsWith("-");
+        Comparator<Map<String,Object>> comparator = Comparator.comparing(
+            row -> row.get(key), Comparator.nullsLast(descending ? (a,b) -> compare(b,a) : this::compare)
+        );
+        rows.sort(comparator.thenComparing(row -> (String) row.get("displayCode")));
         int from=Math.min(rows.size(),Math.multiplyExact(page,size)),to=Math.min(rows.size(),from+size);
         return new CattleDtos.Page(rows.subList(from,to).stream().map(this::dto).toList(),rows.size(),page,size,counts);
     }
-    @SuppressWarnings({"unchecked","rawtypes"}) private int compare(Object a,Object b){if(a==null)return b==null?0:1;if(b==null)return -1;return ((Comparable)a).compareTo(b);}
+    @SuppressWarnings({"unchecked","rawtypes"}) private int compare(Object a,Object b){
+        if(a instanceof String left && b instanceof String right)return String.CASE_INSENSITIVE_ORDER.compare(left,right);
+        return ((Comparable)a).compareTo(b);
+    }
     @Transactional(readOnly=true) public CattleDtos.Profile get(Long farmId,Long cattleId){FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATTLE);return dto(projection(find(farmId,cattleId),ctx,true));}
     @Transactional public CattleDtos.Profile update(Long farmId,Long cattleId,CattleDtos.ProfileUpdate request){
         FarmContext ctx=access.require(farmId,FarmAction.MANAGE_CATTLE);Cattle c=guard.lockWritable(farmId,cattleId);VersionGuard.requireExpected(c.getVersion(),request.expectedVersion());
