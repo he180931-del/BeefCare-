@@ -38,6 +38,7 @@ const PAYMENT: Record<PaymentState, [string, BadgeTone]> = {
   PENDING: ['Đang chờ', 'warn'],
   PAID: ['Đã thanh toán', 'ok'],
   EXPIRED: ['Đã hết hạn', 'err'],
+  CANCELLED: ['Đã hủy', 'outline'],
 }
 export const paymentLabel = (s: PaymentState) => PAYMENT[s][0]
 export const PaymentBadge = ({ state }: { state: PaymentState }) => <Badge tone={PAYMENT[state][1]}>{PAYMENT[state][0]}</Badge>

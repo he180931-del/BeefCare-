@@ -67,7 +67,8 @@ Trại, kỳ hiện tại (suy ra), kỳ tương lai (suy ra), ngày kết thúc
 | Phiên bản giá, kỳ hạn (1/2/3 năm), số tiền | **Bất biến** |
 | Ngân hàng nhận, số TK, tên TK | Snapshot khi tạo |
 | Tạo lúc, hết hạn | Hết hạn = tạo + 24 giờ |
-| Trạng thái | `PENDING` → `PAID` / `EXPIRED`; `EXPIRED` → `PAID` chỉ khi tiền vào trong cửa sổ gốc |
+| Trạng thái | `PENDING` → `PAID` / `EXPIRED` / `CANCELLED`; `EXPIRED` → `PAID` chỉ khi tiền vào trong cửa sổ gốc; `CANCELLED` → `PAID` chỉ khi giờ NH trước lúc hủy (D38) |
+| Hủy (D38) | Thời điểm hủy, Owner hủy, lý do tùy chọn (trim, ≤ 1.000 ký tự, rỗng = không ghi); ghi một lần, bất biến |
 | Giờ ngân hàng ghi nhận, giờ nhận, giờ xác nhận, nguồn xác nhận (SEPAY / PM) | — |
 | Kỳ đã mua (detail) | Bắt đầu, kết thúc, kỳ hạn; 1 kỳ / yêu cầu PAID; bất biến |
 
@@ -97,10 +98,10 @@ Mã RC-yy-nnnn, mã thanh toán, trại, kỳ hạn, phiên bản giá, số ti�
 |---|---|---|
 | R-19-01 | Chỉ Owner quản lý gói và thanh toán của trại mình. | GBR-07 |
 | R-19-02 | Một gói duy nhất, 1 / 2 / 3 năm; chuyển khoản do Owner khởi tạo; không tự trừ, không tự gia hạn, không giá theo tháng / theo con. | GBR-69 |
-| R-19-03 | Yêu cầu bất biến, hiệu lực 24 giờ; mỗi trại tối đa 1 PENDING chưa hết hạn – bấm thanh toán lại thì **mở lại** yêu cầu đó (MSG-FE19-01). | GBR-70, BR-D23 |
+| R-19-03 | Yêu cầu bất biến, hiệu lực 24 giờ; mỗi trại tối đa 1 PENDING chưa hết hạn – bấm thanh toán lại thì **mở lại** yêu cầu đó (MSG-FE19-01). Owner **hủy** được yêu cầu PENDING chưa hết hạn khi chưa nhận giao dịch nào cho mã đó (D38); `CANCELLED` là trạng thái cuối và không còn chặn tạo yêu cầu mới. | GBR-70, BR-D23 |
 | R-19-04 | Giá hiệu lực đổi kể từ lúc Owner xem → phải xem lại (MSG-FE19-02) trước khi tạo. | GBR-70 |
 | R-19-05 | Mua lần đầu: bất kỳ lúc nào. Gia hạn: chỉ trong 90 ngày cuối của bao phủ đã xác nhận, hoặc sau khi hết bao phủ (MSG-FE19-03). Trại SUSPENDED: không tạo yêu cầu (MSG-FE19-09 + gửi ticket). | GBR-71 |
-| R-19-06 | PAID **chỉ** qua thao tác xác nhận dùng chung (webhook SePay và PM chấp nhận): chứng từ đã xác thực, chiều vào, đúng số tiền, đúng TK nhận, giờ NH trong [tạo, hết hạn), chưa phân bổ, xác định đúng 1 yêu cầu (tự động: mã chính xác trong nội dung; PM: chọn rõ 1 ứng viên + lý do khi gõ sai mã). Không gộp / tách tiền, không suy kỳ hạn từ số tiền. Xác nhận theo từng trại tuần tự; xác nhận lặp trả kết quả cũ. | GBR-72 |
+| R-19-06 | PAID **chỉ** qua thao tác xác nhận dùng chung (webhook SePay và PM chấp nhận): chứng từ đã xác thực, chiều vào, đúng số tiền, đúng TK nhận, giờ NH trong [tạo, hết hạn) (yêu cầu đã hủy: [tạo, lúc hủy), D38), chưa phân bổ, xác định đúng 1 yêu cầu (tự động: mã chính xác trong nội dung; PM: chọn rõ 1 ứng viên + lý do khi gõ sai mã). Không gộp / tách tiền, không suy kỳ hạn từ số tiền. Xác nhận theo từng trại tuần tự; xác nhận lặp trả kết quả cũ. | GBR-72 |
 | R-19-07 | Kỳ đã mua bắt đầu = max(giờ xác nhận, kết thúc đã xác nhận mới nhất), dài 1 / 2 / 3 năm lịch (Asia/Ho_Chi_Minh), nửa mở [start, end), bất biến. Gia hạn liên tục giữ ngày kỷ niệm (29/02 → 28/02 năm không nhuận); có khoảng trống → đặt lại mốc. Trước khi xác nhận mọi ngày là ước tính. | GBR-73, BR-D25 |
 | R-19-08 | Mọi giao dịch đã xác thực đều lưu thành chứng từ, khử trùng theo bộ 4. Chứng từ chưa chấp nhận không cấp dịch vụ, không tạo biên lai. BeefCare không hoàn tiền; tiền cần trả lại ngoài hệ thống → khóa để không bao giờ cấp vốn cho yêu cầu. | GBR-74 |
 | R-19-09 | Quyết định PM: ACCEPT (chạy lại R-19-06), HOLD (còn mở), REJECT – đều cần lý do. | GBR-74, UC-06 |
@@ -108,8 +109,8 @@ Mã RC-yy-nnnn, mã thanh toán, trại, kỳ hạn, phiên bản giá, số ti�
 | R-19-11 | Thanh toán không bao giờ gỡ tạm ngưng; khôi phục không tạo / kéo dài kỳ. Trại SUSPENDED nhận tiền → PAID + tạo kỳ, vẫn SUSPENDED. | GBR-15, UC-08 AF4 |
 | R-19-12 | Bảng giá công bố là phiên bản đầy đủ (3 kỳ hạn), hiệu lực ngay hoặc tương lai, bất biến; không trùng thời điểm với phiên bản đã lên lịch khác; yêu cầu đã phát hành và kỳ đã mua không đổi. | GBR-75, BR-D25 |
 | R-19-13 | Webhook: xác minh HMAC trên `timestamp + "." + raw body`, sai lệch ≤ 300 giây; sai → 401, không lưu chứng từ. Lưu chứng từ + job rồi mới trả `200 {"success": true}`. | UC-08 |
-| R-19-14 | JOB-03 (5 phút): PENDING quá hạn → EXPIRED. JOB-04 (15 phút): tính lại trạng thái dịch vụ. JOB-05 (07:00 hằng ngày): thông báo mở gia hạn, sắp hết hạn, đã hết hạn. JOB-06: xử lý chứng từ, retry. JOB-07: thông báo + email cho Owner. | JOB-03 → 07 |
-| R-19-15 | Mọi chấp nhận thanh toán, quyết định chứng từ, công bố giá ghi audit cùng transaction. | GBR-86 |
+| R-19-14 | JOB-03 (5 phút): PENDING quá hạn → EXPIRED (không đụng `CANCELLED`). JOB-04 (15 phút): tính lại trạng thái dịch vụ. JOB-05 (07:00 hằng ngày): thông báo mở gia hạn, sắp hết hạn, đã hết hạn. JOB-06: xử lý chứng từ, retry. JOB-07: thông báo + email cho Owner. | JOB-03 → 07 |
+| R-19-15 | Mọi chấp nhận thanh toán, quyết định chứng từ, công bố giá, hủy yêu cầu (D38) ghi audit cùng transaction. | GBR-86 |
 | R-19-16 | Số ngày còn lại tính theo kỳ đang bao phủ thời điểm hiện tại: `floor((end - now) / 24 giờ)`, tối thiểu 0. Còn 23 giờ hiển thị 0 ngày; dịch vụ vẫn ACTIVE tới đúng `end` nếu không bị tạm ngưng. Không có kỳ hiện tại thì giá trị không có (`null`), hiển thị "—"; SUSPENDED vẫn đếm theo kỳ hiện tại. | SCR-57; D14 (DucNV, 09/11/2026); FE-02 Q4 |
 
 ---
@@ -169,8 +170,10 @@ Mở lại PENDING dùng snapshot cũ, không phụ thuộc giá/TK cấu hình 
 5. Tạo yêu cầu (mã duy nhất, hết hạn +24 h, snapshot TK nhận); tạo Subscription nếu chưa có.
 6. SCR-59: VietQR (API-01), PENDING, đếm ngược, thông tin chuyển khoản + nút sao chép, tiến trình, MSG-FE19-05.
 
-AF1 có PENDING → MSG-FE19-01 · AF2 giá đổi → MSG-FE19-02, quay lại bước 2 · AF3 Để sau / Đóng → vẫn PENDING · AF4 Kiểm tra lại → PAID: MSG-FE19-06 · AF5 hết hạn → MSG-FE19-07.
-E1 không phải Owner → MSG-COM-01 · E2 ngoài cửa sổ → MSG-FE19-03 · E3 SUSPENDED → MSG-FE19-09 · E4 không có giá / TK → MSG-FE19-04 · E5 không tạo được ảnh QR → vẫn hiện thông tin dạng chữ · E6 lỗi → MSG-COM-02.
+AF1 có PENDING → MSG-FE19-01 · AF2 giá đổi → MSG-FE19-02, quay lại bước 2 · AF3 Để sau / Đóng → vẫn PENDING · AF4 Kiểm tra lại → PAID: MSG-FE19-06 · AF5 hết hạn → MSG-FE19-07 · AF6 hủy yêu cầu (D38) → xác nhận MSG-FE19-17, xong MSG-FE19-18.
+E1 không phải Owner → MSG-COM-01 · E2 ngoài cửa sổ → MSG-FE19-03 · E3 SUSPENDED → MSG-FE19-09 · E4 không có giá / TK → MSG-FE19-04 · E5 không tạo được ảnh QR → vẫn hiện thông tin dạng chữ · E6 lỗi → MSG-COM-02 · E7 hủy khi đã nhận giao dịch → MSG-FE19-19 · E8 hủy khi không còn PENDING chưa hết hạn → MSG-COM-05, tải lại trạng thái.
+
+Hủy yêu cầu (D38, AF6): chỉ Owner (cùng quyền tạo, ở mọi trạng thái dịch vụ kể cả SUSPENDED), qua A18 với `Idempotency-Key`. Backend khóa dòng trại rồi yêu cầu (cùng thứ tự với thao tác xác nhận), rồi kiểm theo thứ tự: Owner (COM-01) → yêu cầu thuộc trại (COM-08) → lý do trim ≤ 1.000 (COM-10) → `PENDING` và `now < expiresAt` (COM-05) → chưa nhận giao dịch, cùng điều kiện với bước "Đã nhận giao dịch" của SCR-59 hoặc đã có chứng từ phân bổ (FE19-19 kèm mã và giờ nhận). Đạt thì ghi `CANCELLED`, giờ hủy, Owner, lý do (rỗng = null) và audit `PAYMENT_REQUEST_CANCELLED` (ngoài danh mục FE-17, như `PAYMENT_REQUEST`) trong cùng transaction; lệnh bị từ chối không ghi gì. Không có `expectedVersion`: điều kiện duy nhất có thể đổi là trạng thái, được kiểm sau khi khóa. Hủy không đổi trạng thái dịch vụ trại, không gửi thông báo / email. Giao dịch về sau theo R-19-06: giờ NH trước lúc hủy vẫn xác nhận như thường (`CANCELLED` → `PAID`, giữ giờ hủy); đúng hoặc sau lúc hủy thì chỉ lưu chứng từ cho PM (ngoài cửa sổ), như yêu cầu hết hạn.
 
 ### UC-FE19-03 Xem lịch sử và chi tiết thanh toán
 
@@ -428,8 +431,8 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | # | Trường | Nội dung |
 |---|---|---|
 | 1 | Title / Tiêu đề | "Mã yêu cầu · kỳ hạn · trại" |
-| 2 | VietQR | Ảnh QR (API-01): ngân hàng, TK, số tiền, nội dung; ẩn khi EXPIRED; lỗi tạo ảnh → vẫn hiện chữ |
-| 3 | Status / Trạng thái | PENDING / PAID / EXPIRED |
+| 2 | VietQR | Ảnh QR (API-01): ngân hàng, TK, số tiền, nội dung; ẩn khi EXPIRED / CANCELLED; lỗi tạo ảnh → vẫn hiện chữ |
+| 3 | Status / Trạng thái | PENDING / PAID / EXPIRED / CANCELLED |
 | 4 | Valid for / Còn hiệu lực | Đếm ngược hh:mm:ss |
 | 5 | Expires at / Hết hạn lúc | dd/mm/yyyy HH:mm |
 | 6 | Receiving bank, Account number, Account name, Amount, Transfer content | Chỉ đọc + nút "Sao chép"; nội dung = mã thanh toán; MSG-FE19-05 |
@@ -438,20 +441,22 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | 9 | View history / Close instructions | SCR-60 / quay lại màn nguồn (SCR-57, SCR-60, SCR-09), không đổi gì |
 | 10 | Enter farm / Back to subscription | Khi PAID: lần đầu → SCR-48; gia hạn → SCR-57 |
 | 11 | Expired / Hết hạn | MSG-FE19-07 + "Tạo yêu cầu mới" |
+| 12 | Cancel request / Hủy yêu cầu | Nút phụ, chỉ khi PENDING chưa hết hạn và chưa nhận giao dịch (bước 2 của tiến trình còn "Đang chờ"); mở MSG-FE19-17 có ô lý do (không bắt buộc, ≤ 1.000); nút khóa khi đang gửi; FE19-19 / COM-05 → đóng hộp thoại và tải lại (D38) |
+| 13 | Cancelled / Đã hủy | Huy hiệu CANCELLED; ẩn QR và nút sao chép; MSG-FE19-18 kèm giờ hủy, lý do (nếu có), "Tạo yêu cầu mới" (SCR-58) và "Về gói dịch vụ"; dừng tự tải |
 
 ### SCR-60 Lịch sử và chi tiết thanh toán
 
 | # | Trường | Nội dung |
 |---|---|---|
 | 1 | Search payment code / Tìm mã | Ô chữ |
-| 2 | Status / Trạng thái | Tất cả, PENDING, PAID, EXPIRED |
+| 2 | Status / Trạng thái | Tất cả, PENDING, PAID, EXPIRED, CANCELLED |
 | 3 | Created from / to / Tạo từ – đến | Khoảng ngày (MSG-COM-11) |
 | 4 | Code, Term, Amount | Cột |
 | 5 | Created at, Expires at | dd/mm/yyyy HH:mm, sắp xếp được |
 | 6 | Status | Huy hiệu |
 | 7 | Confirmed at · period | Với PAID |
 | 8 | Actions / Thao tác | PENDING: "Mở lại" (SCR-59); khác: "Xem" (panel chi tiết) |
-| 9 | Chi tiết | Mã, trạng thái, trại, phiên bản giá, kỳ hạn, số tiền; giờ NH ghi nhận, giờ nhận, giờ xác nhận (đến giây); kỳ đã mua |
+| 9 | Chi tiết | Mã, trạng thái, trại, phiên bản giá, kỳ hạn, số tiền; giờ NH ghi nhận, giờ nhận, giờ xác nhận (đến giây); kỳ đã mua; CANCELLED: giờ hủy (đến giây) và lý do (D38) |
 | 10 | Empty state | "Chưa có thanh toán" + "Xem gói dịch vụ" |
 
 ### SCR-61 Gói của các trại (PM)
@@ -476,7 +481,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | 3 | Review status / Trạng thái xem xét | Lọc | — | Tất cả, Cần xem, HOLD, REJECTED, ACCEPTED, Đã khóa |
 | 4 | Bank date / Ngày NH | Khoảng ngày | — | MSG-COM-11 |
 | 5 | Look up transaction / Tra cứu giao dịch | Ô tìm | — | Mã giao dịch hoặc khoảng (API-03) |
-| 6 | Evidence list | Cột | — | Mã giao dịch (che), Số tiền, Nội dung, Giờ NH, Kết quả khớp (Tự động xác nhận · PAID / Mã không khớp / Yêu cầu hết hạn / Không có yêu cầu / Sai số tiền / Chuyển ra) |
+| 6 | Evidence list | Cột | — | Mã giao dịch (che), Số tiền, Nội dung, Giờ NH, Kết quả khớp (Tự động xác nhận · PAID / Mã không khớp / Yêu cầu hết hạn / Sau lúc Owner hủy yêu cầu (`REQUEST_CANCELLED`, D38) / Không có yêu cầu / Sai số tiền / Chuyển ra) |
 | 7 | Provider · environment · namespace | Chỉ đọc | — | Ví dụ SePay · LIVE · beefcare-main |
 | 8 | Transaction ID, Amount · direction, Receiving account (✓/✗), Bank time (trusted) | Chỉ đọc | — | — |
 | 9 | Candidate requests / Yêu cầu ứng viên | Radio | * khi ACCEPT và mã không chính xác | Mã, số tiền, hết hạn |
@@ -485,7 +490,7 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | 12 | Check and accept / Save HOLD / Save REJECT | Nút | — | MSG-FE19-11; MSG-COM-05; thành công MSG-FE19-10 |
 | 13 | Lock for return / Khóa hoàn trả | Nút | — | Lý do bắt buộc; MSG-FE19-16. Sau đó "Ghi hoàn trả" (mã NH chiều ra, ngày, kết quả) hoặc "Mở khóa" (lý do) |
 | 14 | Evidence history / Lịch sử chứng từ | Bảng | — | Quyết định, sự kiện, PM, thời điểm |
-| 15 | Payment request list | Cột | — | Mã, Trại, Kỳ hạn, Số tiền, Tạo lúc, Hết hạn, Trạng thái, Chứng từ (link khi đã phân bổ) |
+| 15 | Payment request list | Cột | — | Mã, Trại, Kỳ hạn, Số tiền, Tạo lúc, Hết hạn, Trạng thái, Chứng từ (link khi đã phân bổ); trạng thái gồm CANCELLED (D38) |
 
 ### SCR-63 Bảng giá (PM)
 
@@ -507,8 +512,8 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Tổng quan gói | `farmId` ở path; không body | `SubscriptionOverview {farmId, farmName, serviceStatus, entitlementStatus, currentPeriod?, daysRemaining?, latestEnd?, renewalOpensAt?, suspended, suspendedSince?, pendingPayment?, currentPrices?, futurePeriods[], periods[], eligibility{ok, reason?, opensAt?}}`; các khóa có `?` vẫn hiện trong JSON với null khi không có dữ liệu. Tên JSON theo DTO/OpenAPI, đối chiếu 14 mục tại ma trận UC-01 | COM-01; thiếu giá: currentPrices=null, eligibility.reason=PRICE_UNAVAILABLE, vùng giá hiện FE19-04 | `GET /api/farms/{farmId}/subscription` |
-| A2 | Tạo / mở lại yêu cầu | `{durationYears (1\|2\|3), reviewedPriceVersion}` (đều bắt buộc) + `Idempotency-Key` | `PaymentDTO {id, quoteRef, durationYears, amountVnd, priceVersionId, bankCode, accountNumber, accountName, qrImageUrl, requestedAt, expiresAt, state, reopened, bankPaidAt?, receivedAt?, confirmedAt?, confirmationSource?, purchasedStart?, purchasedEnd?, receiptCode?}`; nội dung CK = quoteRef; null giữ khóa JSON | FE19-01 (reopened=true, UI mời mở lại), FE19-02, FE19-03, FE19-09, FE19-04, COM-01, COM-02 | `POST /api/farms/{farmId}/subscription/payments` |
-| A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status?, from?, to?, sort=requestedAt, dir=desc, page=0`; ngày ISO, page zero-based 0..107374182, size cố định 20 / — | `PaymentHistoryPage {content: PaymentDTO[], number, size, totalElements, totalPages}` / `PaymentDTO` như A2; đây là thay đổi từ array sang page cho UC3. FE suy tiến trình/kỳ từ các field thực, không lưu trùng. Detail path dùng numeric id | COM-11 khoảng ngày; COM-10 filter/page/sort không hợp lệ; COM-01 quyền; COM-08 detail không tồn tại; list lỗi COM-03; kiểm tra SCR-59 lỗi FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
+| A2 | Tạo / mở lại yêu cầu | `{durationYears (1\|2\|3), reviewedPriceVersion}` (đều bắt buộc) + `Idempotency-Key` | `PaymentDTO {id, quoteRef, durationYears, amountVnd, priceVersionId, bankCode, accountNumber, accountName, qrImageUrl, requestedAt, expiresAt, state, reopened, bankPaidAt?, receivedAt?, confirmedAt?, confirmationSource?, purchasedStart?, purchasedEnd?, receiptCode?, cancelledAt?, cancelReason?}`; `state` PENDING / PAID / EXPIRED / CANCELLED (D38); nội dung CK = quoteRef; null giữ khóa JSON | FE19-01 (reopened=true, UI mời mở lại), FE19-02, FE19-03, FE19-09, FE19-04, COM-01, COM-02 | `POST /api/farms/{farmId}/subscription/payments` |
+| A3 | Lịch sử / chi tiết (Kiểm tra lại) | `q?, status? (PENDING / PAID / EXPIRED / CANCELLED), from?, to?, sort=requestedAt, dir=desc, page=0`; ngày ISO, page zero-based 0..107374182, size cố định 20 / — | `PaymentHistoryPage {content: PaymentDTO[], number, size, totalElements, totalPages}` / `PaymentDTO` như A2; đây là thay đổi từ array sang page cho UC3. FE suy tiến trình/kỳ từ các field thực, không lưu trùng. Detail path dùng numeric id | COM-11 khoảng ngày; COM-10 filter/page/sort không hợp lệ; COM-01 quyền; COM-08 detail không tồn tại; list lỗi COM-03; kiểm tra SCR-59 lỗi FE19-08 | `GET …/subscription/payments` · `GET …/subscription/payments/{paymentId}` |
 | A4 | VietQR (API-01) | Ngân hàng, TK, số tiền, nội dung | URL ảnh | — | Trong `qrImageUrl` của A2 (gọi dịch vụ QR SePay) |
 | A5 | Gói các trại (PM) | `q?, coverage=ALL, serviceStatus?, endFrom?, endTo?, sort=confirmedUntil, dir=desc, page=0, size=20`; size 1..100, page 0..floor(2147483647/size), UI cố định 20 / farmId | `PageSubscriptionRow {items,total,page,size}` / `SubscriptionDetail {summary,subscriptionId?,suspended,suspendedSince?,renewalOpens?,latestPurchase?,periods[],emptyMessage?}`; PurchasedPeriod có numeric paymentId, paymentCode, receiptCode?, termYears, start/end, confirmedAt?, status CURRENT/FUTURE/PAST (cùng clock với summary); mốc null giữ khóa JSON | COM-01 quyền, COM-08 detail/thanh toán nguồn thiếu, COM-10 filter/page/sort sai, COM-11 khoảng ngày đảo, COM-03 tải danh sách | `GET /api/platform/subscriptions` · `GET …/{farmId}` |
 | A6 | Ô tổng hợp UC5 | — | `PaymentTiles {pendingRequests,evidenceToReview,hold,lockedForReturn}`; global, D18 | COM-01 | `GET /api/platform/payments/summary` |
@@ -518,11 +523,12 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | A10 | Khóa / ghi hoàn trả / mở khóa UC6 | `ReturnChange {reason ≤1000, version}` / `ReturnResult {reference ≤255, returnDate, result ≤500, version}` + `Idempotency-Key` | `EvidenceDTO` | COM-06/10, COM-07 ngày tương lai, COM-10 ngày trước ngày NH, COM-05 sai trạng thái hoặc version, COM-08, COM-19 | `POST …/lock-return` · `…/record-return` · `…/unlock-return` |
 | A11 | Tra cứu SePay theo mã (API-03, D21/D22) | `transactionId` (là request key, không có `Idempotency-Key`) | `WebhookResult {success, duplicate, evidenceId, reviewStatus, paymentId}`; lưu một lần theo BR-D24; đủ điều kiện tự PAID/cấp kỳ nguồn SEPAY, không khớp chỉ lưu chứng từ; audit ghi PM tra cứu; UI hiển thị đúng kết quả | 503 chưa cấu hình, 404 không có ở SePay, 502 lỗi SePay hoặc dữ liệu SePay không lưu được (cả A17), 409 khác dữ liệu nghiệp vụ | `POST /api/platform/payments/lookup/{transactionId}` |
 | A17 | Tra cứu SePay theo khoảng (API-03, Q2, D19) | `from, to` ngày VN bắt buộc, ≤31 ngày | `SePayLookupPage {items: SePayLookupRow[], limit=200}`; row `{transactionId, bankPaidAt, amount, direction, content?, referenceCode?, evidenceId?}` chỉ đọc | COM-06, COM-11 khoảng đảo, COM-10 quá 31 ngày, 503/502 | `GET /api/platform/payments/lookup` |
-| A12 | Danh sách/chi tiết yêu cầu UC5 | `state?, q?, page=0, size=20` / paymentId; size1..100/page0..floor(INT_MAX/size) | `PagePlatformPaymentRead {items,total,page,size}` / `PlatformPaymentRead`; giữ snapshot UC4, thêm evidenceId?, confirmedAt?, confirmationSource?, bankPaidAt?, receivedAt?; null giữ khóa | COM-01/08/10 | `GET /api/platform/payments` · `GET …/{paymentId}` |
+| A12 | Danh sách/chi tiết yêu cầu UC5 | `state? (PENDING / PAID / EXPIRED / CANCELLED), q?, page=0, size=20` / paymentId; size1..100/page0..floor(INT_MAX/size) | `PagePlatformPaymentRead {items,total,page,size}` / `PlatformPaymentRead`; giữ snapshot UC4, thêm evidenceId?, confirmedAt?, confirmationSource?, bankPaidAt?, receivedAt?, cancelledAt?, cancelReason? (D38); null giữ khóa | COM-01/08/10 | `GET /api/platform/payments` · `GET …/{paymentId}` |
 | A13 | Bảng giá (D23) | GET `page=0,size=20`; POST `{price1y,price2y,price3y,applyNow,effectiveAt?,terms?}` + `Idempotency-Key`; cả 3 giá và applyNow bắt buộc, effectiveAt bắt buộc khi lên lịch | `PlatformPlanPricePage {items,total,page,size,asOf,current?,nextEffectiveAt?}` / `PlatformPlanPriceVersion {id,revision,price1y,price2y,price3y,effectiveAt,terms?,status,publishedById?,publishedBy?,publishedAt?,withdrawnBy?,withdrawnAt?,withdrawReason?}`; nullable giữ khóa; id là số phiên bản; public PriceVersion không đổi | COM-01/06/10/19, FE19-13/14/15, COM-02 | `GET` / `POST /api/platform/plan-prices` |
 | A14 | Rút phiên bản đã lên lịch (D23) | `{reason,expectedVersion}` + `Idempotency-Key`; reason trim ≥5 ký tự không phải khoảng trắng, ≤1000; expectedVersion=revision đã đọc | `PlatformPlanPriceVersion` WITHDRAWN; không đổi giá/điều khoản/metadata công bố | COM-01/06/10/08/05/19/02 | `POST /api/platform/plan-prices/{version}/withdraw` |
 | A15 | Webhook SePay (API-02, D24) | `X-SePay-Signature`, `X-SePay-Timestamp` bắt buộc; JSON raw≤65536 bytes, schema SePayPayload, không session/CSRF/Idempotency-Key | `WebhookAcknowledgement {success:true}` sau commit chứng từ+job; không phải kết quả PAID; lặp dùng lại chứng từ/job | 401 HMAC/giờ;400 JSON/type/field;409 cùng ID khác dữ liệu nghiệp vụ;413 quá body;500 không lưu/commit được | `POST /api/webhooks/sepay` và alias `POST /api/v1/payments/sepay/webhook` |
 | A16 | Chi tiết chứng từ UC5/UC6 | evidenceId | `PlatformBankEvidenceDetail {summary,transactionId,receivingAccount?,bank?,referenceCode?,quoteRef?,firstReceivedAt?,returnReference?,returnDate?,returnResult?,history[]}`; mỗi history có `relatedPaymentId?`, `relatedPaymentCode?` riêng theo quyết định (D21), null cho dữ liệu cũ/sự kiện; PM/time/allowlisted reason/reference/result thực từ EvidenceReview/AuditLog; `history.action` = ACCEPT/HOLD/REJECT/LOCK/UNLOCK/RETURN_VERIFIED (REVIEW) hoặc EVIDENCE_RECEIVED/EVIDENCE_AUTO_ACCEPTED/EVIDENCE_LOCK_RETURN/EVIDENCE_RETURN_UNLOCK/EVIDENCE_RETURN_RECORDED (EVENT), không trả tên audit thô | COM-01/08 | `GET /api/platform/payments/evidence/{evidenceId}` |
+| A18 | Hủy yêu cầu (D38) | `{reason?}` (trim, ≤ 1.000; rỗng = không ghi) + `Idempotency-Key` bắt buộc; không có `expectedVersion` | `PaymentDTO` như A2 với `state=CANCELLED`, `cancelledAt`, `cancelReason` | COM-01 (không phải Owner), COM-08 (yêu cầu không thuộc trại), COM-10 (lý do quá dài), COM-05 (không còn PENDING chưa hết hạn), FE19-19 `{code, receivedAt}` (đã nhận giao dịch), COM-19 (thiếu key), COM-02 | `POST /api/farms/{farmId}/subscription/payments/{paymentId}/cancel` |
 
 ---
 
@@ -546,6 +552,9 @@ E1 giá sai → MSG-FE19-13 · E2 thời điểm quá khứ → MSG-FE19-14 · E
 | MSG-FE19-14 | Dưới trường | Thời điểm hiệu lực không được ở quá khứ. |
 | MSG-FE19-15 | Trên form | Phiên bản v{version} đã được lên lịch vào {time}. |
 | MSG-FE19-16 | Toast thành công | Giao dịch {transaction} đã khóa để hoàn trả và không thể dùng cho thanh toán nào. |
+| MSG-FE19-17 | Hộp thoại xác nhận | Hủy yêu cầu thanh toán {code}? Mã thanh toán và mã QR của yêu cầu này sẽ không dùng được nữa. Nếu bạn đã chuyển khoản, đừng hủy: giao dịch sẽ được xác nhận tự động. Ô "Lý do (không bắt buộc)". [Hủy yêu cầu] [Quay lại] |
+| MSG-FE19-18 | Trên trang | Yêu cầu thanh toán {code} đã hủy lúc {time}. Đừng chuyển khoản vào mã này. [Tạo yêu cầu mới] |
+| MSG-FE19-19 | Hộp thoại | Yêu cầu {code} đã nhận giao dịch ngân hàng lúc {time} nên không hủy được nữa. Giao dịch đang được xác nhận hoặc chờ đối soát. [Gửi yêu cầu hỗ trợ] [Đóng] |
 
 ---
 
@@ -680,6 +689,24 @@ Các ca dưới đây kế thừa TC-19-07→16/19/22/29 và thêm bằng chứn
 | TC-19-95 | gateway/referenceCode/accountNumber/code dài hơn giới hạn cũ → webhook 200 lưu đủ, xử lý UNMATCHED; tra cứu theo khoảng liệt kê, theo mã lưu đủ thay vì 502; nâng cấp giữ giá trị cũ | authenticatedTransfersWithLongProviderFieldsAreStoredInFullForReview; longSePayFieldsAreListedAndStoredInFullInsteadOfFailingTheLookup; SePayProcessingMigrationPostgresIT; OpenApiContractTest |
 | TC-19-96 | Không lưu được metadata của lời gọi sai chữ ký → vẫn 401, không có chứng từ; JOB-08 xóa metadata quá 30 ngày, giữ bản mới hơn | aRejectedCallStaysUnauthorizedWhenItsMetadataCannotBeStored; PlatformJobsIT#purgeDropsRejectedWebhookMetadataOlderThanThirtyDaysOnly |
 
+### Nghiệm thu hủy yêu cầu thanh toán (D38)
+
+| Mã | Điều kiện và kết quả | Test / bằng chứng |
+|---|---|---|
+| TC-19-97 | Owner, yêu cầu PENDING chưa hết hạn, chưa nhận giao dịch; có và không có lý do → A18 200 `CANCELLED`, lưu giờ hủy / Owner / lý do đã trim (rỗng = null), audit `PAYMENT_REQUEST_CANCELLED` cùng transaction; đọc lại A3 đúng | PaymentRequestCancelResourceTest#tc97OwnerCancelsWithATrimmedReasonOnceAndTheReadbackAndAuditAgree, #tc97NoBodyOrABlankReasonStoresNoReason (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
+| TC-19-98 | Manager → 403 COM-01; Owner trại khác → 403; `paymentId` của trại khác trên đường dẫn trại mình → 404 COM-08; không đổi gì | PaymentRequestCancelResourceTest#tc98OnlyTheOwnerOfTheRequestsFarmCanCancelAndARefusalWritesNothing (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
+| TC-19-99 | Yêu cầu PAID / EXPIRED / `expiresAt ≤ now` (JOB-03 chưa chạy) / đã CANCELLED → COM-05; không đổi gì | PaymentRequestCancelResourceTest#tc99OnlyAnUnexpiredPendingRequestCanBeCancelled (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
+| TC-19-100 | Đã nhận giao dịch đúng mã / TK / môi trường (kể cả sai số tiền) hoặc đã có chứng từ phân bổ → FE19-19 `{code, receivedAt}`; vẫn PENDING | PaymentRequestCancelResourceTest#tc100AReceivedTransferEvenWithAWrongAmountBlocksCancellation (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15); store demo `subscriptionApi.test.ts` |
+| TC-19-101 | Lý do > 1.000 ký tự sau trim → COM-10; lý do chỉ có khoảng trắng → lưu null; thiếu `Idempotency-Key` → COM-19 | PaymentRequestCancelResourceTest#tc101ReasonLengthAndMissingKeyAreRejectedWithoutWriting (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
+| TC-19-102 | Gửi lại cùng `Idempotency-Key` → trả đúng kết quả cũ, một lần ghi; khóa khác sau khi đã hủy → COM-05 | PaymentRequestCancelResourceTest#tc102TheSameKeyReplaysTheFirstResultAndWritesOnce (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
+| TC-19-103 | Sau khi hủy, A2 tạo được yêu cầu mới (không MSG-FE19-01); yêu cầu cũ vẫn CANCELLED | PaymentRequestCancelResourceTest#tc103AfterCancellingTheOwnerCanCreateANewRequest (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
+| TC-19-104 | Đã hủy; giao dịch đúng tiền / TK / mã có giờ NH trước lúc hủy → webhook hoặc PM ACCEPT xác nhận PAID, cấp kỳ, giữ giờ hủy | PaymentRequestCancelResourceTest#tc104MoneyBankedBeforeTheCancellationStillPaysTheRequestAndKeepsTheCancellationTime (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15); store demo `subscriptionApi.test.ts` |
+| TC-19-105 | Đã hủy; giao dịch có giờ NH đúng hoặc sau lúc hủy → không PAID, chứng từ chờ PM; PM ACCEPT bị chặn `OUTSIDE_WINDOW` | PaymentRequestCancelResourceTest#tc105MoneyBankedAtOrAfterTheCancellationWaitsForThePmAndCannotBeAccepted (H2 + `PaymentRequestCancelPostgresIT` PostgreSQL 16.15) |
+| TC-19-106 | Hủy và xác nhận chạy đồng thời trên cùng trại → tuần tự: hoặc PAID (hủy nhận COM-05 / FE19-19), hoặc CANCELLED rồi giao dịch theo TC-19-104 / 105; không hai kết quả | SubscriptionConfirmationConcurrencyTest#cancellationWaitingForTheFarmSeesTheConfirmationCommittedMeanwhileAndWritesNothing (H2 + `SubscriptionConfirmationConcurrencyPostgresIT`); thứ tự ngược là TC-19-104 / 105 |
+| TC-19-107 | SCR-59 PENDING: bấm Hủy yêu cầu → MSG-FE19-17; Quay lại không gửi; xác nhận gửi A18 một lần (nút khóa khi đang gửi) → MSG-FE19-18, ẩn QR và nút sao chép, dừng tự tải | `subscriptionPaymentBackend.test.tsx` "TC-19-107" ×2 (adapter + SCR-59) |
+| TC-19-108 | SCR-59 đã nhận giao dịch → không có nút Hủy; A18 gọi thẳng vẫn FE19-19; lỗi FE19-19 / COM-05 trên màn → đóng hộp thoại, tải lại | `subscriptionPaymentBackend.test.tsx` "TC-19-108" ×2 (FE19-19, COM-05) |
+| TC-19-109 | SCR-60 lọc CANCELLED; huy hiệu Đã hủy, chi tiết có giờ hủy và lý do, không có "Mở lại"; SCR-62 hiện trạng thái CANCELLED | `subscriptionHistoryBackend.test.tsx` "TC-19-109"; `platformPaymentReadBackend.test.tsx` "TC-19-109" (SCR-62) |
+
 ## 10. Điểm SRS chưa rõ
 
 | # | Câu hỏi | Đề xuất |
@@ -694,6 +721,7 @@ Các ca dưới đây kế thừa TC-19-07→16/19/22/29 và thêm bằng chứn
 | Q8 | SCR-59 có tự cập nhật trạng thái không? | Đã chốt trong phiên 09/11/2026 (D15): đọc lại 5 giây khi PENDING, không request chồng; dừng PAID/EXPIRED/rời màn, kiểm một lần tại expiry, giữ nút Kiểm tra lại. Scope backend + SCR-58/SCR-59 |
 | Q9 | Giao dịch được PM tra cứu có cần duyệt thêm; lịch sử lưu yêu cầu liên quan thế nào? | Người dùng chốt D21 (10/11/2026): khớp đầy đủ thì tự xác nhận như webhook; từng quyết định lưu riêng yêu cầu liên quan, HOLD/REJECT không bắt buộc chọn; không suy dữ liệu lịch sử cũ |
 | Q10 | Mã chính xác của yêu cầu X không nhận được: PM chọn được yêu cầu nào? Tra cứu theo mã có cần `Idempotency-Key`? | Người dùng chốt D22 (10/11/2026): chỉ yêu cầu cùng trại với X (`OTHER_FARM` nếu khác); mã giao dịch SePay là request key, không thêm header |
+| Q11 | Owner hủy yêu cầu thanh toán: SRS (GBR-70) không cho hủy, tạo nhầm kỳ hạn phải chờ hết 24 giờ | Đã chốt D38 (16/11/2026): Owner hủy được yêu cầu PENDING chưa hết hạn, chưa nhận giao dịch; lý do tùy chọn; tiền về trước lúc hủy vẫn xác nhận, sau lúc hủy chờ PM; sửa SRS GBR-70 / 72, UC-FE19-02, SCR-59 / 60 |
 
 ---
 
@@ -714,3 +742,4 @@ Các ca dưới đây kế thừa TC-19-07→16/19/22/29 và thêm bằng chứn
 | 10/11/2026 | 28/10/2026 | Review UC6, người dùng chốt D22: mã chính xác chỉ cấp cho trại của mã, mã giao dịch là khóa tra cứu; khóa trại trước khi đọc subscription (xác nhận, JOB-04), PM trong audit tra cứu, 502 dữ liệu SePay, không thông báo chiều ra; A8/A9/A11, TC-19-80→82, Q10 | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Người dùng chốt D24 UC8: durable JOB-06/alias/ACK lưu trước, retry và chuyển PM sau24h, mã mâu thuẫn, Q5 email; phần JOB-07 chỉ thanh toán. Bổ sung ma trận/test/readback/runtime, TC-19-83→92 | Người dùng / DucNV |
 | 10/11/2026 | 28/10/2026 | Review UC8, người dùng đồng ý sửa cả bốn điểm: lease job cho tra cứu/simulator, đếm giao lặp không đổi version, lưu đủ trường chữ đã xác thực (changeset 0500, chọn nới cột thay vì từ chối), JOB-08 dọn metadata 401 sau 30 ngày; TC-19-93→96 | Người dùng / DucNV |
+| 16/11/2026 | 28/10/2026 | D38: Owner hủy yêu cầu thanh toán (Q11). Sửa §3.3, R-19-03 / 06 / 14 / 15, UC-FE19-02 (AF6, E7, E8), SCR-59 (#2, #3, #12, #13), SCR-60 (#2, #9), SCR-62 (#15), §7 (A2, A3, A12, A18), §8 (MSG-FE19-17 → 19), §9 (TC-19-97 → 109); SRS sửa theo D38 | DucNV (Claude soạn) |

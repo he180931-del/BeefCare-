@@ -20,7 +20,7 @@ import PaymentReadPage from './PaymentReadPage'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
-const PAY_TONE = { PENDING: 'warn', PAID: 'ok', EXPIRED: 'outline' } as const
+const PAY_TONE = { PENDING: 'warn', PAID: 'ok', EXPIRED: 'outline', CANCELLED: 'outline' } as const
 
 export default function PaymentReconciliationRoutes() {
   const [params] = useSearchParams()

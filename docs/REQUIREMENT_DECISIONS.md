@@ -644,3 +644,39 @@ TC-11-xx, TC-12-xx trong `ReproductionResourceTest`.
 Technician trong trại được xem cả năm tab SCR-52 đến SCR-56, gồm mục đích nuôi, tham số đang hiệu lực và lịch sử phiên bản. Owner và Manager mới được thực hiện thao tác quản trị danh mục hoặc lưu phiên bản tham số, theo quyền của trại. Việc đổi mục đích của một con bò vẫn thuộc quyền Owner trong FE-05.
 
 Q1 được chốt theo phân quyền thực tế của API và giao diện. Đối chiếu TC-18-01 và `CatalogueFe18Test.q1TechnicianViewsEveryTabButCannotWrite`.
+
+### D38 — FE-19: Owner hủy yêu cầu thanh toán (16/11/2026)
+
+SRS 28/10 không cho hủy: yêu cầu thanh toán bất biến 24 giờ (GBR-70), chỉ JOB-03 kết
+thúc yêu cầu chưa trả, nên tạo nhầm kỳ hạn thì phải chờ hết hạn. Người dùng (DucNV, chủ
+FE-19) chọn làm chức năng hủy thật sau khi đọc GBR-70, GBR-72, thực thể Payment Request,
+UC-FE19-02, SCR-59 / SCR-60 (Part III 19.1.3–19.1.4), ma trận quyền và đối chiếu code.
+Chốt FE-19 Q11, cả bốn điểm theo đề xuất:
+
+1. Chỉ Owner của trại hủy được (cùng quyền tạo yêu cầu, ở mọi trạng thái dịch vụ); lý do
+   tùy chọn, trim, ≤ 1.000 ký tự, rỗng = không ghi.
+2. Chỉ hủy yêu cầu `PENDING` chưa hết hạn và **chưa nhận giao dịch**: cùng điều kiện với
+   bước "Đã nhận giao dịch" của SCR-59 (D15: chứng từ đã xác thực, chiều vào, đúng môi
+   trường / namespace / TK / mã, kể cả sai số tiền) hoặc đã có chứng từ phân bổ. Đã nhận →
+   mã mới **MSG-FE19-19**; không còn PENDING chưa hết hạn → MSG-COM-05.
+3. Tiền về sau khi hủy: cửa sổ nhận tiền của yêu cầu đã hủy là `[tạo, lúc hủy)`. Giờ ngân
+   hàng trước lúc hủy vẫn được xác nhận như thường (`CANCELLED` → `PAID`, cấp kỳ, giữ giờ
+   hủy); đúng hoặc sau lúc hủy thì không tự cấp kỳ, chứng từ chờ PM (PM chấp nhận cũng bị
+   chặn `OUTSIDE_WINDOW`) và hoàn trả theo UC-FE19-06.
+4. `CANCELLED` là trạng thái cuối, không còn chặn tạo yêu cầu mới (BR-D23 chỉ tính PENDING
+   chưa hết hạn).
+
+SRS sửa tại chỗ: định nghĩa Payment request, thực thể Payment Request (thuộc tính, vòng
+đời), GBR-70, GBR-72, UC-FE19-02 (POST-3, AF3, AF6, E7, E8, thêm GBR-72 vào quy tắc),
+SCR-59 (trạng thái, QR, nút Hủy yêu cầu), SCR-60 (lọc, trạng thái, chi tiết), ma trận quyền
+("View / request / cancel payment"); bảng thông báo thêm MSG-FE19-17 → 19 ngay sau
+MSG-FE19-16, các dòng sau đánh số lại (205 → 259 thành 208 → 262).
+
+Đi kèm, không cần quyết riêng: route A18 `POST /api/farms/{farmId}/subscription/payments/{paymentId}/cancel`
+với `Idempotency-Key` bắt buộc, không có `expectedVersion` (trạng thái là điều kiện duy nhất
+có thể đổi, được kiểm sau khi khóa); khóa dòng trại rồi yêu cầu như thao tác xác nhận; audit
+`PAYMENT_REQUEST_CANCELLED` trong trại (ngoài danh mục FE-17, như `PAYMENT_REQUEST`); không
+gửi thông báo / email; migration thêm `cancelled_at`, `cancelled_by_id`, `cancel_reason` cho
+`payment`; `PaymentDTO` thêm `cancelledAt`, `cancelReason`; lọc trạng thái A3 / A12 nhận
+`CANCELLED`. PM: yêu cầu đã hủy chỉ là ứng viên (A8) cho giao dịch có giờ NH trước lúc hủy; chứng từ
+về sau lúc hủy có kết quả khớp mới `REQUEST_CANCELLED` (SCR-62 #6). Spec FE-19 §3.3, §5, §6, §7, §8, §9 (TC-19-97 → 109), §10 (Q11), §11.

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
 import Layout from '../../../components/Layout'
@@ -5,6 +6,7 @@ import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../
 import { useDemoState } from '../../../hooks/useDemoState'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { useIsPhone, useTick } from '../components/shared'
+import CancelRequestDialog from '../components/CancelRequestDialog'
 import DevTransferSimulator from '../components/DevTransferSimulator'
 import { useStateDialog } from '../components/StateDialog'
 import { PhoneTransfer, ProgressCard, QrCard, TransferInfoCard } from '../components/TransferParts'
@@ -30,6 +32,8 @@ export default function TransferPage() {
   const current = loaded?.state === 'PENDING' && now >= toMs(loaded.expiresAt) ? { ...loaded, state: 'EXPIRED' as const } : loaded
   const checking = payment.checking
   const notice = payment.notice
+  const [cancelling, setCancelling] = useState(false)
+  const [pageNotice, setPageNotice] = useState<string | null>(null)
   const from = params.get('from')
   const expired = current?.state === 'EXPIRED'
   const dialog = useStateDialog({
@@ -57,6 +61,10 @@ export default function TransferPage() {
     || current.purchasedStart != null && toMs(p.start) > toMs(current.purchasedStart))
   const paid = current.state === 'PAID'
   const pending = current.state === 'PENDING'
+  const cancelled = current.state === 'CANCELLED'
+  // D38: same rule as A18 — unexpired PENDING and no transfer received yet (bước 2 của tiến trình còn "Đang chờ").
+  const cancellable = pending && !current.receivedAt && now < toMs(current.expiresAt)
+  const openCancel = () => { setPageNotice(null); setCancelling(true) }
 
   return (
     <Layout title={TITLE}>
@@ -65,6 +73,7 @@ export default function TransferPage() {
           <p className="m-0 text-[11px] text-muted">{from === 'onboarding' ? 'Đăng ký gói' : 'Gia hạn gói'} · {farmName}</p>
         ) : (
           <PageHeader title={TITLE} sub={`Yêu cầu ${current.quoteRef} · ${termLabel(current.durationYears)} · ${farmName}`}>
+            {cancellable && <Button variant="danger" onClick={openCancel}>Hủy yêu cầu</Button>}
             <Button onClick={close}>Đóng hướng dẫn</Button>
           </PageHeader>
         )}
@@ -83,9 +92,25 @@ export default function TransferPage() {
             Chuyển đúng {fmtVnd(current.amountVnd)} với nội dung {current.quoteRef} trước {fmtTimeDate(current.expiresAt)}. Dịch vụ được kích hoạt tự động sau khi giao dịch được xác nhận.
           </Note>
         )}
+        {cancelled && (
+          // MSG-FE19-18 (D38)
+          <Note tone="warn">
+            <span className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Yêu cầu thanh toán {current.quoteRef} đã hủy{current.cancelledAt ? ` lúc ${fmtTimeDate(current.cancelledAt)}` : ''}. Đừng chuyển khoản vào mã này.
+                {current.cancelReason ? ` Lý do: ${current.cancelReason}` : ''}
+              </span>
+              <span className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => navigate(to('/goi-dich-vu'))}>Về gói dịch vụ</Button>
+                <Button variant="primary" size="sm" onClick={() => navigate(to('/goi-dich-vu/gia-han'))}>Tạo yêu cầu mới</Button>
+              </span>
+            </span>
+          </Note>
+        )}
+        {pageNotice && <Note tone="info">{pageNotice}</Note>}
         {notice && <Note tone="err">{notice}</Note>}
         {phone ? (
-          <PhoneTransfer payment={current} now={now} checking={checking} onCheck={() => void check()} onClose={close} />
+          <PhoneTransfer payment={current} now={now} checking={checking} onCheck={() => void check()} onClose={close} onCancel={cancellable ? openCancel : undefined} />
         ) : (
           <div className="grid items-start gap-4 lg:grid-cols-[376px_minmax(0,1fr)]">
             <QrCard payment={current} now={now} />
@@ -99,6 +124,12 @@ export default function TransferPage() {
         {import.meta.env.DEV && pending && <DevTransferSimulator farmId={farmId} payment={current} onSent={() => void check()} />}
         <Foot>Đối chiếu mã yêu cầu, ngân hàng nhận, số tài khoản, số tiền và nội dung chuyển khoản; mã quét chỉ hiển thị khi yêu cầu còn hiệu lực.</Foot>
       </div>
+      {cancelling && (
+        <CancelRequestDialog farmId={farmId} payment={current} onClose={() => setCancelling(false)}
+          onCancelled={() => { setCancelling(false); void check() }}
+          onBlocked={(state) => { setCancelling(false); dialog.show(state); void check() }}
+          onStale={(message) => { setCancelling(false); setPageNotice(message); void check() }} />
+      )}
       {dialog.element}
     </Layout>
   )
