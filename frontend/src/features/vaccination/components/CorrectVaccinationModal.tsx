@@ -7,7 +7,7 @@ import { vaccinationApi } from '../api/vaccinationApi'
 import { fmtDate, fmtDateTime } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
 import type { VaccinationOptions, VaccinationRecord, VaccineRoute } from '../types'
-import { FieldError, ROUTE_LABEL, UnitInput, parseNum, splitDose } from './vaccinationParts'
+import { DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, splitDose } from './vaccinationParts'
 
 interface Props { record: VaccinationRecord; onClose: () => void; onSaved: (message: string) => void }
 
@@ -42,13 +42,15 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
   const vaccinatorChoices = record.vaccinator && !names.includes(record.vaccinator) ? [record.vaccinator, ...names] : names
 
   const submit = async () => {
+    const dose = parseDoseAmount(amount, initialDose.unit)
+    if (action !== 'VOID' && dose.invalid) { setErrors({ dose: DOSE_INVALID }); return }
     setSaving(true)
     setErrors({})
     try {
       if (action === 'VOID') await vaccinationApi.voidRecord(record.id, { expectedVersion: record.version, reason })
       else {
         await vaccinationApi.correctRecord(record.id, {
-          expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, batchNo, dose: amount.trim() ? `${amount.trim()} ${initialDose.unit}` : undefined,
+          expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, batchNo, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
           route: route || undefined, withdrawalDays: parseNum(withdrawal), vaccinator: vaccinator || undefined, reason,
         })
       }
@@ -90,7 +92,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
             </tr>
             <tr>
               <Td className="font-medium">Liều</Td><Td>{record.dose ?? '—'}</Td>
-              <Td><UnitInput aria-label="Liều mới" unit={initialDose.unit} value={amount} onChange={(e) => setAmount(e.target.value)} /></Td>
+              <Td><UnitInput aria-label="Liều mới" type="text" inputMode="decimal" unit={initialDose.unit} aria-invalid={!!errors.dose} value={amount} onChange={(e) => setAmount(e.target.value)} /><FieldError>{errors.dose}</FieldError></Td>
             </tr>
             <tr>
               <Td className="font-medium">Đường tiêm</Td><Td>{record.route ? ROUTE_LABEL[record.route] : '—'}</Td>

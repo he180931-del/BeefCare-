@@ -174,6 +174,20 @@ class VaccinationGapCommandTest extends DomainTestSupport {
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("field", "withdrawalDays"));
     }
 
+    /** Found while testing in the browser (15/11/2026): FE-09 spec §3.3 makes the dose optional, but a vaccine without a reference dose was refused with MSG-COM-06. */
+    @Test
+    void aVaccinationWithoutADoseIsSavedWhenTheVaccineHasNoReferenceDose() {
+        CareDtos.CatalogueItem noDose = catalogue.saveVaccine(farm.getId(), null, key(),
+            new CareDtos.VaccineCommand(null, "ND" + next(), "Không liều", "Tụ huyết trùng", "Navetco", null, "SC", 21, 6, true));
+        CareDtos.VaccinationAnimal animal = new CareDtos.VaccinationAnimal(herd.get(0).getId(), null, null, "VACCINATE", null, null);
+        Long id = vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(noDose.id(), "ON_FARM", null, hoursAgo(1), "LOT-9", null, "SC", 21, "Manager", List.of(animal)))
+            .vaccinationIds().get(0);
+        reload();
+        assertThat(em.find(vn.edu.fpt.beefcare.domain.Vaccination.class, id).getDose()).isNull();
+        assertThatThrownBy(() -> vaccination.record(farm.getId(), key(), new CareDtos.RecordVaccinations(noDose.id(), "ON_FARM", null, hoursAgo(1), "LOT-9", "x".repeat(256), "SC", 21, "Manager", List.of(animal))))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("field", "dose"));
+    }
+
     @Test
     void voidingTheOnlyOnFarmRecordClearsTheWithdrawalOfTheCattle() {
         Cattle cow = herd.get(0);

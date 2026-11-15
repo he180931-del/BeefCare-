@@ -161,4 +161,5 @@
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
     <include file="config/liquibase/changelog/20261109000100_medicine_optional_dose.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261115000100_reproduction_people.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261115000200_vaccination_optional_dose.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>
