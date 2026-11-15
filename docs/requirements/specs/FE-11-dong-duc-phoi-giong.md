@@ -120,6 +120,7 @@ Tuổi đẻ lứa đầu, khoảng cách lứa gần nhất, số ngày từ l�
 | R-11-07 | Sau phối: ngày đẻ tạm tính = phối + thời gian mang thai; thay ngày tạm tính cũ; tạo REM-03 (phối + 28 ngày). Thiếu tham số → lưu, không có ngày dự kiến (MSG-FE11-08). Động dục mới sau phối → hủy ngày tạm tính. | GBR-53, REM-03 |
 | R-11-08 | Phối lần hai trong cùng chu kỳ động dục được phép; ngày tạm tính theo lần phối mới nhất. | UC-03 AF3 |
 | R-11-09 | Điều kiện phối "Chưa đạt" → cảnh báo MSG-FE11-09, vẫn lưu được. | GBR-55 |
+| R-11-09a | Cân dùng cho điều kiện phối chỉ lấy từ bản ghi cân VALID (GBR-39); cân lúc nhập đàn **không** tính. Chưa có lần cân → tiêu chí cân không đạt, hiện "Chưa có lần cân"; "Cân gần nhất" để trống; việc tiếp theo "Theo dõi cân" (chốt TuanPQ 15/11/2026). | GBR-39, GBR-55 |
 | R-11-10 | Nút ghi chỉ hiện theo trạng thái (§3.3); bò không thuộc diện → panel "Không áp dụng" kèm lý do và MSG-FE11-11, dòng thời gian vẫn xem được. | GBR-54 |
 | R-11-11 | Sửa / hủy: chỉ Manager, bắt buộc lý do, kèm version; giữ giá trị gốc (Record Revision). Không được làm mồ côi hay mâu thuẫn bản ghi sau (khám thai, thai, cập nhật thai, đẻ, bê đã đăng ký) → MSG-FE11-07 liệt kê các bản ghi đó; không bao giờ xóa dây chuyền. | GBR-59, BR-D15 |
 | R-11-12 | Sau ghi / sửa / hủy: tính lại trạng thái, ngày dự kiến, nhắc việc (REM-02, REM-03, REM-07) qua JOB-01. | UC-02, 03, 04 |

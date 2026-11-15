@@ -274,11 +274,18 @@ export function dueLabel(row: ReproductionFemale): string {
   return row.dueAt ? formatDate(row.dueAt) : '—'
 }
 
+/** Bò chưa có bản ghi cân VALID (cân lúc nhập đàn không tính – chốt 15/11/2026, GBR-39). */
+export const NO_WEIGHING = 'Chưa có lần cân'
+export const hasNoWeighing = (eligibility: BreedingEligibility): boolean => !eligibility.minimumWeightMet && eligibility.actualWeightKg == null
+
 export function eligibilityLabel(eligibility: NonNullable<ReproductionFemale['eligibility']>): string {
   if (eligibility.status === 'MET') return 'Đạt'
+  const noWeighing = hasNoWeighing(eligibility)
+  // Chỉ thiếu lần cân: hiện đúng "Chưa có lần cân", không gọi là "Chưa đạt".
+  if (noWeighing && eligibility.minimumAgeMet && eligibility.noOpenHealthCase) return NO_WEIGHING
   const details = [
     !eligibility.minimumAgeMet && `tuổi ${eligibility.actualAgeMonths} tháng`,
-    !eligibility.minimumWeightMet && (eligibility.actualWeightKg == null ? 'chưa có cân' : `cân ${eligibility.actualWeightKg} kg`),
+    !eligibility.minimumWeightMet && (noWeighing ? NO_WEIGHING : `cân ${eligibility.actualWeightKg} kg`),
     !eligibility.noOpenHealthCase && 'có ca bệnh mở',
   ].filter(Boolean)
   return `Chưa đạt${details.length ? ` · ${details.join(' · ')}` : ''}`

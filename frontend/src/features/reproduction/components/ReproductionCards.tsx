@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Badge, Card, KV, Table, Td, Th } from '../../../components/ui'
 import {
-  METHOD_TEXT, addDaysText, daysBetween, expectedCalvingDate, formatDate, formatDateTime, isDueSoon, windowBar,
+  METHOD_TEXT, NO_WEIGHING, addDaysText, daysBetween, expectedCalvingDate, formatDate, formatDateTime, hasNoWeighing, isDueSoon, windowBar,
 } from '../domain/reproductionRules'
 import type { CalvingRecord, ReproductionEvent, ReproductionFemale } from '../types'
 import { nowLocal } from './reproductionFields'
@@ -14,9 +14,11 @@ export function EligibilityCard({ profile }: { profile: ReproductionFemale }) {
   if (!e) return null
   const met = e.status === 'MET'
   const met3 = [e.minimumAgeMet, e.minimumWeightMet, e.noOpenHealthCase].filter(Boolean).length
-  const rows: Array<[string, string, boolean]> = [
+  const noWeighing = hasNoWeighing(e)
+  const rows: Array<[string, string, boolean, string?]> = [
     [`Tuổi ≥ ${e.requiredAgeMonths} tháng`, `${e.actualAgeMonths} tháng`, e.minimumAgeMet],
-    [`Cân ≥ ${e.requiredWeightKg} kg`, e.actualWeightKg == null ? 'Chưa có cân' : `${e.actualWeightKg} kg`, e.minimumWeightMet],
+    // Chốt 15/11/2026: chưa có bản ghi cân VALID → "Chưa có lần cân" (cân lúc nhập đàn không tính).
+    [`Cân ≥ ${e.requiredWeightKg} kg`, noWeighing ? NO_WEIGHING : `${e.actualWeightKg} kg`, e.minimumWeightMet, noWeighing ? NO_WEIGHING : undefined],
     ['Không có ca bệnh mở', e.noOpenHealthCase ? 'Không có' : 'Có ca mở', e.noOpenHealthCase],
   ]
   return (
@@ -24,11 +26,11 @@ export function EligibilityCard({ profile }: { profile: ReproductionFemale }) {
       <Table stack={false}>
         <thead><tr><Th>Tiêu chí</Th><Th>Giá trị</Th><Th>Kết quả</Th></tr></thead>
         <tbody>
-          {rows.map(([criterion, value, ok]) => (
+          {rows.map(([criterion, value, ok, missing]) => (
             <tr key={criterion}>
               <Td className="font-medium">{criterion}</Td>
               <Td className="whitespace-nowrap">{value}</Td>
-              <Td><Badge tone={ok ? 'ok' : 'err'} icon={ok ? 'circle-check' : undefined}>{ok ? 'Đạt' : 'Chưa đạt'}</Badge></Td>
+              <Td><Badge tone={ok ? 'ok' : missing ? 'warn' : 'err'} icon={ok ? 'circle-check' : undefined}>{ok ? 'Đạt' : missing ?? 'Chưa đạt'}</Badge></Td>
             </tr>
           ))}
         </tbody>

@@ -99,7 +99,10 @@ public class CattleStateService {
         return result;
     }
 
-    /** One GBR-55 criterion: {@code required} is null when the farm parameter is not configured (criterion not evaluated). */
+    /** Value of the MINIMUM_WEIGHT criterion when the cattle has no VALID weighing yet. */
+    public static final String NO_WEIGHING = "Chưa có lần cân";
+
+    /** One GBR-55 criterion: {@code required} is null when the farm parameter is not configured. */
     public record BreedingCriterion(String name, String required, String value, boolean met) {}
 
     /** GBR-55 breeding eligibility criteria (recommendation only): minimum age, minimum weight (latest VALID weight), no OPEN case. */
@@ -115,9 +118,11 @@ public class CattleStateService {
         criteria.add(new BreedingCriterion("MINIMUM_AGE", minAge == null ? null : String.valueOf(minAge), ageMonths == null ? null : String.valueOf(ageMonths), ageMet));
         BigDecimal weight = em.createQuery("select g.weightKg from Growth g where g.cattle.id=:id and upper(g.status)='VALID' and g.weightKg is not null order by g.checkDate desc, g.id desc", BigDecimal.class)
             .setParameter("id", cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
-        boolean weightMet = minWeight == null || (weight != null && weight.compareTo(minWeight) >= 0);
+        // Chốt 15/11/2026 (TuanPQ): chỉ bản ghi cân VALID (GBR-39) tính là lần cân; cân lúc nhập đàn không tính.
+        // Chưa có lần cân → tiêu chí không đạt với giá trị "Chưa có lần cân".
+        boolean weightMet = weight != null && (minWeight == null || weight.compareTo(minWeight) >= 0);
         criteria.add(new BreedingCriterion("MINIMUM_WEIGHT", minWeight == null ? null : minWeight.stripTrailingZeros().toPlainString(),
-            weight == null ? null : weight.stripTrailingZeros().toPlainString(), weightMet));
+            weight == null ? NO_WEIGHING : weight.stripTrailingZeros().toPlainString(), weightMet));
         Long openCases = em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status)='OPEN'", Long.class).setParameter("id", cattleId).getSingleResult();
         criteria.add(new BreedingCriterion("OPEN_HEALTH_CASE", "0", String.valueOf(openCases), openCases == 0)); // met = no OPEN case
         return criteria;

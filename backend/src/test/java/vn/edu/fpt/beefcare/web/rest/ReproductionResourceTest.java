@@ -179,6 +179,24 @@ class ReproductionResourceTest extends HerdEntryTestBase {
         get_("/cattle/" + cow.getId() + "/reproduction-history", manager).andExpect(jsonPath("$.ageMonths").value(30));
     }
 
+    /** Chốt 15/11/2026: không có bản ghi cân VALID (cân nhập đàn không tính) → tiêu chí cân không đạt, "Chưa có lần cân". */
+    @Test
+    void aCowWithoutAValidWeighingFailsTheWeightCriterionWithNoWeighing() throws Exception {
+        Cattle heifer = cattle(farm, breed, breeding, Sex.FEMALE, LifeStage.ADULT);
+        get_("/cattle/" + heifer.getId() + "/reproduction-history", manager)
+            .andExpect(jsonPath("$.latestWeight").doesNotExist())
+            .andExpect(jsonPath("$.eligibility.met").value(false))
+            .andExpect(jsonPath("$.eligibility.criteria[1].name").value("MINIMUM_WEIGHT"))
+            .andExpect(jsonPath("$.eligibility.criteria[1].met").value(false))
+            .andExpect(jsonPath("$.eligibility.criteria[1].value").value("Chưa có lần cân"));
+        get_("/reproduction-worklist?eligibility=NOT_MET", manager)
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].code").value(heifer.getDisplayCode()))
+            .andExpect(jsonPath("$.items[0].nextAction").value("MONITOR_WEIGHT"))
+            .andExpect(jsonPath("$.items[0].eligibility.failed[0]").value("MINIMUM_WEIGHT"))
+            .andExpect(jsonPath("$.items[0].eligibility.criteria[1].value").value("Chưa có lần cân"));
+    }
+
     @Test
     void tc11_02_aFatteningCowIsNotApplicableButOtherActionsStay() throws Exception {
         Cattle heifer = cattle(farm, breed, fattening, Sex.FEMALE, LifeStage.ADULT);
