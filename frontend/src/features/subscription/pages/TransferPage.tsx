@@ -5,6 +5,7 @@ import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../
 import { useDemoState } from '../../../hooks/useDemoState'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { useIsPhone, useTick } from '../components/shared'
+import DevTransferSimulator from '../components/DevTransferSimulator'
 import { useStateDialog } from '../components/StateDialog'
 import { PhoneTransfer, ProgressCard, QrCard, TransferInfoCard } from '../components/TransferParts'
 import { useFarmScope } from '../components/useFarmScope'
@@ -94,6 +95,8 @@ export default function TransferPage() {
             </div>
           </div>
         )}
+        {/* Chỉ khi chạy thử (vite dev); bản build production loại bỏ nhánh này. */}
+        {import.meta.env.DEV && pending && <DevTransferSimulator farmId={farmId} payment={current} onSent={() => void check()} />}
         <Foot>Đối chiếu mã yêu cầu, ngân hàng nhận, số tài khoản, số tiền và nội dung chuyển khoản; mã quét chỉ hiển thị khi yêu cầu còn hiệu lực.</Foot>
       </div>
       {dialog.element}

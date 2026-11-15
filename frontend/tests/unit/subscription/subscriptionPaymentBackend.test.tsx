@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { BackendError } from '../../../src/api/backendClient'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { createDevTransferApi } from '../../../src/features/subscription/api/devTransferApi'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import FirstSubscriptionPage from '../../../src/features/subscription/pages/FirstSubscriptionPage'
@@ -211,5 +212,53 @@ describe('five-second automatic payment status updates', () => {
     await act(async () => { finish({ ...pending, state: 'PAID' }) })
     expect(screen.queryByText(/đã được xác nhận/)).not.toBeInTheDocument()
     expect(screen.getByText(/Yêu cầu BC-NEW/)).toBeInTheDocument()
+  })
+})
+
+describe('local transfer simulator on SCR-59 (dev only)', () => {
+  const api = () => createDevTransferApi({ mode: 'backend', transport: http, store: subscriptionDemoStore })
+
+  it('posts the amount to the dev route and tells a confirmed transfer from an unmatched one', async () => {
+    http.command.mockResolvedValueOnce({ success: true, duplicate: false, evidenceId: 9, reviewStatus: 'ACCEPTED', paymentId: 501 })
+    expect(await api().simulateTransfer(42, pending, 1_200_000)).toEqual({ confirmed: true, duplicate: false })
+    expect(http.command).toHaveBeenCalledWith('/api/dev/sepay/farms/42/payments/501/transfer', { amountVnd: 1_200_000 }, { method: 'POST' })
+    http.command.mockResolvedValueOnce({ success: true, duplicate: false, evidenceId: 10, reviewStatus: 'TO_REVIEW', paymentId: null })
+    expect(await api().simulateTransfer(42, pending, 1_000)).toEqual({ confirmed: false, duplicate: false })
+    await expect(api().simulateTransfer(42, pending, 0)).rejects.toThrow('Số tiền phải là số nguyên dương.')
+    expect(http.command).toHaveBeenCalledTimes(2)
+    expect(subscriptionDemoStore.getOverview).not.toHaveBeenCalled()
+  })
+
+  it('explains a server without the simulator instead of a generic not-found', async () => {
+    http.command.mockRejectedValueOnce(new BackendError(404, {}))
+    await expect(api().simulateTransfer(42, pending, 1_200_000)).rejects.toThrow(/chưa bật giả lập chuyển khoản/)
+  })
+
+  it('prefills the requested amount, refreshes after sending and disappears once the request is paid', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.command.mockImplementation(async () => {
+      value = { ...pending, state: 'PAID', confirmedAt: new Date(NOW + 1000).toISOString(), purchasedStart: pending.requestedAt,
+        purchasedEnd: '2027-11-09T03:00:00Z', receiptCode: 'RC-1' }
+      return { success: true, duplicate: false, evidenceId: 9, reviewStatus: 'ACCEPTED', paymentId: 501 }
+    })
+    page()
+    const amount = await screen.findByLabelText('Số tiền giả lập (VND)')
+    expect(amount).toHaveValue('1200000')
+    fireEvent.click(screen.getByRole('button', { name: 'Giả lập chuyển khoản' }))
+    expect(await screen.findByText(/Thanh toán BC-UC02 đã được xác nhận/)).toBeInTheDocument()
+    expect(http.command).toHaveBeenCalledWith('/api/dev/sepay/farms/42/payments/501/transfer', { amountVnd: 1_200_000 }, { method: 'POST' })
+    expect(screen.queryByRole('region', { name: 'Giả lập chuyển khoản' })).not.toBeInTheDocument()
+  })
+
+  it('rejects an invalid amount without calling the server', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    page()
+    const amount = await screen.findByLabelText('Số tiền giả lập (VND)')
+    fireEvent.change(amount, { target: { value: '12a' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Giả lập chuyển khoản' }))
+    expect(screen.getByText('Số tiền phải là số nguyên dương.')).toBeInTheDocument()
+    expect(http.command).not.toHaveBeenCalled()
   })
 })

@@ -179,9 +179,19 @@ public class SePayWebhookService {
     /** Local simulator calls the same normalization and settlement pipeline, after an explicit PM role check. */
     public WebhookResult receiveMock(SePayPayload payload) {
         platformAccess.requireRole(PlatformRole.PM);
+        requireSimulator();
+        return receiveSimulated(payload);
+    }
+
+    /** The simulator only exists while BeefCare is wired to a MOCK or TEST receiving account, never LIVE. */
+    void requireSimulator() {
         if (!"MOCK".equalsIgnoreCase(environment) && !"TEST".equalsIgnoreCase(environment)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
+    }
+
+    /** Shared simulator core; every caller authorizes and calls {@link #requireSimulator()} first. */
+    WebhookResult receiveSimulated(SePayPayload payload) {
         IncomingTransfer incoming = transfer(payload);
         // The simulator plays SePay itself, so its events carry no actor, exactly like a delivered webhook.
         return processWithReplayProtection(incoming, "MOCK", fingerprint(incoming), null, true);
