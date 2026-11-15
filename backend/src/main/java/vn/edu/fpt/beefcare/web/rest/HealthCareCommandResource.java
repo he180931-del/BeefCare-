@@ -43,8 +43,9 @@ public class HealthCareCommandResource {
 
     /** A2: SCR-37 health tab of one cattle. */
     @GetMapping("/cattle/{cattleId}")
-    public CareDtos.HealthProfile cattleHealth(@PathVariable Long farmId, @PathVariable Long cattleId) {
-        return reads.healthProfile(farmId, cattleId);
+    public CareDtos.HealthProfile cattleHealth(@PathVariable Long farmId, @PathVariable Long cattleId,
+                                              @RequestParam(required = false) Long historyCaseId) {
+        return reads.healthProfile(farmId, cattleId, historyCaseId);
     }
 
     /** A3: open a case, or add an observation to an OPEN / CHRONIC case of the same cattle. */

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Field, DateInput, Note, Select, Table } from '../../../components/ui'
+import { Button, Field, DateInput, Note, Select, Table } from '../../../components/ui'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { MANAGER, OWNER, TODAY } from '../../../data/cowsData'
 import { checkPenMove, moveBarn } from '../api/cattleApi'
 import { useMutation } from '../../../hooks/useApi'
+import { useFarmMoveDate } from '../../pen-management/api/useFarmMoveDate'
 import { userFacingError } from '../../../api/userFacingError'
 import { Chip, Td, Th, fieldCls } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
@@ -27,7 +28,9 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
   const isDemo = !backend && cow.code === 'BC-000142'
   const options = Object.values(barns).filter((b) => b.code !== cow.barn && b.status === 'ACTIVE')
   const [to, setTo] = useState(backend ? options[0]?.code ?? '' : options.find((b) => b.code === 'A1')?.code ?? options[0]?.code ?? '')
-  const [date, setDate] = useState(backend ? new Date().toISOString().slice(0, 10) : TODAY)
+  const farmDate = useFarmMoveDate(TODAY, backend ? undefined : TODAY)
+  const [enteredDate, setDate] = useState<string>()
+  const date = enteredDate ?? farmDate.today
   const [by, setBy] = useState(MANAGER)
   const [reason, setReason] = useState(isDemo ? 'Đủ 13 tháng & 236 kg – chuẩn bị theo dõi sinh sản' : '')
   // R-04-05: lý do cảnh báo là trường riêng, lưu theo phân chuồng mới, không dùng lại lý do chuyển.
@@ -43,7 +46,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
 
   // Backend kiểm tra tiếp nhận (chuồng đích ACTIVE, còn chỗ, tiêu chí) trước khi cho chuyển.
   useEffect(() => {
-    if (!backend || destId == null) { setCheck(null); return }
+    if (!backend || destId == null || !date) { setCheck(null); setChecking(false); return }
     let active = true
     setChecking(true)
     setError('')
@@ -69,7 +72,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
         [`Ngưỡng ≥ ${dest?.minMonths ?? 0} tháng và ≥ ${dest?.minKg ?? 0} kg`, cow.months >= (dest?.minMonths ?? 0) && cow.weight != null && cow.weight >= (dest?.minKg ?? 0)],
         ['Giai đoạn khớp tiêu chí chuồng', cow.stage === dest?.stage],
       ]
-  const canSave = reason.trim() !== '' && (backend
+  const canSave = date !== '' && reason.trim() !== '' && (backend
     ? !!check && !check.blocked && !cattleError && !checking && !move.loading && (!warningRequired || warningReason.trim() !== '')
     : checks[0][1] === true)
 
@@ -101,7 +104,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
           </Select>
         </Field>
         <Field label="Ngày chuyển *">
-          <DateInput value={date} onChange={setDate} />
+          <DateInput value={date} readOnly={!farmDate.today} onChange={setDate} />
         </Field>
         <Field label="Người thực hiện">
           <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
@@ -119,6 +122,7 @@ export default function MoveModal({ cow, barns, onClose, onSaved }: { cow: CowSe
       <p className="m-0 text-[14px] font-semibold leading-[normal] text-[#212121]">Kiểm tra tiếp nhận</p>
       {blockText && <Note tone="err">{blockText}</Note>}
       {error && <Note tone="err">{error}</Note>}
+      {Boolean(farmDate.error) && <Note tone="err">Không tải được ngày của trại. <Button variant="link" onClick={farmDate.retry}>Thử lại</Button></Note>}
       {cattleError && <Note tone="err">{userFacingError(cattleError, 'Bò này không chuyển được chuồng.')}</Note>}
       <Table stack={false}>
         <thead>

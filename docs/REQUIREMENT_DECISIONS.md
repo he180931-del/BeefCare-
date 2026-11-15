@@ -638,3 +638,9 @@ Các chốt triển khai khi đối chiếu spec FE-11 / FE-12 mục 7 với cod
 
 Chi tiết và bảng lệch: `docs/agent-context/FE-11-12-progress.md`. Test:
 TC-11-xx, TC-12-xx trong `ReproductionResourceTest`.
+
+### D37 — FE-18: quyền xem danh mục và tham số (15/11/2026)
+
+Technician trong trại được xem cả năm tab SCR-52 đến SCR-56, gồm mục đích nuôi, tham số đang hiệu lực và lịch sử phiên bản. Owner và Manager mới được thực hiện thao tác quản trị danh mục hoặc lưu phiên bản tham số, theo quyền của trại. Việc đổi mục đích của một con bò vẫn thuộc quyền Owner trong FE-05.
+
+Q1 được chốt theo phân quyền thực tế của API và giao diện. Đối chiếu TC-18-01 và `CatalogueFe18Test.q1TechnicianViewsEveryTabButCannotWrite`.

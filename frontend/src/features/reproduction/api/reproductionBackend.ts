@@ -19,6 +19,13 @@ import type {
 /** Mã bản ghi phía UI: tiền tố theo bảng để không trùng giữa sự kiện, diễn biến thai, lần đẻ, bê và thai. */
 const ID = { event: 'e', update: 'u', calving: 'c', calf: 'f', episode: 'p' } as const
 const uid = (kind: keyof typeof ID, id: unknown) => `${ID[kind]}-${num(id) ?? 0}`
+
+export function resolveReproductionSource(events: readonly ReproductionEvent[], sourceId: string, sourceType: string | null) {
+  const kind = sourceType === 'CALVING_EVENT' ? 'CALVING' : sourceType
+  const idType = kind === 'CALVING' ? 'calving' : kind === 'PREGNANCY_UPDATE' ? 'update' : 'event'
+  return events.find((event) => (event.id === sourceId || event.id === uid(idType, sourceId))
+    && (kind == null || event.type === kind))
+}
 const backendId = (value: string | null | undefined, kind: keyof typeof ID): number | undefined => {
   const match = new RegExp(`^${ID[kind]}-(\\d+)$`).exec(value ?? '')
   return match ? Number(match[1]) : undefined

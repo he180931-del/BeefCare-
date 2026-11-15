@@ -32,7 +32,7 @@ Tất cả nằm trên **một trang** "Danh mục & tham số" với 5 tab, m�
 | Hành động | Owner | Manager | Technician |
 |---|---|---|---|
 | Xem giống, vắc-xin, thuốc | Có | Có | Có |
-| Xem mục đích nuôi, tham số | Có | Có | — (Q1) |
+| Xem mục đích nuôi, tham số hiện hành và lịch sử phiên bản | Có | Có | Có, chỉ đọc (D37) |
 | Tạo, sửa, ngưng / dùng lại, xóa vắc-xin chưa dùng | Có | Có | — |
 | Lưu phiên bản tham số | Có | Có | — |
 
@@ -351,7 +351,7 @@ E1 ngoài khoảng / thứ tự sai → MSG-FE18-06 · E2 thiếu ghi chú ngu�
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
-| Q1 | Technician có xem SCR-55, SCR-56 không? (SRS nói SCR-55 "Owner or a Manager"; SCR-52 → 54 "farm members") | Technician chỉ xem giống, vắc-xin, thuốc |
+| Q1 | Technician có xem SCR-55, SCR-56 không? | Có, chỉ đọc cả năm tab và lịch sử phiên bản (D37). |
 | Q2 | SCR-54 không nêu mã và tên thuốc | Mã như giống; tên ≤ 150 như vắc-xin |
 | Q3 | SCR-55 không có trường Mô tả dù entity có | Thêm Mô tả ≤ 500 |
 | Q4 | Có xóa giống / thuốc / mục đích chưa dùng không? | Không – SRS chỉ cho xóa vắc-xin chưa dùng |

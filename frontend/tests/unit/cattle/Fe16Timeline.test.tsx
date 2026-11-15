@@ -10,6 +10,8 @@ import { initialCows } from '../../../src/data/cowsData'
 import type { CowSeed } from '../../../src/data/cowsData'
 import { reproductionApi, resetReproductionDemo } from '../../../src/features/reproduction/api/reproductionApi'
 import ReproductionProfileTab from '../../../src/features/reproduction/components/ReproductionProfileTab'
+import HealthTechnicianTab from '../../../src/features/health/components/HealthTechnicianTab'
+import { healthApi } from '../../../src/features/health/api/healthApi'
 
 const ev = (over: Record<string, unknown>, i = 0) => mapTimeline({ recorder: 'Quản lý A', ...over }, i)
 
@@ -154,6 +156,36 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
     </MemoryRouter></SessionContext.Provider>)
     await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
     expect(screen.getByRole('status')).toHaveTextContent('?tab=growth&r=77&type=GROWTH_ASSESSMENT')
+  })
+
+  it('opens the selected health record inside the Technician profile with case and source type', async () => {
+    const user = userEvent.setup()
+    const source = ev({ category: 'HEALTH', type: 'TREATMENT', sourceId: 77, occurredAt: '2026-10-01T03:00:00Z',
+      canOpen: true, values: { healthCaseId: 31 } })
+    const profile = await healthApi.getProfile('BC-000203')
+    const record = { id: 77, caseId: 31, caseCode: 'HC-0031', occurredAt: '2026-10-01T10:00', status: 'VALID',
+      recordedBy: 'Quản lý A', version: 1, corrected: false, temperatureC: null } as const
+    const getProfile = vi.spyOn(healthApi, 'getProfile').mockResolvedValue({
+      ...profile, activeCases: [], timeline: [
+        { ...record, type: 'FOLLOW_UP', details: 'Quan sát có trùng ID' },
+        { ...record, type: 'TREATMENT', details: 'Điều trị đúng bản ghi' },
+      ],
+    })
+    try {
+      render(<SessionContext.Provider value={session('TECHNICIAN')}><MemoryRouter initialEntries={['/timeline']}>
+        <Routes>
+          <Route path="/timeline" element={<TimelineTab cow={cow([source])} />} />
+          <Route path="/kt/dan-bo/:code" element={<><Location /><HealthTechnicianTab cattleCode="BC-000203" /></>} />
+        </Routes>
+      </MemoryRouter></SessionContext.Provider>)
+      await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }))
+      expect(screen.getByRole('status')).toHaveTextContent('?tab=health&r=77&type=TREATMENT&case=31')
+      expect(await screen.findByText('Điều trị đúng bản ghi')).toBeInTheDocument()
+      expect(screen.queryByText('Quan sát có trùng ID')).not.toBeInTheDocument()
+      expect(getProfile).toHaveBeenCalledWith('BC-000203', '31')
+    } finally {
+      getProfile.mockRestore()
+    }
   })
 
   it('sends only the changed fields to the exact reproduction source and refreshes the timeline', async () => {

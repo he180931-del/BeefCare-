@@ -277,10 +277,11 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
     },
 
     // A2 (+ GET /cattle/resolve, /cattle/{id} cho phần đầu hồ sơ).
-    async getProfile(cattleCode: string): Promise<HealthProfile> {
+    async getProfile(cattleCode: string, historyCaseId?: string): Promise<HealthProfile> {
       return run(async () => {
         const { cattleId, cattle } = await resolve(cattleCode)
-        const body = asRecord(await transport.get(path(`/health-cases/cattle/${cattleId}`)))
+        const query = historyCaseId ? `?${new URLSearchParams({ historyCaseId })}` : ''
+        const body = asRecord(await transport.get(path(`/health-cases/cattle/${cattleId}${query}`)))
         const timeline: HealthTimelineRow[] = []
         const activeCases = asRows(body.openCases).map((raw): HealthCaseCard => {
           const c = asRecord(raw)
@@ -305,6 +306,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
           const caseCode = textValue(c.caseCode)
           cases.set(id, { caseCode, cattleCode })
           const openedDate = textValue(c.openedDate)
+          timeline.push(...asRows(c.timeline).map((row) => mapTimelineRow(row, caseCode, timeZone)))
           const openingSigns = textValue(c.openingSigns)
           return {
             id, caseCode, status: 'CLOSED', severity: pick(SEVERITIES, c.severity, 'MILD'), diagnosis: textValue(c.diagnosis), signs: openingSigns, openingSigns, suspectedContagious: false,

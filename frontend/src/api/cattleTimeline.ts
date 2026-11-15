@@ -207,6 +207,7 @@ export function mapTimeline(event: BackendTimeline, index: number): CattleEvent 
     openDenied: event.canOpen === false,
     sourceId: typeof event.sourceId === 'number' ? event.sourceId : undefined,
     sourceType: type,
+    healthCaseId: typeof values.healthCaseId === 'number' ? values.healthCaseId : undefined,
     revisionSource: event.canCorrect && typeof values.version === 'number' ? { version: values.version, occurredAt: event.occurredAt, values } : undefined,
   }
 }

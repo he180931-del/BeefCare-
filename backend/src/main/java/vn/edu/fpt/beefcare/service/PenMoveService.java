@@ -86,9 +86,10 @@ public class PenMoveService {
     /** Dry run for the Move Pen popup: the reception-check table per cattle; writes nothing. */
     @Transactional(readOnly = true)
     public PenMoveCheckDTO check(Long farmId, PenMoveCheckRequest request) {
-        access.require(farmId, FarmAction.MOVE_CATTLE);
+        FarmContext ctx = access.require(farmId, FarmAction.MOVE_CATTLE);
         Pen toPen = penService.findPen(farmId, request.toPenId());
-        LocalDate moveDate = request.moveDate() == null ? clock.today() : request.moveDate();
+        LocalDate today = clock.today(ctx.farm().getTimeZone());
+        LocalDate moveDate = request.moveDate() == null ? today : request.moveDate();
         int headcount = occupancy.headcount(toPen.getId());
         int free = Math.max(0, toPen.getCapacity() - headcount);
         boolean active = toPen.getStatus() == ActiveStatus.ACTIVE;
@@ -104,7 +105,7 @@ public class PenMoveService {
                 if (open.isEmpty()) {
                     throw DomainException.conflict(MessageCodes.COM_05);
                 }
-                if (moveDate.isAfter(clock.today()) || moveDate.isBefore(open.get().getFromDate())) {
+                if (moveDate.isAfter(today) || moveDate.isBefore(open.get().getFromDate())) {
                     throw DomainException.unprocessable(MessageCodes.FE04_09, "start_date", open.get().getFromDate());
                 }
             } catch (DomainException e) {
@@ -156,7 +157,8 @@ public class PenMoveService {
         if (reason.length() > 500) {
             throw DomainException.invalid("reason");
         }
-        LocalDate moveDate = request.moveDate() == null ? clock.today() : request.moveDate();
+        LocalDate today = clock.today(ctx.farm().getTimeZone());
+        LocalDate moveDate = request.moveDate() == null ? today : request.moveDate();
         penService.findPen(farmId, request.toPenId());
         AppUser performer = performer(ctx, request.performedBy());
         Map<Long, String> warnings = request.warningReasons() == null ? Map.of() : request.warningReasons();
@@ -197,7 +199,7 @@ public class PenMoveService {
         Map<Long, ReceptionCheck> checks = new LinkedHashMap<>();
         for (Long id : moving) {
             PenAssignment open = current.get(id);
-            if (moveDate.isAfter(clock.today()) || moveDate.isBefore(open.getFromDate())) {
+            if (moveDate.isAfter(today) || moveDate.isBefore(open.getFromDate())) {
                 throw DomainException.unprocessable(MessageCodes.FE04_09, "start_date", open.getFromDate());
             }
             ReceptionCheck check = receptionCriteria.check(toPen, cattle.get(id), moveDate);
