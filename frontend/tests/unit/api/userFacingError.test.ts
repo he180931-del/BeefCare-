@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { BackendError } from '../../../src/api/backendClient'
 import { userFacingError } from '../../../src/api/userFacingError'
@@ -40,7 +40,7 @@ test('maps pen update domain errors to actionable Vietnamese messages', () => {
   )
   assert.equal(
     userFacingError(new BackendError(409, { code: 'MSG-COM-05', message: 'error.validation' })),
-    'Thông tin chuồng đã thay đổi. Vui lòng tải lại trang rồi thử lại.',
+    'Dữ liệu đã thay đổi. Vui lòng tải lại trang rồi thử lại.',
   )
 })
 

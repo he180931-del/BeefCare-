@@ -7,12 +7,15 @@ const response = (body: unknown) => new Response(JSON.stringify(body), { headers
 
 describe('backend cattle update modal', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 10, 11, 0, 30))
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
     vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
   })
@@ -35,7 +38,7 @@ describe('backend cattle update modal', () => {
     const user = userEvent.setup()
     render(<UpdateModal cow={cow} onClose={() => undefined} onSaved={() => undefined} />)
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = '2026-11-11'
     expect(screen.getByLabelText('Chọn ngày')).toHaveValue(today)
     expect(screen.getAllByRole('textbox')[1]).toHaveValue('')
     expect(screen.queryByText(/Đủ 13 tháng/)).not.toBeInTheDocument()
