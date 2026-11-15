@@ -400,7 +400,9 @@ public class VaccinationCommandService {
         String doseText = trim(req.dose()) == null ? vaccine.getDose() : req.dose().trim();
         String route = trim(req.route()) == null ? vaccine.getRoute() : req.route().trim();
         String vaccinator = trim(req.vaccinator()) == null ? ctx.user().getFullName() : req.vaccinator().trim();
-        if (doseText == null || doseText.isBlank() || doseText.length() > 255) throw DomainException.required("dose");
+        // FE-09 spec §3.3: the dose is optional (prefilled from the vaccine); a vaccine without a reference dose records none.
+        if (doseText != null && doseText.isBlank()) doseText = null;
+        if (doseText != null && doseText.length() > 255) throw DomainException.invalid("dose");
         if (route == null || route.isBlank() || route.length() > 255) throw DomainException.required("route");
         if (vaccinator == null || vaccinator.isBlank() || vaccinator.length() > 255) throw DomainException.required("vaccinator");
         List<Long> ids = animals.stream().map(CareDtos.VaccinationAnimal::cattleId).distinct().sorted().toList();

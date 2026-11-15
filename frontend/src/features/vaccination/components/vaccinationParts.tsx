@@ -39,6 +39,19 @@ export const parseNum = (s: string): number | undefined => {
   return Number.isNaN(n) ? undefined : n
 }
 
+/**
+ * Ô Liều (không bắt buộc – spec FE-09 §3.3): nhận "100", "1,5", "100ml", "100 ml" (đơn vị trùng đơn vị của vắc-xin).
+ * Trống → không gửi liều; không đọc được → `invalid` để báo "Liều không hợp lệ." thay vì âm thầm bỏ giá trị.
+ */
+export function parseDoseAmount(text: string, unit: string): { amount?: string; invalid: boolean } {
+  const t = text.trim()
+  if (!t) return { invalid: false }
+  const stripped = t.toLocaleLowerCase('vi').endsWith(unit.toLocaleLowerCase('vi')) ? t.slice(0, t.length - unit.length).trim() : t
+  const value = parseNum(stripped)
+  return value === undefined || value <= 0 || !/^[\d.,]+$/.test(stripped) ? { invalid: true } : { amount: stripped.replace(',', '.'), invalid: false }
+}
+export const DOSE_INVALID = 'Liều không hợp lệ.'
+
 /** Tách "2 ml" thành số và đơn vị. */
 export function splitDose(dose: string | undefined, fallbackUnit = 'ml'): { amount: string; unit: string } {
   const m = /^\s*([\d.,]+)\s*(.*)$/.exec(dose ?? '')
