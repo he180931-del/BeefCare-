@@ -604,3 +604,37 @@ Quyết định (TuanPQ):
 
 Nhãn diễn biến trong FE theo spec FE-10 (Tốt hơn / Không đổi / Xấu hơn). Test:
 TC-10-27, TC-10-28.
+
+### D36 — FE-11 / FE-12: thẻ tai bê "Đăng ký ngay" không bắt buộc; các chốt triển khai sinh sản (15/11/2026)
+
+FE-12 Q5: Figma bắt buộc thẻ tai khi chọn "Đăng ký ngay", SRS (§3.5, SCR-40 dòng
+13) không bắt buộc. Quyết định (TuanPQ): **theo SRS (D12), không bắt buộc**, khớp
+Q3 — bê đăng ký ngay không có thẻ được cấp mã khi ghi sổ phiếu nhập FARM_BORN
+(FE-06). Khi có nhập vẫn kiểm ≤ 50 ký tự và trùng mã (MSG-FE12-08). FE bỏ lỗi bắt
+buộc, chế độ local tự cấp mã như backend.
+
+Các chốt triển khai khi đối chiếu spec FE-11 / FE-12 mục 7 với code (TuanPQ):
+
+1. P1: người quan sát / thực hiện / khám / đỡ đẻ có thể là thành viên ACTIVE
+   (`observer_id`, `performer_id`, `examiner_id`, `attendant_id` — changeset mới,
+   FK `app_user`, nullable) hoặc tên ngoài (cột chữ cũ). Người quan sát mặc định
+   là người ghi.
+2. P2: kiểm trùng 12 giờ (MSG-FE11-03) cho cả động dục và phối; không hỏi khi lần
+   phối cùng `linkedEstrusId` với lần phối VALID trước (phối lần hai có chủ ý,
+   R-11-08) hoặc client gửi `confirmDuplicate=true`.
+3. P3: bản ghi có bản ghi phụ thuộc → 409 MSG-FE11-07 `{records, dependents[]}`.
+   MSG-FE12-02 chỉ cho mâu thuẫn khám / thai; MSG-FE12-12 cho thai đã đóng và đẻ
+   trùng trong 30 ngày.
+4. P4: lần đẻ thứ hai của cùng bò mẹ trong 30 ngày bị chặn 409 MSG-FE12-12.
+5. P5: liên kết sai bò / sai loại / đã hủy giữ MSG-COM-05; chỉ thời điểm sớm hơn
+   sự kiện liên kết → MSG-FE11-10 `{event, time, field}`.
+6. P6: 1–4 bê mỗi lần đẻ (R-12-08, BR-D19).
+7. P7: khám CÓ THAI không có phối liên kết và không có số tháng → thai OPEN không
+   có ngày dự kiến, trả `episode.notice = MSG-FE12-11`.
+8. Thiếu tham số trại thì không dùng giá trị mặc định: không có thời gian mang
+   thai → không tính ngày (`parameterMissing`, MSG-FE11-08); khám CÓ THAI khi đã
+   có thai OPEN → xác nhận thai đó (AF2), không báo lỗi; diễn biến thai bắt buộc
+   chi tiết ≤ 1.000 ký tự.
+
+Chi tiết và bảng lệch: `docs/agent-context/FE-11-12-progress.md`. Test:
+TC-11-xx, TC-12-xx trong `ReproductionResourceTest`.

@@ -65,6 +65,14 @@ public class CalvingEvent implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recorded_by_id")
     private AppUser recordedBy;
+    /** FE-12 P1: the birth attendant when a farm member; {@code attendant} keeps an external name. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attendant_id")
+    private AppUser attendantUser;
+
+    public AppUser getAttendantUser() { return attendantUser; }
+    public void setAttendantUser(AppUser attendantUser) { this.attendantUser = attendantUser; }
 
     @ManyToOne(optional = false)
     @NotNull

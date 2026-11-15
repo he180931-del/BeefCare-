@@ -73,7 +73,7 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-12 | Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 | Theo SCR-39 | TuanPQ | 07/11/2026 |
 | FE-12 | Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) | Theo đề xuất | TuanPQ | 07/11/2026 |
 | FE-12 | Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác | Theo đề xuất | TuanPQ | 07/11/2026 |
-| FE-12 | Q5 | Thẻ tai bê: Figma bắt buộc khi chọn "Đăng ký ngay", SRS không bắt buộc. FE (`CalvingPage`) đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | TuanPQ |  |
+| FE-12 | Q5 | Thẻ tai bê: Figma bắt buộc khi chọn "Đăng ký ngay", SRS không bắt buộc. FE (`CalvingPage`) đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` | Theo SRS, không bắt buộc (D36); để trống thì cấp mã khi ghi sổ phiếu FARM_BORN (Q3) | TuanPQ | 15/11/2026 |
 | FE-13 | Q1 | Độ dài lý do bỏ đề xuất phiếu chết | ≤ 500 |  | AnNT |  |
 | FE-13 | Q2 | UC-FE13-02, 04 không có đặc tả Part II | Theo SCR-41, SCR-76 và popup dùng chung |  | AnNT |  |
 | FE-13 | Q3 | Phiếu PENDING có được thêm bò khác không? | Không – mỗi phiếu chết gắn đúng 1 con (GBR-95) |  | AnNT |  |

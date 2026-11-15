@@ -89,11 +89,10 @@ class CattleStateServiceIT extends DomainTestSupport {
         var manager=memberWithRole(farm,FarmRole.MANAGER);actAs(manager);
         var cow=cattle(farm,breed(farm),purpose(farm,PurposeType.BREEDING),Sex.FEMALE,LifeStage.ADULT);
         cow.setCreatedAt(Instant.parse("2026-10-01T04:00:00Z"));em.flush();
-        var request=new vn.edu.fpt.beefcare.service.dto.ReproductionDtos.EventCommand(cow.getId(),cow.getVersion(),
-            Instant.parse("2026-10-27T04:00:00Z"),null,"ULTRASOUND","NOT_PREGNANT",null,"check note",null,"External veterinarian",
-            null,null,null,null,null,null,null,null,null);
+        var request=new vn.edu.fpt.beefcare.service.dto.ReproductionDtos.PregnancyCheckCommand(cow.getVersion(),null,
+            Instant.parse("2026-10-27T04:00:00Z"),null,"NOT_PREGNANT","ULTRASOUND",null,null,"External veterinarian","check note");
 
-        reproductionCommands.recordPregnancyCheck(farm.getId(),"not-pregnant-"+cow.getId(),request);
+        reproductionCommands.recordPregnancyCheck(farm.getId(),cow.getId(),"not-pregnant-"+cow.getId(),request);
         em.flush();em.clear();
         var refreshed=em.find(vn.edu.fpt.beefcare.domain.Cattle.class,cow.getId());
 

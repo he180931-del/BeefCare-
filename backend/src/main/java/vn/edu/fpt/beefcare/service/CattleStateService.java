@@ -90,22 +90,43 @@ public class CattleStateService {
         List<String> failures = new ArrayList<>();
         boolean applicable = reproductiveStatus != null && !"NOT_APPLICABLE".equals(reproductiveStatus);
         if (applicable && List.of("AWAITING_BREEDING", "IN_ESTRUS", "POST_CALVING").contains(reproductiveStatus)) {
-            Map<String, Object> params = effectiveParameters(farmId, today);
-            Integer minAge = integer(params, "MIN_BREEDING_AGE_MONTHS", "minimumBreedingAgeMonths", "minimum_breeding_age_months", "breedingMinimumAgeMonths");
-            BigDecimal minWeight = decimal(params, "MIN_BREEDING_WEIGHT_KG", "minimumBreedingWeightKg", "minimum_breeding_weight_kg", "breedingMinimumWeightKg");
-            if (minAge != null) {
-                if (cattle.getBirthDate() == null || cattle.getBirthDate().plusMonths(minAge).isAfter(today)) failures.add("MINIMUM_AGE");
-            }
-            BigDecimal weight = em.createQuery("select g.weightKg from Growth g where g.cattle.id=:id and upper(g.status)='VALID' and g.weightKg is not null order by g.checkDate desc, g.id desc", BigDecimal.class)
-                .setParameter("id", cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
-            if (minWeight != null && (weight == null || weight.compareTo(minWeight) < 0)) failures.add("MINIMUM_WEIGHT");
-            if (validCases > 0 && em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status)='OPEN'", Long.class).setParameter("id", cattleId).getSingleResult() > 0) failures.add("OPEN_HEALTH_CASE");
+            for (BreedingCriterion c : breedingCriteria(cattle, today)) if (!c.met()) failures.add(c.name());
             result.put("breedingEligible", failures.isEmpty());
         } else {
             result.put("breedingEligible", null);
         }
         result.put("failedBreedingConditions", failures);
         return result;
+    }
+
+    /** One GBR-55 criterion: {@code required} is null when the farm parameter is not configured (criterion not evaluated). */
+    public record BreedingCriterion(String name, String required, String value, boolean met) {}
+
+    /** GBR-55 breeding eligibility criteria (recommendation only): minimum age, minimum weight (latest VALID weight), no OPEN case. */
+    @Transactional(readOnly = true)
+    public List<BreedingCriterion> breedingCriteria(Cattle cattle, LocalDate today) {
+        Long cattleId = cattle.getId();
+        Map<String, Object> params = effectiveParameters(cattle.getFarm().getId(), today);
+        Integer minAge = integer(params, "MIN_BREEDING_AGE_MONTHS", "minimumBreedingAgeMonths", "minimum_breeding_age_months", "breedingMinimumAgeMonths");
+        BigDecimal minWeight = decimal(params, "MIN_BREEDING_WEIGHT_KG", "minimumBreedingWeightKg", "minimum_breeding_weight_kg", "breedingMinimumWeightKg");
+        List<BreedingCriterion> criteria = new ArrayList<>();
+        Long ageMonths = cattle.getBirthDate() == null ? null : java.time.temporal.ChronoUnit.MONTHS.between(cattle.getBirthDate(), today);
+        boolean ageMet = minAge == null || (cattle.getBirthDate() != null && !cattle.getBirthDate().plusMonths(minAge).isAfter(today));
+        criteria.add(new BreedingCriterion("MINIMUM_AGE", minAge == null ? null : String.valueOf(minAge), ageMonths == null ? null : String.valueOf(ageMonths), ageMet));
+        BigDecimal weight = em.createQuery("select g.weightKg from Growth g where g.cattle.id=:id and upper(g.status)='VALID' and g.weightKg is not null order by g.checkDate desc, g.id desc", BigDecimal.class)
+            .setParameter("id", cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
+        boolean weightMet = minWeight == null || (weight != null && weight.compareTo(minWeight) >= 0);
+        criteria.add(new BreedingCriterion("MINIMUM_WEIGHT", minWeight == null ? null : minWeight.stripTrailingZeros().toPlainString(),
+            weight == null ? null : weight.stripTrailingZeros().toPlainString(), weightMet));
+        Long openCases = em.createQuery("select count(h) from HealthCase h where h.cattle.id=:id and upper(h.status)='OPEN'", Long.class).setParameter("id", cattleId).getSingleResult();
+        criteria.add(new BreedingCriterion("OPEN_HEALTH_CASE", "0", String.valueOf(openCases), openCases == 0)); // met = no OPEN case
+        return criteria;
+    }
+
+    /** The farm parameter values effective on {@code date} (empty when the farm has no parameter version). */
+    @Transactional(readOnly = true)
+    public Map<String, Object> parameters(Long farmId, LocalDate date) {
+        return effectiveParameters(farmId, date);
     }
 
     private String reproductiveStatus(Cattle cattle, vn.edu.fpt.beefcare.domain.PregnancyEpisode open, LocalDate today) {

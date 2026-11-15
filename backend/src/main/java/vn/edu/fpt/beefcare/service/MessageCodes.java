@@ -35,6 +35,35 @@ public final class MessageCodes {
     /** FE-10 R-10-11: the opening observation of a case cannot be voided. */
     public static final String FE10_13 = "MSG-FE10-13";
 
+    /** FE-11 R-11-03 / Q2: a similar estrus or breeding of the cow within 12 hours; resend with confirmDuplicate. */
+    public static final String FE11_03 = "MSG-FE11-03";
+    /** FE-11 R-11-01: the farm sire must be another ACTIVE male of the farm; params.field. */
+    public static final String FE11_04 = "MSG-FE11-04";
+    /** FE-11 R-11-04: the cow has an OPEN (confirmed) pregnancy. */
+    public static final String FE11_05 = "MSG-FE11-05";
+    /** FE-11 R-11-11 / FE-12 R-12-15: later records depend on this one; params.records, params.dependents[]. */
+    public static final String FE11_07 = "MSG-FE11-07";
+    /** FE-11 R-11-07 / REM-02: a farm parameter is missing; returned as {@code parameterMissing}, never thrown. */
+    public static final String FE11_08 = "MSG-FE11-08";
+    /** FE-11 R-11-09: breeding eligibility not met; a warning ({@code eligibilityWarning}), never thrown. */
+    public static final String FE11_09 = "MSG-FE11-09";
+    /** FE-11 R-11-05: the time is earlier than the linked event; params.event, params.time, params.field. */
+    public static final String FE11_10 = "MSG-FE11-10";
+    /** FE-11 R-11-10: the cattle is not tracked for reproduction; params.reason. */
+    public static final String FE11_11 = "MSG-FE11-11";
+    /** FE-12 R-12-04: the check contradicts a check or pregnancy of the cow. */
+    public static final String FE12_02 = "MSG-FE12-02";
+    /** FE-12 R-12-08: a calving needs at least one calf outcome. */
+    public static final String FE12_06 = "MSG-FE12-06";
+    /** FE-12 R-12-09: birth weight 1–80 kg with a basis; params.field. */
+    public static final String FE12_07 = "MSG-FE12-07";
+    /** FE-12 R-12-10: the calf tag is already used in the farm; params.tag_code, params.field. */
+    public static final String FE12_08 = "MSG-FE12-08";
+    /** FE-12 R-12-03: the pregnancy has no expected calving date (notice, never thrown). */
+    public static final String FE12_11 = "MSG-FE12-11";
+    /** FE-12 R-12-05 / §3.4: the pregnancy is no longer OPEN, or a second calving within 30 days; params.dam_code. */
+    public static final String FE12_12 = "MSG-FE12-12";
+
     /** UC-FE02-01 E1: Owner registration is not complete. */
     public static final String FE02_02 = "MSG-FE02-02";
     /** UC-FE02-02 AF3: a Manager or Technician enters a farm that is not ACTIVE. */
