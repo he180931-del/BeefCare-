@@ -1,34 +1,34 @@
 package vn.edu.fpt.beefcare.config;
 
+import java.io.IOException;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
 import static org.springframework.security.config.Customizer.withDefaults;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer.FrameOptionsConfig;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.core.session.SessionRegistry;
-import org.springframework.security.core.session.SessionRegistryImpl;
-import org.springframework.security.web.session.HttpSessionEventPublisher;
-import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
-import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.web.filter.OncePerRequestFilter;
 import tech.jhipster.config.JHipsterProperties;
 import vn.edu.fpt.beefcare.security.AuthoritiesConstants;
 import vn.edu.fpt.beefcare.service.DomainException;
@@ -123,7 +123,7 @@ public class SecurityConfiguration {
                     .requestMatchers("/api/dev/sepay/**").authenticated()
                     .requestMatchers("/api/support/tickets/**", "/api/platform/support/tickets/**", "/api/platform/support/recipients", "/api/platform/internal-requests/**").authenticated()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
-                    .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
+                    .requestMatchers("/v3/api-docs/**").permitAll()  //hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health", "/management/health/**", "/management/info", "/management/prometheus").permitAll()
                     .requestMatchers("/management/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     // Unfinished JHipster entity CRUD controllers and all other API routes are deliberately closed.

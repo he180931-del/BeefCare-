@@ -4,3 +4,6 @@ public enum WeightBasis {
     MEASURED,
     ESTIMATED,
 }
+
+// "measure"
+//weightbasis.measured
