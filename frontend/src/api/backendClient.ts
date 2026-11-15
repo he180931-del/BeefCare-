@@ -59,7 +59,7 @@ export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch
     csrfHeader = csrf.headerName || 'X-XSRF-TOKEN'
     return { token: csrf.token, headerName: csrf.headerName }
   }
-  async function request<T = unknown>(path: string, { method = 'GET', body, key, signal, headers = {} }: RequestOptions = {}): Promise<T> {
+  async function request<T = unknown>(path: string, { method = 'GET', body, key, signal, headers = {} }: RequestOptions = {}, retried = false): Promise<T> {
     const changing = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())
     if (changing && !csrfToken) await getCsrf()
     const multipart = typeof FormData !== 'undefined' && body instanceof FormData
@@ -73,6 +73,13 @@ export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch
     })
     const result = await responseBody(response)
     if (response.status === 401) onUnauthorized?.()
+    // A 403 without a domain code is the CSRF filter: the token belongs to an earlier session (another client in the
+    // same tab signed out / in). Refresh it and resend once with the same Idempotency-Key; a domain 403 (MSG-COM-01) stays.
+    if (response.status === 403 && changing && !retried && !new BackendError(403, result).code) {
+      csrfToken = undefined
+      await getCsrf()
+      return request<T>(path, { method, body, key, signal, headers }, true)
+    }
     if (!response.ok) throw new BackendError(response.status, result)
     return result as T
   }
