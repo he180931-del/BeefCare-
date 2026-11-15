@@ -41,12 +41,12 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
 
   return (
     <Modal title={`Cập nhật ca ${card.caseCode}`} sub={`${cattleCode} · mở ${fmtDate(card.openedDate)} · đang ${chronic ? `CHRONIC từ ${fmtDate(card.chronicSince)}` : `OPEN ngày ${card.day}`}`} width={640} onClose={onClose}>
-      <Field label={keeping ? 'Diễn biến mới *' : 'Diễn biến mới'} id="us-progress" hint={hint(errors.progressText, 'Được lưu thành 1 lần theo dõi')}><Textarea id="us-progress" rows={2} value={progressText} onChange={(e) => setProgressText(e.target.value)} /></Field>
+      <Field label={keeping ? 'Diễn biến mới *' : 'Diễn biến mới'} id="us-progress" hint={hint(errors.progressText, 'Được lưu thành 1 lần theo dõi')}><Textarea id="us-progress" rows={2} maxLength={1000} value={progressText} onChange={(e) => setProgressText(e.target.value)} /></Field>
       <Field label={needsProgress ? 'Diễn biến *' : 'Diễn biến'} hint={hint(errors.progress, needsProgress ? undefined : 'Chỉ cần khi có diễn biến mới')}>
         <RadioGroup name="us-progress-kind" ariaLabel="Diễn biến" value={progress} onChange={setProgress} options={PROGRESSES.map((p) => ({ value: p, label: PROGRESS_LABEL[p] }))} />
       </Field>
       <Field label="Chẩn đoán nghi ngờ" id="us-diagnosis" hint={hint(errors.diagnosis)}>
-        <input id="us-diagnosis" list="us-diagnosis-list" value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={inputCls} />
+        <input id="us-diagnosis" list="us-diagnosis-list" maxLength={100} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} className={inputCls} />
         <datalist id="us-diagnosis-list">{options.diagnoses.map((d) => <option key={d} value={d} />)}</datalist>
         <Checkbox checked={contagious} onChange={(e) => setContagious(e.target.checked)} className="mt-1 text-[13px]">Nghi truyền nhiễm – cách ly</Checkbox>
       </Field>

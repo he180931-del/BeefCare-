@@ -125,7 +125,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Ngưng sử dụng thịt" id="rv-wd" hint="Lấy từ danh mục, có thể sửa">
-              <UnitInput id="rv-wd" unit="ngày" disabled={!onFarm} value={onFarm ? withdrawal : '0'} onChange={(e) => setWithdrawal(e.target.value)} />
+              <UnitInput id="rv-wd" unit="ngày" min={0} max={365} step={1} disabled={!onFarm} value={onFarm ? withdrawal : '0'} onChange={(e) => setWithdrawal(e.target.value)} />
               <FieldError>{errors.withdrawalDays}</FieldError>
             </Field>
             <Field label="Hết ngưng" id="rv-end"><input id="rv-end" readOnly value={endDate} className={`${inputCls} bg-page text-muted`} /></Field>
@@ -174,7 +174,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
                   <Td>
                     {s.decision === 'DEFER' ? (
                       <div className="flex flex-wrap items-center gap-2">
-                        <input aria-label={`Lý do hoãn ${cattle.code}`} placeholder="Lý do hoãn" className={`${inputCls} min-w-[200px] flex-1`} value={s.reason} onChange={(e) => patch(cattle.code, { reason: e.target.value })} />
+                        <input aria-label={`Lý do hoãn ${cattle.code}`} maxLength={500} placeholder="Lý do hoãn" className={`${inputCls} min-w-[200px] flex-1`} value={s.reason} onChange={(e) => patch(cattle.code, { reason: e.target.value })} />
                         <DateInput id={`rv-new-${cattle.code}`} value={s.date} onChange={(v) => patch(cattle.code, { date: v })} />
                         <FieldError>{rowErrors[cattle.code]}</FieldError>
                       </div>
