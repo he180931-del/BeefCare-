@@ -65,8 +65,8 @@ Từ đối chiếu Figma với frontend ngày 02/11. Trong code FE, mỗi metho
 | FE-21 | PM tài chính | Danh sách trại, danh sách và chi tiết biên nhận, báo cáo mới nhất | Tải XLSX chưa nối vì route trả về bytes | LamKD |
 | FE-03, FE-17 | SA | Danh sách người thao tác audit, xuất CSV, kiểm tra lại khi mở thông báo, lọc theo vai trò nền tảng | `AccountSummary`, `AuditEntry` thiếu `emailVerified`, ngày tạo, đăng nhập gần nhất, số trại, vai trò người thao tác, nhãn đối tượng | DucNV |
 | FE-01, FE-03 | Tài khoản, trại | | `POST /api/account/profile` mô tả thành `ProfileUpdate` có trường của bò, FE đang gửi `{ fullName, phone }` theo SCR-08; lời mời thiếu ngày tham gia, `invitedBy`, `farmId` | LamKD, DucNV |
-| FE-04, FE-05 | Đàn bò, chuồng | Ảnh bò | Kiểm tra chuyển chuồng không trả kết quả theo từng tiêu chí | AnNT |
-| FE-06, FE-13 | Nhập, xuất đàn | Ảnh, quét QR, số bê chờ xác nhận, gán bố mẹ cho bê, danh sách vắc-xin, giống, bò bố mẹ | `colourMarkings` gửi đi nhưng không đọc lại được | AnNT |
+| FE-04, FE-05 | Đàn bò, chuồng | Ảnh bò | ~~Kiểm tra chuyển chuồng không trả kết quả theo từng tiêu chí~~ Đã xử lý 07/11 (nhánh `fe-04-chuong`): BE đã trả `results` theo từng tiêu chí, FE ở SCR-17 và SCR-20 nay hiển thị Đạt / Không đạt / Không áp dụng | AnNT |
+| FE-06, FE-13 | Nhập, xuất đàn | Ảnh, quét QR, số bê chờ xác nhận, gán bố mẹ cho bê, danh sách vắc-xin, giống, bò bố mẹ | ~~`colourMarkings` gửi đi nhưng không đọc lại được~~ Đã xử lý 07/11 (nhánh `fe-04-chuong`): mở lại phiếu nháp đọc lại màu lông và ngày cách ly | AnNT |
 | FE-11, FE-12 | Sinh sản | Thành viên, bò đực, chuồng và giống, mục đích, ca sức khỏe, tra thẻ tai đã dùng | DTO sửa bản ghi phối thiếu bò đực, tinh, động dục liên kết. Route đã có nhưng màn chưa nối | TuanPQ |
 | FE-23 | Thức ăn | Hủy phiên bản và dừng khẩu phần, ghi trả nhà cung cấp, `GET …/feed/receipts/{id}` | Tạo, sửa danh mục, kiểm kê, khẩu phần vẫn bị khóa ở chế độ backend của FE | TaiDX |
 

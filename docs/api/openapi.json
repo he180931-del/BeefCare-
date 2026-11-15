@@ -13725,6 +13725,12 @@
           "quarantineUntil" : {
             "type" : "string",
             "format" : "date"
+          },
+          "damCode" : {
+            "type" : "string"
+          },
+          "sireCode" : {
+            "type" : "string"
           }
         }
       },
@@ -17259,6 +17265,12 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "issuedByName" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string"
           }
         }
       },
@@ -20104,6 +20116,12 @@
             "additionalProperties" : {
               "type" : "object"
             }
+          },
+          "canOpen" : {
+            "type" : "boolean"
+          },
+          "canCorrect" : {
+            "type" : "boolean"
           }
         }
       },
@@ -20351,6 +20369,13 @@
           },
           "messageCode" : {
             "type" : "string"
+          },
+          "currentTagCode" : {
+            "type" : "string"
+          },
+          "replacedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
