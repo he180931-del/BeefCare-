@@ -4,7 +4,7 @@ Nguồn: mục 10 của 23 spec theo SRS 28/10/2026 (quyết định D12). Mỗi
 
 Cột **Quyết định**: để trống = chưa chốt; ghi `Theo đề xuất`, `Khác: …` hoặc `Hoãn`. **Người chốt** mặc định là chủ feature; câu chạm feature khác thì trao đổi với chủ feature đó.
 
-Tổng: 122 câu – AnNT 28, DucNV 26, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
+Tổng: 123 câu – AnNT 28, DucNV 27, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
 
 Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Chung Q1) khi dọn thư mục `docs/`: lấy từ đối chiếu FE–BE phần thức ăn (01/11), đối chiếu Figma với frontend (02/11) và báo cáo triển khai backend (28–29/10).
 
@@ -13,6 +13,8 @@ Ngày 08/11/2026 thêm 5 câu (FE-02 Q5–Q9) khi làm UC-FE02-02 đến UC-FE02
 Ngày 14/11/2026 thêm FE-03 Q6 khi làm UC-FE03-03 (D27): cách SCR-15 hiển thị link của lời mời đã hủy / hết hạn, hoãn sang UC4.
 
 Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại trên SCR-57 (D14), sau đó xác nhận làm UC-FE19-01 gồm backend và nối SCR-57. FE-19 Q3 chốt riêng UC-01, còn UC-03, 04, 05 chờ xác nhận.
+
+Ngày 16/11/2026 thêm FE-19 Q11: Owner muốn hủy yêu cầu thanh toán trong khi SRS (GBR-70) không cho hủy; chốt D38.
 
 | FE | Mã | Câu hỏi | Đề xuất trong spec | Quyết định | Người chốt | Ngày |
 |---|---|---|---|---|---|---|
@@ -115,6 +117,7 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-19 | Q8 | SCR-59 tự cập nhật hay chỉ nút Kiểm tra lại? | Tự đọc lại mỗi 5 giây khi PENDING và giữ nút | Đã chốt (D15): không request chồng, dừng PAID/EXPIRED/rời màn, kiểm thêm một lần ở mốc hết hạn; làm backend + nối SCR-58/SCR-59 | Người dùng / scope DucNV | 09/11/2026 |
 | FE-19 | Q9 | Giao dịch được PM tra cứu có cần duyệt thêm; lịch sử quyết định lưu yêu cầu liên quan thế nào? | Giao dịch hợp lệ tự xác nhận; lưu yêu cầu theo từng quyết định | Người dùng chốt D21: đủ GBR-72/84 tự PAID/cấp kỳ nguồn SEPAY như webhook; không khớp chỉ lưu chứng từ. ACCEPT luôn lưu yêu cầu xác nhận; HOLD/REJECT lưu ứng viên nếu có, không bắt buộc chọn; lịch sử cũ thiếu liên kết để null | Người dùng | 10/11/2026 |
 | FE-19 | Q10 | Mã chính xác của yêu cầu X nhưng X không nhận được: PM chọn được yêu cầu nào? Tra cứu theo mã có cần `Idempotency-Key`? | Chỉ yêu cầu cùng trại X; mã giao dịch làm khóa | Người dùng chốt D22: ứng viên và ACCEPT chỉ trong trại của X (MSG-FE19-11 `OTHER_FARM`), mã gõ sai vẫn mọi trại; mã giao dịch SePay là request key theo BR-D24/GBR-88, không thêm header | Người dùng | 10/11/2026 |
+| FE-19 | Q11 | Owner hủy yêu cầu thanh toán: SRS (GBR-70) không cho hủy, tạo nhầm kỳ hạn phải chờ hết 24 giờ mới tạo yêu cầu khác | Cho Owner hủy yêu cầu PENDING chưa hết hạn, chưa nhận giao dịch; lý do tùy chọn; tiền về trước lúc hủy vẫn xác nhận, sau lúc hủy chờ PM | Theo đề xuất, D38: sửa SRS GBR-70 / 72, UC-FE19-02, SCR-59 / 60; thêm A18, MSG-FE19-17 → 19 | DucNV / người dùng | 16/11/2026 |
 | FE-20 | Q1 | Độ dài lý do bàn giao / trả về hàng đợi / đổi người nhận / hủy IR | ≤ 1.000 |  | LamKD |  |
 | FE-20 | Q2 | Ghi chú tùy chọn khi Owner xác nhận – UI chưa có trường | Thêm ô "Nhận xét" (≤ 1.000) tùy chọn |  | LamKD |  |
 | FE-20 | Q3 | UC-FE20-02, 03, 06, 08, 09 không có đặc tả Part II | Theo Part III + GBR |  | LamKD |  |
