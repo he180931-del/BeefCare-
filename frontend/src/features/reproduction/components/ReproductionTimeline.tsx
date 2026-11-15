@@ -27,10 +27,11 @@ function autoRange(events: readonly ReproductionEvent[]): { from: string; to: st
 }
 const shortDate = (value: string) => (value ? `${value.slice(8, 10)}/${value.slice(5, 7)}` : '')
 
-export default function ReproductionTimeline({ profile, canManage, onRevise }: {
+export default function ReproductionTimeline({ profile, canManage, onRevise, source }: {
   profile: ReproductionFemale
   canManage: boolean
   onRevise: (record: TimelineRecord, action: 'correct' | 'void') => void
+  source?: ReproductionEvent
 }) {
   const [type, setType] = useState<ReproductionEventType | ''>('')
   const [custom, setCustom] = useState<{ from: string; to: string } | null>(null)
@@ -40,7 +41,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise }: {
   const label = custom
     ? custom.from || custom.to ? `${custom.from ? `${shortDate(custom.from)}/${custom.from.slice(0, 4)}` : '…'} – ${custom.to ? `${shortDate(custom.to)}/${custom.to.slice(0, 4)}` : '…'}` : 'Tất cả thời gian'
     : `${shortDate(auto.from)} – ${formatDate(auto.to > nowLocal() ? auto.to : nowLocal())}`
-  const rows = profile.events
+  const rows = source ? [source] : profile.events
     .filter((event) => (!type || event.type === type)
       && (!range.from || event.occurredAt.slice(0, 10) >= range.from) && (!range.to || event.occurredAt.slice(0, 10) <= range.to))
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
@@ -52,9 +53,9 @@ export default function ReproductionTimeline({ profile, canManage, onRevise }: {
 
   return (
     <Card
-      title="Dòng thời gian sinh sản"
+      title={source ? 'Bản ghi sinh sản' : 'Dòng thời gian sinh sản'}
       sub={'Dòng đã sửa có nhãn "Đã sửa"; dòng đã hủy in xám'}
-      actions={
+      actions={!source && (
         <div className="relative flex flex-wrap items-center gap-2.5">
           <Select aria-label="Loại sự kiện" className="w-[150px]" value={type} onChange={(event) => setType(event.target.value as ReproductionEventType | '')}>
             {TYPE_OPTIONS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
@@ -73,7 +74,7 @@ export default function ReproductionTimeline({ profile, canManage, onRevise }: {
             </div>
           )}
         </div>
-      }
+      )}
     >
       <Table scroll>
         <thead><tr><Th>Thời điểm ↓</Th><Th>Sự kiện</Th><Th>Chi tiết</Th><Th>Nguồn dữ liệu</Th><Th>Người ghi</Th><Th>Thao tác</Th></tr></thead>

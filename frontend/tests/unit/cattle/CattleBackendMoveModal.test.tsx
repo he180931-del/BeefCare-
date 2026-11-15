@@ -13,16 +13,19 @@ describe('Cattle profile backend move pen flow', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
   })
 
   it('shows the move action for ACTIVE backend cattle and posts a real pen move', async () => {
+    vi.setSystemTime(new Date('2026-10-31T16:30:00Z'))
     const requests: Array<{ path: string; init?: RequestInit }> = []
     const profile = { id: 42, displayCode: 'BC-BACKEND-MOVE', name: 'Bông', sex: 'FEMALE', breedName: 'Brahman', birthDate: '2024-01-01', purposeName: 'Vỗ béo', lifeStage: 'ADULT', herdStatus: 'ACTIVE', herdGroup: 'FATTENING', version: 7, penId: 11, penCode: 'A1', penName: 'Chuồng A1', penSince: '2026-01-01', latestWeightKg: 320, weightBasis: 'MEASURED', canUpdate: true }
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(String(input), 'http://backend.test')
       requests.push({ path: url.pathname, init })
+      if (url.pathname === '/api/farms/9/context') return response({ timeZone: 'Asia/Tokyo' })
       if (url.pathname === '/api/farms/9/cattle/resolve') return response({ cattleId: 42 })
       if (url.pathname === '/api/farms/9/cattle/42') return response(profile)
       if (url.pathname === '/api/farms/9/cattle/42/pen-history') return response({ current: { penId: 11, penCode: 'A1', penName: 'Chuồng A1', since: '2026-01-01' }, history: [] })
@@ -61,8 +64,8 @@ describe('Cattle profile backend move pen flow', () => {
     const checkRequest = requests.find((request) => request.path === '/api/farms/9/pen-moves/check')
     expect(checkRequest).toBeTruthy()
     expect(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves/check')).toBeLessThan(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves'))
-    expect(JSON.parse(String(checkRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12 })
-    expect(JSON.parse(String(moveRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: new Date().toISOString().slice(0, 10), reason: 'Đủ điều kiện', warningReasons: { 42: 'Chủ trại đồng ý ghép tạm' }, cattleVersions: { 42: 7 } })
+    expect(JSON.parse(String(checkRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: '2026-11-01' })
+    expect(JSON.parse(String(moveRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: '2026-11-01', reason: 'Đủ điều kiện', warningReasons: { 42: 'Chủ trại đồng ý ghép tạm' }, cattleVersions: { 42: 7 } })
   })
 
   it('shows a backend blocking message and does not post the move', async () => {
@@ -71,6 +74,7 @@ describe('Cattle profile backend move pen flow', () => {
     vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
       const url = new URL(String(input), 'http://backend.test')
       requests.push(url.pathname)
+      if (url.pathname === '/api/farms/9/context') return response({ timeZone: 'Asia/Ho_Chi_Minh' })
       if (url.pathname === '/api/farms/9/cattle/resolve') return response({ cattleId: 42 })
       if (url.pathname === '/api/farms/9/cattle/42') return response(profile)
       if (url.pathname === '/api/farms/9/cattle/42/pen-history') return response({ current: { penId: 11, penCode: 'A1', penName: 'Chuồng A1', since: '2026-01-01' }, history: [] })

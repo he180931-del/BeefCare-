@@ -100,7 +100,7 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-17 | Q3 | Kích thước trang | 20 | Theo đề xuất, D34: 20, tối đa 100 | DucNV | 15/11/2026 |
 | FE-17 | Q4 | Thời gian lưu giữ audit | Không xóa (append-only) | Theo đề xuất, D34: không có route sửa / xóa (405), không có job dọn | DucNV | 15/11/2026 |
 | FE-17 | Q5 | Audit trong trại (thay đổi dữ liệu bò) | Không thuộc audit trung tâm; dùng Record Revision (FE-16) | Theo đề xuất, D34: vẫn ghi vào `audit_log` cho lịch sử trong trại nhưng ngoài danh mục, SCR-51 không hiện (A2 → MSG-COM-08) | DucNV | 15/11/2026 |
-| FE-18 | Q1 | Technician có xem SCR-55, SCR-56 không? (SRS nói SCR-55 "Owner or a Manager"; SCR-52 → 54 "farm members") | Technician chỉ xem giống, vắc-xin, thuốc |  | AnNT |  |
+| FE-18 | Q1 | Technician có xem SCR-55, SCR-56 không? | Technician xem cả năm tab và lịch sử phiên bản ở chế độ chỉ đọc | D37: theo phân quyền đang chạy. Owner và Manager mới được ghi. | AnNT | 15/11/2026 |
 | FE-18 | Q2 | SCR-54 không nêu mã và tên thuốc | Mã như giống; tên ≤ 150 như vắc-xin |  | AnNT |  |
 | FE-18 | Q3 | SCR-55 không có trường Mô tả dù entity có | Thêm Mô tả ≤ 500 |  | AnNT |  |
 | FE-18 | Q4 | Có xóa giống / thuốc / mục đích chưa dùng không? | Không – SRS chỉ cho xóa vắc-xin chưa dùng |  | AnNT |  |

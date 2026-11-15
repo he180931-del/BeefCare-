@@ -10891,6 +10891,14 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "historyCaseId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -21340,14 +21348,14 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "numberOfElements" : {
             "type" : "integer",
@@ -21376,10 +21384,10 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "paged" : {
+          "unpaged" : {
             "type" : "boolean"
           },
-          "unpaged" : {
+          "paged" : {
             "type" : "boolean"
           }
         }
@@ -21390,10 +21398,10 @@
           "empty" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           }
         }
@@ -23275,6 +23283,12 @@
           },
           "confirmedBy" : {
             "type" : "string"
+          },
+          "timeline" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HealthTimelineRow"
+            }
           }
         }
       },

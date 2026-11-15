@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, Foot, KV, Note } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
 import { reproductionApi } from '../api/reproductionApi'
+import { resolveReproductionSource } from '../api/reproductionBackend'
 import { ReproductionOptionsProvider } from './reproductionOptions'
 import { useModalParam } from '../../../components/Modal'
 import { useSession } from '../../authorization'
@@ -152,6 +153,14 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
 
   if (loading && !profile) return <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ sinh sản…</p></Card>
   if (!profile) return <Card>{error && <Note tone="err">{error}</Note>}<p className="m-0 text-sm text-muted">Chưa có dữ liệu sinh sản cho {cattleCode}.</p></Card>
+
+  const sourceId = modal ? null : params.get('r')
+  if (sourceId != null) {
+    const source = resolveReproductionSource(profile.events, sourceId, params.get('type'))
+    return source
+      ? <ReproductionTimeline profile={profile} source={source} canManage={false} onRevise={revise} />
+      : <Note tone="warn">Không tìm thấy bản ghi sinh sản này.</Note>
+  }
 
   const status = profile.status
   const showEligibility = !!profile.eligibility && (status === 'AWAITING_BREEDING' || status === 'IN_ESTRUS' || status === 'POST_CALVING')

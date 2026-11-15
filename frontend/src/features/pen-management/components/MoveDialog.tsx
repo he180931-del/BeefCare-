@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { DateInput, Field, KV, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
+import { Button, DateInput, Field, KV, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
 import { penApi, type MoveCattle, type PenMoveCheckResult } from '../api/penApi'
+import { useFarmMoveDate } from '../api/useFarmMoveDate'
 import { CRITERION_LABELS, dmy, todayIso, type CriterionType } from '../domain/penRules'
 import { cx, TH } from './parts'
 import type { Pen } from '../../../types'
@@ -25,10 +26,13 @@ function cattleErrorText(error: { code?: string; params?: Record<string, unknown
  * Move Pen popup (UC-FE04-05) opened from SCR-17 for the selected cattle. The reception check (A6) is re-run on every
  * destination / date change; the backend checks everything again on confirm (R-04-12) and moves all or nothing.
  */
-export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today = todayIso() }: { from: Pen; cattle: MoveCattle[]; pens: Pen[]; onClose: () => void; onMoved: (message: string) => void; today?: string }) {
+export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today: fixedDate }: { from: Pen; cattle: MoveCattle[]; pens: Pen[]; onClose: () => void; onMoved: (message: string) => void; today?: string }) {
+  const farmDate = useFarmMoveDate(todayIso(), fixedDate)
+  const { today } = farmDate
   const destinations = pens.filter((p) => p.status === 'ACTIVE' && p.code !== from.code)
   const [toCode, setToCode] = useState('')
-  const [date, setDate] = useState(today)
+  const [enteredDate, setDate] = useState<string>()
+  const date = enteredDate ?? today
   const [reason, setReason] = useState('')
   const [warnings, setWarnings] = useState<Record<string, string>>({})
   const [check, setCheck] = useState<PenMoveCheckResult | null>(null)
@@ -40,7 +44,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
   const to = destinations.find((p) => p.code === toCode)
 
   useEffect(() => {
-    if (!to || !date) { setCheck(null); return }
+    if (!to || !date) { setCheck(null); setChecking(false); return }
     let active = true
     setChecking(true)
     setCheckError('')
@@ -100,7 +104,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
           {tried && !to && <span className="text-[11px] text-err-fg">Vui lòng chọn Chuồng đích.</span>}
         </Field>
         <Field label="Ngày chuyển *">
-          <DateInput value={date} onChange={setDate} />
+          <DateInput value={date} readOnly={!today} onChange={setDate} />
           {dateError && (tried || date > today || !!latestStart) && <span className="text-[11px] text-err-fg">{dateError}</span>}
         </Field>
         <KV k="Người thực hiện">Bạn (người đang đăng nhập)</KV>
@@ -115,6 +119,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
       <p className="m-0 text-[14px] font-semibold text-[#212121]">Kiểm tra nhận bò</p>
       {checking && <Note>Đang kiểm tra…</Note>}
       {checkError && <Note tone="err">{checkError}</Note>}
+      {Boolean(farmDate.error) && <Note tone="err">Không tải được ngày của trại. <Button variant="link" onClick={farmDate.retry}>Thử lại</Button></Note>}
       {blockText && <Note tone="err">{blockText}</Note>}
       {rowErrors.map((r) => <Note key={r.cattleCode} tone="err">{cattleErrorText(r.error!, r.cattleCode)}</Note>)}
       {rows.filter((r) => r.alreadyInDestination).map((r) => <Note key={r.cattleCode} tone="warn">{`${r.cattleCode} đã ở ${to?.code ?? ''} và sẽ được bỏ qua.`}</Note>)}

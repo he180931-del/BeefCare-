@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ErrorBlock, EmptyBlock, Button, Card, Foot, LoadingBlock, Note, Table, Td, Th } from '../../../components/ui'
 import { Icon } from '../../../components/Icon'
 import { userFacingError } from '../../../api/userFacingError'
@@ -12,6 +13,7 @@ import CaseCard from './CaseCard'
 import CorrectRecordDialog from './CorrectRecordDialog'
 import DeathNoticeDialog from './DeathNoticeDialog'
 import FollowUpDialog from './FollowUpDialog'
+import HealthTimelineSource from './HealthTimelineSource'
 import { HealthStateBadge, Meta, useCanRecord, useHealthDialog, useToast } from './healthUi'
 import OpenCaseDialog from './OpenCaseDialog'
 import TreatmentDialog from './TreatmentDialog'
@@ -30,13 +32,17 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const canRecord = useCanRecord()
   const demo = useDemoState()
   const dialog = useHealthDialog()
+  const [params] = useSearchParams()
+  const sourceId = dialog.m ? null : params.get('r')
+  const caseId = sourceId == null ? null : params.get('case')
   const [toast, showToast] = useToast()
   const [notice, setNotice] = useState<PendingExit | null>(null)
-  const { data: profile, loading, error, refetch } = useQuery(() => (demo === 'load-error' ? Promise.reject(new Error('Không tải được dữ liệu sức khỏe.')) : healthApi.getProfile(cattleCode)), [cattleCode, demo])
+  const { data: profile, loading, error, refetch } = useQuery(() => (demo === 'load-error' ? Promise.reject(new Error('Không tải được dữ liệu sức khỏe.')) : healthApi.getProfile(cattleCode, caseId ?? undefined)), [cattleCode, caseId, demo])
   const { data: options } = useQuery(() => healthApi.formOptions(), [])
 
   if (loading && !profile) return <LoadingBlock />
   if (error || !profile) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu sức khỏe.')} onRetry={refetch} />
+  if (sourceId != null) return loading ? <LoadingBlock /> : <HealthTimelineSource profile={profile} sourceId={sourceId} type={params.get('type')} caseId={caseId} />
 
   const { cattle, activeCases, previousCases, timeline, pendingExit } = profile
   const exited = cattle.status === 'EXITED'

@@ -2,7 +2,7 @@ import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberV
 import { BackendError } from '../../../api/backendClient'
 import { catalogueDemoStore, type CatalogueDemoStore } from '../data/catalogueDemoStore'
 import { FieldErrors, todayIso, type FieldErrorMap } from '../domain/catalogueRules'
-import { DEFAULT_PARAMETERS, PARAMETER_FIELDS, describeChanges, effectiveVersion } from '../domain/parameterRules'
+import { DEFAULT_PARAMETERS, PARAMETER_FIELDS, effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
 import type {
   BcsScale, Breed, BreedCommand, CatalogueFilters, Medicine, MedicineCommand, NumericParameterKey, ParameterValues, ParameterVersion,
   ParameterVersionCommand, Purpose, PurposeCommand, PurposeType, Route, Vaccine, VaccineCommand,
@@ -76,7 +76,7 @@ export function toBackendParameters(values: ParameterValues): Record<string, unk
   return out
 }
 
-/** Versions newest first, with the change summary against the previous version and CURRENT / SCHEDULED / PAST (SCR-56). */
+/** Versions newest first, with a change summary against their effective baseline (SCR-56). */
 export function decorateVersions(rows: Array<Record<string, unknown>>, today: string): ParameterVersion[] {
   const records = rows.map((row) => ({
     id: numberValue(row.id), versionNo: numberValue(row.versionNo), effectiveFrom: textValue(row.effectiveFrom),
@@ -84,9 +84,9 @@ export function decorateVersions(rows: Array<Record<string, unknown>>, today: st
     sourceNote: textValue(row.sourceNote), savedBy: textValue(row.savedBy, '—'),
   })).sort((a, b) => a.versionNo - b.versionNo)
   const current = effectiveVersion(records, today)
-  return records.map((v, i) => ({
+  return records.map((v) => ({
     ...v,
-    changes: describeChanges(i === 0 ? null : records[i - 1]!.parameters, v.parameters),
+    changes: parameterVersionChanges(records, v),
     status: (v.id === current?.id ? 'CURRENT' : v.effectiveFrom > today ? 'SCHEDULED' : 'PAST') as ParameterVersion['status'],
   })).reverse()
 }

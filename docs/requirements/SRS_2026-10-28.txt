@@ -115,7 +115,7 @@ External entity | Direction | Main information exchanged
 Guest | In / Out | Views the public introduction, features, 1/2/3-year prices, FAQ and contact; submits registration, sign-in and password-reset requests.
 Farm Owner | In / Out | Owner profile, farm registration and information, invitations and member changes, herd entry vouchers and payments, pen and profile changes, herd exit vouchers and collections, feed stock and rations, catalogues and parameters, announcements, subscription payment requests, support tickets; receives dashboard, reports, reminders, notifications, payment instructions and ticket replies.
 Farm Manager | In / Out | Pens, herd entry vouchers, cattle profiles and QR tags, feed receipts, stock counts, rations and feeding sessions, growth, vaccination, health and reproduction records and corrections, catalogues and parameters, announcements to Technicians; receives reminders, dashboard and reports.
-Farm Technician | In / Out | QR scans and searches; receives read-only cattle, care, reproduction and today's ration information, reminders and announcements.
+Farm Technician | In / Out | Scans QR tags and searches. Views cattle, care, reproduction, today's rations, the farm catalogues and parameter history, reminders and announcements.
 Customer Support | In / Out | Ticket assignment, replies, internal notes, resolutions, closure, internal requests; receives the ticket queue and support notifications.
 Platform Manager | In / Out | Farm suspension/restoration, payment reconciliation decisions, plan price versions, manual finance records, internal request results; receives farm service overview, subscriptions, bank evidence, receipts and cash reports.
 System Admin | In / Out | Account suspension/restoration, platform staff access, internal request results; receives account lists and the audit history.
@@ -184,7 +184,7 @@ Step | Step Name | Detailed Description | Role | Note
 10 | Move to Another Pen | The user selects one animal (from its profile) or several animals (from the pen detail), the destination pen, move date and reason. | Farm Owner / Farm Manager | UC-FE04-05. From the profile or REM-08.
 11 | Move Allowed? | The system checks the pen and each animal: INACTIVE pen or not enough free places → blocked; criteria not met → warning, continue only with a reason. | System | Yes → Step 12; Blocked → keep current pen.
 12 | Save Pen Move | The system closes the current assignment, opens the new one and updates occupancy and pen history. | System | Steps 9–12 repeat during the animal's life.
-13 | Open Herd Exit Voucher | The Owner creates an exit voucher (Sale, Cull or Other) and adds ACTIVE cattle from a filtered list or by QR scan, or opens a PENDING death/missing voucher created when a Manager closed a health case as DIED or MISSING (BF-04, reminder REM-12). | Farm Owner | UC-FE13-01.
+13 | Open Herd Exit Voucher | The Owner creates an exit voucher (Sale, Cull or Other) and adds ACTIVE cattle from a filtered list or by QR scan. The Owner may also record a death or loss directly, or open the PENDING voucher created by BF-04 Step 9 (REM-12). | Farm Owner | UC-FE13-01.
 14 | Enter Lines and Amounts | The Owner enters the exit date, buyer or destination, transport certificate, vehicle and note; the exit weight of each line (default the latest weight, marked UT when estimated) and the unit price; deductions, deposit collected and due date. For a death: cause and carcass disposal, no amounts. | Farm Owner | Saved as DRAFT until confirmed.
 15 | Review Checks and Confirm | The Owner reviews the checks per cattle (meat withdrawal period, OPEN and CHRONIC health cases, future doses and reminders, open pregnancy, draft calves of the dam), ticks the confirmation and confirms, or dismisses a pending voucher with a reason. | Farm Owner | Until confirmed the cattle stay ACTIVE.
 16 | Record Exit | For each line the system sets EXITED, closes the pen assignment, cancels future doses and reminders, closes OPEN and CHRONIC health cases and any open pregnancy and locks the record; the voucher becomes CONFIRMED. | System | End. Collections: UC-FE13-04. A mistaken voucher is voided by the Owner (UC-FE13-03).
@@ -205,7 +205,7 @@ Step | Step Name | Detailed Description | Role | Note
 6 | Record Abnormal Signs | The Manager records observed time, temperature, signs, severity and observer, and opens a new case or adds to an OPEN or CHRONIC case; the health state becomes at least Monitoring. | Farm Manager | UC-FE10-02. Also for post-vaccination reactions.
 7 | Record Treatment and Follow-up | The Manager records each treatment actually given (medicine, dose, route, time, withdrawal days) and follow-up observations; the health state becomes Under treatment and the meat withdrawal date is updated. | Farm Manager | UC-FE10-04, UC-FE10-03. No diagnosis or prescription.
 8 | Case Outcome? | The Manager keeps the case OPEN, moves it to CHRONIC (long-term monitoring) or closes it as RECOVERED, DIED or MISSING. | Farm Manager | OPEN or CHRONIC → Step 7; DIED/MISSING → Step 9; RECOVERED → end of branch.
-9 | Create Pending Exit | The system creates a PENDING herd exit for the Owner (BF-03 Step 12); the animal stays ACTIVE until the Owner decides. | System | GBR-47.
+9 | Create Pending Exit | The system creates a PENDING herd exit for the Owner (BF-03 Step 13); the animal stays ACTIVE until the Owner decides. | System | GBR-47.
 10 | Manage Vaccination Schedule | The Manager creates or updates a schedule: vaccine, doses, interval, booster and target cattle by pen, herd group, life stage or selection. | Farm Manager | UC-FE09-02, UC-FE09-03.
 11 | Evaluate Doses | The system derives each dose as upcoming, due or overdue and raises REM-06. | System | JOB-01.
 12 | Can Vaccinate Now? | For each selected animal the Manager decides whether the dose is given now. | Farm Manager | Yes → Step 13; No → defer with reason and new date (UC-FE09-06).
@@ -1072,7 +1072,7 @@ CONFIRMED | Owner voids with a reason (UC-FE13-03) | VOIDED | Every cattle retur
 1 | Guest | Unauthenticated visitor. Views the public landing page (introduction, features, 1/2/3-year prices, FAQ, contact), registers as a Farm Owner, signs in and resets a forgotten password. Sees no other farm, ticket or financial data.
 2 | Farm Owner | Account holder who completed Owner registration and owns one or more farms. In each owned farm: views all farm data; manages farm information, members and roles; manages the subscription and payments; changes production purposes; records herd entry vouchers and their payments (including farm-born calves); records, confirms, dismisses and voids herd exit vouchers and records collections from buyers; maintains pens, cattle profiles and QR tags; maintains feed stock, feed receipts, rations and the feed catalogue and views the feeding log; writes announcements to Managers and Technicians; uses the dashboard, reports and support. Does not record care or reproduction events or feeding sessions.
 3 | Farm Manager | Farm member with the Manager role in one farm. Records and corrects growth, vaccination, health and reproduction events; records daily feeding sessions; maintains pens, pen moves, herd entry vouchers and their payments (including farm-born calves), cattle profiles (except production purpose), QR tags, catalogues and parameters, feed stock, feed receipts, rations and the feed catalogue; writes announcements to Technicians; uses the dashboard and reports. Cannot manage members, the subscription or herd exit vouchers.
-4 | Farm Technician | Farm member with the Technician role in one farm. Field user with read-only access: scans QR tags, views cattle, pens, care and reproduction information, today's rations, the feeding log, reminders and received announcements. May be named as observer or performer in records entered by a Manager, or as the person who fed in a feeding record.
+4 | Farm Technician | Farm member with the Technician role in one farm. Field user with read-only access: scans QR tags, views cattle, pens, care and reproduction information, today's rations, the feeding log, farm catalogues and parameter history, reminders and received announcements. May be named as observer or performer in records entered by a Manager, or as the person who fed in a feeding record.
 5 | Customer Support (CS) | Platform staff. Reads the support queue; the assigned CS claims, processes, replies, writes internal notes, resolves and closes tickets and sends internal requests to a named PM or SA. Has no farm operational access.
 6 | Platform Manager (PM) | Platform staff. Views farm service status and suspends or restores farm service; views subscriptions, payments and bank evidence and reconciles payments; publishes plan prices; manages manual finance records and the platform cash report; handles internal requests assigned to them. Has no access to cattle or care data.
 7 | System Admin (SA) | Platform staff. Views and suspends or restores user accounts, grants and revokes CS, PM and SA access, reviews the platform audit history and handles internal requests assigned to them. Keeps at least one ACTIVE System Admin.
@@ -1243,7 +1243,7 @@ UC-FE18-09 | View Medicine Reference Catalogue | 18.3 Medicine | A farm member v
 UC-FE18-10 | Create Medicine Reference | 18.3 Medicine | The Farm Owner or a Manager adds a reference medicine with reference dose, route and withdrawal period.
 UC-FE18-11 | Update Medicine Reference | 18.3 Medicine | The Farm Owner or a Manager edits a medicine reference without changing past treatments.
 UC-FE18-12 | Change Medicine Reference Availability | 18.3 Medicine | The Farm Owner or a Manager deactivates or reactivates a reference medicine.
-UC-FE18-13 | View Production Purpose Catalogue | 18.4 Production Purpose | The Farm Owner or a Manager views the farm's production purposes.
+UC-FE18-13 | View Production Purpose Catalogue | 18.4 Production Purpose | A farm member views the farm's production purposes.
 UC-FE18-14 | Create Production Purpose | 18.4 Production Purpose | The Farm Owner or a Manager adds a production purpose with its purpose type (Breeding, Fattening, Sire, Undecided).
 UC-FE18-15 | Update Production Purpose | 18.4 Production Purpose | The Farm Owner or a Manager edits a production purpose; existing cattle keep their purpose and the purpose type is fixed once referenced.
 UC-FE18-16 | Change Production Purpose Availability | 18.4 Production Purpose | The Farm Owner or a Manager deactivates or reactivates a production purpose for new selection.
@@ -1345,7 +1345,7 @@ Total | 135 |
 [TABLE block 445]
 [Figure to be inserted] UC diagram – Farm Technician
 [/TABLE]
-[P447 ] Use cases: UC-FE01-03, 04, 06; UC-FE02-02; UC-FE03-04; UC-FE04-01; UC-FE05-01, 02, 05; UC-FE07-04; UC-FE08-02; UC-FE09-01, 07; UC-FE10-01; UC-FE11-01; UC-FE12-01; UC-FE14-01; UC-FE16-01; UC-FE18-01, 05, 09; UC-FE23-05, 07.
+[P447 ] Use cases: UC-FE01-03, 04, 06; UC-FE02-02; UC-FE03-04; UC-FE04-01; UC-FE05-01, 02, 05; UC-FE07-04; UC-FE08-02; UC-FE09-01, 07; UC-FE10-01; UC-FE11-01; UC-FE12-01; UC-FE14-01; UC-FE16-01; UC-FE18-01, 05, 09, 13 and SCR-56 read-only; UC-FE23-05, 07.
 [P448 5] 4.3.5 UCs for Customer Support
 [TABLE block 449]
 [Figure to be inserted] UC diagram – Customer Support
@@ -1385,8 +1385,10 @@ Farm Membership (Detail of Farm) | View members | Full | Restricted ⁵ | No | N
 Farm Membership (Detail of Farm) | Change role / deactivate / reactivate | Restricted ⁶ | No | No | No | No | No | No
 Breed, vaccine, medicine | View | Full | Full | Full | No | No | No | No
 Breed, vaccine, medicine | Create / update / change availability / remove unused | Full | Full | No | No | No | No | No
-Production purpose | View / create / update / change availability | Full | Full | No | No | No | No | No
-Farm Parameter Version (Detail of Farm) | View / save new version | Full | Full | No | No | No | No | No
+Production purpose | View | Full | Full | Full | No | No | No | No
+Production purpose | Create / update / change availability | Full | Full | No | No | No | No | No
+Farm Parameter Version (Detail of Farm) | View current parameters and version history | Full | Full | Full | No | No | No | No
+Farm Parameter Version (Detail of Farm) | Save new version | Full | Full | No | No | No | No | No
 Pen | View | Full | Full | Full | No | No | No | No
 Pen | Create / update / change availability | Full | Full | No | No | No | No | No
 Pen Assignment (Detail of Cattle) | Move cattle to another pen | Full | Full | No | No | No | No | No
@@ -1484,6 +1486,7 @@ Farm Owner | Farm | Farm Information SCR-11; Members & Roles SCR-13; Subscriptio
 Farm Manager | Overview, Herd, Care, Administration | Same as Farm Owner; Herd Exit Vouchers are read-only; recording buttons are shown on the care, reproduction and feeding log screens
 Farm Manager | Farm | Members (read-only) SCR-13
 Farm Technician (phone) | Bottom navigation | Home SCR-74; Cattle SCR-18; Scan QR SCR-22; Reproduction SCR-38; Today's Rations SCR-86 (→ Feeding Log SCR-83); Announcements SCR-26 (all read-only)
+Farm Technician (phone) | Home shortcut | Catalogues & Parameters SCR-52 to SCR-56 (read-only)
 Customer Support | Support / Account | Ticket Queue SCR-67; Support Notifications SCR-46
 Platform Manager | Service | Farm Service Overview SCR-12; Platform Subscriptions SCR-61
 Platform Manager | Platform finance | Payments & Reconciliation SCR-62; Plan Prices SCR-63; Subscription Receipts SCR-70; Manual Finance Records SCR-71; Cash Report SCR-73
@@ -1550,8 +1553,8 @@ SCR-51 | Platform Audit History (Lịch sử audit nền tảng) | FE-17 | Allow
 SCR-52 | Breed Catalogue (Giống bò) | FE-18 | Allows farm members to view breeds; the Owner or a Manager creates, edits and changes availability.
 SCR-53 | Vaccine Catalogue (Vắc-xin) | FE-18 | Allows farm members to view vaccines; the Owner or a Manager creates, edits, changes availability or removes unused ones.
 SCR-54 | Medicine Catalogue (Thuốc tham chiếu) | FE-18 | Allows farm members to view reference medicines; the Owner or a Manager creates, edits and changes availability.
-SCR-55 | Production Purpose Catalogue (Mục đích nuôi) | FE-18 | Allows the Owner or a Manager to view and maintain production purposes and their purpose types. Popups: Update Cattle Profile.
-SCR-56 | State and Reminder Parameters (Tham số trạng thái & nhắc việc) | FE-18 | Allows the Owner or a Manager to view parameters and save a new version.
+SCR-55 | Production Purpose Catalogue (Mục đích nuôi) | FE-18 | Farm members view production purposes and their purpose types. The Owner and Managers maintain the catalogue. Popups: Update Cattle Profile.
+SCR-56 | State and Reminder Parameters (Tham số trạng thái & nhắc việc) | FE-18 | Farm members view the effective parameters and version history. The Owner and Managers may save a new version.
 SCR-57 | Farm Subscription (Gói dịch vụ của trại) | FE-19 | Allows the Owner to view service status, periods, renewal date, pending request and prices.
 SCR-58 | Select Term and Review (Chọn thời hạn / Đăng ký gói) | FE-19 | Allows the Owner to choose 1, 2 or 3 years, review and create a payment request.
 SCR-59 | Transfer Instructions (Hướng dẫn chuyển khoản) | FE-19 | Allows the Owner to see VietQR, transfer details, countdown and progress of a payment request.
@@ -2408,7 +2411,7 @@ Description | As a farm owner or manager, I want to set the farm's life-stage ag
 Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm.
 Postconditions | POST-1: A new parameter version with source note, effective date and author is saved and becomes effective at its effective time. / POST-2: Reminders evaluated after that time use the new values; recorded events are unchanged (GBR-68).
 Normal Flow | 1. System shows State and Reminder Parameters (SCR-56) with the current version, its source and the version history. / 2. User edits the values in the groups: life stages (weaning age, young-stock age, adult age, in months); breeding conditions (minimum age, minimum weight); gestation and checks (gestation length, pregnancy check after breeding, re-check after inconclusive, calving preparation lead time, postpartum interval); breeding window (start and end hours after estrus, estrus cycle length); growth and vaccination (BCS scale, weighing interval, vaccination reminder lead time, optional target finishing weight). / 3. User enters the source note (for example "Owner interview 20/09/2026") and the effective date (default today) and selects "Save new version". / 4. System validates each value against its allowed range and the version. / 5. System saves the new version and, when effective now, triggers JOB-01 to recompute future reminders. / 6. System shows MSG-FE18-05.
-Alternative Flows | AF1 – Future effective date: the version is saved as scheduled and applied by JOB-01 at that date. / AF2 – View an older version: the user opens the history; old versions are read-only. / AF3 – Cancel: nothing changes.
+Alternative Flows | AF1 – Future effective date: the version is saved as scheduled and applied by JOB-01 at that date. / AF2 – Read-only access: farm members, including Technicians, may view the current parameters and version history. Only the Owner or a Manager can save a version. / AF3 – Cancel: nothing changes.
 Exceptions | E1: Value out of range, end hour not after start hour, or life-stage ages not in increasing order (weaning < young stock < adult): MSG-FE18-06. / E2: Missing source note: MSG-COM-06. / E3: Changed in another session: MSG-COM-05. / E4: Save failure: MSG-COM-02.
 Priority | Medium
 Frequency of Use | A few times a year.
@@ -4768,7 +4771,7 @@ Cancel / Save | Buttons; success MSG-FE18-01.
 [TABLE block 1445]
 [Figure to be inserted] Mockup – Figma 08 › "FE-18 · Production Purpose Catalogue & Availability"
 [/TABLE]
-[P1447 ] This screen allows the Owner or a Manager to view and maintain production purposes (UC-FE18-13 to 16). Changing the purpose of an individual cattle is done by the Owner in popup "Update Cattle Profile".
+[P1447 ] Farm members view production purposes (UC-FE18-13). The Owner and Managers maintain them (UC-FE18-14 to 16). Changing the purpose of an individual cattle is done by the Owner in popup "Update Cattle Profile".
 [P1448 ] Field Description
 [TABLE block 1449]
 Field Name | Description
@@ -4787,7 +4790,7 @@ Cancel / Save | Buttons; success MSG-FE18-01.
 [TABLE block 1452]
 [Figure to be inserted] Mockup – Figma 08 › "FE-18 · Farm State and Reminder References"
 [/TABLE]
-[P1454 ] This screen allows the Owner or a Manager to view the effective parameters and save a new version (UC-FE18-17). The default values below are created with the farm (UC-FE02-01).
+[P1454 ] Farm members can view the effective parameters and version history. Only the Owner and Managers can save a new version (UC-FE18-17). The default values below are created with the farm (UC-FE02-01).
 [P1455 ] Field Description
 [TABLE block 1456]
 Field Name | Description

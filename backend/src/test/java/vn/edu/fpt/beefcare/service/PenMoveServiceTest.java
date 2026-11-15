@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -133,6 +134,24 @@ class PenMoveServiceTest extends DomainTestSupport {
         assertThat(history.get(1).getSource()).isEqualTo(AssignmentSource.MOVE);
         assertThat(history.get(1).getReason()).isEqualTo("better feed");
         assertThat(history.get(1).getMovedBy().getId()).isEqualTo(owner.getId());
+    }
+
+    @Test
+    void moveUsesTheFarmDateAfterMidnightInTokyo() {
+        farm.setTimeZone("Asia/Tokyo");
+        clock.set(TODAY.atTime(16, 30).toInstant(ZoneOffset.UTC));
+        Pen from = pen(farm, "FROM", 10);
+        Pen to = pen(farm, "TO", 10);
+        Cattle cow = cowIn(from, TODAY);
+        LocalDate farmDate = TODAY.plusDays(1);
+        Long id = cow.getId();
+
+        PenMoveCheckDTO checked = moves.check(farm.getId(), new PenMoveCheckRequest(List.of(id), to.getId(), farmDate));
+        assertThat(checked.cattle()).singleElement().satisfies(row -> assertThat(row.error()).isNull());
+        move(new PenMoveRequest(List.of(id), to.getId(), null, "Chuyển chuồng", null, null, null));
+        assertThat(assignmentRepository.findAllByCattleIdOrderByFromDateAscIdAsc(id))
+            .satisfiesExactly(old -> assertThat(old.getToDate()).isEqualTo(farmDate),
+                current -> assertThat(current.getFromDate()).isEqualTo(farmDate));
     }
 
     @Test
