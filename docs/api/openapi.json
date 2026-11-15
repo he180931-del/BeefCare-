@@ -12129,6 +12129,7 @@
         }, {
           "name" : "sort",
           "in" : "query",
+          "description" : "Sort by displayCode, name, breedName, birthDate, penCode, purposeName, or latestWeightKg. Prefix with - for descending order. Missing values are sorted last.",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -12136,6 +12137,7 @@
         }, {
           "name" : "hasWeight",
           "in" : "query",
+          "description" : "Filter by whether the cattle has a latest weight.",
           "required" : false,
           "schema" : {
             "type" : "boolean"
