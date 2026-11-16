@@ -11,6 +11,7 @@
     "test:api": "node --import tsx --test tests/api/*.test.ts",
     "test:unit": "vitest",
     "test:unit:run": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage",
     "test:integration": "node --import tsx --test tests/integration/herd-entry/*.test.ts",
     "test:integration:ui": "vitest run tests/integration/**/*.test.tsx",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
@@ -32,6 +33,7 @@
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "4.7.0",
+    "@vitest/coverage-v8": "2.1.9",
     "jsdom": "25.0.1",
     "playwright-core": "1.64.1",
     "tsx": "4.23.15",

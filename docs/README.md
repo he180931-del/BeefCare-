@@ -39,7 +39,8 @@ Mục lục tài liệu dự án BeefCare. Khi bắt đầu một việc, đọc
 | File | Ý nghĩa |
 |---|---|
 | [testing/COMMANDS.md](testing/COMMANDS.md) | Lệnh chạy test frontend và backend, phiên bản công cụ, kết quả lần kiểm gần nhất. |
-| [testing/UNIT_TEST_REPORT_TEMPLATE.md](testing/UNIT_TEST_REPORT_TEMPLATE.md) | Mẫu Report 5.1 – Unit Test: mỗi chủ feature điền case TC-xx-nn, tầng, kết quả, môi trường. |
+| [testing/REPORT5_WORKFLOW.md](testing/REPORT5_WORKFLOW.md) | Quy trình Report 5: Google Sheet làm việc, cấp test → report, các bước 5.1/5.2/5.3, chia việc, lịch. |
+| [testing/UNIT_TEST_REPORT_TEMPLATE.md](testing/UNIT_TEST_REPORT_TEMPLATE.md) | Cách điền Report 5.1 theo template mới: sheet theo hàm/API, ma trận UTCID, N/A/B, đặt tên test, độ phủ. |
 
 ## Ngữ cảnh ngắn cho agent: `agent-context/`
 

@@ -90,9 +90,33 @@ Mỗi lượt chạy ghi đủ các mục sau (vào mô tả PR và vào Report 
 | Log | Link file log hoặc ảnh chụp đính kèm PR |
 | Người chạy, ngày | Tuấn, 07/11/2026 |
 
-Đặt mã case trong tên test để truy ngược về spec:
+Quy trình làm Report 5 (chỗ làm, cấp test, chia việc, lịch): [`REPORT5_WORKFLOW.md`](REPORT5_WORKFLOW.md). Cách điền Report 5.1: [`UNIT_TEST_REPORT_TEMPLATE.md`](UNIT_TEST_REPORT_TEMPLATE.md).
 
-- Vitest / Node test: `it('TC-13-08 xác nhận xuất đóng ca, hủy mũi, đóng thai', …)`
-- JUnit: `@DisplayName("TC-13-08 xác nhận xuất đóng ca, hủy mũi, đóng thai")`
+## 6. Tên test và đo độ phủ (Report 5.1)
 
-Mẫu bảng Report 5.1: `docs/testing/UNIT_TEST_REPORT_TEMPLATE.md`.
+### Đặt tên test
+
+Tên test chứa **tên hàm hoặc endpoint + UTCID + mã TC**, để truy từ Report 5.1 về code và về spec (slide hướng dẫn test: tên phương thức + mã case, mỗi test có chú thích):
+
+- Vitest / Node test: `describe('validateMeasurement')` › `it('UTCID03 TC-08-02 cân 1.500,1 kg bị chặn', …)`
+- JUnit: `@DisplayName("POST /growth UTCID02 TC-08-01 Owner bị từ chối 403")`
+
+Test cũ chỉ có mã TC (`it('TC-13-08 …')`) vẫn hợp lệ cho đến khi chủ feature điền sheet 5.1 của hàm đó; lúc điền thì đổi tên cho khớp UTCID.
+
+### Frontend
+
+| Lệnh | Kết quả |
+|---|---|
+| `npm run test:coverage` | Chạy toàn bộ Vitest kèm đo độ phủ `src/**`; báo cáo HTML ở `frontend/coverage/index.html`, tóm tắt ở `coverage/coverage-summary.json` |
+| `npx vitest run tests/unit/growth --coverage --coverage.include='src/features/growth/domain/**' --coverage.reporter=text` | Đo riêng một feature, in bảng theo file (cột `% Branch`, `Uncovered Line #s`) |
+
+Thư mục `frontend/coverage/` không commit. Ghi số đo vào Report 5.1 kèm commit.
+
+### Backend
+
+| Lệnh | Kết quả |
+|---|---|
+| `./mvnw test -Dtest='GrowthAssessmentServiceTest'` | Chạy test và tạo báo cáo JaCoCo cho unit/service tại `backend/target/site/jacoco/index.html` |
+| `./mvnw verify` | Thêm báo cáo cho integration test tại `backend/target/site/jacoco-it/index.html` (cần Docker) |
+
+Không thêm `-Djacoco.skip=true` khi cần số đo. Trên Windows, JaCoCo lỗi với đường dẫn có dấu, nên chạy từ thư mục có đường dẫn không dấu.
