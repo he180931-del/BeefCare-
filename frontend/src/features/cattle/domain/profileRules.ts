@@ -41,6 +41,7 @@ export function validatePhoto(file: { type: string; size: number; name: string }
   const type = file.type.toLowerCase()
   const ok = type === 'image/jpeg' || type === 'image/png' || /\.(jpe?g|png)$/i.test(file.name)
   if (!ok) return 'Ảnh phải là JPG hoặc PNG.'
+  if (file.size === 0) return 'Tệp ảnh trống. Vui lòng chọn ảnh khác.'
   if (file.size > PHOTO_MAX_BYTES) return 'Ảnh tối đa 5 MB.'
   return ''
 }

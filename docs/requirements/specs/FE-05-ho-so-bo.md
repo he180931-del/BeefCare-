@@ -185,7 +185,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | # | Trường | Loại | Nội dung / Hành vi |
 |---|---|---|---|
 | **Tiêu đề** | | | |
-| 1 | Photo / Ảnh | Ảnh nhỏ | Ảnh hiện tại hoặc ảnh mặc định; bấm để phóng to |
+| 1 | Photo / Ảnh | Ảnh nhỏ và nút | Bấm ảnh hiện tại để mở hộp thoại phóng to, giữ tỷ lệ gốc. Khi chưa có ảnh, hiển thị biểu tượng bò. Chủ trại và Quản lý được sửa hồ sơ thấy nút **Thêm ảnh** hoặc **Đổi ảnh**, mở tab **Định danh & mô tả**. |
 | 2 | Display code, name / Mã, tên | Chữ | Ví dụ BC-000125 "Hoa Đỏ" |
 | 3 | Summary line / Dòng tóm tắt | Chữ | Số tai ("Gắn tai sau" khi trống) · giống · giới tính · tuổi · chuồng hiện tại |
 | 4 | Badges / Huy hiệu | Huy hiệu | Theo thứ tự §3.2; quy tắc cho EXITED / VOIDED / phiếu chết PENDING ở mục 5 |
@@ -238,7 +238,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
 |---|---|---|---|---|---|
 | **Tab Định danh & mô tả** | | | | | |
-| 1 | Photo / Ảnh | File | — | JPG / PNG, ≤ 5 MB; thay hoặc xóa | MSG-COM-10 |
+| 1 | Photo / Ảnh nhận diện | File | — | Nút **Chọn ảnh** mở trình chọn tệp JPG/PNG, tối đa 5 MB. Hiện tên tệp đã chọn. Khi có ảnh hiện tại, nút **Xóa ảnh** đánh dấu xóa. Bấm **Lưu thay đổi** để áp dụng. | MSG-COM-10 |
 | 2 | Ear tag number / Số tai | Ô chữ | — | ≤ 30; duy nhất trong bò ACTIVE | MSG-COM-10, MSG-FE05-02 |
 | 3 | Name / Tên | Ô chữ | — | ≤ 50 | MSG-COM-10 |
 | 4 | Colour and markings / Màu lông, đặc điểm | Ô chữ | — | ≤ 255 | MSG-COM-10 |
