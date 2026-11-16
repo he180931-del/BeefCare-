@@ -3,7 +3,7 @@ import { notifySessionExpired } from './sessionLifecycle'
 import { readCurrentFarmId } from './currentFarm'
 
 export interface BackendTransport {
-  get(path: string): Promise<unknown>
+  get(path: string, options?: { headers?: Record<string, string> }): Promise<unknown>
   command(path: string, body: unknown, options?: { method?: string; key?: string; headers?: Record<string, string> }): Promise<unknown>
   farmPath(farmId: string | number, suffix?: string): string
 }

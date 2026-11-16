@@ -4,6 +4,7 @@ import { Badge, Button, Card, Radio, Segmented, Table, Td, Th } from '../../../c
 import type { Evidence, PlatformPayment } from '../types'
 import { fmtDateTime, fmtMoney, fmtSeconds, fmtShort } from '../domain/dates'
 import { candidateSummary, checkAcceptance, evidenceCode } from '../domain/reconciliation'
+import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 type Tab = 'candidates' | 'history' | 'checks'
 
@@ -40,7 +41,15 @@ export default function EvidenceTrack({ ev, candidates, cand, explicit, payments
               {candidates.map((p) => {
                 const s = candidateSummary(checkAcceptance(ev, p, false))
                 return (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    tabIndex={0}
+                    aria-label={`Chọn yêu cầu ứng viên ${p.code}`}
+                    aria-selected={cand?.id === p.id && explicit}
+                    className={interactiveRowClass}
+                    onClick={(event) => activateTableRow(event, () => onChoose(p.id))}
+                    onKeyDown={(event) => activateTableRowByKey(event, () => onChoose(p.id))}
+                  >
                     <Td><Radio name="candidate" checked={cand?.id === p.id && explicit} onChange={() => onChoose(p.id)}>{' '}</Radio></Td>
                     <Td><span className="font-medium text-ink">{p.code}</span></Td>
                     <Td>{p.farmName}</Td>

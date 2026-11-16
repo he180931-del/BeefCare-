@@ -193,6 +193,8 @@ class OpenApiContractTest {
             assertThat(ingress.path("properties").path(field).path("anyOf").get(0).path("maxLength").asInt()).as(field).isEqualTo(65536);
         }
         assertThat(api.path("components").path("schemas").path("WebhookAcknowledgement").path("properties").size()).isEqualTo(1);
+        JsonNode reportLine = api.path("components").path("schemas").path("ReportLine").path("properties");
+        assertThat(reportLine.has("sourceVersion")).as("FE21 report snapshot source version").isTrue();
         Files.writeString(Path.of("target","beefcare-openapi.json"),mapper.writerWithDefaultPrettyPrinter().writeValueAsString(api)+"\n",StandardCharsets.UTF_8);
     }
 

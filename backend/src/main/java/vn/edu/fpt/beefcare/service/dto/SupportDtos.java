@@ -15,7 +15,9 @@ public final class SupportDtos {
     public record Acknowledge(@NotNull Integer resolutionVersion,@Size(max=1000) String comment,@NotNull Integer expectedVersion) {}
     public record Reopen(@NotBlank @Size(max=1000) String reason,@NotNull Integer expectedVersion) {}
     public record Close(boolean reviewedAcknowledgment,@Size(max=500) String note,@NotNull Integer expectedVersion) {}
-    public record ContextReference(@NotBlank String type,@NotNull Long id) {}
+    public record ContextReference(@NotBlank String type,@NotNull Long id,String label) {
+        public ContextReference(String type, Long id) { this(type, id, null); }
+    }
     public record InternalCreate(@NotNull PlatformRole targetRole,@NotNull Long recipientId,@NotBlank @Size(max=2000) String question,List<@jakarta.validation.Valid ContextReference> context,@NotNull Integer ticketVersion) {}
     public record InternalManage(@NotBlank String action,Long recipientId,@NotBlank @Size(max=1000) String reason,@NotNull Integer expectedVersion) {}
     public record Complete(@NotBlank String outcome,@NotBlank @Size(max=2000) String result,Long domainResultAuditId,@NotNull Integer expectedVersion) {}

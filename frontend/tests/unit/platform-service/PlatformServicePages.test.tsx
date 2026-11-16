@@ -78,6 +78,7 @@ describe('SCR-12 dịch vụ trang trại', () => {
     await user.type(screen.getByLabelText('Tìm trại'), 'khongco')
     expect(await screen.findByText('Không có trại phù hợp')).toBeInTheDocument()
   })
+
 })
 
 describe('SCR-61 gói đăng ký', () => {

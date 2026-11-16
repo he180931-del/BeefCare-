@@ -2,11 +2,17 @@ import type { CashReport, FinanceRecord, Farm, PmNotice, ReceiptFilters, Receipt
 
 export const DEMO_TODAY = '2026-10-19'
 export const FINANCE_CATEGORIES: Record<RecordType, string[]> = {
-  INCOME: ['Đào tạo tại trại', 'Dịch vụ tư vấn', 'Tài trợ / hỗ trợ'],
-  EXPENSE: ['Hạ tầng máy chủ', 'Phí dịch vụ email', 'In thẻ tai QR', 'Phí nhắn tin SMS', 'Quảng bá'],
+  INCOME: ['IMPLEMENTATION_SUPPORT', 'USER_TRAINING', 'COST_REIMBURSEMENT', 'OTHER_INCOME'],
+  EXPENSE: ['SERVER_STORAGE', 'DOMAIN_SOFTWARE', 'EMAIL_NOTIFICATIONS', 'OTHER_EXPENSE'],
 }
 export const TYPE_LABEL: Record<RecordType, string> = { INCOME: 'Thu', EXPENSE: 'Chi' }
-export const STATE_LABEL: Record<RecordState, string> = { DRAFT: 'Nháp', POSTED: 'Đã ghi sổ', VOID: 'Đã hủy bỏ' }
+export const STATE_LABEL: Record<RecordState, string> = { DRAFT: 'Nháp', POSTED: 'Đã ghi sổ', VOID: 'Đã hủy ghi sổ', DISCARDED: 'Đã bỏ nháp' }
+
+export const CATEGORY_LABEL: Record<string, string> = {
+  IMPLEMENTATION_SUPPORT: 'Phí hỗ trợ triển khai', USER_TRAINING: 'Phí hướng dẫn sử dụng', COST_REIMBURSEMENT: 'Hoàn lại chi phí', OTHER_INCOME: 'Thu khác',
+  SERVER_STORAGE: 'Máy chủ và lưu trữ', DOMAIN_SOFTWARE: 'Tên miền và phần mềm', EMAIL_NOTIFICATIONS: 'Email và thông báo', OTHER_EXPENSE: 'Chi khác',
+}
+export const categoryLabel = (category: string) => CATEGORY_LABEL[category] ?? category
 
 export const formatVnd = (n: number) => Math.abs(Math.round(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 export const formatMoney = (n: number) => `${n < 0 ? '−' : ''}${formatVnd(n)}`
@@ -66,11 +72,18 @@ export function filterReceipts(rows: Receipt[], f: ReceiptFilters): Receipt[] {
     .sort((a, b) => b.bankPaidAt.localeCompare(a.bankPaidAt))
 }
 
-const monthsBetween = (from: string, to: string) => (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7)) + (Number(to.slice(8, 10)) >= Number(from.slice(8, 10)) ? 0 : -1)
+const minusMonths = (iso: string, months: number) => {
+  const year = Number(iso.slice(0, 4))
+  const month = Number(iso.slice(5, 7)) - 1
+  const day = Number(iso.slice(8, 10))
+  const target = new Date(Date.UTC(year, month - months, 1))
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate()
+  return `${target.getUTCFullYear().toString().padStart(4, '0')}-${(target.getUTCMonth() + 1).toString().padStart(2, '0')}-${Math.min(day, lastDay).toString().padStart(2, '0')}`
+}
 export function validateCriteria(c: ReportCriteria): string | null {
   if (!c.dateFrom || !c.dateTo) return 'Kỳ báo cáo là bắt buộc.'
   if (c.dateFrom > c.dateTo) return 'Ngày bắt đầu phải trước ngày kết thúc.'
-  if (monthsBetween(c.dateFrom, c.dateTo) > 24) return 'Kỳ báo cáo tối đa 24 tháng.'
+  if (c.dateFrom < minusMonths(c.dateTo, 24)) return 'Kỳ báo cáo tối đa 24 tháng.'
   return null
 }
 
@@ -90,8 +103,8 @@ export function computeReport(c: ReportCriteria, receipts: Receipt[], records: F
   const posted = useManual ? records.filter((r) => r.state === 'POSTED' && inRange(r.occurredOn) && (r.scope === 'GENERAL' ? c.farmId == null : farmOk(r.farmId))) : []
 
   const lines: ReportLine[] = [
-    ...rc.map((r): ReportLine => ({ sourceType: 'RECEIPT', code: r.code, scope: 'FARM', farmName: r.farmName, direction: 'IN', category: `Biên nhận gói ${r.termYears} năm`, amountVnd: r.amountVnd, cashDate: r.bankPaidAt.slice(0, 10), status: 'Đã thanh toán', reference: `${r.paymentCode} · ${r.evidenceCode} · ${r.priceVersion}` })),
-    ...posted.map((r): ReportLine => ({ sourceType: 'MANUAL', code: r.recordCode, scope: r.scope, farmName: r.scope === 'GENERAL' ? 'Chung nền tảng' : r.farmName, direction: r.type === 'INCOME' ? 'IN' : 'OUT', category: r.category, amountVnd: r.amountVnd, cashDate: r.occurredOn, status: 'Đã ghi sổ', reference: r.documentNumber || r.sourceReference || '—' })),
+    ...rc.map((r): ReportLine => ({ sourceType: 'RECEIPT', code: r.code, scope: 'FARM', farmName: r.farmName, direction: 'IN', category: `Biên nhận gói ${r.termYears} năm`, amountVnd: r.amountVnd, cashDate: r.bankPaidAt.slice(0, 10), status: 'Đã thanh toán', reference: `${r.paymentCode} · ${r.evidenceCode} · ${r.priceVersion}`, sourceVersion: null })),
+    ...posted.map((r): ReportLine => ({ sourceType: 'MANUAL', code: r.recordCode, scope: r.scope, farmName: r.scope === 'GENERAL' ? 'Chung nền tảng' : r.farmName, direction: r.type === 'INCOME' ? 'IN' : 'OUT', category: r.category, amountVnd: r.amountVnd, cashDate: r.occurredOn, status: 'Đã ghi sổ', reference: r.documentNumber || r.sourceReference || '—', sourceVersion: r.version })),
   ].sort((a, b) => b.cashDate.localeCompare(a.cashDate) || a.code.localeCompare(b.code))
 
   const sum = (ls: ReportLine[], pred: (l: ReportLine) => boolean) => ls.filter(pred).reduce((t, l) => t + l.amountVnd, 0)
@@ -114,7 +127,7 @@ export function computeReport(c: ReportCriteria, receipts: Receipt[], records: F
     const f = farms.find((x) => x.id === c.farmId)
     if (f) scopes.push(row('FARM', f.id, f.name, lines))
   }
-  const total = row('TOTAL', null, 'Toàn nền tảng', lines)
+  const total = row('PLATFORM', null, 'Toàn nền tảng', lines)
   scopes.push(total)
 
   const dailyIncome = daysBetween(c.dateFrom, c.dateTo).map((date) => ({ date, income: sum(lines, (l) => l.direction === 'IN' && l.cashDate === date) }))

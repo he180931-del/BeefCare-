@@ -15,8 +15,9 @@ describe('NewTicketForm (UC-FE20-01)', () => {
       />,
     )
 
+    expect(screen.queryByLabelText('Ưu tiên')).not.toBeInTheDocument()
     expect(screen.getByText('Trang trại liên quan *')).toBeInTheDocument()
-    await user.click(screen.getByText('Vấn đề tài khoản (không gắn trại)'))
+    await user.click(screen.getByText('Không gắn trại'))
     expect(screen.getByLabelText('Trang trại liên quan', { selector: 'select' })).toBeDisabled()
   })
 })

@@ -3,16 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Icon } from '../../../components/Icon'
 import Modal, { ModalButton, ModalFooter, useModalParam } from '../../../components/Modal'
-import { Button, Card, DateInput, ErrorBlock, Field, Foot, LoadingBlock, Note, PageHeader, Radio, Select, Textarea, inputCls } from '../../../components/ui'
+import { Button, Card, DateInput, ErrorBlock, Field, Foot, LoadingBlock, Note, PageHeader, Pagination, Radio, Select, Textarea, inputCls } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { financeApi } from '../api/financeApi'
 import { FINANCE_BASE, FlashNote, StateBadge, useFlash } from '../components/common'
 import { RecordDialogs } from '../components/RecordDialogs'
-import { DEMO_TODAY, FINANCE_CATEGORIES, formatDateTime, formatVnd, validateRecordFields } from '../domain/financeRules'
+import { categoryLabel, DEMO_TODAY, FINANCE_CATEGORIES, formatDateTime, formatVnd, validateRecordFields } from '../domain/financeRules'
 import type { BankTransactionChoice, FinanceRecord, RecordErrors, RecordFields } from '../types'
 
 const EMPTY: RecordFields = { type: 'EXPENSE', category: '', amountVnd: 0, occurredOn: DEMO_TODAY, scope: 'GENERAL', farmId: null, documentNumber: '', description: '', sourceType: 'MANUAL', sourceEvidenceId: null }
+const HISTORY_PAGE_SIZE = 5
 const toFields = (r: FinanceRecord): RecordFields => ({ type: r.type, category: r.category, amountVnd: r.amountVnd, occurredOn: r.occurredOn, scope: r.scope, farmId: r.farmId, documentNumber: r.documentNumber, description: r.description, sourceType: r.sourceType, sourceEvidenceId: r.sourceEvidenceId })
 const Err = ({ text }: { text?: string }) => (text ? <span role="alert" className="text-[12px] text-err-fg">{text}</span> : null)
 
@@ -34,8 +35,15 @@ export default function RecordFormPage() {
   const bank = useQuery(() => financeApi.listBankTransactions(), [m])
   const { data, loading, error, refetch } = useQuery(async () => (code ? financeApi.getRecord(code) : null), [code, reloadKey])
   const record = data?.record ?? null
+  const [historyPage, setHistoryPage] = useState(1)
+  const history = record?.history ?? []
+  const historyPageCount = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE))
+  const safeHistoryPage = Math.min(historyPage, historyPageCount)
+  const visibleHistory = history.slice((safeHistoryPage - 1) * HISTORY_PAGE_SIZE, safeHistoryPage * HISTORY_PAGE_SIZE)
 
   useEffect(() => { if (record) setFields(toFields(record)) }, [record])
+  useEffect(() => { setHistoryPage(1) }, [record?.recordCode])
+  useEffect(() => { setHistoryPage((page) => Math.min(page, historyPageCount)) }, [historyPageCount])
   useEffect(() => {
     if (!record?.sourceReference || !bank.data?.length || fields.sourceEvidenceId) return
     const source = bank.data.find((item) => item.sourceReference === record.sourceReference)
@@ -52,7 +60,6 @@ export default function RecordFormPage() {
   const sub = !record ? 'Nhập khoản thu hoặc chi của nền tảng. Lưu nháp trước, kiểm tra rồi ghi sổ.' : record.state === 'DRAFT' ? 'Chỉ khoản nháp được sửa. Khi ghi sổ, khoản này không thể sửa nữa.' : record.state === 'POSTED' ? 'Khoản đã ghi sổ chỉ đọc; sửa sai bằng Hủy bỏ kèm lý do.' : 'Khoản đã hủy bỏ chỉ đọc; có thể tạo nháp thay thế.'
   const categoryError = financeApi.isBackend() && !!categoryQuery.error
   const categoryCodes = categoryQuery.data?.[fields.type === 'INCOME' ? 'income' : 'expense'] ?? (financeApi.isBackend() ? [] : FINANCE_CATEGORIES[fields.type])
-  const categoryLabels: Record<string, string> = { OTHER_INCOME: 'Thu khác', REFUND: 'Hoàn trả', INTEREST: 'Lãi tiền gửi', OPERATIONS: 'Vận hành', MARKETING: 'Quảng bá', SOFTWARE: 'Phần mềm', BANK_FEE: 'Phí ngân hàng', OTHER_EXPENSE: 'Chi khác' }
   const changeReload = () => setReloadKey((k) => k + 1)
 
   const save = async (): Promise<FinanceRecord | null> => {
@@ -124,7 +131,7 @@ export default function RecordFormPage() {
                 <Field label="Danh mục *" id="fr-cat" hint={<Err text={errors.category} />}>
                   <Select id="fr-cat" value={fields.category} disabled={!editable} onChange={(e) => set({ category: e.target.value })}>
                     <option value="">Chọn danh mục</option>
-                    {categoryCodes.map((c) => <option key={c} value={c}>{categoryLabels[c] ?? c}</option>)}
+                    {categoryCodes.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
                     {fields.category && !categoryCodes.includes(fields.category) && <option>{fields.category}</option>}
                   </Select>
                 </Field>
@@ -157,14 +164,17 @@ export default function RecordFormPage() {
           <div className="flex flex-col gap-4">
             <Card title="Lịch sử thao tác">
               {(record?.history ?? []).length === 0 ? <p className="m-0 text-[12px] text-muted">Chưa có thao tác. Lịch sử bắt đầu khi lưu nháp.</p> : (
+                <>
                 <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                  {record!.history.map((h) => (
+                  {visibleHistory.map((h) => (
                     <li key={h.id} className="flex items-start gap-2">
                       <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />
                       <div><div className="text-[12px] font-medium text-ink">{h.action}{h.detail ? ` ${h.detail}` : ''} · {h.actor}</div><div className="text-[11px] text-muted">{formatDateTime(h.changedAt).slice(0, 5)} {h.changedAt.slice(11, 16)}{h.reason ? ` · ${h.reason}` : ''}</div></div>
                     </li>
                   ))}
                 </ul>
+                <Pagination page={safeHistoryPage} pageCount={historyPageCount} onChange={setHistoryPage} summary={`Hiển thị ${visibleHistory.length} / ${history.length} thao tác`} />
+                </>
               )}
             </Card>
             <Note>Đây là tài chính nền tảng cơ bản – không phải kế toán trại, ERP hay kế toán thuế. Khoản đã ghi sổ chỉ có thể hủy bỏ kèm lý do.</Note>

@@ -13,7 +13,7 @@ interface Props {
   onCancel: () => void
 }
 
-/** SCR-65: nội dung yêu cầu. Ưu tiên chỉ đọc vì do bộ phận hỗ trợ gán (GBR-76). */
+/** SCR-65: nội dung yêu cầu. Ưu tiên NORMAL được hệ thống gán mặc định; CS chỉnh sau khi nhận. */
 export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
   const [form, setForm] = useState<CreateTicketCommand>({ category: initial.category, scope: 'FARM', farmId: initial.farmId, subject: '', description: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -36,39 +36,33 @@ export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
     <form onSubmit={submit} noValidate>
       <Card title="Nội dung yêu cầu">
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Danh mục *" id="tk-category">
-            <Select id="tk-category" value={form.category} onChange={(e) => set({ category: e.target.value as TicketCategory | '' })}>
-              <option value="">Chọn danh mục</option>
-              {TICKET_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
-            <FieldError>{errors.category}</FieldError>
-          </Field>
-          <Field label="Ưu tiên" id="tk-priority">
-            <Select id="tk-priority" value="NORMAL" disabled>
-              <option value="NORMAL">Bình thường</option>
-            </Select>
-          </Field>
-          <div className="sm:col-span-2">
+          <div className="grid grid-cols-1 gap-3.5 sm:col-span-2 sm:grid-cols-[minmax(0,260px)_max-content_minmax(0,260px)] sm:justify-between">
+            <Field label="Danh mục *" id="tk-category">
+              <Select className="max-w-[260px]" id="tk-category" value={form.category} onChange={(e) => set({ category: e.target.value as TicketCategory | '' })}>
+                <option value="">Danh mục</option>
+                {TICKET_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+              <FieldError>{errors.category}</FieldError>
+            </Field>
             <Field label="Phạm vi *">
               <Segmented
-                options={[
-                  { value: 'FARM', label: 'Trang trại' },
-                  { value: 'ACCOUNT', label: 'Vấn đề tài khoản (không gắn trại)' },
-                ]}
-                value={form.scope}
+              options={[
+                { value: 'FARM', label: 'Trang trại' },
+                { value: 'ACCOUNT', label: 'Không gắn trại' },
+              ]}
+              className="!flex-nowrap !w-fit"
+              value={form.scope}
                 onChange={(scope) => set({ scope: scope as CreateTicketCommand['scope'] })}
               />
               <FieldError>{errors.scope}</FieldError>
             </Field>
-          </div>
-          <div className="sm:col-span-2">
             <Field label={isFarm ? 'Trang trại liên quan *' : 'Trang trại liên quan'} id="tk-farm">
-              <Select id="tk-farm" value={isFarm ? (form.farmId ?? '') : ''} disabled={!isFarm} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
-                {!isFarm && <option value="">Không gắn trang trại</option>}
+              <Select className="max-w-[260px]" id="tk-farm" value={isFarm ? (form.farmId ?? '') : ''} disabled={!isFarm} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
+                {!isFarm && <option value="">Không có</option>}
                 {isFarm && <option value="">Chọn trang trại</option>}
                 {farms.map((f) => (
                   <option key={f.id} value={f.id}>

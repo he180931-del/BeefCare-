@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Icon } from '../../../components/Icon'
@@ -10,6 +10,7 @@ import { financeApi } from '../api/financeApi'
 import { PAYMENT_ROUTE, REPORT_BASE, RoField } from '../components/common'
 import { formatDate, formatDateTime, formatShort, formatVnd } from '../domain/financeRules'
 import type { Receipt } from '../types'
+import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Biên nhận gói'
 const confirmText = (r: Receipt) => `${r.confirmedAt.slice(11, 16)} ${formatDate(r.confirmedAt.slice(0, 10))} · ${r.confirmedBy === 'SEPAY' ? 'SePay tự xác nhận' : 'chấp nhận thủ công'}`
@@ -30,12 +31,26 @@ export default function ReceiptRoutes() {
   const selectedCode = picked?.code ?? data?.rows[0]?.code ?? null
   const { data: selectedDetail } = useQuery(() => selectedCode ? financeApi.getReceipt(selectedCode) : Promise.resolve(null), [selectedCode])
 
+  useEffect(() => {
+    if (!data) return
+    if (page > data.pageCount) {
+      setPage(data.pageCount)
+      setPicked(null)
+      return
+    }
+    if (picked && !data.rows.some((row) => row.code === picked.code)) setPicked(null)
+  }, [data, page, picked])
+
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được biên nhận.')} onRetry={refetch} /></Layout>
 
-  const current = selectedDetail ?? ((picked && data.rows.find((r) => r.code === picked.code)) || data.rows[0] || null)
-  const reset = () => { setSearch(''); setFarmId(''); setPage(1) }
+  const current = selectedDetail && data.rows.some((row) => row.code === selectedDetail.code)
+    ? selectedDetail
+    : ((picked && data.rows.find((r) => r.code === picked.code)) || data.rows[0] || null)
+  const changeFilter = (update: () => void) => { update(); setPage(1); setPicked(null) }
+  const reset = () => { setSearch(''); setFarmId(''); setPage(1); setPicked(null) }
   const month = Number(to.slice(5, 7))
+  const openReceipt = (receipt: Receipt) => { setPicked(receipt); open('xem') }
 
   return (
     <Layout title={TITLE}>
@@ -44,17 +59,17 @@ export default function ReceiptRoutes() {
           <Button onClick={() => navigate(REPORT_BASE)}><Icon name="report-analytics" size={16} /> Mở báo cáo dòng tiền</Button>
         </PageHeader>
         <div className="flex flex-wrap items-end gap-3">
-          <div className="w-[260px] max-w-full"><SearchInput aria-label="Tìm biên nhận" placeholder="Mã biên nhận / thanh toán…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} /></div>
+          <div className="w-[260px] max-w-full"><SearchInput aria-label="Tìm biên nhận" placeholder="Mã biên nhận / thanh toán…" value={search} onChange={(e) => changeFilter(() => setSearch(e.target.value))} /></div>
           <div className="w-[200px] max-w-full">
-            <FilterSelect aria-label="Trang trại" value={String(farmId)} onChange={(e) => { setFarmId(e.target.value ? Number(e.target.value) : ''); setPage(1) }}>
+            <FilterSelect aria-label="Trang trại" value={String(farmId)} onChange={(e) => changeFilter(() => setFarmId(e.target.value ? Number(e.target.value) : ''))}>
               <option value="">Trang trại: Tất cả</option>
               {(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </FilterSelect>
           </div>
           <div className="flex items-center gap-2 text-[12px] text-muted">
             Ngày ngân hàng
-            <div className="w-[150px]"><DateInput id="rc-from" value={from} onChange={(v) => { setFrom(v); setPage(1) }} /></div>–
-            <div className="w-[150px]"><DateInput id="rc-to" value={to} onChange={(v) => { setTo(v); setPage(1) }} /></div>
+            <div className="w-[150px]"><DateInput id="rc-from" value={from} onChange={(v) => changeFilter(() => setFrom(v))} /></div>–
+            <div className="w-[150px]"><DateInput id="rc-to" value={to} onChange={(v) => changeFilter(() => setTo(v))} /></div>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
@@ -71,8 +86,16 @@ export default function ReceiptRoutes() {
                 <thead><tr><Th>Biên nhận</Th><Th>Trang trại</Th><Th>Thời hạn</Th><Th>Số tiền</Th><Th>Ngân hàng ghi</Th></tr></thead>
                 <tbody>
                   {data.rows.map((r) => (
-                    <tr key={r.code} className={r.code === current?.code ? 'bg-[#eef4ef]' : ''}>
-                      <Td><button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-[12px] font-semibold text-brand" onClick={() => { setPicked(r); open('xem') }}>{r.code}</button></Td>
+                    <tr
+                      key={r.code}
+                      tabIndex={0}
+                      aria-label={`Mở biên nhận ${r.code}`}
+                      aria-selected={r.code === current?.code}
+                      className={`${interactiveRowClass} ${r.code === current?.code ? 'bg-[#eef4ef]' : ''}`}
+                      onClick={(event) => activateTableRow(event, () => openReceipt(r))}
+                      onKeyDown={(event) => activateTableRowByKey(event, () => openReceipt(r))}
+                    >
+                      <Td><button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-[12px] font-semibold text-brand" onClick={() => openReceipt(r)}>{r.code}</button></Td>
                       <Td><button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-left text-[12px] text-ink" onClick={() => setPicked(r)}>{r.farmName}</button></Td>
                       <Td>{r.termYears} năm</Td>
                       <Td>{formatVnd(r.amountVnd)}</Td>
@@ -81,7 +104,7 @@ export default function ReceiptRoutes() {
                   ))}
                 </tbody>
               </Table>
-              <Pagination page={data.page} pageCount={data.pageCount} onChange={setPage} summary={`Hiển thị ${data.rows.length} / ${data.total} biên nhận`} />
+              <Pagination page={data.page} pageCount={data.pageCount} onChange={(nextPage) => { setPage(nextPage); setPicked(null) }} summary={`Hiển thị ${data.rows.length} / ${data.total} biên nhận`} />
             </Card>
             {current && <ReceiptDetail receipt={current} onTrace={() => navigate(PAYMENT_ROUTE)} />}
           </div>

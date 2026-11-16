@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DependencyList } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, Metric, Note, PageHeader, Pagination, Segmented, Table, Td, Th, inputCls } from '../../../components/ui'
 import EvidenceActions, { type ActionDraft } from '../components/EvidenceActions'
@@ -10,6 +10,7 @@ import { useSession } from '../../authorization'
 import { CONFIRMATION_SOURCE_TEXT, MATCH_TEXT, REVIEW_TEXT, platformPaymentReadApi as api, reasonText, type EvidenceReadFilters, type EvidenceRow, type PaymentRead, type PaymentReadFilters, type ReadPage } from '../api/platformPaymentReadApi'
 import { fmtDate, fmtEndDate, fmtSeconds, fmtVnd } from '../domain/dates'
 import { PAYMENT_STATE_LABEL } from '../domain/reconciliation'
+import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
@@ -126,7 +127,15 @@ function EvidenceList({ filters, refresh, selected, choose, preview, changePage,
     <Card>{data.items.length === 0 ? <EmptyBlock title="Không có chứng từ phù hợp" action={<Button onClick={() => changePage(-1)}>Xóa bộ lọc</Button>} /> :
       <Table stack={false}><caption className="sr-only">Chứng từ ngân hàng</caption>
         <thead><tr><Th>Giao dịch</Th><Th>Số tiền / Nội dung</Th><Th>Ngân hàng ghi nhận</Th><Th>Trạng thái / Kết quả khớp</Th></tr></thead>
-        <tbody>{data.items.map((e) => <tr key={e.id} className={selected === e.id ? 'bg-[#eef4ef]' : ''}>
+        <tbody>{data.items.map((e) => <tr
+          key={e.id}
+          tabIndex={0}
+          aria-label={`Mở chứng từ ${e.maskedTransactionId}`}
+          aria-selected={selected === e.id}
+          className={`${interactiveRowClass} ${selected === e.id ? 'bg-[#eef4ef]' : ''}`}
+          onClick={(event) => activateTableRow(event, () => choose(e.id))}
+          onKeyDown={(event) => activateTableRowByKey(event, () => choose(e.id))}
+        >
           <Td><button type="button" className="font-semibold text-brand underline" aria-current={selected === e.id ? 'true' : undefined} onClick={() => choose(e.id)}>{e.maskedTransactionId}</button></Td>
           <Td>{fmtVnd(e.amount)}<div>{e.content ?? '—'}</div></Td><Td>{fmtSeconds(e.bankPaidAt)}</Td><Td><Badge tone="outline">{REVIEW_TEXT[e.reviewStatus]}</Badge><div>{MATCH_TEXT[e.matchResult]}</div></Td>
         </tr>)}</tbody></Table>}
@@ -143,13 +152,21 @@ function AutoSelect({ rows, selected, choose }: { rows: EvidenceRow[]; selected:
 }
 
 function PaymentList({ filters, refresh, changePage, reload }: { filters: PaymentReadFilters; refresh: number; changePage: (p: number) => void; reload: () => void }) {
+  const navigate = useNavigate()
   const { data, loading, error } = useReadPage<PaymentRead>(() => api.payments(filters), [filters, refresh])
   useEffect(() => { if (data && data.page > 0 && data.page >= Math.max(1, Math.ceil(data.total / 20))) changePage(Math.max(0, Math.ceil(data.total / 20) - 1)) }, [data])
   if (error) return <ErrorBlock message={userFacingError(error, 'Không tải được yêu cầu thanh toán.')} onRetry={reload} />
   if (!data) return <LoadingBlock />
   return <div aria-busy={loading}><Card>{data.items.length === 0 ? <EmptyBlock title="Không có yêu cầu thanh toán phù hợp" action={<Button onClick={() => changePage(-1)}>Xóa bộ lọc</Button>} /> :
     <Table stack={false}><caption className="sr-only">Yêu cầu thanh toán</caption><thead><tr><Th>Mã / Trại</Th><Th>Kỳ hạn / Số tiền</Th><Th>Tạo lúc / Hết hạn</Th><Th>Trạng thái</Th><Th>Chứng từ</Th></tr></thead>
-      <tbody>{data.items.map((p) => <tr key={p.id}><Td><Link className="font-semibold text-brand underline" to={paymentLink(p.id)}>{p.quoteRef}</Link><div>{p.farmName}</div></Td>
+      <tbody>{data.items.map((p) => <tr
+        key={p.id}
+        tabIndex={0}
+        aria-label={`Mở yêu cầu thanh toán ${p.quoteRef}`}
+        className={interactiveRowClass}
+        onClick={(event) => activateTableRow(event, () => navigate(paymentLink(p.id)))}
+        onKeyDown={(event) => activateTableRowByKey(event, () => navigate(paymentLink(p.id)))}
+      ><Td><Link className="font-semibold text-brand underline" to={paymentLink(p.id)}>{p.quoteRef}</Link><div>{p.farmName}</div></Td>
         <Td>{p.termYears} năm<div>{fmtVnd(p.amount)}</div></Td><Td>{fmtSeconds(p.requestedAt)}<div>{fmtSeconds(p.expiresAt)}</div></Td><Td><Badge tone="outline">{PAYMENT_STATE_LABEL[p.state]}</Badge></Td>
         <Td>{p.evidenceId ? <Link className="text-brand underline" to={`/nen-tang/thanh-toan?evidenceId=${p.evidenceId}`}>Xem chứng từ</Link> : '—'}</Td></tr>)}</tbody></Table>}</Card>
     {data.total > 0 && <div className="mt-3"><Pagination page={data.page + 1} pageCount={Math.ceil(data.total / 20)} onChange={(p) => changePage(p - 1)} summary={`${data.total} yêu cầu`} /></div>}

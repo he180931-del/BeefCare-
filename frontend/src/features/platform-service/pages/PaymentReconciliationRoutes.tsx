@@ -17,6 +17,7 @@ import { validateReason } from '../domain/servicePeriods'
 import PaymentSourcePage from './PaymentSourcePage'
 import { backendMode } from '../../../api/backendTransport'
 import PaymentReadPage from './PaymentReadPage'
+import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
@@ -112,7 +113,14 @@ function ReconciliationPage() {
               <thead><tr><Th>Mã</Th><Th>Trang trại</Th><Th>Thời hạn</Th><Th>Số tiền</Th><Th>Tạo lúc</Th><Th>Hết hạn</Th><Th>Trạng thái</Th><Th>Chứng từ</Th></tr></thead>
               <tbody>
                 {payments.data.map((p) => (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    tabIndex={0}
+                    aria-label={`Mở yêu cầu thanh toán ${p.code}`}
+                    className={interactiveRowClass}
+                    onClick={(event) => activateTableRow(event, () => { setRequestId(p.id); openModal('request') })}
+                    onKeyDown={(event) => activateTableRowByKey(event, () => { setRequestId(p.id); openModal('request') })}
+                  >
                     <Td><button type="button" className="font-medium text-brand" onClick={() => { setRequestId(p.id); openModal('request') }}>{p.code}</button></Td>
                     <Td>{p.farmName}</Td>
                     <Td>{p.termYears} năm</Td>
@@ -136,7 +144,15 @@ function ReconciliationPage() {
                   <thead><tr><Th>Giao dịch</Th><Th>Số tiền</Th><Th>Nội dung CK</Th><Th>Ngân hàng ghi</Th><Th>Khớp</Th></tr></thead>
                   <tbody>
                     {list.data.map((e) => (
-                      <tr key={e.id} aria-selected={e.id === selectedId} className={`cursor-pointer ${e.id === selectedId ? 'bg-[#eef4ef]' : ''}`} onClick={() => select(e.id)}>
+                      <tr
+                        key={e.id}
+                        tabIndex={0}
+                        aria-label={`Mở chứng từ ${maskTransaction(e.transactionId)}`}
+                        aria-selected={e.id === selectedId}
+                        className={`${interactiveRowClass} ${e.id === selectedId ? 'bg-[#eef4ef]' : ''}`}
+                        onClick={(event) => activateTableRow(event, () => select(e.id))}
+                        onKeyDown={(event) => activateTableRowByKey(event, () => select(e.id))}
+                      >
                         <Td><button type="button" className="whitespace-nowrap font-semibold text-brand" onClick={() => select(e.id)}>{maskTransaction(e.transactionId)}</button></Td>
                         <Td><span className="whitespace-nowrap">{fmtMoney(e.amount)}</span></Td>
                         <Td>{e.content}</Td>

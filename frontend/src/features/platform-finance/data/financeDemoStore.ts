@@ -67,7 +67,7 @@ export function createFinanceDemoStore(seed = { receipts: RECEIPTS_SEED, records
   return {
     now,
     async listFarms() { return structuredClone(farms) },
-    async listCategories() { return { income: ['Đào tạo tại trại', 'Dịch vụ tư vấn', 'Tài trợ / hỗ trợ'], expense: ['Hạ tầng máy chủ', 'Phí dịch vụ email', 'In thẻ tai QR', 'Phí nhắn tin SMS', 'Quảng bá'] } },
+    async listCategories() { return { income: ['IMPLEMENTATION_SUPPORT', 'USER_TRAINING', 'COST_REIMBURSEMENT', 'OTHER_INCOME'], expense: ['SERVER_STORAGE', 'DOMAIN_SOFTWARE', 'EMAIL_NOTIFICATIONS', 'OTHER_EXPENSE'] } },
 
     async listReceipts(f: ReceiptFilters) {
       const all = filterReceipts(receipts, f)
