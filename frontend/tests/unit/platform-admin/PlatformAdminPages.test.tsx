@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { platformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
 import { platformAdminDemoStore } from '../../../src/features/platform-admin/data/platformAdminDemoStore'
 import AdminNoticePage from '../../../src/features/platform-admin/pages/AdminNoticePage'
 import AuditRoutes from '../../../src/features/platform-admin/pages/AuditRoutes'
@@ -239,7 +240,11 @@ describe('Lịch sử audit nền tảng (SCR-51, D34)', () => {
     await user.click(screen.getByRole('button', { name: /Thời gian/ }))
     await waitFor(() => expect(times()[0]).toBe('16/10/2026 14:05'))
 
-    await user.selectOptions(screen.getByLabelText('Lọc theo hành động'), 'PAYMENT_CONFIRMED')
+    // The action filter is typed into: accents optional, then pick the suggestion.
+    const actionFilter = screen.getByRole('combobox', { name: 'Lọc theo hành động' })
+    await user.type(actionFilter, 'xac nhan thanh')
+    await user.click(await screen.findByRole('option', { name: /Xác nhận thanh toán/ }))
+    expect(actionFilter).toHaveValue('Xác nhận thanh toán')
     expect(await screen.findByText('1 mục trong khoảng đã chọn')).toBeInTheDocument()
   })
 
@@ -262,6 +267,29 @@ describe('Lịch sử audit nền tảng (SCR-51, D34)', () => {
     expect(screen.getByText('RESOLVED')).toBeInTheDocument()
     expect(screen.queryByText(/Nội dung ticket/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sao chép mã truy vết' })).not.toBeInTheDocument()
+  })
+
+  it('hai ô ngày có tên riêng; khoảng ngày sai thì hai ô viền đỏ và chân trang dùng "Quản trị hệ thống"', async () => {
+    renderAt('/nen-tang/audit')
+    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+    const from = screen.getByLabelText('Từ ngày')
+    const to = screen.getByLabelText('Đến ngày')
+    expect(screen.queryByLabelText('Chọn ngày')).not.toBeInTheDocument()
+    expect(screen.getByText(/chỉ Quản trị hệ thống/)).toBeInTheDocument()
+    fireEvent.change(from, { target: { value: '2026-12-31' } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ngày bắt đầu không được sau ngày kết thúc.')
+    for (const input of [from, to]) expect(input.parentElement!.className).toContain('border-err-fg')
+  })
+
+  it('không tải được danh sách hành động thì báo ngay dưới ô lọc và cho thử lại', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(platformAdminApi, 'listAuditActions').mockRejectedValueOnce(new Error('network'))
+    renderAt('/nen-tang/audit')
+    expect(await screen.findByText('Không tải được danh sách hành động.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Thử lại' }))
+    await waitFor(() => expect(screen.queryByText('Không tải được danh sách hành động.')).not.toBeInTheDocument())
+    expect(spy).toHaveBeenCalledTimes(2)
+    spy.mockRestore()
   })
 
   it('báo lỗi tải audit (MSG-COM-03) có Thử lại', async () => {
