@@ -38,6 +38,16 @@ class OpenApiContractTest {
         assertThat(paths.has("/api/cattle")).isFalse();
         assertThat(paths.has("/api/support-tickets")).isFalse();
         assertThat(api.path("components").path("securitySchemes").has("session")).isTrue();
+        JsonNode schemas = api.path("components").path("schemas");
+        assertThat(schemas.path("RecordFeedingRequest").path("required").toString()).contains("lines");
+        for (String name : java.util.List.of("FeedingVoidRequest", "FeedingCorrectionRequest")) {
+            JsonNode request = schemas.path(name);
+            assertThat(request.path("required").toString()).contains("reason", "expectedVersion");
+            assertThat(request.path("properties").path("reason").path("minLength").asInt()).isEqualTo(5);
+        }
+        assertThat(schemas.path("FeedingCorrectionRequest").path("required").toString()).contains("lines");
+        assertThat(schemas.path("DraftRequest").path("required").toString()).contains("title", "body", "recipientRoles");
+        assertThat(schemas.path("CorrectionRequest").path("required").toString()).contains("title", "body", "reason", "expectedVersion");
         // D25: a typed client must send a numeric duration, and must collect both required invitation fields.
         JsonNode invite = api.path("components").path("schemas").path("InviteRequest");
         assertThat(invite.path("required").toString()).contains("email", "role");

@@ -45,6 +45,26 @@ export type FeedFeedingRecord = {
   [key: string]: unknown
 }
 
+export type FeedFeedingPlan = {
+  penId: number
+  penCode: string
+  feedingDate: string
+  sessionNo: number
+  feedingTime: string
+  ration: { id: number; rationCode: string; versionNo: number; name: string; sessionsPerDay: number } | null
+  headCount: number
+  lines: Array<{
+    feedItemId: number
+    feedCode: string
+    feedName: string
+    kgPerHead: number
+    plannedKg: number
+    stockKg: number
+    available: boolean
+  }>
+  existingRecordId: number | null
+}
+
 export type FeedFeedingLineInput = {
   feedItemId: number
   plannedKg: number
@@ -57,7 +77,7 @@ export type FeedFeedingDraftInput = {
   feedingDate: string
   sessionNo: number
   time: string
-  fedBy: string
+  fedBy?: string
   leftoverKg: number | null
   note: string
   rationCode: string | null

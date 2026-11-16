@@ -11,7 +11,7 @@ import { dueLabel } from '../domain/reminderRules'
 import type { ReminderItem, Urgency } from '../types'
 
 const TITLE = 'Nhắc việc'
-const dateText = (item: ReminderItem, today: string) => dueLabel(item, today)
+const dateText = (item: ReminderItem, today: string, timeZone?: string) => dueLabel(item, today, timeZone)
 
 export default function TechnicianRemindersPage() {
   const [tab, setTab] = useState<Urgency>('TODAY')
@@ -25,8 +25,8 @@ export default function TechnicianRemindersPage() {
 
   const count = (u: Urgency) => items.filter((i) => i.urgency === u).length
   const shown = items.filter((i) => i.urgency === tab)
-  const selected = m === 'chi-tiet' ? items.find((i) => i.id === Number(params.get('r'))) : undefined
-  const open = (id: number) => { const next = new URLSearchParams(params); next.set('m', 'chi-tiet'); next.set('r', String(id)); setParams(next) }
+  const selected = m === 'chi-tiet' ? items.find((i) => String(i.id) === params.get('r')) : undefined
+  const open = (id: number | string) => { const next = new URLSearchParams(params); next.set('m', 'chi-tiet'); next.set('r', String(id)); setParams(next) }
 
   return (
     <TechnicianLayout title={TITLE} back="/kt">
@@ -44,13 +44,13 @@ export default function TechnicianRemindersPage() {
         <button key={item.id} type="button" onClick={() => open(item.id)} className="flex w-full cursor-pointer flex-col gap-1 rounded-lg border border-field bg-white px-3.5 py-3 text-left">
           <span className="flex items-baseline justify-between gap-2">
             <span className="text-[13px] font-semibold text-[#212121]">{item.title}</span>
-            <span className="shrink-0 text-[11px] font-semibold text-muted">{dateText(item, data.today)}</span>
+            <span className="shrink-0 text-[11px] font-semibold text-muted">{dateText(item, data.today, data.timeZone)}</span>
           </span>
           <span className="text-[11px] text-muted">{[item.code ?? item.group, item.breed, item.pen].filter(Boolean).join(' · ')}</span>
         </button>
       ))}
       <Note>Chỉ xem. Kỹ thuật viên không thấy nhắc bê nháp và tồn kho thức ăn thấp.</Note>
-      {selected && <ReminderDetailModal item={selected} today={data.today} technician onClose={closeModal} />}
+      {selected && <ReminderDetailModal item={selected} today={data.today} timeZone={data.timeZone} technician onClose={closeModal} />}
     </TechnicianLayout>
   )
 }

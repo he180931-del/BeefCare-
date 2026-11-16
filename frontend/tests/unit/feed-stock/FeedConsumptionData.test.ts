@@ -10,6 +10,7 @@ import type { FeedRation } from '../../../src/features/feed-stock/types/feedRati
 const ration: FeedRation = {
   id: 41,
   rationCode: 'KP-A',
+  version: 0,
   versionNo: 1,
   name: 'Khẩu phần A',
   herdGroup: 'Bò thịt',

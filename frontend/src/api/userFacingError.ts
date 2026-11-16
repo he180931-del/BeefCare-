@@ -29,7 +29,7 @@ const fieldLabels: Record<string, string> = {
   receiver: 'Người nhập', sellerId: 'Nguồn / chủ bò cũ', lines: 'Danh sách bò',
   penCode: 'Mã chuồng', code: 'Mã chuồng', name: 'Tên chuồng', capacity: 'Sức chứa',
   minAge: 'Tuổi tối thiểu', minAgeMonths: 'Tuổi tối thiểu', minWeight: 'Cân tối thiểu', minWeightKg: 'Cân tối thiểu',
-  description: 'Mô tả', criteria: 'Tiêu chí tiếp nhận', expectedVersion: 'Phiên bản dữ liệu',
+  description: 'Mô tả', criteria: 'Tiêu chí tiếp nhận', expectedVersion: 'Phiên bản dữ liệu', note: 'Ghi chú',
   'vaccination.items': 'Thông tin tiêm phòng', 'disease.description': 'Mô tả bệnh đã biết',
   reproduction: 'Thông tin sinh sản', 'reproduction.earlierCalvings': 'Số lứa đã đẻ',
   'reproduction.estMonthsPregnant': 'Số tháng mang thai', damId: 'Bò mẹ', sireId: 'Bò bố',

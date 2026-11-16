@@ -1,15 +1,46 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport, asRecord, asRows, numberValue, textValue } from '../../../api/backendTransport'
+import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport, asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../api/backendTransport'
 import { FEED_DEMO_PENS } from '../data/feedPenMock'
 import type { FeedStockRow } from '../types'
 import type { FeedRation, FeedRationDemoStore, FeedRationPenOption, SaveFeedRationInput } from '../types/feedRation'
 import { listFeedStock } from './feedStockApi'
-import { backendPending } from '../../../api/backendPending'
 import {
   feedRationDemoStore,
   resetFeedRationDemoStore as resetDemoStore,
 } from '../data/feedRationDemoStore'
 
-const backendMutationMessage = 'Lưu và tạo phiên bản khẩu phần hiện chỉ hoạt động trong bản demo.'
+type MutationOptions = { key?: string }
+const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-ration:${Date.now()}:${Math.random().toString(36).slice(2)}`
+export const newFeedRationCommandKey = commandKey
+
+function mapRation(value: unknown): FeedRation {
+  const row = asRecord(value)
+  return {
+    id: numberValue(row.id),
+    rationCode: textValue(row.rationCode),
+    version: numberValue(row.version),
+    versionNo: numberValue(row.versionNo),
+    name: textValue(row.name),
+    herdGroup: textValue(row.herdGroup),
+    basis: textValue(row.basis),
+    effectiveFrom: textValue(row.effectiveFrom),
+    effectiveTo: typeof row.effectiveTo === 'string' ? row.effectiveTo : null,
+    status: textValue(row.status),
+    sessionsPerDay: numberValue(row.sessionsPerDay),
+    sessionTimes: Array.isArray(row.sessionTimes) ? row.sessionTimes.filter((item): item is string => typeof item === 'string') : [],
+    penIds: Array.isArray(row.penIds) ? row.penIds.map((id) => numberValue(id)) : [],
+    components: asRows(row.components).map((component) => ({
+      feedItemId: numberValue(component.feedItemId),
+      feedCode: textValue(component.feedCode),
+      feedName: textValue(component.feedName),
+      session1Kg: numberValue(component.session1Kg),
+      session2Kg: numberValue(component.session2Kg),
+      session3Kg: numberValue(component.session3Kg),
+      dailyKg: numberValue(component.dailyKg),
+      estimatedDailyCost: nullableNumber(component.estimatedDailyCost),
+      outOfStock: component.outOfStock === true,
+    })),
+  }
+}
 
 function backendPens(value: unknown): FeedRationPenOption[] {
   const body = asRecord(value)
@@ -39,7 +70,7 @@ export function createFeedRationApi({
   getFeedStock?: () => Promise<readonly FeedStockRow[]>
 }) {
   const list = async (): Promise<FeedRation[]> => {
-    if (mode === 'backend') return await transport.get(transport.farmPath(farmId, '/feed/rations')) as FeedRation[]
+    if (mode === 'backend') return asRows(await transport.get(transport.farmPath(farmId, '/feed/rations'))).map(mapRation)
     if (mockRows) return mockRows.map((row) => ({ ...row, penIds: [...row.penIds], components: row.components.map((component) => ({ ...component })) }))
     return demoStore.list()
   }
@@ -50,20 +81,37 @@ export function createFeedRationApi({
       if (!row) throw new Error(`Không tìm thấy khẩu phần ${id}.`)
       return row
     },
-    async saveVersion(input: SaveFeedRationInput) {
-      if (mode === 'backend') throw new Error(backendMutationMessage)
+    async saveVersion(input: SaveFeedRationInput, options: MutationOptions = {}) {
+      if (mode === 'backend') {
+        const body = {
+          rationCode: input.rationCode ?? null,
+          name: input.name.trim(),
+          herdGroup: input.herdGroup || null,
+          basis: input.basis.trim() || null,
+          effectiveFrom: input.effectiveFrom,
+          sessionsPerDay: input.sessionsPerDay,
+          sessionTimes: input.sessionTimes,
+          penIds: input.penIds,
+          components: input.components,
+          baseVersion: input.baseVersion ?? null,
+        }
+        return mapRation(await transport.command(transport.farmPath(farmId, '/feed/rations'), body, { key: options.key ?? commandKey() }))
+      }
       const currentStock = await getFeedStock()
       return demoStore.saveVersion(input, currentStock)
     },
-    // chưa có API: OpenAPI has no route to cancel a scheduled ration version.
-    async cancelVersion(id: number) {
-      if (mode === 'backend') throw backendPending('hủy phiên bản khẩu phần')
-      return demoStore.cancelVersion(id)
+    async cancelVersion(id: number, versionNo: number, version: number, options: MutationOptions = {}) {
+      if (mode === 'backend') {
+        const url = transport.farmPath(farmId, `/feed/rations/${id}/versions/${versionNo}/cancel`)
+        return mapRation(await transport.command(url, { version }, { key: options.key ?? commandKey() }))
+      }
+      return demoStore.cancelVersion(id, versionNo, version)
     },
-    // chưa có API: OpenAPI has no route to stop an effective ration from a future date.
-    async stop(id: number, endDate: string) {
-      if (mode === 'backend') throw backendPending('ngừng khẩu phần')
-      return demoStore.stop(id, endDate)
+    async stop(id: number, endDate: string, version: number, options: MutationOptions = {}) {
+      if (mode === 'backend') {
+        return mapRation(await transport.command(transport.farmPath(farmId, `/feed/rations/${id}/stop`), { endDate, version }, { key: options.key ?? commandKey() }))
+      }
+      return demoStore.stop(id, endDate, version)
     },
   }
 }
@@ -73,10 +121,10 @@ const feedRationApi = createFeedRationApi({ mode: backendMode, farmId: backendFa
 /** Reads the server list in backend mode; writes persist only to the separate local ration demo store. */
 export const listFeedRations = () => feedRationApi.list()
 export const getFeedRation = (id: string) => feedRationApi.get(id)
-export const saveFeedRationVersion = (input: SaveFeedRationInput) => feedRationApi.saveVersion(input)
-export const cancelFeedRationVersion = (id: number) => feedRationApi.cancelVersion(id)
-export const stopFeedRation = (id: number, endDate: string) => feedRationApi.stop(id, endDate)
-export const saveFeedRationDemoVersion = (input: SaveFeedRationInput) => feedRationApi.saveVersion(input)
+export const saveFeedRationVersion = (input: SaveFeedRationInput, options?: MutationOptions) => feedRationApi.saveVersion(input, options)
+export const cancelFeedRationVersion = (id: number, versionNo: number, version: number, options?: MutationOptions) => feedRationApi.cancelVersion(id, versionNo, version, options)
+export const stopFeedRation = (id: number, endDate: string, version: number, options?: MutationOptions) => feedRationApi.stop(id, endDate, version, options)
+export const saveFeedRationDemoVersion = (input: SaveFeedRationInput, options?: MutationOptions) => feedRationApi.saveVersion(input, options)
 export const resetFeedRationDemoStore = () => resetDemoStore()
 
 export async function listFeedRationPens(): Promise<FeedRationPenOption[]> {

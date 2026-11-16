@@ -49,4 +49,9 @@ public class RecordRevisionService {
         revision.setChangedAt(clock.now());
         return repository.save(revision);
     }
+
+    @Transactional(readOnly = true)
+    public java.util.List<RecordRevision> history(String sourceType, Long sourceId) {
+        return repository.findAllBySourceTypeAndSourceIdOrderByChangedAtAscIdAsc(sourceType, sourceId);
+    }
 }

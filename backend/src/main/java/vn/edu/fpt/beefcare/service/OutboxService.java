@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -66,9 +68,16 @@ public class OutboxService {
     public void dispatchDueEvents() {
         if (handlers.isEmpty()) return;
         Instant now = Instant.now();
-        for (OutboxEvent candidate : repository.findDue(now, PageRequest.of(0, 50))) {
+        Set<String> supportedDueTypes = new LinkedHashSet<>();
+        // Filter by handlers before loading the bounded batch; older unowned events must stay pending without blocking
+        // newer event types that this deployment can actually deliver.
+        for (String eventType : repository.findDueEventTypes(now)) {
+            if (handlers.stream().anyMatch(handler -> handler.supports(eventType))) supportedDueTypes.add(eventType);
+        }
+        if (supportedDueTypes.isEmpty()) return;
+
+        for (OutboxEvent candidate : repository.findDueByEventTypeIn(List.copyOf(supportedDueTypes), now, PageRequest.of(0, 50))) {
             List<OutboxEventHandler> matching = handlers.stream().filter(h -> h.supports(candidate.getEventType())).toList();
-            if (matching.isEmpty()) continue;
             if (matching.size() > 1) {
                 // An event row represents one delivery contract. Multiple handlers need distinct per-handler
                 // delivery records and are rejected rather than silently acknowledging only the first one.

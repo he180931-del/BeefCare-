@@ -24,11 +24,13 @@ public class SupportTicketCommandService {
     private final OutboxService outbox;
     private final NotificationService notifications;
     private final MailService mail;
+    private final SupportTicketNotificationRecipientResolver notificationRecipients;
 
     public SupportTicketCommandService(EntityManager em, FarmAccessService accounts, PlatformAccessService platform,
-        FarmClock clock, AuditService audit, OutboxService outbox, NotificationService notifications, MailService mail) {
+        FarmClock clock, AuditService audit, OutboxService outbox, NotificationService notifications, MailService mail,
+        SupportTicketNotificationRecipientResolver notificationRecipients) {
         this.em = em; this.accounts = accounts; this.platform = platform; this.clock = clock;
-        this.audit = audit; this.outbox = outbox; this.notifications = notifications; this.mail = mail;
+        this.audit = audit; this.outbox = outbox; this.notifications = notifications; this.mail = mail; this.notificationRecipients = notificationRecipients;
     }
 
     public SupportDtos.Ticket create(SupportDtos.Create r) {
@@ -196,7 +198,7 @@ public class SupportTicketCommandService {
     /** Called by a scheduled job: loss of staff access returns work to the queue without changing ticket state. */
     public int requeueUnavailable() {
         int count = 0;
-        List<SupportTicket> tickets = em.createQuery("select t from SupportTicket t where t.assignedCs is not null and t.status<>'CLOSED'", SupportTicket.class)
+        List<SupportTicket> tickets = em.createQuery("select t from SupportTicket t where t.assignedCs is not null and t.status<>'CLOSED' order by t.id", SupportTicket.class)
             .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
         for (SupportTicket t : tickets) if (!available(t.getAssignedCs(), PlatformRole.CS)) {
             requeue(t, Map.of("actorType", "SYSTEM")); count++;
@@ -327,9 +329,11 @@ public class SupportTicketCommandService {
         notice(t.getRequester(), t, event); mail.queueSupportTicketUpdate(t.getId());
     }
     void notifyCs(SupportTicket t, String event) {
-        if (available(t.getAssignedCs(), PlatformRole.CS)) notice(t.getAssignedCs(), t, event);
-        else em.createQuery("select p.user from PlatformStaffAccess p where upper(p.role)='CS' and upper(p.status)='ACTIVE'", AppUser.class)
-            .getResultList().stream().filter(u -> available(u, PlatformRole.CS)).forEach(u -> notice(u, t, event));
+        currentCsNotificationRecipients(t).forEach(user -> notice(user, t, event));
+    }
+    /** Resolves the current CS recipients for a selected JOB-07 support event. */
+    List<AppUser> currentCsNotificationRecipients(SupportTicket t) {
+        return notificationRecipients.currentCsRecipients(t);
     }
     private void notice(AppUser user, SupportTicket t, String event) {
         notifications.notify(user, "SUPPORT", "SUPPORT_TICKET", t.getId(), "Cập nhật yêu cầu " + t.getCode(),

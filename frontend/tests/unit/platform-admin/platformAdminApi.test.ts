@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
+import { BackendError } from '../../../src/api/backendClient'
 import { accountsPath, auditDetail, auditPath, createPlatformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
 import { createPlatformAdminDemoStore } from '../../../src/features/platform-admin/data/platformAdminDemoStore'
 import { createPlatformAdminSeed } from '../../../src/features/platform-admin/data/platformAdminMock'
+import { MSG } from '../../../src/features/platform-admin/domain/platformRules'
 
 const NOW = new Date('2026-10-18T08:30:00')
 const HUNG = 1, HA = 2, NAM = 4, TAI = 6, KHANG = 7, BAO = 9, LOC = 10
@@ -305,11 +307,70 @@ describe('thông báo của SA', () => {
 })
 
 describe('chế độ backend', () => {
-  it('các chức năng chưa nối từ chối và không đụng tới store mock', async () => {
+  const requestNotice = (overrides: Record<string, unknown> = {}) => ({
+    id: 31, category: 'SUPPORT', title: 'Bạn có yêu cầu nội bộ mới IR-0081', summary: 'Trạng thái: OPEN',
+    targetType: 'INTERNAL_REQUEST', targetId: 81, createdTime: '2026-11-15T08:30:00Z', readTime: null,
+    ...overrides,
+  })
+
+  const backend = () => {
     const store = createPlatformAdminDemoStore(createPlatformAdminSeed(NOW))
-    const notices = vi.spyOn(store, 'listNotifications')
-    const api = createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: transport(), store })
-    await expect(api.listNotifications()).rejects.toThrow('Chưa tích hợp')
-    expect(notices).not.toHaveBeenCalled()
+    const get = vi.fn()
+    const command = vi.fn()
+    const http = { get, command, farmPath: vi.fn() }
+    return { store, get, command, api: createPlatformAdminApi({ mode: 'backend', farmId: 1, transport: http as never, store }) }
+  }
+
+  it('SCR-46 GET: only displays SUPPORT / INTERNAL_REQUEST rows and reads from the server', async () => {
+    const { api, get, store } = backend()
+    const local = vi.spyOn(store, 'listNotifications')
+    get.mockResolvedValue([
+      requestNotice(),
+      requestNotice({ id: 32, targetId: 82, readTime: '2026-11-15T08:40:00Z' }),
+      requestNotice({ id: 33, targetType: 'SUPPORT_TICKET', targetId: 83 }),
+      requestNotice({ id: 34, category: 'RECONCILIATION', targetType: 'PAYMENT', targetId: 84 }),
+    ])
+
+    await expect(api.listNotifications()).resolves.toEqual([
+      { id: 31, category: 'SUPPORT', title: 'Bạn có yêu cầu nội bộ mới IR-0081', summary: 'Trạng thái: OPEN', targetType: 'INTERNAL_REQUEST', targetId: 81, createdTime: '2026-11-15T08:30:00Z', readTime: null, targetCode: '81' },
+      { id: 32, category: 'SUPPORT', title: 'Bạn có yêu cầu nội bộ mới IR-0081', summary: 'Trạng thái: OPEN', targetType: 'INTERNAL_REQUEST', targetId: 82, createdTime: '2026-11-15T08:30:00Z', readTime: '2026-11-15T08:40:00Z', targetCode: '82' },
+    ])
+    expect(get).toHaveBeenCalledWith('/api/notifications/mine')
+    expect(local).not.toHaveBeenCalled()
+  })
+
+  it('SCR-46 open: marks through the API and navigates only to the returned internal request ID', async () => {
+    const { api, command, store } = backend()
+    const local = vi.spyOn(store, 'openNotification')
+    command.mockResolvedValueOnce(requestNotice({ readTime: '2026-11-15T08:41:00Z' }))
+    await expect(api.openNotification(31)).resolves.toEqual({ path: '/nen-tang/yeu-cau/81' })
+    expect(command).toHaveBeenCalledWith('/api/notifications/31/read', undefined, { method: 'PUT' })
+    expect(local).not.toHaveBeenCalled()
+
+    command.mockResolvedValueOnce(requestNotice({ targetType: 'SUPPORT_TICKET', targetId: 999 }))
+    await expect(api.openNotification(31)).rejects.toThrow('loại đích thông báo')
+    await expect(api.openNotification(0)).rejects.toThrow('mã thông báo')
+    expect(command).toHaveBeenCalledTimes(2)
+  })
+
+  it('SCR-46 open: shows FE20-19 before the generic 404 fallback but keeps other hidden 404s generic', async () => {
+    const { api, command } = backend()
+    command.mockRejectedValueOnce(new BackendError(404, { code: 'MSG-FE20-19', message: 'MSG-FE20-19' }))
+    await expect(api.openNotification(31)).rejects.toMatchObject({ code: 'NOT_ASSIGNED', message: MSG.noLongerAssigned })
+
+    const hiddenTarget = new BackendError(404, { code: 'MSG-COM-08', message: 'MSG-COM-08' })
+    command.mockRejectedValueOnce(hiddenTarget)
+    await expect(api.openNotification(31)).rejects.toBe(hiddenTarget)
+  })
+
+  it('SCR-46 mark all: calls the recipient-scoped API and validates its count', async () => {
+    const { api, command, store } = backend()
+    const local = vi.spyOn(store, 'markAllNotificationsRead')
+    command.mockResolvedValueOnce(3)
+    await expect(api.markAllNotificationsRead()).resolves.toBe(3)
+    expect(command).toHaveBeenCalledWith('/api/notifications/read-all', undefined, { method: 'PUT' })
+    expect(local).not.toHaveBeenCalled()
+    command.mockResolvedValueOnce('3')
+    await expect(api.markAllNotificationsRead()).rejects.toThrow('số thông báo đã đọc')
   })
 })

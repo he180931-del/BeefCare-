@@ -43,6 +43,8 @@ public final class MessageCodes {
     public static final String FE02_09 = "MSG-FE02-09";
     /** UC-FE19-06 E1/E2: PM acceptance blocked; params.reason names the rule (D19). */
     public static final String FE19_11 = "MSG-FE19-11";
+    /** FE-14 UC-FE14-03 / FE-20 TC-20-17: a still-authorized former recipient opens a reassigned request notice. */
+    public static final String FE20_19 = "MSG-FE20-19";
 
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";
@@ -105,6 +107,12 @@ public final class MessageCodes {
     public static final String FE23_03 = "MSG-FE23-03";
     public static final String FE23_05 = "MSG-FE23-05";
     public static final String FE23_08 = "MSG-FE23-08";
+    public static final String FE23_10 = "MSG-FE23-10";
+    public static final String FE23_11 = "MSG-FE23-11";
+    public static final String FE23_13 = "MSG-FE23-13";
+    public static final String FE23_14 = "MSG-FE23-14";
+    public static final String FE23_21 = "MSG-FE23-21";
+    public static final String FE23_22 = "MSG-FE23-22";
 
     public static final String FE01_01 = "MSG-FE01-01";
     public static final String FE01_02 = "MSG-FE01-02";

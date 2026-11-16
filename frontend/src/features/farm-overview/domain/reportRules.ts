@@ -2,12 +2,12 @@ import { fmtDec, fmtInt, formatKey, formatKeyShort, pct } from './format'
 import type { ReportCell, ReportCode, ReportFilterKey, ReportRequest, ReportRowSeed, ReportTile, ReportView } from '../types'
 
 export const REPORT_CATALOGUE: Array<{ code: ReportCode; label: string; title: string; filters: ReportFilterKey[] }> = [
-  { code: 'RPT-01', label: 'RPT-01 Tổng hợp đàn', title: 'Tổng hợp đàn', filters: ['pen', 'group', 'stage'] },
-  { code: 'RPT-02', label: 'RPT-02 Tăng trưởng', title: 'Hiệu quả tăng trưởng', filters: ['pen', 'group', 'stage'] },
-  { code: 'RPT-03', label: 'RPT-03 Tiêm phòng', title: 'Tuân thủ tiêm phòng', filters: [] },
-  { code: 'RPT-04', label: 'RPT-04 Sức khỏe & điều trị', title: 'Sức khỏe & điều trị', filters: ['pen', 'group'] },
+  { code: 'RPT-01', label: 'RPT-01 Tổng hợp đàn', title: 'Tổng hợp đàn', filters: ['pen', 'breed', 'group', 'stage'] },
+  { code: 'RPT-02', label: 'RPT-02 Tăng trưởng', title: 'Hiệu quả tăng trưởng', filters: ['pen', 'breed', 'group', 'stage'] },
+  { code: 'RPT-03', label: 'RPT-03 Tiêm phòng', title: 'Tuân thủ tiêm phòng', filters: ['pen', 'group'] },
+  { code: 'RPT-04', label: 'RPT-04 Sức khỏe & điều trị', title: 'Sức khỏe & điều trị', filters: ['pen', 'breed', 'group', 'stage'] },
   { code: 'RPT-05', label: 'RPT-05 Sinh sản', title: 'Sinh sản', filters: ['pen', 'breed', 'group', 'stage'] },
-  { code: 'RPT-06', label: 'RPT-06 Biến động đàn', title: 'Biến động đàn', filters: ['pen'] },
+  { code: 'RPT-06', label: 'RPT-06 Biến động đàn', title: 'Biến động đàn', filters: ['pen', 'breed', 'group', 'stage'] },
   { code: 'RPT-07', label: 'RPT-07 Hiệu quả vỗ béo', title: 'Hiệu quả vỗ béo', filters: ['pen'] },
 ]
 
@@ -107,13 +107,20 @@ const DEFS: Record<ReportCode, Def> = {
   },
 }
 
-const monthsLimit = (from: string) => { const [y, m, d] = from.split('-').map(Number); return Date.UTC(y, m - 1 + 24, d) }
+const monthsLimit = (from: string) => {
+  const [year, month, day] = from.split('-').map(Number)
+  const targetMonth = month - 1 + 24
+  const targetYear = year + Math.floor(targetMonth / 12)
+  const targetMonthOfYear = targetMonth % 12
+  const lastDay = new Date(Date.UTC(targetYear, targetMonthOfYear + 1, 0)).getUTCDate()
+  return Date.UTC(targetYear, targetMonthOfYear, Math.min(day, lastDay))
+}
 
 /** MSG-COM-06, MSG-COM-11 và kỳ tối đa 24 tháng (SCR-49). */
 export function validateReportRequest(req: ReportRequest): string | null {
   if (!req.dateFrom || !req.dateTo) return 'Kỳ báo cáo là bắt buộc.'
   if (req.dateFrom > req.dateTo) return 'Ngày bắt đầu không được sau ngày kết thúc.'
-  if (Date.parse(`${req.dateTo}T00:00:00Z`) >= monthsLimit(req.dateFrom)) return 'Kỳ báo cáo tối đa 24 tháng.'
+  if (Date.parse(`${req.dateTo}T00:00:00Z`) > monthsLimit(req.dateFrom)) return 'Kỳ báo cáo tối đa 24 tháng.'
   return null
 }
 

@@ -1,9 +1,9 @@
 import { asRecord, backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { backendPending } from '../../../api/backendPending'
 import { platformAdminDemoStore, type PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
-import { AUDIT_TARGET_TYPE_VALUES, auditActorQuery, defaultAuditRange, platformDay } from '../domain/platformRules'
+import { AUDIT_TARGET_TYPE_VALUES, MSG, PlatformAdminError, auditActorQuery, defaultAuditRange, platformDay } from '../domain/platformRules'
 import type {
-  AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditActionOption, AuditActor, AuditDetail,
+  AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditActionOption, AuditActor, AuditDetail, NotificationOpenResult, NotificationView,
   AuditFilters, AuditRow, FarmRole, PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole, SignInMethod,
 } from '../types'
 
@@ -49,8 +49,27 @@ const platformRoles = ['CS', 'PM', 'SA'] as const satisfies readonly PlatformRol
 const accessStatuses = ['ACTIVE', 'REVOKED'] as const satisfies readonly PlatformAccessStatus[]
 const farmRoles = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const satisfies readonly FarmRole[]
 const signInMethods = ['PASSWORD', 'GOOGLE'] as const satisfies readonly SignInMethod[]
+const noticeCategories = ['SUPPORT'] as const
+const noticeTargets = ['INTERNAL_REQUEST'] as const
 const statusActions = ['SUSPEND', 'RESTORE'] as const satisfies readonly AccountStatusAction[]
 const accessOperations = ['GRANT', 'CHANGE', 'REVOKE', 'RESTORE'] as const satisfies readonly PlatformAccessOperation[]
+
+/** SCR-46 SA inbox: only a support notice for an internal request belongs on this screen. */
+function supportRequestNotification(value: unknown): NotificationView {
+  const row = asRecord(value)
+  const targetId = requiredId(row.targetId, 'mã yêu cầu nội bộ')
+  return {
+    id: requiredId(row.id, 'mã thông báo'),
+    category: requiredOneOf(row.category, noticeCategories, 'nhóm thông báo'),
+    title: requiredText(row.title, 'tiêu đề thông báo'),
+    summary: row.summary === null || row.summary === undefined ? '' : requiredString(row.summary, 'tóm tắt thông báo'),
+    targetType: requiredOneOf(row.targetType, noticeTargets, 'loại đích thông báo'),
+    targetId,
+    createdTime: requiredText(row.createdTime, 'thời điểm tạo thông báo'),
+    readTime: nullableText(row.readTime, 'thời điểm đọc thông báo'),
+    targetCode: String(targetId),
+  }
+}
 
 /** A9 row (D31): ids, status, roles and counts come from the server; a missing one is an error, never a silent default. */
 export function accountListItem(value: unknown): AccountListItem {
@@ -288,12 +307,39 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
     // Mặc định 7 ngày gần nhất gồm hôm nay (D34); mock lấy "hôm nay" của dữ liệu mẫu
     auditDefaultRange() { return defaultAuditRange(mode === 'backend' ? platformDay(new Date().toISOString()) : store.today()) },
 
-    // GET /api/notifications/mine
-    async listNotifications() { requireLocal(); return store.listNotifications() },
-    // PUT /api/notifications/{id}/read  (kiểm tra lại giao việc trước khi mở: chưa có API riêng)
-    async openNotification(id: number) { requireLocal(); return store.openNotification(id) },
-    // PUT /api/notifications/read-all
-    async markAllNotificationsRead() { requireLocal(); return store.markAllNotificationsRead() },
+    // SCR-46 / GET /api/notifications/mine: this page only presents assigned internal requests.
+    async listNotifications(): Promise<NotificationView[]> {
+      if (mode !== 'backend') return store.listNotifications()
+      const rows = await transport.get('/api/notifications/mine')
+      if (!Array.isArray(rows)) throw invalid('danh sách thông báo')
+      return rows
+        .filter((value) => {
+          const row = asRecord(value)
+          return row.category === 'SUPPORT' && row.targetType === 'INTERNAL_REQUEST'
+        })
+        .map(supportRequestNotification)
+    },
+    // PUT /api/notifications/{id}/read checks current assignment on the server before returning the target.
+    async openNotification(id: number): Promise<NotificationOpenResult> {
+      if (mode !== 'backend') return store.openNotification(id)
+      const noticeId = requiredId(id, 'mã thông báo')
+      let response: unknown
+      try {
+        response = await transport.command(`/api/notifications/${noticeId}/read`, undefined, { method: 'PUT' })
+      } catch (error) {
+        const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined
+        if (code === 'MSG-FE20-19') throw new PlatformAdminError('NOT_ASSIGNED', MSG.noLongerAssigned)
+        throw error
+      }
+      const notice = supportRequestNotification(response)
+      if (notice.id !== noticeId) throw invalid('mã thông báo phản hồi')
+      return { path: `/nen-tang/yeu-cau/${notice.targetId}` }
+    },
+    // PUT /api/notifications/read-all applies the backend's current-recipient and target-access checks.
+    async markAllNotificationsRead(): Promise<number> {
+      if (mode !== 'backend') return store.markAllNotificationsRead()
+      return requiredCount(await transport.command('/api/notifications/read-all', undefined, { method: 'PUT' }), 'số thông báo đã đọc')
+    },
   }
 }
 export type PlatformAdminApi = ReturnType<typeof createPlatformAdminApi>

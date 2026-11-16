@@ -39,5 +39,26 @@ public interface FarmMembershipRepository extends JpaRepository<FarmMembership, 
     /** SCR-16 account detail: names of the farms the account owns (any service status). */
     @Query("select f.name from FarmMembership m join m.farm f where m.user.id = :userId and upper(m.role) = 'OWNER'")
     List<String> findOwnedFarmNames(@org.springframework.data.repository.query.Param("userId") Long userId);
+    List<FarmMembership> findByIdInAndFarm_IdAndStatusIgnoreCase(List<Long> ids, Long farmId, String status);
     Optional<FarmMembership> findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(Long farmId, String role, String status);
+
+    /**
+     * FE-07 publication lock: selected-role candidates and explicitly named IDs are locked in one stable order,
+     * compatible with FE-03's per-membership PESSIMISTIC_WRITE lock.
+     */
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from FarmMembership m where m.farm.id = :farmId and (upper(m.role) in :roles or m.id in :ids) order by m.id")
+    List<FarmMembership> lockAnnouncementCandidatesByFarmIdAndRolesOrIds(
+        @org.springframework.data.repository.query.Param("farmId") Long farmId,
+        @org.springframework.data.repository.query.Param("roles") List<String> roles,
+        @org.springframework.data.repository.query.Param("ids") List<Long> ids
+    );
+
+    /** Lock a correction's original recipients plus author, ordered consistently with the FE-07 publication query. */
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from FarmMembership m where m.farm.id = :farmId and m.id in :ids order by m.id")
+    List<FarmMembership> lockByIdsAndFarmIdOrderById(
+        @org.springframework.data.repository.query.Param("farmId") Long farmId,
+        @org.springframework.data.repository.query.Param("ids") List<Long> ids
+    );
 }

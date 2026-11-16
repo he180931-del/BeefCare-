@@ -5,7 +5,6 @@ import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { listFeedStock } from '../api/feedStockApi'
 import { buildTodayRationPens, effectiveRationForPen, sessionsForToday, TODAY_SESSION_LABELS } from '../data/feedTodayRations'
 import { sessionTimeFor } from '../domain/feedPlan'
 import { formatDate, formatNumber } from '../domain/feedLabels'
@@ -19,13 +18,12 @@ function localToday() {
 }
 
 async function loadTodayData(date: string) {
-  const [rations, pens, records, stock] = await Promise.all([
+  const [rations, pens, records] = await Promise.all([
     listFeedRations(),
     listFeedRationPens(),
     listFeedFeedingRecords({ from: date, to: date }),
-    listFeedStock(),
   ])
-  return { rations, pens, records, stock }
+  return { rations, pens, records, stock: [] }
 }
 
 function recordedTime(recordedAt: string | null, time: string | null) {

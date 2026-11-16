@@ -7,9 +7,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
-import java.lang.Runnable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -28,6 +29,47 @@ public class IdempotencyCommandService {
     /** Supports large but bounded voucher imports/replays (200 lines plus DTO metadata) without unbounded blobs. */
     private static final int MAX_SERIALIZED_BYTES = 8 * 1024 * 1024;
     private static final Long ACCOUNT_SCOPE = 0L;
+    private static final Set<String> REMINDER_SOURCE_ACTIONS = Set.of(
+        "HEALTH_CASE_OPEN",
+        "HEALTH_CASE_FOLLOWUP",
+        "HEALTH_CASE_STATUS",
+        "HEALTH_TREATMENT_RECORD",
+        "HEALTH_OBSERVATION_CORRECT",
+        "HEALTH_OBSERVATION_VOID",
+        "HEALTH_TREATMENT_CORRECT",
+        "HEALTH_TREATMENT_VOID",
+        "VACCINATION_SCHEDULE_CREATE",
+        "VACCINATION_SCHEDULE_EDIT",
+        "VACCINATION_SCHEDULE_STOP",
+        "VACCINATION_DOSE_DEFER",
+        "VACCINATION_RECORD_BATCH",
+        "VACCINATION_CORRECT",
+        "VACCINATION_VOID",
+        "REPRODUCTION_ESTRUS",
+        "REPRODUCTION_BREEDING",
+        "REPRODUCTION_PREGNANCY_CHECK",
+        "PREGNANCY_UPDATE",
+        "PREGNANCY_UPDATE_CORRECT",
+        "PREGNANCY_UPDATE_VOID",
+        "REPRODUCTION_EVENT_CORRECT",
+        "REPRODUCTION_EVENT_VOID",
+        "CALVING_RECORD",
+        "CALVING_CORRECT",
+        "CALVING_VOID",
+        "CALF_OUTCOME_CORRECT",
+        "CALF_OUTCOME_VOID",
+        "PEN_MOVE"
+    );
+    private static final List<String> REMINDER_SOURCE_ACTION_ID_PREFIXES = List.of(
+        "ENTRY_VOUCHER_POST:",
+        "ENTRY_VOUCHER_VOID:",
+        "HERD_ENTRY_CORRECT:",
+        "HERD_ENTRY_VOID:",
+        "PENDING_CALF_DIED:",
+        "EXIT_VOUCHER_CONFIRM:",
+        "EXIT_VOUCHER_DISMISS:",
+        "EXIT_VOUCHER_VOID:"
+    );
 
     private final IdempotencyRecordRepository records;
     private final FarmAccessService access;
@@ -153,6 +195,9 @@ public class IdempotencyCommandService {
                 String eventType = platformRole == null ? "FARM_COMMAND_COMMITTED" : "PLATFORM_COMMAND_COMMITTED";
                 String aggregateType = platformRole == null ? "FarmCommand" : "PlatformCommand";
                 outbox.enqueue(farmId, eventType, aggregateType, action, Map.of("actorId", actorId, "action", action));
+                if (farmId != null && isReminderSourceAction(action)) {
+                    outbox.enqueue(farmId, "FARM_REMINDER_SOURCE_CHANGED", "ReminderSourceChange", action, Map.of("actorId", actorId, "action", action));
+                }
                 byte[] json = serialize(result, "result");
                 record.setResultJson(new String(json, StandardCharsets.UTF_8));
                 records.saveAndFlush(record);
@@ -170,6 +215,10 @@ public class IdempotencyCommandService {
             }
             return replay(winner, payloadHash, resultType);
         }
+    }
+
+    static boolean isReminderSourceAction(String action) {
+        return action != null && (REMINDER_SOURCE_ACTIONS.contains(action) || REMINDER_SOURCE_ACTION_ID_PREFIXES.stream().anyMatch(action::startsWith));
     }
 
     private Long verifiedActorId(Long farmId, FarmAction permission, PlatformRole platformRole) {

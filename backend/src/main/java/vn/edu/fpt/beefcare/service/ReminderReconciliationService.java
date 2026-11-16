@@ -3,6 +3,7 @@ package vn.edu.fpt.beefcare.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -39,7 +40,9 @@ class ReminderReconciliationService {
 
     @Transactional
     public void reconcileFarm(Long farmId){
-        Farm farm=em.find(Farm.class,farmId);if(farm==null)return;ZoneId zone=zone(farm.getTimeZone());Instant now=clock.now();LocalDate today=now.atZone(zone).toLocalDate();
+        // The same farm may be reached by the cron and an outbox retry at once. Serialize these writers before
+        // reading source state so the unique rule key remains an idempotency guard, not a race outcome.
+        Farm farm=em.find(Farm.class,farmId,LockModeType.PESSIMISTIC_WRITE);if(farm==null)return;ZoneId zone=zone(farm.getTimeZone());Instant now=clock.now();LocalDate today=now.atZone(zone).toLocalDate();
         List<Cattle> cattle=em.createQuery("select c from Cattle c where c.farm.id=:farm and c.herdStatus=:active order by c.id",Cattle.class).setParameter("farm",farmId).setParameter("active",HerdStatus.ACTIVE).getResultList();
         Map<String,Desired> desired=new LinkedHashMap<>();Set<String> completed=new HashSet<>(),superseded=new HashSet<>();
         ParameterSnapshot params=parameters(farmId,today);

@@ -17,7 +17,7 @@ function renderInline(nodes: Inline[]): ReactNode {
     if (n.type === 'text') return n.text
     if (n.type === 'bold') return <strong key={i}>{renderInline(n.children)}</strong>
     if (n.type === 'italic') return <em key={i}>{renderInline(n.children)}</em>
-    return <a key={i} href={n.href} target="_blank" rel="noopener noreferrer" className="text-brand underline">{n.text}</a>
+    return <a key={i} href={n.href} target="_blank" rel="noopener noreferrer" className="text-brand underline">{renderInline(n.children)}</a>
   })
 }
 

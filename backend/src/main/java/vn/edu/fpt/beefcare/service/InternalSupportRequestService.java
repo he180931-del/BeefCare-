@@ -17,11 +17,14 @@ public class InternalSupportRequestService {
     private final SupportTicketCommandService tickets;
     private final PlatformAccessService platform;
     private final FarmClock clock;
+    private final OutboxService outbox;
     private final NotificationService notifications;
+    private final NotificationTargetAccessService notificationTargetAccess;
 
     public InternalSupportRequestService(EntityManager em, SupportTicketCommandService tickets, PlatformAccessService platform,
-        FarmClock clock, NotificationService notifications) {
-        this.em = em; this.tickets = tickets; this.platform = platform; this.clock = clock; this.notifications = notifications;
+        FarmClock clock, OutboxService outbox, NotificationService notifications, NotificationTargetAccessService notificationTargetAccess) {
+        this.em = em; this.tickets = tickets; this.platform = platform; this.clock = clock; this.outbox = outbox;
+        this.notifications = notifications; this.notificationTargetAccess = notificationTargetAccess;
     }
 
     public SupportDtos.InternalView create(Long ticketId, SupportDtos.InternalCreate r) {
@@ -38,9 +41,9 @@ public class InternalSupportRequestService {
         InternalRequest ir = new InternalRequest(); ir.setTicket(t); ir.setTargetRole(r.targetRole().name());
         ir.setRecipient(recipient); ir.setCreatedBy(cs); ir.setCreatedAt(clock.now()); ir.setState("OPEN");
         ir.setQuestion(SupportTicketCommandService.text(r.question(), 2000, "question")); ir.setContextJson(JsonSupport.toJson(refs));
-        em.persist(ir); em.flush(); ir.setCode("IR-%04d".formatted(ir.getId()));
+        em.persist(ir); em.flush(); ir.setCode("IR-%04d".formatted(ir.getId())); em.flush();
         tickets.history(t, cs, "IR_CREATED", t.getStatus(), null, Map.of("requestId", ir.getId(), "targetRole", ir.getTargetRole()));
-        tickets.changed(t, cs, "SUPPORT_INTERNAL_CREATE", ir, null); notice(ir, recipient, "created"); return tickets.internalView(ir);
+        tickets.changed(t, cs, "SUPPORT_INTERNAL_CREATE", ir, null); enqueueNotice(ir, recipient, "CREATED"); return tickets.internalView(ir);
     }
 
     /** Recheck mutable assignment before a cached response is read. */
@@ -67,8 +70,9 @@ public class InternalSupportRequestService {
             default -> throw DomainException.invalid("action");
         }
         em.flush(); tickets.history(t, cs, "IR_" + r.action(), t.getStatus(), reason, Map.of("requestId", ir.getId()));
-        tickets.changed(t, cs, "SUPPORT_INTERNAL_MANAGE", ir, "OPEN"); notice(ir, former, "changed");
-        if (!former.equals(ir.getRecipient())) notice(ir, ir.getRecipient(), "assigned");
+        tickets.changed(t, cs, "SUPPORT_INTERNAL_MANAGE", ir, "OPEN");
+        if ("CANCEL".equals(r.action())) enqueueNotice(ir, former, "CANCELLED");
+        else if (!former.equals(ir.getRecipient())) enqueueNotice(ir, ir.getRecipient(), "REASSIGNED");
         return tickets.internalView(ir);
     }
 
@@ -108,7 +112,7 @@ public class InternalSupportRequestService {
         } else if (r.domainResultAuditId() != null) throw DomainException.invalid("domainResultAuditId");
         ir.setOutcome(r.outcome()); ir.setResultText(result); ir.setState("DONE"); ir.setCompletedAt(clock.now());
         em.flush(); tickets.history(t, actor, "IR_COMPLETED", t.getStatus(), null, Map.of("requestId", ir.getId(), "outcome", ir.getOutcome()));
-        tickets.changed(t, actor, "SUPPORT_INTERNAL_DONE", ir, "OPEN"); tickets.notifyCs(t, "internal-done"); return tickets.recipientInternalView(ir);
+        tickets.changed(t, actor, "SUPPORT_INTERNAL_DONE", ir, "OPEN"); enqueueCompletionNotice(ir, t); return tickets.recipientInternalView(ir);
     }
 
     @Transactional(readOnly = true)
@@ -167,17 +171,37 @@ public class InternalSupportRequestService {
     /** JOB-07 step 4: the named recipient of a request OPEN for 4 hours gets one reminder notice (per recipient). */
     public int remindLongOpenRequests() {
         java.time.Instant cutoff = clock.now().minus(java.time.Duration.ofHours(4));
-        List<InternalRequest> open = em.createQuery("select r from InternalRequest r where r.state='OPEN' and r.createdAt <= :cutoff", InternalRequest.class)
+        List<InternalRequest> observed = em.createQuery("select r from InternalRequest r where r.state='OPEN' and r.createdAt <= :cutoff", InternalRequest.class)
             .setParameter("cutoff", cutoff).getResultList();
-        for (InternalRequest ir : open) {
-            notifications.notify(ir.getRecipient(), "SUPPORT", "INTERNAL_REQUEST", ir.getId(), "Yêu cầu nội bộ " + ir.getCode() + " đang chờ xử lý",
-                "Yêu cầu đã mở hơn 4 giờ và đang chờ kết quả của bạn.", "internal:" + ir.getId() + ":open4h:" + ir.getRecipient().getId());
+        Map<Long, InternalRequest> currentRequests = notificationTargetAccess.lockInternalRequestsForRead(
+            observed.stream().map(InternalRequest::getId).toList()
+        );
+        for (InternalRequest candidate : observed) {
+            InternalRequest ir = currentRequests.get(candidate.getId());
+            if (ir == null || !"OPEN".equals(ir.getState()) || ir.getCreatedAt() == null || ir.getCreatedAt().isAfter(cutoff)) continue;
+            AppUser recipient = ir.getRecipient();
+            if (!notificationTargetAccess.canOpenInternalRequest(recipient, ir)) continue;
+            notifications.notify(recipient, "SUPPORT", "INTERNAL_REQUEST", ir.getId(), "Yêu cầu nội bộ " + ir.getCode() + " đang chờ xử lý",
+                "Yêu cầu đã mở hơn 4 giờ và đang chờ kết quả của bạn.", "internal:" + ir.getId() + ":open4h:" + recipient.getId());
         }
-        return open.size();
+        return observed.size();
     }
 
-    private void notice(InternalRequest ir, AppUser recipient, String event) {
-        notifications.notify(recipient, "SUPPORT", "INTERNAL_REQUEST", ir.getId(), "Cập nhật yêu cầu nội bộ " + ir.getCode(),
-            "Trạng thái: " + ir.getState(), "internal:" + ir.getId() + ":" + event + ":" + ir.getVersion());
+    private void enqueueNotice(InternalRequest ir, AppUser recipient, String action) {
+        if (recipient == null || recipient.getId() == null || ir.getId() == null || ir.getVersion() == null) {
+            throw new IllegalStateException("Internal request notification snapshot is incomplete");
+        }
+        Long farmId = ir.getTicket().getFarm() == null ? null : ir.getTicket().getFarm().getId();
+        outbox.enqueue(farmId, InternalRequestNotificationOutboxHandler.EVENT_TYPE, "InternalRequest", ir.getId(),
+            Map.of("recipientId", recipient.getId(), "action", action, "requestVersion", ir.getVersion()));
+    }
+
+    private void enqueueCompletionNotice(InternalRequest ir, SupportTicket ticket) {
+        if (ir.getId() == null || ir.getVersion() == null || ticket.getId() == null) {
+            throw new IllegalStateException("Internal request completion notification snapshot is incomplete");
+        }
+        Long farmId = ticket.getFarm() == null ? null : ticket.getFarm().getId();
+        outbox.enqueue(farmId, InternalRequestCompletionNotificationOutboxHandler.EVENT_TYPE, "InternalRequest", ir.getId(),
+            Map.of("action", "COMPLETED", "requestVersion", ir.getVersion(), "ticketId", ticket.getId()));
     }
 }

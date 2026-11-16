@@ -1,33 +1,41 @@
 import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { backendPending } from '../../../api/backendPending'
 import { farmOverviewDemoStore, type FarmOverviewDemoStore } from '../data/farmOverviewDemoStore'
+import { createFarmOverviewBackendApi } from './farmOverviewBackend'
 import type { DashboardFilters, ReportRequest, Scenario, ViewerRole } from '../types'
 
 /** `role` và `scenario` chỉ phục vụ mock; backend lấy vai trò từ phiên đăng nhập. */
 export interface Viewer { role: ViewerRole; scenario?: Scenario }
 
+const localProfileRoute = (code: string | null, role: ViewerRole): string | null => {
+  if (!code || code.startsWith('Bê của')) return null
+  const pathCode = encodeURIComponent(code)
+  return role === 'TECHNICIAN' ? `/kt/dan-bo/${pathCode}` : `/cattle/${pathCode}`
+}
+
 export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FarmOverviewDemoStore }) {
-  // Kept for the later backend hookup; backend mode must never read the mock.
-  void farmId
-  void transport
-  const requireLocal = () => { if (mode === 'backend') throw backendPending('tổng quan trang trại') }
+  const backend = mode === 'backend' ? createFarmOverviewBackendApi({ farmId, transport }) : null
   return {
     // GET /api/farms/{farmId}/dashboard?from&to&penId&herdGroup&lifeStage
-    async getDashboard(filters: DashboardFilters, { role, scenario = 'default' }: Viewer) { requireLocal(); return store.getDashboard(filters, scenario, role) },
+    async getDashboard(filters: DashboardFilters, { role, scenario = 'default' }: Viewer) { return backend ? backend.getDashboard(filters) : store.getDashboard(filters, scenario, role) },
     // GET /api/farms/{farmId}/dashboard/getting-started
-    async getGettingStarted({ role, scenario = 'default' }: Viewer) { requireLocal(); return store.getGettingStarted(scenario, role) },
+    async getGettingStarted({ role, scenario = 'default' }: Viewer) { return backend ? backend.getGettingStarted() : store.getGettingStarted(scenario, role) },
     // POST /api/farms/{farmId}/dashboard/getting-started/steps/{step}/done
-    async markStepDone(step: string, { role, scenario = 'default' }: Viewer) { requireLocal(); return store.markStepDone(step, scenario, role) },
+    async markStepDone(step: string, { role, scenario = 'default' }: Viewer) { return backend ? backend.markStepDone(step) : store.markStepDone(step, scenario, role) },
     // POST /api/farms/{farmId}/dashboard/getting-started/dismiss
-    async dismissGettingStarted({ role, scenario = 'default' }: Viewer) { requireLocal(); return store.dismissGettingStarted(scenario, role) },
+    async dismissGettingStarted({ role, scenario = 'default' }: Viewer) { return backend ? backend.dismissGettingStarted() : store.dismissGettingStarted(scenario, role) },
     // GET /api/farms/{farmId}/reminders
-    async listReminders(role: ViewerRole) { requireLocal(); return store.listReminders(role) },
+    async listReminders(role: ViewerRole) {
+      if (backend) return backend.listReminders(role)
+      const list = await store.listReminders(role)
+      return { ...list, items: list.items.map((item) => ({ ...item, profileTo: localProfileRoute(item.code, role) })) }
+    },
     // POST /api/farms/{farmId}/dashboard/reports
-    async runReport(request: ReportRequest, role: ViewerRole) { requireLocal(); return store.runReport(request, role) },
-    // chưa có API (danh sách chuồng cho bộ lọc báo cáo; sẽ lấy từ API chuồng trại)
-    async listPenOptions() { requireLocal(); return store.listPenOptions() },
-    // chưa có API (trang chủ Kỹ thuật viên gộp từ GET /api/farms/{farmId}/reminders và dữ liệu khẩu phần REM-11)
-    async getTechnicianHome() { requireLocal(); return store.getTechnicianHome() },
+    async runReport(request: ReportRequest, role: ViewerRole) { return backend ? backend.runReport(request) : store.runReport(request, role) },
+    async listPenOptions() { return backend ? backend.listPenOptions() : store.listPenOptions() },
+    async listBreedOptions() { return backend ? backend.listBreedOptions() : Promise.resolve([{ code: 'ZEBU_RED', name: 'Zebu đỏ' }, { code: 'LAI_SIND', name: 'Lai Sind' }]) },
+    // FE-14 SCR-74 còn thiếu endpoint tổng hợp REM-11 và khẩu phần chưa ghi cho Technician.
+    async getTechnicianHome() { return backend ? Promise.reject(backendPending('trang chủ Technician và REM-11')) : store.getTechnicianHome() },
   }
 }
 export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: farmOverviewDemoStore })

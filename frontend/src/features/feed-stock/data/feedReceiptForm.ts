@@ -30,6 +30,14 @@ export type FeedReceiptFormValues = {
 
 export const todayIso = (today = new Date()) => `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
+/** Inclusive minimum for the native expiry date picker, which must be strictly after receiptDate. */
+export function minimumExpiryDate(receiptDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(receiptDate)) return ''
+  const [year, month, day] = receiptDate.split('-').map(Number)
+  const next = new Date(Date.UTC(year, month - 1, day + 1))
+  return next.toISOString().slice(0, 10)
+}
+
 const isCalendarDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const date = new Date(`${value}T00:00:00`)

@@ -30,17 +30,26 @@ export function nextRationCode(rows: readonly FeedRation[]) {
   return `KP-${String(next).padStart(2, '0')}`
 }
 
+export function rationCodeDisplay(recordCode: string | undefined, rows: readonly FeedRation[], serverGeneratesCode: boolean) {
+  if (recordCode) return recordCode
+  return serverGeneratesCode ? 'Tự cấp mã khi lưu' : nextRationCode(rows)
+}
+
 export function initialFeedRationForm(record: FeedRation | null): FeedRationFormValues {
   const next = localRationDate(1)
-  // A scheduled version is edited in place (saving replaces it); every other version starts from tomorrow.
-  const afterRecord = record?.effectiveFrom && record.effectiveFrom >= next ? record.effectiveFrom : next
+  // Saving always creates a new version. A scheduled version's replacement starts the day after it.
+  const afterRecord = record?.effectiveFrom && record.effectiveFrom >= next
+    ? record.status === 'SCHEDULED'
+      ? localRationDate(Math.max(1, Math.round((new Date(`${record.effectiveFrom}T00:00:00`).getTime() - new Date(`${localRationDate(0)}T00:00:00`).getTime()) / 86_400_000) + 1))
+      : record.effectiveFrom
+    : next
   return {
     name: record?.name ?? '',
     herdGroup: record?.herdGroup ?? '',
     basis: record?.basis ?? '',
     effectiveFrom: afterRecord,
     sessionsPerDay: record?.sessionsPerDay ?? 2,
-    sessionTimes: record ? [...Array.from({ length: record.sessionsPerDay }, (_, index) => ['06:30', '16:30', ''][index] ?? '')] : ['06:30', '16:30'],
+    sessionTimes: record ? Array.from({ length: record.sessionsPerDay }, (_, index) => record.sessionTimes?.[index] ?? ['06:30', '16:30', '20:00'][index]) : ['06:30', '16:30'],
     penIds: record ? [...record.penIds] : [],
     components: record
       ? record.components.map((component) => ({
@@ -86,10 +95,11 @@ export function validateFeedRationForm(
   return null
 }
 
-export function toSaveFeedRationInput(values: FeedRationFormValues, rationCode?: string, replacesId?: number): SaveFeedRationInput {
+export function toSaveFeedRationInput(values: FeedRationFormValues, rationCode?: string, replacesId?: number, baseVersion?: number): SaveFeedRationInput {
   return {
     ...(rationCode ? { rationCode } : {}),
     ...(replacesId === undefined ? {} : { replacesId }),
+    ...(baseVersion === undefined ? {} : { baseVersion }),
     name: values.name,
     herdGroup: values.herdGroup,
     basis: values.basis,
