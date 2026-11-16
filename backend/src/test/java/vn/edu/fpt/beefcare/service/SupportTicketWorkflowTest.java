@@ -2,6 +2,7 @@ package vn.edu.fpt.beefcare.service;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -150,6 +151,27 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         actAs(pm); requests.complete(ir.id(), new SupportDtos.Complete("UNABLE", "Chưa đủ thông tin", null, ir.version()));
         actAs(cs); assertThat(current(id).status()).isEqualTo("IN_PROGRESS");
         assertThat(tickets.resolve(id, new SupportDtos.Resolution("Đã hướng dẫn chủ trại", current(id).version())).status()).isEqualTo("RESOLVED");
+    }
+
+    @Test void internalPaymentContextUsesReconciliationCodeInsteadOfDatabaseId() {
+        Farm farm = farm(); AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM);
+        PlanVersion plan = save(new PlanVersion().price1y(new BigDecimal("1200000")).price2y(new BigDecimal("2160000"))
+            .price3y(new BigDecimal("3060000")).effectiveAt(clock.instant().minusSeconds(1)));
+        Subscription subscription = save(new Subscription().farm(farm).planVersion(plan).entitlementStatus("PENDING"));
+        Payment payment = new Payment(); payment.setSubscription(subscription); payment.setRequestedBy(owner); payment.setPriceVersion(plan);
+        payment.setQuoteRef("BC-TRASOAT-15901"); payment.setState("PENDING"); payment.setDurationYears(1);
+        payment.setAmountVnd(new BigDecimal("1200000")); payment.setRequestedAt(clock.instant()); payment.setExpiresAt(clock.instant().plusSeconds(3600));
+        save(payment);
+
+        SupportDtos.Ticket ticket = claim(create(owner, farm), cs);
+        SupportDtos.InternalView internal = requests.create(ticket.id(), new SupportDtos.InternalCreate(PlatformRole.PM, pm.getId(),
+            "Kiểm tra thanh toán", List.of(new SupportDtos.ContextReference("PAYMENT", payment.getId())), ticket.version()));
+
+        assertThat(internal.context()).singleElement().satisfies(ref -> {
+            assertThat(ref.type()).isEqualTo("PAYMENT");
+            assertThat(ref.id()).isEqualTo(payment.getId());
+            assertThat(ref.label()).isEqualTo("Thanh toán BC-TRASOAT-15901");
+        });
     }
 
     @Test void performedResultMustReferenceRelatedCommittedDomainWorkAndReassignmentRevokesCachedReplay() {

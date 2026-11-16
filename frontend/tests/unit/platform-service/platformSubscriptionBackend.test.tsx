@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { createPlatformServiceApi } from '../../../src/features/platform-service/api/platformServiceApi'
 import { platformServiceDemoStore } from '../../../src/features/platform-service/data/platformServiceDemoStore'
+import FarmServiceRoutes from '../../../src/features/platform-service/pages/FarmServiceRoutes'
 import PlatformSubscriptionRoutes from '../../../src/features/platform-service/pages/PlatformSubscriptionRoutes'
 import PaymentReconciliationRoutes from '../../../src/features/platform-service/pages/PaymentReconciliationRoutes'
 
@@ -22,11 +23,13 @@ const detail = (id = 42) => ({ summary: row(id), subscriptionId: 88, suspended: 
 const pageOf = (items = [row()], page = 0, total = items.length) => ({ items, page, total, size: 20 })
 const session: Session = { role: 'PM', fullName: 'PM test', email: 'uc4@example.test', farmId: null, farmName: null, logout: vi.fn() }
 const calls = () => http.get.mock.calls.map(([path]) => String(path)).filter((path) => new URL(path, 'http://test').pathname === '/api/platform/subscriptions')
+function CurrentLocation() { const location = useLocation(); return <output aria-label="Đường dẫn hiện tại">{location.pathname}{location.search}</output> }
 function page(path = '/nen-tang/goi-dang-ky') {
   return render(<SessionContext.Provider value={session}><MemoryRouter initialEntries={[path]}><Routes>
+    <Route path="/nen-tang/dich-vu" element={<FarmServiceRoutes />} />
     <Route path="/nen-tang/goi-dang-ky" element={<PlatformSubscriptionRoutes />} />
     <Route path="/nen-tang/thanh-toan" element={<PaymentReconciliationRoutes />} />
-  </Routes></MemoryRouter></SessionContext.Provider>)
+  </Routes><CurrentLocation /></MemoryRouter></SessionContext.Provider>)
 }
 
 beforeEach(() => {
@@ -34,6 +37,13 @@ beforeEach(() => {
   vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-09T00:00:00Z'))
   http.get.mockImplementation(async (path: string) => {
     const url = new URL(path, 'http://test')
+    if (url.pathname === '/api/platform/farms') return {
+      tiles: { total: 2, active: 1, activePercent: 50, pendingPayment: 1, expired: 0, suspended: 0 },
+      items: [
+        { farmId: 42, farmName: 'Trại UC4 42', ownerName: 'Owner 42', ownerEmail: 'owner42@example.test', serviceStatus: 'ACTIVE', coverageEnd: current.end, suspended: false, suspendedAt: null, activeCattle: 12, version: 1 },
+        { farmId: 43, farmName: 'Trại UC4 43', ownerName: 'Owner 43', ownerEmail: 'owner43@example.test', serviceStatus: 'PENDING_PAYMENT', coverageEnd: null, suspended: false, suspendedAt: null, activeCattle: 0, version: 1 },
+      ], total: 2,
+    }
     if (url.pathname === '/api/platform/subscriptions') return pageOf()
     if (url.pathname.startsWith('/api/platform/subscriptions/')) return detail(Number(url.pathname.split('/').at(-1)))
     if (url.pathname === '/api/platform/payments/502') return { id: 502, farmId: 42, farmName: row().farmName, quoteRef: future.paymentCode,
@@ -47,6 +57,30 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers() })
 
 describe('UC4 backend adapter and SCR-61', () => {
+  it('opens the subscription page for the farm selected on that service row', async () => {
+    page('/nen-tang/dich-vu')
+    const farm42 = (await screen.findByText('Trại UC4 42')).closest('tr') as HTMLElement
+    const farm43 = screen.getByText('Trại UC4 43').closest('tr') as HTMLElement
+
+    expect(within(farm42).getByRole('link', { name: 'Xem gói' })).toHaveAttribute('href', '/nen-tang/goi-dang-ky?farmId=42')
+    expect(within(farm43).getByRole('link', { name: 'Xem gói' })).toHaveAttribute('href', '/nen-tang/goi-dang-ky?farmId=43')
+  })
+
+  it('opens the subscription page when clicking the non-control area of a farm service row', async () => {
+    page('/nen-tang/dich-vu')
+    const farm43 = (await screen.findByText('Trại UC4 43')).closest('tr') as HTMLElement
+    fireEvent.click(farm43)
+    expect(screen.getByLabelText('Đường dẫn hiện tại')).toHaveTextContent('/nen-tang/goi-dang-ky?farmId=43')
+  })
+
+  it('selects a subscription when clicking anywhere on its row', async () => {
+    http.get.mockResolvedValueOnce(pageOf([row(), row(43)]))
+    page()
+    const farm43 = (await screen.findByText('Trại UC4 43')).closest('tr') as HTMLElement
+    fireEvent.click(farm43)
+    expect(screen.getByRole('button', { name: /Trại UC4 43/ })).toHaveAttribute('aria-current', 'true')
+  })
+
   it('sends all filters and real paging to the existing API, preserving instants and nullable confirmation', async () => {
     const api = createPlatformServiceApi({ mode: 'backend', farmId: 42, transport: http, store: platformServiceDemoStore })
     const result = await api.listSubscriptions({ q: ' PAIDcode ', coverage: 'NONE', status: 'EXPIRED', endFrom: '2026-01-01', endTo: '2026-01-02', dir: 'asc', page: 2 })

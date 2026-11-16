@@ -12,6 +12,7 @@ import { ServiceBadge } from '../components/common'
 import type { Coverage, ServiceStatus, SubscriptionFilters, SubscriptionPage } from '../types'
 import { fmtDate, fmtEndDate, fmtSeconds } from '../domain/dates'
 import { PERIOD_STATE_LABEL, STATUS_LABEL } from '../domain/servicePeriods'
+import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Gói đăng ký'
 const DEFAULT_FILTERS: SubscriptionFilters = { q: '', coverage: 'ALL', status: '', endFrom: '', endTo: '', dir: 'desc', page: 0 }
@@ -137,7 +138,14 @@ export default function PlatformSubscriptionRoutes() {
           <Card>{data.items.length === 0 ? <EmptyBlock title="Không có trại phù hợp" sub="Thử đổi từ khóa hoặc khoảng hết kỳ." action={<Button onClick={clear}>Xóa bộ lọc</Button>} /> :
             <Table stack={false}><thead><tr><Th>Trang trại / Owner</Th><Th>Kỳ hiện tại</Th><Th>
               <button aria-label="Sắp xếp theo Xác nhận đến" onClick={() => change({ dir: controls.dir === 'desc' ? 'asc' : 'desc' })}>Xác nhận đến {controls.dir === 'asc' ? '↑' : '↓'}</button>
-            </Th><Th>Dịch vụ</Th></tr></thead><tbody>{data.items.map((r) => <tr key={r.farmId} className={r.farmId === farmId ? 'bg-[#eef4ef]' : ''}>
+            </Th><Th>Dịch vụ</Th></tr></thead><tbody>{data.items.map((r) => <tr
+              key={r.farmId}
+              tabIndex={0}
+              aria-label={`Chọn gói đăng ký của ${r.farmName}`}
+              className={`${interactiveRowClass} ${r.farmId === farmId ? 'bg-[#eef4ef]' : ''}`}
+              onClick={(event) => activateTableRow(event, () => setFarmId(r.farmId))}
+              onKeyDown={(event) => activateTableRowByKey(event, () => setFarmId(r.farmId))}
+            >
               <Td><button type="button" className="text-left" aria-current={r.farmId === farmId ? 'true' : undefined} onClick={() => setFarmId(r.farmId)}><div className="font-medium text-ink">{r.farmName}</div><div className="text-[11px] text-muted">{r.ownerName || '—'}</div></button></Td>
               <Td>{r.currentStart && r.currentEnd ? `${fmtDate(r.currentStart)} → ${fmtEndDate(r.currentEnd)}` : '—'}</Td>
               <Td>{fmtEndDate(r.confirmedUntil)}</Td><Td><ServiceBadge status={r.serviceStatus} /></Td>

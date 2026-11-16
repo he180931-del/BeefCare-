@@ -138,7 +138,7 @@ function Detail({ ir, simulateFailure, onDone, onSaveFailed }: { ir: InternalVie
         ['Phạm vi', `Chỉ trong quyền ${ROLE_LABEL[ir.targetRole]}`],
       ]} />
       <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]"><b className="mb-1 block font-semibold">Câu hỏi từ nhân viên hỗ trợ</b>{ir.question}</div>
-      <h3 className="m-0 text-sm font-semibold text-ink">Kết quả nội bộ (đã làm sạch)</h3>
+      <h3 className="m-0 text-sm font-semibold text-ink">Kết quả nội bộ</h3>
       {ir.status === 'OPEN' ? (
         <ResultForm ir={ir} me={me} simulateFailure={simulateFailure} onDone={onDone} onSaveFailed={onSaveFailed} />
       ) : (

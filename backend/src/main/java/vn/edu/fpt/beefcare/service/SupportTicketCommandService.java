@@ -411,15 +411,33 @@ public class SupportTicketCommandService {
             .setParameter("farm", farmId).setMaxResults(20).getResultList().forEach(id -> refs.add(new SupportDtos.ContextReference("FINANCE_RECORD", id)));
         em.createQuery("select s.id from CashReportSnapshot s where s.farm.id=:farm order by s.id desc", Long.class)
             .setParameter("farm", farmId).setMaxResults(20).getResultList().forEach(id -> refs.add(new SupportDtos.ContextReference("FINANCE_SNAPSHOT", id)));
-        return refs;
+        return refs.stream().map(this::withContextLabel).toList();
     }
     SupportDtos.InternalView internalView(InternalRequest r) {
         List<SupportDtos.ContextReference> context = r.getContextJson() == null ? List.of() : Arrays.asList(JsonSupport.fromJson(r.getContextJson(), SupportDtos.ContextReference[].class));
         SupportTicket t = r.getTicket();
+        List<SupportDtos.ContextReference> displayContext = context.stream().map(this::withContextLabel).toList();
         return new SupportDtos.InternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getFarm() == null ? null : t.getFarm().getId(),
             t.getFarm() == null ? null : t.getFarm().getName(), r.getTargetRole(), r.getRecipient().getId(), r.getRecipient().getFullName(),
-            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getQuestion(), context, r.getState(), r.getOutcome(),
+            r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getQuestion(), displayContext, r.getState(), r.getOutcome(),
             r.getResultText(), r.getDomainAudit() == null ? null : r.getDomainAudit().getId(), r.getCompletedAt(), r.getVersion());
+    }
+    private SupportDtos.ContextReference withContextLabel(SupportDtos.ContextReference ref) {
+        if (ref == null || ref.id() == null) return ref;
+        String label = switch (ref.type()) {
+            case "FARM" -> { Farm farm = em.find(Farm.class, ref.id()); yield farm == null ? null : farm.getName(); }
+            case "SUBSCRIPTION" -> "Gói dịch vụ #" + ref.id();
+            case "PAYMENT" -> {
+                Payment payment = em.find(Payment.class, ref.id());
+                yield payment == null || payment.getQuoteRef() == null || payment.getQuoteRef().isBlank()
+                    ? "Thanh toán #" + ref.id() : "Thanh toán " + payment.getQuoteRef();
+            }
+            case "FINANCE_RECORD" -> "Khoản thu chi #" + ref.id();
+            case "FINANCE_SNAPSHOT" -> "Bản chốt #" + ref.id();
+            case "ACCOUNT" -> "Tài khoản #" + ref.id();
+            default -> ref.type() + " #" + ref.id();
+        };
+        return new SupportDtos.ContextReference(ref.type(), ref.id(), label);
     }
     static String text(String value, int max, String field) {
         if (value == null || value.isBlank()) throw DomainException.required(field);

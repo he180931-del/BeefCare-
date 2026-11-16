@@ -32,11 +32,15 @@ export const PLATFORM_ROLE_LABEL: Record<'CS' | TargetRole, string> = { CS: 'Nh�
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { HIGH: 0, NORMAL: 1, LOW: 2 }
 
-/** "2026-10-18T09:40:00" -> "18/10 09:40" (cắt chuỗi, không phụ thuộc múi giờ). */
+/** Formats backend instants in the business timezone; timezone-less demo values are already local. */
 export function formatStamp(iso: string, withYear = false): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso)
   if (!m) return iso
-  return `${m[3]}/${m[2]}${withYear ? `/${m[1]}` : ''} ${m[4]}:${m[5]}`
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso)) return `${m[3]}/${m[2]}${withYear ? `/${m[1]}` : ''} ${m[4]}:${m[5]}`
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(iso)).map(({ type, value }) => [type, value]))
+  return `${parts.day}/${parts.month}${withYear ? `/${parts.year}` : ''} ${parts.hour}:${parts.minute}`
 }
 
 export function nowIso(): string {

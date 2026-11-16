@@ -12,6 +12,31 @@ const transport = (responses: Record<string, unknown> = {}) => {
 }
 
 describe('financeBackendApi', () => {
+  it('đọc đúng FarmServicePage để hiển thị danh sách trại trong phạm vi FARM', async () => {
+    const http = transport({
+      '/api/platform/farms?page=0&size=100': {
+        tiles: { total: 1, active: 1, activePercent: 100, pendingPayment: 0, expired: 0, suspended: 0 },
+        items: [{
+          farmId: 7,
+          farmName: 'Trại Bò Bình An',
+          ownerId: 21,
+          ownerName: 'Nguyễn Văn An',
+          ownerEmail: 'owner@example.test',
+          serviceStatus: 'ACTIVE',
+          coverageEnd: '2027-11-14T00:00:00Z',
+          suspended: false,
+          suspendedAt: null,
+          activeCattle: 180,
+          version: 3,
+        }],
+        total: 1,
+      },
+    })
+    const api = createFinanceBackendApi(http)
+
+    await expect(api.listFarms()).resolves.toEqual([{ id: 7, name: 'Trại Bò Bình An' }])
+  })
+
   it('maps a Spring Page and keeps real server-side filters', async () => {
     const http = transport({ '/api/platform/finance/records?type=EXPENSE&category=SERVER&from=2026-11-01&to=2026-11-30&page=0&size=5': { content: [{ id: 1, recordCode: 'FR-0001', amountVnd: '1200.00', state: 'DRAFT', type: 'EXPENSE', category: 'SERVER', occurredOn: '2026-11-01', scope: 'GENERAL', version: 1 }], totalElements: 1, number: 0, size: 5 } })
     const api = createFinanceBackendApi(http)
@@ -39,6 +64,29 @@ describe('financeBackendApi', () => {
     const api = createFinanceBackendApi(http)
     await api.runReport({ dateFrom: '2026-11-01', dateTo: '2026-11-02', farmId: null, sourceFilter: 'RECEIPTS' })
     expect(http.command).toHaveBeenCalledWith('/api/platform/finance/reports', expect.objectContaining({ sourceFilter: 'RECEIPTS_ONLY' }))
+  })
+
+  it('giữ trạng thái bỏ nháp riêng, scope PLATFORM và phiên bản nguồn của snapshot', async () => {
+    const http = transport({
+      '/api/platform/finance/records?page=0&size=5': {
+        content: [{ id: 9, recordCode: 'FR-0009', state: 'DISCARDED', version: 4, type: 'EXPENSE', category: 'SOFTWARE', amountVnd: 1000, occurredOn: '2026-11-01', scope: 'GENERAL' }],
+        totalElements: 1, number: 0, size: 5,
+      },
+      '/api/platform/finance/reports/latest': {
+        id: 12,
+        code: 'SNAP-12',
+        criteria: { dateFrom: '2026-11-01', dateTo: '2026-11-02', farmId: null, sourceFilter: 'ALL' },
+        summary: { subscriptionReceipts: 0, otherIncome: 0, totalIncome: 0, totalExpense: 1000, netCashFlow: -1000, scopes: [{ scope: 'PLATFORM', farmId: null, farmName: 'Platform total', subscriptionReceipts: 0, otherIncome: 0, expense: 1000 }], dailyIncome: [], note: 'Cash flow only' },
+        lines: [{ sourceType: 'MANUAL_FINANCE', code: 'FR-0001', scope: 'GENERAL', farmName: 'General platform', direction: 'EXPENSE', category: 'SOFTWARE', amount: 1000, cashDate: '2026-11-01', status: 'POSTED', sourceReference: 'BANK:A', sourceVersion: 7 }],
+        generatedAt: '2026-11-02T10:00:00Z', expiresAt: '2026-12-02T10:00:00Z',
+      },
+    })
+    const api = createFinanceBackendApi(http)
+    const page = await api.listRecords({ size: 5 })
+    const report = await api.currentReport()
+    expect(page.rows[0].state).toBe('DISCARDED')
+    expect(report.summary.scopes[0]).toMatchObject({ scope: 'PLATFORM', farmName: 'Toàn nền tảng' })
+    expect(report.lines[0]).toMatchObject({ sourceVersion: 7, farmName: 'Chung nền tảng' })
   })
 
   it('giải mã recordCode thành id số trước khi gọi detail và command', async () => {
@@ -96,5 +144,8 @@ describe('financeBackendApi', () => {
     const http = transport({ '/api/platform/finance/reports/12/xlsx': blob })
     const api = createFinanceBackendApi(http)
     await expect(api.exportXlsx(12)).resolves.toMatchObject({ fileName: 'beefcare-cash-report-12.xlsx', blob })
+    expect(http.get).toHaveBeenCalledWith('/api/platform/finance/reports/12/xlsx', {
+      headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    })
   })
 })

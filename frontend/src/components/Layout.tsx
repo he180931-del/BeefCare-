@@ -154,7 +154,6 @@ export default function Layout({ title, user = 'owner', children }: { title: str
               </div>
             ))}
           </nav>
-          {platform && <p className="absolute inset-x-6 bottom-[256px] z-10 m-0 text-[11px] leading-[14px] text-side-text">Không có quyền vận hành trại hay quản lý thành viên trại.</p>}
           <img src={farm} alt="" className="pointer-events-none absolute bottom-0 left-0 h-[234px] w-[264px] object-cover opacity-[0.72]" />
         </aside>
 

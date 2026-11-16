@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { useModalParam } from '../../../components/Modal'
 import { Icon } from '../../../components/Icon'
@@ -12,6 +12,7 @@ import { ServiceBadge, downloadCsv, usePmAccess } from '../components/common'
 import type { FarmSort, FarmTiles, ServiceStatus } from '../types'
 import { fmtDate } from '../domain/dates'
 import { STATUS_LABEL } from '../domain/servicePeriods'
+import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Dịch vụ trang trại'
 
@@ -28,6 +29,7 @@ const TILES: Array<{ status: ServiceStatus | ''; label: string; value: (t: FarmT
 
 /** SCR-12 (UC-FE02-04): tổng quan dịch vụ các trại cho PM; không có dữ liệu bò hay chăm sóc (GBR-11). */
 export default function FarmServiceRoutes() {
+  const navigate = useNavigate()
   const canAct = usePmAccess()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<ServiceStatus | ''>('')
@@ -93,7 +95,14 @@ export default function FarmServiceRoutes() {
             </thead>
             <tbody>
               {items.map((f) => (
-                <tr key={f.farmId} className={f.suspended ? 'bg-page' : ''}>
+                <tr
+                  key={f.farmId}
+                  tabIndex={0}
+                  aria-label={`Mở gói đăng ký của ${f.farmName}`}
+                  className={`${interactiveRowClass} ${f.suspended ? 'bg-page' : ''}`}
+                  onClick={(event) => activateTableRow(event, () => navigate(`/nen-tang/goi-dang-ky?farmId=${f.farmId}`))}
+                  onKeyDown={(event) => activateTableRowByKey(event, () => navigate(`/nen-tang/goi-dang-ky?farmId=${f.farmId}`))}
+                >
                   <Td><div className="font-medium text-ink">{f.farmName}</div><div className="text-[11px] text-muted">Chủ trại {f.ownerName}</div></Td>
                   <Td><ServiceBadge status={f.serviceStatus} /></Td>
                   <Td>{fmtDate(f.coverageEnd)}</Td>
@@ -106,7 +115,7 @@ export default function FarmServiceRoutes() {
                       ) : (
                         <Button size="sm" disabled={!canAct} onClick={() => { setTargetId(f.farmId); openModal('suspend') }}>Tạm ngưng</Button>
                       )}
-                      <Link className="text-[12px] font-semibold text-brand" to="/nen-tang/goi-dang-ky">Xem gói</Link>
+                      <Link className="text-[12px] font-semibold text-brand" to={`/nen-tang/goi-dang-ky?farmId=${f.farmId}`}>Xem gói</Link>
                     </div>
                   </Td>
                 </tr>

@@ -60,9 +60,9 @@ export function Badge({ tone, icon, className, children }: { tone?: BadgeTone; i
 const STATUS_TONE: Record<string, BadgeTone | undefined> = { 'Đã nhập': 'ok', 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
 export const StatusBadge = ({ status }: { status: string }) => <Badge tone={STATUS_TONE[status]}>{status}</Badge>
 
-export function Segmented({ options, value, onChange }: { options: Array<{ value: string; label: ReactNode; disabled?: boolean }>; value: string; onChange: (value: string) => void }) {
+export function Segmented({ options, value, onChange, className }: { options: Array<{ value: string; label: ReactNode; disabled?: boolean }>; value: string; onChange: (value: string) => void; className?: string }) {
   return (
-    <div className="inline-flex max-w-full flex-wrap gap-[3px] rounded-[5px] bg-chip p-[3px]">
+    <div className={cx('inline-flex max-w-full flex-wrap gap-[3px] rounded-[5px] bg-chip p-[3px]', className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -70,7 +70,7 @@ export function Segmented({ options, value, onChange }: { options: Array<{ value
           disabled={o.disabled}
           onClick={() => onChange(o.value)}
           className={cx(
-            'cursor-pointer rounded px-3.5 py-[7px] text-xs border disabled:cursor-not-allowed disabled:opacity-50',
+            'cursor-pointer whitespace-nowrap rounded px-3.5 py-[7px] text-xs border disabled:cursor-not-allowed disabled:opacity-50',
             o.value === value ? 'border-faint bg-white font-semibold text-[#212121]' : 'border-transparent text-muted',
           )}
         >
