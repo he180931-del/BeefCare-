@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Note } from '../../../components/ui'
+import { Note } from './ui'
 
-export default function ExitQrCamera({ onCode }: { onCode: (code: string) => void }) {
+export default function QrCamera({ onCode }: { onCode: (code: string) => void }) {
   const video = useRef<HTMLVideoElement>(null)
   const onCodeRef = useRef(onCode)
   const [error, setError] = useState('')
@@ -15,7 +15,7 @@ export default function ExitQrCamera({ onCode }: { onCode: (code: string) => voi
     const stop = () => {
       window.clearInterval(timer)
       stream?.getTracks().forEach((track) => track.stop())
-      if (player) player.srcObject = null
+      if (player && player.srcObject === stream) player.srcObject = null
     }
     const start = async () => {
       if (!player || !navigator.mediaDevices?.getUserMedia) {
@@ -24,7 +24,7 @@ export default function ExitQrCamera({ onCode }: { onCode: (code: string) => voi
       }
       const { default: decode } = await import('jsqr')
       if (closed) return
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+      stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } })
       if (closed) return stop()
       player.srcObject = stream
       await player.play()
@@ -36,12 +36,17 @@ export default function ExitQrCamera({ onCode }: { onCode: (code: string) => voi
         if (!player.videoWidth || !player.videoHeight) return
         canvas.width = Math.min(player.videoWidth, 800)
         canvas.height = Math.round(player.videoHeight * canvas.width / player.videoWidth)
-        context.drawImage(player, 0, 0, canvas.width, canvas.height)
-        const frame = context.getImageData(0, 0, canvas.width, canvas.height)
-        const code = decode(frame.data, frame.width, frame.height)?.data
-        if (code) {
+        try {
+          context.drawImage(player, 0, 0, canvas.width, canvas.height)
+          const frame = context.getImageData(0, 0, canvas.width, canvas.height)
+          const code = decode(frame.data, frame.width, frame.height)?.data
+          if (code) {
+            stop()
+            onCodeRef.current(code)
+          }
+        } catch {
           stop()
-          onCodeRef.current(code)
+          setError('Không đọc được camera. Bạn có thể nhập mã thủ công.')
         }
       }, 180)
     }

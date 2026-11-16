@@ -1,39 +1,31 @@
-import { useState } from 'react'
 import { Button, Foot, Table } from '../../../components/ui'
 import { Icon } from '../../../components/Icon'
 import { Chip, Fields, Panel, Td, Th } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
 import type { Tone } from '../../../types'
+import QrTagLabel from './QrTagLabel'
 
 const QR_TONE: Record<string, Tone> = { ACTIVE: 'ok', REPLACED: 'grey', REVOKED: 'err' }
 
 export default function QrTab({ cow, canWrite, onOpenModal }: { cow: CowSeed; canWrite: boolean; onOpenModal: (name: string) => void }) {
-  const cur = cow.qrHistory.find((q) => q.status === 'ACTIVE') || cow.qrHistory[0]
   const active = cow.qrHistory.find((q) => q.status === 'ACTIVE')
-  const [printMsg, setPrintMsg] = useState('')
   return (
     <>
       <Panel
         title="Thẻ hiện hành"
         gap="gap-4"
-        action={canWrite && (
-          <div className="flex gap-2">
-            {active && <Button className="gap-1.5 leading-[normal]" onClick={() => setPrintMsg(`Đã gửi lệnh in thẻ ${active.code} (mã ${cow.code} in phía trên QR).`)}><Icon name="printer" />In thẻ</Button>}
-            <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('qr-reissue')}><Icon name="qrcode" />{active ? 'Thay thẻ' : 'Cấp thẻ'}</Button>
-          </div>
-        )}
+        action={canWrite && <Button className="gap-1.5 leading-[normal]" onClick={() => onOpenModal('qr-reissue')}><Icon name="qrcode" />{active ? 'Thay thẻ' : 'Cấp thẻ'}</Button>}
       >
-        {printMsg && <p className="m-0 text-[11px] text-ok-fg" role="status">{printMsg}</p>}
         <div className="flex flex-wrap items-center gap-6">
-          <div className="size-[120px] shrink-0 rounded-md border border-edge bg-[#eef4ef]" aria-hidden="true" />
+          {active ? <QrTagLabel cowCode={cow.code} tagCode={active.code} canExport={canWrite} /> : <p className="m-0 text-sm text-muted">Bò chưa có thẻ hiện hành.</p>}
           <Fields
             className="w-full max-w-[600px]"
             cols="grid-cols-1 sm:grid-cols-2"
             items={[
-              ['Mã thẻ', cur?.code ?? '—'],
-              ['Trạng thái', cur ? <Chip key="s" tone={QR_TONE[cur.status] ?? 'grey'} icon={cur.status === 'ACTIVE' ? 'circle-check' : undefined}>{cur.status}</Chip> : '—'],
+              ['Mã thẻ', active?.code ?? '—'],
+              ['Trạng thái', active ? <Chip key="s" tone="ok" icon="circle-check">ACTIVE</Chip> : '—'],
               ['Mã hiển thị in trên thẻ', cow.code],
-              ['Cấp lúc', cur ? `${cur.from} · ${cur.by}` : '—'],
+              ['Cấp lúc', active ? `${active.from} · ${active.by}` : '—'],
             ]}
           />
         </div>
