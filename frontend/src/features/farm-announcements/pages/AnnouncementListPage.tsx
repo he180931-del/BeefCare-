@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
@@ -24,8 +24,9 @@ export default function AnnouncementListPage() {
   const viewer = useViewer()
   const writer = canWrite(viewer.role)
   const navigate = useNavigate()
+  const routeId = useParams().id
   const location = useLocation()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
   const [tab, setTab] = useState<Tab>((params.get('tab') as Tab | null) ?? (writer ? 'authored' : 'received'))
   const [toast, setToast] = useState((location.state as { toast?: string } | null)?.toast ?? '')
@@ -41,23 +42,46 @@ export default function AnnouncementListPage() {
       drafts: all.filter((a) => a.state === 'DRAFT' && a.isAuthor),
     }
   }, [list.data])
-  const items = groups[tab]
-  const requested = Number(params.get('id'))
-  const selectedId = items.find((a) => a.id === requested)?.id ?? items[0]?.id ?? null
+  const requested = routeId !== undefined ? Number(routeId) : params.has('id') ? Number(params.get('id')) : null
+  const requestedItem = list.data?.find((a) => a.id === requested)
+  const activeTab: Tab = requestedItem
+    ? requestedItem.state === 'DRAFT' ? 'drafts' : requestedItem.isReceived ? 'received' : 'authored'
+    : tab
+  const items = groups[activeTab]
+  const hasRequestedTarget = routeId !== undefined || params.has('id')
+  const selectedId = requestedItem?.id ?? (hasRequestedTarget ? null : items[0]?.id ?? null)
   const detail = useQuery(() => (selectedId ? announcementsApi.get(selectedId, viewer) : Promise.resolve(null)), [selectedId, viewer, refresh])
+  const versionIdParam = params.get('versionId')
+  const selectedVersion = detail.data?.versions.find((version) => String(version.id) === versionIdParam)
+    ?? (versionIdParam === null ? detail.data?.versions[0] : undefined)
 
-  // Mở thông báo đánh dấu đã đọc; không đổi dữ liệu chăm sóc (GBR-62).
+  // Only acknowledge the newest visible delivery. A stale notification link to an older version
+  // must not mark a later correction as read.
   useEffect(() => {
     const d = detail.data
-    if (!d?.unread) return
-    const key = `${d.id}:${d.version}`
+    if (!d || !selectedVersion?.unread || selectedVersion.id !== d.versions[0]?.id) return
+    const key = `${d.id}:${selectedVersion.id}`
     if (marked.current.has(key)) return
     marked.current.add(key)
     announcementsApi.markRead(viewer, d.id).then(() => setRefresh((n) => n + 1), () => undefined)
-  }, [detail.data, viewer])
+  }, [detail.data, selectedVersion, viewer])
 
-  const pickTab = (next: Tab) => { setTab(next); const p = new URLSearchParams(params); p.set('tab', next); p.delete('id'); setParams(p) }
-  const pick = (id: number) => { const p = new URLSearchParams(params); p.set('id', String(id)); p.set('tab', tab); setParams(p) }
+  const pickTab = (next: Tab) => {
+    setTab(next)
+    const p = new URLSearchParams(params)
+    p.set('tab', next)
+    p.delete('id')
+    p.delete('versionId')
+    const query = p.toString()
+    navigate(`/thong-bao${query ? `?${query}` : ''}`)
+  }
+  const pick = (id: number) => {
+    const item = items.find((announcement) => announcement.id === id)
+    const p = new URLSearchParams()
+    p.set('tab', activeTab)
+    if (item?.state === 'PUBLISHED' && item.latestVersionId !== null) p.set('versionId', String(item.latestVersionId))
+    navigate(`/thong-bao/${id}?${p}`)
+  }
 
   if (list.loading && !list.data) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (list.error || !list.data) return <Layout title={TITLE}><ErrorBlock message={messageOf(list.error, 'Không tải được thông báo.')} onRetry={list.refetch} /></Layout>
@@ -74,7 +98,7 @@ export default function AnnouncementListPage() {
         <PageHeader title="Thông báo trại" sub="Đọc thông báo đã nhận hoặc đã viết, xem phiên bản và tình trạng nhận.">
           {writer && <Button variant="primary" onClick={() => navigate('/thong-bao/moi')}>Soạn thông báo</Button>}
         </PageHeader>
-        <Segmented options={tabs} value={tab} onChange={(v) => pickTab(v as Tab)} />
+        <Segmented options={tabs} value={activeTab} onChange={(v) => pickTab(v as Tab)} />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(300px,400px)_minmax(0,1fr)]">
           <Card>
             {items.length === 0 ? <EmptyBlock title="Chưa có thông báo" sub="Thông báo trong mục này sẽ hiện ở đây." /> : (
@@ -99,8 +123,10 @@ export default function AnnouncementListPage() {
             )}
           </Card>
           <div className="min-w-0">
-            {detail.error ? <ErrorBlock message={messageOf(detail.error, 'Không tải được thông báo.')} onRetry={detail.refetch} />
-              : detail.data ? <AnnouncementDetail a={detail.data} onHistory={() => openModal('lich-su')} />
+            {hasRequestedTarget && !requestedItem ? <ErrorBlock message="Không tìm thấy thông báo này hoặc bạn không có quyền xem." onRetry={list.refetch} />
+              : detail.error ? <ErrorBlock message={messageOf(detail.error, 'Không tải được thông báo.')} onRetry={detail.refetch} />
+                : detail.data && versionIdParam !== null && !selectedVersion ? <ErrorBlock message="Không tìm thấy phiên bản thông báo này hoặc bạn không có quyền xem." onRetry={detail.refetch} />
+              : detail.data ? <AnnouncementDetail a={detail.data} version={selectedVersion} onHistory={() => openModal('lich-su')} />
                 : !detail.loading && <EmptyBlock title="Chọn một thông báo" sub="Nội dung và tình trạng nhận sẽ hiện ở đây." action={<Icon name="speakerphone" size={20} />} />}
           </div>
         </div>

@@ -2,9 +2,7 @@ import { useState, type ReactNode } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Checkbox, Field, Note, Select, Textarea, inputCls } from '../../../components/ui'
 import { useSession } from '../../authorization'
-import {
-  REPRODUCTION_BREEDS, REPRODUCTION_HEALTH_CASES, REPRODUCTION_MEMBERS, REPRODUCTION_SIRES,
-} from '../data/reproductionMock'
+import { ReproductionDuplicateError } from '../api/reproductionBackend'
 import {
   METHOD_TEXT, addDaysText, eligibilityScore, expectedCalvingDate, findNearbyEvent, formatDate, formatDateTime,
 } from '../domain/reproductionRules'
@@ -13,6 +11,7 @@ import {
   CHECK_METHOD_OPTIONS, DateTimeField, PersonInput, RESULT_OPTIONS, RadioField, ReadOnlyField, SIGNS,
   SOURCE_HINT, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS, nowLocal,
 } from './reproductionFields'
+import { useReproductionOptions } from './reproductionOptions'
 
 export type RecordAction = 'RECORD_ESTRUS' | 'RECORD_BREEDING' | 'RECORD_PREGNANCY_CHECK' | 'RECORD_PREGNANCY_UPDATE'
 interface Props { profile: ReproductionFemale; onClose: () => void; onRecord: (command: ReproductionCommand) => Promise<void> }
@@ -28,7 +27,11 @@ function useRecordSubmit(onRecord: Props['onRecord'], onClose: () => void) {
   const send = async (command: ReproductionCommand) => {
     setError(''); setConfirm(null); setBusy(true)
     try { await onRecord(command); onClose() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Không lưu được sự kiện sinh sản.') }
+    catch (cause) {
+      // MSG-FE11-03 từ backend: hỏi lại như kiểm tra trên máy, lần lưu sau gửi confirmDuplicate.
+      if (cause instanceof ReproductionDuplicateError) setConfirm({ text: cause.message, yes: 'Vẫn lưu', no: 'Không' })
+      else setError(cause instanceof Error ? cause.message : 'Không lưu được sự kiện sinh sản.')
+    }
     finally { setBusy(false) }
   }
   return { busy, error, confirm, setConfirm, send }
@@ -69,8 +72,10 @@ const SourceField = ({ value, onChange }: { value: DataSource; onChange: (value:
 
 export function EstrusDialog({ profile, onClose, onRecord }: Props) {
   const session = useSession()
+  const { members } = useReproductionOptions()
   const [occurredAt, setOccurredAt] = useState(nowLocal)
-  const [observer, setObserver] = useState(() => REPRODUCTION_MEMBERS.find((member) => member.name === session?.fullName)?.name ?? REPRODUCTION_MEMBERS[0]?.name ?? '')
+  // P1: người quan sát mặc định là người ghi.
+  const [observer, setObserver] = useState(() => members.find((member) => member.name === session?.fullName)?.name ?? session?.fullName ?? members[0]?.name ?? '')
   const [signs, setSigns] = useState<string[]>([])
   const [description, setDescription] = useState('')
   const state = useRecordSubmit(onRecord, onClose)
@@ -80,7 +85,7 @@ export function EstrusDialog({ profile, onClose, onRecord }: Props) {
       state.setConfirm({ text: `Đã có bản ghi động dục của ${profile.cattleCode} lúc ${formatDateTime(near.occurredAt)}. Vẫn lưu?`, yes: 'Vẫn lưu', no: 'Không' })
       return
     }
-    void state.send({ type: 'ESTRUS', occurredAt, observer, signs: SIGNS.filter((sign) => signs.includes(sign)), description, dataSource: 'DIRECT_OBSERVATION' })
+    void state.send({ type: 'ESTRUS', occurredAt, observer, signs: SIGNS.filter((sign) => signs.includes(sign)), description, dataSource: 'DIRECT_OBSERVATION', confirmDuplicate: !!state.confirm })
   }
   return (
     <Shell title="Ghi động dục" sub={subOf(profile)} width={560} saveLabel="Lưu động dục" onClose={onClose} onSave={save} state={state}>
@@ -103,12 +108,16 @@ export function EstrusDialog({ profile, onClose, onRecord }: Props) {
   )
 }
 
-const MemberSelectField = ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
-  <Select id="repro-observer" aria-label="Người quan sát" value={value} onChange={(event) => onChange(event.target.value)}>
-    <option value="">Chọn người</option>
-    {REPRODUCTION_MEMBERS.map((member) => <option key={member.name} value={member.name}>{`${member.name} · ${member.role}`}</option>)}
-  </Select>
-)
+function MemberSelectField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { members } = useReproductionOptions()
+  return (
+    <Select id="repro-observer" aria-label="Người quan sát" value={value} onChange={(event) => onChange(event.target.value)}>
+      <option value="">Chọn người</option>
+      {value && !members.some((member) => member.name === value) && <option value={value}>{value}</option>}
+      {members.map((member) => <option key={member.id} value={member.name}>{`${member.name} · ${member.role}`}</option>)}
+    </Select>
+  )
+}
 
 export function BreedingDialog({ profile, onClose, onRecord }: Props) {
   const [occurredAt, setOccurredAt] = useState(nowLocal)
@@ -123,6 +132,7 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
   const [performer, setPerformer] = useState('')
   const [note, setNote] = useState('')
   const state = useRecordSubmit(onRecord, onClose)
+  const options = useReproductionOptions()
   const hours72 = 72 * 3_600_000
   const estrusOptions = profile.events
     .filter((event) => event.type === 'ESTRUS' && event.status === 'VALID' && event.occurredAt <= occurredAt && Date.parse(occurredAt) - Date.parse(event.occurredAt) <= hours72)
@@ -133,14 +143,15 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
   const insemination = method === 'ARTIFICIAL_INSEMINATION'
   const save = () => {
     const near = state.confirm ? null : findNearbyEvent(profile, 'BREEDING', occurredAt)
-    if (near) {
+    // P2: phối cùng động dục liên kết với lần phối trước là phối lần hai có chủ ý, không hỏi trùng.
+    if (near && !(linkedEstrusId && near.linkedEstrusId === linkedEstrusId)) {
       state.setConfirm({ text: `Đã có bản ghi phối giống của ${profile.cattleCode} lúc ${formatDateTime(near.occurredAt)}. Vẫn lưu?`, yes: 'Vẫn lưu', no: 'Không' })
       return
     }
     void state.send({
       type: 'BREEDING', occurredAt, linkedEstrusId: linkedEstrusId || null, dataSource: source, method, sireSource,
       farmSireId: external ? '' : farmSireId, externalSireBreed: breed, semenCode: insemination ? semenCode : '',
-      semenSupplier: insemination ? supplier : '', performer, note,
+      semenSupplier: insemination ? supplier : '', performer, note, confirmDuplicate: !!state.confirm,
     })
   }
   return (
@@ -161,13 +172,13 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
         <Field label="Đực giống trong trại" id="repro-sire" hint="Chỉ khi nguồn Trong trại">
           <Select id="repro-sire" aria-label="Đực giống trong trại" disabled={external} value={farmSireId} onChange={(event) => setFarmSireId(event.target.value)}>
             <option value="">Chọn mã bò đực</option>
-            {REPRODUCTION_SIRES.map((sire) => <option key={sire.id} value={sire.id}>{sire.label}</option>)}
+            {options.sires.map((sire) => <option key={sire.id} value={sire.id}>{sire.label}</option>)}
           </Select>
         </Field>
         <Field label={external ? 'Giống tinh / đực giống *' : 'Giống tinh / đực giống'} id="repro-sire-breed">
           <Select id="repro-sire-breed" aria-label="Giống tinh / đực giống" value={breed} onChange={(event) => setBreed(event.target.value)}>
             <option value="">Chọn giống</option>
-            {REPRODUCTION_BREEDS.map((item) => <option key={item} value={item}>{item}</option>)}
+            {options.breeds.map((item) => <option key={item} value={item}>{item}</option>)}
           </Select>
         </Field>
         <Field label="Mã ống tinh / lô tinh" id="repro-semen" hint={insemination ? undefined : 'Chỉ thụ tinh nhân tạo'}>
@@ -256,7 +267,7 @@ export function PregnancyUpdateDialog({ profile, onClose, onRecord }: Props) {
   const [details, setDetails] = useState('')
   const [caseId, setCaseId] = useState('')
   const state = useRecordSubmit(onRecord, onClose)
-  const cases = REPRODUCTION_HEALTH_CASES[profile.cattleCode] ?? []
+  const cases = useReproductionOptions().healthCases
   const expectedText = preg ? formatDate(preg.expectedCalvingAt) : '—'
   const save = () => {
     if (updateType === 'LOSS' && !state.confirm) {

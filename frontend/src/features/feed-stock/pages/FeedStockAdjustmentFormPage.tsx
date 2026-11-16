@@ -7,15 +7,26 @@ import { backendMode } from '../../../api/backendTransport'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { listFeedStock } from '../api/feedStockApi'
-import { getFeedStockAdjustment, listFeedStockAdjustments, postFeedStockAdjustmentDemo, saveFeedStockAdjustmentDemoDraft } from '../api/feedStockAdjustmentApi'
+import {
+  downloadFeedStockAdjustmentAttachment,
+  getFeedStockAdjustment,
+  listFeedStockAdjustmentAttachments,
+  listFeedStockAdjustments,
+  postFeedStockAdjustment,
+  removeFeedStockAdjustmentAttachment,
+  saveFeedStockAdjustmentDraft,
+  uploadFeedStockAdjustmentAttachment,
+} from '../api/feedStockAdjustmentApi'
 import {
   initialFeedStockAdjustmentForm,
+  localFeedDate,
   nextFeedAdjustmentCode,
   previewFeedStockAdjustment,
   toFeedStockAdjustmentDraftInput,
   validateFeedStockAdjustmentForm,
 } from '../data/feedStockAdjustmentForm'
 import { formatKg, formatMoney, formatNumber } from '../domain/feedLabels'
+import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentFormValues, FeedStockAdjustmentType } from '../types/feedStockAdjustment'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 
@@ -28,6 +39,7 @@ const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
 }
 const REASON_SUGGESTIONS = ['Hao hụt (héo, rơi vãi)', 'Ẩm mốc – hủy bỏ', 'Đếm lại, sai lệch sổ sách', 'Thất thoát']
 const FOOT = 'Phiếu điều chỉnh kho khi kiểm kê hoặc hao hụt (Chủ trại, Quản lý). Nhập tồn thực tế; chênh lệch và giá trị tự tính theo giá nhập bình quân. Dòng có chênh lệch được tô nền và bắt buộc có lý do.'
+const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-adjustment:${Date.now()}:${Math.random().toString(36).slice(2)}`
 
 const signed = (value: number, digits = 3) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)}`
 
@@ -46,15 +58,13 @@ export default function FeedStockAdjustmentFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const query = useQuery(async () => {
-    if (backendMode === 'backend') {
-      return { stock: [], record: id ? await getFeedStockAdjustment(id) : null, nextCode: '' }
-    }
-    const [stock, record, adjustments] = await Promise.all([
+    const [stock, record, adjustments, attachments] = await Promise.all([
       listFeedStock(),
       id ? getFeedStockAdjustment(id) : Promise.resolve(null),
-      id ? Promise.resolve([]) : listFeedStockAdjustments(),
+      backendMode === 'backend' || id ? Promise.resolve([]) : listFeedStockAdjustments(),
+      id && backendMode === 'backend' ? listFeedStockAdjustmentAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
     ])
-    return { stock, record, nextCode: nextFeedAdjustmentCode(adjustments.map((row) => row.code)) }
+    return { stock, record, attachments, nextCode: backendMode === 'backend' ? '' : nextFeedAdjustmentCode(adjustments.map((row) => row.code)) }
   }, [id])
 
   if (query.error) {
@@ -71,20 +81,6 @@ export default function FeedStockAdjustmentFormPage() {
     return <Layout title={TITLE} user="manager"><p role="status" className="m-0 text-xs text-muted">Đang tải phiếu kiểm kê…</p></Layout>
   }
 
-  if (backendMode === 'backend') {
-    if (!query.data.record) {
-      return (
-        <Layout title={TITLE} user="manager">
-          <PageHeader title="Phiếu điều chỉnh kho" sub="Một số thông tin chưa sẵn sàng." />
-          <FeedManagementTabs />
-          <Note tone="warn">Lưu nháp và ghi nhận kiểm kê hiện chỉ hoạt động trong bản demo.</Note>
-          <div><Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button></div>
-        </Layout>
-      )
-    }
-    return <BackendAdjustmentDetail record={query.data.record} />
-  }
-
   if (id && !query.data.record) {
     return (
       <Layout title={TITLE} user="manager">
@@ -94,68 +90,61 @@ export default function FeedStockAdjustmentFormPage() {
     )
   }
 
+  const draftFeedIds = new Set(query.data.record?.status === 'DRAFT' ? query.data.record.lines.map((line) => line.feedItemId) : [])
+  const adjustmentStockRows = query.data.stock.filter((row) => row.available !== false || draftFeedIds.has(row.feedItemId))
+
   return (
     <FeedStockAdjustmentForm
       key={id ?? 'new-adjustment'}
       record={query.data.record}
-      stockRows={query.data.stock}
+      stockRows={adjustmentStockRows}
       nextCode={query.data.nextCode}
+      initialAttachments={query.data.attachments}
     />
   )
 }
 
-function BackendAdjustmentDetail({ record }: { record: FeedStockAdjustment }) {
-  const navigate = useNavigate()
-  return (
-    <Layout title={TITLE} user="manager">
-      <PageHeader title={`Phiếu điều chỉnh kho ${record.code}`} sub="Phiếu đang ở chế độ chỉ xem.">
-        <Button onClick={() => navigate('/thuc-an/kiem-ke')}>Quay lại danh sách</Button>
-      </PageHeader>
-      <FeedManagementTabs />
-      <Card title="Thông tin phiếu">
-        <dl className="m-0 grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
-          <div><dt className="text-muted">Ngày kiểm kê</dt><dd className="m-0 font-medium">{record.countDate}</dd></div>
-          <div><dt className="text-muted">Loại</dt><dd className="m-0 font-medium">{TYPE_LABELS[record.adjustmentType as FeedStockAdjustmentType] ?? record.adjustmentType}</dd></div>
-          <div><dt className="text-muted">Người kiểm kê</dt><dd className="m-0 font-medium">{record.countedBy || '—'}</dd></div>
-          <div><dt className="text-muted">Trạng thái</dt><dd className="m-0 font-medium">{record.status}</dd></div>
-        </dl>
-      </Card>
-      <Card title="Đối chiếu tồn kho">
-        <AdjustmentLinesTable
-          totalDifferenceKg={record.totalDifferenceKg}
-          totalValue={record.totalValue}
-          readOnly
-          lines={record.lines.map((line) => ({
-            code: line.feedCode,
-            name: line.feedName,
-            systemKg: line.systemKg,
-            countedKg: line.countedKg,
-            differenceKg: line.differenceKg,
-            reason: line.reason ?? '',
-            differenceValue: line.differenceValue,
-          }))}
-        />
-      </Card>
-      <Foot>{FOOT}</Foot>
-    </Layout>
-  )
-}
-
-function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
+function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachments }: {
   record: FeedStockAdjustment | null
   stockRows: Awaited<ReturnType<typeof listFeedStock>>
   nextCode: string
+  initialAttachments: FeedReceiptAttachment[]
 }) {
   const navigate = useNavigate()
   const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows))
   const [currentRecord, setCurrentRecord] = useState(record)
   const [docs, setDocs] = useState<Array<{ name: string; ext: string }>>([])
+  const [attachments, setAttachments] = useState(initialAttachments)
+  const [newFiles, setNewFiles] = useState<File[]>([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
-  const readOnly = currentRecord?.status !== undefined && currentRecord.status !== 'DRAFT'
-  const title = !currentRecord ? 'Phiếu điều chỉnh kho' : `Phiếu điều chỉnh kho ${currentRecord.code} · ${readOnly ? 'Đã ghi' : 'Nháp'}`
-  const preview = useMemo(() => previewFeedStockAdjustment(values, stockRows), [values, stockRows])
+  const saveKeyRef = useRef('')
+  const postKeyRef = useRef('')
+  const uploadKeysRef = useRef(new WeakMap<File, string>())
+  const removeKeysRef = useRef(new Map<number, string>())
+  const initialValues = initialFeedStockAdjustmentForm(record, stockRows)
+  const savedFingerprintRef = useRef(record?.status === 'DRAFT' ? JSON.stringify(initialValues) : '')
+  const hasUnavailableDraftLine = currentRecord?.status === 'DRAFT' && currentRecord.lines.some((line) => {
+    const stock = stockRows.find((row) => row.feedItemId === line.feedItemId)
+    return !stock || stock.available === false
+  })
+  const readOnly = (currentRecord?.status !== undefined && currentRecord.status !== 'DRAFT') || hasUnavailableDraftLine
+  const statusLabel = currentRecord?.status === 'POSTED' ? 'Đã ghi' : currentRecord?.status === 'DRAFT' ? 'Nháp' : 'Mới'
+  const title = !currentRecord ? 'Phiếu điều chỉnh kho' : `Phiếu điều chỉnh kho ${currentRecord.code} · ${statusLabel}`
+  const previewRows = useMemo(() => {
+    if (!currentRecord || currentRecord.status !== 'DRAFT' || currentRecord.countDate !== values.countDate) return stockRows
+    const saved = new Map(currentRecord.lines.map((line) => [line.feedItemId, line]))
+    return stockRows.map((stock) => {
+      const line = saved.get(stock.feedItemId)
+      return line ? {
+        ...stock,
+        onHandKg: line.systemKg,
+        stockValue: line.unitCost === null ? stock.stockValue : line.systemKg * line.unitCost,
+      } : stock
+    })
+  }, [currentRecord, stockRows, values.countDate])
+  const preview = useMemo(() => previewFeedStockAdjustment(values, previewRows), [values, previewRows])
   const changedFeeds = readOnly && currentRecord
     ? currentRecord.lines.filter((line) => Math.abs(line.differenceKg) > 0.0005).length
     : preview.changedFeeds
@@ -164,6 +153,8 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
 
   const update = <K extends Exclude<keyof FeedStockAdjustmentFormValues, 'lines'>>(key: K, value: FeedStockAdjustmentFormValues[K]) => {
     setValues((current) => ({ ...current, [key]: value }))
+    saveKeyRef.current = ''
+    postKeyRef.current = ''
     setError('')
   }
   const updateLine = (feedItemId: number, key: 'countedKg' | 'reason', value: string) => {
@@ -171,12 +162,64 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
       ...current,
       lines: current.lines.map((line) => line.feedItemId === feedItemId ? { ...line, [key]: value } : line),
     }))
+    saveKeyRef.current = ''
+    postKeyRef.current = ''
     setError('')
+  }
+
+  const uploadPendingFiles = async (adjustmentId: number) => {
+    if (backendMode !== 'backend' || newFiles.length === 0) return
+    for (const file of newFiles) {
+      if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: tệp vượt quá 10 MB.`)
+      if (!['application/pdf', 'image/jpeg'].includes(file.type)) throw new Error(`${file.name}: chỉ chấp nhận PDF hoặc JPG.`)
+      let key = uploadKeysRef.current.get(file)
+      if (!key) {
+        key = commandKey()
+        uploadKeysRef.current.set(file, key)
+      }
+      const uploaded = await uploadFeedStockAdjustmentAttachment(adjustmentId, file, { key })
+      uploadKeysRef.current.delete(file)
+      setAttachments((current) => current.some((item) => item.id === uploaded.id) ? current : [...current, uploaded])
+      setNewFiles((current) => current.filter((item) => item !== file))
+    }
+  }
+
+  const viewAttachment = async (attachment: FeedReceiptAttachment) => {
+    if (!currentRecord) return
+    try {
+      const blob = await downloadFeedStockAdjustmentAttachment(currentRecord.id, attachment.id)
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+    } catch (attachmentError) {
+      setError(userFacingError(attachmentError, 'Không thể tải chứng từ phiếu kiểm kê.'))
+    }
+  }
+
+  const removeAttachment = async (attachment: FeedReceiptAttachment) => {
+    if (!currentRecord) return
+    setError('')
+    try {
+      let key = removeKeysRef.current.get(attachment.id)
+      if (!key) {
+        key = commandKey()
+        removeKeysRef.current.set(attachment.id, key)
+      }
+      await removeFeedStockAdjustmentAttachment(currentRecord.id, attachment.id, { key })
+      removeKeysRef.current.delete(attachment.id)
+      setAttachments((current) => current.filter((item) => item.id !== attachment.id))
+    } catch (attachmentError) {
+      setError(userFacingError(attachmentError, 'Không thể xóa chứng từ phiếu kiểm kê.'))
+    }
   }
 
   const submit = async (postNow: boolean) => {
     if (savingRef.current || readOnly) return
-    const validation = validateFeedStockAdjustmentForm(values, stockRows)
+    const validation = validateFeedStockAdjustmentForm(values, previewRows)
     if (validation) {
       setError(validation)
       return
@@ -185,11 +228,24 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
     setSaving(true)
     setError('')
     try {
-      const saved = await saveFeedStockAdjustmentDemoDraft(toFeedStockAdjustmentDraftInput(values, currentRecord?.id))
-      setCurrentRecord(saved)
+      const fingerprint = JSON.stringify(values)
+      let saved = currentRecord
+      if (!saved || saved.status !== 'DRAFT' || savedFingerprintRef.current !== fingerprint) {
+        if (!saveKeyRef.current) saveKeyRef.current = commandKey()
+        saved = await saveFeedStockAdjustmentDraft({
+          ...toFeedStockAdjustmentDraftInput(values, currentRecord?.id),
+          ...(currentRecord ? { expectedVersion: currentRecord.version } : {}),
+        }, { key: saveKeyRef.current })
+        setCurrentRecord(saved)
+        savedFingerprintRef.current = fingerprint
+        saveKeyRef.current = ''
+      }
+      if (!saved) throw new Error('Không lưu được phiếu kiểm kê.')
+      await uploadPendingFiles(saved.id)
       if (postNow) {
-        await postFeedStockAdjustmentDemo(saved.id)
-        navigate('/thuc-an', { state: { feedStockMessage: `Phiếu điều chỉnh ${saved.code} đã ghi: ${formatNumber(saved.totalDifferenceKg)} kg (${saved.totalValue === null ? '—' : formatMoney(saved.totalValue)} đ).` } })
+        if (!postKeyRef.current) postKeyRef.current = commandKey()
+        const posted = await postFeedStockAdjustment(saved.id, saved.version, { key: postKeyRef.current })
+        navigate('/thuc-an', { state: { feedStockMessage: `Phiếu điều chỉnh ${posted.code} đã ghi: ${formatNumber(posted.totalDifferenceKg)} kg (${posted.totalValue === null ? '—' : formatMoney(posted.totalValue)} đ).` } })
       } else {
         navigate('/thuc-an/kiem-ke', { state: { adjustmentMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.` } })
       }
@@ -222,19 +278,28 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
       differenceValue: line.differenceValue,
       feedItemId: line.stock.feedItemId,
     }))
+  const attachmentDocs = attachments.map((attachment) => ({
+    id: attachment.id,
+    name: attachment.originalFilename,
+    ext: attachment.contentType === 'application/pdf' ? 'PDF' : 'JPG',
+  }))
+  const displayedDocs = backendMode === 'backend' ? attachmentDocs : docs
+  const attachmentCount = backendMode === 'backend' ? attachments.length + newFiles.length : docs.length
 
   return (
     <Layout title={TITLE} user="manager">
       <PageHeader title={title} sub="Đối chiếu tồn thực tế với tồn hệ thống" />
       <FeedManagementTabs />
-      {readOnly && <Note tone="info">Phiếu đã ghi nhận; thông tin đang ở chế độ chỉ xem.</Note>}
+      {hasUnavailableDraftLine
+        ? <Note tone="warn">Phiếu nháp có mặt hàng đã ngưng hoạt động; dữ liệu được giữ nguyên và phiếu đang ở chế độ chỉ xem.</Note>
+        : readOnly && <Note tone="info">Phiếu đã ghi nhận; thông tin đang ở chế độ chỉ xem.</Note>}
       {error && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
         <Card title="Thông tin phiếu">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Mã phiếu" id="feed-adjustment-code">
-              <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? nextCode} className={inputCls} />
+              <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? (backendMode === 'backend' ? 'Tự sinh khi lưu' : nextCode)} className={inputCls} />
             </Field>
             <Field label="Ngày kiểm kê *" id="feed-adjustment-date">
               <DateInput id="feed-adjustment-date" readOnly={readOnly || saving} value={values.countDate} onChange={(value) => update('countDate', value)} />
@@ -253,13 +318,13 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
         <Card>
           <div className="flex items-center gap-2">
             <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt điều chỉnh</h3>
-            <Badge tone="info" icon="pencil">{readOnly ? 'ĐÃ GHI' : 'NHÁP'}</Badge>
+            <Badge tone={currentRecord?.status === 'POSTED' ? 'ok' : 'info'} icon={currentRecord?.status === 'POSTED' ? 'circle-check' : 'pencil'}>{readOnly ? 'ĐÃ GHI' : currentRecord ? 'NHÁP' : 'MỚI'}</Badge>
           </div>
           <Info cols={2} items={[
             ['Thức ăn chênh lệch', `${changedFeeds} / ${lines.length}`],
             ['Tổng chênh lệch', totalDifferenceKg === null ? '—' : `${signed(totalDifferenceKg, 3)} kg`],
             ['Giá trị điều chỉnh', totalValue === null ? '—' : `${signed(totalValue, 0)} đ`],
-            ['Chứng từ', `${docs.length} tệp`],
+            ['Chứng từ', `${attachmentCount} tệp`],
           ]} />
           {totalValue === null && <Note tone="warn">Chưa đủ dữ liệu để tính giá trị cho một số mặt hàng.</Note>}
           {!readOnly && (
@@ -277,13 +342,25 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode }: {
 
       <Card title="Đối chiếu tồn kho" sub={`${lines.length} thức ăn · dòng có chênh lệch bắt buộc chọn lý do`}>
         <Note tone="info">Điều chỉnh không sửa phiếu nhập hay nhật ký cho ăn đã ghi; mỗi dòng chênh lệch tạo 1 bút toán kho kèm lý do, người lập và thời điểm. Tồn sau điều chỉnh không âm.</Note>
+        {backendMode === 'backend' && values.countDate !== currentRecord?.countDate && values.countDate !== localFeedDate() && <Note tone="warn">Máy chủ xác định lại tồn hệ thống tại ngày kiểm kê khi lưu phiếu.</Note>}
         <AdjustmentLinesTable lines={lines} readOnly={readOnly || saving} onChange={updateLine} totalDifferenceKg={totalDifferenceKg} totalValue={totalValue} />
       </Card>
 
       <Card title="Chứng từ đính kèm">
-        {!readOnly && <Dropzone hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
-        <Docs docs={docs} onRemove={readOnly ? undefined : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
-        {docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
+        {!readOnly && <Dropzone hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => backendMode === 'backend'
+          ? setNewFiles((current) => [...current, ...files])
+          : setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
+        <Docs docs={displayedDocs} onView={backendMode === 'backend' ? (index) => { const item = attachments[index]; if (item) void viewAttachment(item) } : undefined} onRemove={readOnly ? undefined : backendMode === 'backend'
+          ? (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }
+          : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+        {newFiles.map((file, index) => (
+          <div className="flex items-center gap-2 text-xs" key={`${file.name}-${index}`}>
+            <Badge>{file.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{file.name} · chờ tải lên</span><span className="flex-1" />
+            <Button variant="link" size="sm" aria-label={`Bỏ tệp ${file.name}`} onClick={() => setNewFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Bỏ</Button>
+          </div>
+        ))}
+        {backendMode !== 'backend' && docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
+        {readOnly && displayedDocs.length === 0 && <p className="m-0 text-xs text-muted">Phiếu không có chứng từ đính kèm.</p>}
       </Card>
 
       <Foot>{FOOT}</Foot>

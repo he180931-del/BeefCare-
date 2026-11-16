@@ -257,7 +257,16 @@ function InternalRequestsCard({ ticket, canEdit, onCreate, onReassign, onCancel 
             {rows.map((r) => (
               <tr key={r.code}>
                 <Td className="font-medium">{r.code}</Td>
-                <Td><div className="font-medium">{r.recipient}</div><div className="text-[11px] text-muted">{ROLE_LABEL[r.targetRole as TargetRole]}</div></Td>
+                <Td>
+                  <div className="font-medium">{r.recipient}</div><div className="text-[11px] text-muted">{ROLE_LABEL[r.targetRole as TargetRole]}</div>
+                  {r.status === 'OPEN' && r.needsReassignment && (
+                    // Wraps on phone width (a nowrap badge would widen the page).
+                    <p className="m-0 mt-1 flex items-start gap-1 text-[11px] font-medium text-warn-fg">
+                      <Icon name="alert-triangle" size={12} className="mt-0.5 shrink-0" />
+                      <span>Người nhận không còn khả dụng – cần đổi người nhận</span>
+                    </p>
+                  )}
+                </Td>
                 <Td>
                   <div>{r.title}</div>
                   {r.status === 'DONE' && <div className="mt-1 text-[11px] text-muted">{r.outcome ? OUTCOME_LABEL[r.outcome] : ''}: {r.result}</div>}

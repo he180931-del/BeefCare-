@@ -4,7 +4,11 @@ This contract is in progress. An endpoint appearing in generated OpenAPI means i
 
 The canonical contract is `openapi.json`, exported from Springdoc's `beefcare` group after `OpenApiContractTest` passes. The runtime endpoint is `/v3/api-docs/beefcare` when profile `api-docs` is active; it requires the development documentation authority. Import the JSON file into frontend tooling without needing that account. Java request/response DTOs are authoritative; update and regenerate this file with backend changes.
 
-Current contract: **229 paths, 283 operations, 309 schemas**, regenerated 11 November 2026 on `dev` after merging `feat/fe19-goi-thanh-toan` (FE-19 UC1–UC8 and the UC8 review fixes), when `OpenApiContractTest` passed. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
+Integration refresh on 16 November 2026: **235 paths, 289 operations, 354 schemas**, generated from the combined local FE-07/14/15/23 changes and current `dev` after `OpenApiContractTest` passed on H2. All operations from both parent contracts are present. The export alone does not certify endpoint behavior, production readiness, or PostgreSQL upgrade compatibility.
+
+Local validation on 16 November 2026 (`dev` at `bd7d598` with local feature changes): **234 paths, 288 operations, 347 schemas**. Report results include `sections` and `charts`. The announcement response includes each visible `VersionView.id`, which the frontend uses for exact-version links. The feeding plan and ration cancel/stop operations are exported. See [the Tài acceptance scenarios](../testing/TAI_ACCEPTANCE.md) and the linked evidence before marking a flow ready on a shared branch.
+
+Current contract: **229 paths, 283 operations, 329 schemas**, regenerated 15 November 2026 on `dev` after merging `feat/fe17-audit-nen-tang` (FE-03 UC1–UC9 and FE-17 UC1) into `dev` (FE-08, FE-09, FE-10), when `OpenApiContractTest` passed; `dev` had removed `POST /api/farms/{farmId}/health-cases/{caseId}/closure-correction`. On the branch before the merge: 230 paths, 284 operations, 319 schemas, updated 15 November 2026 on `feat/fe17-audit-nen-tang` after the D34 / FE-17 UC1 tests passed (new `GET /api/platform/audit/actions`; `GET /api/platform/audit` and `/{id}` return the new `AuditPage`, `AuditRow`, `AuditActor`, `AuditDetail`, `AuditFarm`, `AuditActionOption`; `AuditEntry` and `PageAuditEntry` removed). Before that: 229 paths, 283 operations, 315 schemas, updated 14 November 2026 on `feat/fe03-thanh-vien-quyen` after the D33 / FE-03 UC9 tests passed (platform access requires `Idempotency-Key`; history returns the new `AccessHistoryItem`, `AuditItem` removed; `AccountDetail.accessActions` and `PlatformAccessRequest` descriptions changed). Before that: the same counts after D32 / UC8 (suspend / restore now require `Idempotency-Key`; `AccountChange`, `AccountDetail.actions` and `InternalView.needsReassignment` changed; no path or schema added). Earlier: the same counts after D31 / UC7 (only the six `/api/platform/accounts` operations changed: new `AccountPage`, `AccountListItem`, `AccountDetail`, removed `AccountSummary`, `PageAccountSummary`). Previous: 314 schemas after D29 / UC5 on the same day (member list and its two new schemas); 312 schemas after D28 / UC4 on the same day; 311 schemas, regenerated 13 November 2026 on `dev` after the D26 / FE-03 UC2 review and its UC1 regression tests passed. This working copy includes the preceding D25 / UC1 changes; no merge or READY_FOR_FE deployment is implied. Earlier exports on `dev`: 224 paths, 273 operations and 304 schemas on 10 November 2026 (current FE20 contract combined with the earlier FE19 slice); 221 paths, 270 operations and 293 schemas on 9 November; 216 paths on 1 November at `127859b`. UC5–UC8 local verification and limits are in `docs/reviews/FE19_UC05_REVIEW.md` … `docs/reviews/FE19_UC08_REVIEW.md`; real request/response/error examples of all 23 FE-19 operations are in `FE19_EXAMPLES.md`. This count does not certify other operations or an integrated deployment. To regenerate, run from `backend/`:
 
 ```powershell
 .\mvnw.cmd --batch-mode -o '-Pdev,!webapp' '-Dspotless.skip=true' '-Djacoco.skip=true' '-Dtest=OpenApiContractTest' test
@@ -12,6 +16,110 @@ Copy-Item target\beefcare-openapi.json ..\docs\api\openapi.json
 ```
 
 The test writes only to `backend/target/beefcare-openapi.json`; the copy step publishes it here. Commit the regenerated file in the same change as the DTO or route change.
+
+UC2 / D26 contract change (13 November 2026): **breaking invitation list contract**.
+`GET /api/farms/{farmId}/invitations` now returns
+`{items,total,page,size,counts,asOf}` instead of an array. Query parameters are
+optional status, zero-based page, size (default 20), sort=lastSentAt, dir and
+an exact invitationId lookup for UC1. Counts cover all four effective states
+of the farm before filtering or paging; expired PENDING rows read as EXPIRED
+without GET writes. Only the Owner reads, including during inactive service;
+sending/resending still require ACTIVE service. Frontend callers in this working
+copy were updated together. See `FE03_UC02_EXAMPLES.md` and
+`docs/reviews/FE03_UC02_REVIEW.md` for tested behavior and deployment limits.
+
+UC3 / D27 (14 November 2026): **no contract change**. Resend and cancel keep
+their routes and the required `{expectedVersion}` body with `Idempotency-Key`.
+Errors are checked in the order COM-01 → FE03-04 (resend only) → COM-08 →
+FE03-08 with `params.status` (also for an outdated version) → COM-05. Resend
+replaces the e-mail link and has no count limit; cancel works in every service
+status. See `FE03_UC03_EXAMPLES.md` and `docs/reviews/FE03_UC03_REVIEW.md`.
+
+UC4 / D28 (14 November 2026): **breaking change of the invitation link API**.
+`GET /api/invitations/accept?token=` returns `{status, farmId, farmName, timeZone,
+email, role, invitedBy, sentAt, expiresAt, membershipId?}`; `invitedAt` is gone and
+`sentAt` is the last send. ACCEPTED is returned only for the caller's own ACTIVE
+membership (AF2). `POST /api/invitations/accept` returns `AcceptedInvitation`
+`{membershipId, farmId, farmName, role, status}` instead of `MemberView` and takes no
+Idempotency-Key. MSG-FE03-08 carries `params.status` and `params.expiresAt`; cancelled
+and expired links keep naming their status until JOB-08. Contract now 229 paths,
+283 operations, 312 schemas. See `FE03_UC04_EXAMPLES.md` and
+`docs/reviews/FE03_UC04_REVIEW.md`.
+
+UC5 / D29 (14 November 2026): **breaking change of the member list**.
+`GET /api/farms/{farmId}/members` returns `{farmName, timeZone, serviceStatus,
+counts{all, managers, technicians, inactive?}, items}` instead of an array. Rows add
+`joinedAt` and `actions[]` and drop `effectiveDate`/`reason`; `PUT .../members/{id}`
+returns the same row shape. The Owner reads in every service status, a Manager only
+while ACTIVE (MSG-COM-12) without inactive rows, a Technician gets MSG-COM-01. New
+column `farm_membership.joined_at` (Liquibase `20261114000100`, filled for existing
+rows). Contract now 229 paths, 283 operations, 314 schemas. See
+`FE03_UC05_EXAMPLES.md` and `docs/reviews/FE03_UC05_REVIEW.md`.
+
+UC6 / D30 (14 November 2026): **same route and shapes, new rules**.
+`PUT /api/farms/{farmId}/members/{membershipId}` now locks the row and checks COM-01 →
+COM-08 → COM-01 (Owner target) → input (reason 5–500 with at least 5 non-space
+characters, COM-10; `role` required for CHANGE_ROLE, COM-06; CHANGE_ROLE on an INACTIVE
+member, COM-10 `field=action`) → FE03-04 → FE03-20 (also with an outdated version) →
+COM-05. Every change writes one `farm_membership_change` row (Liquibase
+`20261114000200`) and a before/after audit entry. See `FE03_UC06_EXAMPLES.md` and
+`docs/reviews/FE03_UC06_REVIEW.md`.
+
+FE-03 UC7 / D31 (14 November 2026): **breaking change of the SA account list and detail**.
+`GET /api/platform/accounts` returns `{items, total, page, size}` (page from 0, 20 rows by
+default) instead of a Spring `Page`, adds `platformRole` (NONE|CS|PM|SA on the ACTIVE role),
+`sort=name` and `dir`, orders by Vietnamese name (PostgreSQL `vi-x-icu`), searches name or
+email only, and rejects invalid query values with 400 MSG-COM-10 `params.field`. Rows are
+`{id, fullName, email, accountStatus, platformRole, platformAccessStatus, emailVerified,
+farmCount, farmRoles[]}` (ACTIVE memberships only). `GET /{id}` and the suspend, restore and
+platform-access commands return `AccountDetail` (adds `signInMethods`, `createdAt`,
+`lastSignInAt`, `ownerRegistrationCompletedAt`, `ownedFarms`, `farmCount`, `farmRoles`);
+`phone` is no longer returned. New column `app_user.created_at` (Liquibase
+`20261114000300`, filled for existing rows). See `FE03_UC07_EXAMPLES.md` and
+`docs/reviews/FE03_UC07_REVIEW.md`.
+
+FE-03 UC8 / D32 (14 November 2026): **breaking change of the account status commands**.
+`POST /api/platform/accounts/{id}/suspend` and `/restore` now require `Idempotency-Key` (missing →
+400 MSG-COM-06 `field=Idempotency-Key`; same key + body replays, other body → MSG-COM-19). The
+reason is trimmed, 5–500 characters with at least 5 non-space ones (MSG-COM-06 / MSG-COM-10
+`field=reason`). Order: COM-01 → COM-08 → data → FE03-17 (own account) → FE03-20 `{target, value}`
+(also with an outdated version) → COM-05 → FE03-17 (last SA); FE03-17 is 409. `AccountDetail`
+adds `actions[]` (`SUSPEND` / `RESTORE` for the calling SA). Suspension does not revoke the
+platform role or memberships, returns the account's non-CLOSED tickets to the queue in the same
+transaction and expires its registered sessions (next request 401, sign-in MSG-FE01-03). New
+append-only table `app_user_status_change` (Liquibase `20261114000400`); the audit keeps
+before / after only. FE-20 `InternalView` adds `needsReassignment` (OPEN request whose recipient is
+no longer available). See `FE03_UC08_EXAMPLES.md` and `docs/reviews/FE03_UC08_REVIEW.md`.
+
+FE-03 UC9 / D33 (14 November 2026): **breaking change of platform access and its history**.
+`POST /api/platform/accounts/{id}/platform-access` now requires `Idempotency-Key` (missing → 400 MSG-COM-06;
+same key + body replays, other body → MSG-COM-19) and takes `{operation: GRANT|CHANGE|REVOKE|RESTORE, role?
+(GRANT / CHANGE), reason (trimmed, 5–500, at least 5 non-space), version (platformAccessVersion, null when the
+account has no access)}`. Order: COM-01 → COM-08 → data → own access (COM-01) → SUSPENDED account except a
+revoke (new **MSG-FE03-22** `{email}`) → unverified email except a revoke (FE03-18) → state (FE03-20 `{target,
+value: role|status}` when already in place, COM-05 when the access changed) → version (COM-05) → acting SA still
+ACTIVE (COM-01) → last SA (FE03-17). `GET …/{id}/history` returns `AccessHistoryItem[]` `{id, action, roleBefore,
+statusBefore, roleAfter, statusAfter, reason, byName, byEmail, at}` (newest first, at most 100) instead of
+`AuditItem`. `AccountDetail` adds `accessActions[]`. A CS who loses CS access hands non-CLOSED tickets back to
+the queue in the same transaction. New append-only table `platform_access_change` (Liquibase
+`20261114000500`, earlier `PLATFORM_ACCESS_*` audit entries copied on PostgreSQL); the audit keeps before /
+after only. The SA "Quyền nhân sự nền tảng" page is gone; the popup opens on SCR-16. See
+`FE03_UC09_EXAMPLES.md` and `docs/reviews/FE03_UC09_REVIEW.md`.
+
+FE-17 UC1 / D34 (15 November 2026): **breaking change of the SA platform audit** (no client used it before:
+the screen ran on mock data in backend mode). `GET /api/platform/audit` now requires `from` and `to` as calendar
+days `yyyy-MM-dd` (Asia/Ho_Chi_Minh, both included; missing → 400 MSG-COM-06, `from` after `to` → MSG-COM-11,
+more than 12 months → MSG-COM-10 `field=dateRange`), takes `actor` (part of the name or email) or `system=true`,
+`action` (public code of A3), `targetType` (ACCOUNT, PLATFORM_ACCESS, MEMBERSHIP, FARM, PAYMENT, FINANCE_RECORD,
+TICKET, INTERNAL_REQUEST), `dir=desc|asc`, `page` (from 0), `size` (20, at most 100), and returns `{items[{id, time,
+actor{id, name, initials, role}|null, action, targetType, targetLabel}], total, page, size}` instead of a Spring
+`Page` of `AuditEntry`. `GET /api/platform/audit/{id}` returns `{id, time, actor, farm{id, name}|null, action,
+targetType, targetId, targetLabel, before{}, after{}, correlationId}`: allowlisted before / after values only, no
+reason; an entry outside the central catalogue (farm data) is 404 MSG-COM-08. New `GET /api/platform/audit/actions`
+→ `[{code, targetType}]`. SA only (403 MSG-COM-01); no route changes or deletes an entry (405). Every response
+carries `X-Request-Id` (correlation ID; a client value of 8–64 `[A-Za-z0-9._-]` is kept). New columns
+`audit_log.actor_role`, `audit_log.correlation_id` (Liquibase `20261114000600`); the CS ticket process audit code is
+now `SUPPORT_<action>`. See `FE17_UC01_EXAMPLES.md` and `docs/reviews/FE17_UC01_REVIEW.md`.
 
 UC7 / D23 contract change (10 November 2026): **breaking PM price contract**.
 `GET /api/platform/plan-prices?page=0&size=20` returns

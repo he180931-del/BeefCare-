@@ -1,7 +1,20 @@
 export { createFeedStockApi, listFeedStock } from './api/feedStockApi'
 export { createFeedReceiptApi, listFeedReceipts } from './api/feedReceiptApi'
 export { getFeedReceiptDemo, postFeedReceiptDemo, resetFeedReceiptDemoStore, saveFeedReceiptDemoDraft } from './api/feedReceiptApi'
-export { createFeedStockAdjustmentApi, getFeedStockAdjustment, listFeedStockAdjustments, postFeedStockAdjustmentDemo, resetFeedStockAdjustmentDemoStore, saveFeedStockAdjustmentDemoDraft } from './api/feedStockAdjustmentApi'
+export {
+  createFeedStockAdjustmentApi,
+  downloadFeedStockAdjustmentAttachment,
+  getFeedStockAdjustment,
+  listFeedStockAdjustmentAttachments,
+  listFeedStockAdjustments,
+  postFeedStockAdjustment,
+  postFeedStockAdjustmentDemo,
+  removeFeedStockAdjustmentAttachment,
+  resetFeedStockAdjustmentDemoStore,
+  saveFeedStockAdjustmentDemoDraft,
+  saveFeedStockAdjustmentDraft,
+  uploadFeedStockAdjustmentAttachment,
+} from './api/feedStockAdjustmentApi'
 export { createFeedRationApi, getFeedRation, listFeedRationFeeds, listFeedRationPens, listFeedRations, resetFeedRationDemoStore, saveFeedRationDemoVersion, saveFeedRationVersion } from './api/feedRationApi'
 export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recordFeedSession, resetFeedFeedingDemoStore, voidFeedSession } from './api/feedFeedingApi'
 export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'

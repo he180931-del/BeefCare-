@@ -34,7 +34,7 @@ class LocalDevelopmentSeederTest {
             .collect(Collectors.toMap(LocalDevelopmentSeeder.LocalAccount::login, account -> FarmRole.valueOf(account.role())));
 
         Set<FarmAction> ownerActions = EnumSet.of(
-            FarmAction.VIEW_FARM_INFORMATION, FarmAction.MANAGE_FARM_INFORMATION, FarmAction.SELECT_FARM, FarmAction.VIEW_CATALOGUES,
+            FarmAction.VIEW_FARM_INFORMATION, FarmAction.MANAGE_FARM_INFORMATION, FarmAction.SELECT_FARM, FarmAction.VIEW_MEMBERS, FarmAction.VIEW_CATALOGUES,
             FarmAction.VIEW_CATTLE, FarmAction.MANAGE_CATTLE, FarmAction.MANAGE_CATALOGUES, FarmAction.VIEW_PENS,
             FarmAction.MANAGE_PENS, FarmAction.MANAGE_CATTLE_PHOTOS, FarmAction.VIEW_HEALTH,
             FarmAction.VIEW_REPRODUCTION, FarmAction.VIEW_CARE_CATALOGUES, FarmAction.MANAGE_CARE_CATALOGUES,
@@ -45,7 +45,7 @@ class LocalDevelopmentSeederTest {
             FarmAction.MANAGE_ANNOUNCEMENTS, FarmAction.VIEW_REPORTS
         );
         Set<FarmAction> managerActions = EnumSet.of(
-            FarmAction.SELECT_FARM, FarmAction.VIEW_CATALOGUES, FarmAction.VIEW_CATTLE, FarmAction.MANAGE_CATTLE, FarmAction.MANAGE_GROWTH,
+            FarmAction.SELECT_FARM, FarmAction.VIEW_MEMBERS, FarmAction.VIEW_CATALOGUES, FarmAction.VIEW_CATTLE, FarmAction.MANAGE_CATTLE, FarmAction.MANAGE_GROWTH,
             FarmAction.MANAGE_CATALOGUES, FarmAction.VIEW_PENS, FarmAction.MANAGE_PENS, FarmAction.MANAGE_CATTLE_PHOTOS,
             FarmAction.VIEW_HEALTH, FarmAction.MANAGE_HEALTH, FarmAction.VIEW_REPRODUCTION, FarmAction.MANAGE_REPRODUCTION,
             FarmAction.VIEW_CARE_CATALOGUES, FarmAction.MANAGE_CARE_CATALOGUES, FarmAction.MOVE_CATTLE,

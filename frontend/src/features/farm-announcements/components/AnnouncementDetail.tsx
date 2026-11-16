@@ -3,29 +3,32 @@ import { Icon } from '../../../components/Icon'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Button, Card, Table, Td, Th } from '../../../components/ui'
 import { formatFull, formatTime, ROLE_LABEL } from '../domain/format'
-import type { AnnouncementView } from '../types'
+import type { AnnouncementView, VersionView } from '../types'
 import { RichText } from './shared'
 
-export function AnnouncementDetail({ a, onHistory }: { a: AnnouncementView; onHistory: () => void }) {
+export function AnnouncementDetail({ a, version = a.versions[0], onHistory }: { a: AnnouncementView; version?: VersionView; onHistory: () => void }) {
   const navigate = useNavigate()
   const published = a.state === 'PUBLISHED'
+  const versionIsCurrent = version?.id === a.versions[0]?.id
+  const title = version?.title ?? a.title
+  const body = version?.body ?? a.body
   return (
     <Card>
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="m-0 text-sm font-semibold text-[#212121]">{a.title}</h2>
+            <h2 className="m-0 text-sm font-semibold text-[#212121]">{title}</h2>
             <p className="m-0 mt-1 text-[11px] text-muted">
               {published
-                ? `${a.authorName} · ${ROLE_LABEL[a.authorRole]} · đăng ${formatFull(a.publishedTime!)} · phiên bản ${a.version}`
+                ? `${a.authorName} · ${ROLE_LABEL[a.authorRole]} · đăng ${formatFull(version?.publishedTime ?? a.publishedTime!)} · phiên bản ${version?.versionNo ?? a.versions[0]?.versionNo ?? 1}`
                 : `${a.authorName} · ${ROLE_LABEL[a.authorRole]} · bản nháp, chưa gửi cho ai`}
             </p>
           </div>
           {published ? <Badge tone="ok" icon="circle-check">Đã đăng</Badge> : <Badge tone="outline">Bản nháp</Badge>}
         </div>
-        <RichText text={a.body} />
+        <RichText text={body} />
         <div className="flex flex-wrap items-center gap-2">
-          {a.canCorrect && <Button onClick={() => navigate(`/thong-bao/${a.id}/dinh-chinh`)}><Icon name="pencil" size={16} /> Đính chính</Button>}
+          {a.canCorrect && versionIsCurrent && <Button onClick={() => navigate(`/thong-bao/${a.id}/dinh-chinh`)}><Icon name="pencil" size={16} /> Đính chính</Button>}
           {!published && a.isAuthor && <Button onClick={() => navigate(`/thong-bao/moi?nhap=${a.id}`)}><Icon name="pencil" size={16} /> Sửa bản nháp</Button>}
           {published && a.relatedLink && <Button onClick={() => navigate(a.relatedLink!.to)}>{a.relatedLink.label}</Button>}
           {published && <Button variant="link" size="sm" onClick={onHistory}><Icon name="history" size={16} /> Lịch sử phiên bản →</Button>}

@@ -300,7 +300,7 @@ public class PenService {
             hints.add(new ApiMessage("PEN_MOVE_SUGGESTED", Map.of()));
         }
         BigDecimal weight = receptionCriteria.latestWeightKg(c.getId()).orElse(null);
-        return new PenCattleDTO(c.getId(), c.getDisplayCode(), c.getEarTagNumber(), c.getName(), c.getSex(), c.getLifeStage(), a.getFromDate(), weight, exitPending, hints);
+        return new PenCattleDTO(c.getId(), c.getVersion(), c.getDisplayCode(), c.getEarTagNumber(), c.getName(), c.getSex(), c.getLifeStage(), a.getFromDate(), weight, exitPending, hints);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------

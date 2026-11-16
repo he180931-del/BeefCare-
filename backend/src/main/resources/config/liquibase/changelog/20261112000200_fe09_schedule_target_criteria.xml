@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261112000200-fe09-schedule-target-criteria" author="beefcare">
+        <!-- GAP-FE09-01 / GBR-41: the target chosen on SCR-32 (pens, herd groups, life stages, added and removed cattle)
+             as JSON, so editing a schedule shows and re-resolves the same selection. Schedules saved before this change
+             keep a null value; their target is the cattle that have doses. -->
+        <addColumn tableName="vaccination_schedule">
+            <column name="target_criteria" type="${clobType}"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

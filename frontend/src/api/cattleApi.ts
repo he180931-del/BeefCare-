@@ -1,11 +1,13 @@
 import { createCollection } from './client'
-import { MANAGER, TODAY, initialCows, newQrCode, type CowSeed } from '../data/cowsData'
+import { MANAGER, TODAY, initialCows, type CowSeed } from '../data/cowsData'
 import { dm, dmy } from '../data/format'
 import { moveCattle, pens } from './herdDomainApi'
 import { cattleSchema } from './collectionSchemas'
 import { backendFarmId, backendMode, backendTransport } from './backendTransport'
 import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
 import type { Cattle, CattleEvent, Pen, QrHistoryRow, Tone } from '../types'
+import { readDemoCattlePhoto, saveDemoCattlePhoto } from './demoCattlePhotos'
+import { toFarmLocal } from './farmTimeZone'
 
 // Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
 const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
@@ -39,8 +41,8 @@ export const listBarns = () => backendMode === 'backend' ? backendApi.pens() : p
 /** Hồ sơ một bò kèm danh sách chuồng (để hiển thị tiêu chí và sức chứa). */
 export async function loadProfile(code: string): Promise<{ cow: CowSeed; barns: Pen[] }> {
   if (backendMode === 'backend') return backendApi.profile(code)
-  const [cow, barnRows] = await Promise.all([cattle.get(code), pens.list()])
-  return { cow: asCowSeed(cow), barns: barnRows }
+  const [cow, barnRows, photo] = await Promise.all([cattle.get(code), pens.list(), readDemoCattlePhoto(code)])
+  return { cow: photo === undefined ? asCowSeed(cow) : { ...asCowSeed(cow), photoUrl: photo ?? undefined }, barns: barnRows }
 }
 
 type BackendMutationContext = {
@@ -114,15 +116,20 @@ export async function moveBarn(code: string, { to, date, reason, by }: { to: str
   })
 }
 
-/** A4: replace or remove the cattle photo (backend only; the local demo keeps the placeholder). */
-export const uploadCattlePhoto = (context: BackendMutationContext, file: File) =>
-  backendMode === 'backend' && context.backendId != null && context.backendVersion != null
-    ? backendApi.uploadPhoto(context.backendId, file, context.backendVersion)
-    : Promise.resolve(null)
-export const removeCattlePhoto = (context: BackendMutationContext) =>
-  backendMode === 'backend' && context.backendId != null && context.backendVersion != null
-    ? backendApi.removePhoto(context.backendId, context.backendVersion)
-    : Promise.resolve(null)
+/** A4 uses the private upload endpoint. The offline demo persists photos on this browser. */
+export async function saveCattlePhoto(code: string, context: BackendMutationContext, file: File | null) {
+  if (backendMode === 'backend') {
+    if (context.backendId == null || context.backendVersion == null) throw new Error('Vui lòng tải lại hồ sơ trước khi lưu ảnh.')
+    return file
+      ? backendApi.uploadPhoto(context.backendId, file, context.backendVersion)
+      : backendApi.removePhoto(context.backendId, context.backendVersion)
+  }
+  if ((await getActiveCow(code)).exitPending) throw new Error('Bò đang chờ xuất đàn. Hồ sơ chỉ có thể xem.')
+  const photo = file && !file.type
+    ? file.slice(0, file.size, /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg')
+    : file
+  return saveDemoCattlePhoto(code, photo)
+}
 export const resolveScannedCode = (code: string) => backendApi.resolveCode(code)
 
 export const checkPenMove = (code: string, { date, toPenId }: { date: string; toPenId: number }, context: { backendId?: number } = {}): Promise<PenMoveCheck | null> => {
@@ -131,7 +138,8 @@ export const checkPenMove = (code: string, { date, toPenId }: { date: string; to
 }
 
 export async function reissueQr(code: string, { reason, note, by, tagCode }: { reason: string; note: string; by: string; tagCode?: string }, context: BackendMutationContext = {}) {
-  if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
+  if (backendMode === 'backend') {
+    if (context.backendId == null || context.backendVersion == null) throw new Error('Vui lòng tải lại hồ sơ trước khi cấp thẻ.')
     // Cấp lần đầu không gửi lý do (UC-04 AF1); thay thẻ gửi LOST / DAMAGED / OTHER.
     const replacementReason = ['LOST', 'DAMAGED', 'OTHER'].includes(reason)
       ? reason as 'LOST' | 'DAMAGED' | 'OTHER'
@@ -144,13 +152,19 @@ export async function reissueQr(code: string, { reason, note, by, tagCode }: { r
     })
   }
   const cow = await getActiveCow(code)
-  const newCode = newQrCode({ code: cow.code, qrHistory: cow.qrHistory ?? [] })
-  const change = event('qr', `${TODAY}T08:00`, 'Cấp lại thẻ QR', { label: 'Thực tế', tone: 'ok' }, note || reason, `Hiệu lực ${dm(TODAY)} · ghi ${dm(TODAY)} · ${by}`)
+  if (cow.exitPending) throw new Error('Bò đang chờ xuất đàn. Hồ sơ chỉ có thể xem.')
+  const newCode = tagCode?.trim() || `QR-${Array.from(crypto.getRandomValues(new Uint8Array(12)), (byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()}`
+  if (tagCode && (await cattle.list()).some((row) => row.qr === newCode || row.qrHistory?.some((tag) => tag.code === newCode))) {
+    throw new Error('Mã thẻ này đã được dùng. Vui lòng nhập mã khác hoặc để hệ thống tạo.')
+  }
+  const at = toFarmLocal(new Date().toISOString())
+  const issuedOn = dmy(at.slice(0, 10))
+  const change = event('qr', at, reason ? 'Cấp lại thẻ QR' : 'Cấp thẻ QR', { label: 'Thực tế', tone: 'ok' }, note || reason, `Ghi ${issuedOn} · ${by}`)
   return cattle.update(code, {
     qr: newCode,
     qrHistory: [
-      { code: newCode, status: 'ACTIVE', from: '10/2026', to: '—', reason, by },
-      ...(cow.qrHistory ?? []).map((q): QrHistoryRow => (q.status === 'ACTIVE' ? { ...q, status: 'REPLACED', to: '10/2026' } : q)),
+      { code: newCode, status: 'ACTIVE', from: issuedOn, to: '—', reason: reason || 'Cấp lần đầu', note, by },
+      ...(cow.qrHistory ?? []).map((q): QrHistoryRow => (q.status === 'ACTIVE' ? { ...q, status: 'REPLACED', to: issuedOn, reason } : q)),
     ],
     events: [change, ...(cow.events ?? [])],
   })

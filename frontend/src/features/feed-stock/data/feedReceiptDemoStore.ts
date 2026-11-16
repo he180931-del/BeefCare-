@@ -769,7 +769,7 @@ function validateFeedingDraft(input: FeedFeedingDraftInput, state: FeedReceiptDe
   if (!pen) throw new Error('Chọn chuồng đang hoạt động.')
   if (![1, 2, 3].includes(input.sessionNo)) throw new Error('Chọn cữ cho ăn hợp lệ.')
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(input.time)) throw new Error('Nhập giờ theo định dạng giờ:phút.')
-  if (!input.fedBy.trim() || input.fedBy.trim().length > 100) throw new Error('Nhập người cho ăn, tối đa 100 ký tự.')
+  if (!input.fedBy?.trim() || input.fedBy.trim().length > 100) throw new Error('Nhập người cho ăn, tối đa 100 ký tự.')
   if (input.note.length > 500) throw new Error('Ghi chú tối đa 500 ký tự.')
   if (input.leftoverKg !== null && (!Number.isFinite(input.leftoverKg) || input.leftoverKg < 0 || !isOneDecimal(input.leftoverKg))) {
     throw new Error('Thức ăn thừa phải là số kg không âm, tối đa một chữ số thập phân.')
@@ -857,7 +857,7 @@ async function recordFeeding(input: FeedFeedingDraftInput): Promise<FeedFeedingR
       rationVersion: input.rationVersion ?? null,
       status: 'VALID',
       version: 0,
-      fedBy: input.fedBy.trim(),
+      fedBy: input.fedBy?.trim() ?? 'Người ghi',
       recordedAt: localNowIso(),
       leftoverKg: input.leftoverKg,
       note: input.note.trim(),

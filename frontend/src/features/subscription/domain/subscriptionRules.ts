@@ -98,6 +98,7 @@ export function stateFromError(e: unknown): StateDialogState | null {
     case 'PRICE_CHANGED': return d.seen && d.current ? { kind: 'price-changed', seen: d.seen, current: d.current } : null
     case 'PRICE_UNAVAILABLE': return { kind: 'price-unavailable' }
     case 'RESULT_UNAVAILABLE': return d.payment ? { kind: 'result-unavailable', payment: d.payment, checkedAt: d.checkedAt ?? '' } : null
+    case 'CANCEL_BLOCKED': return { kind: 'cancel-blocked', code: d.code ?? '', receivedAt: d.receivedAt ?? null }
     default: return null
   }
 }

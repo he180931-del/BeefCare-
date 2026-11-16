@@ -3,7 +3,8 @@ import { daysFromToday } from './feedDemoDates'
 import type { FeedRation, FeedRationComponent } from '../types/feedRation'
 
 /** Synthetic rows for local demos only; the rations and costs follow the Khẩu phần frames. */
-export const rationStatusForDate = (row: Pick<FeedRation, 'effectiveFrom' | 'effectiveTo'>, today = daysFromToday(0)) => {
+export const rationStatusForDate = (row: Pick<FeedRation, 'effectiveFrom' | 'effectiveTo'> & Partial<Pick<FeedRation, 'status'>>, today = daysFromToday(0)) => {
+  if (row.status === 'CANCELLED') return 'CANCELLED'
   if (row.effectiveFrom > today) return 'SCHEDULED'
   if (row.effectiveTo && row.effectiveTo < today) return 'ENDED'
   return 'EFFECTIVE'
@@ -28,7 +29,7 @@ function ration(id: number, rationCode: string, versionNo: number, name: string,
   const effectiveFrom = daysFromToday(from)
   const effectiveTo = to === null ? null : daysFromToday(to)
   return {
-    id, rationCode, versionNo, name, herdGroup, basis, effectiveFrom, effectiveTo,
+    id, rationCode, version: 0, versionNo, name, herdGroup, basis, effectiveFrom, effectiveTo,
     status: rationStatusForDate({ effectiveFrom, effectiveTo }),
     sessionsPerDay: 2, sessionTimes: ['06:30', '16:30'], penIds, components,
   }
@@ -43,7 +44,7 @@ export const FEED_RATION_MOCK: FeedRation[] = [
   ration(8006, 'KP-06', 1, 'Vỗ béo giai đoạn đầu', 'FATTENING', 'Khẩu phần giai đoạn đầu', -143, -38, [4], [component(101, 3, 3), component(104, 2, 2), component(106, 0.25, 0.25)]),
 ]
 
-export type FeedRationStatusFilter = 'CURRENT' | 'ENDED' | 'ALL'
+export type FeedRationStatusFilter = 'CURRENT' | 'ENDED' | 'CANCELLED' | 'ALL'
 export type FeedRationFilters = {
   query?: string
   status?: FeedRationStatusFilter
@@ -58,9 +59,11 @@ export function filterFeedRations(rows: readonly FeedRation[], filters: FeedRati
     const status = row.status
     const statusMatches = filters.status === 'ENDED'
       ? status === 'ENDED'
-      : filters.status === 'ALL'
-        ? true
-        : status === 'EFFECTIVE' || status === 'SCHEDULED'
+      : filters.status === 'CANCELLED'
+        ? status === 'CANCELLED'
+        : filters.status === 'ALL'
+          ? true
+          : status === 'EFFECTIVE' || status === 'SCHEDULED'
     const groupMatches = !filters.herdGroup || filters.herdGroup === 'ALL' || row.herdGroup === filters.herdGroup
     const fromMatches = !filters.from || row.effectiveFrom >= filters.from
     const toMatches = !filters.to || row.effectiveFrom <= filters.to

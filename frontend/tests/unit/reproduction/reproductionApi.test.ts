@@ -142,11 +142,17 @@ describe('reproduction mock API boundary', () => {
       recordEvent: vi.fn(), recordCalving: vi.fn(), correctEvent: vi.fn(), voidEvent: vi.fn(),
       correctCalving: vi.fn(), voidCalving: vi.fn(), voidCalf: vi.fn(), reset: vi.fn(),
     }
-    const api = createReproductionApi({ mode: 'backend', farmId: 1, transport, store })
+    const backend: BackendTransport = {
+      get: vi.fn(async (path: string) => (path.endsWith('/context') ? { timeZone: 'Asia/Ho_Chi_Minh' } : { tiles: {}, counts: {}, items: [] })),
+      command: vi.fn(),
+      farmPath: vi.fn((farmId, suffix = '') => `/api/farms/${farmId}${suffix}`),
+    }
+    const api = createReproductionApi({ mode: 'backend', farmId: 1, transport: backend, store })
 
-    await expect(api.listWorklist()).rejects.toThrow('Chưa tích hợp dữ liệu sinh sản với backend.')
+    expect(await api.listWorklist()).toEqual([])
+    expect(backend.get).toHaveBeenCalledWith('/api/farms/1/reproduction-worklist?tab=ALL')
     expect(store.list).not.toHaveBeenCalled()
-    expect(transport.get).not.toHaveBeenCalled()
-    expect(transport.command).not.toHaveBeenCalled()
+    await expect(api.resetDemo()).rejects.toThrow('Chế độ backend không có dữ liệu minh họa')
+    expect(store.reset).not.toHaveBeenCalled()
   })
 })

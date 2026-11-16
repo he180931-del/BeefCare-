@@ -12,6 +12,7 @@ import { createAndPostFeedReceipt, downloadFeedReceiptAttachment, downloadFeedRe
 import {
   blankFeedReceiptLine,
   initialFeedReceiptForm,
+  minimumExpiryDate,
   todayIso,
   toFeedReceiptDraftInput,
   validateFeedReceiptForm,
@@ -429,7 +430,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
           >
             <Table scroll stack={false}>
               <thead>
-                <tr><Th>#</Th><Th>Thức ăn</Th><Th className="whitespace-nowrap">Số lô · HSD</Th><Th className="whitespace-nowrap">Số lượng</Th><Th className="whitespace-nowrap">Đơn vị</Th><Th className="whitespace-nowrap">Quy đổi</Th><Th className="whitespace-nowrap">Đơn giá</Th><Th className="whitespace-nowrap">Thành tiền</Th>{!readOnly && <Th aria-label="Xóa" />}</tr>
+                <tr><Th>#</Th><Th>Thức ăn</Th><Th className="whitespace-nowrap">Số lô · Hạn sử dụng</Th><Th className="whitespace-nowrap">Số lượng</Th><Th className="whitespace-nowrap">Đơn vị</Th><Th className="whitespace-nowrap">Quy đổi</Th><Th className="whitespace-nowrap">Đơn giá</Th><Th className="whitespace-nowrap">Thành tiền</Th>{!readOnly && <Th aria-label="Xóa" />}</tr>
               </thead>
               <tbody>
                 {values.lines.map((line, index) => {
@@ -453,11 +454,12 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                       </Td>
                       <Td className="min-w-[120px]">
                         {readOnly
-                          ? <><div className="font-medium">{line.lotNumber || '—'}</div>{line.expiryDate && <div className="whitespace-nowrap text-[11px] text-muted">HSD {formatDate(line.expiryDate)}</div>}</>
+                          ? <><div className="font-medium">{line.lotNumber || '—'}</div>{line.expiryDate && <div className="whitespace-nowrap text-[11px] text-muted">Hạn sử dụng {formatDate(line.expiryDate)}</div>}</>
                           : (
                             <div className="flex flex-col gap-1">
                               <input aria-label={`Số lô dòng ${lineNumber}`} placeholder="Số lô" maxLength={30} value={line.lotNumber} onChange={(event) => updateLine(index, 'lotNumber', event.target.value)} className="h-8 w-full rounded-lg border border-field bg-white px-2 text-xs outline-none focus:border-brand" />
-                              <input aria-label={`Hạn sử dụng dòng ${lineNumber}`} type="date" min={values.receiptDate} value={line.expiryDate} onChange={(event) => updateLine(index, 'expiryDate', event.target.value)} className="h-8 w-full rounded-lg border border-field bg-white px-2 text-xs outline-none focus:border-brand" />
+                              <input aria-label={`Hạn sử dụng dòng ${lineNumber}`} title="Hạn sử dụng phải sau ngày nhập kho" type="date" min={minimumExpiryDate(values.receiptDate)} value={line.expiryDate} onClick={(event) => event.currentTarget.showPicker?.()} onChange={(event) => updateLine(index, 'expiryDate', event.target.value)} className="h-8 w-full rounded-lg border border-field bg-white px-2 text-xs outline-none focus:border-brand" />
+                              {line.expiryDate && line.expiryDate <= values.receiptDate && <span className="text-[11px] text-err-fg">Hạn sử dụng phải sau ngày nhập kho.</span>}
                             </div>
                           )}
                       </Td>

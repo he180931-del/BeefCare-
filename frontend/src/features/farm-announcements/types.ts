@@ -6,7 +6,7 @@ export interface Member { id: number; name: string; role: AnnouncementRole; acti
 /** Người đang xem, lấy từ phiên đăng nhập. Mock tìm thành viên theo tên, không khớp thì lấy theo vai trò. */
 export interface Viewer { name: string; role: AnnouncementRole }
 
-/** `memberIds` không có trong DraftRequest của OpenAPI (chỉ có recipientRoles); cần bổ sung khi nối backend. */
+/** Named IDs are FarmMembership IDs, matching Member.id returned by the farm-scoped recipient options API. */
 export interface AudienceSelection { allManagers: boolean; allTechnicians: boolean; memberIds: number[] }
 
 export interface DraftCommand { id?: number; title: string; body: string; audience: AudienceSelection; expectedVersion?: number }
@@ -53,12 +53,17 @@ export interface AnnouncementView {
   relatedLink: { label: string; to: string } | null
   unread: boolean
   readTime: string | null
+  /** Current announcement-delivery ID for the signed-in recipient; null for authors and drafts. */
+  myDeliveryId: number | null
   isAuthor: boolean
+  isReceived: boolean
   canCorrect: boolean
 }
 
 export interface AnnouncementSummary {
   id: number
+  /** ID của phiên bản hiển thị mới nhất; notification targets version IDs, not announcement IDs. */
+  latestVersionId: number | null
   title: string
   state: AnnouncementState
   authorName: string

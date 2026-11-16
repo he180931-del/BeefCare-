@@ -22,6 +22,8 @@ export interface EvidenceDetail {
 }
 export interface PaymentRead extends SourcePayment {
   evidenceId: number | null; confirmedAt: string | null; confirmationSource: string | null; bankPaidAt: string | null; receivedAt: string | null
+  /** D38: set when the Owner cancelled the request. */
+  cancelledAt: string | null; cancelReason: string | null
 }
 export interface CandidateRead {
   paymentId: number; quoteRef: string; farmId: number; farmName: string; amount: number; termYears: number; expiresAt: string; accountNamespace: string
@@ -42,6 +44,7 @@ const statuses = ['TO_REVIEW', 'HOLD', 'REJECTED', 'ACCEPTED', 'LOCKED', 'PROCES
 export const MATCH_TEXT: Record<string, string> = {
   PAID_AUTO: 'Tự động xác nhận · PAID', PAID_PM: 'PM xác nhận · PAID', PAID: 'Đã xác nhận · PAID', EXACT_CODE: 'Khớp mã · chờ xác nhận',
   CODE_MISMATCH: 'Mã không khớp', NO_REQUEST: 'Không có yêu cầu', REQUEST_EXPIRED: 'Giờ ngân hàng sau hạn yêu cầu',
+  REQUEST_CANCELLED: 'Giờ ngân hàng sau lúc Owner hủy yêu cầu',
   OUTSIDE_WINDOW: 'Giờ ngân hàng trước yêu cầu', AMOUNT_MISMATCH: 'Sai số tiền', OUTGOING: 'Chuyển ra', ACCOUNT_MISMATCH: 'Sai tài khoản nhận', ALREADY_ALLOCATED: 'Yêu cầu đã có chứng từ',
 }
 export const REVIEW_TEXT: Record<string, string> = { TO_REVIEW: 'Cần xem', HOLD: 'Tạm giữ', REJECTED: 'Từ chối', ACCEPTED: 'Đã chấp nhận', LOCKED: 'Khóa hoàn trả', PROCESSING: 'Đang xử lý', NO_ACTION: 'Không cần xử lý' }
@@ -84,10 +87,11 @@ function evidenceRow(value: unknown): EvidenceRow {
 function payment(value: unknown): PaymentRead {
   const p = asRecord(value)
   if (!id(p.id) || !id(p.farmId) || !text(p.farmName) || !text(p.quoteRef) || ![1, 2, 3].includes(p.termYears as number)
-    || !money(p.amount) || !['PENDING', 'PAID', 'EXPIRED'].includes(p.state as string) || !instant(p.requestedAt) || !instant(p.expiresAt)
+    || !money(p.amount) || !['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(p.state as string) || !instant(p.requestedAt) || !instant(p.expiresAt)
     || !nullableInstant(p.purchasedStart) || !nullableInstant(p.purchasedEnd) || !nullableText(p.receiptCode) || !nullableText(p.requestedByEmail)
     || !id(p.priceVersionId) || !nullableId(p.evidenceId) || !nullableInstant(p.confirmedAt) || !nullableText(p.confirmationSource)
-    || !nullableInstant(p.bankPaidAt) || !nullableInstant(p.receivedAt)) throw invalid()
+    || !nullableInstant(p.bankPaidAt) || !nullableInstant(p.receivedAt) || !nullableInstant(p.cancelledAt ?? null)
+    || !nullableText(p.cancelReason ?? null)) throw invalid()
   return {
     id: p.id, farmId: p.farmId, farmName: p.farmName as string, quoteRef: p.quoteRef as string,
     termYears: p.termYears as 1 | 2 | 3, amount: p.amount as number, state: p.state as PaymentRead['state'],
@@ -97,6 +101,7 @@ function payment(value: unknown): PaymentRead {
     evidenceId: p.evidenceId as number | null, confirmedAt: p.confirmedAt as string | null,
     confirmationSource: p.confirmationSource as string | null, bankPaidAt: p.bankPaidAt as string | null,
     receivedAt: p.receivedAt as string | null,
+    cancelledAt: (p.cancelledAt ?? null) as string | null, cancelReason: (p.cancelReason ?? null) as string | null,
   }
 }
 function readPage<T>(value: unknown, parse: (v: unknown) => T): ReadPage<T> {

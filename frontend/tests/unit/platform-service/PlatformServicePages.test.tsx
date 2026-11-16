@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -83,16 +83,23 @@ describe('SCR-12 dịch vụ trang trại', () => {
 
 describe('SCR-61 gói đăng ký', () => {
   it('selects a farm, shows the empty subscription note and opens the periods dialog', async () => {
-    const user = userEvent.setup()
-    renderAt(<PlatformSubscriptionRoutes />, '/nen-tang/goi-dang-ky')
-    expect(await screen.findByText('Kỳ đã mua và thanh toán nguồn')).toBeInTheDocument()
-    expect(screen.queryByText(/SUB-0048/)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Trại Tản Lĩnh/ }))
-    expect(await screen.findByText('Chưa có gói: không có kỳ hay ngày kết thúc.')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Trại bò Yên Bài/ }))
-    await user.click(await screen.findByRole('button', { name: 'Kỳ hiện tại / tương lai' }))
-    expect(await screen.findByText('Các kỳ đã mua của Yên Bài')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('BCA9X2M1 · 10/11/2025 09:31')).toBeInTheDocument()
+    // The fixture period ends in November 2026; keep its "current period" test independent of the day the suite runs.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T02:00:00Z'))
+    try {
+      const user = userEvent.setup()
+      renderAt(<PlatformSubscriptionRoutes />, '/nen-tang/goi-dang-ky')
+      expect(await screen.findByText('Kỳ đã mua và thanh toán nguồn')).toBeInTheDocument()
+      expect(screen.queryByText(/SUB-0048/)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /Trại Tản Lĩnh/ }))
+      expect(await screen.findByText('Chưa có gói: không có kỳ hay ngày kết thúc.')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /Trại bò Yên Bài/ }))
+      await user.click(await screen.findByRole('button', { name: 'Kỳ hiện tại / tương lai' }))
+      expect(await screen.findByText('Các kỳ đã mua của Yên Bài')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('BCA9X2M1 · 10/11/2025 09:31')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

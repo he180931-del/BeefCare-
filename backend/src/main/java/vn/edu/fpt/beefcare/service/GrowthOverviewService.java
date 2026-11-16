@@ -17,7 +17,12 @@ public class GrowthOverviewService {
     public record Row(Long cattleId,String code,String earTag,String breed,Sex sex,LifeStage lifeStage,String herdGroup,
         Long penId,String penCode,String penName,BigDecimal weightKg,String basis,LocalDate weighedOn,BigDecimal adg,
         BigDecimal penAverageAdg,BigDecimal bcs,LocalDate nextWeighing,List<String> flags) {}
-    public record Page(List<Row> items,long total,int page,int size,Map<String,Long> summary,int windowDays) {}
+    /**
+     * {@code activeCount} (GAP-FE08-03): ACTIVE cattle of the whole farm, independent of the filters; {@code total} is after filtering.
+     * Schema name GrowthHerdPage: the plain name Page is shared by several list DTOs in the OpenAPI contract.
+     */
+    @io.swagger.v3.oas.annotations.media.Schema(name = "GrowthHerdPage")
+    public record Page(List<Row> items,long total,int page,int size,Map<String,Long> summary,int windowDays,long activeCount) {}
     private final EntityManager em;private final FarmAccessService access;private final GrowthAssessmentService growth;
     private final CattleProfileService profiles;private final FarmClock clock;
     public GrowthOverviewService(EntityManager em,FarmAccessService access,GrowthAssessmentService growth,CattleProfileService profiles,FarmClock clock) {
@@ -66,6 +71,6 @@ public class GrowthOverviewService {
             default->throw DomainException.invalid("sort");
         };
         rows.sort(desc?comparator.reversed():comparator);int start=Math.min(page*size,rows.size());
-        return new Page(List.copyOf(rows.subList(start,Math.min(start+size,rows.size()))),rows.size(),page,size,counts,window);
+        return new Page(List.copyOf(rows.subList(start,Math.min(start+size,rows.size()))),rows.size(),page,size,counts,window,all.size());
     }
 }

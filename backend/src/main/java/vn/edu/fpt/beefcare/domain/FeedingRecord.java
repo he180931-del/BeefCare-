@@ -5,9 +5,11 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.math.BigDecimal;
 
 @Entity
-@Table(name="feeding_record",uniqueConstraints=@UniqueConstraint(name="uq_feeding_session",columnNames={"farm_id","pen_id","feeding_date","session_no"}))
+@Table(name="feeding_record")
 public class FeedingRecord implements Serializable {
     @Serial private static final long serialVersionUID=1L;
     @Id @GeneratedValue(strategy=GenerationType.SEQUENCE,generator="sequenceGenerator") @SequenceGenerator(name="sequenceGenerator") private Long id;
@@ -17,6 +19,9 @@ public class FeedingRecord implements Serializable {
     @Column(name="feeding_date",nullable=false) private LocalDate feedingDate;
     @Column(name="session_no",nullable=false) private Integer sessionNo;
     @Column(name="head_count",nullable=false) private Integer headCount;
+    @Column(name="feeding_time") private LocalTime feedingTime;
+    @Column(name="leftover_kg",precision=14,scale=3) private BigDecimal leftoverKg;
+    @Column(name="note",length=500) private String note;
     @Column(name="fed_by",length=100) private String fedBy;
     @Column(name="status",length=20,nullable=false) private String status="VALID";
     @Column(name="void_reason",length=500) private String voidReason;
@@ -28,6 +33,7 @@ public class FeedingRecord implements Serializable {
     public Long getId(){return id;} public Farm getFarm(){return farm;} public void setFarm(Farm v){farm=v;} public Pen getPen(){return pen;} public void setPen(Pen v){pen=v;}
     public FeedRationVersion getRationVersion(){return rationVersion;} public void setRationVersion(FeedRationVersion v){rationVersion=v;} public LocalDate getFeedingDate(){return feedingDate;} public void setFeedingDate(LocalDate v){feedingDate=v;}
     public Integer getSessionNo(){return sessionNo;} public void setSessionNo(Integer v){sessionNo=v;} public Integer getHeadCount(){return headCount;} public void setHeadCount(Integer v){headCount=v;}
+    public LocalTime getFeedingTime(){return feedingTime;} public void setFeedingTime(LocalTime v){feedingTime=v;} public BigDecimal getLeftoverKg(){return leftoverKg;} public void setLeftoverKg(BigDecimal v){leftoverKg=v;} public String getNote(){return note;} public void setNote(String v){note=v;}
     public String getFedBy(){return fedBy;} public void setFedBy(String v){fedBy=v;} public String getStatus(){return status;} public void setStatus(String v){status=v;} public String getVoidReason(){return voidReason;} public void setVoidReason(String v){voidReason=v;}
     public AppUser getRecordedBy(){return recordedBy;} public void setRecordedBy(AppUser v){recordedBy=v;} public Instant getRecordedAt(){return recordedAt;} public void setRecordedAt(Instant v){recordedAt=v;}
     public AppUser getVoidedBy(){return voidedBy;} public void setVoidedBy(AppUser v){voidedBy=v;} public Instant getVoidedAt(){return voidedAt;} public void setVoidedAt(Instant v){voidedAt=v;} public Integer getVersion(){return version;}

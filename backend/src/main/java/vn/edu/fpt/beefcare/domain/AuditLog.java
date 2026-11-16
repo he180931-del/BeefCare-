@@ -49,6 +49,32 @@ public class AuditLog implements Serializable {
     @JoinColumn(name = "farm_id")
     private Farm farm;
 
+    /** The actor's role when the change was made (SA, PM, CS, OWNER, MANAGER, TECHNICIAN); empty for system actions. */
+    @Size(max = 30)
+    @Column(name = "actor_role", length = 30)
+    private String actorRole;
+
+    /** Links the entry to the request or job run and its log lines (§3.2 J). */
+    @Size(max = 64)
+    @Column(name = "correlation_id", length = 64)
+    private String correlationId;
+
+    public String getActorRole() {
+        return actorRole;
+    }
+
+    public void setActorRole(String actorRole) {
+        this.actorRole = actorRole;
+    }
+
+    public String getCorrelationId() {
+        return correlationId;
+    }
+
+    public void setCorrelationId(String correlationId) {
+        this.correlationId = correlationId;
+    }
+
     public Long getId() {
         return id;
     }

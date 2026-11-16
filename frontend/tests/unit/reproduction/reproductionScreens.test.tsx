@@ -131,6 +131,21 @@ describe('calving page (frames 2617:10907, 2617:11217)', () => {
     expect(screen.getAllByText(/QR-6701-0249/).length).toBeGreaterThan(0)
   })
 
+  it('FE-12 Q5 / D36: registers a calf now without a tag; the hint says the code is given when the entry voucher is posted', async () => {
+    const user = userEvent.setup()
+    calvingAt()
+    const group = await screen.findByRole('group', { name: 'Bê số 1' })
+    await user.click(within(group).getByRole('radio', { name: 'Đăng ký ngay' }))
+    expect(within(group).getByText('Mã thẻ tai / QR')).toBeInTheDocument()
+    expect(within(group).queryByText('Mã thẻ tai / QR *')).not.toBeInTheDocument()
+    expect(within(group).getByText(/Để trống thì hệ thống cấp mã khi ghi sổ phiếu nhập bê/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lưu sự kiện đẻ' }))
+    expect(await screen.findByRole('heading', { name: 'Hồ sơ bò' })).toBeInTheDocument()
+    const calf = (await reproductionApi.getProfile('BC-000087')).calvings[0]?.calves[0]
+    expect(calf).toMatchObject({ registrationStatus: 'REGISTERED' })
+    expect(calf?.earTag).toMatch(/^BC-\d{6}$/) // local mode gives a code like the backend does when posting
+  })
+
   it('blocks a weight without a basis on the weight field and adds, limits and removes calf blocks', async () => {
     const user = userEvent.setup()
     calvingAt()

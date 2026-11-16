@@ -38,6 +38,55 @@ class OpenApiContractTest {
         assertThat(paths.has("/api/cattle")).isFalse();
         assertThat(paths.has("/api/support-tickets")).isFalse();
         assertThat(api.path("components").path("securitySchemes").has("session")).isTrue();
+        JsonNode schemas = api.path("components").path("schemas");
+        assertThat(schemas.path("RecordFeedingRequest").path("required").toString()).contains("lines");
+        for (String name : java.util.List.of("FeedingVoidRequest", "FeedingCorrectionRequest")) {
+            JsonNode request = schemas.path(name);
+            assertThat(request.path("required").toString()).contains("reason", "expectedVersion");
+            assertThat(request.path("properties").path("reason").path("minLength").asInt()).isEqualTo(5);
+        }
+        assertThat(schemas.path("FeedingCorrectionRequest").path("required").toString()).contains("lines");
+        assertThat(schemas.path("DraftRequest").path("required").toString()).contains("title", "body", "recipientRoles");
+        assertThat(schemas.path("CorrectionRequest").path("required").toString()).contains("title", "body", "reason", "expectedVersion");
+        // D25: a typed client must send a numeric duration, and must collect both required invitation fields.
+        JsonNode invite = api.path("components").path("schemas").path("InviteRequest");
+        assertThat(invite.path("required").toString()).contains("email", "role");
+        JsonNode days = invite.path("properties").path("validityDays");
+        assertThat(allowsNull(days)).isTrue();
+        JsonNode numericDays = days.path("anyOf").get(0);
+        assertThat(numericDays.path("type").asText()).isEqualTo("integer");
+        assertThat(numericDays.path("enum").toString()).isEqualTo("[3,7,14]");
+        assertThat(numericDays.path("default").isNumber()).isTrue();
+        assertThat(numericDays.path("default").asInt()).isEqualTo(7);
+        assertThat(api.path("components").path("schemas").path("InvitationView").path("properties").has("hasAccount")).isTrue();
+        JsonNode invitationList = paths.path("/api/farms/{farmId}/invitations").path("get");
+        assertThat(invitationList.path("responses").path("200").toString()).contains("InvitationPage");
+        assertThat(invitationList.path("parameters").toString()).contains("\"status\"", "\"page\"", "\"size\"", "\"sort\"", "\"dir\"", "\"invitationId\"");
+        // D26: numeric query values are integers with the server defaults; a typed client must not send them as strings.
+        java.util.Map<String, JsonNode> listQuery = new java.util.HashMap<>();
+        invitationList.path("parameters").forEach(parameter -> listQuery.put(parameter.path("name").asText(), parameter.path("schema")));
+        assertThat(listQuery.get("page").path("type").asText()).as("page %s", listQuery.get("page")).isEqualTo("integer");
+        assertThat(listQuery.get("page").path("minimum").asInt()).isZero();
+        assertThat(listQuery.get("page").path("maximum").asLong()).isEqualTo(Integer.MAX_VALUE / 100);
+        assertThat(listQuery.get("page").path("default").isNumber()).as("page default %s", listQuery.get("page")).isTrue();
+        assertThat(listQuery.get("page").path("default").asInt()).isZero();
+        assertThat(listQuery.get("size").path("type").asText()).as("size %s", listQuery.get("size")).isEqualTo("integer");
+        assertThat(listQuery.get("size").path("minimum").asInt()).isEqualTo(1);
+        assertThat(listQuery.get("size").path("maximum").asInt()).isEqualTo(100);
+        assertThat(listQuery.get("size").path("default").isNumber()).as("size default %s", listQuery.get("size")).isTrue();
+        assertThat(listQuery.get("size").path("default").asInt()).isEqualTo(20);
+        assertThat(listQuery.get("invitationId").path("type").asText()).as("invitationId %s", listQuery.get("invitationId")).isEqualTo("integer");
+        assertThat(listQuery.get("invitationId").path("format").asText()).isEqualTo("int64");
+        assertThat(listQuery.get("invitationId").path("minimum").asInt()).isEqualTo(1);
+        assertThat(listQuery.get("sort").path("default").asText()).as("sort %s", listQuery.get("sort")).isEqualTo("lastSentAt");
+        assertThat(listQuery.get("dir").path("enum").toString()).isEqualTo("[\"asc\",\"desc\"]");
+        assertThat(listQuery.get("dir").path("default").asText()).as("dir %s", listQuery.get("dir")).isEqualTo("desc");
+        assertThat(listQuery.get("status").path("default").isMissingNode()).as("status has no default: absent means every state").isTrue();
+        JsonNode invitationPage = api.path("components").path("schemas").path("InvitationPage");
+        assertThat(invitationPage.path("required").toString()).contains("items", "counts", "total", "page", "size", "asOf");
+        JsonNode invitationFields = api.path("components").path("schemas").path("InvitationView");
+        assertThat(invitationFields.path("required").toString()).contains("id", "email", "role", "status", "createdAt", "lastSentAt", "expiresAt", "validityDays", "version", "hasAccount");
+        assertThat(invitationFields.path("properties").path("status").path("enum").toString()).contains("PENDING", "ACCEPTED", "EXPIRED", "CANCELLED");
         JsonNode overview = api.path("components").path("schemas").path("SubscriptionOverview");
         assertThat(overview.path("properties").size()).isEqualTo(15);
         for (String field : java.util.List.of("farmName", "suspended", "suspendedSince", "currentPeriod", "daysRemaining", "futurePeriods", "periods", "eligibility")) {

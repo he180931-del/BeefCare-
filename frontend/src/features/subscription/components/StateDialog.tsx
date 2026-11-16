@@ -66,6 +66,13 @@ function build(state: StateDialogState, h: Handlers): Built {
         facts: [['Trạng thái gần nhất', <PaymentBadge key="s" state={state.payment.state} />], ['Kiểm tra lúc', state.checkedAt ? fmtDateTime(state.checkedAt) : '—']],
         actions: [{ label: 'Về lịch sử', icon: 'arrow-left', onClick: h.history }, { label: 'Thử lại', icon: 'refresh', primary: true, onClick: h.reload }],
       }
+    case 'cancel-blocked':
+      // MSG-FE19-19 (D38)
+      return {
+        title: 'Không hủy được yêu cầu', sub: state.code,
+        text: `Yêu cầu ${state.code} đã nhận giao dịch ngân hàng${state.receivedAt ? ` lúc ${fmtDateTime(state.receivedAt)}` : ''} nên không hủy được nữa. Giao dịch đang được xác nhận hoặc chờ đối soát.`,
+        actions: [{ label: 'Đóng', onClick: h.close }, { label: 'Gửi yêu cầu hỗ trợ', icon: 'send', primary: true, onClick: h.support }],
+      }
   }
 }
 

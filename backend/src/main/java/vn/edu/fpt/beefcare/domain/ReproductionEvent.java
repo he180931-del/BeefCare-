@@ -97,6 +97,17 @@ public class ReproductionEvent implements Serializable {
     @Size(max = 100) @Column(name = "semen_batch", length = 100) private String semenBatch;
     @Size(max = 255) @Column(name = "supplier", length = 255) private String supplier;
     @Column(name = "tentative_expected_calving_date") private LocalDate tentativeExpectedCalvingDate;
+    /** FE-11/12 P1: the observer / performer / examiner when they are a farm member; the text columns keep external names. */
+    @com.fasterxml.jackson.annotation.JsonIgnore @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "observer_id") private AppUser observerUser;
+    @com.fasterxml.jackson.annotation.JsonIgnore @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "performer_id") private AppUser performerUser;
+    @com.fasterxml.jackson.annotation.JsonIgnore @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "examiner_id") private AppUser examinerUser;
+
+    public AppUser getObserverUser() { return observerUser; }
+    public void setObserverUser(AppUser observerUser) { this.observerUser = observerUser; }
+    public AppUser getPerformerUser() { return performerUser; }
+    public void setPerformerUser(AppUser performerUser) { this.performerUser = performerUser; }
+    public AppUser getExaminerUser() { return examinerUser; }
+    public void setExaminerUser(AppUser examinerUser) { this.examinerUser = examinerUser; }
 
     @ManyToOne(optional = false)
     @NotNull

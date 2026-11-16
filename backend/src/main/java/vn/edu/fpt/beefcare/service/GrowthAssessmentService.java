@@ -40,14 +40,17 @@ public class GrowthAssessmentService {
         g.setCorrectionReason(request.reason());
         revisions.record(ctx,"GROWTH_ASSESSMENT",id,request.action(),request.reason(),before,dto(g));
         audit.log(ctx,"GROWTH_CORRECT","Growth",id,Map.of("action",request.action()));
-        outbox.enqueue(farmId,"GROWTH_CORRECTED","Growth",id,Map.of("cattleId",cattleId));em.flush();return dto(g);
+        outbox.enqueue(farmId,"GROWTH_CORRECTED","Growth",id,Map.of("cattleId",cattleId));em.flush();
+        return dto(g).withRevisions(revisionsOf(farmId,List.of(id)).getOrDefault(id,List.of()));
     }
     @Transactional(readOnly=true) public GrowthDtos.Summary history(Long farmId,Long cattleId,int window) {
         access.require(farmId,FarmAction.VIEW_CATTLE);Cattle c=em.find(Cattle.class,cattleId);
         if(c==null || !farmId.equals(c.getFarm().getId()))throw DomainException.notFound(MessageCodes.COM_08);
-        return summary(c,window);
+        return summary(c,window,true);
     }
-    public GrowthDtos.Summary summary(Cattle c,int window) {
+    public GrowthDtos.Summary summary(Cattle c,int window) {return summary(c,window,false);}
+    /** {@code withRevisions}: load the correction history of every record (single-cattle view only, one query). */
+    public GrowthDtos.Summary summary(Cattle c,int window,boolean withRevisions) {
         if(!Set.of(30,60,90,180).contains(window))throw DomainException.invalid("windowDays");
         LocalDate today=LocalDate.now(clockInstantClock(c));
         List<Growth> all=em.createQuery("select g from Growth g where g.cattle.id=:c order by g.checkDate,g.entryTime,g.id",Growth.class)
@@ -62,14 +65,28 @@ public class GrowthAssessmentService {
         int interval=parameterNumber(c.getFarm(),"WEIGHING_INTERVAL_DAYS",30);LocalDate next=latestDate==null?null:latestDate.plusDays(interval);
         Object rawTarget=parameters(c.getFarm(),today).get("TARGET_FINISHING_WEIGHT_KG");
         BigDecimal target=rawTarget==null?null:new BigDecimal(rawTarget.toString());LocalDate projected=null;String status="NOT_APPLICABLE";
+        BigDecimal targetKg=null,missingKg=null,adg60=null;Integer finishingDays=null;
         if(c.getPurpose().getPurposeType()==vn.edu.fpt.beefcare.domain.enumeration.PurposeType.FATTENING&&target!=null){
-            BigDecimal adg60=adg(valid.stream().filter(g->g.getWeightKg()!=null && !g.getCheckDate().isBefore(today.minusDays(60))).toList());
-            status="INSUFFICIENT_WEIGHTS";
-            if(projectionWeight!=null && target.signum()>0){if(projectionWeight.getWeightKg().compareTo(target)>=0)status="TARGET_REACHED";
-                else if(adg60!=null && adg60.signum()>0){long days=target.subtract(projectionWeight.getWeightKg()).divide(adg60,0,RoundingMode.CEILING).longValue();projected=projectionWeight.getCheckDate().plusDays(days);status="PROJECTED";}}
+            adg60=adg(valid.stream().filter(g->g.getWeightKg()!=null && !g.getCheckDate().isBefore(today.minusDays(60))).toList());
+            status="INSUFFICIENT_WEIGHTS";targetKg=target;missingKg=target;
+            if(projectionWeight!=null && target.signum()>0){missingKg=target.subtract(projectionWeight.getWeightKg()).max(BigDecimal.ZERO);
+                if(projectionWeight.getWeightKg().compareTo(target)>=0)status="TARGET_REACHED";
+                else if(adg60!=null && adg60.signum()>0){long days=missingKg.divide(adg60,0,RoundingMode.CEILING).longValue();projected=projectionWeight.getCheckDate().plusDays(days);finishingDays=(int)days;status="PROJECTED";}}
         }
-        List<GrowthDtos.Record> records=new ArrayList<>(all.stream().map(this::dto).toList());Collections.reverse(records);
-        return new GrowthDtos.Summary(weight==null?null:dto(weight),bcs,adg,window,next,projected,status,all.size(),records);
+        Map<Long,List<GrowthDtos.Revision>> history=withRevisions?revisionsOf(c.getFarm().getId(),all.stream().map(Growth::getId).toList()):Map.of();
+        List<GrowthDtos.Record> records=new ArrayList<>(all.stream().map(g->withRevisions?dto(g).withRevisions(history.getOrDefault(g.getId(),List.of())):dto(g)).toList());Collections.reverse(records);
+        return new GrowthDtos.Summary(weight==null?null:dto(weight),bcs,adg,window,next,projected,status,all.size(),records,targetKg,missingKg,adg60,finishingDays);
+    }
+    /** GAP-FE08-01: revisions of the given growth records in one query, oldest first. */
+    @SuppressWarnings("unchecked")
+    private Map<Long,List<GrowthDtos.Revision>> revisionsOf(Long farmId,List<Long> ids){
+        Map<Long,List<GrowthDtos.Revision>> result=new HashMap<>();if(ids.isEmpty())return result;
+        em.createQuery("select r from RecordRevision r left join fetch r.actor where r.farm.id=:farm and r.sourceType='GROWTH_ASSESSMENT' and r.sourceId in :ids order by r.changedAt,r.id",RecordRevision.class)
+            .setParameter("farm",farmId).setParameter("ids",ids).getResultList()
+            .forEach(r->result.computeIfAbsent(r.getSourceId(),k->new ArrayList<>()).add(new GrowthDtos.Revision(r.getId(),r.getChangedAt(),
+                r.getActor()==null?null:r.getActor().getFullName(),r.getAction(),r.getReason(),
+                r.getBeforeSnapshot()==null?null:JsonSupport.fromJson(r.getBeforeSnapshot(),Map.class),r.getAfterSnapshot()==null?null:JsonSupport.fromJson(r.getAfterSnapshot(),Map.class))));
+        return result;
     }
     public int parameterNumber(Farm farm,String key,int fallback) {
         Object value=parameters(farm,LocalDate.now(clockInstantClock(farm))).get(key);

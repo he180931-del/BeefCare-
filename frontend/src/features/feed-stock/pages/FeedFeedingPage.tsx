@@ -76,7 +76,8 @@ export default function FeedFeedingPage() {
   const session = useSession()
   const [modal, openModal, closeModal] = useModalParam()
   const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && session.role !== 'MANAGER')
-  const canRecord = !readOnlyView && backendMode === 'local'
+  const canRecord = !readOnlyView && (backendMode === 'backend' ? session?.role === 'MANAGER' : !session || session.role === 'MANAGER')
+  const canViewStock = session?.role !== 'TECHNICIAN'
   const initialDate = searchParams.get('date')
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedingMessage' in location.state
     ? String((location.state as { feedingMessage?: unknown }).feedingMessage ?? '')
@@ -91,10 +92,12 @@ export default function FeedFeedingPage() {
   const range = useMemo(() => periodRange(selectedDate, view), [selectedDate, view])
   const query = useQuery(async (): Promise<FeedingData & { receipts: Awaited<ReturnType<typeof listFeedReceipts>> }> => {
     const [records, rations, pens, feeds, receipts] = await Promise.all([
-      listFeedFeedingRecords(range), listFeedRations(), listFeedRationPens(), listFeedRationFeeds(), listFeedReceipts().catch(() => []),
+      listFeedFeedingRecords(range), listFeedRations(), listFeedRationPens(),
+      canViewStock ? listFeedRationFeeds() : Promise.resolve([]),
+      canViewStock ? listFeedReceipts().catch(() => []) : Promise.resolve([]),
     ])
     return { records, rations, pens, feeds, receipts }
-  }, [range.from, range.to])
+  }, [range.from, range.to, canViewStock])
 
   const data = query.data
   const pens = data?.pens ?? []
@@ -156,7 +159,7 @@ export default function FeedFeedingPage() {
       <PageHeader title="Nhật ký cho ăn" sub="Ghi theo chuồng và cữ · kế hoạch = khẩu phần × số con · lưu là trừ kho">
         {canRecord && <Button onClick={() => openModal('nhanh')}>Ghi nhanh theo khẩu phần</Button>}
         {!readOnlyView && (
-          <Button variant="primary" disabled={backendMode === 'backend'} title={backendMode === 'backend' ? 'Ghi cữ chưa sẵn sàng ở chế độ kết nối.' : undefined} onClick={() => startRecord()}>
+          <Button variant="primary" onClick={() => startRecord()}>
             <span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Ghi cữ cho ăn</span>
           </Button>
         )}
@@ -164,7 +167,7 @@ export default function FeedFeedingPage() {
       <FeedManagementTabs />
       {message && <Note tone="ok">{message}</Note>}
       {readOnlyView && <Note tone="info">Chế độ chỉ xem. Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
-      {!readOnlyView && backendMode === 'backend' && <Note tone="warn">Xem nhật ký đã kết nối. Ghi, sửa và hủy cữ chưa sẵn sàng ở chế độ kết nối.</Note>}
+      {canRecord && backendMode === 'backend' && <Note tone="info">Ghi, sửa và hủy cữ sẽ cập nhật tồn kho theo phản hồi từ máy chủ.</Note>}
 
       <section role="tabpanel" aria-label="Nhật ký cho ăn" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">

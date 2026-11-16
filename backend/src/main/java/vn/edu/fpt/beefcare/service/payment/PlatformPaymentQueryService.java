@@ -139,14 +139,15 @@ public class PlatformPaymentQueryService {
         Long exactFarm = e.getQuoteRef() == null || e.getQuoteRef().isBlank() ? null : em.createQuery(
                 "select p.subscription.farm.id from Payment p where upper(p.quoteRef)=upper(:code) order by p.id", Long.class)
             .setParameter("code", e.getQuoteRef().trim()).setMaxResults(1).getResultList().stream().findFirst().orElse(null);
-        var query = em.createQuery("select p" + PAYMENT_FETCH + " where upper(p.state) in ('PENDING','EXPIRED') and p.amountVnd=:amount" +
+        var query = em.createQuery("select p" + PAYMENT_FETCH + " where upper(p.state) in ('PENDING','EXPIRED','CANCELLED') and p.amountVnd=:amount" +
             (exactFarm == null ? "" : " and s.farm.id=:farm") + " order by p.requestedAt desc,p.id desc", Payment.class)
             .setParameter("amount", e.getAmount());
         if (exactFarm != null) query.setParameter("farm", exactFarm);
         List<Payment> eligible = query.getResultList().stream()
             // Compare the stored instants in Java, exactly like ACCEPT. H2 maps the two legacy timestamp columns
             // differently, while PostgreSQL compares them consistently; doing this here keeps both contracts equal.
-            .filter(p -> !e.getBankPaidAt().isBefore(p.getRequestedAt()) && e.getBankPaidAt().isBefore(p.getExpiresAt()))
+            // D38: a cancelled request is a candidate only for money banked before its cancellation.
+            .filter(p -> !e.getBankPaidAt().isBefore(p.getRequestedAt()) && e.getBankPaidAt().isBefore(p.bankWindowEnd()))
             .toList();
         Set<Long> allocated = eligible.isEmpty() ? Set.of() : em.createQuery(
             "select x.payment.id from BankTransferEvidence x where x.payment.id in :ids", Long.class)
@@ -162,7 +163,7 @@ public class PlatformPaymentQueryService {
     public Page<PaymentView> payments(String state, String search, int page, int size) {
         access.requireRole(PlatformRole.PM); validatePage(page, size);
         String filter = state == null || state.isBlank() ? "" : state.trim().toUpperCase(Locale.ROOT);
-        if (!filter.isEmpty() && !List.of("PENDING", "PAID", "EXPIRED").contains(filter)) throw DomainException.invalid("state");
+        if (!filter.isEmpty() && !List.of("PENDING", "PAID", "EXPIRED", "CANCELLED").contains(filter)) throw DomainException.invalid("state");
         String q = search == null ? "" : search.trim(); if (q.length() > 100) throw DomainException.invalid("q");
         Instant now = clock.now();
         List<String> conditions = new ArrayList<>(); Map<String, Object> params = new HashMap<>();
@@ -170,9 +171,10 @@ public class PlatformPaymentQueryService {
             switch (filter) {
                 case "PENDING" -> conditions.add("upper(p.state)='PENDING' and p.expiresAt>:now");
                 case "EXPIRED" -> conditions.add("(upper(p.state)='EXPIRED' or (upper(p.state)='PENDING' and p.expiresAt<=:now))");
+                case "CANCELLED" -> conditions.add("upper(p.state)='CANCELLED'");
                 default -> conditions.add("upper(p.state)='PAID'");
             }
-            if (!"PAID".equals(filter)) params.put("now", now);
+            if (!"PAID".equals(filter) && !"CANCELLED".equals(filter)) params.put("now", now);
         }
         if (!q.isEmpty()) {
             conditions.add("(lower(p.quoteRef) like :q escape '!' or lower(p.subscription.farm.name) like :q escape '!')");
@@ -251,6 +253,7 @@ public class PlatformPaymentQueryService {
         if ("OUT".equalsIgnoreCase(e.getTransferDirection())) return "OUTGOING";
         if (Boolean.FALSE.equals(accountMatches(e, p))) return "ACCOUNT_MISMATCH";
         if (p == null) return e.getQuoteRef() == null || e.getQuoteRef().isBlank() ? "CODE_MISMATCH" : "NO_REQUEST";
+        if (p.getCancelledAt() != null && !e.getBankPaidAt().isBefore(p.getCancelledAt())) return "REQUEST_CANCELLED";
         if (!e.getBankPaidAt().isBefore(p.getExpiresAt())) return "REQUEST_EXPIRED";
         if (e.getBankPaidAt().isBefore(p.getRequestedAt())) return "OUTSIDE_WINDOW";
         if (e.getAmount().compareTo(p.getAmountVnd()) != 0) return "AMOUNT_MISMATCH";
@@ -304,7 +307,8 @@ public class PlatformPaymentQueryService {
         return new PaymentView(p.getId(), p.getSubscription().getFarm().getId(), p.getSubscription().getFarm().getName(), p.getQuoteRef(), p.getDurationYears(),
             p.getAmountVnd(), state, p.getRequestedAt(), p.getExpiresAt(), p.getPurchasedStart(), p.getPurchasedEnd(), p.getReceiptCode(),
             p.getRequestedBy() == null ? null : p.getRequestedBy().getEmail(), p.getPriceVersion().getId(), e == null ? null : e.getId(),
-            p.getConfirmedAt(), p.getConfirmationSource(), e == null ? null : e.getBankPaidAt(), e == null ? null : e.getFirstReceivedAt());
+            p.getConfirmedAt(), p.getConfirmationSource(), e == null ? null : e.getBankPaidAt(), e == null ? null : e.getFirstReceivedAt(),
+            p.getCancelledAt(), p.getCancelReason());
     }
 
     private static void validatePage(int page, int size) {
@@ -318,7 +322,7 @@ public class PlatformPaymentQueryService {
         @Schema(nullable = true) String direction, @Schema(nullable = true) String content, Instant bankPaidAt,
         @Schema(allowableValues = {"TO_REVIEW", "HOLD", "REJECTED", "ACCEPTED", "LOCKED", "PROCESSING", "NO_ACTION"}) String reviewStatus,
         @Schema(allowableValues = {"PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST",
-            "REQUEST_EXPIRED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE"}) String matchResult,
+            "REQUEST_EXPIRED", "REQUEST_CANCELLED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE"}) String matchResult,
         @Schema(nullable = true) String reviewReason, @Schema(nullable = true) Boolean receivingAccountMatches,
         @Schema(nullable = true) Long paymentId, @Schema(nullable = true) String paymentCode, Long version) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -341,9 +345,12 @@ public class PlatformPaymentQueryService {
     public record Candidate(Long paymentId, String quoteRef, Long farmId, String farmName, BigDecimal amount, Integer termYears, Instant expiresAt, String accountNamespace) {}
     @JsonInclude(JsonInclude.Include.ALWAYS)
     @Schema(name = "PlatformPaymentRead")
-    public record PaymentView(Long id, Long farmId, String farmName, String quoteRef, Integer termYears, BigDecimal amount, String state,
+    public record PaymentView(Long id, Long farmId, String farmName, String quoteRef, Integer termYears, BigDecimal amount,
+        @Schema(allowableValues = {"PENDING", "PAID", "EXPIRED", "CANCELLED"}) String state,
         Instant requestedAt, Instant expiresAt, @Schema(nullable = true) Instant purchasedStart, @Schema(nullable = true) Instant purchasedEnd,
         @Schema(nullable = true) String receiptCode, @Schema(nullable = true) String requestedByEmail, Long priceVersionId,
         @Schema(nullable = true) Long evidenceId, @Schema(nullable = true) Instant confirmedAt, @Schema(nullable = true) String confirmationSource,
-        @Schema(nullable = true) Instant bankPaidAt, @Schema(nullable = true) Instant receivedAt) {}
+        @Schema(nullable = true) Instant bankPaidAt, @Schema(nullable = true) Instant receivedAt,
+        @Schema(nullable = true, description = "D38: set when the Owner cancelled the request") Instant cancelledAt,
+        @Schema(nullable = true) String cancelReason) {}
 }

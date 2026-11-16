@@ -56,8 +56,9 @@ public class VaccinationCommandResource {
     @org.springframework.web.bind.annotation.PostMapping("/vaccination-schedules/{scheduleId}/stop")
     public CareDtos.VaccinationScheduleResult stopSchedule(@PathVariable Long farmId,@PathVariable Long scheduleId,
                                                             @RequestHeader("Idempotency-Key") String key,
-                                                            @RequestHeader("If-Match") Integer expectedVersion) {
-        return commands.stopSchedule(farmId,scheduleId,key,expectedVersion);
+                                                            @RequestHeader("If-Match") Integer expectedVersion,
+                                                            @RequestBody(required = false) CareDtos.StopVaccinationSchedule request) {
+        return commands.stopSchedule(farmId,scheduleId,key,expectedVersion,request==null?null:request.reason());
     }
 
     @PostMapping("/scheduled-doses/{doseId}/defer")
@@ -67,11 +68,18 @@ public class VaccinationCommandResource {
         return commands.deferDose(farmId, doseId, key, request);
     }
 
+    /** 201 when at least one animal was recorded or deferred; 200 when every animal was skipped (R-09-10). */
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "At least one animal recorded or deferred; skipped lists the others",
+            content = @io.swagger.v3.oas.annotations.media.Content(schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = CareDtos.VaccinationBatchResult.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Every animal skipped (MSG-FE09-09 / MSG-COM-13); nothing saved",
+            content = @io.swagger.v3.oas.annotations.media.Content(schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = CareDtos.VaccinationBatchResult.class)))
+    })
     @PostMapping("/vaccinations")
-    @ResponseStatus(HttpStatus.CREATED)
-    public CareDtos.VaccinationBatchResult record(@PathVariable Long farmId,
+    public org.springframework.http.ResponseEntity<CareDtos.VaccinationBatchResult> record(@PathVariable Long farmId,
                                                    @RequestHeader("Idempotency-Key") String key,
                                                    @Valid @RequestBody CareDtos.RecordVaccinations request) {
-        return commands.record(farmId, key, request);
+        CareDtos.VaccinationBatchResult result = commands.record(farmId, key, request);
+        return org.springframework.http.ResponseEntity.status(result.vaccinatedCount() + result.deferredCount() == 0 ? HttpStatus.OK : HttpStatus.CREATED).body(result);
     }
 }

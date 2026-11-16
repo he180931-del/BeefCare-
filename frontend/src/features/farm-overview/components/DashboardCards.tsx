@@ -1,25 +1,50 @@
 import { Link } from 'react-router-dom'
+import { Icon } from '../../../components/Icon'
 import { Badge, Button, Card, EmptyBlock, Table, Td, Th } from '../../../components/ui'
 import type { AttentionRow, DashboardView, GettingStarted } from '../types'
 
-export function AttentionCard({ rows }: { rows: AttentionRow[] }) {
+export function AttentionCard({ rows, unavailable = false }: { rows: AttentionRow[]; unavailable?: boolean }) {
+  if (rows.length === 0 && !unavailable) return null
+  const orderedRows = [...rows].sort((a, b) => ({ err: 0, warn: 1, info: 2, ok: 3 }[a.tone] - { err: 0, warn: 1, info: 2, ok: 3 }[b.tone]))
   return (
-    <Card title="Cần chú ý hôm nay" actions={<Link to="/nhac-viec" className="text-xs font-bold text-brand no-underline">Xem tất cả nhắc việc →</Link>}>
-      {rows.length === 0 ? <EmptyBlock title="Không có việc cần chú ý" sub="Không có bò nào cần xử lý theo bộ lọc hiện tại." /> : (
-        <Table stack={false}>
-          <thead><tr><Th>Bò</Th><Th>Chuồng</Th><Th>Vấn đề</Th><Th>Trạng thái</Th></tr></thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={`${row.code}-${row.kind}`}>
-                <Td className="font-bold">{row.to ? <Link to={row.to} className="text-ink no-underline hover:underline">{row.code}</Link> : row.code}</Td>
-                <Td>{row.pen}</Td>
-                <Td>{row.issue}</Td>
-                <Td><Badge tone={row.tone}>{row.status}</Badge></Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
+    <Card title={<span className="text-[20px] font-bold">Cảnh báo tổng quan</span>}>
+      <p className="m-0 text-base text-muted">Các việc cần bạn kiểm tra thêm.</p>
+      {unavailable && <p role="status" className="m-0 rounded border border-warn-bg bg-warn-bg/30 p-3 text-base text-ink">Bộ lọc chuồng, nhóm đàn hoặc giai đoạn không áp dụng cho cảnh báo này; danh sách theo bộ lọc chưa có.</p>}
+      {orderedRows.length > 0 && <ul className="m-0 grid list-none gap-3 p-0">
+        {orderedRows.map((row) => (
+          <li key={`${row.code}-${row.kind}-${row.issue}`} className="flex flex-col gap-3 rounded border border-edge bg-page p-3 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+              <p className="m-0 text-base font-semibold text-ink">{row.issue}</p>
+              <p className="mb-0 mt-1 text-base text-muted">{row.code} · Chuồng {row.pen} · {row.status}</p>
+            </div>
+            <Link to={row.to ?? '/nhac-viec'} className="inline-flex min-h-12 w-full items-center justify-center rounded border border-edge bg-white px-4 text-center text-base font-semibold text-brand no-underline hover:bg-white sm:w-auto">
+              {row.to ? 'Mở hồ sơ' : 'Mở danh sách nhắc việc'}
+            </Link>
+          </li>
+        ))}
+      </ul>}
+    </Card>
+  )
+}
+
+export function QuickRecordCard() {
+  const shortcuts = [
+    { label: 'Xem danh sách cân', to: '/can-nang', icon: 'scale' as const },
+    { label: 'Xem lịch tiêm', to: '/tiem-phong', icon: 'vaccine' as const },
+    { label: 'Xem sức khỏe', to: '/suc-khoe', icon: 'stethoscope' as const },
+    { label: 'Xem nhật ký cho ăn', to: '/thuc-an/nhat-ky', icon: 'grain' as const },
+  ]
+  return (
+    <Card title={<span className="text-[20px] font-bold">Ghi chép nhanh</span>}>
+      <p className="m-0 text-base text-muted">Mở danh sách phù hợp để tiếp tục công việc. Chọn bò trước khi ghi thao tác theo từng con.</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Link to="/cattle" className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded border border-brand bg-brand px-5 text-center text-base font-bold text-white no-underline hover:bg-brand-dark">
+          <Icon name="circle-plus" size={18} />Chọn bò để ghi chép
+        </Link>
+        {shortcuts.map((shortcut) => <Link key={shortcut.to} to={shortcut.to} className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded border border-edge bg-white px-5 text-center text-base font-semibold text-brand no-underline hover:bg-page">
+          <Icon name={shortcut.icon} size={18} />{shortcut.label}
+        </Link>)}
+      </div>
     </Card>
   )
 }
@@ -50,26 +75,27 @@ export function GettingStartedCard({ data, busy, onMark, onDismiss }: { data: Ge
   )
 }
 
-export function HerdStructureCard({ data }: { data: DashboardView['indicators']['m05'] }) {
+export function HerdStructureCard({ data, filtersApplied = false }: { data: DashboardView['indicators']['m05']; filtersApplied?: boolean }) {
+  const populatedRows = data.rows.filter((row) => row.head > 0)
   return (
-    <Card title="Cơ cấu đàn" sub="Bò đang nuôi theo nhóm đàn · chọn dòng để mở Đàn bò">
-      <Table stack={false}>
-        <thead><tr><Th>Nhóm đàn</Th><Th>Số con</Th><Th>Mang thai</Th></tr></thead>
-        <tbody>
-          {data.rows.map((r) => (
-            <tr key={r.group}>
-              <Td><Link to={`/cattle?nhom=${r.group}`} className="text-ink no-underline hover:underline">{r.label}</Link></Td>
-              <Td className="font-bold">{r.head}</Td>
-              <Td>{r.pregnant ?? '—'}</Td>
-            </tr>
+    <Card title={<span className="text-[20px] font-bold">Cơ cấu đàn</span>} sub="Chỉ hiện nhóm đang có bò.">
+      {data.total === 0 ? <p className="m-0 text-base text-muted">Chưa có bò đang nuôi.</p> : <>
+        <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
+          {populatedRows.map((r) => (
+            <li key={r.group} className="flex flex-wrap items-center justify-between gap-3 rounded border border-edge bg-page p-3">
+              {filtersApplied
+                ? <span className="min-h-12 flex-1 content-center text-base font-semibold text-ink">{r.label}</span>
+                : <Link to={`/cattle?nhom=${encodeURIComponent(r.group)}`} className="min-h-12 flex-1 content-center text-base font-semibold text-brand no-underline hover:underline">{r.label}</Link>}
+              {filtersApplied
+                ? <span className="inline-flex min-h-12 min-w-20 items-center justify-center rounded bg-white px-3 text-base font-bold text-ink">{`${r.head} con`}</span>
+                : <Link to={`/cattle?nhom=${encodeURIComponent(r.group)}`} className="inline-flex min-h-12 min-w-20 items-center justify-center rounded bg-white px-3 text-base font-bold text-ink no-underline hover:bg-white">{`${r.head} con`}</Link>}
+              {r.pregnant !== null && <span className="w-full text-base text-muted">{`${r.pregnant} con mang thai`}</span>}
+            </li>
           ))}
-          <tr>
-            <Td className="font-bold">Tổng</Td>
-            <Td className="font-bold">{data.total}</Td>
-            <Td className="font-bold">{data.pregnant}</Td>
-          </tr>
-        </tbody>
-      </Table>
+        </ul>
+        <p className="m-0 text-base font-semibold text-ink">{`Tổng đàn: ${data.total} con${data.pregnant > 0 ? ` · ${data.pregnant} con mang thai` : ''}`}</p>
+        {filtersApplied && <p className="m-0 text-base text-muted">Nhóm đang theo bộ lọc. Bỏ bộ lọc để mở danh sách của từng nhóm.</p>}
+      </>}
     </Card>
   )
 }

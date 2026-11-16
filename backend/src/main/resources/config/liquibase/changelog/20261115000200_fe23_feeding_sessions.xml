@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+    <changeSet id="20261115000200-fe23-feeding-session-details" author="beefcare">
+        <addColumn tableName="feeding_record">
+            <column name="feeding_time" type="time"/>
+            <column name="leftover_kg" type="numeric(14,3)"/>
+            <column name="note" type="varchar(500)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="20261115000200-fe23-valid-feeding-unique" author="beefcare">
+        <!-- Existing uq_feeding_session guaranteed that no historical VALID duplicate exists. -->
+        <dropUniqueConstraint tableName="feeding_record" constraintName="uq_feeding_session"/>
+        <!-- Production/PostgreSQL uniqueness follows BR-D37: VOIDED records stay in history, but do not block re-recording. -->
+        <sql dbms="postgresql">CREATE UNIQUE INDEX uq_feeding_session_valid ON feeding_record(farm_id, pen_id, feeding_date, session_no) WHERE status = 'VALID';</sql>
+    </changeSet>
+</databaseChangeLog>

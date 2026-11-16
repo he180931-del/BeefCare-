@@ -160,12 +160,17 @@ describe('parameters tab', () => {
     await user.clear(weaning)
     await user.type(weaning, '7')
     const date = screen.getByLabelText('Áp dụng từ *')
+    const today = (date as HTMLInputElement).value
     fireEvent.change(date, { target: { value: '2099-01-01' } })
     const source = screen.getByLabelText('Ghi chú nguồn *')
     await user.type(source, 'Điều chỉnh lên lịch')
     const save = screen.getAllByRole('button', { name: 'Lưu phiên bản mới' }).at(-1)!
     await user.click(save)
     expect(await screen.findByText(/Đã lên lịch phiên bản v4/)).toBeInTheDocument()
+    expect(weaning).toHaveValue('6')
+    fireEvent.change(date, { target: { value: '2099-02-01' } })
+    expect(weaning).toHaveValue('7')
+    fireEvent.change(date, { target: { value: today } })
     expect(weaning).toHaveValue('6')
     await user.type(source, 'Điều chỉnh hôm nay')
     await user.click(save)

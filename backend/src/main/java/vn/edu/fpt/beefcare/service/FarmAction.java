@@ -18,6 +18,11 @@ public enum FarmAction {
      * not ACTIVE only the Owner may (GBR-14) and a Manager or Technician gets MSG-FE02-04 (AF3).
      */
     SELECT_FARM(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
+    /**
+     * SCR-13 member list (UC-FE03-05, Table III-2): the Owner in full, a Manager read-only; never a Technician. The Owner
+     * still reads it while the farm is not ACTIVE, so members can be deactivated (GBR-14, D29); a Manager needs ACTIVE.
+     */
+    VIEW_MEMBERS(false, FarmRole.OWNER, FarmRole.MANAGER),
     /** Catalogue lookups used by farm workflows require an ACTIVE farm and are readable by every farm role. */
     VIEW_CATALOGUES(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     VIEW_CATTLE(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),

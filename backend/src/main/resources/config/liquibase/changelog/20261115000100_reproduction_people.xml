@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <!-- FE-11/12 P1 (15/11/2026): the observer, performer, examiner and birth attendant may be a farm member; the text columns keep external names. -->
+  <changeSet id="20261115000100-reproduction-people" author="beefcare">
+    <addColumn tableName="reproduction_event">
+      <column name="observer_id" type="bigint"/>
+      <column name="performer_id" type="bigint"/>
+      <column name="examiner_id" type="bigint"/>
+    </addColumn>
+    <addColumn tableName="calving_event">
+      <column name="attendant_id" type="bigint"/>
+    </addColumn>
+    <addForeignKeyConstraint baseTableName="reproduction_event" baseColumnNames="observer_id" constraintName="fk_reproduction_event__observer_id"
+                             referencedTableName="app_user" referencedColumnNames="id"/>
+    <addForeignKeyConstraint baseTableName="reproduction_event" baseColumnNames="performer_id" constraintName="fk_reproduction_event__performer_id"
+                             referencedTableName="app_user" referencedColumnNames="id"/>
+    <addForeignKeyConstraint baseTableName="reproduction_event" baseColumnNames="examiner_id" constraintName="fk_reproduction_event__examiner_id"
+                             referencedTableName="app_user" referencedColumnNames="id"/>
+    <addForeignKeyConstraint baseTableName="calving_event" baseColumnNames="attendant_id" constraintName="fk_calving_event__attendant_id"
+                             referencedTableName="app_user" referencedColumnNames="id"/>
+  </changeSet>
+</databaseChangeLog>

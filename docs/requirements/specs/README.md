@@ -28,7 +28,7 @@ Tầng test: **U** unit · **I** integration (BE + DB) · **H** HTTP / quyền �
 | FE-01 | Xác thực và tài khoản | LamKD | DucNV | AnNT | 49 |
 | FE-02 | Trang trại và dịch vụ | DucNV | TaiDX | LamKD | 32 |
 | FE-03 | Thành viên và quyền | DucNV | TaiDX | LamKD | 34 |
-| FE-04 | Chuồng trại | AnNT | TuanPQ | LamKD | 25 |
+| FE-04 | Chuồng trại | AnNT | TuanPQ | LamKD | 28 |
 | FE-05 | Hồ sơ bò, QR | AnNT | TuanPQ | LamKD | 38 |
 | FE-06 | Nhập đàn | AnNT | TuanPQ | LamKD | 39 |
 | FE-07 | Thông báo trại | TaiDX | DucNV | LamKD | 17 |
@@ -48,7 +48,7 @@ Tầng test: **U** unit · **I** integration (BE + DB) · **H** HTTP / quyền �
 | FE-21 | Thu chi nền tảng | LamKD | DucNV | AnNT | 24 |
 | FE-22 | Trang giới thiệu | LamKD | DucNV | AnNT | 11 |
 | FE-23 | Quản lý thức ăn | TaiDX | DucNV | LamKD | 32 |
-| | **Tổng** | | | | **617** |
+| | **Tổng** | | | | **620** |
 
 Thành phần dùng chung: popup **Ghi thanh toán** mô tả ở FE-06 §6 (FE-13, FE-23 tham chiếu). Hạ tầng audit (FE-17), nhắc việc JOB-01 (FE-14), thông báo JOB-07 (FE-14) do người phụ trách FE đó làm; các FE khác gọi vào.
 

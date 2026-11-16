@@ -82,9 +82,9 @@ export function DateTimeInput({ id, value, onChange }: { id?: string; value: str
 
 export const ReadonlyBox = ({ id, value }: { id?: string; value: string }) => <input id={id} readOnly value={value} className={inputCls} />
 
-export function RadioGroup<T extends string>({ name, value, options, onChange }: { name: string; value: T | ''; options: Array<{ value: T; label: string }>; onChange: (value: T) => void }) {
+export function RadioGroup<T extends string>({ name, value, options, onChange, ariaLabel }: { name: string; value: T | ''; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; ariaLabel?: string }) {
   return (
-    <div role="radiogroup" className="flex flex-wrap items-center gap-x-6 gap-y-2">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap items-center gap-x-6 gap-y-2">
       {options.map((o) => <Radio key={o.value} name={name} checked={value === o.value} onChange={() => onChange(o.value)} className="text-[13px]">{o.label}</Radio>)}
     </div>
   )

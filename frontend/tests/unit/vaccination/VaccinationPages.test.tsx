@@ -40,6 +40,29 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     expect(await screen.findByText('Quá hạn (10)')).toBeInTheDocument()
   })
 
+  // Lỗi phát hiện khi thử trên trình duyệt (15/11/2026): gõ "100ml" vào ô số bị trình duyệt bỏ âm thầm, mũi tiêm gửi đi không có liều.
+  it('ô Liều nhận "100ml", báo "Liều không hợp lệ." khi không đọc được và không lưu', async () => {
+    const user = userEvent.setup()
+    const record = vi.spyOn(vaccinationApi, 'recordVaccinations')
+    app('MANAGER')
+    await user.click(await screen.findByLabelText('Chọn BC-000131'))
+    await user.click(screen.getByRole('button', { name: 'Ghi nhận 1 mũi đã chọn' }))
+    await screen.findByRole('heading', { name: /Ghi nhận tiêm/ })
+    await user.type(screen.getByLabelText('Số lô'), 'AFT-1')
+    const dose = screen.getByLabelText('Liều')
+    await user.clear(dose)
+    await user.type(dose, 'nhiều')
+    await user.click(screen.getByRole('button', { name: 'Lưu 1 mũi tiêm' }))
+    expect(await screen.findByText('Liều không hợp lệ.')).toBeInTheDocument()
+    expect(record).not.toHaveBeenCalled()
+    await user.clear(dose)
+    await user.type(dose, '100ml')
+    await user.click(screen.getByRole('button', { name: 'Lưu 1 mũi tiêm' }))
+    expect(await screen.findByText(/Đã ghi nhận 1 mũi tiêm/)).toBeInTheDocument()
+    expect(record.mock.calls[0][0].dose).toBe('100 ml')
+    record.mockRestore()
+  })
+
   it('hoãn một mũi cần lý do', async () => {
     const user = userEvent.setup()
     app('MANAGER')

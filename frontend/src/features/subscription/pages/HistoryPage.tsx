@@ -28,7 +28,7 @@ function savedFilters(key: string): Required<PaymentFilters> {
     if (!value || typeof value !== 'object') return DEFAULT_FILTERS
     return {
       q: typeof value.q === 'string' ? value.q.slice(0, 100) : '',
-      state: ['PENDING', 'PAID', 'EXPIRED'].includes(value.state) ? value.state : '',
+      state: ['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(value.state) ? value.state : '',
       from: typeof value.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.from) ? value.from : '',
       to: typeof value.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.to) ? value.to : '',
       sort: value.sort === 'expiresAt' ? 'expiresAt' : 'requestedAt', dir: value.dir === 'asc' ? 'asc' : 'desc',
@@ -70,6 +70,8 @@ function PaymentDetail({ payment, farmName, onClose }: { payment: Payment; farmN
         ['Hệ thống nhận lúc', sec(payment.receivedAt)],
         ['Hệ thống xác nhận lúc', sec(payment.confirmedAt)],
         ['Kỳ đã mua', payment.purchasedStart && payment.purchasedEnd ? fmtPeriod(payment.purchasedStart, payment.purchasedEnd) : '—'],
+        // D38: shown whenever the request was cancelled, also if a transfer banked earlier still paid it.
+        ...(payment.cancelledAt ? [['Đã hủy lúc', sec(payment.cancelledAt)] as [string, string], ['Lý do hủy', payment.cancelReason || '—'] as [string, string]] : []),
       ]} />
     </section>
   )
@@ -141,6 +143,7 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
               <option value="PENDING">Đang chờ</option>
               <option value="PAID">Đã thanh toán</option>
               <option value="EXPIRED">Đã hết hạn</option>
+              <option value="CANCELLED">Đã hủy</option>
             </FilterSelect>
           </div>
           <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo từ <div className="w-[150px]"><DateInput id="from" value={from} onChange={(value) => change({ from: value })} /></div></div>

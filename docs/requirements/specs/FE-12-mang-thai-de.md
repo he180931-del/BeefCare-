@@ -242,7 +242,7 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 | A2 | Ghi khám thai | `linkedBreedingId?, checkedAt, dataSource, result, method?, estimatedMonths?, examinerId? \| examinerName?, note?` + `Idempotency-Key` | `{checkId, result, episode? {episodeId, expectedDate, basis}, reproStatus}` | FE12-02, FE11-10, FE12-11 (thông tin), COM-06, COM-07, COM-13, COM-02 | `POST /api/farms/{farmId}/cattle/{cattleId}/pregnancy-checks` |
 | A3 | Ghi diễn biến thai | `type, occurredAt, dataSource, details, healthCaseId?` + `Idempotency-Key` | `{updateId, episodeStatus, reproStatus}` | FE12-12, COM-06, COM-07, COM-02 | `POST /api/farms/{farmId}/pregnancy-episodes/{episodeId}/updates` |
 | A4 | Ghi đẻ | `damId, episodeId? \| noTrackedPregnancy, birthAt, dataSource, attendantId? \| attendantName?, course?, damCondition?, retainedPlacenta, calves[{outcome, sex?, birthWeightKg?, weightBasis?, tagCode?, penId?, breedId?, registration: DRAFT\|REGISTER_NOW, purposeId?}]` + `Idempotency-Key` | `{calvingId, calves[{calfNo, outcome, registration, cattleId?, cattleCode?, voucherCode?}], damStatus}` | FE12-06, FE12-07, FE12-08, FE04-05, FE05-12, FE12-12, COM-07, COM-13, COM-02 | `POST /api/farms/{farmId}/calvings` |
-| A5 | Sửa / hủy khám thai | `changes?, reason, version` + `Idempotency-Key` | Kết quả + thai / trạng thái mới | FE11-07, COM-06, COM-05 | `POST …/reproduction-events/{eventId}/correction` · `/void` (dùng chung FE-11 – cần xác nhận áp dụng cho khám thai) |
+| A5 | Sửa / hủy khám thai | `changes?, reason, version` + `Idempotency-Key` | Kết quả + thai / trạng thái mới | FE11-07, COM-06, COM-05 | `POST …/reproduction-events/{eventId}/correction` · `/void` (dùng chung FE-11, áp dụng cho khám thai) |
 | A6 | Sửa / hủy diễn biến thai | Như A5 | Như A5 | Như A5 | `POST …/pregnancy-updates/{updateId}/correction` · `/void` |
 | A7 | Sửa / hủy lần đẻ | Như A5 | Như A5 | + FE11-07 khi có bê đã đăng ký | `POST …/calvings/{calvingId}/correction` · `/void` |
 | A8 | Sửa / hủy kết quả bê | Như A5 | Như A5 | + FE12-08; chặn với bê đã đăng ký | `POST …/calf-outcomes/{calfId}/correction` · `/void` |
@@ -309,6 +309,7 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 | Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 | Theo SCR-39 |
 | Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) | Theo đề xuất |
 | Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác | Theo đề xuất |
+| Q5 | Thẻ tai bê: Figma bắt buộc khi "Đăng ký ngay", SRS không bắt buộc | Theo SRS (D12) | Theo SRS, không bắt buộc (D36, 15/11/2026); để trống thì cấp mã khi ghi sổ phiếu FARM_BORN (Q3) |
 
 ---
 
@@ -319,3 +320,4 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 15/11/2026 | 28/10/2026 | Việc 6a: A1–A8 nối đủ trường mục 7; Q5 chốt (D36); P4 đẻ lần hai trong 30 ngày chặn MSG-FE12-12; P6 1–4 bê; P7 thai không ngày trả `notice: MSG-FE12-11`; khám CÓ THAI khi đã có thai OPEN xác nhận thai đó (AF2) | Tuấn |

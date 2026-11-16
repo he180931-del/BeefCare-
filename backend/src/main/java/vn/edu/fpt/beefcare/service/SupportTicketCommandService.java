@@ -420,7 +420,7 @@ public class SupportTicketCommandService {
         return new SupportDtos.InternalView(r.getId(), r.getCode(), t.getId(), t.getCode(), t.getFarm() == null ? null : t.getFarm().getId(),
             t.getFarm() == null ? null : t.getFarm().getName(), r.getTargetRole(), r.getRecipient().getId(), r.getRecipient().getFullName(),
             r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getCreatedAt(), r.getQuestion(), displayContext, r.getState(), r.getOutcome(),
-            r.getResultText(), r.getDomainAudit() == null ? null : r.getDomainAudit().getId(), r.getCompletedAt(), r.getVersion());
+            r.getResultText(), r.getDomainAudit() == null ? null : r.getDomainAudit().getId(), r.getCompletedAt(), r.getVersion(), false);
     }
     private SupportDtos.ContextReference withContextLabel(SupportDtos.ContextReference ref) {
         if (ref == null || ref.id() == null) return ref;

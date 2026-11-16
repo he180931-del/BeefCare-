@@ -4,6 +4,7 @@ import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { ErrorBlock, Info, LoadingBlock } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
 import { announcementsApi } from '../api/announcementsApi'
+import { MESSAGES } from '../domain/announcementRules'
 import { ROLE_LABEL } from '../domain/format'
 import type { PublishResult, Viewer } from '../types'
 import { messageOf, RichText } from './shared'
@@ -43,12 +44,13 @@ export default function ReviewDialog({ viewer, draftId, onBack, onPublished }: {
             ['Người nhận', people.length ? `${people.length} người · ${people.map((m) => m.name).join(', ')}` : '0 người'],
             ['Trang trại', a.farmName],
           ]} />
+          {people.length === 0 && <p role="alert" className="m-0 text-xs text-err-fg">{MESSAGES.noRecipient}</p>}
           {error && <p role="alert" className="m-0 text-xs text-err-fg">{error}</p>}
         </div>
       )}
       <ModalFooter>
         <ModalButton onClick={onBack}><Icon name="arrow-left" size={16} /> Quay lại sửa</ModalButton>
-        <ModalButton variant="primary" disabled={!a || busy} onClick={publish}><Icon name="speakerphone" size={16} /> Đăng thông báo</ModalButton>
+        <ModalButton variant="primary" disabled={!a || people.length === 0 || busy} onClick={publish}><Icon name="speakerphone" size={16} /> Đăng thông báo</ModalButton>
       </ModalFooter>
     </Modal>
   )

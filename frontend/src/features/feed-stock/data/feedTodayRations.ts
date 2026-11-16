@@ -75,7 +75,7 @@ export function buildTodayRationPens({
             code: component.feedCode,
             name: component.feedName,
             plannedKg,
-            outOfStock: feedStock?.status === 'OUT_OF_STOCK' || (feedStock !== undefined && feedStock.onHandKg <= 0),
+            outOfStock: component.outOfStock ?? (feedStock?.status === 'OUT_OF_STOCK' || (feedStock !== undefined && feedStock.onHandKg <= 0)),
           }]
         })
         : []

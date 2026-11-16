@@ -29,7 +29,7 @@ const fieldLabels: Record<string, string> = {
   receiver: 'Người nhập', sellerId: 'Nguồn / chủ bò cũ', lines: 'Danh sách bò',
   penCode: 'Mã chuồng', code: 'Mã chuồng', name: 'Tên chuồng', capacity: 'Sức chứa',
   minAge: 'Tuổi tối thiểu', minAgeMonths: 'Tuổi tối thiểu', minWeight: 'Cân tối thiểu', minWeightKg: 'Cân tối thiểu',
-  description: 'Mô tả', criteria: 'Tiêu chí tiếp nhận', expectedVersion: 'Phiên bản dữ liệu',
+  description: 'Mô tả', criteria: 'Tiêu chí tiếp nhận', expectedVersion: 'Phiên bản dữ liệu', note: 'Ghi chú',
   'vaccination.items': 'Thông tin tiêm phòng', 'disease.description': 'Mô tả bệnh đã biết',
   reproduction: 'Thông tin sinh sản', 'reproduction.earlierCalvings': 'Số lứa đã đẻ',
   'reproduction.estMonthsPregnant': 'Số tháng mang thai', damId: 'Bò mẹ', sireId: 'Bò bố',
@@ -51,7 +51,12 @@ const specificBackendMessage = (error: unknown): string | null => {
   if (code === 'MSG-FE04-05') return `Chuồng ${params.pen_code ?? ''} không đủ chỗ nhận ${params.count ?? ''} con (còn ${params.free ?? 0} chỗ).`
   if (code === 'MSG-FE04-02') return `Mã chuồng ${params.pen_code ?? ''} đã tồn tại trong trại này.`
   if (code === 'MSG-FE04-03') return `Sức chứa phải là số nguyên tối thiểu ${params.min_capacity ?? 1}.`
-  if (code === 'MSG-COM-05') return 'Dữ liệu đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
+  if (code === 'MSG-COM-05') {
+    if (params.cattle_code && params.pen_code && 'actual' in params) {
+      return `Thông tin bò ${params.cattle_code} đã thay đổi. Chuồng hiện tại: ${params.pen_code}. Hãy tải lại dữ liệu trước khi xác nhận.`
+    }
+    return 'Dữ liệu đã thay đổi. Vui lòng tải lại trang rồi thử lại.'
+  }
   if (code === 'MSG-FE04-06') return `Chuồng ${params.pen_code ?? ''} chưa phù hợp với tiêu chí: ${params.criteria ?? 'vui lòng kiểm tra lại thông tin'}.`
   if (code === 'MSG-FE05-12') {
     // R-05-04: chỉ SIRE gắn với bò đực và BREEDING gắn với bò cái; Vỗ béo / Chưa xác định dùng cho cả hai giới.

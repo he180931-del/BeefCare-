@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261115000100-fe07-announcement-member-selector" author="beefcare">
+        <addColumn tableName="farm_announcement">
+            <column name="draft_audience_revision" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <createTable tableName="announcement_member_selector">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="announcement_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_announcement_member_selector_announcement"
+                             references="farm_announcement(id)"/>
+            </column>
+            <column name="membership_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_announcement_member_selector_membership"
+                             references="farm_membership(id)"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="announcement_member_selector"
+                             columnNames="announcement_id,membership_id"
+                             constraintName="uq_announcement_member_selector"/>
+        <createIndex tableName="announcement_member_selector" indexName="ix_announcement_member_selector_membership">
+            <column name="membership_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

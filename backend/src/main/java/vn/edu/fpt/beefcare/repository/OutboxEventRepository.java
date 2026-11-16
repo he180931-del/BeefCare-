@@ -11,6 +11,12 @@ import vn.edu.fpt.beefcare.domain.OutboxEvent;
 
 @Repository
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> {
+    @Query("select distinct e.eventType from OutboxEvent e where e.publishedAt is null and e.availableAt <= :now and (e.claimedUntil is null or e.claimedUntil < :now)")
+    List<String> findDueEventTypes(@Param("now") Instant now);
+
+    @Query("select e from OutboxEvent e where e.eventType in :eventTypes and e.publishedAt is null and e.availableAt <= :now and (e.claimedUntil is null or e.claimedUntil < :now) order by e.id")
+    List<OutboxEvent> findDueByEventTypeIn(@Param("eventTypes") List<String> eventTypes, @Param("now") Instant now, org.springframework.data.domain.Pageable pageable);
+
     @Query("select e from OutboxEvent e where e.publishedAt is null and e.availableAt <= :now and (e.claimedUntil is null or e.claimedUntil < :now) order by e.id")
     List<OutboxEvent> findDue(@Param("now") Instant now, org.springframework.data.domain.Pageable pageable);
 

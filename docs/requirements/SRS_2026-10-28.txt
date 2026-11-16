@@ -83,7 +83,7 @@ Pregnancy episode | One confirmed pregnancy from the confirming check until calv
 Expected calving date | TENTATIVE (from breeding) or CONFIRMED (after a PREGNANT check) date = breeding time + gestation length.
 LMLM / FMD | Lở mồm long móng / Foot-and-Mouth Disease.
 Plan price version | An immutable published price list for the 1-, 2- and 3-year terms.
-Payment request (quote) | An immutable 24-hour transfer instruction for one farm and one term, with a unique payment reference and VietQR.
+Payment request (quote) | An immutable 24-hour transfer instruction for one farm and one term, with a unique payment reference and VietQR. The Owner may cancel it while it is unpaid and no transfer has been received for it.
 Purchased period | The service period granted by one accepted payment.
 Policy A | The subscription confirmation and period rules (GBR-69 to GBR-75).
 Policy B | The support ticket closure rule requiring explicit Owner acknowledgment (GBR-80).
@@ -115,7 +115,7 @@ External entity | Direction | Main information exchanged
 Guest | In / Out | Views the public introduction, features, 1/2/3-year prices, FAQ and contact; submits registration, sign-in and password-reset requests.
 Farm Owner | In / Out | Owner profile, farm registration and information, invitations and member changes, herd entry vouchers and payments, pen and profile changes, herd exit vouchers and collections, feed stock and rations, catalogues and parameters, announcements, subscription payment requests, support tickets; receives dashboard, reports, reminders, notifications, payment instructions and ticket replies.
 Farm Manager | In / Out | Pens, herd entry vouchers, cattle profiles and QR tags, feed receipts, stock counts, rations and feeding sessions, growth, vaccination, health and reproduction records and corrections, catalogues and parameters, announcements to Technicians; receives reminders, dashboard and reports.
-Farm Technician | In / Out | QR scans and searches; receives read-only cattle, care, reproduction and today's ration information, reminders and announcements.
+Farm Technician | In / Out | Scans QR tags and searches. Views cattle, care, reproduction, today's rations, the farm catalogues and parameter history, reminders and announcements.
 Customer Support | In / Out | Ticket assignment, replies, internal notes, resolutions, closure, internal requests; receives the ticket queue and support notifications.
 Platform Manager | In / Out | Farm suspension/restoration, payment reconciliation decisions, plan price versions, manual finance records, internal request results; receives farm service overview, subscriptions, bank evidence, receipts and cash reports.
 System Admin | In / Out | Account suspension/restoration, platform staff access, internal request results; receives account lists and the audit history.
@@ -184,7 +184,7 @@ Step | Step Name | Detailed Description | Role | Note
 10 | Move to Another Pen | The user selects one animal (from its profile) or several animals (from the pen detail), the destination pen, move date and reason. | Farm Owner / Farm Manager | UC-FE04-05. From the profile or REM-08.
 11 | Move Allowed? | The system checks the pen and each animal: INACTIVE pen or not enough free places → blocked; criteria not met → warning, continue only with a reason. | System | Yes → Step 12; Blocked → keep current pen.
 12 | Save Pen Move | The system closes the current assignment, opens the new one and updates occupancy and pen history. | System | Steps 9–12 repeat during the animal's life.
-13 | Open Herd Exit Voucher | The Owner creates an exit voucher (Sale, Cull or Other) and adds ACTIVE cattle from a filtered list or by QR scan, or opens a PENDING death/missing voucher created when a Manager closed a health case as DIED or MISSING (BF-04, reminder REM-12). | Farm Owner | UC-FE13-01.
+13 | Open Herd Exit Voucher | The Owner creates an exit voucher (Sale, Cull or Other) and adds ACTIVE cattle from a filtered list or by QR scan. The Owner may also record a death or loss directly, or open the PENDING voucher created by BF-04 Step 9 (REM-12). | Farm Owner | UC-FE13-01.
 14 | Enter Lines and Amounts | The Owner enters the exit date, buyer or destination, transport certificate, vehicle and note; the exit weight of each line (default the latest weight, marked UT when estimated) and the unit price; deductions, deposit collected and due date. For a death: cause and carcass disposal, no amounts. | Farm Owner | Saved as DRAFT until confirmed.
 15 | Review Checks and Confirm | The Owner reviews the checks per cattle (meat withdrawal period, OPEN and CHRONIC health cases, future doses and reminders, open pregnancy, draft calves of the dam), ticks the confirmation and confirms, or dismisses a pending voucher with a reason. | Farm Owner | Until confirmed the cattle stay ACTIVE.
 16 | Record Exit | For each line the system sets EXITED, closes the pen assignment, cancels future doses and reminders, closes OPEN and CHRONIC health cases and any open pregnancy and locks the record; the voucher becomes CONFIRMED. | System | End. Collections: UC-FE13-04. A mistaken voucher is voided by the Owner (UC-FE13-03).
@@ -205,7 +205,7 @@ Step | Step Name | Detailed Description | Role | Note
 6 | Record Abnormal Signs | The Manager records observed time, temperature, signs, severity and observer, and opens a new case or adds to an OPEN or CHRONIC case; the health state becomes at least Monitoring. | Farm Manager | UC-FE10-02. Also for post-vaccination reactions.
 7 | Record Treatment and Follow-up | The Manager records each treatment actually given (medicine, dose, route, time, withdrawal days) and follow-up observations; the health state becomes Under treatment and the meat withdrawal date is updated. | Farm Manager | UC-FE10-04, UC-FE10-03. No diagnosis or prescription.
 8 | Case Outcome? | The Manager keeps the case OPEN, moves it to CHRONIC (long-term monitoring) or closes it as RECOVERED, DIED or MISSING. | Farm Manager | OPEN or CHRONIC → Step 7; DIED/MISSING → Step 9; RECOVERED → end of branch.
-9 | Create Pending Exit | The system creates a PENDING herd exit for the Owner (BF-03 Step 12); the animal stays ACTIVE until the Owner decides. | System | GBR-47.
+9 | Create Pending Exit | The system creates a PENDING herd exit for the Owner (BF-03 Step 13); the animal stays ACTIVE until the Owner decides. | System | GBR-47.
 10 | Manage Vaccination Schedule | The Manager creates or updates a schedule: vaccine, doses, interval, booster and target cattle by pen, herd group, life stage or selection. | Farm Manager | UC-FE09-02, UC-FE09-03.
 11 | Evaluate Doses | The system derives each dose as upcoming, due or overdue and raises REM-06. | System | JOB-01.
 12 | Can Vaccinate Now? | For each selected animal the Manager decides whether the dose is given now. | Farm Manager | Yes → Step 13; No → defer with reason and new date (UC-FE09-06).
@@ -800,9 +800,9 @@ Status / lifecycle | Created with the first payment request; coverage is derived
 [TABLE block 261]
 Field | Value
 Purpose | One Owner-initiated quote for a 1-, 2- or 3-year purchase with immutable transfer instructions.
-Key business attributes | Payment reference (e.g. BCF7K2Q9), farm, subscription, requested by, price version, term (years), amount (VND), receiving bank, account number and account name, created time, expiry time (created + 24 h), status, bank-paid time, received time, confirmed time, confirmation source (SEPAY / PM).
+Key business attributes | Payment reference (e.g. BCF7K2Q9), farm, subscription, requested by, price version, term (years), amount (VND), receiving bank, account number and account name, created time, expiry time (created + 24 h), status, bank-paid time, received time, confirmed time, confirmation source (SEPAY / PM), cancelled time, cancelled by and optional cancellation reason.
 Business identity | Payment reference is unique; at most one unexpired PENDING request per farm.
-Status / lifecycle | PENDING → PAID or EXPIRED; EXPIRED → PAID only for evidence paid within the original window.
+Status / lifecycle | PENDING → PAID, EXPIRED or CANCELLED (cancelled by the Owner, GBR-70); EXPIRED → PAID only for evidence paid within the original window; CANCELLED → PAID only for evidence paid before the cancellation time.
 Detail – Purchased Period | The service period granted by one accepted payment. Attributes: Payment request, subscription, start, end, term. Identity: One period per PAID payment request. Lifecycle: Immutable once created.
 [/TABLE]
 [P263 ] Entity: Bank Transfer Evidence
@@ -1072,7 +1072,7 @@ CONFIRMED | Owner voids with a reason (UC-FE13-03) | VOIDED | Every cattle retur
 1 | Guest | Unauthenticated visitor. Views the public landing page (introduction, features, 1/2/3-year prices, FAQ, contact), registers as a Farm Owner, signs in and resets a forgotten password. Sees no other farm, ticket or financial data.
 2 | Farm Owner | Account holder who completed Owner registration and owns one or more farms. In each owned farm: views all farm data; manages farm information, members and roles; manages the subscription and payments; changes production purposes; records herd entry vouchers and their payments (including farm-born calves); records, confirms, dismisses and voids herd exit vouchers and records collections from buyers; maintains pens, cattle profiles and QR tags; maintains feed stock, feed receipts, rations and the feed catalogue and views the feeding log; writes announcements to Managers and Technicians; uses the dashboard, reports and support. Does not record care or reproduction events or feeding sessions.
 3 | Farm Manager | Farm member with the Manager role in one farm. Records and corrects growth, vaccination, health and reproduction events; records daily feeding sessions; maintains pens, pen moves, herd entry vouchers and their payments (including farm-born calves), cattle profiles (except production purpose), QR tags, catalogues and parameters, feed stock, feed receipts, rations and the feed catalogue; writes announcements to Technicians; uses the dashboard and reports. Cannot manage members, the subscription or herd exit vouchers.
-4 | Farm Technician | Farm member with the Technician role in one farm. Field user with read-only access: scans QR tags, views cattle, pens, care and reproduction information, today's rations, the feeding log, reminders and received announcements. May be named as observer or performer in records entered by a Manager, or as the person who fed in a feeding record.
+4 | Farm Technician | Farm member with the Technician role in one farm. Field user with read-only access: scans QR tags, views cattle, pens, care and reproduction information, today's rations, the feeding log, farm catalogues and parameter history, reminders and received announcements. May be named as observer or performer in records entered by a Manager, or as the person who fed in a feeding record.
 5 | Customer Support (CS) | Platform staff. Reads the support queue; the assigned CS claims, processes, replies, writes internal notes, resolves and closes tickets and sends internal requests to a named PM or SA. Has no farm operational access.
 6 | Platform Manager (PM) | Platform staff. Views farm service status and suspends or restores farm service; views subscriptions, payments and bank evidence and reconciles payments; publishes plan prices; manages manual finance records and the platform cash report; handles internal requests assigned to them. Has no access to cattle or care data.
 7 | System Admin (SA) | Platform staff. Views and suspends or restores user accounts, grants and revokes CS, PM and SA access, reviews the platform audit history and handles internal requests assigned to them. Keeps at least one ACTIVE System Admin.
@@ -1243,7 +1243,7 @@ UC-FE18-09 | View Medicine Reference Catalogue | 18.3 Medicine | A farm member v
 UC-FE18-10 | Create Medicine Reference | 18.3 Medicine | The Farm Owner or a Manager adds a reference medicine with reference dose, route and withdrawal period.
 UC-FE18-11 | Update Medicine Reference | 18.3 Medicine | The Farm Owner or a Manager edits a medicine reference without changing past treatments.
 UC-FE18-12 | Change Medicine Reference Availability | 18.3 Medicine | The Farm Owner or a Manager deactivates or reactivates a reference medicine.
-UC-FE18-13 | View Production Purpose Catalogue | 18.4 Production Purpose | The Farm Owner or a Manager views the farm's production purposes.
+UC-FE18-13 | View Production Purpose Catalogue | 18.4 Production Purpose | A farm member views the farm's production purposes.
 UC-FE18-14 | Create Production Purpose | 18.4 Production Purpose | The Farm Owner or a Manager adds a production purpose with its purpose type (Breeding, Fattening, Sire, Undecided).
 UC-FE18-15 | Update Production Purpose | 18.4 Production Purpose | The Farm Owner or a Manager edits a production purpose; existing cattle keep their purpose and the purpose type is fixed once referenced.
 UC-FE18-16 | Change Production Purpose Availability | 18.4 Production Purpose | The Farm Owner or a Manager deactivates or reactivates a production purpose for new selection.
@@ -1345,7 +1345,7 @@ Total | 135 |
 [TABLE block 445]
 [Figure to be inserted] UC diagram – Farm Technician
 [/TABLE]
-[P447 ] Use cases: UC-FE01-03, 04, 06; UC-FE02-02; UC-FE03-04; UC-FE04-01; UC-FE05-01, 02, 05; UC-FE07-04; UC-FE08-02; UC-FE09-01, 07; UC-FE10-01; UC-FE11-01; UC-FE12-01; UC-FE14-01; UC-FE16-01; UC-FE18-01, 05, 09; UC-FE23-05, 07.
+[P447 ] Use cases: UC-FE01-03, 04, 06; UC-FE02-02; UC-FE03-04; UC-FE04-01; UC-FE05-01, 02, 05; UC-FE07-04; UC-FE08-02; UC-FE09-01, 07; UC-FE10-01; UC-FE11-01; UC-FE12-01; UC-FE14-01; UC-FE16-01; UC-FE18-01, 05, 09, 13 and SCR-56 read-only; UC-FE23-05, 07.
 [P448 5] 4.3.5 UCs for Customer Support
 [TABLE block 449]
 [Figure to be inserted] UC diagram – Customer Support
@@ -1385,8 +1385,10 @@ Farm Membership (Detail of Farm) | View members | Full | Restricted ⁵ | No | N
 Farm Membership (Detail of Farm) | Change role / deactivate / reactivate | Restricted ⁶ | No | No | No | No | No | No
 Breed, vaccine, medicine | View | Full | Full | Full | No | No | No | No
 Breed, vaccine, medicine | Create / update / change availability / remove unused | Full | Full | No | No | No | No | No
-Production purpose | View / create / update / change availability | Full | Full | No | No | No | No | No
-Farm Parameter Version (Detail of Farm) | View / save new version | Full | Full | No | No | No | No | No
+Production purpose | View | Full | Full | Full | No | No | No | No
+Production purpose | Create / update / change availability | Full | Full | No | No | No | No | No
+Farm Parameter Version (Detail of Farm) | View current parameters and version history | Full | Full | Full | No | No | No | No
+Farm Parameter Version (Detail of Farm) | Save new version | Full | Full | No | No | No | No | No
 Pen | View | Full | Full | Full | No | No | No | No
 Pen | Create / update / change availability | Full | Full | No | No | No | No | No
 Pen Assignment (Detail of Cattle) | Move cattle to another pen | Full | Full | No | No | No | No | No
@@ -1420,7 +1422,7 @@ Farm announcement | Create draft / edit / publish / correct | Restricted ⁸ | R
 Farm announcement | View | Restricted ⁹ | Restricted ⁹ | Restricted ⁹ | No | No | No | No
 Reminder (3.2 J) | View and open source | Restricted ¹⁰ | Full | Restricted ¹⁰ | No | No | No | No
 Dashboard and management report | View | Full | Full | No | No | No | No | No
-Subscription and payment (own farm) | View / request payment | Restricted ¹¹ | No | No | No | No | No | No
+Subscription and payment (own farm) | View / request / cancel payment | Restricted ¹¹ | No | No | No | No | No | No
 Subscription, payment and evidence (platform) | View / reconcile | No | No | No | No | Full | No | No
 Plan price version | Publish | No | No | No | No | Full | No | No
 Notification (3.2 J) | Subscription notices | Full | No | No | No | No | No | No
@@ -1484,6 +1486,7 @@ Farm Owner | Farm | Farm Information SCR-11; Members & Roles SCR-13; Subscriptio
 Farm Manager | Overview, Herd, Care, Administration | Same as Farm Owner; Herd Exit Vouchers are read-only; recording buttons are shown on the care, reproduction and feeding log screens
 Farm Manager | Farm | Members (read-only) SCR-13
 Farm Technician (phone) | Bottom navigation | Home SCR-74; Cattle SCR-18; Scan QR SCR-22; Reproduction SCR-38; Today's Rations SCR-86 (→ Feeding Log SCR-83); Announcements SCR-26 (all read-only)
+Farm Technician (phone) | Home shortcut | Catalogues & Parameters SCR-52 to SCR-56 (read-only)
 Customer Support | Support / Account | Ticket Queue SCR-67; Support Notifications SCR-46
 Platform Manager | Service | Farm Service Overview SCR-12; Platform Subscriptions SCR-61
 Platform Manager | Platform finance | Payments & Reconciliation SCR-62; Plan Prices SCR-63; Subscription Receipts SCR-70; Manual Finance Records SCR-71; Cash Report SCR-73
@@ -1550,8 +1553,8 @@ SCR-51 | Platform Audit History (Lịch sử audit nền tảng) | FE-17 | Allow
 SCR-52 | Breed Catalogue (Giống bò) | FE-18 | Allows farm members to view breeds; the Owner or a Manager creates, edits and changes availability.
 SCR-53 | Vaccine Catalogue (Vắc-xin) | FE-18 | Allows farm members to view vaccines; the Owner or a Manager creates, edits, changes availability or removes unused ones.
 SCR-54 | Medicine Catalogue (Thuốc tham chiếu) | FE-18 | Allows farm members to view reference medicines; the Owner or a Manager creates, edits and changes availability.
-SCR-55 | Production Purpose Catalogue (Mục đích nuôi) | FE-18 | Allows the Owner or a Manager to view and maintain production purposes and their purpose types. Popups: Update Cattle Profile.
-SCR-56 | State and Reminder Parameters (Tham số trạng thái & nhắc việc) | FE-18 | Allows the Owner or a Manager to view parameters and save a new version.
+SCR-55 | Production Purpose Catalogue (Mục đích nuôi) | FE-18 | Farm members view production purposes and their purpose types. The Owner and Managers maintain the catalogue. Popups: Update Cattle Profile.
+SCR-56 | State and Reminder Parameters (Tham số trạng thái & nhắc việc) | FE-18 | Farm members view the effective parameters and version history. The Owner and Managers may save a new version.
 SCR-57 | Farm Subscription (Gói dịch vụ của trại) | FE-19 | Allows the Owner to view service status, periods, renewal date, pending request and prices.
 SCR-58 | Select Term and Review (Chọn thời hạn / Đăng ký gói) | FE-19 | Allows the Owner to choose 1, 2 or 3 years, review and create a payment request.
 SCR-59 | Transfer Instructions (Hướng dẫn chuyển khoản) | FE-19 | Allows the Owner to see VietQR, transfer details, countdown and progress of a payment request.
@@ -2408,7 +2411,7 @@ Description | As a farm owner or manager, I want to set the farm's life-stage ag
 Preconditions | PRE-1: The user is the Owner or a Manager of an ACTIVE farm.
 Postconditions | POST-1: A new parameter version with source note, effective date and author is saved and becomes effective at its effective time. / POST-2: Reminders evaluated after that time use the new values; recorded events are unchanged (GBR-68).
 Normal Flow | 1. System shows State and Reminder Parameters (SCR-56) with the current version, its source and the version history. / 2. User edits the values in the groups: life stages (weaning age, young-stock age, adult age, in months); breeding conditions (minimum age, minimum weight); gestation and checks (gestation length, pregnancy check after breeding, re-check after inconclusive, calving preparation lead time, postpartum interval); breeding window (start and end hours after estrus, estrus cycle length); growth and vaccination (BCS scale, weighing interval, vaccination reminder lead time, optional target finishing weight). / 3. User enters the source note (for example "Owner interview 20/09/2026") and the effective date (default today) and selects "Save new version". / 4. System validates each value against its allowed range and the version. / 5. System saves the new version and, when effective now, triggers JOB-01 to recompute future reminders. / 6. System shows MSG-FE18-05.
-Alternative Flows | AF1 – Future effective date: the version is saved as scheduled and applied by JOB-01 at that date. / AF2 – View an older version: the user opens the history; old versions are read-only. / AF3 – Cancel: nothing changes.
+Alternative Flows | AF1 – Future effective date: the version is saved as scheduled and applied by JOB-01 at that date. / AF2 – Read-only access: farm members, including Technicians, may view the current parameters and version history. Only the Owner or a Manager can save a version. / AF3 – Cancel: nothing changes.
 Exceptions | E1: Value out of range, end hour not after start hour, or life-stage ages not in increasing order (weaning < young stock < adult): MSG-FE18-06. / E2: Missing source note: MSG-COM-06. / E3: Changed in another session: MSG-COM-05. / E4: Save failure: MSG-COM-02.
 Priority | Medium
 Frequency of Use | A few times a year.
@@ -2425,13 +2428,13 @@ Primary Actor | Farm Owner | Secondary Actors | SePay (VietQR image)
 Trigger | The Owner selects "Renew plan" (Gia hạn gói) on Farm Subscription, "Pay to activate" on Select Farm, or continues from Register Farm (first purchase).
 Description | As a farm owner, I want to choose a 1-, 2- or 3-year term and get transfer instructions with VietQR, so that I can pay for my farm by bank transfer.
 Preconditions | PRE-1: The user is the Owner of the farm (any service status except SUSPENDED). / PRE-2: A price version is effective and the receiving account is configured.
-Postconditions | POST-1: One PENDING payment request with immutable term, amount, price version, receiving account, unique payment reference and 24-hour expiry exists for the farm (or the existing valid request is reopened). / POST-2: The Owner sees the transfer instructions; no service period changes until the payment is confirmed (UC-FE19-08 / UC-FE19-06).
+Postconditions | POST-1: One PENDING payment request with immutable term, amount, price version, receiving account, unique payment reference and 24-hour expiry exists for the farm (or the existing valid request is reopened). / POST-2: The Owner sees the transfer instructions; no service period changes until the payment is confirmed (UC-FE19-08 / UC-FE19-06). / POST-3: When the Owner cancels (AF6), the request is CANCELLED with time, Owner and optional reason; its instructions are withdrawn and it no longer blocks a new request.
 Normal Flow | 1. System shows Select Term and Review (SCR-58): the three terms with total prices from the effective price version, the plan terms (same functions for all terms, one payment per farm, no automatic renewal, request valid 24 hours) and the farm's service status and current period. / 2. Owner selects a term; the System shows the review: farm, term, amount, estimated service period and price version. / 3. Owner selects "Create payment request". / 4. System checks ownership, service status, the renewal window (GBR-71), that no unexpired PENDING request exists and that the reviewed price version is still effective (GBR-70). / 5. System creates the request with a unique payment reference (e.g. BCF7K2Q9), expiry = now + 24 hours and the receiving account snapshot; it creates the farm's Subscription record if none exists. / 6. System shows Transfer Instructions (SCR-59): VietQR (API-01), status PENDING, countdown, expiry time, bank, account number, account name, amount and transfer content with copy buttons, and the progress steps (request created, bank transaction received, confirmed and period granted), with MSG-FE19-05.
-Alternative Flows | AF1 – A valid PENDING request exists (step 4): MSG-FE19-01 offers to reopen its instructions; no new request. / AF2 – Price changed since review (step 4): MSG-FE19-02 shows old and new prices; the Owner reviews again (step 2). / AF3 – "Later" / "Close instructions": the request stays PENDING until it expires; it can be reopened from Payment History. / AF4 – Check again (step 6): the System refreshes the status; when PAID it shows the purchased period (MSG-FE19-06). / AF5 – Request expired: MSG-FE19-07 offers a new request.
-Exceptions | E1: Not the Owner: MSG-COM-01. / E2: Outside the renewal window: MSG-FE19-03 with the opening date. / E3: Farm SUSPENDED: MSG-FE19-09 with "Send support ticket". / E4: Prices or receiving account unavailable: MSG-FE19-04 with Retry. / E5: VietQR image cannot be rendered: the transfer details remain shown as text. / E6: Save failure: MSG-COM-02; no request is created.
+Alternative Flows | AF1 – A valid PENDING request exists (step 4): MSG-FE19-01 offers to reopen its instructions; no new request. / AF2 – Price changed since review (step 4): MSG-FE19-02 shows old and new prices; the Owner reviews again (step 2). / AF3 – "Later" / "Close instructions": the request stays PENDING until it expires or is cancelled; it can be reopened from Payment History. / AF4 – Check again (step 6): the System refreshes the status; when PAID it shows the purchased period (MSG-FE19-06). / AF5 – Request expired: MSG-FE19-07 offers a new request. / AF6 – Cancel request (step 6, unexpired PENDING request without a received transfer): the Owner selects "Cancel request" and confirms with an optional reason (MSG-FE19-17); the System rechecks ownership, that the request is still unexpired PENDING and that no transfer has been received for it, records CANCELLED with time, Owner and reason, withdraws the instructions and offers a new request (MSG-FE19-18). A transfer paid before the cancellation time is still confirmed (GBR-72).
+Exceptions | E1: Not the Owner: MSG-COM-01. / E2: Outside the renewal window: MSG-FE19-03 with the opening date. / E3: Farm SUSPENDED: MSG-FE19-09 with "Send support ticket". / E4: Prices or receiving account unavailable: MSG-FE19-04 with Retry. / E5: VietQR image cannot be rendered: the transfer details remain shown as text. / E6: Save failure: MSG-COM-02; no request is created. / E7: Cancel when a transfer has already been received for the request: MSG-FE19-19; the request stays PENDING. / E8: Cancel when the request is no longer unexpired PENDING: MSG-COM-05; the current status is shown.
 Priority | High
 Frequency of Use | Once every 1–3 years per farm.
-Business Rules | GBR-69, GBR-70, GBR-71, GBR-75; BR-D23.
+Business Rules | GBR-69, GBR-70, GBR-71, GBR-72, GBR-75; BR-D23.
 Other Information | Screens SCR-57, SCR-58, SCR-59, SCR-60. API-01. JOB-03 expires requests.
 Assumptions | The Owner transfers from a Vietnamese bank account that supports VietQR.
 [/TABLE]
@@ -4768,7 +4771,7 @@ Cancel / Save | Buttons; success MSG-FE18-01.
 [TABLE block 1445]
 [Figure to be inserted] Mockup – Figma 08 › "FE-18 · Production Purpose Catalogue & Availability"
 [/TABLE]
-[P1447 ] This screen allows the Owner or a Manager to view and maintain production purposes (UC-FE18-13 to 16). Changing the purpose of an individual cattle is done by the Owner in popup "Update Cattle Profile".
+[P1447 ] Farm members view production purposes (UC-FE18-13). The Owner and Managers maintain them (UC-FE18-14 to 16). Changing the purpose of an individual cattle is done by the Owner in popup "Update Cattle Profile".
 [P1448 ] Field Description
 [TABLE block 1449]
 Field Name | Description
@@ -4787,7 +4790,7 @@ Cancel / Save | Buttons; success MSG-FE18-01.
 [TABLE block 1452]
 [Figure to be inserted] Mockup – Figma 08 › "FE-18 · Farm State and Reminder References"
 [/TABLE]
-[P1454 ] This screen allows the Owner or a Manager to view the effective parameters and save a new version (UC-FE18-17). The default values below are created with the farm (UC-FE02-01).
+[P1454 ] Farm members can view the effective parameters and version history. Only the Owner and Managers can save a new version (UC-FE18-17). The default values below are created with the farm (UC-FE02-01).
 [P1455 ] Field Description
 [TABLE block 1456]
 Field Name | Description
@@ -4880,8 +4883,8 @@ Back / Later | Buttons; "Later" leaves the farm in its current status.
 [TABLE block 1479]
 Field Name | Description
 Title | "Request code · term · farm".
-VietQR | QR image (API-01) encoding bank, account, amount and transfer content; hidden when EXPIRED.
-Status | PENDING / PAID / EXPIRED badge.
+VietQR | QR image (API-01) encoding bank, account, amount and transfer content; hidden when EXPIRED or CANCELLED.
+Status | PENDING / PAID / EXPIRED / CANCELLED badge.
 Valid for | Countdown hh:mm:ss until expiry.
 Expires at | dd/mm/yyyy HH:mm.
 Transfer details | 
@@ -4889,6 +4892,7 @@ Receiving bank, Account number, Account name, Amount, Transfer content | Read-on
 Progress | 
 Step / Time / Status | Request created (time, Done); Bank transaction received (time or —, Waiting); Confirmed and period granted (time or —, Not yet / Done with period).
 Check again | Button; refreshes the status (MSG-FE19-08 when the result cannot be retrieved).
+Cancel request | Button; shown while the request is unexpired PENDING and no transfer has been received for it (UC-FE19-02 AF6); confirmation MSG-FE19-17 with optional reason (max 1,000); afterwards the status is CANCELLED, the QR is hidden and MSG-FE19-18 offers a new request; blocked MSG-FE19-19.
 View history / Close instructions | Buttons; "View history" opens SCR-60; "Close instructions" returns to the source screen (SCR-57, SCR-60 or SCR-09) and changes nothing.
 Enter farm / Back to subscription | Shown when the status becomes PAID. First payment of a new farm: "Enter farm" opens SCR-48. Renewal: "Back to subscription" opens SCR-57.
 [/TABLE]
@@ -4901,17 +4905,17 @@ Enter farm / Back to subscription | Shown when the status becomes PAID. First pa
 [TABLE block 1486]
 Field Name | Description
 Search payment code | Text.
-Status | All, PENDING, PAID, EXPIRED.
+Status | All, PENDING, PAID, EXPIRED, CANCELLED.
 Created from / to | Date range.
 Payment list | 
 Code, Term, Amount | Read-only.
 Created at, Expires at | dd/mm/yyyy HH:mm (sortable).
-Status | PENDING / PAID / EXPIRED.
+Status | PENDING / PAID / EXPIRED / CANCELLED.
 Confirmed at · period | For PAID.
 Actions | PENDING: "Reopen" (SCR-59); others: "View" (opens the payment detail panel below).
 Payment detail | 
 Code, Status, Farm, Price version, Term, Amount | Read-only.
-Bank paid at, Received at, Confirmed at | Read-only timestamps (seconds).
+Bank paid at, Received at, Confirmed at, Cancelled at | Read-only timestamps (seconds); a cancelled request also shows its cancellation reason.
 Purchased period | Start → end.
 Empty state | "No payment yet" with "View farm subscription".
 [/TABLE]
@@ -5782,7 +5786,7 @@ GBR-11 | Platform roles never receive farm operational access. CS, PM and SA see
 GBR-ID | Rule Statement | Applies To | Rationale | Enforced By
 GBR-12 | One farm is one independent tenant with exactly one Owner. One Owner may own several farms; each farm has its own members, data, subscription and service status. Data of one farm is never shown in the context of another farm. | All farm UCs | Multi-farm owners must keep farms separate. | System, on every request
 GBR-13 | Farm service status is derived: PENDING_PAYMENT from registration until the first accepted payment; ACTIVE while an accepted purchased period covers the current time; EXPIRED when coverage has ended; SUSPENDED while a Platform Manager suspension is in force, regardless of payment. | FE-02, FE-19 | One clear rule for service availability. | System, on every request and JOB-04
-GBR-14 | Farm operations (all farm UCs except those below) require service status ACTIVE. While the farm is not ACTIVE the Owner can still select the farm, view and update farm information, manage the subscription and payments, use support, cancel pending invitations and deactivate members. Managers and Technicians cannot open a farm that is not ACTIVE. | FE-02 to FE-21 | The Owner must be able to pay, get help and withdraw access while service is inactive. | System, on every request
+GBR-14 | Farm operations (all farm UCs except those below) require service status ACTIVE. While the farm is not ACTIVE the Owner can still select the farm, view and update farm information, manage the subscription and payments, use support, view farm invitations and cancel pending invitations, and view and deactivate members. Viewing invitations is an Owner-only read exception supporting withdrawal of access (D26, 12/11/2026); viewing members is the same kind of Owner-only exception supporting deactivation (D29, 14/11/2026), while change role and reactivate still require ACTIVE service; sending and resending still require ACTIVE service. Managers and Technicians cannot open a farm that is not ACTIVE. | FE-02 to FE-21 | The Owner must be able to pay, get help and withdraw access while service is inactive. | System, on every request
 GBR-15 | Suspension and payment are independent: an accepted payment never lifts a suspension, and restoring a suspended farm never creates or extends a purchased period. After restore the status is derived again from the subscription (GBR-13). Suspend and restore require a reason and are kept in Farm Service History. | UC-FE02-05, FE-19 | Administrative and commercial decisions must not override each other. | System, on save
 GBR-16 | Only the Owner invites members, only for an ACTIVE farm, with role Farm Manager or Farm Technician. At most one PENDING invitation exists per farm and email. An invitation is valid for the period chosen by the Owner (3, 7 or 14 days; default 7) counted from the last send, unless accepted or cancelled; resending keeps the same invitation and restarts its validity. ACCEPTED, CANCELLED and EXPIRED are final. | UC-FE03-01 to 03 | Controlled, traceable onboarding of staff. | System, on save and JOB-02
 GBR-17 | An invitation is accepted only by a signed-in account whose verified email equals the invited email, while the invitation is PENDING and unexpired and the farm is ACTIVE. Acceptance creates exactly one membership; a user has at most one membership per farm, and repeating the acceptance returns the existing membership. | UC-FE03-04 | Prevents forwarded links from granting access to the wrong person. | System, on acceptance
@@ -5858,9 +5862,9 @@ GBR-68 | Farm state and reminder parameters are saved as a new version with a so
 [TABLE block 1848]
 GBR-ID | Rule Statement | Applies To | Rationale | Enforced By
 GBR-69 | BeefCare has one functional plan sold per farm for 1, 2 or 3 calendar years. Initial prices: 1,200,000 VND (1 year), 2,160,000 VND (2 years), 3,060,000 VND (3 years). Payment is a bank transfer initiated by the Owner; there is no automatic debit, automatic renewal, monthly or per-cattle price. | FE-19, FE-22 | Simple pricing for small farms. | System, on quote
-GBR-70 | A payment request (quote) is immutable: farm, term, amount, price version, receiving account, unique payment reference and VietQR. It is valid for 24 hours from creation. A farm has at most one unexpired PENDING quote; opening Pay again reopens it. If the effective price changed since the Owner reviewed it, the Owner must review the new price before a quote is created. | UC-FE19-02 | One unambiguous transfer instruction at a time. | System, on save and JOB-03
+GBR-70 | A payment request (quote) is immutable: farm, term, amount, price version, receiving account, unique payment reference and VietQR. It is valid for 24 hours from creation. A farm has at most one unexpired PENDING quote; opening Pay again reopens it. While the quote is unexpired PENDING and no incoming transfer for its payment reference has been received, the Owner may cancel it with an optional reason; CANCELLED is final, its transfer instructions are withdrawn and a new quote can then be created. If the effective price changed since the Owner reviewed it, the Owner must review the new price before a quote is created. | UC-FE19-02 | One unambiguous transfer instruction at a time. | System, on save, on cancellation and JOB-03
 GBR-71 | A first purchase can be requested at any time. A renewal quote can be created only in the last 90 calendar days of the latest confirmed coverage, or at any time after coverage has ended. No new payment request can be created while the farm is SUSPENDED; the Owner is directed to support. | UC-FE19-02 | Prevents paying years in advance by mistake. | System, on quote
-GBR-72 | A payment becomes PAID only through the shared confirmation operation used by both the SePay webhook and PM acceptance. It requires authenticated bank evidence that is incoming, has the exact amount, the configured receiving account, a bank-paid time inside the quote window [created, expires) and is not already allocated, and that identifies exactly one request: automatically by the exact unique payment reference in the transfer content, or, in PM review only, by the PM explicitly selecting the single candidate request with a reason when the reference is mistyped. One evidence funds one payment; amounts are never combined, split or used to infer a term. Confirmations for one farm are processed one at a time and a repeated confirmation returns the original result. | UC-FE19-06, UC-FE19-08 | Money is accepted exactly once and only when it matches. | System, on confirmation
+GBR-72 | A payment becomes PAID only through the shared confirmation operation used by both the SePay webhook and PM acceptance. It requires authenticated bank evidence that is incoming, has the exact amount, the configured receiving account, a bank-paid time inside the quote window [created, expires) – [created, cancelled) for a cancelled quote – and is not already allocated, and that identifies exactly one request: automatically by the exact unique payment reference in the transfer content, or, in PM review only, by the PM explicitly selecting the single candidate request with a reason when the reference is mistyped. One evidence funds one payment; amounts are never combined, split or used to infer a term. Confirmations for one farm are processed one at a time and a repeated confirmation returns the original result. | UC-FE19-06, UC-FE19-08 | Money is accepted exactly once and only when it matches. | System, on confirmation
 GBR-73 | On acceptance the purchased period starts at max(confirmation time, latest confirmed end) and lasts the quoted 1, 2 or 3 calendar years (Asia/Ho_Chi_Minh); periods are immutable and half-open [start, end). Continuous renewals keep the original anniversary (29 February becomes 28 February in non-leap years); a gap resets the anniversary. Before acceptance all service dates are estimates. | UC-FE19-06, UC-FE19-08 | Predictable coverage; early renewal never loses days. | System, on confirmation
 GBR-74 | Every authenticated bank transaction is retained as evidence, deduplicated by (provider, environment, account namespace, provider transaction ID), including unmatched, partial, excess and late transfers. Unaccepted evidence never grants service or produces a receipt. A PM decision on evidence is ACCEPT (re-runs GBR-72), HOLD (stays unresolved) or REJECT, each with a reason. BeefCare does not refund money; evidence to be returned outside the system is locked so it can never fund a payment. | UC-FE19-05, UC-FE19-06 | Full traceability of money received. | System, on save
 GBR-75 | The PM publishes plan prices as a complete version (all three terms, positive whole VND) effective immediately or at a future time. Published versions are immutable. New quotes and the public page use the version effective at that time; issued quotes and accepted periods never change. | UC-FE19-07, UC-FE22-01 | Price changes are controlled and traceable. | System, on save
@@ -6126,61 +6130,64 @@ GBR-109 | A new farm is created with its default farm parameter version and the 
 202 | MSG-FE19-14 | Inline (under field) | Effective time in the past | The effective time cannot be in the past.
 203 | MSG-FE19-15 | Inline (form) | Another version is scheduled at the same time | Version v{version} is already scheduled for {time}.
 204 | MSG-FE19-16 | Toast (success) | Evidence locked for return | Transaction {transaction} is locked for return and cannot fund any payment.
-205 | MSG-FE20-01 | Dialog (info) | Ticket submitted | Ticket {code} has been submitted. Customer Support will reply in the ticket.
-206 | MSG-FE20-02 | Toast (success) | Reply sent | Your reply has been sent.
-207 | MSG-FE20-03 | Toast (success) | Resolution confirmed | Thank you. Your confirmation of resolution version {version} has been recorded.
-208 | MSG-FE20-04 | Toast (success) | Ticket reopened | Ticket {code} has been reopened.
-209 | MSG-FE20-05 | Dialog | A newer resolution exists | This ticket has a newer resolution than the one you are viewing. [Reload ticket]
-210 | MSG-FE20-06 | Banner | The ticket is CLOSED | This ticket is closed and read-only. Create a new ticket if you need further help.
-211 | MSG-FE20-07 | Toast (success) | Ticket claimed | You are now responsible for {code}.
-212 | MSG-FE20-08 | Toast (success) | Ticket handed over | {code} has been handed over to {cs}.
-213 | MSG-FE20-09 | Inline (page) | A CS who is not assigned tries to change the ticket | Only the assigned CS can change this ticket. [Claim]
-214 | MSG-FE20-10 | Toast (success) | Internal note added | Internal note added (visible to CS only).
-215 | MSG-FE20-11 | Toast (success) | Resolution recorded | Resolution version {version} recorded. The Owner has been notified.
-216 | MSG-FE20-12 | Inline (panel) | An internal request is OPEN | Internal request {request} is still OPEN. The ticket cannot be resolved or closed yet.
-217 | MSG-FE20-13 | Inline (dialog) | The Owner has not confirmed the latest resolution | The Owner has not confirmed resolution version {version} yet.
-218 | MSG-FE20-14 | Toast (success) | Ticket closed | Ticket {code} has been closed.
-219 | MSG-FE20-15 | Toast (success) | Internal request created | Internal request {request} sent to {recipient}.
-220 | MSG-FE20-16 | Inline (dialog) | An OPEN request for the role exists | An internal request to {role} is already open for this ticket.
-221 | MSG-FE20-17 | Toast (success) | Internal request reassigned or cancelled | Internal request {request} has been {action}.
-222 | MSG-FE20-18 | Toast (success) | Internal request completed | The result of {request} has been sent to {cs}.
-223 | MSG-FE20-19 | Banner | The request is no longer assigned to the user | This request is no longer assigned to you.
-224 | MSG-FE20-20 | Toast (success) | Ticket status changed | Ticket {code} is now {status}.
-225 | MSG-FE21-01 | Toast (success) | Draft saved | Finance record {code} saved as draft.
-226 | MSG-FE21-02 | Toast (success) | Record posted | Finance record {code} has been posted.
-227 | MSG-FE21-03 | Dialog (confirm) | PM posts a draft | Post {code}? A posted record cannot be edited; corrections require a void.
-228 | MSG-FE21-04 | Dialog (confirm) | PM voids a posted record | Void {code}? Enter the reason. Reports generated later will exclude it.
-229 | MSG-FE21-05 | Toast (success) | Record voided | Finance record {code} has been voided. [Create replacement draft]
-230 | MSG-FE21-06 | Dialog (confirm) | PM discards a draft | Discard draft {code}? It will not appear in any report.
-231 | MSG-FE21-07 | Toast (success) | Draft discarded | Draft {code} has been discarded.
-232 | MSG-FE21-08 | Inline (form) | The bank transaction is already recognized or is a subscription transfer | This bank transaction is already recognized as {target}. It cannot be recorded as other income.
-233 | MSG-FE21-09 | Inline (under field) | Amount invalid | Amount must be a whole number of VND greater than 0.
-234 | MSG-FE21-10 | Inline (under field) | Category not compatible with the type | Category {category} cannot be used for {type}.
-235 | MSG-FE21-11 | Toast (success) | Report snapshot generated | Report {code} generated at {time}.
-236 | MSG-FE21-12 | Banner | The displayed snapshot has expired | This report result has expired. Run the report again.
-237 | MSG-FE21-13 | Toast (success) | Export file ready | The export file {file} is ready.
-238 | MSG-FE21-14 | Toast (error) | Export failed | The report could not be exported. [Retry]
-239 | MSG-FE22-01 | Inline (section) | Public prices cannot be loaded | Prices are temporarily unavailable. [Retry]
-240 | MSG-FE23-01 | Toast (success) | Feed receipt posted | Receipt {receipt_code} posted. {total_kg} kg added to stock.
-241 | MSG-FE23-02 | Toast (success) | Feed receipt or stock adjustment saved as draft | {document_code} saved as draft. Stock has not changed.
-242 | MSG-FE23-03 | Inline (under field) | Expiry date not after the receipt date | The expiry date must be after the receipt date.
-243 | MSG-FE23-04 | Dialog (confirm) | The user voids a posted feed receipt | Void receipt {receipt_code}? {total_kg} kg will be removed from stock. Payments stay in the history.
-244 | MSG-FE23-05 | Inline (dialog) | Receipt void blocked by insufficient stock | Receipt {receipt_code} cannot be voided: the stock of {feed} ({stock} kg) is less than the quantity received. Record a stock adjustment instead.
-245 | MSG-FE23-06 | Toast (success) | Feed receipt voided | Receipt {receipt_code} has been voided.
-246 | MSG-FE23-07 | Toast (success) | Stock adjustment posted | Stock adjustment {document_code} posted: {difference} kg ({value} đ).
-247 | MSG-FE23-08 | Inline (row) | A difference has no reason | Enter a reason for each feed with a difference.
-248 | MSG-FE23-09 | Toast (success) | Ration version saved | Ration {ration_code} v{version} saved, effective from {date}. The previous version ends on {end_date}.
-249 | MSG-FE23-10 | Inline (under field) | Ration effective date earlier than tomorrow | The effective date must be tomorrow or later.
-250 | MSG-FE23-11 | Inline (form) | A pen already has another ration on the date | Pen {pen} already has ration {ration_code} on {date}.
-251 | MSG-FE23-12 | Toast (success) | Feeding session recorded | Feeding of {pen} ({session}) saved. {total_kg} kg deducted from stock.
-252 | MSG-FE23-13 | Inline (dialog) | A feeding record exists for the pen, date and session | {pen} already has a {session} record on {date}. [Open record]
-253 | MSG-FE23-14 | Inline (row) | Actual quantity above stock, or stock would become negative | {feed}: only {stock} kg in stock.
-254 | MSG-FE23-15 | Toast (success) | Feeding record corrected | Feeding record corrected. Stock adjusted by {difference} kg.
-255 | MSG-FE23-16 | Dialog (confirm) | The Manager voids a feeding record | Void the {session} record of {pen} on {date}? {total_kg} kg will be returned to stock.
-256 | MSG-FE23-17 | Toast (success) | Feed item or supplier saved | {name} has been saved.
-257 | MSG-FE23-18 | Inline (under field) | Code or stock unit change after stock movements | The code and stock unit cannot change because {feed} already has stock movements.
-258 | MSG-FE23-19 | Banner | Feeds at or below the minimum level (REM-10) | {count} feed(s) at or below the minimum level: {feeds}. [Create feed receipt]
-259 | MSG-FE23-20 | Inline (dialog) | No ration is effective for the pen on the date | No ration is effective for {pen} on {date}. Enter the actual feeds only.
+205 | MSG-FE19-17 | Dialog (confirm) | The Owner cancels a payment request | Cancel payment request {code}? Its payment reference and VietQR can no longer be used. If you have already transferred the money, do not cancel: the transfer is confirmed automatically. Reason (optional). [Cancel request] [Back]
+206 | MSG-FE19-18 | Inline (page) | The payment request is cancelled | Payment request {code} was cancelled at {time}. Do not transfer to this reference. [Create a new request]
+207 | MSG-FE19-19 | Dialog | Cancellation blocked because a transfer was received | A bank transfer for {code} was received at {time}, so this request can no longer be cancelled. It is being confirmed or reviewed. [Send support ticket] [Close]
+208 | MSG-FE20-01 | Dialog (info) | Ticket submitted | Ticket {code} has been submitted. Customer Support will reply in the ticket.
+209 | MSG-FE20-02 | Toast (success) | Reply sent | Your reply has been sent.
+210 | MSG-FE20-03 | Toast (success) | Resolution confirmed | Thank you. Your confirmation of resolution version {version} has been recorded.
+211 | MSG-FE20-04 | Toast (success) | Ticket reopened | Ticket {code} has been reopened.
+212 | MSG-FE20-05 | Dialog | A newer resolution exists | This ticket has a newer resolution than the one you are viewing. [Reload ticket]
+213 | MSG-FE20-06 | Banner | The ticket is CLOSED | This ticket is closed and read-only. Create a new ticket if you need further help.
+214 | MSG-FE20-07 | Toast (success) | Ticket claimed | You are now responsible for {code}.
+215 | MSG-FE20-08 | Toast (success) | Ticket handed over | {code} has been handed over to {cs}.
+216 | MSG-FE20-09 | Inline (page) | A CS who is not assigned tries to change the ticket | Only the assigned CS can change this ticket. [Claim]
+217 | MSG-FE20-10 | Toast (success) | Internal note added | Internal note added (visible to CS only).
+218 | MSG-FE20-11 | Toast (success) | Resolution recorded | Resolution version {version} recorded. The Owner has been notified.
+219 | MSG-FE20-12 | Inline (panel) | An internal request is OPEN | Internal request {request} is still OPEN. The ticket cannot be resolved or closed yet.
+220 | MSG-FE20-13 | Inline (dialog) | The Owner has not confirmed the latest resolution | The Owner has not confirmed resolution version {version} yet.
+221 | MSG-FE20-14 | Toast (success) | Ticket closed | Ticket {code} has been closed.
+222 | MSG-FE20-15 | Toast (success) | Internal request created | Internal request {request} sent to {recipient}.
+223 | MSG-FE20-16 | Inline (dialog) | An OPEN request for the role exists | An internal request to {role} is already open for this ticket.
+224 | MSG-FE20-17 | Toast (success) | Internal request reassigned or cancelled | Internal request {request} has been {action}.
+225 | MSG-FE20-18 | Toast (success) | Internal request completed | The result of {request} has been sent to {cs}.
+226 | MSG-FE20-19 | Banner | The request is no longer assigned to the user | This request is no longer assigned to you.
+227 | MSG-FE20-20 | Toast (success) | Ticket status changed | Ticket {code} is now {status}.
+228 | MSG-FE21-01 | Toast (success) | Draft saved | Finance record {code} saved as draft.
+229 | MSG-FE21-02 | Toast (success) | Record posted | Finance record {code} has been posted.
+230 | MSG-FE21-03 | Dialog (confirm) | PM posts a draft | Post {code}? A posted record cannot be edited; corrections require a void.
+231 | MSG-FE21-04 | Dialog (confirm) | PM voids a posted record | Void {code}? Enter the reason. Reports generated later will exclude it.
+232 | MSG-FE21-05 | Toast (success) | Record voided | Finance record {code} has been voided. [Create replacement draft]
+233 | MSG-FE21-06 | Dialog (confirm) | PM discards a draft | Discard draft {code}? It will not appear in any report.
+234 | MSG-FE21-07 | Toast (success) | Draft discarded | Draft {code} has been discarded.
+235 | MSG-FE21-08 | Inline (form) | The bank transaction is already recognized or is a subscription transfer | This bank transaction is already recognized as {target}. It cannot be recorded as other income.
+236 | MSG-FE21-09 | Inline (under field) | Amount invalid | Amount must be a whole number of VND greater than 0.
+237 | MSG-FE21-10 | Inline (under field) | Category not compatible with the type | Category {category} cannot be used for {type}.
+238 | MSG-FE21-11 | Toast (success) | Report snapshot generated | Report {code} generated at {time}.
+239 | MSG-FE21-12 | Banner | The displayed snapshot has expired | This report result has expired. Run the report again.
+240 | MSG-FE21-13 | Toast (success) | Export file ready | The export file {file} is ready.
+241 | MSG-FE21-14 | Toast (error) | Export failed | The report could not be exported. [Retry]
+242 | MSG-FE22-01 | Inline (section) | Public prices cannot be loaded | Prices are temporarily unavailable. [Retry]
+243 | MSG-FE23-01 | Toast (success) | Feed receipt posted | Receipt {receipt_code} posted. {total_kg} kg added to stock.
+244 | MSG-FE23-02 | Toast (success) | Feed receipt or stock adjustment saved as draft | {document_code} saved as draft. Stock has not changed.
+245 | MSG-FE23-03 | Inline (under field) | Expiry date not after the receipt date | The expiry date must be after the receipt date.
+246 | MSG-FE23-04 | Dialog (confirm) | The user voids a posted feed receipt | Void receipt {receipt_code}? {total_kg} kg will be removed from stock. Payments stay in the history.
+247 | MSG-FE23-05 | Inline (dialog) | Receipt void blocked by insufficient stock | Receipt {receipt_code} cannot be voided: the stock of {feed} ({stock} kg) is less than the quantity received. Record a stock adjustment instead.
+248 | MSG-FE23-06 | Toast (success) | Feed receipt voided | Receipt {receipt_code} has been voided.
+249 | MSG-FE23-07 | Toast (success) | Stock adjustment posted | Stock adjustment {document_code} posted: {difference} kg ({value} đ).
+250 | MSG-FE23-08 | Inline (row) | A difference has no reason | Enter a reason for each feed with a difference.
+251 | MSG-FE23-09 | Toast (success) | Ration version saved | Ration {ration_code} v{version} saved, effective from {date}. The previous version ends on {end_date}.
+252 | MSG-FE23-10 | Inline (under field) | Ration effective date earlier than tomorrow | The effective date must be tomorrow or later.
+253 | MSG-FE23-11 | Inline (form) | A pen already has another ration on the date | Pen {pen} already has ration {ration_code} on {date}.
+254 | MSG-FE23-12 | Toast (success) | Feeding session recorded | Feeding of {pen} ({session}) saved. {total_kg} kg deducted from stock.
+255 | MSG-FE23-13 | Inline (dialog) | A feeding record exists for the pen, date and session | {pen} already has a {session} record on {date}. [Open record]
+256 | MSG-FE23-14 | Inline (row) | Actual quantity above stock, or stock would become negative | {feed}: only {stock} kg in stock.
+257 | MSG-FE23-15 | Toast (success) | Feeding record corrected | Feeding record corrected. Stock adjusted by {difference} kg.
+258 | MSG-FE23-16 | Dialog (confirm) | The Manager voids a feeding record | Void the {session} record of {pen} on {date}? {total_kg} kg will be returned to stock.
+259 | MSG-FE23-17 | Toast (success) | Feed item or supplier saved | {name} has been saved.
+260 | MSG-FE23-18 | Inline (under field) | Code or stock unit change after stock movements | The code and stock unit cannot change because {feed} already has stock movements.
+261 | MSG-FE23-19 | Banner | Feeds at or below the minimum level (REM-10) | {count} feed(s) at or below the minimum level: {feeds}. [Create feed receipt]
+262 | MSG-FE23-20 | Inline (dialog) | No ration is effective for the pen on the date | No ration is effective for {pen} on {date}. Enter the actual feeds only.
 [/TABLE]
 [P1869 3] 3. Other Requirements
 [TABLE block 1870]

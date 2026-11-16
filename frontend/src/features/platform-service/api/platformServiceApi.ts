@@ -102,7 +102,7 @@ function sourcePayment(value: unknown): SourcePayment {
   const p = asRecord(value)
   if (!isId(p.id) || !isId(p.farmId) || typeof p.farmName !== 'string' || typeof p.quoteRef !== 'string'
     || ![1, 2, 3].includes(p.termYears as number) || typeof p.amount !== 'number' || !Number.isSafeInteger(p.amount) || p.amount <= 0
-    || !['PENDING', 'PAID', 'EXPIRED'].includes(p.state as string) || !isInstant(p.requestedAt) || !isInstant(p.expiresAt)
+    || !['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(p.state as string) || !isInstant(p.requestedAt) || !isInstant(p.expiresAt)
     || !nullableInstant(p.purchasedStart) || !nullableInstant(p.purchasedEnd) || !nullableString(p.receiptCode)
     || !nullableString(p.requestedByEmail) || !isId(p.priceVersionId)) throw invalidSubscription()
   return {

@@ -5,12 +5,10 @@ import { Icon } from '../../../components/Icon'
 import { Badge, Note } from '../../../components/ui'
 import { useSession } from '../../authorization'
 import { MSG, PlatformAdminError, initials } from '../domain/platformRules'
-import type { AccountStatus, PlatformAccessStatus } from '../types'
+import type { AccountStatus } from '../types'
 
 export const errorMessage = (error: unknown, fallback = 'Không thể lưu dữ liệu. Vui lòng thử lại.') =>
   error instanceof PlatformAdminError ? error.message : userFacingError(error, fallback)
-
-export const isStale = (error: unknown) => error instanceof PlatformAdminError && error.code === 'STALE'
 
 export function Avatar({ name, system }: { name: string; system?: boolean }) {
   return (
@@ -36,10 +34,7 @@ export function PersonCell({ name, sub, system, wrap }: { name: string; sub?: st
 }
 
 export const AccountStatusBadge = ({ status }: { status: AccountStatus }) =>
-  status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : <Badge tone="err" icon="player-pause">Tạm khóa</Badge>
-
-export const AccessStatusBadge = ({ status }: { status: PlatformAccessStatus | null }) =>
-  status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : status === 'REVOKED' ? <Badge tone="warn" icon="ban">Đã thu hồi</Badge> : <Badge tone="outline">Chưa có quyền</Badge>
+  status === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang hoạt động</Badge> : <Badge tone="err" icon="player-pause">Tạm ngưng</Badge>
 
 /** Thông báo thành công (MSG-FE03-16, MSG-FE03-19, MSG-FE14-02...) tự tắt sau vài giây. */
 export function Toast({ message, onClose }: { message: string | null; onClose: () => void }) {
@@ -71,17 +66,6 @@ export function SaPage({ title, children }: { title: string; children: ReactNode
   )
 }
 
-export function downloadTextFile(name: string, text: string) {
-  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return
-  const url = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = name
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
 
 export const restPathId = (rest: string | undefined) => Number((rest ?? '').split('/')[0]) || null
 

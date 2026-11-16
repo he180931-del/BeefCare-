@@ -34,6 +34,8 @@ public class PlatformPaymentResource {
     /** SCR-62 payment requests; optional state filter and code / farm search. */
     @GetMapping
     public PlatformSubscriptionQueryService.Page<PlatformPaymentQueryService.PaymentView> list(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+                                      @io.swagger.v3.oas.annotations.Parameter(schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                          allowableValues = {"PENDING", "PAID", "EXPIRED", "CANCELLED"}))
                                       @RequestParam(required = false) String state, @RequestParam(required = false) String q) {
         return reads.payments(state, q, page, size);
     }

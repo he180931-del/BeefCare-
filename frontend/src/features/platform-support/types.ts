@@ -60,6 +60,8 @@ export interface InternalView {
   status: InternalStatus
   outcome?: InternalOutcome
   result?: string
+  /** OPEN và người nhận không còn khả dụng (tài khoản bị tạm ngưng / mất vai trò): CS cần đổi người nhận (UC-FE03-08, D32). */
+  needsReassignment?: boolean
   domainResultAuditId?: number
   completedAt?: string
   completedBy?: string

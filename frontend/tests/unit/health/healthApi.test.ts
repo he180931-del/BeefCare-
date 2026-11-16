@@ -147,7 +147,7 @@ describe('đóng ca', () => {
     const { api } = setup()
     const profile = await api.getProfile('BC-000203')
     const card = profile.activeCases[0]
-    const r = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', closedAt: NOW, progressText: 'Bỏ ăn hoàn toàn, nằm liệt' }))
+    const r = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', closedAt: NOW, progressText: 'Bỏ ăn hoàn toàn, nằm liệt', progress: 'WORSENED' }))
     expect(r.deathVoucher).toMatchObject({ type: 'DEATH', status: 'PENDING', cattleCode: 'BC-000203', caseCode: 'HC-0412' })
     expect(await api.listPendingExits()).toHaveLength(1)
     const after = await api.getProfile('BC-000203')
@@ -157,6 +157,18 @@ describe('đóng ca', () => {
     expect(blocked.message).toContain('chờ xác nhận chết / mất')
     const row = profile.timeline.find((t) => t.type === 'TREATMENT')!
     await api.correctEntry(row.id, { expectedVersion: row.version, reason: 'Sửa liều', dose: '25 ml' })
+  })
+
+  it('TC-10-27 chế độ local: diễn biến bắt buộc khi tạo theo dõi, lưu đúng giá trị đã chọn', async () => {
+    const { api } = setup()
+    const card = (await api.getProfile('BC-000203')).activeCases[0]
+    const keep = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'KEEP' })))
+    expect((keep as HealthValidationError).errors).toMatchObject({ progressText: 'Diễn biến mới là bắt buộc.', progress: 'Diễn biến là bắt buộc.' })
+    const withText = await rejection(api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'TO_CHRONIC', progressText: 'Còn ho' })))
+    expect((withText as HealthValidationError).errors.progress).toBe('Diễn biến là bắt buộc.')
+    const closed = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', closedAt: NOW, progressText: 'Nằm yên', progress: 'UNCHANGED' }))
+    const row = (await api.getProfile('BC-000203')).timeline.find((t) => t.id === closed.observationId)!
+    expect(row).toMatchObject({ type: 'FOLLOW_UP', progress: 'UNCHANGED' })
   })
 
   it('mất tích tạo phiếu OTHER với lý do Mất tích', async () => {
@@ -193,14 +205,19 @@ describe('sửa và hủy bản ghi', () => {
 })
 
 describe('chế độ backend', () => {
-  it('từ chối và không đụng vào store hay transport', async () => {
+  it('chỉ gọi API qua transport, không đụng vào store (adapter chi tiết: tests/api/healthBackendApi.test.ts)', async () => {
     const { store, transport } = setup()
     const spy = vi.spyOn(store, 'listCases')
+    transport.farmPath.mockImplementation((farmId: string | number, suffix = '') => `/api/farms/${farmId}${suffix}`)
+    transport.get.mockImplementation(async (path: string) => {
+      if (path.endsWith('/context')) return { id: 1, timeZone: 'Asia/Ho_Chi_Minh' }
+      if (path.endsWith('/pens')) return []
+      return { items: [], total: 0, page: 0, size: 200, counts: { open: 0, chronic: 0, closed: 0, all: 0 } }
+    })
     const api = createHealthApi({ mode: 'backend', farmId: 1, transport, store })
-    await expect(api.listCases()).rejects.toThrow('Chưa tích hợp')
-    await expect(api.getProfile('BC-000203')).rejects.toThrow('Chưa tích hợp')
+    expect((await api.listCases()).rows).toEqual([])
     expect(spy).not.toHaveBeenCalled()
-    expect(transport.get).not.toHaveBeenCalled()
+    expect(transport.get).toHaveBeenCalledWith('/api/farms/1/health-cases?tab=OPEN&page=0&size=200')
     expect(transport.command).not.toHaveBeenCalled()
   })
 })

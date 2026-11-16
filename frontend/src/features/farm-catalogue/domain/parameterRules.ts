@@ -132,7 +132,7 @@ export function effectiveVersion<T extends { effectiveFrom: string; versionNo: n
 const fmt = (n: number | null) => (n === null ? 'tắt' : String(n).replace('.', ','))
 const bcsLabel = (s: BcsScale) => BCS_SCALES.find((b) => b.value === s)?.label ?? s
 
-/** Dòng "Thay đổi" của lịch sử: chỉ liệt kê giá trị đã đổi so với phiên bản liền trước. */
+/** Dòng "Thay đổi" của lịch sử: chỉ liệt kê giá trị đã đổi so với mốc hiệu lực khi lưu. */
 export function describeChanges(prev: ParameterValues | null, next: ParameterValues): string {
   if (!prev) return 'Khởi tạo theo giá trị mặc định'
   const parts: string[] = []
@@ -142,6 +142,14 @@ export function describeChanges(prev: ParameterValues | null, next: ParameterVal
   }
   if (prev.bcsScale !== next.bcsScale) parts.push(`Thang BCS ${bcsLabel(prev.bcsScale)} → ${bcsLabel(next.bcsScale)}`)
   return parts.join('; ') || 'Không thay đổi giá trị'
+}
+
+export function parameterVersionChanges<T extends { versionNo: number; effectiveFrom: string; parameters: ParameterValues }>(
+  versions: readonly T[], version: T,
+): string {
+  const previous = versions.filter((candidate) => candidate.versionNo < version.versionNo)
+  const baseline = effectiveVersion(previous, version.effectiveFrom)
+  return describeChanges(baseline?.parameters ?? (previous.length ? DEFAULT_PARAMETERS : null), version.parameters)
 }
 
 export const versionSavedMessage = (versionNo: number, effectiveFrom: string) =>

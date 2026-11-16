@@ -12,7 +12,7 @@ const PILL: Record<ReminderType, string> = {
 export const pillLabel = (type: ReminderType) => PILL[type]
 
 /** Các loại chỉ Chủ trại và Quản lý thấy (REM-09, 10, 12, 13). */
-const MANAGEMENT_ONLY: ReminderType[] = ['draft-calf', 'exit-finishing', 'feed']
+const MANAGEMENT_ONLY: ReminderType[] = ['draft-calf', 'exit-finishing']
 
 export function urgencyOf(due: string | null, today: string): Urgency {
   if (!due) return 'UPCOMING'
@@ -31,22 +31,22 @@ export function typeOptionsFor(role: ViewerRole): ReminderType[] {
   return role === 'TECHNICIAN' ? all.filter((t) => !MANAGEMENT_ONLY.includes(t)) : all
 }
 
-export function dueLabel(item: ReminderItem, today: string): string {
+export function dueLabel(item: ReminderItem, today: string, timeZone?: string): string {
   if (!item.dueAt) return 'Chưa có hạn'
-  const days = diffDays(dateKey(item.dueAt), today)
+  const days = diffDays(dateKey(item.dueAt, timeZone), today)
   if (item.urgency === 'OVERDUE') return days === 1 ? 'Hôm qua' : `Quá hạn ${days} ngày`
-  if (item.urgency === 'TODAY') return formatTime(item.dueAt)
-  return formatDayMonth(item.dueAt)
+  if (item.urgency === 'TODAY') return formatTime(item.dueAt, timeZone)
+  return formatDayMonth(item.dueAt, timeZone)
 }
 
-export type DateRange = 'all' | 'today' | '3d' | '7d'
+export type DateRange = 'all' | 'today' | '3d' | '7d' | '30d' | 'due7'
 export interface ReminderFilters { query: string; range: DateRange; type: ReminderType | ''; pen: string; urgency: Urgency | 'ALL' }
 export const EMPTY_FILTERS: ReminderFilters = { query: '', range: 'all', type: '', pen: '', urgency: 'ALL' }
 
 /** `skipUrgency` dùng để đếm các thẻ tổng hợp trước khi chọn tab. */
-export function filterReminders(items: ReminderItem[], f: ReminderFilters, today: string, skipUrgency = false): ReminderItem[] {
+export function filterReminders(items: ReminderItem[], f: ReminderFilters, today: string, skipUrgency = false, timeZone?: string): ReminderItem[] {
   const q = f.query.trim().toLowerCase()
-  const maxDays = { all: Infinity, today: 0, '3d': 3, '7d': 7 }[f.range]
+  const maxDays = { all: Infinity, today: 0, '3d': 3, '7d': 7, '30d': 30, due7: 7 }[f.range]
   return items.filter((i) => {
     if (q && !`${i.code ?? ''} ${i.title} ${i.group ?? ''}`.toLowerCase().includes(q)) return false
     if (f.type && i.type !== f.type) return false
@@ -54,8 +54,8 @@ export function filterReminders(items: ReminderItem[], f: ReminderFilters, today
     if (!skipUrgency && f.urgency !== 'ALL' && i.urgency !== f.urgency) return false
     if (f.range !== 'all') {
       if (!i.dueAt) return false
-      const diff = diffDays(today, dateKey(i.dueAt))
-      if (diff < 0 || diff > maxDays) return false
+      const diff = diffDays(today, dateKey(i.dueAt, timeZone))
+      if (f.range === 'due7' ? diff > maxDays : diff < 0 || diff > maxDays) return false
     }
     return true
   })
@@ -67,6 +67,9 @@ export const countUrgency = (items: ReminderItem[]) => ({
   UPCOMING: items.filter((i) => i.urgency === 'UPCOMING').length,
 })
 
+export const reminderGroupKey = (item: Pick<ReminderItem, 'dueAt' | 'urgency'>, byDate: boolean, timeZone?: string) =>
+  byDate ? (item.dueAt ? dateKey(item.dueAt, timeZone) : 'none') : item.urgency
+
 const ORDER: Record<Urgency, number> = { OVERDUE: 0, TODAY: 1, UPCOMING: 2 }
 export const sortReminders = (items: ReminderItem[]) =>
-  [...items].sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency] || (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9') || a.id - b.id)
+  [...items].sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency] || (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9') || String(a.id).localeCompare(String(b.id)))

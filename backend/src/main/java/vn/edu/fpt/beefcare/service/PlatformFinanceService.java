@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
 import vn.edu.fpt.beefcare.domain.CashReportSnapshot;
 import vn.edu.fpt.beefcare.domain.Farm;
@@ -34,7 +33,6 @@ import vn.edu.fpt.beefcare.domain.ManualFinanceHistory;
 import vn.edu.fpt.beefcare.domain.ManualFinanceRecord;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.BankTransferEvidenceRepository;
 import vn.edu.fpt.beefcare.repository.CashReportSnapshotRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
@@ -62,7 +60,7 @@ public class PlatformFinanceService {
     private final BankTransferEvidenceRepository evidence;
     private final PaymentRepository payments;
     private final FarmRepository farms;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final JdbcTemplate jdbc;
     private final FarmClock clock;
     private final ObjectMapper mapper;
@@ -78,7 +76,7 @@ public class PlatformFinanceService {
         BankTransferEvidenceRepository evidence,
         PaymentRepository payments,
         FarmRepository farms,
-        AuditLogRepository auditLogs,
+        AuditService audit,
         JdbcTemplate jdbc,
         FarmClock clock,
         ObjectMapper mapper,
@@ -93,7 +91,7 @@ public class PlatformFinanceService {
         this.evidence = evidence;
         this.payments = payments;
         this.farms = farms;
-        this.auditLogs = auditLogs;
+        this.audit = audit;
         this.jdbc = jdbc;
         this.clock = clock;
         this.mapper = mapper;
@@ -516,7 +514,7 @@ public class PlatformFinanceService {
     }
 
     private void audit(vn.edu.fpt.beefcare.domain.AppUser actor, String action, String targetType, Long targetId, Farm farm, Object details) {
-        AuditLog entry = new AuditLog(); entry.setActor(actor); entry.setAction(action); entry.setTargetType(targetType); entry.setTargetId(targetId); entry.setFarm(farm); entry.setLoggedAt(clock.now()); entry.setDetails(json(details)); auditLogs.save(entry);
+        audit.log(farm, actor, action, targetType, targetId, details);
     }
 
     private String nextCode() {

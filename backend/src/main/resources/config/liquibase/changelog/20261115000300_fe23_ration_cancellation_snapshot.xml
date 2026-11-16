@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+    <changeSet id="20261115000300-fe23-ration-cancellation-snapshot" author="beefcare">
+        <addColumn tableName="feed_ration_version">
+            <column name="row_version" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="effective_to_manually_set" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="feed_ration_pen">
+            <column name="predecessor_version_id" type="bigint">
+                <constraints foreignKeyName="fk_ration_pen_predecessor" referencedTableName="feed_ration_version" referencedColumnNames="id"/>
+            </column>
+            <column name="predecessor_effective_to" type="date"/>
+            <column name="predecessor_effective_to_manually_set" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="predecessor_snapshot_captured" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

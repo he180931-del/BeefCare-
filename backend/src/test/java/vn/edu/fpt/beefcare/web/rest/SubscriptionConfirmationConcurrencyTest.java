@@ -28,6 +28,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.fpt.beefcare.ServiceIntegrationTest;
@@ -72,7 +73,7 @@ class SubscriptionConfirmationConcurrencyTest extends DomainTestSupport {
         worker.shutdownNow();
     }
 
-    private record Fixture(Long farmId, Long subscriptionId, Long paymentId, String quoteRef, String pmEmail) {}
+    private record Fixture(Long farmId, Long subscriptionId, Long paymentId, String quoteRef, String pmEmail, String ownerEmail) {}
 
     private <T> T committed(Supplier<T> work) {
         return new TransactionTemplate(tm).execute(status -> work.get());
@@ -86,7 +87,7 @@ class SubscriptionConfirmationConcurrencyTest extends DomainTestSupport {
             PlanVersion plan = save(new PlanVersion().price1y(AMOUNT).price2y(new BigDecimal("2160000"))
                 .price3y(new BigDecimal("3060000")).effectiveAt(clock.instant().minusSeconds(1)));
             Farm farm = farm(farmStatus);
-            memberWithRole(farm, FarmRole.OWNER);
+            AppUser owner = memberWithRole(farm, FarmRole.OWNER);
             Subscription sub = new Subscription().farm(farm).planVersion(plan).entitlementStatus(entitlement);
             sub.setLatestEnd(latestEnd);
             save(sub);
@@ -96,7 +97,7 @@ class SubscriptionConfirmationConcurrencyTest extends DomainTestSupport {
             p.setRequestedAt(clock.instant().minusSeconds(3600)); p.setExpiresAt(clock.instant().plusSeconds(3600));
             p.setReceivingAccount("UC6C-ACCOUNT"); p.setReceivingEnvironment("MOCK"); p.setReceivingAccountNamespace("UC6C");
             save(p);
-            return new Fixture(farm.getId(), sub.getId(), p.getId(), p.getQuoteRef(), pm.getEmail());
+            return new Fixture(farm.getId(), sub.getId(), p.getId(), p.getQuoteRef(), pm.getEmail(), owner.getEmail());
         });
     }
 
@@ -171,6 +172,36 @@ class SubscriptionConfirmationConcurrencyTest extends DomainTestSupport {
 
     private static Instant plusYear(Instant start) {
         return start.atZone(VN).plusYears(1).toInstant();
+    }
+
+    /**
+     * TC-19-106 (D38): an Owner cancellation waiting for the farm lock while a confirmation commits PAID sees the
+     * committed state and refuses (MSG-COM-05) without writing; the opposite order is TC-19-104 / 105.
+     */
+    @Test
+    void cancellationWaitingForTheFarmSeesTheConfirmationCommittedMeanwhileAndWritesNothing() throws Exception {
+        Fixture f = fixture("PENDING_PAYMENT", "PENDING", null);
+        AtomicReference<Future<MvcResult>> running = new AtomicReference<>();
+        new TransactionTemplate(tm).executeWithoutResult(status -> {
+            farms.lockById(f.farmId()).orElseThrow();
+            running.set(worker.submit(() -> mvc.perform(post("/api/farms/{farm}/subscription/payments/{id}/cancel", f.farmId(), f.paymentId())
+                    .with(csrf()).with(SecurityMockMvcRequestPostProcessors.user(f.ownerEmail())).header("Idempotency-Key", UUID.randomUUID().toString()))
+                .andReturn()));
+            if (!awaitALockWaiter(running.get())) return; // the worker finished early: its own result is checked below
+            Payment p = em.find(Payment.class, f.paymentId());
+            p.setState("PAID");
+            p.setConfirmedAt(clock.instant());
+            p.setConfirmationSource("SEPAY");
+            em.flush();
+        });
+        MvcResult result = running.get().get(30, TimeUnit.SECONDS);
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(409);
+        assertThat(result.getResponse().getContentAsString()).contains("MSG-COM-05");
+        Payment stored = payment(f.paymentId());
+        assertThat(stored.getState()).isEqualTo("PAID");
+        assertThat(stored.getCancelledAt()).isNull();
+        assertThat(stored.getCancelledBy()).isNull();
     }
 
     @Test
