@@ -13315,6 +13315,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "code" : {
             "type" : "string"
           },
@@ -17921,14 +17925,15 @@
             "additionalProperties" : {
               "type" : "integer",
               "format" : "int32"
-            }
+            },
+            "description" : "Version observed for every selected cattle, keyed by cattle ID."
           },
           "performedBy" : {
             "type" : "integer",
             "format" : "int64"
           }
         },
-        "required" : [ "toPenId" ]
+        "required" : [ "cattleVersions", "toPenId" ]
       },
       "Moved" : {
         "type" : "object",

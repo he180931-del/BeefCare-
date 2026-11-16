@@ -63,7 +63,7 @@ export default function BarnPanel({ barn, detail, loading = false, canManage = t
         <div className="flex items-center justify-between gap-3">
           <h4 className="m-0 text-[13px] font-semibold text-[#212121]">Bò trong chuồng</h4>
           {canManage && cattle.length > 0 && (
-            <Button small disabled={chosen.length === 0} onClick={() => onMove(chosen)}>
+            <Button small disabled={loading || chosen.length === 0} onClick={() => onMove(chosen)}>
               <Icon name="arrows-exchange" size={14} />Chuyển các con đã chọn{chosen.length ? ` (${chosen.length})` : ''}
             </Button>
           )}
