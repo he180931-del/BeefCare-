@@ -19,6 +19,7 @@ const RECORDER = 'Nguyễn Văn Hùng'
 // Bò có đủ hồ sơ mẫu theo Figma; các trường chưa nêu được điền mặc định.
 export type CowSeed = Cattle & {
   barn: string
+  photoUrl?: string
   status: CattleStatus
   ageShort: string
   ageLong: string

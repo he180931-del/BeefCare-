@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
 import { useSession } from '../../authorization'
 import { Chip, chipIcon } from './parts'
+import CowPhoto from './CowPhoto'
 import type { CowSeed } from '../../../data/cowsData'
 
 export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
@@ -59,9 +60,14 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-[18px] rounded-md border border-edge bg-white p-4">
-        {cow.photoUrl
-          ? <img src={String(cow.photoUrl)} alt={`Ảnh ${cow.code}`} className="size-16 shrink-0 rounded-full object-cover" />
-          : <div className="size-16 shrink-0 rounded-full bg-ok-bg" aria-hidden="true" />}
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <CowPhoto key={cow.code} code={cow.code} photoUrl={cow.photoUrl} />
+          {canWrite && (
+            <Button small variant="link" className="min-h-8 px-1" onClick={() => onOpenModal('photo')}>
+              {cow.photoUrl ? 'Đổi ảnh' : 'Thêm ảnh'}
+            </Button>
+          )}
+        </div>
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="text-[22px] font-bold leading-[normal] text-[#212121]">
             {cow.name ? `${cow.code}  “${cow.name}”` : cow.code}

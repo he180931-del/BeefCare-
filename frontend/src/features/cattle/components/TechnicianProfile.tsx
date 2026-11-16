@@ -11,6 +11,7 @@ import { HealthTechnicianTab } from '../../health'
 import { ReproductionTechnicianTab } from '../../reproduction'
 import { Chip, Fields, Panel, chipIcon } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
+import CowPhoto from './CowPhoto'
 
 const TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['', 'Tổng quan', 'id'],
@@ -66,7 +67,7 @@ export default function TechnicianProfile() {
   } : {}
 
   return (
-    <TechnicianLayout title={cow?.code ?? code} sub={sub} back="/kt/dan-bo">
+    <TechnicianLayout title={cow?.code ?? code} sub={sub} back="/kt/dan-bo" actions={cow && <CowPhoto key={cow.code} code={cow.code} photoUrl={cow.photoUrl} />}>
       {loading && !cow && <LoadingBlock />}
       {!cow && !loading && <ErrorBlock message={`Không tải được hồ sơ bò ${code}.`} onRetry={refetch} />}
       {cow && (
