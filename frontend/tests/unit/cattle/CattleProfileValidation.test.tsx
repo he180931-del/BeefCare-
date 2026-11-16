@@ -143,7 +143,11 @@ describe('Cattle Profile Validation Unit Tests (FE-05)', () => {
       const confirmButton = screen.getByRole('button', { name: /Xác nhận thẻ mới/i })
       await user.click(confirmButton)
 
-      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      const qr = await screen.findByRole('img', { name: /^Mã QR thẻ QR-[0-9A-F]{24}$/ })
+      expect(qr).toBeVisible()
+      expect(onSaved).not.toHaveBeenCalled()
+      await user.click(screen.getByText('Đóng', { selector: 'button' }))
+      expect(onSaved).toHaveBeenCalled()
     })
   })
 

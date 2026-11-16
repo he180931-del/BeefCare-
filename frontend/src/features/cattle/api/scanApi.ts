@@ -20,6 +20,7 @@ const dateLabel = (iso: string | null) => (iso ? iso.slice(0, 10).split('-').rev
 export async function scanCode(input: string): Promise<ScanOutcome | null> {
   const key = input.trim()
   if (!key) return null
+  if (key.length > 500) return { kind: 'rejected', code: 'MSG-FE05-09' }
   if (backendMode === 'backend') {
     try {
       const result = await resolveScannedCode(key)
@@ -32,10 +33,13 @@ export async function scanCode(input: string): Promise<ScanOutcome | null> {
       }
     } catch (error) {
       if (error instanceof BackendError && error.code === 'MSG-FE05-10') return { kind: 'rejected', code: 'MSG-FE05-10' }
-      return { kind: 'rejected', code: 'MSG-FE05-09' }
+      if (error instanceof BackendError && error.code === 'MSG-FE05-09') return { kind: 'rejected', code: 'MSG-FE05-09' }
+      throw error
     }
   }
-  const needle = key.toLowerCase()
+  const code = key.includes('/tags/') ? key.slice(key.lastIndexOf('/tags/') + 6) : key
+  if (/[?#]/.test(code)) return { kind: 'rejected', code: 'MSG-FE05-09' }
+  const needle = code.toLowerCase()
   const cows = await listCows()
   for (const cow of cows) {
     const history = cow.qrHistory ?? []
@@ -44,7 +48,11 @@ export async function scanCode(input: string): Promise<ScanOutcome | null> {
       const current = history.find((t) => t.status === 'ACTIVE')?.code ?? null
       return { kind: 'found', cow, ...(tagRow.status === 'REPLACED' ? { replaced: { scannedTag: tagRow.code, currentTag: current, date: tagRow.to } } : {}) }
     }
-    if ([cow.code, cow.tag, cow.qr].some((v) => v && v.toLowerCase() === needle)) return { kind: 'found', cow }
   }
+  const found = cows.find((cow) => cow.code.toLowerCase() === needle)
+    ?? cows.find((cow) => cow.qr?.toLowerCase() === needle)
+    ?? cows.find((cow) => cow.status === 'ACTIVE' && cow.tag?.toLowerCase() === needle)
+    ?? cows.find((cow) => cow.tag?.toLowerCase() === needle)
+  if (found) return { kind: 'found', cow: found }
   return { kind: 'rejected', code: 'MSG-FE05-09' }
 }

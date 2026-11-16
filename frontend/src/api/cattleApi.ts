@@ -1,5 +1,5 @@
 import { createCollection } from './client'
-import { MANAGER, TODAY, initialCows, newQrCode, type CowSeed } from '../data/cowsData'
+import { MANAGER, TODAY, initialCows, type CowSeed } from '../data/cowsData'
 import { dm, dmy } from '../data/format'
 import { moveCattle, pens } from './herdDomainApi'
 import { cattleSchema } from './collectionSchemas'
@@ -7,6 +7,7 @@ import { backendFarmId, backendMode, backendTransport } from './backendTransport
 import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
 import type { Cattle, CattleEvent, Pen, QrHistoryRow, Tone } from '../types'
 import { readDemoCattlePhoto, saveDemoCattlePhoto } from './demoCattlePhotos'
+import { toFarmLocal } from './farmTimeZone'
 
 // Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
 const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
@@ -137,7 +138,8 @@ export const checkPenMove = (code: string, { date, toPenId }: { date: string; to
 }
 
 export async function reissueQr(code: string, { reason, note, by, tagCode }: { reason: string; note: string; by: string; tagCode?: string }, context: BackendMutationContext = {}) {
-  if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
+  if (backendMode === 'backend') {
+    if (context.backendId == null || context.backendVersion == null) throw new Error('Vui lòng tải lại hồ sơ trước khi cấp thẻ.')
     // Cấp lần đầu không gửi lý do (UC-04 AF1); thay thẻ gửi LOST / DAMAGED / OTHER.
     const replacementReason = ['LOST', 'DAMAGED', 'OTHER'].includes(reason)
       ? reason as 'LOST' | 'DAMAGED' | 'OTHER'
@@ -150,13 +152,19 @@ export async function reissueQr(code: string, { reason, note, by, tagCode }: { r
     })
   }
   const cow = await getActiveCow(code)
-  const newCode = newQrCode({ code: cow.code, qrHistory: cow.qrHistory ?? [] })
-  const change = event('qr', `${TODAY}T08:00`, 'Cấp lại thẻ QR', { label: 'Thực tế', tone: 'ok' }, note || reason, `Hiệu lực ${dm(TODAY)} · ghi ${dm(TODAY)} · ${by}`)
+  if (cow.exitPending) throw new Error('Bò đang chờ xuất đàn. Hồ sơ chỉ có thể xem.')
+  const newCode = tagCode?.trim() || `QR-${Array.from(crypto.getRandomValues(new Uint8Array(12)), (byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()}`
+  if (tagCode && (await cattle.list()).some((row) => row.qr === newCode || row.qrHistory?.some((tag) => tag.code === newCode))) {
+    throw new Error('Mã thẻ này đã được dùng. Vui lòng nhập mã khác hoặc để hệ thống tạo.')
+  }
+  const at = toFarmLocal(new Date().toISOString())
+  const issuedOn = dmy(at.slice(0, 10))
+  const change = event('qr', at, reason ? 'Cấp lại thẻ QR' : 'Cấp thẻ QR', { label: 'Thực tế', tone: 'ok' }, note || reason, `Ghi ${issuedOn} · ${by}`)
   return cattle.update(code, {
     qr: newCode,
     qrHistory: [
-      { code: newCode, status: 'ACTIVE', from: '10/2026', to: '—', reason, by },
-      ...(cow.qrHistory ?? []).map((q): QrHistoryRow => (q.status === 'ACTIVE' ? { ...q, status: 'REPLACED', to: '10/2026' } : q)),
+      { code: newCode, status: 'ACTIVE', from: issuedOn, to: '—', reason: reason || 'Cấp lần đầu', note, by },
+      ...(cow.qrHistory ?? []).map((q): QrHistoryRow => (q.status === 'ACTIVE' ? { ...q, status: 'REPLACED', to: issuedOn, reason } : q)),
     ],
     events: [change, ...(cow.events ?? [])],
   })
