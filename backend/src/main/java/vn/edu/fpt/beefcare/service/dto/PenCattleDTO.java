@@ -9,6 +9,7 @@ import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 /** A cattle currently in a pen, with short situation hints (present only where the data exists). */
 public record PenCattleDTO(
     Long id,
+    Integer version,
     String code,
     String earTagNumber,
     String name,

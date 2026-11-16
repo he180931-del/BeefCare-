@@ -167,7 +167,8 @@ export default function BarnList() {
           cattle={moving}
           pens={barns}
           onClose={() => setMoving(null)}
-          onMoved={(message) => { setMoving(null); setNotice(message); refetch() }}
+          onReload={() => { setMoving(null); detailQuery.refetch(); refetch() }}
+          onMoved={(message) => { setMoving(null); setNotice(message); detailQuery.refetch(); refetch() }}
         />
       )}
     </>

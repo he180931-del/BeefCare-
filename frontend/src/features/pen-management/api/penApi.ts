@@ -3,6 +3,7 @@ import { createCollection } from '../../../api/client'
 import { migrateHerdStorage } from '../../../api/storageMigrations'
 import { penSchema } from '../../../api/collectionSchemas'
 import { moveBarn } from '../../../api/cattleApi'
+import { BackendError } from '../../../api/backendClient'
 import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue } from '../../../api/backendTransport'
 import type { Pen } from '../../../types'
 import type { ReceptionCriteria } from '../domain/penRules'
@@ -25,7 +26,7 @@ type BackendHint = { code?: string; params?: Record<string, unknown> }
 type BackendPen = {
   id?: number; code?: string; name?: string; capacity?: number; description?: string
   status?: string; headcount?: number; acceptsSummary?: string; version?: number
-  cattle?: Array<{ id?: number; code?: string; exitPending?: boolean; hints?: BackendHint[] }>
+  cattle?: Array<{ id?: number; version?: number; code?: string; exitPending?: boolean; hints?: BackendHint[] }>
   currentCriteria?: {
     versionNo?: number; effectiveFrom?: string
     purposeTypes?: string[]; lifeStages?: string[]; sex?: string; minAgeMonths?: number; minWeightKg?: number
@@ -140,8 +141,8 @@ export const mapBackendPen = (value: unknown): Pen => {
   }
 }
 
-/** A cattle currently in a pen (A2 cattle[]): id, code and short situation hints. */
-export type PenCattle = { id?: number; code: string; situation: string; hints: BackendHint[]; exitPending: boolean }
+/** A cattle currently in a pen (A2 cattle[]): id, version, code and short situation hints. */
+export type PenCattle = MoveCattle & { situation: string; hints: BackendHint[]; exitPending: boolean }
 export type PenDetail = Pen & { cattleInPen: PenCattle[] }
 
 /** Pen detail (A2): the list fields plus the cattle currently in the pen. */
@@ -150,7 +151,7 @@ export const mapBackendPenDetail = (value: unknown): PenDetail => {
   return {
     ...mapBackendPen(value),
     cattleInPen: (row.cattle ?? []).map((c) => ({
-      id: c.id, code: textValue(c.code), hints: c.hints ?? [], exitPending: c.exitPending === true, situation: '',
+      id: c.id, version: c.version, code: textValue(c.code), hints: c.hints ?? [], exitPending: c.exitPending === true, situation: '',
     })),
   }
 }
@@ -205,7 +206,7 @@ export type PenMoveCheckResult = {
   block?: BackendHint | null
   cattle: PenMoveCheckRow[]
 }
-export type MoveCattle = { id?: number; code: string }
+export type MoveCattle = { id?: number; version?: number; code: string }
 export type PenMoveCommand = {
   cattle: MoveCattle[]
   from: Pen
@@ -278,7 +279,14 @@ const backendApi = {
     }
   },
   move: async (command: PenMoveCommand): Promise<PenMoveResult> => {
-    const cattleIds = command.cattle.map((c) => c.id).filter((id): id is number => typeof id === 'number')
+    const cattleVersions: Record<number, number> = {}
+    const cattleIds = command.cattle.map(({ id, version, code }) => {
+      if (typeof id !== 'number' || typeof version !== 'number') {
+        throw new BackendError(409, { code: 'MSG-COM-05', params: { reason: 'expected_version_required', cattle_code: code } })
+      }
+      cattleVersions[id] = version
+      return id
+    })
     const byCode = new Map(command.cattle.map((c) => [c.code, c.id]))
     const warningReasons = Object.fromEntries(
       Object.entries(command.warningReasons)
@@ -286,7 +294,7 @@ const backendApi = {
         .map(([code, reason]) => [String(byCode.get(code) ?? code), reason.trim()]),
     )
     const body = asRecord(await backendTransport.command(backendTransport.farmPath(backendFarmId, '/pen-moves'), {
-      cattleIds, toPenId: command.to.id, moveDate: command.moveDate, reason: command.reason, warningReasons,
+      cattleIds, toPenId: command.to.id, moveDate: command.moveDate, reason: command.reason, warningReasons, cattleVersions,
     }, { method: 'POST' }))
     return { moved: asRows(body.moved).length, skipped: asRows(body.skipped).map((row) => ({ cattleCode: textValue(row.cattleCode) })) }
   },

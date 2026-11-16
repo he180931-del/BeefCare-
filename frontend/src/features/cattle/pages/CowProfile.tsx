@@ -64,7 +64,7 @@ export default function CowProfile() {
         {tabViews[tab] ?? <ComingSoon label={tabLabel} />}
         {canWrite && modal === 'update' && <UpdateModal cow={cow} owner={session?.role === 'OWNER'} onClose={closeModal} onSaved={saved} />}
         {canWrite && modal === 'qr-reissue' && <QrReissueModal cow={cow} onClose={closeModal} onSaved={saved} />}
-        {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onSaved={saved} />}
+        {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onReload={saved} onSaved={saved} />}
         {canWrite && modal === 'record-edit' && cow.importRecord && <RecordEditModal cow={cow} record={cow.importRecord} onClose={closeModal} onSaved={saved} />}
       </>
     )
