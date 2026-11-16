@@ -175,8 +175,24 @@ test('TC-08-API04: hồ sơ tăng trưởng tra mã bò rồi đọc /cattle/{id
   assert.equal(p.records[1].corrected, true)
   assert.equal(p.correctedCount, 1)
 
-  await api.getProfile('BC-000203')
-  assert.equal(calls.filter((c) => c.path.includes('/resolve')).length, 1, 'mã bò chỉ resolve một lần')
+  assert.equal(p.cattle.exitPending, false)
+})
+
+// Lỗi phát hiện khi thử trên trình duyệt (16/11/2026): bò trên phiếu chết PENDING mất nút ghi cân mà không báo lý do.
+test('R-08-10: hồ sơ tăng trưởng đọc lại cờ chờ xuất mỗi lần mở, không dùng kết quả resolve cũ', async () => {
+  let pending = false
+  const { transport, calls } = fakeTransport({
+    '/api/farms/1/cattle/resolve': () => ({ ...resolve, cattle: { ...profile, entry: null, exitPending: pending } }),
+    '/api/farms/1/cattle/203': { ...profile, entry: { source: 'PURCHASE', entryDate: '2026-06-01' } },
+    '/api/farms/1/cattle/203/growth': summary,
+  })
+  const api = createGrowthBackend({ farmId: 1, transport, clock })
+  assert.equal((await api.getProfile('BC-000203')).cattle.exitPending, false)
+  pending = true
+  const again = await api.getProfile('BC-000203')
+  assert.equal(again.cattle.exitPending, true, 'phiếu chết vừa tạo thì lần mở sau phải thấy')
+  assert.equal(again.cattle.herdEntryDate, '2026-06-01')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/cattle/203').length, 1, 'ngày nhập đàn chỉ đọc một lần')
 })
 
 test('TC-08-20: hộp thoại ghi nhận lấy người đo từ /members (userId, chỉ ACTIVE) và giờ trại hiện tại', async () => {

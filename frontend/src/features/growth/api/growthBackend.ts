@@ -112,6 +112,7 @@ export function mapCattle(raw: unknown): GrowthCattle {
     // Cân mục tiêu lấy từ /cattle/{id}/growth (targetKg) khi mở hồ sơ tăng trưởng.
     targetWeightKg: undefined,
     status: p.herdStatus === 'ACTIVE' || p.herdStatus === undefined ? 'ACTIVE' : 'EXITED',
+    exitPending: p.exitPending === true,
   }
 }
 
@@ -192,15 +193,17 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
   const resolved = new Map<string, { cattleId: number; cattle: GrowthCattle }>()
   const records = new Map<number, GrowthRecord>()
 
-  async function resolve(code: string) {
+  /** `fresh`: đọc lại trạng thái bò (chờ xuất, chuồng) thay vì dùng kết quả đã lưu trong phiên. */
+  async function resolve(code: string, fresh = false) {
     const hit = resolved.get(code)
-    if (hit) return hit
+    if (hit && !fresh) return hit
     const body = asRecord(await transport.get(path(`/cattle/resolve${query({ code })}`)))
     const cattleId = num(body.cattleId)
     if (cattleId === undefined) throw new Error(`Không tìm thấy bò ${code}.`)
     const cattle = mapCattle(body.cattle)
     // /cattle/resolve không trả thông tin nhập đàn (entry = null); ngày nhập đàn lấy từ hồ sơ chi tiết /cattle/{id}
-    // để popup chặn được thời điểm đo trước ngày nhập đàn (R-08-03).
+    // để popup chặn được thời điểm đo trước ngày nhập đàn (R-08-03). Ngày nhập đàn không đổi nên dùng lại khi đọc lại.
+    if (!cattle.herdEntryDate && hit?.cattleId === cattleId) cattle.herdEntryDate = hit.cattle.herdEntryDate
     if (!cattle.herdEntryDate) cattle.herdEntryDate = textValue(asRecord(asRecord(await transport.get(path(`/cattle/${cattleId}`))).entry).entryDate)
     const value = { cattleId, cattle }
     resolved.set(code, value)
@@ -272,7 +275,8 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
     },
 
     async getProfile(code: string): Promise<GrowthProfile> {
-      const [{ cattleId, cattle }, timeZone] = await Promise.all([resolve(code), zone()])
+      // R-08-10: phiếu chết / mất có thể vừa tạo hoặc vừa xử lý, nên mỗi lần mở hồ sơ đọc lại trạng thái bò.
+      const [{ cattleId, cattle }, timeZone] = await Promise.all([resolve(code, true), zone()])
       const body = asRecord(await transport.get(path(`/cattle/${cattleId}/growth?windowDays=90`)))
       const list = asRows(body.records).map((r) => mapRecord(r, code, timeZone))
       list.forEach((r) => records.set(r.id, r))
