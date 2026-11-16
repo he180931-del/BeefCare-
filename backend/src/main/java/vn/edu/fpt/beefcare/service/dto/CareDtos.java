@@ -170,7 +170,7 @@ public final class CareDtos {
                                  Long treatmentCount,Long linkedVaccinationId,Instant latestEntryAt,List<HealthTimelineRow> timeline,Integer version) {}
     /** A2 previous (CLOSED) case: code, opening signs, outcome and the month it was closed ({@code month} yyyy-MM). */
     public record PreviousHealthCase(Long id,String caseCode,String openingSigns,String diagnosis,String severity,LocalDate openedDate,
-                                     String outcome,LocalDate closedDate,String month,String confirmedBy) {}
+                                     String outcome,LocalDate closedDate,String month,String confirmedBy,List<HealthTimelineRow> timeline) {}
     /** A2: the PENDING loss voucher (DIED / MISSING) proposed from one of the cattle's cases and awaiting the Owner (GBR-26). */
     public record PendingHealthExit(Long voucherId,String code,String lossKind,LocalDate exitDate,Long caseId,String caseCode) {}
     public record HealthProfile(Long cattleId,String cattleCode,String healthState,LocalDate withdrawalEndDate,Boolean suspectedContagious,

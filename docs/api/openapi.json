@@ -3859,7 +3859,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           }
         }, {
           "name" : "from",
@@ -3949,6 +3949,57 @@
             }
           },
           "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/subscription/payments/{paymentId}/cancel" : {
+      "post" : {
+        "tags" : [ "subscription-payment-resource" ],
+        "operationId" : "cancelPayment",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "paymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PaymentCancelRequest"
+              }
+            }
+          }
         },
         "responses" : {
           "200" : {
@@ -7798,7 +7849,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/EventCommand"
+                "$ref" : "#/components/schemas/PregnancyCheckCommand"
               }
             }
           },
@@ -8118,7 +8169,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/EventCommand"
+                "$ref" : "#/components/schemas/EstrusCommand"
               }
             }
           },
@@ -8170,7 +8221,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/EventCommand"
+                "$ref" : "#/components/schemas/BreedingCommand"
               }
             }
           },
@@ -8554,7 +8605,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/CalfOutcomeResult"
+                  "$ref" : "#/components/schemas/CalfResult"
                 }
               }
             }
@@ -8606,7 +8657,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/CalfOutcomeResult"
+                  "$ref" : "#/components/schemas/CalfResult"
                 }
               }
             }
@@ -9609,7 +9660,8 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           }
         }, {
           "name" : "q",
@@ -10734,6 +10786,43 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "tab",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "penId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "breedId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "eligibility",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -10741,10 +10830,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/ReproductionAnimal"
-                  }
+                  "$ref" : "#/components/schemas/Worklist"
                 }
               }
             }
@@ -10965,6 +11051,14 @@
           "name" : "cattleId",
           "in" : "path",
           "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "historyCaseId",
+          "in" : "query",
+          "required" : false,
           "schema" : {
             "type" : "integer",
             "format" : "int64"
@@ -12258,6 +12352,7 @@
         }, {
           "name" : "sort",
           "in" : "query",
+          "description" : "Sort by displayCode, name, breedName, birthDate, penCode, purposeName, or latestWeightKg. Prefix with - for descending order. Missing values are sorted last.",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -12265,6 +12360,7 @@
         }, {
           "name" : "hasWeight",
           "in" : "query",
+          "description" : "Filter by whether the cattle has a latest weight.",
           "required" : false,
           "schema" : {
             "type" : "boolean"
@@ -12392,6 +12488,29 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "type",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -12399,7 +12518,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ReproductionHistory"
+                  "$ref" : "#/components/schemas/Profile"
                 }
               }
             }
@@ -13423,6 +13542,10 @@
           "id" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "code" : {
             "type" : "string"
@@ -17522,7 +17645,7 @@
           },
           "state" : {
             "type" : "string",
-            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           },
           "requestedAt" : {
             "type" : "string",
@@ -17621,6 +17744,25 @@
             }, {
               "type" : "null"
             } ]
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "D38: when the Owner cancelled the request; kept if a transfer banked earlier still pays it"
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "description" : "D38: optional reason given when cancelling"
+          }
+        }
+      },
+      "PaymentCancelRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "description" : "Optional; trimmed, at most 1,000 characters",
+            "maxLength" : 1000
           }
         }
       },
@@ -17666,10 +17808,51 @@
           }
         }
       },
+      "EligibilityWarning" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "conditions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "EpisodeInfo" : {
+        "type" : "object",
+        "properties" : {
+          "episodeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "parity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expectedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "basis" : {
+            "type" : "string"
+          },
+          "notice" : {
+            "type" : "string"
+          }
+        }
+      },
       "EventResult" : {
         "type" : "object",
         "properties" : {
-          "id" : {
+          "eventId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -17683,17 +17866,44 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "tentativeExpectedCalvingDate" : {
-            "type" : "string",
-            "format" : "date"
-          },
-          "pregnancyEpisodeId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "cattleVersion" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "result" : {
+            "type" : "string"
+          },
+          "window" : {
+            "$ref" : "#/components/schemas/Window"
+          },
+          "tentativeCalvingDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "parameterMissing" : {
+            "type" : "string"
+          },
+          "eligibilityWarning" : {
+            "$ref" : "#/components/schemas/EligibilityWarning"
+          },
+          "episode" : {
+            "$ref" : "#/components/schemas/EpisodeInfo"
+          },
+          "reproStatus" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Window" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -17711,22 +17921,77 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "dataSource" : {
+            "type" : "string"
+          },
+          "signs" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "observerName" : {
+            "type" : "string"
+          },
           "method" : {
+            "type" : "string"
+          },
+          "sireSource" : {
+            "type" : "string"
+          },
+          "sireCattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreedId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreed" : {
+            "type" : "string"
+          },
+          "semenCode" : {
+            "type" : "string"
+          },
+          "semenSupplier" : {
+            "type" : "string"
+          },
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
+            "type" : "string"
+          },
+          "linkedEventId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unlinkEvent" : {
+            "type" : "boolean"
+          },
+          "note" : {
             "type" : "string"
           },
           "result" : {
             "type" : "string"
           },
-          "description" : {
-            "type" : "string"
+          "estimatedMonths" : {
+            "type" : "integer",
+            "format" : "int32"
           },
-          "performedBy" : {
-            "type" : "string"
+          "examinerId" : {
+            "type" : "integer",
+            "format" : "int64"
           },
-          "examiner" : {
-            "type" : "string"
-          },
-          "observer" : {
+          "examinerName" : {
             "type" : "string"
           }
         }
@@ -17734,7 +17999,7 @@
       "PregnancyUpdateResult" : {
         "type" : "object",
         "properties" : {
-          "id" : {
+          "updateId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -17745,12 +18010,22 @@
           "type" : {
             "type" : "string"
           },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "episodeStatus" : {
             "type" : "string"
           },
           "episodeVersion" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "reproStatus" : {
+            "type" : "string"
           }
         }
       },
@@ -17764,12 +18039,25 @@
           "reason" : {
             "type" : "string"
           },
+          "type" : {
+            "type" : "string"
+          },
           "occurredAt" : {
             "type" : "string",
             "format" : "date-time"
           },
+          "dataSource" : {
+            "type" : "string"
+          },
           "details" : {
             "type" : "string"
+          },
+          "healthCaseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unlinkHealthCase" : {
+            "type" : "boolean"
           }
         }
       },
@@ -17780,14 +18068,14 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "type" : {
+            "type" : "string"
+          },
           "occurredAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
-            "type" : "string"
-          },
-          "type" : {
+          "dataSource" : {
             "type" : "string"
           },
           "details" : {
@@ -17964,14 +18252,15 @@
             "additionalProperties" : {
               "type" : "integer",
               "format" : "int32"
-            }
+            },
+            "description" : "Version observed for every selected cattle, keyed by cattle ID."
           },
           "performedBy" : {
             "type" : "integer",
             "format" : "int64"
           }
         },
-        "required" : [ "toPenId" ]
+        "required" : [ "cattleVersions", "toPenId" ]
       },
       "Moved" : {
         "type" : "object",
@@ -19970,74 +20259,42 @@
           }
         }
       },
-      "EventCommand" : {
+      "PregnancyCheckCommand" : {
         "type" : "object",
         "properties" : {
-          "cattleId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "expectedCattleVersion" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "occurredAt" : {
+          "linkedBreedingId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "checkedAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
-            "type" : "string"
-          },
-          "method" : {
+          "dataSource" : {
             "type" : "string"
           },
           "result" : {
             "type" : "string"
           },
-          "signs" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "description" : {
+          "method" : {
             "type" : "string"
           },
-          "performedBy" : {
-            "type" : "string"
-          },
-          "examiner" : {
-            "type" : "string"
-          },
-          "linkedEventId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireSource" : {
-            "type" : "string"
-          },
-          "externalSireName" : {
-            "type" : "string"
-          },
-          "sireBreedId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "semenBatch" : {
-            "type" : "string"
-          },
-          "supplier" : {
-            "type" : "string"
-          },
-          "estimatedMonthsPregnant" : {
+          "estimatedMonths" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "observer" : {
+          "examinerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "examinerName" : {
+            "type" : "string"
+          },
+          "note" : {
             "type" : "string"
           }
         }
@@ -20202,24 +20459,108 @@
         },
         "required" : [ "expectedVersion" ]
       },
-      "CalfCommand" : {
+      "EstrusCommand" : {
         "type" : "object",
         "properties" : {
-          "calfNo" : {
+          "expectedCattleVersion" : {
             "type" : "integer",
             "format" : "int32"
           },
+          "observedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "observerName" : {
+            "type" : "string"
+          },
+          "signs" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "dataSource" : {
+            "type" : "string"
+          },
+          "confirmDuplicate" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "BreedingCommand" : {
+        "type" : "object",
+        "properties" : {
+          "expectedCattleVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dataSource" : {
+            "type" : "string"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "sireSource" : {
+            "type" : "string"
+          },
+          "sireCattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreedId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreed" : {
+            "type" : "string"
+          },
+          "semenCode" : {
+            "type" : "string"
+          },
+          "semenSupplier" : {
+            "type" : "string"
+          },
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
+            "type" : "string"
+          },
+          "linkedEstrusId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "confirmDuplicate" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CalfCommand" : {
+        "type" : "object",
+        "properties" : {
           "outcome" : {
             "type" : "string"
           },
           "sex" : {
             "type" : "string"
           },
-          "birthWeight" : {
+          "birthWeightKg" : {
             "type" : "number"
-          },
-          "weightUnit" : {
-            "type" : "string"
           },
           "weightBasis" : {
             "type" : "string"
@@ -20227,7 +20568,7 @@
           "tagCode" : {
             "type" : "string"
           },
-          "proposedPenId" : {
+          "penId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -20235,19 +20576,19 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "registration" : {
+            "type" : "string"
+          },
           "purposeId" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "registerNow" : {
-            "type" : "boolean"
           }
         }
       },
       "CalvingCommand" : {
         "type" : "object",
         "properties" : {
-          "cattleId" : {
+          "damId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -20263,11 +20604,21 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "birthTime" : {
+          "noTrackedPregnancy" : {
+            "type" : "boolean"
+          },
+          "birthAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
+          "dataSource" : {
+            "type" : "string"
+          },
+          "attendantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "attendantName" : {
             "type" : "string"
           },
           "course" : {
@@ -20279,9 +20630,6 @@
           "retainedPlacenta" : {
             "type" : "boolean"
           },
-          "attendant" : {
-            "type" : "string"
-          },
           "calves" : {
             "type" : "array",
             "items" : {
@@ -20290,10 +20638,49 @@
           }
         }
       },
+      "CalfResult" : {
+        "type" : "object",
+        "properties" : {
+          "calfId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "calfNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "registration" : {
+            "type" : "string"
+          },
+          "cattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cattleCode" : {
+            "type" : "string"
+          },
+          "voucherCode" : {
+            "type" : "string"
+          },
+          "tagCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "CalvingResult" : {
         "type" : "object",
         "properties" : {
-          "id" : {
+          "calvingId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -20308,25 +20695,14 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "calfOutcomeIds" : {
+          "calves" : {
             "type" : "array",
             "items" : {
-              "type" : "integer",
-              "format" : "int64"
+              "$ref" : "#/components/schemas/CalfResult"
             }
           },
-          "registeredCattleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
-          },
-          "warnings" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
+          "damStatus" : {
+            "type" : "string"
           }
         }
       },
@@ -20340,11 +20716,18 @@
           "reason" : {
             "type" : "string"
           },
-          "birthTime" : {
+          "birthAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
+          "dataSource" : {
+            "type" : "string"
+          },
+          "attendantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "attendantName" : {
             "type" : "string"
           },
           "course" : {
@@ -20355,41 +20738,6 @@
           },
           "retainedPlacenta" : {
             "type" : "boolean"
-          },
-          "attendant" : {
-            "type" : "string"
-          }
-        }
-      },
-      "CalfOutcomeResult" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "outcome" : {
-            "type" : "string"
-          },
-          "sex" : {
-            "type" : "string"
-          },
-          "birthWeight" : {
-            "type" : "number"
-          },
-          "registrationState" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "registeredCattleId" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },
@@ -20409,19 +20757,19 @@
           "sex" : {
             "type" : "string"
           },
-          "birthWeight" : {
+          "birthWeightKg" : {
             "type" : "number"
-          },
-          "weightUnit" : {
-            "type" : "string"
           },
           "weightBasis" : {
             "type" : "string"
           },
+          "clearWeight" : {
+            "type" : "boolean"
+          },
           "tagCode" : {
             "type" : "string"
           },
-          "proposedPenId" : {
+          "penId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -20432,9 +20780,6 @@
           "purposeId" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "registerNow" : {
-            "type" : "boolean"
           }
         }
       },
@@ -21221,7 +21566,8 @@
             "type" : "number"
           },
           "state" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           },
           "requestedAt" : {
             "type" : "string",
@@ -21303,6 +21649,14 @@
             }, {
               "type" : "null"
             } ]
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "D38: set when the Owner cancelled the request"
+          },
+          "cancelReason" : {
+            "type" : "string"
           }
         }
       },
@@ -21456,7 +21810,7 @@
           },
           "matchResult" : {
             "type" : "string",
-            "enum" : [ "PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST", "REQUEST_EXPIRED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE" ]
+            "enum" : [ "PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST", "REQUEST_EXPIRED", "REQUEST_CANCELLED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE" ]
           },
           "reviewReason" : {
             "anyOf" : [ {
@@ -21711,9 +22065,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "first" : {
             "type" : "boolean"
           },
@@ -21723,6 +22074,9 @@
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -21739,6 +22093,12 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "paged" : {
+            "type" : "boolean"
+          },
           "pageNumber" : {
             "type" : "integer",
             "format" : "int32"
@@ -21746,12 +22106,6 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "unpaged" : {
-            "type" : "boolean"
-          },
-          "paged" : {
-            "type" : "boolean"
           }
         }
       },
@@ -21761,10 +22115,10 @@
           "empty" : {
             "type" : "boolean"
           },
-          "sorted" : {
+          "unsorted" : {
             "type" : "boolean"
           },
-          "unsorted" : {
+          "sorted" : {
             "type" : "boolean"
           }
         }
@@ -22853,18 +23207,206 @@
         },
         "required" : [ "content", "number", "size", "totalElements", "totalPages" ]
       },
-      "ReproductionAnimal" : {
+      "Counts" : {
+        "type" : "object",
+        "properties" : {
+          "awaitingBreeding" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inEstrus" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bred" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pregnant" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dueSoon" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "postCalving" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "all" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Criterion" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          },
+          "met" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Due" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "windowFrom" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "windowTo" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Eligibility" : {
+        "type" : "object",
+        "properties" : {
+          "met" : {
+            "type" : "boolean"
+          },
+          "failed" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "criteria" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Criterion"
+            }
+          }
+        }
+      },
+      "LatestEvent" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "daysAgo" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Tiles" : {
+        "type" : "object",
+        "properties" : {
+          "inEstrus" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inWindow" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "checkDue" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "calving30" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "postCalvingReady" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "notEligible" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Worklist" : {
+        "type" : "object",
+        "properties" : {
+          "tiles" : {
+            "$ref" : "#/components/schemas/Tiles"
+          },
+          "counts" : {
+            "$ref" : "#/components/schemas/Counts"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorklistItem"
+            }
+          }
+        }
+      },
+      "WorklistItem" : {
         "type" : "object",
         "properties" : {
           "cattleId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "cattleCode" : {
+          "code" : {
             "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "earTag" : {
+            "type" : "string"
+          },
+          "ageMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "latestWeightKg" : {
+            "type" : "number"
+          },
+          "breed" : {
+            "$ref" : "#/components/schemas/Ref"
+          },
+          "pen" : {
+            "$ref" : "#/components/schemas/Ref"
           },
           "status" : {
             "type" : "string"
+          },
+          "statusSince" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "eligibility" : {
+            "$ref" : "#/components/schemas/Eligibility"
+          },
+          "latestEvent" : {
+            "$ref" : "#/components/schemas/LatestEvent"
+          },
+          "nextAction" : {
+            "type" : "string"
+          },
+          "due" : {
+            "$ref" : "#/components/schemas/Due"
           },
           "expectedCalvingDate" : {
             "type" : "string",
@@ -22873,14 +23415,9 @@
           "expectedBasis" : {
             "type" : "string"
           },
-          "breedingEligible" : {
-            "type" : "boolean"
-          },
-          "failedBreedingConditions" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -23542,6 +24079,12 @@
           },
           "confirmedBy" : {
             "type" : "string"
+          },
+          "timeline" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HealthTimelineRow"
+            }
           }
         }
       },
@@ -23887,38 +24430,6 @@
             "items" : {
               "$ref" : "#/components/schemas/Row"
             }
-          }
-        }
-      },
-      "Tiles" : {
-        "type" : "object",
-        "properties" : {
-          "cattleExitedByType" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "integer",
-              "format" : "int32"
-            }
-          },
-          "cattleExited" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "salesRevenue" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "toCollect" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "vouchersToCollect" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "awaitingOwner" : {
-            "type" : "integer",
-            "format" : "int32"
           }
         }
       },
@@ -24307,170 +24818,6 @@
           }
         }
       },
-      "CalvingHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "birthTime" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "corrected" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "calves" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/CalfOutcomeResult"
-            }
-          }
-        }
-      },
-      "EventHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "type" : {
-            "type" : "string"
-          },
-          "occurredAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "recordedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "recordedById" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "result" : {
-            "type" : "string"
-          },
-          "method" : {
-            "type" : "string"
-          },
-          "observer" : {
-            "type" : "string"
-          },
-          "performedBy" : {
-            "type" : "string"
-          },
-          "examiner" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "corrected" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }
-      },
-      "PregnancyHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "parity" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "expectedCalvingDate" : {
-            "type" : "string",
-            "format" : "date"
-          },
-          "expectedBasis" : {
-            "type" : "string"
-          },
-          "updates" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PregnancyUpdateHistory"
-            }
-          }
-        }
-      },
-      "PregnancyUpdateHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "type" : {
-            "type" : "string"
-          },
-          "occurredAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "recordedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "corrected" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }
-      },
-      "ReproductionHistory" : {
-        "type" : "object",
-        "properties" : {
-          "cattleId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "events" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/EventHistory"
-            }
-          },
-          "pregnancies" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PregnancyHistory"
-            }
-          },
-          "calvings" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/CalvingHistory"
-            }
-          }
-        }
-      },
       "Current" : {
         "type" : "object",
         "properties" : {
@@ -24701,10 +25048,10 @@
           "parameterName" : {
             "type" : "string"
           },
-          "headerName" : {
+          "token" : {
             "type" : "string"
           },
-          "token" : {
+          "headerName" : {
             "type" : "string"
           }
         }

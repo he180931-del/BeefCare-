@@ -6,6 +6,7 @@ import { cattleSchema } from './collectionSchemas'
 import { backendFarmId, backendMode, backendTransport } from './backendTransport'
 import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
 import type { Cattle, CattleEvent, Pen, QrHistoryRow, Tone } from '../types'
+import { readDemoCattlePhoto, saveDemoCattlePhoto } from './demoCattlePhotos'
 
 // Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
 const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
@@ -39,8 +40,8 @@ export const listBarns = () => backendMode === 'backend' ? backendApi.pens() : p
 /** Hồ sơ một bò kèm danh sách chuồng (để hiển thị tiêu chí và sức chứa). */
 export async function loadProfile(code: string): Promise<{ cow: CowSeed; barns: Pen[] }> {
   if (backendMode === 'backend') return backendApi.profile(code)
-  const [cow, barnRows] = await Promise.all([cattle.get(code), pens.list()])
-  return { cow: asCowSeed(cow), barns: barnRows }
+  const [cow, barnRows, photo] = await Promise.all([cattle.get(code), pens.list(), readDemoCattlePhoto(code)])
+  return { cow: photo === undefined ? asCowSeed(cow) : { ...asCowSeed(cow), photoUrl: photo ?? undefined }, barns: barnRows }
 }
 
 type BackendMutationContext = {
@@ -114,15 +115,20 @@ export async function moveBarn(code: string, { to, date, reason, by }: { to: str
   })
 }
 
-/** A4: replace or remove the cattle photo (backend only; the local demo keeps the placeholder). */
-export const uploadCattlePhoto = (context: BackendMutationContext, file: File) =>
-  backendMode === 'backend' && context.backendId != null && context.backendVersion != null
-    ? backendApi.uploadPhoto(context.backendId, file, context.backendVersion)
-    : Promise.resolve(null)
-export const removeCattlePhoto = (context: BackendMutationContext) =>
-  backendMode === 'backend' && context.backendId != null && context.backendVersion != null
-    ? backendApi.removePhoto(context.backendId, context.backendVersion)
-    : Promise.resolve(null)
+/** A4 uses the private upload endpoint. The offline demo persists photos on this browser. */
+export async function saveCattlePhoto(code: string, context: BackendMutationContext, file: File | null) {
+  if (backendMode === 'backend') {
+    if (context.backendId == null || context.backendVersion == null) throw new Error('Vui lòng tải lại hồ sơ trước khi lưu ảnh.')
+    return file
+      ? backendApi.uploadPhoto(context.backendId, file, context.backendVersion)
+      : backendApi.removePhoto(context.backendId, context.backendVersion)
+  }
+  if ((await getActiveCow(code)).exitPending) throw new Error('Bò đang chờ xuất đàn. Hồ sơ chỉ có thể xem.')
+  const photo = file && !file.type
+    ? file.slice(0, file.size, /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg')
+    : file
+  return saveDemoCattlePhoto(code, photo)
+}
 export const resolveScannedCode = (code: string) => backendApi.resolveCode(code)
 
 export const checkPenMove = (code: string, { date, toPenId }: { date: string; toPenId: number }, context: { backendId?: number } = {}): Promise<PenMoveCheck | null> => {

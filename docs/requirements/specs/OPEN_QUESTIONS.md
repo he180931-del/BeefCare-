@@ -4,7 +4,7 @@ Nguồn: mục 10 của 23 spec theo SRS 28/10/2026 (quyết định D12). Mỗi
 
 Cột **Quyết định**: để trống = chưa chốt; ghi `Theo đề xuất`, `Khác: …` hoặc `Hoãn`. **Người chốt** mặc định là chủ feature; câu chạm feature khác thì trao đổi với chủ feature đó.
 
-Tổng: 122 câu – AnNT 28, DucNV 26, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
+Tổng: 123 câu – AnNT 28, DucNV 27, LamKD 19, TaiDX 28, TuanPQ 20, cả nhóm 1.
 
 Ngày 07/11/2026 thêm 10 câu (FE-03 Q5, FE-12 Q5, FE-14 Q6, FE-23 Q7–Q12, Chung Q1) khi dọn thư mục `docs/`: lấy từ đối chiếu FE–BE phần thức ăn (01/11), đối chiếu Figma với frontend (02/11) và báo cáo triển khai backend (28–29/10).
 
@@ -13,6 +13,8 @@ Ngày 08/11/2026 thêm 5 câu (FE-02 Q5–Q9) khi làm UC-FE02-02 đến UC-FE02
 Ngày 14/11/2026 thêm FE-03 Q6 khi làm UC-FE03-03 (D27): cách SCR-15 hiển thị link của lời mời đã hủy / hết hạn, hoãn sang UC4.
 
 Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại trên SCR-57 (D14), sau đó xác nhận làm UC-FE19-01 gồm backend và nối SCR-57. FE-19 Q3 chốt riêng UC-01, còn UC-03, 04, 05 chờ xác nhận.
+
+Ngày 16/11/2026 thêm FE-19 Q11: Owner muốn hủy yêu cầu thanh toán trong khi SRS (GBR-70) không cho hủy; chốt D38.
 
 | FE | Mã | Câu hỏi | Đề xuất trong spec | Quyết định | Người chốt | Ngày |
 |---|---|---|---|---|---|---|
@@ -73,7 +75,7 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-12 | Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 | Theo SCR-39 | TuanPQ | 07/11/2026 |
 | FE-12 | Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) | Theo đề xuất | TuanPQ | 07/11/2026 |
 | FE-12 | Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác | Theo đề xuất | TuanPQ | 07/11/2026 |
-| FE-12 | Q5 | Thẻ tai bê: Figma bắt buộc khi chọn "Đăng ký ngay", SRS không bắt buộc. FE (`CalvingPage`) đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` |  | TuanPQ |  |
+| FE-12 | Q5 | Thẻ tai bê: Figma bắt buộc khi chọn "Đăng ký ngay", SRS không bắt buộc. FE (`CalvingPage`) đang theo Figma | Theo SRS (D12), sửa FE; nếu giữ Figma thì ghi quyết định mới vào `REQUIREMENT_DECISIONS.md` | Theo SRS, không bắt buộc (D36); để trống thì cấp mã khi ghi sổ phiếu FARM_BORN (Q3) | TuanPQ | 15/11/2026 |
 | FE-13 | Q1 | Độ dài lý do bỏ đề xuất phiếu chết | ≤ 500 |  | AnNT |  |
 | FE-13 | Q2 | UC-FE13-02, 04 không có đặc tả Part II | Theo SCR-41, SCR-76 và popup dùng chung |  | AnNT |  |
 | FE-13 | Q3 | Phiếu PENDING có được thêm bò khác không? | Không – mỗi phiếu chết gắn đúng 1 con (GBR-95) |  | AnNT |  |
@@ -100,7 +102,7 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-17 | Q3 | Kích thước trang | 20 | Theo đề xuất, D34: 20, tối đa 100 | DucNV | 15/11/2026 |
 | FE-17 | Q4 | Thời gian lưu giữ audit | Không xóa (append-only) | Theo đề xuất, D34: không có route sửa / xóa (405), không có job dọn | DucNV | 15/11/2026 |
 | FE-17 | Q5 | Audit trong trại (thay đổi dữ liệu bò) | Không thuộc audit trung tâm; dùng Record Revision (FE-16) | Theo đề xuất, D34: vẫn ghi vào `audit_log` cho lịch sử trong trại nhưng ngoài danh mục, SCR-51 không hiện (A2 → MSG-COM-08) | DucNV | 15/11/2026 |
-| FE-18 | Q1 | Technician có xem SCR-55, SCR-56 không? (SRS nói SCR-55 "Owner or a Manager"; SCR-52 → 54 "farm members") | Technician chỉ xem giống, vắc-xin, thuốc |  | AnNT |  |
+| FE-18 | Q1 | Technician có xem SCR-55, SCR-56 không? | Technician xem cả năm tab và lịch sử phiên bản ở chế độ chỉ đọc | D37: theo phân quyền đang chạy. Owner và Manager mới được ghi. | AnNT | 15/11/2026 |
 | FE-18 | Q2 | SCR-54 không nêu mã và tên thuốc | Mã như giống; tên ≤ 150 như vắc-xin |  | AnNT |  |
 | FE-18 | Q3 | SCR-55 không có trường Mô tả dù entity có | Thêm Mô tả ≤ 500 |  | AnNT |  |
 | FE-18 | Q4 | Có xóa giống / thuốc / mục đích chưa dùng không? | Không – SRS chỉ cho xóa vắc-xin chưa dùng |  | AnNT |  |
@@ -115,6 +117,7 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 | FE-19 | Q8 | SCR-59 tự cập nhật hay chỉ nút Kiểm tra lại? | Tự đọc lại mỗi 5 giây khi PENDING và giữ nút | Đã chốt (D15): không request chồng, dừng PAID/EXPIRED/rời màn, kiểm thêm một lần ở mốc hết hạn; làm backend + nối SCR-58/SCR-59 | Người dùng / scope DucNV | 09/11/2026 |
 | FE-19 | Q9 | Giao dịch được PM tra cứu có cần duyệt thêm; lịch sử quyết định lưu yêu cầu liên quan thế nào? | Giao dịch hợp lệ tự xác nhận; lưu yêu cầu theo từng quyết định | Người dùng chốt D21: đủ GBR-72/84 tự PAID/cấp kỳ nguồn SEPAY như webhook; không khớp chỉ lưu chứng từ. ACCEPT luôn lưu yêu cầu xác nhận; HOLD/REJECT lưu ứng viên nếu có, không bắt buộc chọn; lịch sử cũ thiếu liên kết để null | Người dùng | 10/11/2026 |
 | FE-19 | Q10 | Mã chính xác của yêu cầu X nhưng X không nhận được: PM chọn được yêu cầu nào? Tra cứu theo mã có cần `Idempotency-Key`? | Chỉ yêu cầu cùng trại X; mã giao dịch làm khóa | Người dùng chốt D22: ứng viên và ACCEPT chỉ trong trại của X (MSG-FE19-11 `OTHER_FARM`), mã gõ sai vẫn mọi trại; mã giao dịch SePay là request key theo BR-D24/GBR-88, không thêm header | Người dùng | 10/11/2026 |
+| FE-19 | Q11 | Owner hủy yêu cầu thanh toán: SRS (GBR-70) không cho hủy, tạo nhầm kỳ hạn phải chờ hết 24 giờ mới tạo yêu cầu khác | Cho Owner hủy yêu cầu PENDING chưa hết hạn, chưa nhận giao dịch; lý do tùy chọn; tiền về trước lúc hủy vẫn xác nhận, sau lúc hủy chờ PM | Theo đề xuất, D38: sửa SRS GBR-70 / 72, UC-FE19-02, SCR-59 / 60; thêm A18, MSG-FE19-17 → 19 | DucNV / người dùng | 16/11/2026 |
 | FE-20 | Q1 | Độ dài lý do bàn giao / trả về hàng đợi / đổi người nhận / hủy IR | ≤ 1.000 |  | LamKD |  |
 | FE-20 | Q2 | Ghi chú tùy chọn khi Owner xác nhận – UI chưa có trường | Thêm ô "Nhận xét" (≤ 1.000) tùy chọn |  | LamKD |  |
 | FE-20 | Q3 | UC-FE20-02, 03, 06, 08, 09 không có đặc tả Part II | Theo Part III + GBR |  | LamKD |  |

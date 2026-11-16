@@ -113,7 +113,8 @@ export interface SourcePayment {
   receiptCode: string | null; requestedByEmail: string | null; priceVersionId: number
 }
 
-export type PaymentState = 'PENDING' | 'PAID' | 'EXPIRED'
+/** CANCELLED: cancelled by the Owner (D38). */
+export type PaymentState = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED'
 export interface PlatformPayment {
   id: number
   code: string

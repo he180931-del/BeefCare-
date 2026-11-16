@@ -175,8 +175,24 @@ test('TC-08-API04: hồ sơ tăng trưởng tra mã bò rồi đọc /cattle/{id
   assert.equal(p.records[1].corrected, true)
   assert.equal(p.correctedCount, 1)
 
-  await api.getProfile('BC-000203')
-  assert.equal(calls.filter((c) => c.path.includes('/resolve')).length, 1, 'mã bò chỉ resolve một lần')
+  assert.equal(p.cattle.exitPending, false)
+})
+
+// Lỗi phát hiện khi thử trên trình duyệt (16/11/2026): bò trên phiếu chết PENDING mất nút ghi cân mà không báo lý do.
+test('R-08-10: hồ sơ tăng trưởng đọc lại cờ chờ xuất mỗi lần mở, không dùng kết quả resolve cũ', async () => {
+  let pending = false
+  const { transport, calls } = fakeTransport({
+    '/api/farms/1/cattle/resolve': () => ({ ...resolve, cattle: { ...profile, entry: null, exitPending: pending } }),
+    '/api/farms/1/cattle/203': { ...profile, entry: { source: 'PURCHASE', entryDate: '2026-06-01' } },
+    '/api/farms/1/cattle/203/growth': summary,
+  })
+  const api = createGrowthBackend({ farmId: 1, transport, clock })
+  assert.equal((await api.getProfile('BC-000203')).cattle.exitPending, false)
+  pending = true
+  const again = await api.getProfile('BC-000203')
+  assert.equal(again.cattle.exitPending, true, 'phiếu chết vừa tạo thì lần mở sau phải thấy')
+  assert.equal(again.cattle.herdEntryDate, '2026-06-01')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/cattle/203').length, 1, 'ngày nhập đàn chỉ đọc một lần')
 })
 
 test('TC-08-20: hộp thoại ghi nhận lấy người đo từ /members (userId, chỉ ACTIVE) và giờ trại hiện tại', async () => {
@@ -280,14 +296,35 @@ test('TC-08-01/02: lỗi trường của backend hiện đúng ô (COM-10 field,
     '/api/farms/1/cattle/resolve': resolve,
     '/api/farms/1/cattle/203/growth': () => { throw new BackendError(400, body) },
   }).transport
-  const cmd = { measuredAt: '2026-11-09T07:30', method: 'SCALE' as const, weightKg: 2000 }
+  // Lệnh hợp lệ ở frontend để đi tới backend; backend vẫn có thể từ chối (ví dụ thang BCS của trại khác).
+  const cmd = { measuredAt: '2026-11-09T07:30', method: 'SCALE' as const, weightKg: 500 }
 
   await assert.rejects(createGrowthBackend({ farmId: 1, transport: failWith({ code: 'COM-10', params: { field: 'weightKg' } }), clock }).record('BC-000203', cmd),
     (error: unknown) => error instanceof GrowthValidationError && Boolean(error.fields.weightKg))
-  await assert.rejects(createGrowthBackend({ farmId: 1, transport: failWith({ code: 'MSG-FE08-02' }), clock }).record('BC-000203', { measuredAt: cmd.measuredAt }),
+  await assert.rejects(createGrowthBackend({ farmId: 1, transport: failWith({ code: 'MSG-FE08-02' }), clock }).record('BC-000203', { ...cmd, weightKg: undefined, bcs: 3 }),
     (error: unknown) => error instanceof GrowthValidationError && Boolean(error.fields.form))
   await assert.rejects(createGrowthBackend({ farmId: 1, transport: failWith({ code: 'COM-02', message: 'Không có quyền' }), clock }).record('BC-000203', cmd),
     (error: unknown) => error instanceof BackendError && error.code === 'COM-02', 'lỗi khác giữ nguyên để màn hình hiện thông báo chung')
+})
+
+test('TC-08-01/02/05/10: kiểm tra trường ngay ở frontend, không gửi lệnh sai lên backend', async () => {
+  const { transport, calls } = fakeTransport({ '/api/farms/1/cattle/resolve': resolve, '/api/farms/1/cattle/203': { id: 203, entry: { entryDate: '2026-06-01' } } })
+  const api = createGrowthBackend({ farmId: 1, transport, clock })
+  const fields = async (cmd: Parameters<typeof api.record>[1]) => {
+    try { await api.record('BC-000203', cmd); return {} } catch (error) { assert.ok(error instanceof GrowthValidationError, String(error)); return error.fields }
+  }
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30' })).form, 'thiếu cả cân và BCS (MSG-FE08-02)')
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30', method: 'SCALE', weightKg: 0 })).weightKg, 'cân 0 kg')
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30', method: 'SCALE', weightKg: 1500.5 })).weightKg, 'cân > 1.500 kg')
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30', method: 'SCALE', weightKg: 300.25 })).weightKg, 'quá 1 chữ số thập phân')
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30', weightKg: 300 })).method, 'có cân thì bắt buộc phương pháp')
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30', bcs: 3.2 })).bcs, 'BCS ngoài thang 0,5')
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30', method: 'TAPE', heartGirthCm: 40, bodyLengthCm: 140 })).heartGirthCm, 'vòng ngực < 50 cm')
+  assert.ok((await fields({ measuredAt: '2026-11-10T12:00', bcs: 3 })).measuredAt, 'thời điểm ở tương lai')
+  assert.ok((await fields({ measuredAt: '2026-05-01T08:00', bcs: 3 })).measuredAt, 'trước ngày nhập đàn (MSG-COM-15)')
+  assert.ok((await fields({ measuredAt: '2026-11-09T07:30', bcs: 3, note: 'x'.repeat(501) })).note, 'ghi chú > 500 ký tự')
+  assert.equal(calls.filter((c) => c.method !== 'GET').length, 0, 'không gửi lệnh ghi khi còn lỗi')
+  await assert.rejects(api.correct('BC-000203', 2, { action: 'EXCLUDE', reason: '  ', expectedVersion: 0 }), (error: unknown) => error instanceof GrowthValidationError && Boolean(error.fields.reason))
 })
 
 test('TC-08-13: sửa bản ghi gửi Measurement đầy đủ, lý do và expectedVersion', async () => {

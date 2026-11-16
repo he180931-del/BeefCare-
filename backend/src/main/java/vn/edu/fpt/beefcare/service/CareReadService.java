@@ -95,6 +95,11 @@ public class CareReadService {
     /** FE-10 A2 (SCR-37): health state, withdrawal, each OPEN / CHRONIC case with its own timeline, previous cases and a pending loss voucher. */
     @Transactional(readOnly=true)
     public CareDtos.HealthProfile healthProfile(Long farmId,Long cattleId) {
+        return healthProfile(farmId,cattleId,null);
+    }
+
+    @Transactional(readOnly=true)
+    public CareDtos.HealthProfile healthProfile(Long farmId,Long cattleId,Long historyCaseId) {
         access.require(farmId,FarmAction.VIEW_HEALTH);
         Cattle cattle=cattle(farmId,cattleId);
         LocalDate today=clock.today();
@@ -104,9 +109,9 @@ public class CareReadService {
             List<HealthObservation> observations=em.createQuery("select o from HealthObservation o left join fetch o.recorder left join fetch o.observer left join fetch o.vaccination where o.healthCase.id=:id order by o.observedTime,o.id",HealthObservation.class).setParameter("id",h.getId()).getResultList();
             HealthObservation openingRow=observations.stream().filter(o->Boolean.TRUE.equals(o.getOpening())).findFirst().orElse(observations.isEmpty()?null:observations.get(0));
             String signs=openingRow==null?null:openingRow.getSignsProgress();
-            if(!List.of("OPEN","CHRONIC").contains(upper(h.getStatus()))){
-                previous.add(new CareDtos.PreviousHealthCase(h.getId(),h.getCaseCode(),signs,h.getSuspectedDiagnosis(),h.getSeverity(),h.getOpenedDate(),h.getOutcome(),h.getClosedDate(),
-                    h.getClosedDate()==null?null:String.format("%04d-%02d",h.getClosedDate().getYear(),h.getClosedDate().getMonthValue()),h.getClosedBy()==null?null:h.getClosedBy().getFullName()));
+            boolean closed=!List.of("OPEN","CHRONIC").contains(upper(h.getStatus()));
+            if(closed&&!h.getId().equals(historyCaseId)){
+                previous.add(previousCase(h,signs,List.of()));
                 continue;
             }
             List<CareDtos.HealthTimelineRow> timeline=new ArrayList<>();
@@ -125,6 +130,10 @@ public class CareReadService {
                     t.getDose(),t.getRoute(),t.getCourseDays(),t.getWithdrawalDays(),t.getWithdrawalEndDate(),t.getPerformer(),t.getVeterinaryAdvice()));
             }
             timeline.sort(Comparator.comparing(CareDtos.HealthTimelineRow::occurredAt,Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(CareDtos.HealthTimelineRow::id));
+            if(closed){
+                previous.add(previousCase(h,signs,timeline));
+                continue;
+            }
             for(CareDtos.HealthTimelineRow r:timeline)if("VALID".equalsIgnoreCase(r.status())&&r.occurredAt()!=null&&(latest==null||r.occurredAt().isAfter(latest)))latest=r.occurredAt();
             Long linked=h.getReactionVaccination()!=null?h.getReactionVaccination().getId():openingRow==null||openingRow.getVaccination()==null?null:openingRow.getVaccination().getId();
             open.add(new CareDtos.HealthCaseView(h.getId(),h.getCaseCode(),h.getStatus(),h.getSeverity(),h.getSuspectedDiagnosis(),h.getIsSuspectedContagious(),signs,
@@ -135,6 +144,11 @@ public class CareReadService {
             .map(v->new CareDtos.PendingHealthExit(v.getId(),v.getCode(),v.getLossKind()==null?null:v.getLossKind().name(),v.getExitDate(),v.getSourceHealthCase().getId(),v.getSourceHealthCase().getCaseCode())).orElse(null);
         Map<String,Object> derived=state.state(cattle);
         return new CareDtos.HealthProfile(cattleId,cattle.getDisplayCode(),(String)derived.get("healthState"),(LocalDate)derived.get("withdrawalEndDate"),(Boolean)derived.get("suspectedContagious"),pendingExit,open,previous);
+    }
+
+    private static CareDtos.PreviousHealthCase previousCase(HealthCase h,String signs,List<CareDtos.HealthTimelineRow> timeline){
+        return new CareDtos.PreviousHealthCase(h.getId(),h.getCaseCode(),signs,h.getSuspectedDiagnosis(),h.getSeverity(),h.getOpenedDate(),h.getOutcome(),h.getClosedDate(),
+            h.getClosedDate()==null?null:String.format("%04d-%02d",h.getClosedDate().getYear(),h.getClosedDate().getMonthValue()),h.getClosedBy()==null?null:h.getClosedBy().getFullName(),timeline);
     }
 
     /** Opening observation per case: [observedTime, signs]. */

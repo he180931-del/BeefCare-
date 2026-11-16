@@ -63,7 +63,7 @@ export function QrCard({ payment, now }: { payment: Payment; now: number }) {
   return (
     <Card title="Mã thanh toán" actions={<PaymentBadge state={payment.state} />}>
       <div className="flex flex-col gap-4">
-        {pending ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>{payment.state === 'PAID' ? 'Đã nhận thanh toán' : 'Mã QR không còn hiệu lực'}</div>}
+        {pending ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>{payment.state === 'PAID' ? 'Đã nhận thanh toán' : payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}
         <Facts cols={2} items={[
           [pending ? 'Còn hiệu lực' : 'Trạng thái', pending ? <span key="c" className="tabular-nums" aria-live="off">{fmtClock(remaining(payment, now))}</span> : <PaymentBadge key="b" state={payment.state} />],
           ['Hết hạn lúc', fmtTimeDate(payment.expiresAt)],
@@ -82,6 +82,8 @@ const rows = (p: Payment): Array<[string, string, string]> => [
 ]
 
 export function TransferInfoCard({ payment }: { payment: Payment }) {
+  // D38: a cancelled request's details stay readable for reference, but nothing invites copying them into a transfer.
+  const copyable = payment.state !== 'CANCELLED'
   return (
     <Card title="Thông tin chuyển khoản">
       <Table stack={false}>
@@ -91,7 +93,7 @@ export function TransferInfoCard({ payment }: { payment: Payment }) {
             <tr key={k}>
               <Td className="font-medium">{k}</Td>
               <Td>{v}</Td>
-              <Td><CopyButton value={raw} label={k.toLowerCase()} /></Td>
+              <Td>{copyable && <CopyButton value={raw} label={k.toLowerCase()} />}</Td>
             </tr>
           ))}
         </tbody>
@@ -120,8 +122,10 @@ export function ProgressCard({ payment, checking, onCheck, onHistory }: { paymen
           <thead><tr><Th>Bước</Th><Th>Thời điểm</Th><Th>Trạng thái</Th></tr></thead>
           <tbody>
             <Step name="Đã tạo yêu cầu" time={fmtTimeDate(payment.requestedAt)} badge="done" />
-            <Step name="Ngân hàng ghi nhận giao dịch" time={received ? fmtTimeDate(received) : '—'} badge={received ? 'done' : 'waiting'} />
+            {/* Only an open request is still waiting for the bank; a cancelled one shows "Chưa" (D38). */}
+            <Step name="Ngân hàng ghi nhận giao dịch" time={received ? fmtTimeDate(received) : '—'} badge={received ? 'done' : payment.state === 'CANCELLED' ? 'not-yet' : 'waiting'} />
             <Step name="Xác nhận & cấp kỳ dịch vụ" time={confirmed ? fmtTimeDate(confirmed) : '—'} badge={confirmed ? 'done' : 'not-yet'} />
+            {payment.cancelledAt && <Step name="Đã hủy yêu cầu" time={fmtTimeDate(payment.cancelledAt)} badge="done" />}
           </tbody>
         </Table>
         <div className="flex flex-wrap gap-2.5">
@@ -134,7 +138,7 @@ export function ProgressCard({ payment, checking, onCheck, onHistory }: { paymen
 }
 
 /** Bố cục điện thoại 390: thẻ yêu cầu, mã QR, thông tin ngắn, ghi chú, hai nút (frame 2638:4108). */
-export function PhoneTransfer({ payment, now, checking, onCheck, onClose }: { payment: Payment; now: number; checking: boolean; onCheck: () => void; onClose: () => void }) {
+export function PhoneTransfer({ payment, now, checking, onCheck, onClose, onCancel }: { payment: Payment; now: number; checking: boolean; onCheck: () => void; onClose: () => void; onCancel?: () => void }) {
   const pending = payment.state === 'PENDING'
   const box = 'rounded-lg border border-edge bg-white p-4'
   return (
@@ -146,10 +150,10 @@ export function PhoneTransfer({ payment, now, checking, onCheck, onClose }: { pa
         </div>
         <span className="text-[13px] font-medium text-ink">{termLabel(payment.durationYears)} · bảng giá {versionLabel(payment.priceVersionId)} · {fmtVnd(payment.amountVnd)}</span>
         <span className="text-[11px] text-muted">
-          {pending ? `Còn hiệu lực · hết hạn ${fmtTimeDate(payment.expiresAt)} · còn ${fmtClock(remaining(payment, now))}` : `Hết hạn ${fmtTimeDate(payment.expiresAt)}`}
+          {pending ? `Còn hiệu lực · hết hạn ${fmtTimeDate(payment.expiresAt)} · còn ${fmtClock(remaining(payment, now))}` : payment.cancelledAt ? `Đã hủy ${fmtTimeDate(payment.cancelledAt)}` : `Hết hạn ${fmtTimeDate(payment.expiresAt)}`}
         </span>
       </div>
-      <div className={box}>{pending && remaining(payment, now) > 0 ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>Mã QR không còn hiệu lực</div>}</div>
+      <div className={box}>{pending && remaining(payment, now) > 0 ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>{payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}</div>
       <div className={`${box} flex flex-col gap-3`}>
         <Facts cols={2} items={[
           ['Ngân hàng', `${payment.bankCode} · ${payment.accountNumber}`],
@@ -157,13 +161,14 @@ export function PhoneTransfer({ payment, now, checking, onCheck, onClose }: { pa
           ['Số tiền', fmtVnd(payment.amountVnd)],
           ['Nội dung', payment.quoteRef],
         ]} />
-        <CopyWide value={payment.quoteRef} />
+        {payment.state !== 'CANCELLED' && <CopyWide value={payment.quoteRef} />}
       </div>
-      <Note tone="info">Đóng màn này không hủy yêu cầu. Chỉ chứng từ ngân hàng hợp lệ mới cấp kỳ dịch vụ; không có nút tự đánh dấu đã trả.</Note>
+      {payment.state !== 'CANCELLED' && <Note tone="info">Đóng màn này không hủy yêu cầu. Chỉ chứng từ ngân hàng hợp lệ mới cấp kỳ dịch vụ; không có nút tự đánh dấu đã trả.</Note>}
       <div className="grid grid-cols-2 gap-2.5">
         <Button block onClick={onClose}>Đóng</Button>
         <Button block variant="primary" disabled={checking} onClick={onCheck}>{checking ? 'Đang kiểm tra…' : 'Kiểm tra lại'}</Button>
       </div>
+      {onCancel && <Button block variant="link" onClick={onCancel}>Hủy yêu cầu</Button>}
     </div>
   )
 }

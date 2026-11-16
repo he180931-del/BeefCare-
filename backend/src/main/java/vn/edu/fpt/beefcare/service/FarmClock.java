@@ -29,6 +29,10 @@ public class FarmClock {
         return LocalDate.now(clock.withZone(zone));
     }
 
+    public LocalDate today(String farmTimeZone) {
+        return farmTimeZone == null || farmTimeZone.isBlank() ? today() : LocalDate.now(clock.withZone(ZoneId.of(farmTimeZone)));
+    }
+
     public Instant now() {
         return clock.instant();
     }

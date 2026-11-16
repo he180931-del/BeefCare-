@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCatalogueApi, mapMedicine, mapVaccine } from '../../../src/features/farm-catalogue/api/catalogueApi'
+import { createCatalogueApi, decorateVersions, mapMedicine, mapVaccine, toBackendParameters } from '../../../src/features/farm-catalogue/api/catalogueApi'
 import { createCatalogueDemoStore } from '../../../src/features/farm-catalogue/data/catalogueDemoStore'
 import { FieldErrors } from '../../../src/features/farm-catalogue/domain/catalogueRules'
 import { DEFAULT_PARAMETERS } from '../../../src/features/farm-catalogue/domain/parameterRules'
@@ -135,6 +135,21 @@ describe('catalogue api: parameters', () => {
 })
 
 describe('catalogue api: backend mode', () => {
+  it('diffs each version against the effective snapshot available when it was saved', () => {
+    const version = (versionNo: number, effectiveFrom: string, weight: number) => ({
+      id: versionNo, versionNo, effectiveFrom, parameters: toBackendParameters({ ...DEFAULT_PARAMETERS, minBreedingWeightKg: weight }),
+    })
+    const history = decorateVersions([
+      version(1, '2026-10-01', 230),
+      version(2, '2026-12-01', 260),
+      version(3, '2026-10-20', 235),
+      version(4, '2026-12-01', 265),
+    ], TODAY)
+    expect(history.find((v) => v.versionNo === 2)?.changes).toBe('Cân tối thiểu phối 230 → 260 kg')
+    expect(history.find((v) => v.versionNo === 3)).toMatchObject({ changes: 'Cân tối thiểu phối 230 → 235 kg', status: 'CURRENT' })
+    expect(history.find((v) => v.versionNo === 4)).toMatchObject({ changes: 'Cân tối thiểu phối 260 → 265 kg', status: 'SCHEDULED' })
+  })
+
   it('maps legacy administration routes to the current catalogue options', () => {
     expect(mapVaccine({ route: 'IM' }).route).toBe('INTRAMUSCULAR')
     expect(mapVaccine({ route: 'IN' }).route).toBe('INTRANASAL')

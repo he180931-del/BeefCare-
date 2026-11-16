@@ -1,6 +1,7 @@
 // Tên trường theo PaymentDTO / SubscriptionOverview / PriceDTO trong openapi; phần thêm cho UI ghi chú ở từng trường.
 export type Term = 1 | 2 | 3
-export type PaymentState = 'PENDING' | 'PAID' | 'EXPIRED'
+/** CANCELLED: the Owner cancelled an unexpired request without a received transfer (D38). */
+export type PaymentState = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED'
 export type ServiceStatus = 'PENDING_PAYMENT' | 'ACTIVE' | 'EXPIRED' | 'SUSPENDED'
 export type Coverage = 'CURRENT' | 'FUTURE_ONLY' | 'NONE'
 export type PeriodStatus = 'CURRENT' | 'FUTURE' | 'PAST'
@@ -34,6 +35,9 @@ export interface PaymentDTO {
   receivedAt?: string | null
   confirmedAt?: string | null
   confirmationSource?: 'SEPAY' | 'PM' | null
+  /** D38: set once when the Owner cancels; kept if a transfer banked earlier still pays the request. */
+  cancelledAt?: string | null
+  cancelReason?: string | null
 }
 
 /** Presentation values keep a missing legacy bank snapshot visible as empty. */
@@ -122,6 +126,8 @@ export type StateDialogState =
   | { kind: 'price-changed'; seen: PriceQuote; current: PriceQuote }
   | { kind: 'price-unavailable' }
   | { kind: 'result-unavailable'; payment: Payment; checkedAt: string }
+  /** MSG-FE19-19 (D38): a transfer was already received, so the request can no longer be cancelled. */
+  | { kind: 'cancel-blocked'; code: string; receivedAt: string | null }
 
 export type SubscriptionErrorCode =
   | 'NOT_FOUND'
@@ -132,6 +138,8 @@ export type SubscriptionErrorCode =
   | 'PRICE_CHANGED'
   | 'PRICE_UNAVAILABLE'
   | 'RESULT_UNAVAILABLE'
+  | 'CANCEL_BLOCKED'
+  | 'STALE'
 
 export interface SubscriptionErrorDetail {
   payment?: Payment
@@ -142,6 +150,8 @@ export interface SubscriptionErrorDetail {
   seen?: PriceQuote
   current?: PriceQuote
   checkedAt?: string
+  code?: string
+  receivedAt?: string | null
 }
 
 export class SubscriptionError extends Error {

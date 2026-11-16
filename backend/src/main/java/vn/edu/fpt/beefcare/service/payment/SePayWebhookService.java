@@ -179,9 +179,19 @@ public class SePayWebhookService {
     /** Local simulator calls the same normalization and settlement pipeline, after an explicit PM role check. */
     public WebhookResult receiveMock(SePayPayload payload) {
         platformAccess.requireRole(PlatformRole.PM);
+        requireSimulator();
+        return receiveSimulated(payload);
+    }
+
+    /** The simulator only exists while BeefCare is wired to a MOCK or TEST receiving account, never LIVE. */
+    void requireSimulator() {
         if (!"MOCK".equalsIgnoreCase(environment) && !"TEST".equalsIgnoreCase(environment)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
+    }
+
+    /** Shared simulator core; every caller authorizes and calls {@link #requireSimulator()} first. */
+    WebhookResult receiveSimulated(SePayPayload payload) {
         IncomingTransfer incoming = transfer(payload);
         // The simulator plays SePay itself, so its events carry no actor, exactly like a delivered webhook.
         return processWithReplayProtection(incoming, "MOCK", fingerprint(incoming), null, true);
@@ -358,9 +368,9 @@ public class SePayWebhookService {
 
     /** GBR-72 and GBR-84 for PM acceptance, as rule codes for MSG-FE19-11; null when the request may be funded. */
     private String acceptanceBlock(Payment payment, BankTransferEvidence evidence) {
-        if (!"PENDING".equalsIgnoreCase(payment.getState()) && !"EXPIRED".equalsIgnoreCase(payment.getState())) return "REQUEST_NOT_PENDING";
+        if (!fundable(payment)) return "REQUEST_NOT_PENDING";
         if (evidenceRepository.existsByPayment_Id(payment.getId())) return "REQUEST_ALLOCATED";
-        if (evidence.getBankPaidAt().isBefore(payment.getRequestedAt()) || !evidence.getBankPaidAt().isBefore(payment.getExpiresAt())) return "OUTSIDE_WINDOW";
+        if (evidence.getBankPaidAt().isBefore(payment.getRequestedAt()) || !evidence.getBankPaidAt().isBefore(payment.bankWindowEnd())) return "OUTSIDE_WINDOW";
         if (evidence.getAmount().compareTo(payment.getAmountVnd()) != 0) return "AMOUNT_MISMATCH";
         if (!java.util.Objects.equals(payment.getReceivingEnvironment(), evidence.getEnvironment())
             || !java.util.Objects.equals(payment.getReceivingAccountNamespace(), evidence.getAccountNamespace())
@@ -760,9 +770,18 @@ public class SePayWebhookService {
         audit.logAt(farm, actor, action, targetType, targetId, details, at);
     }
 
+    /**
+     * States a matching transfer may still pay (GBR-72): PENDING, EXPIRED inside its original window and, since D38,
+     * CANCELLED for money banked before the cancellation; the window itself is checked against {@link Payment#bankWindowEnd()}.
+     */
+    private static boolean fundable(Payment payment) {
+        String state = payment.getState();
+        return "PENDING".equalsIgnoreCase(state) || "EXPIRED".equalsIgnoreCase(state) || "CANCELLED".equalsIgnoreCase(state);
+    }
+
     private String eligibilityReason(Payment payment, IncomingTransfer transfer) {
-        if (!"PENDING".equalsIgnoreCase(payment.getState()) && !"EXPIRED".equalsIgnoreCase(payment.getState())) return "Payment request is not pending";
-        if (transfer.paidAt().isBefore(payment.getRequestedAt()) || !transfer.paidAt().isBefore(payment.getExpiresAt())) return "Bank-paid time is outside the request window";
+        if (!fundable(payment)) return "Payment request is not pending";
+        if (transfer.paidAt().isBefore(payment.getRequestedAt()) || !transfer.paidAt().isBefore(payment.bankWindowEnd())) return "Bank-paid time is outside the request window";
         if (transfer.amount().compareTo(payment.getAmountVnd()) != 0) return "Transfer amount does not match the requested amount";
         return null;
     }

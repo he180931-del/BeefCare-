@@ -91,7 +91,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
   )
 }
 
-/** After any sign-in (password, Google or e-mail verification), reopen an invitation link the visitor started from (D28). */
+/** After sign-in (password, Google or e-mail verification), reopen an invitation link the visitor started from (D28). */
 function InvitationResume() {
   const navigate = useNavigate()
   const location = useLocation()

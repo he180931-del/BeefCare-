@@ -76,26 +76,26 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
                 <Row label="Thuốc" current={row.medicineName} error={errors.medicineId}>
                   <Select aria-label="Thuốc" value={medicineId} onChange={(e) => setMedicineId(e.target.value)}>{medicines.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select>
                 </Row>
-                <Row label="Liệu trình (ngày)" current={row.courseDays} error={errors.courseDays}><input aria-label="Liệu trình (ngày)" inputMode="numeric" value={course} onChange={(e) => setCourse(e.target.value)} className={inputCls} /></Row>
+                <Row label="Liệu trình (ngày)" current={row.courseDays} error={errors.courseDays}><input aria-label="Liệu trình (ngày)" inputMode="numeric" maxLength={2} value={course} onChange={(e) => setCourse(e.target.value)} className={inputCls} /></Row>
                 <Row label="Thời điểm bắt đầu" current={fmtDateTime(row.occurredAt)} error={errors.treatmentTime}><DateTimeInput value={time} onChange={setTime} /></Row>
-                <Row label="Liều" current={row.dose} error={errors.dose}><input aria-label="Liều" value={dose} onChange={(e) => setDose(e.target.value)} className={inputCls} /></Row>
+                <Row label="Liều" current={row.dose} error={errors.dose}><input aria-label="Liều" maxLength={50} value={dose} onChange={(e) => setDose(e.target.value)} className={inputCls} /></Row>
                 <Row label="Đường dùng" current={row.route ? ROUTE_LABEL[row.route] : ''} error={errors.route}>
                   <Select aria-label="Đường dùng" value={route} onChange={(e) => setRoute(e.target.value as TreatmentRoute)}>{ROUTES.map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</Select>
                 </Row>
-                <Row label="Ngưng sử dụng (ngày)" current={`${row.withdrawalDays} ngày`} error={errors.withdrawalDays}><input aria-label="Ngưng sử dụng (ngày)" inputMode="numeric" value={wd} onChange={(e) => setWd(e.target.value)} className={inputCls} /></Row>
-                <Row label="Người thực hiện" current={row.recordedBy} error={errors.performer}><input aria-label="Người thực hiện" list="cr-who" value={who} onChange={(e) => setWho(e.target.value)} className={inputCls} /></Row>
+                <Row label="Ngưng sử dụng (ngày)" current={`${row.withdrawalDays} ngày`} error={errors.withdrawalDays}><input aria-label="Ngưng sử dụng (ngày)" inputMode="numeric" maxLength={3} value={wd} onChange={(e) => setWd(e.target.value)} className={inputCls} /></Row>
+                <Row label="Người thực hiện" current={row.recordedBy} error={errors.performer}><input aria-label="Người thực hiện" list="cr-who" maxLength={100} value={who} onChange={(e) => setWho(e.target.value)} className={inputCls} /></Row>
               </>
             ) : (
               <>
                 <Row label="Thời điểm quan sát" current={fmtDateTime(row.occurredAt)} error={errors.observedAt}><DateTimeInput value={time} onChange={setTime} /></Row>
-                <Row label="Thân nhiệt (°C)" current={row.temperatureC !== null ? fmtTemp(row.temperatureC) : '—'} error={errors.temperatureC}><input aria-label="Thân nhiệt (°C)" inputMode="decimal" value={temp} onChange={(e) => setTemp(e.target.value)} className={inputCls} /></Row>
+                <Row label="Thân nhiệt (°C)" current={row.temperatureC !== null ? fmtTemp(row.temperatureC) : '—'} error={errors.temperatureC}><input aria-label="Thân nhiệt (°C)" inputMode="decimal" maxLength={4} value={temp} onChange={(e) => setTemp(e.target.value)} className={inputCls} /></Row>
                 {row.type === 'FOLLOW_UP' && (
                   <Row label="Diễn biến" current={row.progress ? PROGRESS_LABEL[row.progress] : ''} error={errors.progress}>
                     <Select aria-label="Diễn biến" value={progress} onChange={(e) => setProgress(e.target.value as Progress)}>{PROGRESSES.map((p) => <option key={p} value={p}>{PROGRESS_LABEL[p]}</option>)}</Select>
                   </Row>
                 )}
-                <Row label={opening ? 'Dấu hiệu / mô tả' : 'Mô tả'} current={row.description} error={errors.description}><Textarea aria-label={opening ? 'Dấu hiệu / mô tả' : 'Mô tả'} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Row>
-                <Row label="Người quan sát" current={row.recordedBy}><input aria-label="Người quan sát" list="cr-who" value={who} onChange={(e) => setWho(e.target.value)} className={inputCls} /></Row>
+                <Row label={opening ? 'Dấu hiệu / mô tả' : 'Mô tả'} current={row.description} error={errors.description}><Textarea aria-label={opening ? 'Dấu hiệu / mô tả' : 'Mô tả'} rows={2} maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} /></Row>
+                <Row label="Người quan sát" current={row.recordedBy}><input aria-label="Người quan sát" list="cr-who" maxLength={100} value={who} onChange={(e) => setWho(e.target.value)} className={inputCls} /></Row>
               </>
             )}
           </tbody>
@@ -104,7 +104,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
       <datalist id="cr-who">{options.members.map((m) => <option key={m} value={m} />)}</datalist>
       {voiding && !blocked && <Note tone="warn">Bản ghi sẽ chuyển sang trạng thái Đã hủy: mờ đi trong lịch sử và không còn được tính vào ngưng sử dụng thịt hay trạng thái sức khỏe.</Note>}
       {(treatment || voiding) && !blocked && <Note tone={before !== after ? 'info' : 'grey'}>Ngưng thịt đến: {fmtDate(before)} → {fmtDate(after)} (tính lại khi lưu)</Note>}
-      <Field label="Lý do *" id="cr-reason" hint={hint(errors.reason, 'Tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+      <Field label="Lý do *" id="cr-reason" hint={hint(errors.reason, 'Tối đa 500 ký tự')}><Textarea id="cr-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
       {form.formError && <Note tone="err">{form.formError}</Note>}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>

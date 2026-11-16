@@ -34,9 +34,9 @@ public class Vaccination implements Serializable {
     @Column(name = "entry_time", nullable = false)
     private Instant entryTime;
 
-    @NotNull
+    /** FE-09 spec §3.3: optional; prefilled from the vaccine (changeset 20261115000200). */
     @Size(max = 255)
-    @Column(name = "dose", length = 255, nullable = false)
+    @Column(name = "dose", length = 255)
     private String dose;
 
     @Size(max = 50)

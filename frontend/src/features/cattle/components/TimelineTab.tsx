@@ -65,11 +65,12 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
     const params = new URLSearchParams({ tab: e.tab ?? '' })
     if (e.sourceId != null) params.set('r', String(e.sourceId))
     if (e.sourceType) params.set('type', e.sourceType)
+    if (e.healthCaseId != null) params.set('case', String(e.healthCaseId))
     if (edit) {
       params.set('m', 'correct')
       params.set('from', 'timeline')
     }
-    return `/cattle/${code}?${params}`
+    return `${role === 'TECHNICIAN' ? '/kt/dan-bo' : '/cattle'}/${code}?${params}`
   }
 
   const openSource = (e: CattleEvent) => {
@@ -78,7 +79,7 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
     if (e.voucher) return nav(e.voucher.kind === 'entry' ? `/herd-entry/${encodeURIComponent(e.voucher.code)}` : `/herd-exit/${encodeURIComponent(e.voucher.code)}`)
     if (e.cat === 'entryExit') return setDenied('Bạn không có quyền xem chi tiết này.')
     if (e.tab === undefined) return setDenied('Bạn không có quyền xem chi tiết này.')
-    if (e.tab === 'growth' && role !== 'TECHNICIAN' && e.sourceId != null) return nav(sourceLink(e))
+    if (e.sourceId != null && ['growth', 'vaccine', 'health', 'repro'].includes(e.tab)) return nav(sourceLink(e))
     setSelected(e)
   }
 

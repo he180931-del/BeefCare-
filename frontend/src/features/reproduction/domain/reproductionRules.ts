@@ -176,8 +176,8 @@ export function calvingIssues(command: CalvingCommand, context: CalvingContext):
         const other = calf.sex === 'FEMALE' ? 'đực' : 'cái'
         add('purpose', `${label}: mục đích này chỉ dành cho bò ${other}, còn bê là bò ${sex}. Chọn Vỗ béo, Chưa xác định hoặc mục đích hợp giới tính.`)
       }
+      // FE-12 Q5 / D36: thẻ tai không bắt buộc, kể cả khi Đăng ký ngay (hệ thống cấp mã khi ghi sổ phiếu nhập bê).
       const tag = calf.earTag?.trim() ?? ''
-      if (!tag && registerNow) add('earTag', `${label}: nhập mã thẻ tai / QR để đăng ký ngay.`)
       if (tag) {
         if (tag.length > 50) add('earTag', `Mã thẻ tai ${label.toLocaleLowerCase('vi')}: tối đa 50 ký tự.`)
         const owner = context.tagOwners?.[normalize(tag)]
@@ -274,11 +274,18 @@ export function dueLabel(row: ReproductionFemale): string {
   return row.dueAt ? formatDate(row.dueAt) : '—'
 }
 
+/** Bò chưa có bản ghi cân VALID (cân lúc nhập đàn không tính – chốt 15/11/2026, GBR-39). */
+export const NO_WEIGHING = 'Chưa có lần cân'
+export const hasNoWeighing = (eligibility: BreedingEligibility): boolean => !eligibility.minimumWeightMet && eligibility.actualWeightKg == null
+
 export function eligibilityLabel(eligibility: NonNullable<ReproductionFemale['eligibility']>): string {
   if (eligibility.status === 'MET') return 'Đạt'
+  const noWeighing = hasNoWeighing(eligibility)
+  // Chỉ thiếu lần cân: hiện đúng "Chưa có lần cân", không gọi là "Chưa đạt".
+  if (noWeighing && eligibility.minimumAgeMet && eligibility.noOpenHealthCase) return NO_WEIGHING
   const details = [
     !eligibility.minimumAgeMet && `tuổi ${eligibility.actualAgeMonths} tháng`,
-    !eligibility.minimumWeightMet && (eligibility.actualWeightKg == null ? 'chưa có cân' : `cân ${eligibility.actualWeightKg} kg`),
+    !eligibility.minimumWeightMet && (noWeighing ? NO_WEIGHING : `cân ${eligibility.actualWeightKg} kg`),
     !eligibility.noOpenHealthCase && 'có ca bệnh mở',
   ].filter(Boolean)
   return `Chưa đạt${details.length ? ` · ${details.join(' · ')}` : ''}`

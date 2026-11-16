@@ -13,20 +13,26 @@ export interface PublishPrice { price1y: number; price2y: number; price3y: numbe
 const invalid = () => new Error('Dữ liệu bảng giá từ máy chủ không hợp lệ.')
 const whole = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0
 const instant = (v: unknown): v is string => typeof v === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v))
-const text = (v: unknown) => v === null || typeof v === 'string'
-const nullableInstant = (v: unknown) => v === null || instant(v)
+const text = (v: unknown): v is string | null => v === null || typeof v === 'string'
+const nullableInstant = (v: unknown): v is string | null => v === null || instant(v)
 /**
  * Stored versions only need BR-D25 positive whole VND. The 1,000–1,000,000,000 range applies to new input (validPrice);
  * a legacy version published before that rule must not make SCR-63 unreadable.
  */
-const storedPrice = (v: unknown) => whole(v) && v > 0
+const storedPrice = (v: unknown): v is number => whole(v) && v > 0
+const priceStatus = (v: unknown): v is PriceStatus => typeof v === 'string' && ['SCHEDULED', 'EFFECTIVE', 'SUPERSEDED', 'WITHDRAWN'].includes(v)
 function price(value: unknown): PlanPrice {
   const p = asRecord(value)
-  if (!whole(p.id) || p.id === 0 || !whole(p.revision) || ![p.price1y, p.price2y, p.price3y].every(storedPrice)
-    || !instant(p.effectiveAt) || !text(p.terms) || !['SCHEDULED', 'EFFECTIVE', 'SUPERSEDED', 'WITHDRAWN'].includes(p.status as string)
+  if (!whole(p.id) || p.id === 0 || !whole(p.revision) || !storedPrice(p.price1y) || !storedPrice(p.price2y) || !storedPrice(p.price3y)
+    || !instant(p.effectiveAt) || !text(p.terms) || !priceStatus(p.status)
     || !(p.publishedById === null || (whole(p.publishedById) && p.publishedById > 0)) || !text(p.publishedBy) || !nullableInstant(p.publishedAt)
     || !text(p.withdrawnBy) || !nullableInstant(p.withdrawnAt) || !text(p.withdrawReason)) throw invalid()
-  return p as unknown as PlanPrice
+  return {
+    id: p.id, revision: p.revision, price1y: p.price1y, price2y: p.price2y, price3y: p.price3y,
+    effectiveAt: p.effectiveAt, terms: p.terms, status: p.status, publishedById: p.publishedById,
+    publishedBy: p.publishedBy, publishedAt: p.publishedAt, withdrawnBy: p.withdrawnBy,
+    withdrawnAt: p.withdrawnAt, withdrawReason: p.withdrawReason,
+  }
 }
 function pricePage(value: unknown): PlanPricePage {
   const p = asRecord(value)

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { initialCows } from '../../../src/data/cowsData'
 import { purposeFitsSex, validateDatedChange, validateIdentity, validatePhoto, validateTag } from '../../../src/features/cattle/domain/profileRules'
 
@@ -47,6 +48,59 @@ describe('FE-05 backend flows', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+  })
+
+  it('opens a visible photo picker, saves and enlarges the photo, then removes it', async () => {
+    const code = 'BC-PHOTO'
+    const attachment = '/api/farms/9/attachments/77'
+    const profile = { id: 42, displayCode: code, herdStatus: 'ACTIVE', canUpdate: true, version: 7, photoUrl: null as string | null }
+    const writes: Array<{ method: string | undefined; version: string | null; file: unknown }> = []
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), 'http://backend.test')
+      const path = url.pathname
+      if (path === '/api/csrf') return response({ token: 'csrf' })
+      if (path.endsWith('/cattle/resolve')) return response({ cattleId: 42, cattle: profile })
+      if (path.endsWith('/cattle/42')) return response(profile)
+      if (path.endsWith('/pen-history')) return response({ history: [] })
+      if (path.endsWith('/pens') || path.endsWith('/qr-tags') || path.endsWith('/timeline') || path.endsWith('/production-purposes')) return response([])
+      if (path.endsWith('/cattle/42/photo')) {
+        writes.push({ method: init?.method, version: url.searchParams.get('expectedVersion'), file: init?.body instanceof FormData ? init.body.get('file') : null })
+        profile.photoUrl = init?.method === 'DELETE' ? null : attachment
+        profile.version += 1
+        return response({ id: 77 })
+      }
+      throw new Error(`Unexpected request ${path}`)
+    })
+    const { default: CowProfile } = await import('../../../src/features/cattle/pages/CowProfile')
+    const user = userEvent.setup()
+    render(<MemoryRouter initialEntries={[`/cattle/${code}`]}>
+      <Routes><Route path="/cattle/:code" element={<CowProfile />} /></Routes>
+    </MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: 'Thêm ảnh' }))
+    expect(screen.getByRole('button', { name: 'Chọn ảnh' })).toBeVisible()
+    const file = new File(['sample picture'], 'bo.png', { type: 'image/png' })
+    await user.upload(screen.getByLabelText('Tệp ảnh bò'), file)
+    expect(screen.getByText('bo.png')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
+    expect(await screen.findByText(`Đã thêm ảnh bò ${code}.`)).toBeVisible()
+    expect(writes).toEqual([{ method: 'POST', version: '7', file }])
+
+    const thumbnail = await screen.findByRole('button', { name: `Phóng to ảnh bò ${code}` })
+    await user.click(thumbnail)
+    const preview = screen.getByRole('dialog', { name: `Ảnh bò ${code}` })
+    expect(within(preview).getByRole('img')).toHaveAttribute('src', attachment)
+    await user.keyboard('{Escape}')
+    expect(preview).not.toBeInTheDocument()
+    expect(thumbnail).toHaveFocus()
+
+    await user.click(screen.getByRole('button', { name: 'Đổi ảnh' }))
+    await user.click(screen.getByRole('button', { name: 'Xóa ảnh' }))
+    expect(screen.getByText('Ảnh hiện tại sẽ được xóa khi lưu.')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
+    expect(await screen.findByText(`Đã xóa ảnh bò ${code}.`)).toBeVisible()
+    expect(await screen.findByRole('img', { name: 'Chưa có ảnh bò' })).toBeVisible()
+    expect(writes[1]).toEqual({ method: 'DELETE', version: '8', file: null })
   })
 
   it('TC-05-16: asks MSG-FE05-11 and saves again with the acknowledgement', async () => {

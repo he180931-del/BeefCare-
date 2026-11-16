@@ -1,5 +1,6 @@
 package vn.edu.fpt.beefcare.service.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,7 +13,7 @@ import java.util.Map;
  *
  * @param reason          required, at most 500 characters; "Correction" marks a reverse move
  * @param warningReasons  cattle id to reason, required for each cattle that fails a reception criterion
- * @param cattleVersions  optional cattle id to the version the form was loaded with
+ * @param cattleVersions  required cattle id to the version the form was loaded with
  * @param performedBy     optional app-user id of an ACTIVE farm member, default the signed-in user
  */
 public record PenMoveRequest(
@@ -21,6 +22,7 @@ public record PenMoveRequest(
     LocalDate moveDate,
     @Size(max = 500) String reason,
     Map<Long, String> warningReasons,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Version observed for every selected cattle, keyed by cattle ID.")
     Map<Long, Integer> cattleVersions,
     Long performedBy
 ) {}

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { DateInput, Field, KV, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
+import { Button, DateInput, Field, KV, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
+import { BackendError } from '../../../api/backendClient'
 import { penApi, type MoveCattle, type PenMoveCheckResult } from '../api/penApi'
+import { useFarmMoveDate } from '../api/useFarmMoveDate'
 import { CRITERION_LABELS, dmy, todayIso, type CriterionType } from '../domain/penRules'
 import { cx, TH } from './parts'
 import type { Pen } from '../../../types'
@@ -25,13 +27,18 @@ function cattleErrorText(error: { code?: string; params?: Record<string, unknown
  * Move Pen popup (UC-FE04-05) opened from SCR-17 for the selected cattle. The reception check (A6) is re-run on every
  * destination / date change; the backend checks everything again on confirm (R-04-12) and moves all or nothing.
  */
-export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today = todayIso() }: { from: Pen; cattle: MoveCattle[]; pens: Pen[]; onClose: () => void; onMoved: (message: string) => void; today?: string }) {
+export default function MoveDialog({ from, cattle, pens, onClose, onReload = onClose, onMoved, today: fixedDate }: { from: Pen; cattle: MoveCattle[]; pens: Pen[]; onClose: () => void; onReload?: () => void; onMoved: (message: string) => void; today?: string }) {
+  const farmDate = useFarmMoveDate(todayIso(), fixedDate)
+  const { today } = farmDate
   const destinations = pens.filter((p) => p.status === 'ACTIVE' && p.code !== from.code)
   const [toCode, setToCode] = useState('')
-  const [date, setDate] = useState(today)
+  const [enteredDate, setDate] = useState<string>()
+  const date = enteredDate ?? today
   const [reason, setReason] = useState('')
   const [warnings, setWarnings] = useState<Record<string, string>>({})
   const [check, setCheck] = useState<PenMoveCheckResult | null>(null)
+  const [checkRun, setCheckRun] = useState(0)
+  const [needsReload, setNeedsReload] = useState(false)
   const [checking, setChecking] = useState(false)
   const [checkError, setCheckError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -40,7 +47,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
   const to = destinations.find((p) => p.code === toCode)
 
   useEffect(() => {
-    if (!to || !date) { setCheck(null); return }
+    if (!to || !date) { setCheck(null); setChecking(false); return }
     let active = true
     setChecking(true)
     setCheckError('')
@@ -49,7 +56,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
       .catch((e: unknown) => { if (active) { setCheck(null); setCheckError(userFacingError(e, 'Không kiểm tra được điều kiện nhận bò.')) } })
       .finally(() => { if (active) setChecking(false) })
     return () => { active = false }
-  }, [to, date, cattle, from])
+  }, [to, date, cattle, from, checkRun])
 
   const rows = check?.cattle ?? []
   const moving = rows.filter((r) => !r.alreadyInDestination)
@@ -64,7 +71,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
   const blockText = check?.blocked
     ? `${to?.code ?? ''} không nhận được ${check.movingCount} con: chuồng đã ngưng hoặc chỉ còn ${check.destinationActive ? check.freePlaces : 0} chỗ trống.`
     : ''
-  const canConfirm = !!to && !!check && !checking && !saving && !check.blocked && rowErrors.length === 0 && moving.length > 0
+  const canConfirm = !!to && !!check && !checking && !saving && !needsReload && !check.blocked && rowErrors.length === 0 && moving.length > 0
     && !dateError && !reasonError && missingWarnings.length === 0
 
   const criteriaRows = useMemo(() => {
@@ -83,6 +90,13 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
       onMoved(`Đã chuyển ${result.moved} con sang ${to.code}.`)
     } catch (e) {
       setSaveError(userFacingError(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
+      if (e instanceof BackendError) {
+        if (e.code === 'MSG-COM-05') setNeedsReload(true)
+        if (e.code === 'MSG-FE04-05') {
+          setCheck(null)
+          setCheckRun((run) => run + 1)
+        }
+      }
     } finally {
       setSaving(false)
     }
@@ -100,7 +114,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
           {tried && !to && <span className="text-[11px] text-err-fg">Vui lòng chọn Chuồng đích.</span>}
         </Field>
         <Field label="Ngày chuyển *">
-          <DateInput value={date} onChange={setDate} />
+          <DateInput value={date} readOnly={!today} onChange={setDate} />
           {dateError && (tried || date > today || !!latestStart) && <span className="text-[11px] text-err-fg">{dateError}</span>}
         </Field>
         <KV k="Người thực hiện">Bạn (người đang đăng nhập)</KV>
@@ -115,6 +129,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
       <p className="m-0 text-[14px] font-semibold text-[#212121]">Kiểm tra nhận bò</p>
       {checking && <Note>Đang kiểm tra…</Note>}
       {checkError && <Note tone="err">{checkError}</Note>}
+      {Boolean(farmDate.error) && <Note tone="err">Không tải được ngày của trại. <Button variant="link" onClick={farmDate.retry}>Thử lại</Button></Note>}
       {blockText && <Note tone="err">{blockText}</Note>}
       {rowErrors.map((r) => <Note key={r.cattleCode} tone="err">{cattleErrorText(r.error!, r.cattleCode)}</Note>)}
       {rows.filter((r) => r.alreadyInDestination).map((r) => <Note key={r.cattleCode} tone="warn">{`${r.cattleCode} đã ở ${to?.code ?? ''} và sẽ được bỏ qua.`}</Note>)}
@@ -170,7 +185,9 @@ export default function MoveDialog({ from, cattle, pens, onClose, onMoved, today
           {saveError && <span className="text-sm text-err-fg">{saveError}</span>}
         </div>
         <ModalButton onClick={onClose} disabled={saving}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={!canConfirm} onClick={confirm}>{saving ? 'Đang chuyển…' : 'Xác nhận chuyển'}</ModalButton>
+        {needsReload
+          ? <ModalButton variant="primary" onClick={onReload}>Tải lại danh sách bò</ModalButton>
+          : <ModalButton variant="primary" disabled={!canConfirm} onClick={confirm}>{saving ? 'Đang chuyển…' : 'Xác nhận chuyển'}</ModalButton>}
       </ModalFooter>
     </Modal>
   )
