@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
 import type { FeedStockRow } from '../types'
 import type { FeedRation, FeedRationFormValues, FeedRationPenOption, SaveFeedRationInput } from '../types/feedRation'
 
@@ -13,16 +14,13 @@ export const RATION_GROUPS = [
 export const rationGroupLabel = (value: string) => (RATION_GROUPS.find((group) => group.value === value)?.label ?? value) || '—'
 
 export function localRationDate(offsetDays = 0) {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  date.setDate(date.getDate() + offsetDays)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return addCalendarDays(businessDate(), offsetDays)
 }
 
 function isCalendarDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
-  return !Number.isNaN(date.getTime()) && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` === value
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
 
 export function nextRationCode(rows: readonly FeedRation[]) {
@@ -40,7 +38,7 @@ export function initialFeedRationForm(record: FeedRation | null): FeedRationForm
   // Saving always creates a new version. A scheduled version's replacement starts the day after it.
   const afterRecord = record?.effectiveFrom && record.effectiveFrom >= next
     ? record.status === 'SCHEDULED'
-      ? localRationDate(Math.max(1, Math.round((new Date(`${record.effectiveFrom}T00:00:00`).getTime() - new Date(`${localRationDate(0)}T00:00:00`).getTime()) / 86_400_000) + 1))
+      ? localRationDate(Math.max(1, Math.round((new Date(`${record.effectiveFrom}T00:00:00Z`).getTime() - new Date(`${localRationDate(0)}T00:00:00Z`).getTime()) / 86_400_000) + 1))
       : record.effectiveFrom
     : next
   return {

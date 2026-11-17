@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
 import type { FeedReceipt, FeedReceiptFilters } from '../types/feedReceipt'
 
 const fold = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('vi')
@@ -16,18 +17,16 @@ export function filterFeedReceipts(rows: readonly FeedReceipt[], filters: FeedRe
 }
 
 export function getDefaultFeedReceiptPeriod(today = new Date()) {
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-  const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  return { from: iso(start), to: iso(end) }
+  const to = businessDate(today)
+  const [year, month] = to.split('-').map(Number)
+  const from = new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10)
+  return { from, to }
 }
-
-const isoOf = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
 /** Tiles of SCR-78: posted receipts of the last 30 days, what is still owed, and status counts for the tabs. */
 export function summarizeFeedReceipts(rows: readonly FeedReceipt[], today = new Date()) {
-  const to = isoOf(today)
-  const from = isoOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29))
+  const to = businessDate(today)
+  const from = addCalendarDays(to, -29)
   const posted = rows.filter((row) => row.status === 'POSTED')
   const recent = posted.filter((row) => row.receiptDate >= from && row.receiptDate <= to)
   const outstanding = (row: FeedReceipt) => row.outstanding ?? (row.amountPaid === undefined ? undefined : row.totalPayable - row.amountPaid)

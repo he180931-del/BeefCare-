@@ -1,3 +1,4 @@
+import { businessDateTime, DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../api/farmTimeZone'
 import type { InternalStatus, QueueFilters, QueueTab, Ticket, TicketCategory, TicketPriority, TicketRow, TicketStatus, TargetRole, InternalView, Actor } from '../types'
 
 export type SupportErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'VALIDATION' | 'SAVE_FAILED_AFTER_DOMAIN'
@@ -38,15 +39,13 @@ export function formatStamp(iso: string, withYear = false): string {
   if (!m) return iso
   if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso)) return `${m[3]}/${m[2]}${withYear ? `/${m[1]}` : ''} ${m[4]}:${m[5]}`
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(new Date(iso)).map(({ type, value }) => [type, value]))
+    timeZone: DEFAULT_FARM_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(parseBusinessTime(iso))).map(({ type, value }) => [type, value]))
   return `${parts.day}/${parts.month}${withYear ? `/${parts.year}` : ''} ${parts.hour}:${parts.minute}`
 }
 
 export function nowIso(): string {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`
+  return businessDateTime().slice(0, 16) + ':00'
 }
 
 export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]).join('').toUpperCase()

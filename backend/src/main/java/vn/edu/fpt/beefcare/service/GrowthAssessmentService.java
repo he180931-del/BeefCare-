@@ -52,7 +52,7 @@ public class GrowthAssessmentService {
     /** {@code withRevisions}: load the correction history of every record (single-cattle view only, one query). */
     public GrowthDtos.Summary summary(Cattle c,int window,boolean withRevisions) {
         if(!Set.of(30,60,90,180).contains(window))throw DomainException.invalid("windowDays");
-        LocalDate today=LocalDate.now(clockInstantClock(c));
+        LocalDate today=clock.today();
         List<Growth> all=em.createQuery("select g from Growth g where g.cattle.id=:c order by g.checkDate,g.entryTime,g.id",Growth.class)
             .setParameter("c",c.getId()).getResultList();
         List<Growth> valid=all.stream().filter(this::valid).toList();
@@ -89,7 +89,7 @@ public class GrowthAssessmentService {
         return result;
     }
     public int parameterNumber(Farm farm,String key,int fallback) {
-        Object value=parameters(farm,LocalDate.now(clockInstantClock(farm))).get(key);
+        Object value=parameters(farm,clock.today()).get(key);
         try{return value==null?fallback:new BigDecimal(value.toString()).intValueExact();}catch(NumberFormatException|ArithmeticException ex){return fallback;}
     }
     private Map<String,Object> parameters(Farm farm,LocalDate date) {
@@ -107,7 +107,7 @@ public class GrowthAssessmentService {
     }
     private void apply(FarmContext ctx,Growth g,GrowthDtos.Measurement r) {
         if(r==null || r.measuredAt()==null)throw DomainException.required("measuredAt");clock.assertNotFuture(r.measuredAt());
-        LocalDate date=r.measuredAt().atZone(ZoneId.of(ctx.farm().getTimeZone())).toLocalDate();LocalDate entry=entryDate(g.getCattle().getId());
+        LocalDate date=clock.toFarmDate(r.measuredAt());LocalDate entry=entryDate(g.getCattle().getId());
         if(entry!=null && date.isBefore(entry))throw DomainException.unprocessable(MessageCodes.COM_15,"date",entry);
         BigDecimal weight=r.weightKg();if(weight!=null&&r.method()==null)throw DomainException.required("method");String method=r.method()==null?"OTHER":r.method();
         if(!Set.of("SCALE","TAPE","OTHER").contains(method))throw DomainException.invalid("method");
@@ -140,7 +140,5 @@ public class GrowthAssessmentService {
     private void range(BigDecimal n,int min,int max,String field){if(n==null || n.compareTo(BigDecimal.valueOf(min))<0 || n.compareTo(BigDecimal.valueOf(max))>0)throw DomainException.invalid(field);}
     private LocalDate entryDate(Long cattleId){return em.createQuery("select h.entryDate from HerdEntry h where h.cattle.id=:c order by h.id",LocalDate.class).setParameter("c",cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);}
     private boolean valid(Growth g){return Set.of("VALID","CORRECTED").contains(g.getStatus());}
-    private Clock clockInstantClock(Cattle c){return clockInstantClock(c.getFarm());}
-    private Clock clockInstantClock(Farm f){return Clock.fixed(clock.now(),ZoneId.of(f.getTimeZone()));}
-    private GrowthDtos.Record dto(Growth g){return new GrowthDtos.Record(g.getId(),g.getCattle().getId(),g.getObservedAt()==null?g.getCheckDate().atStartOfDay(ZoneId.of(g.getCattle().getFarm().getTimeZone())).toInstant():g.getObservedAt(),g.getEntryTime(),g.getMeasuredBy()==null?null:g.getMeasuredBy().getId(),g.getMeasuredBy()==null?null:g.getMeasuredBy().getFullName(),g.getMethod(),g.getWeightKg(),g.getWeightType(),g.getHeartGirthCm(),g.getBodyLengthCm(),g.getBcsScore(),g.getNote(),g.getStatus(),g.isCorrected(),g.getVersion());}
+    private GrowthDtos.Record dto(Growth g){return new GrowthDtos.Record(g.getId(),g.getCattle().getId(),g.getObservedAt()==null?g.getCheckDate().atStartOfDay(clock.zone()).toInstant():g.getObservedAt(),g.getEntryTime(),g.getMeasuredBy()==null?null:g.getMeasuredBy().getId(),g.getMeasuredBy()==null?null:g.getMeasuredBy().getFullName(),g.getMethod(),g.getWeightKg(),g.getWeightType(),g.getHeartGirthCm(),g.getBodyLengthCm(),g.getBcsScore(),g.getNote(),g.getStatus(),g.isCorrected(),g.getVersion());}
 }

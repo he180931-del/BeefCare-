@@ -37,7 +37,7 @@ public class FarmMembership implements Serializable {
 
     @NotNull
     @Column(name = "effective_date", nullable = false)
-    private LocalDate effectiveDate = LocalDate.now();
+    private LocalDate effectiveDate = LocalDate.now(java.time.ZoneOffset.ofHours(7));
 
     @Column(name = "change_reason", length = 500)
     private String changeReason;

@@ -1,3 +1,4 @@
+import { businessDate, toBusinessTime } from '../../../api/farmTimeZone'
 import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { financeDemoStore, type FinanceDemoStore } from '../data/financeDemoStore'
 import type { NoticeKind, ReceiptFilters, RecordFields, RecordFilters, ReportCriteria } from '../types'
@@ -14,12 +15,7 @@ const mapNotice = (value: unknown): PmNotice => {
     : targetType === 'INTERNAL_REQUEST' ? `/nen-tang/yeu-cau/${targetId}`
       : '/nen-tang/thanh-toan'
   const actionLabel = targetType === 'INTERNAL_REQUEST' ? 'Mở yêu cầu' : targetType === 'SUPPORT_TICKET' ? 'Mở ticket' : 'Xem xét'
-  return { id: numberValue(row.id), kind, title: textValue(row.title), summary: textValue(row.summary), createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime), actionLabel, href }
-}
-const businessToday = () => {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
-  const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
-  return `${values.year}-${values.month}-${values.day}`
+  return { id: numberValue(row.id), kind, title: textValue(row.title), summary: textValue(row.summary), createdTime: toBusinessTime(row.createdTime), readTime: row.readTime == null ? null : toBusinessTime(row.readTime), actionLabel, href }
 }
 
 export function createFinanceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FinanceDemoStore }) {
@@ -28,9 +24,9 @@ export function createFinanceApi({ mode, farmId, transport, store }: { mode: Bac
   const backend = createFinanceBackendApi(transport)
   return {
     isBackend() { return mode === 'backend' },
-    now() { return mode === 'local' ? store.now().slice(0, 10) : businessToday() },
+    now() { return mode === 'local' ? store.now().slice(0, 10) : businessDate() },
     defaultDateRange() {
-      const today = mode === 'backend' ? businessToday() : store.now().slice(0, 10)
+      const today = mode === 'backend' ? businessDate() : store.now().slice(0, 10)
       return { from: `${today.slice(0, 8)}01`, to: today }
     },
     defaultReportCriteria(): ReportCriteria {

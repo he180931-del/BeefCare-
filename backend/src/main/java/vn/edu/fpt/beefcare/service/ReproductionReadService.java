@@ -40,7 +40,7 @@ public class ReproductionReadService {
     @Transactional(readOnly = true)
     public Worklist worklist(Long farmId, String tab, String q, Long penId, Long breedId, String eligibility) {
         FarmContext ctx = access.require(farmId, FarmAction.VIEW_REPRODUCTION);
-        ZoneId zone = zone(ctx.farm());
+        ZoneId zone = clock.zone();
         LocalDate today = clock.now().atZone(zone).toLocalDate();
         Map<String, Object> params = cattleState.parameters(farmId, today);
         int leadDays = intParam(params, "CALVING_LEAD_DAYS", 30);
@@ -118,7 +118,7 @@ public class ReproductionReadService {
         Cattle c = em.createQuery("select c from Cattle c where c.id=:id and c.farm.id=:farm", Cattle.class)
             .setParameter("id", cattleId).setParameter("farm", farmId).getResultStream().findFirst()
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "cattleId", cattleId));
-        ZoneId zone = zone(ctx.farm());
+        ZoneId zone = clock.zone();
         LocalDate today = clock.now().atZone(zone).toLocalDate();
         Map<String, Object> params = cattleState.parameters(farmId, today);
         Map<String, Object> state = cattleState.state(c);
@@ -345,7 +345,6 @@ public class ReproductionReadService {
     }
     private static Integer intParam(Map<String, Object> params, String key) { return params.get(key) instanceof Number n ? n.intValue() : null; }
     private static int intParam(Map<String, Object> params, String key, int fallback) { Integer v = intParam(params, key); return v == null ? fallback : v; }
-    private ZoneId zone(Farm farm) { try { return ZoneId.of(farm.getTimeZone()); } catch (Exception ignored) { return clock.zone(); } }
     private static String name(AppUser user) { return user == null ? null : user.getFullName(); }
     private static Person person(AppUser user, String text) { return user != null ? new Person(user.getId(), user.getFullName()) : text == null ? null : new Person(null, text); }
     private static Ref ref(Breed b) { return b == null ? null : new Ref(b.getId(), b.getCode(), b.getName()); }

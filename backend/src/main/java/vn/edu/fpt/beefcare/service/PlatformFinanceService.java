@@ -45,7 +45,7 @@ import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.EvidenceDTO;
 /** PM-only finance records and cash snapshots; all state changes are audited and version checked. */
 @Service
 public class PlatformFinanceService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId BUSINESS_ZONE = FarmTimeZones.OFFSET;
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     /** SRS scheduled cleanup (daily 02:00, step 2): cash report snapshots are available for 30 days. */
     private static final long SNAPSHOT_RETENTION_SECONDS = 30L * 24 * 3600;

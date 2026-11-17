@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 /** FE-05 rules of the Update Cattle Profile and Issue / Replace QR Tag popups (spec FE-05 §4, §6). */
 
 export const PURPOSE_TYPE_LABELS: Record<string, string> = {
@@ -87,7 +88,4 @@ export function validateTag(input: { replacing: boolean; reason: string; tagCode
   return errors
 }
 
-export const todayIso = (now: Date = new Date()): string => {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-}
+export const todayIso = businessDate

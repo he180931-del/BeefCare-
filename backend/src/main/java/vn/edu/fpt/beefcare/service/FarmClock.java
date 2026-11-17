@@ -4,33 +4,25 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Dates and event times in the farm time zone (GBR-66, default Asia/Ho_Chi_Minh). Tests replace the Clock bean.
+ * Dates in fixed UTC+7. The injected clock supplies absolute instants and can be replaced by tests.
  */
 @Component
 public class FarmClock {
 
     private final Clock clock;
-    private final ZoneId zone;
-
-    public FarmClock(Clock clock, @Value("${application.farm-time-zone:Asia/Ho_Chi_Minh}") String zone) {
+    public FarmClock(Clock clock) {
         this.clock = clock;
-        this.zone = ZoneId.of(zone);
     }
 
     public ZoneId zone() {
-        return zone;
+        return FarmTimeZones.OFFSET;
     }
 
     public LocalDate today() {
-        return LocalDate.now(clock.withZone(zone));
-    }
-
-    public LocalDate today(String farmTimeZone) {
-        return farmTimeZone == null || farmTimeZone.isBlank() ? today() : LocalDate.now(clock.withZone(ZoneId.of(farmTimeZone)));
+        return toFarmDate(now());
     }
 
     public Instant now() {
@@ -38,7 +30,7 @@ public class FarmClock {
     }
 
     public LocalDate toFarmDate(Instant instant) {
-        return instant.atZone(zone).toLocalDate();
+        return LocalDate.ofInstant(instant, FarmTimeZones.OFFSET);
     }
 
     /** MSG-COM-07: an event date must not be in the future. */

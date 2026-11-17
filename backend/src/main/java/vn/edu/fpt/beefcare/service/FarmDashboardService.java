@@ -37,7 +37,7 @@ public class FarmDashboardService {
     @Transactional(readOnly=true)
     public DashboardView dashboard(Long farmId,DashboardRequest request){
         FarmContext context=access.require(farmId,FarmAction.VIEW_REPORTS);
-        LocalDate today=clock.now().atZone(zone(context.farm())).toLocalDate();
+        LocalDate today=clock.today();
         LocalDate from=request==null||request.from()==null?today.minusDays(29):request.from();
         LocalDate to=request==null||request.to()==null?today:request.to();
         validatePeriod(from,to);
@@ -51,7 +51,7 @@ public class FarmDashboardService {
         for(String group:List.of("BREEDING_FEMALES","YOUNG_STOCK","FATTENING","CALVES","BREEDING_BULLS","OTHER"))groups.put(group,0L);
         long monitoring=0,underTreatment=0,withdrawal=0,pregnant=0,overdue=0;
         Map<String,Object> params=parameters(farmId,today);
-        Map<Long,DashboardCattleState> states=dashboardStates(farmId,cattle,today,params,zone(context.farm()));
+        Map<Long,DashboardCattleState> states=dashboardStates(farmId,cattle,today,params,clock.zone());
         DashboardWeights weights=latestWeights(cattle);
         Map<Long,BigDecimal> latestWeights=new HashMap<>();
         for(Cattle animal:cattle){
@@ -84,7 +84,7 @@ public class FarmDashboardService {
         indicators.put("M03",vaccination);
         Map<String,Object> draftCalves=draftCalves(farmId,today);
         Map<String,Object> pendingExits=pendingExits(farmId,today);
-        Map<String,Object> reproductive=reproductionAtGlance(farmId,today,cattle,states,params,zone(context.farm()));
+        Map<String,Object> reproductive=reproductionAtGlance(farmId,today,cattle,states,params,clock.zone());
         indicators.put("M09",reproductive);
         List<Map<String,Object>> needs=needsAttention(farmId,today,vaccination);
         indicators.put("A01",Map.of("count",needs.size(),"items",needs));attention.addAll(needs);
@@ -193,7 +193,7 @@ public class FarmDashboardService {
 
     private List<Map<String,Object>> needsAttention(Long farmId,LocalDate today,Map<String,Object> vaccination){
         List<Map<String,Object>> result=new ArrayList<>();Object raw=vaccination.get("doses");if(raw instanceof List<?> doses)for(Object item:doses)if(item instanceof Map<?,?> dose&&"OVERDUE".equals(dose.get("status"))){Map<String,Object> row=new LinkedHashMap<>();dose.forEach((k,v)->row.put(String.valueOf(k),v));row.put("type","OVERDUE_VACCINATION");result.add(row);}
-        ZoneId zone=zone(em.createQuery("select f from Farm f where f.id=:id",Farm.class).setParameter("id",farmId).getSingleResult());List<ReproductionEvent> estrus=em.createQuery("select e from ReproductionEvent e join fetch e.cattle where e.cattle.farm.id=:farm and e.type='ESTRUS' and upper(e.status) in ('VALID','CORRECTED') and e.eventTime>=:from and e.eventTime<:to",ReproductionEvent.class).setParameter("farm",farmId).setParameter("from",today.atStartOfDay(zone).toInstant().minus(12,ChronoUnit.HOURS)).setParameter("to",today.plusDays(1).atStartOfDay(zone).toInstant()).getResultList();for(ReproductionEvent e:estrus){Instant from=e.getEventTime().plus(8,ChronoUnit.HOURS),to=e.getEventTime().plus(12,ChronoUnit.HOURS);if(!clock.now().isBefore(from)&&!clock.now().isAfter(to))result.add(Map.of("type","BREEDING_WINDOW","sourceId",e.getId(),"cattleId",e.getCattle().getId(),"displayCode",e.getCattle().getDisplayCode(),"dueAt",to));}
+        ZoneId zone=clock.zone();List<ReproductionEvent> estrus=em.createQuery("select e from ReproductionEvent e join fetch e.cattle where e.cattle.farm.id=:farm and e.type='ESTRUS' and upper(e.status) in ('VALID','CORRECTED') and e.eventTime>=:from and e.eventTime<:to",ReproductionEvent.class).setParameter("farm",farmId).setParameter("from",today.atStartOfDay(zone).toInstant().minus(12,ChronoUnit.HOURS)).setParameter("to",today.plusDays(1).atStartOfDay(zone).toInstant()).getResultList();for(ReproductionEvent e:estrus){Instant from=e.getEventTime().plus(8,ChronoUnit.HOURS),to=e.getEventTime().plus(12,ChronoUnit.HOURS);if(!clock.now().isBefore(from)&&!clock.now().isAfter(to))result.add(Map.of("type","BREEDING_WINDOW","sourceId",e.getId(),"cattleId",e.getCattle().getId(),"displayCode",e.getCattle().getDisplayCode(),"dueAt",to));}
         List<ReproductionEvent> breedings=em.createQuery("select e from ReproductionEvent e join fetch e.cattle where e.cattle.farm.id=:farm and e.type='BREEDING' and upper(e.status) in ('VALID','CORRECTED') and e.eventTime<=:cutoff",ReproductionEvent.class).setParameter("farm",farmId).setParameter("cutoff",today.atStartOfDay(zone).toInstant().minus(28,ChronoUnit.DAYS)).getResultList();Set<Long> breedingIds=breedings.stream().map(ReproductionEvent::getId).collect(java.util.stream.Collectors.toSet());Set<Long> checkedBreedingIds=breedingIds.isEmpty()?Set.of():new HashSet<>(em.createQuery("select distinct e.linkedEvent.id from ReproductionEvent e where e.linkedEvent.id in :ids and e.type='PREGNANCY_CHECK' and upper(e.status) in ('VALID','CORRECTED')",Long.class).setParameter("ids",breedingIds).getResultList());for(ReproductionEvent b:breedings)if(!checkedBreedingIds.contains(b.getId()))result.add(Map.of("type","PREGNANCY_CHECK_DUE","sourceId",b.getId(),"cattleId",b.getCattle().getId(),"displayCode",b.getCattle().getDisplayCode()));
         List<PregnancyEpisode> episodes=em.createQuery("select p from PregnancyEpisode p join fetch p.cattle where p.cattle.farm.id=:farm and upper(p.status)='OPEN' and p.expectedCalvingDate between :from and :to",PregnancyEpisode.class).setParameter("farm",farmId).setParameter("from",today).setParameter("to",today.plusDays(7)).getResultList();for(PregnancyEpisode p:episodes)result.add(Map.of("type","CALVING_WITHIN_7_DAYS","sourceId",p.getId(),"cattleId",p.getCattle().getId(),"displayCode",p.getCattle().getDisplayCode(),"expectedDate",p.getExpectedCalvingDate()));
         List<HealthCase> cases=em.createQuery("select h from HealthCase h join fetch h.cattle where h.cattle.farm.id=:farm and h.openedDate=:today",HealthCase.class).setParameter("farm",farmId).setParameter("today",today).getResultList();for(HealthCase h:cases)result.add(Map.of("type","CASE_OPENED_TODAY","sourceId",h.getId(),"cattleId",h.getCattle().getId(),"displayCode",h.getCattle().getDisplayCode()));return List.copyOf(result);
@@ -224,5 +224,4 @@ public class FarmDashboardService {
     private Map<String,Object> parameters(Long farmId,LocalDate date){List<FarmParameterVersion> versions=em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm and p.effectiveFrom<=:date order by p.effectiveFrom desc,p.versionNo desc",FarmParameterVersion.class).setParameter("farm",farmId).setParameter("date",date).setMaxResults(1).getResultList();if(versions.isEmpty())return Map.of();try{return json.readValue(versions.get(0).getParameterValues(),new TypeReference<>(){});}catch(Exception ignored){return Map.of();}}
     private Integer number(Map<String,Object> values,String key){Object value=values.get(key);if(!(value instanceof Number))return null;return new BigDecimal(value.toString()).intValue();}
     private void validatePeriod(LocalDate from,LocalDate to){if(from.isAfter(to))throw DomainException.invalid("period");if(from.plusMonths(24).isBefore(to))throw DomainException.unprocessable(MessageCodes.COM_10,"field","period","maximumMonths",24);}
-    private ZoneId zone(Farm farm){try{return ZoneId.of(farm.getTimeZone());}catch(Exception ignored){return clock.zone();}}
 }

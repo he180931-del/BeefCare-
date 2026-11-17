@@ -56,7 +56,7 @@ describe('notificationsApi (SCR-45)', () => {
 
 describe('notificationRules', () => {
   it('thời gian tương đối', () => {
-    const now = new Date('2026-10-18T09:52:00')
+    const now = new Date('2026-10-18T09:52:00+07:00')
     expect(relativeTime('2026-10-18T09:47:00', now)).toBe('5 phút trước')
     expect(relativeTime('2026-10-18T09:51:40', now)).toBe('Vừa xong')
     expect(relativeTime('2026-10-18T06:10:00', now)).toBe('Hôm nay 06:10')

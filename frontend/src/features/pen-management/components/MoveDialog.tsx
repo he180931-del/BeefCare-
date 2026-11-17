@@ -4,7 +4,6 @@ import { Button, DateInput, Field, KV, Note, Select, Table, Td, Textarea, Th } f
 import { userFacingError } from '../../../api/userFacingError'
 import { BackendError } from '../../../api/backendClient'
 import { penApi, type MoveCattle, type PenMoveCheckResult } from '../api/penApi'
-import { useFarmMoveDate } from '../api/useFarmMoveDate'
 import { CRITERION_LABELS, dmy, todayIso, type CriterionType } from '../domain/penRules'
 import { cx, TH } from './parts'
 import type { Pen } from '../../../types'
@@ -28,8 +27,7 @@ function cattleErrorText(error: { code?: string; params?: Record<string, unknown
  * destination / date change; the backend checks everything again on confirm (R-04-12) and moves all or nothing.
  */
 export default function MoveDialog({ from, cattle, pens, onClose, onReload = onClose, onMoved, today: fixedDate }: { from: Pen; cattle: MoveCattle[]; pens: Pen[]; onClose: () => void; onReload?: () => void; onMoved: (message: string) => void; today?: string }) {
-  const farmDate = useFarmMoveDate(todayIso(), fixedDate)
-  const { today } = farmDate
+  const today = fixedDate ?? todayIso()
   const destinations = pens.filter((p) => p.status === 'ACTIVE' && p.code !== from.code)
   const [toCode, setToCode] = useState('')
   const [enteredDate, setDate] = useState<string>()
@@ -129,7 +127,6 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
       <p className="m-0 text-[14px] font-semibold text-[#212121]">Kiểm tra nhận bò</p>
       {checking && <Note>Đang kiểm tra…</Note>}
       {checkError && <Note tone="err">{checkError}</Note>}
-      {Boolean(farmDate.error) && <Note tone="err">Không tải được ngày của trại. <Button variant="link" onClick={farmDate.retry}>Thử lại</Button></Note>}
       {blockText && <Note tone="err">{blockText}</Note>}
       {rowErrors.map((r) => <Note key={r.cattleCode} tone="err">{cattleErrorText(r.error!, r.cattleCode)}</Note>)}
       {rows.filter((r) => r.alreadyInDestination).map((r) => <Note key={r.cattleCode} tone="warn">{`${r.cattleCode} đã ở ${to?.code ?? ''} và sẽ được bỏ qua.`}</Note>)}

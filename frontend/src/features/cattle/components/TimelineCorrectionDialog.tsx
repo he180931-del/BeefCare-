@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
 import { backendFarmId, backendTransport } from '../../../api/backendTransport'
+import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
 import { userFacingError } from '../../../api/userFacingError'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Button, Field, Note, Select, inputCls } from '../../../components/ui'
@@ -58,9 +59,7 @@ function fieldValue(field: FieldDefinition, source: EditableEvent['revisionSourc
   const value = source.values[field.key] ?? (field.key === 'occurredAt' || field.key === 'birthTime' ? source.occurredAt : null)
   if (value == null) return ''
   if (field.kind !== 'datetime-local') return String(value)
-  const date = new Date(String(value))
-  if (!Number.isFinite(date.getTime())) return ''
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+  return toFarmLocal(String(value))
 }
 
 export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
@@ -103,9 +102,9 @@ export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
         if (edit === undefined || edit === fieldValue(field, revisionSource)) continue
         if (!edit && (vaccination || field.kind || field.options)) return setError(`Vui lòng nhập ${field.label.toLowerCase()}.`)
         if (field.kind === 'datetime-local') {
-          const date = new Date(edit)
-          if (!Number.isFinite(date.getTime())) return setError('Thời điểm không hợp lệ.')
-          changes[field.key] = date.toISOString()
+          const instant = fromFarmLocal(edit)
+          if (toFarmLocal(instant) !== edit) return setError('Thời điểm không hợp lệ.')
+          changes[field.key] = instant
         } else {
           changes[field.key] = field.kind === 'vaccine' ? Number(edit) : field.kind === 'boolean' ? edit === 'true' : edit
         }

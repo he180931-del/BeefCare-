@@ -50,27 +50,23 @@ test('TC-08-API01: giờ trại đổi qua lại Instant theo UTC+7', () => {
   assert.equal(Date.parse(toInstant(toFarmTime('2026-10-01T20:30:00Z'))), Date.parse('2026-10-01T20:30:00Z'))
 })
 
-test('Múi giờ trại: đọc timeZone của trại; trại ở UTC+9 đổi giờ theo +09:00, thiếu timeZone thì UTC+7', async () => {
-  assert.equal(toFarmTime('2026-10-01T01:00:00Z', 'Asia/Tokyo'), '2026-10-01T10:00')
-  assert.equal(toInstant('2026-10-01T10:00', 'Asia/Tokyo'), '2026-10-01T10:00:00+09:00')
+test('Tăng trưởng dùng UTC+7 cả khi trại có múi giờ cũ', async () => {
+  assert.equal(toFarmTime('2026-10-01T01:00:00Z'), '2026-10-01T08:00')
+  assert.equal(toInstant('2026-10-01T10:00'), '2026-10-01T10:00:00+07:00')
   const routes = {
     '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' },
     '/api/farms/1/cattle/resolve': resolve,
-    '/api/farms/1/cattle/203/growth': (body: unknown) => (body ? record(9, '2026-11-09T00:30:00Z', 300) : summary),
+    '/api/farms/1/cattle/203/growth': (body: unknown) => (body ? record(9, '2026-11-09T02:30:00Z', 300) : summary),
     '/api/farms/1/members': [],
   }
   const { transport, calls } = fakeTransport(routes)
   const api = createGrowthBackend({ farmId: 1, transport, clock })
-  assert.equal((await api.formOptions('BC-000203')).now, '2026-11-09T12:00', 'giờ hiện tại theo UTC+9')
+  assert.equal((await api.formOptions('BC-000203')).now, '2026-11-09T10:00')
   const saved = await api.record('BC-000203', { measuredAt: '2026-11-09T09:30', method: 'SCALE', weightKg: 300 })
-  assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).measuredAt, '2026-11-09T09:30:00+09:00')
+  assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).measuredAt, '2026-11-09T09:30:00+07:00')
   assert.equal(saved.measuredAt, '2026-11-09T09:30')
-  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 1, 'đọc múi giờ một lần')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 0)
 
-  const fallback = fakeTransport({ ...routes, '/api/farms/1/context': { id: 1, timeZone: null } })
-  assert.equal((await createGrowthBackend({ farmId: 1, transport: fallback.transport, clock }).formOptions('BC-000203')).now, '2026-11-09T10:00')
-  const invalid = fakeTransport({ ...routes, '/api/farms/1/context': { id: 1, timeZone: 'Mars/Olympus' } })
-  assert.equal((await createGrowthBackend({ farmId: 1, transport: invalid.transport, clock }).formOptions('BC-000203')).now, '2026-11-09T10:00')
 })
 
 test('GAP-FE08-01/02: hồ sơ hiện lịch sử sửa (revision giữ 340) và dự kiến xuất chuồng theo backend', async () => {

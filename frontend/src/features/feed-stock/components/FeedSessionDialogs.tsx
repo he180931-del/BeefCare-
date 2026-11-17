@@ -1,3 +1,4 @@
+import { toFarmLocal } from '../../../api/farmTimeZone'
 import { useEffect, useRef, useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Icon } from '../../../components/Icon'
@@ -282,7 +283,7 @@ export function FeedCorrectDialog({ data, record, initialAction, onClose, onSave
   return (
     <Modal
       title="Sửa bản ghi cho ăn"
-      sub={`${record.penName ?? record.penCode} · ${sessionLabel(record.sessionNo)} ${formatDate(record.feedingDate)} ${record.time ?? ''} · ghi bởi ${shortPersonName(record.recordedBy ?? record.fedBy)}${record.recordedAt ? ` lúc ${record.recordedAt.slice(11, 16)}` : ''}`}
+      sub={`${record.penName ?? record.penCode} · ${sessionLabel(record.sessionNo)} ${formatDate(record.feedingDate)} ${record.time ?? ''} · ghi bởi ${shortPersonName(record.recordedBy ?? record.fedBy)}${record.recordedAt ? ` lúc ${toFarmLocal(record.recordedAt).slice(11, 16)}` : ''}`}
       topTitle="Thức ăn › Nhật ký cho ăn"
       width={700}
       onClose={onClose}

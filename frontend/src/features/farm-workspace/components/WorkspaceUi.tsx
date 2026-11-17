@@ -1,3 +1,4 @@
+import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../api/farmTimeZone'
 import type { ReactNode, SelectHTMLAttributes } from 'react'
 import { BackendError } from '../../../api/backendClient'
 import { Icon } from '../../../components/Icon'
@@ -49,14 +50,13 @@ export function inviteStatusLabel(status: string) {
 }
 
 const MISSING = 'Chưa có dữ liệu từ máy chủ'
-const ZONE = 'Asia/Ho_Chi_Minh'
 
 /** dd/mm/yyyy HH:mm theo múi giờ mặc định của trại (GBR-66). */
-export function formatDateTime(value?: string | null, timeZone = ZONE) {
+export function formatDateTime(value?: string | null, _timeZone?: string) {
   if (!value) return MISSING
-  const date = new Date(value)
+  const date = new Date(parseBusinessTime(value))
   if (Number.isNaN(date.getTime())) return MISSING
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date).map((part) => [part.type, part.value]))
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date).map((part) => [part.type, part.value]))
   return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`
 }
 
@@ -68,22 +68,23 @@ export function invitationNotice(invitation: { email: string; expiresAt: string 
 /** dd/mm/yyyy. */
 export function formatDate(value?: string | null) {
   if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
+  const date = new Date(parseBusinessTime(value))
+  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
 }
 
 /** A service period ends at an exclusive instant; show its last covered day, as SCR-57 does (`fmtEndDay`). */
 export function lastServiceDay(end: string) {
-  const ms = Date.parse(end)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(end)) return formatDate(end)
+  const ms = parseBusinessTime(end)
   return Number.isNaN(ms) ? formatDate(end) : formatDate(new Date(ms - 1).toISOString())
 }
 
 /** mm/yyyy (cột "Tham gia" của SCR-13) theo múi giờ trại (Table III-1, D29). */
-export function formatMonth(value?: string | null, timeZone = ZONE) {
+export function formatMonth(value?: string | null, _timeZone?: string) {
   if (!value) return MISSING
-  const date = new Date(value)
+  const date = new Date(parseBusinessTime(value))
   if (Number.isNaN(date.getTime())) return MISSING
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone, month: '2-digit', year: 'numeric' }).formatToParts(date).map((part) => [part.type, part.value]))
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, month: '2-digit', year: 'numeric' }).formatToParts(date).map((part) => [part.type, part.value]))
   return `${parts.month}/${parts.year}`
 }
 

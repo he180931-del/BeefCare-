@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -131,7 +130,7 @@ public class FeedStockAdjustmentService {
 
     /** System stock at the end of the count date = current stock minus movements recorded after that day (farm time zone). */
     private void fill(FeedStockAdjustmentLine l,FeedItem f,LocalDate countDate) {
-        Instant after=countDate.plusDays(1).atStartOfDay(zone(f.getFarm())).toInstant();
+        Instant after=countDate.plusDays(1).atStartOfDay(clock.zone()).toInstant();
         BigDecimal later=movements.findByFarm_IdAndFeedItem_IdAndOccurredAtGreaterThanEqual(f.getFarm().getId(),f.getId(),after).stream()
             .map(FeedStockMovement::getQuantityKg).reduce(BigDecimal.ZERO,BigDecimal::add);
         BigDecimal system=f.getOnHandKg().subtract(later).setScale(3,RoundingMode.HALF_UP);
@@ -151,7 +150,6 @@ public class FeedStockAdjustmentService {
         return new AdjustmentView(a.getId(),a.getCode(),a.getCountDate(),a.getAdjustmentType(),a.getCountedBy(),a.getStatus(),a.getTotalDifferenceKg(),a.getTotalValue(),a.getPostedAt(),a.getVersion(),rows);
     }
 
-    private ZoneId zone(Farm farm){try{return ZoneId.of(farm.getTimeZone());}catch(RuntimeException ignored){return clock.zone();}}
 
     private static String trim(String v){if(v==null)return null;String t=v.trim();return t.isEmpty()?null:t;}
 }

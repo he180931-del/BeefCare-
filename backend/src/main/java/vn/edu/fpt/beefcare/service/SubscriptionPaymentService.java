@@ -40,7 +40,7 @@ public class SubscriptionPaymentService {
     private static final Duration REQUEST_TTL = Duration.ofHours(24);
     /** D38: cancellation reason after trim, as the other FE-19 reasons (Table III-1). */
     private static final int CANCEL_REASON_MAX = 1000;
-    private static final ZoneId FARM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId FARM_ZONE = FarmTimeZones.OFFSET;
     /** GBR-71: renewal opens 90 days before the latest confirmed end (also shown on SCR-11 by FarmWorkspaceService). */
     static final Duration RENEWAL_WINDOW = Duration.ofDays(90);
     /** SCR-60 / Table III-1: fixed 20 rows; the page cap keeps the JPA offset within int range (400 instead of 500). */

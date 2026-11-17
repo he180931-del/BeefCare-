@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../api/farmTimeZone'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
@@ -70,7 +71,7 @@ export function DateTimeInput({ id, value, onChange }: { id?: string; value: str
     setText(next)
     const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(next.trim())
     const iso = m ? `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}` : ''
-    onChange(iso && !Number.isNaN(Date.parse(iso)) ? iso : '')
+    onChange(iso && !Number.isNaN(parseBusinessTime(iso)) ? iso : '')
   }
   return (
     <div className="relative">

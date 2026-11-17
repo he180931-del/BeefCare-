@@ -187,7 +187,7 @@ public class PenAssignmentService {
         if (check != null) {
             receptionCriteria.requireWarningReason(check, warningReason, cattle.getDisplayCode());
         }
-        LocalDate today = clock.today(cattle.getFarm().getTimeZone());
+        LocalDate today = clock.today();
         closeAssignment(current, moveDate, today);
         return openAssignment(cattle, toPen, moveDate, source, reason, check, warningReason, movedBy, today);
     }

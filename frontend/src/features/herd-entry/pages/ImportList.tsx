@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -16,11 +17,7 @@ const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 // Keep the initial filter aligned with the actual current date.  The previous
 // fixed 2026-10-22 end date made a newly posted voucher disappear from the
 // list when the entry date was today (and made it look as if saving failed).
-const localToday = () => {
-  const date = new Date()
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-const DEFAULT_TO = localToday()
+const DEFAULT_TO = businessDate()
 const DEFAULT_FROM = `${DEFAULT_TO.slice(0, 4)}-01-01`
 
 export default function ImportList() {

@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../api/farmTimeZone'
 import { useEffect, useRef, useState } from 'react'
 import Layout from '../../../components/Layout'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
@@ -111,7 +112,7 @@ export default function PlanPriceRoutes() {
     let at: string | null = null
     if (draft.mode === 'SCHEDULE') {
       if (!draft.effectiveAt) return invalid('Vui lòng nhập thời điểm hiệu lực.', 'effectiveAt')
-      const parsed = Date.parse(`${draft.effectiveAt.length === 16 ? `${draft.effectiveAt}:00` : draft.effectiveAt}+07:00`)
+      const parsed = parseBusinessTime(draft.effectiveAt)
       if (!Number.isFinite(parsed)) return invalid('Thời điểm hiệu lực không hợp lệ.', 'effectiveAt')
       const serverNow = data ? Date.parse(data.asOf) + Date.now() - receivedAt.current : Date.now()
       if (parsed < serverNow) return invalid('Thời điểm hiệu lực không được ở quá khứ.', 'effectiveAt')
@@ -137,7 +138,7 @@ export default function PlanPriceRoutes() {
   const current = data.current
   const fieldError = (field: keyof PriceDraft) => error && errorField === field && !confirming ? <p role="alert" className="text-sm text-err-fg">{error}</p> : null
   return <Layout title={TITLE}>
-    <PageHeader title={TITLE} sub="Một gói duy nhất với giá theo 1, 2 hoặc 3 năm. Giờ hiển thị theo Asia/Ho_Chi_Minh.">
+    <PageHeader title={TITLE} sub="Một gói duy nhất với giá theo 1, 2 hoặc 3 năm. Giờ hiển thị theo UTC+7.">
       <Button disabled={query.loading || busy} onClick={refresh}>Làm mới</Button>
     </PageHeader>
     {message ? <p role="status" className="mb-3 rounded-md bg-ok-bg p-3 text-sm text-ok-fg">{message}</p> : null}
@@ -154,7 +155,7 @@ export default function PlanPriceRoutes() {
             <div className="grid gap-3 sm:grid-cols-3">{(['price1y', 'price2y', 'price3y'] as const).map((field, i) => <Field key={field} id={field} label={`Giá ${i + 1} năm (VND) *`}><input id={field} className={inputCls} inputMode="numeric" aria-invalid={errorField === field && !!error} value={draft[field]} onChange={e => set({ [field]: e.target.value })} />{fieldError(field)}</Field>)}</div>
             <div className="flex min-w-0 flex-col gap-1.5"><span className="text-xs font-medium text-ink">Áp dụng *</span>
               <div role="radiogroup" aria-label="Áp dụng" aria-required="true" className="flex flex-wrap gap-6"><Radio name="application" checked={draft.mode === 'NOW'} onChange={() => set({ mode: 'NOW' })}>Áp dụng ngay</Radio><Radio name="application" checked={draft.mode === 'SCHEDULE'} onChange={() => set({ mode: 'SCHEDULE' })}>Lên lịch</Radio></div></div>
-            {draft.mode === 'SCHEDULE' ? <Field id="effectiveAt" label="Hiệu lực từ *" hint="Giờ Việt Nam (Asia/Ho_Chi_Minh)"><input id="effectiveAt" className={inputCls} type="datetime-local" aria-invalid={errorField === 'effectiveAt' && !!error} value={draft.effectiveAt} onChange={e => set({ effectiveAt: e.target.value })} />{fieldError('effectiveAt')}</Field> : <p className="text-sm text-muted">Hiệu lực ngay khi công bố thành công.</p>}
+            {draft.mode === 'SCHEDULE' ? <Field id="effectiveAt" label="Hiệu lực từ *" hint="Giờ Việt Nam (UTC+7)"><input id="effectiveAt" className={inputCls} type="datetime-local" aria-invalid={errorField === 'effectiveAt' && !!error} value={draft.effectiveAt} onChange={e => set({ effectiveAt: e.target.value })} />{fieldError('effectiveAt')}</Field> : <p className="text-sm text-muted">Hiệu lực ngay khi công bố thành công.</p>}
             <Field id="terms" label="Mô tả điều khoản" hint="Tối đa 500 ký tự"><textarea id="terms" className={inputCls} rows={3} aria-invalid={errorField === 'terms' && !!error} value={draft.terms} onChange={e => set({ terms: e.target.value })} />{fieldError('terms')}</Field>
           </fieldset>
           {error && !confirming && !errorField ? <p role="alert" className="mt-3 text-sm text-err-fg">{error}</p> : null}

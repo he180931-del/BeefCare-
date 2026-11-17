@@ -87,7 +87,7 @@ public class LocalDevelopmentSeeder implements ApplicationRunner {
         List<Farm> existing=em.createQuery("select f from Farm f where f.name=:name",Farm.class).setParameter("name",name).getResultList();
         if(!existing.isEmpty()) return existing.get(0);
         Farm farm=new Farm();farm.setName(name);farm.setLocation("Hà Nội");farm.setContact("0900000000");farm.setProvince("Hà Nội");farm.setCommune("Demo");
-        farm.setContactPerson(owner.getFullName());farm.setContactPhone(owner.getPhone());farm.setServiceStatus("ACTIVE");farm.setTimeZone("Asia/Ho_Chi_Minh");em.persist(farm);
+        farm.setContactPerson(owner.getFullName());farm.setContactPhone(owner.getPhone());farm.setServiceStatus("ACTIVE");farm.setTimeZone(FarmTimeZones.DEFAULT);em.persist(farm);
         member(farm,owner,"OWNER");starters.create(farm,owner,Set.of("LAISIND","ZEBU-D"));return farm;
     }
     private void member(Farm farm,AppUser user,String role) {

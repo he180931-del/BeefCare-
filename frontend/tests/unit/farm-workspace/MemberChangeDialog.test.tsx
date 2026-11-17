@@ -133,7 +133,7 @@ describe('UC6 input rules (D30, Table III-1)', () => {
 
   it('takes "today" in the farm time zone', () => {
     const now = new Date('2026-10-28T12:00:00Z')
-    expect(farmToday('Asia/Ho_Chi_Minh', now)).toBe('2026-10-28')
-    expect(farmToday('Pacific/Kiritimati', now)).toBe('2026-10-29')
+    expect(farmToday(now)).toBe('2026-10-28')
+    expect(farmToday(new Date('2026-10-28T17:00:00Z'))).toBe('2026-10-29')
   })
 })

@@ -1,6 +1,6 @@
 import { BackendError } from '../../../api/backendClient'
 import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { DEFAULT_FARM_TIME_ZONE, createFarmTimeZone, fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
+import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
 import { ReproductionValidationError, breedingDetails, calvingSummary, formatDate, validateReproductionCommand } from '../domain/reproductionRules'
 import type {
   BreedingEligibility, CalfOutcome, CalvingCommand, CalvingRecord, DataSource, OpenPregnancy, ReproductionCommand, ReproductionEvent,
@@ -90,8 +90,7 @@ export function mapEligibility(raw: unknown): BreedingEligibility | null {
   }
 }
 
-function mapCalf(raw: unknown, timeZone: string): CalfOutcome {
-  void timeZone
+function mapCalf(raw: unknown): CalfOutcome {
   const c = asRecord(raw)
   const registration = textValue(c.registration)
   const live = c.outcome === 'LIVE'
@@ -108,25 +107,25 @@ function mapCalf(raw: unknown, timeZone: string): CalfOutcome {
   }
 }
 
-export function mapCalving(raw: unknown, recorded: { recordedAt: string; recorder: string } | undefined, timeZone: string): CalvingRecord {
+export function mapCalving(raw: unknown, recorded: { recordedAt: string; recorder: string } | undefined): CalvingRecord {
   const c = asRecord(raw)
   return {
-    id: uid('calving', c.calvingId), birthAt: toFarmLocal(c.at, timeZone), recordedAt: recorded?.recordedAt ?? '', recorder: recorded?.recorder ?? '',
+    id: uid('calving', c.calvingId), birthAt: toFarmLocal(c.at), recordedAt: recorded?.recordedAt ?? '', recorder: recorded?.recorder ?? '',
     attendant: personName(c.attendant) || undefined, dataSource: source(c.source), pregnancyId: num(c.episodeId) === undefined ? null : uid('episode', c.episodeId),
     course: c.course === 'ASSISTED' || c.course === 'CAESAREAN' ? c.course : 'NORMAL',
     damCondition: c.damCondition === 'NEEDS_MONITORING' ? 'MONITORING' : c.damCondition === 'CRITICAL' ? 'CRITICAL' : 'GOOD',
-    retainedPlacenta: c.retainedPlacenta === true, calves: asRows(c.calves).map((calf) => mapCalf(calf, timeZone)),
+    retainedPlacenta: c.retainedPlacenta === true, calves: asRows(c.calves).map((calf) => mapCalf(calf)),
     status: c.status === 'VOIDED' ? 'VOIDED' : 'VALID', corrected: c.corrected === true, version: num(c.version) ?? 0,
   }
 }
 
 /** Một dòng dòng thời gian A2 → sự kiện của màn hình (summary / details dựng như chế độ local). */
-export function mapTimelineRow(raw: unknown, timeZone: string, services = 0): ReproductionEvent {
+export function mapTimelineRow(raw: unknown, services = 0): ReproductionEvent {
   const r = asRecord(raw)
   const kind = textValue(r.kind) as ReproductionEventType
   const id = kind === 'PREGNANCY_UPDATE' ? uid('update', r.id) : kind === 'CALVING' ? uid('calving', r.id) : uid('event', r.id)
   const event: ReproductionEvent = {
-    id, type: kind, occurredAt: toFarmLocal(r.at, timeZone), recordedAt: toFarmLocal(r.recordedAt, timeZone), recorder: textValue(r.recordedBy),
+    id, type: kind, occurredAt: toFarmLocal(r.at), recordedAt: toFarmLocal(r.recordedAt), recorder: textValue(r.recordedBy),
     status: r.status === 'VOIDED' ? 'VOIDED' : 'VALID', dataSource: source(r.source), summary: EVENT_SUMMARY[kind] ?? kind, details: '',
     corrected: r.corrected === true, voidReason: text(r.voidReason), version: num(r.version) ?? 0,
     pregnancyId: num(r.episodeId) === undefined ? null : uid('episode', r.episodeId),
@@ -174,18 +173,18 @@ const purposeType = (value: unknown): ReproductionFemale['purposeType'] => (valu
 const dateTime = (date: unknown) => (text(date) ? `${date}T00:00` : null)
 
 /** A2 (FE-11) / A1 (FE-12) → hồ sơ sinh sản của màn hình. */
-export function mapProfile(raw: unknown, timeZone: string): ReproductionFemale {
+export function mapProfile(raw: unknown): ReproductionFemale {
   const p = asRecord(raw)
   const breed = asRecord(p.breed), pen = asRecord(p.pen)
   const ind = asRecord(p.indicators)
   // Thứ tự phối trong cùng chu kỳ để đặt nhãn "Phối giống · lần n" (bản ghi VALID, tính từ cũ đến mới).
   const rows = asRows(p.timeline)
   const breedings = rows.filter((r) => r.kind === 'BREEDING' && r.status !== 'VOIDED').sort((a, b) => textValue(a.at).localeCompare(textValue(b.at)))
-  const events = rows.map((r) => mapTimelineRow(r, timeZone, r.kind === 'BREEDING' ? breedings.indexOf(r) + 1 : 0))
+  const events = rows.map((r) => mapTimelineRow(r, r.kind === 'BREEDING' ? breedings.indexOf(r) + 1 : 0))
   const calvingRows = asRows(p.calvings)
   const calvings = calvingRows.map((c) => {
     const row = events.find((event) => event.id === uid('calving', c.calvingId))
-    const record = mapCalving(c, row ? { recordedAt: row.recordedAt, recorder: row.recorder } : undefined, timeZone)
+    const record = mapCalving(c, row ? { recordedAt: row.recordedAt, recorder: row.recorder } : undefined)
     if (row) row.details = calvingSummary(record.calves)
     return record
   })
@@ -194,7 +193,7 @@ export function mapProfile(raw: unknown, timeZone: string): ReproductionFemale {
   const openPregnancy: OpenPregnancy | null = num(preg.episodeId) === undefined ? null : {
     id: uid('episode', preg.episodeId), pregnancyNumber: num(preg.parity) ?? 0,
     linkedBreedingId: num(preg.linkedBreedingId) === undefined ? null : uid('event', preg.linkedBreedingId),
-    confirmedAt: toFarmLocal(preg.confirmedAt, timeZone), expectedCalvingAt: dateTime(preg.expectedDate),
+    confirmedAt: toFarmLocal(preg.confirmedAt), expectedCalvingAt: dateTime(preg.expectedDate),
     expectedDateBasis: (['CONFIRMED', 'ESTIMATED', 'TENTATIVE'].includes(textValue(preg.basis)) ? preg.basis : null) as OpenPregnancy['expectedDateBasis'],
     estimatedMonths: check?.estimatedMonths ?? null, status: 'OPEN', version: num(preg.version) ?? 0,
   }
@@ -206,11 +205,11 @@ export function mapProfile(raw: unknown, timeZone: string): ReproductionFemale {
     cattleId: String(num(p.cattleId) ?? ''), cattleCode: textValue(p.code), name: text(p.name) ?? '—', earTag: textValue(p.earTag), sex: 'FEMALE',
     breed: textValue(breed.name), penId: num(pen.id) === undefined ? '' : String(num(pen.id)), penCode: textValue(pen.code), penName: textValue(pen.name),
     herdStatus: herdStatus(p.herdStatus), lifeStage: lifeStage(p.lifeStage), purposeType: purposeType(p.purposeType),
-    applicable: p.applicable === true, status, statusAt: text(p.statusSince) ? toFarmLocal(p.statusSince, timeZone) : null,
+    applicable: p.applicable === true, status, statusAt: text(p.statusSince) ? toFarmLocal(p.statusSince) : null,
     ageMonths: num(p.ageMonths) ?? 0, latestWeightKg: num(asRecord(p.latestWeight).kg) ?? null, parity: num(p.parity) ?? 0,
     earlierCalvings: Math.max(0, (num(p.parity) ?? 0) - calvings.filter((c) => c.status === 'VALID').length),
-    servicesInCurrentCycle: num(p.servicesInCycle) ?? 0, lastCalvingAt: text(asRecord(p.lastCalving).at) ? toFarmLocal(asRecord(p.lastCalving).at, timeZone) : null,
-    breedingWindow: window.configured === true ? { from: toFarmLocal(window.from, timeZone), to: toFarmLocal(window.to, timeZone) } : null,
+    servicesInCurrentCycle: num(p.servicesInCycle) ?? 0, lastCalvingAt: text(asRecord(p.lastCalving).at) ? toFarmLocal(asRecord(p.lastCalving).at) : null,
+    breedingWindow: window.configured === true ? { from: toFarmLocal(window.from), to: toFarmLocal(window.to) } : null,
     nextAction: status === 'IN_ESTRUS' || status === 'AWAITING_BREEDING' || status === 'POST_CALVING' ? NEXT_ACTION_TEXT.CONSIDER_BREEDING
       : status === 'BRED' ? NEXT_ACTION_TEXT.PREGNANCY_CHECK : status === 'PREGNANT' ? NEXT_ACTION_TEXT.PREPARE_CALVING_PEN : '',
     dueAt: status === 'BRED' ? dateTime(latestBreeding.checkFrom) : status === 'PREGNANT' ? openPregnancy?.expectedCalvingAt ?? null : null,
@@ -227,7 +226,7 @@ export function mapProfile(raw: unknown, timeZone: string): ReproductionFemale {
 }
 
 /** Một dòng A1 → dòng SCR-38 (đủ trường cho lọc, tab, ô thống kê và cột của màn danh sách). */
-export function mapWorklistItem(raw: unknown, timeZone: string): ReproductionFemale {
+export function mapWorklistItem(raw: unknown): ReproductionFemale {
   const i = asRecord(raw)
   const breed = asRecord(i.breed), pen = asRecord(i.pen), due = asRecord(i.due), latest = asRecord(i.latestEvent)
   const status = pickStatus(i.status)
@@ -237,9 +236,9 @@ export function mapWorklistItem(raw: unknown, timeZone: string): ReproductionFem
     cattleId: String(num(i.cattleId) ?? ''), cattleCode: textValue(i.code), name: text(i.name) ?? '—', earTag: textValue(i.earTag), sex: 'FEMALE',
     breed: textValue(breed.name), penId: num(pen.id) === undefined ? '' : String(num(pen.id)), penCode: textValue(pen.code), penName: textValue(pen.name),
     herdStatus: 'ACTIVE', lifeStage: 'OTHER', purposeType: 'OTHER', applicable: true, status,
-    statusAt: text(i.statusSince) ? toFarmLocal(i.statusSince, timeZone) : null, ageMonths: num(i.ageMonths) ?? 0, latestWeightKg: num(i.latestWeightKg) ?? null,
+    statusAt: text(i.statusSince) ? toFarmLocal(i.statusSince) : null, ageMonths: num(i.ageMonths) ?? 0, latestWeightKg: num(i.latestWeightKg) ?? null,
     parity: 0, earlierCalvings: 0, servicesInCurrentCycle: 0, lastCalvingAt: null,
-    breedingWindow: text(due.windowFrom) && text(due.windowTo) ? { from: toFarmLocal(due.windowFrom, timeZone), to: toFarmLocal(due.windowTo, timeZone) } : null,
+    breedingWindow: text(due.windowFrom) && text(due.windowTo) ? { from: toFarmLocal(due.windowFrom), to: toFarmLocal(due.windowTo) } : null,
     nextAction: NEXT_ACTION_TEXT[textValue(i.nextAction)] ?? textValue(i.nextAction), dueAt: dateTime(due.date),
     eligibility: mapEligibility(i.eligibility), openHealthCase: false,
     openPregnancy: status === 'PREGNANT' ? {
@@ -248,7 +247,7 @@ export function mapWorklistItem(raw: unknown, timeZone: string): ReproductionFem
       estimatedMonths: null, status: 'OPEN',
     } : null,
     events: type ? [{
-      id: `latest-${num(i.cattleId) ?? 0}`, type, occurredAt: toFarmLocal(latest.at, timeZone), recordedAt: '', recorder: '', status: 'VALID',
+      id: `latest-${num(i.cattleId) ?? 0}`, type, occurredAt: toFarmLocal(latest.at), recordedAt: '', recorder: '', status: 'VALID',
       summary: EVENT_SUMMARY[type] ?? type, version: 0,
     }] : [],
     calvings: [], revisions: [],
@@ -277,7 +276,7 @@ const LABEL: Record<string, string> = {
 }
 
 /** Lỗi backend → ReproductionValidationError (theo ô, theo bê) hoặc Error tiếng Việt. */
-export function mapReproductionError(error: unknown, timeZone = DEFAULT_FARM_TIME_ZONE): unknown {
+export function mapReproductionError(error: unknown): unknown {
   if (!(error instanceof BackendError)) return error
   const code = textValue(error.code).replace(/^MSG-/, '')
   const p = error.params
@@ -292,7 +291,7 @@ export function mapReproductionError(error: unknown, timeZone = DEFAULT_FARM_TIM
     return new ReproductionValidationError([item])
   }
   const prefix = calf !== undefined ? `Bê số ${calf + 1}: ` : ''
-  const at = (value: unknown) => (text(value) ? toFarmLocal(value, timeZone).replace(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}).*$/, '$3/$2/$1 $4') : textValue(value))
+  const at = (value: unknown) => (text(value) ? toFarmLocal(value).replace(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}).*$/, '$3/$2/$1 $4') : textValue(value))
   switch (code) {
     case 'FE11-03': return new ReproductionDuplicateError(`Đã có ${textValue(p.event_type, 'bản ghi')} tương tự của ${textValue(p.cattle_code)} lúc ${textValue(p.time) || at(p.at)}. Vẫn lưu?`)
     case 'FE11-04': return issue('Đực giống phải là một bò đực khác của trại này.')
@@ -323,20 +322,17 @@ interface Cached { cattleId: number; profile?: ReproductionFemale }
 
 export function createReproductionBackend({ farmId, transport }: { farmId: string | number; transport: BackendTransport }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
-  const zone = createFarmTimeZone(transport, farmId)
-  let timeZone = DEFAULT_FARM_TIME_ZONE
   const cache = new Map<string, Cached>()
   let options: Omit<ReproductionFormOptions, 'healthCases'> & { breedIds: Map<string, number>; memberIds: Map<string, number> } | undefined
 
   async function run<T>(action: () => Promise<T>): Promise<T> {
     try {
-      timeZone = await zone()
       return await action()
     } catch (error) {
-      throw mapReproductionError(error, timeZone)
+      throw mapReproductionError(error)
     }
   }
-  const instant = (local: string) => fromFarmLocal(local, timeZone)
+  const instant = (local: string) => fromFarmLocal(local)
 
   async function cattleId(code: string): Promise<number> {
     const hit = cache.get(code)
@@ -348,7 +344,7 @@ export function createReproductionBackend({ farmId, transport }: { farmId: strin
   }
   async function profile(code: string): Promise<ReproductionFemale> {
     const id = await cattleId(code)
-    const loaded = mapProfile(await transport.get(path(`/cattle/${id}/reproduction-history`)), timeZone)
+    const loaded = mapProfile(await transport.get(path(`/cattle/${id}/reproduction-history`)))
     cache.set(code, { cattleId: id, profile: loaded })
     return loaded
   }
@@ -540,7 +536,7 @@ export function createReproductionBackend({ farmId, transport }: { farmId: strin
       return run(async () => {
         const rows = asRows(asRecord(await transport.get(path(`/reproduction-worklist${query({ tab: 'ALL' })}`))).items)
         return rows.map((row) => {
-          const mapped = mapWorklistItem(row, timeZone)
+          const mapped = mapWorklistItem(row)
           const id = num(row.cattleId)
           if (id !== undefined && !cache.has(mapped.cattleCode)) cache.set(mapped.cattleCode, { cattleId: id })
           return mapped
@@ -564,7 +560,7 @@ export function createReproductionBackend({ farmId, transport }: { farmId: strin
       // Kiểm tra trước khi gửi bằng đúng quy tắc của chế độ local (spec FE-11 / FE-12 mục 6), cùng cách báo lỗi.
       // Ca sức khỏe chỉ đi kèm Biến chứng (R-12-06); ô này ẩn với loại khác nên giá trị cũ được bỏ khi gửi, không báo lỗi.
       const checked = command.type === 'PREGNANCY_UPDATE' && command.updateType !== 'COMPLICATION' ? { ...command, linkedHealthCaseId: undefined } : command
-      const errors = validateReproductionCommand(checked, { today: toFarmLocal(new Date().toISOString(), timeZone), profile: await known(code) })
+      const errors = validateReproductionCommand(checked, { today: toFarmLocal(new Date().toISOString()), profile: await known(code) })
       if (errors.length) throw new Error(errors[0])
       await eventCommand(code, command)
       return profile(code)

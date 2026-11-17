@@ -1,3 +1,4 @@
+import { businessDate, toFarmLocal } from './farmTimeZone'
 import type { BackendTransport } from './backendTransport'
 import type { CattleEvent, CattleStatus, CattleCare, Pen, QrHistoryRow, BarnHistoryRow, StatusChip, Tone } from '../types'
 import type { CowSeed } from '../data/cowsData'
@@ -144,7 +145,7 @@ const birthLabel = (birthDate: string | null | undefined, accuracy: string | nul
   const date = dateLabel(birthDate)
   return accuracy === 'ESTIMATED' ? `~${date} (ước tính)` : date
 }
-export const calculateAge = (birthDate: string | null | undefined, asOfDate = new Date().toISOString().slice(0, 10)): { short: string; long: string; months: number } => {
+export const calculateAge = (birthDate: string | null | undefined, asOfDate = businessDate()): { short: string; long: string; months: number } => {
   if (!birthDate) return { short: '—', long: '—', months: 0 }
   const birth = new Date(`${birthDate}T00:00:00Z`)
   const now = new Date(`${asOfDate}T00:00:00Z`)
@@ -165,7 +166,7 @@ function exitLabel(profile: BackendProfile): string | undefined {
 // The backend stores the replacement reason on the tag that was replaced; a tag that replaced none was the first issue.
 const REPLACEMENT_LABELS: Record<string, string> = { LOST: 'Mất', DAMAGED: 'Hỏng', OTHER: 'Khác' }
 const mapQrTag = (tag: BackendQrTag): QrHistoryRow => ({
-  code: text(tag.tagCode, '—'), status: text(tag.status, 'UNKNOWN'), from: dateLabel(tag.issuedAt?.slice(0, 10)), to: dateLabel(tag.endedAt?.slice(0, 10)),
+  code: text(tag.tagCode, '—'), status: text(tag.status, 'UNKNOWN'), from: dateLabel(toFarmLocal(tag.issuedAt).slice(0, 10)), to: dateLabel(toFarmLocal(tag.endedAt).slice(0, 10)),
   reason: tag.reason ? REPLACEMENT_LABELS[tag.reason] ?? tag.reason : '—', by: text(tag.issuedByName, '—'), note: text(tag.note),
 })
 /** SCR-21 #6: the issue reason of each tag is the replacement reason of the tag before it, or "Cấp lần đầu". */

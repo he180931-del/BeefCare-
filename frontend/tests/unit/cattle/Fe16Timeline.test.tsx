@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { mapTimeline, timelineMeta, TIMELINE_FILTERS } from '../../../src/api/cattleTimeline'
@@ -57,6 +57,24 @@ describe('FE-16 timeline mapping', () => {
 })
 
 describe('FE-16 timeline tab', () => {
+  it('uses fixed UTC+7 for both timestamps and the month heading', async () => {
+    const get = vi.spyOn(backendTransport, 'get').mockImplementation(async (path) =>
+      path.endsWith('/context') ? { timeZone: 'America/New_York' } : [{
+        category: 'GROWTH', type: 'GROWTH_ASSESSMENT', sourceId: 21,
+        occurredAt: '2026-10-31T17:15:00Z', recordedAt: '2026-11-01T17:00:00Z',
+        recorder: 'Quản lý A', values: { weightKg: 320 },
+      }],
+    )
+    try {
+      render(<MemoryRouter><TimelineTab cow={{ ...cow([]), backendId: 45 }} /></MemoryRouter>)
+      expect(await screen.findByText('THÁNG 11 2026')).toBeInTheDocument()
+      expect(screen.getByText('Xảy ra 01/11/2026 00:15 · ghi 02/11/2026 00:00 · bởi Quản lý A')).toBeInTheDocument()
+      expect(get).not.toHaveBeenCalledWith(expect.stringMatching(/\/context$/))
+    } finally {
+      get.mockRestore()
+    }
+  })
+
   it('requests backend revisions only while the toggle is on', async () => {
     const user = userEvent.setup()
     const requests: string[] = []
@@ -201,6 +219,9 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
       await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
       await user.click(await screen.findByRole('button', { name: 'Sửa / Hủy' }))
       const dialog = within(screen.getByRole('dialog'))
+      const time = dialog.getByLabelText('Thời điểm xảy ra')
+      expect(time).toHaveValue('2026-10-01T10:00')
+      fireEvent.change(time, { target: { value: '2026-10-01T11:00' } })
       await user.clear(dialog.getByLabelText('Người thực hiện'))
       await user.type(dialog.getByLabelText('Người thực hiện'), 'Người mới')
       await user.type(dialog.getByRole('textbox', { name: 'Lý do' }), 'Sửa tên')
@@ -208,7 +229,7 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
       await user.click(dialog.getByRole('button', { name: 'Lưu chỉnh sửa' }))
       await waitFor(() => expect(command).toHaveBeenCalledWith(
         expect.stringMatching(/\/reproduction-events\/77\/correction$/),
-        { expectedVersion: 2, reason: 'Sửa tên', performedBy: 'Người mới' },
+        { expectedVersion: 2, reason: 'Sửa tên', performedBy: 'Người mới', occurredAt: '2026-10-01T11:00:00+07:00' },
         { key: expect.any(String) },
       ))
       await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(reads))

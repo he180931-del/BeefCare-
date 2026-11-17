@@ -62,10 +62,11 @@ describe('Cattle profile backend move pen flow', () => {
     await waitFor(() => expect(requests.some((request) => request.path === '/api/farms/9/pen-moves')).toBe(true))
     const moveRequest = requests.find((request) => request.path === '/api/farms/9/pen-moves')
     const checkRequest = requests.find((request) => request.path === '/api/farms/9/pen-moves/check')
+    expect(requests.some((request) => request.path === '/api/farms/9/context')).toBe(false)
     expect(checkRequest).toBeTruthy()
     expect(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves/check')).toBeLessThan(requests.findIndex((request) => request.path === '/api/farms/9/pen-moves'))
-    expect(JSON.parse(String(checkRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: '2026-11-01' })
-    expect(JSON.parse(String(moveRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: '2026-11-01', reason: 'Đủ điều kiện', warningReasons: { 42: 'Chủ trại đồng ý ghép tạm' }, cattleVersions: { 42: 7 } })
+    expect(JSON.parse(String(checkRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: '2026-10-31' })
+    expect(JSON.parse(String(moveRequest?.init?.body))).toMatchObject({ cattleIds: [42], toPenId: 12, moveDate: '2026-10-31', reason: 'Đủ điều kiện', warningReasons: { 42: 'Chủ trại đồng ý ghép tạm' }, cattleVersions: { 42: 7 } })
   })
 
   it('shows a backend blocking message and does not post the move', async () => {

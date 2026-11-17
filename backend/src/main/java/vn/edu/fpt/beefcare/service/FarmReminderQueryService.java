@@ -85,7 +85,7 @@ public class FarmReminderQueryService {
         FarmContext context = access.require(farmId, FarmAction.VIEW_CATTLE);
         FarmRole role = context.role();
         Instant now = clock.now();
-        ZoneId zone = zone(context.farm().getTimeZone());
+        ZoneId zone = clock.zone();
         LocalDate today = now.atZone(zone).toLocalDate();
         List<ReminderView> result = new ArrayList<>();
 
@@ -771,9 +771,6 @@ public class FarmReminderQueryService {
         };
     }
 
-    private ZoneId zone(String raw) {
-        try { return ZoneId.of(raw); } catch (Exception ignored) { return clock.zone(); }
-    }
 
     /** Stable typed target data; the destination resource still performs its own current permission checks. */
     public record ReminderTarget(String type, Long id, Long cattleId, Long penId, LocalDate date, Integer sessionNo, String code) {}

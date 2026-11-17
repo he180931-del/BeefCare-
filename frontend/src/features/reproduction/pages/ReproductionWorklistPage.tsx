@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../api/farmTimeZone'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -37,14 +38,14 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
   const setFilter = (patch: Partial<WorklistFilters>) => setFilters((current) => ({ ...current, ...patch }))
   const open = (code: string) => navigate(`/cattle/${encodeURIComponent(code)}?tab=repro`)
 
-  const now = Date.parse(reproductionNow())
+  const now = parseBusinessTime(reproductionNow())
   const notMet = (status: string | null) => ['AWAITING_BREEDING', 'IN_ESTRUS', 'POST_CALVING'].includes(status ?? '')
   const tiles = [
     { label: 'Đang động dục', value: counts.IN_ESTRUS },
-    { label: 'Trong cửa sổ phối', value: tracked.filter((r) => r.breedingWindow && Date.parse(r.breedingWindow.from) <= now && Date.parse(r.breedingWindow.to) >= now).length, note: 'phối ngay hôm nay', warn: true },
-    { label: 'Đến hạn khám thai', value: tracked.filter((r) => r.status === 'BRED' && r.dueAt && Date.parse(r.dueAt) <= now).length },
+    { label: 'Trong cửa sổ phối', value: tracked.filter((r) => r.breedingWindow && parseBusinessTime(r.breedingWindow.from) <= now && parseBusinessTime(r.breedingWindow.to) >= now).length, note: 'phối ngay hôm nay', warn: true },
+    { label: 'Đến hạn khám thai', value: tracked.filter((r) => r.status === 'BRED' && r.dueAt && parseBusinessTime(r.dueAt) <= now).length },
     { label: 'Sắp đẻ ≤ 30 ngày', value: counts.DUE_SOON },
-    { label: 'Sau đẻ – có thể phối', value: tracked.filter((r) => r.status === 'POST_CALVING' && r.dueAt && Date.parse(r.dueAt) <= now + DAY).length },
+    { label: 'Sau đẻ – có thể phối', value: tracked.filter((r) => r.status === 'POST_CALVING' && r.dueAt && parseBusinessTime(r.dueAt) <= now + DAY).length },
     { label: 'Chưa đủ điều kiện phối', value: tracked.filter((r) => notMet(r.status) && r.eligibility?.status === 'NOT_MET').length, warn: true },
   ]
 

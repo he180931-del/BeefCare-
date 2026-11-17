@@ -17,6 +17,7 @@ import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.repository.PaymentRepository;
 import vn.edu.fpt.beefcare.repository.SubscriptionRepository;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.AuditService;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.NotificationService;
@@ -54,7 +55,7 @@ public class SubscriptionLifecycleJob {
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    @Scheduled(cron = "${beefcare.jobs.payment-expiry-cron:0 */5 * * * *}")
+    @Scheduled(cron = "${beefcare.jobs.payment-expiry-cron:0 */5 * * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     public void expireUnpaidRequests() {
         Instant now = clock.now();
         AtomicInteger expiredCount = new AtomicInteger();
@@ -81,7 +82,7 @@ public class SubscriptionLifecycleJob {
         if (expiredCount.get() > 0) LOG.info("Expired {} unpaid subscription payment requests", expiredCount.get());
     }
 
-    @Scheduled(cron = "${beefcare.jobs.subscription-coverage-cron:0 */15 * * * *}")
+    @Scheduled(cron = "${beefcare.jobs.subscription-coverage-cron:0 */15 * * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     public void evaluateCoverage() {
         Instant now = clock.now();
         AtomicInteger changedCount = new AtomicInteger();

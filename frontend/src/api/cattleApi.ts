@@ -7,7 +7,7 @@ import { backendFarmId, backendMode, backendTransport } from './backendTransport
 import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
 import type { Cattle, CattleEvent, Pen, QrHistoryRow, Tone } from '../types'
 import { readDemoCattlePhoto, saveDemoCattlePhoto } from './demoCattlePhotos'
-import { toFarmLocal } from './farmTimeZone'
+import { toFarmLocal, businessDate } from './farmTimeZone'
 
 // Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
 const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
@@ -49,10 +49,6 @@ type BackendMutationContext = {
   backendId?: number; backendVersion?: number; effectiveDate?: string; reason?: string
   currentProfile?: Partial<Pick<ProfileUpdateCommand, 'earTagNumber' | 'name' | 'colourMarkings' | 'notes' | 'productionPurposeId' | 'lifeStage'>>
 }
-const localToday = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
 const profileBody = (context: BackendMutationContext, overrides: Partial<ProfileUpdateCommand>): ProfileUpdateCommand => ({
   // ProfileUpdate is a full snapshot command. Never let an omitted field from
   // one tab turn into JSON null and erase a value changed in another tab.
@@ -62,8 +58,7 @@ const profileBody = (context: BackendMutationContext, overrides: Partial<Profile
   notes: context.currentProfile?.notes ?? '',
   productionPurposeId: context.currentProfile?.productionPurposeId,
   lifeStage: context.currentProfile?.lifeStage,
-  // Ngày theo giờ máy người dùng; toISOString() là UTC và lệch một ngày vào buổi sáng ở Việt Nam.
-  effectiveDate: context.effectiveDate || localToday(),
+  effectiveDate: context.effectiveDate || businessDate(),
   reason: context.reason || 'Cập nhật hồ sơ',
   expectedVersion: context.backendVersion as number,
   acknowledgedReproductionChange: false,

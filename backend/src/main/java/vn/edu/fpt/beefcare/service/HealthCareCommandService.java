@@ -5,7 +5,6 @@ import jakarta.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -83,7 +82,7 @@ public class HealthCareCommandService {
         if (req.existingCaseId() == null) {
             healthCase = new HealthCase();
             healthCase.setCattle(cattle);
-            healthCase.setOpenedDate(farmDate(observedAt, cattle));
+            healthCase.setOpenedDate(clock.toFarmDate(observedAt));
             healthCase.setStatus("OPEN");
             healthCase.setSeverity(severity);
             healthCase.setSuspectedDiagnosis(diagnosis);
@@ -190,7 +189,7 @@ public class HealthCareCommandService {
             case "TO_CHRONIC" -> {
                 if (!"OPEN".equals(status)) throw DomainException.invalid("action");
                 if (latestProgress != null) observationId = followUp(healthCase, now, latestProgress, progress, null, ctx, ctx.user()).getId();
-                healthCase.setStatus("CHRONIC"); healthCase.setChronicSince(farmDate(now, cattle));
+                healthCase.setStatus("CHRONIC"); healthCase.setChronicSince(clock.toFarmDate(now));
             }
             case "TO_OPEN" -> {
                 if (!"CHRONIC".equals(status)) throw DomainException.invalid("action");
@@ -205,7 +204,7 @@ public class HealthCareCommandService {
                 // BR-D33: the closure is not before the latest record of the case (the opening observation included).
                 assertNotBeforeLatest(healthCase, closedAt, null, null);
                 if (latestProgress != null) observationId = followUp(healthCase, closedAt, latestProgress, progress, null, ctx, ctx.user()).getId();
-                LocalDate closedDate = farmDate(closedAt, cattle);
+                LocalDate closedDate = clock.toFarmDate(closedAt);
                 AppUser confirmedBy = req.confirmedById() == null ? ctx.user() : activeMember(farmId, req.confirmedById(), "confirmedById");
                 if ("DIED".equals(outcome) || "MISSING".equals(outcome)) {
                     // R-10-07: the PENDING loss voucher, the Owner notice and REM-12 are created in this transaction (before the
@@ -297,7 +296,7 @@ public class HealthCareCommandService {
             assertAfterHerdEntry(farmId, cattle, req.observedAt());
             assertKeepsOrder(healthCase, o.getObservedTime(), req.observedAt(), observationId, null);
             o.setObservedTime(req.observedAt());
-            if (Boolean.TRUE.equals(o.getOpening())) healthCase.setOpenedDate(farmDate(req.observedAt(), cattle));
+            if (Boolean.TRUE.equals(o.getOpening())) healthCase.setOpenedDate(clock.toFarmDate(req.observedAt()));
         }
         if (req.temperatureC() != null) { requireTemperature(req.temperatureC()); o.setTemperatureC(req.temperatureC()); }
         if (req.signs() != null) { requireText(req.signs(), "signs", 1000); o.setSignsProgress(req.signs().trim()); }
@@ -483,7 +482,7 @@ public class HealthCareCommandService {
         LocalDate entryDate = em.createQuery("select e.entryDate from HerdEntry e where e.cattle.id=:cattle and e.voucher.farm.id=:farm and e.status=:valid order by e.id", LocalDate.class)
             .setParameter("cattle", cattle.getId()).setParameter("farm", farmId).setParameter("valid", EntryLineStatus.VALID)
             .setMaxResults(1).getResultStream().findFirst().orElse(null);
-        if (entryDate != null && farmDate(eventTime, cattle).isBefore(entryDate)) throw DomainException.unprocessable(MessageCodes.COM_15, "date", entryDate);
+        if (entryDate != null && clock.toFarmDate(eventTime).isBefore(entryDate)) throw DomainException.unprocessable(MessageCodes.COM_15, "date", entryDate);
     }
 
     /** R-10-05: a new record (or the closure) is not earlier than the latest VALID record of the case → MSG-FE10-07 {date}. */
@@ -544,7 +543,7 @@ public class HealthCareCommandService {
     private LocalDate withdrawalOf(Cattle cattle) { return (LocalDate) cattleState.state(cattle).get("withdrawalEndDate"); }
     /** GBR-46: last administration day (first day + course − 1) + withdrawal days, in the farm's calendar. */
     private LocalDate withdrawalEnd(Instant firstDose, Cattle cattle, int courseDays, int withdrawalDays) {
-        return farmDate(firstDose, cattle).plusDays(courseDays - 1L + withdrawalDays);
+        return clock.toFarmDate(firstDose).plusDays(courseDays - 1L + withdrawalDays);
     }
 
     private Map<String, Object> snapshot(HealthCase c) {
@@ -568,6 +567,4 @@ public class HealthCareCommandService {
     /** Optional text: blank → null; longer than {@code max} → MSG-COM-10. */
     private String optionalText(String text, String field, int max) { if (text == null || text.isBlank()) return null; if (text.trim().length() > max) throw DomainException.invalid(field); return text.trim(); }
     private String upper(String text) { return text == null ? "" : text.trim().toUpperCase(Locale.ROOT); }
-    private LocalDate farmDate(Instant time, Cattle cattle) { return time.atZone(farmZone(cattle)).toLocalDate(); }
-    private ZoneId farmZone(Cattle cattle) { try { return ZoneId.of(cattle.getFarm().getTimeZone()); } catch (Exception ignored) { return clock.zone(); } }
 }

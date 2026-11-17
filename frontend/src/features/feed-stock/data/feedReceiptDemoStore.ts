@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
 import { createCollection, createCollectionSchema, type CollectionRow } from '../../../api/client'
 import { FEED_STOCK_MOCK } from './feedStockMock'
 import { FEED_RECEIPT_DEMO_EXTRAS, FEED_RECEIPT_MOCK } from './feedReceiptMock'
@@ -408,7 +409,7 @@ const states = createCollection('feedReceiptStateDemoV2', [{
 const nextDemoId = (rows: readonly FeedReceiptDemoRecord[]) => Math.max(0, ...rows.map((row) => row.id)) + 1
 
 function nextReceiptCode(rows: readonly FeedReceiptDemoRecord[]) {
-  const year = new Date().getFullYear()
+  const year = Number(businessDate().slice(0, 4))
   const prefix = `PNK-${year}-`
   const max = Math.max(0, ...rows
     .filter((row) => row.code.startsWith(prefix))
@@ -417,7 +418,7 @@ function nextReceiptCode(rows: readonly FeedReceiptDemoRecord[]) {
 }
 
 function nextAdjustmentCode(rows: readonly FeedStockAdjustmentDemoRecord[]) {
-  const year = new Date().getFullYear()
+  const year = Number(businessDate().slice(0, 4))
   const prefix = `ĐCK-${year}-`
   const max = Math.max(0, ...rows
     .filter((row) => row.code.startsWith(prefix))
@@ -425,27 +426,18 @@ function nextAdjustmentCode(rows: readonly FeedStockAdjustmentDemoRecord[]) {
   return `${prefix}${String(max + 1).padStart(4, '0')}`
 }
 
-function localToday() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
 
 function isIsoCalendarDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
+  const date = new Date(`${value}T00:00:00Z`)
   return !Number.isNaN(date.getTime())
-    && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` === value
+    && date.toISOString().slice(0, 10) === value
 }
 
-function datePlusDays(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00`)
-  date.setDate(date.getDate() + days)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
 
 function validateDraftInput(input: FeedReceiptDraftInput, state: FeedReceiptDemoState, existing?: FeedReceiptDemoRecord) {
   if (!isIsoCalendarDate(input.receiptDate)) throw new Error('Ngày nhập không hợp lệ.')
-  if (input.receiptDate > localToday()) throw new Error('Ngày nhập không được ở tương lai.')
+  if (input.receiptDate > businessDate()) throw new Error('Ngày nhập không được ở tương lai.')
   const supplier = state.suppliers.find((item) => item.id === input.supplierId && (item.active || item.id === existing?.supplierId))
   if (!supplier || supplier.name !== input.supplierName) throw new Error('Chọn nhà cung cấp.')
   if (input.invoiceNumber.length > 50 || input.receivedBy.length > 100 || input.storageLocation.length > 100 || input.note.length > 1000) {
@@ -471,7 +463,7 @@ function validateDraftInput(input: FeedReceiptDraftInput, state: FeedReceiptDemo
 
 function validateAdjustmentInput(input: FeedStockAdjustmentDraftInput, state: FeedReceiptDemoState) {
   if (!isIsoCalendarDate(input.countDate)) throw new Error('Ngày kiểm kê không hợp lệ.')
-  if (input.countDate > localToday()) throw new Error('Ngày kiểm kê không được ở tương lai.')
+  if (input.countDate > businessDate()) throw new Error('Ngày kiểm kê không được ở tương lai.')
   if (!['PERIODIC_COUNT', 'LOSS', 'SPOILAGE', 'OTHER'].includes(input.adjustmentType)) throw new Error('Chọn loại kiểm kê hợp lệ.')
   if (input.countedBy.length > 200) throw new Error('Tên người kiểm kê tối đa 200 ký tự.')
   if (!input.lines.length) throw new Error('Thêm ít nhất một mặt hàng để kiểm kê.')
@@ -764,7 +756,7 @@ async function setCatalogueSupplierActive(id: number, active: boolean): Promise<
 
 function validateFeedingDraft(input: FeedFeedingDraftInput, state: FeedReceiptDemoState) {
   if (!isIsoCalendarDate(input.feedingDate)) throw new Error('Ngày cho ăn không hợp lệ.')
-  if (input.feedingDate > localToday()) throw new Error('Ngày cho ăn không được ở tương lai.')
+  if (input.feedingDate > businessDate()) throw new Error('Ngày cho ăn không được ở tương lai.')
   const pen = FEED_RATION_DEMO_PENS.find((row) => row.id === input.penId && row.status === 'ACTIVE')
   if (!pen) throw new Error('Chọn chuồng đang hoạt động.')
   if (![1, 2, 3].includes(input.sessionNo)) throw new Error('Chọn cữ cho ăn hợp lệ.')
@@ -1003,7 +995,7 @@ async function recordPayment(id: number, amount: number, method: 'CASH' | 'BANK_
     const current = state.receipts.find((row) => row.id === id)
     if (!current || current.status !== 'POSTED') throw new Error('Chỉ ghi trả được cho phiếu đã ghi nhận.')
     if (!Number.isInteger(amount) || amount <= 0) throw new Error('Số tiền phải là số nguyên lớn hơn 0.')
-    if (!isIsoCalendarDate(date) || date > localToday()) throw new Error('Ngày trả không hợp lệ hoặc ở tương lai.')
+    if (!isIsoCalendarDate(date) || date > businessDate()) throw new Error('Ngày trả không hợp lệ hoặc ở tương lai.')
     if (date < current.receiptDate) throw new Error('Ngày trả không được trước ngày nhập.')
     const outstanding = current.totalPayable - current.amountPaid
     if (amount > outstanding) throw new Error(`Số tiền không được vượt quá ${roundMoney(outstanding).toLocaleString('vi-VN')} đ.`)
@@ -1076,8 +1068,8 @@ async function postDraft(id: number): Promise<FeedReceiptDemoRecord> {
     const current = state.receipts.find((row) => row.id === id)
     if (!current || current.status !== 'DRAFT') throw new Error('Chỉ có thể ghi nhận phiếu nháp.')
 
-    const today = localToday()
-    const expiryLimit = datePlusDays(today, 30)
+    const today = businessDate()
+    const expiryLimit = addCalendarDays(today, 30)
     const byFeed = new Map<number, typeof current.lines>()
     current.lines.forEach((line) => byFeed.set(line.feedItemId, [...(byFeed.get(line.feedItemId) ?? []), line]))
     const stocks = state.stocks.map((stock) => {

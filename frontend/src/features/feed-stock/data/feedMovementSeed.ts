@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
 import type { FeedStockRow } from '../types'
 import type { FeedFeedingRecord } from '../types/feedFeeding'
 import type { FeedMovement } from '../types/feedMovement'
@@ -41,9 +42,7 @@ export function buildMovementSeed(stocks: readonly FeedStockRow[], receipts: rea
     }
     if (balance > 0) {
       const oldest = kept[kept.length - 1]?.occurredAt.slice(0, 10)
-      const date = oldest ? new Date(`${oldest}T00:00:00`) : new Date()
-      date.setDate(date.getDate() - 1)
-      const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      const day = addCalendarDays(oldest ?? businessDate(), -1)
       kept.push({ feedItemId: stock.feedItemId, feedCode: stock.code, movementType: 'ADJUSTMENT', quantityKg: balance, unitCost: FEED_UNIT_COST.get(stock.feedItemId) ?? null, balanceAfterKg: balance, sourceType: 'OPENING', sourceId: null, sourceCode: 'Tồn đầu kỳ', occurredAt: `${day}T07:00:00` })
     }
     all.push(...kept.reverse())

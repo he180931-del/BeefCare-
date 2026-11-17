@@ -85,7 +85,7 @@ describe('platformRules', () => {
   })
 
   it('thời gian thông báo tương đối', () => {
-    const now = new Date('2026-10-18T09:30:00')
+    const now = new Date('2026-10-18T09:30:00+07:00')
     expect(formatNoticeTime('2026-10-18T09:28:00', now)).toBe('2 phút trước')
     expect(formatNoticeTime('2026-10-18T07:58:00', now)).toBe('07:58')
     expect(formatNoticeTime('2026-10-17T16:20:00', now)).toBe('Hôm qua')

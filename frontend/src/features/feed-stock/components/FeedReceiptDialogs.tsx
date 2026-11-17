@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import { useRef, useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Icon } from '../../../components/Icon'
@@ -45,10 +46,6 @@ export function FeedReceiptDiscardDialog({ record, onClose, onDone }: { record: 
   )
 }
 
-const localToday = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
 
 /** SCR-78/79: void a posted receipt. Allowed only while the stock of every feed covers the received quantity (GBR-99). */
 export function FeedReceiptVoidDialog({ record, onClose, onDone }: { record: FeedReceipt; onClose: () => void; onDone: (record: FeedReceipt) => void }) {
@@ -135,7 +132,7 @@ export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachm
   const outstanding = record.outstanding ?? record.totalPayable - (record.amountPaid ?? 0)
   const [amount, setAmount] = useState(String(outstanding))
   const [method, setMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH')
-  const [date, setDate] = useState(localToday())
+  const [date, setDate] = useState(businessDate())
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
@@ -154,7 +151,7 @@ export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachm
       const value = Number(amount)
       if (!Number.isInteger(value) || value <= 0) { setError('Số tiền phải là số nguyên lớn hơn 0.'); return }
       if (value > outstanding) { setError(`Số tiền không được vượt quá ${formatMoney(outstanding)} đ.`); return }
-      if (!date || date < record.receiptDate || date > localToday()) { setError('Ngày trả phải từ ngày nhập đến hôm nay.'); return }
+      if (!date || date < record.receiptDate || date > businessDate()) { setError('Ngày trả phải từ ngày nhập đến hôm nay.'); return }
       if (reference.length > 100 || note.length > 500) { setError('Nội dung chuyển khoản tối đa 100 ký tự; ghi chú tối đa 500 ký tự.'); return }
     }
     setSaving(true)

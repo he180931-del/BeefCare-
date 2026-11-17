@@ -1,3 +1,4 @@
+import { toBusinessTime } from '../../../api/farmTimeZone'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
@@ -102,7 +103,7 @@ function AcceptDialog({ c }: { c: DialogCtx }) {
       <ReadField id="acc-code" label="Mã tham chiếu chính xác" value={cand ? `${cand.code} · ${c.explicit ? 'PM chọn thủ công' : 'duy nhất'}` : '—'} />
       <ReadField id="acc-amt" label="Tiền / người nhận" value={`${money(c.ev.amount)} vào ${c.ev.receivingAccount}`} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <ReadField id="acc-bank" label="Ngân hàng / nhận lần đầu" value={`${c.ev.bankPaidAt.slice(0, 16).replace('T', ' ')} / ${c.ev.receivedAt.slice(11, 19)}`} />
+        <ReadField id="acc-bank" label="Ngân hàng / nhận lần đầu" value={`${toBusinessTime(c.ev.bankPaidAt).slice(0, 16).replace('T', ' ')} / ${toBusinessTime(c.ev.receivedAt).slice(11, 19)}`} />
         <ReadField id="acc-win" label="Cửa sổ báo giá" value={cand ? `${fmtShort(cand.createdAt)} → ${fmtDateTime(cand.expiresAt)}` : '—'} />
       </div>
       <ReasonField id="acc-reason" label="Lý do & bằng chứng *" value={c.reason} onChange={c.setReason} error={fieldError} />

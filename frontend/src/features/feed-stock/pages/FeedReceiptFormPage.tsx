@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -63,7 +64,7 @@ const STATUS_BADGE: Record<string, { label: string; tone: 'info' | 'ok' | 'outli
 }
 
 function nextReceiptCode(codes: readonly string[]) {
-  const prefix = `PNK-${new Date().getFullYear()}-`
+  const prefix = `PNK-${businessDate().slice(0, 4)}-`
   const max = Math.max(0, ...codes.filter((code) => code.startsWith(prefix)).map((code) => Number(code.slice(prefix.length)) || 0))
   return `${prefix}${String(max + 1).padStart(4, '0')}`
 }

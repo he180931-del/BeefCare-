@@ -630,7 +630,7 @@ public class FeedManagementService {
                 throw DomainException.unprocessable(MessageCodes.FE23_21,"feed",feed.getName());
         }
         java.time.LocalTime feedingTime=request.feedingTime()==null?sessionTime(ration,request.sessionNo()):request.feedingTime();
-        java.time.Instant eventTime=request.feedingDate().atTime(feedingTime).atZone(ctx.farm().getTimeZone()==null?clock.zone():java.time.ZoneId.of(ctx.farm().getTimeZone())).toInstant();
+        java.time.Instant eventTime=request.feedingDate().atTime(feedingTime).atZone(clock.zone()).toInstant();
         clock.assertNotFuture(eventTime);
         FeedingRecord record=new FeedingRecord();record.setFarm(ctx.farm());record.setPen(pen);record.setRationVersion(ration);record.setFeedingDate(request.feedingDate());record.setSessionNo(request.sessionNo());record.setHeadCount(headCount);
         record.setFeedingTime(feedingTime);record.setFedBy(trim(request.fedBy()));record.setLeftoverKg(request.leftoverKg());record.setNote(note);record.setRecordedBy(ctx.user());record.setRecordedAt(clock.now());record=feedingRecords.saveAndFlush(record);
@@ -659,7 +659,7 @@ public class FeedManagementService {
             for(FeedItem f:feeds.findByFarm_IdOrderByNameAsc(farmId))if(Boolean.TRUE.equals(f.getAvailable())&&f.getMinimumStockKg()!=null&&f.getOnHandKg().compareTo(f.getMinimumStockKg())<=0)result.add(new FeedReminderView("REM-10",f.getId(),f.getId(),null,f.getCode(),f.getOnHandKg().signum()==0?"Out of stock":"Low feed stock",clock.now(),"ACTIVE"));
         }
         if(ctx.role()==vn.edu.fpt.beefcare.domain.enumeration.FarmRole.MANAGER||ctx.role()==vn.edu.fpt.beefcare.domain.enumeration.FarmRole.TECHNICIAN){
-            LocalDate today=clock.today();java.time.ZoneId zone=java.time.ZoneId.of(ctx.farm().getTimeZone());
+            LocalDate today=clock.today();java.time.ZoneId zone=clock.zone();
             for(Pen pen:pens.findAllByFarmIdOrderByCodeAsc(farmId)){
                 if(pen.getStatus()!=ActiveStatus.ACTIVE||assignments.countAssignedAt(pen.getId(),today)==0)continue;
                 FeedRationVersion ration=effectiveRation(farmId,pen.getId(),today);if(ration==null)continue;String[] times=ration.getSessionTimes().split(",");
@@ -684,7 +684,7 @@ public class FeedManagementService {
             for(FeedingRecordLine line:feedingLines.findByFeedingRecord_Id(record.getId())){Key key=new Key(record.getPen().getId(),group,line.getFeedItem().getId());Aggregate agg=values.computeIfAbsent(key,k->new Aggregate(record.getPen(),group,line.getFeedItem(),new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO},new long[]{0L}));agg.kg()[0]=agg.kg()[0].add(line.getPlannedKg());agg.kg()[1]=agg.kg()[1].add(line.getActualKg());agg.cost()[0]=Math.addExact(agg.cost()[0],line.getTotalCost());}
         }
         List<ConsumptionRow> rows=values.values().stream().map(a->{BigDecimal variance=a.kg()[0].signum()==0?null:a.kg()[1].subtract(a.kg()[0]).divide(a.kg()[0],4,RoundingMode.HALF_UP);return new ConsumptionRow(a.pen().getId(),a.pen().getCode(),a.herdGroup(),a.feed().getId(),a.feed().getCode(),a.kg()[0],a.kg()[1],variance,a.cost()[0]);}).toList();
-        java.time.Instant from=request.from().atStartOfDay(java.time.ZoneId.of(access.require(farmId,FarmAction.MANAGE_FEED).farm().getTimeZone())).toInstant();java.time.Instant to=request.to().plusDays(1).atStartOfDay(java.time.ZoneId.of(access.require(farmId,FarmAction.MANAGE_FEED).farm().getTimeZone())).toInstant();
+        java.time.Instant from=request.from().atStartOfDay(clock.zone()).toInstant();java.time.Instant to=request.to().plusDays(1).atStartOfDay(clock.zone()).toInstant();
         List<FeedStockMovement> adjustment=movements.findByFarm_IdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(farmId,from,to).stream().filter(m->"STOCK_ADJUSTMENT".equals(m.getSourceType())&&m.getQuantityKg().signum()<0).toList();BigDecimal lossKg=adjustment.stream().map(m->m.getQuantityKg().negate()).reduce(BigDecimal.ZERO,BigDecimal::add);long lossValue=adjustment.stream().mapToLong(m->m.getQuantityKg().negate().multiply(m.getUnitCost()).setScale(0,RoundingMode.HALF_UP).longValue()).sum();
         return new ConsumptionReport(request.from(),request.to(),rows,lossKg,lossValue,clock.now());
     }

@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import type { FeedStockRow } from '../types'
 import type {
   FeedStockAdjustment,
@@ -9,16 +10,13 @@ import type {
 const isAdjustmentType = (value: string): value is FeedStockAdjustmentType =>
   value === 'PERIODIC_COUNT' || value === 'LOSS' || value === 'SPOILAGE' || value === 'OTHER'
 
-export function localFeedDate() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
+export const localFeedDate = businessDate
 
 function isCalendarDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
+  const date = new Date(`${value}T00:00:00Z`)
   return !Number.isNaN(date.getTime())
-    && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` === value
+    && date.toISOString().slice(0, 10) === value
 }
 
 export function initialFeedStockAdjustmentForm(
@@ -116,7 +114,7 @@ export function previewFeedStockAdjustment(
 }
 
 /** Next ĐCK-YYYY-nnnn shown on a new adjustment; the store assigns the same code when the draft is saved. */
-export function nextFeedAdjustmentCode(codes: readonly string[], year = new Date().getFullYear()) {
+export function nextFeedAdjustmentCode(codes: readonly string[], year = Number(businessDate().slice(0, 4))) {
   const prefix = `ĐCK-${year}-`
   const max = Math.max(0, ...codes.filter((code) => code.startsWith(prefix)).map((code) => Number(code.slice(prefix.length)) || 0))
   return `${prefix}${String(max + 1).padStart(4, '0')}`

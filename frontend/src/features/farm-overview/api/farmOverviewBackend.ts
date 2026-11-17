@@ -1,5 +1,5 @@
 import { asRecord, asRows, nullableNumber, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { DEFAULT_FARM_TIME_ZONE } from '../../../api/farmTimeZone'
+import { FARM_TIME_ZONE_ID, addCalendarDays, businessDate, parseBusinessTime } from '../../../api/farmTimeZone'
 import { REPORT_CATALOGUE, validateReportRequest } from '../domain/reportRules'
 import { HERD_GROUP_LABEL, HERD_GROUP_ORDER, LIFE_STAGE_LABEL, periodDays, validateFilters } from '../domain/dashboardRules'
 import { STEP_DEFS } from '../domain/gettingStarted'
@@ -16,23 +16,6 @@ const failShape = (field: string): never => { throw new Error(`Dữ liệu máy 
 const requiredString = (row: Record<string, unknown>, key: string) => typeof row[key] === 'string' ? row[key] as string : failShape(key)
 const requiredNumber = (row: Record<string, unknown>, key: string) => typeof row[key] === 'number' && Number.isFinite(row[key]) ? row[key] as number : failShape(key)
 const requiredRows = (value: unknown, field: string) => Array.isArray(value) ? asRows(value) : failShape(field)
-
-const isTimeZone = (value: string) => {
-  try { new Intl.DateTimeFormat('en-US', { timeZone: value }); return true } catch { return false }
-}
-
-const dateInZone = (instant: string | Date, timeZone: string) => {
-  const date = instant instanceof Date ? instant : new Date(instant)
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
-  return `${get('year')}-${get('month')}-${get('day')}`
-}
-
-const shiftDate = (date: string, days: number) => {
-  const value = new Date(`${date}T00:00:00Z`)
-  value.setUTCDate(value.getUTCDate() + days)
-  return value.toISOString().slice(0, 10)
-}
 
 const toBackendGroup: Record<HerdGroup, string> = {
   BREEDING_FEMALE: 'BREEDING_FEMALES', YOUNG_STOCK: 'YOUNG_STOCK', FATTENING: 'FATTENING', CALF: 'CALVES', BREEDING_BULL: 'BREEDING_BULLS', OTHER: 'OTHER',
@@ -391,7 +374,7 @@ function mapDashboard(body: unknown, pens: PenOption[], context: FarmContext, fi
     : { head: m08Head, capacity: m08Capacity, percent: m08Capacity ? Math.round(m08Head * 100 / m08Capacity) : 0, fullPens: m08ByPen.filter((pen) => typeof pen.head === 'number' && typeof pen.capacity === 'number' && pen.head >= pen.capacity).length }
   const attention = hasBreakdownFilter ? [] : requiredRows(row.attention, 'attention').map((item) => mapAttention(item))
   const activeCattle = requiredNumber(row, 'activeCattle')
-  const serviceUntil = context.serviceUntil ? dateInZone(context.serviceUntil, context.timeZone) : ''
+  const serviceUntil = context.serviceUntil ? businessDate(new Date(parseBusinessTime(context.serviceUntil))) : ''
   const serviceStatus = requiredString(row, 'serviceStatus')
   const serviceStatusLabel = ({ ACTIVE: 'Đang hoạt động', PENDING_PAYMENT: 'Chờ thanh toán', EXPIRED: 'Hết hạn', SUSPENDED: 'Tạm ngưng' } as Record<string, string>)[serviceStatus] ?? serviceStatus
   return {
@@ -498,9 +481,7 @@ export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: st
   const context = () => {
     contextPromise ??= transport.get(path('/context')).then((value) => {
       const row = asRecord(value)
-      const rawZone = textValue(row.timeZone)
-      const timeZone = rawZone && isTimeZone(rawZone) ? rawZone : DEFAULT_FARM_TIME_ZONE
-      return { timeZone, serviceUntil: textValue(row.serviceUntil, textValue(row.currentPeriodUntil)) }
+      return { timeZone: FARM_TIME_ZONE_ID, serviceUntil: textValue(row.serviceUntil, textValue(row.currentPeriodUntil)) }
     }).catch((error: unknown) => { contextPromise = undefined; throw error })
     return contextPromise
   }
@@ -530,8 +511,8 @@ export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: st
       if (validationError) throw new Error(validationError)
       const [penOptions, farm] = await Promise.all([pens(), context()])
       const days = periodDays(filters)
-      const to = filters.period === 'custom' ? filters.to! : dateInZone(new Date(), farm.timeZone)
-      const from = filters.period === 'custom' ? filters.from! : shiftDate(to, 1 - days)
+      const to = filters.period === 'custom' ? filters.to! : businessDate()
+      const from = filters.period === 'custom' ? filters.from! : addCalendarDays(to, 1 - days)
       const query = new URLSearchParams({ from, to })
       if (filters.pen) {
         const selected = penOptions.find((pen) => pen.code === filters.pen)
@@ -554,7 +535,7 @@ export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: st
     },
     async listReminders(role: ViewerRole): Promise<ReminderList> {
       const [body, farm] = await Promise.all([transport.get(path('/reminders')), context()])
-      return { today: dateInZone(new Date(), farm.timeZone), timeZone: farm.timeZone, items: requiredRows(body, 'reminders').map((row, index) => mapReminder(row, index, role)) }
+      return { today: businessDate(), timeZone: farm.timeZone, items: requiredRows(body, 'reminders').map((row, index) => mapReminder(row, index, role)) }
     },
     async runReport(request: ReportRequest): Promise<ReportView> {
       const validationError = validateReportRequest(request)

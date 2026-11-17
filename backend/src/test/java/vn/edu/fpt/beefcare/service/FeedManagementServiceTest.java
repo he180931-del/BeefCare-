@@ -58,6 +58,7 @@ class FeedManagementServiceTest {
         receipt=new FeedReceipt();ReflectionTestUtils.setField(receipt,"id",77L);receipt.setFarm(farm);receipt.setSupplier(supplier);receipt.setCode("PNK-2026-000077");receipt.setReceiptDate(java.time.LocalDate.of(2026,10,28));receipt.setStatus("DRAFT");receipt.setTransportFee(0L);receipt.setCreatedAt(Instant.parse("2026-10-28T00:00:00Z"));receipt.setTotalPayable(1_000L);
         line=new FeedReceiptLine();line.setReceipt(receipt);line.setFeedItem(feed);line.setFeedCodeSnapshot("TA-01");line.setFeedNameSnapshot("Hay");line.setKgReceived(new BigDecimal("5.000"));line.setQuantityPurchase(new BigDecimal("5.000"));line.setPurchaseUnit("kg");line.setLineAmount(1_000L);line.setUnitPrice(200L);line.setUnitCostKg(new BigDecimal("200.00"));
         lenient().when(access.require(12L,FarmAction.MANAGE_FEED)).thenReturn(context);
+        lenient().when(clock.zone()).thenReturn(FarmTimeZones.OFFSET);
     }
 
     @Test void feedCatalogueRequiresStockPermission(){
@@ -191,6 +192,7 @@ class FeedManagementServiceTest {
 
         var result=service.recordFeeding(12L,new RecordFeedingRequest(301L,date,1,java.time.LocalTime.of(6,45),"Người cho ăn",new BigDecimal("0.5"),"Ghi nhận thực tế",List.of(new FeedingLineRequest(99L,new BigDecimal("2.5")))));
 
+        verify(clock).assertNotFuture(Instant.parse("2026-10-27T23:45:00Z"));
         assertThat(result.time()).isEqualTo(java.time.LocalTime.of(6,45));assertThat(result.fedBy()).isEqualTo("Người cho ăn");
         assertThat(result.leftoverKg()).isEqualByComparingTo("0.5");assertThat(result.note()).isEqualTo("Ghi nhận thực tế");
         assertThat(result.lines()).singleElement().satisfies(saved->{assertThat(saved.plannedKg()).isEqualByComparingTo("10.000");assertThat(saved.actualKg()).isEqualByComparingTo("2.5");assertThat(saved.inRation()).isTrue();});

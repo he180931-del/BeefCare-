@@ -99,7 +99,7 @@ Manual finance record | Platform income or expense recorded by the PM (DRAFT, PO
 Net cash flow | Receipts + posted other income − posted expenses for a period; not statutory profit.
 Snapshot | An immutable result of one report run, used for display and export.
 Request key | A client-generated key that makes a command safe to repeat (GBR-88).
-Asia/Ho_Chi_Minh | The default time zone (UTC+7) for farm dates and platform finance.
+Asia/Ho_Chi_Minh | Canonical identifier for the fixed UTC+07:00 business time zone across BeefCare (D39).
 OAuth 2.0 / OIDC | Open standards used for Google sign-in.
 [/TABLE]
 [P28 2] I. Overall Requirements
@@ -156,7 +156,7 @@ Step | Step Name | Detailed Description | Role | Note
 [/TABLE]
 [TABLE block 51]
 Step | Step Name | Detailed Description | Role | Note
-1 | Update Farm Information | The Owner completes registration, contact and operating information (time zone, shift start, operating notes). | Farm Owner | Start. UC-FE02-03.
+1 | Update Farm Information | The Owner completes registration, contact and operating information (shift start, operating notes). | Farm Owner | Start. UC-FE02-03.
 2 | Configure Pens | The Owner or a Manager creates or updates pens with code, name, capacity and advisory reception criteria, and can stop new placements in a pen. | Farm Owner / Farm Manager | UC-FE04-02 to 04.
 3 | Maintain Catalogues | The Owner or a Manager maintains breeds, vaccines, reference medicines and production purposes. | Farm Owner / Farm Manager | UC-FE18-02 to 16. Referenced items are deactivated, not deleted.
 4 | Configure Parameters | The Owner or a Manager sets life-stage ages, breeding conditions, gestation length, pregnancy-check interval, breeding window, estrus cycle, postpartum interval, BCS scale, weighing interval and reminder lead times, with a source note. | Farm Owner / Farm Manager | UC-FE18-17.
@@ -1715,7 +1715,7 @@ Trigger | The Owner completes the Owner profile (UC-FE01-01) or selects "Registe
 Description | As a farm owner, I want to register a farm, so that I can subscribe it and manage its herd separately from my other farms.
 Preconditions | PRE-1: The Owner is signed in, the account is ACTIVE and Owner registration is complete.
 Postconditions | POST-1: One new farm exists in PENDING_PAYMENT with exactly one OWNER membership for this account. / POST-2: The Owner is on plan selection for the new farm (SCR-58). / POST-3: No subscription, payment request or service period is created; other owned farms are unchanged. / POST-4: The farm has its default parameter version and starter catalogue (GBR-109).
-Normal Flow | 1. System shows Register Farm (SCR-10) as step 2 of onboarding. / 2. Owner enters farm name, province, commune and optional detailed address, contact person, contact phone, registration certificate information, expected herd size and main breeds, and selects "Create farm and continue". / 3. System validates the fields and the request key (GBR-88). / 4. System creates, in one transaction, the farm in PENDING_PAYMENT with default time zone Asia/Ho_Chi_Minh, its OWNER membership, the initial farm parameter version (default values, UC-FE18-17), the starter catalogue of production purposes, breeds, vaccines and feed items (Table III-6, GBR-109) and the audit entry. / 5. System shows MSG-FE02-01 and opens plan selection for the farm (UC-FE19-02, SCR-58).
+Normal Flow | 1. System shows Register Farm (SCR-10) as step 2 of onboarding. / 2. Owner enters farm name, province, commune and optional detailed address, contact person, contact phone, registration certificate information, expected herd size and main breeds, and selects "Create farm and continue". / 3. System validates the fields and the request key (GBR-88). / 4. System creates, in one transaction, the farm in PENDING_PAYMENT with the canonical time zone identifier Asia/Ho_Chi_Minh, its OWNER membership, the initial farm parameter version (default values, UC-FE18-17), the starter catalogue of production purposes, breeds, vaccines and feed items (Table III-6, GBR-109) and the audit entry. / 5. System shows MSG-FE02-01 and opens plan selection for the farm (UC-FE19-02, SCR-58).
 Alternative Flows | AF1 – "Later" on plan selection (step 5): the farm stays PENDING_PAYMENT on Select Farm with "Pay to activate". / AF2 – Repeated submission or page reload (step 3): the farm already created is returned; no second farm or membership. / AF3 – Back / cancel before step 2 ends: no farm is created.
 Exceptions | E1: Owner registration not complete: MSG-FE02-02 and Complete Owner Profile opens; no farm. / E2: Missing or invalid fields: MSG-COM-06 / MSG-COM-10; nothing is saved. / E3: Save failure: MSG-COM-02; no partial farm.
 Priority | High
@@ -2790,7 +2790,7 @@ Assumptions | —
 Item | Convention
 Required field | Marked with * on the label. A required field left empty shows MSG-COM-06 under it.
 Text | Leading and trailing spaces are removed. Unless stated otherwise: short text max 100 characters, long text (descriptions, notes, reasons) max 1,000 characters. A reason must contain at least 5 non-space characters.
-Date / time | Displayed as dd/mm/yyyy and HH:mm (24 h) in the farm time zone (platform screens: Asia/Ho_Chi_Minh). Date pickers do not allow future dates for events that already happened (MSG-COM-07).
+Date / time | Displayed as dd/mm/yyyy and HH:mm (24 h) in fixed UTC+07:00 across farm and platform screens. Date pickers do not allow future dates for events that already happened (MSG-COM-07).
 Numbers and money | Vietnamese format: "." thousands separator, "," decimal separator (e.g. 1.200.000 đ; 3,5). Money is whole VND. Weight in kg with at most 1 decimal.
 Lists | 20 rows per page with page navigation; sortable by the column headers marked in the field table; filters are kept while the user stays in the session. An empty result shows MSG-COM-04 with "Clear filters". A loading failure shows MSG-COM-03 with Retry.
 Status badges | Status values are shown with the codes used in this document (e.g. ACTIVE, PENDING, RESOLVED) and a Vietnamese label on the interface.
@@ -2987,7 +2987,7 @@ Field Name | Description
 Registration and contact | 
 Farm name *, Province / City *, Commune / Ward *, Detailed address, Contact person, Contact phone, Registration certificate information | As in SCR-10.
 Operating information | 
-Time zone | Dropdown, default Asia/Ho_Chi_Minh. Used for all farm dates (GBR-66).
+Time zone | Read-only. All business dates use fixed UTC+07:00 (GBR-66, D39).
 Morning shift start | Time HH:mm, optional (used for display of "today's" reminders).
 Operating notes | Long text, max 1,000 characters.
 Save changes | Button; MSG-FE02-05.
@@ -5761,7 +5761,7 @@ NFR-R02 Idempotency | Repeated submissions, webhook retries and job re-runs retu
 NFR-R03 Concurrency control | Updates use optimistic versions (GBR-89); changes to the same female's pregnancy and to the same farm's payments are serialized (GBR-52, GBR-72).
 NFR-R04 Availability | Target availability 99 % per month during the capstone pilot, excluding announced maintenance.
 NFR-R05 Backup | The database is backed up daily with 14 days of retention; a restore is tested before the pilot.
-NFR-R06 Time handling | All timestamps are stored with time zone; farm dates use the farm time zone and platform finance uses Asia/Ho_Chi_Minh (GBR-66).
+NFR-R06 Time handling | Timestamps are stored as instants. Business dates and displayed times use fixed UTC+07:00 (GBR-66, D39).
 [/TABLE]
 [P1826 2] V. Requirement Appendix
 [P1827 3] 1. Business Rules
@@ -5854,7 +5854,7 @@ GBR-62 | Publishing saves an immutable version, the resolved recipient snapshot 
 GBR-63 | Reminders are generated only by the rules REM-01 to REM-13 (III.14 Reminder Rule Catalogue). Each reminder has one source record and stores the parameter version used; a missing parameter suppresses only that reminder. Lifecycle ACTIVE → RESOLVED, CANCELLED or SUPERSEDED describes applicability, not performed care; reading a reminder never resolves it. Correcting or voiding the source replaces or cancels the reminder. | FE-14, JOB-01 | Reminders are always traceable to real data. | System, JOB-01
 GBR-64 | A notification has one typed target and one recipient. Opening a notification, its preview or an unread count rechecks current access; revoked access hides it. A record change and its notification event are saved together; delivery retries independently and never repeats or rolls back the business change. | FE-14, JOB-07 | Correct routing without leaks or duplicates. | System, on every read and JOB-07
 GBR-65 | The dashboard and management reports are available to the Owner and Managers only. Every indicator uses the current farm, counts each cattle once per indicator, excludes draft calves from the active herd and shows the generation time and filters. Stock indicators use one as-of date; event indicators use occurrence time within a [from, to) period. | FE-15 | Correct, reproducible management figures. | System, on calculation
-GBR-66 | Dates and periods are evaluated in the farm time zone (default Asia/Ho_Chi_Minh). A user date range is converted to [start of first day, start of the day after the last day). Platform finance uses Asia/Ho_Chi_Minh. | FE-14, FE-15, FE-19, FE-21 | Correct period boundaries. | System, on calculation
+GBR-66 | Dates, business periods and scheduled jobs across BeefCare use fixed UTC+07:00. A user date range is converted to [start of first day, start of the day after the last day). Date-only values keep their calendar date (D39). | All features | Correct period boundaries. | System, on calculation
 GBR-67 | Farm catalogue codes (breed, vaccine, medicine, production purpose) are unique within the farm. A referenced catalogue item is deactivated, never deleted; a vaccine that has never been referenced may be deleted. Editing an item never rewrites past records, which keep a snapshot of the name used. Inactive items cannot be chosen for new records. The purpose type of a production purpose cannot be changed once the purpose is referenced by a cattle or a pen criteria version. | FE-18 | Stable master data with true history. | System, on save
 GBR-68 | Farm state and reminder parameters are saved as a new version with a source note and effective date; a version affects only reminders and suggestions evaluated after it takes effect. Recorded events never change when parameters change. | UC-FE18-17, JOB-01 | Parameters evolve without rewriting history. | System, on save
 [/TABLE]

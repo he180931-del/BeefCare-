@@ -27,6 +27,7 @@ import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
 import vn.edu.fpt.beefcare.domain.EvidenceReview;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.MessageCodes;
@@ -38,7 +39,7 @@ import vn.edu.fpt.beefcare.service.payment.PlatformSubscriptionQueryService.Paym
 @Service
 @Transactional(readOnly = true)
 public class PlatformPaymentQueryService {
-    private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId ZONE = FarmTimeZones.OFFSET;
     private static final String LOCKED = "(e.lockedForReturn=true or upper(e.reviewStatus)='LOCKED_FOR_RETURN')";
     /** D20: only incoming money can need review (SRS 2447); legacy rows without a direction stay reviewable. */
     private static final String INCOMING = "(e.transferDirection is null or upper(e.transferDirection)='IN')";

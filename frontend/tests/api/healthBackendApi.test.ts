@@ -159,7 +159,7 @@ test('TC-10-01/02/07: lỗi backend hiện dưới đúng ô bằng tiếng Vi�
   assert.deepEqual(errorOf(mapHealthError(backendError(400, 'MSG-COM-06', { field: 'signs' }))), { signs: 'Dấu hiệu / mô tả là bắt buộc.' })
   assert.deepEqual(errorOf(mapHealthError(backendError(400, 'MSG-COM-10', { field: 'diagnosis' }))), { diagnosis: 'Chẩn đoán nghi ngờ tối đa 100 ký tự.'.replace('tối đa 100 ký tự', 'không hợp lệ') })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-FE10-07', { date: '2026-11-01T03:00:00Z' }), 'observedAt')), { observedAt: 'Thời điểm không được trước 01/11/2026 10:00, lần ghi gần nhất của ca này.' })
-  assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-FE10-07', { date: '2026-11-01T03:00:00Z' }), 'closedAt', 'Asia/Tokyo')), { closedAt: 'Thời điểm không được trước 01/11/2026 12:00, lần ghi gần nhất của ca này.' })
+  assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-FE10-07', { date: '2026-11-01T03:00:00Z' }), 'closedAt')), { closedAt: 'Thời điểm không được trước 01/11/2026 10:00, lần ghi gần nhất của ca này.' })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-COM-15', { date: '2026-01-10' }), 'treatmentTime')), { treatmentTime: 'Thời điểm không được trước ngày nhập đàn (10/01/2026).' })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-COM-07'), 'treatmentTime')), { treatmentTime: 'Thời điểm không được ở tương lai.' })
   assert.deepEqual(errorOf(mapHealthError(backendError(422, 'MSG-FE18-08', { field: 'medicineId' }))), { medicineId: 'Thuốc đã ngưng sử dụng, không thể chọn cho bản ghi mới.' })
@@ -300,11 +300,11 @@ test('TC-10-21: quan sát mở ca không gọi backend để hủy; lỗi FE10-1
   assert.equal((await rejection(a.voidEntry(53, { expectedVersion: 2, reason: 'x' }))).message, e.message)
 })
 
-test('Múi giờ trại: trại UTC+9 gửi +09:00 và hiện giờ theo múi giờ trại', async () => {
+test('Theo dõi sức khỏe ghi và hiển thị theo UTC+7', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' }, '/api/farms/1/health-cases': { id: 419, caseCode: 'HC-000419', status: 'OPEN', version: 1, cattleCode: 'BC-101', observationId: 60, healthState: 'MONITORING' } })
   await a.openCase('BC-101', { observedAt: '2026-11-05T08:30', observer: '', temperatureC: null, signs: 'x', diagnosis: '', suspectedContagious: false, severity: 'MILD' })
-  assert.equal(post(calls, '/health-cases').observedAt, '2026-11-05T08:30:00+09:00')
-  assert.equal(a.now(), '2026-11-05T12:00')
-  assert.equal((await a.getProfile('BC-101')).activeCases[0].openedAt, '2026-10-13T09:00')
-  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 1, 'đọc múi giờ một lần')
+  assert.equal(post(calls, '/health-cases').observedAt, '2026-11-05T08:30:00+07:00')
+  assert.equal(a.now(), '2026-11-05T10:00')
+  assert.equal((await a.getProfile('BC-101')).activeCases[0].openedAt, '2026-10-13T07:00')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 0)
 })

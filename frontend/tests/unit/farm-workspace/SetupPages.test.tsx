@@ -96,6 +96,8 @@ describe('Farm Information', () => {
     const user = userEvent.setup()
     renderAt('owner', '/thong-tin-trai', '/thong-tin-trai', <FarmInformationPage />)
     const name = await screen.findByLabelText('Tên trại *')
+    expect(screen.getByLabelText('Múi giờ')).toHaveValue('UTC+7 (giờ Việt Nam)')
+    expect(screen.getByLabelText('Múi giờ')).toHaveAttribute('readonly')
     expect(await screen.findByText('owner@beefcare.local')).toBeInTheDocument()
     await user.clear(name)
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))

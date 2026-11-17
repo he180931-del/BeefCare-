@@ -1,3 +1,4 @@
+import { FARM_TIME_ZONE_ID, parseBusinessTime } from '../../../api/farmTimeZone'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
@@ -6,7 +7,7 @@ import { Badge, Button, Card, ErrorBlock, Field, Foot, Info, LoadingBlock, Note,
 import { useQuery } from '../../../hooks/useApi'
 import { homePathFor, useSession } from '../../authorization'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
-import { PROVINCES, TIME_ZONES } from '../data/provinces'
+import { PROVINCES } from '../data/provinces'
 import { Avatar, farmWorkspaceError, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
 import { useFarmId } from '../components/useFarmId'
 import { useRequestKey } from '../hooks/useRequestKey'
@@ -19,13 +20,13 @@ const SAVED = 'Đã cập nhật thông tin trại.' // MSG-FE02-05
 const toForm = (farm: FarmDetails): FarmInfoInput => ({
   name: farm.name, province: farm.province ?? '', commune: farm.commune ?? '', detailedAddress: farm.detailedAddress ?? '',
   contactPerson: farm.contactPerson, contactPhone: farm.contactPhone, registrationCertificateInfo: farm.registrationCertificateInfo,
-  timeZone: farm.timeZone || 'Asia/Ho_Chi_Minh', morningShiftStart: farm.morningShiftStart, operatingNotes: farm.operatingNotes,
+  timeZone: FARM_TIME_ZONE_ID, morningShiftStart: farm.morningShiftStart, operatingNotes: farm.operatingNotes,
   mainBreedIds: farm.mainBreedIds, expectedVersion: farm.version,
 })
 
 /** Days left come from the backend; the demo data only has the end, counted the same way (whole days, end exclusive). */
 const daysLeft = (farm: FarmDetails) => farm.daysRemaining
-  ?? (farm.serviceUntil ? Math.max(0, Math.floor((Date.parse(farm.serviceUntil) - Date.now()) / DAY)) : null)
+  ?? (farm.serviceUntil ? Math.max(0, Math.floor((parseBusinessTime(farm.serviceUntil) - Date.now()) / DAY)) : null)
 
 /**
  * SCR-11 (UC-FE02-03): only the Owner views and updates farm information, in every service status (GBR-07, GBR-14).
@@ -76,9 +77,8 @@ function FarmInformationForm() {
   const text = (key: 'name' | 'commune' | 'detailedAddress' | 'contactPerson' | 'contactPhone' | 'registrationCertificateInfo', id: string, label: string, max: number, type = 'text'): ReactNode => (
     <Field label={label} id={id}><input id={id} type={type} maxLength={max} value={form?.[key] ?? ''} onChange={(event) => set(key, event.target.value)} className={pageInputCls} /><FieldError>{errors[key]}</FieldError></Field>
   )
-  // A saved value outside the lists stays visible so the Owner sees it; saving asks for one from the list (Q2, Q3).
+  // A saved province stays visible even if it is absent from the current list.
   const provinces = form?.province && !PROVINCES.some((name) => name === form.province) ? [form.province, ...PROVINCES] : PROVINCES
-  const timeZones = TIME_ZONES.some(([value]) => value === form?.timeZone) ? TIME_ZONES : [...TIME_ZONES, [form?.timeZone ?? '', form?.timeZone ?? ''] as const]
   const days = daysLeft(farm)
   return (
     <Layout title="Thông tin trại">
@@ -101,7 +101,7 @@ function FarmInformationForm() {
           </Card>
           <Card title="Thông tin vận hành">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Múi giờ" id="farm-time-zone"><PageSelect id="farm-time-zone" value={form?.timeZone ?? ''} onChange={(event) => set('timeZone', event.target.value)}>{timeZones.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</PageSelect><FieldError>{errors.timeZone}</FieldError></Field>
+              <Field label="Múi giờ" id="farm-time-zone"><input id="farm-time-zone" value="UTC+7 (giờ Việt Nam)" readOnly className={pageInputCls} /></Field>
               <Field label="Giờ bắt đầu ca sáng" id="farm-morning-shift"><input id="farm-morning-shift" type="time" value={form?.morningShiftStart ?? ''} onChange={(event) => set('morningShiftStart', event.target.value)} className={pageInputCls} /><FieldError>{errors.morningShiftStart}</FieldError></Field>
             </div>
             <Field label="Ghi chú vận hành" id="farm-operating-notes"><textarea id="farm-operating-notes" rows={3} maxLength={1000} value={form?.operatingNotes ?? ''} onChange={(event) => set('operatingNotes', event.target.value)} className={`${pageInputCls} h-auto py-2`} /><FieldError>{errors.operatingNotes}</FieldError></Field>

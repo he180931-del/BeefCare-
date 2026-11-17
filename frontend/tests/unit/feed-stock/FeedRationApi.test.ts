@@ -9,7 +9,7 @@ import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi
 import { feedRationDemoStore } from '../../../src/features/feed-stock/data/feedRationDemoStore'
 import { FEED_STOCK_MOCK } from '../../../src/features/feed-stock/data/feedStockMock'
 import { FEED_RATION_MOCK } from '../../../src/features/feed-stock/data/feedRationMock'
-import { rationCodeDisplay } from '../../../src/features/feed-stock/data/feedRationForm'
+import { localRationDate, rationCodeDisplay } from '../../../src/features/feed-stock/data/feedRationForm'
 import type { BackendTransport } from '../../../src/api/backendTransport'
 import type { FeedRationDemoStore, SaveFeedRationInput } from '../../../src/features/feed-stock/types/feedRation'
 
@@ -21,13 +21,11 @@ const makeTransport = (): BackendTransport => ({
 
 function input(overrides: Partial<SaveFeedRationInput> = {}): SaveFeedRationInput {
   // Day after tomorrow: tomorrow is already taken by the scheduled KP-02 v2 on pen B1.
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 2)
   return {
     name: 'Khẩu phần kiểm thử',
     herdGroup: 'FATTENING',
     basis: 'Theo dõi demo',
-    effectiveFrom: `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`,
+    effectiveFrom: localRationDate(2),
     sessionsPerDay: 2,
     sessionTimes: ['06:30', '16:30'],
     penIds: [4],

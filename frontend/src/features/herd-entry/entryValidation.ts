@@ -1,7 +1,5 @@
+import { businessDate } from '../../api/farmTimeZone'
 import type { EntryCow, EntryType } from '../../types'
-
-// The supported farm time zones all use UTC+07:00, matching FarmClock.
-const farmDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' })
 
 type ValidationInput = {
   date?: string
@@ -16,10 +14,7 @@ type ValidationInput = {
   today?: string
 }
 
-export function entryToday(): string {
-  const parts = Object.fromEntries(farmDate.formatToParts(new Date()).map(({ type, value }) => [type, value]))
-  return `${parts.year}-${parts.month}-${parts.day}`
-}
+export const entryToday = businessDate
 
 /** Rules required to transition an entry voucher from DRAFT to POSTED. */
 export function validateEntryForPost(input: ValidationInput): string | null {

@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -22,28 +23,20 @@ import type { FeedStockRow } from '../types'
 
 type PeriodView = 'DAY' | 'WEEK'
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-const pad = (value: number) => String(value).padStart(2, '0')
-const formatIso = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-const today = () => formatIso(new Date())
+const today = businessDate
 const isCalendarDate = (value: string | null): value is string => {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
-  return !Number.isNaN(date.getTime()) && formatIso(date) === value
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
-const shiftDate = (iso: string, days: number) => {
-  const date = new Date(`${iso}T00:00:00`)
-  date.setDate(date.getDate() + days)
-  return formatIso(date)
-}
-const dateLabel = (iso: string) => `${WEEKDAYS[new Date(`${iso}T00:00:00`).getDay()]}, ${formatDate(iso)}`
+const shiftDate = addCalendarDays
+const dateLabel = (iso: string) => `${WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()]}, ${formatDate(iso)}`
 
 function periodRange(selectedDate: string, view: PeriodView) {
   if (view === 'DAY') return { from: selectedDate, to: selectedDate }
-  const date = new Date(`${selectedDate}T00:00:00`)
-  date.setDate(date.getDate() - (date.getDay() || 7) + 1)
-  const from = formatIso(date)
-  date.setDate(date.getDate() + 6)
-  return { from, to: formatIso(date) }
+  const date = new Date(`${selectedDate}T00:00:00Z`)
+  const from = addCalendarDays(selectedDate, 1 - (date.getUTCDay() || 7))
+  return { from, to: addCalendarDays(from, 6) }
 }
 
 function daysBetween(from: string, to: string, until: string) {

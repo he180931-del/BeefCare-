@@ -34,7 +34,7 @@ const number = (value: unknown) => typeof value === 'number'
 
 const birthMonth = (value: unknown): string | null => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`
+    return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}`
   }
   const raw = text(value)
   const monthYear = /^(0?[1-9]|1[0-2])\/(\d{4})$/.exec(raw)

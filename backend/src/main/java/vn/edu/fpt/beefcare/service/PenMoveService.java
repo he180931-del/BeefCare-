@@ -93,7 +93,7 @@ public class PenMoveService {
     public PenMoveCheckDTO check(Long farmId, PenMoveCheckRequest request) {
         FarmContext ctx = access.require(farmId, FarmAction.MOVE_CATTLE);
         Pen toPen = penService.findPen(farmId, request.toPenId());
-        LocalDate today = clock.today(ctx.farm().getTimeZone());
+        LocalDate today = clock.today();
         LocalDate moveDate = request.moveDate() == null ? today : request.moveDate();
         int headcount = occupancy.headcount(toPen.getId());
         int free = Math.max(0, toPen.getCapacity() - headcount);
@@ -162,7 +162,7 @@ public class PenMoveService {
         if (reason.length() > 500) {
             throw DomainException.invalid("reason");
         }
-        LocalDate today = clock.today(ctx.farm().getTimeZone());
+        LocalDate today = clock.today();
         LocalDate moveDate = request.moveDate() == null ? today : request.moveDate();
         penService.findPen(farmId, request.toPenId());
         AppUser performer = performer(ctx, request.performedBy());

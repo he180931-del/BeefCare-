@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate } from '../../../src/api/farmTimeZone'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createFeedStockAdjustmentApi,
@@ -171,9 +172,7 @@ describe('SCR-80 stock adjustment data boundary', () => {
 
   it('validates dates, non-negative counts and conditional reasons before creating local drafts', async () => {
     await resetFeedStockAdjustmentDemoStore()
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const futureDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
+    const futureDate = addCalendarDays(businessDate(), 1)
     await expect(saveFeedStockAdjustmentDemoDraft(input({ countDate: futureDate }))).rejects.toThrow('Ngày kiểm kê không được ở tương lai.')
     const invalidCount = input({ lines: [{ feedItemId: 101, countedKg: -1, reason: 'Sai số' }] })
     await expect(saveFeedStockAdjustmentDemoDraft(invalidCount)).rejects.toThrow('Số đếm của TA-01 phải là số không âm.')

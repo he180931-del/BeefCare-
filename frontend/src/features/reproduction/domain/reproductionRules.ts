@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../api/farmTimeZone'
 import type {
   BreedingEligibility,
   CalfOutcome,
@@ -34,7 +35,7 @@ const DAY_MS = 86_400_000
 /** Pregnant female whose expected calving date is within the next 30 days (tab "Sắp đẻ"). */
 export function isDueSoon(row: ReproductionFemale, now: string = reproductionNow()): boolean {
   const expected = row.openPregnancy?.expectedCalvingAt
-  return row.status === 'PREGNANT' && !!expected && Date.parse(expected) <= Date.parse(now) + 30 * DAY_MS
+  return row.status === 'PREGNANT' && !!expected && parseBusinessTime(expected) <= parseBusinessTime(now) + 30 * DAY_MS
 }
 
 export function filterWorklist(rows: readonly ReproductionFemale[], filters: WorklistFilters, now: string = reproductionNow()): ReproductionFemale[] {
@@ -67,7 +68,7 @@ export function statusCounts(rows: readonly ReproductionFemale[]): Record<Reprod
 }
 
 const occurredAtError = (value: string, today: string): string | null => {
-  if (!value || Number.isNaN(Date.parse(value))) return 'Nhập thời điểm sự kiện hợp lệ.'
+  if (!value || Number.isNaN(parseBusinessTime(value))) return 'Nhập thời điểm sự kiện hợp lệ.'
   if (value > today) return 'Thời điểm sự kiện không được ở tương lai.'
   return null
 }
@@ -262,7 +263,7 @@ export function addDaysText(value: string, days: number): string {
 }
 
 export function daysBetween(from: string, to: string): number {
-  return Math.floor((Date.parse(to) - Date.parse(from)) / DAY_MS)
+  return Math.floor((parseBusinessTime(to) - parseBusinessTime(from)) / DAY_MS)
 }
 
 const windowText = (window: { from: string; to: string }) => `${formatShort(window.from)}–${window.to.slice(11, 16)}`
@@ -335,5 +336,5 @@ export const ACTION_FOR_MODAL = Object.fromEntries(Object.entries(MODAL_FOR_ACTI
 /** Same-type event of this female within 12 hours of the entered time (MSG-FE11-03). */
 export function findNearbyEvent(profile: ReproductionFemale, type: 'ESTRUS' | 'BREEDING', occurredAt: string) {
   return profile.events.find((event) => event.type === type && event.status === 'VALID'
-    && Math.abs(Date.parse(event.occurredAt) - Date.parse(occurredAt)) < 12 * 3_600_000)
+    && Math.abs(parseBusinessTime(event.occurredAt) - parseBusinessTime(occurredAt)) < 12 * 3_600_000)
 }

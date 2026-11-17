@@ -43,7 +43,7 @@ public class CattleStateService {
         Long treatedCases = em.createQuery("select count(distinct h.id) from HealthCase h join Treatment t on t.healthCase.id=h.id where h.cattle.id=:id and upper(h.status)='OPEN' and (t.status is null or upper(t.status)='VALID')", Long.class)
             .setParameter("id", cattleId).getSingleResult();
         result.put("healthState", treatedCases > 0 ? "UNDER_TREATMENT" : validCases > 0 ? "MONITORING" : "HEALTHY");
-        ZoneId farmZone = farmZone(cattle);
+        ZoneId farmZone = clock.zone();
         LocalDate today = clock.now().atZone(farmZone).toLocalDate();
         LocalDate withdrawal = em.createQuery("select max(t.withdrawalEndDate) from Treatment t where t.healthCase.cattle.id=:id and (t.status is null or upper(t.status)='VALID')", LocalDate.class)
             .setParameter("id", cattleId).getSingleResult();
@@ -153,7 +153,7 @@ public class CattleStateService {
         if(lastLossAt!=null&&last.equals(lastLossAt))return "AWAITING_BREEDING";
         if(calvingAt!=null&&last.equals(calvingAt)){
             int days=effectiveInt(cattle.getFarm().getId(),today,45,"POST_CALVING_DAYS","postpartumIntervalDays","postpartum_interval_days");
-            return !calvingAt.isBefore(today.minusDays(days).atStartOfDay(farmZone(cattle)).toInstant())?"POST_CALVING":"AWAITING_BREEDING";
+            return !calvingAt.isBefore(today.minusDays(days).atStartOfDay(clock.zone()).toInstant())?"POST_CALVING":"AWAITING_BREEDING";
         }
         if(event!=null&&last.equals(eventAt)){
             String type=event.getType()==null?"":event.getType().toUpperCase();
@@ -189,9 +189,5 @@ public class CattleStateService {
     private BigDecimal decimal(Map<String, Object> values, String... keys) {
         for (String key : keys) { Object value=values.get(key); if (value instanceof Number n) return new BigDecimal(n.toString()); }
         return null;
-    }
-    private ZoneId farmZone(Cattle cattle) {
-        try { return ZoneId.of(cattle.getFarm().getTimeZone()); }
-        catch (Exception ignored) { return clock.zone(); }
     }
 }

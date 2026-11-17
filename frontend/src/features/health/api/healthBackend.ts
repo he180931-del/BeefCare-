@@ -1,7 +1,7 @@
 import { BackendError } from '../../../api/backendClient'
 import { backendPending } from '../../../api/backendPending'
 import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { DEFAULT_FARM_TIME_ZONE, createFarmTimeZone, fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
+import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
 import { dateOf, fmtTemp, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { caseDay, followUpErrors, HealthValidationError, latestWithdrawalEnd, MSG, observationErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors } from '../domain/healthRules'
 import type {
@@ -28,9 +28,9 @@ const text = (value: unknown): string | undefined => (typeof value === 'string' 
 const nullableNum = (value: unknown): number | null => num(value) ?? null
 
 /** Instant → 'yyyy-mm-ddTHH:mm' theo giờ trại. */
-export const toFarmTime = (instant: unknown, timeZone: string = DEFAULT_FARM_TIME_ZONE): string => toFarmLocal(textValue(instant), timeZone)
+export const toFarmTime = (instant: unknown): string => toFarmLocal(textValue(instant))
 /** 'yyyy-mm-ddTHH:mm' giờ trại → Instant có offset của trại. */
-export const toInstant = (farmTime: string, timeZone: string = DEFAULT_FARM_TIME_ZONE): string => fromFarmLocal(farmTime, timeZone)
+export const toInstant = (farmTime: string): string => fromFarmLocal(farmTime)
 
 const ROUTE_IN: Record<string, TreatmentRoute> = { IM: 'INTRAMUSCULAR', SC: 'SUBCUTANEOUS', SQ: 'SUBCUTANEOUS', IV: 'INTRAVENOUS', PO: 'ORAL' }
 export const toRoute = (value: unknown): TreatmentRoute | undefined => {
@@ -89,11 +89,11 @@ function describe(row: HealthTimelineRow): string {
   return `${row.description ?? ''}${row.temperatureC !== null ? ` · ${fmtTemp(row.temperatureC)}°C` : ''}`
 }
 
-export function mapTimelineRow(raw: unknown, caseCode: string, timeZone: string): HealthTimelineRow {
+export function mapTimelineRow(raw: unknown, caseCode: string): HealthTimelineRow {
   const r = asRecord(raw)
   const type: EntryType = r.type === 'TREATMENT' ? 'TREATMENT' : r.type === 'OPENING' ? 'OPENING' : 'FOLLOW_UP'
   const row: HealthTimelineRow = {
-    id: num(r.id) ?? 0, caseId: num(r.caseId) ?? 0, caseCode, type, occurredAt: toFarmTime(r.occurredAt, timeZone), details: '',
+    id: num(r.id) ?? 0, caseId: num(r.caseId) ?? 0, caseCode, type, occurredAt: toFarmTime(r.occurredAt), details: '',
     // Quan sát: người quan sát (mặc định người ghi); điều trị: người thực hiện.
     recordedBy: type === 'TREATMENT' ? textValue(r.performer) : textValue(r.observer, textValue(r.recordedBy)),
     status: textValue(r.status).toUpperCase() === 'VOIDED' ? 'VOIDED' : 'VALID', corrected: r.corrected === true,
@@ -121,7 +121,7 @@ const FIELD_LABELS: Record<string, string> = {
  * Lỗi backend → lỗi từng ô (HealthValidationError) hoặc thông báo chung tiếng Việt. {@code timeField}: ô thời điểm của
  * popup đang mở (observedAt / treatmentTime / closedAt) nhận các lỗi COM-07, COM-15, FE10-07.
  */
-export function mapHealthError(error: unknown, timeField = 'observedAt', timeZone = DEFAULT_FARM_TIME_ZONE): unknown {
+export function mapHealthError(error: unknown, timeField = 'observedAt'): unknown {
   if (!(error instanceof BackendError)) return error
   const code = textValue(error.code).replace(/^MSG-/, '')
   const p = error.params
@@ -131,7 +131,7 @@ export function mapHealthError(error: unknown, timeField = 'observedAt', timeZon
   if (code === 'COM-05' || error.status === 409 || error.status === 412) return new Error(MSG.changed)
   if (code === 'COM-07') return new HealthValidationError({ [timeField]: MSG.future })
   if (code === 'COM-15') return new HealthValidationError({ [timeField]: text(p.date) ? MSG.beforeEntry(textValue(p.date)) : 'Thời điểm không được trước ngày nhập đàn.' })
-  if (code === 'FE10-07') return new HealthValidationError({ [timeField]: MSG.beforeCase(toFarmTime(p.date, timeZone), 'lần ghi gần nhất của ca này') })
+  if (code === 'FE10-07') return new HealthValidationError({ [timeField]: MSG.beforeCase(toFarmTime(p.date), 'lần ghi gần nhất của ca này') })
   if (code === 'FE10-06') return new HealthValidationError({ temperatureC: MSG.temperature })
   if (code === 'FE18-08') return new HealthValidationError({ medicineId: 'Thuốc đã ngưng sử dụng, không thể chọn cho bản ghi mới.' })
   const fields: Record<string, string> = {}
@@ -158,10 +158,7 @@ interface EntryRef { type: EntryType; caseId: number }
 
 export function createHealthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
-  const zone = createFarmTimeZone(transport, farmId)
-  let timeZone = DEFAULT_FARM_TIME_ZONE
-  const syncZone = async () => { timeZone = await zone() }
-  const now = () => toFarmTime(clock().toISOString(), timeZone)
+  const now = () => toFarmTime(clock().toISOString())
   const resolved = new Map<string, { cattleId: number; cattle: HealthCattle }>()
   // Ca / bản ghi đã đọc qua A1, A2: để các lệnh A5–A8 biết mã ca, mã bò và loại bản ghi (route điều trị hay quan sát).
   const cases = new Map<number, CaseRef>()
@@ -177,10 +174,9 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
 
   async function run<T>(action: () => Promise<T>, timeField = 'observedAt'): Promise<T> {
     try {
-      await syncZone()
       return await action()
     } catch (error) {
-      throw mapHealthError(error, timeField, timeZone)
+      throw mapHealthError(error, timeField)
     }
   }
 
@@ -223,7 +219,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
 
   function mapRow(raw: unknown): HealthCaseRow {
     const r = asRecord(raw)
-    const openedAt = text(r.openedAt) ? toFarmTime(r.openedAt, timeZone) : `${textValue(r.openedDate)}T00:00`
+    const openedAt = text(r.openedAt) ? toFarmTime(r.openedAt) : `${textValue(r.openedDate)}T00:00`
     const status = pick(STATUSES, r.status, 'OPEN')
     const row: HealthCaseRow = {
       id: num(r.id) ?? 0, caseCode: textValue(r.caseCode), cattleCode: textValue(r.cattleCode), cattleName: '', breed: textValue(r.breed), sex: r.sex === 'FEMALE' ? 'Cái' : r.sex === 'MALE' ? 'Đực' : '',
@@ -294,11 +290,11 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
           const c = asRecord(raw)
           const id = num(c.id) ?? 0
           const caseCode = textValue(c.caseCode)
-          const rows = asRows(c.timeline).map((t) => mapTimelineRow(t, caseCode, timeZone))
+          const rows = asRows(c.timeline).map((t) => mapTimelineRow(t, caseCode))
           for (const row of rows) entries.set(row.id, { type: row.type, caseId: id })
           timeline.push(...rows)
-          const openedAt = text(c.openedAt) ? toFarmTime(c.openedAt, timeZone) : `${textValue(c.openedDate)}T00:00`
-          const latestEntryAt = text(c.latestEntryAt) ? toFarmTime(c.latestEntryAt, timeZone) : openedAt
+          const openedAt = text(c.openedAt) ? toFarmTime(c.openedAt) : `${textValue(c.openedDate)}T00:00`
+          const latestEntryAt = text(c.latestEntryAt) ? toFarmTime(c.latestEntryAt) : openedAt
           cases.set(id, { caseCode, cattleCode, openedAt, latestEntryAt })
           const openingSigns = textValue(c.openingSigns)
           return {
@@ -314,7 +310,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
           const caseCode = textValue(c.caseCode)
           cases.set(id, { caseCode, cattleCode })
           const openedDate = textValue(c.openedDate)
-          timeline.push(...asRows(c.timeline).map((row) => mapTimelineRow(row, caseCode, timeZone)))
+          timeline.push(...asRows(c.timeline).map((row) => mapTimelineRow(row, caseCode)))
           const openingSigns = textValue(c.openingSigns)
           return {
             id, caseCode, status: 'CLOSED', severity: pick(SEVERITIES, c.severity, 'MILD'), diagnosis: textValue(c.diagnosis), signs: openingSigns, openingSigns, suspectedContagious: false,
@@ -358,7 +354,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         assertValid(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: existing?.openedAt }))
         const [{ cattleId }, observerId] = await Promise.all([resolve(cattleCode), memberId(cmd.observer)])
         const r = await transport.command(path('/health-cases'), {
-          cattleId, existingCaseId: cmd.existingCaseId ?? null, expectedVersion: cmd.expectedVersion ?? null, observedAt: toInstant(cmd.observedAt, timeZone), observerId: observerId ?? null,
+          cattleId, existingCaseId: cmd.existingCaseId ?? null, expectedVersion: cmd.expectedVersion ?? null, observedAt: toInstant(cmd.observedAt), observerId: observerId ?? null,
           temperatureC: cmd.temperatureC, signs: cmd.signs.trim(), diagnosis: cmd.diagnosis.trim() || null, suspectedContagious: cmd.suspectedContagious, severity: cmd.severity || null,
         })
         return result(r, cmd.existingCaseId !== undefined ? 'ADDED' : 'OPENED', { caseCode: '', cattleCode })
@@ -372,7 +368,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         assertValid(followUpErrors(cmd, { now: ctx.now, entryDate: ctx.entryDate, min: ctx.openedAt }))
         const observerId = await memberId(cmd.observer)
         const r = await transport.command(path(`/health-cases/${caseId}/observations`), {
-          expectedVersion: cmd.expectedVersion ?? null, observedAt: toInstant(cmd.observedAt, timeZone), temperatureC: cmd.temperatureC, progress: cmd.progress || null,
+          expectedVersion: cmd.expectedVersion ?? null, observedAt: toInstant(cmd.observedAt), temperatureC: cmd.temperatureC, progress: cmd.progress || null,
           description: cmd.description.trim(), observerId: observerId ?? null,
         })
         return result(r, 'FOLLOWED', cases.get(caseId))
@@ -384,7 +380,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
       return run(async () => {
         assertValid(treatmentErrors(cmd, caseContext(caseId)))
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/treatments`), {
-          expectedVersion: cmd.expectedVersion ?? null, medicineId: cmd.medicineId, administeredAt: toInstant(cmd.treatmentTime, timeZone), dose: cmd.dose.trim(), route: cmd.route || null,
+          expectedVersion: cmd.expectedVersion ?? null, medicineId: cmd.medicineId, administeredAt: toInstant(cmd.treatmentTime), dose: cmd.dose.trim(), route: cmd.route || null,
           courseDays: cmd.courseDays, withdrawalDays: cmd.withdrawalDays, ...(await performerBody(cmd.performer)), veterinaryAdvice: cmd.veterinaryAdvice.trim() || null,
         }))
         return {
@@ -404,7 +400,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         // D35: gửi đúng diễn biến người dùng chọn; backend báo MSG-COM-06 nếu thiếu khi có theo dõi.
         const r = asRecord(await transport.command(path(`/health-cases/${caseId}/status`), {
           expectedVersion: cmd.expectedVersion ?? null, action: cmd.action, latestProgress: cmd.progressText.trim() || null, progress: cmd.progress || null, suspectedDiagnosis: cmd.diagnosis.trim() || null,
-          suspectedContagious: cmd.suspectedContagious, outcome: closing ? cmd.outcome || null : null, closedAt: closing && cmd.closedAt ? toInstant(cmd.closedAt, timeZone) : null,
+          suspectedContagious: cmd.suspectedContagious, outcome: closing ? cmd.outcome || null : null, closedAt: closing && cmd.closedAt ? toInstant(cmd.closedAt) : null,
           confirmedById: confirmedById ?? null,
         }))
         const kind: CaseResultKind = cmd.action === 'TO_CHRONIC' ? 'CHRONIC' : cmd.action === 'TO_OPEN' ? 'REOPENED' : closing ? 'CLOSED' : 'KEPT'
@@ -412,7 +408,7 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         const voucherId = num(r.pendingExitVoucherId)
         const deathVoucher: PendingExit | null = voucherId === undefined ? null : {
           id: voucherId, cattleCode: textValue(r.cattleCode, ref?.cattleCode), caseCode: textValue(r.caseCode, ref?.caseCode), type: cmd.outcome === 'MISSING' ? 'OTHER' : 'DEATH',
-          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt, timeZone) : cmd.closedAt ?? now()), reportedBy: cmd.confirmedBy, status: 'PENDING',
+          reason: cmd.outcome === 'MISSING' ? 'Mất tích' : 'Chết', date: dateOf(text(r.closedAt) ? toFarmTime(r.closedAt) : cmd.closedAt ?? now()), reportedBy: cmd.confirmedBy, status: 'PENDING',
         }
         return result(r, kind, ref, deathVoucher)
       }, closing ? 'closedAt' : 'observedAt')
@@ -436,12 +432,12 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         })
         const body = treatment
           ? {
-              expectedVersion: cmd.expectedVersion ?? null, reason: cmd.reason.trim(), medicineId: cmd.medicineId ?? null, administeredAt: cmd.treatmentTime ? toInstant(cmd.treatmentTime, timeZone) : null,
+              expectedVersion: cmd.expectedVersion ?? null, reason: cmd.reason.trim(), medicineId: cmd.medicineId ?? null, administeredAt: cmd.treatmentTime ? toInstant(cmd.treatmentTime) : null,
               dose: cmd.dose?.trim() || null, route: cmd.route || null, courseDays: cmd.courseDays ?? null, withdrawalDays: cmd.withdrawalDays ?? null,
               ...(cmd.performer === undefined ? {} : await performerBody(cmd.performer)),
             }
           : {
-              expectedVersion: cmd.expectedVersion ?? null, reason: cmd.reason.trim(), observedAt: cmd.observedAt ? toInstant(cmd.observedAt, timeZone) : null,
+              expectedVersion: cmd.expectedVersion ?? null, reason: cmd.reason.trim(), observedAt: cmd.observedAt ? toInstant(cmd.observedAt) : null,
               temperatureC: cmd.temperatureC === undefined ? null : cmd.temperatureC, signs: cmd.description?.trim() || null, progress: cmd.progress || null,
               observerId: (await memberId(cmd.observer)) ?? null,
             }

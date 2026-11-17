@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import type {
   AvailabilityFilter, BreedCommand, CatalogueFilters, MedicineCommand, Purpose, PurposeCommand, PurposeType, Route, Vaccine, VaccineCommand,
 } from '../types'
@@ -97,11 +98,7 @@ export function matchesFilters(row: { available: boolean }, filters: CatalogueFi
 }
 
 // ---- Ngày ----
-export function todayIso(): string {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
+export const todayIso = businessDate
 export function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-')
   return y && m && d ? `${d}/${m}/${y}` : iso

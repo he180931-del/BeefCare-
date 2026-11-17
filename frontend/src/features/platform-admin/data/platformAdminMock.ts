@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate, parseBusinessTime } from '../../../api/farmTimeZone'
 import type { AccessHistoryItem, AccountRecord, AuditDetail, NotificationView, PlatformAccessOperation, PlatformRole } from '../types'
 
 /** Một dòng A11 kèm tài khoản của nó (D33). */
@@ -118,7 +119,11 @@ const AUDIT: RawAuditEntry[] = [
 
 export function createPlatformAdminSeed(now: Date = new Date()): PlatformAdminSeed {
   const minutesAgo = (m: number) => new Date(now.getTime() - m * 60_000).toISOString()
-  const yesterday = (h: number, min: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, h, min).toISOString()
+  const yesterday = (hour: number, minute: number) => {
+    const day = addCalendarDays(businessDate(now), -1)
+    const time = [hour, minute].map((value) => String(value).padStart(2, '0')).join(':')
+    return new Date(parseBusinessTime(`${day}T${time}`)).toISOString()
+  }
   const notice = (n: Omit<StoredNotification, 'targetType' | 'readTime'> & { readTime?: string | null }): StoredNotification => ({
     targetType: 'INTERNAL_REQUEST', readTime: null, ...n,
   })

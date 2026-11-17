@@ -6,7 +6,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -117,7 +116,7 @@ public class ReproductionReminderService {
     /** The rule key is unique per farm, rule and source: a cancelled or resolved row for the same source is reopened, never duplicated. */
     private void create(Cattle cow,String rule,String source,LocalDate date){
         if(date==null)return;
-        Instant due=date.atStartOfDay(zone(cow)).toInstant();
+        Instant due=date.atStartOfDay(clock.zone()).toInstant();
         String key=cow.getFarm().getId()+":"+rule+":"+source.substring(0,source.indexOf(':'))+":"+source;
         Reminder existing=em.createQuery("select r from Reminder r where r.ruleKey=:key",Reminder.class).setParameter("key",key).getResultStream().findFirst().orElse(null);
         if(existing!=null){if(!"OPEN".equalsIgnoreCase(existing.getStatus())&&!"ACTIVE".equalsIgnoreCase(existing.getStatus()))existing.setStatus("ACTIVE");existing.setDueTime(due);return;}
@@ -136,10 +135,9 @@ public class ReproductionReminderService {
     }
     private Integer parameter(Cattle cow,String key){
         List<FarmParameterVersion> found=em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm and p.effectiveFrom<=:date order by p.effectiveFrom desc,p.versionNo desc",FarmParameterVersion.class)
-            .setParameter("farm",cow.getFarm().getId()).setParameter("date",clock.now().atZone(zone(cow)).toLocalDate()).setMaxResults(1).getResultList();
+            .setParameter("farm",cow.getFarm().getId()).setParameter("date",clock.today()).setMaxResults(1).getResultList();
         if(found.isEmpty())return null;
         try{Object value=json.readValue(found.get(0).getParameterValues(),new TypeReference<Map<String,Object>>(){}).get(key);return value instanceof Number n?n.intValue():null;}
         catch(Exception ignored){return null;}
     }
-    private ZoneId zone(Cattle cow){try{return ZoneId.of(cow.getFarm().getTimeZone());}catch(Exception ignored){return clock.zone();}}
 }

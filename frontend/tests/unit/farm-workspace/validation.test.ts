@@ -103,9 +103,9 @@ describe('farm workspace validation', () => {
       expect(validateFarmInfo({ ...info, province: ' Phú Thọ ' })).toEqual({})
     })
 
-    it('Q2 the time zone must be one of the offered UTC+7 zones', () => {
+    it('D39 accepts legacy UTC+7 values', () => {
       expect(validateFarmInfo({ ...info, timeZone: 'Asia/Bangkok' })).toEqual({})
-      expect(validateFarmInfo({ ...info, timeZone: 'Europe/London' })).toEqual({ timeZone: 'Chọn múi giờ trong danh sách.' })
+      expect(validateFarmInfo({ ...info, timeZone: 'Europe/London' })).toEqual({ timeZone: 'Múi giờ phải là UTC+7.' })
     })
   })
 })

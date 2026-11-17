@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../api/farmTimeZone'
 import {
   ReproductionValidationError, actionsForStatus, isDueSoon, breedingDetails, calvingIssues, calvingSummary, expectedCalvingDate,
   validateReproductionCommand,
@@ -31,7 +32,7 @@ export interface ReproductionDemoStore {
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 // Local date-times are plain strings; shift them in UTC arithmetic so the machine time zone never changes them.
-const shift = (value: string, ms: number): string => new Date(Date.parse(`${value.slice(0, 16)}:00Z`) + ms).toISOString().slice(0, 16)
+const shift = (value: string, ms: number): string => new Date(parseBusinessTime(`${value.slice(0, 16)}:00Z`) + ms).toISOString().slice(0, 16)
 const addDays = (value: string, days: number): string => shift(value, days * 86_400_000)
 const addHours = (value: string, hours: number): string => shift(value, hours * 3_600_000)
 const makeId = (kind: string, n: number) => `${kind}-${Date.now().toString(36)}-${n.toString(36)}`
@@ -146,7 +147,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.dueAt = null
   }
   profile.indicators.daysSinceLastCalving = profile.lastCalvingAt && status !== 'PREGNANT'
-    ? Math.max(0, Math.floor((Date.parse(reproductionNow()) - new Date(profile.lastCalvingAt).getTime()) / 86_400_000))
+    ? Math.max(0, Math.floor((parseBusinessTime(reproductionNow()) - parseBusinessTime(profile.lastCalvingAt)) / 86_400_000))
     : null
   profile.events.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   profile.calvings.sort((a, b) => b.birthAt.localeCompare(a.birthAt))
@@ -350,7 +351,7 @@ export function createReproductionDemoStore(
       const item = profile.events.find((event) => event.id === eventId)
       if (!item) throw new Error('Không tìm thấy sự kiện cần sửa.')
       if (item.status !== 'VALID') throw new Error('Sự kiện đã hủy, không thể sửa.')
-      if (patch.occurredAt && (Number.isNaN(Date.parse(patch.occurredAt)) || patch.occurredAt > clock())) throw new Error('Thời điểm sự kiện không được ở tương lai.')
+      if (patch.occurredAt && (Number.isNaN(parseBusinessTime(patch.occurredAt)) || patch.occurredAt > clock())) throw new Error('Thời điểm sự kiện không được ở tương lai.')
       if (item.type === 'BREEDING' && profile.events.some((event) => event.type === 'PREGNANCY_CHECK' && event.status === 'VALID' && event.linkedBreedingId === eventId)) {
         throw new Error('Không thể sửa vì đã có khám thai liên quan.')
       }
@@ -431,7 +432,7 @@ export function createReproductionDemoStore(
         throw new Error('Không thể sửa kết quả bê đã đăng ký thành bò.')
       }
       const nextBirthAt = patch.birthAt ?? calving.birthAt
-      if (Number.isNaN(Date.parse(nextBirthAt)) || nextBirthAt > clock()) throw new Error('Thời điểm đẻ không được ở tương lai.')
+      if (Number.isNaN(parseBusinessTime(nextBirthAt)) || nextBirthAt > clock()) throw new Error('Thời điểm đẻ không được ở tương lai.')
       const pregnancyCheck = calving.pregnancyId
         ? profile.events.find((event) => event.type === 'PREGNANCY_CHECK' && event.status === 'VALID' && event.pregnancyId === calving.pregnancyId && event.result === 'PREGNANT')
         : undefined

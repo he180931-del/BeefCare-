@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, DateInput, Field, KV, Note, inputCls } from '../../../components/ui'
@@ -8,10 +9,6 @@ import { RadioRow } from './parts'
 import type { HerdEntry, Payment } from '../../../types'
 
 const DEFAULT_REF = 'FT26295104721 · TT phieu PN-2026-0011'
-const localIsoToday = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
 
 /**
  * Ghi nhận một khoản thanh toán cho phiếu nhập còn nợ. `record` là phiếu (có detail), `onSave(payment)`
@@ -23,7 +20,7 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
   const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
   const debt = record.debt ?? 0
   const isBackend = backendMode === 'backend'
-  const [date, setDate] = useState(isBackend ? localIsoToday() : TODAY)
+  const [date, setDate] = useState(isBackend ? businessDate() : TODAY)
   const [amount, setAmount] = useState(debt)
   const [method, setMethod] = useState('Chuyển khoản')
   const [ref, setRef] = useState(isBackend ? '' : DEFAULT_REF)
