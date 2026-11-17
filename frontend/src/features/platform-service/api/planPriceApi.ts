@@ -1,3 +1,4 @@
+import { parseBusinessTime, toBusinessTime } from '../../../api/farmTimeZone'
 import { asRecord, backendMode, backendTransport, type BackendTransport } from '../../../api/backendTransport'
 import { BackendError } from '../../../api/backendClient'
 import { platformServiceDemoStore } from '../data/platformServiceDemoStore'
@@ -69,7 +70,7 @@ export function priceError(error: unknown, action = 'công bố bảng giá') {
 }
 
 /** Explicit local demo adapter. It is never used when backend mode is selected. */
-const iso = (v: string) => new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(v) ? v : `${v}+07:00`).toISOString()
+const iso = (value: string) => new Date(parseBusinessTime(value)).toISOString()
 const demo = {
   async list(page = 0): Promise<PlanPricePage> {
     const versions = (await platformServiceDemoStore.listPriceVersions()).map(p => ({ id: p.version, revision: p.withdrawn ? 1 : 0,
@@ -81,7 +82,7 @@ const demo = {
   },
   async publish(body: PublishPrice, _key: string) {
     const created = await platformServiceDemoStore.publishPrice({ ...body, mode: body.applyNow ? 'NOW' : 'SCHEDULE', terms: body.terms ?? '',
-      effectiveAt: body.effectiveAt ? new Date(Date.parse(body.effectiveAt) + 7 * 3600_000).toISOString().slice(0, 19) : '' })
+      effectiveAt: toBusinessTime(body.effectiveAt) })
     return (await this.list()).items.find(v => v.id === created.version)!
   },
   async withdraw(id: number, reason: string, _revision: number, _key: string) {

@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -24,10 +25,6 @@ const STATUS_LABELS: Record<FeedStockStatus, string> = {
   OUT_OF_STOCK: 'Hết hàng',
 }
 
-const localToday = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
 
 function updatedText(iso: string | null | undefined) {
   const match = iso?.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/)
@@ -57,7 +54,7 @@ export default function FeedStockPage() {
   const updatedQuery = useQuery(() => getFeedStockUpdatedAt().catch(() => null), [])
   // Side data for the quick-action hint and the per-head tile; the page works without it.
   const sideQuery = useQuery(async () => {
-    const date = localToday()
+    const date = businessDate()
     const [pens, rations, records] = await Promise.all([listFeedRationPens(), listFeedRations(), listFeedFeedingRecords({ from: date, to: date })])
     return { pens, headCount: pens.filter((pen) => pen.status === 'ACTIVE').reduce((sum, pen) => sum + pen.headcount, 0), sessions: summarizeTodaySessions({ pens, rations, records, stock: [], date }) }
   }, []).data

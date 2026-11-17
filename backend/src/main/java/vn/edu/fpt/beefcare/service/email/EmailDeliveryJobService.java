@@ -2,7 +2,6 @@ package vn.edu.fpt.beefcare.service.email;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +23,7 @@ import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.EmailDeliveryJobRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.repository.PaymentRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
@@ -231,13 +231,13 @@ public class EmailDeliveryJobService {
                 title = "Xác minh email của bạn";
                 intro = "Xác minh địa chỉ email để kích hoạt tài khoản BeefCare và tiếp tục đăng ký.";
                 button = "Xác minh email";
-                expiryText = "Liên kết có hiệu lực đến " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+                expiryText = "Liên kết có hiệu lực đến " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "RESET_PASSWORD" -> {
                 title = "Đặt lại mật khẩu";
                 intro = "Bạn đã yêu cầu đặt lại mật khẩu BeefCare. Nếu bạn không yêu cầu, hãy bỏ qua email này.";
                 button = "Đặt lại mật khẩu";
-                expiryText = "Liên kết chỉ sử dụng một lần và hết hạn lúc " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+                expiryText = "Liên kết chỉ sử dụng một lần và hết hạn lúc " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "FARM_INVITATION" -> {
                 String farmName = blankDefault(job.getContextName(), "trang trại");
@@ -245,7 +245,7 @@ public class EmailDeliveryJobService {
                 intro = "Bạn được mời tham gia trang trại “" + farmName + "” với vai trò " + role + ". Hãy đăng nhập bằng email này để xem và chấp nhận lời mời.";
                 title = "Lời mời tham gia trang trại";
                 button = "Xem lời mời";
-                expiryText = "Lời mời hết hạn lúc " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+                expiryText = "Lời mời hết hạn lúc " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "GOOGLE_SIGN_IN_ADVICE" -> {
                 title = "Đăng nhập bằng Google";
@@ -258,7 +258,7 @@ public class EmailDeliveryJobService {
                 try { notice = SubscriptionNoticeJob.Notice.valueOf(job.getContextRole()); } catch (RuntimeException unknown) { return cancel(job); }
                 title = notice == SubscriptionNoticeJob.Notice.RENEWAL_OPEN ? "Đã mở gia hạn gói dịch vụ"
                     : notice == SubscriptionNoticeJob.Notice.EXPIRED ? "Thời hạn dịch vụ đã hết" : "Gói dịch vụ sắp hết hạn";
-                intro = SubscriptionNoticeJob.summary(notice, subscriptionFarm, expiry.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate());
+                intro = SubscriptionNoticeJob.summary(notice, subscriptionFarm, expiry.atZone(FarmTimeZones.OFFSET).toLocalDate());
                 button = "Xem gói dịch vụ";
                 expiryText = "BeefCare không tự động gia hạn; bạn tạo yêu cầu thanh toán khi muốn gia hạn.";
             }
@@ -268,7 +268,7 @@ public class EmailDeliveryJobService {
                 title = "Thành viên mới đã tham gia trang trại";
                 intro = joinedMember + " đã chấp nhận lời mời và tham gia trang trại “" + farmName + "” với vai trò " + role + ".";
                 button = "Xem thành viên";
-                expiryText = "Thời điểm tham gia: " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+                expiryText = "Thời điểm tham gia: " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "SUPPORT_TICKET_UPDATE" -> {
                 title = "Cập nhật yêu cầu hỗ trợ";
@@ -303,7 +303,7 @@ public class EmailDeliveryJobService {
         if (owner == null) return cancel(job);
         job.setRecipient(owner.getEmail()); job.setDisplayName(owner.getFullName());
         String actionUrl = frontendBaseUrl + "/goi-dich-vu/lich-su?farm=" + farm.getId();
-        var vn = ZoneId.of("Asia/Ho_Chi_Minh");
+        var vn = FarmTimeZones.OFFSET;
         var number = java.text.NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN"));
         String amount = number.format(payment.getAmountVnd()) + " VND";
         String period = DISPLAY_TIME.format(payment.getPurchasedStart().atZone(vn)) + " – " + DISPLAY_TIME.format(payment.getPurchasedEnd().atZone(vn));

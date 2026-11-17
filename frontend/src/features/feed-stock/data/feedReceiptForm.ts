@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import type { FeedStockRow } from '../types'
 import type { FeedReceipt } from '../types/feedReceipt'
 import type { FeedReceiptDemoRecord, FeedReceiptDraftInput, FeedReceiptDraftLineInput } from '../types/feedReceiptDemo'
@@ -28,7 +29,7 @@ export type FeedReceiptFormValues = {
   lines: FeedReceiptFormLine[]
 }
 
-export const todayIso = (today = new Date()) => `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+export const todayIso = businessDate
 
 /** Inclusive minimum for the native expiry date picker, which must be strictly after receiptDate. */
 export function minimumExpiryDate(receiptDate: string) {
@@ -40,9 +41,9 @@ export function minimumExpiryDate(receiptDate: string) {
 
 const isCalendarDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
+  const date = new Date(`${value}T00:00:00Z`)
   return !Number.isNaN(date.getTime())
-    && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` === value
+    && date.toISOString().slice(0, 10) === value
 }
 
 export const blankFeedReceiptLine = (): FeedReceiptFormLine => ({

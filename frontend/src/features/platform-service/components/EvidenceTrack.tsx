@@ -1,3 +1,4 @@
+import { toBusinessTime } from '../../../api/farmTimeZone'
 import { useState } from 'react'
 import { Icon } from '../../../components/Icon'
 import { Badge, Button, Card, Radio, Segmented, Table, Td, Th } from '../../../components/ui'
@@ -26,7 +27,7 @@ export default function EvidenceTrack({ ev, candidates, cand, explicit, payments
   return (
     <Card
       title={`Theo dõi chứng từ ${ev.transactionId}`}
-      sub={`Ngân hàng trả tiền ${fmtDateTime(ev.bankPaidAt)} · hệ thống nhận lần đầu ${ev.receivedAt.slice(11, 19)} · ${allocated ? 'đã xác nhận' : 'chưa xác nhận'}`}
+      sub={`Ngân hàng trả tiền ${fmtDateTime(ev.bankPaidAt)} · hệ thống nhận lần đầu ${toBusinessTime(ev.receivedAt).slice(11, 19)} · ${allocated ? 'đã xác nhận' : 'chưa xác nhận'}`}
       actions={
         <Segmented value={tab} onChange={(v) => setTab(v as Tab)} options={[{ value: 'candidates', label: 'Chọn yêu cầu ứng viên' }, { value: 'history', label: 'Lịch sử xử lý' }, { value: 'checks', label: 'Kiểm tra chấp nhận' }]} />
       }

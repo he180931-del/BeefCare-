@@ -57,7 +57,7 @@ Mọi request kiểm lại quyền, membership và trạng thái dịch vụ (GB
 | Thông tin giấy đăng ký | Chuỗi | Không | ≤ 255 (số, nơi cấp, ngày cấp) | SCR-10 |
 | Quy mô dự kiến | Enum | Không | `UNDER_50`, `50_149`, `150_300`, `OVER_300` | SCR-10 |
 | Giống chính | Danh sách giống khởi tạo | Không | Chọn nhiều từ Table III-6 | SCR-10, GBR-109 |
-| Múi giờ | Chuỗi IANA | Có | Mặc định `Asia/Ho_Chi_Minh`; chỉ một trong 3 múi giờ UTC+7 (`Asia/Ho_Chi_Minh`, `Asia/Bangkok`, `Asia/Vientiane`), khác → MSG-COM-10 (Q2) | SCR-11, GBR-66 |
+| Múi giờ | Chuỗi IANA | Có | Cố định UTC+07:00; API lưu/trả `Asia/Ho_Chi_Minh`. Mã UTC+7 cũ được chuẩn hóa; múi giờ khác → MSG-COM-10 (D39) | SCR-11, GBR-66 |
 | Giờ bắt đầu ca sáng | Giờ `HH:mm` | Không | — | SCR-11 |
 | Ghi chú vận hành | Chuỗi dài | Không | ≤ 1.000 | SCR-11 |
 | Cờ tạm ngưng | Boolean (+ ngày, PM) | Có | Mặc định `false` | §3.2 |
@@ -112,7 +112,7 @@ Danh mục khởi tạo thuộc riêng trại đó; sửa không ảnh hưởng 
 | R-02-10 | Sau tạm ngưng, thành viên mất quyền thao tác trại ở **request kế tiếp**. | UC-05 POST-1, GBR-09 |
 | R-02-11 | PM chỉ thấy thông tin dịch vụ (tên trại, Owner, trạng thái, hạn, tạm ngưng, số bò ACTIVE); không thấy dữ liệu bò, chăm sóc, sinh sản. | GBR-11, SCR-12 |
 | R-02-12 | Đổi trại hiện tại: xóa dữ liệu và bộ lọc của trại trước rồi mới đặt trại mới. | UC-02 bước 5 |
-| R-02-13 | Ngày giờ của trại tính theo múi giờ trại. | GBR-66 |
+| R-02-13 | Ngày giờ nghiệp vụ trên toàn hệ thống tính theo UTC+07:00 (D39). | GBR-66 |
 
 ---
 
@@ -139,7 +139,7 @@ AF1 Owner chọn trại `PENDING_PAYMENT` / `EXPIRED` → nút "Thanh toán đ�
 E1 membership bị ngưng / đổi vai trò sau khi danh sách đã hiện → MSG-COM-01 và tải lại danh sách · E2 lỗi tải → MSG-COM-03.
 
 ### UC-FE02-03 Cập nhật thông tin trại
-Luồng đã xác nhận (Q1). Owner mở SCR-11 (ở mọi trạng thái dịch vụ) → sửa nhóm "Đăng ký và liên hệ", "Vận hành" → **Lưu thay đổi** (kèm `version` và khóa yêu cầu) → kiểm tra (tỉnh như SCR-10, múi giờ theo Q2) → lưu, ghi audit `FARM_UPDATE` → MSG-FE02-05. Trường tùy chọn để trống = không có (không tự điền lại SĐT Owner). SCR-11 không sửa giống chính; giống chính giữ nguyên. Khối "Tóm tắt dịch vụ" chỉ đọc. Manager / Technician không truy cập được: API trả 403 MSG-COM-01, giao diện đưa về trang chủ của vai trò (Q8). Sửa đồng thời → MSG-COM-05.
+Luồng đã xác nhận (Q1). Owner mở SCR-11 (ở mọi trạng thái dịch vụ) → sửa nhóm "Đăng ký và liên hệ", "Vận hành" → **Lưu thay đổi** (kèm `version` và khóa yêu cầu) → kiểm tra (tỉnh như SCR-10, múi giờ cố định theo D39) → lưu, ghi audit `FARM_UPDATE` → MSG-FE02-05. Trường tùy chọn để trống = không có (không tự điền lại SĐT Owner). SCR-11 không sửa giống chính; giống chính giữ nguyên. Khối "Tóm tắt dịch vụ" chỉ đọc. Manager / Technician không truy cập được: API trả 403 MSG-COM-01, giao diện đưa về trang chủ của vai trò (Q8). Sửa đồng thời → MSG-COM-05.
 
 ### UC-FE02-04 Tổng quan dịch vụ các trại (PM)
 Luồng đã xác nhận (Q1). PM mở SCR-12 → ô đếm theo trạng thái, tính trên mọi trại của nền tảng, không phụ thuộc ô tìm (bấm để lọc), tìm theo tên trại / email Owner, lọc trạng thái, danh sách sắp xếp được theo tên trại, trạng thái, ngày hết kỳ (trại chưa có ngày hết luôn ở cuối) → hành động Tạm ngưng / Khôi phục, Xem gói (SCR-61). Không có dữ liệu → MSG-COM-04. Chỉ PM ACTIVE; CS / SA → MSG-COM-01.
@@ -205,7 +205,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | **Đăng ký và liên hệ** | | | | | |
 | 1–7 | Tên trại*, Tỉnh*, Xã*, Địa chỉ chi tiết, Người liên hệ, SĐT, Giấy đăng ký | Như SCR-10 | Như SCR-10 | Như SCR-10 | Như SCR-10 |
 | **Thông tin vận hành** | | | | | |
-| 8 | Time zone / Múi giờ | Dropdown | * | Mặc định Asia/Ho_Chi_Minh; 3 múi giờ UTC+7 (Q2); dùng cho mọi ngày của trại | MSG-COM-10 |
+| 8 | Time zone / Múi giờ | Chỉ đọc | — | UTC+07:00 (giờ Việt Nam), dùng cho mọi ngày nghiệp vụ (D39) | — |
 | 9 | Morning shift start / Giờ bắt đầu ca sáng | Giờ HH:mm | — | Dùng hiển thị nhắc việc "hôm nay" | MSG-COM-10 |
 | 10 | Operating notes / Ghi chú vận hành | Ô chữ dài | — | ≤ 1.000 | MSG-COM-10 |
 | 11 | Save changes / Lưu thay đổi | Nút | — | Kèm version | MSG-COM-05, MSG-COM-02; thành công MSG-FE02-05 |
@@ -325,7 +325,7 @@ E1 không phải PM ACTIVE → MSG-COM-01 · E2 lý do trống → MSG-COM-06 ·
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
 | Q1 | UC-FE02-03 và UC-FE02-04 không có đặc tả Part II; luồng ở mục 5 suy từ Part I và SCR-11 / 12 | Chủ dự án xác nhận |
-| Q2 | Đổi múi giờ trại khi đã có dữ liệu: dữ liệu cũ hiển thị lại theo múi giờ mới? | Chỉ cho đổi khi trại chưa có bò, hoặc cảnh báo |
+| Q2 | Đổi múi giờ trại khi đã có dữ liệu: dữ liệu cũ hiển thị lại theo múi giờ mới? | D39 áp dụng UTC+07:00 cố định cho mọi trại. |
 | Q3 | Danh mục tỉnh / thành: theo danh mục sau sáp nhập 2025 (34 tỉnh) hay 63 tỉnh cũ? | 34 tỉnh, lưu mã |
 | Q4 | "Số ngày còn lại" khi đang SUSPENDED có hiện không? | Vẫn hiện (kỳ dịch vụ không đổi khi tạm ngưng) |
 | Q5 | Nút "Thanh toán để kích hoạt" / "Gia hạn" mở SCR-57 (AF1) hay SCR-58 (bảng nút SCR-09, trigger UC-FE19-02)? | SCR-58 kèm MSG-FE02-03 |

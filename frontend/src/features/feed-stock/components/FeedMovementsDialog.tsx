@@ -1,3 +1,4 @@
+import { toFarmLocal } from '../../../api/farmTimeZone'
 import { Link } from 'react-router-dom'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, EmptyBlock, ErrorBlock, LoadingBlock, Table, Td, Th } from '../../../components/ui'
@@ -17,10 +18,7 @@ const TYPE_LABELS: Record<string, string> = {
   FEEDING_VOID: 'Hủy cữ cho ăn',
 }
 
-const time = (iso: string) => {
-  const match = iso.match(/T(\d{2}:\d{2})/)
-  return match ? match[1] : ''
-}
+const time = (iso: string) => toFarmLocal(iso).slice(11, 16)
 
 function Source({ row }: { row: FeedMovement }) {
   const label = row.sourceCode || (row.sourceId === null ? row.sourceType : `${row.sourceType} #${row.sourceId}`)

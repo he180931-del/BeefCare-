@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../api/farmTimeZone'
 import { toLocalIso } from '../domain/format'
 import { MESSAGES, SupportError } from '../domain/supportError'
 import { buildPage, latestResolution, validateCreate, validateReason, validateReply } from '../domain/ticketRules'
@@ -20,7 +21,7 @@ import { SUPPORT_DEMO_NOW, SUPPORT_SEED, type SupportSeed } from './supportMock'
 export function createSupportDemoStore(seed: SupportSeed = SUPPORT_SEED, options: { now?: () => Date } = {}) {
   let state = structuredClone(seed)
   let tick = 0
-  const stamp = () => toLocalIso(options.now ? options.now() : new Date(new Date(SUPPORT_DEMO_NOW).getTime() + ++tick * 60_000))
+  const stamp = () => toLocalIso(options.now ? options.now() : new Date(parseBusinessTime(SUPPORT_DEMO_NOW) + ++tick * 60_000))
 
   const find = (id: number): Ticket => {
     const t = state.tickets.find((x) => x.id === id)

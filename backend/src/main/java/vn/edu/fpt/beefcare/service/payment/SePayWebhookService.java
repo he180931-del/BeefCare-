@@ -45,6 +45,7 @@ import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.repository.PaymentRepository;
 import vn.edu.fpt.beefcare.repository.ManualFinanceRecordRepository;
 import vn.edu.fpt.beefcare.repository.SubscriptionRepository;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.AuditService;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.DomainException;
@@ -57,7 +58,7 @@ import vn.edu.fpt.beefcare.service.MailService;
 /** Authenticated SePay ingestion and the common, serialized payment confirmation rules. */
 @Service
 public class SePayWebhookService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId BUSINESS_ZONE = FarmTimeZones.OFFSET;
     private static final Pattern QUOTE = Pattern.compile("(?i)(?<![A-Z0-9])(BC[A-Z0-9]{12})(?![A-Z0-9])");
     private static final DateTimeFormatter SEPAY_LOCAL_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int REASON_MAX = 1000;

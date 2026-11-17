@@ -1,3 +1,4 @@
+import { ACCEPTED_FARM_TIME_ZONES, businessDate } from '../../api/farmTimeZone'
 import type {
   ChangeMemberInput,
   CompleteOwnerProfileInput,
@@ -5,7 +6,7 @@ import type {
   FarmRegistrationInput,
   InviteMemberInput,
 } from './types'
-import { PROVINCES, TIME_ZONES } from './data/provinces'
+import { PROVINCES } from './data/provinces'
 
 export type FormErrors<T extends object> = Partial<Record<keyof T, string>>
 
@@ -40,7 +41,7 @@ export function validateFarmRegistration(input: Partial<Omit<FarmRegistrationInp
 }
 
 /**
- * SCR-11 (UC-FE02-03). Như SCR-10 cho tỉnh (Q3), cộng phần vận hành: múi giờ thuộc danh sách UTC+7 (Q2), giờ ca sáng
+ * SCR-11 (UC-FE02-03). Như SCR-10 cho tỉnh (Q3), cộng phần vận hành: múi giờ UTC+7 (D39), giờ ca sáng
  * HH:mm, ghi chú tối đa 1.000 ký tự. Tên tỉnh cũ ngoài danh sách vẫn hiện để Chủ trại thấy và chọn lại.
  */
 export function validateFarmInfo(input: Partial<FarmInfoInput>): FormErrors<FarmInfoInput> {
@@ -55,8 +56,7 @@ export function validateFarmInfo(input: Partial<FarmInfoInput>): FormErrors<Farm
   if (input.contactPhone && !PHONE.test(input.contactPhone.trim())) errors.contactPhone = 'Nhập số điện thoại Việt Nam hợp lệ.'
   if (!optionalText(input.registrationCertificateInfo, 255)) errors.registrationCertificateInfo = 'Thông tin giấy đăng ký tối đa 255 ký tự.'
   const timeZone = input.timeZone?.trim() ?? ''
-  if (!timeZone) errors.timeZone = 'Chọn múi giờ.'
-  else if (!TIME_ZONES.some(([id]) => id === timeZone)) errors.timeZone = 'Chọn múi giờ trong danh sách.'
+  if (timeZone && !ACCEPTED_FARM_TIME_ZONES.has(timeZone)) errors.timeZone = 'Múi giờ phải là UTC+7.'
   if (input.morningShiftStart && !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(input.morningShiftStart)) errors.morningShiftStart = 'Nhập giờ theo định dạng HH:mm.'
   if (!optionalText(input.operatingNotes, 1000)) errors.operatingNotes = 'Ghi chú vận hành tối đa 1.000 ký tự.'
   return errors
@@ -75,11 +75,7 @@ export function validateInvite(input: Partial<Omit<InviteMemberInput, 'role' | '
 }
 
 /** GBR-66: ngày nghiệp vụ Việt Nam, kể cả khi UTC còn ở ngày hôm trước. */
-/** yyyy-mm-dd "today" in the farm time zone (Table III-1); Asia/Ho_Chi_Minh when the farm has none. */
-export function farmToday(timeZone = 'Asia/Ho_Chi_Minh', now = new Date()) {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now).map((part) => [part.type, part.value]))
-  return `${parts.year}-${parts.month}-${parts.day}`
-}
+export const farmToday = businessDate
 
 /** Same rule as the server (Table III-1, D30): trimmed, at least 5 non-space characters, at most 500. */
 export const MEMBER_REASON_RULE = 'Lý do cần ít nhất 5 ký tự (không tính khoảng trắng) và tối đa 500 ký tự.'

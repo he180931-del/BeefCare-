@@ -135,7 +135,7 @@ public class CattleProfileService {
         assignments.findOpen(c.getId()).ifPresent(a->{p.put("penId",a.getPen().getId());p.put("penCode",a.getPen().getCode());p.put("penName",a.getPen().getName());p.put("penSince",a.getFromDate());});
         boolean pending=guard.isExitPending(c.getId());p.put("exitPending",ctx.role()!=FarmRole.TECHNICIAN&&pending);
         GrowthDtosProjection(p,growth.summary(c,90));if(c.getHerdStatus()==HerdStatus.ACTIVE)p.putAll(state.state(c));
-        Object withdrawal=p.get("withdrawalEndDate");p.put("withdrawalActive",withdrawal instanceof LocalDate date&&!date.isBefore(LocalDate.ofInstant(clock.now(),ZoneId.of(c.getFarm().getTimeZone()))));
+        Object withdrawal=p.get("withdrawalEndDate");p.put("withdrawalActive",withdrawal instanceof LocalDate date&&!date.isBefore(clock.today()));
         if(detail){p.put("colourMarkings",c.getColourMarkings());p.put("notes",c.getNotes());p.put("damId",c.getDam()==null?null:c.getDam().getId());p.put("sireId",c.getSire()==null?null:c.getSire().getId());
             // SCR-19 #15 links dam / sire by display code; the internal id is never shown (GBR-23).
             p.put("damCode",c.getDam()==null?null:c.getDam().getDisplayCode());p.put("sireCode",c.getSire()==null?null:c.getSire().getDisplayCode());p.put("externalSireCode",c.getExternalSireCode());p.put("canUpdate",c.getHerdStatus()==HerdStatus.ACTIVE&&!pending&&ctx.role()!=FarmRole.TECHNICIAN);p.put("canChangePurpose",ctx.isOwner());

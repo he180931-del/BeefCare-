@@ -1,3 +1,4 @@
+import { FARM_TIME_ZONE_ID } from '../../../api/farmTimeZone'
 import { BackendError } from '../../../api/backendClient'
 import type {
   AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, FarmDetails, FarmInfoInput, FarmRegistrationInput,
@@ -106,7 +107,7 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
         province: input.province, commune: input.commune, detailedAddress: input.detailedAddress ?? '',
         contactPerson: input.contactPerson ?? profile.fullName, contactPhone: input.contactPhone ?? profile.phone,
         registrationCertificateInfo: input.registrationCertificateInfo ?? '', expectedHerdSize: input.expectedHerdSize ?? '',
-        timeZone: 'Asia/Ho_Chi_Minh', morningShiftStart: '', operatingNotes: '', mainBreedIds: [], mainBreedCodes: [...(input.mainBreedCodes ?? [])],
+        timeZone: FARM_TIME_ZONE_ID, morningShiftStart: '', operatingNotes: '', mainBreedIds: [], mainBreedCodes: [...(input.mainBreedCodes ?? [])],
         activeCattleCount: 0, serviceUntil: null, renewalOpensAt: null, ownerName: profile.fullName, ownerEmail: profile.email,
       }
       farms.set(id, farm)
@@ -118,7 +119,7 @@ export function createFarmWorkspaceDemoStore(options: { profile?: Partial<FarmWo
     async updateFarm(farmId, input) {
       const current = getFarm(farmId)
       if (input.expectedVersion !== undefined && input.expectedVersion !== current.version) throw new Error('Thông tin trại đã thay đổi ở phiên khác. Tải lại rồi thử lại.')
-      const updated: FarmDetails = { ...current, ...input, mainBreedIds: input.mainBreedIds ?? current.mainBreedIds, mainBreedCodes: current.mainBreedCodes, name: input.name.trim(), version: current.version + 1 }
+      const updated: FarmDetails = { ...current, ...input, timeZone: FARM_TIME_ZONE_ID, mainBreedIds: input.mainBreedIds ?? current.mainBreedIds, mainBreedCodes: current.mainBreedCodes, name: input.name.trim(), version: current.version + 1 }
       farms.set(farmId, updated)
       profile = { ...profile, farms: profile.farms.map((farm) => farm.farmId === farmId ? { ...farm, farmName: updated.name } : farm) }
       return cloneFarm(updated)

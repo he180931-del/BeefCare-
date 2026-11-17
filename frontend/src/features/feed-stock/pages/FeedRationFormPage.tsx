@@ -1,3 +1,4 @@
+import { addCalendarDays } from '../../../api/farmTimeZone'
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
@@ -18,11 +19,7 @@ const FOOT = 'Sửa khẩu phần (Chủ trại, Quản lý). Khẩu phần đan
 const SESSION_NAMES = ['Cữ sáng', 'Cữ chiều', 'Cữ tối']
 const SESSION_LABEL = ['Sáng', 'Chiều', 'Tối']
 
-const dayBefore = (iso: string) => {
-  const date = new Date(`${iso}T00:00:00`)
-  date.setDate(date.getDate() - 1)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+const dayBefore = (iso: string) => addCalendarDays(iso, -1)
 
 export default function FeedRationFormPage() {
   const { id } = useParams()

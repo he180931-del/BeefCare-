@@ -53,7 +53,7 @@ public class FarmWorkspaceService {
         AppUser owner=access.currentActiveUser();
         if (!owner.isOwnerRegistrationCompleted()) throw DomainException.forbidden(MessageCodes.FE02_02);
         String province=VietnamProvinces.require(request.province(),"province");
-        Farm farm=new Farm(); farm.setServiceStatus("PENDING_PAYMENT"); farm.setTimeZone("Asia/Ho_Chi_Minh");
+        Farm farm=new Farm(); farm.setServiceStatus("PENDING_PAYMENT"); farm.setTimeZone(FarmTimeZones.DEFAULT);
         applyContact(farm,request.name(),province,request.commune(),request.detailedAddress(),
             blankDefault(request.contactPerson(),owner.getFullName()),blankDefault(request.contactPhone(),owner.getPhone()),request.registrationCertificateInfo());
         farm.setExpectedHerdSize(blankDefault(request.expectedHerdSize(),null)); em.persist(farm);
@@ -75,7 +75,7 @@ public class FarmWorkspaceService {
     }
     /**
      * UC-FE02-03 (SCR-11, flow confirmed as Q1): the Owner saves registration, contact and operating information in any
-     * service status. Province as SCR-10 (Q3), time zone one of the offered UTC+7 zones (Q2), a blank optional field is
+     * service status. Province as SCR-10 (Q3), time zone fixed to UTC+7, a blank optional field is
      * "not provided"; main breeds change only when the request sends them (SCR-11 has no such field).
      */
     @Transactional

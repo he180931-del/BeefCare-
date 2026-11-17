@@ -35,7 +35,7 @@ class CattleStateServiceTest {
             when(query.getResultStream()).thenReturn(Stream.empty());
             return query;
         });
-        FarmClock clock = new FarmClock(Clock.fixed(Instant.parse("2026-10-28T04:00:00Z"), ZoneOffset.UTC), "Asia/Ho_Chi_Minh");
+        FarmClock clock = new FarmClock(Clock.fixed(Instant.parse("2026-10-28T04:00:00Z"), ZoneOffset.UTC));
         CattleStateService service = new CattleStateService(clock, new ObjectMapper());
         ReflectionTestUtils.setField(service, "em", em);
         Farm farm = new Farm(); farm.setId(12L); farm.setTimeZone("Asia/Ho_Chi_Minh");

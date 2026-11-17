@@ -1,3 +1,4 @@
+import { businessDate, addCalendarDays } from '../../../api/farmTimeZone'
 import { createCollection, createCollectionSchema } from '../../../api/client'
 import { FEED_DEMO_PENS } from './feedPenMock'
 import { FEED_RATION_MOCK, rationStatusForDate } from './feedRationMock'
@@ -70,19 +71,11 @@ function parseState(value: unknown): DemoState {
 const schema = createCollectionSchema<DemoState, 'id'>('feed-rations-demo-v2', 'id', parseState)
 const states = createCollection('feedRationsDemoV2', [{ id: 'feed-rations', rations: FEED_RATION_MOCK }], { schema })
 
-const localToday = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
-const addDays = (value: string, days: number) => {
-  const date = new Date(`${value}T00:00:00`)
-  date.setDate(date.getDate() + days)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+const addDays = addCalendarDays
 const isCalendarDate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
-  return !Number.isNaN(date.getTime()) && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` === value
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
 
 function validate(input: SaveFeedRationInput, currentStock: readonly FeedStockRow[]) {
@@ -92,7 +85,7 @@ function validate(input: SaveFeedRationInput, currentStock: readonly FeedStockRo
   if (input.herdGroup.length > 30) throw new Error('Nhóm đàn tối đa 30 ký tự.')
   if (input.basis.length > 500) throw new Error('Nguồn áp dụng tối đa 500 ký tự.')
   if (!isCalendarDate(input.effectiveFrom)) throw new Error('Ngày áp dụng không hợp lệ.')
-  if (input.effectiveFrom < addDays(localToday(), 1)) throw new Error('Ngày áp dụng phải từ ngày mai trở đi.')
+  if (input.effectiveFrom < addDays(businessDate(), 1)) throw new Error('Ngày áp dụng phải từ ngày mai trở đi.')
   if (![1, 2, 3].includes(input.sessionsPerDay) || input.sessionTimes.length !== input.sessionsPerDay) throw new Error('Số cữ và thời gian chưa khớp.')
   if (input.sessionTimes.some((time) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new Error('Nhập giờ cho từng cữ theo định dạng giờ:phút.')
   if (!input.penIds.length) throw new Error('Chọn ít nhất một chuồng.')
@@ -163,11 +156,11 @@ async function saveVersion(input: SaveFeedRationInput, currentStock: readonly Fe
   return serializeMutation(async () => {
     validate(input, currentStock)
     const state = await states.get('feed-rations')
-    const working = input.replacesId === undefined ? state.rations : dropScheduledVersion(state.rations, input.replacesId, localToday())
+    const working = input.replacesId === undefined ? state.rations : dropScheduledVersion(state.rations, input.replacesId, businessDate())
     const code = input.rationCode || nextCode(working)
     const previousVersions = working.filter((row) => row.rationCode === code).sort((a, b) => b.versionNo - a.versionNo)
     if (input.rationCode && !previousVersions.length) throw new Error('Không tìm thấy khẩu phần cần tạo phiên bản mới.')
-    const today = localToday()
+    const today = businessDate()
     const selectedPenIds = new Set(input.penIds)
     const priorRows = working.filter((row) => row.status !== 'CANCELLED' && row.penIds.some((id) => selectedPenIds.has(id)))
     if (priorRows.some((row) => row.effectiveFrom === input.effectiveFrom)) throw new Error('Chuồng đã có khẩu phần bắt đầu từ ngày này.')
@@ -212,7 +205,7 @@ async function cancelVersion(id: number, versionNo: number, version: number): Pr
     const current = state.rations.find((row) => row.id === id)
     if (!current) throw new Error('Không tìm thấy phiên bản khẩu phần.')
     if (current.versionNo !== versionNo || current.version !== version) throw new Error('Phiên bản khẩu phần đã thay đổi. Tải lại danh sách trước khi thử lại.')
-    const nextRows = dropScheduledVersion(state.rations, id, localToday())
+    const nextRows = dropScheduledVersion(state.rations, id, businessDate())
     await states.update(state.id, { rations: nextRows })
     const cancelled = nextRows.find((row) => row.id === id)!
     return { ...cancelled, penIds: [...cancelled.penIds], components: cancelled.components.map((component) => ({ ...component })) }
@@ -225,7 +218,7 @@ async function stopRation(id: number, endDate: string, version: number): Promise
     const current = state.rations.find((row) => row.id === id)
     if (!current) throw new Error('Không tìm thấy khẩu phần.')
     if (current.version !== version) throw new Error('Phiên bản khẩu phần đã thay đổi. Tải lại danh sách trước khi thử lại.')
-    const today = localToday()
+    const today = businessDate()
     if (rationStatusForDate(current, today) !== 'EFFECTIVE') throw new Error('Chỉ ngừng được khẩu phần đang áp dụng.')
     if (!isCalendarDate(endDate)) throw new Error('Ngày kết thúc không hợp lệ.')
     if (endDate < addDays(today, 1)) throw new Error('Ngày kết thúc phải từ ngày mai trở đi.')

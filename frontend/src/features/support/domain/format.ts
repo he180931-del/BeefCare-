@@ -1,11 +1,10 @@
+import { businessDateTime, toFarmLocal } from '../../../api/farmTimeZone'
 // Thời điểm lưu dạng chuỗi ISO cục bộ ("2026-10-18T09:40:00") nên hiển thị không phụ thuộc múi giờ.
-const pad = (n: number) => String(n).padStart(2, '0')
 
-export const toLocalIso = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+export const toLocalIso = businessDateTime
 
 function parts(iso: string) {
-  const [date, time = '00:00'] = iso.split('T')
+  const [date, time = '00:00'] = (toFarmLocal(iso) || iso).split('T')
   const [y, m, d] = date.split('-')
   return { y, m, d, hm: time.slice(0, 5) }
 }

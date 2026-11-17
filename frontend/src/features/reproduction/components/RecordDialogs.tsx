@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../api/farmTimeZone'
 import { useState, type ReactNode } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Checkbox, Field, Note, Select, Textarea, inputCls } from '../../../components/ui'
@@ -135,7 +136,7 @@ export function BreedingDialog({ profile, onClose, onRecord }: Props) {
   const options = useReproductionOptions()
   const hours72 = 72 * 3_600_000
   const estrusOptions = profile.events
-    .filter((event) => event.type === 'ESTRUS' && event.status === 'VALID' && event.occurredAt <= occurredAt && Date.parse(occurredAt) - Date.parse(event.occurredAt) <= hours72)
+    .filter((event) => event.type === 'ESTRUS' && event.status === 'VALID' && event.occurredAt <= occurredAt && parseBusinessTime(occurredAt) - parseBusinessTime(event.occurredAt) <= hours72)
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   const linkedEstrusId = linked ?? estrusOptions[0]?.id ?? ''
   const score = profile.eligibility ? eligibilityScore(profile.eligibility) : null

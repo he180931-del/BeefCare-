@@ -33,7 +33,7 @@ public class GrowthOverviewService {
         FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATTLE);
         if(!Set.of(30,90,180).contains(window))throw DomainException.invalid("windowDays");
         if(page<0||page>100000||size<1||size>200)throw DomainException.invalid("pagination");
-        ZoneId zone=ZoneId.of(ctx.farm().getTimeZone());LocalDate today=LocalDate.ofInstant(clock.now(),zone);
+        ZoneId zone=clock.zone();LocalDate today=LocalDate.ofInstant(clock.now(),zone);
         List<Cattle> all=em.createQuery("select c from Cattle c where c.farm.id=:f and c.herdStatus=:s order by c.displayCode",Cattle.class)
             .setParameter("f",farmId).setParameter("s",HerdStatus.ACTIVE).getResultList();
         Map<Long,PenAssignment> penByCattle=new HashMap<>();

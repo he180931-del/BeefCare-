@@ -90,15 +90,15 @@ test('TC-09-API01: danh mục vắc-xin đổi đường tiêm và tách liều 
   assert.equal(options.now, '2026-11-05T10:00')
 })
 
-test('Múi giờ trại: trại ở UTC+9 gửi thời điểm tiêm +09:00 và hiện lịch sử theo giờ trại', async () => {
+test('Tiêm phòng ghi và hiển thị theo UTC+7', async () => {
   const { api: a, calls } = api({ ...baseRoutes(), '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' },
     '/api/farms/1/vaccinations': { vaccinatedCount: 1, deferredCount: 0, vaccinationIds: [700] },
     '/api/farms/1/vaccinations/history': [{ id: 1, administeredAt: '2026-11-01T01:30:00Z', vaccinationDate: '2026-11-01', cattleCode: 'BC-101', source: 'ON_FARM', status: 'VALID', version: 0 }] })
-  assert.equal((await a.options()).now, '2026-11-05T12:00', 'giờ hiện tại theo UTC+9')
+  assert.equal((await a.options()).now, '2026-11-05T10:00')
   await a.recordVaccinations({ vaccineId: 1, source: 'ON_FARM', administeredAt: '2026-11-05T08:30', batchNo: 'L', animals: [{ cattleCode: 'BC-102', decision: 'VACCINATE' }] })
-  assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).administeredAt, '2026-11-05T08:30:00+09:00')
-  assert.equal((await a.listHistory({})).rows[0].administeredAt, '2026-11-01T10:30')
-  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 1, 'đọc múi giờ một lần')
+  assert.equal((calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>).administeredAt, '2026-11-05T08:30:00+07:00')
+  assert.equal((await a.listHistory({})).rows[0].administeredAt, '2026-11-01T08:30')
+  assert.equal(calls.filter((c) => c.path === '/api/farms/1/context').length, 0)
 })
 
 test('TC-09-29: danh sách mũi chia tab Quá hạn / Đến hạn / Sắp tới / Đã hoãn theo hôm nay 05/11', async () => {
@@ -447,8 +447,8 @@ test('Múi giờ trại: lịch sử sửa (revision) đổi giờ theo múi gi�
   }
   const { api: a } = api({ ...baseRoutes(), '/api/farms/1/context': { id: 1, timeZone: 'Asia/Tokyo' }, '/api/farms/1/vaccinations/history': [row] })
   const [record] = (await a.listHistory({})).rows
-  assert.deepEqual(record.revisions.map((r) => r.at), ['2026-11-05T11:00', '2026-11-06T11:00'])
-  assert.deepEqual(record.revisions.map((r) => r.before.administeredAt), ['2026-11-02T10:30', '2026-11-02T10:30'])
+  assert.deepEqual(record.revisions.map((r) => r.at), ['2026-11-05T09:00', '2026-11-06T09:00'])
+  assert.deepEqual(record.revisions.map((r) => r.before.administeredAt), ['2026-11-02T08:30', '2026-11-02T08:30'])
 })
 
 test('TC-09-API05: giờ trại của Instant qua nửa đêm UTC', () => {

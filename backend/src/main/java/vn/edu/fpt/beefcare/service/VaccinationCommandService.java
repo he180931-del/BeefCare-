@@ -320,7 +320,7 @@ public class VaccinationCommandService {
             if (req.batchNo() != null) record.setBatchNo(requireMax(req.batchNo(), "batchNo", 50));
             if (req.administeredAt() != null) {
                 clock.assertNotFuture(req.administeredAt()); record.setAdministeredAt(req.administeredAt());
-                record.setVaccinationDate(farmDate(req.administeredAt(), ctx.farm().getTimeZone()));
+                record.setVaccinationDate(clock.toFarmDate(req.administeredAt()));
             }
             // GAP-FE09-04 / TC-09-27: the withdrawal period can be corrected (0-365); the end date is always recalculated.
             if (req.withdrawalDays() != null) {
@@ -392,7 +392,7 @@ public class VaccinationCommandService {
             if (administeredAt == null) administeredAt = clock.now();
             clock.assertNotFuture(administeredAt);
         }
-        LocalDate date = source.equals("ON_FARM") ? farmDate(administeredAt, ctx.farm().getTimeZone()) : req.vaccinationDate();
+        LocalDate date = source.equals("ON_FARM") ? clock.toFarmDate(administeredAt) : req.vaccinationDate();
         if (date == null) throw DomainException.required("vaccinationDate");
         clock.assertNotFuture(date);
         int withdrawalDays = source.equals("HISTORICAL") ? 0 : req.withdrawalDays() == null ? parseDays(vaccine.getWithdrawalInfo()) : req.withdrawalDays();
@@ -528,10 +528,6 @@ public class VaccinationCommandService {
     private int parseDays(String value) {
         if (value == null || value.isBlank()) return 0;
         try { return Integer.parseInt(value.trim()); } catch (NumberFormatException ex) { throw DomainException.invalid("withdrawalDays"); }
-    }
-    private LocalDate farmDate(java.time.Instant time, String zone) {
-        try { return time.atZone(java.time.ZoneId.of(zone)).toLocalDate(); }
-        catch (Exception ignored) { return clock.toFarmDate(time); }
     }
 
     private String trim(String value) { return value == null || value.isBlank() ? null : value.trim(); }

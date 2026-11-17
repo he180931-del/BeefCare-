@@ -78,7 +78,7 @@ Lịch sử trước / sau bất biến của mỗi lần sửa / loại / hủy
 | Mã | Quy tắc | Nguồn |
 |---|---|---|
 | R-16-01 | Chỉ đọc; không lưu bản sao; không tạo / sửa sự kiện. | GBR-37 |
-| R-16-02 | Sắp theo **thời điểm xảy ra** (mới nhất trước – Q3), nhóm theo tháng; hiện cả thời điểm xảy ra và thời điểm ghi. | GBR-37 |
+| R-16-02 | Sắp theo **thời điểm xảy ra** (mới nhất trước – Q3). FE-16 dùng UTC+7 cố định để nhóm tháng, hiển thị hai thời điểm và nhập giờ trong popup của timeline. | GBR-37, D39 |
 | R-16-03 | Bản ghi đã sửa hiện giá trị hiệu lực + nhãn "Đã sửa". | GBR-37 |
 | R-16-04 | Bản ghi bị loại / hủy ẩn mặc định; bật "Hiện chỉnh sửa" → hiện bản gốc đã sửa, bản ghi loại / hủy tô xám kèm lý do. | GBR-37 |
 | R-16-05 | Lịch tiêm, mũi sắp tới, nhắc việc **không** có trên dòng thời gian. | GBR-37 |
@@ -162,6 +162,7 @@ Ghi chú: `canOpen`, `canCorrect` do BE tính theo vai trò để FE ẩn / hi�
 | TC-16-13 | Bò của trại khác | Gọi A1 | 404 / MSG-COM-08 | H | R-16-09 |
 | TC-16-14 | Gọi A1 nhiều lần | — | Không tạo / sửa bản ghi nào | I | R-16-01 |
 | TC-16-15 | Bò thay thẻ QR | Chip Định danh & QR | Có sự kiện thay thẻ + lý do | I | §3.1 |
+| TC-16-16 | Sự kiện sát mốc giao tháng theo UTC+7, thiết bị đặt múi giờ khác, trại có cấu hình cũ | Mở tab và sửa thời điểm trong popup của timeline | Tiêu đề tháng, thời điểm xảy ra, thời điểm ghi và ô sửa đều theo UTC+7. Request lưu gửi thời điểm với hậu tố `+07:00`. | U, I | R-16-02, R-16-07 |
 
 ---
 

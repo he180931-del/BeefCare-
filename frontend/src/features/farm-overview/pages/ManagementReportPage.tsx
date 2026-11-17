@@ -1,3 +1,4 @@
+import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../api/userFacingError'
@@ -16,12 +17,8 @@ import type { HerdGroup, LifeStage, ReportCode, ReportFilterKey, ReportRequest }
 const TITLE = 'Báo cáo quản lý'
 
 function recentReportPeriod() {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
-  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ''
-  const to = `${part('year')}-${part('month')}-${part('day')}`
-  const start = new Date(`${to}T00:00:00Z`)
-  start.setUTCDate(start.getUTCDate() - 29)
-  return { dateFrom: start.toISOString().slice(0, 10), dateTo: to }
+  const to = businessDate()
+  return { dateFrom: addCalendarDays(to, -29), dateTo: to }
 }
 
 export default function ManagementReportPage() {

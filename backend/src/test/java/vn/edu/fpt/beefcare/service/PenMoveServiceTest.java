@@ -137,9 +137,9 @@ class PenMoveServiceTest extends DomainTestSupport {
     }
 
     @Test
-    void moveUsesTheFarmDateAfterMidnightInTokyo() {
+    void moveUsesUtcPlusSevenAfterMidnightEvenWithLegacyFarmZone() {
         farm.setTimeZone("Asia/Tokyo");
-        clock.set(TODAY.atTime(16, 30).toInstant(ZoneOffset.UTC));
+        clock.set(TODAY.atTime(17, 0).toInstant(ZoneOffset.UTC));
         Pen from = pen(farm, "FROM", 10);
         Pen to = pen(farm, "TO", 10);
         Cattle cow = cowIn(from, TODAY);

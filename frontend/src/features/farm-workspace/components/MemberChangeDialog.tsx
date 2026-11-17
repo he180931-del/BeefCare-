@@ -24,12 +24,12 @@ type Step = 'form' | 'confirm' | 'discard'
  * version sent is the one seen when it opened. Outdated rows go back to the list (`onStale`); a save or network failure
  * keeps the popup and the same Idempotency-Key.
  */
-export function MemberChangeDialog({ farmId, farmName, timeZone, member, initialAction, active, onClose, onDone, onStale }: {
+export function MemberChangeDialog({ farmId, farmName, member, initialAction, active, onClose, onDone, onStale }: {
   farmId: number; farmName: string; timeZone: string; member: Membership; initialAction?: MemberAction; active: boolean
   onClose: () => void; onDone: (message: string) => void; onStale: (message: string) => void
 }) {
   const inactive = member.status === 'INACTIVE'
-  const today = farmToday(timeZone)
+  const today = farmToday()
   const startAction: MemberAction = inactive ? 'REACTIVATE' : initialAction === 'DEACTIVATE' ? 'DEACTIVATE' : 'CHANGE_ROLE'
   const otherRole = member.role === 'MANAGER' ? 'TECHNICIAN' : 'MANAGER'
   const [action, setAction] = useState<MemberAction>(startAction)

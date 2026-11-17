@@ -24,6 +24,7 @@ import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.DomainException;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.service.FarmServiceFacts;
@@ -39,7 +40,7 @@ import vn.edu.fpt.beefcare.service.PlatformAccessService;
 @Transactional(readOnly = true)
 public class PlatformSubscriptionQueryService {
 
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId BUSINESS_ZONE = FarmTimeZones.OFFSET;
     private static final int MAX_PAGE_SIZE = 100;
 
     private final EntityManager em;

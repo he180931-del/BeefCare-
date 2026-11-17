@@ -1,3 +1,4 @@
+import { DEFAULT_FARM_TIME_ZONE, addCalendarDays, businessDate, businessDateTime, parseBusinessTime } from '../../../api/farmTimeZone'
 import type {
   AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AccountStatusAction, AuditActionOption, AuditFilters, AuditRow, AuditTargetType, FarmRole,
   PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole,
@@ -243,33 +244,35 @@ export const verificationText = (a: Pick<AccountDetail, 'emailVerified' | 'signI
 
 // ---------- Ngày giờ ----------
 
-const pad = (n: number) => String(n).padStart(2, '0')
-export const toYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const toYmd = businessDate
 const ymdParts = (ymd: string) => ymd.split('-').map(Number) as [number, number, number]
-export const addDaysYmd = (ymd: string, days: number) => { const [y, m, d] = ymdParts(ymd); return toYmd(new Date(y, m - 1, d + days)) }
-export const addMonthsYmd = (ymd: string, months: number) => { const [y, m, d] = ymdParts(ymd); return toYmd(new Date(y, m - 1 + months, d)) }
+export const addDaysYmd = addCalendarDays
+const calendarDate = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10)
+export const addMonthsYmd = (ymd: string, months: number) => { const [y, m, d] = ymdParts(ymd); return calendarDate(y, m - 1 + months, d) }
 
-export const formatDate = (iso: string) => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}` }
-export const formatDateTime = (iso: string) => { const d = new Date(iso); return `${formatDate(iso)} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
-const PLATFORM_ZONE = 'Asia/Ho_Chi_Minh'
 const platformParts = (iso: string) =>
-  Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: PLATFORM_ZONE, hourCycle: 'h23', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    .formatToParts(new Date(iso)).map((p) => [p.type, p.value]))
+  Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: DEFAULT_FARM_TIME_ZONE, hourCycle: 'h23', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    .formatToParts(new Date(parseBusinessTime(iso))).map((p) => [p.type, p.value]))
 /** Màn hình nền tảng hiện giờ Asia/Ho_Chi_Minh (Table III-1), không theo múi giờ của máy. */
 export const formatPlatformDate = (iso: string) => { const p = platformParts(iso); return `${p.day}/${p.month}/${p.year}` }
 export const formatPlatformDateTime = (iso: string) => { const p = platformParts(iso); return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}` }
-export const formatShortDateTime = (iso: string) => { const d = new Date(iso); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
+export const formatDate = formatPlatformDate
+export const formatDateTime = formatPlatformDateTime
+export const formatShortDateTime = (iso: string) => {
+  const p = platformParts(iso)
+  return `${p.day}/${p.month} ${p.hour}:${p.minute}`
+}
 
 /** Thời gian thông báo: "n phút trước", giờ trong ngày, "Hôm qua", rồi ngày. */
 export function formatNoticeTime(iso: string, now: Date) {
-  const d = new Date(iso)
+  const d = new Date(parseBusinessTime(iso))
   const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000)
   if (diffMin < 1) return 'Vừa xong'
   if (diffMin < 60) return `${diffMin} phút trước`
-  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
-  const dayDiff = Math.round((startOfDay(now) - startOfDay(d)) / 86400000)
-  if (dayDiff <= 0) return `${pad(d.getHours())}:${pad(d.getMinutes())}`
-  if (dayDiff === 1) return 'Hôm qua'
+  const today = businessDate(now)
+  const day = businessDate(d)
+  if (day >= today) return businessDateTime(d).slice(11, 16)
+  if (day === addCalendarDays(today, -1)) return 'Hôm qua'
   return formatDate(iso)
 }
 
@@ -390,8 +393,8 @@ export const defaultAuditRange = (todayYmd: string) => ({ from: addDaysYmd(today
 /** Cộng tháng như máy chủ (LocalDate.plusMonths): 29/02 + 12 tháng = 28/02. */
 const plusMonthsClamped = (ymd: string, months: number) => {
   const [y, m, d] = ymdParts(ymd)
-  const last = new Date(y, m - 1 + months + 1, 0).getDate()
-  return toYmd(new Date(y, m - 1 + months, Math.min(d, last)))
+  const last = new Date(Date.UTC(y, m + months, 0)).getUTCDate()
+  return calendarDate(y, m - 1 + months, Math.min(d, last))
 }
 
 /** MSG-COM-06 / MSG-COM-11 / MSG-COM-10, cùng thứ tự kiểm của máy chủ. */

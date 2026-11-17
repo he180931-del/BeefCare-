@@ -42,7 +42,7 @@ class ReminderReconciliationService {
     public void reconcileFarm(Long farmId){
         // The same farm may be reached by the cron and an outbox retry at once. Serialize these writers before
         // reading source state so the unique rule key remains an idempotency guard, not a race outcome.
-        Farm farm=em.find(Farm.class,farmId,LockModeType.PESSIMISTIC_WRITE);if(farm==null)return;ZoneId zone=zone(farm.getTimeZone());Instant now=clock.now();LocalDate today=now.atZone(zone).toLocalDate();
+        Farm farm=em.find(Farm.class,farmId,LockModeType.PESSIMISTIC_WRITE);if(farm==null)return;ZoneId zone=clock.zone();Instant now=clock.now();LocalDate today=now.atZone(zone).toLocalDate();
         List<Cattle> cattle=em.createQuery("select c from Cattle c where c.farm.id=:farm and c.herdStatus=:active order by c.id",Cattle.class).setParameter("farm",farmId).setParameter("active",HerdStatus.ACTIVE).getResultList();
         Map<String,Desired> desired=new LinkedHashMap<>();Set<String> completed=new HashSet<>(),superseded=new HashSet<>();
         ParameterSnapshot params=parameters(farmId,today);
@@ -197,7 +197,6 @@ class ReminderReconciliationService {
     private ParameterSnapshot parameters(Long farm,LocalDate date){List<FarmParameterVersion> rows=em.createQuery("select p from FarmParameterVersion p where p.farm.id=:farm and p.effectiveFrom<=:date order by p.effectiveFrom desc,p.versionNo desc",FarmParameterVersion.class).setParameter("farm",farm).setParameter("date",date).setMaxResults(1).getResultList();if(rows.isEmpty())return new ParameterSnapshot(farm,null,Map.of(),null);FarmParameterVersion v=rows.get(0);try{return new ParameterSnapshot(farm,v.getId(),json.readValue(v.getParameterValues(),new TypeReference<>(){}),"{\"id\":"+v.getId()+",\"versionNo\":"+v.getVersionNo()+",\"values\":"+v.getParameterValues()+"}");}catch(Exception ex){return new ParameterSnapshot(farm,v.getId(),Map.of(),null);}}
     private boolean keepsFirstDue(Desired d){return "REM-10".equals(d.rule())||"REM-08".equals(d.rule())&&d.sourceId().startsWith("PEN_CRITERIA:");}
     private boolean active(String status){return "ACTIVE".equalsIgnoreCase(status)||"OPEN".equalsIgnoreCase(status);}
-    private ZoneId zone(String value){try{return ZoneId.of(value);}catch(Exception ignored){return clock.zone();}}
     private Integer integer(Object value){return value instanceof Number n?n.intValue():null;}
     private int or(Map<String,Object> values,String key,int fallback){Integer value=integer(values.get(key));return value==null?fallback:value;}
     private BigDecimal decimal(Object value){return value instanceof Number n?new BigDecimal(n.toString()):null;}
@@ -209,6 +208,6 @@ class ReminderReconciliationService {
 class ReminderReconciliationJob {
     private final ReminderReconciliationService service;
     ReminderReconciliationJob(ReminderReconciliationService service){this.service=service;}
-    @Scheduled(cron="${beefcare.jobs.reminder-reconcile-cron:0 */15 * * * *}")
+    @Scheduled(cron="${beefcare.jobs.reminder-reconcile-cron:0 */15 * * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     public void reconcile(){for(Long farmId:service.farmIds())service.reconcileFarm(farmId);}
 }

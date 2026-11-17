@@ -6,7 +6,6 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -129,10 +128,10 @@ public class ReproductionCommandService {
         event.setDescription(optional(req.note(), "note", 500));
         event.setLinkedEvent(linked);
         Integer gestation = gestationDays(farmId, clock.toFarmDate(at));
-        event.setTentativeExpectedCalvingDate(gestation == null ? null : farmDate(cattle, at).plusDays(gestation));
+        event.setTentativeExpectedCalvingDate(gestation == null ? null : clock.toFarmDate(at).plusDays(gestation));
         em.persist(event); em.flush();
 
-        List<String> failed = cattleState.breedingCriteria(cattle, today(cattle)).stream().filter(c -> !c.met()).map(CattleStateService.BreedingCriterion::name).toList();
+        List<String> failed = cattleState.breedingCriteria(cattle, clock.today()).stream().filter(c -> !c.met()).map(CattleStateService.BreedingCriterion::name).toList();
         reminders.breedingRecorded(cattle, event);
         audit.log(ctx, "REPRODUCTION_BREEDING_RECORD", "ReproductionEvent", event.getId(), Map.of("cattleId", cattle.getId(), "occurredAt", at.toString()));
         return result(event, cattle, null, gestation == null ? "GESTATION_LENGTH_DAYS" : null,
@@ -284,7 +283,7 @@ public class ReproductionCommandService {
         em.persist(calving);
         made.forEach(em::persist);
         em.flush();
-        if (episode != null) { episode.setStatus("CALVED"); episode.setClosedDate(farmDate(dam, birth)); episode.setCloseReason("CALVED"); }
+        if (episode != null) { episode.setStatus("CALVED"); episode.setClosedDate(clock.toFarmDate(birth)); episode.setCloseReason("CALVED"); }
         reminders.calvingRecorded(dam, calving.getId(), birth);
         em.flush();
 
@@ -413,8 +412,8 @@ public class ReproductionCommandService {
                 if (req.performerId() != null || req.performerName() != null) setPerformer(farmId, event, req.performerId(), req.performerName());
                 if (req.note() != null) event.setDescription(optional(req.note(), "note", 500));
                 event.setLinkedEvent(linked);
-                Integer gestation = gestationDays(farmId, farmDate(cattle, at));
-                event.setTentativeExpectedCalvingDate(gestation == null ? null : farmDate(cattle, at).plusDays(gestation));
+                Integer gestation = gestationDays(farmId, clock.toFarmDate(at));
+                event.setTentativeExpectedCalvingDate(gestation == null ? null : clock.toFarmDate(at).plusDays(gestation));
                 for (PregnancyEpisode p : episodesLinkedTo(event)) if ("OPEN".equalsIgnoreCase(p.getStatus())) setExpected(p, cattle, event, null, at, gestation);
             }
             case "PREGNANCY_CHECK" -> {
@@ -445,7 +444,7 @@ public class ReproductionCommandService {
                 if (req.note() != null) event.setDescription(optional(req.note(), "note", 500));
                 if (confirmed != null && "OPEN".equalsIgnoreCase(confirmed.getStatus()) && "PREGNANT".equals(result)) {
                     if (confirmed.getConfirmingCheck() != null && confirmed.getConfirmingCheck().getId().equals(event.getId())) confirmed.setLinkedBreeding(linked);
-                    setExpected(confirmed, cattle, confirmed.getLinkedBreeding(), months, at, gestationDays(farmId, farmDate(cattle, at)));
+                    setExpected(confirmed, cattle, confirmed.getLinkedBreeding(), months, at, gestationDays(farmId, clock.toFarmDate(at)));
                 }
             }
             default -> throw DomainException.invalid("type");
@@ -518,7 +517,7 @@ public class ReproductionCommandService {
         }
         if (wasLoss && !isLoss) reopenAfterLossVoided(episode, update.getId(), true);
         else if (!wasLoss && isLoss) closeAsLost(episode, at);
-        else if (isLoss) episode.setClosedDate(farmDate(cattle, at));
+        else if (isLoss) episode.setClosedDate(clock.toFarmDate(at));
         update.setType(type); update.setOccurredTime(at);
         if (req.dataSource() != null) update.setSource(dataSource(req.dataSource()));
         if (req.details() != null) update.setDetails(required(req.details(), "details", 1000));
@@ -581,7 +580,7 @@ public class ReproductionCommandService {
             if (calving.getEpisode() != null) assertNotBeforeConfirmingCheck(dam, calving.getEpisode(), birth, "birthAt");
             assertNoCalvingWithin30Days(dam, birth, calving.getId());
             calving.setBirthTime(birth);
-            if (calving.getEpisode() != null) calving.getEpisode().setClosedDate(farmDate(dam, birth));
+            if (calving.getEpisode() != null) calving.getEpisode().setClosedDate(clock.toFarmDate(birth));
         }
         if (req.dataSource() != null) calving.setSource(dataSource(req.dataSource()));
         if (req.course() != null) calving.setCourse(optionalEnum(req.course(), COURSES, "course"));
@@ -763,7 +762,7 @@ public class ReproductionCommandService {
             if (e.getId().equals(excluded)) continue;
             if (linkedEstrusId != null && e.getLinkedEvent() != null && linkedEstrusId.equals(e.getLinkedEvent().getId())) continue;
             throw DomainException.conflict(MessageCodes.FE11_03, "event_type", "ESTRUS".equals(type) ? "động dục" : "phối giống", "type", type,
-                "cattle_code", cattle.getDisplayCode(), "time", formatTime(cattle, e.getEventTime()), "at", e.getEventTime(), "eventId", e.getId());
+                "cattle_code", cattle.getDisplayCode(), "time", formatTime(e.getEventTime()), "at", e.getEventTime(), "eventId", e.getId());
         }
     }
     /** R-12-04: a check never overrides independent newer evidence; NOT_PREGNANT contradicts an OPEN pregnancy. */
@@ -800,7 +799,7 @@ public class ReproductionCommandService {
         LocalDate entryDate = em.createQuery("select e.entryDate from HerdEntry e where e.cattle.id=:cattle and e.voucher.farm.id=:farm and e.status=:valid order by e.id", LocalDate.class)
             .setParameter("cattle", cattle.getId()).setParameter("farm", farmId).setParameter("valid", EntryLineStatus.VALID)
             .setMaxResults(1).getResultStream().findFirst().orElse(null);
-        if (entryDate != null && farmDate(cattle, at).isBefore(entryDate)) throw DomainException.unprocessable(MessageCodes.COM_15, "date", entryDate, "field", field);
+        if (entryDate != null && clock.toFarmDate(at).isBefore(entryDate)) throw DomainException.unprocessable(MessageCodes.COM_15, "date", entryDate, "field", field);
         return at;
     }
 
@@ -830,7 +829,7 @@ public class ReproductionCommandService {
         return linked;
     }
     private DomainException beforeLinked(String event, Instant time, Cattle cattle, String field) {
-        return DomainException.unprocessable(MessageCodes.FE11_10, "event", event, "time", formatTime(cattle, time), "at", time, "field", field);
+        return DomainException.unprocessable(MessageCodes.FE11_10, "event", event, "time", formatTime(time), "at", time, "field", field);
     }
 
     /** R-11-01 → MSG-FE11-04 for a farm sire that is not another ACTIVE male of this farm. */
@@ -989,15 +988,15 @@ public class ReproductionCommandService {
     /** R-12-03: CONFIRMED from the linked breeding, ESTIMATED from the months, none otherwise (or without the gestation parameter). */
     private void setExpected(PregnancyEpisode episode, Cattle cattle, ReproductionEvent linked, Integer months, Instant checkedAt, Integer gestation) {
         if (gestation != null && linked != null) {
-            episode.setExpectedCalvingDate(farmDate(cattle, linked.getEventTime()).plusDays(gestation)); episode.setExpectedBasis("CONFIRMED");
+            episode.setExpectedCalvingDate(clock.toFarmDate(linked.getEventTime()).plusDays(gestation)); episode.setExpectedBasis("CONFIRMED");
         } else if (gestation != null && months != null) {
-            episode.setExpectedCalvingDate(farmDate(cattle, checkedAt).plusDays(gestation - months * 30L)); episode.setExpectedBasis("ESTIMATED");
+            episode.setExpectedCalvingDate(clock.toFarmDate(checkedAt).plusDays(gestation - months * 30L)); episode.setExpectedBasis("ESTIMATED");
         } else {
             episode.setExpectedCalvingDate(null); episode.setExpectedBasis(null);
         }
     }
     private void closeAsLost(PregnancyEpisode episode, Instant at) {
-        episode.setStatus("LOST"); episode.setCloseReason("PREGNANCY_LOSS"); episode.setClosedDate(farmDate(episode.getCattle(), at));
+        episode.setStatus("LOST"); episode.setCloseReason("PREGNANCY_LOSS"); episode.setClosedDate(clock.toFarmDate(at));
         reminders.pregnancyLost(episode);
     }
     private void voidEpisode(PregnancyEpisode episode, String reason) {
@@ -1113,12 +1112,7 @@ public class ReproductionCommandService {
         return em.createQuery("select p from PregnancyEpisode p where p.cattle.id=:id and upper(p.status)='OPEN' order by p.id desc", PregnancyEpisode.class)
             .setParameter("id", cattleId).setMaxResults(1).getResultStream().findFirst().orElse(null);
     }
-    private ZoneId zone(Cattle cattle) {
-        try { return ZoneId.of(cattle.getFarm().getTimeZone()); } catch (Exception ignored) { return clock.zone(); }
-    }
-    private LocalDate farmDate(Cattle cattle, Instant at) { return at.atZone(zone(cattle)).toLocalDate(); }
-    private LocalDate today(Cattle cattle) { return farmDate(cattle, clock.now()); }
-    private String formatTime(Cattle cattle, Instant at) { return TIME.format(at.atZone(zone(cattle))); }
+    private String formatTime(Instant at) { return TIME.format(at.atZone(clock.zone())); }
     private String reproStatus(Cattle cattle) { return String.valueOf(cattleState.state(cattle).get("reproductiveStatus")); }
 
     private PregnancyEpisode episode(Long farmId, Long id) {

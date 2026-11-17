@@ -170,7 +170,7 @@ describe('backend mode', () => {
     },
     attention: [{ type: 'BREEDING_WINDOW', cattleId: 1, displayCode: 'C-1', dueAt: '2026-11-14T09:00:00Z' }],
   }
-  const contextBody = { timeZone: 'Asia/Ho_Chi_Minh', serviceUntil: '2026-12-01T00:00:00Z' }
+  const contextBody = { timeZone: 'Asia/Tokyo', serviceUntil: '2026-11-30T16:30:00Z' }
   const penBody = { pens: [{ id: 9, code: 'P1', name: 'Chuồng 1', capacity: 4, status: 'ACTIVE' }] }
   const backend = (responses: Record<string, unknown>, commands: Record<string, unknown> = {}) => {
     const get = vi.fn(async (path: string) => responses[path] ?? responses[Object.keys(responses).find((key) => path.endsWith(key) || path.includes(key)) ?? ''])
@@ -197,7 +197,7 @@ describe('backend mode', () => {
     expect(query.get('penId')).toBe('9')
     expect(query.get('herdGroup')).toBe('BREEDING_FEMALES')
     expect(query.get('lifeStage')).toBe('ADULT')
-    expect(view).toMatchObject({ farmName: 'Trại thử', activeCattle: 2, serviceUntil: '2026-12-01', timeZone: 'Asia/Ho_Chi_Minh' })
+    expect(view).toMatchObject({ farmName: 'Trại thử', activeCattle: 2, serviceUntil: '2026-11-30', timeZone: 'Asia/Ho_Chi_Minh' })
     expect(view.indicators.m01).toMatchObject({ total: 2, breedBreakdown: [{ label: 'Lai Sind', count: 2 }] })
     expect(view.indicators.m03).toEqual({ total: null, overdue: null })
     expect(view.indicators.m08).toBeNull()

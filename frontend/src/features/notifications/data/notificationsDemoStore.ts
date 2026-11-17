@@ -1,13 +1,13 @@
+import { businessDateTime, parseBusinessTime } from '../../../api/farmTimeZone'
 import { newestFirst } from '../domain/notificationRules'
 import { NOTIFICATIONS_DEMO_NOW, NOTIFICATIONS_SEED } from './notificationsMock'
 
-const pad = (v: number) => String(v).padStart(2, '0')
-const localIso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+const localIso = businessDateTime
 
 /** Store trong bộ nhớ: mỗi thông báo có một người nhận; đọc lại không đổi thời điểm đã đọc. */
 export function createNotificationsDemoStore(seed = NOTIFICATIONS_SEED, options: { now?: () => Date } = {}) {
   let rows = structuredClone(seed)
-  const now = () => options.now?.() ?? new Date(NOTIFICATIONS_DEMO_NOW)
+  const now = () => options.now?.() ?? new Date(parseBusinessTime(NOTIFICATIONS_DEMO_NOW))
   return {
     now,
     async listMine() {

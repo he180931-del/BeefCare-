@@ -1,3 +1,4 @@
+import { toFarmLocal } from '../../../api/farmTimeZone'
 import type { BadgeTone } from '../../../components/ui'
 import type {
   CreateTicketCommand,
@@ -87,7 +88,7 @@ export function filterTickets(tickets: Ticket[], { q, category, from, to }: Tick
   return tickets.filter((t) => {
     if (needle && !normalize(`${t.code} ${t.subject}`).includes(needle)) return false
     if (category && t.category !== category) return false
-    const day = t.updatedAt.slice(0, 10)
+    const day = toFarmLocal(t.updatedAt).slice(0, 10)
     if (from && day < from) return false
     if (to && day > to) return false
     return true

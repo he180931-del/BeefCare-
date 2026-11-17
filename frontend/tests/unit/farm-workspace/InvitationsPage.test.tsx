@@ -29,14 +29,14 @@ beforeEach(() => {
 })
 
 describe('UC-FE03-02 / SCR-14', () => {
-  it('requests Pending newest-first, uses global counts and shows one page in the farm time zone', async () => {
+  it('requests Pending newest-first, uses global counts and shows one page in UTC+7', async () => {
     open()
     expect(await screen.findByText('invite23@example.test')).toBeInTheDocument()
     expect(api.listInvitations).toHaveBeenCalledWith(401, expect.objectContaining({ status: 'PENDING', page: 0, size: 20, sort: 'lastSentAt', dir: 'desc' }))
     expect(screen.getByRole('button', { name: 'Đang chờ (23)' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Đã chấp nhận (4)' })).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(21)
-    expect(screen.getAllByText('12/11/2026 03:00')).toHaveLength(20)
+    expect(screen.getAllByText('12/11/2026 10:00')).toHaveLength(20)
     expect(screen.queryByText('invite3@example.test')).not.toBeInTheDocument()
   })
 
@@ -152,7 +152,7 @@ describe('UC-FE03-03 / SCR-14 resend and cancel', () => {
     api.resendInvitation.mockResolvedValue({ ...row(23), version: 4, lastSentAt: '2026-11-14T02:00:00Z', expiresAt: '2026-11-21T02:00:00Z' })
     await user.click(screen.getAllByRole('button', { name: 'Gửi lại' })[0])
     expect(api.resendInvitation).toHaveBeenCalledWith(401, 23, { expectedVersion: 3, idempotencyKey: expect.any(String) })
-    expect(await screen.findByText('Đã cập nhật lời mời tới invite23@example.test. Hệ thống đang gửi email. Hết hạn lúc 21/11/2026 02:00.')).toBeInTheDocument()
+    expect(await screen.findByText('Đã cập nhật lời mời tới invite23@example.test. Hệ thống đang gửi email. Hết hạn lúc 21/11/2026 09:00.')).toBeInTheDocument()
     await waitFor(() => expect(api.listInvitations.mock.calls.length).toBe(initial + 1))
   })
 

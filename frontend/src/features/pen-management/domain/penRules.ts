@@ -1,3 +1,4 @@
+import { businessDate } from '../../../api/farmTimeZone'
 import type { Pen } from '../../../types'
 
 /** Enum values of the backend reception criteria (SRS §3.2 Pen Reception Criteria). */
@@ -100,10 +101,7 @@ export function headerSummary(pens: Pen[]): { penCount: number; used: number; to
 }
 
 /** Today in the browser's local time, as yyyy-mm-dd. */
-export const todayIso = (now: Date = new Date()): string => {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-}
+export const todayIso = businessDate
 export const dmy = (iso: string | null | undefined): string => (iso ? iso.split('-').reverse().join('/') : '—')
 
 export const PEN_CODE_PATTERN = /^[A-Za-z0-9-]{1,20}$/

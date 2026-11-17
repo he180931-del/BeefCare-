@@ -1,4 +1,5 @@
 import type { CattleEvent, Tone } from '../types'
+import { toFarmLocal } from './farmTimeZone'
 
 /** One event of GET /api/farms/{farmId}/cattle/{id}/timeline (CattleTimelineService.Event). */
 export type BackendTimeline = {
@@ -55,28 +56,20 @@ const num = (value: unknown): string => {
   return Number.isFinite(n) ? String(Number(n.toFixed(2))) : str(value)
 }
 const join = (...parts: unknown[]) => parts.filter((part) => part !== false && part != null).map(str).filter((part) => part.trim()).join(' · ')
-const pad = (n: number) => String(n).padStart(2, '0')
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+const timelineKey = (value: string) => DATE_ONLY.test(value) ? value : toFarmLocal(value)
 
-/** dd/mm/yyyy, plus HH:mm when the instant is not a date-only value (start of day). */
+/** Dates stay calendar dates; timestamps are displayed at UTC+07:00. */
 export function timeLabel(iso: string | null | undefined): string {
   if (!iso) return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso.split('-').reverse().join('/')
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  const date = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
-  return d.getHours() === 0 && d.getMinutes() === 0 ? date : `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const [date, time] = timelineKey(iso).split('T')
+  if (!date) return iso
+  return [date.split('-').reverse().join('/'), time].filter(Boolean).join(' ')
 }
 const dateOnly = (value: unknown) => {
   const v = str(value)
   return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10).split('-').reverse().join('/') : v
 }
-/** Local yyyy-mm-ddTHH:mm of an instant, used to sort and to group by month in the viewer's time zone. */
-const localKey = (iso: string): string => {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 /** SCR-50 #8: "Xảy ra … · ghi … · bởi …". */
 export function timelineMeta(occurredAt?: string | null, recordedAt?: string | null, recorder?: string | null): string {
   return join(occurredAt && `Xảy ra ${timeLabel(occurredAt)}`, recordedAt && `ghi ${timeLabel(recordedAt)}`, recorder && `bởi ${recorder}`)
@@ -169,7 +162,7 @@ export function mapTimeline(event: BackendTimeline, index: number): CattleEvent 
   const cat = CATEGORY[str(event.category)] ?? 'health'
   const raw = str(event.status) || 'VALID'
   const type = str(event.type)
-  const at = event.occurredAt ? localKey(event.occurredAt) : event.recordedAt ? localKey(event.recordedAt) : ''
+  const at = event.occurredAt ? timelineKey(event.occurredAt) : event.recordedAt ? timelineKey(event.recordedAt) : ''
   const meta = timelineMeta(event.occurredAt, event.recordedAt, event.recorder)
   const id = `${type}-${event.sourceId ?? 'x'}-${index}`
 

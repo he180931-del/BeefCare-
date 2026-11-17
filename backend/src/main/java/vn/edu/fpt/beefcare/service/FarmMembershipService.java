@@ -310,7 +310,7 @@ public class FarmMembershipService {
             if (newRole == null || newRole == FarmRole.OWNER) throw DomainException.invalid("role");
         }
         LocalDate effectiveDate = request.effectiveDate();
-        if (effectiveDate.isAfter(farmToday(owner.farm()))) throw DomainException.badRequest(MessageCodes.COM_07, "field", "effectiveDate");
+        if (effectiveDate.isAfter(clock.today())) throw DomainException.badRequest(MessageCodes.COM_07, "field", "effectiveDate");
         String reason = request.reason().trim();
         if (reason.isEmpty()) throw DomainException.required("reason");
         long visible = reason.codePoints().filter(c -> !Character.isWhitespace(c) && !Character.isSpaceChar(c)).count();
@@ -348,10 +348,6 @@ public class FarmMembershipService {
     }
 
     /** "Today" of the farm (Table III-1): the farm's own time zone, the platform zone when it has none. */
-    private LocalDate farmToday(Farm farm) {
-        String zone = farm.getTimeZone();
-        return zone == null || zone.isBlank() ? clock.today() : clock.now().atZone(java.time.ZoneId.of(zone)).toLocalDate();
-    }
 
     private FarmContext requireOwner(Long farmId, boolean requireActiveFarm) {
         FarmContext context = access.require(farmId, FarmAction.VIEW_FARM_INFORMATION);
@@ -388,7 +384,7 @@ public class FarmMembershipService {
      * JOB-02: every 15 minutes; acceptance and resend also check the expiry in real time. The link hash is kept (D28): the
      * status alone makes the link grant nothing, and JOB-08 removes the hash 7 days after expiry.
      */
-    @Scheduled(cron = "${beefcare.jobs.invitation-expiry-cron:0 */15 * * * *}")
+    @Scheduled(cron = "${beefcare.jobs.invitation-expiry-cron:0 */15 * * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     @Transactional
     public void expirePendingInvitations() {
         List<FarmInvitation> expired = invitations.lockPendingExpiredBefore(clock.now());

@@ -66,7 +66,7 @@ public class HerdCatalogueCommandService {
     }
     private PurposeView purposeView(ProductionPurpose p,List<String> messages) {
         List<ReceivingPen> pens=em.createQuery("select c from PenCriteriaVersion c join fetch c.pen where c.farm.id=:f and c.effectiveFrom<=:d order by c.effectiveFrom desc,c.versionNo desc",PenCriteriaVersion.class)
-            .setParameter("f",p.getFarm().getId()).setParameter("d",java.time.LocalDate.ofInstant(clock.now(),java.time.ZoneId.of(p.getFarm().getTimeZone()))).getResultList().stream().collect(java.util.stream.Collectors.toMap(c->c.getPen().getId(),c->c,(a,b)->a))
+            .setParameter("f",p.getFarm().getId()).setParameter("d",clock.today()).getResultList().stream().collect(java.util.stream.Collectors.toMap(c->c.getPen().getId(),c->c,(a,b)->a))
             .values().stream().filter(c->c.getPurposeTypes()!=null&&c.getPurposeTypes().contains(p.getPurposeType())).map(c->new ReceivingPen(c.getPen().getId(),c.getPen().getCode(),c.getPen().getName()))
             .sorted(java.util.Comparator.comparing(ReceivingPen::code)).toList();
         long references=purposeReferences(p);

@@ -680,3 +680,9 @@ gửi thông báo / email; migration thêm `cancelled_at`, `cancelled_by_id`, `c
 `payment`; `PaymentDTO` thêm `cancelledAt`, `cancelReason`; lọc trạng thái A3 / A12 nhận
 `CANCELLED`. PM: yêu cầu đã hủy chỉ là ứng viên (A8) cho giao dịch có giờ NH trước lúc hủy; chứng từ
 về sau lúc hủy có kết quả khớp mới `REQUEST_CANCELLED` (SCR-62 #6). Spec FE-19 §3.3, §5, §6, §7, §8, §9 (TC-19-97 → 109), §10 (Q11), §11.
+
+### D39 — Múi giờ nghiệp vụ cố định UTC+07:00 (17/11/2026)
+
+1. Toàn bộ BeefCare dùng UTC+07:00 cho ngày nghiệp vụ, kiểm ngày tương lai, hiển thị giờ, nhập giờ, nhắc việc và các job theo lịch. Mốc đổi ngày là 17:00 UTC. Khoảng ngày lọc tính từ 00:00 ngày bắt đầu đến trước 00:00 ngày sau ngày kết thúc, cùng độ lệch +07:00.
+2. SCR-11 hiện múi giờ ở chế độ chỉ đọc. API giữ trường `timeZone` với giá trị chuẩn `Asia/Ho_Chi_Minh`; các mã UTC+7 cũ được chuẩn hóa khi lưu. Migration chuẩn hóa trường của các trại hiện có.
+3. Thời điểm lưu là instant với hợp đồng API giữ nguyên. Dữ liệu chỉ có ngày như ngày sinh, ngày chuyển chuồng và hạn sử dụng giữ nguyên giá trị lịch. Giờ nhập từ ô ngày-giờ được diễn giải ở UTC+07:00.

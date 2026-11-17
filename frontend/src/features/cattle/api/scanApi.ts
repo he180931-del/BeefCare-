@@ -1,3 +1,4 @@
+import { toFarmLocal } from '../../../api/farmTimeZone'
 import { backendMode } from '../../../api/backendTransport'
 import { BackendError } from '../../../api/backendClient'
 import { listCows, resolveScannedCode } from './cattleApi'
@@ -14,7 +15,10 @@ export type ScanOutcome =
   | { kind: 'otherFarm'; farmId: number | null }
   | { kind: 'rejected'; code: 'MSG-FE05-09' | 'MSG-FE05-10' }
 
-const dateLabel = (iso: string | null) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : null)
+const dateLabel = (iso: string | null) => {
+  const date = toFarmLocal(iso).slice(0, 10)
+  return date ? date.split('-').reverse().join('/') : null
+}
 
 /** GET /api/farms/{farmId}/cattle/resolve?code= — display code, ear tag or tag code (or an app link to the tag). */
 export async function scanCode(input: string): Promise<ScanOutcome | null> {
