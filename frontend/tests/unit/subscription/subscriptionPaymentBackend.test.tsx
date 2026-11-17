@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { BackendError } from '../../../src/api/backendClient'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { createDevTransferApi } from '../../../src/features/subscription/api/devTransferApi'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
@@ -364,5 +365,76 @@ describe('D38: the Owner cancels a payment request on SCR-59', () => {
     expect(await screen.findByText(/Yêu cầu đã thay đổi trạng thái/)).toBeInTheDocument()
     expect(await screen.findByText(/Thanh toán BC-UC02 đã được xác nhận/)).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('SCR-59 "Vào trại" after the first paid period (UC-FE02-02)', () => {
+  // Farm 77 differs from the per-load fallback farm (backendFarmId '42') and from session.farmId (42): entering either of
+  // those instead of the paid farm is exactly the original bug (a fresh tab falls back to VITE_BEEFCARE_FARM_ID).
+  const FARM = 77
+  const guide = `/goi-dich-vu/chuyen-khoan/501?farm=${FARM}`
+  const paid: Payment = { ...pending, state: 'PAID', confirmedAt: new Date(NOW + 1000).toISOString(),
+    purchasedStart: pending.requestedAt, purchasedEnd: '2027-11-09T03:00:00Z' }
+  const farmOverview = { ...overview, farmId: FARM, farmName: 'Trại mới 77' }
+  const context = { id: FARM, name: 'Trại mới 77', role: 'OWNER', serviceStatus: 'ACTIVE', version: 3 }
+  const contextOf = (path: string) => path === `/api/farms/${FARM}/context`
+  const answer = (onContext: (path: string) => Promise<unknown>) => http.get.mockImplementation((path: string) => contextOf(path)
+    ? onContext(path)
+    : path.endsWith('/context') ? Promise.reject(new Error(`unexpected farm check ${path}`))
+      : Promise.resolve(path.endsWith('/subscription') ? farmOverview : paid))
+  beforeEach(() => { clearCurrentFarmId(); vi.spyOn(Date, 'now').mockReturnValue(NOW) })
+  afterEach(() => clearCurrentFarmId())
+
+  it('enters the paid farm through the farm check, keeps it for this tab and reloads, once even when pressed twice', async () => {
+    let resolveContext!: (value: unknown) => void
+    answer(() => new Promise((resolve) => { resolveContext = resolve }))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    fireEvent.click(enter)
+    fireEvent.click(enter)
+    expect(enter).toBeDisabled()
+    await act(async () => { resolveContext(context) })
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    expect(http.get.mock.calls.filter(([path]) => String(path).endsWith('/context'))).toEqual([[`/api/farms/${FARM}/context`]])
+    expect(readCurrentFarmId()).toBe(FARM)
+    // Not a bare route change: that kept every farm API on the configured fallback farm (403 on the new farm's pages).
+    expect(screen.queryByText('Destination')).not.toBeInTheDocument()
+  })
+
+  it('stays on the guide and explains why when the farm cannot be entered', async () => {
+    answer(() => Promise.reject(new BackendError(403, { code: 'MSG-FE02-03' })))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    fireEvent.click(enter)
+    expect(await screen.findByText('Trang trại chưa thể sử dụng dịch vụ. Chủ trại cần kiểm tra gói dịch vụ.')).toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+    expect(readCurrentFarmId()).toBeNull()
+    expect(enter).toBeEnabled()
+  })
+
+  it('says the browser blocks site data instead of leaving the button disabled when the farm cannot be kept', async () => {
+    answer(() => Promise.resolve(context))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    fireEvent.click(enter)
+    expect(await screen.findByText(/Trình duyệt đang chặn lưu dữ liệu/)).toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+    expect(enter).toBeEnabled()
+  })
+
+  it('shows the Vietnamese connection message, not the raw browser error, when the farm check cannot reach the server', async () => {
+    answer(() => Promise.reject(new TypeError('Failed to fetch')))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    fireEvent.click(enter)
+    expect(await screen.findByText(/Không thể kết nối máy chủ/)).toBeInTheDocument()
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+    expect(enter).toBeEnabled()
   })
 })

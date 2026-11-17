@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import FirstSubscriptionPage from '../../../src/features/subscription/pages/FirstSubscriptionPage'
@@ -153,6 +154,20 @@ describe('Hướng dẫn chuyển khoản', () => {
     await user.click(await screen.findByRole('button', { name: 'Kiểm tra lại' }))
     expect(await screen.findByText(/đã được xác nhận\. Kỳ dịch vụ 15\/11\/2026 → 14\/11\/2027/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Về gói dịch vụ' })).toBeInTheDocument()
+  })
+
+  it('lần mua đầu ở dữ liệu mẫu: "Vào trại" chỉ chuyển trang, không lưu trại cho tab (hai kho mẫu không chung trại)', async () => {
+    const user = userEvent.setup()
+    clearCurrentFarmId()
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const overview = await subscriptionDemoStore.getOverview(2)
+    const payment = await subscriptionDemoStore.createPayment(2, { durationYears: 1, expectedPriceVersionId: overview.currentPrices!.id })
+    renderAt(`/goi-dich-vu/chuyen-khoan/${payment.quoteRef}?farm=2&demo=bank-paid`, 'OWNER')
+    await user.click(await screen.findByRole('button', { name: 'Kiểm tra lại' }))
+    await user.click(await screen.findByRole('button', { name: 'Vào trại' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/tong-quan'))
+    expect(load).not.toHaveBeenCalled()
+    expect(readCurrentFarmId()).toBeNull()
   })
 
   it('không lấy được kết quả: giữ nguyên yêu cầu và cho thử lại', async () => {

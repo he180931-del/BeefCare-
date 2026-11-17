@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { BackendError } from '../../../api/backendClient'
+import { backendMode } from '../../../api/backendTransport'
 import { userFacingError } from '../../../api/userFacingError'
 import Layout from '../../../components/Layout'
 import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
 import { useDemoState } from '../../../hooks/useDemoState'
+import { enterFarm } from '../../farm-workspace/components/enterFarm'
+import { farmWorkspaceError } from '../../farm-workspace/components/WorkspaceUi'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { useIsPhone, useTick } from '../components/shared'
 import CancelRequestDialog from '../components/CancelRequestDialog'
@@ -34,6 +38,8 @@ export default function TransferPage() {
   const notice = payment.notice
   const [cancelling, setCancelling] = useState(false)
   const [pageNotice, setPageNotice] = useState<string | null>(null)
+  const [entering, setEntering] = useState(false)
+  const [enterError, setEnterError] = useState<string | null>(null)
   const from = params.get('from')
   const expired = current?.state === 'EXPIRED'
   const dialog = useStateDialog({
@@ -65,6 +71,21 @@ export default function TransferPage() {
   // D38: same rule as A18 — unexpired PENDING and no transfer received yet (bước 2 của tiến trình còn "Đang chờ").
   const cancellable = pending && !current.receivedAt && now < toMs(current.expiresAt)
   const openCancel = () => { setPageNotice(null); setCancelling(true) }
+  // UC-FE02-02: open the paid farm through the same check as SCR-09 so this tab keeps it; a plain route change would leave
+  // every farm API on the configured fallback farm. The mock stores do not share farms, so local mode keeps the route change.
+  const openFarm = async () => {
+    if (backendMode !== 'backend') { navigate('/tong-quan'); return }
+    if (entering) return
+    setEntering(true); setEnterError(null)
+    try {
+      const blocked = await enterFarm(farmId)
+      if (blocked) { setEnterError(blocked); setEntering(false) }
+    } catch (reason) {
+      const fallback = 'Chưa vào được trang trại. Vui lòng thử lại.'
+      // farmWorkspaceError maps the FE-02 codes; a network failure is not a BackendError and needs the shared Vietnamese text.
+      setEnterError(reason instanceof BackendError ? farmWorkspaceError(reason, fallback) : userFacingError(reason, fallback)); setEntering(false)
+    }
+  }
 
   return (
     <Layout title={TITLE}>
@@ -82,11 +103,12 @@ export default function TransferPage() {
             <span className="flex flex-wrap items-center justify-between gap-2">
               <span>Thanh toán {current.quoteRef} đã được xác nhận. Kỳ dịch vụ {current.purchasedStart && current.purchasedEnd ? fmtPeriod(current.purchasedStart, current.purchasedEnd) : '—'}.</span>
               {firstPurchase
-                ? <Button variant="primary" size="sm" onClick={() => navigate('/tong-quan')}>Vào trại</Button>
+                ? <Button variant="primary" size="sm" disabled={entering} onClick={() => void openFarm()}>Vào trại</Button>
                 : <Button variant="primary" size="sm" onClick={() => navigate(to('/goi-dich-vu'))}>Về gói dịch vụ</Button>}
             </span>
           </Note>
         )}
+        {paid && enterError && <Note tone="err">{enterError}</Note>}
         {pending && !phone && (
           <Note tone="info">
             Chuyển đúng {fmtVnd(current.amountVnd)} với nội dung {current.quoteRef} trước {fmtTimeDate(current.expiresAt)}. Dịch vụ được kích hoạt tự động sau khi giao dịch được xác nhận.
