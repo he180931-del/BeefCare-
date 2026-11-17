@@ -1,5 +1,6 @@
 package vn.edu.fpt.beefcare.service.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import java.time.Instant;
 import java.util.List;
@@ -8,7 +9,13 @@ import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
 
 public final class SupportDtos {
     private SupportDtos() {}
-    public record Create(@NotBlank String category,@NotBlank String scope,Long farmId,@NotBlank @Size(max=150) String subject,@NotBlank @Size(max=3000) String description) {}
+    public record Create(
+        @Schema(allowableValues = {"ACCOUNT_ACCESS", "PAYMENT", "FARM_SERVICE", "SYSTEM_USAGE", "OTHER"}) @NotBlank String category,
+        @Schema(description = "ACCOUNT_ACCESS requires ACCOUNT; PAYMENT and FARM_SERVICE require FARM; SYSTEM_USAGE and OTHER allow either scope", allowableValues = {"FARM", "ACCOUNT"}) @NotBlank String scope,
+        @Schema(description = "Required for PAYMENT and FARM_SERVICE, and for any FARM-scoped ticket; must be null for ACCOUNT_ACCESS and any ACCOUNT-scoped ticket") Long farmId,
+        @NotBlank @Size(max=150) String subject,
+        @NotBlank @Size(max=3000) String description
+    ) {}
     public record Reply(@NotBlank @Size(max=3000) String content,@NotNull Integer expectedVersion) {}
     public record Processing(@NotBlank String action,Long recipientId,String category,String priority,@Size(max=1000) String reason,@Size(max=3000) String question,@NotNull Integer expectedVersion) {}
     public record Resolution(@NotBlank @Size(max=3000) String content,@NotNull Integer expectedVersion) {}

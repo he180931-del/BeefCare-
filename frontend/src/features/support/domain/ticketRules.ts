@@ -9,6 +9,7 @@ import type {
   TicketFilters,
   TicketPage,
   TicketPriority,
+  TicketScope,
   TicketStatus,
   TicketTab,
 } from '../types'
@@ -21,6 +22,14 @@ export const TICKET_CATEGORIES: ReadonlyArray<{ value: TicketCategory; label: st
   { value: 'OTHER', label: 'Khác', hint: 'Ngoài danh mục' },
 ]
 export const categoryLabel = (c: TicketCategory) => TICKET_CATEGORIES.find((x) => x.value === c)?.label ?? c
+
+const FARM_REQUIRED_CATEGORIES: ReadonlySet<TicketCategory> = new Set(['PAYMENT', 'FARM_SERVICE'])
+
+export function requiredScopeForCategory(category: TicketCategory | ''): TicketScope | null {
+  if (category === 'ACCOUNT_ACCESS') return 'ACCOUNT'
+  if (category && FARM_REQUIRED_CATEGORIES.has(category)) return 'FARM'
+  return null
+}
 
 export const PRIORITY_LABELS: Record<TicketPriority, string> = { LOW: 'Thấp', NORMAL: 'Bình thường', HIGH: 'Cao' }
 
@@ -117,7 +126,13 @@ export const REASON_MAX = 1000
 export function validateCreate(cmd: CreateTicketCommand, ownedFarmIds: number[]): Record<string, string> {
   const errors: Record<string, string> = {}
   if (!cmd.category) errors.category = 'Vui lòng chọn danh mục.'
-  if (cmd.scope !== 'FARM' && cmd.scope !== 'ACCOUNT') errors.scope = 'Vui lòng chọn phạm vi.'
+  if (cmd.scope !== 'FARM' && cmd.scope !== 'ACCOUNT') {
+    errors.scope = 'Vui lòng chọn phạm vi.'
+  } else {
+    const requiredScope = requiredScopeForCategory(cmd.category)
+    if (requiredScope === 'FARM' && cmd.scope !== 'FARM') errors.scope = 'Danh mục này bắt buộc gắn với trang trại.'
+    if (requiredScope === 'ACCOUNT' && cmd.scope !== 'ACCOUNT') errors.scope = 'Danh mục này chỉ hỗ trợ ở phạm vi tài khoản.'
+  }
   if (cmd.scope === 'FARM') {
     if (cmd.farmId == null) errors.farmId = 'Vui lòng chọn trang trại liên quan.'
     else if (!ownedFarmIds.includes(cmd.farmId)) errors.farmId = 'Bạn không có quyền với trang trại này.'

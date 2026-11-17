@@ -1,8 +1,9 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { supportApi } from '../../../src/features/platform-support/api/supportApi'
 import { supportDemoStore } from '../../../src/features/platform-support/data/supportDemoStore'
 import InternalRequestRoutes from '../../../src/features/platform-support/pages/InternalRequestRoutes'
 import SupportDeskRoutes from '../../../src/features/platform-support/pages/SupportDeskRoutes'
@@ -43,6 +44,74 @@ describe('hàng đợi hỗ trợ', () => {
 })
 
 describe('xử lý ticket', () => {
+  it('khóa gửi trùng và dùng version mới từ phản hồi cho tin nhắn kế tiếp', async () => {
+    const user = userEvent.setup()
+    const actor = { id: 1, name: 'Phạm Thu Hà', role: 'CS' as const }
+    const initial = await supportDemoStore.getTicket(actor, 'TK-1042')
+    let releaseFirst!: () => void
+    const firstPending = new Promise<void>((resolve) => { releaseFirst = resolve })
+    const versions: Array<number | undefined> = []
+    let replyCount = 0
+    const replySpy = vi.spyOn(supportApi, 'reply').mockImplementation(async (_actor, _code, command) => {
+      versions.push(command.expectedVersion)
+      replyCount += 1
+      if (replyCount === 1) await firstPending
+      const version = initial.version + replyCount
+      return {
+        ...initial,
+        version,
+        updatedAt: `2026-11-18T07:0${replyCount}:00`,
+        messages: [...initial.messages, {
+          id: 99000 + replyCount,
+          visibility: 'PUBLIC' as const,
+          author: actor.name,
+          authorRole: 'CS' as const,
+          text: command.text,
+          at: `2026-11-18T07:0${replyCount}:00`,
+        }],
+      }
+    })
+
+    try {
+      renderAt('/nen-tang/ho-tro/TK-1042', 'CS', actor.id, actor.name)
+      const input = await screen.findByLabelText('Trả lời công khai')
+      const send = screen.getByRole('button', { name: /Gửi/ })
+
+      await user.type(input, 'Phản hồi thứ nhất')
+      await user.click(send)
+      expect(send).toBeDisabled()
+
+      releaseFirst()
+      expect(await screen.findByText('Phản hồi thứ nhất')).toBeInTheDocument()
+      await waitFor(() => expect(send).toBeEnabled())
+
+      await user.type(input, 'Phản hồi thứ hai')
+      await user.click(send)
+      await waitFor(() => expect(versions).toEqual([initial.version, initial.version + 1]))
+    } finally {
+      replySpy.mockRestore()
+    }
+  })
+
+  it('ưu tiên toàn bộ chiều cao cho hội thoại và neo xuống tin mới nhất khi đổi tab', async () => {
+    const user = userEvent.setup()
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(720)
+
+    try {
+      renderAt('/nen-tang/ho-tro/TK-1042', 'CS', 1, 'Phạm Thu Hà')
+
+      const viewport = await screen.findByRole('log', { name: 'Danh sách trao đổi' })
+      await waitFor(() => expect(viewport.scrollTop).toBe(720))
+      expect(screen.queryByRole('heading', { name: 'Yêu cầu nội bộ' })).not.toBeInTheDocument()
+
+      viewport.scrollTop = 0
+      await user.click(screen.getByRole('button', { name: 'Ghi chú nội bộ (nhân viên hỗ trợ)' }))
+      await waitFor(() => expect(viewport.scrollTop).toBe(720))
+    } finally {
+      scrollHeight.mockRestore()
+    }
+  })
+
   it('dùng đúng id tài khoản CS đang đăng nhập để mở quyền xử lý ticket đã nhận', async () => {
     renderAt('/nen-tang/ho-tro/TK-1027', 'CS', 2, 'Ngô Minh Khang')
     expect(await screen.findByRole('button', { name: 'Chuyển giao' })).toBeInTheDocument()

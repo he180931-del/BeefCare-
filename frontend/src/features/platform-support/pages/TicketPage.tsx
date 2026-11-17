@@ -3,14 +3,14 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import Layout from '../../../components/Layout'
 import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented, Table, Td, Th, inputCls, smInputCls } from '../../../components/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented, inputCls, smInputCls } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
 import { supportApi } from '../api/supportApi'
 import { Avatar, StatusBadge, errText, useActor, useFlash } from '../components/common'
 import { ReasonDialog } from '../components/ReasonDialog'
 import { ClosedDialog, CloseDialog, CreateInternalDialog, HandOverDialog, ReassignDialog } from '../components/TicketDialogs'
-import { CATEGORY_LABEL, IR_STATUS_LABEL, OUTCOME_LABEL, PRIORITY_LABEL, ROLE_LABEL, STATUS_LABEL, formatStamp, isAssignedTo, isClaimable, latestResolution, openIrOf } from '../domain/supportRules'
-import type { InternalView, TargetRole, Ticket, TicketCategory, TicketMessage, TicketPriority } from '../types'
+import { CATEGORY_LABEL, PRIORITY_LABEL, STATUS_LABEL, SupportError, formatStamp, isAssignedTo, isClaimable, latestResolution, openIrOf } from '../domain/supportRules'
+import type { InternalView, Ticket, TicketCategory, TicketMessage, TicketPriority } from '../types'
 
 type ConvTab = 'public' | 'internal' | 'history'
 const HISTORY_PAGE_SIZE = 50
@@ -27,7 +27,9 @@ export default function TicketPage() {
   const [historyPage, setHistoryPage] = useState(1)
   const [reply, setReply] = useState('')
   const [replyError, setReplyError] = useState<string | null>(null)
-  const { data: t, loading, error, refetch } = useQuery(() => supportApi.getTicket(me, id), [id, me])
+  const [replySending, setReplySending] = useState(false)
+  const replySendingRef = useRef(false)
+  const { data: t, loading, error, refetch, setData: setTicket } = useQuery(() => supportApi.getTicket(me, id), [id, me])
   const [loadedMessages, setLoadedMessages] = useState<TicketMessage[]>([])
   const [messagesBeforeId, setMessagesBeforeId] = useState<number | null>(null)
   const [messagesHasMore, setMessagesHasMore] = useState(false)
@@ -97,9 +99,25 @@ export default function TicketPage() {
     try { await supportApi.classify(me, t.code, { ...patch, expectedVersion: t.version }); await refetch(); showFlash('Đã lưu thay đổi.') } catch (e) { showFlash(errText(e), 'err') }
   }
   const sendReply = async () => {
+    if (replySendingRef.current) return
     if (!reply.trim()) return setReplyError('Nội dung trả lời là bắt buộc.')
     setReplyError(null)
-    try { await supportApi.reply(me, t.code, { text: reply, expectedVersion: t.version }); setReply(''); await refetch(); showFlash('Đã gửi trả lời.') } catch (e) { setReplyError(errText(e)) }
+    replySendingRef.current = true
+    setReplySending(true)
+    try {
+      const updated = await supportApi.reply(me, t.code, { text: reply, expectedVersion: t.version })
+      setTicket(updated)
+      setReply('')
+      showFlash('Đã gửi trả lời.')
+    } catch (e) {
+      setReplyError(errText(e))
+      if (e instanceof SupportError && e.code === 'CONFLICT') {
+        try { await refetch() } catch { /* Giữ lỗi gửi hiện tại; ErrorBlock sẽ hiển thị nếu tải lại cũng thất bại. */ }
+      }
+    } finally {
+      replySendingRef.current = false
+      setReplySending(false)
+    }
   }
 
   const resolveBlocked = !!openIr
@@ -138,6 +156,15 @@ export default function TicketPage() {
   const action = (label: string, onClick: () => void, enabled: boolean, icon?: 'circle-plus') => (
     <Button block onClick={onClick} disabled={!enabled}>{icon && <Icon name={icon} size={16} />} {label}</Button>
   )
+  const selectConversationTab = (nextTab: ConvTab) => {
+    setTab(nextTab)
+    if (nextTab === 'history') setHistoryPage(1)
+    else {
+      requestAnimationFrame(() => {
+        if (messagesViewport.current) messagesViewport.current.scrollTop = messagesViewport.current.scrollHeight
+      })
+    }
+  }
 
   return (
     <Layout title={title}>
@@ -148,9 +175,10 @@ export default function TicketPage() {
           <Note tone="warn">Chỉ nhân viên hỗ trợ đang phụ trách mới được thay đổi yêu cầu này.{isClaimable(t) && <> <Button variant="link" size="sm" onClick={() => void claim()}>Nhận</Button></>}</Note>
         )}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
-          <div className="flex min-w-0 flex-col gap-4">
-            <Card title="Trao đổi">
-              <div><Segmented options={[{ value: 'public', label: 'Trao đổi công khai' }, { value: 'internal', label: 'Ghi chú nội bộ (nhân viên hỗ trợ)' }, { value: 'history', label: 'Lịch sử' }]} value={tab} onChange={(v) => { setTab(v as ConvTab); if (v === 'history') setHistoryPage(1) }} /></div>
+          <div className="flex min-w-0 flex-col gap-4 xl:min-h-0">
+            <div className="flex min-h-0 flex-1 flex-col [&>section]:h-full [&>section]:min-h-0">
+              <Card title="Trao đổi">
+              <div><Segmented options={[{ value: 'public', label: 'Trao đổi công khai' }, { value: 'internal', label: 'Ghi chú nội bộ (nhân viên hỗ trợ)' }, { value: 'history', label: 'Lịch sử' }]} value={tab} onChange={(v) => selectConversationTab(v as ConvTab)} /></div>
               {tab === 'internal' && (
                 <div className="flex items-center justify-between gap-2">
                   <p className="m-0 text-[11px] text-muted">Chỉ nhân viên hỗ trợ và người nhận yêu cầu nội bộ được nêu tên thấy</p>
@@ -166,7 +194,7 @@ export default function TicketPage() {
               )}
               {tab !== 'history' && messagesError && <p role="alert" className="m-0 text-xs text-err-fg">{messagesError}</p>}
               {tab !== 'history' && (
-                <div ref={messagesViewport} className="max-h-[480px] overflow-y-auto pr-1">
+                <div ref={messagesViewport} role="log" aria-label="Danh sách trao đổi" className="min-h-0 h-[360px] overflow-y-auto pr-1 xl:h-[clamp(320px,calc(100vh-420px),480px)]">
                   <div className="flex flex-col gap-3">
                     {messages.length === 0 && <p className="m-0 text-xs text-muted">Chưa có nội dung.</p>}
                     {messages.map((x) => (
@@ -190,20 +218,20 @@ export default function TicketPage() {
               {tab === 'public' && canEdit && (
                 <div>
                   <div className="flex gap-3">
-                    <input aria-label="Trả lời công khai" className={inputCls} placeholder="Trả lời công khai cho Chủ trại…" maxLength={3000} value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void sendReply()} />
-                    <Button variant="primary" onClick={() => void sendReply()}><Icon name="send" size={16} /> Gửi</Button>
+                    <input aria-label="Trả lời công khai" className={inputCls} placeholder="Trả lời công khai cho Chủ trại…" maxLength={3000} value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void sendReply() } }} />
+                    <Button variant="primary" disabled={replySending} onClick={() => void sendReply()}><Icon name="send" size={16} /> {replySending ? 'Đang gửi…' : 'Gửi'}</Button>
                   </div>
                   {replyError && <p role="alert" className="m-0 mt-1 text-xs text-err-fg">{replyError}</p>}
                 </div>
               )}
-            </Card>
+              </Card>
+            </div>
             {res && (
               <Card title={`Kết quả giải quyết · phiên bản ${res.version}`} actions={res.acknowledged ? <Badge tone="ok">Chủ trại đã xác nhận {formatStamp(res.acknowledgedAt ?? '')}</Badge> : <Badge tone="outline">Chờ Chủ trại xác nhận</Badge>}>
                 <p className="m-0 text-xs text-muted">{res.resolvedBy} · {formatStamp(res.resolvedAt)}</p>
                 <p className="m-0 text-xs text-ink">{res.content}</p>
               </Card>
             )}
-            <InternalRequestsCard ticket={t} canEdit={canEdit} onCreate={() => go('tao-yeu-cau')} onReassign={(r) => go('doi-nguoi-nhan', { ir: r.code })} onCancel={(r) => go('huy-yeu-cau', { ir: r.code })} />
           </div>
           <div className="flex min-w-0 flex-col gap-4">
             <Card title="Xử lý">
@@ -233,54 +261,10 @@ export default function TicketPage() {
       </div>
       <TicketDialogsHost
         ticket={t} modal={m} targetIr={targetIr} me={me} closeModal={closeModal} act={act} reload={() => { void refetch(); closeModal() }}
-        onPublic={() => { setTab('public'); closeModal() }} onViewExisting={() => { setTab('public'); closeModal() }}
+        onPublic={() => { selectConversationTab('public'); closeModal() }} onViewExisting={() => { selectConversationTab('public'); closeModal() }}
       />
       {flash}
     </Layout>
-  )
-}
-
-function InternalRequestsCard({ ticket, canEdit, onCreate, onReassign, onCancel }: { ticket: Ticket; canEdit: boolean; onCreate: () => void; onReassign: (r: InternalView) => void; onCancel: (r: InternalView) => void }) {
-  const [page, setPage] = useState(1)
-  const pageSize = 50
-  const pageCount = Math.max(1, Math.ceil(ticket.internalRequests.length / pageSize))
-  const safePage = Math.min(page, pageCount)
-  const rows = ticket.internalRequests.slice((safePage - 1) * pageSize, safePage * pageSize)
-  const open = ticket.internalRequests.filter((r) => r.status === 'OPEN').length
-  return (
-    <Card title="Yêu cầu nội bộ" sub={open ? `${open} yêu cầu đang mở` : 'Không có yêu cầu đang mở'} actions={canEdit ? <Button size="sm" onClick={onCreate}><Icon name="circle-plus" size={16} /> Tạo yêu cầu</Button> : undefined}>
-      {ticket.internalRequests.length === 0 ? <p className="m-0 text-xs text-muted">Chưa có yêu cầu nội bộ.</p> : (
-        <div>
-        <Table stack={false}>
-          <thead><tr><Th>Mã</Th><Th>Gửi tới</Th><Th>Nội dung</Th><Th>Trạng thái</Th>{canEdit && <Th><span className="sr-only">Thao tác</span></Th>}</tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.code}>
-                <Td className="font-medium">{r.code}</Td>
-                <Td>
-                  <div className="font-medium">{r.recipient}</div><div className="text-[11px] text-muted">{ROLE_LABEL[r.targetRole as TargetRole]}</div>
-                  {r.status === 'OPEN' && r.needsReassignment && (
-                    // Wraps on phone width (a nowrap badge would widen the page).
-                    <p className="m-0 mt-1 flex items-start gap-1 text-[11px] font-medium text-warn-fg">
-                      <Icon name="alert-triangle" size={12} className="mt-0.5 shrink-0" />
-                      <span>Người nhận không còn khả dụng – cần đổi người nhận</span>
-                    </p>
-                  )}
-                </Td>
-                <Td>
-                  <div>{r.title}</div>
-                  {r.status === 'DONE' && <div className="mt-1 text-[11px] text-muted">{r.outcome ? OUTCOME_LABEL[r.outcome] : ''}: {r.result}</div>}
-                </Td>
-                <Td><Badge tone={r.status === 'OPEN' ? 'info' : r.status === 'DONE' ? 'ok' : 'outline'} icon={r.status === 'OPEN' ? 'clock' : undefined}>{IR_STATUS_LABEL[r.status]}</Badge></Td>
-                {canEdit && <Td>{r.status === 'OPEN' && <div className="flex gap-1"><Button variant="link" size="sm" onClick={() => onReassign(r)}>Đổi người nhận</Button><Button variant="link" size="sm" onClick={() => onCancel(r)}>Hủy</Button></div>}</Td>}
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-        {pageCount > 1 && <Pagination page={safePage} pageCount={pageCount} onChange={setPage} summary={`Hiển thị ${rows.length} / ${ticket.internalRequests.length} yêu cầu`} />}
-        </div>
-      )}
-    </Card>
   )
 }
 

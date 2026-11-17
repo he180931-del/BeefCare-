@@ -686,3 +686,14 @@ về sau lúc hủy có kết quả khớp mới `REQUEST_CANCELLED` (SCR-62 #6)
 1. Toàn bộ BeefCare dùng UTC+07:00 cho ngày nghiệp vụ, kiểm ngày tương lai, hiển thị giờ, nhập giờ, nhắc việc và các job theo lịch. Mốc đổi ngày là 17:00 UTC. Khoảng ngày lọc tính từ 00:00 ngày bắt đầu đến trước 00:00 ngày sau ngày kết thúc, cùng độ lệch +07:00.
 2. SCR-11 hiện múi giờ ở chế độ chỉ đọc. API giữ trường `timeZone` với giá trị chuẩn `Asia/Ho_Chi_Minh`; các mã UTC+7 cũ được chuẩn hóa khi lưu. Migration chuẩn hóa trường của các trại hiện có.
 3. Thời điểm lưu là instant với hợp đồng API giữ nguyên. Dữ liệu chỉ có ngày như ngày sinh, ngày chuyển chuồng và hạn sử dụng giữ nguyên giá trị lịch. Giờ nhập từ ô ngày-giờ được diễn giải ở UTC+07:00.
+
+### D40 — FE-20: danh mục quyết định phạm vi của yêu cầu hỗ trợ (17/11/2026)
+
+FE-20 liệt kê danh mục và phạm vi nhưng chưa quy định quan hệ giữa hai trường, khiến yêu cầu Thanh toán hoặc Dịch vụ trang trại có thể được gửi ở phạm vi tài khoản và không gắn trại.
+
+Quyết định (LamKD):
+
+1. `ACCOUNT_ACCESS` chỉ dùng phạm vi `ACCOUNT`; giao diện tự chọn "Không gắn trại", khóa lựa chọn "Trang trại" và gửi `farmId = null`.
+2. `PAYMENT` và `FARM_SERVICE` chỉ dùng phạm vi `FARM`; giao diện tự chọn "Trang trại", khóa lựa chọn "Không gắn trại", hiện "Danh mục này bắt buộc gắn với trang trại." và bắt buộc chọn một trại thuộc Owner.
+3. `SYSTEM_USAGE` và `OTHER` cho phép người dùng chọn `ACCOUNT` hoặc `FARM`; nếu chọn `FARM` thì bắt buộc chọn trại, nếu chọn `ACCOUNT` thì `farmId = null`.
+4. Frontend kiểm tra để phản hồi ngay trên màn hình; backend kiểm tra lại ma trận danh mục/phạm vi trước khi tạo ticket để không thể bỏ qua bằng cách gọi API trực tiếp. Hợp đồng JSON không thêm trường mới.

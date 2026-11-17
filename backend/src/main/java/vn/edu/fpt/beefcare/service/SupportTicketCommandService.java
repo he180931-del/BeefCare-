@@ -15,6 +15,7 @@ import vn.edu.fpt.beefcare.service.dto.SupportDtos;
 @Transactional
 public class SupportTicketCommandService {
     private static final Set<String> CATEGORIES = Set.of("ACCOUNT_ACCESS", "PAYMENT", "FARM_SERVICE", "SYSTEM_USAGE", "OTHER");
+    private static final Set<String> FARM_REQUIRED_CATEGORIES = Set.of("PAYMENT", "FARM_SERVICE");
     private static final Set<String> PRIORITIES = Set.of("LOW", "NORMAL", "HIGH");
     private final EntityManager em;
     private final FarmAccessService accounts;
@@ -36,6 +37,8 @@ public class SupportTicketCommandService {
     public SupportDtos.Ticket create(SupportDtos.Create r) {
         AppUser actor = requireOwner();
         if (!CATEGORIES.contains(r.category())) throw DomainException.invalid("category");
+        if (FARM_REQUIRED_CATEGORIES.contains(r.category()) && !"FARM".equals(r.scope())) throw DomainException.invalid("scope");
+        if ("ACCOUNT_ACCESS".equals(r.category()) && !"ACCOUNT".equals(r.scope())) throw DomainException.invalid("scope");
         Farm farm = null;
         if ("FARM".equals(r.scope())) {
             if (r.farmId() == null) throw DomainException.required("farmId");

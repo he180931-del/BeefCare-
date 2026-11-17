@@ -12,6 +12,7 @@ const mapError = (error: unknown): never => {
     ...error.fieldErrors.map((item) => [item.field, item.message] as const),
     ...error.violations.flatMap((item) => item.propertyPath ? [[item.propertyPath, item.message ?? error.message] as const] : []),
   ])
+  if (error.status === 400 && Object.keys(fields).length === 0) fields._form = error.message || MESSAGES.saveFailed
   const supportCode = error.status === 404 ? 'NOT_FOUND' : error.status === 403 ? 'FORBIDDEN'
     : code === 'MSG-FE20-06' ? 'CLOSED' : code === 'MSG-FE20-05' ? 'RESULT_CHANGED'
       : error.status === 409 ? 'STATE_CHANGED' : Object.keys(fields).length || error.status === 400 ? 'VALIDATION' : null
