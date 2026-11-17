@@ -2,12 +2,20 @@ package vn.edu.fpt.beefcare.service;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.transaction.TestTransaction;
 import vn.edu.fpt.beefcare.ServiceIntegrationTest;
 import vn.edu.fpt.beefcare.domain.*;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
@@ -17,11 +25,22 @@ import vn.edu.fpt.beefcare.support.DomainTestSupport;
 
 @ServiceIntegrationTest
 @Transactional
+@TestPropertySource(properties="beefcare.outbox.poll-delay-ms=3600000")
 class SupportTicketWorkflowTest extends DomainTestSupport {
+    @DynamicPropertySource
+    static void isolatedDatabase(DynamicPropertyRegistry properties) {
+        properties.add("spring.datasource.url", () -> "jdbc:h2:mem:beefcare-support-ticket-workflow;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
+    }
+
     @Autowired SupportTicketCommandService tickets;
     @Autowired InternalSupportRequestService requests;
     @Autowired IdempotencyCommandService commands;
     @Autowired AuditService audit;
+    @Autowired NotificationService notificationService;
+    @Autowired InternalRequestNotificationOutboxHandler internalRequestNotifications;
+    @Autowired InternalRequestCompletionNotificationOutboxHandler completionNotifications;
+    @Autowired ObjectMapper objectMapper;
+    @Autowired PlatformTransactionManager transactionManager;
 
     private AppUser owner(Farm farm) {
         AppUser u = user(); u.setOwnerRegistrationCompleted(true); u.setOwnerRegistrationCompletedAt(clock.instant());
@@ -38,6 +57,30 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         actAs(cs); return tickets.process(t.id(), new SupportDtos.Processing("CLAIM", null, null, null, null, null, t.version()));
     }
     private SupportDtos.Ticket current(Long id) { return tickets.get(id, true); }
+
+    private OutboxEvent noticeEvent(Long requestId, String action) throws Exception {
+        return noticeEvent(requestId,action,null,null);
+    }
+    private OutboxEvent noticeEvent(Long requestId, String action, Long recipientId, Integer requestVersion) throws Exception {
+        em.flush();
+        List<OutboxEvent> events=em.createQuery("select e from OutboxEvent e where e.eventType=:type and e.aggregateType='InternalRequest' and e.aggregateId=:id order by e.id",OutboxEvent.class)
+            .setParameter("type",InternalRequestNotificationOutboxHandler.EVENT_TYPE).setParameter("id",requestId.toString()).getResultList();
+        return events.stream().filter(event->{
+            try {
+                JsonNode payload=objectMapper.readTree(event.getPayloadJson());
+                return action.equals(payload.path("action").asText()) &&
+                    (recipientId==null||recipientId.equals(payload.path("recipientId").asLong())) &&
+                    (requestVersion==null||requestVersion.equals(payload.path("requestVersion").asInt()));
+            }
+            catch (Exception invalid) { throw new IllegalStateException(invalid); }
+        }).findFirst().orElseThrow();
+    }
+    private OutboxEvent completionNoticeEvent(Long requestId) {
+        em.flush();
+        return em.createQuery("select e from OutboxEvent e where e.eventType=:type and e.aggregateType='InternalRequest' and e.aggregateId=:id order by e.id",OutboxEvent.class)
+            .setParameter("type",InternalRequestCompletionNotificationOutboxHandler.EVENT_TYPE).setParameter("id",requestId.toString())
+            .getResultStream().findFirst().orElseThrow();
+    }
 
     @Test void ownerCanAskForHelpWhileFarmSuspendedButCannotSelectOtherOwnersFarm() {
         Farm farm = farm("SUSPENDED"); AppUser owner = owner(farm); SupportDtos.Ticket t = create(owner, farm);
@@ -174,7 +217,7 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         });
     }
 
-    @Test void performedResultMustReferenceRelatedCommittedDomainWorkAndReassignmentRevokesCachedReplay() {
+    @Test void performedResultMustReferenceRelatedCommittedDomainWorkAndReassignmentRevokesCachedReplay() throws Exception {
         Farm farm = farm(); AppUser owner = owner(farm), cs = staff(PlatformRole.CS), pm = staff(PlatformRole.PM), nextPm = staff(PlatformRole.PM);
         SupportDtos.Ticket t = claim(create(owner, farm), cs);
         SupportDtos.InternalView ir = requests.create(t.id(), new SupportDtos.InternalCreate(PlatformRole.PM, pm.getId(), "Xem trạng thái trại", List.of(), t.version()));
@@ -191,6 +234,16 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         SupportDtos.InternalView completed = commands.executePlatformAuthorized(PlatformRole.PM, "IR_COMPLETE:"+ir.id(), "done-key", done,
             SupportDtos.InternalView.class, () -> requests.requireRecipient(ir.id()), () -> requests.complete(ir.id(), done));
         assertThat(completed.status()).isEqualTo("DONE"); assertThat(completed.domainResultAuditId()).isEqualTo(actual.getId());
+        OutboxEvent completionNotice=completionNoticeEvent(ir.id());
+        completionNotifications.handle(completionNotice);
+        completionNotifications.handle(completionNotice);
+        assertThat(em.createQuery("select count(n) from Notification n where n.recipient.id=:u and n.eventKey=:k",Long.class)
+            .setParameter("u",cs.getId()).setParameter("k","JOB07:INTERNAL_REQUEST_COMPLETED:"+completionNotice.getId()).getSingleResult()).isEqualTo(1L);
+        actAs(cs);
+        assertThat(notificationService.mine()).anyMatch(notice->"SUPPORT_TICKET".equals(notice.targetType())&&t.id().equals(notice.targetId()));
+        em.createQuery("select p from PlatformStaffAccess p where p.user.id=:u",PlatformStaffAccess.class).setParameter("u",cs.getId()).getSingleResult().setStatus("INACTIVE");
+        em.flush();
+        assertThat(notificationService.mine()).isEmpty();
         actAs(pm);
         assertThatThrownBy(() -> commands.executePlatformAuthorized(PlatformRole.PM, "IR_COMPLETE:"+ir.id(), "done-key", done,
             SupportDtos.InternalView.class, () -> requests.requireRecipient(ir.id()), () -> { throw new AssertionError(); })).isInstanceOf(DomainException.class);
@@ -206,5 +259,161 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         assertThat(tickets.requeueUnavailable()).isEqualTo(1); t = current(id);
         assertThat(t.assignedCsId()).isNull(); assertThat(t.status()).isEqualTo("IN_PROGRESS");
         assertThat(claim(t, other).assignedCsId()).isEqualTo(other.getId());
+    }
+
+    @Test void internalRequestNoticeRetriesOnceAndOnlyNotifiesTheCurrentNamedRecipient() throws Exception {
+        Farm farm=farm();AppUser owner=owner(farm),cs=staff(PlatformRole.CS),oldPm=staff(PlatformRole.PM),nextPm=staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket=claim(create(owner,farm),cs);
+        SupportDtos.InternalView request=requests.create(ticket.id(),new SupportDtos.InternalCreate(PlatformRole.PM,oldPm.getId(),"Kiểm tra nghiệp vụ",List.of(),ticket.version()));
+        OutboxEvent created=noticeEvent(request.id(),"CREATED",oldPm.getId(),request.version());
+        JsonNode payload=objectMapper.readTree(created.getPayloadJson());
+        assertThat(payload.path("recipientId").asLong()).isEqualTo(oldPm.getId());
+        assertThat(payload.path("requestVersion").asInt()).isEqualTo(request.version());
+
+        actAs(cs);
+        SupportDtos.InternalView reassignedToY=requests.manage(request.id(),new SupportDtos.InternalManage("REASSIGN",nextPm.getId(),"Đổi người xử lý",request.version()));
+        OutboxEvent reassignedToYEvent=noticeEvent(reassignedToY.id(),"REASSIGNED",nextPm.getId(),reassignedToY.version());
+        actAs(cs);
+        SupportDtos.InternalView reassignedBack=requests.manage(request.id(),new SupportDtos.InternalManage("REASSIGN",oldPm.getId(),"Chuyển lại người xử lý",reassignedToY.version()));
+        OutboxEvent reassignedBackEvent=noticeEvent(reassignedBack.id(),"REASSIGNED",oldPm.getId(),reassignedBack.version());
+        internalRequestNotifications.handle(created);
+        internalRequestNotifications.handle(reassignedToYEvent);
+        internalRequestNotifications.handle(reassignedBackEvent);
+        internalRequestNotifications.handle(reassignedBackEvent);
+
+        String retryKey="JOB07:INTERNAL_REQUEST:"+reassignedBackEvent.getId();
+        assertThat(em.createQuery("select count(n) from Notification n where n.recipient.id=:u and n.eventKey=:k",Long.class)
+            .setParameter("u",oldPm.getId()).setParameter("k","JOB07:INTERNAL_REQUEST:"+created.getId()).getSingleResult()).isZero();
+        assertThat(em.createQuery("select count(n) from Notification n where n.recipient.id=:u and n.eventKey=:k",Long.class)
+            .setParameter("u",nextPm.getId()).setParameter("k","JOB07:INTERNAL_REQUEST:"+reassignedToYEvent.getId()).getSingleResult()).isZero();
+        assertThat(em.createQuery("select count(n) from Notification n where n.recipient.id=:u and n.eventKey=:k",Long.class)
+            .setParameter("u",oldPm.getId()).setParameter("k",retryKey).getSingleResult()).isEqualTo(1L);
+
+        actAs(oldPm);
+        assertThat(notificationService.mine()).extracting(NotificationService.NotificationView::targetType).containsExactly("INTERNAL_REQUEST");
+        em.createQuery("select p from PlatformStaffAccess p where p.user.id=:u",PlatformStaffAccess.class).setParameter("u",oldPm.getId()).getSingleResult().setStatus("INACTIVE");
+        em.flush();
+        assertThat(notificationService.mine()).isEmpty();
+    }
+
+    @Test void createdRequestNoticeDispatchesWithTheVersionAfterItsCodeWasPersisted() throws Exception {
+        Farm farm=farm();AppUser owner=owner(farm),cs=staff(PlatformRole.CS),pm=staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket=claim(create(owner,farm),cs);
+        SupportDtos.InternalView request=requests.create(ticket.id(),new SupportDtos.InternalCreate(PlatformRole.PM,pm.getId(),"Kiểm tra sau tạo",List.of(),ticket.version()));
+        OutboxEvent event=noticeEvent(request.id(),"CREATED",pm.getId(),request.version());
+
+        internalRequestNotifications.handle(event);
+
+        assertThat(em.createQuery("select count(n) from Notification n where n.recipient.id=:u and n.eventKey=:k",Long.class)
+            .setParameter("u",pm.getId()).setParameter("k","JOB07:INTERNAL_REQUEST:"+event.getId()).getSingleResult()).isEqualTo(1L);
+        actAs(pm);
+        assertThat(notificationService.mine()).extracting(NotificationService.NotificationView::targetId).containsExactly(request.id());
+    }
+
+    @Test void formerNamedRecipientCannotMarkAnInternalRequestNoticeReadAfterReassignment() throws Exception {
+        Farm farm=farm();AppUser owner=owner(farm),cs=staff(PlatformRole.CS),formerPm=staff(PlatformRole.PM),nextPm=staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket=claim(create(owner,farm),cs);
+        SupportDtos.InternalView request=requests.create(ticket.id(),new SupportDtos.InternalCreate(
+            PlatformRole.PM,formerPm.getId(),"Kiểm tra giao dịch",List.of(),ticket.version()));
+        OutboxEvent created=noticeEvent(request.id(),"CREATED",formerPm.getId(),request.version());
+        internalRequestNotifications.handle(created);
+
+        actAs(cs);
+        requests.manage(request.id(),new SupportDtos.InternalManage("REASSIGN",nextPm.getId(),"Chuyển người xử lý",request.version()));
+
+        actAs(formerPm);
+        Notification notice=em.createQuery("select n from Notification n where n.recipient.id=:userId and n.eventKey=:eventKey",Notification.class)
+            .setParameter("userId",formerPm.getId()).setParameter("eventKey","JOB07:INTERNAL_REQUEST:"+created.getId()).getSingleResult();
+        assertThatThrownBy(()->notificationService.markRead(notice.getId())).isInstanceOfSatisfying(DomainException.class,error -> {
+            assertThat(error.getCode()).isEqualTo(MessageCodes.FE20_19);
+            assertThat(error.getStatus().value()).isEqualTo(404);
+        });
+        assertThat(notice.getReadTime()).isNull();
+        assertThat(notificationService.mine()).noneMatch(row->row.id().equals(notice.getId()));
+    }
+
+    @Test void cancellationNoticeRemainsScopedToTheNamedRecipientAndStaleCreateIsSkipped() throws Exception {
+        Farm farm=farm();AppUser owner=owner(farm),cs=staff(PlatformRole.CS),pm=staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket=claim(create(owner,farm),cs);
+        SupportDtos.InternalView request=requests.create(ticket.id(),new SupportDtos.InternalCreate(PlatformRole.PM,pm.getId(),"Kiểm tra giao dịch",List.of(),ticket.version()));
+        OutboxEvent created=noticeEvent(request.id(),"CREATED");
+        actAs(cs);
+        SupportDtos.InternalView cancelled=requests.manage(request.id(),new SupportDtos.InternalManage("CANCEL",null,"Không cần xử lý",request.version()));
+        OutboxEvent cancellation=noticeEvent(cancelled.id(),"CANCELLED");
+
+        internalRequestNotifications.handle(created);
+        internalRequestNotifications.handle(cancellation);
+
+        actAs(pm);
+        List<NotificationService.NotificationView> visible=notificationService.mine();
+        assertThat(visible).hasSize(1).first().satisfies(notice->{
+            assertThat(notice.targetType()).isEqualTo("INTERNAL_REQUEST");
+            assertThat(notice.targetId()).isEqualTo(request.id());
+            assertThat(notice.title()).contains("đã bị hủy");
+        });
+    }
+
+    @Test void fourHourInternalReminderRetriesByRecipientEventAndSkipsRevokedAccess() {
+        Farm farm=farm();AppUser owner=owner(farm),cs=staff(PlatformRole.CS),pm=staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket=claim(create(owner,farm),cs);
+        SupportDtos.InternalView request=requests.create(ticket.id(),new SupportDtos.InternalCreate(PlatformRole.PM,pm.getId(),"Kiểm tra đối soát",List.of(),ticket.version()));
+        clock.set(clock.instant().plus(java.time.Duration.ofHours(4)));
+        String reminderKey="internal:"+request.id()+":open4h:"+pm.getId();
+
+        assertThat(requests.remindLongOpenRequests()).isEqualTo(1);
+        assertThat(requests.remindLongOpenRequests()).isEqualTo(1);
+        assertThat(em.createQuery("select count(n) from Notification n where n.recipient.id=:u and n.eventKey=:k",Long.class)
+            .setParameter("u",pm.getId()).setParameter("k",reminderKey).getSingleResult()).isEqualTo(1L);
+
+        em.createQuery("select p from PlatformStaffAccess p where p.user.id=:u",PlatformStaffAccess.class).setParameter("u",pm.getId()).getSingleResult().setStatus("INACTIVE");
+        em.flush();
+        requests.remindLongOpenRequests();
+        assertThat(em.createQuery("select count(n) from Notification n where n.recipient.id=:u and n.eventKey=:k",Long.class)
+            .setParameter("u",pm.getId()).setParameter("k",reminderKey).getSingleResult()).isEqualTo(1L);
+    }
+
+    @Test void fourHourReminderRefreshesAStaleAssignmentBeforeChoosingItsRecipient() {
+        Farm farm=farm();AppUser owner=owner(farm),cs=staff(PlatformRole.CS),formerPm=staff(PlatformRole.PM),currentPm=staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket=claim(create(owner,farm),cs);
+        SupportDtos.InternalView request=requests.create(ticket.id(),new SupportDtos.InternalCreate(
+            PlatformRole.PM,formerPm.getId(),"Kiểm tra giao dịch",List.of(),ticket.version()));
+        clock.set(clock.instant().plus(java.time.Duration.ofHours(4)));
+
+        InternalRequest staleRequest=em.createQuery("select r from InternalRequest r where r.id=:id",InternalRequest.class)
+            .setParameter("id",request.id()).getSingleResult();
+        assertThat(staleRequest.getRecipient().getId()).isEqualTo(formerPm.getId());
+        // Model a database-side assignment change after this persistence context loaded the request.
+        em.createNativeQuery("update internal_request set recipient_id=:recipient where id=:id")
+            .setParameter("recipient",currentPm.getId()).setParameter("id",request.id()).executeUpdate();
+        assertThat(staleRequest.getRecipient().getId()).isEqualTo(formerPm.getId());
+
+        assertThat(requests.remindLongOpenRequests()).isEqualTo(1);
+
+        assertThat(staleRequest.getRecipient().getId()).isEqualTo(currentPm.getId());
+        String formerKey="internal:"+request.id()+":open4h:"+formerPm.getId();
+        String currentKey="internal:"+request.id()+":open4h:"+currentPm.getId();
+        assertThat(em.createQuery("select count(n) from Notification n where n.eventKey=:key",Long.class)
+            .setParameter("key",formerKey).getSingleResult()).isZero();
+        assertThat(em.createQuery("select count(n) from Notification n where n.eventKey=:key",Long.class)
+            .setParameter("key",currentKey).getSingleResult()).isEqualTo(1L);
+    }
+
+    @Test void rolledBackRequestCommandHidesItsRequestAndNoticeEventTogether() throws Exception {
+        Farm farm=farm();AppUser owner=owner(farm),cs=staff(PlatformRole.CS),pm=staff(PlatformRole.PM);
+        SupportDtos.Ticket ticket=claim(create(owner,farm),cs);
+        actAs(cs);
+        SupportDtos.InternalView request=requests.create(ticket.id(),new SupportDtos.InternalCreate(
+            PlatformRole.PM,pm.getId(),"Yêu cầu bị rollback",List.of(),ticket.version()));
+        OutboxEvent event=noticeEvent(request.id(),"CREATED");
+        assertThat(event.getPayloadJson()).contains("\"recipientId\":"+pm.getId());
+
+        TransactionTemplate independentRead=new TransactionTemplate(transactionManager);
+        independentRead.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        TestTransaction.flagForRollback();
+        independentRead.executeWithoutResult(status->{
+            assertThat(em.find(InternalRequest.class,request.id())).isNull();
+            assertThat(em.createQuery("select count(e) from OutboxEvent e where e.eventType=:type and e.aggregateType='InternalRequest' and e.aggregateId=:id",Long.class)
+                .setParameter("type",InternalRequestNotificationOutboxHandler.EVENT_TYPE).setParameter("id",request.id().toString()).getSingleResult()).isZero();
+        });
     }
 }

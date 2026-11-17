@@ -14492,64 +14492,6 @@
           }
         }
       }
-    },
-    "/api/farms/{farmId}/health-cases/{caseId}/closure-correction": {
-      "post": {
-        "tags": [
-          "health-care-command-resource"
-        ],
-        "operationId": "correctClosure",
-        "parameters": [
-          {
-            "name": "farmId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "caseId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CorrectClosure"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthCaseResult"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -17963,6 +17905,9 @@
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "label": {
+            "type": "string"
           }
         },
         "required": [
@@ -18908,6 +18853,10 @@
           },
           "sourceReference": {
             "type": "string"
+          },
+          "sourceVersion": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -27604,25 +27553,6 @@
             "type": "boolean"
           },
           "email": {
-            "type": "string"
-          }
-        }
-      },
-      "CorrectClosure": {
-        "type": "object",
-        "properties": {
-          "expectedVersion": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "outcome": {
-            "type": "string"
-          },
-          "closingDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "reason": {
             "type": "string"
           }
         }
