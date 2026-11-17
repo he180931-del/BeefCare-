@@ -128,11 +128,18 @@ class FarmMemberChangeResourceTest extends DomainTestSupport {
     }
 
     @Test
-    void theFarmTimeZoneDecidesWhatIsInTheFuture() throws Exception {
+    void theFixedUtcPlus7BusinessDayDecidesWhatIsInTheFuture() throws Exception {
+        // D39: every farm uses UTC+07:00; a legacy zone left on the farm row must not move the business day.
         Farm farm = farm(); farm.setTimeZone("Pacific/Kiritimati"); em.flush(); // UTC+14
         AppUser owner = memberWithRole(farm, FarmRole.OWNER); FarmMembership target = membershipOf(farm, memberWithRole(farm, FarmRole.MANAGER));
-        clock.set(Instant.parse("2026-10-28T12:00:00Z")); // already 29/10 in the farm, still 28/10 in Asia/Ho_Chi_Minh
-        change(farm, owner, target.getId(), body("DEACTIVATE", null, LocalDate.of(2026, 10, 29), "Nghỉ việc", target.getVersion()), "tz").andExpect(status().isOk());
+        Map<String, Object> deactivate = body("DEACTIVATE", null, LocalDate.of(2026, 10, 29), "Nghỉ việc", target.getVersion());
+        clock.set(Instant.parse("2026-10-28T16:59:59Z")); // 23:59:59 on 28/10 at UTC+7, already 29/10 at UTC+14
+        refused(change(farm, owner, target.getId(), deactivate, "tz-before"), 400, "MSG-COM-07")
+            .andExpect(jsonPath("$.params.field").value("effectiveDate"));
+        assertThat(historyRows(target)).isZero();
+        clock.set(Instant.parse("2026-10-28T17:00:00Z")); // the business day turns at 17:00 UTC
+        change(farm, owner, target.getId(), deactivate, "tz-after").andExpect(status().isOk());
+        assertThat(historyRows(target)).isEqualTo(1);
     }
 
     @Test
