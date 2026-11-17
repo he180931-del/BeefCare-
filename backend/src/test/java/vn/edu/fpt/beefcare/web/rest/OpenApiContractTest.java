@@ -39,6 +39,11 @@ class OpenApiContractTest {
         assertThat(paths.has("/api/support-tickets")).isFalse();
         assertThat(api.path("components").path("securitySchemes").has("session")).isTrue();
         JsonNode schemas = api.path("components").path("schemas");
+        JsonNode supportTicketCreate = schemas.path("Create").path("properties");
+        assertThat(supportTicketCreate.path("category").path("enum").toString())
+            .contains("ACCOUNT_ACCESS", "PAYMENT", "FARM_SERVICE", "SYSTEM_USAGE", "OTHER");
+        assertThat(supportTicketCreate.path("scope").path("enum").toString()).contains("FARM", "ACCOUNT");
+        assertThat(supportTicketCreate.path("farmId").path("description").asText()).contains("PAYMENT", "FARM_SERVICE", "ACCOUNT_ACCESS");
         assertThat(schemas.path("RecordFeedingRequest").path("required").toString()).contains("lines");
         for (String name : java.util.List.of("FeedingVoidRequest", "FeedingCorrectionRequest")) {
             JsonNode request = schemas.path(name);

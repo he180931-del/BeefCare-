@@ -93,6 +93,32 @@ class SupportTicketWorkflowTest extends DomainTestSupport {
         actAs(owner(null)); assertThatThrownBy(() -> tickets.get(t.id(), false)).isInstanceOf(DomainException.class);
     }
 
+    @Test void paymentAndFarmServiceTicketsRejectAccountScope() {
+        AppUser owner = owner(null); actAs(owner);
+        for (String category : List.of("PAYMENT", "FARM_SERVICE")) {
+            assertThatThrownBy(() -> tickets.create(new SupportDtos.Create(
+                category, "ACCOUNT", null, "Cần hỗ trợ", "Mô tả yêu cầu"
+            ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getStatus().value()).isEqualTo(400));
+        }
+    }
+
+    @Test void accountAccessTicketsRejectFarmScope() {
+        Farm farm = farm(); AppUser owner = owner(farm); actAs(owner);
+        assertThatThrownBy(() -> tickets.create(new SupportDtos.Create(
+            "ACCOUNT_ACCESS", "FARM", farm.getId(), "Cần hỗ trợ", "Mô tả yêu cầu"
+        ))).isInstanceOfSatisfying(DomainException.class, error -> assertThat(error.getStatus().value()).isEqualTo(400));
+    }
+
+    @Test void systemUsageAndOtherTicketsAllowBothScopes() {
+        Farm farm = farm(); AppUser owner = owner(farm); actAs(owner);
+        assertThat(tickets.create(new SupportDtos.Create(
+            "SYSTEM_USAGE", "ACCOUNT", null, "Cần hỗ trợ", "Mô tả yêu cầu"
+        )).farmId()).isNull();
+        assertThat(tickets.create(new SupportDtos.Create(
+            "OTHER", "FARM", farm.getId(), "Cần hỗ trợ", "Mô tả yêu cầu"
+        )).farmId()).isEqualTo(farm.getId());
+    }
+
     @Test void ownerEndpointsRejectFarmNonOwnersAndPlatformStaffEvenWhenOwnerProfileFlagIsSet() {
         Farm farm = farm();
         AppUser manager = memberWithRole(farm, FarmRole.MANAGER);

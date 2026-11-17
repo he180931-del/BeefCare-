@@ -87,7 +87,7 @@ describe('SCR-65 gửi yêu cầu', () => {
   it('phạm vi tài khoản không gắn trại', async () => {
     const user = userEvent.setup()
     renderAt('/ho-tro/moi')
-    await user.click(await screen.findByText('Vấn đề tài khoản (không gắn trại)'))
+    await user.click(await screen.findByRole('button', { name: 'Không gắn trại' }))
     expect(screen.getByLabelText('Trang trại liên quan', { selector: 'select' })).toBeDisabled()
   })
 })
