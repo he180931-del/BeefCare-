@@ -83,7 +83,7 @@ Ký hiệu: RCS = `backend/.../service/ReproductionCommandService.java`, DTO = `
 | R-11-07 thiếu tham số thai → không có ngày | `gestationDays()` `orElse(283)` | Trả null khi không có FarmParameterVersion; dùng ở phối, khám, sửa | RCS |
 | A5 sửa: `changes{…}` gồm đực giống, dấu hiệu, tinh, nguồn, động dục liên kết; phụ thuộc → FE11-07 `{dependents[]}` | `CorrectEvent(occurredAt, method, result, description, performedBy, examiner, observer)`; phụ thuộc → FE12-02 | Mở rộng `CorrectEvent` (source, signs, sireSource, sireCattleId, sireBreed, semenCode, semenSupplier, performerId/Name, observerId, examinerId/Name, linkedEventId, estimatedMonths); kiểm như ghi mới; đổi loại/giờ khi có bản ghi sau → 409 `MSG-FE11-07 {records, dependents[{type,id,at}]}` | RCS, DTO |
 | A6 hủy: FE11-07 liệt kê phụ thuộc | `hasBlockingReproductionDependents` → FE12-02 | → `MSG-FE11-07` kèm danh sách (khám, thai, diễn biến, đẻ, bê đã đăng ký) | RCS |
-| §2 quyền: chỉ Manager ghi; Owner/Technician 403 | `FarmAction.MANAGE_REPRODUCTION` đã có | Giữ; thêm test TC-11-20 | test |
+| §2 quyền: chỉ Manager ghi; Owner/Technician 403 (D41, 18/11/2026: Owner được ghi như Manager, chỉ Technician 403) | `FarmAction.MANAGE_REPRODUCTION` đã có | Giữ; thêm test TC-11-20 (nay chỉ Technician), TC-11-25 (Owner) | test |
 | Mục 8 thông báo FE11-01…11 | `domain_messages_vi.properties` không có MSG-FE11-xx; `MessageCodes` không có FE11_* | Thêm hằng số + câu VN/EN cho FE11-03/04/05/07/08/09/10/11 (01/02/06 là toast FE) | MessageCodes, 2 file properties |
 
 ### FE-12

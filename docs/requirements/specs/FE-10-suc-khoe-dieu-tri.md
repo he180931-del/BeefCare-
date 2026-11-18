@@ -18,10 +18,10 @@
 | UC | Tên | Tác nhân | Màn hình |
 |---|---|---|---|
 | UC-FE10-01 | Xem ca sức khỏe và lịch sử điều trị | Owner, Manager, Technician | SCR-36, SCR-37 |
-| UC-FE10-02 | Mở ca sức khỏe (hoặc thêm quan sát vào ca đang có; phản ứng sau tiêm) | Manager | Popup Mở ca sức khỏe |
-| UC-FE10-03 | Ghi theo dõi, chuyển OPEN ⇄ CHRONIC, đóng ca | Manager | Popup Ghi theo dõi, popup Cập nhật / Đóng ca |
-| UC-FE10-04 | Ghi điều trị | Manager | Popup Ghi điều trị |
-| UC-FE10-05 | Sửa / hủy điều trị hoặc lần theo dõi | Manager | Popup Sửa / Hủy điều trị hoặc theo dõi |
+| UC-FE10-02 | Mở ca sức khỏe (hoặc thêm quan sát vào ca đang có; phản ứng sau tiêm) | Owner, Manager | Popup Mở ca sức khỏe |
+| UC-FE10-03 | Ghi theo dõi, chuyển OPEN ⇄ CHRONIC, đóng ca | Owner, Manager | Popup Ghi theo dõi, popup Cập nhật / Đóng ca |
+| UC-FE10-04 | Ghi điều trị | Owner, Manager | Popup Ghi điều trị |
+| UC-FE10-05 | Sửa / hủy điều trị hoặc lần theo dõi | Owner, Manager | Popup Sửa / Hủy điều trị hoặc theo dõi |
 
 **Liên quan:** đóng ca Chết / Mất tích tạo phiếu chết PENDING cho Owner (FE-13, REM-12); xác nhận xuất đàn đóng ca với kết quả CLOSED_BY_EXIT (FE-13); danh mục thuốc (FE-18); cách ly thịt hiển thị ở FE-05.
 
@@ -32,7 +32,7 @@
 | Hành động | Owner | Manager | Technician |
 |---|---|---|---|
 | Xem ca, theo dõi, điều trị | Có | Có | Có |
-| Mở ca, theo dõi, điều trị, đổi trạng thái, đóng ca, sửa / hủy | — | **Chỉ Manager** | — (có thể được chọn là người quan sát / thực hiện) |
+| Mở ca, theo dõi, điều trị, đổi trạng thái, đóng ca, sửa / hủy | Có (D41) | Có | — (có thể được chọn là người quan sát / thực hiện) |
 
 Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi mới; bò trên phiếu chết PENDING không nhận bản ghi mới nhưng vẫn sửa / hủy được (GBR-26, BR-D20).
 
@@ -113,7 +113,7 @@ Cần trại ACTIVE. Bò EXITED / VOIDED / bê nháp không nhận bản ghi m�
 | R-10-11 | Quan sát mở ca chỉ sửa, **không hủy** → MSG-FE10-13; ca mở nhầm thì đóng có lý do (UC-03). | UC-05 AF3 |
 | R-10-12 | Hủy điều trị cuối của ca OPEN → sức khỏe về Theo dõi nếu không còn ca OPEN nào có điều trị. | UC-05 AF2 |
 | R-10-13 | Không sửa / hủy bản ghi thuộc ca CLOSED_BY_EXIT. | UC-05 PRE-2 |
-| R-10-14 | Chỉ Manager ghi, đổi trạng thái, sửa, hủy. | GBR-08 |
+| R-10-14 | Owner và Manager ghi, đổi trạng thái, sửa, hủy (D41); Technician xem. | GBR-08 |
 
 ---
 
@@ -167,15 +167,15 @@ SCR-36 (danh sách ca toàn đàn theo tab) → SCR-37 (tab Sức khỏe của b
 | # | Trường | Hiện với | Nội dung |
 |---|---|---|---|
 | 1 | Health state / Sức khỏe | Tất cả | Khỏe mạnh / Theo dõi / Đang điều trị |
-| 2 | Open health case / Mở ca sức khỏe | Manager | Mở popup |
+| 2 | Open health case / Mở ca sức khỏe | Owner, Manager | Mở popup |
 | **Thẻ ca (mỗi ca OPEN hoặc CHRONIC)** | | | |
 | 3 | Case / Ca | | Mã và dấu hiệu chính |
 | 4 | Status / Trạng thái | | OPEN · ngày n / CHRONIC · từ dd/mm/yyyy |
 | 5 | Severity, Opened at, Number of treatments | | Chỉ đọc |
 | 6 | Meat withdrawal until / Cách ly thịt đến | | Ngày hết ngưng thịt của bò (điều trị + tiêm tại trại) hoặc "—" |
-| 7 | Record follow-up / Record treatment / Update status | Manager | Mở popup tương ứng |
+| 7 | Record follow-up / Record treatment / Update status | Owner, Manager | Mở popup tương ứng |
 | 8 | Time, Type, Details, Recorded by / Thời điểm, Loại, Chi tiết, Người ghi | | Theo thời gian: Mở ca (dấu hiệu, thân nhiệt), Theo dõi (diễn biến, mô tả), Điều trị (thuốc, liều, đường dùng, ngưng thịt); "Đã sửa" / dòng hủy mờ |
-| 9 | Actions / Thao tác | Manager | "Sửa · Hủy" trên dòng theo dõi và điều trị; "Sửa" trên quan sát mở ca |
+| 9 | Actions / Thao tác | Owner, Manager | "Sửa · Hủy" trên dòng theo dõi và điều trị; "Sửa" trên quan sát mở ca |
 | **Ca trước đây** | | | |
 | 10 | Case code, Signs, Outcome · month | | Chỉ đọc |
 
@@ -314,11 +314,12 @@ Ghi chú: code có thêm `POST …/health-cases/{caseId}/closure-correction` (s�
 | TC-10-21 | Quan sát mở ca | Hủy | MSG-FE10-13 | I | R-10-11 |
 | TC-10-22 | Sửa / hủy | Không lý do | MSG-COM-06 | U, H | R-10-10 |
 | TC-10-23 | Ca CLOSED_BY_EXIT | Sửa điều trị | Bị chặn | I | R-10-13 |
-| TC-10-24 | Owner / Technician | Gọi mở ca / ghi điều trị | 403 | H | R-10-14 |
+| TC-10-24 | Technician | Gọi mở ca / ghi điều trị | 403 | H | R-10-14 |
 | TC-10-25 | Thuốc ngưng | Ghi điều trị | MSG-FE18-08 | I | UC-04 E2 |
 | TC-10-26 | 3 ca OPEN, 1 CHRONIC, 2 CLOSED (tháng trước) | Mở SCR-36, tab Đang mở | 3 dòng, bỏ qua khoảng ngày | E | SCR-36 |
 | TC-10-27 | Popup Cập nhật / Đóng ca | Giữ trạng thái không chọn diễn biến; Đóng ca có chữ không chọn diễn biến; Đóng ca ô chữ trống | MSG-COM-06 dưới ô Diễn biến / MSG-COM-06 / lưu được, không tạo theo dõi; lưu đúng diễn biến đã chọn | U, H | D35 |
 | TC-10-28 | A5 | Có `latestProgress`, thiếu `progress` | 400 MSG-COM-06 `{field: progress}`; ca không đổi; backend không tự điền | H | D35 |
+| TC-10-29 | Owner, trại ACTIVE | Mở ca, ghi theo dõi, ghi điều trị, đóng ca, sửa / hủy điều trị | Thành công như Manager; người ghi = Owner | H, I, E | R-10-14, D41 |
 
 ---
 

@@ -31,7 +31,7 @@
 |---|---|---|---|
 | Xem dòng thời gian, lọc, bật "Hiện chỉnh sửa" | Có | Có | Có |
 | Mở chi tiết nguồn | Theo quyền xem của màn hình nguồn | Theo quyền xem | Theo quyền xem; **phiếu xuất chỉ hiện trạng thái, ngày, loại** |
-| Sửa / Hủy từ dòng thời gian | Theo quyền ở FE nguồn (Q2) | Có – sự kiện chăm sóc / sinh sản khi bật "Hiện chỉnh sửa" | — |
+| Sửa / Hủy từ dòng thời gian | Có, như Manager (Q2, D41) | Có – sự kiện chăm sóc / sinh sản khi bật "Hiện chỉnh sửa" | — |
 
 Bò EXITED / VOIDED: vẫn xem đủ lịch sử (GBR-26).
 
@@ -83,7 +83,7 @@ Lịch sử trước / sau bất biến của mỗi lần sửa / loại / hủy
 | R-16-04 | Bản ghi bị loại / hủy ẩn mặc định; bật "Hiện chỉnh sửa" → hiện bản gốc đã sửa, bản ghi loại / hủy tô xám kèm lý do. | GBR-37 |
 | R-16-05 | Lịch tiêm, mũi sắp tới, nhắc việc **không** có trên dòng thời gian. | GBR-37 |
 | R-16-06 | Mở chi tiết: mở bản ghi nguồn trong tab hồ sơ (SCR-20, 29, 43, 49, 54, 60) hoặc chi tiết phiếu (SCR-75, SCR-76) nếu vai trò được xem; nếu không → MSG-FE16-01. Technician: xuất đàn chỉ hiện trạng thái, ngày, loại. | SCR-50 |
-| R-16-07 | Sửa / Hủy: chỉ hiện với Manager trên sự kiện chăm sóc / sinh sản khi bật "Hiện chỉnh sửa"; mở popup của FE nguồn; quy tắc lưu theo FE nguồn (lý do, version, Idempotency-Key). | SCR-50, GBR-88, GBR-89 |
+| R-16-07 | Sửa / Hủy: chỉ hiện với Owner và Manager (D41) trên sự kiện chăm sóc / sinh sản khi bật "Hiện chỉnh sửa"; mở popup của FE nguồn; quy tắc lưu theo FE nguồn (lý do, version, Idempotency-Key). | SCR-50, GBR-88, GBR-89 |
 | R-16-08 | Bò EXITED / VOIDED vẫn hiện đủ lịch sử; bò trên phiếu chết PENDING vẫn sửa / hủy được bản ghi cũ. | GBR-26 |
 | R-16-09 | Chỉ dữ liệu của trại hiện tại; bò trại khác → không tìm thấy. | Tenant |
 
@@ -95,9 +95,9 @@ Lịch sử trước / sau bất biến của mỗi lần sửa / loại / hủy
 1. Thành viên mở SCR-19 → tab **Dòng thời gian**.
 2. Hệ thống dựng danh sách sự kiện từ bản ghi nguồn, nhóm theo tháng, chip mặc định "Tất cả", "Hiện chỉnh sửa" tắt.
 3. Chọn chip → lọc theo nhóm.
-4. Bật "Hiện chỉnh sửa" → hiện bản gốc, bản ghi loại / hủy tô xám kèm lý do; Manager thấy nút Sửa / Hủy.
+4. Bật "Hiện chỉnh sửa" → hiện bản gốc, bản ghi loại / hủy tô xám kèm lý do; Owner và Manager thấy nút Sửa / Hủy.
 5. **Mở chi tiết** → kiểm quyền → mở nguồn, hoặc MSG-FE16-01.
-6. (Manager) **Sửa / Hủy** → popup FE nguồn → sau khi lưu, dòng thời gian tải lại.
+6. (Owner, Manager) **Sửa / Hủy** → popup FE nguồn → sau khi lưu, dòng thời gian tải lại.
 
 E1 bò không thuộc trại → MSG-COM-08 · E2 lỗi tải → MSG-COM-02.
 
@@ -118,7 +118,7 @@ E1 bò không thuộc trại → MSG-COM-08 · E2 lỗi tải → MSG-COM-02.
 | 7 | Details / Chi tiết | Chữ | Phương pháp, lô, thuốc, kết quả, lý do… | — |
 | 8 | Times and recorder / Thời gian và người ghi | Chữ | "Xảy ra dd/mm HH:mm · ghi dd/mm HH:mm · bởi tên" | — |
 | 9 | Open details / Xem chi tiết | Nút | R-16-06; MSG-FE16-01 | — |
-| 10 | Correct / Void – Sửa / Hủy | Nút (Manager) | Khi bật "Hiện chỉnh sửa", trên sự kiện chăm sóc / sinh sản: mở popup "Sửa / Loại bản ghi tăng trưởng", "Sửa / Hủy tiêm phòng", "Sửa / Hủy động dục hoặc phối", "Sửa / Hủy khám thai", "Sửa / Hủy bản ghi thai và đẻ" | — |
+| 10 | Correct / Void – Sửa / Hủy | Nút (Owner, Manager) | Khi bật "Hiện chỉnh sửa", trên sự kiện chăm sóc / sinh sản: mở popup "Sửa / Loại bản ghi tăng trưởng", "Sửa / Hủy tiêm phòng", "Sửa / Hủy động dục hoặc phối", "Sửa / Hủy khám thai", "Sửa / Hủy bản ghi thai và đẻ" | — |
 | 11 | Empty state / Trống | Chữ | "Chưa có sự kiện" (Q4) | — |
 
 ---
@@ -163,6 +163,7 @@ Ghi chú: `canOpen`, `canCorrect` do BE tính theo vai trò để FE ẩn / hi�
 | TC-16-14 | Gọi A1 nhiều lần | — | Không tạo / sửa bản ghi nào | I | R-16-01 |
 | TC-16-15 | Bò thay thẻ QR | Chip Định danh & QR | Có sự kiện thay thẻ + lý do | I | §3.1 |
 | TC-16-16 | Sự kiện sát mốc giao tháng theo UTC+7, thiết bị đặt múi giờ khác, trại có cấu hình cũ | Mở tab và sửa thời điểm trong popup của timeline | Tiêu đề tháng, thời điểm xảy ra, thời điểm ghi và ô sửa đều theo UTC+7. Request lưu gửi thời điểm với hậu tố `+07:00`. | U, I | R-16-02, R-16-07 |
+| TC-16-17 | Owner, toggle bật, sự kiện cân / tiêm / sinh sản | Xem | Có nút Sửa / Hủy → popup FE nguồn | E | R-16-07, D41 |
 
 ---
 
@@ -171,7 +172,7 @@ Ghi chú: `canOpen`, `canCorrect` do BE tính theo vai trò để FE ẩn / hi�
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
 | Q1 | Không có đặc tả UC ở Part II | Dùng Part III + GBR-37 |
-| Q2 | SRS chỉ nói Manager có Sửa / Hủy trên dòng thời gian; Owner thì sao? | Owner theo quyền sửa của FE nguồn (đề xuất có, đồng nhất với tab nguồn) |
+| Q2 | SRS chỉ nói Manager có Sửa / Hủy trên dòng thời gian; Owner thì sao? | Owner theo quyền sửa của FE nguồn (đề xuất có, đồng nhất với tab nguồn). **Đã chốt theo D41: có.** |
 | Q3 | Thứ tự mới nhất trước hay cũ nhất trước | Mới nhất trước |
 | Q4 | Trạng thái rỗng, phân trang | "Chưa có sự kiện"; tải thêm theo tháng |
 | Q5 | Sự kiện điều trị / đóng ca (FE-10) có Sửa / Hủy từ dòng thời gian? | Không – SRS chỉ liệt kê 5 popup |

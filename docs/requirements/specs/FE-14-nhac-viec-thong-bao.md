@@ -32,7 +32,7 @@
 |---|---|---|---|---|---|---|
 | SCR-44 nhắc việc trại | Có | Có | Có (chỉ đọc) | — | — | — |
 | Tab Bê nháp, Xuất đàn & xuất chuồng | Có | Có | — | — | — | — |
-| Tab Thức ăn | Tồn thấp | Tồn thấp + bữa chưa ghi | Bữa chưa ghi | — | — | — |
+| Tab Thức ăn | Tồn thấp + bữa chưa ghi | Tồn thấp + bữa chưa ghi | Bữa chưa ghi | — | — | — |
 | Nút mở nguồn REM-08 (popup Chuyển chuồng / Cập nhật hồ sơ) | Có | Có | — | — | — | — |
 | SCR-74 Trang chủ Technician | — | — | Có | — | — | — |
 | SCR-45 Thông báo của tôi | Có (trại mình sở hữu, ticket mình) | — | — | — | — | — |
@@ -83,7 +83,7 @@ Mọi lần mở / xem trước / đếm chưa đọc đều kiểm lại quyề
 | REM-08 | Gợi ý chuyển chuồng / giai đoạn | Chuồng: bò ACTIVE không còn đạt tiêu chí tiếp nhận chuồng hiện tại. Giai đoạn: tuổi đạt mốc (bê theo mẹ → bê cai sữa 6 tháng; → bò tơ 12 tháng; → trưởng thành 24 tháng) hoặc cái chưa trưởng thành có lần đẻ VALID đầu. Không gợi ý giai đoạn khi ngày sinh UNKNOWN | Chuồng: ngay. Giai đoạn: ngày đạt tuổi / ngày đẻ | Chuồng: giải quyết khi chuyển chuồng hoặc đạt lại tiêu chí. Giai đoạn: giải quyết khi đổi giai đoạn. Cả hai hủy khi xuất. Gợi ý **không tự đổi** (GBR-25) | O, M, T | Popup Chuyển chuồng / Cập nhật hồ sơ (tab Giai đoạn) |
 | REM-09 | Bê nháp chờ xác nhận | Kết quả bê PENDING_CONFIRMATION | Ngay; tô nổi sau 3 ngày | Giải quyết khi đăng ký hoặc "chết trước khi đăng ký"; hủy khi lần đẻ bị hủy | O, M | SCR-25 |
 | REM-10 | Tồn thức ăn thấp | Mặt hàng ACTIVE có mức tồn tối thiểu, tồn ≤ mức đó (GBR-104) | Ngay; "Hết hàng" khi 0 kg | Giải quyết khi nhập / điều chỉnh đưa tồn > mức; hủy khi mặt hàng ngưng / bỏ mức | O, M | SCR-77 (nhập: SCR-79) |
-| REM-11 | Bữa ăn chưa ghi | Bữa của khẩu phần hiệu lực của chuồng ACTIVE có bò, hôm nay | Giờ bữa + 2 giờ | Giải quyết khi có bản ghi cho ăn VALID cho chuồng, ngày, bữa; hủy cuối ngày, khi khẩu phần kết thúc hoặc chuồng hết bò | M, T | SCR-83 (popup Ghi bữa ăn) |
+| REM-11 | Bữa ăn chưa ghi | Bữa của khẩu phần hiệu lực của chuồng ACTIVE có bò, hôm nay | Giờ bữa + 2 giờ | Giải quyết khi có bản ghi cho ăn VALID cho chuồng, ngày, bữa; hủy cuối ngày, khi khẩu phần kết thúc hoặc chuồng hết bò | O, M, T | SCR-83 (popup Ghi bữa ăn) |
 | REM-12 | Chết / mất chờ xác nhận | Phiếu chết PENDING từ ca sức khỏe (GBR-95) | Ngay; tô nổi sau 3 ngày | Giải quyết khi Owner xác nhận / bỏ; hủy khi phiếu bị hủy hoặc đóng ca được sửa | O, M | SCR-43 (Owner thao tác, Manager xem) |
 | REM-13 | Đạt cân xuất chuồng | Bò ACTIVE loại FATTENING có cân VALID mới nhất ≥ cân xuất chuồng mục tiêu (tham số, GBR-107) | Ngày ghi cân | Giải quyết khi xuất đàn / đổi mục đích; hủy khi cân sửa xuống dưới mục tiêu / bỏ tham số | O, M | SCR-30 (Owner có thể lập phiếu xuất SCR-42) |
 
@@ -139,7 +139,7 @@ E1 yêu cầu không còn được giao (PM / SA) → MSG-FE20-19 · E2 mất qu
 
 | # | Trường | Loại | Nội dung / Ràng buộc |
 |---|---|---|---|
-| 1 | Type tabs / Tab loại | Tab có số | Tất cả, Tiêm phòng, Đẻ, Phối giống, Khám thai, Chuyển chuồng & giai đoạn, Cân, Bê nháp (O, M), Xuất đàn & xuất chuồng (REM-12, REM-13; O, M), Thức ăn (tồn thấp: O, M; bữa chưa ghi: M, T) |
+| 1 | Type tabs / Tab loại | Tab có số | Tất cả, Tiêm phòng, Đẻ, Phối giống, Khám thai, Chuyển chuồng & giai đoạn, Cân, Bê nháp (O, M), Xuất đàn & xuất chuồng (REM-12, REM-13; O, M), Thức ăn (tồn thấp: O, M; bữa chưa ghi: O, M, T) |
 | 2 | Groups / Nhóm | Nhóm có số | Quá hạn (n), Hôm nay (n), Sắp tới trong 7 ngày (n) |
 | 3 | Title / Tiêu đề | Chữ | Tên quy tắc + giá trị chính (ví dụ "LMLM mũi 2", "Cửa sổ phối 14:30–18:30", "Dự sinh 22/10 – chuẩn bị chuồng đẻ") |
 | 4 | Cattle / Bò | Chữ | Mã hiển thị, giống, chuồng (hoặc nhóm, ví dụ "12 con · chuồng B1") |
@@ -239,7 +239,7 @@ Dùng lại: MSG-COM-03 (không có quyền), MSG-FE20-19 (yêu cầu không cò
 | TC-14-13 | Technician | Xem SCR-44 | Không có tab Bê nháp, Xuất đàn; tab Thức ăn chỉ bữa chưa ghi | E, H | R-14-07 |
 | TC-14-14 | REM-09 tạo 4 ngày trước | Xem | Tô nổi | U | REM-09 |
 | TC-14-15 | Tồn 0 kg, mức tối thiểu 50 | JOB-01 | REM-10 "Hết hàng"; nhập đưa tồn 60 → RESOLVED | I | REM-10 |
-| TC-14-16 | Bữa 07:00, không ghi | 09:01 | REM-11 hiện cho M, T; cuối ngày → CANCELLED | I | REM-11 |
+| TC-14-16 | Bữa 07:00, không ghi | 09:01 | REM-11 hiện cho O, M, T; cuối ngày → CANCELLED | I | REM-11 |
 | TC-14-17 | Bò vỗ béo đạt cân mục tiêu | Ghi cân | REM-13; xuất đàn → RESOLVED | I | REM-13 |
 | TC-14-18 | Bò xuất đàn | Xác nhận phiếu | Mọi nhắc việc của bò sau ngày xuất CANCELLED | I | Table III-3 |
 | TC-14-19 | Múi giờ trại, 23:30 ngày 10/11 | Phân nhóm | Hôm nay = 10/11 (không theo UTC) | U | R-14-06 |
@@ -250,6 +250,7 @@ Dùng lại: MSG-COM-03 (không có quyền), MSG-FE20-19 (yêu cầu không cò
 | TC-14-24 | SA mở yêu cầu đã bàn giao cho người khác | Mở | MSG-FE20-19 | I | SCR-46 |
 | TC-14-25 | Owner | Gọi API SCR-46 / SCR-47 | 403 | H | §2 |
 | TC-14-26 | Chi tiết nhắc việc thiếu tham số | Xem | MSG-FE14-01 | E | R-14-01 |
+| TC-14-27 | Owner, bữa 07:00 chưa ghi | 09:01 mở SCR-44, tab Thức ăn | Thấy REM-11 cùng tồn thấp; mở nguồn → SCR-83 popup Ghi bữa ăn | I, E | R-14-07, D41 |
 
 ---
 
