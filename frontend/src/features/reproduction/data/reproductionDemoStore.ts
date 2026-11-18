@@ -36,8 +36,9 @@ const shift = (value: string, ms: number): string => new Date(parseBusinessTime(
 const addDays = (value: string, days: number): string => shift(value, days * 86_400_000)
 const addHours = (value: string, hours: number): string => shift(value, hours * 3_600_000)
 const makeId = (kind: string, n: number) => `${kind}-${Date.now().toString(36)}-${n.toString(36)}`
+/** GBR-08, D41: the Owner or a Manager records, corrects and voids; same message as the backend COM-01 mapping. */
 const requireManager = (role: ReproductionRole) => {
-  if (role !== 'MANAGER') throw new Error('Chỉ Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
+  if (role !== 'OWNER' && role !== 'MANAGER') throw new Error('Chỉ Chủ trại và Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
 }
 const requiredReason = (reason: string) => {
   if (!reason.trim()) throw new Error('Nhập lý do sửa hoặc hủy.')

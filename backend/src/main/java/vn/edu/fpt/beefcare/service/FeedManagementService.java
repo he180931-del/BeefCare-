@@ -658,7 +658,7 @@ public class FeedManagementService {
         if(ctx.role()==vn.edu.fpt.beefcare.domain.enumeration.FarmRole.OWNER||ctx.role()==vn.edu.fpt.beefcare.domain.enumeration.FarmRole.MANAGER){
             for(FeedItem f:feeds.findByFarm_IdOrderByNameAsc(farmId))if(Boolean.TRUE.equals(f.getAvailable())&&f.getMinimumStockKg()!=null&&f.getOnHandKg().compareTo(f.getMinimumStockKg())<=0)result.add(new FeedReminderView("REM-10",f.getId(),f.getId(),null,f.getCode(),f.getOnHandKg().signum()==0?"Out of stock":"Low feed stock",clock.now(),"ACTIVE"));
         }
-        if(ctx.role()==vn.edu.fpt.beefcare.domain.enumeration.FarmRole.MANAGER||ctx.role()==vn.edu.fpt.beefcare.domain.enumeration.FarmRole.TECHNICIAN){
+        { // REM-11 goes to every farm role: the Owner and Managers record feeding, Technicians watch the sessions (GBR-104, D41).
             LocalDate today=clock.today();java.time.ZoneId zone=clock.zone();
             for(Pen pen:pens.findAllByFarmIdOrderByCodeAsc(farmId)){
                 if(pen.getStatus()!=ActiveStatus.ACTIVE||assignments.countAssignedAt(pen.getId(),today)==0)continue;

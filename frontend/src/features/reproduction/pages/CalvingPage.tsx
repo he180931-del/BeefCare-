@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Icon } from '../../../components/Icon'
 import { Badge, Button, Card, Field, Foot, Note, PageHeader, Select, inputCls } from '../../../components/ui'
-import { useSession } from '../../authorization'
+import { canRecordCare, useSession } from '../../authorization'
 import { reproductionApi } from '../api/reproductionApi'
 import { ReproductionValidationError, calvingIssues, formatDate } from '../domain/reproductionRules'
 import type { CalvingCommand, DataSource, ReproductionFemale, ReproductionFormOptions, ReproductionIssue, ReproductionRole } from '../types'
@@ -79,7 +79,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
   }, [code])
 
   const back = `/cattle/${encodeURIComponent(code)}?tab=repro`
-  const canManage = role === 'MANAGER'
+  const canManage = canRecordCare(role) // GBR-08, D41: the Owner or a Manager records the calving
   const patchForm = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }))
   const patchCalf = (index: number, patch: Partial<CalfForm>) => setCalves((current) => current.map((calf, i) => i === index ? { ...calf, ...patch } : calf))
   const issueOf = (field: string, calf?: number) => issues.find((item) => item.field === field && item.calf === calf)?.message
@@ -125,7 +125,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
         <PageHeader title="Ghi sự kiện đẻ" sub={subtitle}>
           <Link className={backLink} to={back}><Icon name="arrow-left" size={16} />Quay lại hồ sơ</Link>
         </PageHeader>
-        {role !== 'MANAGER' && <Note tone="info">Chỉ Quản lý được ghi sự kiện đẻ. Chủ trại và Kỹ thuật viên xem ở chế độ chỉ đọc.</Note>}
+        {!canManage && <Note tone="info">Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.</Note>}
         {banner && <Note tone="err">{banner}</Note>}
         {loadError && <Note tone="err">{loadError}</Note>}
         {loading && <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ bò…</p></Card>}
@@ -247,7 +247,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
           <Button onClick={() => navigate(back)}>Hủy</Button>
           <Button variant="primary" disabled={!canManage || !profile || saving} onClick={() => void submit()}>{saving ? 'Đang lưu…' : 'Lưu sự kiện đẻ'}</Button>
         </div>
-        <Foot>Trang ghi sự kiện đẻ (chỉ Quản lý). Mặc định liên kết thai kỳ đang mở. Bê sống mặc định "Lưu bê nháp" để đăng ký sau ở phiếu nhập bê sinh tại trại; chọn "Đăng ký ngay" thì cần chuồng và mục đích nuôi, mã thẻ để trống thì hệ thống cấp khi ghi sổ phiếu nhập bê. Có cân sơ sinh thì phải chọn cơ sở cân.</Foot>
+        <Foot>Trang ghi sự kiện đẻ (Chủ trại, Quản lý). Mặc định liên kết thai kỳ đang mở. Bê sống mặc định "Lưu bê nháp" để đăng ký sau ở phiếu nhập bê sinh tại trại; chọn "Đăng ký ngay" thì cần chuồng và mục đích nuôi, mã thẻ để trống thì hệ thống cấp khi ghi sổ phiếu nhập bê. Có cân sơ sinh thì phải chọn cơ sở cân.</Foot>
       </div>
     </Layout>
   )

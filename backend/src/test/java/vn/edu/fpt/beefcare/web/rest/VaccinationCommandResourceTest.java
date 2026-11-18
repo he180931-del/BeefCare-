@@ -48,6 +48,7 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
     Farm farm;
     AppUser owner;
     AppUser manager;
+    AppUser technician;
     List<Cattle> herd;
     CareDtos.CatalogueItem vaccine;
 
@@ -56,6 +57,7 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
         farm = farm();
         owner = memberWithRole(farm, FarmRole.OWNER);
         manager = memberWithRole(farm, FarmRole.MANAGER);
+        technician = memberWithRole(farm, FarmRole.TECHNICIAN);
         var breed = breed(farm);
         var fattening = purpose(farm, PurposeType.FATTENING);
         herd = List.of(cattle(farm, breed, fattening, Sex.MALE, LifeStage.YOUNG_STOCK), cattle(farm, breed, fattening, Sex.MALE, LifeStage.YOUNG_STOCK));
@@ -106,9 +108,30 @@ class VaccinationCommandResourceTest extends DomainTestSupport {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("MSG-COM-06"))
             .andExpect(jsonPath("$.params.field").value("reason"));
-        mvc.perform(post(url("/vaccination-schedules/" + created.id() + "/stop")).with(as(owner.getEmail())).header("If-Match", version)
+        mvc.perform(post(url("/vaccination-schedules/" + created.id() + "/stop")).with(as(technician.getEmail())).header("If-Match", version)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}"))
             .andExpect(status().isForbidden());
+    }
+
+    /** D41 (TC-09-31): the Owner plans, records and stops a schedule like a Manager. */
+    @Test
+    void tc09_31_theOwnerPlansRecordsAndStopsLikeAManager() throws Exception {
+        actAs(owner);
+        CareDtos.VaccinationScheduleResult created = schedule(1);
+        em.flush();
+        var dose = em.createQuery("select d from vn.edu.fpt.beefcare.domain.ScheduledDose d where d.schedule.id=:id and d.cattle.id=:cattle", vn.edu.fpt.beefcare.domain.ScheduledDose.class)
+            .setParameter("id", created.id()).setParameter("cattle", herd.get(0).getId()).getSingleResult();
+        String body = "{\"vaccineId\":" + vaccine.id() + ",\"source\":\"ON_FARM\",\"administeredAt\":\"" + clock.instant().minusSeconds(3600) + "\",\"batchNo\":\"L1\","
+            + "\"dose\":\"2 ml\",\"route\":\"SC\",\"withdrawalDays\":21,\"vaccinator\":\"Chủ trại\",\"animals\":[{\"cattleId\":" + herd.get(0).getId()
+            + ",\"scheduledDoseId\":" + dose.getId() + ",\"expectedDoseVersion\":" + dose.getVersion() + ",\"decision\":\"VACCINATE\"}]}";
+        mvc.perform(post(url("/vaccinations")).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.vaccinatedCount").value(1));
+        em.flush();
+        mvc.perform(post(url("/vaccination-schedules/" + created.id() + "/stop")).with(as(owner.getEmail())).header("If-Match", versionOf(VaccinationSchedule.class, created.id()))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Đổi vắc-xin\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("STOPPED"));
     }
 
     // ------------------------------------------------------------ GAP-FE09-04

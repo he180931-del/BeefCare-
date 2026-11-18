@@ -51,8 +51,14 @@ describe('profile tab: estrus female (frame 2616:4352)', () => {
     expect(screen.getByText('Bồn chồn, nhảy lên con khác, kêu rống')).toBeInTheDocument()
   })
 
-  it('gives the owner a read-only tab without record buttons or row actions', async () => {
+  it('gives the owner the record buttons like a manager (D41)', async () => {
     profileAt('BC-000142', 'OWNER')
+    await screen.findByText('Số lần phối (chu kỳ này)')
+    expect(screen.getByRole('button', { name: 'Ghi động dục' })).toBeInTheDocument()
+  })
+
+  it('gives the technician a read-only tab without record buttons or row actions', async () => {
+    profileAt('BC-000142', 'TECHNICIAN')
     await screen.findByText('Số lần phối (chu kỳ này)')
     expect(screen.queryByRole('button', { name: 'Ghi động dục' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Sửa / })).not.toBeInTheDocument()
@@ -80,7 +86,7 @@ describe('profile tab: pregnant female (frame 2617:10399)', () => {
 })
 
 describe('calving page (frames 2617:10907, 2617:11217)', () => {
-  const calvingAt = (role: 'MANAGER' | 'OWNER' = 'MANAGER') => render(
+  const calvingAt = (role: 'MANAGER' | 'OWNER' | 'TECHNICIAN' = 'MANAGER') => render(
     <MemoryRouter initialEntries={['/cattle/BC-000087/sinh-san/de']}>
       <Routes>
         <Route path="/cattle/:code/sinh-san/de" element={<CalvingPage role={role} />} />
@@ -161,10 +167,17 @@ describe('calving page (frames 2617:10907, 2617:11217)', () => {
     expect(screen.getAllByRole('group', { name: /^Bê số / })).toHaveLength(3)
   })
 
-  it('stays read-only for the owner', async () => {
+  it('lets the owner record like a manager (D41)', async () => {
     calvingAt('OWNER')
     await screen.findByRole('heading', { name: 'Ghi sự kiện đẻ' })
-    expect(screen.getByText('Chỉ Quản lý được ghi sự kiện đẻ. Chủ trại và Kỹ thuật viên xem ở chế độ chỉ đọc.')).toBeInTheDocument()
+    expect(screen.queryByText(/xem ở chế độ chỉ đọc/)).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Lưu sự kiện đẻ' })).toBeEnabled()
+  })
+
+  it('stays read-only for the technician', async () => {
+    calvingAt('TECHNICIAN')
+    await screen.findByRole('heading', { name: 'Ghi sự kiện đẻ' })
+    expect(screen.getByText('Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Lưu sự kiện đẻ' })).toBeDisabled()
   })
 })

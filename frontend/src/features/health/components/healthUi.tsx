@@ -5,15 +5,14 @@ import { userFacingError } from '../../../api/userFacingError'
 import { Icon } from '../../../components/Icon'
 import { useModalParam } from '../../../components/Modal'
 import { Badge, inputCls, Radio } from '../../../components/ui'
-import { useSession } from '../../authorization'
+import { useCanRecordCare } from '../../authorization'
 import { ENTRY_LABEL, HEALTH_STATE_LABEL, OUTCOME_LABEL, PROGRESS_LABEL, ROUTE_LABEL, SEVERITY_LABEL, fmtDate, fmtDateTime, fmtTemp } from '../domain/healthFormat'
 import { HealthValidationError } from '../domain/healthRules'
 import type { CaseOutcome, CaseStatus, HealthCattle, HealthState, HealthTimelineRow, Severity } from '../types'
 
-/** Chỉ Quản lý ghi nhận (GBR-08); Chủ trại và Kỹ thuật viên chỉ xem. Không có phiên được coi là Quản lý. */
+/** Chủ trại và Quản lý ghi nhận (GBR-08, D41); Kỹ thuật viên chỉ xem. Không có phiên thì không áp quyền theo vai trò. */
 export function useCanRecord() {
-  const session = useSession()
-  return (session?.role ?? 'MANAGER') === 'MANAGER'
+  return useCanRecordCare()
 }
 
 /** Hộp thoại mở bằng `?m=<tên>`; `case` / `entry` chọn ca hoặc bản ghi cần thao tác. */

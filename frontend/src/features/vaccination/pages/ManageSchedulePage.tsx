@@ -7,7 +7,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { vaccinationApi } from '../api/vaccinationApi'
 import MultiSelect from '../components/MultiSelect'
-import { FieldError, ManagerOnly, ROUTE_LABEL, parseNum } from '../components/vaccinationParts'
+import { CareWriterOnly, FieldError, ROUTE_LABEL, parseNum } from '../components/vaccinationParts'
 import { fmtDate } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
 import type { ScheduleCard, ScheduleCommand, ScheduleDetail, ScheduleTarget, VaccinationOptions } from '../types'
@@ -16,7 +16,7 @@ const TITLE = 'Quản lý lịch tiêm'
 const EMPTY_TARGET: ScheduleTarget = { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: [] }
 
 export default function ManageSchedulePage() {
-  return <ManagerOnly title={TITLE}><Layout title={TITLE}><Loader /></Layout></ManagerOnly>
+  return <CareWriterOnly title={TITLE}><Layout title={TITLE}><Loader /></Layout></CareWriterOnly>
 }
 
 function Loader() {
@@ -175,7 +175,7 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
           </Card>
         </div>
       </div>
-      <Foot>Màn tạo, sửa hoặc dừng lịch tiêm (chỉ Quản lý). Tên lịch không trùng với lịch đang chạy; "Cách giữa mũi" bắt buộc khi có từ 2 mũi. Danh sách bò khớp được tính lại khi đổi điều kiện; có thể bỏ ra hoặc thêm từng con.</Foot>
+      <Foot>Màn tạo, sửa hoặc dừng lịch tiêm (Chủ trại, Quản lý). Tên lịch không trùng với lịch đang chạy; "Cách giữa mũi" bắt buộc khi có từ 2 mũi. Danh sách bò khớp được tính lại khi đổi điều kiện; có thể bỏ ra hoặc thêm từng con.</Foot>
       {modal === 'stop' && s && <StopModal name={s.name} version={s.version} onClose={closeModal} />}
     </div>
   )

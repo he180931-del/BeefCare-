@@ -115,14 +115,14 @@ class ReproductionWorkflowIT extends DomainTestSupport {
     }
 
     @Test
-    void onlyTheManagerRecordsReproductionAndOtherFarmsAreRejected() {
-        actAs(owner);
-        assertThatThrownBy(() -> reproduction.recordEstrus(farm.getId(), cow.getId(), key(), estrus(cow.getVersion(), daysAgo(1))))
-            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
+    void theTechnicianCannotRecordReproductionAndOtherFarmsAreRejected() {
         actAs(technician);
         assertThatThrownBy(() -> reproduction.recordEstrus(farm.getId(), cow.getId(), key(), estrus(cow.getVersion(), daysAgo(1))))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
         assertThat(reads.profile(farm.getId(), cow.getId(), null, null, null).timeline()).isEmpty(); // Technician reads
+        actAs(owner); // D41: the Owner records like a Manager
+        reproduction.recordEstrus(farm.getId(), cow.getId(), key(), estrus(cow.getVersion(), daysAgo(1)));
+        assertThat(reads.profile(farm.getId(), cow.getId(), null, null, null).timeline()).hasSize(1);
 
         Farm other = farm();
         AppUser otherManager = memberWithRole(other, FarmRole.MANAGER);

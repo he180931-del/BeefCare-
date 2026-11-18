@@ -27,7 +27,8 @@ public enum FarmAction {
     VIEW_CATALOGUES(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     VIEW_CATTLE(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     MANAGE_CATTLE(true, FarmRole.OWNER, FarmRole.MANAGER),
-    MANAGE_GROWTH(true, FarmRole.MANAGER),
+    /** Record, correct and exclude growth assessments; Owner and Manager (D41). */
+    MANAGE_GROWTH(true, FarmRole.OWNER, FarmRole.MANAGER),
     MANAGE_CATALOGUES(true, FarmRole.OWNER, FarmRole.MANAGER),
     /** View pens, occupancy, pen history, cattle: every member. */
     VIEW_PENS(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
@@ -37,13 +38,12 @@ public enum FarmAction {
     MANAGE_CATTLE_PHOTOS(true, FarmRole.OWNER, FarmRole.MANAGER),
     /** Read-only health and vaccination history, including for technicians. */
     VIEW_HEALTH(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
-    /** Record and maintain health cases, observations, treatments and vaccinations; Manager only. */
-    MANAGE_HEALTH(true, FarmRole.MANAGER),
+    /** Record and maintain health cases, observations, treatments and vaccinations; Owner and Manager (GBR-08, D41). */
+    MANAGE_HEALTH(true, FarmRole.OWNER, FarmRole.MANAGER),
     /** Read-only reproduction history and derived reproductive state, including for technicians. */
     VIEW_REPRODUCTION(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
-    /** Record and maintain estrus, breeding, pregnancy and calving; Manager only. */
-    MANAGE_REPRODUCTION(true, FarmRole.MANAGER),
-    /** Read reference care catalogues; Owner and Manager only. */
+    /** Record and maintain estrus, breeding, pregnancy and calving; Owner and Manager (GBR-08, D41). */
+    MANAGE_REPRODUCTION(true, FarmRole.OWNER, FarmRole.MANAGER),
     /** Vaccines, medicines, purposes and parameters: every member views (FE-18 §2; Q1 decided 09/11: Technician too). */
     VIEW_CARE_CATALOGUES(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     /** Maintain vaccines, medicines and farm parameters; Owner and Manager. */
@@ -70,7 +70,8 @@ public enum FarmAction {
     /** Feed stock and movement history are limited to Owner and Manager by FE-23. */
     VIEW_FEED_STOCK(false, FarmRole.OWNER, FarmRole.MANAGER),
     MANAGE_FEED(true, FarmRole.OWNER, FarmRole.MANAGER),
-    MANAGE_FEEDING(true, FarmRole.MANAGER),
+    /** Record, correct and void feeding records; Owner and Manager (GBR-102, D41). */
+    MANAGE_FEEDING(true, FarmRole.OWNER, FarmRole.MANAGER),
     VIEW_ANNOUNCEMENTS(false, FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN),
     MANAGE_ANNOUNCEMENTS(true, FarmRole.OWNER, FarmRole.MANAGER),
     VIEW_REPORTS(false, FarmRole.OWNER, FarmRole.MANAGER);

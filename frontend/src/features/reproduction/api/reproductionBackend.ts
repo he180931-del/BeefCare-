@@ -310,7 +310,7 @@ export function mapReproductionError(error: unknown): unknown {
     case 'COM-15': return issue(`Thời điểm không được trước ngày nhập đàn (${formatDate(textValue(p.date))}).`)
     case 'COM-13': return new Error(`${textValue(p.cattle_code, 'Bò này')} đã rời đàn; không ghi thêm sự kiện.`)
     case 'COM-17': return new Error('Bò đang chờ xác nhận chết / mất; không ghi thêm sự kiện.')
-    case 'COM-01': return new Error('Chỉ Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
+    case 'COM-01': return new Error('Chỉ Chủ trại và Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
     case 'COM-05': return new Error('Dữ liệu đã thay đổi hoặc bản ghi không còn hợp lệ. Vui lòng tải lại trang.')
     case 'COM-06': return issue(`${prefix}${LABEL[field] ?? 'Trường này'} là bắt buộc.`)
     case 'COM-10': return issue(`${prefix}${LABEL[field] ?? 'Giá trị'} không hợp lệ.`)

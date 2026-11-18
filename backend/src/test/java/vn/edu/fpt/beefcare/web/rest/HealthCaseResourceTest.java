@@ -583,12 +583,25 @@ class HealthCaseResourceTest extends DomainTestSupport {
     // ------------------------------------------------------------------ permissions, A1, Q3
 
     @Test
-    void tc10_24_ownerAndTechnicianCannotWrite() throws Exception {
+    void tc10_24_technicianCannotWrite() throws Exception {
         CareDtos.HealthCaseResult opened = open(hoursAgo(3));
-        postJson("/health-cases", owner, openBody(hoursAgo(2), "")).andExpect(status().isForbidden());
+        postJson("/health-cases", technician, openBody(hoursAgo(2), "")).andExpect(status().isForbidden());
         postJson("/health-cases/" + opened.id() + "/treatments", technician, "{\"expectedVersion\":" + opened.version() + ",\"medicineId\":" + medicine.id() + ",\"administeredAt\":\"" + hoursAgo(1) + "\",\"dose\":\"1 ml\",\"route\":\"ORAL\"}")
             .andExpect(status().isForbidden());
         mvc.perform(get(url("/health-cases")).with(as(technician.getEmail()))).andExpect(status().isOk());
+    }
+
+    /** D41: the Owner records like a Manager, including on a case the Manager opened; the recorder is the Owner. */
+    @Test
+    void tc10_29_ownerRecordsLikeAManager() throws Exception {
+        CareDtos.HealthCaseResult opened = open(hoursAgo(3));
+        postJson("/health-cases/" + opened.id() + "/treatments", owner, "{\"expectedVersion\":" + opened.version() + ",\"medicineId\":" + medicine.id() + ",\"administeredAt\":\"" + hoursAgo(1) + "\",\"dose\":\"1 ml\",\"route\":\"ORAL\"}")
+            .andExpect(status().isCreated());
+        postJson("/health-cases", owner, openBody(hoursAgo(2), "")).andExpect(status().isCreated());
+        mvc.perform(get(url("/health-cases/cattle/" + cow.getId())).with(as(owner.getEmail())))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.openCases.length()").value(2))
+            .andExpect(jsonPath("$..timeline[?(@.recordedBy=='" + owner.getFullName() + "')]").isNotEmpty());
     }
 
     @Test

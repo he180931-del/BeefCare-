@@ -26,6 +26,18 @@ export const SessionContext = createContext<Session | null>(null)
 export const useSession = () => useContext(SessionContext)
 
 /**
+ * GBR-08, GBR-102, D41: Chủ trại và Quản lý ghi, sửa, hủy dữ liệu chăm sóc, sinh sản và sổ cho ăn; Kỹ thuật viên chỉ xem.
+ * Backend vẫn kiểm lại quyền ở mọi lệnh ghi.
+ */
+export const canRecordCare = (role: AppRole | null | undefined): boolean => role === 'OWNER' || role === 'MANAGER'
+
+/** Như `canRecordCare` cho phiên hiện tại; không có phiên (render ngoài `SessionProvider`) thì không áp quyền theo vai trò. */
+export const useCanRecordCare = (): boolean => {
+  const session = useSession()
+  return session == null || canRecordCare(session.role)
+}
+
+/**
  * UC-FE01-02 step 6 / AF4: Complete Owner Profile is the destination only for an account that has no farm and no
  * platform role. A Manager or Technician who joined by invitation enters their farm (UC-FE03-04, D28).
  */

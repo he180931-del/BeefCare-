@@ -181,6 +181,16 @@ class ReminderReconciliationIT extends DomainTestSupport {
         assertThat(rows(farm,"REM-10")).extracting(Reminder::getStatus).containsExactly("ACTIVE");
     }
 
+    /** D41 (TC-14-27): an unrecorded feeding session is shown to the Owner as well as the Manager and the Technician. */
+    @Test void anUnrecordedFeedingSessionIsShownToTheOwnerManagerAndTechnician() {
+        Farm farm=farmWith(ALL_PARAMETERS);Pen pen=pen(farm,"F"+next(),10);
+        String source="PEN:"+pen.getId()+":RATION:1:DAY:"+TODAY+":SESSION:1";
+        Reminder session=new Reminder();session.setFarm(farm);session.setRuleType("REM-11");session.setSourceType("PEN");session.setSourceId(source);session.setSourceRecord(source);
+        session.setRuleKey(farm.getId()+":REM-11:PEN:"+source);session.setDueTime(clock.instant().minus(1,ChronoUnit.HOURS));session.setStatus("ACTIVE");save(session);
+        for(FarmRole role:List.of(FarmRole.MANAGER,FarmRole.TECHNICIAN))assertThat(seenBy(farm,memberWithRole(farm,role),"REM-11")).hasSize(1);
+        assertThat(seenBy(farm,owner,"REM-11")).singleElement().satisfies(v->assertThat(v.sourceTarget().type()).isEqualTo("FEEDING_LOG"));
+    }
+
     @Test void finishingWeightIsResolvedByExitAndCancelledWhenTheWeightNoLongerReachesTheTarget() {
         Farm farm=farmWith(ALL_PARAMETERS);ProductionPurpose fattening=purpose(farm,PurposeType.FATTENING);
         Cattle sold=cattle(farm,breed(farm),fattening,Sex.MALE,LifeStage.ADULT);weight(sold,TODAY.minusDays(1),"460");

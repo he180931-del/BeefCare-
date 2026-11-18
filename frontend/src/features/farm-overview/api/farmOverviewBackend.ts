@@ -133,7 +133,8 @@ function reminderSourceAction(rule: string, sourceType: string | null, sourceId:
   if ((role === 'OWNER' || role === 'MANAGER') && target.type === 'DEATH_VOUCHER' && sourceIdMatchesTarget(rule, sourceType, sourceId, target) && target.id !== null && target.code) {
     return { to: `/herd-exit/${target.id}`, openLabel: 'Xem phiếu' }
   }
-  if ((role === 'MANAGER' || role === 'TECHNICIAN') && target.type === 'FEEDING_LOG'
+  // REM-11 goes to every farm role (GBR-104, D41); only a Technician opens the log read-only.
+  if (target.type === 'FEEDING_LOG'
       && sourceIdMatchesTarget(rule, sourceType, sourceId, target) && target.penId !== null && target.date && target.sessionNo !== null && target.code) {
     const query = new URLSearchParams({ date: target.date })
     if (role === 'TECHNICIAN') query.set('readOnly', '1')

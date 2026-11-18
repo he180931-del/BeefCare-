@@ -25,7 +25,7 @@ import vn.edu.fpt.beefcare.domain.enumeration.LossKind;
 import vn.edu.fpt.beefcare.service.dto.CareDtos;
 
 /**
- * Transactional FE-10 commands (spec FE-10 §7 A3–A8). Manager only (R-10-14), replayable through Idempotency-Key.
+ * Transactional FE-10 commands (spec FE-10 §7 A3–A8). Owner and Manager (R-10-14, D41), replayable through Idempotency-Key.
  * Raw generated CRUD is not used by these workflows.
  */
 @Service

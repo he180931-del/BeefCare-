@@ -169,7 +169,14 @@ describe('tab Sức khỏe trong hồ sơ bò', () => {
     expect(await screen.findByText('Đã sửa')).toBeInTheDocument()
   })
 
-  it.each<AppRole>(['OWNER', 'TECHNICIAN'])('%s chỉ xem: không có nút ghi và không mở hộp thoại qua URL', async (role) => {
+  it('D41: Chủ trại ghi như Quản lý, mở được hộp thoại qua URL', async () => {
+    renderTab('BC-000203', '&m=follow-up', 'OWNER')
+    expect(await screen.findByText('Ca HC-0412 · Tiêu chảy, bỏ ăn một phần')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Ghi theo dõi|Ghi điều trị|Cập nhật trạng thái/ }).length).toBeGreaterThan(0)
+  })
+
+  it.each<AppRole>(['TECHNICIAN'])('%s chỉ xem: không có nút ghi và không mở hộp thoại qua URL', async (role) => {
     renderTab('BC-000203', '&m=follow-up', role)
     expect(await screen.findByText('Ca HC-0412 · Tiêu chảy, bỏ ăn một phần')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Ghi theo dõi|Ghi điều trị|Cập nhật trạng thái|Mở ca sức khỏe|Sửa/ })).not.toBeInTheDocument()

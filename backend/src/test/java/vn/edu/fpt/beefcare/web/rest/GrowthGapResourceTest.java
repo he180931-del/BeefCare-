@@ -79,6 +79,23 @@ class GrowthGapResourceTest extends DomainTestSupport {
             .andExpect(jsonPath("$.records[1].revisions").isEmpty());
     }
 
+    /** D41 (TC-08-22): the Owner records a weight and excludes a record the Manager entered, like a Manager. */
+    @Test
+    void tc08_22_theOwnerRecordsAndExcludesLikeAManager() throws Exception {
+        Growth earlier = weight(steer, TODAY.minusDays(60), "340");
+        em.flush();
+        String url = "/api/farms/" + farm.getId() + "/cattle/" + steer.getId() + "/growth";
+        mvc.perform(post(url).with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"measuredAt\":\"" + clock.instant().minusSeconds(3600) + "\",\"method\":\"SCALE\",\"weightKg\":352.5}"))
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(jsonPath("$.status").value("VALID"))
+            .andExpect(jsonPath("$.measuredBy").value(owner.getId()));
+        mvc.perform(post(url + "/" + earlier.getId() + "/correction").with(as(owner.getEmail())).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"EXCLUDE\",\"reason\":\"Cân lỗi\",\"expectedVersion\":" + earlier.getVersion() + "}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("EXCLUDED"));
+    }
+
     @Test
     void theHerdListAnswersTheActiveCountOfTheWholeFarm() throws Exception {
         cattle(farm, breed(farm), purpose(farm, PurposeType.BREEDING), Sex.FEMALE, LifeStage.ADULT);

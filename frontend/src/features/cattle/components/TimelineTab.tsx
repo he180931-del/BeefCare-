@@ -5,7 +5,7 @@ import Modal from '../../../components/Modal'
 import { listCattleTimeline } from '../../../api/cattleApi'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { canRecordCare, useSession } from '../../authorization'
 import { TIMELINE_FILTERS } from '../../../api/cattleTimeline'
 import { Chip, Panel, Seg } from './parts'
 import TimelineCorrectionDialog, { hasTimelineCorrection } from './TimelineCorrectionDialog'
@@ -58,7 +58,8 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
   const events = cattleId != null && query.data?.showCorrections === showCorrections ? query.data.events : cow.events
   const groups = timelineGroups(events, cat, showCorrections)
   const code = encodeURIComponent(cow.code)
-  const mayCorrect = (e: CattleEvent) => role === 'MANAGER' && cow.status === 'ACTIVE' &&
+  // R-16-07, D41: Chủ trại và Quản lý sửa / hủy từ dòng thời gian.
+  const mayCorrect = (e: CattleEvent) => canRecordCare(role) && cow.status === 'ACTIVE' &&
     e.correctable && !e.openDenied && e.tab && e.sourceId != null &&
     (cattleId == null || (e.accessFromBackend && (e.tab === 'growth' || hasTimelineCorrection(e))))
   const sourceLink = (e: CattleEvent, edit = false) => {

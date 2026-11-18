@@ -563,7 +563,7 @@ public class FarmReminderQueryService {
 
     private boolean allowed(String type, FarmRole role) {
         if (Set.of("REM-09", "REM-12", "REM-13", "REM-10").contains(type)) return role == FarmRole.OWNER || role == FarmRole.MANAGER;
-        if ("REM-11".equals(type)) return role == FarmRole.MANAGER || role == FarmRole.TECHNICIAN;
+        // REM-11 (feeding session not recorded) goes to every farm role: the Owner records feeding too (GBR-104, D41).
         return true;
     }
 

@@ -328,10 +328,25 @@ class FeedManagementServiceTest {
         var movement=org.mockito.ArgumentCaptor.forClass(FeedStockMovement.class);verify(movements).save(movement.capture());assertThat(movement.getValue().getQuantityKg()).isEqualByComparingTo("1.000");
     }
 
-    @Test void feedingWritesAskTheManagerOnlyAuthorizationAction(){
+    @Test void feedingWritesAskTheFeedingAuthorizationAction(){
         when(access.require(12L,FarmAction.MANAGE_FEEDING)).thenThrow(DomainException.forbidden(MessageCodes.COM_01));
         assertThatThrownBy(()->service.feedingPlan(12L,1L,LocalDate.of(2026,10,28),1)).isInstanceOf(DomainException.class);
         verify(access).require(12L,FarmAction.MANAGE_FEEDING);verifyNoInteractions(pens,feedingRecords);
+    }
+
+    /** D41 (TC-14-27, R-23-13): the Owner gets REM-11 for an unrecorded session as well as REM-10. */
+    @Test void feedRemindersGiveTheOwnerLowStockAndUnrecordedSessions(){
+        LocalDate today=LocalDate.of(2026,11,18);Pen pen=activePen(311L,"F1");FeedRationVersion ration=feedingRation(pen,true);
+        FeedRationPen link=new FeedRationPen();link.setRationVersion(ration);link.setPen(pen);feed.setMinimumStockKg(new BigDecimal("50.000"));
+        when(access.require(12L,FarmAction.VIEW_FEED)).thenReturn(context);
+        when(feeds.findByFarm_IdOrderByNameAsc(12L)).thenReturn(List.of(feed));
+        when(clock.today()).thenReturn(today);when(clock.now()).thenReturn(Instant.parse("2026-11-18T03:00:00Z")); // 10:00 UTC+7, after 06:30 + 2 h
+        when(pens.findAllByFarmIdOrderByCodeAsc(12L)).thenReturn(List.of(pen));when(assignments.countAssignedAt(311L,today)).thenReturn(3L);
+        when(rationPens.findByPen_Id(311L)).thenReturn(List.of(link));
+        when(feedingRecords.findFirstByFarm_IdAndPen_IdAndFeedingDateAndSessionNoAndStatus(12L,311L,today,1,"VALID")).thenReturn(Optional.empty());
+
+        assertThat(context.role()).isEqualTo(FarmRole.OWNER);
+        assertThat(service.feedReminders(12L)).extracting(r->r.ruleType()+":"+r.code()).containsExactly("REM-10:TA-01","REM-11:F1");
     }
 
     @Test void cancelScheduledVersionRestoresAnOpenEndedPredecessorAndKeepsHistory(){
