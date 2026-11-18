@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite'
+import { readFileSync } from 'node:fs'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -8,9 +9,18 @@ export default defineConfig(({ mode }) => {
     process.env.VITE_BEEFCARE_DATA_SOURCE = 'local'
     process.env.VITE_BEEFCARE_AUTH_MODE = 'mock'
   }
+  if (mode === 'backend') {
+    process.env.VITE_BEEFCARE_DATA_SOURCE = 'backend'
+    process.env.VITE_BEEFCARE_AUTH_MODE = 'backend'
+  }
+  const env = loadEnv(mode, process.cwd(), 'BEEFCARE_DEV_HTTPS_')
+  const cert = env.BEEFCARE_DEV_HTTPS_CERT
+  const key = env.BEEFCARE_DEV_HTTPS_KEY
+  if (Boolean(cert) !== Boolean(key)) throw new Error('Cần đặt cả BEEFCARE_DEV_HTTPS_CERT và BEEFCARE_DEV_HTTPS_KEY để bật HTTPS.')
   return {
     plugins: [react(), tailwindcss()],
     server: {
+      https: cert && key ? { cert: readFileSync(cert), key: readFileSync(key) } : undefined,
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:8080',
