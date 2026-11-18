@@ -75,6 +75,7 @@ Lưu ý:
 cd frontend
 npm install
 npm run dev          # chế độ theo frontend/.env (xem bên dưới)
+npm run dev:backend  # đăng nhập và dữ liệu từ backend thật, kể cả khi chưa có frontend/.env
 npm run dev:mock     # mọi màn hình chạy bằng dữ liệu mock, không cần backend, cổng 5174
 ```
 
@@ -86,6 +87,14 @@ Cấu hình `frontend/.env` (không commit). Vite chỉ đọc `.env`, không đ
 - `VITE_BEEFCARE_API_URL` **để trống**: request đi theo đường dẫn tương đối `/api` qua proxy của Vite tới `127.0.0.1:8080`. Đây là cách đúng theo quy tắc dự án (không hardcode origin).
 - Nếu đặt `VITE_BEEFCARE_API_URL` (ví dụ `http://localhost:8080`), trình duyệt gọi thẳng backend, bỏ qua proxy, và backend phải cho phép origin của frontend qua `BEEFCARE_CORS_ORIGINS` (mặc định ở profile `local`: `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`).
 - Dùng cùng hostname cho frontend và backend: cookie của `localhost` và `127.0.0.1` là khác nhau. Cookie production cần HTTPS.
+
+### Quét QR bằng camera
+
+Chạy backend rồi chạy `npm run dev:backend` trong `frontend`. Đăng nhập và chọn trại, mở `/quet-qr` hoặc `/kt/quet-qr`, bấm **Bật camera** và cho phép quyền camera. Có thể chọn camera khi thiết bị có nhiều camera. Bộ đọc giải mã hình ảnh camera rồi gọi `GET /api/farms/{farmId}/cattle/resolve?code=...` để tìm bò trên backend. Nút **Quét từ ảnh** đọc ảnh QR trên thiết bị và tra cùng API.
+
+Trên máy chạy frontend, dùng `http://localhost:5173`. Trên điện thoại truy cập qua mạng LAN, camera cần HTTPS. Có thể đặt `BEEFCARE_DEV_HTTPS_CERT` và `BEEFCARE_DEV_HTTPS_KEY` trong `frontend/.env.local` trỏ đến cặp chứng chỉ/khóa local đã được điện thoại tin cậy, phù hợp với hostname/IP truy cập. Khởi động lại bằng `npm run dev:backend -- --host 0.0.0.0`. Chứng chỉ và khóa nằm ngoài Git.
+
+Lấy tem thử từ hồ sơ bò của trại đang chọn, tab **Thẻ QR**, tải PNG hoặc in thẻ ACTIVE. Đưa tem vào khung quét. Mã thẻ chưa được cấp cho bò sẽ bị từ chối khi tra dữ liệu thật. Chế độ `dev:mock` hiển thị nhắc dùng dữ liệu mẫu trên màn hình quét.
 
 ## 5. Tài khoản và dữ liệu seed
 
