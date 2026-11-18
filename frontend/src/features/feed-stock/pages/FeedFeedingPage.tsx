@@ -8,7 +8,7 @@ import { Badge, Button, Card, Foot, Metric, Note, PageHeader, Segmented, Select,
 import { backendMode } from '../../../api/backendTransport'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { canRecordCare, useSession } from '../../authorization'
 import { listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedReceipts } from '../api/feedReceiptApi'
 import { listFeedRationFeeds, listFeedRationPens, listFeedRations } from '../api/feedRationApi'
@@ -68,8 +68,9 @@ export default function FeedFeedingPage() {
   const [searchParams] = useSearchParams()
   const session = useSession()
   const [modal, openModal, closeModal] = useModalParam()
-  const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && session.role !== 'MANAGER')
-  const canRecord = !readOnlyView && (backendMode === 'backend' ? session?.role === 'MANAGER' : !session || session.role === 'MANAGER')
+  // GBR-102, D41: Chủ trại và Quản lý ghi, sửa, hủy cữ cho ăn; Kỹ thuật viên chỉ xem.
+  const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && !canRecordCare(session.role))
+  const canRecord = !readOnlyView && (backendMode === 'backend' ? canRecordCare(session?.role) : !session || canRecordCare(session.role))
   const canViewStock = session?.role !== 'TECHNICIAN'
   const initialDate = searchParams.get('date')
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedingMessage' in location.state
@@ -159,7 +160,7 @@ export default function FeedFeedingPage() {
       </PageHeader>
       <FeedManagementTabs />
       {message && <Note tone="ok">{message}</Note>}
-      {readOnlyView && <Note tone="info">Chế độ chỉ xem. Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
+      {readOnlyView && <Note tone="info">Chế độ chỉ xem. Chủ trại và Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
       {canRecord && backendMode === 'backend' && <Note tone="info">Ghi, sửa và hủy cữ sẽ cập nhật tồn kho theo phản hồi từ máy chủ.</Note>}
 
       <section role="tabpanel" aria-label="Nhật ký cho ăn" className="flex flex-col gap-4">
@@ -249,7 +250,7 @@ export default function FeedFeedingPage() {
                   {draftReceipt ? `Mở phiếu nhập kho ${draftReceipt.code}` : 'Tạo phiếu nhập kho'}
                 </Link>
               )}
-              <Note>Thuốc trộn vào thức ăn được ghi trong ca sức khỏe, không ghi ở đây. Chủ trại và Kỹ thuật viên chỉ xem nhật ký; Quản lý ghi, sửa và hủy.</Note>
+              <Note>Thuốc trộn vào thức ăn được ghi trong ca sức khỏe, không ghi ở đây. Kỹ thuật viên chỉ xem nhật ký; Chủ trại và Quản lý ghi, sửa và hủy.</Note>
             </div>
           </div>
         )}

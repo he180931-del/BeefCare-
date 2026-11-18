@@ -21,11 +21,11 @@ import UpdateStatusDialog from './UpdateStatusDialog'
 
 const PAGE_NOTE = 'Tab Sức khỏe trong hồ sơ bò. Mỗi ca đang mở hoặc mạn tính có 1 thẻ với diễn biến theo thời gian. "Ngưng sử dụng thịt đến" là ngày muộn nhất từ các lần điều trị và mũi tiêm tại trại. Nút ghi chỉ hiện cho Quản lý; vai trò khác chỉ xem.'
 const DIALOG_NOTES: Record<string, string> = {
-  'open-case': 'Hộp thoại ghi một quan sát bất thường (chỉ Quản lý). Mặc định mở ca mới; chọn "Nối vào ca đang có" để thêm vào ca đang mở hoặc mạn tính của bò. Thân nhiệt không bắt buộc, trong khoảng 35,0 – 43,0 °C.',
-  'follow-up': 'Hộp thoại ghi 1 lần theo dõi ca (chỉ Quản lý). Thời điểm không được trước lúc mở ca. Lần theo dõi được thêm vào "Diễn biến & điều trị" của ca.',
-  treatment: 'Hộp thoại ghi 1 lần điều trị (chỉ Quản lý). Thuốc lấy từ danh mục; liều, đường dùng và số ngày ngưng được điền sẵn, có thể sửa. Hết ngưng = ngày dùng cuối + số ngày ngưng, dùng để tính ngày được xuất bán. Ca mạn tính hiện thêm lưu ý điều trị dài ngày.',
-  'update-status': 'Hộp thoại cập nhật hoặc đóng ca (chỉ Quản lý). Ca OPEN: Giữ OPEN / Chuyển theo dõi mạn tính / Đóng ca. Ca mạn tính: Giữ mạn tính / Quay lại OPEN / Đóng ca. Kết quả và thời điểm đóng chỉ hiện khi chọn Đóng ca. Đóng với kết quả Chết hoặc Mất tích: hiện cảnh báo trước khi lưu, hệ thống tạo phiếu xuất "Chết / mất" ở trạng thái chờ để Chủ trại hoàn tất.',
-  correct: 'Hộp thoại sửa hoặc hủy 1 lần điều trị hoặc theo dõi (chỉ Quản lý). Lần ghi mở ca chỉ sửa, không hủy.',
+  'open-case': 'Hộp thoại ghi một quan sát bất thường (Chủ trại, Quản lý). Mặc định mở ca mới; chọn "Nối vào ca đang có" để thêm vào ca đang mở hoặc mạn tính của bò. Thân nhiệt không bắt buộc, trong khoảng 35,0 – 43,0 °C.',
+  'follow-up': 'Hộp thoại ghi 1 lần theo dõi ca (Chủ trại, Quản lý). Thời điểm không được trước lúc mở ca. Lần theo dõi được thêm vào "Diễn biến & điều trị" của ca.',
+  treatment: 'Hộp thoại ghi 1 lần điều trị (Chủ trại, Quản lý). Thuốc lấy từ danh mục; liều, đường dùng và số ngày ngưng được điền sẵn, có thể sửa. Hết ngưng = ngày dùng cuối + số ngày ngưng, dùng để tính ngày được xuất bán. Ca mạn tính hiện thêm lưu ý điều trị dài ngày.',
+  'update-status': 'Hộp thoại cập nhật hoặc đóng ca (Chủ trại, Quản lý). Ca OPEN: Giữ OPEN / Chuyển theo dõi mạn tính / Đóng ca. Ca mạn tính: Giữ mạn tính / Quay lại OPEN / Đóng ca. Kết quả và thời điểm đóng chỉ hiện khi chọn Đóng ca. Đóng với kết quả Chết hoặc Mất tích: hiện cảnh báo trước khi lưu, hệ thống tạo phiếu xuất "Chết / mất" ở trạng thái chờ để Chủ trại hoàn tất.',
+  correct: 'Hộp thoại sửa hoặc hủy 1 lần điều trị hoặc theo dõi (Chủ trại, Quản lý). Lần ghi mở ca chỉ sửa, không hủy.',
 }
 
 export default function HealthProfileTab({ cattleCode }: { cattleCode: string }) {

@@ -85,7 +85,14 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     spy.mockRestore()
   })
 
-  it.each(['OWNER', 'TECHNICIAN'] as const)('%s chỉ xem: không có ô chọn, thao tác, ghi nhận hay quản lý lịch', async (role) => {
+  it('D41: Chủ trại chọn mũi, ghi nhận và quản lý lịch như Quản lý', async () => {
+    app('OWNER')
+    await screen.findByText('BC-000131')
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Quản lý lịch' })).toBeInTheDocument()
+  })
+
+  it.each(['TECHNICIAN'] as const)('%s chỉ xem: không có ô chọn, thao tác, ghi nhận hay quản lý lịch', async (role) => {
     app(role)
     await screen.findByText('BC-000131')
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
@@ -94,9 +101,14 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     expect(screen.queryByRole('button', { name: 'Quản lý lịch' })).not.toBeInTheDocument()
   })
 
-  it('Chủ trại mở màn quản lý lịch thì bị chặn', async () => {
+  it('D41: Chủ trại mở được màn quản lý lịch', async () => {
     app('OWNER', '/tiem-phong/quan-ly')
-    expect(await screen.findByText('Chỉ Quản lý mới thực hiện được thao tác này')).toBeInTheDocument()
+    expect(await screen.findByText('86 con khớp')).toBeInTheDocument()
+  })
+
+  it('Kỹ thuật viên mở màn quản lý lịch thì bị chặn', async () => {
+    app('TECHNICIAN', '/tiem-phong/quan-ly')
+    expect(await screen.findByText('Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này')).toBeInTheDocument()
   })
 })
 
@@ -146,7 +158,13 @@ describe('tab Tiêm phòng của hồ sơ bò', () => {
     expect(await screen.findAllByText(/đã hủy/)).not.toHaveLength(0)
   })
 
-  it.each(['OWNER', 'TECHNICIAN'] as const)('%s chỉ xem', async (role) => {
+  it('D41: Chủ trại thấy cột Thao tác như Quản lý', async () => {
+    renderAs('OWNER', <VaccinationProfileTab cattleCode="BC-000125" />, '/?tab=vaccine')
+    await screen.findByText('Lịch sử tiêm')
+    expect(screen.getAllByText('Thao tác').length).toBeGreaterThan(0)
+  })
+
+  it.each(['TECHNICIAN'] as const)('%s chỉ xem', async (role) => {
     renderAs(role, <VaccinationProfileTab cattleCode="BC-000125" />, '/?tab=vaccine&m=defer')
     await screen.findByText('Lịch sử tiêm')
     expect(screen.queryByRole('button', { name: /Ghi nhận tiêm/ })).not.toBeInTheDocument()

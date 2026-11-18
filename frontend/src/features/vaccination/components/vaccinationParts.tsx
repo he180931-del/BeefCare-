@@ -2,7 +2,7 @@ import { useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { Badge, EmptyBlock, inputCls } from '../../../components/ui'
-import { useSession } from '../../authorization'
+import { useCanRecordCare } from '../../authorization'
 import { fmtDayMonth } from '../domain/vaccinationFormat'
 import type { DoseRow, VaccinationSource, VaccineRoute } from '../types'
 
@@ -12,8 +12,8 @@ export const healthCasePath = (code: string) => `/cattle/${code}?tab=health`
 export const profilePath = (code: string) => `/cattle/${code}?tab=vaccine`
 export const recordPath = (params: Record<string, string>) => `/tiem-phong/ghi-nhan?${new URLSearchParams(params).toString()}`
 
-/** Quản lý ghi nhận và sửa; Chủ trại, Kỹ thuật viên chỉ xem. Không có phiên thì coi là Quản lý. */
-export const useCanWrite = () => (useSession()?.role ?? 'MANAGER') === 'MANAGER'
+/** Chủ trại và Quản lý ghi nhận và sửa (GBR-08, D41); Kỹ thuật viên chỉ xem. Không có phiên thì không áp quyền theo vai trò. */
+export const useCanWrite = () => useCanRecordCare()
 
 /** Thông báo thành công truyền qua router state sau khi lưu ở màn khác. */
 export function useNotice() {
@@ -68,11 +68,12 @@ export function DoseStatusBadge({ row }: { row: Pick<DoseRow, 'state' | 'daysOve
   }
 }
 
-export function ManagerOnly({ title, children }: { title: string; children: ReactNode }) {
+/** Màn ghi tiêm và quản lý lịch: chỉ Chủ trại và Quản lý (GBR-08, D41). */
+export function CareWriterOnly({ title, children }: { title: string; children: ReactNode }) {
   if (useCanWrite()) return <>{children}</>
   return (
     <Layout title={title}>
-      <EmptyBlock title="Chỉ Quản lý mới thực hiện được thao tác này" sub="Chủ trại và Kỹ thuật viên chỉ xem lịch và lịch sử tiêm." action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
+      <EmptyBlock title="Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này" sub="Kỹ thuật viên chỉ xem lịch và lịch sử tiêm." action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
     </Layout>
   )
 }

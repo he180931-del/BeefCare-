@@ -34,7 +34,7 @@ describe('reproduction screens', () => {
     </MemoryRouter>)
 
     await screen.findByRole('heading', { name: 'Ghi sự kiện đẻ' })
-    expect(screen.getByText('Chỉ Quản lý được ghi sự kiện đẻ. Chủ trại và Kỹ thuật viên xem ở chế độ chỉ đọc.')).toBeInTheDocument()
+    expect(screen.getByText('Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.')).toBeInTheDocument()
     expect((screen.getByRole('button', { name: 'Lưu sự kiện đẻ' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -53,8 +53,14 @@ describe('reproduction screens', () => {
     expect((await reproductionApi.getProfile('BC-000240')).status).toBe('IN_ESTRUS')
   })
 
-  it('hides recording buttons from the owner', async () => {
+  it('gives the owner the recording buttons and the dialog opened from the URL (D41)', async () => {
     render(<MemoryRouter initialEntries={['/cattle/BC-000240?tab=repro&m=ghi-dong-duc']}><ReproductionProfileTab cattleCode="BC-000240" role="OWNER" /></MemoryRouter>)
+    await screen.findByText('Trạng thái sinh sản')
+    expect(await screen.findByRole('button', { name: 'Lưu động dục' })).toBeInTheDocument()
+  })
+
+  it('hides recording buttons from the technician', async () => {
+    render(<MemoryRouter initialEntries={['/cattle/BC-000240?tab=repro&m=ghi-dong-duc']}><ReproductionProfileTab cattleCode="BC-000240" role="TECHNICIAN" /></MemoryRouter>)
     await screen.findByText('Trạng thái sinh sản')
     expect(screen.queryByRole('button', { name: 'Lưu động dục' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi động dục' })).not.toBeInTheDocument()

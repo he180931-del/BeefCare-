@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../../../src/components/Layout'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
-import { HomeRedirect, RoleGate, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
+import { HomeRedirect, RoleGate, canRecordCare, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/api/currentFarm'
 
@@ -192,5 +192,12 @@ describe('mock sign-in', () => {
 
   it('rejects an empty password', async () => {
     await expect(createMockAuthClient().login('owner@beefcare.local', '')).rejects.toThrow('Email hoặc mật khẩu chưa chính xác.')
+  })
+})
+
+describe('care recording permission (GBR-08, GBR-102, D41)', () => {
+  it('lets the Owner and a Manager record care, never a Technician or platform staff', () => {
+    expect((['OWNER', 'MANAGER', 'TECHNICIAN', 'CS', 'PM', 'SA'] as const).map(canRecordCare)).toEqual([true, true, false, false, false, false])
+    expect(canRecordCare(undefined)).toBe(false)
   })
 })

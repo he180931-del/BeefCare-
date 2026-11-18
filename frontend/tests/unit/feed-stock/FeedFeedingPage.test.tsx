@@ -141,8 +141,17 @@ describe('SCR-83 feeding log', () => {
     expect(onSaved).not.toHaveBeenCalled()
   })
 
-  it('is read-only for the owner: nothing to record, correct or void', async () => {
+  it('lets the owner record, correct and void like a manager (D41)', async () => {
     renderApp('/thuc-an/nhat-ky', 'OWNER')
+    await screen.findByRole('tabpanel', { name: 'Nhật ký cho ăn' })
+    expect(await screen.findByText('8 / 10')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ghi cữ cho ăn' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Thao tác B1')).toBeInTheDocument()
+    expect(screen.queryByText(/Chế độ chỉ xem/)).not.toBeInTheDocument()
+  })
+
+  it('is read-only for the technician: nothing to record, correct or void', async () => {
+    renderApp('/thuc-an/nhat-ky', 'TECHNICIAN')
     await screen.findByRole('tabpanel', { name: 'Nhật ký cho ăn' })
     expect(await screen.findByText('8 / 10')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi cữ cho ăn' })).not.toBeInTheDocument()

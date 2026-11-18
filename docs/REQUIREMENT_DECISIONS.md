@@ -697,3 +697,49 @@ Quyết định (LamKD):
 2. `PAYMENT` và `FARM_SERVICE` chỉ dùng phạm vi `FARM`; giao diện tự chọn "Trang trại", khóa lựa chọn "Không gắn trại", hiện "Danh mục này bắt buộc gắn với trang trại." và bắt buộc chọn một trại thuộc Owner.
 3. `SYSTEM_USAGE` và `OTHER` cho phép người dùng chọn `ACCOUNT` hoặc `FARM`; nếu chọn `FARM` thì bắt buộc chọn trại, nếu chọn `ACCOUNT` thì `farmId = null`.
 4. Frontend kiểm tra để phản hồi ngay trên màn hình; backend kiểm tra lại ma trận danh mục/phạm vi trước khi tạo ticket để không thể bỏ qua bằng cách gọi API trực tiếp. Hợp đồng JSON không thêm trường mới.
+
+### D41 — Owner có toàn bộ quyền của Manager và Technician trong trại (18/11/2026)
+
+SRS 28/10 cho Owner chỉ xem tăng trưởng, tiêm phòng, sức khỏe, sinh sản và sổ cho ăn
+(Table III-2, GBR-08, GBR-102, GBR-103) và không đưa nhắc REM-11 cho Owner (Table III-3,
+GBR-104). Trại nhỏ không có Manager thì Owner không ghi được dữ liệu chăm sóc. Người dùng
+(DucNV) chọn gộp quyền sau khi đối chiếu Table III-2, `FarmAction` và các màn hình. Chốt
+theo đề xuất:
+
+1. Owner ghi, sửa, loại trừ / hủy như Manager ở FE-08 (cân, BCS), FE-09 (lịch tiêm, ghi
+   tiêm, hoãn mũi), FE-10 (mở ca, theo dõi, điều trị, đổi trạng thái, đóng ca), FE-11 /
+   FE-12 (động dục, phối, khám thai, diễn biến thai, đẻ) và FE-23 (bản ghi cho ăn), kể cả
+   Sửa / Hủy trên dòng thời gian (FE-16 Q2). Quy tắc lưu giữ nguyên: lý do, version,
+   Idempotency-Key, kiểm phụ thuộc. Owner sửa / hủy được bản ghi do Manager tạo và ngược
+   lại, đúng quy tắc hiện có của Manager; người ghi là tài khoản thực hiện.
+2. Quyền của Technician đều là quyền xem và đã nằm trong quyền Owner, trừ nhắc REM-11
+   (bữa ăn chưa ghi). Owner nay nhận REM-11, tức thấy mọi nhắc việc của trại.
+3. Chỉ gộp quyền, không thêm màn hình: Owner dùng các màn hình sẵn có (menu Chăm sóc và
+   route đã mở cho Owner), không vào giao diện điện thoại của Technician (`/kt`, SCR-74,
+   SCR-86). Owner giữ các quyền riêng (phiếu xuất, thu tiền, người mua, thành viên, gói
+   dịch vụ, thông tin trại, đổi mục đích bò). Quyền của Manager và Technician không đổi.
+4. Dòng "Danh mục và tham số" của Table III-2 sửa thành "Quản lý tất cả" cho Owner, khớp
+   D37 và code (`MANAGE_CATALOGUES`, `MANAGE_CARE_CATALOGUES` đã gồm Owner); bảng cũ lệch
+   với code từ trước.
+
+SRS sửa tại chỗ: Table III-2 (bảy dòng), chú thích ¹⁰ về nhắc việc của Owner, bảng menu
+theo vai trò (nút ghi chuyển sang dòng Farm Owner), GBR-08, GBR-102, GBR-103, GBR-104,
+Table III-3 (REM-11), tab Thức ăn của SCR-44, mô tả tóm tắt và Primary Actor / PRE-1 của
+20 UC ghi (UC-FE08-01, 03; UC-FE09-02 → 06, 08; UC-FE10-02 → 05; UC-FE11-02 → 04;
+UC-FE12-02 → 06; UC-FE23-08, 09), danh sách màn hình SCR-30 → 34, 37, 39, 40, 83, đoạn mở
+đầu các tab / popup ghi, các nút "(Manager)", câu chỉ đọc của Owner ở SCR-39 và SCR-83,
+trường "Fed by". Bước luồng UC còn ghi "Manager selects…" đọc là Owner hoặc Manager (GBR-08,
+GBR-102 ghi rõ). Business flow và NFR-U02 mô tả người ghi điển hình, không phải quy tắc
+quyền, giữ nguyên.
+
+Đi kèm, không cần quyết riêng: backend thêm OWNER vào `MANAGE_GROWTH`, `MANAGE_HEALTH`,
+`MANAGE_REPRODUCTION`, `MANAGE_FEEDING`; REM-11 trong `FarmReminderQueryService` và
+`FeedManagementService` gồm Owner; bảng quyền SCR-08 (`AccountResource`) theo Table III-2
+mới. Frontend hiện nút ghi / sửa cho Owner (đang kiểm `role === 'MANAGER'`) và bảng quyền
+SCR-08 / SCR-13 / popup Mời. Không migration, không đổi hình dạng API; mô tả 403 trong
+OpenAPI cập nhật. Test case: TC-08-19, TC-09-28, TC-10-24, TC-11-20, TC-12-26 còn Technician
+(403); TC-23-02 đổi thành Owner ghi thành công; TC-14-16, TC-23-27 thêm Owner nhận REM-11;
+thêm TC-08-22, TC-09-31, TC-10-29, TC-11-25, TC-12-27, TC-14-27, TC-16-17. Spec FE-03 §3.4,
+FE-08 → FE-12 §1, §2, quy tắc quyền, bảng nút; FE-14 §2, Table III-3, SCR-44; FE-16 §2,
+R-16-07, Q2; FE-23 §1, §2, R-23-11, R-23-13, SCR-83, popup Ghi bữa ăn. FE-08 → FE-12 thuộc
+TuanPQ, FE-23 thuộc TaiDX, FE-14 / FE-16 thuộc AnNT: cần báo các chủ feature.

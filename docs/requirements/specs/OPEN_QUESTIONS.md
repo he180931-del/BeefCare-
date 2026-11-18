@@ -16,6 +16,8 @@ Ngày 09/11/2026 thêm FE-19 Q6: DucNV chốt cách tính số ngày còn lại 
 
 Ngày 16/11/2026 thêm FE-19 Q11: Owner muốn hủy yêu cầu thanh toán trong khi SRS (GBR-70) không cho hủy; chốt D38.
 
+Ngày 18/11/2026: FE-16 Q2 được chốt kèm D41 (Owner có toàn bộ quyền của Manager và Technician trong trại).
+
 | FE | Mã | Câu hỏi | Đề xuất trong spec | Quyết định | Người chốt | Ngày |
 |---|---|---|---|---|---|---|
 | FE-01 | Q1 | Vượt giới hạn 5 email / giờ: SRS không có mã thông báo riêng | Dùng MSG-COM-02 hoặc thêm MSG-FE01-17 "Bạn đã gửi quá nhiều yêu cầu, thử lại sau {time}" |  | LamKD |  |
@@ -93,7 +95,7 @@ Ngày 16/11/2026 thêm FE-19 Q11: Owner muốn hủy yêu cầu thanh toán tron
 | FE-15 | Q5 | Bộ lọc nào áp dụng cho từng RPT | RPT-03: bỏ giống / giai đoạn; RPT-07: chỉ chuồng; còn lại đủ 4 |  | TaiDX |  |
 | FE-15 | Q6 | Cache dashboard | Tính tại thời điểm xem; nếu cache phải hiện thời điểm tính thực |  | TaiDX |  |
 | FE-16 | Q1 | Không có đặc tả UC ở Part II | Dùng Part III + GBR-37 |  | AnNT |  |
-| FE-16 | Q2 | SRS chỉ nói Manager có Sửa / Hủy trên dòng thời gian; Owner thì sao? | Owner theo quyền sửa của FE nguồn (đề xuất có, đồng nhất với tab nguồn) |  | AnNT |  |
+| FE-16 | Q2 | SRS chỉ nói Manager có Sửa / Hủy trên dòng thời gian; Owner thì sao? | Owner theo quyền sửa của FE nguồn (đề xuất có, đồng nhất với tab nguồn) | Theo đề xuất (D41) | DucNV | 18/11/2026 |
 | FE-16 | Q3 | Thứ tự mới nhất trước hay cũ nhất trước | Mới nhất trước |  | AnNT |  |
 | FE-16 | Q4 | Trạng thái rỗng, phân trang | "Chưa có sự kiện"; tải thêm theo tháng |  | AnNT |  |
 | FE-16 | Q5 | Sự kiện điều trị / đóng ca (FE-10) có Sửa / Hủy từ dòng thời gian? | Không – SRS chỉ liệt kê 5 popup |  | AnNT |  |

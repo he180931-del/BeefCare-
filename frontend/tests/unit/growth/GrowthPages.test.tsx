@@ -83,8 +83,15 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     expect(await screen.findByText(/Bản ghi đã được loại trừ/)).toBeInTheDocument()
   })
 
-  it.each(['OWNER', 'TECHNICIAN'] as const)('%s chỉ xem, không có nút ghi nhận và cột Thao tác', async (role) => {
-    renderAs(role, <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
+  it('D41: Chủ trại ghi nhận và sửa như Quản lý', async () => {
+    renderAs('OWNER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
+    expect(await screen.findByLabelText('Cân nặng')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Sửa · Loại trừ' }).length).toBeGreaterThan(0)
+  })
+
+  it('TECHNICIAN chỉ xem, không có nút ghi nhận và cột Thao tác', async () => {
+    renderAs('TECHNICIAN', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
     await screen.findByText('Lịch sử đo')
     expect(screen.queryByRole('button', { name: /Ghi nhận cân & BCS/ })).not.toBeInTheDocument()
     expect(screen.queryByText('Thao tác')).not.toBeInTheDocument()
@@ -103,10 +110,10 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     spy.mockRestore()
   })
 
-  it('bò chờ xác nhận chết / mất: Chủ trại chỉ thấy lý do, không thấy câu về sửa / loại trừ', async () => {
+  it('bò chờ xác nhận chết / mất: Kỹ thuật viên chỉ thấy lý do, không thấy câu về sửa / loại trừ', async () => {
     const real = await growthDemoStore.getProfile('BC-000203')
     const spy = vi.spyOn(growthApi, 'getProfile').mockResolvedValue({ ...real, cattle: { ...real.cattle, exitPending: true } })
-    renderAs('OWNER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
+    renderAs('TECHNICIAN', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
     expect(await screen.findByText(/Chờ xác nhận chết \/ mất: BC-000203/)).toBeInTheDocument()
     expect(screen.queryByText(/Vẫn sửa hoặc loại trừ/)).not.toBeInTheDocument()
     spy.mockRestore()

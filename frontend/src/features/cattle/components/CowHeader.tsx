@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
-import { useSession } from '../../authorization'
+import { useCanRecordCare } from '../../authorization'
 import { Chip, chipIcon } from './parts'
 import CowPhoto from './CowPhoto'
 import type { CowSeed } from '../../../data/cowsData'
@@ -54,8 +54,8 @@ export default function CowHeader({ cow, tab, canWrite, onTab, onOpenModal }: { 
   const voided = cow.status === 'VOIDED'
   const exited = cow.status === 'EXITED'
   const active = cow.status === 'ACTIVE'
-  // Chỉ Quản lý ghi nhận chăm sóc; Chủ trại vẫn cập nhật được hồ sơ nhưng không thấy nút này.
-  const canRecord = (useSession()?.role ?? 'MANAGER') === 'MANAGER'
+  // Chủ trại và Quản lý ghi nhận chăm sóc (GBR-08, D41); Kỹ thuật viên không thấy nút này.
+  const canRecord = useCanRecordCare()
   const action = canWrite && canRecord ? TAB_ACTIONS[tab] : undefined
   return (
     <div className="flex flex-col gap-5">

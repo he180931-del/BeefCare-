@@ -163,6 +163,8 @@ describe('UC-FE03-05 / SCR-13 (D29)', () => {
     expect(within(table).getAllByRole('row')).toHaveLength(18)
     const membersRow = within(table).getByText('Thành viên & vai trò').closest('tr')!
     expect(within(membersRow).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Thành viên & vai trò', 'Quản lý', 'Xem danh sách', '—'])
-    expect(within(table).getByText('Lập lịch, ghi và sửa')).toBeInTheDocument()
+    // D41: the Owner and the Manager share the vaccination cell.
+    const vaccinationRow = within(table).getByText('Tiêm phòng').closest('tr')!
+    expect(within(vaccinationRow).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['Tiêm phòng', 'Lập lịch, ghi và sửa', 'Lập lịch, ghi và sửa', 'Xem'])
   })
 })

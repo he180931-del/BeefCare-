@@ -6,7 +6,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { useSession } from '../../authorization'
 import { vaccinationApi } from '../api/vaccinationApi'
-import { DOSE_INVALID, FieldError, ManagerOnly, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, profilePath } from '../components/vaccinationParts'
+import { CareWriterOnly, DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, profilePath } from '../components/vaccinationParts'
 import { addDays, fmtDate } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
 import type { RecordContext, VaccinationAnimal, VaccinationSource, VaccineRoute } from '../types'
@@ -19,14 +19,14 @@ export default function RecordPage() {
   const { data, loading, error, refetch } = useQuery(() => vaccinationApi.recordContext({ doseIds, cattleCodes }), [params.toString()])
   const title = data?.title ?? 'Ghi nhận tiêm'
   return (
-    <ManagerOnly title="Ghi nhận tiêm">
+    <CareWriterOnly title="Ghi nhận tiêm">
       <Layout title={title}>
         {loading && !data ? <LoadingBlock />
           : error || !data ? <ErrorBlock message={userFacingError(error, 'Không tải được thông tin ghi nhận tiêm.')} onRetry={refetch} />
           : data.rows.length === 0 ? <EmptyBlock title="Chưa chọn bò nào để ghi nhận" sub="Quay lại lịch tiêm phòng và chọn các mũi cần ghi nhận." action={<Link to={back} className="text-brand">Quay lại</Link>} />
           : <RecordForm ctx={data} back={back} />}
       </Layout>
-    </ManagerOnly>
+    </CareWriterOnly>
   )
 }
 
@@ -186,7 +186,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
           </tbody>
         </Table>
       </Card>
-      <Foot>Màn ghi tiêm cho 1 con hoặc nhiều con (chỉ Quản lý). Vắc-xin, liều, đường tiêm và số ngày ngưng được điền sẵn từ danh mục. "Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không bắt buộc số lô và không tính ngày ngưng.</Foot>
+      <Foot>Màn ghi tiêm cho 1 con hoặc nhiều con (Chủ trại, Quản lý). Vắc-xin, liều, đường tiêm và số ngày ngưng được điền sẵn từ danh mục. "Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không bắt buộc số lô và không tính ngày ngưng.</Foot>
     </div>
   )
 }

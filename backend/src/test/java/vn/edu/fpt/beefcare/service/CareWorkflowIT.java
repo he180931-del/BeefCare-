@@ -117,11 +117,14 @@ class CareWorkflowIT extends DomainTestSupport {
     }
 
     @Test
-    void ownerCannotRecordCareAndAnotherFarmSeesNothing() {
-        actAs(owner);
+    void ownerRecordsCareTechnicianCannotAndAnotherFarmSeesNothing() {
+        actAs(technician);
         assertThatThrownBy(() -> health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD", null)))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
-        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null, null, null, null, null).items()).isEmpty(); // Owner reads
+        actAs(owner); // D41: the Owner records like a Manager
+        CareDtos.HealthCaseResult opened = health.open(farm.getId(), key(), new CareDtos.OpenHealthCase(cow.getId(), null, null, hoursAgo(1), null, null, "Limping", null, false, "MILD", null));
+        assertThat(reads.healthCases(farm.getId(), "OPEN", null, null, null, null, null, null, null, null, null).items())
+            .extracting(CareDtos.HealthCaseRow::id).containsExactly(opened.id());
 
         Farm other = farm();
         AppUser otherManager = memberWithRole(other, FarmRole.MANAGER);
@@ -204,10 +207,13 @@ class CareWorkflowIT extends DomainTestSupport {
         em.clear();
         assertThat(doses(schedule.id())).extracting(ScheduledDose::getStatus).containsOnly("CANCELLED");
 
-        actAs(owner);
+        actAs(technician);
         assertThatThrownBy(() -> vaccination.createSchedule(farm.getId(), key(),
             new CareDtos.CreateVaccinationSchedule("x", vaccine.id(), TODAY, 1, 21, null, List.of(cow.getId()))))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_01));
+        actAs(owner); // D41: the Owner plans schedules like a Manager
+        assertThat(vaccination.createSchedule(farm.getId(), key(),
+            new CareDtos.CreateVaccinationSchedule("x", vaccine.id(), TODAY, 1, 21, null, List.of(cow.getId()))).id()).isNotNull();
     }
 
     // ------------------------------------------------------------------ FE-18 references

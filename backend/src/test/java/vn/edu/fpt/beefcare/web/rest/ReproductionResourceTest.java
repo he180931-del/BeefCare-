@@ -384,11 +384,23 @@ class ReproductionResourceTest extends HerdEntryTestBase {
     }
 
     @Test
-    void tc11_20_onlyTheManagerRecords() throws Exception {
-        for (AppUser user : List.of(owner, technician)) {
-            post_("/cattle/" + cow.getId() + "/estrus-events", user, body("expectedCattleVersion", v(cow), "observedAt", at(0, 6, 0))).andExpect(status().isForbidden());
-            post_("/cattle/" + cow.getId() + "/breeding-events", user, breedingBody(cow, at(0, 7, 0))).andExpect(status().isForbidden());
-        }
+    void tc11_20_theTechnicianCannotRecord() throws Exception {
+        post_("/cattle/" + cow.getId() + "/estrus-events", technician, body("expectedCattleVersion", v(cow), "observedAt", at(0, 6, 0))).andExpect(status().isForbidden());
+        post_("/cattle/" + cow.getId() + "/breeding-events", technician, breedingBody(cow, at(0, 7, 0))).andExpect(status().isForbidden());
+    }
+
+    /** D41: the Owner records and voids like a Manager; the Owner is the default observer. */
+    @Test
+    void tc11_25_theOwnerRecordsAndVoidsLikeAManager() throws Exception {
+        post_("/cattle/" + cow.getId() + "/estrus-events", owner, body("expectedCattleVersion", v(cow), "observedAt", at(0, 6, 0)))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.reproStatus").value("IN_ESTRUS"));
+        get_("/cattle/" + cow.getId() + "/reproduction-history", owner)
+            .andExpect(jsonPath("$.timeline[0].kind").value("ESTRUS"))
+            .andExpect(jsonPath("$.timeline[0].observer.id").value(owner.getId()));
+        long breedingId = read(post_("/cattle/" + cow.getId() + "/breeding-events", owner, breedingBody(cow, at(0, 7, 0))).andExpect(status().isCreated()))
+            .get("eventId").asLong();
+        post_("/reproduction-events/" + breedingId + "/void", owner, body("expectedVersion", eventVersion(breedingId), "reason", "Ghi nhầm"))
+            .andExpect(status().isOk());
     }
 
     // ------------------------------------------------------------------ FE-11 A5 / A6
@@ -486,11 +498,20 @@ class ReproductionResourceTest extends HerdEntryTestBase {
     }
 
     @Test
-    void tc12_26_ownerAndTechnicianCannotRecordChecksOrCalvings() throws Exception {
-        for (AppUser user : List.of(owner, technician)) {
-            post_("/cattle/" + cow.getId() + "/pregnancy-checks", user, body("expectedCattleVersion", v(cow), "checkedAt", at(0, 9, 0), "result", "PREGNANT")).andExpect(status().isForbidden());
-            post_("/calvings", user, calvingBody(at(0, 6, 0), List.of(calf()))).andExpect(status().isForbidden());
-        }
+    void tc12_26_theTechnicianCannotRecordChecksOrCalvings() throws Exception {
+        post_("/cattle/" + cow.getId() + "/pregnancy-checks", technician, body("expectedCattleVersion", v(cow), "checkedAt", at(0, 9, 0), "result", "PREGNANT")).andExpect(status().isForbidden());
+        post_("/calvings", technician, calvingBody(at(0, 6, 0), List.of(calf()))).andExpect(status().isForbidden());
+    }
+
+    /** D41: the Owner records a pregnancy check on the Manager's breeding and the calving, like a Manager. */
+    @Test
+    void tc12_27_theOwnerRecordsChecksAndCalvingsLikeAManager() throws Exception {
+        long breedingId = breed(cow, at(290, 8, 0)).get("eventId").asLong();
+        long episodeId = read(post_("/cattle/" + cow.getId() + "/pregnancy-checks", owner,
+                body("expectedCattleVersion", v(cow), "checkedAt", at(260, 9, 0), "result", "PREGNANT", "method", "ULTRASOUND", "examinerId", owner.getId(), "linkedBreedingId", breedingId))
+            .andExpect(status().isCreated())).at("/episode/episodeId").asLong();
+        post_("/calvings", owner, calvingBody(at(0, 6, 0), List.of(calf()), "episodeId", episodeId, "expectedEpisodeVersion", episodeVersion(episodeId)))
+            .andExpect(status().isCreated());
     }
 
     // ------------------------------------------------------------------ FE-12 A3 pregnancy update

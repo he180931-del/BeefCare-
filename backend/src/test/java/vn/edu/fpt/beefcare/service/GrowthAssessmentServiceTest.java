@@ -37,7 +37,9 @@ class GrowthAssessmentServiceTest extends DomainTestSupport {
         assertThatThrownBy(()->service.record(f.getId(),c.getId(),measurement(clock.instant(),null,null,"2.7",false))).isInstanceOf(DomainException.class);
         GrowthDtos.Record tape=service.record(f.getId(),c.getId(),new GrowthDtos.Measurement(clock.instant(),null,"TAPE",null,new BigDecimal("150"),new BigDecimal("120"),null,null,false));
         assertThat(tape.weightKg()).isEqualByComparingTo("238.7");assertThat(tape.basis()).isEqualTo("ESTIMATED");
-        actAs(memberWithRole(f,FarmRole.OWNER));assertThatThrownBy(()->service.record(f.getId(),c.getId(),measurement(clock.instant(),"SCALE","300",null,true))).isInstanceOf(DomainException.class);
+        actAs(memberWithRole(f,FarmRole.TECHNICIAN));assertThatThrownBy(()->service.record(f.getId(),c.getId(),measurement(clock.instant(),"SCALE","300",null,true))).isInstanceOf(DomainException.class);
+        actAs(memberWithRole(f,FarmRole.OWNER)); // D41: the Owner records like a Manager
+        assertThat(service.record(f.getId(),c.getId(),measurement(clock.instant(),"SCALE","300",null,true)).weightKg()).isEqualByComparingTo("300");
     }
     @Test void exclusionChangesIndicatorsAndTimelineKeepsBeforeSnapshotWithoutDeletingHistory() {
         Farm f=farm();actAs(memberWithRole(f,FarmRole.MANAGER));Cattle c=animal(f);

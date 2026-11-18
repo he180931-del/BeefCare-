@@ -119,6 +119,14 @@ describe('FE-16 timeline tab', () => {
     expect(screen.getAllByRole('button', { name: 'Sửa / Hủy' })).toHaveLength(1)
   })
 
+  it('TC-16-17 (D41): the Owner sees Sửa / Hủy like the Manager', async () => {
+    const user = userEvent.setup()
+    renderTab('OWNER')
+    expect(screen.queryByRole('button', { name: 'Sửa / Hủy' })).not.toBeInTheDocument()
+    await user.click(screen.getByLabelText('Hiện chỉnh sửa'))
+    expect(screen.getAllByRole('button', { name: 'Sửa / Hủy' })).toHaveLength(1)
+  })
+
   it('TC-16-10: the Technician never sees Sửa / Hủy', async () => {
     const user = userEvent.setup()
     renderTab('TECHNICIAN')
@@ -247,16 +255,19 @@ describe('FE-16 opens the source correction popup (R-16-07)', () => {
     expect(screen.getByText('Bạn không có quyền xem chi tiết này.')).toBeInTheDocument()
   })
 
-  it('the reproduction tab opens its revise dialog from ?m=correct&r=<id> for a Manager only', async () => {
+  it('the reproduction tab opens its revise dialog from ?m=correct&r=<id> for the Owner or a Manager only', async () => {
     await resetReproductionDemo()
     const profile = await reproductionApi.getProfile('BC-000142')
     const target = profile.events.find((e) => e.type !== 'CALVING')!
-    const at = (role: 'MANAGER' | 'TECHNICIAN') => render(
+    const at = (role: 'OWNER' | 'MANAGER' | 'TECHNICIAN') => render(
       <MemoryRouter initialEntries={[`/cattle/BC-000142?tab=repro&m=correct&r=${target.id}`]}><ReproductionProfileTab cattleCode="BC-000142" role={role} /></MemoryRouter>,
     )
     const manager = at('MANAGER')
     expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
     manager.unmount()
+    const owner = at('OWNER') // D41
+    expect(await screen.findByText('Sửa bản ghi')).toBeInTheDocument()
+    owner.unmount()
     at('TECHNICIAN')
     expect(await screen.findByText('Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.')).toBeInTheDocument()
     expect(screen.queryByText('Sửa bản ghi')).not.toBeInTheDocument()

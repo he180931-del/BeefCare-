@@ -318,7 +318,8 @@ describe('backend mode', () => {
     const managerList = await api.listReminders('MANAGER')
     expect(managerList.items[3]?.to).toBe('/thuc-an/nhat-ky?date=2026-11-15')
     expect(technicianList.items[3]?.to).toBe('/thuc-an/nhat-ky?date=2026-11-15&readOnly=1')
-    expect((await api.listReminders('OWNER')).items[3]?.to).toBeNull()
+    // D41: REM-11 goes to the Owner too, who records feeding like a Manager.
+    expect((await api.listReminders('OWNER')).items[3]?.to).toBe('/thuc-an/nhat-ky?date=2026-11-15')
   })
 
   it('keeps source links closed when target details or the source identity do not match', async () => {

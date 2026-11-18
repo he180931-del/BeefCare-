@@ -132,23 +132,25 @@ Duy nhất: tối đa 1 lời mời `PENDING` cho mỗi cặp trại + email (BR
 
 ### 3.4 Bảng quyền theo vai trò trại (Table III-2 – hiển thị ở SCR-08, SCR-13, popup Mời, SCR-15)
 
+> D41 (người dùng xác nhận 18/11/2026): Chủ trại có toàn bộ quyền của Quản lý và Kỹ thuật viên; các ô của Chủ trại ở tăng trưởng, tiêm phòng, sức khỏe, sinh sản, danh mục, nhắc việc và sổ cho ăn đổi theo. Quyền của Quản lý và Kỹ thuật viên không đổi.
+
 | Nhóm quyền | Chủ trại | Quản lý | Kỹ thuật viên |
 |---|---|---|---|
 | Hồ sơ bò và thẻ QR | Quản lý (cả mục đích) | Quản lý (trừ mục đích) | Xem |
 | Chuồng và chuyển chuồng | Quản lý | Quản lý | Xem |
 | Phiếu nhập, thanh toán, đăng ký bê | Quản lý | Quản lý | — |
-| Tăng trưởng và BCS | Xem | Ghi và sửa | Xem |
-| Tiêm phòng | Xem | Lập lịch, ghi và sửa | Xem |
-| Sức khỏe và điều trị | Xem | Ghi và sửa | Xem |
-| Sinh sản | Xem | Ghi và sửa | Xem |
-| Danh mục và tham số | Mục đích, tham số; xem danh mục | Quản lý tất cả | Xem giống, vắc-xin, thuốc |
+| Tăng trưởng và BCS | Ghi và sửa | Ghi và sửa | Xem |
+| Tiêm phòng | Lập lịch, ghi và sửa | Lập lịch, ghi và sửa | Xem |
+| Sức khỏe và điều trị | Ghi và sửa | Ghi và sửa | Xem |
+| Sinh sản | Ghi và sửa | Ghi và sửa | Xem |
+| Danh mục và tham số | Quản lý tất cả | Quản lý tất cả | Xem giống, vắc-xin, thuốc |
 | Thông báo trại | Viết cho Quản lý và Kỹ thuật viên | Viết cho Kỹ thuật viên | Đọc thông báo nhận được |
-| Nhắc việc | Xem (trừ cữ ăn chưa ghi) | Xem tất cả | Xem (trừ bê nháp và thức ăn sắp hết) |
+| Nhắc việc | Xem tất cả | Xem tất cả | Xem (trừ bê nháp và thức ăn sắp hết) |
 | Dashboard và báo cáo | Xem | Xem | — |
 | Thành viên và vai trò | Quản lý | Xem danh sách | — |
 | Phiếu xuất và thu tiền | Ghi, xác nhận, bỏ, hủy | Xem phiếu | — |
 | Kho thức ăn, phiếu nhập kho, khẩu phần, danh mục thức ăn | Quản lý | Quản lý | Xem khẩu phần |
-| Sổ cho ăn | Xem | Ghi và sửa | Xem |
+| Sổ cho ăn | Ghi và sửa | Ghi và sửa | Xem |
 | Gói dịch vụ và thanh toán | Quản lý | — | — |
 | Thông tin trại | Quản lý | — | — |
 

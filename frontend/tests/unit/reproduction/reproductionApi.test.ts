@@ -127,7 +127,7 @@ describe('reproduction mock API boundary', () => {
     await expect(api.correctEvent('BC-000142', estrus.id, { details: 'Sửa dấu hiệu' }, '', 'MANAGER'))
       .rejects.toThrow('Nhập lý do sửa hoặc hủy.')
     await expect(api.voidEvent('BC-000142', estrus.id, 'Không chính xác', 'TECHNICIAN'))
-      .rejects.toThrow('Chỉ Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
+      .rejects.toThrow('Chỉ Chủ trại và Quản lý mới được ghi, sửa hoặc hủy sự kiện sinh sản.')
 
     const corrected = await api.correctEvent('BC-000142', estrus.id, { details: 'Đứng yên, dịch nhầy trong' }, 'Bổ sung dấu hiệu', 'MANAGER')
     expect(corrected.events.find((event) => event.id === estrus.id)?.corrected).toBe(true)

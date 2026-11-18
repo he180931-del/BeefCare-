@@ -4,7 +4,7 @@ import { useModalParam } from '../../../components/Modal'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Info, LoadingBlock, Metric, Note, Table, Td, Th } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { useCanRecordCare } from '../../authorization'
 import { growthApi } from '../api/growthApi'
 import { fmtDate, fmtDateTime, fmtDayMonth, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
@@ -16,7 +16,7 @@ import GrowthRecordModal from './GrowthRecordModal'
 const HISTORY_ROWS = 5
 
 export default function GrowthProfileTab({ cattleCode }: { cattleCode: string }) {
-  const canWrite = (useSession()?.role ?? 'MANAGER') === 'MANAGER'
+  const canWrite = useCanRecordCare()
   const [modal, , closeModal] = useModalParam()
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useState<string | null>(null)

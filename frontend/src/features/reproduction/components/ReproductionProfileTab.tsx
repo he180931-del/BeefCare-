@@ -6,7 +6,7 @@ import { reproductionApi } from '../api/reproductionApi'
 import { resolveReproductionSource } from '../api/reproductionBackend'
 import { ReproductionOptionsProvider } from './reproductionOptions'
 import { useModalParam } from '../../../components/Modal'
-import { useSession } from '../../authorization'
+import { canRecordCare, useSession } from '../../authorization'
 import {
   ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
 } from '../domain/reproductionRules'
@@ -24,7 +24,7 @@ const ACTION_ICON: Record<ReproductionAction, IconName> = {
   RECORD_ESTRUS: 'flame', RECORD_BREEDING: 'dna', RECORD_PREGNANCY_CHECK: 'heartbeat', RECORD_PREGNANCY_UPDATE: 'clipboard-list', RECORD_CALVING: 'baby-carriage',
 }
 const CAPTION: Record<string, string> = {
-  IN_ESTRUS: 'Tab Sinh sản khi bò Đang động dục. Nút ghi hiện theo trạng thái (chỉ Quản lý): Ghi động dục, Ghi phối giống; "Thêm" chứa Ghi khám thai và Ghi sự kiện đẻ khi thai không được theo dõi. Điều kiện xét phối và cửa sổ phối chỉ để tham khảo.',
+  IN_ESTRUS: 'Tab Sinh sản khi bò Đang động dục. Nút ghi hiện theo trạng thái (Chủ trại, Quản lý): Ghi động dục, Ghi phối giống; "Thêm" chứa Ghi khám thai và Ghi sự kiện đẻ khi thai không được theo dõi. Điều kiện xét phối và cửa sổ phối chỉ để tham khảo.',
   BRED: 'Tab Sinh sản khi bò Đã phối – chờ khám thai. Nút chính là Ghi khám thai; vẫn có Ghi động dục (nếu bò động dục lại) và Ghi sự kiện đẻ. Dải chỉ số sinh sản tính riêng cho từng bò, hiện "—" khi chưa áp dụng.',
   PREGNANT: 'Tab Sinh sản khi bò Đang mang thai (hiện "Sắp đẻ" khi trong thời gian chuẩn bị đẻ của trại). Nút chính là Ghi sự kiện đẻ; có thêm Ghi khám thai và Ghi diễn biến thai. Lịch sử sinh bê liên kết tới hồ sơ bê đã đăng ký, hoặc ghi "Bê nháp".',
 }
@@ -107,9 +107,10 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [localDialog, setLocalDialog] = useState<ReproductionDialogTarget | null>(null)
-  const canManage = role === 'MANAGER'
+  // GBR-08, D41: the Owner and a Manager record and correct; a Technician only views.
+  const canManage = canRecordCare(role)
   const notice = (location.state as { reproductionNotice?: string } | null)?.reproductionNotice
-  // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only a Manager gets it.
+  // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only the Owner or a Manager gets it.
   const modalAction = modal ? ACTION_FOR_MODAL[modal] : undefined
   const dialog: ReproductionDialogTarget | null = localDialog ?? (canManage && modalAction ? { mode: 'record', action: modalAction } : null)
   const [params, setParams] = useSearchParams()
@@ -134,7 +135,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   useEffect(() => { void refresh() }, [cattleCode])
 
   // FE-16 R-16-07: the timeline opens ?tab=repro&m=correct|void&r=<record id>; same convention as the growth and
-  // vaccination tabs. Only a Manager gets the dialog; an unknown id opens nothing.
+  // vaccination tabs. Only the Owner or a Manager gets the dialog; an unknown id opens nothing.
   useEffect(() => {
     const action = params.get('m')
     const id = params.get('r')
@@ -171,7 +172,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
       {error && <Note tone="err">{error}</Note>}
-      {!canManage && <Note tone="info">{role === 'TECHNICIAN' ? 'Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.' : 'Chủ trại xem hồ sơ sinh sản ở chế độ chỉ đọc.'}</Note>}
+      {!canManage && <Note tone="info">Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.</Note>}
       {profile.herdStatus !== 'ACTIVE' && <Note tone="warn">Bò đã rời đàn hoặc đang chờ xác nhận xuất; hồ sơ sinh sản chỉ xem.</Note>}
 
       {!profile.applicable ? (

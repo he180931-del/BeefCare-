@@ -726,7 +726,9 @@ class BrowserSessionFlowIT {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.role").value("OWNER"))
             .andExpect(jsonPath("$.permissions[?(@.area=='CATTLE_PROFILE_QR')].value").value("FULL"))
-            .andExpect(jsonPath("$.permissions[?(@.area=='GROWTH_BCS')].value").value("RESTRICTED"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='GROWTH_BCS')].value").value("FULL")) // D41
+            .andExpect(jsonPath("$.permissions[?(@.area=='FEEDING_LOG')].value").value("FULL"))
+            .andExpect(jsonPath("$.permissions[?(@.area=='CATALOGUES_AND_PARAMETERS')].value").value("FULL"))
             .andExpect(jsonPath("$.permissions[?(@.area=='MEMBERS_ROLES')].value").value("FULL"));
 
         signedUp(email("permission-stranger"), "Permission Stranger").browser
