@@ -1,0 +1,48 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Trạng thái chứng từ ngân hàng (bank_transfer_evidence.review_status)",
+    "locale": "en",
+    "output": "docs/diagrams/fe-19-goi-thanh-toan/evidence-lifecycle.html",
+    "quality_profile": "showcase"
+  },
+  "mainPath": ["received", "accepted"],
+  "states": [
+    { "id": "received", "type": "start", "label": "RECEIVED", "sublabel": "Chờ JOB-06 (UI: PROCESSING)", "tag": "UC-08", "step": "01" },
+    { "id": "accepted", "type": "success", "label": "ACCEPTED", "sublabel": "Đã phân bổ 1 yêu cầu", "tag": "cuối", "step": "02" },
+    { "id": "review", "type": "decision", "label": "UNMATCHED / NEEDS_REVIEW", "sublabel": "Cần PM đối soát", "tag": "UC-06" },
+    { "id": "hold", "type": "waiting", "label": "HOLD", "sublabel": "PM giữ, còn mở" },
+    { "id": "rejected", "type": "failure", "label": "REJECTED", "sublabel": "PM từ chối" },
+    { "id": "locked", "type": "neutral", "label": "LOCKED_FOR_RETURN", "sublabel": "Trả tiền ngoài hệ thống" }
+  ],
+  "transitions": [
+    { "id": "received-accepted", "from": "received", "to": "accepted", "label": "JOB-06 khớp đủ", "variant": "emphasis" },
+    { "id": "received-review", "from": "received", "to": "review", "label": "Không khớp", "note": "Lỗi kỹ thuật quá 24 giờ → NEEDS_REVIEW", "variant": "dashed" },
+    { "id": "review-accepted", "from": "review", "to": "accepted", "label": "PM ACCEPT" },
+    { "id": "review-hold", "from": "review", "to": "hold", "label": "HOLD" },
+    { "id": "review-rejected", "from": "review", "to": "rejected", "label": "REJECT" },
+    { "id": "review-locked", "from": "review", "to": "locked", "label": "Khóa hoàn trả", "variant": "security" },
+    { "id": "locked-review", "from": "locked", "to": "review", "label": "Mở khóa" }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "Quyết định của PM",
+      "items": [
+        "ACCEPT chạy lại đủ điều kiện R-19-06 rồi dùng chung bước xác nhận",
+        "HOLD, REJECT vẫn được xem xét lại; mọi quyết định cần lý do",
+        "Chứng từ đã phân bổ hoặc đang khóa không nhận quyết định"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Khóa hoàn trả",
+      "items": [
+        "Chỉ chứng từ chiều vào, chưa phân bổ, chưa khóa",
+        "Ghi hoàn trả một lần, bất biến; hoặc mở khóa khi chưa ghi",
+        "Khóa thì không bao giờ cấp tiền cho yêu cầu nào"
+      ]
+    }
+  ]
+}

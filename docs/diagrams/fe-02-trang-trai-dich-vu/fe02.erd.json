@@ -1,0 +1,369 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Bảng của FE-02",
+    "locale": "en",
+    "output": "docs/diagrams/fe-02-trang-trai-dich-vu/fe-02-erd.html",
+    "quality_profile": "standard"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 72,
+    "gapY": 38
+  },
+  "entities": [
+    {
+      "id": "farm_membership",
+      "label": "farm_membership",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "farm.id"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "role",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "joined_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "version",
+          "type": "int"
+        }
+      ],
+      "tag": "Thành viên",
+      "width": 292
+    },
+    {
+      "id": "app_user",
+      "label": "app_user",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "email",
+          "type": "varchar(255)",
+          "key": "uk"
+        },
+        {
+          "name": "full_name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "owner_registration_completed",
+          "type": "boolean"
+        }
+      ],
+      "tag": "Thành viên",
+      "width": 292
+    },
+    {
+      "id": "farm",
+      "label": "farm",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "location",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "contact",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "service_status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "time_zone",
+          "type": "varchar(80)"
+        },
+        {
+          "name": "contact_person",
+          "type": "varchar(150)"
+        },
+        {
+          "name": "contact_phone",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "province",
+          "type": "varchar(150)"
+        },
+        {
+          "name": "commune",
+          "type": "varchar(150)"
+        },
+        {
+          "name": "detailed_address",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "registration_certificate_info",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "expected_herd_size",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "operating_notes",
+          "type": "varchar(1000)"
+        },
+        {
+          "name": "morning_shift_start",
+          "type": "time"
+        },
+        {
+          "name": "onboarding_dismissed_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "onboarding_steps_done",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "version",
+          "type": "int"
+        }
+      ],
+      "tag": "Trại",
+      "width": 330
+    },
+    {
+      "id": "farm_main_breed",
+      "label": "farm_main_breed",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "farm.id"
+        },
+        {
+          "name": "breed_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "breed.id"
+        }
+      ],
+      "tag": "Trại",
+      "width": 330
+    },
+    {
+      "id": "breed",
+      "label": "breed",
+      "row": 2,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "farm.id"
+        },
+        {
+          "name": "code",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "available",
+          "type": "boolean"
+        }
+      ],
+      "tag": "Trại",
+      "width": 330
+    },
+    {
+      "id": "subscription",
+      "label": "subscription",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": [
+            "fk",
+            "uk"
+          ],
+          "references": "farm.id"
+        },
+        {
+          "name": "entitlement_status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "latest_end",
+          "type": "timestamp"
+        }
+      ],
+      "tag": "Dịch vụ và audit",
+      "width": 272
+    },
+    {
+      "id": "audit_log",
+      "label": "audit_log",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "farm.id"
+        },
+        {
+          "name": "actor_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "actor_role",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "action",
+          "type": "varchar(100)"
+        },
+        {
+          "name": "target_type",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "target_id",
+          "type": "bigint"
+        },
+        {
+          "name": "details",
+          "type": "clob"
+        },
+        {
+          "name": "logged_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "correlation_id",
+          "type": "varchar(64)"
+        }
+      ],
+      "tag": "Dịch vụ và audit",
+      "width": 272
+    }
+  ],
+  "relationships": [
+    {
+      "id": "farm-membership-farm-0",
+      "from": "farm_membership",
+      "to": "farm",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "thuộc trại"
+    },
+    {
+      "id": "farm-membership-app-user-1",
+      "from": "farm_membership",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "tài khoản"
+    },
+    {
+      "id": "farm-main-breed-farm-2",
+      "from": "farm_main_breed",
+      "to": "farm",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "giống chính"
+    },
+    {
+      "id": "farm-main-breed-breed-3",
+      "from": "farm_main_breed",
+      "to": "breed",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "giống"
+    },
+    {
+      "id": "subscription-farm-4",
+      "from": "subscription",
+      "to": "farm",
+      "fromCardinality": "one",
+      "toCardinality": "one",
+      "label": "gói của trại"
+    },
+    {
+      "id": "audit-log-farm-5",
+      "from": "audit_log",
+      "to": "farm",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "lịch sử dịch vụ"
+    }
+  ]
+}

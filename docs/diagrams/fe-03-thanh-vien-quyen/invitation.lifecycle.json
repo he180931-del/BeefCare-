@@ -1,0 +1,42 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Vòng đời lời mời (farm_invitation.status)",
+    "locale": "en",
+    "output": "docs/diagrams/fe-03-thanh-vien-quyen/invitation-lifecycle.html",
+    "quality_profile": "showcase"
+  },
+  "mainPath": ["pending", "accepted"],
+  "states": [
+    { "id": "pending", "type": "start", "label": "PENDING", "sublabel": "Chờ chấp nhận", "tag": "UC-01", "step": "01" },
+    { "id": "accepted", "type": "success", "label": "ACCEPTED", "sublabel": "Đã tạo membership", "tag": "cuối", "step": "02" },
+    { "id": "cancelled", "type": "neutral", "label": "CANCELLED", "sublabel": "Owner đã hủy", "tag": "cuối" },
+    { "id": "expired", "type": "failure", "label": "EXPIRED", "sublabel": "Quá hạn hiệu lực", "tag": "cuối" }
+  ],
+  "transitions": [
+    { "id": "pending-accepted", "from": "pending", "to": "accepted", "label": "Chấp nhận (UC-04)", "note": "Email khớp, còn hạn, trại ACTIVE", "variant": "emphasis" },
+    { "id": "pending-cancelled", "from": "pending", "to": "cancelled", "label": "Hủy (UC-03)", "note": "Mọi trạng thái dịch vụ" },
+    { "id": "pending-expired", "from": "pending", "to": "expired", "label": "JOB-02 mỗi 15 phút", "note": "Lúc đọc đã tính EXPIRED", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Gửi lại (UC-03)",
+      "items": [
+        "Giữ cùng lời mời: email, vai trò, số ngày không đổi",
+        "Gửi lần cuối = now, hạn = now + số ngày",
+        "Token mới, link cũ hết tác dụng; không giới hạn số lần"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Ràng buộc",
+      "items": [
+        "Tối đa 1 lời mời PENDING mỗi trại + email (BR-D05)",
+        "Hiệu lực 3, 7 (mặc định) hoặc 14 ngày",
+        "ACCEPTED, CANCELLED, EXPIRED là trạng thái cuối → MSG-FE03-08"
+      ]
+    }
+  ]
+}

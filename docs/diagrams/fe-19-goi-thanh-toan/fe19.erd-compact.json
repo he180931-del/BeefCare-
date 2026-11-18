@@ -1,0 +1,328 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Bảng của FE-19 (cột chính)",
+    "locale": "en",
+    "output": "docs/diagrams/fe-19-goi-thanh-toan/fe-19-erd.html",
+    "quality_profile": "standard"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 36,
+    "gapY": 30,
+    "entityW": 230
+  },
+  "entities": [
+    {
+      "id": "plan_version",
+      "label": "plan_version",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "effective_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "published_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "withdrawn_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        }
+      ]
+    },
+    {
+      "id": "subscription",
+      "label": "subscription",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": [
+            "fk",
+            "uk"
+          ],
+          "references": "farm.id"
+        },
+        {
+          "name": "plan_version_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "plan_version.id"
+        },
+        {
+          "name": "entitlement_status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "latest_end",
+          "type": "timestamp"
+        }
+      ],
+      "width": 272
+    },
+    {
+      "id": "farm",
+      "label": "farm",
+      "row": 2,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "service_status",
+          "type": "varchar(30)"
+        }
+      ]
+    },
+    {
+      "id": "payment",
+      "label": "payment",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "quote_ref",
+          "type": "varchar(50)",
+          "key": "uk"
+        },
+        {
+          "name": "subscription_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "subscription.id"
+        },
+        {
+          "name": "price_version_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "plan_version.id"
+        },
+        {
+          "name": "requested_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "duration_years",
+          "type": "int"
+        },
+        {
+          "name": "amount_vnd",
+          "type": "decimal(21,2)"
+        },
+        {
+          "name": "state",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "purchased_start",
+          "type": "timestamp"
+        },
+        {
+          "name": "purchased_end",
+          "type": "timestamp"
+        },
+        {
+          "name": "receipt_code",
+          "type": "varchar(40)",
+          "key": "uk"
+        },
+        {
+          "name": "cancelled_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        }
+      ]
+    },
+    {
+      "id": "app_user",
+      "label": "app_user",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "email",
+          "type": "varchar(255)",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "bank_transfer_evidence",
+      "label": "bank_transfer_evidence",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "payment_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "payment.id"
+        },
+        {
+          "name": "amount",
+          "type": "decimal(21,2)"
+        },
+        {
+          "name": "quote_ref",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "review_status",
+          "type": "varchar(30)"
+        }
+      ]
+    },
+    {
+      "id": "evidence_review",
+      "label": "evidence_review",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "evidence_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "bank_transfer_evidence.id"
+        },
+        {
+          "name": "pm_user_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "related_payment_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "payment.id"
+        },
+        {
+          "name": "decision",
+          "type": "varchar(30)"
+        }
+      ],
+      "width": 250
+    }
+  ],
+  "relationships": [
+    {
+      "id": "subscription-plan-version-0",
+      "from": "subscription",
+      "to": "plan_version",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "giá của gói"
+    },
+    {
+      "id": "subscription-farm-1",
+      "from": "subscription",
+      "to": "farm",
+      "fromCardinality": "one",
+      "toCardinality": "one",
+      "label": "của trại"
+    },
+    {
+      "id": "payment-subscription-2",
+      "from": "payment",
+      "to": "subscription",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "thuộc gói"
+    },
+    {
+      "id": "payment-plan-version-3",
+      "from": "payment",
+      "to": "plan_version",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "giá đã chốt"
+    },
+    {
+      "id": "payment-app-user-4",
+      "from": "payment",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "người yêu cầu"
+    },
+    {
+      "id": "bank-transfer-evidence-payment-5",
+      "from": "bank_transfer_evidence",
+      "to": "payment",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "phân bổ",
+      "toOptional": true
+    },
+    {
+      "id": "evidence-review-bank-transfer-evidence-6",
+      "from": "evidence_review",
+      "to": "bank_transfer_evidence",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "quyết định"
+    },
+    {
+      "id": "evidence-review-app-user-7",
+      "from": "evidence_review",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "PM"
+    }
+  ]
+}

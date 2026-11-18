@@ -1,0 +1,44 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Vòng đời yêu cầu thanh toán (payment.state)",
+    "locale": "en",
+    "output": "docs/diagrams/fe-19-goi-thanh-toan/payment-lifecycle.html",
+    "quality_profile": "showcase"
+  },
+  "mainPath": ["pending", "paid"],
+  "states": [
+    { "id": "pending", "type": "start", "label": "PENDING", "sublabel": "Hiệu lực 24 giờ", "tag": "UC-02", "step": "01" },
+    { "id": "paid", "type": "success", "label": "PAID", "sublabel": "Có kỳ đã mua, biên lai", "tag": "cuối", "step": "02" },
+    { "id": "expired", "type": "waiting", "label": "EXPIRED", "sublabel": "Quá 24 giờ", "tag": "JOB-03" },
+    { "id": "cancelled", "type": "neutral", "label": "CANCELLED", "sublabel": "Owner hủy (D38)", "tag": "UC-02" }
+  ],
+  "transitions": [
+    { "id": "pending-paid", "from": "pending", "to": "paid", "label": "Xác nhận dùng chung", "note": "SePay hoặc PM chấp nhận", "variant": "emphasis" },
+    { "id": "pending-expired", "from": "pending", "to": "expired", "label": "JOB-03 mỗi 5 phút", "variant": "dashed" },
+    { "id": "pending-cancelled", "from": "pending", "to": "cancelled", "label": "Owner hủy", "note": "Chưa nhận giao dịch" },
+    { "id": "expired-paid", "from": "expired", "to": "paid", "label": "Giờ NH trong cửa sổ gốc" },
+    { "id": "cancelled-paid", "from": "cancelled", "to": "paid", "label": "Giờ NH trước lúc hủy" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Bất biến",
+      "items": [
+        "Phiên bản giá, kỳ hạn, số tiền, TK nhận chốt lúc tạo",
+        "Mỗi trại tối đa 1 PENDING chưa hết hạn (BR-D23)",
+        "Bấm thanh toán lại thì mở lại yêu cầu đang chờ"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Điều kiện PAID (R-19-06)",
+      "items": [
+        "Chiều vào, đúng số tiền, đúng TK nhận",
+        "Giờ ngân hàng trong [tạo, hết hạn) hoặc [tạo, lúc hủy)",
+        "Chứng từ chưa phân bổ, khớp đúng 1 yêu cầu"
+      ]
+    }
+  ]
+}

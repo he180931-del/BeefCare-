@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Bảng của FE-19",
+    "locale": "en",
+    "output": "docs/diagrams/fe-19-goi-thanh-toan/fe-19-erd.html",
+    "quality_profile": "standard"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 72,
+    "gapY": 38
+  },
+  "entities": [
+    {
+      "id": "plan_version",
+      "label": "plan_version",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "revision",
+          "type": "bigint"
+        },
+        {
+          "name": "price_1_y",
+          "type": "decimal(21,2)"
+        },
+        {
+          "name": "price_2_y",
+          "type": "decimal(21,2)"
+        },
+        {
+          "name": "price_3_y",
+          "type": "decimal(21,2)"
+        },
+        {
+          "name": "terms",
+          "type": "varchar(500)"
+        },
+        {
+          "name": "effective_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "published_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "published_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "withdrawn_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "withdrawn_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "withdraw_reason",
+          "type": "varchar(1000)"
+        }
+      ],
+      "tag": "Gói",
+      "width": 272
+    },
+    {
+      "id": "subscription",
+      "label": "subscription",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": [
+            "fk",
+            "uk"
+          ],
+          "references": "farm.id"
+        },
+        {
+          "name": "plan_version_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "plan_version.id"
+        },
+        {
+          "name": "entitlement_status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "latest_end",
+          "type": "timestamp"
+        }
+      ],
+      "tag": "Gói",
+      "width": 272
+    },
+    {
+      "id": "farm",
+      "label": "farm",
+      "row": 2,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "service_status",
+          "type": "varchar(30)"
+        }
+      ],
+      "width": 272
+    },
+    {
+      "id": "payment",
+      "label": "payment",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "quote_ref",
+          "type": "varchar(50)",
+          "key": "uk"
+        },
+        {
+          "name": "subscription_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "subscription.id"
+        },
+        {
+          "name": "price_version_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "plan_version.id"
+        },
+        {
+          "name": "requested_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "duration_years",
+          "type": "int"
+        },
+        {
+          "name": "amount_vnd",
+          "type": "decimal(21,2)"
+        },
+        {
+          "name": "state",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "requested_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "receiving_bank_code",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "receiving_account",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "receiving_account_name",
+          "type": "varchar(150)"
+        },
+        {
+          "name": "receiving_account_namespace",
+          "type": "varchar(100)"
+        },
+        {
+          "name": "receiving_environment",
+          "type": "varchar(20)"
+        },
+        {
+          "name": "confirmed_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "confirmation_source",
+          "type": "varchar(10)"
+        },
+        {
+          "name": "purchased_start",
+          "type": "timestamp"
+        },
+        {
+          "name": "purchased_end",
+          "type": "timestamp"
+        },
+        {
+          "name": "receipt_code",
+          "type": "varchar(40)",
+          "key": "uk"
+        },
+        {
+          "name": "cancelled_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "cancelled_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "cancel_reason",
+          "type": "varchar(1000)"
+        },
+        {
+          "name": "version",
+          "type": "bigint"
+        }
+      ],
+      "tag": "Yêu cầu thanh toán",
+      "width": 318
+    },
+    {
+      "id": "app_user",
+      "label": "app_user",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "email",
+          "type": "varchar(255)",
+          "key": "uk"
+        },
+        {
+          "name": "full_name",
+          "type": "varchar(255)"
+        }
+      ],
+      "width": 318
+    },
+    {
+      "id": "bank_transfer_evidence",
+      "label": "bank_transfer_evidence",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "provider",
+          "type": "varchar(20)"
+        },
+        {
+          "name": "environment",
+          "type": "varchar(20)"
+        },
+        {
+          "name": "account_namespace",
+          "type": "varchar(100)"
+        },
+        {
+          "name": "provider_txn_id",
+          "type": "bigint"
+        },
+        {
+          "name": "payment_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "payment.id"
+        },
+        {
+          "name": "transfer_direction",
+          "type": "varchar(20)"
+        },
+        {
+          "name": "amount",
+          "type": "decimal(21,2)"
+        },
+        {
+          "name": "bank_paid_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "first_received_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "receiving_account",
+          "type": "text"
+        },
+        {
+          "name": "transfer_content",
+          "type": "text"
+        },
+        {
+          "name": "quote_ref",
+          "type": "varchar(50)"
+        },
+        {
+          "name": "reference_code",
+          "type": "text"
+        },
+        {
+          "name": "provider_code",
+          "type": "text"
+        },
+        {
+          "name": "gateway",
+          "type": "text"
+        },
+        {
+          "name": "description",
+          "type": "text"
+        },
+        {
+          "name": "conflicting_references",
+          "type": "boolean"
+        },
+        {
+          "name": "delivery_attempts",
+          "type": "int"
+        },
+        {
+          "name": "delivery_outcome",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "auth_outcome",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "payload_hash",
+          "type": "varchar(64)"
+        },
+        {
+          "name": "review_status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "review_reason",
+          "type": "varchar(1000)"
+        },
+        {
+          "name": "locked_for_return",
+          "type": "boolean"
+        },
+        {
+          "name": "return_reference",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "return_date",
+          "type": "date"
+        },
+        {
+          "name": "return_result",
+          "type": "varchar(500)"
+        },
+        {
+          "name": "version",
+          "type": "bigint"
+        }
+      ],
+      "tag": "Chứng từ",
+      "width": 300
+    },
+    {
+      "id": "evidence_review",
+      "label": "evidence_review",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "evidence_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "bank_transfer_evidence.id"
+        },
+        {
+          "name": "pm_user_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "related_payment_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "payment.id"
+        },
+        {
+          "name": "decision",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "reason",
+          "type": "clob"
+        },
+        {
+          "name": "reviewed_at",
+          "type": "timestamp"
+        }
+      ],
+      "tag": "Chứng từ",
+      "width": 300
+    }
+  ],
+  "relationships": [
+    {
+      "id": "subscription-plan-version-0",
+      "from": "subscription",
+      "to": "plan_version",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "giá của gói"
+    },
+    {
+      "id": "subscription-farm-1",
+      "from": "subscription",
+      "to": "farm",
+      "fromCardinality": "one",
+      "toCardinality": "one",
+      "label": "của trại"
+    },
+    {
+      "id": "payment-subscription-2",
+      "from": "payment",
+      "to": "subscription",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "thuộc gói"
+    },
+    {
+      "id": "payment-plan-version-3",
+      "from": "payment",
+      "to": "plan_version",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "giá đã chốt"
+    },
+    {
+      "id": "payment-app-user-4",
+      "from": "payment",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "người yêu cầu"
+    },
+    {
+      "id": "bank-transfer-evidence-payment-5",
+      "from": "bank_transfer_evidence",
+      "to": "payment",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "phân bổ",
+      "toOptional": true
+    },
+    {
+      "id": "evidence-review-bank-transfer-evidence-6",
+      "from": "evidence_review",
+      "to": "bank_transfer_evidence",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "quyết định"
+    },
+    {
+      "id": "evidence-review-app-user-7",
+      "from": "evidence_review",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "PM"
+    }
+  ]
+}

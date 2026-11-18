@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Bảng của FE-03 (cột chính)",
+    "locale": "en",
+    "output": "docs/diagrams/fe-03-thanh-vien-quyen/fe-03-erd.html",
+    "quality_profile": "standard"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapX": 36,
+    "gapY": 30,
+    "entityW": 230
+  },
+  "entities": [
+    {
+      "id": "farm_invitation",
+      "label": "farm_invitation",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "farm.id"
+        },
+        {
+          "name": "invited_email",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "proposed_role",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "token_hash",
+          "type": "varchar(64)",
+          "key": "uk"
+        },
+        {
+          "name": "invited_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        }
+      ]
+    },
+    {
+      "id": "farm_membership",
+      "label": "farm_membership",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "farm.id"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "role",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "joined_at",
+          "type": "timestamp"
+        }
+      ]
+    },
+    {
+      "id": "farm_membership_change",
+      "label": "farm_membership_change",
+      "row": 2,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "membership_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "farm_membership.id"
+        },
+        {
+          "name": "farm_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "farm.id"
+        },
+        {
+          "name": "action",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "changed_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "changed_at",
+          "type": "timestamp"
+        }
+      ]
+    },
+    {
+      "id": "farm",
+      "label": "farm",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "varchar(255)"
+        },
+        {
+          "name": "service_status",
+          "type": "varchar(30)"
+        }
+      ]
+    },
+    {
+      "id": "app_user",
+      "label": "app_user",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "email",
+          "type": "varchar(255)",
+          "key": "uk"
+        },
+        {
+          "name": "account_status",
+          "type": "varchar(30)"
+        }
+      ]
+    },
+    {
+      "id": "platform_staff_access",
+      "label": "platform_staff_access",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "user_id",
+          "type": "bigint",
+          "key": [
+            "fk",
+            "uk"
+          ],
+          "references": "app_user.id"
+        },
+        {
+          "name": "role",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "status",
+          "type": "varchar(30)"
+        }
+      ]
+    },
+    {
+      "id": "platform_access_change",
+      "label": "platform_access_change",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "app_user_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "action",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "changed_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "changed_at",
+          "type": "timestamp"
+        }
+      ]
+    },
+    {
+      "id": "app_user_status_change",
+      "label": "app_user_status_change",
+      "row": 2,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "app_user_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "action",
+          "type": "varchar(30)"
+        },
+        {
+          "name": "changed_by_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "app_user.id"
+        },
+        {
+          "name": "changed_at",
+          "type": "timestamp"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "farm-invitation-farm-0",
+      "from": "farm_invitation",
+      "to": "farm",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "của trại"
+    },
+    {
+      "id": "farm-membership-farm-1",
+      "from": "farm_membership",
+      "to": "farm",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "thuộc trại"
+    },
+    {
+      "id": "farm-membership-app-user-2",
+      "from": "farm_membership",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "tài khoản"
+    },
+    {
+      "id": "farm-membership-change-farm-membership-3",
+      "from": "farm_membership_change",
+      "to": "farm_membership",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "lịch sử"
+    },
+    {
+      "id": "farm-membership-change-app-user-4",
+      "from": "farm_membership_change",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "người đổi"
+    },
+    {
+      "id": "platform-staff-access-app-user-5",
+      "from": "platform_staff_access",
+      "to": "app_user",
+      "fromCardinality": "one",
+      "toCardinality": "one",
+      "label": "quyền nền tảng"
+    },
+    {
+      "id": "platform-access-change-app-user-6",
+      "from": "platform_access_change",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "lịch sử quyền"
+    },
+    {
+      "id": "app-user-status-change-app-user-7",
+      "from": "app_user_status_change",
+      "to": "app_user",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "label": "lịch sử tài khoản"
+    }
+  ]
+}

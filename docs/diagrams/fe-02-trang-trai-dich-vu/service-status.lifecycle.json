@@ -1,0 +1,123 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Trạng thái dịch vụ trại (farm.service_status)",
+    "locale": "en",
+    "output": "docs/diagrams/fe-02-trang-trai-dich-vu/service-status-lifecycle.html",
+    "quality_profile": "showcase"
+  },
+  "mainPath": [
+    "pending_payment",
+    "active",
+    "expired"
+  ],
+  "states": [
+    {
+      "id": "pending_payment",
+      "type": "start",
+      "label": "PENDING_PAYMENT",
+      "sublabel": "Chưa có thanh toán được chấp nhận"
+    },
+    {
+      "id": "active",
+      "type": "success",
+      "label": "ACTIVE",
+      "sublabel": "Có kỳ bao phủ hiện tại"
+    },
+    {
+      "id": "expired",
+      "type": "waiting",
+      "label": "EXPIRED",
+      "sublabel": "Kỳ đã hết"
+    },
+    {
+      "id": "suspended",
+      "type": "failure",
+      "label": "SUSPENDED",
+      "sublabel": "PM tạm ngưng"
+    },
+    {
+      "id": "recompute",
+      "type": "decision",
+      "label": "Tính lại theo kỳ",
+      "sublabel": "Khôi phục không tạo kỳ"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "pending-active",
+      "from": "pending_payment",
+      "to": "active",
+      "label": "Thanh toán được chấp nhận",
+      "note": "FE-19",
+      "variant": "emphasis"
+    },
+    {
+      "id": "active-expired",
+      "from": "active",
+      "to": "expired",
+      "label": "Hết kỳ",
+      "note": "Job kiểm kỳ mỗi 15 phút",
+      "variant": "dashed"
+    },
+    {
+      "id": "expired-active",
+      "from": "expired",
+      "to": "active",
+      "label": "Gia hạn được chấp nhận"
+    },
+    {
+      "id": "active-suspended",
+      "from": "active",
+      "to": "suspended",
+      "label": "PM tạm ngưng",
+      "note": "Cũng từ PENDING_PAYMENT, EXPIRED",
+      "variant": "security"
+    },
+    {
+      "id": "suspended-recompute",
+      "from": "suspended",
+      "to": "recompute",
+      "label": "PM khôi phục"
+    },
+    {
+      "id": "recompute-active",
+      "from": "recompute",
+      "to": "active",
+      "label": "còn kỳ"
+    },
+    {
+      "id": "recompute-expired",
+      "from": "recompute",
+      "to": "expired",
+      "label": "hết kỳ"
+    },
+    {
+      "id": "recompute-pending",
+      "from": "recompute",
+      "to": "pending_payment",
+      "label": "chưa thanh toán"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Tạm ngưng độc lập với thanh toán",
+      "items": [
+        "Thanh toán và job kiểm kỳ bỏ qua trại SUSPENDED",
+        "Khôi phục không tạo, không kéo dài kỳ dịch vụ",
+        "Sau khôi phục, trạng thái tính lại theo kỳ đã mua"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Khi không ACTIVE",
+      "items": [
+        "Chủ trại vẫn vào: thông tin trại, gói & thanh toán, hỗ trợ",
+        "Chủ trại vẫn hủy lời mời, ngưng thành viên",
+        "Quản lý, Kỹ thuật viên thấy thẻ trại bị khóa"
+      ]
+    }
+  ]
+}
