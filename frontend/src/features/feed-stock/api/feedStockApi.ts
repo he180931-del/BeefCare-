@@ -2,8 +2,8 @@ import { asRows, nullableNumber, numberValue, textValue } from '../../../shared/
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { listFeedReceiptDemoStock } from '../data/feedReceiptDemoStore'
 import type { FeedStockRow } from '../types'
+import { demo } from '../../../demo/demoModules'
 
 export function createFeedStockApi({
   mode,
@@ -50,7 +50,7 @@ export function createFeedStockApi({
         }) as FeedStockRow[]
       }
       if (mockRows) return mockRows.map((row) => ({ ...row }))
-      return listFeedReceiptDemoStock()
+      return demo.feedReceipt.listFeedReceiptDemoStock()
     },
   }
 }

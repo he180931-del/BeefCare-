@@ -4,7 +4,7 @@ import { Button, Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFoote
 import { useSession } from '../../authorization'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { correctFeedSession, feedFeedingServerBacked, getFeedFeedingPlan, recordFeedSession, voidFeedSession } from '../api/feedFeedingApi'
+import { correctFeedSession, feedFeedingServerBacked, feedingPeopleSuggestions, getFeedFeedingPlan, recordFeedSession, voidFeedSession } from '../api/feedFeedingApi'
 import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
@@ -16,7 +16,6 @@ export type FeedingData = { records: FeedFeedingRecord[]; rations: FeedRation[];
 type FormLine = { feedItemId: string; plannedKg: string; actualKg: string; inRation: boolean }
 
 const sessionLabel = (sessionNo: number) => `Cữ ${SESSION_NAMES[sessionNo] ?? sessionNo}`
-const KNOWN_PEOPLE = ['Trần Quốc Long', 'Lê Thị Mai']
 const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-session:${Date.now()}:${Math.random().toString(36).slice(2)}`
 
 function buildLines(pen: FeedRationPenOption | undefined, ration: FeedRation | null, sessionNo: number, prefill = false): FormLine[] {
@@ -46,7 +45,8 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
     ? planQuery.data
     : null
   const [time, setTime] = useState(sessionTimeFor(data.rations, sessionNo ?? 1))
-  const [fedBy, setFedBy] = useState(session?.fullName ?? KNOWN_PEOPLE[0])
+  const people = feedingPeopleSuggestions(session?.fullName)
+  const [fedBy, setFedBy] = useState(session?.fullName ?? people[0] ?? '')
   const [leftover, setLeftover] = useState('')
   const [note, setNote] = useState('')
   const [lines, setLines] = useState<FormLine[]>(() => feedFeedingServerBacked ? [] : buildLines(data.pens.find((row) => row.id === penId), penId ? effectiveRationForPen(data.rations, penId, date) : null, sessionNo ?? 1, prefillFromPlan))
@@ -150,7 +150,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
         <Field label="Khẩu phần áp dụng" id="feeding-form-ration"><input id="feeding-form-ration" readOnly value={ration ? `${ration.rationCode} · ${ration.name}` : selectedPen ? 'Chưa có khẩu phần hiệu lực' : ''} className={inputCls} /></Field>
         <Field label="Người cho ăn" id="feeding-form-fedby">
           <input id="feeding-form-fedby" list="feeding-people" maxLength={100} disabled={saving} value={fedBy} onChange={(event) => { commandKeyRef.current = undefined; setFedBy(event.target.value) }} className={inputCls} />
-          <datalist id="feeding-people">{KNOWN_PEOPLE.map((name) => <option key={name} value={name} />)}</datalist>
+          <datalist id="feeding-people">{people.map((name) => <option key={name} value={name} />)}</datalist>
         </Field>
       </div>
       {selectedPen && feedFeedingServerBacked && planQuery.loading && <p role="status" className="m-0 text-xs text-muted">Đang tải kế hoạch và tồn kho…</p>}

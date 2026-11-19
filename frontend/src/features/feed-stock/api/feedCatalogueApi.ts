@@ -3,7 +3,8 @@ import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedCatalogueDemoStore, FeedCatalogueInput, FeedCatalogueItem, FeedCatalogueSaveInput, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
-import { feedCatalogueDemoStore } from '../data/feedReceiptDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 function backendFeed(value: unknown): FeedCatalogueItem {
   const row = asRecord(value)
@@ -72,7 +73,7 @@ export function createFeedCatalogueApi({
   mode,
   farmId,
   transport,
-  demoStore = feedCatalogueDemoStore,
+  demoStore = lazyObject(() => demo.feedReceipt.feedCatalogueDemoStore),
 }: {
   mode: BackendMode
   farmId: string | number

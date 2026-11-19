@@ -2,9 +2,11 @@ import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { backendPending } from '../../../shared/api/backendPending'
-import { farmOverviewDemoStore, type FarmOverviewDemoStore } from '../data/farmOverviewDemoStore'
+import type { FarmOverviewDemoStore } from '../data/farmOverviewDemoStore'
 import { createFarmOverviewBackendApi } from './farmOverviewBackend'
 import type { DashboardFilters, ReportRequest, Scenario, ViewerRole } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** `role` và `scenario` chỉ phục vụ mock; backend lấy vai trò từ phiên đăng nhập. */
 export interface Viewer { role: ViewerRole; scenario?: Scenario }
@@ -40,4 +42,4 @@ export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode
     async getTechnicianHome() { return backend ? Promise.reject(backendPending('trang chủ Technician và REM-11')) : store.getTechnicianHome() },
   }
 }
-export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: farmOverviewDemoStore })
+export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.farmOverview.farmOverviewDemoStore) })

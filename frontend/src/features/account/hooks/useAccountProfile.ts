@@ -6,13 +6,18 @@ import { accountApi } from '../api/accountApi'
 import { validateProfile } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, ProfileErrors } from '../types'
 
-const FALLBACK_IDENTITY: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }
+import { demoSessionUser } from '../../../demo/demoModules'
 
-/** Người đang đăng nhập; ngoài phiên (vd. test từng trang) dùng Quản lý của trại mẫu. */
+const NO_IDENTITY: AccountIdentity = { email: '', fullName: '', role: 'MANAGER', farmName: null, farmId: null }
+
+/** Người đang đăng nhập; ngoài phiên (vd. test từng trang) dùng Quản lý mẫu, bản production không có. */
 export function useAccountIdentity(): AccountIdentity {
   const session = useSession()
   return useMemo(
-    () => session ? { email: session.email, fullName: session.fullName, role: session.role, farmName: session.farmName, farmId: session.farmId } : FALLBACK_IDENTITY,
+    () => {
+      const person = session ?? demoSessionUser('MANAGER')
+      return person ? { email: person.email, fullName: person.fullName, role: person.role, farmName: person.farmName, farmId: person.farmId } : NO_IDENTITY
+    },
     [session?.email, session?.fullName, session?.role, session?.farmName, session?.farmId],
   )
 }

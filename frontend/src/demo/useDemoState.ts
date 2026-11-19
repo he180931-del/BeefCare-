@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
-import { backendMode } from '../api/backendTransport'
+import { backendMode } from '../shared/config/runtime'
 
 /**
  * Trạng thái minh họa qua `?demo=<tên>` (vd. `?demo=load-error`) để xem các frame lỗi/rỗng của Figma trong mock.

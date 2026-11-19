@@ -3,10 +3,12 @@ import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/pa
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { financeDemoStore, type FinanceDemoStore } from '../data/financeDemoStore'
+import type { FinanceDemoStore } from '../data/financeDemoStore'
 import type { NoticeKind, ReceiptFilters, RecordFields, RecordFilters, ReportCriteria } from '../types'
 import { createFinanceBackendApi } from './financeBackendApi'
 import type { PmNotice } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const mapNotice = (value: unknown): PmNotice => {
   const row = asRecord(value)
@@ -93,4 +95,4 @@ export function createFinanceApi({ mode, farmId, transport, store }: { mode: Bac
   }
 }
 export type FinanceApi = ReturnType<typeof createFinanceApi>
-export const financeApi = createFinanceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: financeDemoStore })
+export const financeApi = createFinanceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.finance.financeDemoStore) })

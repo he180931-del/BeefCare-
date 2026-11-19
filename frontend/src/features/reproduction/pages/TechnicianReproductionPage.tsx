@@ -5,6 +5,7 @@ import { Badge, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Segmented } fr
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { reproductionApi } from '../api/reproductionApi'
+import { useSession } from '../../authorization'
 import { filterWorklist, tabCounts, technicianRowInfo, type WorklistTab } from '../domain/reproductionRules'
 
 const TABS: Array<{ value: WorklistTab; label: string }> = [
@@ -17,13 +18,14 @@ export default function TechnicianReproductionPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<WorklistTab>('IN_ESTRUS')
   const [query, setQuery] = useState('')
+  const session = useSession()
   const { data, loading, error, refetch } = useQuery(() => reproductionApi.listWorklist(), [])
   const rows = useMemo(() => data ?? [], [data])
   const counts = useMemo(() => tabCounts(rows, reproductionApi.now()), [rows])
   const shown = useMemo(() => filterWorklist(rows, { status: tab, query }, reproductionApi.now()), [rows, tab, query])
 
   return (
-    <TechnicianLayout title="Sinh sản" sub="Trại bò Yên Bài – Ba Vì">
+    <TechnicianLayout title="Sinh sản" sub={session?.farmName ?? undefined}>
       <div className="flex flex-col gap-3">
         <input aria-label="Tìm bò" className="h-11 w-full rounded-xl border border-field bg-white px-3 text-sm" placeholder="Tìm mã bò, số tai" value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="overflow-x-auto">

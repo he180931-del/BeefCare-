@@ -9,7 +9,9 @@ import type {
   MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
 import { compactPhone } from '../validation/workspaceValidation'
-import { farmWorkspaceDemoStore, type FarmUpdateInput, type FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
+import type { FarmUpdateInput, FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const oneOf = <T extends string>(value: unknown, values: readonly T[], fallback: T): T =>
   typeof value === 'string' && values.includes(value as T) ? value as T : fallback
@@ -157,7 +159,7 @@ function invitationPage(value: unknown): InvitationPage {
 
 export type FarmWorkspaceApi = Omit<FarmWorkspaceDemoStore, 'listFarms'> & { listFarms(): Promise<FarmSummary[]> }
 
-export function createFarmWorkspaceApi({ mode, transport, demoStore = farmWorkspaceDemoStore }: {
+export function createFarmWorkspaceApi({ mode, transport, demoStore = lazyObject(() => demo.farmWorkspace.farmWorkspaceDemoStore) }: {
   mode: BackendMode; farmId: string | number; transport: BackendTransport; demoStore?: FarmWorkspaceDemoStore
 }): FarmWorkspaceApi {
   const path = (id: number, suffix: string) => transport.farmPath(id, suffix)

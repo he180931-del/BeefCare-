@@ -1,4 +1,5 @@
-import { SERVICE_STATUS_VIEW } from '../../farm-workspace'
+// Deep import on purpose: the farm-workspace index also exports its screens (see domain/reconciliation.ts).
+import { SERVICE_STATUS_VIEW } from '../../farm-workspace/domain/statusViews'
 import type { PeriodState, PurchasedPeriod, ServiceStatus, TermYears } from '../types'
 import { addDays, addYears } from './dates'
 

@@ -4,7 +4,7 @@ import { Badge, Button, Checkbox, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlo
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useDemoState } from '../../../hooks/useDemoState'
+import { useDemoState } from '../../../demo/demoModules'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { vaccinationApi } from '../api/vaccinationApi'
 import DeferModal from '../components/DeferModal'

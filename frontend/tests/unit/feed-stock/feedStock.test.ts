@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createFeedStockApi, filterFeedStock, FEED_STOCK_MOCK, type FeedStockRow } from '../../../src/features/feed-stock'
+import { createFeedStockApi, filterFeedStock, type FeedStockRow } from '../../../src/features/feed-stock'
+import { FEED_STOCK_MOCK } from '../../../src/features/feed-stock/data/feedStockMock'
 import { deriveFeedStockStatus } from '../../../src/features/feed-stock/domain/feedStockStatus'
 
 describe('FE-23 feed stock read model', () => {

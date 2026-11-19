@@ -5,7 +5,7 @@ import { Button, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, P
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { useDemoState } from '../../../hooks/useDemoState'
+import { useDemoState } from '../../../demo/demoModules'
 import { supportApi } from '../api/supportApi'
 import { LoadErrorDialog, SubmittedDialog } from '../components/ListDialogs'
 import { TicketFilterBar } from '../components/TicketFilterBar'

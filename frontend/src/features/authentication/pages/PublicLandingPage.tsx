@@ -1,4 +1,4 @@
-import { useDemoState } from '../../../hooks/useDemoState'
+import { useDemoState } from '../../../demo/demoModules'
 import { CONTACT } from '../constants/landingContent'
 import type { AuthClient } from '../types'
 import { LandingHeader, container } from '../components/landing/LandingHeader'

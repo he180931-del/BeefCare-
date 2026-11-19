@@ -3,13 +3,15 @@ import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
 import { BackendError } from '../../../shared/api/backendClient'
-import { catalogueDemoStore, type CatalogueDemoStore } from '../data/catalogueDemoStore'
+import type { CatalogueDemoStore } from '../data/catalogueDemoStore'
 import { FieldErrors, todayIso, type FieldErrorMap } from '../domain/catalogueRules'
 import { DEFAULT_PARAMETERS, PARAMETER_FIELDS, effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
 import type {
   BcsScale, Breed, BreedCommand, CatalogueFilters, Medicine, MedicineCommand, NumericParameterKey, ParameterValues, ParameterVersion,
   ParameterVersionCommand, Purpose, PurposeCommand, PurposeType, Route, Vaccine, VaccineCommand,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** Frontend parameter keys ↔ backend FarmParameterVersion keys (SCR-56, §3.5). */
 const PARAMETER_KEY: Record<NumericParameterKey, string> = {
@@ -198,9 +200,9 @@ export function createCatalogueApi({ mode, farmId, transport, store }: { mode: B
 }
 export type CatalogueApi = ReturnType<typeof createCatalogueApi>
 
-export const catalogueApi = createCatalogueApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: catalogueDemoStore })
+export const catalogueApi = createCatalogueApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.catalogue.catalogueDemoStore) })
 
 /** Catalogue of the farm in session. The demo store has one farm, so the local adapter is shared. */
 export function catalogueApiForFarm(farmId: string | number): CatalogueApi {
-  return backendMode === 'backend' ? createCatalogueApi({ mode: backendMode, farmId, transport: backendTransport, store: catalogueDemoStore }) : catalogueApi
+  return backendMode === 'backend' ? createCatalogueApi({ mode: backendMode, farmId, transport: backendTransport, store: lazyObject(() => demo.catalogue.catalogueDemoStore) }) : catalogueApi
 }

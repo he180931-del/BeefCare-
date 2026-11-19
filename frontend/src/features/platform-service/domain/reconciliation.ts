@@ -1,4 +1,6 @@
-import { PAYMENT_STATE_VIEW } from '../../farm-workspace'
+// Deep import on purpose: the farm-workspace index also exports its screens, which this rule module (and the demo
+// store built on it) must not load.
+import { PAYMENT_STATE_VIEW } from '../../farm-workspace/domain/statusViews'
 import type { Evidence, MatchResult, PlatformPayment, ReviewStatus } from '../types'
 
 export const RECEIVING_ACCOUNT = 'MB 0386671863000'

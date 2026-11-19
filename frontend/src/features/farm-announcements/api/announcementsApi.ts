@@ -3,13 +3,15 @@ import { asRecord, asRows } from '../../../shared/api/parse'
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { announcementsDemoStore, type AnnouncementsDemoStore } from '../data/announcementsDemoStore'
+import type { AnnouncementsDemoStore } from '../data/announcementsDemoStore'
 import { allowedRecipientRoles, AnnouncementError, audienceLabel, MESSAGES } from '../domain/announcementRules'
 import { formatDayMonth, formatDayMonthTime } from '../domain/format'
 import type {
   AnnouncementRole, AnnouncementSummary, AnnouncementView, CorrectionCommand, DraftCommand, Member, MemberOptions,
   PublishPreview, PublishResult, ReadResult, Viewer,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const roles = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const satisfies readonly AnnouncementRole[]
 const validRole = (value: unknown): AnnouncementRole => {
@@ -290,4 +292,4 @@ export function createAnnouncementsApi({ mode, farmId, transport, store }: { mod
 }
 
 export type AnnouncementsApi = ReturnType<typeof createAnnouncementsApi>
-export const announcementsApi = createAnnouncementsApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: announcementsDemoStore })
+export const announcementsApi = createAnnouncementsApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.announcements.announcementsDemoStore) })

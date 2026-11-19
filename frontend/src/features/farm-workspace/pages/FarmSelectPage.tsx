@@ -5,7 +5,7 @@ import { pageLoader, writeCurrentFarmId } from '../../../app/session/currentFarm
 import { STORAGE_BLOCKED } from '../components/enterFarm'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
-import { useDemoState } from '../../../hooks/useDemoState'
+import { useDemoState } from '../../../demo/demoModules'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { FarmCard, farmAction, unavailableFarmMessage } from '../components/FarmCard'

@@ -2,8 +2,8 @@ import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { filterWorklist } from '../domain/reproductionRules'
-import { reproductionDemoStore, type ReproductionDemoStore } from '../data/reproductionDemoStore'
-import { EMPTY_REPRODUCTION_OPTIONS, localReproductionOptions } from '../data/reproductionOptions'
+import type { ReproductionDemoStore } from '../data/reproductionDemoStore'
+import { EMPTY_REPRODUCTION_OPTIONS } from '../constants/reproductionOptions'
 import { businessDateTime } from '../../../shared/lib/date/farmTime'
 import type {
   CalvingCommand,
@@ -16,6 +16,8 @@ import type {
   WorklistFilters,
 } from '../types'
 import { createReproductionBackend } from './reproductionBackend'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 export interface ReproductionApi {
   /** Giờ trại hiện tại (yyyy-mm-ddTHH:mm); bản mô phỏng đứng ở ngày của dữ liệu mẫu. */
@@ -73,10 +75,10 @@ export function createReproductionApi({
   }
   return {
     now: () => store.now(),
-    initialFormOptions: (cattleCode) => localReproductionOptions(cattleCode),
+    initialFormOptions: (cattleCode) => demo.reproductionOptions.localReproductionOptions(cattleCode),
     async listWorklist(filters = {}) { return filterWorklist(await store.list(), filters, store.now()) },
     getProfile: (cattleCode) => store.get(cattleCode),
-    async formOptions(cattleCode) { return localReproductionOptions(cattleCode) },
+    async formOptions(cattleCode) { return demo.reproductionOptions.localReproductionOptions(cattleCode) },
     recordEvent: (cattleCode, command, role) => store.recordEvent(cattleCode, command, role),
     recordCalving: (cattleCode, command, role) => store.recordCalving(cattleCode, command, role),
     correctEvent: (cattleCode, eventId, patch, reason, role) => store.correctEvent(cattleCode, eventId, patch, reason, role),
@@ -92,7 +94,7 @@ export const reproductionApi = createReproductionApi({
   mode: backendMode,
   farmId: backendFarmId,
   transport: backendTransport,
-  store: reproductionDemoStore,
+  store: lazyObject(() => demo.reproduction.reproductionDemoStore),
 })
 
 export const resetReproductionDemo = () => reproductionApi.resetDemo()

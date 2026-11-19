@@ -4,10 +4,8 @@ import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentDemoStore, FeedStockAdjustmentDraftInput } from '../types/feedStockAdjustment'
-import {
-  feedStockAdjustmentDemoStore,
-  resetFeedStockAdjustmentDemoStore as resetDemoStore,
-} from '../data/feedReceiptDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 type MutationOptions = { key?: string }
 
@@ -92,7 +90,7 @@ export function createFeedStockAdjustmentApi({
   farmId,
   transport,
   mockRows,
-  demoStore = feedStockAdjustmentDemoStore,
+  demoStore = lazyObject(() => demo.feedReceipt.feedStockAdjustmentDemoStore),
 }: {
   mode: BackendMode
   farmId: string | number
@@ -190,4 +188,4 @@ export const downloadFeedStockAdjustmentAttachment = (id: number, attachmentId: 
 /** Kept for callers that specifically exercise the local demo store. */
 export const saveFeedStockAdjustmentDemoDraft = saveFeedStockAdjustmentDraft
 export const postFeedStockAdjustmentDemo = postFeedStockAdjustment
-export const resetFeedStockAdjustmentDemoStore = () => resetDemoStore()
+export const resetFeedStockAdjustmentDemoStore = () => demo.feedReceipt.resetFeedStockAdjustmentDemoStore()

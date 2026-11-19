@@ -37,10 +37,6 @@ export const herdExitApi = {
   reset: () => herdExits.reset(),
 }
 
-export const getExitDraftState = (rows: HerdExit[], id?: string): ExitDraft & { row?: HerdExit } => {
-  const row = id ? rows.find((item) => item.id === id) : rows.find((item) => item.status === 'Nháp')
-  return { ...(row?.draft ?? {}), type: row?.draft?.type ?? row?.type ?? 'Bán', row }
-}
 
 type ExitSaveRecord = Partial<HerdExit> & { status?: ExitStatus; type?: ExitType }
 export async function saveHerdExit({ id, record, cattleRows = [] }: { id?: string; record: ExitSaveRecord; cattleRows?: CattleInput[] }): Promise<HerdExit> {

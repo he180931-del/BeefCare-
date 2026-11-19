@@ -7,9 +7,7 @@ export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recor
 export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'
 export { createFeedConsumptionApi, loadFeedConsumptionReport } from './api/feedConsumptionApi'
 export { filterFeedStock, type FeedStockFilters } from './domain/feedStockList'
-export { FEED_STOCK_MOCK } from './data/feedStockMock'
 export { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from './domain/feedReceiptList'
-export { FEED_RECEIPT_MOCK } from './data/feedReceiptMock'
 export const loadFeedStockPage = () => import('./pages/FeedStockPage')
 export const loadFeedReceiptPage = () => import('./pages/FeedReceiptPage')
 export const loadFeedReceiptFormPage = () => import('./pages/FeedReceiptFormPage')

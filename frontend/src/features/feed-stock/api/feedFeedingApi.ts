@@ -3,14 +3,8 @@ import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedFeedingCorrectionInput, FeedFeedingDemoStore, FeedFeedingDraftInput, FeedFeedingPlan, FeedFeedingRange, FeedFeedingRecord } from '../types/feedFeeding'
-import {
-  correctFeedFeedingDemo,
-  feedFeedingDemoStore,
-  listFeedFeedingDemo,
-  recordFeedFeedingDemo,
-  resetFeedFeedingDemoStore as resetDemoStore,
-  voidFeedFeedingDemo,
-} from '../data/feedReceiptDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 type MutationOptions = { key?: string }
 const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-session:${Date.now()}:${Math.random().toString(36).slice(2)}`
@@ -123,7 +117,7 @@ export function createFeedFeedingApi({
   mode,
   farmId,
   transport,
-  demoStore = feedFeedingDemoStore,
+  demoStore = lazyObject(() => demo.feedReceipt.feedFeedingDemoStore),
 }: {
   mode: BackendMode
   farmId: string | number
@@ -188,6 +182,11 @@ const api = createFeedFeedingApi({ mode: backendMode, farmId: backendFarmId, tra
  */
 export const feedFeedingServerBacked = backendMode === 'backend'
 
+/** Gợi ý ô "Người cho ăn": máy chủ thật chỉ có người đang đăng nhập; bản mô phỏng có thêm người của dữ liệu mẫu. */
+export const feedingPeopleSuggestions = (sessionName?: string): string[] => (backendMode === 'backend'
+  ? (sessionName ? [sessionName] : [])
+  : demo.feedFeedingMock.FEEDING_PEOPLE)
+
 export const listFeedFeedingRecords = (range: FeedFeedingRange) => api.list(range)
 export const getFeedFeedingPlan = (input: { penId: number; date: string; sessionNo: number }) => api.plan(input)
 export const recordFeedSession = (input: FeedFeedingDraftInput, options?: MutationOptions) => api.record(input, options)
@@ -196,4 +195,4 @@ export const voidFeedSession = (id: number, reason: string, expectedVersion?: nu
 export const recordFeedSessionDemo = (input: FeedFeedingDraftInput) => api.recordDemo(input)
 export const correctFeedSessionDemo = (id: number, input: FeedFeedingCorrectionInput) => api.correctDemo(id, input)
 export const voidFeedSessionDemo = (id: number, reason: string) => api.voidDemo(id, reason)
-export const resetFeedFeedingDemoStore = () => resetDemoStore()
+export const resetFeedFeedingDemoStore = () => demo.feedReceipt.resetFeedFeedingDemoStore()

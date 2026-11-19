@@ -1,19 +1,14 @@
-import { createCollection } from '../../../api/client'
-import { BARNS0, BREEDS, EXPORTED_COUNT, MANAGER, OWNER, STAGES, TODAY, groupCount, initialCows, type CowSeed } from '../../../data/cowsData'
+import type { CowSeed } from '../../../data/cowsData'
 import { dm, dmy } from '../../../shared/lib/format'
-import { moveCattle, pens } from '../../../api/herdDomainApi'
-import { cattleSchema } from '../../../api/collectionSchemas'
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
 import type { Pen } from '../../pen-management'
 import type { Cattle, CattleEvent, QrHistoryRow, Tone } from '../types'
-import { readDemoCattlePhoto, saveDemoCattlePhoto } from '../../../api/demoCattlePhotos'
 import { toFarmLocal, businessDate } from '../../../shared/lib/date/farmTime'
+import { demo } from '../../../demo/demoModules'
 
-// Bò và chuồng dùng đúng hai collection chung của toàn bộ các luồng nghiệp vụ.
-const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
 const backendApi = createCattleBackendApi({ transport: backendTransport, farmId: backendFarmId })
 export const listCattleTimeline = backendApi.timeline
 
@@ -21,16 +16,21 @@ export const listCattleTimeline = backendApi.timeline
  * SCR-12 ở bản mô phỏng: lọc, đếm và lựa chọn tính tại trình duyệt từ đàn mẫu. Máy chủ thật không có giá trị này (null):
  * lọc, đếm và phân trang ở máy chủ.
  */
-export const localCattleList = backendMode === 'backend' ? null : { breeds: BREEDS, barns: Object.keys(BARNS0), stages: STAGES, exported: EXPORTED_COUNT, groupCount }
+export const localCattleList = backendMode === 'backend' ? null : { breeds: demo.cattleLocal.BREEDS, barns: Object.keys(demo.cattleLocal.BARNS0), stages: demo.cattleLocal.STAGES, exported: demo.cattleLocal.EXPORTED_COUNT, groupCount: demo.cattleLocal.groupCount }
 
 /** Người thực hiện chọn được ở bản mô phỏng. Máy chủ thật ghi theo phiên đăng nhập nên không có lựa chọn. */
-export const demoActors: ReadonlyArray<{ value: string; label: string }> = backendMode === 'backend' ? [] : [{ value: MANAGER, label: 'Quản lý' }, { value: OWNER, label: 'Chủ trại' }]
+export const demoActors: ReadonlyArray<{ value: string; label: string }> = backendMode === 'backend' ? [] : [{ value: demo.cattleLocal.MANAGER, label: 'Quản lý' }, { value: demo.cattleLocal.OWNER, label: 'Chủ trại' }]
 
 /** Người ghi của bản mô phỏng; máy chủ thật bỏ qua trường này. */
-export const demoRecorder = backendMode === 'backend' ? '' : MANAGER
+export const demoRecorder = backendMode === 'backend' ? '' : demo.cattleLocal.MANAGER
+
+/** Nội dung Figma điền sẵn cho một con bò mẫu; bò của máy chủ thật không có. */
+export const demoCowPrefill = (cow: { code: string; backendId?: number | null }) => (backendMode === 'backend' || cow.backendId != null
+  ? null
+  : demo.cattleLocal.COW_PREFILL[cow.code] ?? null)
 
 /** Ngày nghiệp vụ hiện tại; bản mô phỏng đứng ở ngày của dữ liệu mẫu. */
-export const cattleToday = (): string => (backendMode === 'backend' ? businessDate() : TODAY)
+export const cattleToday = (): string => (backendMode === 'backend' ? businessDate() : demo.cattleLocal.TODAY)
 
 const isCowSeed = (cow: Cattle): cow is CowSeed => Boolean(cow.ageLong && cow.stage && cow.purpose && cow.qr && cow.care)
 const asCowSeed = (cow: Cattle): CowSeed => {
@@ -41,25 +41,25 @@ const asCowSeed = (cow: Cattle): CowSeed => {
 const event = (cat: string, at: string, title: string, badge: { label: string; tone: Tone }, detail: string, meta: string): CattleEvent => ({ id: `ev-${Date.now()}`, at, cat, title, badge, detail, meta })
 
 const getActiveCow = async (code: string): Promise<CowSeed> => {
-  const cow = asCowSeed(await cattle.get(code))
+  const cow = asCowSeed(await demo.cattleLocal.cattle.get(code))
   if (cow.status !== 'ACTIVE') throw new Error(`Cattle not active: ${code}`)
   return cow
 }
 
 export const listCows = async (): Promise<CowSeed[]> => backendMode === 'backend'
   ? (await backendApi.listPage()).items
-  : (await cattle.list()).filter(isCowSeed)
+  : (await demo.cattleLocal.cattle.list()).filter(isCowSeed)
 export const listCowsPage = (options: CattleListOptions = {}): Promise<CattlePage> => backendMode === 'backend'
   ? backendApi.listPage(options)
   : listCows().then((items) => ({ items, total: items.length, page: 0, size: items.length, counts: {} }))
 export const listPurposes = (): Promise<PurposeOption[]> => backendMode === 'backend' ? backendApi.purposes() : Promise.resolve([])
 export const listBreeds = (): Promise<Array<{ id: number; name: string; code: string }>> => backendMode === 'backend' ? backendApi.breeds() : Promise.resolve([])
-export const listBarns = () => backendMode === 'backend' ? backendApi.pens() : pens.list()
+export const listBarns = () => backendMode === 'backend' ? backendApi.pens() : demo.cattleLocal.pens.list()
 
 /** Hồ sơ một bò kèm danh sách chuồng (để hiển thị tiêu chí và sức chứa). */
 export async function loadProfile(code: string): Promise<{ cow: CowSeed; barns: Pen[] }> {
   if (backendMode === 'backend') return backendApi.profile(code)
-  const [cow, barnRows, photo] = await Promise.all([cattle.get(code), pens.list(), readDemoCattlePhoto(code)])
+  const [cow, barnRows, photo] = await Promise.all([demo.cattleLocal.cattle.get(code), demo.cattleLocal.pens.list(), demo.cattleLocal.readDemoCattlePhoto(code)])
   return { cow: photo === undefined ? asCowSeed(cow) : { ...asCowSeed(cow), photoUrl: photo ?? undefined }, barns: barnRows }
 }
 
@@ -93,7 +93,7 @@ export const updateIdentity = async (code: string, { name, tag, description, not
     }))
   }
   await getActiveCow(code)
-  return cattle.update(code, { name, tag, description })
+  return demo.cattleLocal.cattle.update(code, { name, tag, description })
 }
 
 export async function updateStage(code: string, { stage, date, reason, acknowledgedReproductionChange }: { stage: string; date: string; reason: string; acknowledgedReproductionChange?: boolean }, context: BackendMutationContext = {}) {
@@ -101,8 +101,8 @@ export async function updateStage(code: string, { stage, date, reason, acknowled
     return backendApi.updateProfile(context.backendId, profileBody({ ...context, effectiveDate: date, reason }, { lifeStage: lifeStageValue(stage), acknowledgedReproductionChange: acknowledgedReproductionChange === true }))
   }
   const cow = await getActiveCow(code)
-  const change = event('stage', `${date}T08:00`, `Đổi giai đoạn: ${cow.stage} → ${stage}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(TODAY)} · ${MANAGER}`)
-  return cattle.update(code, { stage, events: [change, ...(cow.events ?? [])] })
+  const change = event('stage', `${date}T08:00`, `Đổi giai đoạn: ${cow.stage} → ${stage}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(demo.cattleLocal.TODAY)} · ${demo.cattleLocal.MANAGER}`)
+  return demo.cattleLocal.cattle.update(code, { stage, events: [change, ...(cow.events ?? [])] })
 }
 
 export async function updatePurpose(code: string, purposeId: number, context: BackendMutationContext & { acknowledgedReproductionChange?: boolean } = {}) {
@@ -119,10 +119,10 @@ export async function moveBarn(code: string, { to, date, reason, by }: { to: str
   const cow = await getActiveCow(code)
   const from = cow.barn
   if (from === to) return cow
-  const moved = await moveCattle(code, { to, date, reason, by })
+  const moved = await demo.cattleLocal.moveCattle(code, { to, date, reason, by })
   const d = dmy(date)
-  const change = event('barn', `${date}T08:00`, `Chuyển chuồng ${from} → ${to}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(TODAY)} · ${by}`)
-  return cattle.update(code, {
+  const change = event('barn', `${date}T08:00`, `Chuyển chuồng ${from} → ${to}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(demo.cattleLocal.TODAY)} · ${by}`)
+  return demo.cattleLocal.cattle.update(code, {
     barnSince: d,
     barnHistory: (moved.barnHistory ?? []).map((row, index) => index === 0 ? { ...row, from: d } : row.to === date ? { ...row, to: d } : row),
     events: [change, ...(cow.events ?? [])],
@@ -141,7 +141,7 @@ export async function saveCattlePhoto(code: string, context: BackendMutationCont
   const photo = file && !file.type
     ? file.slice(0, file.size, /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg')
     : file
-  return saveDemoCattlePhoto(code, photo)
+  return demo.cattleLocal.saveDemoCattlePhoto(code, photo)
 }
 export const resolveScannedCode = (code: string) => backendApi.resolveCode(code)
 
@@ -167,13 +167,13 @@ export async function reissueQr(code: string, { reason, note, by, tagCode }: { r
   const cow = await getActiveCow(code)
   if (cow.exitPending) throw new Error('Bò đang chờ xuất đàn. Hồ sơ chỉ có thể xem.')
   const newCode = tagCode?.trim() || `QR-${Array.from(crypto.getRandomValues(new Uint8Array(12)), (byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()}`
-  if (tagCode && (await cattle.list()).some((row) => row.qr === newCode || row.qrHistory?.some((tag) => tag.code === newCode))) {
+  if (tagCode && (await demo.cattleLocal.cattle.list()).some((row) => row.qr === newCode || row.qrHistory?.some((tag) => tag.code === newCode))) {
     throw new Error('Mã thẻ này đã được dùng. Vui lòng nhập mã khác hoặc để hệ thống tạo.')
   }
   const at = toFarmLocal(new Date().toISOString())
   const issuedOn = dmy(at.slice(0, 10))
   const change = event('qr', at, reason ? 'Cấp lại thẻ QR' : 'Cấp thẻ QR', { label: 'Thực tế', tone: 'ok' }, note || reason, `Ghi ${issuedOn} · ${by}`)
-  return cattle.update(code, {
+  return demo.cattleLocal.cattle.update(code, {
     qr: newCode,
     qrHistory: [
       { code: newCode, status: 'ACTIVE', from: issuedOn, to: '—', reason: reason || 'Cấp lần đầu', note, by },
@@ -193,14 +193,14 @@ export async function editImportRecord(code: string, { values, reason }: { value
     if (key === 'weight') weight = parseFloat(v.replace(',', '.'))
     return [key, label, v, next]
   })
-  const change = event('barn', `${TODAY}T08:00`, 'Sửa bản ghi nhập đàn', { label: 'Thực tế', tone: 'ok' }, reason, `Ghi ${dm(TODAY)} · ${MANAGER}`)
-  return cattle.update(code, { weight, importRecord: { ...cow.importRecord, fields }, events: [change, ...(cow.events ?? [])] })
+  const change = event('barn', `${demo.cattleLocal.TODAY}T08:00`, 'Sửa bản ghi nhập đàn', { label: 'Thực tế', tone: 'ok' }, reason, `Ghi ${dm(demo.cattleLocal.TODAY)} · ${demo.cattleLocal.MANAGER}`)
+  return demo.cattleLocal.cattle.update(code, { weight, importRecord: { ...cow.importRecord, fields }, events: [change, ...(cow.events ?? [])] })
 }
 
 export async function voidImportRecord(code: string, { reason }: { reason: string }) {
-  const cow = asCowSeed(await cattle.get(code))
-  const change = event('barn', `${TODAY}T08:00`, 'Hủy bản ghi nhập đàn', { label: 'Thực tế', tone: 'err' }, reason, `Ghi ${dm(TODAY)} · ${MANAGER}`)
-  return cattle.update(code, {
+  const cow = asCowSeed(await demo.cattleLocal.cattle.get(code))
+  const change = event('barn', `${demo.cattleLocal.TODAY}T08:00`, 'Hủy bản ghi nhập đàn', { label: 'Thực tế', tone: 'err' }, reason, `Ghi ${dm(demo.cattleLocal.TODAY)} · ${demo.cattleLocal.MANAGER}`)
+  return demo.cattleLocal.cattle.update(code, {
     status: 'VOIDED',
     qrHistory: (cow.qrHistory ?? []).map((q, i) => (i === 0 ? { ...q, status: 'REVOKED' } : q)),
     events: [change, ...(cow.events ?? [])],

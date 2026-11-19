@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, type AuthClient } from '../../../src/features/authentication'
 import { AuthGate } from '../../../src/features/authorization'
-import { createMockAuthClient } from '../../../src/features/authentication/client'
+import { createMockAuthClient } from '../../../src/features/authentication/data/mockAuthClient'
 import { BackendError } from '../../../src/shared/api/backendClient'
 
 function renderAuth(client: AuthClient, path: string) {

@@ -2,12 +2,14 @@ import { asRecord } from '../../../shared/api/parse'
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { platformAdminDemoStore, type PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
+import type { PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
 import { AUDIT_TARGET_TYPE_VALUES, MSG, PlatformAdminError, auditActorQuery, defaultAuditRange, platformDay } from '../domain/platformRules'
 import type {
   AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountStatusAction, AuditActionOption, AuditActor, AuditDetail, NotificationOpenResult, NotificationView,
   AuditFilters, AuditRow, FarmRole, PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole, SignInMethod,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const ACCOUNTS_PATH = '/api/platform/accounts'
 const AUDIT_PATH = '/api/platform/audit'
@@ -344,4 +346,4 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
   }
 }
 export type PlatformAdminApi = ReturnType<typeof createPlatformAdminApi>
-export const platformAdminApi = createPlatformAdminApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: platformAdminDemoStore })
+export const platformAdminApi = createPlatformAdminApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.platformAdmin.platformAdminDemoStore) })

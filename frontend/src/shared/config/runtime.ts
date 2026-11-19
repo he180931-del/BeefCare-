@@ -2,7 +2,7 @@
 
 /**
  * `import.meta.env` under Vite and Vitest. Plain Node runs (`npm run test:api`, `npm run test:integration`) have no
- * Vite environment and read `process.env`, which tests/node/localDataSource.ts presets to the demo stores.
+ * Vite environment and read `process.env`, which tests/node/setup.ts presets to the demo stores.
  */
 export function runtimeEnv(): Partial<ImportMetaEnv> {
   return import.meta.env ?? (globalThis as { process?: { env?: Partial<ImportMetaEnv> } }).process?.env ?? {}

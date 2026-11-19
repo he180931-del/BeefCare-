@@ -5,6 +5,7 @@ import logo from '../../shared/assets/logo.png'
 import farm from '../../shared/assets/farm.png'
 import wave from '../../shared/assets/wave.png'
 import { Icon, TopbarTitleContext, type IconName } from '../../shared/ui'
+import { demoSessionUser } from '../../demo/demoModules'
 
 // Menu theo Figma Redesign. Quản lý (manager) không có "Thông tin trại / Gói dịch vụ / Hỗ trợ".
 const item = (name: string, to: string, icon: IconName) => ({ name, to, icon })
@@ -32,14 +33,14 @@ type Shell = {
 
 const FARM_SEARCH = { search: 'Tìm hồ sơ bò hoặc mã QR...', searchTo: '/cattle', profile: '/ho-so' }
 const USERS = {
-  manager: { initials: 'TL', name: 'Trần Quốc Long', role: 'Quản lý', groups: [...NAV_COMMON, FARM_MANAGER], gap: 'mt-[2px]', notifications: '/thong-bao', ...FARM_SEARCH },
-  owner: { initials: 'NH', name: 'Nguyễn Văn Hùng', role: 'Chủ trại', groups: [...NAV_COMMON, FARM_OWNER], gap: 'mt-[3px]', notifications: '/thong-bao-cua-toi', ...FARM_SEARCH },
+  manager: { initials: '', name: '', role: 'Quản lý', groups: [...NAV_COMMON, FARM_MANAGER], gap: 'mt-[2px]', notifications: '/thong-bao', ...FARM_SEARCH },
+  owner: { initials: '', name: '', role: 'Chủ trại', groups: [...NAV_COMMON, FARM_OWNER], gap: 'mt-[3px]', notifications: '/thong-bao-cua-toi', ...FARM_SEARCH },
 } satisfies Record<string, Shell>
 
 const PLATFORM_PROFILE = '/nen-tang/ho-so'
 const PLATFORM: Partial<Record<AppRole, Shell>> = {
   CS: {
-    initials: 'PH', name: 'Phạm Thu Hà', role: 'Nhân viên hỗ trợ', gap: 'mt-[3px]', platformRole: 'Nhân viên hỗ trợ · CS',
+    initials: '', name: '', role: 'Nhân viên hỗ trợ', gap: 'mt-[3px]', platformRole: 'Nhân viên hỗ trợ · CS',
     search: 'Tìm yêu cầu hỗ trợ, trang trại, người dùng…', searchTo: '/nen-tang/ho-tro', notifications: '/nen-tang/ho-tro/thong-bao', profile: PLATFORM_PROFILE,
     groups: [
       { label: 'HỖ TRỢ', items: [item('Hàng đợi hỗ trợ', '/nen-tang/ho-tro', 'inbox'), item('Yêu cầu được giao', '/nen-tang/ho-tro/duoc-giao', 'ticket'), item('Thông báo hỗ trợ', '/nen-tang/ho-tro/thong-bao', 'bell')] },
@@ -47,7 +48,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
     ],
   },
   PM: {
-    initials: 'ĐQ', name: 'Đỗ Minh Quân', role: 'Quản lý nền tảng', gap: 'mt-[3px]', platformRole: 'Quản lý nền tảng · PM',
+    initials: '', name: '', role: 'Quản lý nền tảng', gap: 'mt-[3px]', platformRole: 'Quản lý nền tảng · PM',
     search: 'Tìm trại, chủ trại, mã đăng ký…', searchTo: '/nen-tang/dich-vu', notifications: '/nen-tang/thong-bao-doi-soat', profile: PLATFORM_PROFILE,
     groups: [
       { label: 'DỊCH VỤ', items: [item('Dịch vụ trang trại', '/nen-tang/dich-vu', 'building-community'), item('Gói đăng ký', '/nen-tang/goi-dang-ky', 'calendar-dollar'), item('Thanh toán & đối soát', '/nen-tang/thanh-toan', 'arrows-exchange'), item('Bảng giá gói', '/nen-tang/bang-gia', 'currency-dong'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
@@ -56,7 +57,7 @@ const PLATFORM: Partial<Record<AppRole, Shell>> = {
     ],
   },
   SA: {
-    initials: 'VN', name: 'Vũ Hoàng Nam', role: 'Quản trị hệ thống', gap: 'mt-[3px]', platformRole: 'Quản trị hệ thống · SA',
+    initials: '', name: '', role: 'Quản trị hệ thống', gap: 'mt-[3px]', platformRole: 'Quản trị hệ thống · SA',
     search: 'Tìm tên, Gmail…', searchTo: '/nen-tang/tai-khoan', notifications: '/nen-tang/thong-bao', profile: PLATFORM_PROFILE,
     groups: [
       { label: 'QUẢN TRỊ HỆ THỐNG', items: [item('Tài khoản người dùng', '/nen-tang/tai-khoan', 'user-cog'), item('Lịch sử audit', '/nen-tang/audit', 'history'), item('Yêu cầu nội bộ', '/nen-tang/yeu-cau', 'message-forward')] },
@@ -85,7 +86,9 @@ export default function Layout({ title, user = 'owner', children }: { title: str
   const session = useSession()
   const navigate = useNavigate()
   const base: Shell = (session && PLATFORM[session.role]) ?? (session ? USERS[session.role === 'OWNER' ? 'owner' : 'manager'] : USERS[user])
-  const u: Shell = session ? { ...base, name: session.fullName, initials: initialsOf(session.fullName), role: session.role === 'OWNER' ? 'Chủ trại' : session.role === 'MANAGER' ? 'Quản lý' : base.role } : base
+  // Outside a session (a page rendered on its own in tests) the demo user of that role stands in; production has none.
+  const person = session ?? demoSessionUser(user === 'owner' ? 'OWNER' : 'MANAGER')
+  const u: Shell = person ? { ...base, name: person.fullName, initials: initialsOf(person.fullName), role: person.role === 'OWNER' ? 'Chủ trại' : person.role === 'MANAGER' ? 'Quản lý' : base.role } : base
   const platform = Boolean(u.platformRole)
   const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState(false)
@@ -154,7 +157,7 @@ export default function Layout({ title, user = 'owner', children }: { title: str
               <Link to="/chon-trai" className="mr-[22px] hidden h-[46px] w-[200px] shrink-0 items-center gap-1 rounded-xl border border-field bg-white px-[13px] text-[13px] font-bold text-brand-dark no-underline lg:flex">
                 {/* A tab that has not entered a farm shows "Chọn trại", never a sample farm name; the sample name stays for
                     pages rendered outside a session (single-page tests). */}
-                <span className="min-w-0 truncate">{session ? session.farmName ?? 'Chọn trại' : 'Trại bò Yên Bài – Ba Vì'}</span>
+                <span className="min-w-0 truncate">{person?.farmName ?? 'Chọn trại'}</span>
                 <Icon name="chevron-down" size={14} />
               </Link>
             )}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Table } from '../../../shared/ui'
-import { cattleToday, checkPenMove, demoActors, demoRecorder, moveBarn } from '../api/cattleApi'
+import { cattleToday, checkPenMove, demoActors, demoCowPrefill, demoRecorder, moveBarn } from '../api/cattleApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { BackendError } from '../../../shared/api/backendClient'
@@ -23,13 +23,13 @@ type CheckRow = [string, boolean | null]
 export default function MoveModal({ cow, barns, onClose, onReload = onClose, onSaved }: { cow: CowSeed; barns: Record<string, Pen>; onClose: () => void; onReload?: () => void; onSaved: () => void }) {
   const backend = cow.backendId != null
   const from = barns[cow.barn]
-  const isDemo = !backend && cow.code === 'BC-000142'
+  const prefill = demoCowPrefill(cow)
   const options = Object.values(barns).filter((b) => b.code !== cow.barn && b.status === 'ACTIVE')
   const [to, setTo] = useState(backend ? options[0]?.code ?? '' : options.find((b) => b.code === 'A1')?.code ?? options[0]?.code ?? '')
   const [enteredDate, setDate] = useState<string>()
   const date = enteredDate ?? cattleToday()
   const [by, setBy] = useState(demoRecorder)
-  const [reason, setReason] = useState(isDemo ? 'Đủ 13 tháng & 236 kg – chuẩn bị theo dõi sinh sản' : '')
+  const [reason, setReason] = useState(prefill?.moveReason ?? '')
   // R-04-05: lý do cảnh báo là trường riêng, lưu theo phân chuồng mới, không dùng lại lý do chuyển.
   const [warningReason, setWarningReason] = useState('')
   const [check, setCheck] = useState<CheckResult>(null)

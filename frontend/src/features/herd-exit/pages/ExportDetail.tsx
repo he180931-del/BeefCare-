@@ -5,20 +5,19 @@ import { Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/u
 import { Docs, PaymentTable } from '../../../components/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
-import { cattle, downloadExitAttachment, herdExitApi } from '../api/index'
+import { downloadExitAttachment, exitCancelLinks, herdExitApi } from '../api/index'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
 import type { HerdExit, ExitDetail } from '../types'
-import type { Cattle } from '../../cattle'
 
 export default function ExportDetail() {
   const { id } = useParams()
   const recordId = id ?? ''
   const { data: r, loading, refetch } = useQuery<HerdExit>(() => herdExitApi.get(recordId), [recordId])
-  const { data: cattleRows } = useQuery<Cattle[]>(() => cattle.list(), [])
+  const { data: links } = useQuery(() => exitCancelLinks(), [])
   const [m, openModal, closeModal] = useModalParam()
   const [documentError, setDocumentError] = useState('')
   const isOwner = useIsOwner()
@@ -38,7 +37,10 @@ export default function ExportDetail() {
   const collected = d.payments?.reduce((s, p) => s + p.amount, 0) ?? (r.total ?? 0) - (r.due ?? 0)
   const owed = r.due ?? 0
   const isSold = r.status === 'Đã xuất'
-  const canCancel = isSold && Boolean(d.cows?.length) && Boolean(cattleRows) && (d.cows ?? []).every((row) => (cattleRows ?? []).some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
+  const stillLinked = !links ? false : links.serverChecked
+    ? true
+    : (d.cows ?? []).every((row) => links.cattle.some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
+  const canCancel = isSold && Boolean(d.cows?.length) && stillLinked
   const viewDocument = async (index: number) => {
     const document = d.docs?.[index]
     if (!document) return

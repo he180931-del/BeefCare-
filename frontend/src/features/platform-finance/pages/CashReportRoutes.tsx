@@ -4,7 +4,7 @@ import { Button, Card, DateInput, ErrorBlock, FilterSelect, Foot, Icon, LoadingB
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { BackendError } from '../../../shared/api/backendClient'
-import { useDemoState } from '../../../hooks/useDemoState'
+import { useDemoState } from '../../../demo/demoModules'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { financeApi } from '../api/financeApi'
 import { FlashNote, RoField, useFlash } from '../components/common'

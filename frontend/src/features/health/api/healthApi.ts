@@ -1,9 +1,11 @@
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { healthDemoStore, type HealthDemoStore } from '../data/healthDemoStore'
+import type { HealthDemoStore } from '../data/healthDemoStore'
 import type { CorrectEntryCommand, FollowUpCommand, HealthCaseFilters, OpenCaseCommand, StatusCommand, TreatmentCommand, VoidEntryCommand } from '../types'
 import { createHealthBackend, type HealthBackend } from './healthBackend'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 export type HealthApi = HealthBackend
 
@@ -26,4 +28,4 @@ export function createHealthApi({ mode, farmId, transport, store, clock }: { mod
   }
 }
 
-export const healthApi = createHealthApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: healthDemoStore })
+export const healthApi = createHealthApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.health.healthDemoStore) })

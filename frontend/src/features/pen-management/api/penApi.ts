@@ -1,7 +1,3 @@
-import { seedPens } from '../../../data/pensData'
-import { createCollection } from '../../../api/client'
-import { migrateHerdStorage } from '../../../api/storageMigrations'
-import { penSchema } from '../../../api/collectionSchemas'
 // Deep import kept on purpose until refactor phase 3 (see tests/api/layerBoundary.test.ts).
 import { moveBarn } from '../../cattle/api/cattleApi'
 import { BackendError } from '../../../shared/api/backendClient'
@@ -11,13 +7,8 @@ import { backendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
 import type { Pen } from '../types'
 import type { ReceptionCriteria } from '../domain/penRules'
+import { demo } from '../../../demo/demoModules'
 
-// Backend mode is authoritative for pen management. Do not initialize the
-// local collection (which reads/writes localStorage) when the real API is on.
-const pens = backendMode === 'backend' ? null : (() => {
-  migrateHerdStorage()
-  return createCollection<Pen, 'code'>('pens', seedPens, { schema: penSchema })
-})()
 
 const normalize = (pen: Pen): Pen => ({
   ...pen,
@@ -323,15 +314,15 @@ const localCheckMove = async (cattle: MoveCattle[], from: Pen, to: Pen): Promise
 
 // Chuồng trại: mã chuồng là khoá. Backend mode never consults localStorage.
 export const penApi = backendMode === 'backend' ? backendApi : {
-  list: () => pens!.list(),
+  list: () => demo.penLocal.pens!.list(),
   detail: async (pen: Pen): Promise<PenDetail> => ({
     ...pen,
     cattleInPen: pen.cows.map(([code, situation]) => ({ code, situation, hints: [], exitPending: false })),
   }),
-  create: (pen: Pen) => pens!.create(normalize(pen)),
-  update: (pen: Pen) => pens!.update(pen.code, normalize(pen)),
+  create: (pen: Pen) => demo.penLocal.pens!.create(normalize(pen)),
+  update: (pen: Pen) => demo.penLocal.pens!.update(pen.code, normalize(pen)),
   changeAvailability: async (pen: Pen, status: 'ACTIVE' | 'INACTIVE', note: { date: string; reason: string }) =>
-    pens!.update(pen.code, normalize({ ...pen, status, statusNote: note })),
+    demo.penLocal.pens!.update(pen.code, normalize({ ...pen, status, statusNote: note })),
   checkMove: localCheckMove,
   move: async (command: PenMoveCommand): Promise<PenMoveResult> => {
     // Cattle known to the local cattle collection move through the shared adapter, which also updates both pens.
@@ -343,11 +334,11 @@ export const penApi = backendMode === 'backend' ? backendApi : {
     }
     if (linkOnly.length) {
       const codes = new Set(linkOnly)
-      const fromPen = await pens!.get(command.from.code)
-      const toPen = await pens!.get(command.to.code)
+      const fromPen = await demo.penLocal.pens!.get(command.from.code)
+      const toPen = await demo.penLocal.pens!.get(command.to.code)
       const links = fromPen.cows.filter(([code]) => codes.has(code))
-      await pens!.update(fromPen.code, { ...fromPen, count: Math.max(0, fromPen.count - links.length), cows: fromPen.cows.filter(([code]) => !codes.has(code)) })
-      await pens!.update(toPen.code, { ...toPen, count: toPen.count + links.length, cows: [...toPen.cows, ...links] })
+      await demo.penLocal.pens!.update(fromPen.code, { ...fromPen, count: Math.max(0, fromPen.count - links.length), cows: fromPen.cows.filter(([code]) => !codes.has(code)) })
+      await demo.penLocal.pens!.update(toPen.code, { ...toPen, count: toPen.count + links.length, cows: [...toPen.cows, ...links] })
     }
     return { moved: command.cattle.length, skipped: [] }
   },

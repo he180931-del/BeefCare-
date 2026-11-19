@@ -14,6 +14,8 @@ export type AuthClient = {
   mode?: 'backend' | 'mock'
   /** Chỉ client mô phỏng: tài khoản theo vai trò để chọn nhanh trên trang đăng nhập. */
   demoAccounts?: ReadonlyArray<{ label: string; email: string; password: string }>
+  /** Chỉ client mô phỏng: email mở khung lỗi sai thông tin và tài khoản tạm ngưng. */
+  demoErrorEmails?: { wrongCredentials: string; suspended: string }
   isAuthenticated: () => Promise<boolean>
   login: (username: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => Promise<void>

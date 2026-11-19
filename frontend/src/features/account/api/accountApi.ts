@@ -1,7 +1,9 @@
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { accountDemoStore, type AccountDemoStore } from '../data/accountDemoStore'
+import type { AccountDemoStore } from '../data/accountDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 import { googleAuthorizationUrl } from '../../authentication'
 import { permissionRowsFor } from '../../farm-workspace'
 import type { AccountIdentity, AccountProfile, FarmPermissions, PasswordChangeInput, ProfileUpdateInput } from '../types'
@@ -48,4 +50,4 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
 }
 
 export type AccountApi = ReturnType<typeof createAccountApi>
-export const accountApi = createAccountApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: accountDemoStore })
+export const accountApi = createAccountApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.account.accountDemoStore) })

@@ -2,11 +2,13 @@ import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
-import { supportDemoStore, type SupportDemoStore } from '../data/supportDemoStore'
+import type { SupportDemoStore } from '../data/supportDemoStore'
 import type { Actor, CompleteCommand, ContextRef, QueueFilters, TargetRole, TicketCategory, TicketPriority } from '../types'
 import { BackendError } from '../../../shared/api/backendClient'
 import { SupportError } from '../domain/supportRules'
 import type { FarmOption, InternalView, MessagePage, QueuePage, StaffMember, SupportNotification, Ticket, TicketMessage, TicketRow } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const mapError = (error: unknown): never => {
   if (!(error instanceof BackendError)) throw error
@@ -208,4 +210,4 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
   }
 }
 export type SupportApi = ReturnType<typeof createSupportApi>
-export const supportApi = createSupportApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: supportDemoStore })
+export const supportApi = createSupportApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.platformSupport.supportDemoStore) })

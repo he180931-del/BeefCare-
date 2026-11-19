@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { useDemoState } from '../../../hooks/useDemoState'
+import { useDemoState } from '../../../demo/demoModules'
 import { subscriptionApi } from '../api/subscriptionApi'
 
 /** Tổng quan gói của trại; `?demo=price-unavailable` mô phỏng bảng giá không lấy được (frame 2473:8159). */

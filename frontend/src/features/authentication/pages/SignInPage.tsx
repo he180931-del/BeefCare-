@@ -85,7 +85,7 @@ export function SignInPage({ client, onAuthenticated, initialError, startFailed 
                 <button key={user.email} type="button" title={user.email} onClick={() => { setEmail(user.email); setPassword(user.password) }} className="cursor-pointer rounded-md border border-field bg-white px-2 py-1 font-medium text-brand-dark">{user.label}</button>
               ))}
             </div>
-            <p className="m-0 mt-2 text-[11px]">Xem khung lỗi: <code>sai@beefcare.local</code> (sai thông tin), <code>tam-ngung@beefcare.local</code> (tạm ngưng).</p>
+            {client.demoErrorEmails && <p className="m-0 mt-2 text-[11px]">Xem khung lỗi: <code>{client.demoErrorEmails.wrongCredentials}</code> (sai thông tin), <code>{client.demoErrorEmails.suspended}</code> (tạm ngưng).</p>}
           </div>
         )}
       </div>

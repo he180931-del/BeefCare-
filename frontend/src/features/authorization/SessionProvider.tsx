@@ -3,7 +3,8 @@ import { asRecord, asRows, numberValue, textValue } from '../../shared/api/parse
 import { backendTransport } from '../../shared/api/backendTransport'
 import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../app/session/currentFarm'
 import { userFacingError } from '../../shared/api/userFacingError'
-import { demoUserFor, readMockUserEmail, useAuth } from '../authentication'
+import { useAuth } from '../authentication'
+import { demo } from '../../demo/demoModules'
 import { markOwnerRegistrationCompleted, SessionContext, type AppRole, type Session, type SessionUser } from './sessionContext'
 
 export const OWNER_REGISTRATION_COMPLETED_EVENT = 'beefcare:owner-registration-completed'
@@ -48,7 +49,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
     if (mode === 'mock') {
-      setUser(demoUserFor(readMockUserEmail()))
+      setUser(demo.demoUsers.demoUserFor(demo.demoUsers.readMockUserEmail()))
       return undefined
     }
     const loadProfile = () => backendTransport.get('/api/account/profile').then(

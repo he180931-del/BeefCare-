@@ -1,4 +1,4 @@
-import type { SessionUser } from '../authorization'
+import type { SessionUser } from '../../authorization'
 
 const DEMO_FARM = { farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì' }
 const NO_FARM = { farmId: null, farmName: null }
@@ -23,6 +23,9 @@ export const writeMockUserEmail = (email: string | null) => {
   if (email) sessionStorage.setItem(STORAGE_KEY, email)
   else sessionStorage.removeItem(STORAGE_KEY)
 }
+
+/** Tài khoản mẫu của một vai trò (mặc định Chủ trại). */
+export const demoUserForRole = (role: SessionUser['role']): SessionUser => demoUserFor(DEMO_USERS.find((item) => item.role === role)?.email ?? null)
 
 export function demoUserFor(email: string | null): SessionUser {
   const { label: _label, ...user } = DEMO_USERS.find((item) => item.email === email) ?? DEMO_USERS[0]

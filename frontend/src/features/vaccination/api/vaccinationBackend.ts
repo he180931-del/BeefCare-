@@ -2,7 +2,7 @@ import { BackendError } from '../../../shared/api/backendClient'
 import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
-import { STATIC_OPTIONS } from '../data/vaccinationMock'
+import { VACCINATION_HERD_GROUPS, VACCINATION_LIFE_STAGES } from '../constants/vaccinationOptions'
 import { addMonths, fmtDate } from '../domain/vaccinationFormat'
 import { CONFLICT_MESSAGE, VaccinationValidationError, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, type FieldErrors } from '../domain/vaccinationRules'
 import { validateDefer, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
@@ -362,8 +362,8 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         vaccines: catalogue.filter((v) => v.active),
         members: people,
         pens: pensList.map((p) => ({ code: p.code, label: p.name })),
-        herdGroups: structuredClone(STATIC_OPTIONS.herdGroups),
-        lifeStages: structuredClone(STATIC_OPTIONS.lifeStages),
+        herdGroups: structuredClone(VACCINATION_HERD_GROUPS),
+        lifeStages: structuredClone(VACCINATION_LIFE_STAGES),
         now: now(),
       }
     },

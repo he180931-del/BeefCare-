@@ -3,9 +3,11 @@ import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { BackendError } from '../../../shared/api/backendClient'
-import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
+import type { SubscriptionDemoStore } from '../data/subscriptionDemoStore'
 import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, StateDialogState, SubscriptionOverview } from '../types'
 import { SubscriptionError, type PriceQuote } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** A missing overview contract is an API error; it must never be filled with demo fields. */
 function readOverview(value: unknown, farmId: number): SubscriptionOverview {
@@ -155,4 +157,4 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
   }
 }
 export type SubscriptionApi = ReturnType<typeof createSubscriptionApi>
-export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: subscriptionDemoStore })
+export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.subscription.subscriptionDemoStore) })

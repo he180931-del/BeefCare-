@@ -3,12 +3,14 @@ import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { backendPending } from '../../../shared/api/backendPending'
-import { platformServiceDemoStore, type PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
+import type { PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
 import { lastVnDay, vnDateOf } from '../domain/dates'
 import type {
   ChangeFarmCommand, ChangeOptions, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, FarmServicePreview, LockCommand, PaymentFilters,
   ReturnCommand, ReviewCommand, ServiceStatus, SourcePayment, SubscriptionDetail, SubscriptionFilters, SubscriptionPage, SubscriptionRow, PeriodState, PeriodView, TermYears, UnlockCommand,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const STATUSES: readonly ServiceStatus[] = ['ACTIVE', 'PENDING_PAYMENT', 'EXPIRED', 'SUSPENDED']
 const status = (value: unknown): ServiceStatus => {
@@ -222,4 +224,4 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
   }
 }
 export type PlatformServiceApi = ReturnType<typeof createPlatformServiceApi>
-export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: platformServiceDemoStore })
+export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.platformService.platformServiceDemoStore) })

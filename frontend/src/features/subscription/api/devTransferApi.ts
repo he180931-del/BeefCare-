@@ -2,8 +2,10 @@ import { asRecord } from '../../../shared/api/parse'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { BackendError } from '../../../shared/api/backendClient'
-import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
+import type { SubscriptionDemoStore } from '../data/subscriptionDemoStore'
 import type { Payment } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** `confirmed`: yêu cầu đã được xác nhận ngay; false = giao dịch được lưu làm chứng từ chờ PM đối soát. */
 export interface SimulatedTransfer { confirmed: boolean; duplicate: boolean }
@@ -39,4 +41,4 @@ export function createDevTransferApi({ mode, transport, store }: { mode: Backend
     },
   }
 }
-export const devTransferApi = createDevTransferApi({ mode: backendMode, transport: backendTransport, store: subscriptionDemoStore })
+export const devTransferApi = createDevTransferApi({ mode: backendMode, transport: backendTransport, store: lazyObject(() => demo.subscription.subscriptionDemoStore) })

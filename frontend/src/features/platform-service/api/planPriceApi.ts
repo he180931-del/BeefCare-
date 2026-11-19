@@ -3,7 +3,7 @@ import { asRecord } from '../../../shared/api/parse'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { BackendError } from '../../../shared/api/backendClient'
-import { platformServiceDemoStore } from '../data/platformServiceDemoStore'
+import { demo } from '../../../demo/demoModules'
 import { fmtDateTime } from '../domain/dates'
 import type { PriceStatus } from '../types'
 
@@ -73,9 +73,9 @@ export function priceError(error: unknown, action = 'công bố bảng giá') {
 
 /** Explicit local demo adapter. It is never used when backend mode is selected. */
 const iso = (value: string) => new Date(parseBusinessTime(value)).toISOString()
-const demo = {
+const localPlanPriceApi = {
   async list(page = 0): Promise<PlanPricePage> {
-    const versions = (await platformServiceDemoStore.listPriceVersions()).map(p => ({ id: p.version, revision: p.withdrawn ? 1 : 0,
+    const versions = (await demo.platformService.platformServiceDemoStore.listPriceVersions()).map(p => ({ id: p.version, revision: p.withdrawn ? 1 : 0,
       price1y: p.price1y, price2y: p.price2y, price3y: p.price3y, effectiveAt: iso(p.effectiveAt), terms: p.terms || null, status: p.status,
       publishedById: null, publishedBy: p.publishedBy, publishedAt: iso(p.publishedAt), withdrawnBy: null, withdrawnAt: null, withdrawReason: p.withdrawReason }))
       .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '') || b.id - a.id)
@@ -83,12 +83,12 @@ const demo = {
       current: versions.find(v => v.status === 'EFFECTIVE') ?? null, nextEffectiveAt: versions.filter(v => v.status === 'SCHEDULED').map(v => v.effectiveAt).sort()[0] ?? null }
   },
   async publish(body: PublishPrice, _key: string) {
-    const created = await platformServiceDemoStore.publishPrice({ ...body, mode: body.applyNow ? 'NOW' : 'SCHEDULE', terms: body.terms ?? '',
+    const created = await demo.platformService.platformServiceDemoStore.publishPrice({ ...body, mode: body.applyNow ? 'NOW' : 'SCHEDULE', terms: body.terms ?? '',
       effectiveAt: toBusinessTime(body.effectiveAt) })
     return (await this.list()).items.find(v => v.id === created.version)!
   },
   async withdraw(id: number, reason: string, _revision: number, _key: string) {
-    await platformServiceDemoStore.withdrawPrice(id, reason); return (await this.list()).items.find(v => v.id === id)!
+    await demo.platformService.platformServiceDemoStore.withdrawPrice(id, reason); return (await this.list()).items.find(v => v.id === id)!
   },
 }
-export const planPriceApi = backendMode === 'backend' ? createPlanPriceApi(backendTransport) : demo
+export const planPriceApi = backendMode === 'backend' ? createPlanPriceApi(backendTransport) : localPlanPriceApi

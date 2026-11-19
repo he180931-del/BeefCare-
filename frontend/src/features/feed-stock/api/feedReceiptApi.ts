@@ -4,7 +4,8 @@ import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedReceipt, FeedReceiptAttachment, FeedReceiptPayment, FeedReceiptPaymentResult } from '../types/feedReceipt'
 import type { FeedReceiptDemoStore, FeedReceiptDraftInput, FeedReceiptVoidCheckRow } from '../types/feedReceiptDemo'
-import { feedReceiptDemoStore } from '../data/feedReceiptDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 type ReceiptMutationOptions = { key?: string }
 type RecordPaymentInput = {
@@ -230,7 +231,7 @@ export function createFeedReceiptApi({
   farmId,
   transport,
   mockRows,
-  demoStore = feedReceiptDemoStore,
+  demoStore = lazyObject(() => demo.feedReceipt.feedReceiptDemoStore),
 }: {
   mode: BackendMode
   farmId: string | number
@@ -462,4 +463,4 @@ export const listFeedReceiptPaymentAttachments = (id: number, paymentId: number)
 export const uploadFeedReceiptPaymentAttachment = (id: number, paymentId: number, file: File, options?: ReceiptMutationOptions) => feedReceiptApi.uploadPaymentAttachment(id, paymentId, file, options)
 export const downloadFeedReceiptPaymentAttachment = (id: number, paymentId: number, attachmentId: number) => feedReceiptApi.downloadPaymentAttachment(id, paymentId, attachmentId)
 export const checkFeedReceiptVoid = (id: number) => feedReceiptApi.voidCheck(id)
-export const resetFeedReceiptDemoStore = () => feedReceiptDemoStore.reset()
+export const resetFeedReceiptDemoStore = () => demo.feedReceipt.feedReceiptDemoStore.reset()

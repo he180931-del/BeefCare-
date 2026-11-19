@@ -44,6 +44,9 @@ const ALLOWED_DEEP_IMPORTS = new Set([
   'features/pen-management/api/penApi.ts -> features/cattle/api/cattleApi',
   'features/herd-exit/components/PickModal.tsx -> features/cattle/api/scanApi',
   'features/cattle/components/TimelineCorrectionDialog.tsx -> features/farm-catalogue/api/catalogueApi',
+  // A rule module needs only the status table; the farm-workspace index also loads its screens.
+  'features/platform-service/domain/reconciliation.ts -> features/farm-workspace/domain/statusViews',
+  'features/platform-service/domain/servicePeriods.ts -> features/farm-workspace/domain/statusViews',
 ])
 
 test('a feature reaches another feature only through its public index', () => {
@@ -84,11 +87,11 @@ const LEGACY_ALLOWED: Record<string, string> = {
   'data/cowsData.ts': 'demo data (phase 3)',
   'data/penData.ts': 'demo data (phase 3)',
   'data/pensData.ts': 'demo data (phase 3)',
-  'hooks/useDemoState.ts': 'demo switch (phase 3)',
 }
 
 test('the legacy root folders only hold the documented leftovers', () => {
-  const present = ['api', 'components', 'hooks', 'data'].flatMap((dir) => sourceFiles(dir))
+  assert.equal(existsSync(join(srcDir, 'hooks')), false, 'shared hooks belong to shared/hooks, feature hooks to the feature')
+  const present = ['api', 'components', 'data'].flatMap((dir) => sourceFiles(dir))
   assert.deepEqual(present.filter((file) => !(file in LEGACY_ALLOWED)), [])
   assert.deepEqual(readdirSync(srcDir).filter((name) => /\.(ts|tsx)$/.test(name)).sort(), ['main.tsx', 'types.ts', 'vite-env.d.ts'])
 })
@@ -106,10 +109,10 @@ const UI_MODE_ALLOWED: Record<string, string> = {
   'features/subscription/hooks/useFarmScope.ts': 'farm of the session (phase 4)',
 }
 
-/** Value (not type-only) named imports of one file, with their resolved target under `src/`. */
+/** Value (not type-only) named imports and re-exports of one file, with their resolved target under `src/`. */
 const valueImports = (file: string): Array<{ names: string[]; target: string }> => {
   const source = readFileSync(join(srcDir, file), 'utf8')
-  return [...source.matchAll(/^import\s+(?!type\b)(?:(\w+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*'(\.[^']*)'/gm)].map((match) => ({
+  return [...source.matchAll(/^(?:import|export)\s+(?!type\b)(?:(\w+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*'(\.[^']*)'/gm)].map((match) => ({
     names: [match[1], ...(match[2] ?? '').split(',').map((name) => name.trim()).filter((name) => name && !name.startsWith('type '))]
       .filter((name): name is string => Boolean(name)),
     target: relative(srcDir, resolve(join(srcDir, dirname(file)), match[3])).split(sep).join('/'),
@@ -133,4 +136,19 @@ test('the dev transfer simulator only renders under the Vite dev server', () => 
   assert.match(page, /\{import\.meta\.env\.DEV && [^{}]*<DevTransferSimulator\b/)
   const devApiUsers = sourceFiles('features').filter((file) => !file.endsWith('/devTransferApi.ts') && /\bdevTransferApi\b/.test(read(file)))
   assert.deepEqual(devApiUsers, ['features/subscription/components/DevTransferSimulator.tsx'])
+})
+
+// Refactor phase 3b: demo data reaches the app only through src/demo/demoModules.ts, which `vite build` swaps for
+// src/demo/noDemo.ts (vite.config.js). Demo modules may import each other; nothing else imports them directly.
+const DEMO_MODULE = /^(demo\/|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|demoCattlePhotos|penApi|testUtils)$|features\/[^/]+\/api\/\w+LocalApi$)/
+
+test('production code reaches demo modules only through the demo door', () => {
+  const production = [...sourceFiles('app'), ...sourceFiles('features'), ...sourceFiles('shared'), ...sourceFiles('api'), 'main.tsx']
+    .filter((file) => !DEMO_MODULE.test(file.replace(/\.tsx?$/, '')))
+  const violations = production.flatMap((file) => valueImports(file)
+    .filter(({ target }) => DEMO_MODULE.test(target) && target !== 'demo/demoModules')
+    .map(({ names, target }) => `${file} -> ${target} {${names.join(', ')}}`))
+  assert.deepEqual(violations, [])
+  const noDemo = readFileSync(join(srcDir, 'demo/noDemo.ts'), 'utf8')
+  assert.doesNotMatch(noDemo, /^import (?!type )/m, 'noDemo.ts must not load demo modules')
 })

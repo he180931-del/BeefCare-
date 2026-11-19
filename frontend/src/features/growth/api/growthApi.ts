@@ -1,9 +1,11 @@
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { growthDemoStore, type GrowthDemoStore } from '../data/growthDemoStore'
+import type { GrowthDemoStore } from '../data/growthDemoStore'
 import type { CorrectGrowthCommand, GrowthFilters, RecordGrowthCommand } from '../types'
 import { createGrowthBackend } from './growthBackend'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** Chế độ backend chỉ gọi API (không bao giờ đọc mock); chế độ local dùng kho demo. */
 export function createGrowthApi({ mode, farmId, transport, store, clock }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: GrowthDemoStore; clock?: () => Date }) {
@@ -29,4 +31,4 @@ export function createGrowthApi({ mode, farmId, transport, store, clock }: { mod
     },
   }
 }
-export const growthApi = createGrowthApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: growthDemoStore })
+export const growthApi = createGrowthApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.growth.growthDemoStore) })

@@ -2,7 +2,7 @@ import { BackendError } from '../../../shared/api/backendClient'
 import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
-import { GROWTH_FILTER_OPTIONS } from '../data/growthMock'
+import { GROWTH_HERD_GROUPS, GROWTH_LIFE_STAGES } from '../constants/growthOptions'
 import { fmtDate } from '../domain/growthFormat'
 import { buildProfile } from '../domain/growthSummary'
 import { GrowthLargeChangeError, GrowthValidationError, tapeWeightKg, type GrowthFieldErrors, type GrowthFieldKey, type MeasurementInput } from '../domain/growthRules'
@@ -270,8 +270,8 @@ export function createGrowthBackend({ farmId, transport, clock = () => new Date(
     async filterOptions(): Promise<GrowthFilterOptions> {
       return {
         pens: (await pens()).map((p) => ({ code: p.code, label: p.name })),
-        herdGroups: structuredClone(GROWTH_FILTER_OPTIONS.herdGroups),
-        lifeStages: structuredClone(GROWTH_FILTER_OPTIONS.lifeStages),
+        herdGroups: structuredClone(GROWTH_HERD_GROUPS),
+        lifeStages: structuredClone(GROWTH_LIFE_STAGES),
       }
     },
 

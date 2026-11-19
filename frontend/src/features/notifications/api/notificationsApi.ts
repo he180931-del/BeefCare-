@@ -2,8 +2,10 @@ import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/pa
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { notificationsDemoStore, type NotificationsDemoStore } from '../data/notificationsDemoStore'
+import type { NotificationsDemoStore } from '../data/notificationsDemoStore'
 import type { NotificationView } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 export const mapBackendNotification = (value: unknown): NotificationView => {
   const row = asRecord(value)
@@ -40,4 +42,4 @@ export function createNotificationsApi({ mode, farmId, transport, store }: { mod
   }
 }
 export type NotificationsApi = ReturnType<typeof createNotificationsApi>
-export const notificationsApi = createNotificationsApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: notificationsDemoStore })
+export const notificationsApi = createNotificationsApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.notifications.notificationsDemoStore) })

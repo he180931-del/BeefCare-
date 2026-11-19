@@ -1,5 +1,5 @@
 export { createFarmWorkspaceApi, farmWorkspaceApi, type FarmWorkspaceApi } from './api/farmWorkspaceApi'
-export { createFarmWorkspaceDemoStore, farmWorkspaceDemoStore, type FarmWorkspaceDemoStore, type FarmUpdateInput } from './data/farmWorkspaceDemoStore'
+export type { FarmWorkspaceDemoStore, FarmUpdateInput } from './data/farmWorkspaceDemoStore'
 export { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from './validation/workspaceValidation'
 export const loadOwnerRegistrationPage = () => import('./pages/OwnerRegistrationPage')
 export const loadFarmSelectPage = () => import('./pages/FarmSelectPage')
