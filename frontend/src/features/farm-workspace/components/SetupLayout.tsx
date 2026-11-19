@@ -55,7 +55,7 @@ export default function SetupLayout({ eyebrow, heading, lines = [], badge, step,
           <div className="flex items-center gap-3">
             <Avatar name={user.fullName} size={32} />
             <div className="hidden text-xs sm:block"><div className="font-semibold text-[#212121]">{user.fullName}</div><div className="text-[11px] text-muted">{user.email}</div></div>
-            {session && <button type="button" onClick={() => void session.logout()} className="ml-1 inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent text-xs font-semibold text-brand"><Icon name="logout" size={14} />Đăng xuất</button>}
+            {session && <button type="button" onClick={() => void session.logout()} className="ml-1 inline-flex min-h-8 cursor-pointer items-center gap-1 rounded border-0 bg-transparent px-1.5 text-xs font-semibold text-brand hover:bg-page"><Icon name="logout" size={14} />Đăng xuất</button>}
           </div>
         </header>
         <main className={`relative mx-auto flex w-full flex-col gap-5 px-5 py-8 sm:px-8 ${narrow ? 'max-w-[784px]' : ''}`}>{children}</main>

@@ -68,6 +68,7 @@ export function Segmented({ options, value, onChange, className }: { options: Ar
           key={o.value}
           type="button"
           disabled={o.disabled}
+          aria-pressed={o.value === value}
           onClick={() => onChange(o.value)}
           className={cx(
             'cursor-pointer whitespace-nowrap rounded px-3.5 py-[7px] text-xs border disabled:cursor-not-allowed disabled:opacity-50',
@@ -131,17 +132,18 @@ export function Metric({ label, value, note, sub, dot, compact, warn, link }: { 
 /** Phân trang "‹ 1 2 3 … 36 ›" dưới bảng. `summary`: dòng "Hiển thị 1–7 trong 248". */
 export function Pagination({ page, pageCount, onChange, summary }: { page: number; pageCount: number; onChange: (page: number) => void; summary?: ReactNode }) {
   const shown = [...new Set([1, page - 1, page, page + 1, pageCount])].filter((value) => value >= 1 && value <= pageCount).sort((a, b) => a - b)
-  const arrow = 'grid cursor-pointer place-items-center disabled:cursor-not-allowed disabled:opacity-40'
+  // 32 px hit areas (WCAG 2.5.8 needs ≥ 24 px): the arrows were 14 px and page numbers 5 px wide on phones.
+  const arrow = 'grid size-8 cursor-pointer place-items-center rounded hover:bg-chip disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
   return (
     <nav aria-label="Phân trang" className="flex flex-wrap items-center gap-3 text-[11px] text-muted">
       {summary && <span>{summary}</span>}
       <span className="flex-1" />
-      <div className="flex items-center gap-2 text-xs font-medium text-brand">
+      <div className="flex items-center gap-1 text-xs font-medium text-brand">
         <button type="button" aria-label="Trang trước" disabled={page <= 1} onClick={() => onChange(page - 1)} className={arrow}><Icon name="chevron-left" size={14} /></button>
         {shown.map((value, index) => (
-          <span key={value} className="flex items-center gap-2">
+          <span key={value} className="flex items-center gap-1">
             {index > 0 && value - shown[index - 1] > 1 && <span aria-hidden="true" className="text-muted">…</span>}
-            <button type="button" aria-current={value === page ? 'page' : undefined} onClick={() => onChange(value)} className={cx('cursor-pointer', value === page ? 'font-bold text-ink' : '')}>{value}</button>
+            <button type="button" aria-current={value === page ? 'page' : undefined} onClick={() => onChange(value)} className={cx('grid min-w-8 h-8 cursor-pointer place-items-center rounded px-1 hover:bg-chip', value === page ? 'font-bold text-ink' : '')}>{value}</button>
           </span>
         ))}
         <button type="button" aria-label="Trang sau" disabled={page >= pageCount} onClick={() => onChange(page + 1)} className={arrow}><Icon name="chevron-right" size={14} /></button>
@@ -174,8 +176,9 @@ export function ErrorBlock({ message, onRetry }: { message: ReactNode; onRetry?:
   )
 }
 
+// aria-invalid: a field marked invalid is drawn with a red border (only when a page sets aria-invalid="true").
 const fieldCls =
-  'w-full rounded-xl border border-field bg-white px-2.5 py-3 text-sm text-ink outline-none focus:border-brand'
+  'w-full rounded-xl border border-field bg-white px-2.5 py-3 text-sm text-ink outline-none focus:border-brand aria-invalid:border-err-fg'
 
 export const inputCls = `${fieldCls} read-only:bg-page read-only:text-muted`
 export const smInputCls =
@@ -198,7 +201,8 @@ export function Info({ items, cols = 3 }: { items: Array<ReadonlyArray<unknown>>
     <dl className={cx('m-0 grid gap-x-4 gap-y-3', cols === 2 ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3')}>
       {items.map(([k, v, warn]) => (
         <div key={String(k)}>
-          <dt className="mb-[3px] text-[11px] text-faint">{String(k)}</dt>
+          {/* text-muted (#666, 5.7:1 on white); #8f8f8f was 3.2:1, below WCAG AA for 11 px labels. */}
+          <dt className="mb-[3px] text-[11px] text-muted">{String(k)}</dt>
           <dd className={cx('m-0 text-[13px]', warn ? 'font-semibold text-warn-fg' : 'font-medium')}>{isValidElement(v) ? v : typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? '')}</dd>
         </div>
       ))}
@@ -351,11 +355,14 @@ export function Select({ className, children, ...p }: SelectHTMLAttributes<HTMLS
   )
 }
 
-/** Ô lọc đầu bảng của Redesign (cao 38px, bo 6, viền xám, chữ 12px). */
-export function FilterSelect({ className, children, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
+/**
+ * Ô lọc đầu bảng của Redesign (cao 38px, bo 6, viền xám, chữ 12px).
+ * `size="lg"`: cao 46px, bo 12, chữ 14px — cùng hàng với ô tìm kiếm / ô ngày 46px (SCR-16 Figma 2635:4108).
+ */
+export function FilterSelect({ className, children, size, ...p }: Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> & { size?: 'lg' }) {
   return (
     <div className={cx('relative inline-block max-w-full', className)}>
-      <select className="h-[38px] w-full cursor-pointer appearance-none rounded-md border border-edge bg-white pl-[15px] pr-8 text-xs text-[#173629] outline-none focus:border-brand" {...p}>{children}</select>
+      <select className={cx('w-full cursor-pointer appearance-none border border-edge bg-white pl-[15px] pr-8 text-[#173629] outline-none focus:border-brand', size === 'lg' ? 'h-[46px] rounded-xl text-sm' : 'h-[38px] rounded-md text-xs')} {...p}>{children}</select>
       <Icon name="chevron-down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#66756b]" />
     </div>
   )
@@ -381,8 +388,9 @@ export function DateInput({ value, onChange, className, readOnly, id, label }: {
   const [y, m, d] = value ? value.split('-') : []
   return (
     <div className={cx('relative', className)}>
-      <div className={cx(inputCls, 'flex items-center gap-1.5')}>
-        <span className="min-w-0 flex-1">{value ? `${d}/${m}/${y}` : 'dd/mm/yyyy'}</span>
+      {/* fieldCls, not inputCls: a <div> always matches :read-only, which greyed every date field out like a locked one. */}
+      <div className={cx(fieldCls, 'flex items-center gap-1.5', readOnly && '!bg-page !text-muted')}>
+        <span className={cx('min-w-0 flex-1', !value && 'text-subtle')}>{value ? `${d}/${m}/${y}` : 'dd/mm/yyyy'}</span>
         <Icon name="calendar-event" className="text-muted" />
       </div>
       {!readOnly && (
@@ -408,7 +416,8 @@ export function Radio({ checked, onChange, children, name, className }: { checke
   return (
     <label className={cx('inline-flex cursor-pointer items-center gap-2 text-sm text-ink', className)}>
       <input type="radio" name={name} checked={checked} onChange={onChange} className="peer sr-only" />
-      <span className={cx('size-4 shrink-0 rounded-full border', checked ? 'border-brand bg-brand' : 'border-edge bg-white')} />
+      {/* The real input is visually hidden, so the dot carries the keyboard focus ring. */}
+      <span className={cx('size-4 shrink-0 rounded-full border peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2', checked ? 'border-brand bg-brand' : 'border-edge bg-white')} />
       {children}
     </label>
   )
@@ -419,7 +428,7 @@ export function Checkbox({ checked, onChange, children, className, ...p }: { che
   return (
     <label className={cx('inline-flex cursor-pointer items-start gap-2', className)}>
       <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" {...p} />
-      <span className={cx('mt-px size-4 shrink-0 rounded border', checked ? 'border-brand bg-brand' : 'border-edge bg-white')} />
+      <span className={cx('mt-px size-4 shrink-0 rounded border peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2', checked ? 'border-brand bg-brand' : 'border-edge bg-white')} />
       {children}
     </label>
   )
@@ -441,7 +450,7 @@ export function Tabs({ tabs, value, onChange }: { tabs: Array<{ value: string; l
 /** Hộp số liệu "nhãn nhỏ xám + giá trị" dùng trong modal/summary (11px #8f8f8f trên, 13px medium dưới). */
 export const KV = ({ k, children, className }: { k: ReactNode; children: ReactNode; className?: string }) => (
   <div className={className}>
-    <div className="mb-[3px] text-[11px] text-faint">{k}</div>
+    <div className="mb-[3px] text-[11px] text-muted">{k}</div>
     <div className="text-[13px] font-medium">{children}</div>
   </div>
 )

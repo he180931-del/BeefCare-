@@ -163,7 +163,9 @@ export default function Layout({ title, user = 'owner', children }: { title: str
             <div className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{override || title}</div>
             {!platform && (
               <Link to="/chon-trai" className="mr-[22px] hidden h-[46px] w-[200px] shrink-0 items-center gap-1 rounded-xl border border-field bg-white px-[13px] text-[13px] font-bold text-brand-dark no-underline lg:flex">
-                <span className="min-w-0 truncate">{session?.farmName ?? 'Trại bò Yên Bài – Ba Vì'}</span>
+                {/* A tab that has not entered a farm shows "Chọn trại", never a sample farm name; the sample name stays for
+                    pages rendered outside a session (single-page tests). */}
+                <span className="min-w-0 truncate">{session ? session.farmName ?? 'Chọn trại' : 'Trại bò Yên Bài – Ba Vì'}</span>
                 <Icon name="chevron-down" size={14} />
               </Link>
             )}
