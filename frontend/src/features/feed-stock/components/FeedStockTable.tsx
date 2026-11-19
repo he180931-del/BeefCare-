@@ -1,4 +1,4 @@
-import { Badge, Button, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Table, Td, Th } from '../../../shared/ui'
 import { useNavigate } from 'react-router-dom'
 import { feedGroupLabel, formatDate, formatDaysOfCover, formatKg, formatNumber } from '../domain/feedLabels'
 import type { FeedStockRow, FeedStockStatus } from '../types'

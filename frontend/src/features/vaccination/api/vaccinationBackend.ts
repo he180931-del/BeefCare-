@@ -1,12 +1,11 @@
-import { BackendError } from '../../../api/backendClient'
-import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
+import { BackendError } from '../../../shared/api/backendClient'
+import { asRecord, asRows, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { STATIC_OPTIONS } from '../data/vaccinationMock'
 import { addMonths, fmtDate } from '../domain/vaccinationFormat'
-import {
-  CONFLICT_MESSAGE, VaccinationValidationError, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget,
-  validateDefer, validateReason, validateRecordFields, validateSchedule, type FieldErrors,
-} from '../domain/vaccinationRules'
+import { CONFLICT_MESSAGE, VaccinationValidationError, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, type FieldErrors } from '../domain/vaccinationRules'
+import { validateDefer, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import type {
   CattleVaccination, CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, DosePage, DoseRow, DoseStatus, DoseTab, HerdGroup,
   HistoryFilters, HistoryPage, HistoryRow, LifeStage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,

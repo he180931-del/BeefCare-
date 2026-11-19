@@ -1,9 +1,11 @@
-import { BackendError } from '../../../api/backendClient'
-import { backendPending } from '../../../api/backendPending'
-import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
+import { BackendError } from '../../../shared/api/backendClient'
+import { backendPending } from '../../../shared/api/backendPending'
+import { asRecord, asRows, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { dateOf, fmtTemp, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
-import { caseDay, followUpErrors, HealthValidationError, latestWithdrawalEnd, MSG, observationErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors } from '../domain/healthRules'
+import { caseDay, latestWithdrawalEnd, MSG } from '../domain/healthRules'
+import { followUpErrors, HealthValidationError, observationErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors } from '../validation/healthValidation'
 import type {
   CaseOutcome, CaseResultKind, CaseStatus, CorrectEntryCommand, EntryType, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult,
   HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile, HealthState, HealthTimelineRow, Medicine, OpenCaseCommand, PendingExit, Progress, RecordResult,

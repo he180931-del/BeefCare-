@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import InvitationsPage from '../../../src/features/farm-workspace/pages/InvitationsPage'
 

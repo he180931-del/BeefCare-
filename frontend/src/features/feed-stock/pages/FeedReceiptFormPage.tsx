@@ -1,25 +1,18 @@
-import { businessDate } from '../../../api/farmTimeZone'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, DateInput, Docs, Dropzone, Field, Foot, Info, Note, PageHeader, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { Docs, Dropzone } from '../../../components/ui'
+import { backendMode } from '../../../shared/config/runtime'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
 import { listFeedSuppliers } from '../api/feedCatalogueApi'
 import { createAndPostFeedReceipt, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, getFeedReceipt, listFeedReceiptAttachments, listFeedReceipts, postFeedReceipt, removeFeedReceiptAttachment, saveFeedReceiptDraft, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
-import {
-  blankFeedReceiptLine,
-  initialFeedReceiptForm,
-  minimumExpiryDate,
-  todayIso,
-  toFeedReceiptDraftInput,
-  validateFeedReceiptForm,
-  type FeedReceiptFormLine,
-  type FeedReceiptFormValues,
-} from '../data/feedReceiptForm'
+import { blankFeedReceiptLine, initialFeedReceiptForm, minimumExpiryDate, todayIso, type FeedReceiptFormLine, type FeedReceiptFormValues } from '../domain/feedReceiptForm'
+import { toFeedReceiptDraftInput } from '../api/feedReceiptPayload'
+import { validateFeedReceiptForm } from '../validation/feedReceiptValidation'
 import { deriveFeedStockStatus } from '../domain/feedStockStatus'
 import { feedReceiptError } from '../domain/feedReceiptErrors'
 import { feedGroupLabel, formatDate, formatKg, formatMoney, formatNumber, formatVnd } from '../domain/feedLabels'

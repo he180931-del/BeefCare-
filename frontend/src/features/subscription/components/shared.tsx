@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { IconName } from '../../../components/Icon'
-import { Badge } from '../../../components/ui'
+import type { IconName } from '../../../shared/ui'
+import { Badge } from '../../../shared/ui'
 import { paymentView, serviceView } from '../../farm-workspace'
 import type { PaymentState, ServiceStatus } from '../types'
 

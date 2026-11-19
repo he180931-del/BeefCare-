@@ -1,5 +1,5 @@
-import { businessDateTime } from '../../../api/farmTimeZone'
-import { backendMode } from '../../../api/backendTransport'
+import { businessDateTime } from '../../../shared/lib/date/farmTime'
+import { backendMode } from '../../../shared/config/runtime'
 
 // Mock mode stays on the day the frames and seed describe, so day counts and breeding windows do not drift.
 const DEMO_NOW = '2026-10-20T15:00'

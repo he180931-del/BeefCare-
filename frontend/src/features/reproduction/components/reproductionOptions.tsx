@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { backendMode } from '../../../api/backendTransport'
+import { backendMode } from '../../../shared/config/runtime'
 import { reproductionApi } from '../api/reproductionApi'
 import { EMPTY_REPRODUCTION_OPTIONS, localReproductionOptions } from '../data/reproductionOptions'
 import type { ReproductionFormOptions } from '../types'

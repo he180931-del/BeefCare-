@@ -1,16 +1,13 @@
 import { useId, useRef, useState } from 'react'
-import { Button, Field, Select, Textarea, DateInput, Note } from '../../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
 import { STAGES, TODAY } from '../../../data/cowsData'
 import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
-import { BackendError } from '../../../api/backendClient'
+import { BackendError } from '../../../shared/api/backendClient'
 import { listPurposes, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import {
-  PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, validateDatedChange, validateIdentity, validatePhoto,
-  type DatedChangeErrors, type IdentityErrors, type IdentityValues,
-} from '../domain/profileRules'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, type DatedChangeErrors, type IdentityErrors, type IdentityValues } from '../domain/profileRules'
+import { validateDatedChange, validateIdentity, validatePhoto } from '../validation/profileValidation'
 import { Panel, Seg, fieldCls } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
 

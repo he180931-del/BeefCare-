@@ -1,5 +1,4 @@
-import { Button, Foot, Table } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Button, Foot, Icon, Table } from '../../../shared/ui'
 import { Panel, Td, Th } from './parts'
 import type { Pen } from '../../pen-management'
 import type { CowSeed } from '../../../data/cowsData'

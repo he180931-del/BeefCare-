@@ -1,4 +1,7 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport, asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../api/backendTransport'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import { FEED_DEMO_PENS } from '../data/feedPenMock'
 import type { FeedStockRow } from '../types'
 import type { FeedRation, FeedRationDemoStore, FeedRationPenOption, SaveFeedRationInput } from '../types/feedRation'

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
-import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { createDevTransferApi } from '../../../src/features/subscription/api/devTransferApi'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
@@ -12,8 +12,12 @@ import SubscriptionRoutes from '../../../src/features/subscription/pages/Subscri
 import type { Payment, SubscriptionOverview } from '../../../src/features/subscription/types'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: (id: string | number, suffix = '') => `/api/farms/${id}${suffix}` }))
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
 vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+  ...await original<typeof import('../../../src/api/backendTransport')>(), backendFarmId: '42',
 }))
 const NOW = Date.parse('2026-11-09T03:00:00Z')
 const pending: Payment = { id: 501, quoteRef: 'BC-UC02', durationYears: 1, amountVnd: 1_200_000, state: 'PENDING',

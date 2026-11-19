@@ -1,4 +1,4 @@
-import { Metric } from '../../../components/ui'
+import { Metric } from '../../../shared/ui'
 import { formatNumber, formatVnd } from '../domain/feedLabels'
 import type { FeedStockRow } from '../types'
 

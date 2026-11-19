@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BackendError, createBackendClient } from '../../src/api/backendClient'
+import { BackendError, createBackendClient } from '../../src/shared/api/backendClient'
 import type { BackendTransport } from '../../src/api/backendTransport'
 import { createVaccinationBackend, mapVaccine, toFarmTime } from '../../src/features/vaccination/api/vaccinationBackend'
 import { CONFLICT_MESSAGE, VaccinationValidationError } from '../../src/features/vaccination/domain/vaccinationRules'

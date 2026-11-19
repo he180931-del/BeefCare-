@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createBackendClient, BackendError } from '../../src/api/backendClient'
+import { createBackendClient, BackendError } from '../../src/shared/api/backendClient'
 
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 test('command retains cookies, CSRF token and the caller request key', async () => {

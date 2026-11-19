@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth, type AuthClient } from '../../../src/features/authentication/AuthContext'
 import { SELECTED_FARM_STORAGE_KEY } from '../../../src/app/session/selectedFarm'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 function AuthenticatedWorkspace() {
   const { authenticated, logout } = useAuth()

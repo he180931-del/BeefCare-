@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import App from '../../../src/App'
+import App from '../../../src/app/routes/AppRoutes'
 import { FEED_STOCK_MOCK } from '../../../src/features/feed-stock/data/feedStockMock'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { FEED_RECEIPT_MOCK } from '../../../src/features/feed-stock/data/feedReceiptMock'

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 import { MemberChangeDialog } from '../../../src/features/farm-workspace/components/MemberChangeDialog'
 import type { MemberAction, Membership } from '../../../src/features/farm-workspace/types'
-import { farmToday, MEMBER_REASON_RULE, validateMemberChange } from '../../../src/features/farm-workspace/validation'
+import { farmToday, MEMBER_REASON_RULE, validateMemberChange } from '../../../src/features/farm-workspace/validation/workspaceValidation'
 
 const api = vi.hoisted(() => ({ changeMember: vi.fn() }))
 vi.mock('../../../src/features/farm-workspace/api/farmWorkspaceApi', () => ({ farmWorkspaceApi: api }))

@@ -3,7 +3,8 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { initialCows } from '../../../src/data/cowsData'
-import { purposeFitsSex, validateDatedChange, validateIdentity, validatePhoto, validateTag } from '../../../src/features/cattle/domain/profileRules'
+import { purposeFitsSex } from '../../../src/features/cattle/domain/profileRules'
+import { validateDatedChange, validateIdentity, validatePhoto, validateTag } from '../../../src/features/cattle/validation/profileValidation'
 
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 

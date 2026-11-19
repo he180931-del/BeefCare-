@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { Icon } from '../../../components/Icon'
+import { Icon } from '../../../shared/ui'
 import { markdownToEditorFragment, safeAnnouncementHref, serializeRichText, type Format } from '../domain/richText'
 
 const TOOLS: Array<{ format: Format; label: string; content: string }> = [

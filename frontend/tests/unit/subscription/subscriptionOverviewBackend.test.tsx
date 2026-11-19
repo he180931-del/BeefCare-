@@ -11,9 +11,12 @@ import SubscriptionRoutes from '../../../src/features/subscription/pages/Subscri
 import type { Payment, SubscriptionOverview } from '../../../src/features/subscription/types'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: (id: string | number, suffix = '') => `/api/farms/${id}${suffix}` }))
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
 vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(),
-  backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+  ...await original<typeof import('../../../src/api/backendTransport')>(), backendFarmId: '42',
 }))
 
 const period = { paymentCode: 'BC-PAID', durationYears: 1 as const, amountVnd: 1_200_000,

@@ -3,5 +3,3 @@ export const loadTechnicianAccountPage = () => import('./pages/TechnicianAccount
 export const loadPlatformProfilePage = () => import('./pages/PlatformProfilePage')
 export { accountApi, createAccountApi, type AccountApi } from './api/accountApi'
 export { accountDemoStore, createAccountDemoStore, type AccountDemoStore } from './data/accountDemoStore'
-export { validatePasswordChange, validateProfile } from './validation/profileValidation'
-export type { AccountIdentity, AccountProfile, PasswordChangeInput, ProfileUpdateInput } from './types'

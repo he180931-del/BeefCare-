@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createHealthApi } from '../../../src/features/health/api/healthApi'
 import { createHealthDemoStore } from '../../../src/features/health/data/healthDemoStore'
-import { HealthValidationError } from '../../../src/features/health/domain/healthRules'
+import { HealthValidationError } from '../../../src/features/health/validation/healthValidation'
 import type { StatusCommand, TreatmentCommand } from '../../../src/features/health/types'
 
 const NOW = '2026-10-20T08:00'

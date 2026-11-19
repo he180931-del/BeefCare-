@@ -1,4 +1,4 @@
-import { pageLoader, writeCurrentFarmId } from '../../../api/currentFarm'
+import { pageLoader, writeCurrentFarmId } from '../../../app/session/currentFarm'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { farmAction, unavailableFarmMessage } from './FarmCard'
 import type { FarmRole } from '../types'

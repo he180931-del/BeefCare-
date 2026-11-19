@@ -1,4 +1,5 @@
-import { asRecord, backendTransport, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord } from '../../../shared/api/parse'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { SourcePayment } from '../types'
 
 export interface ReadPage<T> { items: T[]; total: number; page: number; size: number }

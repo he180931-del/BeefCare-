@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBackendClient, BackendError } from '../../src/api/backendClient'
+import { createBackendClient, BackendError } from '../../src/shared/api/backendClient'
 
 test('TC-AUTH-API01: /api/csrf retrieves CSRF token and header name', async () => {
   const fetchMock: typeof fetch = async (input, init) => {

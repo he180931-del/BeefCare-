@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeEmail, validateRegistration, validateReset, validateSignIn } from '../../../src/features/authentication/validation'
+import { normalizeEmail, validateRegistration, validateReset, validateSignIn } from '../../../src/features/authentication/validation/authValidation'
 
 describe('authentication validation', () => {
   it('normalizes email case and whitespace before sending', () => {

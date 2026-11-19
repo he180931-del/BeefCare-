@@ -4,8 +4,11 @@ import { migrateHerdStorage } from '../../../api/storageMigrations'
 import { penSchema } from '../../../api/collectionSchemas'
 // Deep import kept on purpose until refactor phase 3 (see tests/api/layerBoundary.test.ts).
 import { moveBarn } from '../../cattle/api/cattleApi'
-import { BackendError } from '../../../api/backendClient'
-import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue } from '../../../api/backendTransport'
+import { BackendError } from '../../../shared/api/backendClient'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode } from '../../../shared/config/runtime'
+import { backendTransport } from '../../../shared/api/backendTransport'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
 import type { Pen } from '../types'
 import type { ReceptionCriteria } from '../domain/penRules'
 

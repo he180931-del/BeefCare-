@@ -1,4 +1,4 @@
-import { Badge, Card, Checkbox, Field, Select } from '../../../components/ui'
+import { Badge, Card, Checkbox, Field, Select } from '../../../shared/ui'
 import { ROLE_LABEL } from '../domain/format'
 import type { AudienceSelection, Member, MemberOptions, Viewer } from '../types'
 

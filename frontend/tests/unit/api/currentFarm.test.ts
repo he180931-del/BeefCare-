@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CURRENT_FARM_KEY, clearCurrentFarmId, readCurrentFarmId, writeCurrentFarmId } from '../../../src/api/currentFarm'
+import { CURRENT_FARM_KEY, clearCurrentFarmId, readCurrentFarmId, writeCurrentFarmId } from '../../../src/app/session/currentFarm'
 
 describe('current farm of this tab (UC-FE02-02, decision 08/11/2026)', () => {
   afterEach(() => {

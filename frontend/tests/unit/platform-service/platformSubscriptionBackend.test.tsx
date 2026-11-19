@@ -9,8 +9,12 @@ import PlatformSubscriptionRoutes from '../../../src/features/platform-service/p
 import PaymentReconciliationRoutes from '../../../src/features/platform-service/pages/PaymentReconciliationRoutes'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }))
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
 vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+  ...await original<typeof import('../../../src/api/backendTransport')>(), backendFarmId: '42',
 }))
 const row = (id = 42) => ({ farmId: id, farmName: `Trại UC4 ${id}`, ownerName: 'Owner hiện tại', ownerEmail: 'owner@example.test',
   serviceStatus: 'SUSPENDED', currentStart: '2026-01-01T00:00:00Z', currentEnd: '2027-01-01T17:00:00Z',

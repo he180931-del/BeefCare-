@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 import { createSupportApi } from '../../../src/features/support/api/supportApi'
 import { createSupportDemoStore } from '../../../src/features/support/data/supportDemoStore'
 import { SupportError } from '../../../src/features/support/domain/supportError'

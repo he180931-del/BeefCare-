@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import Layout from '../../../src/components/Layout'
-import { DateInput, Radio, Segmented } from '../../../src/components/ui'
+import Layout from '../../../src/app/layouts/FarmPlatformLayout'
+import { DateInput, Radio, Segmented } from '../../../src/shared/ui'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 
 /** Small shared fixes agreed in the 19/11 UI review (group D): they show on FE-02/03/17/19 screens and elsewhere. */

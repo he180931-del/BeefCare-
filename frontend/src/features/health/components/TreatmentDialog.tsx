@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, inputCls, Note, Select, Textarea } from '../../../components/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
 import { healthApi } from '../api/healthApi'
 import { treatmentToast } from '../domain/healthMessages'
 import { fmtDate, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'

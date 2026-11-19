@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createBackendClient } from '../../src/api/backendClient'
+import { createBackendClient } from '../../src/shared/api/backendClient'
 import { createFeedStockAdjustmentApi } from '../../src/features/feed-stock/api/feedStockAdjustmentApi'
 
 const adjustmentView = (status: string, version: number, countedKg = 190) => ({

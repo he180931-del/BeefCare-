@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { inputCls } from '../../../components/ui'
+import { Icon, inputCls } from '../../../shared/ui'
 import { STARTER_BREEDS } from '../data/starterBreeds'
 
 /** Chọn nhiều giống chủ lực từ danh mục giống có sẵn (SCR-10); giống được chọn bật sẵn cho trại. */

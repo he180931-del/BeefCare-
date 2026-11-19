@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { userFacingError } from '../../../api/userFacingError'
-import { Button, Card, Note, inputCls } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, inputCls, Note } from '../../../shared/ui'
 import { devTransferApi } from '../api/devTransferApi'
 import { fmtVnd } from '../domain/subscriptionRules'
 import type { Payment } from '../types'

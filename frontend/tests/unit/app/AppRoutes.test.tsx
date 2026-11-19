@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import App from '../../../src/App'
+import App from '../../../src/app/routes/AppRoutes'
 
 const routeCases = [
   ['/terms', 'Điều khoản sử dụng'],

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, type AuthClient } from '../../../src/features/authentication'
 import { AuthGate } from '../../../src/features/authorization'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 function renderAuth(client: AuthClient, path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AuthProvider client={client}><AuthGate><div>Private content</div></AuthGate></AuthProvider></MemoryRouter>)

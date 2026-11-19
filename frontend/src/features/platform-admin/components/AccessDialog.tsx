@@ -1,8 +1,6 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Button, Field, Note, Radio, Textarea } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { DISCARD_PROMPT } from '../../../shared/ui'
+import { Button, DISCARD_PROMPT, Field, Modal, ModalButton, ModalFooter, Note, Radio, Textarea } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { platformAdminApi } from '../api/platformAdminApi'
 import {
   MSG, OPERATION_LABEL, PLATFORM_ROLES, REASON_MAX, ROLE_LABEL, accessButtonLabel, accessDoneMessage, formatPlatformDateTime, noAccessActionReason,

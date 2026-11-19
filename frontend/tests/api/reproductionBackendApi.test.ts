@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BackendError } from '../../src/api/backendClient'
+import { BackendError } from '../../src/shared/api/backendClient'
 import type { BackendTransport } from '../../src/api/backendTransport'
 import { ReproductionDuplicateError, createReproductionBackend, mapReproductionError } from '../../src/features/reproduction/api/reproductionBackend'
 import { ReproductionValidationError, isDueSoon } from '../../src/features/reproduction/domain/reproductionRules'

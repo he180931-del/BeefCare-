@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Note } from '../../../components/ui'
+import { Icon, Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
 import type { SubscriptionDetail } from '../types'
 import { fmtDate, fmtDateTime, fmtEndDate } from '../domain/dates'
 import { shortFarmName, STATUS_LABEL } from '../domain/servicePeriods'

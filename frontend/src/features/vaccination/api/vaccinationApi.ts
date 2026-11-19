@@ -1,4 +1,6 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { vaccinationDemoStore, type VaccinationDemoStore } from '../data/vaccinationDemoStore'
 import type { CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, HistoryFilters, RecordVaccinationsCommand, ScheduleCommand, ScheduleTarget, VoidRecordCommand } from '../types'
 import { createVaccinationBackend } from './vaccinationBackend'

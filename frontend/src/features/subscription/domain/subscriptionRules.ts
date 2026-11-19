@@ -1,4 +1,4 @@
-import { BUSINESS_OFFSET_MS, parseBusinessTime } from '../../../api/farmTimeZone'
+import { BUSINESS_OFFSET_MS, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type { Payment, PeriodStatus, PriceDTO, RequestEligibility, ServiceStatus, StateDialogState, SubscriptionOverview, Term } from '../types'
 import { SubscriptionError } from '../types'
 

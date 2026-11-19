@@ -1,4 +1,7 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows } from '../../../shared/api/parse'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { createFeedFeedingApi } from './feedFeedingApi'
 import { createFeedReceiptApi } from './feedReceiptApi'
 import { createFeedRationApi } from './feedRationApi'

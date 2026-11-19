@@ -1,4 +1,6 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { growthDemoStore, type GrowthDemoStore } from '../data/growthDemoStore'
 import type { CorrectGrowthCommand, GrowthFilters, RecordGrowthCommand } from '../types'
 import { createGrowthBackend } from './growthBackend'

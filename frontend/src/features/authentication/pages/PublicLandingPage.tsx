@@ -4,7 +4,7 @@ import type { AuthClient } from '../types'
 import { LandingHeader, container } from '../components/landing/LandingHeader'
 import { Faq, Features, Hero, Overview, Steps } from '../components/landing/LandingSections'
 import { Pricing } from '../components/landing/LandingPricing'
-import { usePublicPrices, usePublishedLanding } from '../components/landing/usePublicLanding'
+import { usePublicPrices, usePublishedLanding } from '../hooks/usePublicLanding'
 
 /** SCR-01. Giá lấy từ phiên bản hiệu lực; `?demo=prices-loading` và `?demo=prices-unavailable` (mô phỏng) hiện hai trạng thái giá. */
 export function PublicLandingPage({ client }: { client: AuthClient }) {

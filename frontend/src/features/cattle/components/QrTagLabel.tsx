@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Note } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Button, Icon, Note } from '../../../shared/ui'
 import { QR_BORDER, tagQrModules } from '../domain/tagQr'
 
 function labelPng(cowCode: string, modules: boolean[][]): string {

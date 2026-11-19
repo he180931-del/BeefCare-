@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { useQuery } from '../../../src/hooks/useApi'
+import { useQuery } from '../../../src/shared/hooks/useQuery'
 
 describe('useQuery', () => {
   it('refetch chỉ hoàn tất sau khi dữ liệu mới đã được tải và cập nhật', async () => {

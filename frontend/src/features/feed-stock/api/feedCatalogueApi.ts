@@ -1,4 +1,7 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, nullableNumber, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedCatalogueDemoStore, FeedCatalogueInput, FeedCatalogueItem, FeedCatalogueSaveInput, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
 import { feedCatalogueDemoStore } from '../data/feedReceiptDemoStore'
 

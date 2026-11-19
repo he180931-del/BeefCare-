@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Card, DateInput, Docs, Dropzone, Field, Foot, Info, Note, PageHeader, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { Docs, Dropzone } from '../../../components/ui'
+import { backendMode } from '../../../shared/config/runtime'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
 import {
   downloadFeedStockAdjustmentAttachment,
@@ -17,14 +17,9 @@ import {
   saveFeedStockAdjustmentDraft,
   uploadFeedStockAdjustmentAttachment,
 } from '../api/feedStockAdjustmentApi'
-import {
-  initialFeedStockAdjustmentForm,
-  localFeedDate,
-  nextFeedAdjustmentCode,
-  previewFeedStockAdjustment,
-  toFeedStockAdjustmentDraftInput,
-  validateFeedStockAdjustmentForm,
-} from '../data/feedStockAdjustmentForm'
+import { initialFeedStockAdjustmentForm, localFeedDate, nextFeedAdjustmentCode, previewFeedStockAdjustment } from '../domain/feedStockAdjustmentForm'
+import { toFeedStockAdjustmentDraftInput } from '../api/feedStockAdjustmentPayload'
+import { validateFeedStockAdjustmentForm } from '../validation/feedStockAdjustmentValidation'
 import { formatKg, formatMoney, formatNumber } from '../domain/feedLabels'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentFormValues, FeedStockAdjustmentType } from '../types/feedStockAdjustment'

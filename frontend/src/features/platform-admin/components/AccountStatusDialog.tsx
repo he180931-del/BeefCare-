@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, Note, Textarea } from '../../../components/ui'
+import { Field, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { platformAdminApi } from '../api/platformAdminApi'
 import { REASON_MAX, accountStatusDone, validateReason } from '../domain/platformRules'
 import { useCommandKey } from '../hooks/useCommandKey'

@@ -1,7 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Icon, type IconName } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Button, Info, Note } from '../../../components/ui'
+import { Button, Icon, type IconName, Info, Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
 import { dateKey, formatDayMonth, formatTime, weekdayOf } from '../domain/format'
 import { dueLabel, pillLabel } from '../domain/reminderRules'
 import type { ReminderItem, Urgency } from '../types'

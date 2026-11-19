@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Checkbox, KV, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Checkbox, Icon, KV, Table, Td, Th } from '../../../shared/ui'
 import { criteriaOf, criteriaRows, dmy, situationText } from '../domain/penRules'
 import { Box, TH } from './parts'
 import { penName } from './BarnTable'

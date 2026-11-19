@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 import { accountsPath, auditDetail, auditPath, createPlatformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
 import { createPlatformAdminDemoStore } from '../../../src/features/platform-admin/data/platformAdminDemoStore'
 import { createPlatformAdminSeed } from '../../../src/features/platform-admin/data/platformAdminMock'

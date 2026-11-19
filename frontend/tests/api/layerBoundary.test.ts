@@ -68,6 +68,31 @@ test('the entry stays thin and the route table, providers and layouts live in ap
   assert.equal(existsSync(join(srcDir, 'pages')), false, 'feature screens belong to features/<feature>/pages')
 })
 
+// What is still allowed in the legacy root folders after refactor phase 2, and why. New shared code goes to `shared/` or
+// `app/`; feature code goes to its feature. Removing an entry is fine, adding one needs a reason here.
+const LEGACY_ALLOWED: Record<string, string> = {
+  'api/backendTransport.ts': 'backendFarmId fallback (phase 4) and re-exports for the local adapters',
+  'api/client.ts': 'local collections (phase 3)',
+  'api/collectionSchemas.ts': 'local collections (phase 3)',
+  'api/demoCattlePhotos.ts': 'demo data (phase 3)',
+  'api/herdDomainApi.ts': 'local Cattle-Pen-Entry-Exit aggregate (phase 3)',
+  'api/penApi.ts': 'local pen adapter (phase 3)',
+  'api/storageMigrations.ts': 'local storage migration (phase 3)',
+  'api/testUtils.ts': 'local test support (phase 3)',
+  'components/ui.tsx': 'StatusBadge, Docs, Dropzone, PaymentTable: owner not decided (guide §13 item 2)',
+  'data/cattleData.ts': 'demo data (phase 3)',
+  'data/cowsData.ts': 'demo data (phase 3)',
+  'data/penData.ts': 'demo data (phase 3)',
+  'data/pensData.ts': 'demo data (phase 3)',
+  'hooks/useDemoState.ts': 'demo switch (phase 3)',
+}
+
+test('the legacy root folders only hold the documented leftovers', () => {
+  const present = ['api', 'components', 'hooks', 'data'].flatMap((dir) => sourceFiles(dir))
+  assert.deepEqual(present.filter((file) => !(file in LEGACY_ALLOWED)), [])
+  assert.deepEqual(readdirSync(srcDir).filter((name) => /\.(ts|tsx)$/.test(name)).sort(), ['main.tsx', 'types.ts', 'vite-env.d.ts'])
+})
+
 test('app providers keep the order Router > Auth > AuthGate > Session', () => {
   const providers = readFileSync(join(srcDir, 'app/providers/AppProviders.tsx'), 'utf8')
   const order = [...providers.matchAll(/<(BrowserRouter|AuthProvider|AuthGate|SessionProvider)\b/g)].map((match) => match[1])

@@ -1,5 +1,7 @@
-import { asRecord, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
+import { asRecord } from '../../../shared/api/parse'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { BackendError } from '../../../shared/api/backendClient'
 import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
 import type { Payment } from '../types'
 

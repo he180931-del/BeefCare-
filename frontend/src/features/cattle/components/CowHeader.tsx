@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
+import { Button, Icon, type IconName } from '../../../shared/ui'
 import { useCanRecordCare } from '../../authorization'
 import { Chip, chipIcon } from './parts'
 import CowPhoto from './CowPhoto'

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Card, EmptyBlock, ErrorBlock, LoadingBlock, SearchInput, Select } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
+import { Card, EmptyBlock, ErrorBlock, LoadingBlock, SearchInput, Select } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import type { AvailabilityFilter } from '../types'
 
 interface Props {

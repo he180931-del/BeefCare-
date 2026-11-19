@@ -1,6 +1,6 @@
 import { useState, type MouseEventHandler, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Icon } from '../../../components/Icon'
+import { Icon } from '../../../shared/ui'
 import type { AuthClient } from '../types'
 import { FormField, googleButtonClass } from './AuthShell'
 import { googleAuthorizationUrl } from '../googleOAuth'

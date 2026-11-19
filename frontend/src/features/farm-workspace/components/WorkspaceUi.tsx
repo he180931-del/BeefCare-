@@ -1,7 +1,7 @@
-import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../api/farmTimeZone'
+import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type { ReactNode, SelectHTMLAttributes } from 'react'
-import { BackendError } from '../../../api/backendClient'
-import { Icon } from '../../../components/Icon'
+import { BackendError } from '../../../shared/api/backendClient'
+import { Icon } from '../../../shared/ui'
 import { serviceView } from '../domain/statusViews'
 
 /** Ô nhập của trang thường theo Figma (cao 36px, bo 4, viền xám); hộp thoại và trang thiết lập dùng `inputCls` (44px). */

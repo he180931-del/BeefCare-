@@ -28,13 +28,6 @@ export function deriveStatus(periods: PurchasedPeriod[], suspended: boolean, tod
 /** GBR-71 / SCR-57: gia hạn mở trước ngày hết hạn đã xác nhận 90 ngày. */
 export const renewalOpens = (confirmedEnd: string) => addDays(confirmedEnd, -90)
 
-export function validateReason(reason: string, label = 'Lý do', max = 500) {
-  const t = reason.trim()
-  if (!t) return `${label} là bắt buộc.`
-  if (t.length > max) return `${label} tối đa ${max} ký tự.`
-  return null
-}
-
 /** Same labels as SCR-09/11 and SCR-57/58 (farm-workspace/domain/statusViews). */
 export const STATUS_LABEL: Record<ServiceStatus, string> = {
   ACTIVE: SERVICE_STATUS_VIEW.ACTIVE.label,

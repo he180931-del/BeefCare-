@@ -1,4 +1,4 @@
-import { Badge, Card, Note, Table, Td, Th, Tile } from '../../../components/ui'
+import { Badge, Card, Note, Table, Td, Th, Tile } from '../../../shared/ui'
 import { formatDateTime } from '../domain/format'
 import type { ReportCell, ReportMetricChart, ReportView } from '../types'
 

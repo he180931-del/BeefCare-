@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, EmptyBlock, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Card, EmptyBlock, Icon, Table, Td, Th } from '../../../shared/ui'
 import type { AttentionRow, DashboardView, GettingStarted } from '../types'
 
 export function AttentionCard({ rows, unavailable = false }: { rows: AttentionRow[]; unavailable?: boolean }) {

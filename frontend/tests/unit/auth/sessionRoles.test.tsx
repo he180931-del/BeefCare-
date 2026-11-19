@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import Layout from '../../../src/components/Layout'
+import Layout from '../../../src/app/layouts/FarmPlatformLayout'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
 import { HomeRedirect, RoleGate, canRecordCare, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
-import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/api/currentFarm'
+import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/app/session/currentFarm'
 
 afterEach(() => clearCurrentFarmId())
 

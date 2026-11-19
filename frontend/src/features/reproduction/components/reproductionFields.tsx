@@ -1,6 +1,5 @@
 import { useRef, type ReactNode } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Field, Radio, Select, inputCls } from '../../../components/ui'
+import { Field, Icon, inputCls, Radio, Select } from '../../../shared/ui'
 import type { DataSource } from '../types'
 import { reproductionNow } from '../domain/reproductionClock'
 import { useReproductionOptions } from './reproductionOptions'

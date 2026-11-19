@@ -1,18 +1,14 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import {
-  Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th,
-} from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { useDemoState } from '../../../hooks/useDemoState'
 import { platformAdminApi } from '../api/platformAdminApi'
 import { ICON_BUTTON, PersonCell, SaPage, Toast, restPathId, searchWithoutModal, wideScreen } from '../components/common'
 import SearchSelect from '../components/SearchSelect'
-import {
-  AUDIT_RANGE_HINT, AUDIT_TARGET_TYPES, auditActionLabel, auditChanges, auditRoleLabel, formatPlatformDateTime, targetTypeLabel, validateAuditRange,
-} from '../domain/platformRules'
+import { AUDIT_RANGE_HINT, AUDIT_TARGET_TYPES, auditActionLabel, auditChanges, auditRoleLabel, formatPlatformDateTime, targetTypeLabel } from '../domain/platformRules'
+import { validateAuditRange } from '../validation/platformValidation'
 import type { AuditFilters } from '../types'
 
 const PAGE_SIZE = 20

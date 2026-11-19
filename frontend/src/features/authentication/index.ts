@@ -4,8 +4,5 @@ export { LegalPage } from './pages/LegalPage'
 export { googleAuthorizationUrl } from './googleOAuth'
 // Mock sign-in only (`npm run dev:mock`); removed with the mock branch in refactor phase 3.
 export { demoUserFor, readMockUserEmail } from './demoUsers'
-export { createBackendAuthClient, createMockAuthClient } from './client'
-export { validateSignIn, validateRegistration, validateReset, isValidEmail, normalizeEmail } from './validation'
-export type { RegistrationRequest, PasswordResetValidation } from './types'
 export { CONTACT } from './data/landingContent'
 export { INVITATION_PATH, rememberInvitationLink } from './invitationReturn'

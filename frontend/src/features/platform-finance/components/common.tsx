@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Badge, Note, inputCls, Field } from '../../../components/ui'
+import { Badge, Field, inputCls, Note } from '../../../shared/ui'
 import { STATE_LABEL } from '../domain/financeRules'
 import type { RecordState } from '../types'
 

@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { DateInput, Field, Note } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
+import { DateInput, Field, Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import { cancelFeedRationVersion, newFeedRationCommandKey, stopFeedRation } from '../api/feedRationApi'
-import { localRationDate } from '../data/feedRationForm'
+import { localRationDate } from '../domain/feedRationForm'
 import { formatDate } from '../domain/feedLabels'
 import type { FeedRation } from '../types/feedRation'
 

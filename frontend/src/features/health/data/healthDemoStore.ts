@@ -1,4 +1,5 @@
-import { caseDay, computeHealthState, followUpErrors, HealthValidationError, latestWithdrawalEnd, MSG, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors, withdrawalEnd } from '../domain/healthRules'
+import { caseDay, computeHealthState, latestWithdrawalEnd, MSG, withdrawalEnd } from '../domain/healthRules'
+import { followUpErrors, HealthValidationError, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
   CorrectEntryCommand, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,

@@ -1,4 +1,4 @@
-import { parseBusinessTime } from '../../../api/farmTimeZone'
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import {
   ReproductionValidationError, actionsForStatus, isDueSoon, breedingDetails, calvingIssues, calvingSummary, expectedCalvingDate,
   validateReproductionCommand,

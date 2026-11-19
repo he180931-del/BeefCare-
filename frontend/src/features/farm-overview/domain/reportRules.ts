@@ -107,23 +107,6 @@ const DEFS: Record<ReportCode, Def> = {
   },
 }
 
-const monthsLimit = (from: string) => {
-  const [year, month, day] = from.split('-').map(Number)
-  const targetMonth = month - 1 + 24
-  const targetYear = year + Math.floor(targetMonth / 12)
-  const targetMonthOfYear = targetMonth % 12
-  const lastDay = new Date(Date.UTC(targetYear, targetMonthOfYear + 1, 0)).getUTCDate()
-  return Date.UTC(targetYear, targetMonthOfYear, Math.min(day, lastDay))
-}
-
-/** MSG-COM-06, MSG-COM-11 và kỳ tối đa 24 tháng (SCR-49). */
-export function validateReportRequest(req: ReportRequest): string | null {
-  if (!req.dateFrom || !req.dateTo) return 'Kỳ báo cáo là bắt buộc.'
-  if (req.dateFrom > req.dateTo) return 'Ngày bắt đầu không được sau ngày kết thúc.'
-  if (Date.parse(`${req.dateTo}T00:00:00Z`) > monthsLimit(req.dateFrom)) return 'Kỳ báo cáo tối đa 24 tháng.'
-  return null
-}
-
 const rangeLabel = (from: string, to: string) => (from.slice(0, 4) === to.slice(0, 4) ? `${formatKeyShort(from)}–${formatKey(to)}` : `${formatKey(from)}–${formatKey(to)}`)
 
 export function buildReport(seedRows: Rows, req: ReportRequest, generatedAt: string, chart: Array<{ label: string; value: number }>): ReportView {

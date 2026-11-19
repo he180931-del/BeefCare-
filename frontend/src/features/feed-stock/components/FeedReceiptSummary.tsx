@@ -1,4 +1,4 @@
-import { Metric } from '../../../components/ui'
+import { Metric } from '../../../shared/ui'
 import { shortSupplierName, summarizeFeedReceipts } from '../data/feedReceipts'
 import { formatKg, formatVnd } from '../domain/feedLabels'
 import type { FeedSupplier } from '../types/feedCatalogue'

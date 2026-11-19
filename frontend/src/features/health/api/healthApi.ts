@@ -1,4 +1,6 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { healthDemoStore, type HealthDemoStore } from '../data/healthDemoStore'
 import type { CorrectEntryCommand, FollowUpCommand, HealthCaseFilters, OpenCaseCommand, StatusCommand, TreatmentCommand, VoidEntryCommand } from '../types'
 import { createHealthBackend, type HealthBackend } from './healthBackend'

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BackendError } from '../../src/api/backendClient'
+import { BackendError } from '../../src/shared/api/backendClient'
 import type { BackendTransport } from '../../src/api/backendTransport'
 import { createHealthBackend, mapHealthError } from '../../src/features/health/api/healthBackend'
-import { HealthValidationError } from '../../src/features/health/domain/healthRules'
+import { HealthValidationError } from '../../src/features/health/validation/healthValidation'
 
 type Call = { method: string; path: string; body?: unknown }
 

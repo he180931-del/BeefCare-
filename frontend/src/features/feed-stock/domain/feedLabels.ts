@@ -1,4 +1,4 @@
-import { toFarmLocal } from '../../../api/farmTimeZone'
+import { toFarmLocal } from '../../../shared/lib/date/farmTime'
 import type { FeedGroup } from '../types'
 
 /** Short group names as shown in the stock, catalogue and receipt frames. */

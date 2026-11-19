@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Badge } from '../../../components/ui'
+import { Badge } from '../../../shared/ui'
 import { useSession } from '../../authorization'
 import { actorForRole } from '../data/supportMock'
 import { PRIORITY_LABEL, STATUS_LABEL, initials } from '../domain/supportRules'

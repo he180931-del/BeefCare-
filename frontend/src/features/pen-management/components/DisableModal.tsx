@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, DateInput, Field, KV, Note, Textarea } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { todayIso, validateAvailability } from '../domain/penRules'
+import { Badge, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { todayIso } from '../domain/penRules'
+import { validateAvailability } from '../validation/penValidation'
 import type { Pen, PenStatus } from '../types'
 
 const ErrorText = ({ children }: { children: string }) => <span className="text-[11px] text-err-fg">{children}</span>

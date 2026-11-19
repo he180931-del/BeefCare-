@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Badge, Button, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Table, Td, Th } from '../../../shared/ui'
 import type { MemberAction, Membership } from '../types'
 import { formatMonth, roleLabel } from './WorkspaceUi'
 

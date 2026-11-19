@@ -1,4 +1,6 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { filterWorklist } from '../domain/reproductionRules'
 import { reproductionDemoStore, type ReproductionDemoStore } from '../data/reproductionDemoStore'
 import { localReproductionOptions } from '../data/reproductionOptions'

@@ -2,11 +2,8 @@ import { useRef, type ReactNode } from 'react'
 import { Badge, Button, Table, Td, Th, type BadgeTone } from '../shared/ui'
 import type { DocumentRow, Payment } from '../types'
 
-// Compatibility path (refactor phase 1): the neutral primitives now live in `shared/ui`. New code imports them from there.
-export { Badge, Button, Card, Checkbox, DateInput, EmptyBlock, ErrorBlock, Field, FilterSelect, Foot, Info, KV, LoadingBlock, Metric, Note, PageHeader, Pagination, Radio, SearchInput, Segmented, Select, Table, Tabs, Td, Textarea, Th, Tile, inputCls, smInputCls, type BadgeTone } from '../shared/ui'
-
-// The four parts below still know Herd Entry / Herd Exit models or copy. They stay here until their owner is decided
-// (docs/frontend-refactor-guide.md §6.2 and §13 item 2); do not move them into `shared/ui`.
+// These four parts know Herd Entry / Herd Exit models or copy, so they are not shared UI. They stay here until their
+// owner is decided (docs/frontend-refactor-guide.md §6.2 and §13 item 2); neutral primitives live in `shared/ui`.
 
 const STATUS_TONE: Record<string, BadgeTone | undefined> = { 'Đã nhập': 'ok', 'Đã xuất': 'ok', 'Đã hủy': 'err', 'Chờ xác nhận': 'warn' }
 export const StatusBadge = ({ status }: { status: string }) => <Badge tone={STATUS_TONE[status]}>{status}</Badge>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { asRecord, asRows, backendTransport, numberValue, textValue } from '../../api/backendTransport'
-import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../api/currentFarm'
-import { userFacingError } from '../../api/userFacingError'
+import { asRecord, asRows, numberValue, textValue } from '../../shared/api/parse'
+import { backendTransport } from '../../shared/api/backendTransport'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../app/session/currentFarm'
+import { userFacingError } from '../../shared/api/userFacingError'
 import { demoUserFor, readMockUserEmail, useAuth } from '../authentication'
 import { markOwnerRegistrationCompleted, SessionContext, type AppRole, type Session, type SessionUser } from './sessionContext'
 

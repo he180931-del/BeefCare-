@@ -1,4 +1,4 @@
-import { businessDate } from '../../../api/farmTimeZone'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import type { Pen } from '../types'
 
 /** Enum values of the backend reception criteria (SRS §3.2 Pen Reception Criteria). */
@@ -105,9 +105,6 @@ export const todayIso = businessDate
 export const dmy = (iso: string | null | undefined): string => (iso ? iso.split('-').reverse().join('/') : '—')
 
 export const PEN_CODE_PATTERN = /^[A-Za-z0-9-]{1,20}$/
-const INTEGER = /^\d+$/
-const DECIMAL = /^\d+(\.\d+)?$/
-
 export type PenFormValues = {
   code: string
   name: string
@@ -116,44 +113,6 @@ export type PenFormValues = {
   criteria: Partial<Record<CriterionType, string[] | string>>
 }
 export type PenFormErrors = Partial<Record<'code' | 'name' | 'capacity' | 'description' | CriterionType, string>>
-
-/**
- * Validation of the Create / Edit Pen popup (SCR-17 popup fields 1–7, R-04-01, R-04-02).
- * Uniqueness is checked case-insensitively, as on the backend; the backend remains authoritative (MSG-FE04-02).
- */
-export function validatePenForm(values: PenFormValues, context: { isNew: boolean; existingCodes: string[]; headcount: number }): PenFormErrors {
-  const errors: PenFormErrors = {}
-  const code = values.code.trim()
-  if (context.isNew) {
-    if (!code) errors.code = 'Vui lòng nhập Mã chuồng.'
-    else if (!PEN_CODE_PATTERN.test(code)) errors.code = 'Mã chuồng gồm 1–20 ký tự: chữ, số hoặc dấu "-".'
-    else if (context.existingCodes.some((c) => c.toLowerCase() === code.toLowerCase())) errors.code = `Mã chuồng ${code} đã tồn tại trong trại.`
-  }
-  const name = values.name.trim()
-  if (!name) errors.name = 'Vui lòng nhập Tên chuồng.'
-  else if (name.length > 100) errors.name = 'Tên chuồng tối đa 100 ký tự.'
-  const capacity = values.capacity.trim()
-  const minCapacity = Math.max(1, context.headcount)
-  if (!capacity) errors.capacity = 'Vui lòng nhập Sức chứa.'
-  else if (!INTEGER.test(capacity) || Number(capacity) < 1 || Number(capacity) > 9999) errors.capacity = 'Sức chứa phải là số nguyên từ 1 đến 9.999.'
-  else if (Number(capacity) < minCapacity) errors.capacity = `Sức chứa phải là số nguyên, tối thiểu ${minCapacity}.`
-  if (values.description.length > 500) errors.description = 'Mô tả tối đa 500 ký tự.'
-
-  for (const type of CRITERION_TYPES) {
-    if (!(type in values.criteria)) continue
-    const value = values.criteria[type]
-    if (type === 'PURPOSE_TYPE' || type === 'LIFE_STAGE' || type === 'SEX') {
-      const list = Array.isArray(value) ? value : value ? [value] : []
-      if (list.length === 0) errors[type] = `Vui lòng chọn giá trị cho ${CRITERION_LABELS[type]}.`
-      continue
-    }
-    const text = typeof value === 'string' ? value.trim() : ''
-    if (!text) errors[type] = `Vui lòng nhập ${CRITERION_LABELS[type]}.`
-    else if (type === 'MIN_AGE_MONTHS' && (!INTEGER.test(text) || Number(text) > 240)) errors[type] = 'Tuổi tối thiểu là số nguyên từ 0 đến 240 tháng.'
-    else if (type === 'MIN_WEIGHT_KG' && (!DECIMAL.test(text) || Number(text) < 1 || Number(text) > 1500)) errors[type] = 'Cân tối thiểu từ 1 đến 1.500 kg.'
-  }
-  return errors
-}
 
 /** Criteria of the form as the backend payload; absent types mean "not set" (no criterion = accepts every cattle). */
 export function criteriaFromForm(criteria: PenFormValues['criteria']): ReceptionCriteria {
@@ -179,16 +138,6 @@ export function formFromCriteria(c: ReceptionCriteria): PenFormValues['criteria'
 }
 
 export type AvailabilityErrors = Partial<Record<'date' | 'reason', string>>
-
-/** Stop / Resume Pen popup (R-04-13): effective date required and not in the future, reason required (≤ 500). */
-export function validateAvailability(date: string, reason: string, today: string): AvailabilityErrors {
-  const errors: AvailabilityErrors = {}
-  if (!date) errors.date = 'Vui lòng nhập Ngày hiệu lực.'
-  else if (date > today) errors.date = 'Ngày hiệu lực không được ở tương lai.'
-  if (!reason.trim()) errors.reason = 'Vui lòng nhập Lý do.'
-  else if (reason.trim().length > 500) errors.reason = 'Lý do tối đa 500 ký tự.'
-  return errors
-}
 
 /** Situation hints of a cattle in the pen detail (backend PenCattleDTO.hints) as short Vietnamese text. */
 export function situationText(hints: Array<{ code?: string; params?: Record<string, unknown> }>, exitPending = false): string {

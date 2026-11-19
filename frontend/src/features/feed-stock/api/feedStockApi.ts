@@ -1,4 +1,7 @@
-import { asRows, backendFarmId, backendMode, backendTransport, nullableNumber, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { listFeedReceiptDemoStock } from '../data/feedReceiptDemoStore'
 import type { FeedStockRow } from '../types'
 

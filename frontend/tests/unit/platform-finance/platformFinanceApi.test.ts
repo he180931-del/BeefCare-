@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFinanceApi } from '../../../src/features/platform-finance/api/financeApi'
 import { createFinanceDemoStore } from '../../../src/features/platform-finance/data/financeDemoStore'
-import { formatVnd, validateCriteria, validateRecordFields } from '../../../src/features/platform-finance/domain/financeRules'
+import { formatVnd } from '../../../src/features/platform-finance/domain/financeRules'
+import { validateCriteria, validateRecordFields } from '../../../src/features/platform-finance/validation/financeValidation'
 import type { RecordFields } from '../../../src/features/platform-finance/types'
 
 const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })

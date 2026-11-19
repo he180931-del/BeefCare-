@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { readCurrentFarmId } from '../../api/currentFarm'
+import { readCurrentFarmId } from '../../app/session/currentFarm'
 import { homePathFor, isFarmRole, needsOwnerRegistration, useSession, type AppRole } from './sessionContext'
 
 /** Chỉ ẩn màn hình theo vai trò để điều hướng đúng; quyền thật vẫn do backend kiểm tra trên từng lệnh. */

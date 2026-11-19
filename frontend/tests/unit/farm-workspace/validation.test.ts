@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation'
+import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation/workspaceValidation'
 
 describe('farm workspace validation', () => {
   it('requires a valid Owner profile and terms acceptance during onboarding', () => {

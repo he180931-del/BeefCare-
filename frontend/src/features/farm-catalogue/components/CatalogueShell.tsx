@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import TechnicianLayout from '../../../components/TechnicianLayout'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { useSession } from '../../authorization'
-import { PageHeader, Segmented } from '../../../components/ui'
+import { PageHeader, Segmented } from '../../../shared/ui'
 
 export const TABS = [
   { value: 'giong', label: 'Giống bò' },

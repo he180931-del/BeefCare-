@@ -1,5 +1,4 @@
-import { Badge, Button, Card } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Badge, Button, Card, Icon } from '../../../shared/ui'
 import { fmtDate, fmtDateTime } from '../domain/healthFormat'
 import type { HealthCaseCard, HealthTimelineRow } from '../types'
 import { CaseStatusBadge, EntryBadge, Meta, SeverityBadge } from './healthUi'

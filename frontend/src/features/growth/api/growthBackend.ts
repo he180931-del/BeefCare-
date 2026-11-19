@@ -1,10 +1,12 @@
-import { BackendError } from '../../../api/backendClient'
-import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
+import { BackendError } from '../../../shared/api/backendClient'
+import { asRecord, asRows, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { GROWTH_FILTER_OPTIONS } from '../data/growthMock'
 import { fmtDate } from '../domain/growthFormat'
 import { buildProfile } from '../domain/growthSummary'
-import { GrowthLargeChangeError, GrowthValidationError, tapeWeightKg, validateMeasurement, validateReason, type GrowthFieldErrors, type GrowthFieldKey, type MeasurementInput } from '../domain/growthRules'
+import { GrowthLargeChangeError, GrowthValidationError, tapeWeightKg, type GrowthFieldErrors, type GrowthFieldKey, type MeasurementInput } from '../domain/growthRules'
+import { validateMeasurement, validateReason } from '../validation/growthValidation'
 import type {
   CorrectGrowthCommand, GrowthBasis, GrowthCattle, GrowthFilterOptions, GrowthFilters, GrowthFormOptions, GrowthHerdPage,
   GrowthHerdRow, GrowthHerdStatus, GrowthMethod, GrowthProfile, GrowthProjection, GrowthRecord, GrowthRecordStatus, GrowthRevision, GrowthWindow,

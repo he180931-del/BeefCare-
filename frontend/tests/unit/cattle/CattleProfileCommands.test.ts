@@ -26,7 +26,7 @@ describe('backend cattle profile commands', () => {
       throw new Error(`Unexpected request ${url.pathname}`)
     })
 
-    const { updateIdentity, updatePurpose, updateStage } = await import('../../../src/api/cattleApi')
+    const { updateIdentity, updatePurpose, updateStage } = await import('../../../src/features/cattle/api/cattleApi')
     const current = {
       earTagNumber: 'EAR-42', name: 'Tên cũ', colourMarkings: 'Đốm trắng', notes: 'Ghi chú cũ',
       productionPurposeId: 31, lifeStage: 'ADULT', effectiveDate: '2026-10-30', reason: 'Kiểm tra', expectedVersion: 7,
@@ -59,7 +59,7 @@ describe('backend cattle profile commands', () => {
       throw new Error(`Unexpected request ${url.pathname}`)
     })
 
-    const { updateIdentity } = await import('../../../src/api/cattleApi')
+    const { updateIdentity } = await import('../../../src/features/cattle/api/cattleApi')
     await updateIdentity('BC-042', { name: 'Tên mới' }, {
       backendId: 42,
       backendVersion: 7,
@@ -86,7 +86,7 @@ describe('backend cattle profile commands', () => {
       throw new Error(`Unexpected request ${url.pathname}`)
     })
 
-    const { updateStage } = await import('../../../src/api/cattleApi')
+    const { updateStage } = await import('../../../src/features/cattle/api/cattleApi')
     await updateStage('BC-042', { stage: 'UNWEANED_CALF', date: '2026-10-30', reason: 'Xác nhận', acknowledgedReproductionChange: true }, {
       backendId: 42,
       backendVersion: 7,

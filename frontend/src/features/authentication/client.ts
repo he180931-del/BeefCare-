@@ -1,4 +1,4 @@
-import { createBackendClient } from '../../api/backendClient'
+import { createBackendClient } from '../../shared/api/backendClient'
 import { MOCK_EXISTING_ACCOUNT_EMAIL, MOCK_LANDING, MOCK_PRICES, MOCK_SUSPENDED_EMAIL, MOCK_WRONG_CREDENTIALS_EMAIL } from './data/authMock'
 import { readMockUserEmail, writeMockUserEmail } from './demoUsers'
 import type { AuthClient, RegistrationRequest } from './types'

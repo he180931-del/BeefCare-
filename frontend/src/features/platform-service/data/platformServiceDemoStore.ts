@@ -5,7 +5,8 @@ import type {
 } from '../types'
 import { toDate, vnNow } from '../domain/dates'
 import { blockReason, checkAcceptance, findCandidates } from '../domain/reconciliation'
-import { STATUS_LABEL, coverageEnd, currentPeriod, deriveStatus, nextPeriod, periodState, renewalOpens, validateReason } from '../domain/servicePeriods'
+import { STATUS_LABEL, coverageEnd, currentPeriod, deriveStatus, nextPeriod, periodState, renewalOpens } from '../domain/servicePeriods'
+import { validateReason } from '../validation/servicePeriodValidation'
 
 const byName = (a: FarmOverview, b: FarmOverview) => a.farmName.localeCompare(b.farmName, 'vi', { sensitivity: 'base' })
 /** Same order as `GET /api/platform/farms?sort=`: farms without a coverage end always come last. */
@@ -24,7 +25,8 @@ function sortFarms(rows: FarmOverview[], sort: FarmSort = 'name') {
   }
   return [...rows].sort((a, b) => compare(a, b) || byName(a, b) || a.farmId - b.farmId)
 }
-import { PRICE_ERROR, validPrice, validateEffective, withStatuses } from '../domain/pricing'
+import { PRICE_ERROR, validPrice, withStatuses } from '../domain/pricing'
+import { validateEffective } from '../validation/pricingValidation'
 
 export const CHANGED = 'Bản ghi đã được thay đổi. Vui lòng tải lại và kiểm tra trước khi thử lại.'
 const fail = (message: string): never => { throw new Error(message) }

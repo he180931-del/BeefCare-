@@ -1,20 +1,7 @@
 export { createFeedStockApi, listFeedStock } from './api/feedStockApi'
 export { createFeedReceiptApi, listFeedReceipts } from './api/feedReceiptApi'
 export { getFeedReceiptDemo, postFeedReceiptDemo, resetFeedReceiptDemoStore, saveFeedReceiptDemoDraft } from './api/feedReceiptApi'
-export {
-  createFeedStockAdjustmentApi,
-  downloadFeedStockAdjustmentAttachment,
-  getFeedStockAdjustment,
-  listFeedStockAdjustmentAttachments,
-  listFeedStockAdjustments,
-  postFeedStockAdjustment,
-  postFeedStockAdjustmentDemo,
-  removeFeedStockAdjustmentAttachment,
-  resetFeedStockAdjustmentDemoStore,
-  saveFeedStockAdjustmentDemoDraft,
-  saveFeedStockAdjustmentDraft,
-  uploadFeedStockAdjustmentAttachment,
-} from './api/feedStockAdjustmentApi'
+export { createFeedStockAdjustmentApi, downloadFeedStockAdjustmentAttachment, getFeedStockAdjustment, listFeedStockAdjustmentAttachments, listFeedStockAdjustments, postFeedStockAdjustment, postFeedStockAdjustmentDemo, removeFeedStockAdjustmentAttachment, resetFeedStockAdjustmentDemoStore, saveFeedStockAdjustmentDemoDraft, saveFeedStockAdjustmentDraft, uploadFeedStockAdjustmentAttachment } from './api/feedStockAdjustmentApi'
 export { createFeedRationApi, getFeedRation, listFeedRationFeeds, listFeedRationPens, listFeedRations, resetFeedRationDemoStore, saveFeedRationDemoVersion, saveFeedRationVersion } from './api/feedRationApi'
 export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recordFeedSession, resetFeedFeedingDemoStore, voidFeedSession } from './api/feedFeedingApi'
 export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'
@@ -33,11 +20,4 @@ export const loadFeedFeedingPage = () => import('./pages/FeedFeedingPage')
 export const loadFeedTodayRationsPage = () => import('./pages/FeedTodayRationsPage')
 export const loadFeedCataloguePage = () => import('./pages/FeedCataloguePage')
 export const loadFeedConsumptionReportPage = () => import('./pages/FeedConsumptionReportPage')
-export type { FeedGroup, FeedStockRow, FeedStockStatus } from './types'
-export type { FeedReceipt, FeedReceiptFilters, FeedReceiptLine, FeedReceiptStatus } from './types/feedReceipt'
-export type { FeedReceiptDemoRecord, FeedReceiptDraftInput, FeedReceiptDemoLine, FeedReceiptDemoStore } from './types/feedReceiptDemo'
-export type { FeedStockAdjustment, FeedStockAdjustmentLine, FeedStockAdjustmentDraftInput, FeedStockAdjustmentDemoStore } from './types/feedStockAdjustment'
-export type { FeedRation, FeedRationComponent, FeedRationDemoStore, FeedRationPenOption, SaveFeedRationInput } from './types/feedRation'
-export type { FeedFeedingCorrectionInput, FeedFeedingDemoStore, FeedFeedingDraftInput, FeedFeedingRecord } from './types/feedFeeding'
-export type { FeedCatalogueDemoStore, FeedCatalogueInput, FeedCatalogueItem, FeedSupplier, FeedSupplierInput } from './types/feedCatalogue'
-export type { FeedConsumptionApiResult, FeedConsumptionBackendReport, FeedConsumptionBackendRow, FeedConsumptionFilters, FeedConsumptionGroupBy, FeedConsumptionProjection, FeedConsumptionRange, FeedConsumptionSummary, FeedConsumptionSupportingData } from './types/feedConsumption'
+export type { FeedStockRow } from './types'

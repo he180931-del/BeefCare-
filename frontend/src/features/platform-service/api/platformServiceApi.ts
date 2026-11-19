@@ -1,5 +1,8 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { backendPending } from '../../../shared/api/backendPending'
 import { platformServiceDemoStore, type PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
 import { lastVnDay, vnDateOf } from '../domain/dates'
 import type {

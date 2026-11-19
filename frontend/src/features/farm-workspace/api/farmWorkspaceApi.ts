@@ -1,11 +1,14 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, nullableNumber, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type {
   AcceptedInvitation, ChangeMemberInput, CompleteOwnerProfileInput, ExpectedHerdSize, FarmDetails,
   FarmRegistrationInput, FarmRole, FarmServiceStatus, FarmSummary, FarmWorkspaceProfile,
   Invitation, InvitationPreview, InvitationPage, InvitationListQuery, InvitationStatus, InviteMemberInput, MemberAction, MemberList, Membership, MemberStatus,
   MemberCommandOptions, RequestKeyOptions, UpdateProfileInput,
 } from '../types'
-import { compactPhone } from '../validation'
+import { compactPhone } from '../validation/workspaceValidation'
 import { farmWorkspaceDemoStore, type FarmUpdateInput, type FarmWorkspaceDemoStore } from '../data/farmWorkspaceDemoStore'
 
 const oneOf = <T extends string>(value: unknown, values: readonly T[], fallback: T): T =>

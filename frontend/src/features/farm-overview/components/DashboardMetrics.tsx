@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { Metric } from '../../../components/ui'
+import { Metric } from '../../../shared/ui'
 import { fmtDec } from '../domain/format'
 import type { DashboardView } from '../types'
 

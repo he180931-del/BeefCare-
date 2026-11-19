@@ -1,14 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Icon, type IconName } from '../../../components/Icon'
-import { backendMode } from '../../../api/backendTransport'
-import Modal, { useModalParam } from '../../../components/Modal'
-import { Button, Note } from '../../../components/ui'
+import { Button, Icon, type IconName, Modal, Note } from '../../../shared/ui'
+import { backendMode } from '../../../shared/config/runtime'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { DIALOG_FIXTURES } from '../data/subscriptionMock'
 import { fmtDate, fmtDateTime, fmtEndDay, paymentQuote, quoteText, termLabel } from '../domain/subscriptionRules'
 import type { StateDialogState } from '../types'
 import { Facts, ICON_BTN, PaymentBadge, ServiceBadge, useIsPhone, type Fact } from './shared'
-import { useFarmScope } from './useFarmScope'
+import { useFarmScope } from '../hooks/useFarmScope'
 
 interface Action { label: string; icon?: IconName; primary?: boolean; onClick: () => void }
 interface Built { title: string; sub?: ReactNode; facts?: Fact[]; text?: string; actions: Action[] }
