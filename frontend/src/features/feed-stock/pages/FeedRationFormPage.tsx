@@ -4,9 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { backendMode } from '../../../shared/config/runtime'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from '../api/feedRationApi'
+import { feedRationServerBacked, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from '../api/feedRationApi'
 import { initialFeedRationForm, previewFeedRation, rationCodeDisplay, RATION_GROUPS, rationGroupLabel } from '../domain/feedRationForm'
 import { toSaveFeedRationInput } from '../api/feedRationPayload'
 import { validateFeedRationForm } from '../validation/feedRationValidation'
@@ -70,7 +69,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
   const commandKeyRef = useRef<string>()
   const preview = useMemo(() => previewFeedRation(values, feeds, pens), [values, feeds, pens])
   const replacing = record?.status === 'SCHEDULED' ? record : null
-  const nextCode = rationCodeDisplay(record?.rationCode, rows, backendMode === 'backend')
+  const nextCode = rationCodeDisplay(record?.rationCode, rows, feedRationServerBacked)
   const sameCode = record ? rows.filter((row) => row.rationCode === record.rationCode) : []
   const baseVersion = sameCode.length ? Math.max(...sameCode.map((row) => row.versionNo)) : undefined
   const nextVersion = (baseVersion ?? 0) + 1

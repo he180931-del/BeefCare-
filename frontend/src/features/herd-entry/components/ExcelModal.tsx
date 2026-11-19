@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import readXlsxFile from 'read-excel-file'
 import { Badge, Button, Icon, Modal, ModalButton, ModalFooter, Note, Table, Td, Th } from '../../../shared/ui'
-import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../data/entryExcel'
+import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../domain/entryExcel'
 import { kg } from '../../../shared/lib/format'
 import type { EntryCow } from '../types'
 import { userFacingError } from '../../../shared/api/userFacingError'

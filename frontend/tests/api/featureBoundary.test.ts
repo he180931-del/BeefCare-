@@ -116,7 +116,7 @@ test('exit cancellation copy is derived from canonical pens', () => {
 })
 
 test('exit occupancy normalizes compact and legacy barn labels to one pen code', async () => {
-  const { penCode, restoreCounts } = await import(`../../src/features/herd-exit/data/occupancy.ts?occupancy=${Date.now()}`)
+  const { penCode, restoreCounts } = await import(`../../src/features/herd-exit/domain/occupancy.ts?occupancy=${Date.now()}`)
   assert.equal(penCode('B1'), 'B1')
   assert.equal(penCode('B1 – Vỗ béo'), 'B1')
   assert.equal(penCode('B1 Vỗ béo'), 'B1')

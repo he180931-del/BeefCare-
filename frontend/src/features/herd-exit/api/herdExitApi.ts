@@ -6,7 +6,9 @@ import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks } from './herdExitBackendApi'
 import { EXPORT_HERD } from '../data/exportsData'
-import { BUYERS } from '../data/exitData'
+import { BARNS, BUYERS } from '../data/exitData'
+import { TODAY as DEMO_TODAY } from '../data/exportsData'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import {
   cancelHerdExit as cancelLocal,
   getExitDraftState,
@@ -124,3 +126,33 @@ export const listSelectableExitCattle = async (): Promise<ExitCandidate[]> => {
 }
 
 export const listExitBuyers = () => usingBackend ? backendApi.buyers() : Promise.resolve(BUYERS)
+
+/** Mã phiếu hiển thị trước khi lưu: máy chủ cấp khi lưu (undefined); bản mô phỏng tự đánh số tiếp theo. */
+export const newExitVoucherId = (rows: ReadonlyArray<{ id: string }>): string | undefined => usingBackend
+  ? undefined
+  : `PX-2026-${String(Math.max(0, ...rows.map((row) => Number(row.id.split('-')[2]) || 0)) + 1).padStart(4, '0')}`
+
+export type ExitPenShift = { code: string; name: string; count: number | null; out: number }
+
+/**
+ * "Chuồng giảm" của phiếu xuất: sĩ số trước khi xuất lấy từ bò ứng viên mà máy chủ trả (penCount), không suy từ chuồng
+ * mẫu; bản mô phỏng dùng chuồng của dữ liệu mẫu.
+ */
+export function exitPenShift(picked: ReadonlyArray<{ barn: string; penCount?: number }>): ExitPenShift[] {
+  if (!usingBackend) return BARNS.map((pen) => ({ ...pen, out: picked.filter((cow) => cow.barn === pen.code).length })).filter((pen) => pen.out)
+  const shift = new Map<string, ExitPenShift>()
+  for (const cow of picked) {
+    if (!cow.barn) continue
+    const row = shift.get(cow.barn) ?? { code: cow.barn, name: cow.barn, count: cow.penCount ?? null, out: 0 }
+    row.out += 1
+    shift.set(cow.barn, row)
+  }
+  return [...shift.values()]
+}
+
+/** Giá trị ban đầu của popup thu tiền phiếu xuất; bản mô phỏng điền sẵn khoản thu mẫu theo Figma. */
+export function exitCollectionDefaults(): { date: string; reference: string; statement: boolean; note: string; cashReference: string | null } {
+  return usingBackend
+    ? { date: businessDate(), reference: '', statement: false, note: '', cashReference: null }
+    : { date: DEMO_TODAY, reference: 'MBVCB.8841207 · LO MO HA DONG TT PX-2026-0007', statement: true, note: 'Thu đủ phần còn lại', cashReference: 'PT-2210-01' }
+}

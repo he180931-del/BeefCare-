@@ -175,6 +175,9 @@ export function createFeedStockAdjustmentApi({
 
 const feedStockAdjustmentApi = createFeedStockAdjustmentApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
 
+/** Máy chủ cấp mã phiếu, lưu chứng từ và xác định lại tồn hệ thống tại ngày kiểm kê; bản mô phỏng không có các việc này. */
+export const feedStockAdjustmentServerBacked = backendMode === 'backend'
+
 export const listFeedStockAdjustments = () => feedStockAdjustmentApi.list()
 export const getFeedStockAdjustment = (id: string) => feedStockAdjustmentApi.get(id)
 export const saveFeedStockAdjustmentDraft = (input: FeedStockAdjustmentDraftInput, options?: MutationOptions) => feedStockAdjustmentApi.saveDraft(input, options)

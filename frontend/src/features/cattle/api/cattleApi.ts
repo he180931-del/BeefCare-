@@ -1,5 +1,5 @@
 import { createCollection } from '../../../api/client'
-import { MANAGER, TODAY, initialCows, type CowSeed } from '../../../data/cowsData'
+import { BARNS0, BREEDS, EXPORTED_COUNT, MANAGER, OWNER, STAGES, TODAY, groupCount, initialCows, type CowSeed } from '../../../data/cowsData'
 import { dm, dmy } from '../../../shared/lib/format'
 import { moveCattle, pens } from '../../../api/herdDomainApi'
 import { cattleSchema } from '../../../api/collectionSchemas'
@@ -16,6 +16,21 @@ import { toFarmLocal, businessDate } from '../../../shared/lib/date/farmTime'
 const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
 const backendApi = createCattleBackendApi({ transport: backendTransport, farmId: backendFarmId })
 export const listCattleTimeline = backendApi.timeline
+
+/**
+ * SCR-12 ở bản mô phỏng: lọc, đếm và lựa chọn tính tại trình duyệt từ đàn mẫu. Máy chủ thật không có giá trị này (null):
+ * lọc, đếm và phân trang ở máy chủ.
+ */
+export const localCattleList = backendMode === 'backend' ? null : { breeds: BREEDS, barns: Object.keys(BARNS0), stages: STAGES, exported: EXPORTED_COUNT, groupCount }
+
+/** Người thực hiện chọn được ở bản mô phỏng. Máy chủ thật ghi theo phiên đăng nhập nên không có lựa chọn. */
+export const demoActors: ReadonlyArray<{ value: string; label: string }> = backendMode === 'backend' ? [] : [{ value: MANAGER, label: 'Quản lý' }, { value: OWNER, label: 'Chủ trại' }]
+
+/** Người ghi của bản mô phỏng; máy chủ thật bỏ qua trường này. */
+export const demoRecorder = backendMode === 'backend' ? '' : MANAGER
+
+/** Ngày nghiệp vụ hiện tại; bản mô phỏng đứng ở ngày của dữ liệu mẫu. */
+export const cattleToday = (): string => (backendMode === 'backend' ? businessDate() : TODAY)
 
 const isCowSeed = (cow: Cattle): cow is CowSeed => Boolean(cow.ageLong && cow.stage && cow.purpose && cow.qr && cow.care)
 const asCowSeed = (cow: Cattle): CowSeed => {

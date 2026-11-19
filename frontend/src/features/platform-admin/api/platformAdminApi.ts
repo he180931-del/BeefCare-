@@ -2,7 +2,6 @@ import { asRecord } from '../../../shared/api/parse'
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { backendPending } from '../../../shared/api/backendPending'
 import { platformAdminDemoStore, type PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
 import { AUDIT_TARGET_TYPE_VALUES, MSG, PlatformAdminError, auditActorQuery, defaultAuditRange, platformDay } from '../domain/platformRules'
 import type {
@@ -255,7 +254,6 @@ export function accountsPath({ q = '', status = '', platformRole = '', dir = 'as
 export function createPlatformAdminApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: PlatformAdminDemoStore }) {
   // Platform screens are not farm-scoped; backend mode must never read the mock.
   void farmId
-  const requireLocal = () => { if (mode === 'backend') throw backendPending('quản trị nền tảng') }
   return {
     // A9 GET /api/platform/accounts ?q,status,platformRole,page,size,sort,dir (UC-FE03-07, D31)
     async listAccounts(filters: AccountFilters = {}): Promise<PageResult<AccountListItem>> {

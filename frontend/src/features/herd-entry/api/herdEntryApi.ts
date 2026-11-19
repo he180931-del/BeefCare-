@@ -19,7 +19,12 @@ import {
   voidHerdEntry as voidLocal,
 } from './herdEntryLocalApi'
 import { SOURCES, initialCalves } from '../data/entryData'
-import { BREEDS, OLDER } from '../data/importsData'
+import { BREEDS, INITIAL_COWS, OLDER, SOURCE_FILTERS, TODAY as DEMO_TODAY } from '../data/importsData'
+import { PAY_METHODS } from '../constants/entryOptions'
+import { businessDate } from '../../../shared/lib/date/farmTime'
+import { dm } from '../../../shared/lib/format'
+import { entryToday } from '../validation/entryValidation'
+import type { EntryCow } from '../types'
 
 const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: backendFarmId })
 
@@ -114,10 +119,17 @@ export const saveHerdEntry = (input: { id?: string; record: Partial<HerdEntry>; 
   })
 }
 
-// POST /api/farms/{farmId}/entry-vouchers/{id}/void
+// POST /api/farms/{farmId}/entry-vouchers/{id}/void (máy chủ ghi lịch sử hủy theo phiên)
 export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }) => usingBackend
   ? backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu nhập'))
-  : voidLocal(id, cattleRows, patch)
+  : voidLocal(id, cattleRows, withDemoCancelHistory(patch))
+
+/** Bản mô phỏng tự ghi dòng lịch sử hủy với ngày và người làm của dữ liệu mẫu. */
+function withDemoCancelHistory(patch: Partial<HerdEntry>): Partial<HerdEntry> {
+  if (!patch.detail || patch.cancelReason == null) return patch
+  const line = `${dm(DEMO_TODAY)} ${new Date().toTimeString().slice(0, 5)} · T. Q. Long hủy phiếu: ${patch.cancelReason}`
+  return { ...patch, detail: { ...patch.detail, history: [...(patch.detail.history ?? []), line] } }
+}
 
 // DELETE /api/farms/{farmId}/entry-vouchers/{id}
 export const discardHerdEntryDraft = (id: string): Promise<void> => usingBackend ? backendApi.discard(id) : localApi.remove(id).then(() => undefined)
@@ -163,6 +175,32 @@ export const listEntryParentCattle = (): Promise<EntryParentOption[]> => usingBa
 
 // The Excel flow of the page talks to the backend only; the demo uses the in-page sample rows.
 export const entryExcelBackendEnabled = usingBackend
+
+/** Lựa chọn lọc "Nguồn" ở SCR-23: người bán của trại; bản mô phỏng có thêm nguồn của phiếu mẫu đã hủy. */
+export const listEntrySourceFilters = (): Promise<string[]> => usingBackend
+  ? backendApi.sellers().then((rows) => rows.map((row) => row.name))
+  : Promise.resolve([...SOURCE_FILTERS])
+
+export type NewEntryDefaults = {
+  recordId: string; date: string; quarantine: string; receiver: string; note: string; cows: EntryCow[]
+  freight: number; paid: number; method: string; due: string
+}
+
+/** Giá trị ban đầu của phiếu nhập mới: máy chủ thật bắt đầu trống; bản mô phỏng điền sẵn phiếu mẫu theo Figma. */
+export function newEntryDefaults({ isBuy, receiver, nextNumber }: { isBuy: boolean; receiver: string; nextNumber: number }): NewEntryDefaults {
+  if (usingBackend) return { recordId: 'Tự động khi lưu', date: entryToday(), quarantine: '', receiver, note: '', cows: [], freight: 0, paid: 0, method: '', due: '' }
+  return {
+    recordId: `PN-2026-${String(nextNumber).padStart(4, '0')}`, date: DEMO_TODAY, quarantine: 'KD-HN-2026-004512', receiver: 'Anh A',
+    note: isBuy ? 'Khám ngoại hình bình thường, 1 con hơi gầy' : '', cows: INITIAL_COWS, freight: 1500000, paid: 40000000, method: PAY_METHODS[0], due: '2026-11-05',
+  }
+}
+
+/** Giá trị ban đầu của popup ghi thanh toán phiếu nhập; `by` rỗng thì máy chủ lấy người làm từ phiên. */
+export function entryPaymentDefaults(): { date: string; ref: string; note: string; statement: boolean; by: string } {
+  return usingBackend
+    ? { date: businessDate(), ref: '', note: '', statement: false, by: '' }
+    : { date: DEMO_TODAY, ref: 'FT26295104721 · TT phieu PN-2026-0011', note: 'Thanh toán đủ phần còn lại', statement: true, by: 'T. Q. Long' }
+}
 // GET /api/farms/{farmId}/entry-vouchers/{id}/attachments/{attachmentId}
 export const downloadEntryAttachment = (id: string, attachmentId: number): Promise<Blob> => usingBackend
   ? backendApi.downloadAttachment(id, attachmentId)

@@ -4,9 +4,9 @@ import {
 import {
   SubscriptionError,
   type BankTransfer, type CreatePaymentCommand, type FarmRecord, type Payment, type PaymentFilters, type PriceDTO, type PriceQuote, type PurchasedPeriod,
-  type RefreshDemo, type SubscriptionOverview, type SubscriptionSeed, type Term, type TransferResult,
+  type RefreshDemo, type StateDialogState, type SubscriptionOverview, type SubscriptionSeed, type Term, type TransferResult,
 } from '../types'
-import { DEMO_START, SUBSCRIPTION_SEED } from './subscriptionMock'
+import { DEMO_START, DIALOG_FIXTURES, SUBSCRIPTION_SEED } from './subscriptionMock'
 
 const loadedAt = Date.now()
 /** Đồng hồ demo: bắt đầu ở 18/10/2026 09:00:52 rồi chạy theo thời gian thực để bộ đếm ngược chạy thật. */
@@ -122,6 +122,8 @@ export function createSubscriptionDemoStore(seed: SubscriptionSeed = SUBSCRIPTIO
 
   return {
     now: () => clock(),
+    /** `?m=<tên>` mở hộp thoại trạng thái với dữ liệu mẫu của frame Figma. */
+    previewDialog(name: string): StateDialogState | null { return DIALOG_FIXTURES[name] ?? null },
     async getOverview(farmId: number) { return structuredClone(buildOverview(farmOf(farmId))) },
 
     async listPayments(farmId: number, filters: PaymentFilters = {}) {

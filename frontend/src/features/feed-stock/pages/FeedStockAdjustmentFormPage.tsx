@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { Docs, Dropzone } from '../../../components/ui'
-import { backendMode } from '../../../shared/config/runtime'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
@@ -16,6 +15,7 @@ import {
   removeFeedStockAdjustmentAttachment,
   saveFeedStockAdjustmentDraft,
   uploadFeedStockAdjustmentAttachment,
+  feedStockAdjustmentServerBacked,
 } from '../api/feedStockAdjustmentApi'
 import { initialFeedStockAdjustmentForm, localFeedDate, nextFeedAdjustmentCode, previewFeedStockAdjustment } from '../domain/feedStockAdjustmentForm'
 import { toFeedStockAdjustmentDraftInput } from '../api/feedStockAdjustmentPayload'
@@ -56,10 +56,10 @@ export default function FeedStockAdjustmentFormPage() {
     const [stock, record, adjustments, attachments] = await Promise.all([
       listFeedStock(),
       id ? getFeedStockAdjustment(id) : Promise.resolve(null),
-      backendMode === 'backend' || id ? Promise.resolve([]) : listFeedStockAdjustments(),
-      id && backendMode === 'backend' ? listFeedStockAdjustmentAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
+      feedStockAdjustmentServerBacked || id ? Promise.resolve([]) : listFeedStockAdjustments(),
+      id && feedStockAdjustmentServerBacked ? listFeedStockAdjustmentAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
     ])
-    return { stock, record, attachments, nextCode: backendMode === 'backend' ? '' : nextFeedAdjustmentCode(adjustments.map((row) => row.code)) }
+    return { stock, record, attachments, nextCode: feedStockAdjustmentServerBacked ? '' : nextFeedAdjustmentCode(adjustments.map((row) => row.code)) }
   }, [id])
 
   if (query.error) {
@@ -163,7 +163,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
   }
 
   const uploadPendingFiles = async (adjustmentId: number) => {
-    if (backendMode !== 'backend' || newFiles.length === 0) return
+    if (!feedStockAdjustmentServerBacked || newFiles.length === 0) return
     for (const file of newFiles) {
       if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: tệp vượt quá 10 MB.`)
       if (!['application/pdf', 'image/jpeg'].includes(file.type)) throw new Error(`${file.name}: chỉ chấp nhận PDF hoặc JPG.`)
@@ -278,8 +278,8 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
     name: attachment.originalFilename,
     ext: attachment.contentType === 'application/pdf' ? 'PDF' : 'JPG',
   }))
-  const displayedDocs = backendMode === 'backend' ? attachmentDocs : docs
-  const attachmentCount = backendMode === 'backend' ? attachments.length + newFiles.length : docs.length
+  const displayedDocs = feedStockAdjustmentServerBacked ? attachmentDocs : docs
+  const attachmentCount = feedStockAdjustmentServerBacked ? attachments.length + newFiles.length : docs.length
 
   return (
     <Layout title={TITLE} user="manager">
@@ -294,7 +294,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
         <Card title="Thông tin phiếu">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Mã phiếu" id="feed-adjustment-code">
-              <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? (backendMode === 'backend' ? 'Tự sinh khi lưu' : nextCode)} className={inputCls} />
+              <input id="feed-adjustment-code" readOnly value={currentRecord?.code ?? (feedStockAdjustmentServerBacked ? 'Tự sinh khi lưu' : nextCode)} className={inputCls} />
             </Field>
             <Field label="Ngày kiểm kê *" id="feed-adjustment-date">
               <DateInput id="feed-adjustment-date" readOnly={readOnly || saving} value={values.countDate} onChange={(value) => update('countDate', value)} />
@@ -337,15 +337,15 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
 
       <Card title="Đối chiếu tồn kho" sub={`${lines.length} thức ăn · dòng có chênh lệch bắt buộc chọn lý do`}>
         <Note tone="info">Điều chỉnh không sửa phiếu nhập hay nhật ký cho ăn đã ghi; mỗi dòng chênh lệch tạo 1 bút toán kho kèm lý do, người lập và thời điểm. Tồn sau điều chỉnh không âm.</Note>
-        {backendMode === 'backend' && values.countDate !== currentRecord?.countDate && values.countDate !== localFeedDate() && <Note tone="warn">Máy chủ xác định lại tồn hệ thống tại ngày kiểm kê khi lưu phiếu.</Note>}
+        {feedStockAdjustmentServerBacked && values.countDate !== currentRecord?.countDate && values.countDate !== localFeedDate() && <Note tone="warn">Máy chủ xác định lại tồn hệ thống tại ngày kiểm kê khi lưu phiếu.</Note>}
         <AdjustmentLinesTable lines={lines} readOnly={readOnly || saving} onChange={updateLine} totalDifferenceKg={totalDifferenceKg} totalValue={totalValue} />
       </Card>
 
       <Card title="Chứng từ đính kèm">
-        {!readOnly && <Dropzone hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => backendMode === 'backend'
+        {!readOnly && <Dropzone hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => feedStockAdjustmentServerBacked
           ? setNewFiles((current) => [...current, ...files])
           : setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
-        <Docs docs={displayedDocs} onView={backendMode === 'backend' ? (index) => { const item = attachments[index]; if (item) void viewAttachment(item) } : undefined} onRemove={readOnly ? undefined : backendMode === 'backend'
+        <Docs docs={displayedDocs} onView={feedStockAdjustmentServerBacked ? (index) => { const item = attachments[index]; if (item) void viewAttachment(item) } : undefined} onRemove={readOnly ? undefined : feedStockAdjustmentServerBacked
           ? (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }
           : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
         {newFiles.map((file, index) => (
@@ -354,7 +354,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
             <Button variant="link" size="sm" aria-label={`Bỏ tệp ${file.name}`} onClick={() => setNewFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Bỏ</Button>
           </div>
         ))}
-        {backendMode !== 'backend' && docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
+        {!feedStockAdjustmentServerBacked && docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
         {readOnly && displayedDocs.length === 0 && <p className="m-0 text-xs text-muted">Phiếu không có chứng từ đính kèm.</p>}
       </Card>
 

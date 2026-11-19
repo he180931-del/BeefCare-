@@ -22,6 +22,8 @@ export function createAccountDemoStore(options: { now?: () => number } = {}) {
   const recentlyReauthenticated = (key: string) => now() - (reauthAt.get(key) ?? -Infinity) <= REAUTH_WINDOW_MS
 
   return {
+    /** Mật khẩu ban đầu của mọi tài khoản mẫu, hiện cho người thử bản mô phỏng. */
+    samplePassword: MOCK_PASSWORD,
     async getProfile(identity: AccountIdentity) { return copy(ensure(identity).profile) },
 
     async updateProfile(identity: AccountIdentity, input: ProfileUpdateInput) {

@@ -121,6 +121,9 @@ export function createFeedRationApi({
 
 const feedRationApi = createFeedRationApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
 
+/** Máy chủ cấp mã khẩu phần khi lưu; bản mô phỏng tự đánh mã tiếp theo. */
+export const feedRationServerBacked = backendMode === 'backend'
+
 /** Reads the server list in backend mode; writes persist only to the separate local ration demo store. */
 export const listFeedRations = () => feedRationApi.list()
 export const getFeedRation = (id: string) => feedRationApi.get(id)

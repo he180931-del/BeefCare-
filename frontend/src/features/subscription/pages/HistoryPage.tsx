@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { backendMode } from '../../../shared/config/runtime'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
@@ -19,7 +18,7 @@ const DEFAULT_FILTERS: Required<PaymentFilters> = { q: '', state: '', from: '', 
 /** One request after the Owner pauses typing instead of one per keystroke. */
 const SEARCH_DELAY_MS = 300
 const invalidRange = (filters: PaymentFilters) => !!(filters.from && filters.to && filters.from > filters.to)
-const paymentRouteId = (payment: Payment) => backendMode === 'backend' ? String(payment.id) : payment.quoteRef
+const paymentRouteId = (payment: Payment) => subscriptionApi.paymentRouteId(payment)
 
 function savedFilters(key: string): Required<PaymentFilters> {
   try {
@@ -79,7 +78,7 @@ function PaymentDetail({ payment, farmName, onClose }: { payment: Payment; farmN
 export default function HistoryPage() {
   const { farmId, to } = useFarmScope()
   const session = useSession()
-  const storageKey = `beefcare:subscription-history:${backendMode}:${session?.email ?? ''}:${farmId}`
+  const storageKey = `beefcare:subscription-history:${session?.email ?? ''}:${farmId}`
   return <FarmHistory key={storageKey} farmId={farmId} to={to} storageKey={storageKey} />
 }
 

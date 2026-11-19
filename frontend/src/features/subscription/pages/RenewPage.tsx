@@ -5,7 +5,6 @@ import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader } 
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { InactiveFarmBanner, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { backendMode } from '../../../shared/config/runtime'
 import { usePaymentRequest } from '../hooks/usePaymentRequest'
 import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
@@ -48,7 +47,7 @@ export default function RenewPage() {
     try {
       const p = await createPayment(term, price.id)
       if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
-      else navigate(to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? p.id : p.quoteRef}`, { from: 'subscription' }))
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${subscriptionApi.paymentRouteId(p)}`, { from: 'subscription' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)

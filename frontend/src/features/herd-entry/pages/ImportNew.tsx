@@ -10,6 +10,7 @@ import {
   downloadEntryAttachment,
   downloadEntryImportTemplate,
   entryExcelBackendEnabled,
+  newEntryDefaults,
   herdEntryApi,
   saveHerdEntry,
   getEntryDraftState,
@@ -26,8 +27,8 @@ import {
 } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { PAY_METHODS, PURPOSES } from '../data/entryData'
-import { INITIAL_COWS, TODAY, ageOf, blankCow } from '../data/importsData'
+import { PURPOSES } from '../constants/entryOptions'
+import { ageOf, blankCow } from '../domain/entryCow'
 import { dmy, money } from '../../../shared/lib/format'
 import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
@@ -115,7 +116,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const calfBarnOptions = canonicalPens.filter((pen) => pen.status === 'ACTIVE').map((pen) => ({ value: pen.code, label: pen.name }))
   const typeLocked = Boolean(draftRow)
   const nextNumber = Math.max(0, ...imports.map((row) => Number(row.id?.split('-')[2]) || 0)) + 1
-  const initialRecordId = draftRow?.id ?? (entryExcelBackendEnabled ? 'Tự động khi lưu' : `PN-2026-${String(nextNumber).padStart(4, '0')}`)
+  const defaults = newEntryDefaults({ isBuy, receiver: sessionName, nextNumber })
+  const initialRecordId = draftRow?.id ?? defaults.recordId
   const setKind = (next: string) => {
     if (typeLocked) return
     const query = new URLSearchParams(params)
@@ -125,19 +127,19 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   }
 
   const [sourceId, setSourceId] = useState(draft?.sourceId ?? sellers[0]?.id ?? '')
-  const [date, setDate] = useState(draft?.date ?? (entryExcelBackendEnabled ? localToday() : TODAY))
-  const [quarantine, setQuarantine] = useState(draft?.quarantine ?? (entryExcelBackendEnabled ? '' : 'KD-HN-2026-004512'))
+  const [date, setDate] = useState(draft?.date ?? defaults.date)
+  const [quarantine, setQuarantine] = useState(draft?.quarantine ?? defaults.quarantine)
   const [plate, setPlate] = useState(draft?.plate ?? '')
-  const [receiver, setReceiver] = useState(draft?.receiver ?? (entryExcelBackendEnabled ? sessionName : 'Anh A'))
-  const [note, setNote] = useState(draft?.note ?? (entryExcelBackendEnabled || !isBuy ? '' : 'Khám ngoại hình bình thường, 1 con hơi gầy'))
-  const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? (entryExcelBackendEnabled ? [] : INITIAL_COWS))
+  const [receiver, setReceiver] = useState(draft?.receiver ?? defaults.receiver)
+  const [note, setNote] = useState(draft?.note ?? defaults.note)
+  const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? defaults.cows)
   const [pricing, setPricing] = useState<'kg' | 'con'>(() => (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
   const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? pendingCalves)
   const [directCalfCount, setDirectCalfCount] = useState(0)
-  const [freight, setFreight] = useState(draft?.freight ?? (entryExcelBackendEnabled ? 0 : 1500000))
-  const [paid, setPaid] = useState(draft?.paid ?? (entryExcelBackendEnabled ? 0 : 40000000))
-  const [method, setMethod] = useState(draft?.method ?? (entryExcelBackendEnabled ? '' : PAY_METHODS[0]))
-  const [due, setDue] = useState(draft?.due ?? (entryExcelBackendEnabled ? '' : '2026-11-05'))
+  const [freight, setFreight] = useState(draft?.freight ?? defaults.freight)
+  const [paid, setPaid] = useState(draft?.paid ?? defaults.paid)
+  const [method, setMethod] = useState(draft?.method ?? defaults.method)
+  const [due, setDue] = useState(draft?.due ?? defaults.due)
   // Payment belongs to the entry voucher (not an individual cattle row). Keep
   // the editor behind an explicit CTA so the payment action is discoverable.
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)

@@ -3,7 +3,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   // `npm run dev:mock`: toàn bộ màn hình chạy bằng dữ liệu mock, không cần backend hay file .env.
   if (mode === 'mock') {
     process.env.VITE_BEEFCARE_DATA_SOURCE = 'local'
@@ -12,6 +12,13 @@ export default defineConfig(({ mode }) => {
   if (mode === 'backend') {
     process.env.VITE_BEEFCARE_DATA_SOURCE = 'backend'
     process.env.VITE_BEEFCARE_AUTH_MODE = 'backend'
+  }
+  if (command === 'build') {
+    // Bản build chỉ đọc dữ liệu thật: đặt local/mock là lỗi cấu hình, không lặng lẽ ra bản dùng dữ liệu mẫu.
+    const built = loadEnv(mode, process.cwd(), 'VITE_BEEFCARE_')
+    if ((built.VITE_BEEFCARE_DATA_SOURCE ?? 'backend') !== 'backend' || built.VITE_BEEFCARE_AUTH_MODE === 'mock') {
+      throw new Error('vite build chỉ cho phép VITE_BEEFCARE_DATA_SOURCE=backend và không cho VITE_BEEFCARE_AUTH_MODE=mock; dữ liệu mẫu chỉ dùng với npm run dev:mock và Vitest.')
+    }
   }
   const env = loadEnv(mode, process.cwd(), 'BEEFCARE_DEV_HTTPS_')
   const cert = env.BEEFCARE_DEV_HTTPS_CERT

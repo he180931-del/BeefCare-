@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, type AuthClient } from '../../../src/features/authentication'
 import { createMockAuthClient } from '../../../src/features/authentication/client'
-import { DEFAULT_FAQ, DEFAULT_FEATURES, STEPS } from '../../../src/features/authentication/data/landingContent'
+import { DEFAULT_FAQ, DEFAULT_FEATURES, STEPS } from '../../../src/features/authentication/constants/landingContent'
 
 const renderGuest = (client: AuthClient, path: string) => render(<MemoryRouter initialEntries={[path]}><AuthProvider client={client}><div>Private content</div></AuthProvider></MemoryRouter>)
 

@@ -6,7 +6,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { buildTodayRationPens, effectiveRationForPen, sessionsForToday, TODAY_SESSION_LABELS } from '../data/feedTodayRations'
+import { buildTodayRationPens, effectiveRationForPen, sessionsForToday, TODAY_SESSION_LABELS } from '../domain/feedTodayRations'
 import { sessionTimeFor } from '../domain/feedPlan'
 import { formatDate, formatNumber } from '../domain/feedLabels'
 

@@ -7,7 +7,7 @@ import { Badge, Button, Card, ErrorBlock, Field, Foot, Info, LoadingBlock, Note,
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { homePathFor, useSession } from '../../authorization'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
-import { PROVINCES } from '../data/provinces'
+import { PROVINCES } from '../constants/provinces'
 import { Avatar, farmWorkspaceError, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
 import { serviceView } from '../domain/statusViews'
 import { useFarmId } from '../hooks/useFarmId'

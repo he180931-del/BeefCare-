@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Field, Icon, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { MANAGER } from '../../../data/cowsData'
-import { reissueQr } from '../api/cattleApi'
+import { demoRecorder, reissueQr } from '../api/cattleApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { REPLACEMENT_REASONS, type TagErrors } from '../domain/profileRules'
@@ -46,7 +45,7 @@ export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed
     if (Object.keys(e).length) return
     try {
       const label = REPLACEMENT_REASONS.find(([code]) => code === reason)?.[1] ?? ''
-      const result = await reissue.mutate({ reason: backend ? reason : label, note: note.trim(), by: MANAGER, tagCode: tagCode.trim() || undefined })
+      const result = await reissue.mutate({ reason: backend ? reason : label, note: note.trim(), by: demoRecorder, tagCode: tagCode.trim() || undefined })
       const savedCode = tagCodeOf(result)
       if (!savedCode) return onSaved('Đã lưu thẻ. Mở tab Thẻ QR để xem mã hiện hành.')
       setIssued(savedCode)

@@ -3,7 +3,8 @@ import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { filterWorklist } from '../domain/reproductionRules'
 import { reproductionDemoStore, type ReproductionDemoStore } from '../data/reproductionDemoStore'
-import { localReproductionOptions } from '../data/reproductionOptions'
+import { EMPTY_REPRODUCTION_OPTIONS, localReproductionOptions } from '../data/reproductionOptions'
+import { businessDateTime } from '../../../shared/lib/date/farmTime'
 import type {
   CalvingCommand,
   CalvingRecord,
@@ -17,6 +18,10 @@ import type {
 import { createReproductionBackend } from './reproductionBackend'
 
 export interface ReproductionApi {
+  /** Giờ trại hiện tại (yyyy-mm-ddTHH:mm); bản mô phỏng đứng ở ngày của dữ liệu mẫu. */
+  now(): string
+  /** Lựa chọn hiển thị trước khi `formOptions` trả về; máy chủ thật bắt đầu từ danh sách rỗng. */
+  initialFormOptions(cattleCode?: string): ReproductionFormOptions
   listWorklist(filters?: WorklistFilters): Promise<ReproductionFemale[]>
   getProfile(cattleCode: string): Promise<ReproductionFemale>
   /** Lựa chọn của popup và SCR-40 (thành viên, đực giống, giống, chuồng, mục đích, ca bệnh của bò). */
@@ -48,8 +53,11 @@ export function createReproductionApi({
 }): ReproductionApi {
   if (mode === 'backend') {
     const backend = createReproductionBackend({ farmId, transport })
+    const now = () => businessDateTime().slice(0, 16)
     return {
-      async listWorklist(filters = {}) { return filterWorklist(await backend.listWorklist(), filters) },
+      now,
+      initialFormOptions: () => EMPTY_REPRODUCTION_OPTIONS,
+      async listWorklist(filters = {}) { return filterWorklist(await backend.listWorklist(), filters, now()) },
       getProfile: (cattleCode) => backend.getProfile(cattleCode),
       formOptions: (cattleCode) => backend.formOptions(cattleCode),
       recordEvent: (cattleCode, command) => backend.recordEvent(cattleCode, command),
@@ -64,7 +72,9 @@ export function createReproductionApi({
     }
   }
   return {
-    async listWorklist(filters = {}) { return filterWorklist(await store.list(), filters) },
+    now: () => store.now(),
+    initialFormOptions: (cattleCode) => localReproductionOptions(cattleCode),
+    async listWorklist(filters = {}) { return filterWorklist(await store.list(), filters, store.now()) },
     getProfile: (cattleCode) => store.get(cattleCode),
     async formOptions(cattleCode) { return localReproductionOptions(cattleCode) },
     recordEvent: (cattleCode, command, role) => store.recordEvent(cattleCode, command, role),

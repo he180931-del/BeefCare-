@@ -17,6 +17,8 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
   void farmId
   const backend = mode === 'backend'
   return {
+    /** Gợi ý chỉ có ở bản mô phỏng; máy chủ thật không có mật khẩu mẫu. */
+    samplePasswordHint(): string | null { return backend ? null : `Bản mô phỏng: mật khẩu hiện tại là ${store.samplePassword}.` },
     // GET /api/account/profile
     async getProfile(identity: AccountIdentity): Promise<AccountProfile> {
       return backend ? mapAccountProfile(await transport.get('/api/account/profile')) : store.getProfile(identity)

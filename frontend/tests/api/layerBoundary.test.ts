@@ -98,3 +98,39 @@ test('app providers keep the order Router > Auth > AuthGate > Session', () => {
   const order = [...providers.matchAll(/<(BrowserRouter|AuthProvider|AuthGate|SessionProvider)\b/g)].map((match) => match[1])
   assert.deepEqual(order, ['BrowserRouter', 'AuthProvider', 'AuthGate', 'SessionProvider'])
 })
+
+// Refactor phase 3a: screens and rules never pick the data source. The feature API says what its adapter offers (a flag
+// or a value) and owns every demo default, so the demo stores can leave the production bundle in phase 3b.
+const UI_LAYER = /^(app\/|features\/[^/]+\/(components|pages|hooks|domain|validation|constants)\/)/
+const UI_MODE_ALLOWED: Record<string, string> = {
+  'features/subscription/hooks/useFarmScope.ts': 'farm of the session (phase 4)',
+}
+
+/** Value (not type-only) named imports of one file, with their resolved target under `src/`. */
+const valueImports = (file: string): Array<{ names: string[]; target: string }> => {
+  const source = readFileSync(join(srcDir, file), 'utf8')
+  return [...source.matchAll(/^import\s+(?!type\b)(?:(\w+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*'(\.[^']*)'/gm)].map((match) => ({
+    names: [match[1], ...(match[2] ?? '').split(',').map((name) => name.trim()).filter((name) => name && !name.startsWith('type '))]
+      .filter((name): name is string => Boolean(name)),
+    target: relative(srcDir, resolve(join(srcDir, dirname(file)), match[3])).split(sep).join('/'),
+  })).filter((entry) => entry.names.length > 0)
+}
+
+test('screens and rules neither read the data source nor import demo data', () => {
+  const files = [...sourceFiles('app'), ...sourceFiles('features')].filter((file) => UI_LAYER.test(file) && !(file in UI_MODE_ALLOWED))
+  const violations = files.flatMap((file) => valueImports(file)
+    .filter(({ names, target }) => names.includes('backendMode') || target.startsWith('data/') || /^features\/[^/]+\/data\//.test(target))
+    .map(({ names, target }) => `${file} -> ${target} {${names.join(', ')}}`))
+  assert.deepEqual(violations, [])
+})
+
+test('the dev transfer simulator only renders under the Vite dev server', () => {
+  const read = (file: string) => readFileSync(join(srcDir, file), 'utf8')
+  const users = sourceFiles('features').filter((file) => !file.endsWith('/DevTransferSimulator.tsx') && /\bDevTransferSimulator\b/.test(read(file)))
+  assert.deepEqual(users, ['features/subscription/pages/TransferPage.tsx'])
+  const page = read('features/subscription/pages/TransferPage.tsx')
+  assert.equal([...page.matchAll(/<DevTransferSimulator\b/g)].length, 1)
+  assert.match(page, /\{import\.meta\.env\.DEV && [^{}]*<DevTransferSimulator\b/)
+  const devApiUsers = sourceFiles('features').filter((file) => !file.endsWith('/devTransferApi.ts') && /\bdevTransferApi\b/.test(read(file)))
+  assert.deepEqual(devApiUsers, ['features/subscription/components/DevTransferSimulator.tsx'])
+})

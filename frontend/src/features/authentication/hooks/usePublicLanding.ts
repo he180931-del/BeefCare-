@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AuthClient } from '../types'
-import { DEFAULT_FAQ, DEFAULT_FEATURES } from '../data/landingContent'
+import { DEFAULT_FAQ, DEFAULT_FEATURES } from '../constants/landingContent'
 
 export type Prices = { price1y: number; price2y: number; price3y: number }
 export type PriceState = { status: 'loading' | 'ready' | 'unavailable'; prices: Prices | null }

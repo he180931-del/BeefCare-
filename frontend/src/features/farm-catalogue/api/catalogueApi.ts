@@ -199,3 +199,8 @@ export function createCatalogueApi({ mode, farmId, transport, store }: { mode: B
 export type CatalogueApi = ReturnType<typeof createCatalogueApi>
 
 export const catalogueApi = createCatalogueApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: catalogueDemoStore })
+
+/** Catalogue of the farm in session. The demo store has one farm, so the local adapter is shared. */
+export function catalogueApiForFarm(farmId: string | number): CatalogueApi {
+  return backendMode === 'backend' ? createCatalogueApi({ mode: backendMode, farmId, transport: backendTransport, store: catalogueDemoStore }) : catalogueApi
+}

@@ -17,6 +17,7 @@ vi.mock('../../../src/shared/config/runtime', async (original) => ({
 }))
 vi.mock('../../../src/features/feed-stock/api/feedStockApi', () => ({ listFeedStock: mocks.listStock }))
 vi.mock('../../../src/features/feed-stock/api/feedStockAdjustmentApi', () => ({
+  feedStockAdjustmentServerBacked: true,
   listFeedStockAdjustments: mocks.listAdjustments,
   getFeedStockAdjustment: mocks.getAdjustment,
   listFeedStockAdjustmentAttachments: mocks.listAttachments,

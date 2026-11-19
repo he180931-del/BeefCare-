@@ -9,7 +9,6 @@ import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
 import { useFarmScope } from '../hooks/useFarmScope'
 import { TERMS, estimatePeriod, fmtDate, fmtPeriod, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
-import { backendMode } from '../../../shared/config/runtime'
 import { usePaymentRequest } from '../hooks/usePaymentRequest'
 import type { Term } from '../types'
 import { useOverview } from '../hooks/useOverview'
@@ -49,7 +48,7 @@ export default function FirstSubscriptionPage() {
     try {
       const p = await createPayment(term, price.id)
       if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
-      else navigate(to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? p.id : p.quoteRef}`, { from: 'onboarding' }))
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${subscriptionApi.paymentRouteId(p)}`, { from: 'onboarding' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)

@@ -1,5 +1,5 @@
 import { useDemoState } from '../../../hooks/useDemoState'
-import { CONTACT } from '../data/landingContent'
+import { CONTACT } from '../constants/landingContent'
 import type { AuthClient } from '../types'
 import { LandingHeader, container } from '../components/landing/LandingHeader'
 import { Faq, Features, Hero, Overview, Steps } from '../components/landing/LandingSections'

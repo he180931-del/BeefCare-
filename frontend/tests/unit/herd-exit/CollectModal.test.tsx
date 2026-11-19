@@ -5,7 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { HerdExit } from '../../../src/types'
 
 const exitApi = vi.hoisted(() => ({ recordPayment: vi.fn() }))
-vi.mock('../../../src/features/herd-exit/api/index', () => ({ herdExitApi: exitApi }))
+// The defaults come from the real adapter, evaluated after the test switches to the backend.
+vi.mock('../../../src/features/herd-exit/api/index', async (importOriginal) => ({
+  herdExitApi: exitApi,
+  exitCollectionDefaults: (await importOriginal<typeof import('../../../src/features/herd-exit/api/index')>()).exitCollectionDefaults,
+}))
 
 const row: HerdExit = {
   id: 'PX-2026-0061', date: '2026-10-29', type: 'Bán', status: 'Đã xuất', who: 'Lò mổ Hà Đông', count: 1,

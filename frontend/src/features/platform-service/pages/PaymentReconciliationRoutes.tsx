@@ -15,7 +15,6 @@ import { fmtDateTime, fmtMoney, fmtShort } from '../domain/dates'
 import { MATCH_LABEL, MATCH_TONE, PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE, blockReason, checkAcceptance, evidenceCode, exactCodeMatches, maskTransaction } from '../domain/reconciliation'
 import { validateReason } from '../validation/servicePeriodValidation'
 import PaymentSourcePage from './PaymentSourcePage'
-import { backendMode } from '../../../shared/config/runtime'
 import PaymentReadPage from './PaymentReadPage'
 
 const TITLE = 'Thanh toán & đối soát'
@@ -25,7 +24,7 @@ const PAY_TONE = PAYMENT_STATE_TONE
 export default function PaymentReconciliationRoutes() {
   const [params] = useSearchParams()
   if (params.has('paymentId') && params.get('origin') !== 'payments') return <PaymentSourcePage key={params.get('paymentId')} />
-  return backendMode === 'backend' ? <PaymentReadPage /> : <ReconciliationPage />
+  return platformServiceApi.demoReconciliation ? <ReconciliationPage /> : <PaymentReadPage />
 }
 
 function ReconciliationPage() {

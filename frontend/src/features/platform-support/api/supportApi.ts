@@ -150,6 +150,13 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
   void transport
   const backend = createBackendApi(transport)
   return {
+    /** Người thao tác của phiên. Máy chủ thật dùng đúng người đăng nhập; bản mô phỏng có nhân viên mẫu khi phiên không mang id. */
+    actorFor(session: { id?: number; fullName: string; role?: string } | null | undefined): Actor {
+      const role: Actor['role'] = session?.role === 'PM' || session?.role === 'SA' ? session.role : 'CS'
+      if (mode === 'backend') return { id: session?.id ?? 0, name: session?.fullName ?? '', role }
+      const fallback = store.actorForRole(session?.role)
+      return typeof session?.id === 'number' && session.id > 0 ? { ...fallback, id: session.id, name: session.fullName } : fallback
+    },
     // GET /api/platform/support/tickets (?q,category,tab,farmId,priority,assignment,page,size)
     async listQueue(actor: Actor, filters: QueueFilters = {}) { return mode === 'backend' ? backend.listQueue(actor, filters) : store.listQueue(actor, filters) },
     // chưa có API (danh sách trại cho bộ lọc; lấy từ trường farmName của ticket)

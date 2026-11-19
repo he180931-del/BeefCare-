@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { backendMode } from '../../../shared/config/runtime'
+import { subscriptionApi } from '../api/subscriptionApi'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Facts, ICON_BTN, ServiceBadge, type Fact } from '../components/shared'
@@ -56,7 +56,7 @@ export default function SubscriptionHomePage() {
         </PageHeader>
         {notice}
         <Card title="Trạng thái dịch vụ" actions={<ServiceBadge status={data.serviceStatus} />}>
-          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? data.pendingPayment?.id ?? '' : data.pendingPayment?.quoteRef ?? ''}`, { from: 'subscription' })} />
+          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${data.pendingPayment ? subscriptionApi.paymentRouteId(data.pendingPayment) : ''}`, { from: 'subscription' })} />
         </Card>
         <Card title="Bảng giá gói BeefCare">
           {data.currentPrices ? (

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Field, Modal, ModalButton, ModalFooter, Note, Table, Textarea } from '../../../shared/ui'
-import { MANAGER } from '../../../data/cowsData'
 import { editImportRecord, voidImportRecord } from '../api/cattleApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { Td, Th, fieldCls } from './parts'

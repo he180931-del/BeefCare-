@@ -1,10 +1,7 @@
-import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
 import { DateInput, Field, Info, inputCls, Modal, ModalButton, ModalFooter, Note, Radio } from '../../../shared/ui'
-import { backendMode } from '../../../shared/config/runtime'
-import { herdExitApi } from '../api/index'
+import { exitCollectionDefaults, herdExitApi } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
-import { TODAY } from '../data/exportsData'
 import { dmy, money } from '../../../shared/lib/format'
 import { DocRow, MoneyInput } from './parts'
 import type { HerdExit } from '../types'
@@ -18,13 +15,13 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
   const collected = payments.reduce((s, p) => s + p.amount, 0)
   const total = row.total
   const owed = row.due ?? 0
-  const isBackend = backendMode === 'backend'
-  const [date, setDate] = useState(isBackend ? businessDate() : TODAY)
+  const [defaults] = useState(exitCollectionDefaults)
+  const [date, setDate] = useState(defaults.date)
   const [amount, setAmount] = useState(owed)
   const [method, setMethod] = useState('Chuyển khoản')
-  const [reference, setReference] = useState(isBackend ? '' : 'MBVCB.8841207 · LO MO HA DONG TT PX-2026-0007')
-  const [showStatement, setShowStatement] = useState(!isBackend)
-  const [note, setNote] = useState(isBackend ? '' : 'Thu đủ phần còn lại')
+  const [reference, setReference] = useState(defaults.reference)
+  const [showStatement, setShowStatement] = useState(defaults.statement)
+  const [note, setNote] = useState(defaults.note)
 
   const valid = amount > 0 && amount <= owed
   const left = owed - amount
@@ -32,7 +29,7 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
   const save = async () => {
     await recordPayment({
       id: row.id,
-      payment: { date, method, ref: isBackend ? reference : method === 'Tiền mặt' ? 'PT-2210-01' : reference, amount, note },
+      payment: { date, method, ref: method === 'Tiền mặt' && defaults.cashReference ? defaults.cashReference : reference, amount, note },
     })
     onSaved?.()
     onClose()

@@ -1,9 +1,5 @@
 import type { FeedGroup, FeedStockRow, FeedStockStatus } from '../types'
-import { FEED_STOCK_MOCK } from './feedStockMock'
-
-export { FEED_STOCK_MOCK }
-
-export { LOW_COVER_DAYS, deriveFeedStockStatus } from '../domain/feedStockStatus'
+export { LOW_COVER_DAYS, deriveFeedStockStatus } from './feedStockStatus'
 
 export type FeedStockFilters = {
   query?: string

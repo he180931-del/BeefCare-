@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Table } from '../../../shared/ui'
-import { MANAGER, OWNER, TODAY } from '../../../data/cowsData'
-import { checkPenMove, moveBarn } from '../api/cattleApi'
+import { cattleToday, checkPenMove, demoActors, demoRecorder, moveBarn } from '../api/cattleApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
-import { businessDate } from '../../../shared/lib/date/farmTime'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { Chip, Td, Th, fieldCls } from './parts'
@@ -29,8 +27,8 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
   const options = Object.values(barns).filter((b) => b.code !== cow.barn && b.status === 'ACTIVE')
   const [to, setTo] = useState(backend ? options[0]?.code ?? '' : options.find((b) => b.code === 'A1')?.code ?? options[0]?.code ?? '')
   const [enteredDate, setDate] = useState<string>()
-  const date = enteredDate ?? (backend ? businessDate() : TODAY)
-  const [by, setBy] = useState(MANAGER)
+  const date = enteredDate ?? cattleToday()
+  const [by, setBy] = useState(demoRecorder)
   const [reason, setReason] = useState(isDemo ? 'Đủ 13 tháng & 236 kg – chuẩn bị theo dõi sinh sản' : '')
   // R-04-05: lý do cảnh báo là trường riêng, lưu theo phân chuồng mới, không dùng lại lý do chuyển.
   const [warningReason, setWarningReason] = useState('')
@@ -115,12 +113,13 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
         <Field label="Ngày chuyển *">
           <DateInput value={date} onChange={setDate} />
         </Field>
-        <Field label="Người thực hiện">
-          <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
-            <option value={MANAGER}>Quản lý</option>
-            <option value={OWNER}>Chủ trại</option>
-          </Select>
-        </Field>
+        {demoActors.length > 0 && (
+          <Field label="Người thực hiện">
+            <Select className="[&_select]:!leading-[normal]" value={by} onChange={(e) => setBy(e.target.value)}>
+              {demoActors.map((actor) => <option key={actor.value} value={actor.value}>{actor.label}</option>)}
+            </Select>
+          </Field>
+        )}
         <div className="sm:col-span-2">
           <Field label="Lý do *">
             <input className={fieldCls} value={reason} onChange={(e) => setReason(e.target.value)} />

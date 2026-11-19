@@ -436,6 +436,11 @@ export function createFeedReceiptApi({
 
 const feedReceiptApi = createFeedReceiptApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
 
+/**
+ * Phần máy chủ đảm nhận mà bản mô phỏng không có: cấp mã phiếu khi lưu, lưu chứng từ, hủy khoản trả và bỏ phiếu nháp.
+ */
+export const feedReceiptServerBacked = backendMode === 'backend'
+
 export const listFeedReceipts = () => feedReceiptApi.list()
 export const getFeedReceipt = (id: string) => feedReceiptApi.get(id)
 export const getFeedReceiptDemo = getFeedReceipt

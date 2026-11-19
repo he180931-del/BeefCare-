@@ -58,15 +58,6 @@ export const IMPORT_BARNS = [
   { code: 'C1', name: 'C1 – Cách ly', count: 0, capacity: 10, showName: true },
 ]
 
-export const STAGES = [
-  { value: 'Bê theo mẹ', label: 'Bê theo mẹ' },
-  { value: 'Bò tơ', label: 'Bò tơ / hậu bị' },
-  { value: 'Vỗ béo', label: 'Vỗ béo' },
-  { value: 'Bò cái', label: 'Bò cái' },
-  { value: 'Đực giống', label: 'Đực giống' },
-  { value: 'Chưa xác định', label: 'Chưa xác định' },
-]
-export const PURPOSE_OPTIONS = ['Bò sinh sản · loại Sinh sản', 'Nuôi thương phẩm · loại Vỗ béo', 'Giữ giống · loại Đực giống', 'Chưa xác định']
 export const SOURCE_FILTERS = ['Hộ ông Lê Văn C – Sơn Tây', 'Chợ bò Tòng Bạt – Ba Vì', 'Trại giống Mộc Châu – Sơn La', 'Hộ dân xã Yên Bài']
 export const BREEDS = ['Lai Sind', 'Brahman lai', 'Brahman đỏ', 'Zebu', 'Zebu đỏ']
 
@@ -77,19 +68,7 @@ export const INITIAL_COWS = [
   { tag: '', name: '', breed: 'Zebu', sex: 'Cái', dob: '2025-10', dobAccuracy: 'Ước tính', stage: 'Chưa xác định', purpose: 'Chưa xác định', weight: 198, estimated: true, barn: 'C1', unitPrice: 80000, hist: { vaccine: 'Không rõ', vaccineNote: '', disease: 'Không rõ', repro: 'Không rõ' } },
 ]
 
-export const blankCow = (defaultBarn = 'A1') => ({
-  tag: '', name: '', breed: '', sex: 'Cái', dob: '2025-10', dobAccuracy: 'Không rõ', stage: 'Chưa xác định', purpose: 'Chưa xác định',
-  weight: 0, estimated: false, barn: defaultBarn, unitPrice: 85000, pricing: 'kg' as const,
-  hist: { vaccine: 'Không rõ', vaccineNote: '', disease: 'Không rõ', repro: 'Không rõ' },
-})
 
-// Tuổi (tháng) tại ngày nhập: dateIso 'YYYY-MM-DD', dob 'YYYY-MM'.
-export const ageOf = (dob: string, dateIso: string) => {
-  if (!dob || !dateIso) return 0
-  const [y, m] = dateIso.split('-').map(Number)
-  const [dy, dm] = dob.split('-').map(Number)
-  return y * 12 + m - (dy * 12 + dm)
-}
 
 // Dữ liệu mẫu của file Excel (12 dòng; line = số dòng trong tệp, bắt đầu từ 2).
 export const EXCEL_ROWS: Array<{ line: number; tag: string; breed: string; sex: string; kg: number; barn: string; result: { tone: BadgeTone; text: string } }> = [

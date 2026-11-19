@@ -5,7 +5,6 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { backendMode } from '../../../shared/config/runtime'
 import { useSession } from '../../authorization'
 import { penApi, type PenCattle } from '../api/penApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
@@ -98,7 +97,8 @@ export default function BarnList() {
   const header = headerSummary(barns)
   const viewAll = () => {
     if (!selected) return
-    const pen = backendMode === 'backend' && selected.id != null ? String(selected.id) : selected.code
+    // Backend pens filter by id; demo pens have no id and filter by code.
+    const pen = selected.id != null ? String(selected.id) : selected.code
     navigate(`/cattle?pen=${encodeURIComponent(pen)}`)
   }
 

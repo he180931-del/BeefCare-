@@ -2,11 +2,10 @@ import { toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { useEffect, useRef, useState } from 'react'
 import { Button, Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { useSession } from '../../authorization'
-import { backendMode } from '../../../shared/config/runtime'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { correctFeedSession, getFeedFeedingPlan, recordFeedSession, voidFeedSession } from '../api/feedFeedingApi'
-import { effectiveRationForPen } from '../data/feedTodayRations'
+import { correctFeedSession, feedFeedingServerBacked, getFeedFeedingPlan, recordFeedSession, voidFeedSession } from '../api/feedFeedingApi'
+import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
 import type { FeedStockRow } from '../types'
@@ -40,9 +39,9 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
   const [sessionValue, setSessionValue] = useState(sessionNo ?? 1)
   const selectedPen = data.pens.find((row) => row.id === pen)
   const localRation = selectedPen ? effectiveRationForPen(data.rations, selectedPen.id, date) : null
-  const planQuery = useQuery(() => backendMode === 'backend' && pen !== ''
+  const planQuery = useQuery(() => feedFeedingServerBacked && pen !== ''
     ? getFeedFeedingPlan({ penId: pen, date, sessionNo: sessionValue })
-    : Promise.resolve(null), [backendMode, pen, date, sessionValue])
+    : Promise.resolve(null), [pen, date, sessionValue])
   const serverPlan = planQuery.data && planQuery.data.penId === pen && planQuery.data.feedingDate === date && planQuery.data.sessionNo === sessionValue
     ? planQuery.data
     : null
@@ -50,7 +49,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
   const [fedBy, setFedBy] = useState(session?.fullName ?? KNOWN_PEOPLE[0])
   const [leftover, setLeftover] = useState('')
   const [note, setNote] = useState('')
-  const [lines, setLines] = useState<FormLine[]>(() => backendMode === 'backend' ? [] : buildLines(data.pens.find((row) => row.id === penId), penId ? effectiveRationForPen(data.rations, penId, date) : null, sessionNo ?? 1, prefillFromPlan))
+  const [lines, setLines] = useState<FormLine[]>(() => feedFeedingServerBacked ? [] : buildLines(data.pens.find((row) => row.id === penId), penId ? effectiveRationForPen(data.rations, penId, date) : null, sessionNo ?? 1, prefillFromPlan))
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const commandKeyRef = useRef<string | undefined>(undefined)
@@ -70,15 +69,15 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
     setPen(nextPen)
     setSessionValue(nextSession)
     setTime(sessionTimeFor(data.rations, nextSession))
-    setLines(backendMode === 'backend' ? [] : buildLines(nextPenRow, nextRation, nextSession, prefillFromPlan))
+    setLines(feedFeedingServerBacked ? [] : buildLines(nextPenRow, nextRation, nextSession, prefillFromPlan))
     setError('')
   }
   const updateLine = (index: number, key: keyof FormLine, value: string) => { commandKeyRef.current = undefined; setLines((current) => current.map((line, i) => i === index ? { ...line, [key]: value } : line)); setError('') }
   const plannedTotal = lines.reduce((sum, line) => sum + (Number(line.plannedKg) || 0), 0)
   const actualTotal = lines.reduce((sum, line) => sum + (Number(line.actualKg) || 0), 0)
-  const ration = backendMode === 'backend' ? serverPlan?.ration : localRation
+  const ration = feedFeedingServerBacked ? serverPlan?.ration : localRation
   const sessionsOfPen = Math.max(serverPlan?.ration?.sessionsPerDay ?? localRation?.sessionsPerDay ?? 3, 1)
-  const duplicate = backendMode === 'backend'
+  const duplicate = feedFeedingServerBacked
     ? serverPlan?.existingRecordId != null
     : selectedPen && data.records.find((record) => record.status === 'VALID' && record.penId === selectedPen.id && record.feedingDate === date && record.sessionNo === sessionValue)
   const headCount = serverPlan?.headCount ?? selectedPen?.headcount ?? 0
@@ -99,7 +98,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
     if (!selectedPen) return setError('Chuồng là bắt buộc.')
     if (duplicate) return setError(`${selectedPen.code} đã có bản ghi ${sessionLabel(sessionValue).toLocaleLowerCase('vi')} ngày ${formatDate(date)}.`)
     if (!time) return setError('Nhập giờ cho ăn.')
-    if (backendMode === 'backend' && (!serverPlan || planQuery.loading || planQuery.error)) return setError(planQuery.error ? userFacingError(planQuery.error, 'Không thể tải kế hoạch cữ cho ăn.') : 'Đang tải kế hoạch cữ cho ăn. Vui lòng thử lại.')
+    if (feedFeedingServerBacked && (!serverPlan || planQuery.loading || planQuery.error)) return setError(planQuery.error ? userFacingError(planQuery.error, 'Không thể tải kế hoạch cữ cho ăn.') : 'Đang tải kế hoạch cữ cho ăn. Vui lòng thử lại.')
     if (!lines.length || lines.some((line) => !line.feedItemId)) return setError('Chọn thức ăn cho từng dòng.')
     for (const line of lines) {
       const feed = data.feeds.find((row) => row.feedItemId === Number(line.feedItemId))
@@ -154,10 +153,10 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
           <datalist id="feeding-people">{KNOWN_PEOPLE.map((name) => <option key={name} value={name} />)}</datalist>
         </Field>
       </div>
-      {selectedPen && backendMode === 'backend' && planQuery.loading && <p role="status" className="m-0 text-xs text-muted">Đang tải kế hoạch và tồn kho…</p>}
-      {Boolean(planQuery.error) && backendMode === 'backend' && <div role="alert" className="rounded-md bg-err-bg px-3 py-2.5 text-xs text-err-fg">{userFacingError(planQuery.error, 'Không thể tải kế hoạch cữ cho ăn.')}</div>}
+      {selectedPen && feedFeedingServerBacked && planQuery.loading && <p role="status" className="m-0 text-xs text-muted">Đang tải kế hoạch và tồn kho…</p>}
+      {Boolean(planQuery.error) && feedFeedingServerBacked && <div role="alert" className="rounded-md bg-err-bg px-3 py-2.5 text-xs text-err-fg">{userFacingError(planQuery.error, 'Không thể tải kế hoạch cữ cho ăn.')}</div>}
       {selectedPen && serverPlan?.existingRecordId != null && <Note tone="warn">Chuồng {selectedPen.code} đã có bản ghi hợp lệ cho cữ này trong ngày {formatDate(date)}.</Note>}
-      {selectedPen && !planQuery.loading && !planQuery.error && (backendMode === 'backend' ? serverPlan !== null && serverPlan.ration == null : !localRation) && <Note tone="warn">Chuồng {selectedPen.code} chưa có khẩu phần hiệu lực vào ngày {formatDate(date)}. Chỉ nhập thức ăn thực tế.</Note>}
+      {selectedPen && !planQuery.loading && !planQuery.error && (feedFeedingServerBacked ? serverPlan !== null && serverPlan.ration == null : !localRation) && <Note tone="warn">Chuồng {selectedPen.code} chưa có khẩu phần hiệu lực vào ngày {formatDate(date)}. Chỉ nhập thức ăn thực tế.</Note>}
       {outOfStockLines.length > 0 && <Note tone="warn">{outOfStockNames.join(', ')} đã hết hàng. Nếu ghi lượng thực tế 0 kg, hãy nêu lý do trong Ghi chú.</Note>}
       <h3 className="m-0 text-[13px] font-semibold">Thức ăn đã cho (kế hoạch = khẩu phần × {headCount} con)</h3>
       <Table scroll stack={false}>
@@ -212,7 +211,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
       <ModalFooter className="!px-0 !pb-0">
         <ModalButton disabled={saving || !lines.length} onClick={() => { commandKeyRef.current = undefined; setLines((current) => current.map((line) => ({ ...line, actualKg: line.plannedKg }))) }}>Điền theo kế hoạch</ModalButton>
         <ModalButton disabled={saving} onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={saving || (backendMode === 'backend' && (planQuery.loading || !serverPlan)) || Boolean(duplicate)} onClick={() => void submit()}>{saving ? 'Đang ghi…' : 'Lưu & trừ kho'}</ModalButton>
+        <ModalButton variant="primary" disabled={saving || (feedFeedingServerBacked && (planQuery.loading || !serverPlan)) || Boolean(duplicate)} onClick={() => void submit()}>{saving ? 'Đang ghi…' : 'Lưu & trừ kho'}</ModalButton>
       </ModalFooter>
     </Modal>
   )

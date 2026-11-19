@@ -1,4 +1,5 @@
 import { asRecord, asRows } from '../../../shared/api/parse'
+import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
@@ -115,3 +116,15 @@ export function createFeedConsumptionApi({
 const api = createFeedConsumptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
 
 export const loadFeedConsumptionReport = (range: FeedConsumptionRange) => api.load(range)
+
+/** Một số chỉ số của máy chủ có thể thiếu nguồn số liệu; bản mô phỏng luôn đủ. */
+export const feedConsumptionMayLackSources = backendMode === 'backend'
+
+/**
+ * Kỳ mở đầu của báo cáo: SRS GBR-66 là đầu tháng đến hôm nay. Bản mô phỏng chỉ có 3 tuần lịch sử nên mở 22 ngày gần nhất.
+ */
+export function defaultFeedConsumptionPeriod(): { from: string; to: string } {
+  const today = businessDate()
+  if (backendMode !== 'backend') return { from: addCalendarDays(today, -21), to: today }
+  return { from: today.slice(0, 7) + '-01', to: today }
+}

@@ -19,8 +19,8 @@ export default function TechnicianReproductionPage() {
   const [query, setQuery] = useState('')
   const { data, loading, error, refetch } = useQuery(() => reproductionApi.listWorklist(), [])
   const rows = useMemo(() => data ?? [], [data])
-  const counts = useMemo(() => tabCounts(rows), [rows])
-  const shown = useMemo(() => filterWorklist(rows, { status: tab, query }), [rows, tab, query])
+  const counts = useMemo(() => tabCounts(rows, reproductionApi.now()), [rows])
+  const shown = useMemo(() => filterWorklist(rows, { status: tab, query }, reproductionApi.now()), [rows, tab, query])
 
   return (
     <TechnicianLayout title="Sinh sản" sub="Trại bò Yên Bài – Ba Vì">
@@ -30,7 +30,7 @@ export default function TechnicianReproductionPage() {
           <Segmented value={tab} onChange={(value) => setTab(value as WorklistTab)} options={TABS.map((item) => ({ value: item.value, label: `${item.label} (${counts[item.value]})` }))} />
         </div>
         {loading && !data ? <LoadingBlock /> : error ? <ErrorBlock message={userFacingError(error, 'Không tải được danh sách sinh sản.')} onRetry={refetch} /> : shown.length === 0 ? <EmptyBlock title="Không có bò nào" sub="Đổi tab hoặc từ khóa tìm kiếm." /> : shown.map((row) => {
-          const info = technicianRowInfo(row)
+          const info = technicianRowInfo(row, reproductionApi.now())
           return (
             <button key={row.cattleCode} type="button" onClick={() => navigate(`/kt/dan-bo/${encodeURIComponent(row.cattleCode)}?tab=repro`)} className="flex w-full items-center gap-2 rounded-lg border border-edge bg-white p-3 text-left">
               <span className="flex min-w-0 flex-1 flex-col gap-1">

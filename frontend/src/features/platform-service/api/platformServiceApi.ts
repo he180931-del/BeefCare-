@@ -126,6 +126,8 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
     return farmOverview(await transport.command(`/api/platform/farms/${id}/${action}`, cmd, key ? { method: 'POST', key } : { method: 'POST' }))
   }
   return {
+    /** Bản mô phỏng không có API đọc thanh toán: SCR-62 dùng bàn đối soát trên dữ liệu mẫu thay cho màn đọc từ máy chủ. */
+    demoReconciliation: mode !== 'backend',
     // GET /api/platform/farms (UC-FE02-04): 20 rows a page (Table III-1); the export reads pages of up to 100.
     async listFarms(filters: FarmFilters = {}): Promise<FarmListResult> {
       const page = Math.max(0, Math.trunc(filters.page ?? 0))

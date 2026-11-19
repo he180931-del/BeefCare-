@@ -4,7 +4,7 @@ import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { BackendError } from '../../../shared/api/backendClient'
 import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
-import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, SubscriptionOverview } from '../types'
+import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, StateDialogState, SubscriptionOverview } from '../types'
 import { SubscriptionError, type PriceQuote } from '../types'
 
 /** A missing overview contract is an API error; it must never be filled with demo fields. */
@@ -61,6 +61,17 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
     return readPayment(await transport.get(transport.farmPath(farm, `/subscription/payments/${id}`)))
   }
   return {
+    /** Mã trên đường dẫn `/goi-dich-vu/chuyen-khoan/:id`: id của máy chủ; bản mô phỏng dùng mã quoteRef. */
+    paymentRouteId(payment: Payment): string { return mode === 'backend' ? String(payment.id) : payment.quoteRef },
+    /** Bản mô phỏng không tạo VietQR thật: trang hiện ô minh họa thay cho ảnh QR. */
+    illustrativeQr: mode !== 'backend',
+    /**
+     * Mở trại sau khi thanh toán qua kiểm tra vào trại (UC-FE02-02). Các store mô phỏng không dùng chung danh sách trại,
+     * nên bản mô phỏng chỉ chuyển trang.
+     */
+    entersFarmAfterPayment: mode === 'backend',
+    /** Hộp thoại trạng thái mở thẳng bằng `?m=<tên>` chỉ có ở bản mô phỏng; máy chủ thật không có dữ liệu mẫu. */
+    previewDialog(name: string): StateDialogState | null { return mode === 'backend' ? null : store.previewDialog(name) },
     // chưa có API: đồng hồ phía client (backend dùng giờ hệ thống)
     now(): number { return mode === 'backend' ? Date.now() : store.now() },
     // GET /api/farms/{farmId}/subscription

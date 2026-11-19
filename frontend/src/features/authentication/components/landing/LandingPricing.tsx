@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Badge, Button } from '../../../../shared/ui'
-import { PLAN_YEARS } from '../../data/landingContent'
+import { PLAN_YEARS } from '../../constants/landingContent'
 import { AUTH_PATH } from '../../domain/authErrors'
 import { container } from './LandingHeader'
 import type { PriceState, Prices } from '../../hooks/usePublicLanding'

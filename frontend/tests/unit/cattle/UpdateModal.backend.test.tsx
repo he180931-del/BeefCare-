@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initialCows } from '../../../src/data/cowsData'
+import { businessDate } from '../../../src/shared/lib/date/farmTime'
 
 const response = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 
@@ -35,7 +36,8 @@ describe('backend cattle update modal', () => {
     const user = userEvent.setup()
     render(<UpdateModal cow={cow} onClose={() => undefined} onSaved={() => undefined} />)
 
-    const today = new Date().toISOString().slice(0, 10)
+    // Farm business date (UTC+7), not the UTC date: they differ between 00:00 and 07:00 in Viet Nam.
+    const today = businessDate()
     expect(screen.getByLabelText('Chọn ngày')).toHaveValue(today)
     expect(screen.getAllByRole('textbox')[1]).toHaveValue('')
     expect(screen.queryByText(/Đủ 13 tháng/)).not.toBeInTheDocument()

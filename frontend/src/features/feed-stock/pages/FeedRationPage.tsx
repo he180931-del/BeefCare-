@@ -5,7 +5,7 @@ import { Badge, Button, DateInput, Foot, Icon, inputCls, Metric, Note, PageHeade
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../data/feedRationMock'
+import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../domain/feedRationList'
 import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatDate, formatNumber, formatShortDate, formatVnd } from '../domain/feedLabels'
 import type { FeedRation } from '../types/feedRation'

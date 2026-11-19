@@ -13,6 +13,9 @@ export const DEMO_USERS: ReadonlyArray<SessionUser & { label: string }> = [
   { label: 'SA', role: 'SA', fullName: 'Vũ Hoàng Nam', email: 'sa@beefcare.local', ...NO_FARM },
 ]
 
+/** Client mô phỏng nhận mọi mật khẩu khác rỗng; trang đăng nhập điền sẵn giá trị này khi chọn nhanh tài khoản. */
+export const DEMO_PASSWORD = 'mock-demo'
+
 const STORAGE_KEY = 'beefcare:mock-user'
 
 export const readMockUserEmail = () => sessionStorage.getItem(STORAGE_KEY)

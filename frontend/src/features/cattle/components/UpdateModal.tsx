@@ -1,9 +1,8 @@
 import { useId, useRef, useState } from 'react'
 import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { STAGES, TODAY } from '../../../data/cowsData'
 import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
 import { BackendError } from '../../../shared/api/backendClient'
-import { listPurposes, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
+import { cattleToday, listPurposes, localCattleList, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, type DatedChangeErrors, type IdentityErrors, type IdentityValues } from '../domain/profileRules'
@@ -57,7 +56,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
   const photoInput = useRef<HTMLInputElement>(null)
   const photoInputId = useId()
   const [stage, setStage] = useState(suggestion?.stage ?? (backend ? cow.lifeStage ?? 'ADULT' : isDemo ? 'Bò cái sinh sản' : cow.stage))
-  const [date, setDate] = useState(suggestion?.date ?? (backend ? today : TODAY))
+  const [date, setDate] = useState(suggestion?.date ?? (backend ? today : cattleToday()))
   const [reason, setReason] = useState(suggestion?.reason ?? (isDemo ? 'Đủ 13 tháng & 236 kg, đưa vào theo dõi sinh sản' : ''))
   const [purposeId, setPurposeId] = useState(cow.purposeId ? String(cow.purposeId) : '')
   const [identityErrors, setIdentityErrors] = useState<IdentityErrors>({})
@@ -151,7 +150,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
     setPhotoError(file ? validatePhoto(file) : '')
   }
 
-  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : STAGES.map((s) => ({ value: s, label: s }))
+  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : (localCattleList?.stages ?? []).map((s) => ({ value: s, label: s }))
   const datedFields = (
     <>
       <Field label="Ngày hiệu lực *">

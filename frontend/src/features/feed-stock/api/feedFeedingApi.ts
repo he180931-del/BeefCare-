@@ -182,6 +182,12 @@ export function createFeedFeedingApi({
 
 const api = createFeedFeedingApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
 
+/**
+ * Máy chủ tính kế hoạch cữ, kiểm cữ trùng, tồn kho và quyền ghi theo phiên. Bản mô phỏng tính tại trình duyệt từ dữ liệu
+ * mẫu và cho ghi khi chưa đăng nhập.
+ */
+export const feedFeedingServerBacked = backendMode === 'backend'
+
 export const listFeedFeedingRecords = (range: FeedFeedingRange) => api.list(range)
 export const getFeedFeedingPlan = (input: { penId: number; date: string; sessionNo: number }) => api.plan(input)
 export const recordFeedSession = (input: FeedFeedingDraftInput, options?: MutationOptions) => api.record(input, options)

@@ -1,7 +1,8 @@
 import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
 import { createCollection, createCollectionSchema } from '../../../api/client'
 import { FEED_DEMO_PENS } from './feedPenMock'
-import { FEED_RATION_MOCK, rationStatusForDate } from './feedRationMock'
+import { FEED_RATION_MOCK } from './feedRationMock'
+import { rationStatusForDate } from '../domain/feedRationList'
 import type { FeedStockRow } from '../types'
 import type { FeedRation, FeedRationDemoStore, FeedRationPenOption, SaveFeedRationInput } from '../types/feedRation'
 

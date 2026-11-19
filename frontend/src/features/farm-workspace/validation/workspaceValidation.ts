@@ -6,7 +6,7 @@ import type {
   FarmRegistrationInput,
   InviteMemberInput,
 } from '../types'
-import { PROVINCES } from '../data/provinces'
+import { PROVINCES } from '../constants/provinces'
 
 export type FormErrors<T extends object> = Partial<Record<keyof T, string>>
 

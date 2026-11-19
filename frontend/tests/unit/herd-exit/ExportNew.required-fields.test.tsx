@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const saveHerdExit = vi.fn()
 
-vi.mock('../../../src/features/herd-exit/api/index', () => ({
+vi.mock('../../../src/features/herd-exit/api/index', async (importOriginal) => ({
+  ...(({ newExitVoucherId, exitPenShift }) => ({ newExitVoucherId, exitPenShift }))(await importOriginal<typeof import('../../../src/features/herd-exit/api/index')>()),
   herdExitApi: { list: async () => [], get: async () => null, checks: vi.fn() },
   getExitDraftState: (rows: unknown[], id?: string) => ({ type: 'Bán', row: id ? rows.find((row: any) => row.id === id) : undefined }),
   saveHerdExit,

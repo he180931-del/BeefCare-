@@ -14,10 +14,11 @@ import type {
   ReproductionRevision,
   ReproductionRole,
 } from '../types'
-import { REPRODUCTION_DEMO, REPRODUCTION_SIRES, REPRODUCTION_USED_TAGS } from './reproductionMock'
-import { reproductionNow } from '../domain/reproductionClock'
+import { REPRODUCTION_DEMO, REPRODUCTION_DEMO_NOW, REPRODUCTION_SIRES, REPRODUCTION_USED_TAGS } from './reproductionMock'
 
 export interface ReproductionDemoStore {
+  /** Đồng hồ của dữ liệu mẫu (yyyy-mm-ddTHH:mm). */
+  now(): string
   list(): Promise<ReproductionFemale[]>
   get(cattleCode: string): Promise<ReproductionFemale>
   recordEvent(cattleCode: string, command: ReproductionCommand, role: ReproductionRole): Promise<ReproductionFemale>
@@ -82,7 +83,7 @@ function makeOpenPregnancy(event: ReproductionEvent, profile: ReproductionFemale
   }
 }
 
-function deriveState(profile: ReproductionFemale, parityBaseline: number): void {
+function deriveState(profile: ReproductionFemale, parityBaseline: number, now: string): void {
   const validCalvings = profile.calvings.filter((item) => item.status === 'VALID')
   profile.parity = parityBaseline + validCalvings.length
   syncCalvingEvents(profile)
@@ -136,7 +137,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.dueAt = addDays(latestBreeding.occurredAt, 30)
   } else if (status === 'PREGNANT') {
     profile.breedingWindow = null
-    profile.nextAction = isDueSoon(profile, reproductionNow()) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
+    profile.nextAction = isDueSoon(profile, now) ? 'Chuẩn bị chuồng đẻ' : 'Theo dõi thai kỳ'
     profile.dueAt = profile.openPregnancy?.expectedCalvingAt ?? null
   } else if (status === 'POST_CALVING' && profile.lastCalvingAt) {
     profile.breedingWindow = null
@@ -148,7 +149,7 @@ function deriveState(profile: ReproductionFemale, parityBaseline: number): void 
     profile.dueAt = null
   }
   profile.indicators.daysSinceLastCalving = profile.lastCalvingAt && status !== 'PREGNANT'
-    ? Math.max(0, Math.floor((parseBusinessTime(reproductionNow()) - parseBusinessTime(profile.lastCalvingAt)) / 86_400_000))
+    ? Math.max(0, Math.floor((parseBusinessTime(now) - parseBusinessTime(profile.lastCalvingAt)) / 86_400_000))
     : null
   profile.events.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   profile.calvings.sort((a, b) => b.birthAt.localeCompare(a.birthAt))
@@ -165,14 +166,14 @@ function actionFor(command: ReproductionCommand): 'RECORD_ESTRUS' | 'RECORD_BREE
 
 export function createReproductionDemoStore(
   seed: readonly ReproductionFemale[] = REPRODUCTION_DEMO,
-  clock: () => string = reproductionNow,
+  clock: () => string = () => REPRODUCTION_DEMO_NOW,
 ): ReproductionDemoStore {
   let rows = clone([...seed])
   const parityBaselines = new Map(rows.map((profile) => [
     profile.cattleCode,
     profile.parity - profile.calvings.filter((item) => item.status === 'VALID').length,
   ]))
-  rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity))
+  rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock()))
   let sequence = 0
   let revisionSequence = 0
 
@@ -214,6 +215,7 @@ export function createReproductionDemoStore(
   }
 
   return {
+    now: () => clock(),
     async list() { return clone(rows) },
     async get(cattleCode) { return copy(find(cattleCode)) },
     async recordEvent(cattleCode, command, role) {
@@ -289,7 +291,7 @@ export function createReproductionDemoStore(
       profile.statusAt = base.occurredAt
       if (command.type === 'PREGNANCY_CHECK' && command.result === 'PREGNANT') profile.openPregnancy = makeOpenPregnancy(base, profile)
       if ((command.type === 'PREGNANCY_CHECK' && command.result === 'NOT_PREGNANT') || (command.type === 'PREGNANCY_UPDATE' && command.updateType === 'LOSS')) profile.openPregnancy = null
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -341,7 +343,7 @@ export function createReproductionDemoStore(
       profile.status = 'POST_CALVING'
       profile.statusAt = command.birthAt
       profile.lastCalvingAt = command.birthAt
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -393,7 +395,7 @@ export function createReproductionDemoStore(
         item.details = updateDetails(item)
       }
       addRevision(profile, eventId, before, clone(item), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -418,7 +420,7 @@ export function createReproductionDemoStore(
       item.version++
       if (calving) { calving.status = 'VOIDED'; calving.voidReason = reason.trim(); calving.version++ }
       addRevision(profile, eventId, before, calving ? clone(calving) : clone(item), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -474,7 +476,7 @@ export function createReproductionDemoStore(
         timeline.version++
       }
       addRevision(profile, calvingId, before, clone(calving), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
@@ -496,13 +498,13 @@ export function createReproductionDemoStore(
       calf.voidReason = reason.trim()
       calving.version++
       addRevision(profile, calvingId, before, clone(calving), reason, role)
-      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity)
+      deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock())
       profile.version++
       return copy(profile)
     },
     async reset() {
       rows = clone([...seed])
-      rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity))
+      rows.forEach((profile) => deriveState(profile, parityBaselines.get(profile.cattleCode) ?? profile.parity, clock()))
       sequence = 0
       revisionSequence = 0
       return clone(rows)

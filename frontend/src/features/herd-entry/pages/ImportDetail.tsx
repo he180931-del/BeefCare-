@@ -8,8 +8,7 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { TODAY } from '../data/importsData'
-import { dm, dmy, kg, money } from '../../../shared/lib/format'
+import { dmy, kg, money } from '../../../shared/lib/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
 import type { CattleInput } from '../../cattle'
@@ -19,7 +18,6 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
-const nowHM = () => new Date().toTimeString().slice(0, 5)
 const displayError = userFacingError
 
 export default function ImportDetail() {
@@ -88,7 +86,7 @@ export default function ImportDetail() {
         status: 'Đã hủy',
         cancelReason: reason,
         source: `${r.source} · Hủy: ${reason}`,
-        detail: { ...d, history: [...(d.history ?? []), `${dm(TODAY)} ${nowHM()} · T. Q. Long hủy phiếu: ${reason}`] },
+        detail: d,
       },
     })
     await query.refetch()

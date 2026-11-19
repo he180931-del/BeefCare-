@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Th } from '../../../shared/ui'
-import { BREEDS, PURPOSE_OPTIONS, STAGES } from '../data/importsData'
+import { PURPOSE_OPTIONS, STAGES } from '../constants/entryOptions'
 import { money } from '../../../shared/lib/format'
 import { RadioRow } from './parts'
 import { entryToday } from '../validation/entryValidation'
@@ -171,7 +171,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
               set({ breed, breedId: selected?.id ?? null })
             }}>
               <option value="">Chọn giống</option>
-              {(breeds.length ? breeds.map((option) => option.name) : BREEDS).map((b) => <option key={b}>{b}</option>)}
+              {breeds.map((option) => option.name).map((b) => <option key={b}>{b}</option>)}
             </Select>
           </Field>
           <div className="flex min-w-0 flex-col gap-1.5">

@@ -1,9 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Icon, type IconName, Modal, Note } from '../../../shared/ui'
-import { backendMode } from '../../../shared/config/runtime'
+import { subscriptionApi } from '../api/subscriptionApi'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { DIALOG_FIXTURES } from '../data/subscriptionMock'
 import { fmtDate, fmtDateTime, fmtEndDay, paymentQuote, quoteText, termLabel } from '../domain/subscriptionRules'
 import type { StateDialogState } from '../types'
 import { Facts, ICON_BTN, PaymentBadge, ServiceBadge, useIsPhone, type Fact } from './shared'
@@ -34,7 +33,7 @@ function build(state: StateDialogState, h: Handlers): Built {
       return {
         title: 'Bạn đã có yêu cầu còn hiệu lực', sub: state.payment.quoteRef,
         facts: [['Trạng thái', <PaymentBadge key="s" state="PENDING" />], ['Giá / thời hạn', paymentQuote(state.payment)], ['Hết hạn', fmtDateTime(state.payment.expiresAt)]],
-        actions: [{ label: 'Quay lại', icon: 'arrow-left', onClick: h.close }, { label: 'Mở lại hướng dẫn', primary: true, onClick: () => h.reopen(backendMode === 'backend' ? String(state.payment.id) : state.payment.quoteRef) }],
+        actions: [{ label: 'Quay lại', icon: 'arrow-left', onClick: h.close }, { label: 'Mở lại hướng dẫn', primary: true, onClick: () => h.reopen(subscriptionApi.paymentRouteId(state.payment)) }],
       }
     case 'renewal-closed':
       return {
@@ -137,7 +136,7 @@ export function useStateDialog({ onReload, forced, onDismiss }: Options = {}) {
   const navigate = useNavigate()
   const phone = useIsPhone()
   const { to } = useFarmScope()
-  const active = shown ?? (dismissed ? null : forced) ?? (m ? DIALOG_FIXTURES[m] ?? null : null)
+  const active = shown ?? (dismissed ? null : forced) ?? (m ? subscriptionApi.previewDialog(m) : null)
 
   const go = (path: string, extra?: Record<string, string>) => { setShown(null); navigate(to(path, extra)) }
   const close = () => {

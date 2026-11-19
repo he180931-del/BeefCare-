@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BackendError } from '../../../shared/api/backendClient'
-import { backendMode } from '../../../shared/config/runtime'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
@@ -77,9 +76,9 @@ export default function TransferPage() {
   const cancellable = pending && !current.receivedAt && now < toMs(current.expiresAt)
   const openCancel = () => { setPageNotice(null); setCancelling(true) }
   // UC-FE02-02: open the paid farm through the same check as SCR-09 so this tab keeps it; a plain route change would leave
-  // every farm API on the configured fallback farm. The mock stores do not share farms, so local mode keeps the route change.
+  // every farm API on the configured fallback farm.
   const openFarm = async () => {
-    if (backendMode !== 'backend') { navigate('/tong-quan'); return }
+    if (!subscriptionApi.entersFarmAfterPayment) { navigate('/tong-quan'); return }
     if (entering) return
     setEntering(true); setEnterError(null)
     try {

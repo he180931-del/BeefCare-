@@ -1,6 +1,6 @@
 import { createBackendClient } from '../../shared/api/backendClient'
 import { MOCK_EXISTING_ACCOUNT_EMAIL, MOCK_LANDING, MOCK_PRICES, MOCK_SUSPENDED_EMAIL, MOCK_WRONG_CREDENTIALS_EMAIL } from './data/authMock'
-import { readMockUserEmail, writeMockUserEmail } from './demoUsers'
+import { DEMO_PASSWORD, DEMO_USERS, readMockUserEmail, writeMockUserEmail } from './demoUsers'
 import type { AuthClient, RegistrationRequest } from './types'
 
 export function createBackendAuthClient(): AuthClient {
@@ -31,6 +31,7 @@ class MockAuthError extends Error {
 export function createMockAuthClient(): AuthClient {
   return {
     mode: 'mock',
+    demoAccounts: DEMO_USERS.map(({ label, email }) => ({ label, email, password: DEMO_PASSWORD })),
     isAuthenticated: async () => Boolean(readMockUserEmail()),
     login: async (email, password) => {
       const key = email.trim().toLowerCase()
