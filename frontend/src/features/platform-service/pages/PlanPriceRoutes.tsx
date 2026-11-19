@@ -1,8 +1,10 @@
 import { parseBusinessTime } from '../../../api/farmTimeZone'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../../../components/Layout'
+import { DISCARD_PROMPT } from '../../farm-workspace/domain/discardPrompt'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, LoadingBlock, Note, PageHeader, Radio, inputCls } from '../../../components/ui'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, LoadingBlock, Note, PageHeader, Pagination, Radio, inputCls } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
 import { BackendError } from '../../../api/backendClient'
 import { planPriceApi, priceError, type PlanPrice, type PublishPrice } from '../api/planPriceApi'
@@ -12,7 +14,6 @@ import { parseVnd, PRICE_ERROR, validPrice } from '../domain/pricing'
 import type { PriceDraft, PriceStatus } from '../types'
 
 const TITLE = 'Bảng giá gói'
-const DISCARD = 'Bạn có thay đổi chưa lưu. Bạn có muốn bỏ các thay đổi này không?'
 const STATUS: Record<PriceStatus, { label: string; tone: 'ok' | 'info' | 'outline' | 'err' }> = {
   EFFECTIVE: { label: 'Đang hiệu lực', tone: 'ok' }, SCHEDULED: { label: 'Lên lịch', tone: 'info' }, SUPERSEDED: { label: 'Hết hiệu lực', tone: 'outline' }, WITHDRAWN: { label: 'Đã rút lại', tone: 'err' },
 }
@@ -34,7 +35,9 @@ const REASON_ERROR = 'Lý do phải có ít nhất 5 ký tự không phải kho�
 function WithdrawDialog({ version, onClose, onDone, onStale }: { version: PlanPrice; onClose: () => void; onDone: () => void; onStale: () => void }) {
   const [reason, setReason] = useState(''); const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false)
   const sending = useRef(false); const keys = useIntentKey()
-  function close() { if (!sending.current && (!reason || window.confirm(DISCARD))) onClose() }
+  // MSG-COM-14 inside the dialog (Table III-1), not the browser's own confirm box.
+  const [discarding, setDiscarding] = useState(false)
+  function close() { if (sending.current) return; if (reason.trim() && !discarding) setDiscarding(true); else onClose() }
   async function withdraw() {
     if (sending.current) return
     const value = reason.trim()
@@ -52,9 +55,12 @@ function WithdrawDialog({ version, onClose, onDone, onStale }: { version: PlanPr
   }
   return <Modal title={`Rút lại bảng giá v${version.id}`} topTitle={TITLE} width={640} onClose={close}>
     <p className="mb-3 text-sm text-muted">Hiệu lực từ {fmtSeconds(version.effectiveAt)}. Chỉ rút được trước thời điểm này.</p>
-    <Field label="Lý do *" id="withdraw-reason"><textarea id="withdraw-reason" className={inputCls} rows={4} value={reason} disabled={busy} onChange={e => { setReason(e.target.value); setError(null) }} /></Field>
+    <Field label="Lý do *" id="withdraw-reason"><textarea id="withdraw-reason" className={`${inputCls} resize-none`} rows={4} value={reason} disabled={busy} onChange={e => { setReason(e.target.value); setError(null); setDiscarding(false) }} /></Field>
     {error ? <p role="alert" className="mt-2 text-sm text-err-fg">{error}</p> : null}
-    <ModalFooter><ModalButton disabled={busy} onClick={close}>Hủy</ModalButton><ModalButton variant="danger" disabled={busy} onClick={withdraw}>Rút lại phiên bản</ModalButton></ModalFooter>
+    {discarding ? <Note tone="warn">{DISCARD_PROMPT.question}</Note> : null}
+    <ModalFooter>{discarding
+      ? <><ModalButton onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</ModalButton><ModalButton variant="danger" onClick={onClose}>{DISCARD_PROMPT.discard}</ModalButton></>
+      : <><ModalButton disabled={busy} onClick={close}>Hủy</ModalButton><ModalButton variant="danger" disabled={busy} onClick={withdraw}>Rút lại phiên bản</ModalButton></>}</ModalFooter>
   </Modal>
 }
 
@@ -90,18 +96,28 @@ export default function PlanPriceRoutes() {
     }
     arm(); return () => window.clearTimeout(timer)
   }, [data])
+  // MSG-COM-14 in the page (Table III-1) instead of window.confirm: "Hủy chỉnh sửa" and in-app links ask first. Reloading or
+  // closing the tab still uses the browser's own beforeunload prompt, the only one a page may show there.
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [leaveTo, setLeaveTo] = useState<string | null>(null)
+  const navigate = useNavigate()
   useEffect(() => {
     if (!dirty) return
     const unload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
-    const navigate = (e: MouseEvent) => {
+    const leave = (e: MouseEvent) => {
       const link = e.target instanceof Element ? e.target.closest('a[href]') as HTMLAnchorElement | null : null
-      if (link && new URL(link.href).pathname !== window.location.pathname && !window.confirm(DISCARD)) { e.preventDefault(); e.stopPropagation() }
+      if (!link) return
+      const url = new URL(link.href)
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return
+      e.preventDefault(); e.stopPropagation(); setLeaveTo(`${url.pathname}${url.search}${url.hash}`)
     }
-    window.addEventListener('beforeunload', unload); document.addEventListener('click', navigate, true)
-    return () => { window.removeEventListener('beforeunload', unload); document.removeEventListener('click', navigate, true) }
+    window.addEventListener('beforeunload', unload); document.addEventListener('click', leave, true)
+    return () => { window.removeEventListener('beforeunload', unload); document.removeEventListener('click', leave, true) }
   }, [dirty])
-  function set(patch: Partial<PriceDraft>) { if (draft) setDraft({ ...draft, ...patch }); setError(null); setErrorField(null) }
-  function reset() { if (!dirty || window.confirm(DISCARD)) { const d = initial(data?.current ?? null); setDraft(d); baseline.current = JSON.stringify(d); setError(null); setErrorField(null) } }
+  function set(patch: Partial<PriceDraft>) { if (draft) setDraft({ ...draft, ...patch }); setError(null); setErrorField(null); setConfirmReset(false) }
+  function applyReset() { const d = initial(data?.current ?? null); setDraft(d); baseline.current = JSON.stringify(d); setError(null); setErrorField(null); setConfirmReset(false) }
+  function reset() { if (dirty) setConfirmReset(true); else applyReset() }
+  function discardAndLeave() { const to = leaveTo; setLeaveTo(null); applyReset(); if (to) navigate(to) }
   function invalid(message: string, field: keyof PriceDraft): null { setError(message); setErrorField(field); return null }
   function payload(): PublishPrice | null {
     if (!draft) return null
@@ -156,11 +172,14 @@ export default function PlanPriceRoutes() {
             <div className="flex min-w-0 flex-col gap-1.5"><span className="text-xs font-medium text-ink">Áp dụng *</span>
               <div role="radiogroup" aria-label="Áp dụng" aria-required="true" className="flex flex-wrap gap-6"><Radio name="application" checked={draft.mode === 'NOW'} onChange={() => set({ mode: 'NOW' })}>Áp dụng ngay</Radio><Radio name="application" checked={draft.mode === 'SCHEDULE'} onChange={() => set({ mode: 'SCHEDULE' })}>Lên lịch</Radio></div></div>
             {draft.mode === 'SCHEDULE' ? <Field id="effectiveAt" label="Hiệu lực từ *" hint="Giờ Việt Nam (UTC+7)"><input id="effectiveAt" className={inputCls} type="datetime-local" aria-invalid={errorField === 'effectiveAt' && !!error} value={draft.effectiveAt} onChange={e => set({ effectiveAt: e.target.value })} />{fieldError('effectiveAt')}</Field> : <p className="text-sm text-muted">Hiệu lực ngay khi công bố thành công.</p>}
-            <Field id="terms" label="Mô tả điều khoản" hint="Tối đa 500 ký tự"><textarea id="terms" className={inputCls} rows={3} aria-invalid={errorField === 'terms' && !!error} value={draft.terms} onChange={e => set({ terms: e.target.value })} />{fieldError('terms')}</Field>
+            <Field id="terms" label="Mô tả điều khoản" hint="Tối đa 500 ký tự"><textarea id="terms" className={`${inputCls} resize-none`} rows={3} aria-invalid={errorField === 'terms' && !!error} value={draft.terms} onChange={e => set({ terms: e.target.value })} />{fieldError('terms')}</Field>
           </fieldset>
           {error && !confirming && !errorField ? <p role="alert" className="mt-3 text-sm text-err-fg">{error}</p> : null}
           <div className="mt-4"><Note tone="info">Bảng giá mới chỉ dùng từ thời điểm hiệu lực. Các yêu cầu thanh toán đã phát hành và kỳ đã mua giữ nguyên. Công bố ngay vẫn giữ các lịch giá tương lai.</Note></div>
-          {canAct ? <div className="mt-4 flex flex-wrap justify-end gap-2"><Button disabled={busy} onClick={reset}>Hủy chỉnh sửa</Button><Button variant="primary" disabled={busy} onClick={openPublish}>Công bố phiên bản</Button></div> : null}
+          {canAct ? (confirmReset
+            ? <div className="mt-4 flex flex-col gap-3"><Note tone="warn">{DISCARD_PROMPT.question}</Note>
+              <div className="flex flex-wrap justify-end gap-2"><Button onClick={() => setConfirmReset(false)}>{DISCARD_PROMPT.keep}</Button><Button variant="danger" onClick={applyReset}>{DISCARD_PROMPT.discard}</Button></div></div>
+            : <div className="mt-4 flex flex-wrap justify-end gap-2"><Button disabled={busy} onClick={reset}>Hủy chỉnh sửa</Button><Button variant="primary" disabled={busy} onClick={openPublish}>Công bố phiên bản</Button></div>) : null}
         </Card>
       </div>
       <section aria-label="Lịch sử công bố" aria-busy={query.loading} className="min-w-0">
@@ -177,7 +196,9 @@ export default function PlanPriceRoutes() {
             </dl>
             {v.status === 'SCHEDULED' && canAct ? <div className="mt-2 text-right"><Button variant="link" disabled={busy} onClick={() => setWithdrawing(v)}>Rút v{v.id}</Button></div> : null}
           </li>)}</ol>}
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs"><span>Trang {page + 1} / {Math.max(1, Math.ceil(data.total / data.size))}</span><div className="flex gap-2"><Button disabled={query.loading || page === 0} onClick={() => setPage(p => p - 1)}>Trang trước</Button><Button disabled={query.loading || (page + 1) * data.size >= data.total} onClick={() => setPage(p => p + 1)}>Trang sau</Button></div></div>
+          {/* The shared pager and "Hiển thị a–b trong N" summary, as on the other lists. */}
+          <div className="mt-4"><Pagination page={page + 1} pageCount={Math.max(1, Math.ceil(data.total / data.size))} onChange={(next) => { if (!query.loading) setPage(next - 1) }}
+            summary={data.total ? `Hiển thị ${page * data.size + 1}–${page * data.size + data.items.length} trong ${data.total} phiên bản` : '0 phiên bản'} /></div>
         </Card>
       </section>
     </div>
@@ -187,6 +208,10 @@ export default function PlanPriceRoutes() {
       <p className="mt-2 whitespace-pre-wrap break-words text-sm">Điều khoản: {draft.terms.trim() || '—'}</p>
       {error ? <p role="alert" className="mt-3 text-sm text-err-fg">{error}</p> : null}
       <ModalFooter><ModalButton disabled={busy} onClick={() => { setConfirming(false); setError(null) }}>Quay lại</ModalButton><ModalButton variant="primary" disabled={busy} onClick={publish}>Xác nhận công bố</ModalButton></ModalFooter>
+    </Modal> : null}
+    {leaveTo ? <Modal title={DISCARD_PROMPT.question} topTitle={TITLE} width={560} onClose={() => setLeaveTo(null)}>
+      <p className="m-0 text-sm text-ink">Bảng giá đang soạn chưa được công bố.</p>
+      <ModalFooter className="!px-0 !pb-0"><ModalButton onClick={() => setLeaveTo(null)}>{DISCARD_PROMPT.keep}</ModalButton><ModalButton variant="danger" onClick={discardAndLeave}>{DISCARD_PROMPT.discard}</ModalButton></ModalFooter>
     </Modal> : null}
     {withdrawing ? <WithdrawDialog version={withdrawing} onClose={() => setWithdrawing(null)} onStale={refresh} onDone={() => { setMessage(`Đã rút lại phiên bản v${withdrawing.id}; phiên bản được giữ trong lịch sử.`); setWithdrawing(null); refresh() }} /> : null}
   </Layout>

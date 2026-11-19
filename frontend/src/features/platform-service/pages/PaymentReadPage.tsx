@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DependencyList } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
-import { Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, Metric, Note, PageHeader, Pagination, Segmented, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th, type BadgeTone } from '../../../components/ui'
 import EvidenceActions, { type ActionDraft } from '../components/EvidenceActions'
 import SePayLookup from '../components/SePayLookup'
 import { useQuery } from '../../../hooks/useApi'
@@ -9,7 +9,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { useSession } from '../../authorization'
 import { CONFIRMATION_SOURCE_TEXT, MATCH_TEXT, REVIEW_TEXT, platformPaymentReadApi as api, reasonText, type EvidenceReadFilters, type EvidenceRow, type PaymentRead, type PaymentReadFilters, type ReadPage } from '../api/platformPaymentReadApi'
 import { fmtDate, fmtEndDate, fmtSeconds, fmtVnd } from '../domain/dates'
-import { PAYMENT_STATE_LABEL } from '../domain/reconciliation'
+import { PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE } from '../domain/reconciliation'
 import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Thanh toán & đối soát'
@@ -22,6 +22,9 @@ const HISTORY_LABEL: Record<string, string> = {
   EVIDENCE_RECEIVED: 'Tiếp nhận chứng từ', EVIDENCE_AUTO_ACCEPTED: 'Tự động chấp nhận',
   EVIDENCE_LOCK_RETURN: 'Khóa hoàn trả', EVIDENCE_RETURN_UNLOCK: 'Mở khóa hoàn trả', EVIDENCE_RETURN_RECORDED: 'Ghi nhận hoàn trả',
 }
+/** Review status colours: waiting for the PM amber, on hold blue, refused or locked money red, done green. */
+const REVIEW_TONE: Record<string, BadgeTone> = { TO_REVIEW: 'warn', HOLD: 'info', REJECTED: 'err', ACCEPTED: 'ok', LOCKED: 'err', PROCESSING: 'info', NO_ACTION: 'outline' }
+const reviewTone = (status: string): BadgeTone => REVIEW_TONE[status] ?? 'outline'
 const invalidRange = (f: EvidenceReadFilters) => !!(f.bankFrom && f.bankTo && f.bankFrom > f.bankTo)
 const validPage = (p: unknown) => Number.isInteger(p) && Number(p) >= 0 && Number(p) <= 107374182
 const validDate = (d: unknown) => typeof d === 'string' && (d === '' || /^\d{4}-\d{2}-\d{2}$/.test(d))
@@ -62,7 +65,7 @@ function EvidencePanel({ id, refresh, onDone, onStale }: { id: number; refresh: 
   const [e, candidates] = result.data
   const r = e.summary
   return <section aria-label="Chi tiết chứng từ">
-    <Card title="Chi tiết chứng từ" actions={<Badge tone="outline">{REVIEW_TEXT[r.reviewStatus]}</Badge>}>
+    <Card title="Chi tiết chứng từ" actions={<Badge tone={reviewTone(r.reviewStatus)}>{REVIEW_TEXT[r.reviewStatus]}</Badge>}>
       <Info cols={2} items={[
         ['Nhà cung cấp', r.provider], ['Môi trường', r.environment], ['Namespace tài khoản', r.accountNamespace],
         ['Mã giao dịch', e.transactionId], ['Ngân hàng', e.bank ?? '—'], ['Tài khoản nhận', e.receivingAccount ?? '—'],
@@ -72,17 +75,25 @@ function EvidencePanel({ id, refresh, onDone, onStale }: { id: number; refresh: 
         ['Ngân hàng ghi nhận', fmtSeconds(r.bankPaidAt)], ['Hệ thống nhận lần đầu', fmtSeconds(e.firstReceivedAt)],
         ['Kết quả khớp', MATCH_TEXT[r.matchResult]], ['Lý do đã ghi nhận', reasonText(r.reviewReason) ?? '—'],
       ]} />
-      {r.paymentId && <Link className="mt-3 inline-flex font-semibold text-brand underline" to={paymentLink(r.paymentId)}>Xem thanh toán {r.paymentCode}</Link>}
+      {r.paymentId && <Link className="mt-3 inline-flex min-h-6 items-center font-semibold text-brand underline" to={paymentLink(r.paymentId)}>Xem thanh toán {r.paymentCode}</Link>}
     </Card>
     <div className="mt-4"><Card title="Lịch sử xử lý">
-      {e.history.length === 0 ? <p className="text-sm text-muted">Chưa có lịch sử xử lý.</p> : <Table stack={false}>
-        <caption className="sr-only">Lịch sử xử lý</caption><thead><tr><Th>Sự kiện / Thời điểm</Th><Th>Người xử lý</Th><Th>Lý do / Tham chiếu</Th></tr></thead>
-        <tbody>{e.history.map((h) => <tr key={`${h.source}-${h.id}`}><Td>{HISTORY_LABEL[h.action] ?? 'Xử lý chứng từ'}<div>{fmtSeconds(h.at)}</div>
-          {h.relatedPaymentId !== null && <div>Yêu cầu: <Link className="font-semibold text-brand underline" to={paymentLink(h.relatedPaymentId)}>{h.relatedPaymentCode}</Link></div>}
-        </Td><Td>{h.pmName ?? 'Hệ thống'}</Td>
-          <Td>{h.reason ? reasonText(h.reason) : h.reference || h.result || h.returnDate ? null : '—'}
-            {h.reference && <div>Tham chiếu: {h.reference}</div>}{h.result && <div>Kết quả: {h.result}</div>}
-            {h.returnDate && <div>Ngày hoàn trả: {fmtDate(h.returnDate)}</div>}</Td></tr>)}</tbody></Table>}
+      {e.history.length === 0 ? <p className="text-sm text-muted">Chưa có lịch sử xử lý.</p> : (
+        // A list, not a three-column table: in the 440 px panel the columns wrapped nearly every word.
+        <ol aria-label="Lịch sử xử lý" className="m-0 flex list-none flex-col gap-2 p-0">
+          {e.history.map((h) => <li key={`${h.source}-${h.id}`} className="rounded-md border border-rule px-3 py-2.5 text-xs text-ink">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+              <span className="font-semibold">{HISTORY_LABEL[h.action] ?? 'Xử lý chứng từ'}</span>
+              <span className="text-[11px] text-muted">{fmtSeconds(h.at)} · <span>{h.pmName ?? 'Hệ thống'}</span></span>
+            </div>
+            {h.reason && <p className="m-0 mt-1 [overflow-wrap:anywhere]">{reasonText(h.reason)}</p>}
+            {h.relatedPaymentId !== null && <div className="mt-1">Yêu cầu: <Link className="font-semibold text-brand underline" to={paymentLink(h.relatedPaymentId)}>{h.relatedPaymentCode}</Link></div>}
+            {h.reference && <div className="mt-1 [overflow-wrap:anywhere]">Tham chiếu: {h.reference}</div>}
+            {h.result && <div className="[overflow-wrap:anywhere]">Kết quả: {h.result}</div>}
+            {h.returnDate && <div>Ngày hoàn trả: {fmtDate(h.returnDate)}</div>}
+          </li>)}
+        </ol>
+      )}
     </Card></div>
     {/* The form restarts on each new version: a saved change starts empty, a stale reload keeps the PM's draft. */}
     <EvidenceActions key={`${r.id}-${r.version}`} detail={e} candidates={candidates} draft={draft.current} paymentHref={paymentLink}
@@ -107,9 +118,9 @@ function PaymentDetail({ id }: { id: number | null }) {
           ['Nguồn xác nhận', p.confirmationSource === null ? '—' : CONFIRMATION_SOURCE_TEXT[p.confirmationSource] ?? p.confirmationSource], ['Biên lai', p.receiptCode ?? '—'],
           ['Kỳ đã mua', p.purchasedStart && p.purchasedEnd ? `${fmtDate(p.purchasedStart)} → ${fmtEndDate(p.purchasedEnd)}` : '—'],
           ...(p.cancelledAt ? [['Owner hủy lúc', fmtSeconds(p.cancelledAt)] as [string, string], ['Lý do hủy', p.cancelReason ?? '—'] as [string, string]] : []),
-        ]} />{p.evidenceId && <Link className="mt-4 inline-flex text-brand underline" to={`/nen-tang/thanh-toan?evidenceId=${p.evidenceId}`}>Xem chứng từ ngân hàng</Link>}</Card>}
+        ]} />{p.evidenceId && <Link className="mt-4 inline-flex min-h-6 items-center text-brand underline" to={`/nen-tang/thanh-toan?evidenceId=${p.evidenceId}`}>Xem chứng từ ngân hàng</Link>}</Card>}
     </section>
-    <Link className="mt-4 inline-flex font-semibold text-brand underline" to="/nen-tang/thanh-toan">Quay lại danh sách thanh toán</Link>
+    <Link className="mt-4 inline-flex min-h-6 items-center font-semibold text-brand underline" to="/nen-tang/thanh-toan">Quay lại danh sách thanh toán</Link>
   </Layout>
 }
 
@@ -136,11 +147,11 @@ function EvidenceList({ filters, refresh, selected, choose, preview, changePage,
           onClick={(event) => activateTableRow(event, () => choose(e.id))}
           onKeyDown={(event) => activateTableRowByKey(event, () => choose(e.id))}
         >
-          <Td><button type="button" className="font-semibold text-brand underline" aria-current={selected === e.id ? 'true' : undefined} onClick={() => choose(e.id)}>{e.maskedTransactionId}</button></Td>
-          <Td>{fmtVnd(e.amount)}<div>{e.content ?? '—'}</div></Td><Td>{fmtSeconds(e.bankPaidAt)}</Td><Td><Badge tone="outline">{REVIEW_TEXT[e.reviewStatus]}</Badge><div>{MATCH_TEXT[e.matchResult]}</div></Td>
+          <Td><button type="button" className="inline-flex min-h-6 items-center font-semibold text-brand underline" aria-current={selected === e.id ? 'true' : undefined} onClick={() => choose(e.id)}>{e.maskedTransactionId}</button></Td>
+          <Td>{fmtVnd(e.amount)}<div>{e.content ?? '—'}</div></Td><Td>{fmtSeconds(e.bankPaidAt)}</Td><Td><Badge tone={reviewTone(e.reviewStatus)}>{REVIEW_TEXT[e.reviewStatus]}</Badge><div>{MATCH_TEXT[e.matchResult]}</div></Td>
         </tr>)}</tbody></Table>}
     </Card>
-    {data.total > 0 && <div className="mt-3"><Pagination page={data.page + 1} pageCount={Math.ceil(data.total / 20)} onChange={(p) => changePage(p - 1)} summary={`${data.total} chứng từ`} /></div>}
+    {data.total > 0 && <div className="mt-3"><Pagination page={data.page + 1} pageCount={Math.ceil(data.total / 20)} onChange={(p) => changePage(p - 1)} summary={`Hiển thị ${data.page * 20 + 1}–${data.page * 20 + data.items.length} trong ${data.total} chứng từ`} /></div>}
     {/* Auto-open only after the current page arrives; explicit source links are retained by the parent. */}
     <AutoSelect rows={loading ? [] : data.items} selected={selected} choose={preview} />
   </div>
@@ -166,10 +177,10 @@ function PaymentList({ filters, refresh, changePage, reload }: { filters: Paymen
         className={interactiveRowClass}
         onClick={(event) => activateTableRow(event, () => navigate(paymentLink(p.id)))}
         onKeyDown={(event) => activateTableRowByKey(event, () => navigate(paymentLink(p.id)))}
-      ><Td><Link className="font-semibold text-brand underline" to={paymentLink(p.id)}>{p.quoteRef}</Link><div>{p.farmName}</div></Td>
-        <Td>{p.termYears} năm<div>{fmtVnd(p.amount)}</div></Td><Td>{fmtSeconds(p.requestedAt)}<div>{fmtSeconds(p.expiresAt)}</div></Td><Td><Badge tone="outline">{PAYMENT_STATE_LABEL[p.state]}</Badge></Td>
+      ><Td><Link className="inline-flex min-h-6 items-center font-semibold text-brand underline" to={paymentLink(p.id)}>{p.quoteRef}</Link><div>{p.farmName}</div></Td>
+        <Td>{p.termYears} năm<div>{fmtVnd(p.amount)}</div></Td><Td>{fmtSeconds(p.requestedAt)}<div>{fmtSeconds(p.expiresAt)}</div></Td><Td><Badge tone={PAYMENT_STATE_TONE[p.state]}>{PAYMENT_STATE_LABEL[p.state]}</Badge></Td>
         <Td>{p.evidenceId ? <Link className="text-brand underline" to={`/nen-tang/thanh-toan?evidenceId=${p.evidenceId}`}>Xem chứng từ</Link> : '—'}</Td></tr>)}</tbody></Table>}</Card>
-    {data.total > 0 && <div className="mt-3"><Pagination page={data.page + 1} pageCount={Math.ceil(data.total / 20)} onChange={(p) => changePage(p - 1)} summary={`${data.total} yêu cầu`} /></div>}
+    {data.total > 0 && <div className="mt-3"><Pagination page={data.page + 1} pageCount={Math.ceil(data.total / 20)} onChange={(p) => changePage(p - 1)} summary={`Hiển thị ${data.page * 20 + 1}–${data.page * 20 + data.items.length} trong ${data.total} yêu cầu`} /></div>}
   </div>
 }
 
@@ -226,7 +237,7 @@ function Workbench({ account }: { account: string }) {
     <div className="mb-4"><Segmented value={tab} onChange={switchTab} options={[{ value: 'evidence', label: 'Chứng từ ngân hàng' }, { value: 'requests', label: 'Yêu cầu thanh toán' }]} /></div>
     {tab === 'evidence' ? <>
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <FilterSelect aria-label="Trạng thái xem xét" value={controls.status} onChange={(e) => changeEvidence({ status: e.target.value })}>
+        <FilterSelect size="lg" aria-label="Trạng thái xem xét" value={controls.status} onChange={(e) => changeEvidence({ status: e.target.value })}>
           <option value="ALL">Trạng thái: Tất cả</option>{['TO_REVIEW', 'HOLD', 'REJECTED', 'ACCEPTED', 'LOCKED'].map((s) => <option key={s} value={s}>{REVIEW_TEXT[s]}</option>)}
         </FilterSelect>
         <div className="w-[170px]"><label htmlFor="bank-from" className="text-xs text-muted">Ngày ngân hàng từ</label><DateInput id="bank-from" label="Ngày ngân hàng từ" value={controls.bankFrom} onChange={(bankFrom) => changeEvidence({ bankFrom })} /></div>
@@ -239,8 +250,8 @@ function Workbench({ account }: { account: string }) {
         {params.has('evidenceId') && idOf(params.get('evidenceId')) === null ? <p role="alert">Mã chứng từ không hợp lệ.</p> : selected && <EvidencePanel key={selected} id={selected} refresh={refresh} onDone={done} onStale={stale} />}
       </div>
     </> : <>
-      <div className="mb-4 flex flex-wrap gap-3"><input className={`${inputCls} w-[280px] max-w-full`} maxLength={100} aria-label="Tìm mã thanh toán hoặc tên trại" placeholder="Mã thanh toán / tên trại…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <FilterSelect aria-label="Trạng thái thanh toán" value={payments.state} onChange={(e) => setPayments((old) => ({ ...old, state: e.target.value, page: 0 }))}>
+      <div className="mb-4 flex flex-wrap gap-3"><div className="w-[280px] max-w-full"><SearchInput maxLength={100} aria-label="Tìm mã thanh toán hoặc tên trại" placeholder="Mã thanh toán / tên trại…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+        <FilterSelect size="lg" aria-label="Trạng thái thanh toán" value={payments.state} onChange={(e) => setPayments((old) => ({ ...old, state: e.target.value, page: 0 }))}>
           <option value="">Trạng thái: Tất cả</option>{['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].map((s) => <option key={s} value={s}>{PAYMENT_STATE_LABEL[s as keyof typeof PAYMENT_STATE_LABEL]}</option>)}
         </FilterSelect></div>
       <PaymentList filters={payments} refresh={refresh} changePage={(page) => { if (page < 0) { setSearch(''); setPayments(PAYMENTS) } else setPayments((old) => ({ ...old, page })) }} reload={reload} />

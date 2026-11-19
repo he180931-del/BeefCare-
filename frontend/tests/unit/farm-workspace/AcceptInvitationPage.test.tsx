@@ -44,8 +44,8 @@ describe('UC-FE03-04 / SCR-15', () => {
     expect(screen.getByText('Nguyễn Văn Hùng')).toBeInTheDocument()
     expect(screen.getByText('14/11/2026 09:00')).toBeInTheDocument()
     expect(screen.getByText('21/11/2026 09:00')).toBeInTheDocument()
-    expect(screen.getByText('Thư điện tử được mời').nextSibling).toHaveTextContent('moi@example.test')
-    expect(screen.getByText('Thư điện tử đang đăng nhập').nextSibling).toHaveTextContent('moi@example.test')
+    expect(screen.getByText('Email được mời').nextSibling).toHaveTextContent('moi@example.test')
+    expect(screen.getByText('Email đang đăng nhập').nextSibling).toHaveTextContent('moi@example.test')
     expect(screen.getByText('Quyền của vai trò')).toBeInTheDocument()
   })
 

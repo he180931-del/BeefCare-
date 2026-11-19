@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Button, Field, Note, Radio, Textarea } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
+import { DISCARD_PROMPT } from '../../farm-workspace/domain/discardPrompt'
 import { platformAdminApi } from '../api/platformAdminApi'
 import {
   MSG, OPERATION_LABEL, PLATFORM_ROLES, REASON_MAX, ROLE_LABEL, accessButtonLabel, accessDoneMessage, formatPlatformDateTime, noAccessActionReason,
@@ -129,12 +130,12 @@ export default function AccessDialog({ account, onClose, onDone, onRefused }: {
           </ul>
         )}
       </section>
-      {discarding && <Note tone="warn">Bỏ thông tin bạn đã nhập?</Note>}
+      {discarding && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
       <ModalFooter className="!px-0 !pb-0">
         {discarding ? (
           <>
-            <ModalButton onClick={() => setDiscarding(false)}>Tiếp tục nhập</ModalButton>
-            <ModalButton variant="danger" onClick={onClose}>Bỏ thông tin</ModalButton>
+            <ModalButton onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</ModalButton>
+            <ModalButton variant="danger" onClick={onClose}>{DISCARD_PROMPT.discard}</ModalButton>
           </>
         ) : (
           <>

@@ -18,7 +18,8 @@ export function BreedMultiSelect({ id, value, onChange }: { id: string; value: s
   const label = STARTER_BREEDS.filter((breed) => value.includes(breed.code)).map((breed) => breed.name).join(', ') || 'Chọn giống'
   return (
     <div ref={containerRef} className="relative">
-      <button type="button" id={id} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className={`${inputCls} flex cursor-pointer items-center justify-between gap-2 text-left`}>
+      {/* A <button> always matches :read-only, so inputCls would grey it out like a locked field; keep it white as in Figma. */}
+      <button type="button" id={id} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} className={`${inputCls} flex cursor-pointer items-center justify-between gap-2 text-left !bg-white !text-ink`}>
         <span className="truncate">{label}</span><Icon name="chevron-down" className="shrink-0 text-muted" />
       </button>
       {open && (

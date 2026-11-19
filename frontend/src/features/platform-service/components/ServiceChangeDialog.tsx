@@ -5,6 +5,7 @@ import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Icon } from '../../../components/Icon'
 import { ErrorBlock, Info, LoadingBlock, Note } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
+import { DISCARD_PROMPT } from '../../farm-workspace/domain/discardPrompt'
 import { platformServiceApi } from '../api/platformServiceApi'
 import type { FarmOverview, FarmServicePreview, ServiceStatus } from '../types'
 import { fmtDate } from '../domain/dates'
@@ -38,8 +39,11 @@ export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { f
   const preview = useQuery(() => platformServiceApi.getFarmService(farm.farmId), [farm.farmId])
   const [reason, setReason] = useState('')
   const [fieldError, setFieldError] = useState<string | null>(null)
+  const [discarding, setDiscarding] = useState(false)
   const keys = useRef(new Map<string, string>())
   const { run, busy, error } = useAction()
+  // Table III-1: Hủy / ✕ after typing a reason asks first (MSG-COM-14).
+  const close = () => { if (busy) return; if (reason.trim() && !discarding) setDiscarding(true); else onClose() }
   const p = preview.data
   const name = p?.farmName ?? farm.farmName
 
@@ -76,7 +80,7 @@ export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { f
       sub="Tạm ngưng và khôi phục tách biệt với thanh toán: thanh toán không tự gỡ tạm ngưng."
       topTitle="Dịch vụ trang trại"
       width={640}
-      onClose={onClose}
+      onClose={close}
     >
       {preview.loading && !p ? <LoadingBlock /> : null}
       {preview.error ? <ErrorBlock message={userFacingError(preview.error, 'Không tải được thông tin dịch vụ của trại.')} onRetry={preview.refetch} /> : null}
@@ -91,7 +95,7 @@ export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { f
           </div>
           <div className="mt-3"><Info cols={2} items={items} /></div>
           <div className="mt-3">
-            <ReasonField id="service-reason" label={`${restore ? 'Lý do khôi phục' : 'Lý do tạm ngưng'} *`} value={reason} onChange={setReason} error={fieldError} placeholder="Nhập lý do (tối đa 500 ký tự)" />
+            <ReasonField id="service-reason" label={`${restore ? 'Lý do khôi phục' : 'Lý do tạm ngưng'} *`} value={reason} onChange={(value) => { setReason(value); setDiscarding(false) }} error={fieldError} placeholder="Nhập lý do (tối đa 500 ký tự)" />
           </div>
           <Note tone={restore ? 'info' : 'warn'}>
             {restore
@@ -102,12 +106,24 @@ export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { f
         </>
       ) : null}
       {error ? <p role="alert" className="mt-2 text-[12px] text-err-fg">{error}</p> : null}
-      <ModalFooter>
-        <ModalButton onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" onClick={submit} disabled={busy || !p}>
-          <Icon name={restore ? 'refresh' : 'player-pause'} size={16} />
-          {restore ? 'Khôi phục dịch vụ' : 'Tạm ngưng dịch vụ'}
-        </ModalButton>
+      {discarding ? <Note tone="warn">{DISCARD_PROMPT.question}</Note> : null}
+      {/* No extra footer padding: the buttons line up with the content edge, as in the other dialogs of SCR-16. */}
+      <ModalFooter className="!px-0 !pb-0">
+        {discarding ? (
+          <>
+            <ModalButton onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</ModalButton>
+            <ModalButton variant="danger" onClick={onClose}>{DISCARD_PROMPT.discard}</ModalButton>
+          </>
+        ) : (
+          <>
+            <ModalButton onClick={close}>Hủy</ModalButton>
+            {/* Suspending is the destructive choice (red, as on SCR-14 / SCR-16 / SCR-59); restoring stays primary. */}
+            <ModalButton variant={restore ? 'primary' : 'danger'} onClick={submit} disabled={busy || !p}>
+              <Icon name={restore ? 'refresh' : 'player-pause'} size={16} />
+              {restore ? 'Khôi phục dịch vụ' : 'Tạm ngưng dịch vụ'}
+            </ModalButton>
+          </>
+        )}
       </ModalFooter>
     </Modal>
   )

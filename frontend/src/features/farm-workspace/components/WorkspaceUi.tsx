@@ -2,9 +2,10 @@ import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../api/farmTime
 import type { ReactNode, SelectHTMLAttributes } from 'react'
 import { BackendError } from '../../../api/backendClient'
 import { Icon } from '../../../components/Icon'
+import { serviceView } from '../domain/statusViews'
 
 /** Ô nhập của trang thường theo Figma (cao 36px, bo 4, viền xám); hộp thoại và trang thiết lập dùng `inputCls` (44px). */
-export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted'
+export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted aria-invalid:border-err-fg'
 
 export function PageSelect({ children, className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
@@ -41,9 +42,8 @@ export function roleLabel(role: string) {
   return ({ OWNER: 'Chủ trại', MANAGER: 'Quản lý', TECHNICIAN: 'Kỹ thuật viên' } as Record<string, string>)[role] ?? role
 }
 
-export function serviceLabel(status: string) {
-  return ({ ACTIVE: 'Đang hoạt động', PENDING_PAYMENT: 'Chờ thanh toán', EXPIRED: 'Đã hết hạn', SUSPENDED: 'Tạm ngưng' } as Record<string, string>)[status] ?? status
-}
+/** Same label as SCR-12/61 and SCR-57/58 (domain/statusViews). */
+export const serviceLabel = (status: string) => serviceView(status).label
 
 export function inviteStatusLabel(status: string) {
   return ({ PENDING: 'Đang chờ', ACCEPTED: 'Đã chấp nhận', EXPIRED: 'Hết hạn', CANCELLED: 'Đã hủy' } as Record<string, string>)[status] ?? status
@@ -90,8 +90,9 @@ export function formatMonth(value?: string | null, _timeZone?: string) {
 
 export const initialsOf = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(-2).map((word) => word[0]).join('').toUpperCase() || '?'
 
+/** Same colours as the avatar of the farm top bar (Layout): dark green on light green; white on #bdbdbd was 1.9:1. */
 export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
-  return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-edge text-xs font-semibold text-white">{initialsOf(name)}</span>
+  return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{initialsOf(name)}</span>
 }
 
 const fieldLabels: Record<string, string> = {

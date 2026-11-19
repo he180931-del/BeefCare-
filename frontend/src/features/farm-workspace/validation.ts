@@ -16,6 +16,23 @@ export const compactPhone = (value: string) => value.replace(/[\s.-]/g, '')
 const PHONE = { test: (value: string) => PHONE_PATTERN.test(compactPhone(value)) }
 const NAME = (value: unknown, min: number, max: number) => typeof value === 'string' && value.trim().length >= min && value.trim().length <= max
 const optionalText = (value: unknown, max: number) => value == null || (typeof value === 'string' && value.length <= max)
+const blank = (value: unknown) => typeof value !== 'string' || value.trim() === ''
+
+/**
+ * Name, province and commune of SCR-10 / SCR-11: "{field} là bắt buộc." (MSG-COM-06) when empty, the bounds or list
+ * message only when something was entered.
+ */
+function farmLocationErrors(input: { name?: unknown; province?: string | null; commune?: unknown }) {
+  const errors: { name?: string; province?: string; commune?: string } = {}
+  if (blank(input.name)) errors.name = 'Tên trại là bắt buộc.'
+  else if (!NAME(input.name, 2, 150)) errors.name = 'Tên trại cần có từ 2 đến 150 ký tự.'
+  const province = input.province?.trim() ?? ''
+  if (!province) errors.province = 'Tỉnh/Thành là bắt buộc.'
+  else if (!(PROVINCES as readonly string[]).includes(province)) errors.province = 'Chọn tỉnh hoặc thành phố trong danh sách.'
+  if (blank(input.commune)) errors.commune = 'Xã/Phường là bắt buộc.'
+  else if (!NAME(input.commune, 1, 150)) errors.commune = 'Xã/Phường tối đa 150 ký tự.'
+  return errors
+}
 
 export function validateOwnerProfile(input: Partial<CompleteOwnerProfileInput>): FormErrors<CompleteOwnerProfileInput> {
   const errors: FormErrors<CompleteOwnerProfileInput> = {}
@@ -27,14 +44,11 @@ export function validateOwnerProfile(input: Partial<CompleteOwnerProfileInput>):
 
 /** SCR-10 (UC-FE02-01). Tỉnh phải thuộc danh sách 34 tỉnh/thành (quyết định FE-02 Q3); quy mô dự kiến không bắt buộc. */
 export function validateFarmRegistration(input: Partial<Omit<FarmRegistrationInput, 'expectedHerdSize'>> & { expectedHerdSize?: string }): FormErrors<FarmRegistrationInput> {
-  const errors: FormErrors<FarmRegistrationInput> = {}
-  if (!NAME(input.name, 2, 150)) errors.name = 'Tên trại cần có từ 2 đến 150 ký tự.'
-  if (!(PROVINCES as readonly string[]).includes(input.province?.trim() ?? '')) errors.province = 'Chọn tỉnh hoặc thành phố.'
-  if (!NAME(input.commune, 1, 150)) errors.commune = 'Nhập xã, phường hoặc thị trấn.'
+  const errors: FormErrors<FarmRegistrationInput> = { ...farmLocationErrors(input) }
   if (!optionalText(input.detailedAddress, 255)) errors.detailedAddress = 'Địa chỉ chi tiết tối đa 255 ký tự.'
   if (!optionalText(input.contactPerson, 100)) errors.contactPerson = 'Người liên hệ tối đa 100 ký tự.'
   if (input.contactPhone && !PHONE.test(input.contactPhone.trim())) errors.contactPhone = 'Nhập số điện thoại Việt Nam hợp lệ.'
-  if (!optionalText(input.registrationCertificateInfo, 255)) errors.registrationCertificateInfo = 'Thông tin giấy đăng ký tối đa 255 ký tự.'
+  if (!optionalText(input.registrationCertificateInfo, 255)) errors.registrationCertificateInfo = 'Thông tin giấy chứng nhận tối đa 255 ký tự.'
   if (input.expectedHerdSize && !['UNDER_50', '50_149', '150_300', 'OVER_300'].includes(input.expectedHerdSize)) errors.expectedHerdSize = 'Chọn quy mô đàn dự kiến.'
   if (input.mainBreedCodes != null && !Array.isArray(input.mainBreedCodes)) errors.mainBreedCodes = 'Danh sách giống không hợp lệ.'
   return errors
@@ -45,16 +59,11 @@ export function validateFarmRegistration(input: Partial<Omit<FarmRegistrationInp
  * HH:mm, ghi chú tối đa 1.000 ký tự. Tên tỉnh cũ ngoài danh sách vẫn hiện để Chủ trại thấy và chọn lại.
  */
 export function validateFarmInfo(input: Partial<FarmInfoInput>): FormErrors<FarmInfoInput> {
-  const errors: FormErrors<FarmInfoInput> = {}
-  if (!NAME(input.name, 2, 150)) errors.name = 'Tên trại cần có từ 2 đến 150 ký tự.'
-  const province = input.province?.trim() ?? ''
-  if (!province) errors.province = 'Chọn tỉnh hoặc thành phố.'
-  else if (!(PROVINCES as readonly string[]).includes(province)) errors.province = 'Chọn tỉnh hoặc thành phố trong danh sách.'
-  if (!NAME(input.commune, 1, 150)) errors.commune = 'Nhập xã, phường hoặc thị trấn.'
+  const errors: FormErrors<FarmInfoInput> = { ...farmLocationErrors(input) }
   if (!optionalText(input.detailedAddress, 255)) errors.detailedAddress = 'Địa chỉ chi tiết tối đa 255 ký tự.'
   if (!optionalText(input.contactPerson, 100)) errors.contactPerson = 'Người liên hệ tối đa 100 ký tự.'
   if (input.contactPhone && !PHONE.test(input.contactPhone.trim())) errors.contactPhone = 'Nhập số điện thoại Việt Nam hợp lệ.'
-  if (!optionalText(input.registrationCertificateInfo, 255)) errors.registrationCertificateInfo = 'Thông tin giấy đăng ký tối đa 255 ký tự.'
+  if (!optionalText(input.registrationCertificateInfo, 255)) errors.registrationCertificateInfo = 'Thông tin giấy chứng nhận tối đa 255 ký tự.'
   const timeZone = input.timeZone?.trim() ?? ''
   if (timeZone && !ACCEPTED_FARM_TIME_ZONES.has(timeZone)) errors.timeZone = 'Múi giờ phải là UTC+7.'
   if (input.morningShiftStart && !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(input.morningShiftStart)) errors.morningShiftStart = 'Nhập giờ theo định dạng HH:mm.'
@@ -66,7 +75,7 @@ export function validateInvite(input: Partial<Omit<InviteMemberInput, 'role' | '
   const errors: FormErrors<InviteMemberInput> = {}
   const email = input.email?.trim() ?? ''
   // TC-03-01/02: thiếu giá trị là MSG-COM-06, sai định dạng / quá 254 ký tự là MSG-COM-10.
-  if (!email) errors.email = 'Thư điện tử người nhận là bắt buộc.'
+  if (!email) errors.email = 'Email người nhận là bắt buộc.'
   else if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Nhập địa chỉ email hợp lệ.'
   if (!input.role) errors.role = 'Vai trò là bắt buộc.'
   else if (input.role !== 'MANAGER' && input.role !== 'TECHNICIAN') errors.role = 'Chọn Quản lý hoặc Kỹ thuật viên.'

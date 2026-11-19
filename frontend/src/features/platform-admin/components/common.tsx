@@ -69,6 +69,9 @@ export function SaPage({ title, children }: { title: string; children: ReactNode
 
 export const restPathId = (rest: string | undefined) => Number((rest ?? '').split('/')[0]) || null
 
+/** From xl (1280 px) the detail panel sits beside the list; below it the panel is under the list and must be scrolled to. */
+export const wideScreen = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1280px)').matches
+
 /** Giữ ?q= và các query khác nhưng bỏ ?m= khi chọn một dòng khác. */
 export function searchWithoutModal(params: URLSearchParams) {
   const next = new URLSearchParams(params)

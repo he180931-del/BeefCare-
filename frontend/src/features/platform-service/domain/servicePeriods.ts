@@ -1,3 +1,4 @@
+import { SERVICE_STATUS_VIEW } from '../../farm-workspace/domain/statusViews'
 import type { PeriodState, PurchasedPeriod, ServiceStatus, TermYears } from '../types'
 import { addDays, addYears } from './dates'
 
@@ -34,11 +35,12 @@ export function validateReason(reason: string, label = 'Lý do', max = 500) {
   return null
 }
 
+/** Same labels as SCR-09/11 and SCR-57/58 (farm-workspace/domain/statusViews). */
 export const STATUS_LABEL: Record<ServiceStatus, string> = {
-  ACTIVE: 'Đang hoạt động',
-  PENDING_PAYMENT: 'Chờ thanh toán',
-  EXPIRED: 'Hết hạn',
-  SUSPENDED: 'Tạm ngưng',
+  ACTIVE: SERVICE_STATUS_VIEW.ACTIVE.label,
+  PENDING_PAYMENT: SERVICE_STATUS_VIEW.PENDING_PAYMENT.label,
+  EXPIRED: SERVICE_STATUS_VIEW.EXPIRED.label,
+  SUSPENDED: SERVICE_STATUS_VIEW.SUSPENDED.label,
 }
 export const PERIOD_STATE_LABEL: Record<PeriodState, string> = { CURRENT: 'Hiện tại', FUTURE: 'Tương lai', PAST: 'Đã qua' }
 export const shortFarmName = (name: string) => (name.replace(/^Trại( bò)?\s+/, '').split(' – ')[0] ?? name)

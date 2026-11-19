@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { BackendError } from '../../../api/backendClient'
 import { Icon } from '../../../components/Icon'
 import Modal, { ModalButton } from '../../../components/Modal'
@@ -40,6 +40,11 @@ export default function FarmRegistrationPage() {
   }, [ownerProfile.data])
   const set = <K extends keyof FarmRegistrationInput>(key: K, value: FarmRegistrationInput[K]) => setForm((current) => ({ ...current, [key]: value }))
   const openOwnerProfile = () => navigate('/owner-registration', { replace: true })
+  // SCR-10 #11 "Quay lại" returns to SCR-07 / SCR-09: the previous page of the app when there is one (SCR-07 during
+  // onboarding, SCR-09 otherwise); a page opened straight from a link ("default" location) goes to Select Farm instead
+  // of leaving BeefCare.
+  const location = useLocation()
+  const back = () => (location.key === 'default' ? navigate('/chon-trai') : navigate(-1))
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     const next = validateFarmRegistration(form)
@@ -67,23 +72,24 @@ export default function FarmRegistrationPage() {
       <Card title="Đăng ký trang trại">
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           {error && <Note tone="err">{error}</Note>}
-          <Field label="Tên trại *" id="farm-name"><input id="farm-name" autoComplete="organization" maxLength={150} placeholder="Trại Tản Lĩnh" value={form.name} onChange={(event) => set('name', event.target.value)} className={inputCls} /><FieldError>{errors.name}</FieldError></Field>
+          <Field label="Tên trại *" id="farm-name"><input id="farm-name" aria-invalid={errors.name ? true : undefined} autoComplete="organization" maxLength={150} placeholder="Trại Tản Lĩnh" value={form.name} onChange={(event) => set('name', event.target.value)} className={inputCls} /><FieldError>{errors.name}</FieldError></Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Tỉnh/Thành *" id="farm-province"><Select className="[&_select]:!bg-white" id="farm-province" value={form.province} onChange={(event) => set('province', event.target.value)}><option value="">Chọn tỉnh/thành</option>{PROVINCES.map((name) => <option key={name} value={name}>{name}</option>)}</Select><FieldError>{errors.province}</FieldError></Field>
-            <Field label="Xã/Phường *" id="farm-commune"><input id="farm-commune" autoComplete="address-level2" maxLength={150} placeholder="Xã Tản Lĩnh, Ba Vì" value={form.commune} onChange={(event) => set('commune', event.target.value)} className={inputCls} /><FieldError>{errors.commune}</FieldError></Field>
+            <Field label="Tỉnh/Thành *" id="farm-province"><Select className="[&_select]:!bg-white" id="farm-province" aria-invalid={errors.province ? true : undefined} value={form.province} onChange={(event) => set('province', event.target.value)}><option value="">Chọn tỉnh/thành</option>{PROVINCES.map((name) => <option key={name} value={name}>{name}</option>)}</Select><FieldError>{errors.province}</FieldError></Field>
+            <Field label="Xã/Phường *" id="farm-commune"><input id="farm-commune" aria-invalid={errors.commune ? true : undefined} autoComplete="address-level2" maxLength={150} placeholder="Xã Tản Lĩnh, Ba Vì" value={form.commune} onChange={(event) => set('commune', event.target.value)} className={inputCls} /><FieldError>{errors.commune}</FieldError></Field>
           </div>
-          <Field label="Địa chỉ chi tiết (không bắt buộc)" id="farm-address"><input id="farm-address" autoComplete="street-address" maxLength={255} placeholder="Thôn Bơn, xã Tản Lĩnh" value={form.detailedAddress} onChange={(event) => set('detailedAddress', event.target.value)} className={inputCls} /><FieldError>{errors.detailedAddress}</FieldError></Field>
+          <Field label="Địa chỉ chi tiết (không bắt buộc)" id="farm-address"><input id="farm-address" aria-invalid={errors.detailedAddress ? true : undefined} autoComplete="street-address" maxLength={255} placeholder="Thôn Bơn, xã Tản Lĩnh" value={form.detailedAddress} onChange={(event) => set('detailedAddress', event.target.value)} className={inputCls} /><FieldError>{errors.detailedAddress}</FieldError></Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Người liên hệ" id="farm-contact-person"><input id="farm-contact-person" maxLength={100} value={form.contactPerson} onChange={(event) => set('contactPerson', event.target.value)} className={inputCls} /><FieldError>{errors.contactPerson}</FieldError></Field>
-            <Field label="Điện thoại liên hệ" id="farm-contact-phone"><input id="farm-contact-phone" type="tel" value={form.contactPhone} onChange={(event) => set('contactPhone', event.target.value)} className={inputCls} /><FieldError>{errors.contactPhone}</FieldError></Field>
+            <Field label="Người liên hệ" id="farm-contact-person"><input id="farm-contact-person" aria-invalid={errors.contactPerson ? true : undefined} maxLength={100} value={form.contactPerson} onChange={(event) => set('contactPerson', event.target.value)} className={inputCls} /><FieldError>{errors.contactPerson}</FieldError></Field>
+            <Field label="Điện thoại liên hệ" id="farm-contact-phone"><input id="farm-contact-phone" aria-invalid={errors.contactPhone ? true : undefined} type="tel" value={form.contactPhone} onChange={(event) => set('contactPhone', event.target.value)} className={inputCls} /><FieldError>{errors.contactPhone}</FieldError></Field>
           </div>
-          <Field label="Thông tin giấy chứng nhận" id="farm-certificate"><input id="farm-certificate" maxLength={255} placeholder="Số 01/GCN-TT – UBND huyện Ba Vì" value={form.registrationCertificateInfo} onChange={(event) => set('registrationCertificateInfo', event.target.value)} className={inputCls} /><FieldError>{errors.registrationCertificateInfo}</FieldError></Field>
+          <Field label="Thông tin giấy chứng nhận" id="farm-certificate"><input id="farm-certificate" aria-invalid={errors.registrationCertificateInfo ? true : undefined} maxLength={255} placeholder="Số 01/GCN-TT – UBND huyện Ba Vì" value={form.registrationCertificateInfo} onChange={(event) => set('registrationCertificateInfo', event.target.value)} className={inputCls} /><FieldError>{errors.registrationCertificateInfo}</FieldError></Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Quy mô dự kiến" id="farm-herd-size"><Select className="[&_select]:!bg-white" id="farm-herd-size" value={form.expectedHerdSize ?? ''} onChange={(event) => set('expectedHerdSize', event.target.value as ExpectedHerdSize | '')}><option value="">Chọn quy mô</option>{HERD_SIZES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><FieldError>{errors.expectedHerdSize}</FieldError></Field>
+            <Field label="Quy mô dự kiến" id="farm-herd-size"><Select className="[&_select]:!bg-white" id="farm-herd-size" aria-invalid={errors.expectedHerdSize ? true : undefined} value={form.expectedHerdSize ?? ''} onChange={(event) => set('expectedHerdSize', event.target.value as ExpectedHerdSize | '')}><option value="">Chọn quy mô</option>{HERD_SIZES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><FieldError>{errors.expectedHerdSize}</FieldError></Field>
             <Field label="Giống chủ lực" id="farm-breeds" hint="Chọn nhiều từ danh mục giống có sẵn · giống được chọn bật sẵn cho trại"><BreedMultiSelect id="farm-breeds" value={form.mainBreedCodes ?? []} onChange={(codes) => set('mainBreedCodes', codes)} /></Field>
           </div>
-          <div className="flex flex-wrap justify-between gap-3">
-            <Button size="lg" onClick={() => navigate(-1)}><Icon name="arrow-left" size={16} />Quay lại</Button>
+          {/* Both buttons on the right, as in Figma 2473:6863. */}
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button size="lg" onClick={back}><Icon name="arrow-left" size={16} />Quay lại</Button>
             <Button type="submit" variant="primary" size="lg" disabled={saving || profileRequired}><Icon name="circle-plus" size={16} />{saving ? 'Đang tạo trại…' : 'Tạo trại và tiếp tục'}</Button>
           </div>
         </form>

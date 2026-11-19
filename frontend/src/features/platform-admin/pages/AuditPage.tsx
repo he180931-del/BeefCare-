@@ -8,7 +8,7 @@ import {
 import { useQuery } from '../../../hooks/useApi'
 import { useDemoState } from '../../../hooks/useDemoState'
 import { platformAdminApi } from '../api/platformAdminApi'
-import { ICON_BUTTON, PersonCell, SaPage, Toast, restPathId, searchWithoutModal } from '../components/common'
+import { ICON_BUTTON, PersonCell, SaPage, Toast, restPathId, searchWithoutModal, wideScreen } from '../components/common'
 import SearchSelect from '../components/SearchSelect'
 import {
   AUDIT_RANGE_HINT, AUDIT_TARGET_TYPES, auditActionLabel, auditChanges, auditRoleLabel, formatPlatformDateTime, targetTypeLabel, validateAuditRange,
@@ -17,8 +17,6 @@ import type { AuditFilters } from '../types'
 
 const PAGE_SIZE = 20
 const TITLE = 'Lịch sử audit nền tảng'
-/** Selects match the 46 px date and search fields (local to this page; the shared FilterSelect stays 38 px). */
-const SELECT_CLS = 'w-full [&_select]:h-[46px] [&_select]:rounded-xl [&_select]:text-sm'
 const LABEL_CLS = 'text-xs font-medium text-ink'
 /** Red border on both date boxes while the range is invalid (the message below has role="alert"). */
 const DATE_INVALID_CLS = '[&>div]:border-err-fg'
@@ -33,7 +31,6 @@ const ROW_CLS = '@max-[560px]:grid @max-[560px]:grid-cols-[minmax(0,1fr)_auto] @
   + '@max-[560px]:border-b @max-[560px]:border-rule @max-[560px]:px-3 @max-[560px]:py-3 @max-[560px]:last:border-b-0'
 // `!`: Td's own first:pl-3 / last:pr-3 / border-b are more specific than a container-query utility.
 const CELL_CLS = '@max-[560px]:border-0! @max-[560px]:p-0!'
-const wideScreen = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1280px)').matches
 /** MSG-COM-03 / MSG-COM-04. */
 const LOAD_ERROR = 'Không thể tải dữ liệu.'
 const NO_MATCH = 'Không có bản ghi phù hợp.'
@@ -212,7 +209,8 @@ function AuditContent() {
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="audit-target-type" className={LABEL_CLS}>Loại đối tượng</label>
-          <FilterSelect id="audit-target-type" className={SELECT_CLS} aria-label="Lọc theo loại đối tượng" value={targetType} onChange={(e) => filterChange(() => setTargetType(e.target.value as typeof targetType))}>
+          {/* 46 px like the date and search fields beside it. */}
+          <FilterSelect id="audit-target-type" size="lg" className="w-full" aria-label="Lọc theo loại đối tượng" value={targetType} onChange={(e) => filterChange(() => setTargetType(e.target.value as typeof targetType))}>
             <option value="">Tất cả</option>
             {AUDIT_TARGET_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </FilterSelect>
@@ -234,7 +232,7 @@ function AuditContent() {
                   <thead>
                     <tr>
                       <Th className="w-[108px]" aria-sort={dir === 'asc' ? 'ascending' : 'descending'}>
-                        <button type="button" className="inline-flex cursor-pointer items-center gap-1" onClick={() => filterChange(() => setDir(dir === 'asc' ? 'desc' : 'asc'))}>
+                        <button type="button" className="inline-flex min-h-6 cursor-pointer items-center gap-1" onClick={() => filterChange(() => setDir(dir === 'asc' ? 'desc' : 'asc'))}>
                           Thời gian <span aria-hidden="true">{dir === 'asc' ? '↑' : '↓'}</span>
                         </button>
                       </Th>
@@ -271,7 +269,7 @@ function AuditContent() {
                   </tbody>
                 </Table>
               </div>
-              <Pagination page={page} pageCount={data.totalPages} onChange={setPage} summary={`${data.totalElements} mục trong khoảng đã chọn`} />
+              <Pagination page={page} pageCount={data.totalPages} onChange={setPage} summary={`Hiển thị ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rows.length} trong ${data.totalElements} mục`} />
             </Card>
           ) : (
             <EmptyBlock title={NO_MATCH} action={<Button onClick={clearFilters}>Xóa bộ lọc</Button>} />

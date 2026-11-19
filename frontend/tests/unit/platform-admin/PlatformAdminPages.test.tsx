@@ -53,6 +53,20 @@ describe('Tài khoản người dùng', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('màn hẹp hơn 1280px: chọn một dòng thì cuộn tới khung chi tiết nằm dưới danh sách (UI review B3)', async () => {
+    const scrolled: Element[] = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) { scrolled.push(this) }
+    try {
+      const user = userEvent.setup()
+      renderAt('/nen-tang/tai-khoan')
+      await screen.findByRole('button', { name: /Hồ Văn Tài/ })
+      expect(scrolled).toHaveLength(0) // the first row shown by default is not a choice of the SA
+      await user.click(screen.getByRole('button', { name: /Hồ Văn Tài/ }))
+      await waitFor(() => expect(scrolled.some((el) => el.textContent?.includes('tai.hv@gmail.com · '))).toBe(true))
+    } finally { Element.prototype.scrollIntoView = original }
+  })
+
   it('tài khoản của chính SA không có lý do / nút Tạm ngưng (D32)', async () => {
     renderAt('/nen-tang/tai-khoan/4')
     expect(await screen.findByText('Bạn không thể tạm ngưng tài khoản của chính mình.')).toBeInTheDocument()
@@ -213,9 +227,12 @@ describe('Quyền nhân viên nền tảng trên SCR-16 (UC9, D33)', () => {
     dialog = await screen.findByRole('dialog', { name: 'Quyền nhân viên nền tảng' })
     await user.type(within(dialog).getByPlaceholderText(/Nhập lý do/), 'Đổi nhóm')
     await user.click(within(dialog).getByRole('button', { name: 'Hủy' }))
-    expect(within(dialog).getByText('Bỏ thông tin bạn đã nhập?')).toBeInTheDocument()
+    expect(within(dialog).getByText('Bỏ thông tin đã nhập?')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục nhập' }))
     expect(within(dialog).getByPlaceholderText(/Nhập lý do/)).toHaveValue('Đổi nhóm')
+    await user.click(within(dialog).getByRole('button', { name: 'Hủy' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Bỏ' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
 
@@ -223,7 +240,7 @@ describe('Lịch sử audit nền tảng (SCR-51, D34)', () => {
   it('mặc định 7 ngày, chọn dòng xem trước / sau, đảo chiều thời gian và lọc theo hành động', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/audit')
-    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–5 trong 5 mục')).toBeInTheDocument()
     expect(screen.getByText('Tối đa 12 tháng')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Xuất CSV/ })).not.toBeInTheDocument()
     expect(await screen.findByText('req-7f21-aa90')).toBeInTheDocument()
@@ -245,20 +262,20 @@ describe('Lịch sử audit nền tảng (SCR-51, D34)', () => {
     await user.type(actionFilter, 'xac nhan thanh')
     await user.click(await screen.findByRole('option', { name: /Xác nhận thanh toán/ }))
     expect(actionFilter).toHaveValue('Xác nhận thanh toán')
-    expect(await screen.findByText('1 mục trong khoảng đã chọn')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–1 trong 1 mục')).toBeInTheDocument()
   })
 
   it('ô người thực hiện tìm theo tên hoặc "Hệ thống"; không có kết quả thì hiện MSG-COM-04 và Xóa bộ lọc', async () => {
     const user = userEvent.setup()
     renderAt('/nen-tang/audit')
-    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–5 trong 5 mục')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Tìm người thực hiện'), 'Hệ thống')
-    expect(await screen.findByText('1 mục trong khoảng đã chọn')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–1 trong 1 mục')).toBeInTheDocument()
     await user.clear(screen.getByLabelText('Tìm người thực hiện'))
     await user.type(screen.getByLabelText('Tìm người thực hiện'), 'không có ai')
     expect(await screen.findByText('Không có bản ghi phù hợp.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
-    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–5 trong 5 mục')).toBeInTheDocument()
   })
 
   it('mở trực tiếp một mục ngoài khoảng đang xem; không bao giờ hiển thị nội dung ngoài danh sách cho phép', async () => {
@@ -271,7 +288,7 @@ describe('Lịch sử audit nền tảng (SCR-51, D34)', () => {
 
   it('hai ô ngày có tên riêng; khoảng ngày sai thì hai ô viền đỏ và chân trang dùng "Quản trị hệ thống"', async () => {
     renderAt('/nen-tang/audit')
-    expect(await screen.findByText('5 mục trong khoảng đã chọn')).toBeInTheDocument()
+    expect(await screen.findByText('Hiển thị 1–5 trong 5 mục')).toBeInTheDocument()
     const from = screen.getByLabelText('Từ ngày')
     const to = screen.getByLabelText('Đến ngày')
     expect(screen.queryByLabelText('Chọn ngày')).not.toBeInTheDocument()

@@ -109,11 +109,14 @@ describe('Chọn thời hạn và tạo yêu cầu', () => {
     const user = userEvent.setup()
     renderAt('/dang-ky-goi', 'OWNER')
     expect(await screen.findByText('Đăng ký gói dịch vụ · Trại Tản Lĩnh')).toBeInTheDocument()
-    expect(screen.getByText('Đang chờ thanh toán')).toBeInTheDocument()
+    expect(screen.getByText('Chờ thanh toán')).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: /1 năm/ }))
     await user.click(screen.getByRole('button', { name: /Tạo yêu cầu thanh toán/ }))
     expect(await screen.findByText(/Yêu cầu BCK4M7R2 · 1 năm · Trại Tản Lĩnh/)).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('from=onboarding')
+    // SCR-59 stays in the onboarding shell like SCR-58: no sidebar or farm switcher of the farm this tab was in.
+    expect(screen.getByRole('list', { name: 'Các bước đăng ký' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Tổng quan' })).not.toBeInTheDocument()
   })
 })
 
@@ -142,7 +145,8 @@ describe('Hướng dẫn chuyển khoản', () => {
     renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9', 'OWNER')
     expect(await screen.findByText('Thông tin chuyển khoản')).toBeInTheDocument()
     expect(screen.getByText(/^23:\d\d:\d\d$/)).toBeInTheDocument()
-    expect(screen.getByText('08:42 19/10/2026')).toBeInTheDocument()
+    // dd/mm/yyyy HH:mm as in SCR-59 #5, Table III-1 and the other screens (UI review E2).
+    expect(screen.getByText('19/10/2026 08:42')).toBeInTheDocument()
     expect(screen.getByText('MB Bank (Ngân hàng Quân đội)')).toBeInTheDocument()
     expect(screen.getByText('Ngân hàng ghi nhận giao dịch').closest('tr')).toHaveTextContent('Đang chờ')
     expect(screen.getAllByRole('button', { name: /^Sao chép/ })).toHaveLength(5)
@@ -177,6 +181,21 @@ describe('Hướng dẫn chuyển khoản', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Chưa lấy được kết quả thanh toán' })
     expect(within(dialog).getByText('BCF7K2Q9 · 1 năm')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Thử lại' })).toBeInTheDocument()
+  })
+
+  it('hủy yêu cầu: đã nhập lý do thì đóng hộp thoại phải hỏi lại (MSG-COM-14, UI review B6)', async () => {
+    const user = userEvent.setup()
+    renderAt('/goi-dich-vu/chuyen-khoan/BCF7K2Q9', 'OWNER')
+    await user.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Hủy yêu cầu thanh toán' })
+    await user.type(within(dialog).getByLabelText('Lý do (không bắt buộc)'), 'Chọn nhầm kỳ hạn')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    expect(within(dialog).getByText('Bỏ thông tin đã nhập?')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục nhập' }))
+    expect(within(dialog).getByLabelText('Lý do (không bắt buộc)')).toHaveValue('Chọn nhầm kỳ hạn')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Bỏ' }))
+    expect(screen.queryByRole('dialog', { name: 'Hủy yêu cầu thanh toán' })).not.toBeInTheDocument()
   })
 
   it('yêu cầu đã hết hạn: ẩn mã QR và mời tạo yêu cầu mới', async () => {

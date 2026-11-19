@@ -5,7 +5,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { Icon } from '../../../components/Icon'
 import Layout from '../../../components/Layout'
 import Modal, { ModalFooter, useModalParam } from '../../../components/Modal'
-import { Badge, Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../components/ui'
 import { useSession } from '../../authorization'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { InviteDialog } from '../components/InviteDialog'
@@ -128,8 +128,11 @@ export default function InvitationsPage() {
       {error && <Note tone="err">{error}</Note>}{notice && <Note tone="ok">{notice}</Note>}
       {!farmActive && <Note>Dịch vụ trại hiện không hoạt động. Bạn vẫn có thể xem và hủy lời mời đang chờ.</Note>}
       <div><Segmented value={selectedStatus} onChange={status => changeList(status as InvitationStatus, dir)} options={STATUSES.map(status => ({ value: status, label: `${inviteStatusLabel(status)} (${invitations.counts[status]})`, disabled: busy !== null }))} /></div>
-      <Table>
-        <thead><tr><Th>Người nhận</Th><Th>Vai trò</Th><Th aria-sort={dir === 'desc' ? 'descending' : 'ascending'}><button type="button" disabled={busy !== null} className="inline-flex cursor-pointer items-center gap-1" onClick={() => changeList(selectedStatus, dir === 'desc' ? 'asc' : 'desc')}>Gửi lần cuối <span aria-hidden="true">{dir === 'desc' ? '↓' : '↑'}</span></button></Th><Th>Hết hạn</Th><Th>Trạng thái</Th><Th>Thao tác</Th></tr></thead>
+      {/* The empty state stays outside the table: phones stack table cells as labelled cards (Table III-1). */}
+      {invitations.items.length === 0 ? (
+        <EmptyBlock title="Không có bản ghi phù hợp với bộ lọc." action={<Button onClick={() => { changeList('PENDING', 'desc'); refresh() }}>Xóa bộ lọc</Button>} />
+      ) : <Table>
+        <thead><tr><Th>Người nhận</Th><Th>Vai trò</Th><Th aria-sort={dir === 'desc' ? 'descending' : 'ascending'}><button type="button" disabled={busy !== null} className="inline-flex min-h-6 cursor-pointer items-center gap-1" onClick={() => changeList(selectedStatus, dir === 'desc' ? 'asc' : 'desc')}>Gửi lần cuối <span aria-hidden="true">{dir === 'desc' ? '↓' : '↑'}</span></button></Th><Th>Hết hạn</Th><Th>Trạng thái</Th><Th>Thao tác</Th></tr></thead>
         <tbody>
           {invitations.items.map(item => (
             <tr key={item.id}>
@@ -139,9 +142,8 @@ export default function InvitationsPage() {
               <Td>{item.status === 'PENDING' && <span className="inline-flex flex-wrap items-center"><Button variant="link" size="sm" disabled={busy !== null || !farmActive} onClick={() => run(item, 'resend')}>Gửi lại</Button>·<Button variant="link" size="sm" disabled={busy !== null} onClick={() => openCancel(item)}>Hủy</Button></span>}</Td>
             </tr>
           ))}
-          {!invitations.items.length && <tr><Td colSpan={6} className="py-8 text-center text-subtle"><p>Không có bản ghi phù hợp với bộ lọc.</p><Button onClick={() => { changeList('PENDING', 'desc'); refresh() }}>Xóa bộ lọc</Button></Td></tr>}
         </tbody>
-      </Table>
+      </Table>}
       <Pagination page={page + 1} pageCount={pageCount} onChange={next => { if (busy === null) changeList(selectedStatus, dir, next - 1) }} summary={invitations.total ? `Hiển thị ${page * invitations.size + 1}–${Math.min((page + 1) * invitations.size, invitations.total)} trong ${invitations.total} lời mời` : '0 lời mời'} />
       <Foot>Chỉ lời mời đang chờ, chưa hết hạn mới được gửi lại hoặc hủy. Cập nhật lúc {formatDateTime(invitations.asOf, farm.timeZone)}.</Foot>
       {confirmCancel && (

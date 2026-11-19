@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { Icon, type IconName } from '../../../components/Icon'
 import { backendMode } from '../../../api/backendTransport'
 import Modal, { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Note } from '../../../components/ui'
+import { Button, Note } from '../../../components/ui'
 import { DIALOG_FIXTURES } from '../data/subscriptionMock'
 import { fmtDate, fmtDateTime, fmtEndDay, paymentQuote, quoteText, termLabel } from '../domain/subscriptionRules'
 import type { StateDialogState } from '../types'
-import { Facts, ICON_BTN, PaymentBadge, useIsPhone, type Fact } from './shared'
+import { Facts, ICON_BTN, PaymentBadge, ServiceBadge, useIsPhone, type Fact } from './shared'
 import { useFarmScope } from './useFarmScope'
 
 interface Action { label: string; icon?: IconName; primary?: boolean; onClick: () => void }
@@ -28,13 +28,13 @@ function build(state: StateDialogState, h: Handlers): Built {
     case 'expired':
       return {
         title: 'Yêu cầu đã hết hạn', sub: state.payment.quoteRef,
-        facts: [['Trạng thái', <Badge key="s" tone="err">Đã hết hạn</Badge>], ['Thời hạn / giá', paymentQuote(state.payment)], ['Tạo lúc', fmtDateTime(state.payment.requestedAt)], ['Hết hạn', fmtDateTime(state.payment.expiresAt)]],
+        facts: [['Trạng thái', <PaymentBadge key="s" state="EXPIRED" />], ['Thời hạn / giá', paymentQuote(state.payment)], ['Tạo lúc', fmtDateTime(state.payment.requestedAt)], ['Hết hạn', fmtDateTime(state.payment.expiresAt)]],
         actions: [{ label: 'Về lịch sử', icon: 'arrow-left', onClick: h.history }, { label: 'Tạo yêu cầu mới', icon: 'circle-plus', primary: true, onClick: h.newRequest }],
       }
     case 'pending-exists':
       return {
         title: 'Bạn đã có yêu cầu còn hiệu lực', sub: state.payment.quoteRef,
-        facts: [['Trạng thái', <Badge key="s" tone="warn">Đang chờ</Badge>], ['Giá / thời hạn', paymentQuote(state.payment)], ['Hết hạn', fmtDateTime(state.payment.expiresAt)]],
+        facts: [['Trạng thái', <PaymentBadge key="s" state="PENDING" />], ['Giá / thời hạn', paymentQuote(state.payment)], ['Hết hạn', fmtDateTime(state.payment.expiresAt)]],
         actions: [{ label: 'Quay lại', icon: 'arrow-left', onClick: h.close }, { label: 'Mở lại hướng dẫn', primary: true, onClick: () => h.reopen(backendMode === 'backend' ? String(state.payment.id) : state.payment.quoteRef) }],
       }
     case 'renewal-closed':
@@ -46,7 +46,7 @@ function build(state: StateDialogState, h: Handlers): Built {
     case 'suspended':
       return {
         title: 'Trại đang tạm ngưng dịch vụ', sub: state.farmName,
-        facts: [['Dịch vụ', <Badge key="s" tone="warn">Tạm ngưng</Badge>], ['Kỳ đã mua đến', state.paidUntil ? fmtEndDay(state.paidUntil) : '—']],
+        facts: [['Dịch vụ', <ServiceBadge key="s" status="SUSPENDED" />], ['Kỳ đã mua đến', state.paidUntil ? fmtEndDay(state.paidUntil) : '—']],
         actions: [historyBtn, { label: 'Gửi hỗ trợ', icon: 'send', primary: true, onClick: h.support }],
       }
     case 'price-changed':
@@ -88,7 +88,8 @@ function PhoneSheet({ onClose, onRetry }: { onClose: () => void; onRetry: () => 
       <div role="dialog" aria-modal="true" aria-label="Chưa cập nhật được thanh toán" className="w-full rounded-t-2xl bg-white p-5 pb-6">
         <div className="flex items-center justify-between gap-3">
           <h2 className="m-0 text-sm font-bold text-ink">Chưa cập nhật được thanh toán</h2>
-          <button type="button" aria-label="Đóng" onClick={onClose} className="text-subtle"><Icon name="x" size={18} /></button>
+          {/* 32 px hit area on phones (WCAG 2.5.8); the bare 18 px icon was hard to tap. */}
+          <button type="button" aria-label="Đóng" onClick={onClose} className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded text-subtle hover:bg-chip"><Icon name="x" size={18} /></button>
         </div>
         <div className="mt-3">
           <Note tone="info">Chưa lấy được trạng thái mới. Yêu cầu cũ được giữ nguyên; thử lại cùng mã, không tạo yêu cầu khác.</Note>

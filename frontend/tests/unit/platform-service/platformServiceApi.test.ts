@@ -42,6 +42,12 @@ describe('farm service', () => {
     expect((await api.listFarms({ sort: 'coverageEnd' })).items.map((f) => f.farmId)).toEqual([6, 4, 1, 3, 5, 2])
     expect((await api.listFarms({ sort: '-coverageEnd' })).items.map((f) => f.farmId)).toEqual([5, 3, 1, 4, 6, 2])
   })
+  it('pages the list like the backend (Table III-1: 20 rows a page), keeping the total of matching farms', async () => {
+    const { api } = setup()
+    const second = await api.listFarms({ page: 1, size: 4 })
+    expect(second.items.map((f) => f.farmName)).toEqual(['Trại Tòng Bạt', 'Trại Vân Hòa'])
+    expect(second.total).toBe(6)
+  })
   it('previews the restore popup: when, by whom and why, the purchased period and the status after restore', async () => {
     const { api } = setup()
     expect(await api.getFarmService(3)).toMatchObject({
@@ -141,7 +147,8 @@ describe('backend mode', () => {
     })
     const api = createPlatformServiceApi({ mode: 'backend', farmId: 1, transport, store })
     const result = await api.listFarms({ q: 'Trại A', status: 'SUSPENDED', sort: '-coverageEnd' })
-    expect(transport.get).toHaveBeenCalledWith(`/api/platform/farms?${new URLSearchParams({ q: 'Trại A', status: 'SUSPENDED', sort: '-coverageEnd', size: '100' })}`)
+    // 20 rows a page (Table III-1, UI review E6) instead of one capped list of 100.
+    expect(transport.get).toHaveBeenCalledWith(`/api/platform/farms?${new URLSearchParams({ q: 'Trại A', status: 'SUSPENDED', sort: '-coverageEnd', page: '0', size: '20' })}`)
     expect(result.tiles).toEqual({ total: 10, active: 6, activePercent: 60, pending: 1, expired: 2, suspended: 1 })
     expect(result.total).toBe(1)
     // The period ends at 15/01/2027 00:00 in Viet Nam (exclusive), so its last day is 14/01/2027.

@@ -12,10 +12,12 @@ export function MemberTable({ members, owner, timeZone, dir, onSort, onChange, e
   onChange: (member: Membership, action: MemberAction) => void; empty: ReactNode
 }) {
   const can = (member: Membership, action: MemberAction) => member.actions.includes(action)
+  // The empty state stays outside the table: phones stack table cells as labelled cards (Table III-1).
+  if (!members.length) return <>{empty}</>
   return (
     <Table>
       <thead><tr>
-        <Th aria-sort={dir === 'asc' ? 'ascending' : 'descending'}><button type="button" className="inline-flex cursor-pointer items-center gap-1" onClick={onSort}>Thành viên <span aria-hidden="true">{dir === 'asc' ? '↑' : '↓'}</span></button></Th>
+        <Th aria-sort={dir === 'asc' ? 'ascending' : 'descending'}><button type="button" className="inline-flex min-h-6 cursor-pointer items-center gap-1" onClick={onSort}>Thành viên <span aria-hidden="true">{dir === 'asc' ? '↑' : '↓'}</span></button></Th>
         <Th>Vai trò</Th><Th>Trạng thái</Th><Th>Tham gia</Th>{owner && <Th>Thao tác</Th>}
       </tr></thead>
       <tbody>
@@ -34,7 +36,6 @@ export function MemberTable({ members, owner, timeZone, dir, onSort, onChange, e
             )}
           </tr>
         ))}
-        {!members.length && <tr><Td colSpan={owner ? 5 : 4} className="py-8 text-center text-subtle">{empty}</Td></tr>}
       </tbody>
     </Table>
   )

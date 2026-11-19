@@ -49,7 +49,8 @@ export interface FarmOverview {
 }
 /** SCR-12 sort: farm name (default), status or coverage end; `-` for descending; farms without an end come last. */
 export type FarmSort = 'name' | '-name' | 'status' | '-status' | 'coverageEnd' | '-coverageEnd'
-export interface FarmFilters { q?: string; status?: ServiceStatus | ''; sort?: FarmSort }
+/** `page` starts at 0; `size` is 20 on the screen (Table III-1) and up to 100 for the export. */
+export interface FarmFilters { q?: string; status?: ServiceStatus | ''; sort?: FarmSort; page?: number; size?: number }
 /** SCR-12 tiles count every farm of the platform, whatever the search or filter. */
 export interface FarmTiles { total: number; active: number; activePercent: number; pending: number; expired: number; suspended: number }
 /** `total` is the number of farms matching the search and filter. */

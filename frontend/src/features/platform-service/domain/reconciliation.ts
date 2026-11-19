@@ -1,3 +1,4 @@
+import { PAYMENT_STATE_VIEW } from '../../farm-workspace/domain/statusViews'
 import type { Evidence, MatchResult, PlatformPayment, ReviewStatus } from '../types'
 
 export const RECEIVING_ACCOUNT = 'MB 0386671863000'
@@ -62,4 +63,12 @@ export const REVIEW_LABEL: Record<ReviewStatus, string> = {
 export function evidenceStatusLabel(ev: Evidence) {
   return ev.lockedForReturn ? 'Đã khóa chờ hoàn' : REVIEW_LABEL[ev.reviewStatus]
 }
-export const PAYMENT_STATE_LABEL = { PENDING: 'Chờ thanh toán', PAID: 'Đã thanh toán', EXPIRED: 'Hết hạn', CANCELLED: 'Đã hủy' } as const
+/** Same labels and colours as the Owner's SCR-59 / SCR-60 (farm-workspace/domain/statusViews). */
+export const PAYMENT_STATE_LABEL = {
+  PENDING: PAYMENT_STATE_VIEW.PENDING.label, PAID: PAYMENT_STATE_VIEW.PAID.label,
+  EXPIRED: PAYMENT_STATE_VIEW.EXPIRED.label, CANCELLED: PAYMENT_STATE_VIEW.CANCELLED.label,
+} as const
+export const PAYMENT_STATE_TONE = {
+  PENDING: PAYMENT_STATE_VIEW.PENDING.tone, PAID: PAYMENT_STATE_VIEW.PAID.tone,
+  EXPIRED: PAYMENT_STATE_VIEW.EXPIRED.tone, CANCELLED: PAYMENT_STATE_VIEW.CANCELLED.tone,
+} as const

@@ -8,7 +8,7 @@ import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingB
 import { useQuery } from '../../../hooks/useApi'
 import { useSession } from '../../authorization/sessionContext'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Facts, PaymentBadge, useIsPhone } from '../components/shared'
+import { Facts, PaymentBadge, paymentLabel, useIsPhone } from '../components/shared'
 import { useFarmScope } from '../components/useFarmScope'
 import { fmtDateTime, fmtDateTimeSec, fmtPeriod, fmtVnd, termLabel, versionLabel } from '../domain/subscriptionRules'
 import type { Payment, PaymentFilters, PaymentState } from '../types'
@@ -39,7 +39,7 @@ function savedFilters(key: string): Required<PaymentFilters> {
 
 function SortHead({ label, active, dir, onClick }: { label: string; active: boolean; dir: 'asc' | 'desc'; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-muted" aria-label={`Sắp xếp theo ${label}`}>
+    <button type="button" onClick={onClick} className="inline-flex min-h-6 cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-muted" aria-label={`Sắp xếp theo ${label}`}>
       {label}
       {active && <Icon name="chevron-down" size={12} className={dir === 'asc' ? 'rotate-180' : ''} />}
     </button>
@@ -138,12 +138,9 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
         <div className={`flex flex-wrap items-center gap-2.5${rangeError ? ' pb-5' : ''}`}>
           <div className="w-full sm:w-[220px]"><SearchInput placeholder="Tìm mã thanh toán" aria-label="Tìm mã thanh toán" maxLength={100} value={q} onChange={(e) => change({ q: e.target.value })} /></div>
           <div className="w-full sm:w-[170px]">
-            <FilterSelect aria-label="Trạng thái" value={state} onChange={(e) => change({ state: e.target.value as PaymentState | '' })}>
+            <FilterSelect size="lg" aria-label="Trạng thái" value={state} onChange={(e) => change({ state: e.target.value as PaymentState | '' })}>
               <option value="">Trạng thái: Tất cả</option>
-              <option value="PENDING">Đang chờ</option>
-              <option value="PAID">Đã thanh toán</option>
-              <option value="EXPIRED">Đã hết hạn</option>
-              <option value="CANCELLED">Đã hủy</option>
+              {(['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'] as const).map((s) => <option key={s} value={s}>{paymentLabel(s)}</option>)}
             </FilterSelect>
           </div>
           <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo từ <div className="w-[150px]"><DateInput id="from" value={from} onChange={(value) => change({ from: value })} /></div></div>

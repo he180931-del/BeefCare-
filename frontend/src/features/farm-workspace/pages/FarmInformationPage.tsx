@@ -9,6 +9,7 @@ import { homePathFor, useSession } from '../../authorization'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { PROVINCES } from '../data/provinces'
 import { Avatar, farmWorkspaceError, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
+import { serviceView } from '../domain/statusViews'
 import { useFarmId } from '../components/useFarmId'
 import { useRequestKey } from '../hooks/useRequestKey'
 import type { FarmDetails, FarmInfoInput } from '../types'
@@ -75,7 +76,7 @@ function FarmInformationForm() {
     }
   }
   const text = (key: 'name' | 'commune' | 'detailedAddress' | 'contactPerson' | 'contactPhone' | 'registrationCertificateInfo', id: string, label: string, max: number, type = 'text'): ReactNode => (
-    <Field label={label} id={id}><input id={id} type={type} maxLength={max} value={form?.[key] ?? ''} onChange={(event) => set(key, event.target.value)} className={pageInputCls} /><FieldError>{errors[key]}</FieldError></Field>
+    <Field label={label} id={id}><input id={id} type={type} maxLength={max} aria-invalid={errors[key] ? true : undefined} value={form?.[key] ?? ''} onChange={(event) => set(key, event.target.value)} className={pageInputCls} /><FieldError>{errors[key]}</FieldError></Field>
   )
   // A saved province stays visible even if it is absent from the current list.
   const provinces = form?.province && !PROVINCES.some((name) => name === form.province) ? [form.province, ...PROVINCES] : PROVINCES
@@ -89,7 +90,7 @@ function FarmInformationForm() {
           <Card title="Đăng ký & liên hệ">
             {text('name', 'farm-info-name', 'Tên trại *', 150)}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Tỉnh/Thành *" id="farm-info-province"><PageSelect id="farm-info-province" value={form?.province ?? ''} onChange={(event) => set('province', event.target.value)}><option value="">Chọn tỉnh/thành</option>{provinces.map((name) => <option key={name} value={name}>{name}</option>)}</PageSelect><FieldError>{errors.province}</FieldError></Field>
+              <Field label="Tỉnh/Thành *" id="farm-info-province"><PageSelect id="farm-info-province" aria-invalid={errors.province ? true : undefined} value={form?.province ?? ''} onChange={(event) => set('province', event.target.value)}><option value="">Chọn tỉnh/thành</option>{provinces.map((name) => <option key={name} value={name}>{name}</option>)}</PageSelect><FieldError>{errors.province}</FieldError></Field>
               {text('commune', 'farm-info-commune', 'Xã/Phường *', 150)}
             </div>
             {text('detailedAddress', 'farm-info-address', 'Địa chỉ chi tiết', 255)}
@@ -101,14 +102,15 @@ function FarmInformationForm() {
           </Card>
           <Card title="Thông tin vận hành">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Múi giờ" id="farm-time-zone"><input id="farm-time-zone" value="UTC+7 (giờ Việt Nam)" readOnly className={pageInputCls} /></Field>
-              <Field label="Giờ bắt đầu ca sáng" id="farm-morning-shift"><input id="farm-morning-shift" type="time" value={form?.morningShiftStart ?? ''} onChange={(event) => set('morningShiftStart', event.target.value)} className={pageInputCls} /><FieldError>{errors.morningShiftStart}</FieldError></Field>
+              {/* Read-only (D39), so it looks like a locked field instead of an editable white one. */}
+              <Field label="Múi giờ" id="farm-time-zone"><input id="farm-time-zone" value="UTC+7 (giờ Việt Nam)" readOnly className={`${pageInputCls} read-only:bg-chip read-only:text-muted`} /></Field>
+              <Field label="Giờ bắt đầu ca sáng" id="farm-morning-shift"><input id="farm-morning-shift" aria-invalid={errors.morningShiftStart ? true : undefined} type="time" value={form?.morningShiftStart ?? ''} onChange={(event) => set('morningShiftStart', event.target.value)} className={pageInputCls} /><FieldError>{errors.morningShiftStart}</FieldError></Field>
             </div>
-            <Field label="Ghi chú vận hành" id="farm-operating-notes"><textarea id="farm-operating-notes" rows={3} maxLength={1000} value={form?.operatingNotes ?? ''} onChange={(event) => set('operatingNotes', event.target.value)} className={`${pageInputCls} h-auto py-2`} /><FieldError>{errors.operatingNotes}</FieldError></Field>
+            <Field label="Ghi chú vận hành" id="farm-operating-notes"><textarea id="farm-operating-notes" aria-invalid={errors.operatingNotes ? true : undefined} rows={3} maxLength={1000} value={form?.operatingNotes ?? ''} onChange={(event) => set('operatingNotes', event.target.value)} className={`${pageInputCls} h-auto resize-none py-2`} /><FieldError>{errors.operatingNotes}</FieldError></Field>
           </Card>
         </form>
         <div className="flex min-w-0 flex-col gap-5">
-          <Card title="Trạng thái dịch vụ" actions={<Badge tone={farm.serviceStatus === 'ACTIVE' ? 'ok' : farm.serviceStatus === 'SUSPENDED' ? 'err' : 'warn'}>{serviceLabel(farm.serviceStatus)}</Badge>}>
+          <Card title="Trạng thái dịch vụ" actions={<Badge tone={serviceView(farm.serviceStatus).tone}>{serviceLabel(farm.serviceStatus)}</Badge>}>
             <Info cols={2} items={[
               ['Kỳ hiện tại đến', farm.serviceUntil ? lastServiceDay(farm.serviceUntil) : '—'],
               ['Mở gia hạn từ', farm.renewalOpensAt ? formatDate(farm.renewalOpensAt) : '—'],

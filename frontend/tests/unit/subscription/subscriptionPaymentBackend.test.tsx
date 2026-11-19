@@ -151,6 +151,32 @@ describe('UC2 backend contract and forms', () => {
   })
 })
 
+describe('SCR-59 on phones (UI review B5)', () => {
+  const phone = () => Object.defineProperty(window, 'matchMedia', { configurable: true, value: (query: string) => ({
+    matches: query.includes('max-width'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }) })
+  let media: PropertyDescriptor | undefined
+  beforeEach(() => { media = Object.getOwnPropertyDescriptor(window, 'matchMedia'); phone() })
+  afterEach(() => { if (media) Object.defineProperty(window, 'matchMedia', media); else Reflect.deleteProperty(window, 'matchMedia') })
+
+  it('names a first purchase "Đăng ký gói" and points below to the transfer details when the QR image fails', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(NOW + 60_000) // the request is still open, so its QR is shown
+    try {
+      page()
+      expect(await screen.findByText('Đăng ký gói · Trại thật 42')).toBeInTheDocument()
+      fireEvent.error(await screen.findByAltText('Mã VietQR thanh toán'))
+      expect(screen.getByText('Không tải được mã QR. Vui lòng dùng thông tin chuyển khoản bên dưới.')).toBeInTheDocument()
+    } finally { clock.mockRestore() }
+  })
+
+  it('names a request of a farm that already bought a period "Gia hạn gói"', async () => {
+    const renewing: SubscriptionOverview = { ...overview, serviceStatus: 'ACTIVE', latestEnd: '2027-11-09T03:00:00Z',
+      periods: [{ start: '2026-11-09T03:00:00Z', end: '2027-11-09T03:00:00Z', paymentCode: 'BC-EARLIER', durationYears: 1, amountVnd: 1_200_000, status: 'CURRENT' }] }
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? renewing : pending)
+    page()
+    expect(await screen.findByText('Gia hạn gói · Trại thật 42')).toBeInTheDocument()
+  })
+})
+
 describe('five-second automatic payment status updates', () => {
   async function open(changes: Partial<Payment> = {}) {
     vi.useFakeTimers(); vi.setSystemTime(NOW)

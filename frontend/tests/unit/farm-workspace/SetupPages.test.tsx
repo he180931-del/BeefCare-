@@ -44,11 +44,24 @@ describe('Select Farm', () => {
 })
 
 describe('Register Farm', () => {
+  it('"Quay lại" on a page opened straight from a link goes to Select Farm instead of leaving the app (SCR-10 #11)', async () => {
+    const user = userEvent.setup()
+    render(<SessionContext.Provider value={sessions.owner}><MemoryRouter initialEntries={['/dang-ky-trai']}><Routes>
+      <Route path="/dang-ky-trai" element={<FarmRegistrationPage />} /><Route path="/chon-trai" element={<p>Trang chọn trại</p>} />
+    </Routes></MemoryRouter></SessionContext.Provider>)
+    await user.click(await screen.findByRole('button', { name: /Quay lại/ }))
+    expect(await screen.findByText('Trang chọn trại')).toBeInTheDocument()
+  })
+
   it('validates the required fields, then creates the farm and opens plan selection', async () => {
     const user = userEvent.setup()
     renderAt('owner', '/dang-ky-trai', '/dang-ky-trai', <FarmRegistrationPage />)
     await user.click(await screen.findByRole('button', { name: /Tạo trại và tiếp tục/ }))
-    expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
+    expect(await screen.findByText('Tên trại là bắt buộc.')).toBeInTheDocument() // MSG-COM-06
+    // The invalid fields are marked for assistive technology (and drawn with a red border), as on SCR-51.
+    expect(screen.getByLabelText('Tên trại *')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Tỉnh/Thành *')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Người liên hệ')).not.toHaveAttribute('aria-invalid')
 
     await user.type(screen.getByLabelText('Tên trại *'), 'Trại Thung Mây')
     await user.selectOptions(screen.getByLabelText('Tỉnh/Thành *'), 'Phú Thọ')
@@ -101,7 +114,8 @@ describe('Farm Information', () => {
     expect(await screen.findByText('owner@beefcare.local')).toBeInTheDocument()
     await user.clear(name)
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
-    expect(await screen.findByText('Tên trại cần có từ 2 đến 150 ký tự.')).toBeInTheDocument()
+    expect(await screen.findByText('Tên trại là bắt buộc.')).toBeInTheDocument() // MSG-COM-06
+    expect(name).toHaveAttribute('aria-invalid', 'true')
     await user.type(name, 'Trại bò Yên Bài – Ba Vì')
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
     expect(await screen.findByText('Đã cập nhật thông tin trại.')).toBeInTheDocument()

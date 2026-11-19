@@ -12,7 +12,7 @@ import ReconcileDialogs from '../components/ReconcileDialogs'
 import { usePmAccess } from '../components/common'
 import type { EvidenceFilters, ReviewDecision, ReviewResult } from '../types'
 import { fmtDateTime, fmtMoney, fmtShort } from '../domain/dates'
-import { MATCH_LABEL, MATCH_TONE, PAYMENT_STATE_LABEL, blockReason, checkAcceptance, evidenceCode, exactCodeMatches, maskTransaction } from '../domain/reconciliation'
+import { MATCH_LABEL, MATCH_TONE, PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE, blockReason, checkAcceptance, evidenceCode, exactCodeMatches, maskTransaction } from '../domain/reconciliation'
 import { validateReason } from '../domain/servicePeriods'
 import PaymentSourcePage from './PaymentSourcePage'
 import { backendMode } from '../../../api/backendTransport'
@@ -21,7 +21,7 @@ import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '..
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
-const PAY_TONE = { PENDING: 'warn', PAID: 'ok', EXPIRED: 'outline', CANCELLED: 'outline' } as const
+const PAY_TONE = PAYMENT_STATE_TONE
 
 export default function PaymentReconciliationRoutes() {
   const [params] = useSearchParams()
@@ -92,7 +92,7 @@ function ReconciliationPage() {
         <Segmented value={tab} onChange={(v) => setTab(v as Tab)} options={[{ value: 'evidence', label: 'Chứng từ ngân hàng' }, { value: 'requests', label: 'Yêu cầu thanh toán' }]} />
         {tab === 'evidence' ? (
           <>
-            <FilterSelect aria-label="Trạng thái xem xét" value={status} onChange={(e) => setStatus(e.target.value as NonNullable<EvidenceFilters['status']>)}>
+            <FilterSelect size="lg" aria-label="Trạng thái xem xét" value={status} onChange={(e) => setStatus(e.target.value as NonNullable<EvidenceFilters['status']>)}>
               <option value="">Trạng thái xem xét: Tất cả</option>
               <option value="TO_REVIEW">Chưa xử lý</option>
               <option value="HOLD">Tạm giữ</option>
@@ -121,7 +121,7 @@ function ReconciliationPage() {
                     onClick={(event) => activateTableRow(event, () => { setRequestId(p.id); openModal('request') })}
                     onKeyDown={(event) => activateTableRowByKey(event, () => { setRequestId(p.id); openModal('request') })}
                   >
-                    <Td><button type="button" className="font-medium text-brand" onClick={() => { setRequestId(p.id); openModal('request') }}>{p.code}</button></Td>
+                    <Td><button type="button" className="inline-flex min-h-6 items-center font-medium text-brand" onClick={() => { setRequestId(p.id); openModal('request') }}>{p.code}</button></Td>
                     <Td>{p.farmName}</Td>
                     <Td>{p.termYears} năm</Td>
                     <Td>{fmtMoney(p.amount)}</Td>
@@ -153,7 +153,7 @@ function ReconciliationPage() {
                         onClick={(event) => activateTableRow(event, () => select(e.id))}
                         onKeyDown={(event) => activateTableRowByKey(event, () => select(e.id))}
                       >
-                        <Td><button type="button" className="whitespace-nowrap font-semibold text-brand" onClick={() => select(e.id)}>{maskTransaction(e.transactionId)}</button></Td>
+                        <Td><button type="button" className="inline-flex min-h-6 items-center whitespace-nowrap font-semibold text-brand" onClick={() => select(e.id)}>{maskTransaction(e.transactionId)}</button></Td>
                         <Td><span className="whitespace-nowrap">{fmtMoney(e.amount)}</span></Td>
                         <Td>{e.content}</Td>
                         <Td>{fmtShort(e.bankPaidAt)}</Td>

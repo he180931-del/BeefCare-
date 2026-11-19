@@ -123,14 +123,21 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
     return farmOverview(await transport.command(`/api/platform/farms/${id}/${action}`, cmd, key ? { method: 'POST', key } : { method: 'POST' }))
   }
   return {
-    // GET /api/platform/farms (UC-FE02-04); at most 100 rows, the screen has no paging.
+    // GET /api/platform/farms (UC-FE02-04): 20 rows a page (Table III-1); the export reads pages of up to 100.
     async listFarms(filters: FarmFilters = {}): Promise<FarmListResult> {
-      if (mode !== 'backend') return store.listFarms(filters)
+      const page = Math.max(0, Math.trunc(filters.page ?? 0))
+      const size = Math.min(100, Math.max(1, Math.trunc(filters.size ?? 20)))
+      if (mode !== 'backend') {
+        // The demo store returns every matching farm; page it the same way as the server.
+        const all = await store.listFarms(filters)
+        return { ...all, items: all.items.slice(page * size, page * size + size) }
+      }
       const query = new URLSearchParams()
       if (filters.q?.trim()) query.set('q', filters.q.trim())
       if (filters.status) query.set('status', filters.status)
       if (filters.sort) query.set('sort', filters.sort)
-      query.set('size', '100')
+      query.set('page', String(page))
+      query.set('size', String(size))
       return farmList(await transport.get(`/api/platform/farms?${query}`))
     },
     // GET /api/platform/farms/{farmId} (popup of UC-FE02-05)

@@ -54,6 +54,8 @@ describe('UC5 backend read workbench', () => {
     const list = await screen.findByRole('table', { name: 'Chứng từ ngân hàng' })
     expect(within(list).getByText('****5678')).toBeInTheDocument()
     expect(within(list).queryByText('12345678')).not.toBeInTheDocument()
+    // Review status keeps its colour in backend mode (UI review B2): evidence still to review is amber, not plain grey.
+    expect(within(list).getAllByText('Cần xem')[0]).toHaveClass('bg-warn-bg')
     expect(new URL(listCalls().at(-1)!, 'http://test').searchParams.get('status')).toBe('ALL')
     expect(new URL(listCalls().at(-1)!, 'http://test').searchParams.get('size')).toBe('20')
     expect(await screen.findByText('UC5-NAMESPACE')).toBeInTheDocument()

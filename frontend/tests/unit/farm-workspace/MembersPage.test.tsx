@@ -117,6 +117,8 @@ describe('UC-FE03-05 / SCR-13 (D29)', () => {
     await screen.findByText('Chủ Trại')
     await user.click(screen.getByRole('button', { name: 'Quản lý (0)' }))
     expect(screen.getByText('Không có bản ghi phù hợp với bộ lọc.')).toBeInTheDocument()
+    // Outside the table: a row cell would be stacked as a labelled card on phones ("Thành viên ↑" beside the message).
+    expect(screen.getByText('Không có bản ghi phù hợp với bộ lọc.').closest('table')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
     expect(names()).toEqual(['Chủ Trại'])
     view.unmount()

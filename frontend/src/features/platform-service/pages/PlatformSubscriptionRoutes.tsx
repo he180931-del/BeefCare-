@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Layout from '../../../components/Layout'
 import { useModalParam } from '../../../components/Modal'
-import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, Note, PageHeader, Pagination, Table, Td, Th, inputCls } from '../../../components/ui'
+import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, LoadingBlock, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
 import { userFacingError } from '../../../api/userFacingError'
 import { useSession } from '../../authorization'
 import { platformServiceApi } from '../api/platformServiceApi'
 import PeriodsDialog from '../components/PeriodsDialog'
-import { ServiceBadge } from '../components/common'
+import { ServiceBadge, wideScreen } from '../components/common'
 import type { Coverage, ServiceStatus, SubscriptionFilters, SubscriptionPage } from '../types'
 import { fmtDate, fmtEndDate, fmtSeconds } from '../domain/dates'
 import { PERIOD_STATE_LABEL, STATUS_LABEL } from '../domain/servicePeriods'
@@ -32,15 +32,21 @@ function savedFilters(key: string): { filters: SubscriptionFilters; farmId: numb
   return { filters: DEFAULT_FILTERS, farmId: null }
 }
 
-function DetailPanel({ farmId, refresh }: { farmId: number; refresh: number }) {
+function DetailPanel({ farmId, refresh, reveal }: { farmId: number; refresh: number; reveal: boolean }) {
   const { data, loading, error, refetch } = useQuery(() => platformServiceApi.getSubscription(farmId), [farmId, refresh])
   const [modal, openModal, closeModal] = useModalParam()
+  // Below xl the panel sits under the list: when the PM picks a farm, scroll to it once its detail has loaded (as SCR-51).
+  const box = useRef<HTMLElement>(null)
+  const shown = data?.summary.farmId
+  useEffect(() => {
+    if (reveal && shown === farmId && !wideScreen()) box.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  }, [reveal, shown, farmId])
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được chi tiết gói.')} onRetry={refetch} />
   const s = data.summary
   const latest = data.latestPurchase
   return (
-    <section aria-label={`Gói của ${s.farmName}`}>
+    <section ref={box} aria-label={`Gói của ${s.farmName}`} className="scroll-mt-4">
       <Card title={s.farmName} sub="Các kỳ đã mua" actions={<ServiceBadge status={s.serviceStatus} />}>
         <Info cols={2} items={[
           ['Dịch vụ', `${STATUS_LABEL[s.serviceStatus]} · ${data.suspended ? `tạm ngưng từ ${fmtDate(data.suspendedSince)}` : 'không tạm ngưng'}`],
@@ -56,7 +62,7 @@ function DetailPanel({ farmId, refresh }: { farmId: number; refresh: number }) {
             <tbody>{data.periods.map((p) => <tr key={p.paymentCode}>
               <Td><div className="font-medium text-ink">{fmtDate(p.start)} – {fmtEndDate(p.end)}</div><div className="text-[11px] text-muted">{PERIOD_STATE_LABEL[p.state]} · {p.termYears} năm</div></Td>
               <Td><div className="font-medium text-ink">{p.paymentCode}</div><div className="text-[11px] text-muted">Xác nhận {fmtSeconds(p.confirmedAt)}</div>
-                {p.paymentId && <Link className="text-[12px] font-semibold text-brand underline" aria-label={`Xem thanh toán nguồn ${p.paymentCode}`}
+                {p.paymentId && <Link className="inline-flex min-h-6 items-center text-[12px] font-semibold text-brand underline" aria-label={`Xem thanh toán nguồn ${p.paymentCode}`}
                   to={`/nen-tang/thanh-toan?paymentId=${p.paymentId}&farmId=${farmId}`}>Xem thanh toán nguồn</Link>}
               </Td>
             </tr>)}</tbody>
@@ -82,6 +88,9 @@ export default function PlatformSubscriptionRoutes() {
     return Number.isSafeInteger(requested) && requested > 0 ? requested : initial.farmId
   })
   const [refresh, setRefresh] = useState(0)
+  // The farm the PM chose (not the first row picked automatically when a page loads): its detail is scrolled to.
+  const [revealId, setRevealId] = useState<number | null>(null)
+  const pick = (id: number) => { setFarmId(id); setRevealId(id) }
   const [result, setResult] = useState<{ data: SubscriptionPage | null; loading: boolean; error: unknown }>({ data: null, loading: true, error: null })
   const rangeError = invalidDates(controls)
 
@@ -119,12 +128,12 @@ export default function PlatformSubscriptionRoutes() {
   return <Layout title={TITLE}>
     <PageHeader title={TITLE} sub="Kỳ dịch vụ hiện tại và tương lai của từng trại"><Button onClick={reload}>Làm mới</Button></PageHeader>
     <div className="mb-4 flex flex-wrap items-end gap-3">
-      <input aria-label="Tìm tên trại hoặc mã thanh toán" maxLength={100} className={`${inputCls} w-[280px] max-w-full`}
-        placeholder="Tên trại / mã thanh toán…" value={search} onChange={(e) => setSearch(e.target.value)} />
-      <FilterSelect aria-label="Bao phủ" value={controls.coverage ?? 'ALL'} onChange={(e) => change({ coverage: e.target.value as Coverage })}>
+      <div className="w-[280px] max-w-full"><SearchInput aria-label="Tìm tên trại hoặc mã thanh toán" maxLength={100}
+        placeholder="Tên trại / mã thanh toán…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+      <FilterSelect size="lg" aria-label="Bao phủ" value={controls.coverage ?? 'ALL'} onChange={(e) => change({ coverage: e.target.value as Coverage })}>
         <option value="ALL">Bao phủ: Tất cả</option><option value="CURRENT">Hiện tại</option><option value="FUTURE_ONLY">Chỉ tương lai</option><option value="NONE">Không có</option>
       </FilterSelect>
-      <FilterSelect aria-label="Trạng thái dịch vụ" value={controls.status ?? ''} onChange={(e) => change({ status: e.target.value as ServiceStatus | '' })}>
+      <FilterSelect size="lg" aria-label="Trạng thái dịch vụ" value={controls.status ?? ''} onChange={(e) => change({ status: e.target.value as ServiceStatus | '' })}>
         <option value="">Dịch vụ: Tất cả</option>{(Object.keys(STATUS_LABEL) as ServiceStatus[]).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
       </FilterSelect>
       <div className="w-[160px]"><label htmlFor="end-from" className="text-[12px] text-muted">Xác nhận đến từ ngày</label><DateInput id="end-from" label="Xác nhận đến từ ngày" value={controls.endFrom ?? ''} onChange={(value) => change({ endFrom: value })} /></div>
@@ -136,25 +145,25 @@ export default function PlatformSubscriptionRoutes() {
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_396px]">
         <div aria-busy={loading}>
           <Card>{data.items.length === 0 ? <EmptyBlock title="Không có trại phù hợp" sub="Thử đổi từ khóa hoặc khoảng hết kỳ." action={<Button onClick={clear}>Xóa bộ lọc</Button>} /> :
-            <Table stack={false}><thead><tr><Th>Trang trại / Owner</Th><Th>Kỳ hiện tại</Th><Th>
-              <button aria-label="Sắp xếp theo Xác nhận đến" onClick={() => change({ dir: controls.dir === 'desc' ? 'asc' : 'desc' })}>Xác nhận đến {controls.dir === 'asc' ? '↑' : '↓'}</button>
+            <Table stack={false}><thead><tr><Th>Trang trại / Chủ trại</Th><Th>Kỳ hiện tại</Th><Th>
+              <button type="button" className="inline-flex min-h-6 cursor-pointer items-center" aria-label="Sắp xếp theo Xác nhận đến" onClick={() => change({ dir: controls.dir === 'desc' ? 'asc' : 'desc' })}>Xác nhận đến {controls.dir === 'asc' ? '↑' : '↓'}</button>
             </Th><Th>Dịch vụ</Th></tr></thead><tbody>{data.items.map((r) => <tr
               key={r.farmId}
               tabIndex={0}
               aria-label={`Chọn gói đăng ký của ${r.farmName}`}
               className={`${interactiveRowClass} ${r.farmId === farmId ? 'bg-[#eef4ef]' : ''}`}
-              onClick={(event) => activateTableRow(event, () => setFarmId(r.farmId))}
-              onKeyDown={(event) => activateTableRowByKey(event, () => setFarmId(r.farmId))}
+              onClick={(event) => activateTableRow(event, () => pick(r.farmId))}
+              onKeyDown={(event) => activateTableRowByKey(event, () => pick(r.farmId))}
             >
-              <Td><button type="button" className="text-left" aria-current={r.farmId === farmId ? 'true' : undefined} onClick={() => setFarmId(r.farmId)}><div className="font-medium text-ink">{r.farmName}</div><div className="text-[11px] text-muted">{r.ownerName || '—'}</div></button></Td>
+              <Td><button type="button" className="text-left" aria-current={r.farmId === farmId ? 'true' : undefined} onClick={() => pick(r.farmId)}><div className="font-medium text-ink">{r.farmName}</div><div className="text-[11px] text-muted">{r.ownerName || '—'}</div></button></Td>
               <Td>{r.currentStart && r.currentEnd ? `${fmtDate(r.currentStart)} → ${fmtEndDate(r.currentEnd)}` : '—'}</Td>
               <Td>{fmtEndDate(r.confirmedUntil)}</Td><Td><ServiceBadge status={r.serviceStatus} /></Td>
             </tr>)}</tbody></Table>}
           </Card>
           {data.total > 0 && <div className="mt-3"><Pagination page={data.page + 1} pageCount={Math.ceil(data.total / 20)} onChange={(value) => change({ page: value - 1 })}
-            summary={`Hiển thị ${data.page * 20 + 1}–${data.page * 20 + data.items.length} / ${data.total} trại`} /></div>}
+            summary={`Hiển thị ${data.page * 20 + 1}–${data.page * 20 + data.items.length} trong ${data.total} trại`} /></div>}
         </div>
-        {selected && <DetailPanel key={selected.farmId} farmId={selected.farmId} refresh={refresh} />}
+        {selected && <DetailPanel key={selected.farmId} farmId={selected.farmId} refresh={refresh} reveal={revealId === selected.farmId} />}
       </div>}
     <Foot>Chọn một trại để xem các kỳ đã mua và thanh toán nguồn. Trạng thái tạm ngưng và bao phủ được hiển thị độc lập.</Foot>
   </Layout>

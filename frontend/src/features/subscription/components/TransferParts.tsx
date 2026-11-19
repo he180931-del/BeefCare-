@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Icon } from '../../../components/Icon'
 import { backendMode } from '../../../api/backendTransport'
 import { Badge, Button, Card, Note, Table, Th, Td } from '../../../components/ui'
-import { BANK_NAMES, fmtAccount, fmtClock, fmtTimeDate, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
+import { BANK_NAMES, fmtAccount, fmtClock, fmtDateTime, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
 import type { Payment } from '../types'
 import { Facts, ICON_BTN, PaymentBadge } from './shared'
 
@@ -12,14 +12,15 @@ export function QrPlaceholder() {
     <div role="img" aria-label="Mã VietQR minh họa (demo)" className="mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-md bg-chip p-4 text-center">
       <div className="flex flex-col items-center gap-1.5">
         <Icon name="qrcode" size={56} className="text-faint" />
-        <span className="text-xs text-faint">Mã thanh toán</span>
+        <span className="text-xs text-muted">Mã thanh toán</span>
         <span className="text-[11px] font-semibold text-warn-fg">Mã QR minh họa (demo), không dùng để chuyển khoản</span>
       </div>
     </div>
   )
 }
 
-const QR_HIDDEN = 'mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-md bg-chip p-4 text-center text-xs text-faint'
+// text-muted on bg-chip is 5.0:1; the former #8f8f8f was 2.8:1 for the "QR could not load" instruction.
+const QR_HIDDEN = 'mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-md bg-chip p-4 text-center text-xs text-muted'
 
 /** Reports "copied" only after the clipboard write succeeds; a refused write shows an error instead. */
 function useClipboard(value: string) {
@@ -42,7 +43,7 @@ const CopyError = () => <span role="status" className="block text-xs text-err-fg
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const { done, error, copy } = useClipboard(value)
   return (
-    <span><button type="button" aria-label={`Sao chép ${label}`} onClick={copy} className="cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 text-xs font-semibold text-[#454545]">
+    <span><button type="button" aria-label={`Sao chép ${label}`} onClick={copy} className="inline-flex min-h-8 cursor-pointer items-center whitespace-nowrap rounded border-0 bg-transparent px-2 text-xs font-semibold text-[#454545] hover:bg-chip">
       {done ? 'Đã chép' : 'Sao chép'}
     </button>{error && <CopyError />}</span>
   )
@@ -50,10 +51,11 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
 
 const remaining = (p: Payment, now: number) => Math.max(0, toMs(p.expiresAt) - now)
 
-function QrImage({ url }: { url?: string | null }) {
+/** `phone`: the transfer details are below the QR on phones and beside it on wider screens. */
+function QrImage({ url, phone = false }: { url?: string | null; phone?: boolean }) {
   const [failed, setFailed] = useState(false)
   if (backendMode === 'local') return <QrPlaceholder />
-  if (!url || failed) return <div className={QR_HIDDEN}>Không tải được mã QR. Vui lòng dùng thông tin chuyển khoản bên cạnh.</div>
+  if (!url || failed) return <div className={QR_HIDDEN}>Không tải được mã QR. Vui lòng dùng thông tin chuyển khoản {phone ? 'bên dưới' : 'bên cạnh'}.</div>
   return <img src={url} alt="Mã VietQR thanh toán" onError={() => setFailed(true)} className="mx-auto aspect-square w-full max-w-[280px] object-contain" />
 }
 
@@ -66,7 +68,7 @@ export function QrCard({ payment, now }: { payment: Payment; now: number }) {
         {pending ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>{payment.state === 'PAID' ? 'Đã nhận thanh toán' : payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}
         <Facts cols={2} items={[
           [pending ? 'Còn hiệu lực' : 'Trạng thái', pending ? <span key="c" className="tabular-nums" aria-live="off">{fmtClock(remaining(payment, now))}</span> : <PaymentBadge key="b" state={payment.state} />],
-          ['Hết hạn lúc', fmtTimeDate(payment.expiresAt)],
+          ['Hết hạn lúc', fmtDateTime(payment.expiresAt)],
         ]} />
       </div>
     </Card>
@@ -121,11 +123,11 @@ export function ProgressCard({ payment, checking, onCheck, onHistory }: { paymen
         <Table stack={false}>
           <thead><tr><Th>Bước</Th><Th>Thời điểm</Th><Th>Trạng thái</Th></tr></thead>
           <tbody>
-            <Step name="Đã tạo yêu cầu" time={fmtTimeDate(payment.requestedAt)} badge="done" />
+            <Step name="Đã tạo yêu cầu" time={fmtDateTime(payment.requestedAt)} badge="done" />
             {/* Only an open request is still waiting for the bank; a cancelled one shows "Chưa" (D38). */}
-            <Step name="Ngân hàng ghi nhận giao dịch" time={received ? fmtTimeDate(received) : '—'} badge={received ? 'done' : payment.state === 'CANCELLED' ? 'not-yet' : 'waiting'} />
-            <Step name="Xác nhận & cấp kỳ dịch vụ" time={confirmed ? fmtTimeDate(confirmed) : '—'} badge={confirmed ? 'done' : 'not-yet'} />
-            {payment.cancelledAt && <Step name="Đã hủy yêu cầu" time={fmtTimeDate(payment.cancelledAt)} badge="done" />}
+            <Step name="Ngân hàng ghi nhận giao dịch" time={received ? fmtDateTime(received) : '—'} badge={received ? 'done' : payment.state === 'CANCELLED' ? 'not-yet' : 'waiting'} />
+            <Step name="Xác nhận & cấp kỳ dịch vụ" time={confirmed ? fmtDateTime(confirmed) : '—'} badge={confirmed ? 'done' : 'not-yet'} />
+            {payment.cancelledAt && <Step name="Đã hủy yêu cầu" time={fmtDateTime(payment.cancelledAt)} badge="done" />}
           </tbody>
         </Table>
         <div className="flex flex-wrap gap-2.5">
@@ -146,14 +148,14 @@ export function PhoneTransfer({ payment, now, checking, onCheck, onClose, onCanc
       <div className={`${box} flex flex-col gap-1.5`}>
         <div className="flex items-center justify-between gap-2">
           <span className="text-base font-bold text-brand">{payment.quoteRef}</span>
-          {pending ? <Badge tone="warn" icon="clock">Chờ thanh toán</Badge> : <PaymentBadge state={payment.state} />}
+          <PaymentBadge state={payment.state} icon={pending ? 'clock' : undefined} />
         </div>
         <span className="text-[13px] font-medium text-ink">{termLabel(payment.durationYears)} · bảng giá {versionLabel(payment.priceVersionId)} · {fmtVnd(payment.amountVnd)}</span>
         <span className="text-[11px] text-muted">
-          {pending ? `Còn hiệu lực · hết hạn ${fmtTimeDate(payment.expiresAt)} · còn ${fmtClock(remaining(payment, now))}` : payment.cancelledAt ? `Đã hủy ${fmtTimeDate(payment.cancelledAt)}` : `Hết hạn ${fmtTimeDate(payment.expiresAt)}`}
+          {pending ? `Còn hiệu lực · hết hạn ${fmtDateTime(payment.expiresAt)} · còn ${fmtClock(remaining(payment, now))}` : payment.cancelledAt ? `Đã hủy ${fmtDateTime(payment.cancelledAt)}` : `Hết hạn ${fmtDateTime(payment.expiresAt)}`}
         </span>
       </div>
-      <div className={box}>{pending && remaining(payment, now) > 0 ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} /> : <div className={QR_HIDDEN}>{payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}</div>
+      <div className={box}>{pending && remaining(payment, now) > 0 ? <QrImage key={payment.qrImageUrl} url={payment.qrImageUrl} phone /> :<div className={QR_HIDDEN}>{payment.state === 'CANCELLED' ? 'Yêu cầu đã hủy' : 'Mã QR không còn hiệu lực'}</div>}</div>
       <div className={`${box} flex flex-col gap-3`}>
         <Facts cols={2} items={[
           ['Ngân hàng', `${payment.bankCode} · ${payment.accountNumber}`],

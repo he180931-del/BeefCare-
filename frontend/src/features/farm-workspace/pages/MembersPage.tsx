@@ -4,7 +4,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { Icon } from '../../../components/Icon'
 import Layout from '../../../components/Layout'
 import { useModalParam } from '../../../components/Modal'
-import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../components/ui'
+import { Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
 import { useSession } from '../../authorization'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
@@ -109,7 +109,7 @@ export default function MembersPage() {
         members={pageRows} owner={owner} timeZone={list.timeZone} dir={current.dir}
         onSort={() => choose({ dir: current.dir === 'asc' ? 'desc' : 'asc' })}
         onChange={(member, action) => openChange(member.id, action)}
-        empty={<><p>Không có bản ghi phù hợp với bộ lọc.</p><Button onClick={() => choose(DEFAULTS)}>Xóa bộ lọc</Button></>}
+        empty={<EmptyBlock title="Không có bản ghi phù hợp với bộ lọc." action={<Button onClick={() => choose(DEFAULTS)}>Xóa bộ lọc</Button>} />}
       />
       <Pagination page={shownPage} pageCount={pageCount} onChange={setPage}
         summary={rows.length ? `Hiển thị ${(shownPage - 1) * PAGE_SIZE + 1}–${Math.min(shownPage * PAGE_SIZE, rows.length)} trong ${rows.length} thành viên` : '0 thành viên'} />

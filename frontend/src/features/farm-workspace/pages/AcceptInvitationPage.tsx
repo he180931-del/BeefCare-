@@ -103,7 +103,7 @@ export default function AcceptInvitationPage() {
   }
 
   const shell = (children: ReactNode, foot: string) => (
-    <SetupLayout narrow eyebrow="Trước khi tham gia" heading="Xem rõ trại và vai trò trước khi vào." lines={['Xem người mời, quyền và thư điện tử đăng nhập. Tư cách thành viên chỉ được tạo khi bạn chấp nhận.', 'Thư điện tử đăng nhập phải trùng thư điện tử được mời.']}>
+    <SetupLayout narrow eyebrow="Trước khi tham gia" heading="Xem rõ trại và vai trò trước khi vào." lines={['Xem người mời, quyền và email đăng nhập. Tư cách thành viên chỉ được tạo khi bạn chấp nhận.', 'Email đăng nhập phải trùng email được mời.']}>
       {children}<Foot>{foot}</Foot>
     </SetupLayout>
   )
@@ -131,16 +131,16 @@ export default function AcceptInvitationPage() {
 
   if (view.kind === 'mismatch') {
     return shell(
-      <Panel title="Lời mời được gửi tới thư điện tử khác" badge={<Badge tone="err">Không khớp thư điện tử</Badge>}>
+      <Panel title="Lời mời được gửi tới email khác" badge={<Badge tone="err">Không khớp email</Badge>}>
         {/* MSG-FE03-09; the farm details stay hidden (UC-FE03-04 E2) */}
         <Note tone="err">Lời mời này được gửi tới email khác. Hãy đăng nhập bằng email được mời để chấp nhận.</Note>
-        <dl className="m-0 grid gap-3"><Fact label="Thư điện tử đang đăng nhập">{signedIn || '—'}</Fact></dl>
+        <dl className="m-0 grid gap-3"><Fact label="Email đang đăng nhập">{signedIn || '—'}</Fact></dl>
         <div className="flex flex-wrap justify-end gap-2">
           <Button size="lg" onClick={() => navigate('/')}>Về trang chủ</Button>
           {session && <Button size="lg" variant="primary" onClick={switchAccount}>Đăng xuất để đổi tài khoản</Button>}
         </div>
       </Panel>,
-      'Thông tin trang trại chỉ hiện với tài khoản có thư điện tử được mời.',
+      'Thông tin trang trại chỉ hiện với tài khoản có email được mời.',
     )
   }
 
@@ -179,8 +179,8 @@ export default function AcceptInvitationPage() {
       <dl className="m-0 grid gap-3 sm:grid-cols-2">
         <Fact label="Trang trại">{invite.farmName}</Fact><Fact label="Vai trò">{roleLabel(invite.role)}</Fact>
         <Fact label="Mời bởi">{invite.invitedBy ?? '—'}</Fact><Fact label="Gửi lúc">{formatDateTime(invite.sentAt, zone)}</Fact>
-        <Fact label="Thư điện tử được mời">{invite.email}</Fact><Fact label="Hết hạn">{formatDateTime(invite.expiresAt, zone)}</Fact>
-        <Fact label="Thư điện tử đang đăng nhập">{signedIn || '—'}</Fact>
+        <Fact label="Email được mời">{invite.email}</Fact><Fact label="Hết hạn">{formatDateTime(invite.expiresAt, zone)}</Fact>
+        <Fact label="Email đang đăng nhập">{signedIn || '—'}</Fact>
       </dl>
       <div className="flex flex-col gap-2"><span className="text-xs font-medium text-ink">Quyền của vai trò</span><RoleSummary role={invite.role} /></div>
       {error && <Note tone="err">{error}</Note>}

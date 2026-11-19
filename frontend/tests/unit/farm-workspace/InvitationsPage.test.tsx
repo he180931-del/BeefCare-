@@ -98,6 +98,7 @@ describe('UC-FE03-02 / SCR-14', () => {
     api.listInvitations.mockRejectedValueOnce(new Error('backend unavailable')).mockResolvedValue(page([], { total: 0, counts: { PENDING: 0, ACCEPTED: 0, EXPIRED: 0, CANCELLED: 0 } }))
     open(); await user.click(await screen.findByRole('button', { name: /Thử lại/ }))
     expect(await screen.findByText(/Không có bản ghi phù hợp/)).toBeInTheDocument()
+    expect(screen.getByText(/Không có bản ghi phù hợp/).closest('table')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
     await waitFor(() => expect(api.listInvitations).toHaveBeenLastCalledWith(401, expect.objectContaining({ status: 'PENDING', page: 0, dir: 'desc' })))
   })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BackendError } from '../../../api/backendClient'
 import { backendMode } from '../../../api/backendTransport'
@@ -7,7 +7,8 @@ import Layout from '../../../components/Layout'
 import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
 import { useDemoState } from '../../../hooks/useDemoState'
 import { enterFarm } from '../../farm-workspace/components/enterFarm'
-import { farmWorkspaceError } from '../../farm-workspace/components/WorkspaceUi'
+import SetupLayout from '../../farm-workspace/components/SetupLayout'
+import { farmWorkspaceError, Stepper } from '../../farm-workspace/components/WorkspaceUi'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { useIsPhone, useTick } from '../components/shared'
 import CancelRequestDialog from '../components/CancelRequestDialog'
@@ -15,7 +16,7 @@ import DevTransferSimulator from '../components/DevTransferSimulator'
 import { useStateDialog } from '../components/StateDialog'
 import { PhoneTransfer, ProgressCard, QrCard, TransferInfoCard } from '../components/TransferParts'
 import { useFarmScope } from '../components/useFarmScope'
-import { fmtPeriod, fmtTimeDate, fmtVnd, stateFromError, termLabel, toMs } from '../domain/subscriptionRules'
+import { fmtDateTime, fmtPeriod, fmtVnd, stateFromError, termLabel, toMs } from '../domain/subscriptionRules'
 import { useOverview } from './useOverview'
 import { usePaymentStatus } from './usePaymentStatus'
 
@@ -56,8 +57,14 @@ export default function TransferPage() {
     }
   }
 
-  if (payment.loading && !current) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (!current) return <Layout title={TITLE}><ErrorBlock message={userFacingError(payment.error, 'Không tìm thấy yêu cầu thanh toán.')} onRetry={() => void payment.refresh().catch(() => {})} /></Layout>
+  // Opened from SCR-58 while registering a farm (step 3): the tab has not entered that farm, so stay in the onboarding
+  // shell like SCR-58 instead of the farm shell, whose header and sidebar belong to the farm this tab was in.
+  const shell = (children: ReactNode) => from === 'onboarding'
+    ? <SetupLayout step={3} eyebrow="Thiết lập trại" heading="Mỗi trại một hồ sơ rõ ràng." lines={['Thông tin, quyền truy cập và dịch vụ được quản lý riêng cho từng trại.']}><Stepper current={3} />{children}</SetupLayout>
+    : <Layout title={TITLE}>{children}</Layout>
+
+  if (payment.loading && !current) return shell(<LoadingBlock />)
+  if (!current) return shell(<ErrorBlock message={userFacingError(payment.error, 'Không tìm thấy yêu cầu thanh toán.')} onRetry={() => void payment.refresh().catch(() => {})} />)
 
   const closeTo = from === 'lich-su' ? to('/goi-dich-vu/lich-su') : from === 'onboarding' ? '/chon-trai' : to('/goi-dich-vu')
   const close = () => navigate(closeTo)
@@ -87,14 +94,16 @@ export default function TransferPage() {
     }
   }
 
-  return (
-    <Layout title={TITLE}>
+  return shell(
+    <>
       <div className="flex flex-col gap-4">
         {phone ? (
-          <p className="m-0 text-[11px] text-muted">{from === 'onboarding' ? 'Đăng ký gói' : 'Gia hạn gói'} · {farmName}</p>
+          // A first purchase is "Đăng ký gói" from every entry point (SCR-58, SCR-57, history), not only from onboarding.
+          <p className="m-0 text-[11px] text-muted">{from === 'onboarding' || firstPurchase ? 'Đăng ký gói · ' : farmOverview ? 'Gia hạn gói · ' : ''}{farmName}</p>
         ) : (
           <PageHeader title={TITLE} sub={`Yêu cầu ${current.quoteRef} · ${termLabel(current.durationYears)} · ${farmName}`}>
-            {cancellable && <Button variant="danger" onClick={openCancel}>Hủy yêu cầu</Button>}
+            {/* SCR-59 #12: a secondary button (red text), not a solid red one beside "Đóng hướng dẫn". */}
+            {cancellable && <Button className="!text-err-fg" onClick={openCancel}>Hủy yêu cầu</Button>}
             <Button onClick={close}>Đóng hướng dẫn</Button>
           </PageHeader>
         )}
@@ -111,7 +120,7 @@ export default function TransferPage() {
         {paid && enterError && <Note tone="err">{enterError}</Note>}
         {pending && !phone && (
           <Note tone="info">
-            Chuyển đúng {fmtVnd(current.amountVnd)} với nội dung {current.quoteRef} trước {fmtTimeDate(current.expiresAt)}. Dịch vụ được kích hoạt tự động sau khi giao dịch được xác nhận.
+            Chuyển đúng {fmtVnd(current.amountVnd)} với nội dung {current.quoteRef} trước {fmtDateTime(current.expiresAt)}. Dịch vụ được kích hoạt tự động sau khi giao dịch được xác nhận.
           </Note>
         )}
         {cancelled && (
@@ -119,7 +128,7 @@ export default function TransferPage() {
           <Note tone="warn">
             <span className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                Yêu cầu thanh toán {current.quoteRef} đã hủy{current.cancelledAt ? ` lúc ${fmtTimeDate(current.cancelledAt)}` : ''}. Đừng chuyển khoản vào mã này.
+                Yêu cầu thanh toán {current.quoteRef} đã hủy{current.cancelledAt ? ` lúc ${fmtDateTime(current.cancelledAt)}` : ''}. Đừng chuyển khoản vào mã này.
                 {current.cancelReason ? ` Lý do: ${current.cancelReason}` : ''}
               </span>
               <span className="flex flex-wrap gap-2">
@@ -153,6 +162,6 @@ export default function TransferPage() {
           onStale={(message) => { setCancelling(false); setPageNotice(message); void check() }} />
       )}
       {dialog.element}
-    </Layout>
+    </>,
   )
 }

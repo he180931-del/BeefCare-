@@ -4,6 +4,7 @@ import { Icon } from '../../../components/Icon'
 import Modal, { ModalFooter } from '../../../components/Modal'
 import { Button, Field, inputCls, Note, Segmented, Select } from '../../../components/ui'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
+import { DISCARD_PROMPT } from '../domain/discardPrompt'
 import { useRequestKey } from '../hooks/useRequestKey'
 import type { FarmRole, Invitation, InviteMemberInput, Membership } from '../types'
 import { validateInvite, type FormErrors } from '../validation'
@@ -97,8 +98,8 @@ export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSe
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         {error && <Note tone="err">{error}</Note>}
         {!active && <Note tone="warn">Lời mời, đổi vai trò và kích hoạt lại cần dịch vụ trang trại đang hoạt động.</Note>}
-        <Field label="Thư điện tử người nhận *" id="invite-email">
-          <input id="invite-email" type="email" maxLength={254} autoComplete="email" placeholder="ten@example.com" value={email} disabled={saving} onChange={(event) => { setEmail(event.target.value); setAlternative(null) }} className={inputCls} />
+        <Field label="Email người nhận *" id="invite-email">
+          <input id="invite-email" aria-invalid={errors.email ? true : undefined} type="email" maxLength={254} autoComplete="email" placeholder="ten@example.com" value={email} disabled={saving} onChange={(event) => { setEmail(event.target.value); setAlternative(null) }} className={inputCls} />
           <FieldError>{errors.email}</FieldError>
         </Field>
         <Field label="Vai trò *">
@@ -117,11 +118,11 @@ export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSe
         </Field>
         {alternative?.kind === 'resend' && <Note tone="warn"><p className="m-0">Đã có lời mời đang chờ cho email này.</p><p className="mb-0">Gửi lại lời mời cho {alternative.invitation.email} với vai trò {roleLabel(alternative.invitation.role)}, hiệu lực {alternative.invitation.validityDays} ngày?</p></Note>}
         {alternative?.kind === 'reactivate' && <Note tone="warn">{alternative.member.email} là thành viên đã ngưng. Kích hoạt lại thay vì mời? Vai trò hiện tại: {roleLabel(alternative.member.role)}.</Note>}
-        {discarding && <Note tone="warn">Hủy thay đổi? Dữ liệu đã nhập sẽ không được lưu.</Note>}
+        {discarding && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
         <ModalFooter compact>
           {discarding ? <>
-            <Button size="lg" onClick={() => setDiscarding(false)}>Tiếp tục nhập</Button>
-            <Button size="lg" variant="danger" onClick={discard}>Hủy thay đổi</Button>
+            <Button size="lg" onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</Button>
+            <Button size="lg" variant="danger" onClick={discard}>{DISCARD_PROMPT.discard}</Button>
           </> : <>
             <Button size="lg" disabled={saving} onClick={close}>Hủy</Button>
             {alternative && <Button size="lg" disabled={saving} onClick={() => setAlternative(null)}>Quay lại</Button>}

@@ -67,7 +67,6 @@ export const fmtDate = (t: string | number) => {
 }
 const hm = (t: string | number) => `${p2(vn(t).getUTCHours())}:${p2(vn(t).getUTCMinutes())}`
 export const fmtDateTime = (t: string | number) => `${fmtDate(t)} ${hm(t)}`
-export const fmtTimeDate = (t: string | number) => `${hm(t)} ${fmtDate(t)}`
 export const fmtDateTimeSec = (t: string | number) => `${fmtDate(t)} ${hm(t)}:${p2(vn(t).getUTCSeconds())}`
 /** Ngày cuối cùng còn hiệu lực của kỳ nửa mở [start, end). */
 export const fmtEndDay = (end: string | number) => fmtDate(toMs(end) - 1)
