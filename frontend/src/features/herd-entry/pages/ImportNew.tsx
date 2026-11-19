@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Card, Checkbox, DateInput, Docs, Dropzone, Field, Foot, Info, KV, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, Checkbox, DateInput, Field, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { Docs, Dropzone } from '../../../components/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
 import {
   commitEntryExcel,
   discardHerdEntryDraft,
@@ -24,20 +24,21 @@ import {
   previewEntryExcel,
   removeEntryAttachment,
 } from '../api/index'
-import { useMutation, useQuery } from '../../../hooks/useApi'
+import { useMutation } from '../../../shared/hooks/useMutation'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { PAY_METHODS, PURPOSES } from '../data/entryData'
 import { INITIAL_COWS, TODAY, ageOf, blankCow } from '../data/importsData'
-import { dmy, money } from '../../../data/format'
+import { dmy, money } from '../../../shared/lib/format'
 import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
 import PayModal from '../components/PayModal'
-import { entryToday as localToday, validateEntryForPost } from '../entryValidation'
+import { entryToday as localToday, validateEntryForPost } from '../validation/entryValidation'
 import type { DocumentRow } from '../../../types'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
-import { userFacingError } from '../../../api/userFacingError'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../authorization'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'

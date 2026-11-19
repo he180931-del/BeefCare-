@@ -1,7 +1,9 @@
 import type { CattleInput } from '../../cattle'
 import type { EntryCalf, HerdEntry } from '../types'
 import type { Payment } from '../../../types'
-import { backendFarmId, backendMode, backendTransport } from '../../../api/backendTransport'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode } from '../../../shared/config/runtime'
+import { backendTransport } from '../../../shared/api/backendTransport'
 import { cattle, pens } from '../../../api/herdDomainApi'
 import {
   createHerdEntryBackendApi,

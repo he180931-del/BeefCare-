@@ -3,7 +3,7 @@ import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../api
 import { initialImports } from '../data/importsData'
 import { errorMessage } from '../../../api/herdDomainApi'
 import { herdEntrySchema } from '../../../api/collectionSchemas'
-import { entryToday } from '../entryValidation'
+import { entryToday } from '../validation/entryValidation'
 import type { CattleInput } from '../../cattle'
 import type { EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../types'
 

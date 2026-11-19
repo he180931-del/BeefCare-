@@ -1,4 +1,4 @@
-import type { BadgeTone } from '../../../components/ui'
+import type { BadgeTone } from '../../../shared/ui'
 import type { EntryCow } from '../types'
 
 export const ENTRY_EXCEL_HEADERS = [

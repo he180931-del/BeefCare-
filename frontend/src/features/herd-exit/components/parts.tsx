@@ -1,8 +1,7 @@
-import { Badge, KV, Table, Td, Th, inputCls, type BadgeTone } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
+import { Badge, type BadgeTone, Icon, type IconName, inputCls, KV, Table, Td, Th } from '../../../shared/ui'
 import { useSession } from '../../authorization'
 import type { ReactNode, ChangeEvent } from 'react'
-import { money } from '../../../data/format'
+import { money } from '../../../shared/lib/format'
 
 export const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 // Khoảng cách giữa các cột 8px như Figma (ghi đè px của Th/Td trong ui.tsx).

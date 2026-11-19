@@ -1,8 +1,6 @@
-import { Icon } from '../../../components/Icon'
+import { Badge, Field, Icon, Modal, ModalButton, ModalFooter, Note, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, Field, Note, Table, Td, Textarea, Th } from '../../../components/ui'
-import { dmy, money } from '../../../data/format'
+import { dmy, money } from '../../../shared/lib/format'
 import type { EntryDetail, HerdEntry } from '../types'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'

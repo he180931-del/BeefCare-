@@ -1,4 +1,4 @@
-import type { BadgeTone } from '../../../components/ui'
+import type { BadgeTone } from '../../../shared/ui'
 import type { HerdEntry } from '../types'
 // Dữ liệu phiếu nhập (thuộc worker "Nhập đàn").
 export const initialImports: HerdEntry[] = [
