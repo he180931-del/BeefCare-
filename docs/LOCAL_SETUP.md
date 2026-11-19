@@ -81,9 +81,9 @@ npm run dev:mock     # mọi màn hình chạy bằng dữ liệu mock, không c
 
 Khi cần mở từ thiết bị khác hoặc chạy kiểm runtime: `npm run dev -- --host 0.0.0.0 --port 5174`.
 
-Cấu hình `frontend/.env` (không commit). Vite chỉ đọc `.env`, không đọc `.env.example`; chưa có `.env` thì `npm run dev` chạy adapter local, không gọi backend.
+Cấu hình `frontend/.env` (không commit). Vite chỉ đọc `.env`, không đọc `.env.example`; chưa có `.env` thì `npm run dev` vẫn gọi backend thật qua proxy `/api`. Muốn chạy bằng dữ liệu mẫu, không cần backend, dùng `npm run dev:mock` (cổng 5174).
 
-- `VITE_BEEFCARE_DATA_SOURCE=backend` dùng backend thật; giá trị khác hoặc để trống dùng adapter local. `VITE_BEEFCARE_FARM_ID` là ID số của trại trên backend.
+- `VITE_BEEFCARE_DATA_SOURCE`: để trống hoặc `backend` là backend thật; chỉ `local` mới dùng adapter dữ liệu mẫu (`npm run dev:mock` và Vitest tự đặt). `vite build` báo lỗi khi gặp `local` hoặc `VITE_BEEFCARE_AUTH_MODE=mock`, nên bản build không thể chạy bằng dữ liệu mẫu. `VITE_BEEFCARE_FARM_ID` là ID số của trại trên backend.
 - `VITE_BEEFCARE_API_URL` **để trống**: request đi theo đường dẫn tương đối `/api` qua proxy của Vite tới `127.0.0.1:8080`. Đây là cách đúng theo quy tắc dự án (không hardcode origin).
 - Nếu đặt `VITE_BEEFCARE_API_URL` (ví dụ `http://localhost:8080`), trình duyệt gọi thẳng backend, bỏ qua proxy, và backend phải cho phép origin của frontend qua `BEEFCARE_CORS_ORIGINS` (mặc định ở profile `local`: `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`).
 - Dùng cùng hostname cho frontend và backend: cookie của `localhost` và `127.0.0.1` là khác nhau. Cookie production cần HTTPS.

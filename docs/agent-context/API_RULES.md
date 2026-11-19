@@ -10,13 +10,17 @@ with `/api/` and always sends `credentials: 'include'`, but it prefixes
 `frontend/.env.example`) so requests stay relative; a backend origin there
 bypasses the proxy and relies on backend CORS.
 
-`VITE_BEEFCARE_DATA_SOURCE=backend` selects the backend adapters in
-`frontend/src/shared/config/runtime.ts` (`backendMode`). Any other value selects local adapters.
+`frontend/src/shared/config/runtime.ts` (`backendMode`) selects the backend adapters unless
+`VITE_BEEFCARE_DATA_SOURCE=local` is set explicitly (`npm run dev:mock`, Vitest, and the
+`tests/node/localDataSource.ts` preload of `npm run test:api`). `vite build` refuses `local` and
+`VITE_BEEFCARE_AUTH_MODE=mock`. Screens never read `backendMode`: the feature API exposes what
+its adapter offers (for example `feedReceiptServerBacked`, `subscriptionApi.paymentRouteId`) and owns
+every demo default (checked by `tests/api/layerBoundary.test.ts`).
 Local collection persistence in `frontend/src/api/client.ts` is for local demo
 and tests only; backend mode must not silently fall back to localStorage.
 The tracked `frontend/.env.example` is only a backend-mode sample: Vite never
 reads it. The untracked `frontend/.env` is what the current Vite process uses;
-without it, `npm run dev` runs the local adapters.
+without it, `npm run dev` still talks to the backend through the `/api` proxy.
 Read the active env before claiming which mode is live; never infer runtime mode
 from the example file alone.
 

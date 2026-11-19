@@ -447,14 +447,16 @@ Trong feature worktree, chạy focused unit test của lát đang sửa. Các su
 
 Không quyết định thay bằng dữ liệu giả. Nếu backend hoặc requirement chưa sẵn sàng, giữ feature ở trạng thái bị chặn có thông báo rõ thay vì tạo fallback production.
 
-## 14. Tiến độ triển khai (cập nhật 19/11/2026, nhánh `refactor/fe-cau-truc-thu-muc`)
+## 14. Tiến độ triển khai (cập nhật 20/11/2026, nhánh `refactor/fe-cau-truc-thu-muc`)
 
 | Giai đoạn | Trạng thái | Ghi chú |
 | :---- | :---- | :---- |
 | 0 — Baseline | Xong | Route-role matrix, provider order và 6 lệnh kiểm tra được chụp trước khi sửa. `npm run test:integration:ui` không chạy được trên Windows (glob), dùng `npx vitest run tests/integration`. |
 | 1 — Ranh giới `app` / `shared` | Xong | `main.tsx` mỏng, `app/` (routes, providers, layouts, session, styles), `shared/` (api, config, lib, hooks, ui, assets). |
 | 2 — Trả ownership về feature | Xong, trừ các mục chờ bên dưới | `types.ts` tách theo feature; API cattle về `features/cattle/api` (DTO / mapper / API); mapper Entry/Exit tách khỏi backend API; mọi feature import thẳng `shared/` và `app/`; validator chuyển vào `validation/`, hook vào `hooks/`, form feed-stock tách validation / payload / domain; shim của giai đoạn 1 đã xóa; `index.ts` thu hẹp. Characterization test (golden master) được ghi trước khi chuyển validator. |
-| 3 — Backend-only | Chưa làm | |
+| 3a — Backend mặc định, page không chọn nguồn dữ liệu | Xong | Quyết định 19/11: giữ `dev:mock` cho dev/test, nút giả lập chuyển khoản giữ (chỉ khi `import.meta.env.DEV`), chặn build dùng dữ liệu mẫu, hai chỗ thiếu endpoint giữ trạng thái chưa tích hợp. Không đặt biến thì dùng backend; `vite build` từ chối `DATA_SOURCE=local` và `AUTH_MODE=mock`. Vitest và `test:api` tự đặt `local`. Page, component, hook, domain không còn đọc `backendMode` hay import `data/`: API của feature cung cấp cờ khả năng và giá trị mẫu (kiểm trong `layerBoundary.test.ts`). Nội dung thật và hàm thuần chuyển từ `data/` sang `constants/` và `domain/`. Sửa ba chỗ dữ liệu mẫu hiện ở chế độ backend: "Chuồng giảm" của phiếu xuất dùng chuồng mẫu, `?m=<tên>` của gói dịch vụ mở hộp thoại dữ liệu mẫu, popup sinh sản mặc định danh sách mẫu. |
+| 3b — Demo ra khỏi bundle production | Chưa làm | Bundle production còn khoảng 60 module mock/demo (demo store nạp tĩnh). Gồm: nạp demo store theo chế độ, `useDemoState` / `?demo=` (17 file), client đăng nhập mô phỏng, hạ tầng local ở thư mục gốc. |
+| 3c — Chỗ chưa có endpoint | Chưa làm | Trang chủ Kỹ thuật viên (REM-11, khẩu phần chưa ghi) và danh sách phiếu xuất chờ xác nhận (FE-13) hiển thị trạng thái chưa tích hợp; ghi việc cho backend. |
 | 4 — Hợp nhất session | Chưa làm | |
 
 Còn để lại có chủ đích (danh sách và lý do được kiểm trong `tests/api/layerBoundary.test.ts`):
@@ -467,5 +469,7 @@ Còn để lại có chủ đích (danh sách và lý do được kiểm trong `
 | 3 import đi thẳng vào module (`pen-management → cattleApi`, `herd-exit → scanApi`, `cattle → catalogueApi`) | Các module này tạo collection / demo store khi nạp; export qua `index.ts` sẽ chạy chúng lúc khởi động vì route table nạp mọi index | Giai đoạn 3 |
 | Export của module có tác dụng phụ trong `index.ts` (API, demo store) | Bỏ khỏi index sẽ đổi thời điểm chạy và thứ tự gộp seed local | Giai đoạn 3 |
 | `reproduction` (`validateReproductionCommand`, `validateCalving`), `farm-announcements` `validateText`, `platform-admin` `validateReason` | Validator trộn chính sách domain hoặc được domain dùng lại; tách là đổi logic | Cần thiết kế riêng |
-| `useFarmId`, `useFarmScope` ở `hooks/` của feature | Còn fallback `backendFarmId` và nhánh mock | Giai đoạn 4 (`app/session`) |
+| `useFarmId`, `useFarmScope` ở `hooks/` của feature | Còn fallback `backendFarmId` và nhánh mock (`useFarmScope` là chỗ duy nhất ở tầng UI còn đọc `backendMode`) | Giai đoạn 4 (`app/session`) |
+| Màn hai mô hình (`CowList`, form phiếu thức ăn, popup cữ ăn) | Bản mô phỏng lọc/đếm/tính kế hoạch tại trình duyệt, máy chủ thật làm ở server; page đọc cờ của API (`localCattleList`, `feed*ServerBacked`) thay vì hợp nhất một đường | Hợp nhất khi adapter local cài đặt cùng hợp đồng với backend |
+| Giá trị mặc định cứng trong `blankCow` (ngày sinh `2025-10`, đơn giá 85.000) của phiếu nhập | Dùng cho cả backend; đổi là đổi hành vi form | Cần chốt nghiệp vụ |
 | `authentication` (`AuthContext`, `client`), `authorization/SessionProvider` | Ghép session toàn app | Giai đoạn 4 |
