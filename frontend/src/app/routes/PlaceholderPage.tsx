@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import Layout, { pageName } from '../components/Layout'
+import Layout, { pageName } from '../layouts/FarmPlatformLayout'
 
 export default function Placeholder() {
   const { pathname } = useLocation()

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import logo from '../../../../assets/logo.png'
+import logo from '../../../../shared/assets/logo.png'
 import { NAV_LINKS } from '../../data/landingContent'
 import { AUTH_PATH } from '../../domain/authErrors'
 

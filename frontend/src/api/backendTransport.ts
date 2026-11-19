@@ -1,44 +1,22 @@
-import { createBackendClient } from './backendClient'
-import { notifySessionExpired } from './sessionLifecycle'
-import { readCurrentFarmId } from './currentFarm'
+// Compatibility facade (refactor phase 1). The transport, runtime config and primitive parsers moved to
+// `shared/api/backendTransport`, `shared/config/runtime` and `shared/api/parse`; feature APIs still import them here.
+// What is left below is not shared infrastructure and leaves this file in a later phase:
+// - `backendFarmId` (legacy farm fallback) → removed in phase 4, the active farm belongs to `app/session`;
+// - `enumPaymentMethod`, `unwrapVoucher`, `isoDate` → the Herd Entry / Herd Exit mappers in phase 2.
+import { readCurrentFarmId } from '../app/session/currentFarm'
+import { asRecord } from '../shared/api/parse'
+import { configuredFarmId } from '../shared/config/runtime'
 
-export interface BackendTransport {
-  get(path: string, options?: { headers?: Record<string, string> }): Promise<unknown>
-  command(path: string, body: unknown, options?: { method?: string; key?: string; headers?: Record<string, string> }): Promise<unknown>
-  farmPath(farmId: string | number, suffix?: string): string
-}
+export { backendTransport, type BackendTransport } from '../shared/api/backendTransport'
+export { backendMode, type BackendMode } from '../shared/config/runtime'
+export { asRecord, asRows, nullableNumber, numberValue, textValue } from '../shared/api/parse'
 
-export type BackendMode = 'local' | 'backend'
-
-const env: Partial<ImportMetaEnv> = import.meta.env ?? {}
-
-export const backendMode: BackendMode = env.VITE_BEEFCARE_DATA_SOURCE === 'backend' ? 'backend' : 'local'
 const enteredFarmId = readCurrentFarmId()
 /**
  * The current farm for every feature API: the farm entered on Select Farm in this tab (UC-FE02-02), otherwise the
  * configured one. Read once per page load; entering another farm reloads the page (see `currentFarm.ts`).
  */
-export const backendFarmId = enteredFarmId != null ? String(enteredFarmId) : env.VITE_BEEFCARE_FARM_ID || '1'
-
-export const backendTransport: BackendTransport = createBackendClient({
-  baseUrl: env.VITE_BEEFCARE_API_URL || '',
-  onUnauthorized: notifySessionExpired,
-})
-
-export const asRecord = (value: unknown): Record<string, unknown> =>
-  typeof value === 'object' && value !== null ? value as Record<string, unknown> : {}
-
-export const asRows = (value: unknown): Record<string, unknown>[] =>
-  Array.isArray(value) ? value.map(asRecord) : []
-
-export const textValue = (value: unknown, fallback = ''): string =>
-  typeof value === 'string' ? value : fallback
-
-export const numberValue = (value: unknown, fallback = 0): number =>
-  typeof value === 'number' && Number.isFinite(value) ? value : fallback
-
-export const nullableNumber = (value: unknown): number | null =>
-  typeof value === 'number' && Number.isFinite(value) ? value : null
+export const backendFarmId = enteredFarmId != null ? String(enteredFarmId) : configuredFarmId || '1'
 
 export const enumPaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' =>
   value === 'Tiền mặt' || value === 'CASH' ? 'CASH' : 'BANK_TRANSFER'

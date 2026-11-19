@@ -1,8 +1,8 @@
 import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import logo from '../../../assets/logo.png'
-import farm from '../../../assets/farm.png'
-import wave from '../../../assets/wave.png'
+import logo from '../../../shared/assets/logo.png'
+import farm from '../../../shared/assets/farm.png'
+import wave from '../../../shared/assets/wave.png'
 import { Icon } from '../../../components/Icon'
 
 export const fieldClass = 'mt-2 block h-[53px] w-full rounded-xl border border-field bg-white px-4 text-[15px] text-ink outline-none transition placeholder:text-[#9aa79e] focus:border-brand focus:ring-2 focus:ring-brand/10 read-only:bg-chip disabled:bg-page'
