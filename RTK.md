@@ -231,11 +231,13 @@ frontend/src/
     herd-exit/      exit pages, components, API adapters, feature data
     cattle/         cattle list/profile pages and cattle-specific code
     pen-management/ pen pages, components, API adapters, and pen data
-  api/, components/, hooks/, data/, types.ts
-                    legacy leftovers only (local/demo data for phase 3, the
-                    backendFarmId fallback for phase 4, Entry/Exit parts whose
-                    owner is undecided); the allowed list and reasons are in
-                    tests/api/layerBoundary.test.ts
+  demo/             the only door for demo data (demoModules.ts); vite build
+                    swaps it for noDemo.ts, so production has no demo data
+  api/, components/, data/, types.ts
+                    legacy leftovers only (local/demo data reached through
+                    demo/, the backendFarmId fallback for phase 4, Entry/Exit
+                    parts whose owner is undecided); the allowed list and
+                    reasons are in tests/api/layerBoundary.test.ts
 ```
 
 Entry, Exit, Cattle, and Pen Management now follow this feature boundary. New
@@ -245,7 +247,9 @@ code goes to `shared/` or `app/`, not to the legacy root folders. Inside a
 feature, field rules live in `validation/`, policies and calculations in
 `domain/`, React hooks in `hooks/`, DTO mapping next to the API in `api/`. `shared`
 never imports `app`, `features` or the legacy folders, and `app` reaches a
-feature only through its `index.ts` (`tests/api/layerBoundary.test.ts`).
+feature only through its `index.ts` (`tests/api/layerBoundary.test.ts`). Screens
+never read `backendMode`; feature APIs reach demo data only through
+`src/demo/demoModules.ts`, inside their local branch.
 
 Each feature should expose a small `index.ts` for lazy page loaders and keep
 its API/data/components private to that feature. Cross-feature communication

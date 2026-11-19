@@ -12,10 +12,16 @@ bypasses the proxy and relies on backend CORS.
 
 `frontend/src/shared/config/runtime.ts` (`backendMode`) selects the backend adapters unless
 `VITE_BEEFCARE_DATA_SOURCE=local` is set explicitly (`npm run dev:mock`, Vitest, and the
-`tests/node/localDataSource.ts` preload of `npm run test:api`). `vite build` refuses `local` and
+`tests/node/setup.ts` preload of `npm run test:api`). `vite build` refuses `local` and
 `VITE_BEEFCARE_AUTH_MODE=mock`. Screens never read `backendMode`: the feature API exposes what
 its adapter offers (for example `feedReceiptServerBacked`, `subscriptionApi.paymentRouteId`) and owns
 every demo default (checked by `tests/api/layerBoundary.test.ts`).
+Demo data reaches the app only through `frontend/src/demo/demoModules.ts`: feature APIs read
+`demo.<module>` inside their local branch, at call time (`lazyObject` wraps a store handed to a
+factory). `vite build` and `vite` on the backend swap that door for `src/demo/noDemo.ts`
+(plugin `beefcare-demo-door` in `vite.config.js`), and the build fails if a demo module still
+reaches the bundle. Do not import `data/`, `*LocalApi` or the legacy local modules from
+production code.
 Local collection persistence in `frontend/src/api/client.ts` is for local demo
 and tests only; backend mode must not silently fall back to localStorage.
 The tracked `frontend/.env.example` is only a backend-mode sample: Vite never
