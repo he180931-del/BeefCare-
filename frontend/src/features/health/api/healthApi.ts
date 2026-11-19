@@ -22,7 +22,6 @@ export function createHealthApi({ mode, farmId, transport, store, clock }: { mod
     async correctEntry(entryId: number, command: CorrectEntryCommand) { return store.correctEntry(entryId, command) },
     async voidEntry(entryId: number, command: VoidEntryCommand) { return store.voidEntry(entryId, command) },
     async formOptions() { return store.formOptions() },
-    async listPendingExits() { return store.listPendingExits() },
     /** Thời điểm hiện tại cho giá trị mặc định của ô ngày giờ; dữ liệu mẫu dùng mốc 20/10/2026 như các frame. */
     now: () => store.now(),
   }

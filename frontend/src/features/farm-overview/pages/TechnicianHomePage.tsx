@@ -51,8 +51,8 @@ export default function TechnicianHomePage() {
   if (home.loading && !home.data) return <TechnicianLayout title={`Chào ${given}`} hero><LoadingBlock /></TechnicianLayout>
   if (home.error || !home.data) return <TechnicianLayout title={`Chào ${given}`} hero><ErrorBlock message={userFacingError(home.error, 'Không tải được trang chủ.')} onRetry={home.refetch} /></TechnicianLayout>
 
-  const { today, reminders, feeding } = home.data
-  const sub = `${session?.farmName ?? home.data.farmName} · ${weekdayOf(today)} ${formatKeyShort(today)}`
+  const { today, reminders, unrecordedFeedings } = home.data
+  const sub = [session?.farmName, `${weekdayOf(today)} ${formatKeyShort(today)}`].filter(Boolean).join(' · ')
   const open = (e: FormEvent) => { e.preventDefault(); if (code.trim()) navigate(`/kt/dan-bo/${encodeURIComponent(code.trim())}`) }
 
   return (
@@ -85,7 +85,7 @@ export default function TechnicianHomePage() {
 
       <section className={card} aria-label="Khẩu phần hôm nay">
         {cardHead('Khẩu phần hôm nay', '/kt/thuc-an', 'Xem khẩu phần')}
-        <p className="m-0 text-xs text-[#212121]">{`${feeding.label} · ${feeding.unrecorded} / ${feeding.total} chuồng chưa ghi`}</p>
+        <p className="m-0 text-xs text-[#212121]">{unrecordedFeedings ? `${unrecordedFeedings} bữa ăn chưa ghi` : 'Không có bữa ăn chưa ghi.'}</p>
       </section>
     </TechnicianLayout>
   )

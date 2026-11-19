@@ -41,6 +41,8 @@ test('app reaches a feature only through its public index', () => {
 // the feature index.ts would run that at start-up (the route table imports every index), so these consumers keep
 // importing the module itself until refactor phase 3 removes the local demo data.
 const ALLOWED_DEEP_IMPORTS = new Set([
+  // The route table loads every feature index at start-up; exporting these APIs there would pull them, with their
+  // backend adapters, into the entry chunk (none of the three is in it today).
   'features/pen-management/api/penApi.ts -> features/cattle/api/cattleApi',
   'features/herd-exit/components/PickModal.tsx -> features/cattle/api/scanApi',
   'features/cattle/components/TimelineCorrectionDialog.tsx -> features/farm-catalogue/api/catalogueApi',

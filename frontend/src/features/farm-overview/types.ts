@@ -152,11 +152,11 @@ export interface ReminderItem extends Omit<ReminderSeed, 'audience' | 'due'> {
 
 export interface ReminderList { today: string; timeZone?: string; items: ReminderItem[] }
 
+/** SCR-74: the day's reminders (at most six) and the feeding sessions not recorded yet (REM-11). */
 export interface TechnicianHome {
-  farmName: string
   today: string
-  feeding: { label: string; unrecorded: number; total: number }
   reminders: ReminderItem[]
+  unrecordedFeedings: number
 }
 
 // ---- Management reports (POST /api/farms/{farmId}/dashboard/reports) ----
@@ -220,7 +220,7 @@ export interface FarmOverviewSeed {
   dashboards: Record<Scenario, DashboardSeed>
   today: string
   reminders: ReminderSeed[]
-  feeding: TechnicianHome['feeding']
+  unrecordedFeedings: number
   reports: Record<ReportCode, ReportRowSeed[]>
   reportGeneratedAt: string
   conceptionByMonth: Array<{ label: string; value: number }>

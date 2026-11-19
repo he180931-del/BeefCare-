@@ -1,5 +1,4 @@
 import { BackendError } from '../../../shared/api/backendClient'
-import { backendPending } from '../../../shared/api/backendPending'
 import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
@@ -344,9 +343,6 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         return { medicines: medicineList.map(mapMedicine), members: memberRows.map((m) => m.name), diagnoses }
       })
     },
-
-    /** Phiếu xuất chờ Chủ trại thuộc FE-13 (herd-exit); tab sức khỏe đọc phiếu của từng con qua A2 (pendingExit). */
-    async listPendingExits(): Promise<PendingExit[]> { throw backendPending('danh sách phiếu xuất chờ xác nhận (FE-13)') },
 
     // A3
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {

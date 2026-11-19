@@ -234,7 +234,17 @@ describe('technician home', () => {
     expect(screen.getByRole('button', { name: /Quét thẻ tai QR/ })).toBeInTheDocument()
     const hrefs = screen.getAllByRole('link').map((l) => l.getAttribute('href'))
     expect(hrefs).toEqual(expect.arrayContaining(['/kt/thong-bao', '/kt/nhac-viec', '/kt/thuc-an']))
-    expect(screen.getByText('Cữ chiều 16:30 · 2 / 5 chuồng chưa ghi')).toBeInTheDocument()
+    expect(screen.getByText('2 bữa ăn chưa ghi')).toBeInTheDocument()
+    expect(screen.getByText(/^Trại bò Yên Bài – Ba Vì · /)).toBeInTheDocument()
     expect(screen.getByText('Nhắc việc hôm nay (6)')).toBeInTheDocument()
+  })
+
+  it('says so when no reminder is due and every feeding session is recorded', async () => {
+    const spy = vi.spyOn(farmOverviewApi, 'getTechnicianHome').mockResolvedValue({ today: '2026-11-15', reminders: [], unrecordedFeedings: 0 })
+    renderAt('/kt', <TechnicianHomePage />, TECH)
+    expect(await screen.findByText('Không có bữa ăn chưa ghi.')).toBeInTheDocument()
+    expect(screen.getByText('Nhắc việc hôm nay (0)')).toBeInTheDocument()
+    expect(screen.getByText('Hôm nay chưa có nhắc việc.')).toBeInTheDocument()
+    spy.mockRestore()
   })
 })

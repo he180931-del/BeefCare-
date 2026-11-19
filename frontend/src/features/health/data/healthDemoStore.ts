@@ -158,8 +158,6 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       return structuredClone({ medicines: db.medicines, members: db.members, diagnoses })
     },
 
-    async listPendingExits(): Promise<PendingExit[]> { return structuredClone(db.vouchers.filter((v) => v.status === 'PENDING')) },
-
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {
       const cattle = ensureCattle(cattleCode)
       assertCanAdd(cattle)

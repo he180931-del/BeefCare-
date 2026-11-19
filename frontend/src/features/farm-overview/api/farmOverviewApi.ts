@@ -1,7 +1,6 @@
 import { backendFarmId } from '../../../api/backendTransport'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
-import { backendPending } from '../../../shared/api/backendPending'
 import type { FarmOverviewDemoStore } from '../data/farmOverviewDemoStore'
 import { createFarmOverviewBackendApi } from './farmOverviewBackend'
 import type { DashboardFilters, ReportRequest, Scenario, ViewerRole } from '../types'
@@ -38,8 +37,8 @@ export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode
     async runReport(request: ReportRequest, role: ViewerRole) { return backend ? backend.runReport(request) : store.runReport(request, role) },
     async listPenOptions() { return backend ? backend.listPenOptions() : store.listPenOptions() },
     async listBreedOptions() { return backend ? backend.listBreedOptions() : Promise.resolve([{ code: 'ZEBU_RED', name: 'Zebu đỏ' }, { code: 'LAI_SIND', name: 'Lai Sind' }]) },
-    // FE-14 SCR-74 còn thiếu endpoint tổng hợp REM-11 và khẩu phần chưa ghi cho Technician.
-    async getTechnicianHome() { return backend ? Promise.reject(backendPending('trang chủ Technician và REM-11')) : store.getTechnicianHome() },
+    // SCR-74: lắp từ GET /api/farms/{farmId}/reminders (nhắc việc và REM-11 bữa ăn chưa ghi).
+    async getTechnicianHome() { return backend ? backend.getTechnicianHome() : store.getTechnicianHome() },
   }
 }
 export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.farmOverview.farmOverviewDemoStore) })
