@@ -1,0 +1,31 @@
+import type { AppRole } from '../authorization'
+
+/** ProfileResponse trong OpenAPI (GET /api/account/profile). */
+export interface AccountProfile {
+  id: number
+  email: string
+  fullName: string
+  phone: string
+  emailVerified: boolean
+  passwordSignInEnabled: boolean
+  googleSignInLinked: boolean
+  ownerRegistrationCompleted: boolean
+  platformRole: string | null
+  farms: Array<{ farmId: number; farmName: string; role: string; permissions: string[] }>
+}
+
+/** Người đang đăng nhập; chế độ mô phỏng dùng nó để dựng hồ sơ, máy chủ thật bỏ qua. */
+export interface AccountIdentity {
+  email: string
+  fullName: string
+  role: AppRole
+  farmName: string | null
+}
+
+export interface ProfileUpdateInput { fullName: string; phone: string }
+
+/** `currentPassword` bỏ trống khi vừa xác thực lại với Google (D07) hoặc khi thêm mật khẩu đầu tiên. */
+export interface PasswordChangeInput { currentPassword?: string; newPassword: string; confirmPassword: string }
+
+export type ProfileErrors = Partial<Record<keyof ProfileUpdateInput, string>>
+export type PasswordErrors = Partial<Record<keyof PasswordChangeInput, string>>

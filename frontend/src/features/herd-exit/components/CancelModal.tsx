@@ -1,0 +1,76 @@
+import { useState } from 'react'
+import { Icon } from '../../../components/Icon'
+import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
+import { Field, Note, Textarea } from '../../../components/ui'
+import { cancelHerdExit, pens } from '../api/index'
+import { useMutation } from '../../../hooks/useApi'
+import { useQuery } from '../../../hooks/useApi'
+import { money } from '../../../data/format'
+import { penCode, restoreCounts } from '../data/occupancy'
+import type { HerdExit, CattleInput, Pen } from '../../../types'
+
+const MAX_REASON = 500
+
+export default function CancelModal({ row, onClose, onCancelled }: { row: HerdExit; onClose: () => void; onCancelled: () => void }) {
+  const { mutate: cancelExit, loading: saving } = useMutation<{ id: string; cows: CattleInput[]; patch: Partial<HerdExit> }, HerdExit>(({ id, cows, patch }) => cancelHerdExit(id, cows, patch))
+  const { data: canonicalPens } = useQuery(() => pens.list(), [])
+  const [cancelReason, setCancelReason] = useState('Lò mổ trả lại 4 con do đổi lịch giết mổ')
+  const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
+  const barnCount = row.count
+  const restoringByPen = restoreCounts(row.detail?.cows ?? [])
+  const barnNames = Object.keys(restoringByPen)
+  const occupancyText = canonicalPens
+    ? barnNames.map((code) => {
+      const pen = canonicalPens.find((item) => item.code === code)
+      const restoring = restoringByPen[penCode(code)] ?? 0
+      return pen ? `${code} (${pen.count}/${pen.capacity} → ${pen.count + restoring}/${pen.capacity})` : code
+    }).join(' · ')
+    : 'Chuồng sẽ được kiểm tra theo dữ liệu hiện tại'
+
+  const confirm = async () => {
+    const time = new Date().toTimeString().slice(0, 5)
+    await cancelExit({
+      id: row.id,
+      cows: row.detail?.cows ?? [],
+      patch: {
+        status: 'Đã hủy',
+        cancelReason,
+        detail: {
+          ...row.detail,
+          history: [...(row.detail?.history ?? []), `22/10 ${time} · N. V. Hùng hủy phiếu: ${cancelReason}`],
+        },
+      },
+    })
+    onCancelled()
+  }
+
+  return (
+    <Modal width={640} title={`Hủy phiếu xuất ${row.id}`} sub={`${row.type} · ${(row.date ?? '').slice(8)}/${(row.date ?? '').slice(5, 7)}/${(row.date ?? '').slice(0, 4)} · ${barnCount ?? 0} con · ${row.who ?? ''}`} topTitle="Hủy phiếu xuất" onClose={onClose}>
+      <div className="-mt-2 flex flex-col gap-2.5">
+        <div className="text-sm font-semibold">Khi xác nhận hủy</div>
+        <Note tone="ok">
+          <div className="flex items-start gap-1.5"><Icon name="circle-check" size={14} className="mt-px shrink-0" />{barnCount} con trở lại ACTIVE và mở lại phân chuồng cuối {occupancyText || 'theo từng con'}.</div>
+          <div className="flex items-start gap-1.5"><Icon name="circle-check" size={14} className="mt-px shrink-0" />Phiếu giữ nguyên trong lịch sử với trạng thái ĐÃ HỦY và lý do.</div>
+        </Note>
+        <Note tone="warn">
+          <div className="flex items-start gap-1.5"><Icon name="alert-triangle" size={14} className="mt-px shrink-0" />Mũi tiêm, nhắc việc đã hủy do xuất đàn KHÔNG tự khôi phục – Quản lý lập lại nếu cần.</div>
+          <div className="flex items-start gap-1.5"><Icon name="alert-triangle" size={14} className="mt-px shrink-0" />Tiền đã thu {money(collected)} đ vẫn giữ trong lịch sử – hoàn trả xử lý ngoài hệ thống.</div>
+        </Note>
+      </div>
+      <Field label="Lý do hủy *" hint={`Tối đa ${MAX_REASON} ký tự`}>
+        <Textarea
+          className="!leading-[normal] h-14"
+          rows={1}
+          maxLength={MAX_REASON}
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+        />
+      </Field>
+      <Note>Chỉ Chủ trại hủy được phiếu đã xuất. Nếu chuồng cuối ngưng sử dụng hoặc không đủ chỗ, hệ thống yêu cầu chọn chuồng khác cho từng con trước khi hủy (MSG-FE13-09).</Note>
+      <ModalFooter>
+        <ModalButton className="text-ink" onClick={onClose}>Đóng</ModalButton>
+        <ModalButton variant="danger" disabled={!cancelReason.trim() || saving} onClick={confirm}><Icon name="circle-x" />Hủy phiếu xuất</ModalButton>
+      </ModalFooter>
+    </Modal>
+  )
+}

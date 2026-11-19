@@ -1,0 +1,47 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174037"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "documentation": "ERD: field",
+      "fieldName": "fieldName",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "oldValue",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "newValue",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "effectiveDate",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "TextBlob"
+    }
+  ],
+  "name": "CattleProfileChange",
+  "relationships": [
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "cattle",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity HerdEntry.
+    -->
+    <changeSet id="20261019174035-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="cattle_id"
+                                 baseTableName="herd_entry"
+                                 constraintName="fk_herd_entry__cattle_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="cattle"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="initial_pen_id"
+                                 baseTableName="herd_entry"
+                                 constraintName="fk_herd_entry__initial_pen_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="pen"
+                                 />
+    </changeSet>
+</databaseChangeLog>

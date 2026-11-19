@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The next legacy changeSet removes seven draft tables. This guard allows a clean initial
+        database and databases where that exact changeSet has already run, but refuses to discard
+        rows from an unapplied/nonempty database. Include this changelog immediately before
+        20261028000002_herd_logic_schema.xml in master.xml.
+    -->
+    <changeSet id="20261028000001-guard-herd-logic-drop" author="beefcare">
+        <preConditions onFail="HALT" onError="HALT" onFailMessage="Refusing to drop herd draft tables containing data. Back up and migrate the data in place before upgrading; disposable development databases may be explicitly reset.">
+            <or>
+                <sqlCheck expectedResult="1">
+                    SELECT COUNT(*) FROM DATABASECHANGELOG
+                    WHERE ID = '20261028000001-drop-draft-tables' AND AUTHOR = 'beefcare'
+                </sqlCheck>
+                <sqlCheck expectedResult="0">
+                    SELECT
+                        (SELECT COUNT(*) FROM pen_reception_criteria) +
+                        (SELECT COUNT(*) FROM pen_assignment) +
+                        (SELECT COUNT(*) FROM cattle_qr_tag) +
+                        (SELECT COUNT(*) FROM herd_entry) +
+                        (SELECT COUNT(*) FROM herd_exit) +
+                        (SELECT COUNT(*) FROM cattle_profile_change) +
+                        (SELECT COUNT(*) FROM record_revision)
+                </sqlCheck>
+            </or>
+        </preConditions>
+        <comment>
+            Refuse to run the legacy destructive draft-table migration when it could remove data.
+            Back up and migrate nonempty draft data in place before applying this release.
+        </comment>
+    </changeSet>
+</databaseChangeLog>

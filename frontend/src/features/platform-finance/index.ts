@@ -1,0 +1,5 @@
+export const loadReceiptRoutes = () => import('./pages/ReceiptRoutes')
+export const loadManualFinanceRoutes = () => import('./pages/ManualFinanceRoutes')
+export const loadCashReportRoutes = () => import('./pages/CashReportRoutes')
+export const loadReconciliationNoticePage = () => import('./pages/ReconciliationNoticePage')
+export const loadPmSupportNoticePage = () => import('./pages/PmSupportNoticePage')

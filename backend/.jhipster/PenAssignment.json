@@ -1,0 +1,47 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174032"
+  },
+  "applications": ["*"],
+  "documentation": "Mỗi con tối đa 1 dòng có effective_to = null",
+  "fields": [
+    {
+      "fieldName": "effectiveFrom",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "effectiveTo",
+      "fieldType": "LocalDate"
+    },
+    {
+      "documentation": "HERD_ENTRY | MOVE",
+      "fieldName": "source",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "TextBlob"
+    }
+  ],
+  "name": "PenAssignment",
+  "relationships": [
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "cattle",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "pen",
+      "relationshipName": "pen",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

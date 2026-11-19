@@ -1,0 +1,40 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174057"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "versionNo",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "title",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "body",
+      "fieldType": "TextBlob",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "publishedTime",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "AnnouncementVersion",
+  "relationships": [
+    {
+      "otherEntityName": "farmAnnouncement",
+      "relationshipName": "announcement",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

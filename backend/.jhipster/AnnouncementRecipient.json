@@ -1,0 +1,37 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174058"
+  },
+  "applications": ["*"],
+  "documentation": "ERD: PK ghép version_id + membership_id; dùng id và cần thêm unique(version_id, membership_id)",
+  "fields": [
+    {
+      "fieldName": "deliveredTime",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "ERD: NOT NULL; để trống được vì chưa đọc thì chưa có thời điểm đọc",
+      "fieldName": "readTime",
+      "fieldType": "Instant"
+    }
+  ],
+  "name": "AnnouncementRecipient",
+  "relationships": [
+    {
+      "otherEntityName": "announcementVersion",
+      "relationshipName": "version",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "farmMembership",
+      "relationshipName": "membership",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

@@ -1,0 +1,41 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174100"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "documentation": "ERD: target_type + target_id - tách 2 cột",
+      "fieldName": "targetType",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "50"
+    },
+    {
+      "fieldName": "targetId",
+      "fieldType": "Long",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "createdTime",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "ERD: NOT NULL; để trống được vì chưa đọc thì chưa có thời điểm đọc",
+      "fieldName": "readTime",
+      "fieldType": "Instant"
+    }
+  ],
+  "name": "Notification",
+  "relationships": [
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "recipient",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

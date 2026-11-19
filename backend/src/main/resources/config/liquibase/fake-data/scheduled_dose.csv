@@ -1,0 +1,11 @@
+id;dose_no;due_date;status;deferral_reason;new_expected_date;schedule_id;cattle_id
+1;676;2026-10-18;till;../fake-data/blob/hipster.txt;2026-10-19;1;1
+2;986;2026-10-19;deployment extract ew;../fake-data/blob/hipster.txt;2026-10-19;2;2
+3;7309;2026-10-19;so;../fake-data/blob/hipster.txt;2026-10-19;3;3
+4;24386;2026-10-19;aware unused yet;../fake-data/blob/hipster.txt;2026-10-18;4;4
+5;29684;2026-10-18;likewise hastily;../fake-data/blob/hipster.txt;2026-10-19;5;5
+6;26069;2026-10-19;ick;../fake-data/blob/hipster.txt;2026-10-19;6;6
+7;13218;2026-10-19;requirement keenly pfft;../fake-data/blob/hipster.txt;2026-10-19;7;7
+8;23780;2026-10-19;metal;../fake-data/blob/hipster.txt;2026-10-18;8;8
+9;7968;2026-10-19;to in;../fake-data/blob/hipster.txt;2026-10-19;9;9
+10;25582;2026-10-19;e-mail;../fake-data/blob/hipster.txt;2026-10-19;10;10

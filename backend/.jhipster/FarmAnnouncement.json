@@ -1,0 +1,32 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174056"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "state",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "FarmAnnouncement",
+  "relationships": [
+    {
+      "otherEntityName": "farm",
+      "relationshipName": "farm",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "farmMembership",
+      "relationshipName": "author",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

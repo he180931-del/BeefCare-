@@ -1,0 +1,43 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174042"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "parameterType",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "documentation": "ERD: value",
+      "fieldName": "paramValue",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "documentation": "ERD: version",
+      "fieldName": "versionNo",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "effectiveFrom",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "ReminderParameter",
+  "relationships": [
+    {
+      "otherEntityName": "farm",
+      "relationshipName": "farm",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

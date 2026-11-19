@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity AuditLog.
+    -->
+    <changeSet id="20261019174018-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="actor_id"
+                                 baseTableName="audit_log"
+                                 constraintName="fk_audit_log__actor_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="app_user"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="farm_id"
+                                 baseTableName="audit_log"
+                                 constraintName="fk_audit_log__farm_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="farm"
+                                 />
+    </changeSet>
+</databaseChangeLog>

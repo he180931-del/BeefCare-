@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        FE-04 / FE-06 / FE-13 (Chuong trai, Nhap dan, Xuat dan): evolves the draft ERD into the schema of
+        BeefCare_FE_Chuong_Nhap_Xuat_Logic.md (Appendix G + 2.1). Ids stay bigint (JHipster sequence_generator).
+        Portable DDL only; PostgreSQL-only objects (EXCLUDE, trigger, partial indexes, CHECKs) are in
+        20261028000003_herd_logic_postgres_constraints.xml.
+    -->
+
+    <changeSet id="20261028000001-pen" author="beefcare">
+        <addColumn tableName="pen">
+            <column name="description" type="varchar(500)"/>
+            <column name="status_effective_date" type="date"/>
+            <column name="status_reason" type="varchar(500)"/>
+            <column name="created_by_id" type="bigint"><constraints foreignKeyName="fk_pen__created_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="created_at" type="${datetimeType}"/>
+            <column name="updated_at" type="${datetimeType}"/>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+        <addUniqueConstraint tableName="pen" columnNames="farm_id, code" constraintName="uq_pen_farm_code"/>
+    </changeSet>
+
+    <changeSet id="20261028000001-cattle" author="beefcare">
+        <renameColumn tableName="cattle" oldColumnName="ear_tag" newColumnName="ear_tag_number" columnDataType="varchar(50)"/>
+        <dropNotNullConstraint tableName="cattle" columnName="ear_tag_number" columnDataType="varchar(50)"/>
+        <addColumn tableName="cattle">
+            <column name="name" type="varchar(50)"/>
+            <column name="birth_date_accuracy" type="varchar(30)" defaultValue="UNKNOWN"><constraints nullable="false"/></column>
+            <column name="colour_markings" type="varchar(255)"/>
+            <column name="photo_url" type="varchar(500)"/>
+            <column name="exit_type" type="varchar(30)"/>
+            <column name="exit_date" type="date"/>
+            <column name="void_reason" type="varchar(500)"/>
+            <column name="external_sire_code" type="varchar(50)"/>
+            <column name="declared_parity" type="integer" defaultValueNumeric="0"/>
+            <column name="created_by_id" type="bigint"><constraints foreignKeyName="fk_cattle__created_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="created_at" type="${datetimeType}"/>
+            <column name="updated_at" type="${datetimeType}"/>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+        <addUniqueConstraint tableName="cattle" columnNames="farm_id, display_code" constraintName="uq_cattle_display_code"/>
+    </changeSet>
+
+    <changeSet id="20261028000001-audit-log" author="beefcare">
+        <addColumn tableName="audit_log">
+            <column name="details" type="clob"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000001-production-purpose" author="beefcare">
+        <addColumn tableName="production_purpose">
+            <column name="purpose_type" type="varchar(30)" defaultValue="UNDECIDED"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000001-care-columns" author="beefcare">
+        <addColumn tableName="treatment">
+            <column name="withdrawal_end_date" type="date"/>
+            <column name="status" type="varchar(30)" defaultValue="VALID"><constraints nullable="false"/></column>
+        </addColumn>
+        <addColumn tableName="vaccination">
+            <column name="withdrawal_end_date" type="date"/>
+            <column name="information_source" type="varchar(255)"/>
+        </addColumn>
+        <addColumn tableName="pregnancy_episode">
+            <column name="close_reason" type="varchar(30)"/>
+            <column name="closed_date" type="date"/>
+        </addColumn>
+        <addColumn tableName="calf_outcome">
+            <column name="tag_code" type="varchar(50)"/>
+            <column name="died_reason" type="varchar(500)"/>
+            <column name="proposed_pen_id" type="bigint"><constraints foreignKeyName="fk_calf_outcome__proposed_pen_id" referencedTableName="pen" referencedColumnNames="id"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261028000001-drop-draft-tables" author="beefcare">
+        <dropTable tableName="pen_reception_criteria" cascadeConstraints="true"/>
+        <dropTable tableName="pen_assignment" cascadeConstraints="true"/>
+        <dropTable tableName="cattle_qr_tag" cascadeConstraints="true"/>
+        <dropTable tableName="herd_entry" cascadeConstraints="true"/>
+        <dropTable tableName="herd_exit" cascadeConstraints="true"/>
+        <dropTable tableName="cattle_profile_change" cascadeConstraints="true"/>
+        <dropTable tableName="record_revision" cascadeConstraints="true"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-01" author="beefcare">
+        <createTable tableName="trading_partner">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_trading_partner__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="name" type="varchar(150)"><constraints nullable="false"/></column>
+            <column name="is_seller" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="is_buyer" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="is_supplier" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="contact_phone" type="varchar(50)"/>
+            <column name="address" type="varchar(255)"/>
+            <column name="note" type="varchar(500)"/>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="created_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_trading_partner__created_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261028000002-02" author="beefcare">
+        <createTable tableName="herd_entry_voucher">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_entry_voucher__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="code" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="entry_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="entry_date" type="date"><constraints nullable="false"/></column>
+            <column name="seller_id" type="bigint"><constraints foreignKeyName="fk_herd_entry_voucher__seller_id" referencedTableName="trading_partner" referencedColumnNames="id"/></column>
+            <column name="quarantine_cert_no" type="varchar(50)"/>
+            <column name="vehicle_plate" type="varchar(20)"/>
+            <column name="note" type="varchar(1000)"/>
+            <column name="pricing_basis" type="varchar(30)"/>
+            <column name="cattle_amount" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="transport_fee" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="amount_paid" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="payment_method" type="varchar(30)"/>
+            <column name="payment_due_date" type="date"/>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="created_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_entry_voucher__created_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="posted_by_id" type="bigint"><constraints foreignKeyName="fk_herd_entry_voucher__posted_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="posted_at" type="${datetimeType}"/>
+            <column name="void_reason" type="varchar(500)"/>
+            <column name="voided_by_id" type="bigint"><constraints foreignKeyName="fk_herd_entry_voucher__voided_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="voided_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="herd_entry_voucher" columnNames="farm_id, code" constraintName="uq_entry_voucher_code"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-03" author="beefcare">
+        <createTable tableName="pen_criteria_version">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pen_criteria_version__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="pen_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pen_criteria_version__pen_id" referencedTableName="pen" referencedColumnNames="id"/></column>
+            <column name="version_no" type="integer"><constraints nullable="false"/></column>
+            <column name="purpose_types" type="varchar(100)"/>
+            <column name="life_stages" type="varchar(120)"/>
+            <column name="sex" type="varchar(30)"/>
+            <column name="min_age_months" type="integer"/>
+            <column name="min_weight_kg" type="numeric(7,2)"/>
+            <column name="effective_from" type="date"><constraints nullable="false"/></column>
+            <column name="changed_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pen_criteria_version__changed_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="pen_criteria_version" columnNames="pen_id, version_no" constraintName="uq_pen_criteria_version"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-04" author="beefcare">
+        <createTable tableName="pen_assignment">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pen_assignment__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="cattle_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pen_assignment__cattle_id" referencedTableName="cattle" referencedColumnNames="id"/></column>
+            <column name="pen_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pen_assignment__pen_id" referencedTableName="pen" referencedColumnNames="id"/></column>
+            <column name="from_date" type="date"><constraints nullable="false"/></column>
+            <column name="to_date" type="date"/>
+            <column name="source" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"/>
+            <column name="criteria_version_id" type="bigint"><constraints foreignKeyName="fk_pen_assignment__criteria_version_id" referencedTableName="pen_criteria_version" referencedColumnNames="id"/></column>
+            <column name="reception_check" type="clob"/>
+            <column name="warning_reason" type="varchar(500)"/>
+            <column name="moved_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pen_assignment__moved_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="recorded_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261028000002-05" author="beefcare">
+        <createTable tableName="cattle_qr_tag">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_cattle_qr_tag__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="cattle_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_cattle_qr_tag__cattle_id" referencedTableName="cattle" referencedColumnNames="id"/></column>
+            <column name="tag_code" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="issued_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_cattle_qr_tag__issued_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="issued_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="replacement_reason" type="varchar(30)"/>
+            <column name="note" type="varchar(500)"/>
+            <column name="replaced_by_tag_id" type="bigint"><constraints foreignKeyName="fk_cattle_qr_tag__replaced_by_tag_id" referencedTableName="cattle_qr_tag" referencedColumnNames="id"/></column>
+            <column name="closed_at" type="${datetimeType}"/>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="cattle_qr_tag" columnNames="tag_code" constraintName="uq_cattle_qr_tag_code"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-06" author="beefcare">
+        <createTable tableName="herd_entry">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_entry__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="voucher_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_entry__voucher_id" referencedTableName="herd_entry_voucher" referencedColumnNames="id"/></column>
+            <column name="line_no" type="integer"><constraints nullable="false"/></column>
+            <column name="cattle_id" type="bigint"><constraints foreignKeyName="fk_herd_entry__cattle_id" referencedTableName="cattle" referencedColumnNames="id"/></column>
+            <column name="draft_data" type="clob"/>
+            <column name="source" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="entry_date" type="date"><constraints nullable="false"/></column>
+            <column name="entry_weight_kg" type="numeric(7,2)"/>
+            <column name="weight_basis" type="varchar(30)"/>
+            <column name="unit_price" type="bigint"/>
+            <column name="line_amount" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="calf_outcome_id" type="bigint"><constraints foreignKeyName="fk_herd_entry__calf_outcome_id" referencedTableName="calf_outcome" referencedColumnNames="id"/></column>
+            <column name="initial_pen_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_entry__initial_pen_id" referencedTableName="pen" referencedColumnNames="id"/></column>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="quarantine_until" type="date"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="herd_entry" columnNames="voucher_id, line_no" constraintName="uq_entry_line"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-07" author="beefcare">
+        <createTable tableName="pre_entry_history_declaration">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pre_entry_history_declaration__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="herd_entry_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_pre_entry_history_declaration__herd_entry_id" referencedTableName="herd_entry" referencedColumnNames="id"/></column>
+            <column name="category" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="items" type="clob"/>
+            <column name="information_source" type="varchar(255)"/>
+            <column name="earlier_calvings" type="integer"/>
+            <column name="pregnant_at_entry" type="varchar(30)"/>
+            <column name="est_months_pregnant" type="integer"/>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="pre_entry_history_declaration" columnNames="herd_entry_id, category" constraintName="uq_declaration"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-08" author="beefcare">
+        <createTable tableName="herd_exit_voucher">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_exit_voucher__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="code" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="exit_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="exit_date" type="date"><constraints nullable="false"/></column>
+            <column name="buyer_id" type="bigint"><constraints foreignKeyName="fk_herd_exit_voucher__buyer_id" referencedTableName="trading_partner" referencedColumnNames="id"/></column>
+            <column name="destination" type="varchar(150)"/>
+            <column name="transport_cert_no" type="varchar(50)"/>
+            <column name="vehicle_plate" type="varchar(20)"/>
+            <column name="notes" type="varchar(1000)"/>
+            <column name="loss_kind" type="varchar(30)"/>
+            <column name="death_cause" type="varchar(1000)"/>
+            <column name="carcass_disposal" type="varchar(255)"/>
+            <column name="source_health_case_id" type="bigint"><constraints foreignKeyName="fk_herd_exit_voucher__source_health_case_id" referencedTableName="health_case" referencedColumnNames="id"/></column>
+            <column name="pricing_basis" type="varchar(30)"/>
+            <column name="cattle_amount" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="deductions" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="amount_collected" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="payment_method" type="varchar(30)"/>
+            <column name="collection_due_date" type="date"/>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="reported_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_exit_voucher__reported_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="confirmed_by_id" type="bigint"><constraints foreignKeyName="fk_herd_exit_voucher__confirmed_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="confirmed_at" type="${datetimeType}"/>
+            <column name="close_reason" type="varchar(500)"/>
+            <column name="closed_by_id" type="bigint"><constraints foreignKeyName="fk_herd_exit_voucher__closed_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="closed_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="herd_exit_voucher" columnNames="farm_id, code" constraintName="uq_exit_voucher_code"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-09" author="beefcare">
+        <createTable tableName="herd_exit">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_exit__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="voucher_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_exit__voucher_id" referencedTableName="herd_exit_voucher" referencedColumnNames="id"/></column>
+            <column name="line_no" type="integer"><constraints nullable="false"/></column>
+            <column name="cattle_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_herd_exit__cattle_id" referencedTableName="cattle" referencedColumnNames="id"/></column>
+            <column name="exit_weight_kg" type="numeric(7,2)"/>
+            <column name="weight_basis" type="varchar(30)"/>
+            <column name="unit_price" type="bigint"/>
+            <column name="line_amount" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="check_results" type="clob"/>
+            <column name="last_pen_id" type="bigint"><constraints foreignKeyName="fk_herd_exit__last_pen_id" referencedTableName="pen" referencedColumnNames="id"/></column>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="herd_exit" columnNames="voucher_id, line_no" constraintName="uq_exit_line"/>
+    </changeSet>
+
+    <changeSet id="20261028000002-10" author="beefcare">
+        <createTable tableName="voucher_payment">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_voucher_payment__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="entry_voucher_id" type="bigint"><constraints foreignKeyName="fk_voucher_payment__entry_voucher_id" referencedTableName="herd_entry_voucher" referencedColumnNames="id"/></column>
+            <column name="exit_voucher_id" type="bigint"><constraints foreignKeyName="fk_voucher_payment__exit_voucher_id" referencedTableName="herd_exit_voucher" referencedColumnNames="id"/></column>
+            <column name="direction" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="payment_date" type="date"><constraints nullable="false"/></column>
+            <column name="amount" type="bigint"><constraints nullable="false"/></column>
+            <column name="method" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="reference" type="varchar(100)"/>
+            <column name="note" type="varchar(500)"/>
+            <column name="status" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="recorded_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_voucher_payment__recorded_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="recorded_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="void_reason" type="varchar(500)"/>
+            <column name="voided_by_id" type="bigint"><constraints foreignKeyName="fk_voucher_payment__voided_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="voided_at" type="${datetimeType}"/>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261028000002-11" author="beefcare">
+        <createTable tableName="cattle_profile_change">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_cattle_profile_change__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="cattle_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_cattle_profile_change__cattle_id" referencedTableName="cattle" referencedColumnNames="id"/></column>
+            <column name="field_group" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="old_value" type="clob"/>
+            <column name="new_value" type="clob"><constraints nullable="false"/></column>
+            <column name="effective_date" type="date"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"><constraints nullable="false"/></column>
+            <column name="changed_by_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_cattle_profile_change__changed_by_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="changed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261028000002-12" author="beefcare">
+        <createTable tableName="record_revision">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints foreignKeyName="fk_record_revision__farm_id" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="source_type" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="source_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="action" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"/>
+            <column name="before_snapshot" type="clob"/>
+            <column name="after_snapshot" type="clob"/>
+            <column name="actor_id" type="bigint"><constraints foreignKeyName="fk_record_revision__actor_id" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="changed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261028000002-13" author="beefcare">
+        <createTable tableName="code_sequence">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="code_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="period_year" type="integer"><constraints nullable="false"/></column>
+            <column name="last_value" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="code_sequence" columnNames="farm_id, code_type, period_year" constraintName="uq_code_sequence"/>
+    </changeSet>
+
+</databaseChangeLog>

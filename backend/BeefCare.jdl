@@ -1,0 +1,563 @@
+/*
+ * BeefCare (SEP490-G35) - JDL sinh từ BeefCare_ERD (49 bảng, bản tạm thời)
+ * - Mỗi entity tự có khóa chính "id" (Long); khóa chính trong ERD (pen_id, cattle_id...) được thay bằng id.
+ * - Khóa ngoại được khai báo ở phần relationship, JHipster tự tạo cột <tên>_id.
+ * - Ô N trong ERD = trường không required. Các chỗ đổi khác ERD được ghi chú "ERD:" ngay tại trường.
+ * - Trạng thái để kiểu String (varchar 30) như ERD; giá trị hợp lệ ghi trong chú thích.
+ */
+
+// =====================================================================
+// A. Tài khoản & phân quyền (FE-01, FE-02, FE-03, FE-17)
+// =====================================================================
+
+/** User (gộp User Identity, Password Credential, Password Reset Token). Đặt tên AppUser để không trùng User có sẵn của JHipster. */
+entity AppUser {
+  email String required unique maxlength(255)
+  fullName String required maxlength(255)
+  phone String maxlength(255)
+  accountStatus String required maxlength(30)
+  /** ERD: NOT NULL; để trống được vì tài khoản chỉ dùng mật khẩu không có Google subject */
+  googleSubject String unique maxlength(255)
+  /** ERD: NOT NULL; để trống được vì tài khoản chỉ dùng Google không có mật khẩu */
+  passwordHash String maxlength(255)
+}
+
+/** Quyền nhân sự nền tảng (CS / PM / SA) */
+entity PlatformStaffAccess {
+  role String required maxlength(30)
+  status String required maxlength(30)
+}
+
+entity Farm {
+  name String required maxlength(255)
+  location String required maxlength(255)
+  contact String required maxlength(255)
+  serviceStatus String required maxlength(30)
+}
+
+entity FarmMembership {
+  role String required maxlength(30)
+  status String required maxlength(30)
+}
+
+/** ERD: PK ghép membership_id + permission_code; JDL không hỗ trợ PK ghép nên dùng id và cần thêm unique(membership_id, permission_code) */
+entity ManagerPermission {
+  permissionCode String required maxlength(50)
+  enabled Boolean required
+}
+
+/** Lời mời thành viên (gộp Invitation Permission) */
+entity FarmInvitation {
+  invitedEmail String required maxlength(255)
+  proposedRole String required maxlength(30)
+  proposedPermissions String maxlength(255)
+  status String required maxlength(30)
+  expiresAt Instant required
+}
+
+entity AuditLog {
+  action String required maxlength(30)
+  /** ERD: target_type/id - tách thành 2 cột */
+  targetType String required maxlength(50)
+  targetId Long required
+  /** ERD: time */
+  loggedAt Instant required
+}
+
+// =====================================================================
+// B. Gói & thanh toán (FE-19, FE-21)
+// =====================================================================
+
+entity PlanVersion {
+  /** ERD: price_1y / 2y / 3y - tách thành 3 cột */
+  price1y BigDecimal required
+  price2y BigDecimal required
+  price3y BigDecimal required
+  terms String maxlength(255)
+  effectiveAt Instant required
+}
+
+entity Subscription {
+  entitlementStatus String required maxlength(30)
+  /** ERD: varchar(255) NOT NULL; đổi sang thời điểm và để trống được vì farm mới chưa có kỳ đã trả */
+  latestEnd Instant
+}
+
+/** Payment (gộp Subscription Receipt) */
+entity Payment {
+  quoteRef String required unique maxlength(50)
+  /** ERD: varchar(255); giá trị 1, 2 hoặc 3 năm */
+  durationYears Integer required min(1) max(3)
+  amountVnd BigDecimal required
+  /** PENDING | PAID | EXPIRED */
+  state String required maxlength(30)
+  expiresAt Instant required
+  /** ERD: purchased_start/end varchar(255) - tách 2 cột thời điểm, chỉ có khi PAID */
+  purchasedStart Instant
+  purchasedEnd Instant
+}
+
+/** Bank Transfer Evidence (gộp Webhook Delivery, Canonical Bank Source) */
+entity BankTransferEvidence {
+  providerTxnId Long required
+  amount BigDecimal required
+  bankPaidAt Instant required
+  /** ERD: NOT NULL; để trống được vì SePay có thể gửi code = null */
+  quoteRef String maxlength(50)
+  /** ERD: delivery/auth outcome - tách 2 cột */
+  deliveryOutcome String maxlength(30)
+  authOutcome String maxlength(30)
+}
+
+entity EvidenceReview {
+  decision String required maxlength(30)
+  reason TextBlob
+  /** ERD: time */
+  reviewedAt Instant required
+}
+
+entity ManualFinanceRecord {
+  /** INCOME | EXPENSE */
+  type String required maxlength(30)
+  category String required maxlength(30)
+  amountVnd BigDecimal required
+  occurredOn LocalDate required
+  /** DRAFT | POSTED | VOID */
+  state String required maxlength(30)
+}
+
+entity CashReportSnapshot {
+  asOf Instant required
+  /** ERD: date_range - tách 2 cột */
+  dateFrom LocalDate required
+  dateTo LocalDate required
+  totals BigDecimal required
+}
+
+// =====================================================================
+// C. Hỗ trợ (FE-20)
+// =====================================================================
+
+entity SupportTicket {
+  category String required maxlength(30)
+  priority String required maxlength(30)
+  status String required maxlength(30)
+}
+
+/** Ticket Message (gộp Ticket Conversation, Resolution Version, Resolution Acknowledgment) */
+entity TicketMessage {
+  type String required maxlength(30)
+  audience String required maxlength(30)
+  content TextBlob required
+}
+
+entity InternalRequest {
+  targetRole String required maxlength(30)
+  state String required maxlength(30)
+  outcome String maxlength(30)
+}
+
+entity SupportHistory {
+  eventType String required maxlength(30)
+  /** ERD: prior/new state - tách 2 cột; priorState để trống được cho sự kiện đầu tiên */
+  priorState String maxlength(30)
+  newState String required maxlength(30)
+  /** ERD: time */
+  occurredAt Instant required
+}
+
+// =====================================================================
+// D. Chuồng & bò (FE-04, FE-05, FE-06, FE-13)
+// =====================================================================
+
+/** Chuồng; code unique trong một farm -> cần thêm unique(farm_id, code) */
+entity Pen {
+  code String required maxlength(50)
+  name String required maxlength(255)
+  capacity Integer required min(1)
+  /** ACTIVE | INACTIVE */
+  status String required maxlength(30)
+}
+
+/** ERD: PK ghép pen_id + version; dùng id và cần thêm unique(pen_id, version_no) */
+entity PenReceptionCriteria {
+  versionNo Integer required min(1)
+  acceptedPurposes String required maxlength(255)
+  acceptedStages String required maxlength(30)
+  thresholds String maxlength(255)
+  effectiveFrom LocalDate required
+}
+
+/** Mỗi con tối đa 1 dòng có effective_to = null */
+entity PenAssignment {
+  effectiveFrom LocalDate required
+  effectiveTo LocalDate
+  /** HERD_ENTRY | MOVE */
+  source String maxlength(30)
+  reason TextBlob
+}
+
+entity Cattle {
+  displayCode String required maxlength(50)
+  earTag String required maxlength(50)
+  /** MALE | FEMALE */
+  sex String maxlength(30)
+  birthDate LocalDate
+  lifeStage String required maxlength(30)
+  /** ACTIVE | EXITED */
+  herdStatus String required maxlength(30)
+}
+
+entity CattleQrTag {
+  tagCode String required unique maxlength(50)
+  /** ACTIVE | REPLACED */
+  status String required maxlength(30)
+}
+
+/** Herd Entry (gộp Entry History Declaration vào cột history_declarations) */
+entity HerdEntry {
+  /** EXTERNAL | FARM_BORN */
+  source String maxlength(30)
+  entryDate LocalDate required
+  historyDeclarations String maxlength(255)
+}
+
+entity HerdExit {
+  /** SALE | DEATH | CULL | OTHER */
+  type String required maxlength(30)
+  exitDate LocalDate required
+  reason TextBlob
+}
+
+entity CattleProfileChange {
+  /** ERD: field */
+  fieldName String required maxlength(255)
+  oldValue String required maxlength(255)
+  newValue String required maxlength(255)
+  effectiveDate LocalDate required
+  reason TextBlob
+}
+
+// =====================================================================
+// E. Danh mục & tham số (FE-18)
+// =====================================================================
+
+entity Breed {
+  code String required maxlength(50)
+  name String required maxlength(255)
+  description TextBlob
+  available Boolean required
+}
+
+entity ProductionPurpose {
+  code String required maxlength(50)
+  name String required maxlength(255)
+  description TextBlob
+  available Boolean required
+}
+
+entity Vaccine {
+  code String required maxlength(50)
+  name String required maxlength(255)
+  diseasePrevented String required maxlength(255)
+  manufacturer String required maxlength(255)
+  /** ERD: dose / route - tách 2 cột */
+  dose String required maxlength(255)
+  route String required maxlength(255)
+  boosterInterval Integer required
+  withdrawalInfo String required maxlength(255)
+  available Boolean required
+}
+
+entity Medicine {
+  code String required maxlength(50)
+  name String required maxlength(255)
+  description TextBlob
+  /** ERD: dose / route - tách 2 cột */
+  dose String required maxlength(255)
+  route String required maxlength(255)
+  withdrawalInfo String required maxlength(255)
+  available Boolean required
+}
+
+entity ReminderParameter {
+  parameterType String required maxlength(30)
+  /** ERD: value */
+  paramValue String required maxlength(255)
+  /** ERD: version */
+  versionNo Integer required
+  effectiveFrom LocalDate required
+}
+
+// =====================================================================
+// F. Tăng trưởng, tiêm phòng, bệnh (FE-08, FE-09, FE-10)
+// =====================================================================
+
+entity Growth {
+  checkDate LocalDate required
+  entryTime Instant required
+  weightKg BigDecimal required
+  /** MEASURED | ESTIMATED */
+  weightType String required maxlength(30)
+  bcs Integer required
+  /** VALID | CORRECTED | EXCLUDED */
+  status String required maxlength(30)
+  correctionReason TextBlob
+}
+
+entity Vaccination {
+  vaccinationDate LocalDate required
+  entryTime Instant required
+  dose String required maxlength(255)
+  batchNo String maxlength(50)
+  /** ON_FARM | HISTORICAL */
+  source String maxlength(30)
+  vaccinator String required maxlength(255)
+}
+
+entity VaccinationSchedule {
+  targetGroup String required maxlength(255)
+  firstDueDate LocalDate required
+  doseCount Integer required
+  intervalDays Integer required
+  status String required maxlength(30)
+}
+
+entity ScheduledDose {
+  doseNo Integer required
+  dueDate LocalDate required
+  /** PLANNED | DONE | DEFERRED | CANCELLED */
+  status String required maxlength(30)
+  deferralReason TextBlob
+  newExpectedDate LocalDate
+}
+
+entity HealthCase {
+  openedDate LocalDate required
+  status String required maxlength(30)
+  outcome String maxlength(30)
+  closedDate LocalDate
+}
+
+entity Treatment {
+  treatmentTime Instant required
+  entryTime Instant required
+  treatmentDetail String required maxlength(255)
+  /** ERD: dose / route - tách 2 cột */
+  dose String required maxlength(255)
+  route String required maxlength(255)
+  withdrawalPeriod String required maxlength(255)
+  result String required maxlength(30)
+}
+
+entity HealthObservation {
+  observedTime Instant required
+  entryTime Instant required
+  /** ERD: signs / progress */
+  signsProgress TextBlob required
+  source String maxlength(30)
+}
+
+// =====================================================================
+// G. Sinh sản (FE-11, FE-12)
+// =====================================================================
+
+/** Reproduction Event (gộp Estrus Event, Breeding Event, Pregnancy Check) */
+entity ReproductionEvent {
+  /** ESTRUS | BREEDING | PREGNANCY_CHECK */
+  type String required maxlength(30)
+  eventTime Instant required
+  method String maxlength(30)
+  result String required maxlength(30)
+  source String maxlength(30)
+}
+
+entity PregnancyEpisode {
+  expectedCalvingDate LocalDate required
+  parity Integer required
+  /** OPEN | CALVED | LOST */
+  status String required maxlength(30)
+}
+
+entity PregnancyUpdate {
+  type String required maxlength(30)
+  occurredTime Instant required
+  details TextBlob
+}
+
+entity CalvingEvent {
+  birthTime Instant required
+  course String required maxlength(30)
+  damCondition String required maxlength(30)
+}
+
+entity CalfOutcome {
+  /** LIVE | STILLBORN */
+  outcome String maxlength(30)
+  sex String maxlength(30)
+  birthWeight BigDecimal
+  registrationState String required maxlength(30)
+}
+
+entity RecordRevision {
+  /** ERD: source_type + source_id - tách 2 cột */
+  sourceType String required maxlength(50)
+  sourceId Long required
+  /** CORRECT | VOID */
+  action String required maxlength(30)
+  reason TextBlob
+  /** ERD: before / after - tách 2 cột */
+  beforeSnapshot TextBlob required
+  afterSnapshot TextBlob required
+  /** ERD: time */
+  changedAt Instant required
+}
+
+// =====================================================================
+// H. Thông báo & nhắc việc (FE-07, FE-14)
+// =====================================================================
+
+entity FarmAnnouncement {
+  state String required maxlength(30)
+}
+
+entity AnnouncementVersion {
+  versionNo Integer required
+  title String required maxlength(255)
+  body TextBlob required
+  publishedTime Instant required
+}
+
+/** ERD: PK ghép version_id + membership_id; dùng id và cần thêm unique(version_id, membership_id) */
+entity AnnouncementRecipient {
+  deliveredTime Instant required
+  /** ERD: NOT NULL; để trống được vì chưa đọc thì chưa có thời điểm đọc */
+  readTime Instant
+}
+
+entity Reminder {
+  ruleType String required maxlength(30)
+  sourceRecord String required maxlength(255)
+  dueTime Instant required
+  /** ACTIVE | RESOLVED | CANCELLED | SUPERSEDED */
+  status String required maxlength(30)
+}
+
+entity Notification {
+  /** ERD: target_type + target_id - tách 2 cột */
+  targetType String required maxlength(50)
+  targetId Long required
+  createdTime Instant required
+  /** ERD: NOT NULL; để trống được vì chưa đọc thì chưa có thời điểm đọc */
+  readTime Instant
+}
+
+// =====================================================================
+// Quan hệ
+// =====================================================================
+
+relationship OneToOne {
+  PlatformStaffAccess{user required} to AppUser
+  Subscription{farm required} to Farm
+  HerdEntry{cattle required} to Cattle
+  // ERD: Cattle 1 - 0..1 Herd Exit
+  HerdExit{cattle required} to Cattle
+  ScheduledDose{vaccination} to Vaccination
+  PregnancyEpisode{confirmingCheck required} to ReproductionEvent
+}
+
+relationship ManyToOne {
+  // A. Tài khoản & phân quyền
+  FarmMembership{farm required} to Farm
+  FarmMembership{user required} to AppUser
+  ManagerPermission{membership required} to FarmMembership
+  FarmInvitation{farm required} to Farm
+  AuditLog{actor required} to AppUser
+  AuditLog{farm} to Farm
+
+  // B. Gói & thanh toán
+  Subscription{planVersion required} to PlanVersion
+  Payment{subscription required} to Subscription
+  Payment{requestedBy required} to AppUser
+  BankTransferEvidence{payment} to Payment
+  EvidenceReview{evidence required} to BankTransferEvidence
+  EvidenceReview{pmUser required} to AppUser
+  ManualFinanceRecord{farm} to Farm
+  CashReportSnapshot{pmUser required} to AppUser
+  CashReportSnapshot{farm} to Farm
+
+  // C. Hỗ trợ
+  SupportTicket{requester required} to AppUser
+  SupportTicket{farm} to Farm
+  // ERD: NOT NULL; để trống được vì ticket mới chưa được giao CS
+  SupportTicket{assignedCs} to AppUser
+  TicketMessage{ticket required} to SupportTicket
+  TicketMessage{author required} to AppUser
+  InternalRequest{ticket required} to SupportTicket
+  InternalRequest{recipient required} to AppUser
+  SupportHistory{ticket required} to SupportTicket
+  SupportHistory{actor required} to AppUser
+
+  // D. Chuồng & bò
+  Pen{farm required} to Farm
+  PenReceptionCriteria{pen required} to Pen
+  PenAssignment{cattle required} to Cattle
+  PenAssignment{pen required} to Pen
+  Cattle{farm required} to Farm
+  Cattle{breed required} to Breed
+  Cattle{purpose required} to ProductionPurpose
+  // ERD: NOT NULL; để trống được vì bò mua ngoài thường không có bố mẹ trong hệ thống
+  Cattle{dam} to Cattle
+  Cattle{sire} to Cattle
+  CattleQrTag{cattle required} to Cattle
+  HerdEntry{initialPen required} to Pen
+  HerdExit{confirmedBy required} to AppUser
+  CattleProfileChange{cattle required} to Cattle
+
+  // E. Danh mục & tham số
+  Breed{farm required} to Farm
+  ProductionPurpose{farm required} to Farm
+  Vaccine{farm required} to Farm
+  Medicine{farm required} to Farm
+  ReminderParameter{farm required} to Farm
+
+  // F. Tăng trưởng, tiêm phòng, bệnh
+  Growth{cattle required} to Cattle
+  Vaccination{cattle required} to Cattle
+  Vaccination{vaccine required} to Vaccine
+  VaccinationSchedule{farm required} to Farm
+  VaccinationSchedule{vaccine required} to Vaccine
+  ScheduledDose{schedule required} to VaccinationSchedule
+  ScheduledDose{cattle required} to Cattle
+  HealthCase{cattle required} to Cattle
+  Treatment{healthCase required} to HealthCase
+  Treatment{medicine} to Medicine
+  HealthObservation{healthCase required} to HealthCase
+  HealthObservation{vaccination} to Vaccination
+
+  // G. Sinh sản
+  ReproductionEvent{cattle required} to Cattle
+  ReproductionEvent{linkedEvent} to ReproductionEvent
+  PregnancyEpisode{cattle required} to Cattle
+  PregnancyUpdate{episode required} to PregnancyEpisode
+  PregnancyUpdate{healthCase} to HealthCase
+  CalvingEvent{dam required} to Cattle
+  CalvingEvent{episode} to PregnancyEpisode
+  CalfOutcome{calving required} to CalvingEvent
+  CalfOutcome{registeredCattle} to Cattle
+
+  // H. Thông báo & nhắc việc
+  FarmAnnouncement{farm required} to Farm
+  FarmAnnouncement{author required} to FarmMembership
+  AnnouncementVersion{announcement required} to FarmAnnouncement
+  AnnouncementRecipient{version required} to AnnouncementVersion
+  AnnouncementRecipient{membership required} to FarmMembership
+  Reminder{farm required} to Farm
+  Reminder{cattle required} to Cattle
+  Notification{recipient required} to AppUser
+}
+
+// Tùy chọn sinh code (bỏ // nếu muốn dùng)
+// dto * with mapstruct
+// service * with serviceImpl
+// paginate * with pagination

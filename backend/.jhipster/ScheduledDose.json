@@ -1,0 +1,57 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174046"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "doseNo",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "dueDate",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "PLANNED | DONE | DEFERRED | CANCELLED",
+      "fieldName": "status",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "deferralReason",
+      "fieldType": "TextBlob"
+    },
+    {
+      "fieldName": "newExpectedDate",
+      "fieldType": "LocalDate"
+    }
+  ],
+  "name": "ScheduledDose",
+  "relationships": [
+    {
+      "otherEntityName": "vaccination",
+      "relationshipName": "vaccination",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one"
+    },
+    {
+      "otherEntityName": "vaccinationSchedule",
+      "relationshipName": "schedule",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "cattle",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

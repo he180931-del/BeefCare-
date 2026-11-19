@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <changeSet id="20261101000100-calf-parentage-assignment" author="beefcare">
+    <addColumn tableName="calf_outcome">
+      <column name="assigned_dam_id" type="bigint"><constraints foreignKeyName="fk_calf_outcome_assigned_dam" referencedTableName="cattle" referencedColumnNames="id"/></column>
+      <column name="assigned_sire_id" type="bigint"><constraints foreignKeyName="fk_calf_outcome_assigned_sire" referencedTableName="cattle" referencedColumnNames="id"/></column>
+      <column name="assigned_sire_source" type="varchar(30)"/>
+      <column name="assigned_external_sire_code" type="varchar(50)"/>
+    </addColumn>
+  </changeSet>
+</databaseChangeLog>

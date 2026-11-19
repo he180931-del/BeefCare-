@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity CalvingEvent.
+    -->
+    <changeSet id="20261019174053-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="dam_id"
+                                 baseTableName="calving_event"
+                                 constraintName="fk_calving_event__dam_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="cattle"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="episode_id"
+                                 baseTableName="calving_event"
+                                 constraintName="fk_calving_event__episode_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="pregnancy_episode"
+                                 />
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,3 @@
+package vn.edu.fpt.beefcare.repository;
+import java.time.LocalDate;import java.util.List;import java.util.Optional;import org.springframework.data.jpa.repository.JpaRepository;import org.springframework.stereotype.Repository;import vn.edu.fpt.beefcare.domain.FeedingRecord;
+@Repository public interface FeedingRecordRepository extends JpaRepository<FeedingRecord,Long>{Optional<FeedingRecord> findByFarm_IdAndPen_IdAndFeedingDateAndSessionNo(Long farmId,Long penId,LocalDate date,Integer sessionNo);List<FeedingRecord> findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(Long farmId,LocalDate from,LocalDate to);}

@@ -1,0 +1,42 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174036"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "documentation": "SALE | DEATH | CULL | OTHER",
+      "fieldName": "type",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "exitDate",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "TextBlob"
+    }
+  ],
+  "name": "HerdExit",
+  "relationships": [
+    {
+      "otherEntityName": "cattle",
+      "relationshipName": "cattle",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "confirmedBy",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

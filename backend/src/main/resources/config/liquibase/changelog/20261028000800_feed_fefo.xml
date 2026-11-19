@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000800-feed-fefo-lots" author="beefcare">
+        <createTable tableName="feed_inventory_lot">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_lot_farm" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="feed_item_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_lot_feed" referencedTableName="feed_item" referencedColumnNames="id"/></column>
+            <column name="receipt_line_id" type="bigint"><constraints foreignKeyName="fk_feed_lot_receipt_line" referencedTableName="feed_receipt_line" referencedColumnNames="id"/></column>
+            <column name="source_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="source_id" type="varchar(100)"><constraints nullable="false"/></column>
+            <column name="lot_number" type="varchar(30)"/><column name="expiry_date" type="date"/>
+            <column name="received_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="remaining_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="unit_cost" type="numeric(14,2)"><constraints nullable="false"/></column>
+            <column name="created_at" type="timestamp with time zone"><constraints nullable="false"/></column>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="feed_inventory_lot" columnNames="receipt_line_id" constraintName="uq_feed_lot_receipt_line"/>
+        <addUniqueConstraint tableName="feed_inventory_lot" columnNames="feed_item_id,source_type,source_id" constraintName="uq_feed_lot_source"/>
+        <createTable tableName="feed_lot_allocation">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="feeding_record_line_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_alloc_line" referencedTableName="feeding_record_line" referencedColumnNames="id"/></column>
+            <column name="inventory_lot_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_alloc_lot" referencedTableName="feed_inventory_lot" referencedColumnNames="id"/></column>
+            <column name="quantity_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="unit_cost" type="numeric(14,2)"><constraints nullable="false"/></column>
+            <column name="reversed_at" type="timestamp with time zone"/>
+        </createTable>
+        <createIndex tableName="feed_lot_allocation" indexName="ix_feed_alloc_line_active"><column name="feeding_record_line_id"/><column name="reversed_at"/></createIndex>
+        <createIndex tableName="feed_inventory_lot" indexName="ix_feed_lot_fefo"><column name="farm_id"/><column name="feed_item_id"/><column name="expiry_date"/><column name="id"/></createIndex>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <changeSet id="20261028000200-care-record-lifecycle" author="beefcare">
+    <addColumn tableName="health_case">
+      <column name="case_code" type="varchar(30)"/><column name="severity" type="varchar(30)"/>
+      <column name="chronic_since" type="date"/><column name="closed_at" type="${datetimeType}"/>
+      <column name="closed_by_id" type="bigint"><constraints foreignKeyName="fk_health_case_closed_by" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="reaction_vaccination_id" type="bigint"><constraints foreignKeyName="fk_health_case_reaction_vaccination" referencedTableName="vaccination" referencedColumnNames="id"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+      <column name="updated_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="health_observation">
+      <column name="temperature_c" type="numeric(4,1)"/><column name="progress" type="varchar(30)"/>
+      <column name="observer_id" type="bigint"><constraints foreignKeyName="fk_health_observation_observer" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="recorder_id" type="bigint"><constraints foreignKeyName="fk_health_observation_recorder" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="is_opening" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="treatment">
+      <column name="withdrawal_days" type="integer"/><column name="performer" type="varchar(255)"/>
+      <column name="veterinary_advice" type="varchar(1000)"/><column name="medicine_name_snapshot" type="varchar(255)"/>
+    </addColumn>
+    <addColumn tableName="vaccination">
+      <column name="route" type="varchar(255)"/><column name="withdrawal_days" type="integer"/><column name="administered_at" type="${datetimeType}"/>
+      <column name="status" type="varchar(30)" defaultValue="VALID"><constraints nullable="false"/></column>
+      <column name="status_reason" type="varchar(500)"/><column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+      <column name="updated_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+      <column name="vaccine_name_snapshot" type="varchar(255)"/>
+    </addColumn>
+    <addColumn tableName="vaccination_schedule">
+      <column name="schedule_name" type="varchar(100)"/><column name="booster_interval_months" type="integer"/>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="scheduled_dose">
+      <column name="deferred_by_id" type="bigint"><constraints foreignKeyName="fk_scheduled_dose_deferred_by" referencedTableName="app_user" referencedColumnNames="id"/></column>
+      <column name="deferral_note" type="varchar(500)"/><column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="reproduction_event">
+      <column name="status" type="varchar(30)" defaultValue="VALID"><constraints nullable="false"/></column>
+      <column name="status_reason" type="varchar(500)"/><column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+      <column name="updated_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+      <column name="description" type="varchar(1000)"/><column name="performed_by" type="varchar(255)"/><column name="examiner" type="varchar(255)"/>
+      <column name="sire_source" type="varchar(30)"/><column name="sire_id" type="bigint"><constraints foreignKeyName="fk_reproduction_sire" referencedTableName="cattle" referencedColumnNames="id"/></column>
+      <column name="external_sire_name" type="varchar(255)"/><column name="sire_breed_id" type="bigint"><constraints foreignKeyName="fk_reproduction_sire_breed" referencedTableName="breed" referencedColumnNames="id"/></column>
+      <column name="semen_batch" type="varchar(100)"/><column name="supplier" type="varchar(255)"/><column name="tentative_expected_calving_date" type="date"/>
+    </addColumn>
+    <addColumn tableName="pregnancy_episode">
+      <column name="linked_breeding_id" type="bigint"><constraints foreignKeyName="fk_episode_breeding" referencedTableName="reproduction_event" referencedColumnNames="id"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="pregnancy_update">
+      <column name="source" type="varchar(30)"/><column name="status" type="varchar(30)" defaultValue="VALID"><constraints nullable="false"/></column>
+      <column name="status_reason" type="varchar(500)"/><column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="calving_event">
+      <column name="source" type="varchar(30)"/><column name="attendant" type="varchar(255)"/>
+      <column name="status" type="varchar(30)" defaultValue="VALID"><constraints nullable="false"/></column>
+      <column name="status_reason" type="varchar(500)"/><column name="is_corrected" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="calf_outcome">
+      <column name="calf_no" type="integer"/><column name="weight_unit" type="varchar(30)"/><column name="weight_basis" type="varchar(30)"/>
+      <column name="breed_id" type="bigint"><constraints foreignKeyName="fk_calf_outcome_breed" referencedTableName="breed" referencedColumnNames="id"/></column>
+      <column name="proposed_purpose_id" type="bigint"><constraints foreignKeyName="fk_calf_outcome_purpose" referencedTableName="production_purpose" referencedColumnNames="id"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <createIndex tableName="health_case" indexName="ix_health_case_farm_code"><column name="cattle_id"/><column name="case_code"/></createIndex>
+    <createIndex tableName="reproduction_event" indexName="ix_repro_cattle_time"><column name="cattle_id"/><column name="event_time"/></createIndex>
+  </changeSet>
+  <changeSet id="20261028000201-care-recorded-by" author="beefcare">
+    <addColumn tableName="reproduction_event">
+      <column name="recorded_at" type="${datetimeType}"/>
+      <column name="recorded_by_id" type="bigint"><constraints foreignKeyName="fk_reproduction_recorded_by" referencedTableName="app_user" referencedColumnNames="id"/></column>
+    </addColumn>
+    <addColumn tableName="calving_event">
+      <column name="recorded_at" type="${datetimeType}"/>
+      <column name="recorded_by_id" type="bigint"><constraints foreignKeyName="fk_calving_recorded_by" referencedTableName="app_user" referencedColumnNames="id"/></column>
+    </addColumn>
+    <addColumn tableName="pregnancy_update">
+      <column name="recorded_at" type="${datetimeType}"/>
+      <column name="recorded_by_id" type="bigint"><constraints foreignKeyName="fk_pregnancy_update_recorder" referencedTableName="app_user" referencedColumnNames="id"/></column>
+    </addColumn>
+  </changeSet>
+  <changeSet id="20261028000202-care-catalogue-versioning" author="beefcare">
+    <preConditions onFail="HALT" onError="HALT" onFailMessage="Duplicate vaccine or medicine codes exist within a farm. Resolve those catalogue rows explicitly before upgrading; no catalogue data was changed.">
+      <sqlCheck expectedResult="0">SELECT COUNT(*) FROM (SELECT farm_id, LOWER(code) FROM vaccine GROUP BY farm_id, LOWER(code) HAVING COUNT(*) &gt; 1) duplicate_vaccines</sqlCheck>
+      <sqlCheck expectedResult="0">SELECT COUNT(*) FROM (SELECT farm_id, LOWER(code) FROM medicine GROUP BY farm_id, LOWER(code) HAVING COUNT(*) &gt; 1) duplicate_medicines</sqlCheck>
+    </preConditions>
+    <addColumn tableName="vaccine">
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addColumn tableName="medicine">
+      <column name="withdrawal_days" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+      <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+    </addColumn>
+    <addUniqueConstraint tableName="vaccine" columnNames="farm_id, code" constraintName="uq_vaccine_farm_code"/>
+    <addUniqueConstraint tableName="medicine" columnNames="farm_id, code" constraintName="uq_medicine_farm_code"/>
+  </changeSet>
+</databaseChangeLog>

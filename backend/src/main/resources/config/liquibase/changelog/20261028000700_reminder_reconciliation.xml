@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261028000700-reminder-source-snapshots" author="beefcare">
+        <addColumn tableName="reminder">
+            <column name="source_type" type="varchar(40)"/>
+            <column name="source_id" type="varchar(255)"/>
+            <column name="rule_key" type="varchar(350)"/>
+            <column name="parameter_snapshot" type="clob"/>
+        </addColumn>
+        <sql>UPDATE reminder SET source_type='LEGACY', source_id=source_record, rule_key=CONCAT('legacy:', id) WHERE rule_key IS NULL</sql>
+        <addNotNullConstraint tableName="reminder" columnName="source_type" columnDataType="varchar(40)"/>
+        <addNotNullConstraint tableName="reminder" columnName="source_id" columnDataType="varchar(255)"/>
+        <addNotNullConstraint tableName="reminder" columnName="rule_key" columnDataType="varchar(350)"/>
+        <addUniqueConstraint tableName="reminder" columnNames="rule_key" constraintName="uq_reminder_rule_key"/>
+        <dropNotNullConstraint tableName="reminder" columnName="cattle_id" columnDataType="bigint"/>
+    </changeSet>
+</databaseChangeLog>

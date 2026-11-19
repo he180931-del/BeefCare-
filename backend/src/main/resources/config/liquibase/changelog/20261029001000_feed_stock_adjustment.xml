@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- SRS Entity "Stock Adjustment" (ĐCK-YYYY-nnnn, DRAFT → POSTED) and its lines; GBR-100, BR-D34, BR-D36. -->
+    <changeSet id="20261029001000-feed-stock-adjustment" author="beefcare">
+        <createTable tableName="feed_stock_adjustment">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="farm_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_adjustment_farm" referencedTableName="farm" referencedColumnNames="id"/></column>
+            <column name="code" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="count_date" type="date"><constraints nullable="false"/></column>
+            <column name="adjustment_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="counted_by" type="varchar(200)"/>
+            <column name="status" type="varchar(20)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="total_difference_kg" type="numeric(14,3)" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="total_value" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="created_by_id" type="bigint"><constraints foreignKeyName="fk_feed_adjustment_creator" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="created_at" type="${datetimeType}" defaultValueComputed="${now}"><constraints nullable="false"/></column>
+            <column name="posted_by_id" type="bigint"><constraints foreignKeyName="fk_feed_adjustment_poster" referencedTableName="app_user" referencedColumnNames="id"/></column>
+            <column name="posted_at" type="${datetimeType}"/>
+            <column name="version" type="integer" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="feed_stock_adjustment" columnNames="farm_id,code" constraintName="uq_feed_adjustment_farm_code"/>
+        <createTable tableName="feed_stock_adjustment_line">
+            <column name="id" type="bigint"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="adjustment_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_adjustment_line_adjustment" referencedTableName="feed_stock_adjustment" referencedColumnNames="id"/></column>
+            <column name="feed_item_id" type="bigint"><constraints nullable="false" foreignKeyName="fk_feed_adjustment_line_feed" referencedTableName="feed_item" referencedColumnNames="id"/></column>
+            <column name="feed_code_snapshot" type="varchar(50)"/><column name="feed_name_snapshot" type="varchar(150)"/>
+            <column name="system_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="counted_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="difference_kg" type="numeric(14,3)"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"/>
+            <column name="unit_cost" type="numeric(14,2)" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="difference_value" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="feed_stock_adjustment_line" columnNames="adjustment_id,feed_item_id" constraintName="uq_feed_adjustment_line_feed"/>
+    </changeSet>
+</databaseChangeLog>

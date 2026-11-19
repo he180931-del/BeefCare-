@@ -1,0 +1,46 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174025"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "asOf",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "ERD: date_range - tách 2 cột",
+      "fieldName": "dateFrom",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "dateTo",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "totals",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "CashReportSnapshot",
+  "relationships": [
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "pmUser",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "farm",
+      "relationshipName": "farm",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no"
+}

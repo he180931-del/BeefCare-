@@ -1,0 +1,42 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174023"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "decision",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "TextBlob"
+    },
+    {
+      "documentation": "ERD: time",
+      "fieldName": "reviewedAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "EvidenceReview",
+  "relationships": [
+    {
+      "otherEntityName": "bankTransferEvidence",
+      "relationshipName": "evidence",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "pmUser",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}

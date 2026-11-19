@@ -1,0 +1,44 @@
+{
+  "annotations": {
+    "changelogDate": "20261019174028"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "targetRole",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "state",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "outcome",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    }
+  ],
+  "name": "InternalRequest",
+  "relationships": [
+    {
+      "otherEntityName": "supportTicket",
+      "relationshipName": "ticket",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "appUser",
+      "relationshipName": "recipient",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no"
+}
