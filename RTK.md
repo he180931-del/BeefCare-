@@ -231,15 +231,19 @@ frontend/src/
     herd-exit/      exit pages, components, API adapters, feature data
     cattle/         cattle list/profile pages and cattle-specific code
     pen-management/ pen pages, components, API adapters, and pen data
-  api/, components/, hooks/, data/, types.ts, App.tsx
-                    legacy paths being emptied by docs/frontend-refactor-guide.md;
-                    the moved modules are re-exported here for compatibility
+  api/, components/, hooks/, data/, types.ts
+                    legacy leftovers only (local/demo data for phase 3, the
+                    backendFarmId fallback for phase 4, Entry/Exit parts whose
+                    owner is undecided); the allowed list and reasons are in
+                    tests/api/layerBoundary.test.ts
 ```
 
 Entry, Exit, Cattle, and Pen Management now follow this feature boundary. New
 feature-specific files must not be added to `src/pages` (removed in refactor
 phase 1; the route fallback is `app/routes/PlaceholderPage.tsx`). New shared
-code goes to `shared/` or `app/`, not to the legacy root folders. `shared`
+code goes to `shared/` or `app/`, not to the legacy root folders. Inside a
+feature, field rules live in `validation/`, policies and calculations in
+`domain/`, React hooks in `hooks/`, DTO mapping next to the API in `api/`. `shared`
 never imports `app`, `features` or the legacy folders, and `app` reaches a
 feature only through its `index.ts` (`tests/api/layerBoundary.test.ts`).
 

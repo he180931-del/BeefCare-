@@ -446,3 +446,26 @@ Trong feature worktree, chạy focused unit test của lát đang sửa. Các su
 | 4 | Xử lý Placeholder Routes | Những placeholder nào là route thật chưa triển khai và route nào phải trả Not Found. |
 
 Không quyết định thay bằng dữ liệu giả. Nếu backend hoặc requirement chưa sẵn sàng, giữ feature ở trạng thái bị chặn có thông báo rõ thay vì tạo fallback production.
+
+## 14. Tiến độ triển khai (cập nhật 19/11/2026, nhánh `refactor/fe-cau-truc-thu-muc`)
+
+| Giai đoạn | Trạng thái | Ghi chú |
+| :---- | :---- | :---- |
+| 0 — Baseline | Xong | Route-role matrix, provider order và 6 lệnh kiểm tra được chụp trước khi sửa. `npm run test:integration:ui` không chạy được trên Windows (glob), dùng `npx vitest run tests/integration`. |
+| 1 — Ranh giới `app` / `shared` | Xong | `main.tsx` mỏng, `app/` (routes, providers, layouts, session, styles), `shared/` (api, config, lib, hooks, ui, assets). |
+| 2 — Trả ownership về feature | Xong, trừ các mục chờ bên dưới | `types.ts` tách theo feature; API cattle về `features/cattle/api` (DTO / mapper / API); mapper Entry/Exit tách khỏi backend API; mọi feature import thẳng `shared/` và `app/`; validator chuyển vào `validation/`, hook vào `hooks/`, form feed-stock tách validation / payload / domain; shim của giai đoạn 1 đã xóa; `index.ts` thu hẹp. Characterization test (golden master) được ghi trước khi chuyển validator. |
+| 3 — Backend-only | Chưa làm | |
+| 4 — Hợp nhất session | Chưa làm | |
+
+Còn để lại có chủ đích (danh sách và lý do được kiểm trong `tests/api/layerBoundary.test.ts`):
+
+| Mục | Lý do | Xử lý ở |
+| :---- | :---- | :---- |
+| `api/backendTransport.ts` chỉ còn `backendFarmId` | Fallback trại cứng về `'1'` | Giai đoạn 4 |
+| `api/client`, `collectionSchemas`, `herdDomainApi`, `storageMigrations`, `penApi`, `testUtils`, `demoCattlePhotos`, `data/*`, `hooks/useDemoState` | Hạ tầng local / demo | Giai đoạn 3 |
+| `components/ui.tsx` (`StatusBadge`, `Docs`, `Dropzone`, `PaymentTable`) và `types.ts` (`Payment`, `DocumentRow`, `CattleDetail`) | Entry và Exit cùng dùng, chưa chốt owner (§13 mục 2) | Sau quyết định §13 |
+| 3 import đi thẳng vào module (`pen-management → cattleApi`, `herd-exit → scanApi`, `cattle → catalogueApi`) | Các module này tạo collection / demo store khi nạp; export qua `index.ts` sẽ chạy chúng lúc khởi động vì route table nạp mọi index | Giai đoạn 3 |
+| Export của module có tác dụng phụ trong `index.ts` (API, demo store) | Bỏ khỏi index sẽ đổi thời điểm chạy và thứ tự gộp seed local | Giai đoạn 3 |
+| `reproduction` (`validateReproductionCommand`, `validateCalving`), `farm-announcements` `validateText`, `platform-admin` `validateReason` | Validator trộn chính sách domain hoặc được domain dùng lại; tách là đổi logic | Cần thiết kế riêng |
+| `useFarmId`, `useFarmScope` ở `hooks/` của feature | Còn fallback `backendFarmId` và nhánh mock | Giai đoạn 4 (`app/session`) |
+| `authentication` (`AuthContext`, `client`), `authorization/SessionProvider` | Ghép session toàn app | Giai đoạn 4 |

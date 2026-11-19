@@ -47,9 +47,12 @@ transport, runtime config, date/format helpers, generic hooks, UI primitives,
 assets). App composition lives in `frontend/src/app/`: routes
 (`app/routes/AppRoutes.tsx`), providers, layouts and the tab's active farm and
 session events (`app/session/`). The legacy `api/`, `components/`, `hooks/`,
-`data/` and `types.ts` still hold code that has not been moved to its feature
-owner yet, plus compatibility re-exports of the moved modules; follow
-`docs/frontend-refactor-guide.md` before adding to them.
+`data/` and `types.ts` only keep the leftovers listed with their reason in
+`frontend/tests/api/layerBoundary.test.ts` (local/demo data, the
+`backendFarmId` fallback, the Entry/Exit parts whose owner is undecided); do
+not add to them. Inside a feature: `validation/` field rules, `domain/`
+policies and calculations, `hooks/` React hooks, `api/` endpoints and DTO
+mapping.
 
 Feature internals must not be imported by another feature. Cross-feature data
 goes through the backend/domain boundary. `frontend/src/pages` no longer
