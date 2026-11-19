@@ -5,7 +5,7 @@
 BeefCare is a Spring Boot backend and a Vite/React/TypeScript frontend.
 
 ```text
-frontend/src/App.tsx
+frontend/src/app/routes/AppRoutes.tsx
   -> feature page
   -> feature API boundary
   -> shared BackendTransport / backendClient
@@ -42,14 +42,18 @@ herd entry, herd exit, cattle and pen management (`FEATURE_*.md`).
 | `platform-finance` | FE-21 |
 | `feed-stock` | FE-23 |
 
-Shared transport, types and UI live in `frontend/src/api/`, `types.ts`,
-`components/` and `hooks/`; use them only for genuinely cross-feature code.
-Routes are composed in `frontend/src/App.tsx`.
+Neutral infrastructure lives in `frontend/src/shared/` (HTTP client and
+transport, runtime config, date/format helpers, generic hooks, UI primitives,
+assets). App composition lives in `frontend/src/app/`: routes
+(`app/routes/AppRoutes.tsx`), providers, layouts and the tab's active farm and
+session events (`app/session/`). The legacy `api/`, `components/`, `hooks/`,
+`data/` and `types.ts` still hold code that has not been moved to its feature
+owner yet, plus compatibility re-exports of the moved modules; follow
+`docs/frontend-refactor-guide.md` before adding to them.
 
 Feature internals must not be imported by another feature. Cross-feature data
-goes through the backend/domain boundary. Do not add new feature pages under
-legacy `frontend/src/pages`; `Placeholder` is the remaining cross-feature
-exception.
+goes through the backend/domain boundary. `frontend/src/pages` no longer
+exists; the route fallback is `app/routes/PlaceholderPage.tsx`.
 
 ## Backend ownership
 

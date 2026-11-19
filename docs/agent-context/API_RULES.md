@@ -4,14 +4,14 @@
 
 Frontend requests use relative `/api` paths. Vite proxies `/api` to the local
 backend in `frontend/vite.config.js`; do not hardcode a remote origin or solve
-CORS in page code. `frontend/src/api/backendClient.ts` requires paths starting
+CORS in page code. `frontend/src/shared/api/backendClient.ts` requires paths starting
 with `/api/` and always sends `credentials: 'include'`, but it prefixes
 `VITE_BEEFCARE_API_URL` when that variable is set. Keep it empty (as in
 `frontend/.env.example`) so requests stay relative; a backend origin there
 bypasses the proxy and relies on backend CORS.
 
 `VITE_BEEFCARE_DATA_SOURCE=backend` selects the backend adapters in
-`frontend/src/api/backendTransport.ts`. Any other value selects local adapters.
+`frontend/src/shared/config/runtime.ts` (`backendMode`). Any other value selects local adapters.
 Local collection persistence in `frontend/src/api/client.ts` is for local demo
 and tests only; backend mode must not silently fall back to localStorage.
 The tracked `frontend/.env.example` is only a backend-mode sample: Vite never
@@ -27,7 +27,7 @@ IDs separate from display codes such as cattle and voucher codes.
 
 The browser flow is: GET `/api/csrf` -> POST `/api/authenticate` with the CSRF
 header -> fetch a fresh CSRF token -> call authenticated farm endpoints. The
-implementation is `frontend/src/api/backendClient.ts`; backend security rules
+implementation is `frontend/src/shared/api/backendClient.ts`; backend security rules
 are in `backend/src/main/java/vn/edu/fpt/beefcare/config/SecurityConfiguration.java`.
 Do not store credentials, session cookies, or bearer tokens in localStorage.
 

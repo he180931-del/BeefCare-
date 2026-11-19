@@ -222,22 +222,26 @@ backend/
   src/main/resources/config/  Spring profiles and local configuration
 
 frontend/src/
+  main.tsx          thin entry: loads app/bootstrap
+  app/              composition only: routes/, providers/, layouts/, session/, styles/
+  shared/           neutral infrastructure: api/ (HTTP client, transport, parsers,
+                    generic errors), config/, lib/ (date, format), hooks/, ui/, assets/
   features/
     herd-entry/     entry pages, components, API adapters, feature data
     herd-exit/      exit pages, components, API adapters, feature data
     cattle/         cattle list/profile pages and cattle-specific code
     pen-management/ pen pages, components, API adapters, and pen data
-  api/              shared HTTP client, transport, and boundary tests
-  components/       genuinely shared UI components only
-  hooks/            genuinely shared React hooks only
-  data/             shared store or cross-feature data only
-  App.tsx           route composition; load pages through feature index.ts
+  api/, components/, hooks/, data/, types.ts, App.tsx
+                    legacy paths being emptied by docs/frontend-refactor-guide.md;
+                    the moved modules are re-exported here for compatibility
 ```
 
 Entry, Exit, Cattle, and Pen Management now follow this feature boundary. New
-feature-specific files must not be added to `src/pages`. The remaining
-`frontend/src/pages/Placeholder.tsx` is a generic cross-feature page, not
-evidence that Cattle or Pen Management migration is still pending.
+feature-specific files must not be added to `src/pages` (removed in refactor
+phase 1; the route fallback is `app/routes/PlaceholderPage.tsx`). New shared
+code goes to `shared/` or `app/`, not to the legacy root folders. `shared`
+never imports `app`, `features` or the legacy folders, and `app` reaches a
+feature only through its `index.ts` (`tests/api/layerBoundary.test.ts`).
 
 Each feature should expose a small `index.ts` for lazy page loaders and keep
 its API/data/components private to that feature. Cross-feature communication
