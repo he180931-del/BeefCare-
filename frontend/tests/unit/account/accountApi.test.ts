@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAccountApi } from '../../../src/features/account/api/accountApi'
 import { createAccountDemoStore } from '../../../src/features/account/data/accountDemoStore'
-import { validatePasswordChange, validateProfile } from '../../../src/features/account/domain/profileRules'
+import { validatePasswordChange, validateProfile } from '../../../src/features/account/validation/profileValidation'
 import type { AccountIdentity } from '../../../src/features/account/types'
 
 const manager: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Button, Card, Field, inputCls, Note, Segmented, Select, Textarea } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { DESCRIPTION_MAX, requiredScopeForCategory, SUBJECT_MAX, TICKET_CATEGORIES, validateCreate } from '../domain/ticketRules'
+import { Button, Card, Field, Icon, inputCls, Note, Segmented, Select, Textarea } from '../../../shared/ui'
+import { requiredScopeForCategory, TICKET_CATEGORIES } from '../domain/ticketRules'
+import { DESCRIPTION_MAX, SUBJECT_MAX, validateCreate } from '../validation/ticketValidation'
 import type { CreateTicketCommand, OwnedFarm, TicketCategory } from '../types'
 import { FieldError } from './FieldError'
 

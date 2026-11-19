@@ -1,6 +1,4 @@
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Info, Note } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Icon, Info, Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
 import { formatDateTime } from '../domain/format'
 import { plainStatus } from '../domain/ticketRules'
 import type { ResolutionView, Ticket } from '../types'

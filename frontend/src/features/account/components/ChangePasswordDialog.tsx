@@ -1,12 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalFooter } from '../../../components/Modal'
-import { Button, Field, inputCls, Note } from '../../../components/ui'
+import { backendMode } from '../../../shared/config/runtime'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Field, Icon, inputCls, Modal, ModalFooter, Note } from '../../../shared/ui'
 import { accountApi } from '../api/accountApi'
 import { MOCK_PASSWORD } from '../data/accountMock'
-import { validatePasswordChange } from '../domain/profileRules'
+import { validatePasswordChange } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, PasswordErrors } from '../types'
 
 const errorText = (message?: string) => message ? <span className="text-xs text-err-fg">{message}</span> : null

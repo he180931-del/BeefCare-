@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Button, Card, Note, Textarea } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { canReply, REPLY_MAX, validateReply } from '../domain/ticketRules'
+import { Button, Card, Icon, Note, Textarea } from '../../../shared/ui'
+import { canReply } from '../domain/ticketRules'
+import { REPLY_MAX, validateReply } from '../validation/ticketValidation'
 import type { Ticket } from '../types'
 import { FieldError } from './FieldError'
-import type { ActionResult } from './useTicketActions'
+import type { ActionResult } from '../hooks/useTicketActions'
 
 /** Phản hồi công khai (UC-FE20-03). Phiếu đã đóng chỉ đọc (MSG-FE20-06). */
 export function ReplyCard({ ticket, onSend }: { ticket: Ticket; onSend: (content: string) => Promise<ActionResult> }) {

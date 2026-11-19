@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
 import { isFarmRole } from '../../authorization'
 import { roleAtFarm } from '../domain/profileRules'
 import { ChangePasswordDialog } from './ChangePasswordDialog'
 import { PermissionsCard, ProfileCard } from './ProfileParts'
-import { useAccountProfile, useProfileForm } from './useAccountProfile'
+import { useAccountProfile, useProfileForm } from '../hooks/useAccountProfile'
 
 /** SCR-08 "Hồ sơ & quyền của tôi". `platform`: nhân sự nền tảng (CS, PM, SA) không có bảng quyền theo trại. */
 export function ProfileScreen({ title, platform = false }: { title: string; platform?: boolean }) {

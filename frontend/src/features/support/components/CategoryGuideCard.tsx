@@ -1,4 +1,4 @@
-import { Card, Table, Td, Th } from '../../../components/ui'
+import { Card, Table, Td, Th } from '../../../shared/ui'
 import { TICKET_CATEGORIES } from '../domain/ticketRules'
 
 export function CategoryGuideCard() {

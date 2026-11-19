@@ -1,4 +1,7 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, textValue, numberValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { backendFarmId } from '../../../api/backendTransport'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { notificationsDemoStore, type NotificationsDemoStore } from '../data/notificationsDemoStore'
 import type { NotificationView } from '../types'
 

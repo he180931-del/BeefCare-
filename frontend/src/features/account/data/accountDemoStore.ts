@@ -1,4 +1,4 @@
-import { validatePasswordChange, validateProfile } from '../domain/profileRules'
+import { validatePasswordChange, validateProfile } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, PasswordChangeInput, ProfileUpdateInput } from '../types'
 import { MOCK_PASSWORD, REAUTH_WINDOW_MS, seedProfile } from './accountMock'
 

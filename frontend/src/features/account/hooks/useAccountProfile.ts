@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../authorization'
 import { accountApi } from '../api/accountApi'
-import { validateProfile } from '../domain/profileRules'
+import { validateProfile } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, ProfileErrors } from '../types'
 
 const FALLBACK_IDENTITY: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }

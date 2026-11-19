@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatStamp } from '../../../src/features/platform-support/domain/supportRules'
-import { validateCreate } from '../../../src/features/support/domain/ticketRules'
+import { validateCreate } from '../../../src/features/support/validation/ticketValidation'
 import type { CreateTicketCommand, TicketCategory, TicketScope } from '../../../src/features/support/types'
 
 const ticket = (category: TicketCategory, scope: TicketScope, farmId: number | null): CreateTicketCommand => ({

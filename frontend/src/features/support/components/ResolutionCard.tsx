@@ -1,5 +1,4 @@
-import { Button, Card, Note } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Button, Card, Icon, Note } from '../../../shared/ui'
 import { formatDateTime } from '../domain/format'
 import { latestResolution } from '../domain/ticketRules'
 import type { Ticket } from '../types'
