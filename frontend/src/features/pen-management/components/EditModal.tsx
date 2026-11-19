@@ -9,7 +9,7 @@ import {
 } from '../domain/penRules'
 import { cx, TH } from './parts'
 import type { ReactNode } from 'react'
-import type { Pen, PenStatus } from '../../../types'
+import type { Pen, PenStatus } from '../types'
 import { penName } from './BarnTable'
 
 const ErrorText = ({ children }: { children: ReactNode }) => <span className="text-[11px] text-err-fg">{children}</span>

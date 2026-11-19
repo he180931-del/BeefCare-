@@ -2,7 +2,7 @@ import { Button, Foot, Table } from '../../../components/ui'
 import { Icon } from '../../../components/Icon'
 import { Chip, Fields, Panel, Td, Th } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
-import type { Tone } from '../../../types'
+import type { Tone } from '../types'
 import QrTagLabel from './QrTagLabel'
 
 const QR_TONE: Record<string, Tone> = { ACTIVE: 'ok', REPLACED: 'grey', REVOKED: 'err' }

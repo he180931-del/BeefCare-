@@ -1,5 +1,5 @@
 import { businessDate } from '../../../api/farmTimeZone'
-import type { Pen } from '../../../types'
+import type { Pen } from '../types'
 
 /** Enum values of the backend reception criteria (SRS §3.2 Pen Reception Criteria). */
 export const PURPOSE_TYPES = ['BREEDING', 'FATTENING', 'SIRE', 'UNDECIDED'] as const

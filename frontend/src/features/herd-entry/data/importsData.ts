@@ -1,5 +1,5 @@
 import type { BadgeTone } from '../../../components/ui'
-import type { HerdEntry } from '../../../types'
+import type { HerdEntry } from '../types'
 // Dữ liệu phiếu nhập (thuộc worker "Nhập đàn").
 export const initialImports: HerdEntry[] = [
   { id: 'PN-2026-0012', date: '2026-10-22', type: 'Mua ngoài', source: 'Hộ ông Lê Văn C – Sơn Tây · 2 con cân ước tính', count: 3, weight: 719, total: 61625000, debt: 21625000, status: 'Nháp' },

@@ -1,4 +1,6 @@
-import type { CattleInput, ExitDetail, ExitDraft, ExitStatus, ExitType, HerdExit, Payment } from '../../../types'
+import type { CattleInput } from '../../cattle'
+import type { ExitDetail, ExitDraft, ExitStatus, ExitType, HerdExit } from '../types'
+import type { Payment } from '../../../types'
 import {
   asRecord, asRows, enumPaymentMethod, isoDate, nullableNumber, numberValue, textValue, unwrapVoucher,
   type BackendTransport,

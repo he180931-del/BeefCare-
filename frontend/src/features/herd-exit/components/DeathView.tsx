@@ -9,7 +9,7 @@ import { dmy } from '../../../data/format'
 import { backendMode } from '../../../api/backendTransport'
 import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, useIsOwner } from './parts'
 import RejectModal from './RejectModal'
-import type { HerdExit, ExitDetail } from '../../../types'
+import type { HerdExit, ExitDetail } from '../types'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
 const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa phương', 'Khác']

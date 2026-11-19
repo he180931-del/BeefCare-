@@ -1,5 +1,5 @@
 import type { BadgeTone } from '../../../components/ui'
-import type { EntryCow } from '../../../types'
+import type { EntryCow } from '../types'
 
 export const ENTRY_EXCEL_HEADERS = [
   'Số thẻ tai',

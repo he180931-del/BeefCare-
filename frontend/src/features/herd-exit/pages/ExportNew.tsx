@@ -12,7 +12,7 @@ import { useMutation, useQuery } from '../../../hooks/useApi'
 import { Icon } from '../../../components/Icon'
 import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
-import type { ExitDraftCow, HerdExit, ExitType } from '../../../types'
+import type { ExitDraftCow, HerdExit, ExitType } from '../types'
 import { userFacingError } from '../../../api/userFacingError'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 

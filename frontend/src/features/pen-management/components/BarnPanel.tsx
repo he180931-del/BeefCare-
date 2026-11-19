@@ -5,7 +5,7 @@ import { criteriaOf, criteriaRows, dmy, situationText } from '../domain/penRules
 import { Box, TH } from './parts'
 import { penName } from './BarnTable'
 import type { PenCattle, PenDetail } from '../api/penApi'
-import type { Pen } from '../../../types'
+import type { Pen } from '../types'
 
 /** Pen detail of SCR-17 (fields 10–15). Write actions are shown to Owner and Manager only (§2, TC-04-24). */
 export default function BarnPanel({ barn, detail, loading = false, canManage = true, onEdit, onToggle, onMove, onViewAll }: { barn: Pen; detail?: PenDetail | null; loading?: boolean; canManage?: boolean; onEdit: () => void; onToggle: () => void; onMove: (cattle: PenCattle[]) => void; onViewAll?: () => void }) {

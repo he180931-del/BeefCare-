@@ -6,7 +6,7 @@ import { userFacingError } from '../../api/userFacingError'
 import { defaultAuthClient } from './client'
 import { GuestAuthFlow } from './pages/GuestAuthFlow'
 import { takeInvitationLink } from './invitationReturn'
-import { clearSelectedFarmOnDevice } from '../farm-workspace/selectedFarm'
+import { clearSelectedFarmOnDevice } from '../../app/session/selectedFarm'
 import type { AuthClient } from './types'
 import { AUTH_PATH } from './domain/authErrors'
 

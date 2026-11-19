@@ -6,7 +6,8 @@ import { backendMode } from '../../../api/backendTransport'
 import { TODAY } from '../data/importsData'
 import { money } from '../../../data/format'
 import { RadioRow } from './parts'
-import type { HerdEntry, Payment } from '../../../types'
+import type { HerdEntry } from '../types'
+import type { Payment } from '../../../types'
 
 const DEFAULT_REF = 'FT26295104721 · TT phieu PN-2026-0011'
 

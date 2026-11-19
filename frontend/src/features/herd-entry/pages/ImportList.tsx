@@ -9,7 +9,7 @@ import { herdEntryApi, listPendingEntryCalves } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
 import { SOURCE_FILTERS } from '../data/importsData'
 import { dmy, dm, kg, money } from '../../../data/format'
-import type { HerdEntry } from '../../../types'
+import type { HerdEntry } from '../types'
 import { userFacingError } from '../../../api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'

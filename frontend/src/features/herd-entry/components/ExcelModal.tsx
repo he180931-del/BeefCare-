@@ -5,7 +5,7 @@ import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, Button, Table, Td, Th, Note } from '../../../components/ui'
 import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../data/entryExcel'
 import { kg } from '../../../data/format'
-import type { EntryCow } from '../../../types'
+import type { EntryCow } from '../types'
 import { userFacingError } from '../../../api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'

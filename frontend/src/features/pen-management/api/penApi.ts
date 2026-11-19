@@ -2,10 +2,11 @@ import { seedPens } from '../../../data/pensData'
 import { createCollection } from '../../../api/client'
 import { migrateHerdStorage } from '../../../api/storageMigrations'
 import { penSchema } from '../../../api/collectionSchemas'
-import { moveBarn } from '../../../api/cattleApi'
+// Deep import kept on purpose until refactor phase 3 (see tests/api/layerBoundary.test.ts).
+import { moveBarn } from '../../cattle/api/cattleApi'
 import { BackendError } from '../../../api/backendClient'
 import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue } from '../../../api/backendTransport'
-import type { Pen } from '../../../types'
+import type { Pen } from '../types'
 import type { ReceptionCriteria } from '../domain/penRules'
 
 // Backend mode is authoritative for pen management. Do not initialize the

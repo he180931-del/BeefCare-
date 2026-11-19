@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Button, Field, Note, Radio, Textarea } from '../../../components/ui'
 import { useQuery } from '../../../hooks/useApi'
-import { DISCARD_PROMPT } from '../../farm-workspace/domain/discardPrompt'
+import { DISCARD_PROMPT } from '../../../shared/ui'
 import { platformAdminApi } from '../api/platformAdminApi'
 import {
   MSG, OPERATION_LABEL, PLATFORM_ROLES, REASON_MAX, ROLE_LABEL, accessButtonLabel, accessDoneMessage, formatPlatformDateTime, noAccessActionReason,

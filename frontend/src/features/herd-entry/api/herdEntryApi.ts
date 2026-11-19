@@ -1,4 +1,6 @@
-import type { CattleInput, EntryCalf, HerdEntry, Payment } from '../../../types'
+import type { CattleInput } from '../../cattle'
+import type { EntryCalf, HerdEntry } from '../types'
+import type { Payment } from '../../../types'
 import { backendFarmId, backendMode, backendTransport } from '../../../api/backendTransport'
 import { cattle, pens } from '../../../api/herdDomainApi'
 import {

@@ -17,7 +17,7 @@ import DisableModal from '../components/DisableModal'
 import MoveDialog from '../components/MoveDialog'
 import { cx } from '../components/parts'
 import { headerSummary } from '../domain/penRules'
-import type { Pen, PenStatus } from '../../../types'
+import type { Pen, PenStatus } from '../types'
 
 const ALL_STATUS = 'all'
 const STATUS_OPTIONS = [

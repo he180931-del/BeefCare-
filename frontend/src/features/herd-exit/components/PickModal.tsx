@@ -4,7 +4,8 @@ import { Badge, Button, Checkbox, Field, Note, Select, Table, Td, Th, inputCls }
 import { Icon } from '../../../components/Icon'
 import { money } from '../../../data/format'
 import { TH } from './parts'
-import type { HerdExit } from '../../../types'
+import type { HerdExit } from '../types'
+// Deep import kept on purpose until refactor phase 3 (see tests/api/layerBoundary.test.ts).
 import { scanCode } from '../../cattle/api/scanApi'
 import QrCamera from '../../../components/QrCamera'
 type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number }

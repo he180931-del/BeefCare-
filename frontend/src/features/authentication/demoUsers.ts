@@ -1,4 +1,4 @@
-import type { SessionUser } from '../authorization/sessionContext'
+import type { SessionUser } from '../authorization'
 
 const DEMO_FARM = { farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì' }
 const NO_FARM = { farmId: null, farmName: null }

@@ -1,4 +1,7 @@
-import type { CattleInput, DocumentRow, EntryCalf, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry, Payment, Pen } from '../../../types'
+import type { CattleInput } from '../../cattle'
+import type { DocumentRow, Payment } from '../../../types'
+import type { EntryCalf, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../types'
+import type { Pen } from '../../pen-management'
 import {
   asRecord, asRows, enumPaymentMethod, isoDate, nullableNumber, numberValue, textValue, unwrapVoucher,
   type BackendTransport,

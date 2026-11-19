@@ -9,7 +9,7 @@ import { userFacingError } from '../../../api/userFacingError'
 import { BackendError } from '../../../api/backendClient'
 import { Chip, Td, Th, fieldCls } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
-import type { Pen } from '../../../types'
+import type { Pen } from '../../pen-management'
 
 type MovePayload = { to: string; date: string; reason: string; by: string }
 type CheckResult = Awaited<ReturnType<typeof checkPenMove>>

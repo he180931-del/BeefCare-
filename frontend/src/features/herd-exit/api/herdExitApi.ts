@@ -1,4 +1,6 @@
-import type { CattleInput, HerdExit, Payment } from '../../../types'
+import type { CattleInput } from '../../cattle'
+import type { HerdExit } from '../types'
+import type { Payment } from '../../../types'
 import { backendFarmId, backendMode, backendTransport } from '../../../api/backendTransport'
 import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks } from './herdExitBackendApi'
 import { EXPORT_HERD } from '../data/exportsData'

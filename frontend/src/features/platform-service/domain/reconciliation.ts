@@ -1,4 +1,4 @@
-import { PAYMENT_STATE_VIEW } from '../../farm-workspace/domain/statusViews'
+import { PAYMENT_STATE_VIEW } from '../../farm-workspace'
 import type { Evidence, MatchResult, PlatformPayment, ReviewStatus } from '../types'
 
 export const RECEIVING_ACCOUNT = 'MB 0386671863000'

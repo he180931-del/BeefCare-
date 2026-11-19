@@ -7,7 +7,7 @@ import { dmy, money } from '../../../data/format'
 import { herdExitApi } from '../api/index'
 import { useQuery } from '../../../hooks/useApi'
 import { ExitStatusBadge, TH, cx, useIsOwner } from '../components/parts'
-import type { HerdExit } from '../../../types'
+import type { HerdExit } from '../types'
 
 const TABS: Array<{ value: string; match: (r: HerdExit) => boolean }> = [
   { value: 'Tất cả', match: () => true },

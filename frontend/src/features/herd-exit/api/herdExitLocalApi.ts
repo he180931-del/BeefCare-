@@ -3,7 +3,8 @@ import { cancelCattleExit, confirmCattleExit } from '../../../api/herdDomainApi'
 import { initialExports } from '../data/exportsData'
 import { errorMessage } from '../../../api/herdDomainApi'
 import { herdExitSchema } from '../../../api/collectionSchemas'
-import type { CattleInput, ExitDraft, ExitStatus, ExitType, HerdExit } from '../../../types'
+import type { CattleInput } from '../../cattle'
+import type { ExitDraft, ExitStatus, ExitType, HerdExit } from '../types'
 
 const nextExitId = (rows: HerdExit[]): string => {
   const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))

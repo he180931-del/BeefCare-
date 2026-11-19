@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
 import { backendFarmId, backendMode } from '../../../api/backendTransport'
-import { useSession } from '../../authorization/sessionContext'
+import { useSession } from '../../authorization'
 
 export const DEFAULT_FARM_ID = 1 // Trại bò Yên Bài – Ba Vì trong mock
 

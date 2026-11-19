@@ -1,5 +1,5 @@
 import { businessDate } from '../../api/farmTimeZone'
-import type { EntryCow, EntryType } from '../../types'
+import type { EntryCow, EntryType } from './types'
 
 type ValidationInput = {
   date?: string

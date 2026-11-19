@@ -8,7 +8,7 @@ import { useMutation } from '../../../hooks/useApi'
 import { TODAY } from '../data/exportsData'
 import { dmy, money } from '../../../data/format'
 import { DocRow, MoneyInput } from './parts'
-import type { HerdExit } from '../../../types'
+import type { HerdExit } from '../types'
 
 const METHODS = ['Tiền mặt', 'Chuyển khoản']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'

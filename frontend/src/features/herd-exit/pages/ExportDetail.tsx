@@ -11,7 +11,8 @@ import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
-import type { HerdExit, ExitDetail, Cattle } from '../../../types'
+import type { HerdExit, ExitDetail } from '../types'
+import type { Cattle } from '../../cattle'
 
 export default function ExportDetail() {
   const { id } = useParams()

@@ -3,7 +3,7 @@ import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
 import { Badge, DateInput, Field, KV, Note, Textarea } from '../../../components/ui'
 import { userFacingError } from '../../../api/userFacingError'
 import { todayIso, validateAvailability } from '../domain/penRules'
-import type { Pen, PenStatus } from '../../../types'
+import type { Pen, PenStatus } from '../types'
 
 const ErrorText = ({ children }: { children: string }) => <span className="text-[11px] text-err-fg">{children}</span>
 const statusBadge = (status: PenStatus) => (status === 'ACTIVE' ? <Badge tone="ok" className="!border-0">Đang hoạt động</Badge> : <Badge>Ngừng hoạt động</Badge>)

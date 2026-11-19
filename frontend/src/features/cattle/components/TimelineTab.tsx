@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Checkbox, ErrorBlock, Foot, LoadingBlock, Note } from '../../../components/ui'
 import Modal from '../../../components/Modal'
-import { listCattleTimeline } from '../../../api/cattleApi'
+import { listCattleTimeline } from '../api/cattleApi'
 import { userFacingError } from '../../../api/userFacingError'
 import { useQuery } from '../../../hooks/useApi'
 import { canRecordCare, useSession } from '../../authorization'
-import { TIMELINE_FILTERS } from '../../../api/cattleTimeline'
+import { TIMELINE_FILTERS } from '../api/cattleTimeline'
 import { Chip, Panel, Seg } from './parts'
 import TimelineCorrectionDialog, { hasTimelineCorrection } from './TimelineCorrectionDialog'
 import type { CowSeed } from '../../../data/cowsData'
-import type { CattleEvent } from '../../../types'
+import type { CattleEvent } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 

@@ -7,6 +7,7 @@ export { Checkbox, DateInput, Field, FilterSelect, Radio, SearchInput, Select, T
 export { ICON_NAMES, Icon, type IconName } from './Icon/Icon'
 export { default as Modal, ModalButton, ModalFooter } from './Modal/Modal'
 export { TopbarTitleContext, useTopbarTitle } from './Modal/topbarTitle'
+export { DISCARD_PROMPT } from './Modal/discardPrompt'
 export { PageHeader } from './PageHeader/PageHeader'
 export { default as QrCamera } from './QrScanner/QrCamera'
 export { Pagination, Table, Td, Th } from './Table/Table'

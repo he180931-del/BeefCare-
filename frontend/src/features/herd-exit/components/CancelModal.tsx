@@ -7,7 +7,9 @@ import { useMutation } from '../../../hooks/useApi'
 import { useQuery } from '../../../hooks/useApi'
 import { money } from '../../../data/format'
 import { penCode, restoreCounts } from '../data/occupancy'
-import type { HerdExit, CattleInput, Pen } from '../../../types'
+import type { HerdExit } from '../types'
+import type { CattleInput } from '../../cattle'
+import type { Pen } from '../../pen-management'
 
 const MAX_REASON = 500
 

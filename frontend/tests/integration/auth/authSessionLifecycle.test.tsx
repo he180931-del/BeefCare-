@@ -3,7 +3,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth, type AuthClient } from '../../../src/features/authentication/AuthContext'
-import { SELECTED_FARM_STORAGE_KEY } from '../../../src/features/farm-workspace/selectedFarm'
+import { SELECTED_FARM_STORAGE_KEY } from '../../../src/app/session/selectedFarm'
 import { BackendError } from '../../../src/api/backendClient'
 
 function AuthenticatedWorkspace() {

@@ -1,7 +1,7 @@
 import { Th as UiTh, Td as UiTd } from '../../../components/ui'
 import { Icon, type IconName } from '../../../components/Icon'
 import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react'
-import type { Tone } from '../../../types'
+import type { Tone } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 

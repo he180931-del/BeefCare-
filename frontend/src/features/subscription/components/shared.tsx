@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { IconName } from '../../../components/Icon'
 import { Badge } from '../../../components/ui'
-import { paymentView, serviceView } from '../../farm-workspace/domain/statusViews'
+import { paymentView, serviceView } from '../../farm-workspace'
 import type { PaymentState, ServiceStatus } from '../types'
 
 export const ICON_BTN = 'inline-flex items-center justify-center gap-1.5'

@@ -1,6 +1,6 @@
 import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
 import { accountDemoStore, type AccountDemoStore } from '../data/accountDemoStore'
-import { googleAuthorizationUrl } from '../../authentication/googleOAuth'
+import { googleAuthorizationUrl } from '../../authentication'
 import { permissionRowsFor } from '../../farm-workspace'
 import type { AccountIdentity, AccountProfile, FarmPermissions, PasswordChangeInput, ProfileUpdateInput } from '../types'
 
