@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { businessDate } from '../../../src/shared/lib/date/farmTime'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import FeedFeedingPage from '../../../src/features/feed-stock/pages/FeedFeedingPage'
@@ -23,10 +24,7 @@ vi.mock('../../../src/features/feed-stock/api/feedRationApi', () => ({
 }))
 vi.mock('../../../src/features/feed-stock/api/feedStockApi', () => ({ listFeedStock: api.listFeedStock }))
 
-const dateToday = () => {
-  const date = new Date()
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+const dateToday = businessDate
 
 const ration = (penId: number, code: string, session1Kg: number, session2Kg: number, mixedFeedOutOfStock = true): FeedRation => ({
   id: penId,
