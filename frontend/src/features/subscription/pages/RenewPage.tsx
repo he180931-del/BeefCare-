@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { InactiveFarmBanner, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Facts, ICON_BTN } from '../components/shared'
+import { usePaymentRequest } from '../hooks/usePaymentRequest'
+import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
-import { useFarmScope } from '../components/useFarmScope'
+import { useFarmScope } from '../hooks/useFarmScope'
 import { TERMS, estimatePeriod, fmtDate, fmtPeriod, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
 import type { Term } from '../types'
-import { useOverview } from './useOverview'
+import { useOverview } from '../hooks/useOverview'
 
 const TITLE = 'Gia hạn gói – chọn thời hạn'
 
 export default function RenewPage() {
   const { farmId, to } = useFarmScope()
+  const createPayment = usePaymentRequest(farmId)
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const preset = Number(params.get('term')) as Term
@@ -43,8 +45,9 @@ export default function RenewPage() {
     setSaving(true)
     setSaveError('')
     try {
-      const p = await subscriptionApi.createPayment(farmId, { durationYears: term, expectedPriceVersionId: price.id })
-      navigate(to(`/goi-dich-vu/chuyen-khoan/${p.quoteRef}`, { from: 'subscription' }))
+      const p = await createPayment(term, price.id)
+      if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${subscriptionApi.paymentRouteId(p)}`, { from: 'subscription' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)
@@ -58,13 +61,18 @@ export default function RenewPage() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} sub={data.farmName} />
+        <Card title="Trạng thái trang trại"><Facts items={[
+          ['Dịch vụ', serviceLabel(data.serviceStatus)],
+          ['Kỳ hiện tại', data.currentPeriod ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end) : 'Chưa có'],
+        ]} /></Card>
+        {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_376px]">
           <div className="flex flex-col gap-4">
             <Card title="Thời hạn">
               <TermCards prices={price} selected={term} onSelect={setTerm} />
             </Card>
             <Card title="Điều khoản gói">
-              <Facts items={[['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại'], ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ']]} />
+              <Facts items={[['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại bằng chuyển khoản'], ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ']]} />
             </Card>
           </div>
           <Card title="Xem lại trước khi tạo">

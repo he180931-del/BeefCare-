@@ -1,11 +1,9 @@
 export const GROUPS = ['Bò tơ', 'Vỗ béo', 'Bò cái', 'Đực giống', 'Chưa xác định']
-export const PURPOSES = ['Chưa xác định', 'Nuôi thương phẩm', 'Giữ giống']
 export const SOURCES = [
   { id: 's1', name: 'Hộ ông Lê Văn C – Sơn Tây', phone: '0912 345 678' },
   { id: 's2', name: 'Chợ bò Tòng Bạt – Ba Vì', phone: '0903 111 222' },
   { id: 's3', name: 'Trại giống Mộc Châu – Sơn La', phone: '0912 888 456' },
 ]
-export const PAY_METHODS = ['Chuyển khoản', 'Tiền mặt']
 export const initialCalves = [
   { name: 'Bê số 1', tag: 'VN-0611', mother: 'BC-000093', father: 'tinh BRD-118', born: '2026-10-19', sex: 'Cái', weight: 24, estimated: false, purpose: 'Chưa xác định', picked: true, barn: 'A3' },
   { name: 'Bê số 1', tag: 'VN-0612', mother: 'BC-000108', father: 'BC-000140', born: '2026-10-20', sex: 'Đực', weight: 27, estimated: true, purpose: 'Chưa xác định', picked: true, barn: 'A3' },

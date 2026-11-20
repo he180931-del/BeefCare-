@@ -11,7 +11,7 @@ export const LARGE_CHANGE_RATIO = 0.2
 export const MIN_ADG_GAP_DAYS = 14
 export const NOTE_MAX = 500
 
-const round = (n: number, digits: number) => Math.round(n * 10 ** digits) / 10 ** digits
+export const round = (n: number, digits: number) => Math.round(n * 10 ** digits) / 10 ** digits
 
 /** GBR-39: cân nặng ước tính = 88,4 × vòng ngực (m)² × dài thân chéo (m). */
 export const tapeWeightKg = (girthCm: number, lengthCm: number) => round(88.4 * (girthCm / 100) ** 2 * (lengthCm / 100), 1)
@@ -46,35 +46,6 @@ export class GrowthLargeChangeError extends Error {
     super(`Cân nặng mới (${newKg} kg) chênh hơn 20% so với lần cân trước (${lastKg} kg ngày ${fmtDate(lastAt)}). Vẫn lưu?`)
     this.name = 'GrowthLargeChangeError'
   }
-}
-
-const present = (n: number | undefined): n is number => n !== undefined && n !== null && !Number.isNaN(n)
-
-/** UC-FE08-01 bước 4 và GBR-38: trả về lỗi theo từng trường (rỗng nếu hợp lệ). */
-export function validateMeasurement(input: MeasurementInput, ctx: { now: string; herdEntryDate: string }): GrowthFieldErrors {
-  const e: GrowthFieldErrors = {}
-  const { measuredAt, method, weightKg, heartGirthCm, bodyLengthCm, bcs, note } = input
-  if (!measuredAt) e.measuredAt = 'Thời điểm đo là bắt buộc.'
-  else if (measuredAt > ctx.now) e.measuredAt = 'Thời điểm không được ở tương lai.'
-  else if (measuredAt.slice(0, 10) < ctx.herdEntryDate) e.measuredAt = `Thời điểm không được trước ngày nhập đàn (${fmtDate(ctx.herdEntryDate)}).`
-
-  if (!present(weightKg) && !present(bcs)) e.form = 'Nhập cân nặng, BCS hoặc cả hai.'
-  if (present(weightKg)) {
-    if (weightKg < WEIGHT_MIN || weightKg > WEIGHT_MAX) e.weightKg = 'Cân nặng phải từ 1 đến 1.500 kg.'
-    else if (round(weightKg, 1) !== weightKg) e.weightKg = 'Cân nặng chỉ nhận tối đa 1 chữ số thập phân.'
-    if (!method) e.method = 'Phương pháp là bắt buộc khi có cân nặng.'
-  }
-  if (present(heartGirthCm) && (heartGirthCm < GIRTH_RANGE[0] || heartGirthCm > GIRTH_RANGE[1])) e.heartGirthCm = 'Vòng ngực phải từ 50 đến 300 cm.'
-  if (present(bodyLengthCm) && (bodyLengthCm < LENGTH_RANGE[0] || bodyLengthCm > LENGTH_RANGE[1])) e.bodyLengthCm = 'Dài thân chéo phải từ 30 đến 250 cm.'
-  if (present(bcs) && !BCS_SCALE.includes(bcs)) e.bcs = 'BCS phải nằm trong thang 1,0 – 5,0 (bước 0,5).'
-  if (note && note.length > NOTE_MAX) e.note = 'Ghi chú tối đa 500 ký tự.'
-  return e
-}
-
-export function validateReason(reason: string | undefined): GrowthFieldErrors {
-  if (!reason?.trim()) return { reason: 'Lý do là bắt buộc.' }
-  if (reason.length > NOTE_MAX) return { reason: 'Lý do tối đa 500 ký tự.' }
-  return {}
 }
 
 export interface WeightPoint { at: string; kg: number; basis: GrowthBasis; id: number }
@@ -130,4 +101,37 @@ export function finishingProjection(weights: WeightPoint[], targetKg: number | u
   if (adg60 === undefined || adg60 <= 0) return { state: 'INSUFFICIENT', targetKg, missingKg, adg60 }
   const days = Math.ceil(missingKg / adg60)
   return { state: 'PROJECTED', targetKg, missingKg, adg60, days, projectedDate: addDays(latest.at, days) }
+}
+
+export interface FinishingProgress {
+  percent: number
+  currentKg: number
+  currentAt: string
+  currentBasis: GrowthBasis
+  targetKg: number
+  gainedKg: number
+  plannedKg: number
+  since: string
+}
+
+/**
+ * Tiến độ chặng vỗ béo (Figma Tab 17): phần đã tăng từ lần cân hợp lệ đầu tiên ÷ (cân mục tiêu − cân đầu tiên).
+ * Cân hiện tại là lần cân hợp lệ gần nhất — cùng mốc mà dự kiến xuất bán (GBR-107) dùng.
+ */
+export function finishingProgress(records: GrowthRecord[], targetKg: number): FinishingProgress | undefined {
+  const weights = validWeights(records)
+  const first = weights[0]
+  const last = weights[weights.length - 1]
+  if (!first || !last) return undefined
+  const plannedKg = targetKg - first.kg
+  const gainedKg = round(last.kg - first.kg, 1)
+  const percent = plannedKg <= 0 || last.kg >= targetKg ? 100 : Math.min(100, Math.max(0, Math.round((gainedKg / plannedKg) * 100)))
+  return { percent, currentKg: last.kg, currentAt: last.at, currentBasis: last.basis, targetKg, gainedKg, plannedKg: Math.max(0, round(plannedKg, 1)), since: first.at }
+}
+
+/** Cân ước tính vào ngày cân tới nếu giữ ADG 60 ngày (Figma Tab 17 "Cân tới"): cân gần nhất + ADG × số ngày. */
+export function weightAtNextWeighing(currentKg: number, currentAt: string, nextWeighingDate: string | undefined, adg60: number | undefined): number | undefined {
+  if (adg60 === undefined || !nextWeighingDate) return undefined
+  const days = Math.max(0, Math.round(dayFloat(nextWeighingDate) - dayFloat(currentAt.slice(0, 10))))
+  return round(currentKg + adg60 * days, 1)
 }

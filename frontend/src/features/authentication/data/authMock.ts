@@ -1,4 +1,4 @@
-import { DEFAULT_FAQ, DEFAULT_FEATURES } from './landingContent'
+import { DEFAULT_FAQ, DEFAULT_FEATURES } from '../constants/landingContent'
 
 /** Email dành riêng cho chế độ mô phỏng để xem các khung đăng nhập thất bại (SCR-02). */
 export const MOCK_WRONG_CREDENTIALS_EMAIL = 'sai@beefcare.local'
@@ -17,5 +17,5 @@ export const MOCK_LANDING = {
   features: DEFAULT_FEATURES.map(([title, description]) => ({ title, description })),
   faq: DEFAULT_FAQ.map(([question, answer]) => ({ question, answer })),
   prices: MOCK_PRICES,
-  contactEmail: 'tuanpqhe181869@fpt.edu.vn',
+  contactEmail: 'beefcare@gmail.com',
 }

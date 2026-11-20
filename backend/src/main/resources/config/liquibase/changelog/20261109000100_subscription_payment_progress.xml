@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- No backfill: bank time is not confirmation/receipt time. Existing rows truthfully remain unknown. -->
+    <changeSet id="20261109000100-subscription-payment-progress" author="beefcare">
+        <addColumn tableName="payment">
+            <column name="confirmed_at" type="timestamp"/>
+            <column name="confirmation_source" type="varchar(10)"/>
+        </addColumn>
+        <addColumn tableName="bank_transfer_evidence">
+            <column name="first_received_at" type="timestamp"/>
+        </addColumn>
+        <createIndex tableName="bank_transfer_evidence" indexName="ix_evidence_quote_ref">
+            <column name="quote_ref"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

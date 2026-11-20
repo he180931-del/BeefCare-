@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
 import vn.edu.fpt.beefcare.domain.CashReportSnapshot;
 import vn.edu.fpt.beefcare.domain.Farm;
@@ -34,7 +33,6 @@ import vn.edu.fpt.beefcare.domain.ManualFinanceHistory;
 import vn.edu.fpt.beefcare.domain.ManualFinanceRecord;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.BankTransferEvidenceRepository;
 import vn.edu.fpt.beefcare.repository.CashReportSnapshotRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
@@ -47,7 +45,7 @@ import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.EvidenceDTO;
 /** PM-only finance records and cash snapshots; all state changes are audited and version checked. */
 @Service
 public class PlatformFinanceService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId BUSINESS_ZONE = FarmTimeZones.OFFSET;
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     /** SRS scheduled cleanup (daily 02:00, step 2): cash report snapshots are available for 30 days. */
     private static final long SNAPSHOT_RETENTION_SECONDS = 30L * 24 * 3600;
@@ -62,7 +60,7 @@ public class PlatformFinanceService {
     private final BankTransferEvidenceRepository evidence;
     private final PaymentRepository payments;
     private final FarmRepository farms;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final JdbcTemplate jdbc;
     private final FarmClock clock;
     private final ObjectMapper mapper;
@@ -78,12 +76,12 @@ public class PlatformFinanceService {
         BankTransferEvidenceRepository evidence,
         PaymentRepository payments,
         FarmRepository farms,
-        AuditLogRepository auditLogs,
+        AuditService audit,
         JdbcTemplate jdbc,
         FarmClock clock,
         ObjectMapper mapper,
-        @Value("${beefcare.finance.income-categories:OTHER_INCOME,REFUND,INTEREST}") List<String> incomeCategories,
-        @Value("${beefcare.finance.expense-categories:OPERATIONS,MARKETING,SOFTWARE,BANK_FEE,OTHER_EXPENSE}") List<String> expenseCategories
+        @Value("${beefcare.finance.income-categories:IMPLEMENTATION_SUPPORT,USER_TRAINING,COST_REIMBURSEMENT,OTHER_INCOME}") List<String> incomeCategories,
+        @Value("${beefcare.finance.expense-categories:SERVER_STORAGE,DOMAIN_SOFTWARE,EMAIL_NOTIFICATIONS,OTHER_EXPENSE}") List<String> expenseCategories
     ) {
         this.access = access;
         this.records = records;
@@ -93,7 +91,7 @@ public class PlatformFinanceService {
         this.evidence = evidence;
         this.payments = payments;
         this.farms = farms;
-        this.auditLogs = auditLogs;
+        this.audit = audit;
         this.jdbc = jdbc;
         this.clock = clock;
         this.mapper = mapper;
@@ -108,7 +106,15 @@ public class PlatformFinanceService {
         Specification<ManualFinanceRecord> filter = (root, query, cb) -> {
             List<jakarta.persistence.criteria.Predicate> p = new ArrayList<>();
             if (StringUtils.hasText(type)) p.add(cb.equal(cb.upper(root.get("type")), type.trim().toUpperCase(Locale.ROOT)));
-            if (StringUtils.hasText(state)) p.add(cb.equal(cb.upper(root.get("state")), state.trim().toUpperCase(Locale.ROOT)));
+            if (StringUtils.hasText(state)) {
+                String normalizedState = state.trim().toUpperCase(Locale.ROOT);
+                if ("VOID".equals(normalizedState)) {
+                    // The UI groups an explicitly voided posted record and a discarded draft under “Đã hủy”.
+                    p.add(cb.or(cb.equal(cb.upper(root.get("state")), "VOID"), cb.equal(cb.upper(root.get("state")), "DISCARDED")));
+                } else {
+                    p.add(cb.equal(cb.upper(root.get("state")), normalizedState));
+                }
+            }
             if (StringUtils.hasText(category)) p.add(cb.equal(cb.upper(root.get("category")), category.trim().toUpperCase(Locale.ROOT)));
             if (StringUtils.hasText(scope)) p.add(cb.equal(cb.upper(root.get("scope")), scope.trim().toUpperCase(Locale.ROOT)));
             if (farmId != null) p.add(cb.equal(root.get("farm").get("id"), farmId));
@@ -116,14 +122,14 @@ public class PlatformFinanceService {
             if (to != null) p.add(cb.lessThanOrEqualTo(root.get("occurredOn"), to));
             return cb.and(p.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
-        return records.findAll(filter, PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)), Sort.by(Sort.Direction.DESC, "occurredOn", "id"))).map(RecordDTO::from);
+        return records.findAll(filter, PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)), Sort.by(Sort.Direction.DESC, "occurredOn", "id"))).map(this::dto);
     }
 
     @Transactional(readOnly = true)
     public RecordDetail detail(Long id) {
         access.requireRole(PlatformRole.PM);
         ManualFinanceRecord record = records.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return new RecordDetail(RecordDTO.from(record), history.findAllByRecord_IdOrderByChangedAtAscIdAsc(id).stream().map(HistoryDTO::from).toList());
+        return new RecordDetail(dto(record), history.findAllByRecord_IdOrderByChangedAtAscIdAsc(id).stream().map(HistoryDTO::from).toList());
     }
 
     @Transactional(readOnly = true)
@@ -131,8 +137,9 @@ public class PlatformFinanceService {
         access.requireRole(PlatformRole.PM);
         return evidence.findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc().stream()
             .filter(e -> StringUtils.hasText(e.getAuthOutcome()) && "VERIFIED".equalsIgnoreCase(e.getAuthOutcome()))
+            .filter(e -> !StringUtils.hasText(e.getQuoteRef()))
             .filter(e -> !claims.existsById(sourceReference(e)))
-            .map(e -> new BankTransactionChoice(sourceReference(e), e.getProviderTxnId(), e.getAmount(), e.getBankPaidAt(), e.getTransferDirection(), e.getGateway(), e.getQuoteRef()))
+            .map(e -> new BankTransactionChoice(sourceReference(e), e.getProviderTxnId(), e.getId(), e.getAmount(), e.getBankPaidAt(), e.getTransferDirection(), e.getGateway(), e.getQuoteRef()))
             .toList();
     }
 
@@ -157,9 +164,9 @@ public class PlatformFinanceService {
         claimSource(record);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
-        writeHistory(record, actor, "CREATE", null, RecordDTO.from(record), null);
+        writeHistory(record, actor, "CREATE", null, dto(record), null);
         audit(actor, "FINANCE_DRAFT_CREATE", record, null, "DRAFT");
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -170,17 +177,22 @@ public class PlatformFinanceService {
         requireVersion(record, request.version());
         if (!"DRAFT".equalsIgnoreCase(record.getState())) throw DomainException.conflict(MessageCodes.COM_05);
         validate(request.fields(), request.sourceEvidenceId());
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         String oldReference = record.getSourceReference();
         applyFields(record, request.fields());
         resolveSource(record, request.sourceEvidenceId());
+        if (oldReference != null && !oldReference.equals(record.getSourceReference())) {
+            claims.findById(oldReference)
+                .filter(claim -> claim.getRecord().getId().equals(record.getId()))
+                .ifPresent(claims::delete);
+            claims.flush();
+        }
         claimSource(record);
-        if (oldReference != null && !oldReference.equals(record.getSourceReference())) claims.findById(oldReference).ifPresent(claims::delete);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
-        writeHistory(record, actor, "EDIT", before, RecordDTO.from(record), null);
+        writeHistory(record, actor, "EDIT", before, dto(record), null);
         audit(actor, "FINANCE_DRAFT_EDIT", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -189,15 +201,15 @@ public class PlatformFinanceService {
         ManualFinanceRecord record = lock(id);
         requireVersion(record, request == null ? null : request.version());
         if (!"DRAFT".equalsIgnoreCase(record.getState())) throw DomainException.conflict(MessageCodes.COM_05);
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         record.setState("DISCARDED");
         record.setDiscardedAt(clock.now());
         record.setDiscardedBy(actor);
         records.saveAndFlush(record);
         claims.findFirstByRecord_Id(id).ifPresent(claims::delete);
-        writeHistory(record, actor, "DISCARD", before, RecordDTO.from(record), request.reason());
+        writeHistory(record, actor, "DISCARD", before, dto(record), request.reason());
         audit(actor, "FINANCE_DRAFT_DISCARD", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        return dto(record);
     }
 
     @Transactional
@@ -212,15 +224,15 @@ public class PlatformFinanceService {
             ManualFinanceBankClaim claim = claims.findById(record.getSourceReference()).orElseThrow(() -> DomainException.conflict("MSG-FE21-08"));
             if (!claim.getRecord().getId().equals(record.getId())) throw DomainException.conflict("MSG-FE21-08");
         }
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         record.setState("POSTED");
         record.setPostedAt(clock.now());
         record.setPostedBy(actor);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
-        writeHistory(record, actor, "POST", before, RecordDTO.from(record), null);
-        audit(actor, "FINANCE_RECORD_POST", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        writeHistory(record, actor, "POST", before, dto(record), null);
+        audit(actor, "FINANCE_RECORD_POSTED", record, before.state(), record.getState());
+        return dto(record);
     }
 
     @Transactional
@@ -231,7 +243,7 @@ public class PlatformFinanceService {
         ManualFinanceRecord record = lock(id);
         requireVersion(record, request.version());
         if (!"POSTED".equalsIgnoreCase(record.getState())) throw DomainException.conflict(MessageCodes.COM_05);
-        RecordDTO before = RecordDTO.from(record);
+        RecordDTO before = dto(record);
         record.setState("VOID");
         record.setVoidedAt(clock.now());
         record.setVoidedBy(actor);
@@ -239,35 +251,37 @@ public class PlatformFinanceService {
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
         claims.findFirstByRecord_Id(id).ifPresent(claims::delete);
-        writeHistory(record, actor, "VOID", before, RecordDTO.from(record), request.reason().trim());
-        audit(actor, "FINANCE_RECORD_VOID", record, before.state(), record.getState());
-        return RecordDTO.from(record);
+        writeHistory(record, actor, "VOID", before, dto(record), request.reason().trim());
+        audit(actor, "FINANCE_RECORD_VOIDED", record, before.state(), record.getState());
+        return dto(record);
     }
 
     @Transactional
     public RecordDTO createReplacement(Long voidedId, VersionedAction request) {
         var actor = access.requireRole(PlatformRole.PM).user();
         ManualFinanceRecord old = records.findById(voidedId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (request != null && request.version() != null) requireVersion(old, request.version());
         if (!"VOID".equalsIgnoreCase(old.getState())) throw DomainException.conflict(MessageCodes.COM_05);
         ManualFinanceRecord replacement = new ManualFinanceRecord();
         replacement.setRecordCode(nextCode());
         replacement.setType(old.getType());
         replacement.setCategory(old.getCategory());
-        replacement.setAmountVnd(old.getAmountVnd());
+        replacement.setAmountVnd(request == null || request.amountVnd() == null ? old.getAmountVnd() : request.amountVnd());
         replacement.setOccurredOn(old.getOccurredOn());
         replacement.setState("DRAFT");
         replacement.setFarm(old.getFarm());
         replacement.setScope(old.getScope());
         replacement.setDocumentNumber(old.getDocumentNumber());
-        replacement.setDescription(old.getDescription());
+        replacement.setDescription(request == null || request.description() == null ? old.getDescription() : blankToNull(request.description()));
         replacement.setSourceType("MANUAL");
         replacement.setCreatedAt(clock.now());
         replacement.setCreatedBy(actor);
         replacement.setReplacementRecord(old);
+        validateFields(replacement);
         records.saveAndFlush(replacement);
-        writeHistory(replacement, actor, "REPLACEMENT_CREATE", null, RecordDTO.from(replacement), null);
+        writeHistory(replacement, actor, "REPLACEMENT_CREATE", null, dto(replacement), null);
         audit(actor, "FINANCE_REPLACEMENT_CREATE", replacement, null, "DRAFT");
-        return RecordDTO.from(replacement);
+        return dto(replacement);
     }
 
     @Transactional
@@ -303,6 +317,13 @@ public class PlatformFinanceService {
     public CashReport report(Long id) {
         access.requireRole(PlatformRole.PM);
         return snapshots.findById(id).filter(s -> s.getExpiresAt().isAfter(clock.now())).map(this::report)
+            .orElseThrow(PlatformFinanceService::snapshotExpired);
+    }
+
+    @Transactional(readOnly = true)
+    public CashReport latestReport() {
+        access.requireRole(PlatformRole.PM);
+        return snapshots.findFirstByExpiresAtAfterOrderByIdDesc(clock.now()).map(this::report)
             .orElseThrow(PlatformFinanceService::snapshotExpired);
     }
 
@@ -354,7 +375,7 @@ public class PlatformFinanceService {
             .filter(e -> selectedFarm == null || selectedFarm.getId().equals(e.getPayment().getSubscription().getFarm().getId()))
             .forEach(e -> {
                 Payment p = e.getPayment(); Farm farm = p.getSubscription().getFarm();
-                lines.add(new ReportLine("SUBSCRIPTION_RECEIPT", p.getReceiptCode(), "FARM", farm.getId(), farm.getName(), "INCOME", "SUBSCRIPTION", "Gói " + p.getDurationYears() + " năm", p.getAmountVnd(), e.getBankPaidAt().atZone(BUSINESS_ZONE).toLocalDate(), "PAID", sourceReference(e)));
+                lines.add(new ReportLine("SUBSCRIPTION_RECEIPT", p.getReceiptCode(), "FARM", farm.getId(), farm.getName(), "INCOME", "SUBSCRIPTION", "Gói " + p.getDurationYears() + " năm", p.getAmountVnd(), e.getBankPaidAt().atZone(BUSINESS_ZONE).toLocalDate(), "PAID", sourceReference(e), e.getVersion()));
             });
     }
 
@@ -362,7 +383,7 @@ public class PlatformFinanceService {
         records.findAll().stream()
             .filter(r -> "POSTED".equalsIgnoreCase(r.getState()) && inRange(r.getOccurredOn(), from, to))
             .filter(r -> selectedFarm == null ? true : r.getFarm() != null && selectedFarm.getId().equals(r.getFarm().getId()))
-            .forEach(r -> lines.add(new ReportLine("MANUAL_FINANCE", r.getRecordCode(), r.getScope(), r.getFarm() == null ? null : r.getFarm().getId(), r.getFarm() == null ? "General platform" : r.getFarm().getName(), r.getType(), r.getCategory(), r.getDescription(), r.getAmountVnd(), r.getOccurredOn(), r.getState(), r.getSourceReference())));
+            .forEach(r -> lines.add(new ReportLine("MANUAL_FINANCE", r.getRecordCode(), r.getScope(), r.getFarm() == null ? null : r.getFarm().getId(), r.getFarm() == null ? "Chung nền tảng" : r.getFarm().getName(), r.getType(), r.getCategory(), r.getDescription(), r.getAmountVnd(), r.getOccurredOn(), r.getState(), r.getSourceReference(), r.getVersion())));
     }
 
     private ReportSummary summarize(List<ReportLine> rows) {
@@ -381,12 +402,12 @@ public class PlatformFinanceService {
             }
         }
         BigDecimal income = receiptIncome.add(otherIncome);
-        ScopeTotals platform = new ScopeTotals("PLATFORM", null, "Platform total", receiptIncome, otherIncome, expense);
+        ScopeTotals platform = new ScopeTotals("PLATFORM", null, "Toàn nền tảng", receiptIncome, otherIncome, expense);
         scopes.put("PLATFORM", platform);
         Map<LocalDate, BigDecimal> daily = new java.util.TreeMap<>();
         rows.stream().filter(row -> "INCOME".equals(row.direction())).forEach(row -> daily.merge(row.cashDate(), row.amount(), BigDecimal::add));
         List<DailyTotals> dailyIncome = daily.entrySet().stream().map(e -> new DailyTotals(e.getKey(), e.getValue())).toList();
-        return new ReportSummary(receiptIncome, otherIncome, income, expense, income.subtract(expense), List.copyOf(scopes.values()), dailyIncome, "Cash flow only; not statutory profit.");
+        return new ReportSummary(receiptIncome, otherIncome, income, expense, income.subtract(expense), List.copyOf(scopes.values()), dailyIncome, "Dòng tiền, không phải lợi nhuận theo luật định.");
     }
 
     private void validate(RecordFields f, Long sourceEvidenceId) {
@@ -493,7 +514,7 @@ public class PlatformFinanceService {
     }
 
     private void audit(vn.edu.fpt.beefcare.domain.AppUser actor, String action, String targetType, Long targetId, Farm farm, Object details) {
-        AuditLog entry = new AuditLog(); entry.setActor(actor); entry.setAction(action); entry.setTargetType(targetType); entry.setTargetId(targetId); entry.setFarm(farm); entry.setLoggedAt(clock.now()); entry.setDetails(json(details)); auditLogs.save(entry);
+        audit.log(farm, actor, action, targetType, targetId, details);
     }
 
     private String nextCode() {
@@ -503,13 +524,29 @@ public class PlatformFinanceService {
     }
 
     private CashReport report(CashReportSnapshot snapshot) {
-        try { return new CashReport(snapshot.getId(), mapper.readValue(snapshot.getCriteriaJson(), ReportCriteria.class),
-            mapper.readValue(snapshot.getSummaryJson(), ReportSummary.class), snapshot.getAsOf(), snapshot.getExpiresAt()); }
+        try { return new CashReport(snapshot.getId(), "SNAP-" + snapshot.getId(), mapper.readValue(snapshot.getCriteriaJson(), ReportCriteria.class),
+            mapper.readValue(snapshot.getSummaryJson(), ReportSummary.class), mapper.readValue(snapshot.getDetailsJson(), new TypeReference<List<ReportLine>>() {}), snapshot.getAsOf(), snapshot.getExpiresAt()); }
         catch (Exception malformed) { throw new IllegalStateException("Stored cash report snapshot is invalid", malformed); }
     }
 
     private String json(Object value) { try { return mapper.writeValueAsString(value); } catch (Exception e) { throw new IllegalStateException("Could not serialize finance snapshot", e); } }
     public static String sourceReference(BankTransferEvidence e) { return e.getProvider() + ":" + e.getEnvironment() + ":" + e.getAccountNamespace() + ":" + e.getProviderTxnId(); }
+    /**
+     * The source evidence id is not stored on the manual record (the durable key is
+     * sourceReference), but FE21 needs the internal evidence id to edit a bank-backed
+     * draft. Resolve it server-side so reopening a draft cannot silently drop its source.
+     */
+    private RecordDTO dto(ManualFinanceRecord record) {
+        Long sourceEvidenceId = null;
+        if (StringUtils.hasText(record.getSourceReference())) {
+            sourceEvidenceId = evidence.findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc().stream()
+                .filter(item -> record.getSourceReference().equals(sourceReference(item)))
+                .map(BankTransferEvidence::getId)
+                .findFirst()
+                .orElse(null);
+        }
+        return RecordDTO.from(record, sourceEvidenceId);
+    }
     private static boolean inRange(LocalDate date, LocalDate from, LocalDate to) { return !date.isBefore(from) && !date.isAfter(to); }
     private void validateDateRange(LocalDate from, LocalDate to, boolean required) {
         if (from == null || to == null) { if (required) throw DomainException.required("dateFrom and dateTo"); return; }
@@ -520,16 +557,19 @@ public class PlatformFinanceService {
 
     public record CreateRecord(RecordFields fields, Long sourceEvidenceId) {}
     public record VersionedRecord(RecordFields fields, Long sourceEvidenceId, Long version) {}
-    public record VersionedAction(Long version, String reason) {}
+    public record VersionedAction(Long version, String reason, BigDecimal amountVnd, String description) {
+        public VersionedAction(Long version, String reason) { this(version, reason, null, null); }
+    }
     public record RecordFields(String type, String category, BigDecimal amountVnd, LocalDate occurredOn, String scope, Long farmId,
         String documentNumber, String description, String sourceType) {}
     public record RecordDTO(Long id, String recordCode, String type, String category, BigDecimal amountVnd, LocalDate occurredOn,
         String scope, Long farmId, String farmName, String documentNumber, String description, String sourceType,
-        String sourceReference, String state, Long version, Instant createdAt, String createdBy, Instant postedAt,
+        String sourceReference, Long sourceEvidenceId, String state, Long version, Instant createdAt, String createdBy, Instant postedAt,
         String postedBy, Instant voidedAt, String voidedBy, String voidReason, Long replacementRecordId) {
-        static RecordDTO from(ManualFinanceRecord r) { return new RecordDTO(r.getId(), r.getRecordCode(), r.getType(), r.getCategory(), r.getAmountVnd(),
+        static RecordDTO from(ManualFinanceRecord r) { return from(r, null); }
+        static RecordDTO from(ManualFinanceRecord r, Long sourceEvidenceId) { return new RecordDTO(r.getId(), r.getRecordCode(), r.getType(), r.getCategory(), r.getAmountVnd(),
             r.getOccurredOn(), r.getScope(), r.getFarm() == null ? null : r.getFarm().getId(), r.getFarm() == null ? null : r.getFarm().getName(),
-            r.getDocumentNumber(), r.getDescription(), r.getSourceType(), r.getSourceReference(), r.getState(), r.getVersion(), r.getCreatedAt(),
+            r.getDocumentNumber(), r.getDescription(), r.getSourceType(), r.getSourceReference(), sourceEvidenceId, r.getState(), r.getVersion(), r.getCreatedAt(),
             r.getCreatedBy() == null ? null : r.getCreatedBy().getFullName(), r.getPostedAt(), r.getPostedBy() == null ? null : r.getPostedBy().getFullName(),
             r.getVoidedAt(), r.getVoidedBy() == null ? null : r.getVoidedBy().getFullName(), r.getVoidReason(), r.getReplacementRecord() == null ? null : r.getReplacementRecord().getId()); }
     }
@@ -537,14 +577,14 @@ public class PlatformFinanceService {
         static HistoryDTO from(ManualFinanceHistory h) { return new HistoryDTO(h.getId(), h.getAction(), h.getChangedAt(), h.getActor().getFullName(), h.getReason(), h.getBeforeJson(), h.getAfterJson()); }
     }
     public record RecordDetail(RecordDTO record, List<HistoryDTO> history) {}
-    public record BankTransactionChoice(String sourceReference, Long transactionId, BigDecimal amount, Instant bankPaidAt, String direction, String bank, String paymentReference) {}
+    public record BankTransactionChoice(String sourceReference, Long transactionId, Long evidenceId, BigDecimal amount, Instant bankPaidAt, String direction, String bank, String paymentReference) {}
     public record ReportRequest(LocalDate dateFrom, LocalDate dateTo, Long farmId, String sourceFilter) {}
     public record ReportCriteria(LocalDate dateFrom, LocalDate dateTo, Long farmId, String sourceFilter) {}
     public record ScopeTotals(String scope, Long farmId, String farmName, BigDecimal subscriptionReceipts, BigDecimal otherIncome, BigDecimal expense) {}
     public record DailyTotals(LocalDate date, BigDecimal income) {}
     public record ReportSummary(BigDecimal subscriptionReceipts, BigDecimal otherIncome, BigDecimal totalIncome, BigDecimal totalExpense, BigDecimal netCashFlow, List<ScopeTotals> scopes, List<DailyTotals> dailyIncome, String note) {}
     public record FinanceCategories(List<String> income, List<String> expense) {}
-    public record ReportLine(String sourceType, String code, String scope, Long farmId, String farmName, String direction, String category, String description, BigDecimal amount, LocalDate cashDate, String status, String sourceReference) {}
-    public record CashReport(Long id, ReportCriteria criteria, ReportSummary summary, Instant generatedAt, Instant expiresAt) {}
+    public record ReportLine(String sourceType, String code, String scope, Long farmId, String farmName, String direction, String category, String description, BigDecimal amount, LocalDate cashDate, String status, String sourceReference, Long sourceVersion) {}
+    public record CashReport(Long id, String code, ReportCriteria criteria, ReportSummary summary, List<ReportLine> lines, Instant generatedAt, Instant expiresAt) {}
     public record ExportSnapshot(Long id, LocalDate dateFrom, LocalDate dateTo, Instant asOf, ReportCriteria criteria, ReportSummary summary, List<ReportLine> lines) {}
 }

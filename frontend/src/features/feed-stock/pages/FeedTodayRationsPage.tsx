@@ -1,43 +1,38 @@
+import { businessDate, DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import TechnicianLayout from '../../../components/TechnicianLayout'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { listFeedStock } from '../api/feedStockApi'
-import { buildTodayRationPens, effectiveRationForPen, sessionsForToday, TODAY_SESSION_LABELS } from '../data/feedTodayRations'
+import { buildTodayRationPens, effectiveRationForPen, sessionsForToday, TODAY_SESSION_LABELS } from '../domain/feedTodayRations'
 import { sessionTimeFor } from '../domain/feedPlan'
 import { formatDate, formatNumber } from '../domain/feedLabels'
 
 type TodayData = Awaited<ReturnType<typeof loadTodayData>>
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
-function localToday() {
-  const date = new Date()
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
 
 async function loadTodayData(date: string) {
-  const [rations, pens, records, stock] = await Promise.all([
+  const [rations, pens, records] = await Promise.all([
     listFeedRations(),
     listFeedRationPens(),
     listFeedFeedingRecords({ from: date, to: date }),
-    listFeedStock(),
   ])
-  return { rations, pens, records, stock }
+  return { rations, pens, records, stock: [] }
 }
 
 function recordedTime(recordedAt: string | null, time: string | null) {
   if (time) return time.slice(0, 5)
   if (!recordedAt) return null
-  const date = new Date(recordedAt)
-  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(date)
+  const date = new Date(parseBusinessTime(recordedAt))
+  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
 /** SCR-86 (phone): today's feeding plan of each pen for one session; read-only for the technician. */
 export default function FeedTodayRationsPage() {
-  const [date] = useState(localToday)
+  const [date] = useState(businessDate)
   const [sessionNo, setSessionNo] = useState(1)
   const query = useQuery(() => loadTodayData(date), [date])
   const data: TodayData | null = query.data
@@ -47,7 +42,7 @@ export default function FeedTodayRationsPage() {
   const safeSessionNo = sessions.includes(sessionNo) ? sessionNo : sessions[0] ?? 1
   const rows = data ? buildTodayRationPens({ ...data, date, sessionNo: safeSessionNo }) : []
   const error = query.error ? userFacingError(query.error, 'Không thể tải khẩu phần hôm nay.') : null
-  const sub = `${WEEKDAYS[new Date(`${date}T00:00:00`).getDay()]}, ${formatDate(date)}${data ? ` · ${activePens.length} chuồng` : ''} · chỉ xem`
+  const sub = `${WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]}, ${formatDate(date)}${data ? ` · ${activePens.length} chuồng` : ''} · chỉ xem`
 
   return (
     <TechnicianLayout title="Khẩu phần hôm nay" sub={sub} back="/kt">

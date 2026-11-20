@@ -1,1 +1,2 @@
-export const loadMyNotificationsPage = () => import('./pages/MyNotificationsPage')
+// Nothing of this feature is used by other features; its screens load through routes.ts.
+export {}

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation'
+import { describe, expect, it, vi } from 'vitest'
+import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation/workspaceValidation'
 
 describe('farm workspace validation', () => {
   it('requires a valid Owner profile and terms acceptance during onboarding', () => {
@@ -12,19 +12,109 @@ describe('farm workspace validation', () => {
     expect(validateFarmRegistration({ name: 'Trại bò A', province: 'Phú Thọ', commune: 'Xã Minh Đài', expectedHerdSize: '150_300', mainBreedCodes: ['VANG'] })).toEqual({})
   })
 
+  describe('SCR-10 Register Farm (UC-FE02-01)', () => {
+    const farm = { name: 'Trại bò A', province: 'Phú Thọ', commune: 'Xã Minh Đài' }
+
+    it('TC-02-01 accepts a farm name of 2 to 150 characters', () => {
+      expect(validateFarmRegistration({ ...farm, name: 'A' })).toHaveProperty('name')
+      expect(validateFarmRegistration({ ...farm, name: 'AB' })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, name: 'x'.repeat(150) })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, name: 'x'.repeat(151) })).toHaveProperty('name')
+    })
+
+    it('TC-02-02 requires the province and the commune', () => {
+      expect(validateFarmRegistration({ ...farm, province: '' })).toHaveProperty('province')
+      expect(validateFarmRegistration({ ...farm, commune: '  ' })).toHaveProperty('commune')
+    })
+
+    it('TC-02-03 caps the commune, detailed address, contact person and certificate', () => {
+      expect(validateFarmRegistration({ ...farm, commune: 'x'.repeat(151), detailedAddress: 'x'.repeat(256), contactPerson: 'x'.repeat(101), registrationCertificateInfo: 'x'.repeat(256) }))
+        .toEqual({ commune: expect.any(String), detailedAddress: expect.any(String), contactPerson: expect.any(String), registrationCertificateInfo: expect.any(String) })
+      expect(validateFarmRegistration({ ...farm, commune: 'x'.repeat(150), detailedAddress: 'x'.repeat(255), contactPerson: 'x'.repeat(100), registrationCertificateInfo: 'x'.repeat(255) })).toEqual({})
+    })
+
+    it('TC-02-04 accepts 0 or +84 followed by 9 digits as the contact phone', () => {
+      expect(validateFarmRegistration({ ...farm, contactPhone: '0912345678' })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, contactPhone: '+84912345678' })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, contactPhone: '0912 345 678' })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, contactPhone: '' })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, contactPhone: '12345' })).toHaveProperty('contactPhone')
+      expect(validateFarmRegistration({ ...farm, contactPhone: '09123456789' })).toHaveProperty('contactPhone')
+    })
+
+    it('keeps the expected herd size optional but limited to the four ranges', () => {
+      expect(validateFarmRegistration({ ...farm })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, expectedHerdSize: '' })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, expectedHerdSize: 'OVER_300' })).toEqual({})
+      expect(validateFarmRegistration({ ...farm, expectedHerdSize: 'UNKNOWN' })).toHaveProperty('expectedHerdSize')
+    })
+
+    it('only accepts a province from the list of 34 provinces and centrally-run cities', () => {
+      expect(validateFarmRegistration({ ...farm, province: 'Hà Tây' })).toHaveProperty('province')
+      expect(validateFarmRegistration({ ...farm, province: 'TP. Hồ Chí Minh' })).toEqual({})
+    })
+
+    it('says "{field} là bắt buộc." (MSG-COM-06) for an empty required field, the length rule only for text that is there', () => {
+      expect(validateFarmRegistration({ name: '', province: '', commune: ' ' })).toEqual({ name: 'Tên trại là bắt buộc.', province: 'Tỉnh/Thành là bắt buộc.', commune: 'Xã/Phường là bắt buộc.' })
+      expect(validateFarmRegistration({ ...farm, name: 'A', province: 'Hà Tây', commune: 'x'.repeat(151) }))
+        .toEqual({ name: 'Tên trại cần có từ 2 đến 150 ký tự.', province: 'Chọn tỉnh hoặc thành phố trong danh sách.', commune: 'Xã/Phường tối đa 150 ký tự.' })
+      // The error names the field with its label on screen ("Thông tin giấy chứng nhận"), not "giấy đăng ký".
+      expect(validateFarmRegistration({ ...farm, registrationCertificateInfo: 'x'.repeat(256) })).toEqual({ registrationCertificateInfo: 'Thông tin giấy chứng nhận tối đa 255 ký tự.' })
+      expect(validateFarmInfo({ name: ' ', province: '', commune: '', timeZone: 'Asia/Ho_Chi_Minh' })).toMatchObject({ name: 'Tên trại là bắt buộc.', province: 'Tỉnh/Thành là bắt buộc.', commune: 'Xã/Phường là bắt buộc.' })
+    })
+  })
+
   it('validates invitation email, role and allowed expiry windows', () => {
     expect(validateInvite({ email: 'bad-email', role: 'OWNER', validityDays: 5 })).toMatchObject({ email: expect.any(String), role: expect.any(String), validityDays: expect.any(String) })
     expect(validateInvite({ email: 'manager@beefcare.vn', role: 'MANAGER', validityDays: 7 })).toEqual({})
   })
 
+  it('separates a missing invitation field (MSG-COM-06) from an invalid one (MSG-COM-10) — TC-03-01/02', () => {
+    expect(validateInvite({ email: '   ', validityDays: 7 })).toEqual({ email: 'Email người nhận là bắt buộc.', role: 'Vai trò là bắt buộc.' })
+    expect(validateInvite({ email: 'abc', role: 'OWNER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.', role: 'Chọn Quản lý hoặc Kỹ thuật viên.' })
+    expect(validateInvite({ email: `a@${'x'.repeat(248)}.test`, role: 'MANAGER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.' })
+  })
+
   it('requires valid member action and prevents future effective dates', () => {
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
-    expect(validateMemberChange({ action: 'CHANGE_ROLE', role: 'TECHNICIAN', effectiveDate: tomorrow, reason: 'Thay đổi phân công' })).toHaveProperty('effectiveDate')
-    expect(validateMemberChange({ action: 'DEACTIVATE', effectiveDate: new Date().toISOString().slice(0, 10), reason: 'Kết thúc hợp đồng' })).toEqual({})
+    expect(validateMemberChange({ action: 'CHANGE_ROLE', role: 'TECHNICIAN', effectiveDate: '2026-11-12', reason: 'Thay đổi phân công' }, '2026-11-11')).toHaveProperty('effectiveDate')
+    expect(validateMemberChange({ action: 'DEACTIVATE', effectiveDate: '2026-11-11', reason: 'Kết thúc hợp đồng' }, '2026-11-11')).toEqual({})
+  })
+
+  it('uses the Vietnam business date for reactivation around midnight, rather than the previous UTC date', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-10T18:00:00Z'))
+    try {
+      expect(validateMemberChange({ action: 'REACTIVATE', effectiveDate: '2026-11-11', reason: 'Tiếp tục công việc' })).toEqual({})
+      expect(validateMemberChange({ action: 'REACTIVATE', effectiveDate: '2026-11-12', reason: 'Tiếp tục công việc' })).toHaveProperty('effectiveDate')
+    } finally { vi.useRealTimers() }
   })
 
   it('caps farm information notes and validates the contact phone when present', () => {
     expect(validateFarmInfo({ name: 'Trại bò A', province: 'Hà Nội', commune: 'Ba Vì', contactPhone: '0123', operatingNotes: '' })).toHaveProperty('contactPhone')
     expect(validateFarmInfo({ name: 'Trại bò A', province: 'Hà Nội', commune: 'Ba Vì', contactPhone: '0912345678', operatingNotes: 'x'.repeat(1001) })).toHaveProperty('operatingNotes')
+  })
+
+  describe('SCR-11 Farm Information (UC-FE02-03)', () => {
+    const info = { name: 'Trại bò A', province: 'Hà Nội', commune: 'Ba Vì', timeZone: 'Asia/Ho_Chi_Minh', morningShiftStart: '05:30', operatingNotes: '' }
+
+    it('accepts a valid form, with every optional field left blank', () => {
+      expect(validateFarmInfo(info)).toEqual({})
+      expect(validateFarmInfo({ ...info, morningShiftStart: '', contactPhone: '', contactPerson: '' })).toEqual({})
+    })
+
+    it('TC-02-18 rejects notes over 1,000 characters and a morning shift start of 25:00', () => {
+      expect(validateFarmInfo({ ...info, operatingNotes: 'x'.repeat(1000) })).toEqual({})
+      expect(validateFarmInfo({ ...info, operatingNotes: 'x'.repeat(1001) })).toHaveProperty('operatingNotes')
+      expect(validateFarmInfo({ ...info, morningShiftStart: '25:00' })).toHaveProperty('morningShiftStart')
+    })
+
+    it('Q3 the province must be one of the 34 provinces, as on SCR-10', () => {
+      expect(validateFarmInfo({ ...info, province: 'Hà Tây' })).toEqual({ province: 'Chọn tỉnh hoặc thành phố trong danh sách.' })
+      expect(validateFarmInfo({ ...info, province: ' Phú Thọ ' })).toEqual({})
+    })
+
+    it('D39 accepts legacy UTC+7 values', () => {
+      expect(validateFarmInfo({ ...info, timeZone: 'Asia/Bangkok' })).toEqual({})
+      expect(validateFarmInfo({ ...info, timeZone: 'Europe/London' })).toEqual({ timeZone: 'Múi giờ phải là UTC+7.' })
+    })
   })
 })

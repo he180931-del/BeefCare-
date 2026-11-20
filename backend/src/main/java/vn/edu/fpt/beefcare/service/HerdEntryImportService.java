@@ -267,9 +267,6 @@ public class HerdEntryImportService {
 
     private EntryLineRequest parse(List<Cell> row, int sheetRow, LocalDate entryDate, Lookups lk, List<Issue> issues) {
         String tag = text(row, 0);
-        if (tag == null) {
-            issues.add(rowError(sheetRow, HttpStatus.BAD_REQUEST, MessageCodes.COM_06, "earTagNumber", "field", "earTagNumber"));
-        }
         Breed breed = null;
         String breedText = text(row, 1);
         if (breedText == null) {

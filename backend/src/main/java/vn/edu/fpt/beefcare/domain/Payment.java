@@ -86,6 +86,7 @@ public class Payment implements Serializable {
 
     @NotNull
     @Column(name = "requested_at", nullable = false)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.TIMESTAMP_WITH_TIMEZONE)
     private Instant requestedAt;
 
     @Version
@@ -114,6 +115,32 @@ public class Payment implements Serializable {
     @Size(max = 150)
     @Column(name = "receiving_account_name", length = 150)
     private String receivingAccountName;
+
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
+    @Size(max = 10)
+    @Column(name = "confirmation_source", length = 10)
+    private String confirmationSource;
+
+    /** D38: set once with state CANCELLED; also the end of the request's bank-time window (GBR-72). */
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
+    /** D38: the Owner who cancelled; lazy so reading requests does not load the user (and its staff access). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnoreProperties(value = { "platformStaffAccess" }, allowSetters = true)
+    private AppUser cancelledBy;
+
+    /** D38: optional, trimmed, at most 1,000 characters; null when the Owner gave none. */
+    @Size(max = 1000)
+    @Column(name = "cancel_reason", length = 1000)
+    private String cancelReason;
+
+    public Instant getConfirmedAt() { return confirmedAt; }
+    public void setConfirmedAt(Instant confirmedAt) { this.confirmedAt = confirmedAt; }
+    public String getConfirmationSource() { return confirmationSource; }
+    public void setConfirmationSource(String confirmationSource) { this.confirmationSource = confirmationSource; }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -265,6 +292,20 @@ public class Payment implements Serializable {
     public void setReceivingBankCode(String receivingBankCode) { this.receivingBankCode = receivingBankCode; }
     public String getReceivingAccountName() { return receivingAccountName; }
     public void setReceivingAccountName(String receivingAccountName) { this.receivingAccountName = receivingAccountName; }
+    public Instant getCancelledAt() { return cancelledAt; }
+    public void setCancelledAt(Instant cancelledAt) { this.cancelledAt = cancelledAt; }
+    public AppUser getCancelledBy() { return cancelledBy; }
+    public void setCancelledBy(AppUser cancelledBy) { this.cancelledBy = cancelledBy; }
+    public String getCancelReason() { return cancelReason; }
+    public void setCancelReason(String cancelReason) { this.cancelReason = cancelReason; }
+
+    /**
+     * GBR-72 / D38: bank time must be in [requestedAt, windowEnd). A cancelled request's window closes at the
+     * cancellation time; otherwise (and never later than) at its expiry.
+     */
+    public Instant bankWindowEnd() {
+        return cancelledAt != null && cancelledAt.isBefore(expiresAt) ? cancelledAt : expiresAt;
+    }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 

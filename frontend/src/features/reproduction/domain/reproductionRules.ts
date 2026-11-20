@@ -1,3 +1,4 @@
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type {
   BreedingEligibility,
   CalfOutcome,
@@ -8,7 +9,6 @@ import type {
   ReproductionFemale,
   WorklistFilters,
 } from '../types'
-import { reproductionNow } from './reproductionClock'
 
 export type ReproductionAction =
   | 'RECORD_ESTRUS'
@@ -32,12 +32,12 @@ export function actionsForStatus(status: ReproductiveStatus | null): Reproductio
 const DAY_MS = 86_400_000
 
 /** Pregnant female whose expected calving date is within the next 30 days (tab "Sắp đẻ"). */
-export function isDueSoon(row: ReproductionFemale, now: string = reproductionNow()): boolean {
+export function isDueSoon(row: ReproductionFemale, now: string): boolean {
   const expected = row.openPregnancy?.expectedCalvingAt
-  return row.status === 'PREGNANT' && !!expected && Date.parse(expected) <= Date.parse(now) + 30 * DAY_MS
+  return row.status === 'PREGNANT' && !!expected && parseBusinessTime(expected) <= parseBusinessTime(now) + 30 * DAY_MS
 }
 
-export function filterWorklist(rows: readonly ReproductionFemale[], filters: WorklistFilters, now: string = reproductionNow()): ReproductionFemale[] {
+export function filterWorklist(rows: readonly ReproductionFemale[], filters: WorklistFilters, now: string): ReproductionFemale[] {
   const query = filters.query?.trim().toLocaleLowerCase('vi')
   return rows.filter((row) => {
     if (!row.applicable || row.herdStatus !== 'ACTIVE' || !row.status) return false
@@ -67,7 +67,7 @@ export function statusCounts(rows: readonly ReproductionFemale[]): Record<Reprod
 }
 
 const occurredAtError = (value: string, today: string): string | null => {
-  if (!value || Number.isNaN(Date.parse(value))) return 'Nhập thời điểm sự kiện hợp lệ.'
+  if (!value || Number.isNaN(parseBusinessTime(value))) return 'Nhập thời điểm sự kiện hợp lệ.'
   if (value > today) return 'Thời điểm sự kiện không được ở tương lai.'
   return null
 }
@@ -176,8 +176,8 @@ export function calvingIssues(command: CalvingCommand, context: CalvingContext):
         const other = calf.sex === 'FEMALE' ? 'đực' : 'cái'
         add('purpose', `${label}: mục đích này chỉ dành cho bò ${other}, còn bê là bò ${sex}. Chọn Vỗ béo, Chưa xác định hoặc mục đích hợp giới tính.`)
       }
+      // FE-12 Q5 / D36: thẻ tai không bắt buộc, kể cả khi Đăng ký ngay (hệ thống cấp mã khi ghi sổ phiếu nhập bê).
       const tag = calf.earTag?.trim() ?? ''
-      if (!tag && registerNow) add('earTag', `${label}: nhập mã thẻ tai / QR để đăng ký ngay.`)
       if (tag) {
         if (tag.length > 50) add('earTag', `Mã thẻ tai ${label.toLocaleLowerCase('vi')}: tối đa 50 ký tự.`)
         const owner = context.tagOwners?.[normalize(tag)]
@@ -238,7 +238,7 @@ export function breedingDetails(event: { method?: string; sireLabel?: string; se
 
 export type WorklistTab = ReproductiveStatus | 'DUE_SOON'
 
-export function tabCounts(rows: readonly ReproductionFemale[], now: string = reproductionNow()): Record<WorklistTab, number> {
+export function tabCounts(rows: readonly ReproductionFemale[], now: string): Record<WorklistTab, number> {
   return { ...statusCounts(rows), DUE_SOON: filterWorklist(rows, { status: 'DUE_SOON' }, now).length }
 }
 
@@ -262,7 +262,7 @@ export function addDaysText(value: string, days: number): string {
 }
 
 export function daysBetween(from: string, to: string): number {
-  return Math.floor((Date.parse(to) - Date.parse(from)) / DAY_MS)
+  return Math.floor((parseBusinessTime(to) - parseBusinessTime(from)) / DAY_MS)
 }
 
 const windowText = (window: { from: string; to: string }) => `${formatShort(window.from)}–${window.to.slice(11, 16)}`
@@ -274,11 +274,18 @@ export function dueLabel(row: ReproductionFemale): string {
   return row.dueAt ? formatDate(row.dueAt) : '—'
 }
 
+/** Bò chưa có bản ghi cân VALID (cân lúc nhập đàn không tính – chốt 15/11/2026, GBR-39). */
+export const NO_WEIGHING = 'Chưa có lần cân'
+export const hasNoWeighing = (eligibility: BreedingEligibility): boolean => !eligibility.minimumWeightMet && eligibility.actualWeightKg == null
+
 export function eligibilityLabel(eligibility: NonNullable<ReproductionFemale['eligibility']>): string {
   if (eligibility.status === 'MET') return 'Đạt'
+  const noWeighing = hasNoWeighing(eligibility)
+  // Chỉ thiếu lần cân: hiện đúng "Chưa có lần cân", không gọi là "Chưa đạt".
+  if (noWeighing && eligibility.minimumAgeMet && eligibility.noOpenHealthCase) return NO_WEIGHING
   const details = [
     !eligibility.minimumAgeMet && `tuổi ${eligibility.actualAgeMonths} tháng`,
-    !eligibility.minimumWeightMet && (eligibility.actualWeightKg == null ? 'chưa có cân' : `cân ${eligibility.actualWeightKg} kg`),
+    !eligibility.minimumWeightMet && (noWeighing ? NO_WEIGHING : `cân ${eligibility.actualWeightKg} kg`),
     !eligibility.noOpenHealthCase && 'có ca bệnh mở',
   ].filter(Boolean)
   return `Chưa đạt${details.length ? ` · ${details.join(' · ')}` : ''}`
@@ -298,7 +305,7 @@ const STATUS_NOUN: Record<ReproductiveStatus, string> = {
   AWAITING_BREEDING: 'chờ phối', IN_ESTRUS: 'động dục', BRED: 'đã phối', PREGNANT: 'mang thai', POST_CALVING: 'sau sinh',
 }
 
-export function technicianRowInfo(row: ReproductionFemale, now: string = reproductionNow()): { subtitle: string; badge: { label: string; tone: 'ok' | 'warn' | 'err' | 'info' | 'outline' } } {
+export function technicianRowInfo(row: ReproductionFemale, now: string): { subtitle: string; badge: { label: string; tone: 'ok' | 'warn' | 'err' | 'info' | 'outline' } } {
   const base = `${row.breed} · ${row.penCode}`
   if (row.eligibility?.status === 'NOT_MET' && row.status === 'IN_ESTRUS') {
     return { subtitle: `${base} · ${row.latestWeightKg ?? '—'} kg`, badge: { label: 'Chưa đủ điều kiện', tone: 'err' } }
@@ -328,5 +335,5 @@ export const ACTION_FOR_MODAL = Object.fromEntries(Object.entries(MODAL_FOR_ACTI
 /** Same-type event of this female within 12 hours of the entered time (MSG-FE11-03). */
 export function findNearbyEvent(profile: ReproductionFemale, type: 'ESTRUS' | 'BREEDING', occurredAt: string) {
   return profile.events.find((event) => event.type === type && event.status === 'VALID'
-    && Math.abs(Date.parse(event.occurredAt) - Date.parse(occurredAt)) < 12 * 3_600_000)
+    && Math.abs(parseBusinessTime(event.occurredAt) - parseBusinessTime(occurredAt)) < 12 * 3_600_000)
 }

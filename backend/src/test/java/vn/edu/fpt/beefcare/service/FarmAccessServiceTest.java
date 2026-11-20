@@ -32,20 +32,21 @@ class FarmAccessServiceTest extends DomainTestSupport {
         Set<FarmRole> all = EnumSet.of(FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN);
         Set<FarmRole> ownerManager = EnumSet.of(FarmRole.OWNER, FarmRole.MANAGER);
         Set<FarmRole> ownerOnly = EnumSet.of(FarmRole.OWNER);
-        Set<FarmRole> managerOnly = EnumSet.of(FarmRole.MANAGER);
         MATRIX.put(FarmAction.VIEW_FARM_INFORMATION, ownerOnly);
         MATRIX.put(FarmAction.MANAGE_FARM_INFORMATION, ownerOnly);
+        MATRIX.put(FarmAction.SELECT_FARM, all); // UC-FE02-02: every member; only the Owner while not ACTIVE (below)
+        MATRIX.put(FarmAction.VIEW_MEMBERS, ownerManager); // SCR-13, Table III-2: Technician "—"; Owner also while not ACTIVE (D29)
         MATRIX.put(FarmAction.VIEW_CATALOGUES, all);
         MATRIX.put(FarmAction.VIEW_CATTLE, all);
         MATRIX.put(FarmAction.MANAGE_CATTLE, ownerManager);
-        MATRIX.put(FarmAction.MANAGE_GROWTH, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_GROWTH, ownerManager); // D41: the Owner records care like a Manager
         MATRIX.put(FarmAction.MANAGE_CATALOGUES, ownerManager);
         MATRIX.put(FarmAction.MANAGE_CATTLE_PHOTOS, ownerManager);
         MATRIX.put(FarmAction.VIEW_HEALTH, all);
-        MATRIX.put(FarmAction.MANAGE_HEALTH, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_HEALTH, ownerManager); // D41
         MATRIX.put(FarmAction.VIEW_REPRODUCTION, all);
-        MATRIX.put(FarmAction.MANAGE_REPRODUCTION, managerOnly);
-        MATRIX.put(FarmAction.VIEW_CARE_CATALOGUES, ownerManager);
+        MATRIX.put(FarmAction.MANAGE_REPRODUCTION, ownerManager); // D41
+        MATRIX.put(FarmAction.VIEW_CARE_CATALOGUES, all);
         MATRIX.put(FarmAction.MANAGE_CARE_CATALOGUES, ownerManager);
         MATRIX.put(FarmAction.VIEW_PENS, all); // view pens, headcount, pen history: technician read-only
         MATRIX.put(FarmAction.MANAGE_PENS, ownerManager); // create / edit / criteria / stop / resume
@@ -60,8 +61,9 @@ class FarmAccessServiceTest extends DomainTestSupport {
         MATRIX.put(FarmAction.MANAGE_SELLERS, ownerManager);
         MATRIX.put(FarmAction.MANAGE_BUYERS, ownerOnly);
         MATRIX.put(FarmAction.VIEW_FEED, all);
+        MATRIX.put(FarmAction.VIEW_FEED_STOCK, ownerManager);
         MATRIX.put(FarmAction.MANAGE_FEED, ownerManager);
-        MATRIX.put(FarmAction.MANAGE_FEEDING, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_FEEDING, ownerManager); // D41
         MATRIX.put(FarmAction.VIEW_ANNOUNCEMENTS, all);
         MATRIX.put(FarmAction.MANAGE_ANNOUNCEMENTS, ownerManager);
         MATRIX.put(FarmAction.VIEW_REPORTS, ownerManager);
@@ -110,7 +112,7 @@ class FarmAccessServiceTest extends DomainTestSupport {
     }
 
     @Test
-    void inactiveMembershipOrAccountIsForbidden() {
+    void inactiveMembershipIsForbiddenAndSuspendedAccountReportsItsAccountState() {
         Farm farm = farm();
         AppUser removed = user();
         member(farm, removed, "OWNER", "REMOVED");
@@ -120,7 +122,11 @@ class FarmAccessServiceTest extends DomainTestSupport {
         AppUser suspended = user("SUSPENDED");
         member(farm, suspended, "OWNER", "ACTIVE");
         actAs(suspended);
-        assertForbidden(() -> access.require(farm.getId(), FarmAction.VIEW_PENS));
+        assertThatThrownBy(() -> access.require(farm.getId(), FarmAction.VIEW_PENS))
+            .isInstanceOfSatisfying(DomainException.class, e -> {
+                assertThat(e.getCode()).isEqualTo(MessageCodes.FE01_03);
+                assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+            });
     }
 
     @Test
@@ -147,7 +153,12 @@ class FarmAccessServiceTest extends DomainTestSupport {
             AppUser owner = memberWithRole(farm, FarmRole.OWNER);
             actAs(owner);
             for (FarmAction action : FarmAction.values()) {
-                if (action == FarmAction.VIEW_FARM_INFORMATION || action == FarmAction.MANAGE_FARM_INFORMATION) {
+                if (
+                    action == FarmAction.VIEW_FARM_INFORMATION ||
+                    action == FarmAction.MANAGE_FARM_INFORMATION ||
+                    action == FarmAction.SELECT_FARM ||
+                    action == FarmAction.VIEW_MEMBERS // GBR-14 read exception supporting deactivation (D29)
+                ) {
                     assertThat(access.require(farm.getId(), action).farm().getId()).isEqualTo(farm.getId());
                 } else if (MATRIX.get(action).contains(FarmRole.OWNER)) {
                     assertThatThrownBy(() -> access.require(farm.getId(), action))
@@ -161,6 +172,37 @@ class FarmAccessServiceTest extends DomainTestSupport {
                 }
             }
         }
+    }
+
+    /** UC-FE02-02 AF3 (GBR-14): a Manager or Technician cannot select a farm that is not ACTIVE; MSG-FE02-04 names it. */
+    @Test
+    void onlyTheOwnerSelectsAFarmThatIsNotActive() {
+        Farm farm = farm("SUSPENDED");
+        for (FarmRole role : new FarmRole[] { FarmRole.MANAGER, FarmRole.TECHNICIAN }) {
+            actAs(memberWithRole(farm, role));
+            assertThatThrownBy(() -> access.require(farm.getId(), FarmAction.SELECT_FARM))
+                .as("%s selects a SUSPENDED farm", role)
+                .isInstanceOfSatisfying(DomainException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(MessageCodes.FE02_04);
+                    assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+                    assertThat(e.getParams()).containsEntry("farm", farm.getName()).containsEntry("status", "SUSPENDED");
+                });
+        }
+        actAs(memberWithRole(farm, FarmRole.OWNER));
+        assertThat(access.require(farm.getId(), FarmAction.SELECT_FARM).role()).isEqualTo(FarmRole.OWNER);
+    }
+
+    /** UC-FE03-05 (D29, GBR-14): only the Owner keeps the member list of a farm that is not ACTIVE; a Manager gets COM-12. */
+    @Test
+    void onlyTheOwnerReadsTheMembersOfAFarmThatIsNotActive() {
+        Farm farm = farm("EXPIRED");
+        actAs(memberWithRole(farm, FarmRole.MANAGER));
+        assertThatThrownBy(() -> access.require(farm.getId(), FarmAction.VIEW_MEMBERS))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_12));
+        actAs(memberWithRole(farm, FarmRole.TECHNICIAN));
+        assertForbidden(() -> access.require(farm.getId(), FarmAction.VIEW_MEMBERS));
+        actAs(memberWithRole(farm, FarmRole.OWNER));
+        assertThat(access.require(farm.getId(), FarmAction.VIEW_MEMBERS).role()).isEqualTo(FarmRole.OWNER);
     }
 
     @Test

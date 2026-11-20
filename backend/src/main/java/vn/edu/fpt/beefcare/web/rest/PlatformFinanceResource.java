@@ -92,6 +92,9 @@ public class PlatformFinanceResource {
     @GetMapping("/reports/{id}")
     public CashReport report(@PathVariable Long id) { return service.report(id); }
 
+    @GetMapping("/reports/latest")
+    public CashReport latestReport() { return service.latestReport(); }
+
     @GetMapping(value = "/reports/{id}/xlsx", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     public ResponseEntity<byte[]> export(@PathVariable Long id) {
         ExportSnapshot snapshot = service.exportSnapshot(id);
@@ -119,13 +122,13 @@ public class PlatformFinanceResource {
         summary.add(List.of("Total income", snapshot.summary().totalIncome()));
         summary.add(List.of("Total expense", snapshot.summary().totalExpense()));
         summary.add(List.of("Net cash flow", snapshot.summary().netCashFlow()));
-        summary.add(List.of("Note", "Cash flow only; not statutory profit."));
+        summary.add(List.of("Note", snapshot.summary().note()));
         summary.add(List.of("Scope", "Farm ID", "Farm", "Subscription receipts", "Other income", "Expense", "Net"));
         for (ScopeTotals s : snapshot.summary().scopes()) summary.add(List.of(s.scope(), s.farmId() == null ? "" : s.farmId(), s.farmName() == null ? "" : s.farmName(), s.subscriptionReceipts(), s.otherIncome(), s.expense(), s.subscriptionReceipts().add(s.otherIncome()).subtract(s.expense())));
 
         List<List<Object>> details = new java.util.ArrayList<>();
-        details.add(List.of("Source type", "Code", "Scope", "Farm", "Direction", "Category", "Description", "Amount VND", "Cash date", "Status", "Source reference"));
-        for (ReportLine line : snapshot.lines()) details.add(List.of(line.sourceType(), line.code(), line.scope(), line.farmName() == null ? "" : line.farmName(), line.direction(), line.category(), line.description() == null ? "" : line.description(), line.amount(), line.cashDate().toString(), line.status(), line.sourceReference() == null ? "" : line.sourceReference()));
+        details.add(List.of("Loại nguồn", "Mã", "Phạm vi", "Trang trại", "Hướng tiền", "Danh mục", "Diễn giải", "Số tiền VND", "Ngày ghi nhận", "Trạng thái", "Tham chiếu nguồn", "Phiên bản nguồn"));
+        for (ReportLine line : snapshot.lines()) details.add(List.of(line.sourceType(), line.code(), line.scope(), line.farmName() == null ? "" : line.farmName(), line.direction(), line.category(), line.description() == null ? "" : line.description(), line.amount(), line.cashDate().toString(), line.status(), line.sourceReference() == null ? "" : line.sourceReference(), line.sourceVersion() == null ? "" : line.sourceVersion()));
 
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {

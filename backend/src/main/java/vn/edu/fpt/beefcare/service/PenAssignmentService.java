@@ -73,10 +73,26 @@ public class PenAssignmentService {
         String warningReason,
         AppUser movedBy
     ) {
+        return openAssignment(cattle, pen, fromDate, source, reason, check, warningReason, movedBy, clock.today());
+    }
+
+    private PenAssignment openAssignment(
+        Cattle cattle,
+        Pen pen,
+        LocalDate fromDate,
+        AssignmentSource source,
+        String reason,
+        ReceptionCheck check,
+        String warningReason,
+        AppUser movedBy,
+        LocalDate today
+    ) {
         if (fromDate == null) {
             throw DomainException.required("fromDate");
         }
-        clock.assertNotFuture(fromDate);
+        if (fromDate.isAfter(today)) {
+            throw DomainException.unprocessable(MessageCodes.COM_07);
+        }
         Long farmId = cattle.getFarm().getId();
         if (!farmId.equals(pen.getFarm().getId())) {
             throw DomainException.unprocessable(MessageCodes.COM_08);
@@ -132,10 +148,14 @@ public class PenAssignmentService {
         PenAssignment open = repository
             .findFirstByCattleIdAndToDateIsNull(cattle.getId())
             .orElseThrow(() -> DomainException.conflict(MessageCodes.COM_05));
+        return closeAssignment(open, toDate, clock.today());
+    }
+
+    private PenAssignment closeAssignment(PenAssignment open, LocalDate toDate, LocalDate today) {
         if (toDate == null) {
             throw DomainException.required("toDate");
         }
-        if (toDate.isBefore(open.getFromDate()) || toDate.isAfter(clock.today())) {
+        if (toDate.isBefore(open.getFromDate()) || toDate.isAfter(today)) {
             throw DomainException.unprocessable(MessageCodes.FE04_09, "start_date", open.getFromDate());
         }
         open.setToDate(toDate);
@@ -167,8 +187,9 @@ public class PenAssignmentService {
         if (check != null) {
             receptionCriteria.requireWarningReason(check, warningReason, cattle.getDisplayCode());
         }
-        closeAssignment(cattle, moveDate);
-        return openAssignment(cattle, toPen, moveDate, source, reason, check, warningReason, movedBy);
+        LocalDate today = clock.today();
+        closeAssignment(current, moveDate, today);
+        return openAssignment(cattle, toPen, moveDate, source, reason, check, warningReason, movedBy, today);
     }
 
     private LocalDate latestEnd(Long cattleId) {

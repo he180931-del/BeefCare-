@@ -10,13 +10,14 @@ describe('herd-exit new voucher backend picker and pricing flow', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '1')
+    sessionStorage.setItem('beefcare.currentFarmId', '1')
     localStorage.setItem('beefcare:latency', '0')
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('selects only backend cattle, enters per-head price, then saves/checks/acknowledges/confirms', async () => {

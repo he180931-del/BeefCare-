@@ -4,6 +4,9 @@ import { daysFromToday, isoAt, today } from './feedDemoDates'
 import { FEED_RATION_MOCK } from './feedRationMock'
 import type { FeedFeedingLine, FeedFeedingRecord } from '../types/feedFeeding'
 
+/** Người cho ăn gợi ý trong bản mô phỏng. */
+export const FEEDING_PEOPLE = ['Trần Quốc Long', 'Lê Thị Mai']
+
 // Today's sessions as drawn in the Nhật ký cho ăn frame: 8 of 10 sessions recorded, 1.010,5 kg actual.
 const FEEDS: Record<number, [string, string]> = {
   101: ['TA-01', 'Cỏ voi'], 102: ['TA-02', 'Rơm khô'], 103: ['TA-03', 'Cỏ non'], 104: ['TA-04', 'Thức ăn TMR'],

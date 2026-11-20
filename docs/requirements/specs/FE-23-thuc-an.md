@@ -26,8 +26,8 @@ Trang "Quản lý thức ăn" trong menu Chăm sóc, các tab: Tồn kho, Phiế
 | UC-FE23-05 | Xem khẩu phần | Owner, Manager, Technician | SCR-81, SCR-86 |
 | UC-FE23-06 | Tạo / sửa khẩu phần (phiên bản) | Owner, Manager | SCR-82 |
 | UC-FE23-07 | Xem nhật ký cho ăn | Owner, Manager, Technician | SCR-83, SCR-86 |
-| UC-FE23-08 | Ghi bữa ăn | **Manager** | Popup Ghi bữa ăn |
-| UC-FE23-09 | Sửa / hủy bản ghi cho ăn | **Manager** | Popup Sửa / Hủy bản ghi cho ăn |
+| UC-FE23-08 | Ghi bữa ăn | Owner, Manager | Popup Ghi bữa ăn |
+| UC-FE23-09 | Sửa / hủy bản ghi cho ăn | Owner, Manager | Popup Sửa / Hủy bản ghi cho ăn |
 | UC-FE23-10 | Danh mục thức ăn và nhà cung cấp | Owner, Manager | SCR-84 |
 | UC-FE23-11 | Báo cáo tiêu thụ và chi phí | Owner, Manager | SCR-85 |
 
@@ -41,7 +41,7 @@ Trang "Quản lý thức ăn" trong menu Chăm sóc, các tab: Tồn kho, Phiế
 |---|---|---|---|
 | Tồn kho, phiếu nhập, trả NCC, kiểm kho, khẩu phần, danh mục, báo cáo | Có | Có | — |
 | Xem khẩu phần (SCR-81 / SCR-86), nhật ký cho ăn | Có | Có | Có (chỉ xem) |
-| Ghi / sửa / hủy bản ghi cho ăn | — (chỉ xem) | **Chỉ Manager** | — (có thể là "người cho ăn") |
+| Ghi / sửa / hủy bản ghi cho ăn | Có (D41) | Có | — (có thể là "người cho ăn") |
 
 Cần trại ACTIVE (GBR-14, GBR-103).
 
@@ -129,7 +129,7 @@ Danh mục mẫu khi tạo trại: TA-01 → TA-09 (FE-18 §3.6), ACTIVE, không
 | Số con lúc cho ăn | Hệ thống | — |
 | Dòng: mặt hàng, kế hoạch kg (= kg / con × số con), thực tế kg (≥ 0, ≤ tồn), trong khẩu phần (cờ), đơn giá + chi phí theo giá vốn BQ | — | 1 dòng / mặt hàng |
 | Thừa (kg) | Không | ≥ 0 |
-| Người cho ăn | Không | Thành viên (Manager / Technician), mặc định người dùng |
+| Người cho ăn | Không | Thành viên (Owner / Manager / Technician), mặc định người dùng |
 | Ghi chú | Không | ≤ 500 |
 | Trạng thái | — | `VALID` → `VOIDED` (lý do); sửa giữ VALID + "Đã sửa" + Record Revision |
 
@@ -152,9 +152,9 @@ Mặt hàng, thời điểm, loại (`RECEIPT` / `RECEIPT_VOID` / `ADJUSTMENT` /
 | R-23-08 | Khẩu phần: kg / con / mặt hàng / bữa (1–3 bữa). Sửa = phiên bản mới hiệu lực từ ngày mai trở đi; phiên bản trước kết thúc ngày hôm trước; mỗi chuồng tối đa 1 phiên bản hiệu lực / ngày (MSG-FE23-11 nếu không tự kết thúc được). SCHEDULED hủy được; EFFECTIVE dừng từ ngày mai trở đi. Không đổi bản ghi cho ăn đã có. | GBR-101, BR-D38 |
 | R-23-09 | Cảnh báo mặt hàng không đủ 1 ngày khi lưu khẩu phần – **không chặn**. | UC-06 AF3 |
 | R-23-10 | Cho ăn: 1 bản ghi / chuồng / ngày / bữa (MSG-FE23-13); không tương lai; kế hoạch = kg / con × số con lúc ghi; thực tế ≥ 0, ≤ tồn (MSG-FE23-14); lưu trừ kho theo giá vốn BQ; giải quyết REM-11; đánh giá REM-10. | GBR-102, BR-D37 |
-| R-23-11 | Sửa / hủy bản ghi cho ăn: chỉ Manager, có lý do, giữ giá trị cũ (Record Revision), điều chỉnh tồn theo chênh lệch; hủy trả toàn bộ về kho; REM-11 đánh giá lại. | GBR-102, BR-D15 |
+| R-23-11 | Sửa / hủy bản ghi cho ăn: Owner hoặc Manager (D41), có lý do, giữ giá trị cũ (Record Revision), điều chỉnh tồn theo chênh lệch; hủy trả toàn bộ về kho; REM-11 đánh giá lại. | GBR-102, BR-D15 |
 | R-23-12 | Không có khẩu phần hiệu lực → MSG-FE23-20, chỉ nhập thực tế. Hết hàng → thực tế 0 + lý do trong ghi chú. | UC-08 AF1, AF2 |
-| R-23-13 | REM-10: mặt hàng ACTIVE tồn ≤ mức tối thiểu, cho Owner + Manager. REM-11: bữa của khẩu phần hiệu lực hôm nay của chuồng có bò chưa có bản ghi VALID sau giờ bữa + 2 giờ, cho Manager + Technician. | GBR-104 |
+| R-23-13 | REM-10: mặt hàng ACTIVE tồn ≤ mức tối thiểu, cho Owner + Manager. REM-11: bữa của khẩu phần hiệu lực hôm nay của chuồng có bò chưa có bản ghi VALID sau giờ bữa + 2 giờ, cho Owner + Manager + Technician (D41). | GBR-104 |
 | R-23-14 | Công thức: chi phí bản ghi = Σ kg thực tế × giá vốn BQ lúc ghi; số ngày đủ dùng = tồn ÷ dùng BQ 7 ngày; giá trị tồn = Σ tồn × giá vốn BQ; đầu con BQ = số con BQ / ngày từ phân chuồng; chênh lệch so khẩu phần = (thực tế − kế hoạch) ÷ kế hoạch trên bữa đã ghi; hao hụt điều chỉnh tách riêng, không phân bổ nhóm đàn; khẩu phần hiện chi phí ước tính theo giá vốn hiện tại. | GBR-105 |
 | R-23-15 | Lệnh có Idempotency-Key; cập nhật có version → MSG-COM-05. | GBR-88, GBR-89 |
 
@@ -323,7 +323,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 
 | # | Trường | Nội dung |
 |---|---|---|
-| 1 | Record feeding session | Nút (Manager) → popup; "Điền nhanh theo khẩu phần" cho các bữa trống đã chọn để xem lại |
+| 1 | Record feeding session | Nút (Owner, Manager) → popup; "Điền nhanh theo khẩu phần" cho các bữa trống đã chọn để xem lại |
 | 2 | Date | Chọn ngày, mặc định hôm nay; xem Theo ngày / Theo tuần |
 | 3 | Session, Pen | Lọc |
 | 4 | Summary tiles | Thực tế hôm nay / kế hoạch (kg); bữa đã ghi / dự kiến + chuồng chưa ghi (REM-11); chênh lệch bữa đã ghi (%); giá trị đã trừ kho hôm nay |
@@ -331,10 +331,10 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 6 | Session columns | Kế hoạch → thực tế kg, giờ + người cho ăn, hoặc "Chưa ghi"; ghi chú (ví dụ hết hàng) |
 | 7 | Whole day | Thực tế / kế hoạch kg |
 | 8 | Recorded by | Tên |
-| 9 | ⋯ | Manager: "Sửa" / "Hủy" (popup) |
+| 9 | ⋯ | Owner, Manager: "Sửa" / "Hủy" (popup) |
 | 10 | Totals row | Chuồng, số con, thực tế / kế hoạch |
 | 11 | Consumption by feed today | Mặt hàng, kg thực tế, tồn còn, trạng thái |
-| 12 | Notices | REM-11; REM-10 + link SCR-79; "Thuốc trộn thức ăn ghi trong ca sức khỏe (FE-10). Chủ trại và Kỹ thuật viên chỉ xem." |
+| 12 | Notices | REM-11; REM-10 + link SCR-79; "Thuốc trộn thức ăn ghi trong ca sức khỏe (FE-10). Kỹ thuật viên chỉ xem." |
 
 ### Popup Ghi bữa ăn
 
@@ -345,7 +345,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | 3 | Session / Bữa | Dropdown | * | Sáng / Chiều / Tối (bữa của khẩu phần) | MSG-COM-06, MSG-FE23-13 |
 | 4 | Feeding time / Giờ cho ăn | Giờ | — | Mặc định giờ bữa | — |
 | 5 | Effective ration / Khẩu phần | Chỉ đọc | — | Mã + tên, hoặc MSG-FE23-20 | — |
-| 6 | Fed by / Người cho ăn | Dropdown | — | Manager / Technician; mặc định người dùng | — |
+| 6 | Fed by / Người cho ăn | Dropdown | — | Owner / Manager / Technician; mặc định người dùng | — |
 | 7 | Feed / Mặt hàng | Chỉ đọc | — | Tên, mã, kg / con | — |
 | 8 | Planned / Kế hoạch | Chỉ đọc | — | kg = kg / con × số con | — |
 | 9 | Actual / Thực tế | Số | * | ≥ 0, ≤ tồn | MSG-FE23-14 |
@@ -463,7 +463,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | Mã | Given | When | Then | Tầng | Nguồn |
 |---|---|---|---|---|---|
 | TC-23-01 | Technician | Gọi tạo phiếu nhập / khẩu phần / ghi bữa | 403 | H | R-23-01 |
-| TC-23-02 | Owner | Gọi ghi bữa ăn | 403 | H | R-23-01 |
+| TC-23-02 | Owner | Ghi bữa ăn, rồi sửa / hủy | Thành công như Manager; trừ / trả kho theo chênh lệch | H, I | R-23-01, R-23-11, D41 |
 | TC-23-03 | Mặt hàng có phát sinh | Đổi mã / đơn vị tồn | MSG-FE23-18 | I | R-23-02 |
 | TC-23-04 | Mặt hàng INACTIVE | Chọn trong phiếu nhập | MSG-COM-08 | I | R-23-02 |
 | TC-23-05 | Phiếu DRAFT 500 kg | Lưu nháp | Tồn không đổi | I | R-23-03 |
@@ -488,7 +488,7 @@ E1 → MSG-FE23-14 · E2 → MSG-COM-06 · E3 → MSG-COM-05.
 | TC-23-24 | Bản ghi 60 kg sửa thành 50 kg | Lưu có lý do | FEEDING_CORRECTION +10 kg; Record Revision; "Đã sửa" | I | R-23-11 |
 | TC-23-25 | Sửa thành số làm tồn âm | Lưu | MSG-FE23-14 | I | R-23-11 |
 | TC-23-26 | Hủy bản ghi 60 kg | Xác nhận | VOIDED; FEEDING_VOID +60 kg; REM-11 đánh giá lại | I | R-23-11 |
-| TC-23-27 | Bữa 06:30 chưa ghi | 08:31 | REM-11 cho Manager, Technician | I | R-23-13 |
+| TC-23-27 | Bữa 06:30 chưa ghi | 08:31 | REM-11 cho Owner, Manager, Technician | I | R-23-13 |
 | TC-23-28 | Tồn 300 kg, dùng 7 ngày 420 kg | Xem SCR-77 | BQ 60 kg / ngày; đủ 5 ngày | U | R-23-14 |
 | TC-23-29 | Chuồng 4 con, 10 ngày, có 1 phiếu điều chỉnh hao hụt | Báo cáo theo nhóm đàn | Con-ngày 40; hao hụt hiện riêng, không phân bổ | I | R-23-14 |
 | TC-23-30 | Kế hoạch 60, thực tế 54 | Báo cáo | Chênh lệch −10 % | U | R-23-14 |

@@ -7,7 +7,8 @@ export type PurposeType = 'BREEDING' | 'FATTENING' | 'SIRE' | 'UNDECIDED'
 export interface CatalogueBase { id: number; code: string; name: string; available: boolean; version: number }
 
 // ---- Giống bò (BreedView / BreedWrite) ----
-export interface Breed extends CatalogueBase { group: string; description: string; activeCattle: number; referenced: boolean }
+/** referencedCount: records using the breed (MSG-FE18-03); 0 means it may be deleted (Q4). */
+export interface Breed extends CatalogueBase { group: string; description: string; activeCattle: number; referenced: boolean; referencedCount?: number }
 export interface BreedCommand { code: string; name: string; group: string; description: string; available: boolean; expectedVersion?: number }
 
 // ---- Mục đích nuôi (PurposeView / PurposeWrite) ----
@@ -18,6 +19,8 @@ export interface Purpose extends CatalogueBase {
   activeCattle: number
   referenced: boolean
   receivingPens: ReceivingPen[]
+  /** Cattle, calf outcomes and pen criteria using the purpose (MSG-FE18-03 / -09); 0 = may be deleted (Q4). */
+  referencedCount?: number
 }
 export interface PurposeCommand { code: string; name: string; purposeType: PurposeType; description: string; available: boolean; expectedVersion?: number }
 
@@ -32,6 +35,8 @@ export interface Vaccine extends CatalogueBase {
   withdrawalDays: number
   scheduleCount: number
   recordCount: number
+  /** Missing reference dose or route: the record takes them from the label (R-18-07). */
+  completeFromLabel?: boolean
 }
 export interface VaccineCommand {
   code: string
@@ -96,4 +101,6 @@ export interface ParameterVersionCommand {
   gestationLengthDays: number | null
   effectiveFrom: string
   sourceNote: string
+  /** Version number the form was loaded with: another save in between answers MSG-COM-05 (R-18-15). */
+  baseVersion?: number
 }

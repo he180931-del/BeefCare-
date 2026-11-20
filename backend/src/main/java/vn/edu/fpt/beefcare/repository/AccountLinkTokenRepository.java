@@ -23,6 +23,10 @@ public interface AccountLinkTokenRepository extends JpaRepository<AccountLinkTok
 
     long countByUserIdAndTokenTypeAndCreatedAtAfter(Long userId, String tokenType, Instant since);
 
+    Optional<AccountLinkToken> findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(Long userId, String tokenType);
+
+    Optional<AccountLinkToken> findFirstByUserIdAndTokenTypeAndCreatedAtAfterOrderByCreatedAtAsc(Long userId, String tokenType, Instant since);
+
     @Modifying
     @Query("update AccountLinkToken t set t.usedAt = :now where t.user.id = :userId and t.tokenType = :type and t.usedAt is null")
     int invalidateUnused(@Param("userId") Long userId, @Param("type") String type, @Param("now") Instant now);

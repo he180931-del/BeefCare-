@@ -1,5 +1,4 @@
 import type { PriceStatus, PriceVersion, PriceVersionView } from '../types'
-import { fmtDateTime } from './dates'
 
 export const MIN_PRICE = 1000
 export const MAX_PRICE = 1_000_000_000
@@ -8,8 +7,8 @@ export const PAST_ERROR = 'Thời điểm hiệu lực không được ở quá 
 
 /** "1.200.000" -> 1200000; NaN khi không phải số nguyên. */
 export function parseVnd(text: string) {
-  const t = text.replace(/[.\s]/g, '').replace(/đ$/i, '')
-  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+  const t = text.replace(/\s/g, '').replace(/đ$/i, '')
+  return /^(?:\d+|\d{1,3}(?:\.\d{3})+)$/.test(t) ? Number(t.replace(/\./g, '')) : Number.NaN
 }
 export const validPrice = (n: number) => Number.isInteger(n) && n >= MIN_PRICE && n <= MAX_PRICE
 
@@ -26,14 +25,4 @@ export function withStatuses(versions: PriceVersion[], now: string): PriceVersio
       return { ...v, status }
     })
     .sort((a, b) => b.version - a.version)
-}
-
-export function validateEffective(mode: 'NOW' | 'SCHEDULE', effectiveAt: string, now: string, versions: PriceVersion[]) {
-  if (mode === 'NOW') return null
-  if (!effectiveAt) return 'Thời điểm hiệu lực là bắt buộc.'
-  const at = effectiveAt.length === 16 ? `${effectiveAt}:00` : effectiveAt
-  if (at < now) return PAST_ERROR
-  const clash = versions.find((v) => !v.withdrawn && v.effectiveAt === at)
-  if (clash) return `Phiên bản v${clash.version} đã được lên lịch vào ${fmtDateTime(at)}.`
-  return null
 }

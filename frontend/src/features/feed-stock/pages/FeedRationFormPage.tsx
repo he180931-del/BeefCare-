@@ -1,13 +1,14 @@
+import { addCalendarDays } from '../../../shared/lib/date/farmTime'
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, DateInput, Field, Foot, Info, Note, PageHeader, Radio, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { getFeedRation, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationDemoVersion } from '../api/feedRationApi'
-import { initialFeedRationForm, nextRationCode, previewFeedRation, RATION_GROUPS, rationGroupLabel, toSaveFeedRationInput, validateFeedRationForm } from '../data/feedRationForm'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { feedRationServerBacked, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from '../api/feedRationApi'
+import { initialFeedRationForm, previewFeedRation, rationCodeDisplay, RATION_GROUPS, rationGroupLabel } from '../domain/feedRationForm'
+import { toSaveFeedRationInput } from '../api/feedRationPayload'
+import { validateFeedRationForm } from '../validation/feedRationValidation'
 import { formatDate, formatNumber, formatVnd } from '../domain/feedLabels'
 import type { FeedRation, FeedRationFormValues, FeedRationPenOption } from '../types/feedRation'
 import type { FeedStockRow } from '../types'
@@ -18,17 +19,12 @@ const FOOT = 'Sửa khẩu phần (Chủ trại, Quản lý). Khẩu phần đan
 const SESSION_NAMES = ['Cữ sáng', 'Cữ chiều', 'Cữ tối']
 const SESSION_LABEL = ['Sáng', 'Chiều', 'Tối']
 
-const dayBefore = (iso: string) => {
-  const date = new Date(`${iso}T00:00:00`)
-  date.setDate(date.getDate() - 1)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+const dayBefore = (iso: string) => addCalendarDays(iso, -1)
 
 export default function FeedRationFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const query = useQuery(async () => {
-    if (backendMode === 'backend') return { record: id ? await getFeedRation(id) : null, rows: [], pens: [], feeds: [] }
     const [rows, pens, feeds] = await Promise.all([listFeedRations(), listFeedRationPens(), listFeedRationFeeds()])
     return { record: id ? rows.find((row) => String(row.id) === id) ?? null : null, rows, pens, feeds }
   }, [id])
@@ -43,22 +39,6 @@ export default function FeedRationFormPage() {
     )
   }
   if (query.loading || !query.data) return <Layout title={TITLE} user="manager"><p role="status" className="m-0 text-xs text-muted">Đang tải khẩu phần…</p></Layout>
-
-  if (backendMode === 'backend') {
-    if (!id) {
-      return (
-        <Layout title={TITLE} user="manager">
-          <PageHeader title="Tạo khẩu phần" sub="Một số thông tin chưa sẵn sàng." />
-          <FeedManagementTabs />
-          <Note tone="warn">Lưu khẩu phần hiện chỉ hoạt động trong bản demo.</Note>
-          <div><Button onClick={() => navigate('/thuc-an/khau-phan')}>Quay lại danh sách</Button></div>
-        </Layout>
-      )
-    }
-    return query.data.record ? <BackendRationDetail record={query.data.record} /> : (
-      <Layout title={TITLE} user="manager"><PageHeader title="Không tìm thấy khẩu phần" /><div><Button onClick={() => navigate('/thuc-an/khau-phan')}>Quay lại danh sách</Button></div></Layout>
-    )
-  }
 
   if (id && !query.data.record) {
     return <Layout title={TITLE} user="manager"><PageHeader title="Không tìm thấy khẩu phần" /><div><Button onClick={() => navigate('/thuc-an/khau-phan')}>Quay lại danh sách</Button></div></Layout>
@@ -75,31 +55,6 @@ export default function FeedRationFormPage() {
   )
 }
 
-function BackendRationDetail({ record }: { record: FeedRation }) {
-  const navigate = useNavigate()
-  return (
-    <Layout title={TITLE} user="manager">
-      <PageHeader title={`Khẩu phần ${record.rationCode} v${record.versionNo}`} sub="Phiên bản đang ở chế độ chỉ xem.">
-        <Button onClick={() => navigate('/thuc-an/khau-phan')}>Quay lại danh sách</Button>
-      </PageHeader>
-      <FeedManagementTabs />
-      <Card title={record.name} sub={`${rationGroupLabel(record.herdGroup)} · Hiệu lực ${formatDate(record.effectiveFrom)} – ${record.effectiveTo ? formatDate(record.effectiveTo) : '—'}`}>
-        <p className="m-0 text-xs">Nguồn: {record.basis || '—'} · {record.sessionsPerDay} cữ/ngày · Chuồng: {record.penIds.length ? `${record.penIds.length} chuồng` : '—'}</p>
-        <Table scroll>
-          <thead><tr><Th>Thức ăn</Th><Th>Cữ 1</Th><Th>Cữ 2</Th><Th>Cữ 3</Th><Th>Tổng / đầu / ngày</Th><Th>Chi phí / đầu / ngày</Th></tr></thead>
-          <tbody>{record.components.map((line) => (
-            <tr key={line.feedItemId}>
-              <Td>{line.feedCode} · {line.feedName}</Td><Td>{formatNumber(line.session1Kg, 3)}</Td><Td>{formatNumber(line.session2Kg, 3)}</Td><Td>{formatNumber(line.session3Kg, 3)}</Td><Td>{formatNumber(line.dailyKg, 3)} kg</Td><Td>{line.estimatedDailyCost === null ? '—' : formatVnd(line.estimatedDailyCost)}</Td>
-            </tr>
-          ))}</tbody>
-        </Table>
-      </Card>
-      <Note tone="warn">Lưu khẩu phần hiện chỉ hoạt động trong bản demo.</Note>
-      <Foot>{FOOT}</Foot>
-    </Layout>
-  )
-}
-
 function FeedRationForm({ record, rows, pens, feeds }: {
   record: FeedRation | null
   rows: FeedRation[]
@@ -111,11 +66,14 @@ function FeedRationForm({ record, rows, pens, feeds }: {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
+  const commandKeyRef = useRef<string>()
   const preview = useMemo(() => previewFeedRation(values, feeds, pens), [values, feeds, pens])
   const replacing = record?.status === 'SCHEDULED' ? record : null
-  const nextCode = record?.rationCode ?? nextRationCode(rows)
-  const sameCode = record ? rows.filter((row) => row.rationCode === record.rationCode && row.id !== replacing?.id) : []
-  const nextVersion = replacing ? replacing.versionNo : Math.max(0, ...sameCode.map((row) => row.versionNo)) + 1
+  const nextCode = rationCodeDisplay(record?.rationCode, rows, feedRationServerBacked)
+  const sameCode = record ? rows.filter((row) => row.rationCode === record.rationCode) : []
+  const baseVersion = sameCode.length ? Math.max(...sameCode.map((row) => row.versionNo)) : undefined
+  const nextVersion = (baseVersion ?? 0) + 1
+  const nextKey = () => commandKeyRef.current ?? (commandKeyRef.current = globalThis.crypto?.randomUUID?.() ?? `feed-ration:${Date.now()}:${Math.random().toString(36).slice(2)}`)
   const inUse = sameCode.find((row) => row.status === 'EFFECTIVE') ?? (record?.status === 'EFFECTIVE' ? record : null)
   const previous = inUse
   const previousDailyCost = previous && previous.components.every((component) => component.estimatedDailyCost !== null)
@@ -126,14 +84,17 @@ function FeedRationForm({ record, rows, pens, feeds }: {
   const costDiff = preview.dailyCostPerHead !== null && previousDailyCost !== null ? preview.dailyCostPerHead - previousDailyCost : null
 
   const update = <K extends keyof Omit<FeedRationFormValues, 'components' | 'sessionTimes' | 'penIds'>>(key: K, value: FeedRationFormValues[K]) => {
+    commandKeyRef.current = undefined
     setValues((current) => ({ ...current, [key]: value }))
     setError('')
   }
   const updateComponent = (index: number, key: keyof FeedRationFormValues['components'][number], value: string) => {
+    commandKeyRef.current = undefined
     setValues((current) => ({ ...current, components: current.components.map((component, i) => i === index ? { ...component, [key]: value } : component) }))
     setError('')
   }
   const updateSessionsPerDay = (sessionsPerDay: 1 | 2 | 3) => {
+    commandKeyRef.current = undefined
     setValues((current) => ({
       ...current,
       sessionsPerDay,
@@ -147,15 +108,17 @@ function FeedRationForm({ record, rows, pens, feeds }: {
     setError('')
   }
   const updateSessionTime = (index: number, value: string) => {
+    commandKeyRef.current = undefined
     setValues((current) => ({ ...current, sessionTimes: current.sessionTimes.map((time, i) => i === index ? value : time) }))
     setError('')
   }
   const togglePen = (penId: number) => {
+    commandKeyRef.current = undefined
     setValues((current) => ({ ...current, penIds: current.penIds.includes(penId) ? current.penIds.filter((id) => id !== penId) : [...current.penIds, penId] }))
     setError('')
   }
-  const addComponent = () => setValues((current) => ({ ...current, components: [...current.components, { feedItemId: '', session1Kg: '0', session2Kg: '0', session3Kg: '0' }] }))
-  const removeComponent = (index: number) => setValues((current) => ({ ...current, components: current.components.filter((_, i) => i !== index) }))
+  const addComponent = () => { commandKeyRef.current = undefined; setValues((current) => ({ ...current, components: [...current.components, { feedItemId: '', session1Kg: '0', session2Kg: '0', session3Kg: '0' }] })) }
+  const removeComponent = (index: number) => { commandKeyRef.current = undefined; setValues((current) => ({ ...current, components: current.components.filter((_, i) => i !== index) })) }
 
   const submit = async () => {
     if (savingRef.current) return
@@ -168,7 +131,8 @@ function FeedRationForm({ record, rows, pens, feeds }: {
     setSaving(true)
     setError('')
     try {
-      const saved = await saveFeedRationDemoVersion(toSaveFeedRationInput(values, record?.rationCode, replacing?.id))
+      const saved = await saveFeedRationVersion(toSaveFeedRationInput(values, record?.rationCode, replacing?.id, baseVersion), { key: nextKey() })
+      commandKeyRef.current = undefined
       navigate('/thuc-an/khau-phan', { state: { rationMessage: `Khẩu phần ${saved.rationCode} v${saved.versionNo} đã lưu, hiệu lực từ ${formatDate(saved.effectiveFrom)}. Phiên bản trước kết thúc ngày ${formatDate(dayBefore(saved.effectiveFrom))}.` } })
     } catch (saveError) {
       setError(userFacingError(saveError, 'Không thể lưu khẩu phần. Vui lòng thử lại.'))

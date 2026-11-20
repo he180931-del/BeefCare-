@@ -1,3 +1,4 @@
+import { businessDate } from '../../../shared/lib/date/farmTime'
 // Dữ liệu phiếu xuất (thuộc worker "Xuất đàn + Chuồng trại").
 export const initialExports: HerdExit[] = [
   {
@@ -46,10 +47,7 @@ export const initialExports: HerdExit[] = [
   { id: 'PX-2026-0004', date: '2026-09-05', type: 'Chết / mất', who: 'Báo mất tích – đã tìm thấy bò', sub: 'Từ ca HC-0381 · Chủ trại bác', count: 1, weight: null, total: null, due: null, status: 'Đã bác' },
 ]
 
-export const todayIso = (now: Date = new Date()): string => {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-}
+export const todayIso = businessDate
 
 // Kept for the local demo data and collection form; new backend vouchers use todayIso() directly.
 export const TODAY = '2026-10-22'
@@ -62,4 +60,4 @@ export const EXPORT_HERD = [
   { code: 'BC-000214', tag: 'VN-0436', breed: 'Zebu đỏ', sex: 'Đực', age: '22 tháng', group: 'Vỗ béo', stage: 'Bò tơ', barn: 'B1', weight: 305, weightNote: 'cân 15/10', estimated: false },
   { code: 'BC-000198', tag: 'VN-0402', breed: 'Lai Sind', sex: 'Đực', age: '28 tháng', group: 'Vỗ béo', stage: 'Trưởng thành', barn: 'B1', weight: 356, weightNote: 'cân 15/10', estimated: false, openCase: 'HC-0415' },
 ]
-import type { HerdExit } from '../../../types'
+import type { HerdExit } from '../types'

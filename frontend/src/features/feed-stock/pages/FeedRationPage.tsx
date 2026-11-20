@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, DateInput, Foot, Metric, Note, PageHeader, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, DateInput, Foot, Icon, inputCls, Metric, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../data/feedRationMock'
-import { rationGroupLabel } from '../data/feedRationForm'
+import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../domain/feedRationList'
+import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatDate, formatNumber, formatShortDate, formatVnd } from '../domain/feedLabels'
 import type { FeedRation } from '../types/feedRation'
 import FeedManagementTabs from '../components/FeedManagementTabs'
@@ -18,10 +16,12 @@ const STATUS_BADGES: Record<string, { label: string; tone: 'ok' | 'info' | 'outl
   EFFECTIVE: { label: 'Đang áp dụng', tone: 'ok' },
   SCHEDULED: { label: 'Sắp áp dụng', tone: 'info' },
   ENDED: { label: 'Ngừng', tone: 'outline' },
+  CANCELLED: { label: 'Đã hủy', tone: 'outline' },
 }
 const STATUS_FILTERS: Array<{ value: FeedRationStatusFilter; label: string }> = [
   { value: 'CURRENT', label: 'Đang & sắp áp dụng' },
   { value: 'ENDED', label: 'Đã kết thúc' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
   { value: 'ALL', label: 'Tất cả' },
 ]
 
@@ -77,7 +77,6 @@ export default function FeedRationPage() {
       </PageHeader>
       <FeedManagementTabs />
       {message && <Note tone="ok">{message}</Note>}
-      {backendMode === 'backend' && <Note tone="warn">Lưu phiên bản mới, hủy phiên bản và ngừng khẩu phần hiện chỉ hoạt động trong bản demo.</Note>}
 
       <section role="tabpanel" aria-label="Danh sách khẩu phần" className="flex flex-col gap-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -132,7 +131,7 @@ export default function FeedRationPage() {
                   const cost = rationDailyCost(row)
                   const badge = STATUS_BADGES[row.status]
                   return (
-                    <tr key={row.id} className={`${row.status === 'SCHEDULED' ? 'bg-[#eef4ef]' : ''} ${row.status === 'ENDED' ? 'opacity-60' : ''}`}>
+                    <tr key={row.id} className={`${row.status === 'SCHEDULED' ? 'bg-[#eef4ef]' : ''} ${row.status === 'ENDED' || row.status === 'CANCELLED' ? 'opacity-60' : ''}`}>
                       <Td>
                         <Link to={`/thuc-an/khau-phan/${row.id}`} className="whitespace-nowrap font-semibold text-brand no-underline hover:underline">
                           {row.rationCode} · {row.name}{versionCount(row.rationCode) > 1 ? ` (v${row.versionNo})` : ''}
@@ -140,7 +139,7 @@ export default function FeedRationPage() {
                         <div className="text-[11px] text-muted">{rationGroupLabel(row.herdGroup)}</div>
                       </Td>
                       <Td className="min-w-[100px]">{penCodes(row).length ? `Chuồng ${penCodes(row).join(', ')}` : '—'}</Td>
-                      <Td className="whitespace-nowrap">{row.status === 'ENDED' || !row.penIds.length ? '—' : headOf(row)}</Td>
+                      <Td className="whitespace-nowrap">{row.status === 'ENDED' || row.status === 'CANCELLED' || !row.penIds.length ? '—' : headOf(row)}</Td>
                       <Td className="min-w-[200px]">{row.components.map((component) => `${component.feedName} ${formatNumber(component.dailyKg, 3)}`).join(' · ')}</Td>
                       <Td className="whitespace-nowrap">{formatNumber(rationDailyKg(row), 2)}</Td>
                       <Td className="whitespace-nowrap">{cost === null ? '—' : formatNumber(cost, 0)}</Td>
@@ -149,8 +148,8 @@ export default function FeedRationPage() {
                       <Td>
                         <div className="flex items-center gap-2 whitespace-nowrap">
                           <Button variant="link" size="sm" aria-label={`Sửa ${row.rationCode} v${row.versionNo}`} onClick={() => navigate(`/thuc-an/khau-phan/${row.id}`)}>Sửa</Button>
-                          {row.status === 'SCHEDULED' && <Button variant="link" size="sm" disabled={backendMode === 'backend'} aria-label={`Hủy phiên bản ${row.rationCode} v${row.versionNo}`} onClick={() => open('huy', row)}>Hủy phiên bản</Button>}
-                          {row.status === 'EFFECTIVE' && !row.effectiveTo && <Button variant="link" size="sm" disabled={backendMode === 'backend'} aria-label={`Ngừng ${row.rationCode} v${row.versionNo}`} onClick={() => open('ngung', row)}>Ngừng</Button>}
+                          {row.status === 'SCHEDULED' && <Button variant="link" size="sm" aria-label={`Hủy phiên bản ${row.rationCode} v${row.versionNo}`} onClick={() => open('huy', row)}>Hủy phiên bản</Button>}
+                          {row.status === 'EFFECTIVE' && <Button variant="link" size="sm" aria-label={`${row.effectiveTo ? 'Đổi ngày ngừng' : 'Ngừng'} ${row.rationCode} v${row.versionNo}`} onClick={() => open('ngung', row)}>{row.effectiveTo ? 'Đổi ngày ngừng' : 'Ngừng'}</Button>}
                         </div>
                       </Td>
                     </tr>

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Button, Card, Field, inputCls, Note, Segmented, Select, Textarea } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { DESCRIPTION_MAX, SUBJECT_MAX, TICKET_CATEGORIES, validateCreate } from '../domain/ticketRules'
+import { Button, Card, Field, Icon, inputCls, Note, Segmented, Select, Textarea } from '../../../shared/ui'
+import { requiredScopeForCategory, TICKET_CATEGORIES } from '../domain/ticketRules'
+import { DESCRIPTION_MAX, SUBJECT_MAX, validateCreate } from '../validation/ticketValidation'
 import type { CreateTicketCommand, OwnedFarm, TicketCategory } from '../types'
 import { FieldError } from './FieldError'
 
@@ -13,13 +13,30 @@ interface Props {
   onCancel: () => void
 }
 
-/** SCR-65: nội dung yêu cầu. Ưu tiên chỉ đọc vì do bộ phận hỗ trợ gán (GBR-76). */
+/** SCR-65: nội dung yêu cầu. Ưu tiên NORMAL được hệ thống gán mặc định; CS chỉnh sau khi nhận. */
 export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
-  const [form, setForm] = useState<CreateTicketCommand>({ category: initial.category, scope: 'FARM', farmId: initial.farmId, subject: '', description: '' })
+  const initialScope = requiredScopeForCategory(initial.category) ?? 'FARM'
+  const [form, setForm] = useState<CreateTicketCommand>({
+    category: initial.category,
+    scope: initialScope,
+    farmId: initialScope === 'ACCOUNT' ? null : initial.farmId,
+    subject: '',
+    description: '',
+  })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [sending, setSending] = useState(false)
   const set = (patch: Partial<CreateTicketCommand>) => setForm((f) => ({ ...f, ...patch }))
   const isFarm = form.scope === 'FARM'
+  const requiredScope = requiredScopeForCategory(form.category)
+
+  const selectCategory = (category: TicketCategory | '') => {
+    const categoryScope = requiredScopeForCategory(category)
+    set({
+      category,
+      ...(categoryScope ? { scope: categoryScope } : {}),
+      ...(categoryScope === 'ACCOUNT' ? { farmId: null } : {}),
+    })
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -36,39 +53,37 @@ export function NewTicketForm({ farms, initial, onSubmit, onCancel }: Props) {
     <form onSubmit={submit} noValidate>
       <Card title="Nội dung yêu cầu">
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Danh mục *" id="tk-category">
-            <Select id="tk-category" value={form.category} onChange={(e) => set({ category: e.target.value as TicketCategory | '' })}>
-              <option value="">Chọn danh mục</option>
-              {TICKET_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
-            <FieldError>{errors.category}</FieldError>
-          </Field>
-          <Field label="Ưu tiên" id="tk-priority">
-            <Select id="tk-priority" value="NORMAL" disabled>
-              <option value="NORMAL">Bình thường</option>
-            </Select>
-          </Field>
-          <div className="sm:col-span-2">
+          <div className="grid grid-cols-1 gap-3.5 sm:col-span-2 sm:grid-cols-[minmax(0,260px)_max-content_minmax(0,260px)] sm:justify-between">
+            <Field label="Danh mục *" id="tk-category">
+              <Select className="max-w-[260px]" id="tk-category" value={form.category} onChange={(e) => selectCategory(e.target.value as TicketCategory | '')}>
+                <option value="">Danh mục</option>
+                {TICKET_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+              <FieldError>{errors.category}</FieldError>
+            </Field>
             <Field label="Phạm vi *">
               <Segmented
                 options={[
-                  { value: 'FARM', label: 'Trang trại' },
-                  { value: 'ACCOUNT', label: 'Vấn đề tài khoản (không gắn trại)' },
+                  { value: 'FARM', label: 'Trang trại', disabled: requiredScope === 'ACCOUNT' },
+                  { value: 'ACCOUNT', label: 'Không gắn trại', disabled: requiredScope === 'FARM' },
                 ]}
+                className="!flex-nowrap !w-fit"
                 value={form.scope}
-                onChange={(scope) => set({ scope: scope as CreateTicketCommand['scope'] })}
+                onChange={(scope) => set({
+                  scope: scope as CreateTicketCommand['scope'],
+                  farmId: scope === 'ACCOUNT' ? null : form.farmId,
+                })}
               />
+              {requiredScope === 'FARM' && <p className="m-0 text-xs text-muted">Danh mục này bắt buộc gắn với trang trại.</p>}
               <FieldError>{errors.scope}</FieldError>
             </Field>
-          </div>
-          <div className="sm:col-span-2">
-            <Field label="Trang trại liên quan" id="tk-farm">
-              <Select id="tk-farm" value={isFarm ? (form.farmId ?? '') : ''} disabled={!isFarm} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
-                {!isFarm && <option value="">Không gắn trang trại</option>}
+            <Field label={isFarm ? 'Trang trại liên quan *' : 'Trang trại liên quan'} id="tk-farm">
+              <Select className="max-w-[260px]" id="tk-farm" value={isFarm ? (form.farmId ?? '') : ''} disabled={!isFarm} onChange={(e) => set({ farmId: e.target.value ? Number(e.target.value) : null })}>
+                {!isFarm && <option value="">Không có</option>}
                 {isFarm && <option value="">Chọn trang trại</option>}
                 {farms.map((f) => (
                   <option key={f.id} value={f.id}>

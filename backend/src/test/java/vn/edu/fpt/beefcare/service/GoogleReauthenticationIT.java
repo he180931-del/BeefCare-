@@ -42,7 +42,11 @@ class GoogleReauthenticationIT extends DomainTestSupport {
         identity.changePassword(null, NEW_PASSWORD, NEW_PASSWORD, true);
         em.flush();
         em.clear();
-        assertThat(em.find(AppUser.class, account.getId()).isPasswordLoginEnabled()).isTrue();
+        assertThat(em.find(AppUser.class, account.getId())).satisfies(updated -> {
+            assertThat(updated.isPasswordLoginEnabled()).isTrue();
+            assertThat(updated.getPasswordMethodStatus()).isEqualTo("ACTIVE");
+            assertThat(updated.getPasswordLinkedAt()).isNotNull();
+        });
         User credential = em.createQuery("select u from User u where u.login = :l", User.class).setParameter("l", account.getEmail()).getSingleResult();
         assertThat(encoder.matches(NEW_PASSWORD, credential.getPassword())).isTrue();
         assertThat(identity.checkPasswordSignInAllowed(account.getEmail())).isNotNull(); // password sign-in now allowed
@@ -56,6 +60,9 @@ class GoogleReauthenticationIT extends DomainTestSupport {
         assertThatThrownBy(() -> identity.changePassword("wrong", NEW_PASSWORD, NEW_PASSWORD, false))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.FE01_16));
         identity.changePassword(null, NEW_PASSWORD, NEW_PASSWORD, true);
+        em.flush();
+        em.clear();
+        assertThat(em.find(AppUser.class, linked.getId()).getPasswordMethodStatus()).isEqualTo("ACTIVE");
 
         AppUser passwordOnly = account("password-only", true, null, "Old-Password-77");
         actAs(passwordOnly);

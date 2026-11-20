@@ -1,13 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, Note, Select, Table, Td, Textarea, Th, inputCls } from '../../../components/ui'
-import { REPRODUCTION_HEALTH_CASES } from '../data/reproductionMock'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { METHOD_TEXT, formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalfOutcome, CalvingRecord, ReproductionEvent, ReproductionFemale } from '../types'
 import {
   CHECK_METHOD_OPTIONS, COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeInput, MemberSelect, PersonInput, RESULT_OPTIONS, RadioRow,
   SOURCE_LABEL, SOURCE_OPTIONS, UPDATE_TYPE_OPTIONS,
 } from './reproductionFields'
+import { useReproductionOptions } from './reproductionOptions'
 
 export type RevisedRecord = { kind: 'event'; event: ReproductionEvent } | { kind: 'calving'; calving: CalvingRecord }
 export interface ReviseTarget { mode: 'revise'; record: RevisedRecord; action: 'correct' | 'void' }
@@ -34,7 +33,7 @@ const SOURCE_OPT = SOURCE_OPTIONS.map(([key, label]): [string, string] => [key, 
 const BASIS_OPTIONS: Array<[string, string]> = [['', 'Chưa chọn'], ['MEASURED', 'Cân thực tế'], ['ESTIMATED', 'Ước tính']]
 const PLACENTA_OPTIONS: Array<[string, string]> = [['false', 'Không'], ['true', 'Có']]
 
-function rowsFor(cur: Current, profile: ReproductionFemale): Row[] {
+function rowsFor(cur: Current, profile: ReproductionFemale, cases: Array<{ id: string; label: string }>): Row[] {
   if (cur.kind === 'calf') {
     const { calf } = cur
     const registered = calf.registrationStatus === 'REGISTERED'
@@ -91,8 +90,7 @@ function rowsFor(cur: Current, profile: ReproductionFemale): Row[] {
       { key: 'linkedBreedingId', label: 'Lần phối liên kết', current: labelOf(breedingOptions, e.linkedBreedingId ?? '').replace(/ · [A-Z]+-\d+$/, ''), init: e.linkedBreedingId ?? '', control: 'select', options: breedingOptions },
     ]
   }
-  const cases = REPRODUCTION_HEALTH_CASES[profile.cattleCode] ?? []
-  const caseOptions: Array<[string, string]> = [['', 'Không liên kết'], ...cases.map((item): [string, string] => [item.id, item.id])]
+  const caseOptions: Array<[string, string]> = [['', 'Không liên kết'], ...cases.map((item): [string, string] => [item.id, item.label.split(' · ')[0] || item.id])]
   return [
     { key: 'updateType', label: 'Loại cập nhật', current: labelOf(UPDATE_TYPE_OPTIONS, e.updateType), init: e.updateType ?? 'OBSERVATION', control: 'select', options: UPDATE_TYPE_OPTIONS },
     { key: 'occurredAt', label: 'Thời điểm', current: formatDateTime(e.occurredAt), init: e.occurredAt, control: 'datetime' },
@@ -154,7 +152,8 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
   }
 
   const uid = current ? (current.kind === 'event' ? current.event.id : current.kind === 'calving' ? current.calving.id : `${current.calving.id}|${current.calf.id}`) : 'none'
-  const rows = current ? rowsFor(current, profile) : []
+  const { healthCases } = useReproductionOptions()
+  const rows = current ? rowsFor(current, profile, healthCases) : []
   const get = (key: string) => edits[`${uid}/${key}`] ?? rows.find((row) => row.key === key)?.init ?? ''
   const set = (key: string, value: string) => setEdits((state) => ({ ...state, [`${uid}/${key}`]: value }))
 

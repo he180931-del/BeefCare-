@@ -1,4 +1,8 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows } from '../../../shared/api/parse'
+import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { createFeedFeedingApi } from './feedFeedingApi'
 import { createFeedReceiptApi } from './feedReceiptApi'
 import { createFeedRationApi } from './feedRationApi'
@@ -59,7 +63,7 @@ function parseConsumptionReport(value: unknown): FeedConsumptionBackendReport {
   }
 }
 
-function createSupportingDataLoader(mode: BackendMode, farmId: string | number, transport: BackendTransport): FeedConsumptionDataLoader {
+function createSupportingDataLoader(mode: BackendMode, farmId: string | number | null, transport: BackendTransport): FeedConsumptionDataLoader {
   const feedingApi = createFeedFeedingApi({ mode, farmId, transport })
   const receiptApi = createFeedReceiptApi({ mode, farmId, transport })
   const adjustmentApi = createFeedStockAdjustmentApi({ mode, farmId, transport })
@@ -85,7 +89,7 @@ export function createFeedConsumptionApi({
   loadBackendData,
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   loadDemoData?: FeedConsumptionDataLoader
   loadBackendData?: FeedConsumptionDataLoader
@@ -109,6 +113,18 @@ export function createFeedConsumptionApi({
   }
 }
 
-const api = createFeedConsumptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const api = createFeedConsumptionApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 export const loadFeedConsumptionReport = (range: FeedConsumptionRange) => api.load(range)
+
+/** Một số chỉ số của máy chủ có thể thiếu nguồn số liệu; bản mô phỏng luôn đủ. */
+export const feedConsumptionMayLackSources = backendMode === 'backend'
+
+/**
+ * Kỳ mở đầu của báo cáo: SRS GBR-66 là đầu tháng đến hôm nay. Bản mô phỏng chỉ có 3 tuần lịch sử nên mở 22 ngày gần nhất.
+ */
+export function defaultFeedConsumptionPeriod(): { from: string; to: string } {
+  const today = businessDate()
+  if (backendMode !== 'backend') return { from: addCalendarDays(today, -21), to: today }
+  return { from: today.slice(0, 7) + '-01', to: today }
+}

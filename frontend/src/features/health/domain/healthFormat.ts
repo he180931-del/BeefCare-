@@ -1,7 +1,8 @@
+import { businessDateTime } from '../../../shared/lib/date/farmTime'
 import type { CaseOutcome, CaseStatus, EntryType, HealthState, Progress, Severity, TreatmentRoute } from '../types'
 
 export const SEVERITY_LABEL: Record<Severity, string> = { MILD: 'Nhẹ', MODERATE: 'Trung bình', SEVERE: 'Nặng' }
-export const PROGRESS_LABEL: Record<Progress, string> = { IMPROVED: 'Cải thiện', UNCHANGED: 'Không đổi', WORSENED: 'Xấu đi' }
+export const PROGRESS_LABEL: Record<Progress, string> = { IMPROVED: 'Tốt hơn', UNCHANGED: 'Không đổi', WORSENED: 'Xấu hơn' }
 export const ROUTE_LABEL: Record<TreatmentRoute, string> = {
   INTRAMUSCULAR: 'Tiêm bắp', SUBCUTANEOUS: 'Tiêm dưới da', INTRAVENOUS: 'Tiêm tĩnh mạch', ORAL: 'Uống', TOPICAL: 'Bôi ngoài da', OTHER: 'Khác',
 }
@@ -13,7 +14,6 @@ export const SEVERITIES = Object.keys(SEVERITY_LABEL) as Severity[]
 export const PROGRESSES = Object.keys(PROGRESS_LABEL) as Progress[]
 export const ROUTES = Object.keys(ROUTE_LABEL) as TreatmentRoute[]
 
-const pad = (n: number) => String(n).padStart(2, '0')
 
 /** 'yyyy-mm-dd' hoặc 'yyyy-mm-ddThh:mm' -> 'dd/mm/yyyy'. */
 export function fmtDate(value?: string | null): string {
@@ -26,7 +26,7 @@ export const fmtMonth = (value?: string | null) => (value ? `${value.slice(5, 7)
 export const fmtTemp = (value: number) => value.toFixed(1).replace('.', ',')
 
 export const dateOf = (value: string) => value.slice(0, 10)
-export const toLocalDateTime = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+export const toLocalDateTime = (d: Date) => businessDateTime(d).slice(0, 16)
 
 export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`)

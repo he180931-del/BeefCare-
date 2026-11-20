@@ -1,9 +1,11 @@
-import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import { useSearchParams } from 'react-router-dom'
+import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { healthApi } from '../api/healthApi'
 import { fmtDate, fmtDateTime } from '../domain/healthFormat'
 import { CaseStatusBadge, EntryBadge, shortDetails } from './healthUi'
+import HealthTimelineSource from './HealthTimelineSource'
 
 const Meta = ({ label, value }: { label: string; value: string }) => (
   <div className="flex min-w-0 flex-col gap-0.5"><span className="text-[11px] text-faint">{label}</span><span className="text-[13px] font-medium text-ink">{value}</span></div>
@@ -11,9 +13,13 @@ const Meta = ({ label, value }: { label: string; value: string }) => (
 
 /** Bản điện thoại chỉ xem: không có nút ghi, hộp thoại hay khung trang; hồ sơ bò của Kỹ thuật viên cung cấp phần khung. */
 export default function HealthTechnicianTab({ cattleCode }: { cattleCode: string }) {
-  const { data, loading, error, refetch } = useQuery(() => healthApi.getProfile(cattleCode), [cattleCode])
+  const [params] = useSearchParams()
+  const sourceId = params.get('r')
+  const caseId = sourceId == null ? null : params.get('case')
+  const { data, loading, error, refetch } = useQuery(() => healthApi.getProfile(cattleCode, caseId ?? undefined), [cattleCode, caseId])
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu sức khỏe.')} onRetry={refetch} />
+  if (sourceId != null) return loading ? <LoadingBlock /> : <HealthTimelineSource profile={data} sourceId={sourceId} type={params.get('type')} caseId={caseId} technician />
   if (data.activeCases.length === 0) return <EmptyBlock title="Chưa có ca sức khỏe đang mở" sub="Bò không có ca đang mở hoặc theo dõi mạn tính." />
 
   return (

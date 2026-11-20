@@ -42,14 +42,12 @@ public class Medicine implements Serializable {
      * ERD: dose / route - tách 2 cột
      */
     @Schema(description = "ERD: dose / route - tách 2 cột", required = true)
-    @NotNull
     @Size(max = 255)
-    @Column(name = "dose", length = 255, nullable = false)
+    @Column(name = "dose", length = 255)
     private String dose;
 
-    @NotNull
     @Size(max = 255)
-    @Column(name = "route", length = 255, nullable = false)
+    @Column(name = "route", length = 255)
     private String route;
 
     @NotNull

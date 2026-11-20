@@ -1,4 +1,2 @@
-export const loadUserAccountRoutes = () => import('./pages/UserAccountRoutes')
-export const loadStaffAccessRoutes = () => import('./pages/StaffAccessRoutes')
-export const loadAuditRoutes = () => import('./pages/AuditRoutes')
-export const loadAdminNoticePage = () => import('./pages/AdminNoticePage')
+// Nothing of this feature is used by other features; its screens load through routes.ts.
+export {}

@@ -2,9 +2,11 @@ package vn.edu.fpt.beefcare.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.domain.AppUser;
+import vn.edu.fpt.beefcare.domain.InternalRequest;
 import vn.edu.fpt.beefcare.domain.Notification;
 import vn.edu.fpt.beefcare.repository.NotificationRepository;
 
@@ -32,10 +34,68 @@ public class NotificationService {
     public List<NotificationView> mine(){AppUser user=access.currentActiveUser();return repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(user.getId()).stream().filter(n->targetAccess.canOpen(user,n)).map(NotificationView::from).toList();}
 
     @Transactional
-    public int markAllAsRead(){AppUser user=access.currentActiveUser();Instant now=clock.now();List<Notification> unread=repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(user.getId()).stream().filter(n->n.getReadTime()==null).toList();unread.forEach(n->n.setReadTime(now));repository.saveAll(unread);return unread.size();}
+    public int markAllAsRead() {
+        AppUser user = access.currentActiveUser();
+        List<Notification> unread = repository.findAllByRecipient_IdOrderByCreatedTimeDescIdDesc(user.getId()).stream()
+            .filter(notification -> notification.getReadTime() == null)
+            .toList();
+
+        Map<Long, InternalRequest> lockedRequests = targetAccess.lockInternalRequestsForRead(
+            unread.stream().filter(NotificationService::targetsInternalRequest).map(Notification::getTargetId).filter(id -> id != null).toList()
+        );
+        List<Notification> accessible = unread.stream().filter(notification -> canOpenCurrentTarget(user, notification, lockedRequests)).toList();
+        if (accessible.isEmpty()) return 0;
+
+        Instant now = clock.now();
+        accessible.forEach(notification -> notification.setReadTime(now));
+        repository.saveAll(accessible);
+        return accessible.size();
+    }
 
     @Transactional
-    public NotificationView markRead(Long id){AppUser user=access.currentActiveUser();Notification n=repository.findByIdAndRecipient_Id(id,user.getId()).orElseThrow(()->DomainException.notFound(MessageCodes.COM_08));if(n.getReadTime()==null)n.setReadTime(clock.now());return NotificationView.from(repository.save(n));}
+    public NotificationView markRead(Long id) {
+        AppUser user = access.currentActiveUser();
+        Notification notification = repository.findByIdAndRecipient_Id(id, user.getId())
+            .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
+        Map<Long, InternalRequest> lockedRequests = targetAccess.lockInternalRequestsForRead(
+            targetsInternalRequest(notification) && notification.getTargetId() != null ? List.of(notification.getTargetId()) : List.of()
+        );
+        requireCurrentTargetAccess(user, notification, lockedRequests);
+        if (notification.getReadTime() == null) notification.setReadTime(clock.now());
+        return NotificationView.from(repository.save(notification));
+    }
+
+    private boolean canOpenCurrentTarget(AppUser user, Notification notification, Map<Long, InternalRequest> lockedRequests) {
+        if (!targetsInternalRequest(notification)) return targetAccess.canOpen(user, notification);
+        InternalRequest request = lockedRequests.get(notification.getTargetId());
+        return targetAccess.canOpenInternalRequest(user, request);
+    }
+
+    private void requireCurrentTargetAccess(AppUser user, Notification notification, Map<Long, InternalRequest> lockedRequests) {
+        if (!targetsInternalRequest(notification)) {
+            if (!targetAccess.canOpen(user, notification)) throw DomainException.notFound(MessageCodes.COM_08);
+            return;
+        }
+
+        InternalRequest request = lockedRequests.get(notification.getTargetId());
+        if (request == null) throw DomainException.notFound(MessageCodes.COM_08);
+        Long currentRecipientId = request.getRecipient() == null ? null : request.getRecipient().getId();
+        if (currentRecipientId == null || !currentRecipientId.equals(user.getId())) {
+            if (isInternalRequestRole(request.getTargetRole()) && targetAccess.hasActiveInternalRequestRole(user)) {
+                throw DomainException.notFound(MessageCodes.FE20_19);
+            }
+            throw DomainException.notFound(MessageCodes.COM_08);
+        }
+        if (!targetAccess.canOpenInternalRequest(user, request)) throw DomainException.notFound(MessageCodes.COM_08);
+    }
+
+    private static boolean targetsInternalRequest(Notification notification) {
+        return notification.getTargetType() != null && "INTERNAL_REQUEST".equalsIgnoreCase(notification.getTargetType());
+    }
+
+    private static boolean isInternalRequestRole(String role) {
+        return role != null && ("PM".equalsIgnoreCase(role.trim()) || "SA".equalsIgnoreCase(role.trim()));
+    }
 
     public record NotificationView(Long id,String category,String title,String summary,String targetType,Long targetId,Instant createdTime,Instant readTime){
         static NotificationView from(Notification n){return new NotificationView(n.getId(),n.getCategory(),n.getTitle(),n.getSummary(),n.getTargetType(),n.getTargetId(),n.getCreatedTime(),n.getReadTime());}

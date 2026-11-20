@@ -5,7 +5,7 @@
 BeefCare is a Spring Boot backend and a Vite/React/TypeScript frontend.
 
 ```text
-frontend/src/App.tsx
+frontend/src/app/routes/AppRoutes.tsx
   -> feature page
   -> feature API boundary
   -> shared BackendTransport / backendClient
@@ -16,8 +16,12 @@ frontend/src/App.tsx
 
 ## Frontend ownership
 
-Every feature folder under `frontend/src/features/` exposes its pages and API
-facade through `index.ts`. The four features with a dedicated context file are
+Every feature folder under `frontend/src/features/` exposes its lazy page loaders
+in `routes.ts` (only dynamic `import('./pages/…')`, read by
+`app/routes/AppRoutes.tsx`) and what other features use (API, shared
+components, types) in `index.ts`. Because the route table imports only
+`routes.ts`, an `index.ts` loads with the screens that use it, never in the
+entry chunk. The four features with a dedicated context file are
 herd entry, herd exit, cattle and pen management (`FEATURE_*.md`).
 
 | Folder in `frontend/src/features/` | Spec |
@@ -42,14 +46,26 @@ herd entry, herd exit, cattle and pen management (`FEATURE_*.md`).
 | `platform-finance` | FE-21 |
 | `feed-stock` | FE-23 |
 
-Shared transport, types and UI live in `frontend/src/api/`, `types.ts`,
-`components/` and `hooks/`; use them only for genuinely cross-feature code.
-Routes are composed in `frontend/src/App.tsx`.
+Neutral infrastructure lives in `frontend/src/shared/` (HTTP client and
+transport, runtime config, date/format helpers, generic hooks, UI primitives,
+assets). App composition lives in `frontend/src/app/`: routes
+(`app/routes/AppRoutes.tsx`), providers, layouts and the session (`app/session/`: the
+signed-in user `sessionContext` / `SessionProvider`, the tab's farm `currentFarm`, sign-out and expiry
+`sessionLifecycle`). Features use the app only through the layouts and those three session modules
+(`SessionProvider` is mounted by `app/providers`); `features/authorization` keeps the gates, roles and
+role policy. Demo data (`npm run dev:mock`, tests) enters only through
+`frontend/src/demo/demoModules.ts`; production builds replace it with
+`src/demo/noDemo.ts`. The legacy `api/`, `components/`, `data/` and `types.ts`
+only keep the leftovers listed with their reason in
+`frontend/tests/api/layerBoundary.test.ts` (local/demo data, the Entry/Exit
+parts whose owner is undecided); do
+not add to them. Inside a feature: `validation/` field rules, `domain/`
+policies and calculations, `hooks/` React hooks, `api/` endpoints and DTO
+mapping.
 
 Feature internals must not be imported by another feature. Cross-feature data
-goes through the backend/domain boundary. Do not add new feature pages under
-legacy `frontend/src/pages`; `Placeholder` is the remaining cross-feature
-exception.
+goes through the backend/domain boundary. `frontend/src/pages` no longer
+exists; the route fallback is `app/routes/PlaceholderPage.tsx`.
 
 ## Backend ownership
 

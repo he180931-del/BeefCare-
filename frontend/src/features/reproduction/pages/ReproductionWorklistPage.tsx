@@ -1,15 +1,14 @@
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Badge, Card, ErrorBlock, Foot, LoadingBlock, EmptyBlock, FilterSelect, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import { reproductionApi } from '../api/reproductionApi'
-import { dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
+import { NO_WEIGHING, dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
 import type { ReproductionRole, ReproductiveStatus, WorklistFilters } from '../types'
-import { reproductionNow } from '../domain/reproductionClock'
 
 const TABS: Array<{ value: WorklistTab; label: string }> = [
   { value: 'AWAITING_BREEDING', label: 'Chờ phối' },
@@ -31,20 +30,20 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
   const [filters, setFilters] = useState<WorklistFilters>({ status: 'IN_ESTRUS', eligibility: 'ALL', penCode: 'ALL', breed: 'ALL', query: '' })
   const { data: rows, loading, error, refetch } = useQuery(() => reproductionApi.listWorklist(), [])
   const all = useMemo(() => rows ?? [], [rows])
-  const tracked = useMemo(() => filterWorklist(all, {}), [all])
-  const counts = useMemo(() => tabCounts(all), [all])
-  const filtered = useMemo(() => filterWorklist(all, filters), [all, filters])
+  const tracked = useMemo(() => filterWorklist(all, {}, reproductionApi.now()), [all])
+  const counts = useMemo(() => tabCounts(all, reproductionApi.now()), [all])
+  const filtered = useMemo(() => filterWorklist(all, filters, reproductionApi.now()), [all, filters])
   const setFilter = (patch: Partial<WorklistFilters>) => setFilters((current) => ({ ...current, ...patch }))
   const open = (code: string) => navigate(`/cattle/${encodeURIComponent(code)}?tab=repro`)
 
-  const now = Date.parse(reproductionNow())
+  const now = parseBusinessTime(reproductionApi.now())
   const notMet = (status: string | null) => ['AWAITING_BREEDING', 'IN_ESTRUS', 'POST_CALVING'].includes(status ?? '')
   const tiles = [
     { label: 'Đang động dục', value: counts.IN_ESTRUS },
-    { label: 'Trong cửa sổ phối', value: tracked.filter((r) => r.breedingWindow && Date.parse(r.breedingWindow.from) <= now && Date.parse(r.breedingWindow.to) >= now).length, note: 'phối ngay hôm nay', warn: true },
-    { label: 'Đến hạn khám thai', value: tracked.filter((r) => r.status === 'BRED' && r.dueAt && Date.parse(r.dueAt) <= now).length },
+    { label: 'Trong cửa sổ phối', value: tracked.filter((r) => r.breedingWindow && parseBusinessTime(r.breedingWindow.from) <= now && parseBusinessTime(r.breedingWindow.to) >= now).length, note: 'phối ngay hôm nay', warn: true },
+    { label: 'Đến hạn khám thai', value: tracked.filter((r) => r.status === 'BRED' && r.dueAt && parseBusinessTime(r.dueAt) <= now).length },
     { label: 'Sắp đẻ ≤ 30 ngày', value: counts.DUE_SOON },
-    { label: 'Sau đẻ – có thể phối', value: tracked.filter((r) => r.status === 'POST_CALVING' && r.dueAt && Date.parse(r.dueAt) <= now + DAY).length },
+    { label: 'Sau đẻ – có thể phối', value: tracked.filter((r) => r.status === 'POST_CALVING' && r.dueAt && parseBusinessTime(r.dueAt) <= now + DAY).length },
     { label: 'Chưa đủ điều kiện phối', value: tracked.filter((r) => notMet(r.status) && r.eligibility?.status === 'NOT_MET').length, warn: true },
   ]
 
@@ -90,7 +89,7 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
                       <Td>{row.breed}</Td>
                       <Td>{row.penCode}</Td>
                       <Td><div className="font-medium">{row.status ? STATUS_LABEL[row.status] : '—'}</div><div className="text-[11px] text-muted">từ {formatShort(row.statusAt)}</div></Td>
-                      <Td>{row.eligibility && notMet(row.status) ? <Badge tone={row.eligibility.status === 'MET' ? 'ok' : 'err'} icon={row.eligibility.status === 'MET' ? 'circle-check' : undefined}>{row.eligibility.status === 'MET' ? 'Đạt' : eligibilityLabel(row.eligibility).replace('Chưa đạt · ', 'Chưa đạt · ')}</Badge> : '—'}</Td>
+                      <Td>{row.eligibility && notMet(row.status) ? <Badge tone={row.eligibility.status === 'MET' ? 'ok' : eligibilityLabel(row.eligibility) === NO_WEIGHING ? 'warn' : 'err'} icon={row.eligibility.status === 'MET' ? 'circle-check' : undefined}>{row.eligibility.status === 'MET' ? 'Đạt' : eligibilityLabel(row.eligibility).replace('Chưa đạt · ', 'Chưa đạt · ')}</Badge> : '—'}</Td>
                       <Td>{latest ? `${latest.summary.split(' · ')[0]} · ${formatDateTime(latest.occurredAt)}` : 'Chưa ghi nhận'}</Td>
                       <Td>{row.nextAction}</Td>
                       <Td>{dueLabel(row) === '—' ? '—' : <Badge tone="warn">{dueLabel(row)}</Badge>}</Td>

@@ -1,3 +1,5 @@
+ 
+
 # BeefCare agent entry point
 
 @RTK.md
@@ -31,7 +33,6 @@ current workspace may be used directly.
   use the explicit `LamKD` branch as its base. Record both `LamKD` and its
   resolved SHA before creation; never substitute `origin/main`, `integration`,
   `HEAD`, a remote default branch, or any inferred base.
-
 - Parallel writable work requires one local branch and one worktree per
   feature. Never assign two writable agents, including a test writer and a
   coder, to the same worktree or branch at the same time.

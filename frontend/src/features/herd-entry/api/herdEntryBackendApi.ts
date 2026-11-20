@@ -1,11 +1,14 @@
-import type { CattleInput, DocumentRow, EntryCalf, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry, Payment, Pen } from '../../../types'
-import {
-  asRecord, asRows, enumPaymentMethod, isoDate, nullableNumber, numberValue, textValue, unwrapVoucher,
-  type BackendTransport,
-} from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
+import type { CattleInput } from '../../cattle'
+import type { Payment } from '../../../types'
+import type { EntryCalf, HerdEntry } from '../types'
+import type { Pen } from '../../pen-management'
+import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
+import type { BackendTransport } from '../../../shared/api/backendTransport'
+import { isoDate } from '../../../shared/lib/date/isoDate'
+import { birthAccuracy, declaration, entryType, enumPaymentMethod, findNamedId, findPurposeId, fullDate, lifeStage, mapDocuments, mapPendingCalf, mapVoucher, mergeDocuments, sex, unwrapVoucher } from './herdEntryMapper'
+import { BackendError } from '../../../shared/api/backendClient'
 
-export type { BackendTransport } from '../../../api/backendTransport'
+export type { BackendTransport } from '../../../shared/api/backendTransport'
 
 type SaveInput = { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }
 type PaymentInput = Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
@@ -15,25 +18,6 @@ export type EntryListView = { rows: HerdEntry[]; tiles: Record<string, unknown>;
 export type EntryVaccineOption = { id: number; code: string; name: string; available: boolean }
 export type EntryBreedOption = { id: number; code: string; name: string; available: boolean }
 export type EntryParentOption = { id: number; code: string; sex: 'MALE' | 'FEMALE'; name: string }
-
-const statusFromBackend = (status: unknown): EntryStatus => status === 'POSTED' ? 'Đã nhập' : status === 'VOIDED' ? 'Đã hủy' : 'Nháp'
-const typeFromBackend = (type: unknown): EntryType => type === 'FARM_BORN' ? 'Bê sinh tại trại' : 'Mua ngoài'
-const entryType = (type: unknown) => type === 'Bê sinh tại trại' ? 'FARM_BORN' : 'PURCHASE'
-const sex = (value: unknown) => value === 'Đực' || value === 'MALE' ? 'MALE' : 'FEMALE'
-const declaration = (value: unknown) => value === 'Có' || value === 'KNOWN' ? 'KNOWN' : value === 'Không' || value === 'NONE' ? 'NONE' : 'UNKNOWN'
-const birthAccuracy = (value: unknown) => value === 'Chính xác' || value === 'EXACT' ? 'EXACT' : value === 'Ước tính' || value === 'ESTIMATED' ? 'ESTIMATED' : 'UNKNOWN'
-const fullDate = (value: unknown) => {
-  const date = textValue(value)
-  return /^\d{4}-\d{2}$/.test(date) ? `${date}-01` : date || null
-}
-const lifeStage = (value: unknown, farmBorn = false) => {
-  const normalized = textValue(value).toLowerCase()
-  if (farmBorn && normalized.includes('bê')) return 'UNWEANED_CALF'
-  if (normalized.includes('theo mẹ') || normalized.includes('sơ sinh')) return 'UNWEANED_CALF'
-  if (normalized.includes('bê')) return 'WEANED_CALF'
-  if (normalized.includes('tơ') || normalized.includes('young')) return 'YOUNG_STOCK'
-  return 'ADULT'
-}
 
 const canonical = (value: unknown): string => {
   if (value === null) return 'null'
@@ -87,180 +71,7 @@ const fileDigest = async (file: File): Promise<string> => {
   return digestBytes(bytes)
 }
 
-const paymentRows = (value: unknown): Payment[] => asRows(value).map((row) => ({
-  date: textValue(row.paymentDate ?? row.date),
-  by: textValue(row.recordedBy ?? row.createdBy, '—'),
-  method: row.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản',
-  ref: textValue(row.reference, '—'),
-  amount: numberValue(row.amount),
-}))
-
-const mapDocuments = (value: unknown, root: string, voucherId: number) => asRows(value).map((document) => ({
-  id: numberValue(document.id),
-  name: textValue(document.originalFilename, 'Tài liệu'),
-  ext: textValue(document.contentType) === 'application/pdf' ? 'PDF' : 'JPG',
-  size: numberValue(document.fileSize),
-  url: `${root}/${voucherId}/attachments/${numberValue(document.id)}`,
-}))
-
-const mergeDocuments = (...groups: Array<ReadonlyArray<DocumentRow> | undefined>): DocumentRow[] => {
-  const seen = new Set<string>()
-  const merged: DocumentRow[] = []
-  for (const group of groups) {
-    for (const document of group ?? []) {
-      const key = document.id == null ? `${document.name}\u0000${String(document.size ?? '')}` : `id:${String(document.id)}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      merged.push(document)
-    }
-  }
-  return merged
-}
-
-const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry => {
-  const row = asRecord(value)
-  const seller = asRecord(row.seller)
-  const lines = asRows(row.lines)
-  const sellerName = textValue(row.sellerName ?? asRecord(row.seller).name)
-  const total = nullableNumber(row.totalPayable ?? row.totalAmount)
-  const outstanding = nullableNumber(row.outstanding ?? row.outstandingAmount)
-  const detail: EntryDetail = {
-    sourceName: sellerName,
-    quarantine: textValue(row.quarantineCertNo),
-    phone: textValue(row.sellerPhone ?? asRecord(row.seller).phone),
-    plate: textValue(row.vehiclePlate),
-    by: textValue(row.postedBy ?? row.createdBy, '—'),
-    note: textValue(row.note),
-    cows: lines.map((line) => {
-      const data = asRecord(line.data)
-      const weight = numberValue(line.entryWeightKg ?? data.entryWeightKg)
-      const unitPrice = numberValue(line.unitPrice ?? data.unitPrice)
-      return {
-        code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
-        name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName, 'Bò')} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
-        weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
-        amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice,
-      }
-    }),
-    cowsTotal: numberValue(row.cattleAmount), freight: numberValue(row.transportFee),
-    payments: paymentRows(row.payments), docs: mapDocuments(documents, '', 0),
-    history: asRows(row.history).map((item) => textValue(item.message ?? item.text ?? item.kind)).filter(Boolean),
-  }
-  const farmBorn = row.entryType === 'FARM_BORN'
-  const draft: EntryDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
-    type: typeFromBackend(row.entryType), date: textValue(row.entryDate), sourceId: row.sellerId == null && seller.id == null ? '' : String(row.sellerId ?? seller.id), pricing: 'kg',
-    quarantine: textValue(row.quarantineCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note), freight: numberValue(row.transportFee),
-    paid: numberValue(row.amountPaid), method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', due: textValue(row.paymentDueDate),
-    ...(farmBorn ? { calves: lines.map((line) => {
-      const data = asRecord(line.data)
-      return {
-        name: textValue(data.name), tag: textValue(line.earTagNumber) || textValue(data.earTagNumber), mother: textValue(line.damCode) || textValue(data.damCode), father: textValue(line.sireCode, 'Không rõ'),
-        born: textValue(data.birthDate ?? row.entryDate), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', weight: numberValue(line.entryWeightKg ?? data.entryWeightKg), estimated: (line.weightBasis ?? data.weightBasis) === 'ESTIMATED',
-        purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), picked: true, barn: textValue(line.penCode),
-        calfOutcomeId: nullableNumber(line.calfOutcomeId), damId: nullableNumber(line.damId) ?? undefined, sireId: nullableNumber(line.sireId) ?? undefined, damCode: textValue(line.damCode) || textValue(data.damCode), penId: nullableNumber(line.penId), purposeId: nullableNumber(data.purposeId),
-      }
-    }) } : { cows: lines.map((line) => {
-      const data = asRecord(line.data)
-      return {
-        code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber), name: textValue(data.name),
-        // The voucher line response owns catalogue ids at line level. Older
-        // drafts placed them under `data`; preserve both so reopening a row
-        // does not turn a selected breed into a display-only label and then
-        // submit a null breedId.
-        breed: textValue(line.breedName ?? data.breedName, (line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate),
-        dobAccuracy: textValue(data.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
-        weight: numberValue(line.entryWeightKg ?? data.entryWeightKg), estimated: (line.weightBasis ?? data.weightBasis) === 'ESTIMATED',
-        barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: (() => {
-          const vaccination = asRecord(line.vaccination)
-          const vaccineItem = asRecord(asRows(vaccination.items)[0])
-          const disease = asRecord(line.disease)
-          const reproduction = asRecord(line.reproduction)
-          const vaccineStatus = vaccination.status === 'KNOWN' ? 'Có' : vaccination.status === 'NONE' ? 'Không' : 'Không rõ'
-          const vaccineItems = asRows(vaccination.items).map((item) => ({ vaccineId: nullableNumber(item.vaccineId) ?? undefined, vaccineName: textValue(item.vaccineName), vaccineDate: textValue(item.date), vaccineSource: textValue(item.informationSource) }))
-          const diseaseStatus = disease.status === 'KNOWN' ? 'Có' : disease.status === 'NONE' ? 'Không' : 'Không rõ'
-          const reproStatus = reproduction.status === 'KNOWN' ? 'Có' : reproduction.status === 'NONE' ? 'Không' : 'Không rõ'
-          const pregnancyMonths = nullableNumber(reproduction.estMonthsPregnant)
-          const earlierCalvings = nullableNumber(reproduction.earlierCalvings)
-          return {
-            vaccine: vaccineStatus, vaccineNote: textValue(vaccination.informationSource), vaccineId: nullableNumber(vaccineItem.vaccineId) ?? undefined,
-            vaccineName: textValue(vaccineItem.vaccineName), vaccineDate: textValue(vaccineItem.date), vaccineSource: textValue(vaccineItem.informationSource), vaccineItems,
-            disease: diseaseStatus, diseaseNote: textValue(disease.description), diseaseItems: textValue(disease.description).split('\n').map((item) => item.trim()).filter(Boolean), repro: reproStatus, pregnantAtEntry: textValue(reproduction.pregnantAtEntry),
-            ...(earlierCalvings == null ? {} : { earlierCalvings }), ...(pregnancyMonths == null ? {} : { pregnancyMonths }),
-            reproductionNote: textValue(reproduction.description),
-          }
-        })(),
-      }
-    }) }),
-  } : undefined
-  return {
-    id: textValue(row.code), backendId: numberValue(row.id), version: numberValue(row.version), date: textValue(row.entryDate),
-    type: typeFromBackend(row.entryType), source: sellerName, count: numberValue(row.cattleCount, lines.length),
-    weight: numberValue(row.totalWeightKg), total, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
-    cancelReason: textValue(row.voidReason), pricing: 'kg', quarantine: textValue(row.quarantineCertNo),
-  }
-}
-
-const findNamedId = (rows: unknown, name: string): number | null => {
-  const normalize = (value: string) => value.split(' · ')[0].split(' – ')[0].trim().toLocaleLowerCase('vi')
-  const wanted = normalize(name)
-  const match = asRows(rows).find((row) => normalize(textValue(row.name ?? row.label ?? row.code)) === wanted)
-  return match ? nullableNumber(match.id) : null
-}
-
-/**
- * The entry editor uses product-facing labels (for example
- * "Bò sinh sản · loại Sinh sản"), while the catalogue API returns the
- * canonical purpose name ("Bò cái sinh sản") and its purposeType.  Matching
- * only the display name silently produced purposeId=null, so the backend then
- * reported the misleading generic required-field error. Prefer the canonical
- * type and retain a name alias fallback for older catalogue responses.
- */
-const findPurposeId = (rows: unknown, name: string): number | null => {
-  const wanted = textValue(name).trim().toLocaleLowerCase('vi')
-  const exact = findNamedId(rows, name)
-  if (exact != null) return exact
-  const purposeType = wanted.includes('sinh sản') || wanted.includes('sinh san')
-    ? 'BREEDING'
-    : wanted.includes('vỗ béo') || wanted.includes('vo beo') || wanted.includes('thương phẩm') || wanted.includes('thuong pham')
-      ? 'FATTENING'
-      : wanted.includes('đực giống') || wanted.includes('duc giong') || wanted.includes('giữ giống') || wanted.includes('giu giong')
-        ? 'SIRE'
-        : wanted === 'chưa xác định' || wanted === 'chua xac dinh'
-          ? 'UNDECIDED'
-          : null
-  if (!purposeType) return null
-  const match = asRows(rows).find((row) => textValue(row.purposeType).toUpperCase() === purposeType)
-  if (match) return nullableNumber(match.id)
-  const aliases: Record<string, string[]> = {
-    BREEDING: ['bò cái sinh sản', 'bò sinh sản', 'sinh sản'],
-    FATTENING: ['vỗ béo', 'nuôi thương phẩm', 'nuôi thịt'],
-    SIRE: ['đực giống', 'giữ giống'],
-    UNDECIDED: ['chưa xác định'],
-  }
-  const aliasMatch = asRows(rows).find((row) => aliases[purposeType].some((alias) => textValue(row.name ?? row.label ?? row.code).toLocaleLowerCase('vi').includes(alias)))
-  return aliasMatch ? nullableNumber(aliasMatch.id) : null
-}
-
-const mapPendingCalf = (calf: Record<string, unknown>): EntryCalf => {
-  const damId = nullableNumber(calf.damId)
-  const sireId = nullableNumber(calf.sireId)
-  const draftVoucherId = nullableNumber(calf.draftVoucherId)
-  return {
-    name: 'Bê số 1', tag: textValue(calf.tagCode), mother: textValue(calf.damCode), father: textValue(calf.sireCode, 'Không rõ'),
-    ...(damId == null ? {} : { damId }),
-    ...(sireId == null ? {} : { sireId }),
-    ...(textValue(calf.sireSource) ? { sireSource: textValue(calf.sireSource) } : {}),
-    ...(textValue(calf.externalSireName) ? { externalSireName: textValue(calf.externalSireName) } : {}),
-    ...(textValue(calf.semenBatch) ? { semenBatch: textValue(calf.semenBatch) } : {}),
-    ...(textValue(calf.sireBreedCode) ? { sireBreed: textValue(calf.sireBreedCode) } : {}),
-    born: textValue(calf.birthDate), sex: calf.sex === 'MALE' ? 'Đực' : 'Cái', weight: numberValue(calf.birthWeightKg), estimated: false,
-    purpose: 'Chưa xác định', picked: false, barn: textValue(calf.proposedPenCode), calfOutcomeId: numberValue(calf.calfOutcomeId),
-    penId: nullableNumber(calf.proposedPenId), purposeId: nullableNumber(calf.defaultPurposeId),
-    ...(draftVoucherId == null ? {} : { draftVoucherId }),
-  }
-}
-
-export function createHerdEntryBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number }) {
+export function createHerdEntryBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number | null }) {
   const root = transport.farmPath(farmId, '/entry-vouchers')
   const listView = async (filters: EntryListFilters = {}): Promise<EntryListView> => {
     const params = new URLSearchParams()

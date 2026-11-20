@@ -21,14 +21,6 @@ export function periodDays(f: DashboardFilters): number {
   return diffDays(f.from, f.to) + 1
 }
 
-/** Trả về thông báo lỗi tiếng Việt hoặc null (MSG-COM-06, MSG-COM-11). */
-export function validateFilters(f: DashboardFilters): string | null {
-  if (f.period !== 'custom') return null
-  if (!f.from || !f.to) return 'Kỳ là bắt buộc.'
-  if (f.from > f.to) return 'Ngày bắt đầu không được sau ngày kết thúc.'
-  return null
-}
-
 const sum = (cells: HerdCell[], key: keyof HerdCell) => cells.reduce((total, cell) => total + (cell[key] as number), 0)
 
 export function filterCells(cells: HerdCell[], f: DashboardFilters) {

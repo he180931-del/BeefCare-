@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!--
+        UC-FE19-01/02/03: payment progress reads match evidence by upper(quote_ref) (case-insensitive payment code),
+        which the plain ix_evidence_quote_ref cannot serve on PostgreSQL. Index only: no column, data or backfill change.
+        NOT executed on H2 (offline tests); the query result is identical there, only the plan differs.
+    -->
+    <changeSet id="20261109000200-evidence-quote-ref-upper" author="beefcare" dbms="postgresql">
+        <sql>CREATE INDEX ix_evidence_quote_ref_upper ON bank_transfer_evidence (upper(quote_ref))</sql>
+        <rollback>
+            <sql>DROP INDEX ix_evidence_quote_ref_upper</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

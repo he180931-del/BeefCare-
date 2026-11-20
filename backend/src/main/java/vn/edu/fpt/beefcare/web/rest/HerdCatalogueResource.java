@@ -15,6 +15,12 @@ public class HerdCatalogueResource {
     @GetMapping("/production-purposes") public List<PurposeView> purposes(@PathVariable Long farmId,@RequestParam(required=false) String q,@RequestParam(required=false) String status){return service.purposes(farmId,q,status);}
     @PostMapping("/breeds") public BreedView createBreed(@PathVariable Long farmId,@Valid @RequestBody BreedWrite r,@RequestHeader("Idempotency-Key") String key){return commands.execute(farmId,FarmAction.MANAGE_CATALOGUES,"BREED_CREATE",key,r,BreedView.class,()->service.saveBreed(farmId,null,r));}
     @PutMapping("/breeds/{id}") public BreedView updateBreed(@PathVariable Long farmId,@PathVariable Long id,@Valid @RequestBody BreedWrite r,@RequestHeader("Idempotency-Key") String key){return commands.execute(farmId,FarmAction.MANAGE_CATALOGUES,"BREED_UPDATE:"+id,key,r,BreedView.class,()->service.saveBreed(farmId,id,r));}
+    @DeleteMapping("/breeds/{id}") public Boolean deleteBreed(@PathVariable Long farmId,@PathVariable Long id,@RequestHeader("If-Match") Integer expectedVersion,@RequestHeader("Idempotency-Key") String key){
+        return commands.execute(farmId,FarmAction.MANAGE_CATALOGUES,"BREED_DELETE:"+id,key,java.util.Map.of("id",id,"expectedVersion",expectedVersion),Boolean.class,()->service.deleteBreed(farmId,id,expectedVersion));
+    }
+    @DeleteMapping("/production-purposes/{id}") public Boolean deletePurpose(@PathVariable Long farmId,@PathVariable Long id,@RequestHeader("If-Match") Integer expectedVersion,@RequestHeader("Idempotency-Key") String key){
+        return commands.execute(farmId,FarmAction.MANAGE_CATALOGUES,"PURPOSE_DELETE:"+id,key,java.util.Map.of("id",id,"expectedVersion",expectedVersion),Boolean.class,()->service.deletePurpose(farmId,id,expectedVersion));
+    }
     @PostMapping("/production-purposes") public PurposeView createPurpose(@PathVariable Long farmId,@Valid @RequestBody PurposeWrite r,@RequestHeader("Idempotency-Key") String key){return commands.execute(farmId,FarmAction.MANAGE_CATALOGUES,"PURPOSE_CREATE",key,r,PurposeView.class,()->service.savePurpose(farmId,null,r));}
     @PutMapping("/production-purposes/{id}") public PurposeView updatePurpose(@PathVariable Long farmId,@PathVariable Long id,@Valid @RequestBody PurposeWrite r,@RequestHeader("Idempotency-Key") String key){return commands.execute(farmId,FarmAction.MANAGE_CATALOGUES,"PURPOSE_UPDATE:"+id,key,r,PurposeView.class,()->service.savePurpose(farmId,id,r));}
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Button, Card, EmptyBlock, Note } from '../../../components/ui'
+import { Button, Card, EmptyBlock, Note } from '../../../shared/ui'
 
 interface Props {
   title: string

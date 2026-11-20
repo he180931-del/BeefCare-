@@ -1,17 +1,17 @@
+import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, Foot, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
-import { listFeedFeedingRecords } from '../api/feedFeedingApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, Foot, Icon, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
+import { feedFeedingServerBacked, listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedReceipts } from '../api/feedReceiptApi'
 import { listFeedRationFeeds, listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { effectiveRationForPen } from '../data/feedTodayRations'
+import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
@@ -22,28 +22,20 @@ import type { FeedStockRow } from '../types'
 
 type PeriodView = 'DAY' | 'WEEK'
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-const pad = (value: number) => String(value).padStart(2, '0')
-const formatIso = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-const today = () => formatIso(new Date())
+const today = businessDate
 const isCalendarDate = (value: string | null): value is string => {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
-  return !Number.isNaN(date.getTime()) && formatIso(date) === value
+  const date = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
-const shiftDate = (iso: string, days: number) => {
-  const date = new Date(`${iso}T00:00:00`)
-  date.setDate(date.getDate() + days)
-  return formatIso(date)
-}
-const dateLabel = (iso: string) => `${WEEKDAYS[new Date(`${iso}T00:00:00`).getDay()]}, ${formatDate(iso)}`
+const shiftDate = addCalendarDays
+const dateLabel = (iso: string) => `${WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()]}, ${formatDate(iso)}`
 
 function periodRange(selectedDate: string, view: PeriodView) {
   if (view === 'DAY') return { from: selectedDate, to: selectedDate }
-  const date = new Date(`${selectedDate}T00:00:00`)
-  date.setDate(date.getDate() - (date.getDay() || 7) + 1)
-  const from = formatIso(date)
-  date.setDate(date.getDate() + 6)
-  return { from, to: formatIso(date) }
+  const date = new Date(`${selectedDate}T00:00:00Z`)
+  const from = addCalendarDays(selectedDate, 1 - (date.getUTCDay() || 7))
+  return { from, to: addCalendarDays(from, 6) }
 }
 
 function daysBetween(from: string, to: string, until: string) {
@@ -75,8 +67,10 @@ export default function FeedFeedingPage() {
   const [searchParams] = useSearchParams()
   const session = useSession()
   const [modal, openModal, closeModal] = useModalParam()
-  const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && session.role !== 'MANAGER')
-  const canRecord = !readOnlyView && backendMode === 'local'
+  // GBR-102, D41: Chủ trại và Quản lý ghi, sửa, hủy cữ cho ăn; Kỹ thuật viên chỉ xem.
+  const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && !canRecordCare(session.role))
+  const canRecord = !readOnlyView && (feedFeedingServerBacked ? canRecordCare(session?.role) : !session || canRecordCare(session.role))
+  const canViewStock = session?.role !== 'TECHNICIAN'
   const initialDate = searchParams.get('date')
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedingMessage' in location.state
     ? String((location.state as { feedingMessage?: unknown }).feedingMessage ?? '')
@@ -91,10 +85,12 @@ export default function FeedFeedingPage() {
   const range = useMemo(() => periodRange(selectedDate, view), [selectedDate, view])
   const query = useQuery(async (): Promise<FeedingData & { receipts: Awaited<ReturnType<typeof listFeedReceipts>> }> => {
     const [records, rations, pens, feeds, receipts] = await Promise.all([
-      listFeedFeedingRecords(range), listFeedRations(), listFeedRationPens(), listFeedRationFeeds(), listFeedReceipts().catch(() => []),
+      listFeedFeedingRecords(range), listFeedRations(), listFeedRationPens(),
+      canViewStock ? listFeedRationFeeds() : Promise.resolve([]),
+      canViewStock ? listFeedReceipts().catch(() => []) : Promise.resolve([]),
     ])
     return { records, rations, pens, feeds, receipts }
-  }, [range.from, range.to])
+  }, [range.from, range.to, canViewStock])
 
   const data = query.data
   const pens = data?.pens ?? []
@@ -156,15 +152,15 @@ export default function FeedFeedingPage() {
       <PageHeader title="Nhật ký cho ăn" sub="Ghi theo chuồng và cữ · kế hoạch = khẩu phần × số con · lưu là trừ kho">
         {canRecord && <Button onClick={() => openModal('nhanh')}>Ghi nhanh theo khẩu phần</Button>}
         {!readOnlyView && (
-          <Button variant="primary" disabled={backendMode === 'backend'} title={backendMode === 'backend' ? 'Ghi cữ chưa sẵn sàng ở chế độ kết nối.' : undefined} onClick={() => startRecord()}>
+          <Button variant="primary" onClick={() => startRecord()}>
             <span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Ghi cữ cho ăn</span>
           </Button>
         )}
       </PageHeader>
       <FeedManagementTabs />
       {message && <Note tone="ok">{message}</Note>}
-      {readOnlyView && <Note tone="info">Chế độ chỉ xem. Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
-      {!readOnlyView && backendMode === 'backend' && <Note tone="warn">Xem nhật ký đã kết nối. Ghi, sửa và hủy cữ chưa sẵn sàng ở chế độ kết nối.</Note>}
+      {readOnlyView && <Note tone="info">Chế độ chỉ xem. Chủ trại và Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
+      {canRecord && feedFeedingServerBacked && <Note tone="info">Ghi, sửa và hủy cữ sẽ cập nhật tồn kho theo phản hồi từ máy chủ.</Note>}
 
       <section role="tabpanel" aria-label="Nhật ký cho ăn" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -253,7 +249,7 @@ export default function FeedFeedingPage() {
                   {draftReceipt ? `Mở phiếu nhập kho ${draftReceipt.code}` : 'Tạo phiếu nhập kho'}
                 </Link>
               )}
-              <Note>Thuốc trộn vào thức ăn được ghi trong ca sức khỏe, không ghi ở đây. Chủ trại và Kỹ thuật viên chỉ xem nhật ký; Quản lý ghi, sửa và hủy.</Note>
+              <Note>Thuốc trộn vào thức ăn được ghi trong ca sức khỏe, không ghi ở đây. Kỹ thuật viên chỉ xem nhật ký; Chủ trại và Quản lý ghi, sửa và hủy.</Note>
             </div>
           </div>
         )}

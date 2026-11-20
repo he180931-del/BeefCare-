@@ -3,10 +3,8 @@ import type {
   Schedule, ScheduleCard, ScheduleCommand, ScheduleDetail, ScheduleResult, ScheduleTarget, ScheduledDose, VaccCattle, VaccinationBatchResult, VaccinationOptions, VaccinationRecord, VoidRecordCommand,
 } from '../types'
 import { addDays, addMonths, dayNumber, fmtDate } from '../domain/vaccinationFormat'
-import {
-  CONFLICT_MESSAGE, VaccinationValidationError, doseDate, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, validateDefer, validateReason, validateRecordFields, validateSchedule, withdrawalEndOf,
-  type FieldErrors,
-} from '../domain/vaccinationRules'
+import { CONFLICT_MESSAGE, VaccinationValidationError, doseDate, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, withdrawalEndOf, type FieldErrors } from '../domain/vaccinationRules'
+import { validateDefer, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import { MEMBERS, STATIC_OPTIONS, VACCINES, VACC_DEMO, VACC_NOW } from './vaccinationMock'
 
 const PAGE_SIZE = 6

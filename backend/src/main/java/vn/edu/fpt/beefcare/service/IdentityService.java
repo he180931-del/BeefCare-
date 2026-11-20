@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -71,7 +72,7 @@ public class IdentityService {
     }
 
     @Transactional
-    public void register(String fullName, String email, String password, String confirmation, boolean termsAccepted) {
+    public String register(String fullName, String email, String password, String confirmation, boolean termsAccepted) {
         String normalizedEmail = normalizeEmail(email);
         if (fullName == null || fullName.isBlank()) throw DomainException.required("fullName");
         if (fullName.trim().length() < 2 || fullName.trim().length() > 100) throw DomainException.invalid("fullName");
@@ -90,15 +91,25 @@ public class IdentityService {
         identity.setFirstName(fullName.trim().substring(0, Math.min(50, fullName.trim().length())));
         authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(identity.getAuthorities()::add);
         if (identity.getAuthorities().isEmpty()) throw new IllegalStateException("The standard user authority is not configured");
-        identity = userRepository.save(identity);
+        try {
+            identity = userRepository.saveAndFlush(identity);
 
-        AppUser account = new AppUser();
-        account.setEmail(normalizedEmail);
-        account.setFullName(fullName.trim());
-        account.setAccountStatus("ACTIVE");
-        account.setPasswordLoginEnabled(true);
-        appUserRepository.save(account);
+            AppUser account = new AppUser();
+            account.setEmail(normalizedEmail);
+            account.setFullName(fullName.trim());
+            account.setAccountStatus("ACTIVE");
+            account.setPasswordLoginEnabled(true);
+            Instant registeredAt = Instant.now();
+            account.setTermsAccepted(true);
+            account.setTermsAcceptedAt(registeredAt);
+            account.setPasswordMethodStatus("PENDING_VERIFICATION");
+            account.setPasswordLinkedAt(registeredAt);
+            appUserRepository.saveAndFlush(account);
+        } catch (DataIntegrityViolationException duplicateIdentity) {
+            throw DomainException.conflict(MessageCodes.FE01_10, "email", normalizedEmail);
+        }
         sendLink(identity, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL");
+        return normalizedEmail;
     }
 
     @Transactional
@@ -112,12 +123,39 @@ public class IdentityService {
         user.setActivationKey(null);
         user.setFailedPasswordAttempts(0);
         user.setPasswordLockedUntil(null);
+        activatePasswordMethod(projection, Instant.now());
         return user;
     }
 
     @Transactional
-    public void resendVerification(String email) {
-        findPasswordAccount(email, false).filter(user -> !user.isActivated()).ifPresent(user -> issueRateLimited(user, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL"));
+    public Instant resendVerification(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        Instant now = Instant.now();
+        Optional<User> pending = findPasswordAccount(normalizedEmail, false).filter(user -> !user.isActivated());
+        if (pending.isEmpty()) return now.plusSeconds(60);
+        User user = pending.orElseThrow();
+        Optional<AccountLinkToken> latest = tokenRepository.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(user.getId(), EMAIL_VERIFICATION);
+        if (latest.isPresent() && latest.orElseThrow().getCreatedAt().plusSeconds(60).isAfter(now)) {
+            return latest.orElseThrow().getCreatedAt().plusSeconds(60);
+        }
+        Instant hourStart = now.minus(Duration.ofHours(1));
+        if (tokenRepository.countByUserIdAndTokenTypeAndCreatedAtAfter(user.getId(), EMAIL_VERIFICATION, hourStart) >= MAX_LINK_EMAILS_PER_HOUR) {
+            return tokenRepository
+                .findFirstByUserIdAndTokenTypeAndCreatedAtAfterOrderByCreatedAtAsc(user.getId(), EMAIL_VERIFICATION, hourStart)
+                .map(link -> link.getCreatedAt().plus(Duration.ofHours(1)))
+                .orElseGet(() -> now.plusSeconds(60));
+        }
+        sendLink(user, EMAIL_VERIFICATION, VERIFICATION_LIFETIME, "VERIFY_EMAIL");
+        return now.plusSeconds(60);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<String> verificationEmail(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) return Optional.empty();
+        return tokenRepository
+            .findOneByTokenHashAndTokenType(linkSigner.hash(rawToken), EMAIL_VERIFICATION)
+            .map(AccountLinkToken::getUser)
+            .map(User::getEmail);
     }
 
     /**
@@ -127,12 +165,13 @@ public class IdentityService {
      */
     @Transactional
     public void requestPasswordReset(String email) {
-        Optional<User> passwordAccount = findPasswordAccount(email, true).filter(User::isActivated);
+        String normalizedEmail = normalizeEmail(email);
+        Optional<User> passwordAccount = findPasswordAccount(normalizedEmail, true).filter(User::isActivated);
         if (passwordAccount.isPresent()) {
             issueRateLimited(passwordAccount.get(), PASSWORD_RESET, RESET_LIFETIME, "RESET_PASSWORD");
             return;
         }
-        findGoogleOnlyAccount(email).ifPresent(account -> {
+        findGoogleOnlyAccount(normalizedEmail).ifPresent(account -> {
             if (emailJobs.countByRecipientIgnoreCaseAndTemplateKeyAndCreatedAtAfter(account.getEmail(), "GOOGLE_SIGN_IN_ADVICE", Instant.now().minus(Duration.ofHours(1))) >= MAX_LINK_EMAILS_PER_HOUR) return;
             mailService.queueActionLink(account.getEmail(), "GOOGLE_SIGN_IN_ADVICE", "ACCOUNT", account.getId(), account.getFullName(), null, null);
         });
@@ -148,6 +187,13 @@ public class IdentityService {
             .isPresent();
     }
 
+    @Transactional(readOnly = true)
+    public Optional<String> passwordResetEmail(String rawToken) {
+        if (!isPasswordResetLinkValid(rawToken)) return Optional.empty();
+        return tokenRepository.findOneByTokenHashAndTokenType(linkSigner.hash(rawToken), PASSWORD_RESET)
+            .map(AccountLinkToken::getUser).map(User::getEmail);
+    }
+
     @Transactional
     public User completePasswordReset(String rawToken, String newPassword, String confirmation) {
         AccountLinkToken link = consume(rawToken, PASSWORD_RESET);
@@ -160,7 +206,7 @@ public class IdentityService {
         user.setResetDate(null);
         expireSessions(user, false); // UC-FE01-05 step 7: every session of the account ends, including one held by the requester
         AppUser account = appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).orElseThrow(IdentityService::invalidLink);
-        account.setPasswordLoginEnabled(true);
+        activatePasswordMethod(account, Instant.now());
         mailService.sendEmail(user.getEmail(), "Your BeefCare password changed", "Your password was changed. If you did not make this change, contact BeefCare support.", false, false);
         return user;
     }
@@ -197,7 +243,7 @@ public class IdentityService {
         user.setFailedPasswordAttempts(0);
         user.setPasswordLockedUntil(null);
         // AF1: the email is already verified by Google, so the new password works at once; Google sign-in stays linked.
-        account.setPasswordLoginEnabled(true);
+        activatePasswordMethod(account, Instant.now());
         expireSessions(user, true);
         mailService.sendEmail(user.getEmail(), "Your BeefCare password changed", "Your password was changed. If you did not make this change, contact BeefCare support.", false, false);
     }
@@ -223,15 +269,18 @@ public class IdentityService {
     }
 
     @Transactional
-    public void recordFailedPasswordAttempt(String login) {
+    public Optional<Instant> recordFailedPasswordAttempt(String login) {
         User user = findLogin(login).orElse(null);
-        if (user == null || !user.isActivated()) return;
+        if (user == null || !user.isActivated()) return Optional.empty();
         int attempts = user.getFailedPasswordAttempts() + 1;
         if (attempts >= 5) {
             user.setFailedPasswordAttempts(5);
-            user.setPasswordLockedUntil(Instant.now().plus(PASSWORD_LOCK));
+            Instant lockedUntil = Instant.now().plus(PASSWORD_LOCK);
+            user.setPasswordLockedUntil(lockedUntil);
+            return Optional.of(lockedUntil);
         } else {
             user.setFailedPasswordAttempts(attempts);
+            return Optional.empty();
         }
     }
 
@@ -240,6 +289,7 @@ public class IdentityService {
         findLogin(login).ifPresent(user -> {
             user.setFailedPasswordAttempts(0);
             user.setPasswordLockedUntil(null);
+            appUserRepository.findOneByEmailIgnoreCase(user.getEmail()).ifPresent(account -> account.setPasswordLastUsedAt(Instant.now()));
         });
     }
 
@@ -261,6 +311,8 @@ public class IdentityService {
 
     private void issueRateLimited(User user, String type, Duration lifetime, String templateKey) {
         Instant now = Instant.now();
+        Optional<AccountLinkToken> latest = tokenRepository.findFirstByUserIdAndTokenTypeOrderByCreatedAtDesc(user.getId(), type);
+        if (latest.isPresent() && latest.orElseThrow().getCreatedAt().plusSeconds(60).isAfter(now)) return;
         if (tokenRepository.countByUserIdAndTokenTypeAndCreatedAtAfter(user.getId(), type, now.minus(Duration.ofHours(1))) >= MAX_LINK_EMAILS_PER_HOUR) {
             return;
         }
@@ -302,6 +354,13 @@ public class IdentityService {
         String normalized = email.trim().toLowerCase(Locale.ROOT);
         if (normalized.length() > 254 || !normalized.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) throw DomainException.invalid("email");
         return normalized;
+    }
+
+    /** Keeps the denormalized sign-in-method state aligned with the credential in jhi_user. */
+    private static void activatePasswordMethod(AppUser account, Instant linkedAt) {
+        account.setPasswordLoginEnabled(true);
+        account.setPasswordMethodStatus("ACTIVE");
+        if (account.getPasswordLinkedAt() == null) account.setPasswordLinkedAt(linkedAt);
     }
 
     /** GBR-02: 8-128 characters, not equal to the email (MSG-FE01-08); the confirmation must match (MSG-FE01-09). */

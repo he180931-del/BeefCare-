@@ -1,4 +1,4 @@
-import { Badge, Button, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Table, Td, Th } from '../../../shared/ui'
 import { useNavigate } from 'react-router-dom'
 import { feedGroupLabel, formatDate, formatDaysOfCover, formatKg, formatNumber } from '../domain/feedLabels'
 import type { FeedStockRow, FeedStockStatus } from '../types'
@@ -19,7 +19,7 @@ function equivalent(row: FeedStockRow) {
 export default function FeedStockTable({ rows, onView }: { rows: readonly FeedStockRow[]; onView?: (row: FeedStockRow) => void }) {
   const navigate = useNavigate()
   return (
-    <Table scroll stack={false}>
+    <Table scroll stack={false} bordered={false}>
       <thead>
         <tr>
           <Th>Mã</Th>
@@ -28,7 +28,7 @@ export default function FeedStockTable({ rows, onView }: { rows: readonly FeedSt
           <Th>Tối thiểu</Th>
           <Th>TB/ngày (7 ngày)</Th>
           <Th>Đủ dùng</Th>
-          <Th>Lô gần hết hạn</Th>
+          <Th title="Hạn gần nhất trong 30 ngày theo phiếu nhập đã ghi sổ; không thể hiện số dư riêng của lô.">Lô gần hạn theo phiếu nhập</Th>
           <Th>Trạng thái</Th>
           <Th aria-label="Thao tác" />
         </tr>
@@ -52,9 +52,9 @@ export default function FeedStockTable({ rows, onView }: { rows: readonly FeedSt
               <Td className="whitespace-nowrap">{row.minimumStockKg === null ? '—' : formatKg(row.minimumStockKg)}</Td>
               <Td className="whitespace-nowrap">{formatKg(row.averageDailyUseKg)}</Td>
               <Td className="whitespace-nowrap">{formatDaysOfCover(row.daysOfCover)}</Td>
-              <Td className="whitespace-nowrap">
+              <Td className="min-w-[110px]">
                 {row.nearestLotExpiryDate
-                  ? <><div className="font-medium">{row.nearestLotNumber ?? 'Lô gần hạn'}</div><div className="text-[11px] text-muted">HSD {formatDate(row.nearestLotExpiryDate)}</div></>
+                  ? <><div className="font-medium">{row.nearestLotNumber ?? 'Lô gần hạn'}</div><div className="text-[11px] leading-snug text-muted">Hạn trên phiếu đã ghi: {formatDate(row.nearestLotExpiryDate)}</div></>
                   : '—'}
               </Td>
               <Td>

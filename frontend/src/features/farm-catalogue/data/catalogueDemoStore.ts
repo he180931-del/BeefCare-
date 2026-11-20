@@ -1,8 +1,7 @@
-import {
-  FieldErrors, matchesFilters, purposeUsage, todayIso, validateBreed, validateMedicine, validatePurpose, validateVaccine, vaccineUsage,
-  type FieldErrorMap,
-} from '../domain/catalogueRules'
-import { describeChanges, validateParameterVersion } from '../domain/parameterRules'
+import { FieldErrors, matchesFilters, purposeUsage, todayIso, vaccineUsage, type FieldErrorMap } from '../domain/catalogueRules'
+import { validateBreed, validateMedicine, validatePurpose, validateVaccine } from '../validation/catalogueValidation'
+import { effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
+import { validateParameterVersion } from '../validation/parameterValidation'
 import type {
   Breed, BreedCommand, CatalogueBase, CatalogueFilters, Medicine, MedicineCommand, ParameterVersion, ParameterVersionCommand, Purpose,
   PurposeCommand, Vaccine, VaccineCommand,
@@ -46,11 +45,11 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
 
   const decorate = (): ParameterVersion[] => {
     const sorted = [...data.parameterVersions].sort((a, b) => a.versionNo - b.versionNo)
-    const current = [...sorted].reverse().find((v) => v.effectiveFrom <= today())
+    const current = effectiveVersion(sorted, today())
     return sorted
-      .map((v, i) => ({
+      .map((v) => ({
         ...structuredClone(v),
-        changes: describeChanges(i === 0 ? null : sorted[i - 1]!.parameters, v.parameters),
+        changes: parameterVersionChanges(sorted, v),
         status: (v.id === current?.id ? 'CURRENT' : v.effectiveFrom > today() ? 'SCHEDULED' : 'PAST') as ParameterVersion['status'],
       }))
       .reverse()
@@ -130,9 +129,11 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
     async saveParameterVersion(c: ParameterVersionCommand, author: string): Promise<ParameterVersion> {
       const errors = validateParameterVersion(c, today())
       if (Object.keys(errors).length) throw new FieldErrors(errors)
+      const latest = data.parameterVersions.reduce((max, v) => Math.max(max, v.versionNo), 0)
+      if (c.baseVersion !== undefined && c.baseVersion !== latest) throw new Error(CONFLICT)
       const record = {
         id: nextId(data.parameterVersions),
-        versionNo: data.parameterVersions.reduce((max, v) => Math.max(max, v.versionNo), 0) + 1,
+        versionNo: latest + 1,
         effectiveFrom: c.effectiveFrom,
         parameters: structuredClone(c.parameters),
         sourceNote: c.sourceNote.trim(),

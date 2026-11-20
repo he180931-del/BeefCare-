@@ -1,29 +1,35 @@
+import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, DateInput, ErrorBlock, Field, Foot, LoadingBlock, PageHeader, Segmented, Select } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, PageHeader, Panel, Segmented, Select } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import { farmOverviewApi } from '../api/farmOverviewApi'
 import ReportResult from '../components/ReportResult'
 import { HERD_GROUP_LABEL, HERD_GROUP_ORDER, LIFE_STAGES, LIFE_STAGE_LABEL } from '../domain/dashboardRules'
-import { REPORT_CATALOGUE, validateReportRequest } from '../domain/reportRules'
+import { REPORT_CATALOGUE } from '../domain/reportRules'
+import { validateReportRequest } from '../validation/reportValidation'
 import { viewerRole } from '../domain/viewer'
 import type { HerdGroup, LifeStage, ReportCode, ReportFilterKey, ReportRequest } from '../types'
 
 const TITLE = 'Báo cáo quản lý'
-const BREEDS = ['Zebu đỏ', 'Lai Sind']
+
+function recentReportPeriod() {
+  const to = businessDate()
+  return { dateFrom: addCalendarDays(to, -29), dateTo: to }
+}
 
 export default function ManagementReportPage() {
   const role = viewerRole(useSession()?.role)
   const [params] = useSearchParams()
   const first = REPORT_CATALOGUE.find((c) => c.code === params.get('loai'))?.code ?? 'RPT-05'
-  const [draft, setDraft] = useState<ReportRequest>({ reportType: first, dateFrom: '2026-07-01', dateTo: '2026-09-30', pen: '', breed: '', herdGroup: '', lifeStage: '' })
+  const [draft, setDraft] = useState<ReportRequest>(() => ({ reportType: first, ...recentReportPeriod(), pen: '', breed: '', herdGroup: '', lifeStage: '' }))
   const [applied, setApplied] = useState<ReportRequest>(draft)
   const [periodError, setPeriodError] = useState('')
   const pens = useQuery(() => farmOverviewApi.listPenOptions(), [])
+  const breeds = useQuery(() => farmOverviewApi.listBreedOptions(), [])
   const report = useQuery(() => farmOverviewApi.runReport(applied, role), [applied, role])
 
   const entry = REPORT_CATALOGUE.find((c) => c.code === draft.reportType)!
@@ -37,12 +43,12 @@ export default function ManagementReportPage() {
 
   return (
     <Layout title={TITLE}>
-      <div className="flex flex-col gap-4">
+      <div className="@container flex min-w-0 flex-col gap-4">
         <PageHeader title="Báo cáo quản lý" sub="Chọn loại báo cáo, kỳ và bộ lọc để xem kết quả theo chuồng.">
           <Button onClick={() => window.print()}><Icon name="printer" size={16} /> In / xuất</Button>
         </PageHeader>
 
-        <Card title="Tiêu chí báo cáo">
+        <Panel title="Tiêu chí báo cáo">
           <div className="flex flex-col gap-4">
             <Field label="Loại báo cáo *">
               <div className="overflow-x-auto">
@@ -52,9 +58,9 @@ export default function ManagementReportPage() {
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Kỳ báo cáo *" hint={periodError ? <span role="alert" className="text-err-fg">{periodError}</span> : undefined}>
                 <div className="flex items-center gap-2">
-                  <DateInput id="rpt-from" value={draft.dateFrom} onChange={(v) => set({ dateFrom: v })} className="w-[150px]" />
+                  <DateInput id="rpt-from" value={draft.dateFrom} onChange={(v) => set({ dateFrom: v })} className="w-[150px] min-w-0" />
                   <span className="text-muted">–</span>
-                  <DateInput id="rpt-to" value={draft.dateTo} onChange={(v) => set({ dateTo: v })} className="w-[150px]" />
+                  <DateInput id="rpt-to" value={draft.dateTo} onChange={(v) => set({ dateTo: v })} className="w-[150px] min-w-0" />
                 </div>
               </Field>
               {shows('pen') && (
@@ -69,7 +75,7 @@ export default function ManagementReportPage() {
                 <Field label="Giống" id="rpt-breed">
                   <Select id="rpt-breed" value={draft.breed} onChange={(e) => set({ breed: e.target.value })}>
                     <option value="">Tất cả</option>
-                    {BREEDS.map((b) => <option key={b} value={b}>{b}</option>)}
+                    {(breeds.data ?? []).map((b) => <option key={b.code} value={b.name}>{b.name}</option>)}
                   </Select>
                 </Field>
               )}
@@ -89,10 +95,11 @@ export default function ManagementReportPage() {
                   </Select>
                 </Field>
               )}
-              <Button variant="primary" onClick={submit}>Xem báo cáo</Button>
+              <Button variant="primary" className="min-h-11" onClick={submit}>Xem báo cáo</Button>
             </div>
+            {shows('breed') && Boolean(breeds.error) && <p role="alert" className="m-0 text-xs text-err-fg">{userFacingError(breeds.error, 'Không tải được danh sách giống.')}</p>}
           </div>
-        </Card>
+        </Panel>
 
         {report.loading && !report.data && <LoadingBlock />}
         {Boolean(report.error) && <ErrorBlock message={userFacingError(report.error, 'Không tính được số liệu.')} onRetry={report.refetch} />}

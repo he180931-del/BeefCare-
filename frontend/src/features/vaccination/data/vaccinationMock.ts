@@ -1,4 +1,5 @@
 import type { HerdGroup, LifeStage, Schedule, ScheduledDose, VaccCattle, VaccinationOptions, VaccinationRecord, VaccineItem } from '../types'
+import { VACCINATION_HERD_GROUPS, VACCINATION_LIFE_STAGES } from '../constants/vaccinationOptions'
 import { addDays } from '../domain/vaccinationFormat'
 import { doseDate, resolveTarget } from '../domain/vaccinationRules'
 
@@ -149,18 +150,6 @@ export type VaccinationSeed = typeof VACC_DEMO
 export const STATIC_OPTIONS: Omit<VaccinationOptions, 'now' | 'vaccines'> = {
   members: MEMBERS,
   pens: Object.entries(PEN_DEF).map(([code, d]) => ({ code, label: d.name })),
-  herdGroups: [
-    { value: 'CALVES', label: 'Bê' },
-    { value: 'FATTENING', label: 'Vỗ béo' },
-    { value: 'BREEDING_BULLS', label: 'Đực giống' },
-    { value: 'BREEDING_FEMALES', label: 'Bò cái sinh sản' },
-    { value: 'YOUNG_STOCK', label: 'Bò tơ' },
-    { value: 'OTHER', label: 'Khác' },
-  ],
-  lifeStages: [
-    { value: 'UNWEANED_CALF', label: 'Bê chưa cai sữa' },
-    { value: 'WEANED_CALF', label: 'Bê cai sữa' },
-    { value: 'YOUNG_STOCK', label: 'Bò tơ' },
-    { value: 'ADULT', label: 'Trưởng thành' },
-  ],
+  herdGroups: VACCINATION_HERD_GROUPS,
+  lifeStages: VACCINATION_LIFE_STAGES,
 }

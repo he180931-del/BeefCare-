@@ -7,14 +7,18 @@ const response = (body: unknown) => new Response(JSON.stringify(body), { headers
 
 describe('backend cattle update modal', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-10T17:30:00Z'))
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('does not seed demo reason/date and posts the current date for a backend cattle', async () => {
@@ -35,7 +39,8 @@ describe('backend cattle update modal', () => {
     const user = userEvent.setup()
     render(<UpdateModal cow={cow} onClose={() => undefined} onSaved={() => undefined} />)
 
-    const today = new Date().toISOString().slice(0, 10)
+    // Farm business date (UTC+7), not the UTC date: they differ between 00:00 and 07:00 in Viet Nam.
+    const today = '2026-11-11'
     expect(screen.getByLabelText('Chọn ngày')).toHaveValue(today)
     expect(screen.getAllByRole('textbox')[1]).toHaveValue('')
     expect(screen.queryByText(/Đủ 13 tháng/)).not.toBeInTheDocument()

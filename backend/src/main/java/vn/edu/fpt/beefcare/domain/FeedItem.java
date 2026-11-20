@@ -36,6 +36,10 @@ public class FeedItem implements Serializable {
     @Column(name = "feed_group", length = 30, nullable = false)
     private String feedGroup;
 
+    @Size(max = 500)
+    @Column(name = "nutrition_note", length = 500)
+    private String nutritionNote;
+
     @Size(max = 30)
     @Column(name = "purchase_unit", length = 30)
     private String purchaseUnit;
@@ -81,6 +85,8 @@ public class FeedItem implements Serializable {
     public void setName(String name) { this.name = name; }
     public String getFeedGroup() { return feedGroup; }
     public void setFeedGroup(String feedGroup) { this.feedGroup = feedGroup; }
+    public String getNutritionNote() { return nutritionNote; }
+    public void setNutritionNote(String nutritionNote) { this.nutritionNote = nutritionNote; }
     public String getPurchaseUnit() { return purchaseUnit; }
     public void setPurchaseUnit(String purchaseUnit) { this.purchaseUnit = purchaseUnit; }
     public BigDecimal getKgPerPurchaseUnit() { return kgPerPurchaseUnit; }

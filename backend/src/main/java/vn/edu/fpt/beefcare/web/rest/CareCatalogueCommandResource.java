@@ -57,6 +57,13 @@ public class CareCatalogueCommandResource {
         return commands.saveMedicine(farmId, null, key, request);
     }
 
+    @DeleteMapping("/medicines/{medicineId}")
+    public Boolean deleteMedicine(@PathVariable Long farmId, @PathVariable Long medicineId,
+                                  @RequestHeader("Idempotency-Key") String key,
+                                  @RequestHeader("If-Match") Integer expectedVersion) {
+        return commands.deleteUnusedMedicine(farmId, medicineId, key, expectedVersion);
+    }
+
     @PutMapping("/medicines/{medicineId}")
     public CareDtos.CatalogueItem updateMedicine(@PathVariable Long farmId, @PathVariable Long medicineId,
                                                   @RequestHeader("Idempotency-Key") String key,

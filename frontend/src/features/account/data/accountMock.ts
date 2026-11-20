@@ -23,7 +23,8 @@ export function seedProfile(identity: AccountIdentity): AccountProfile {
   return {
     id: nextId++, email: identity.email, fullName: identity.fullName, phone: seed.phone, emailVerified: true,
     passwordSignInEnabled: seed.password, googleSignInLinked: seed.google, ownerRegistrationCompleted: identity.role === 'OWNER',
+    status: 'ACTIVE', signInMethods: [seed.password && 'PASSWORD', seed.google && 'GOOGLE'].filter((method): method is string => Boolean(method)), hasPassword: seed.password,
     platformRole: farmRole ? null : identity.role,
-    farms: farmRole && identity.farmName ? [{ farmId: 1, farmName: identity.farmName, role: identity.role, permissions: [] }] : [],
+    farms: farmRole && identity.farmName ? [{ farmId: 1, farmName: identity.farmName, role: identity.role, serviceStatus: 'ACTIVE', permissions: [] }] : [],
   }
 }

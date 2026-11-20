@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createFeedConsumptionApi } from '../../../src/features/feed-stock/api/feedConsumptionApi'
 import type { FeedConsumptionSupportingData } from '../../../src/features/feed-stock/types/feedConsumption'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const range = { from: '2026-06-01', to: '2026-06-30' }
 const emptyData: FeedConsumptionSupportingData = {

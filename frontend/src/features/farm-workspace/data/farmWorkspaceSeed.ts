@@ -1,7 +1,7 @@
 import type { FarmDetails, Invitation, InvitationPreview, Membership } from '../types'
 
 export const YEN_BAI = 'Trại bò Yên Bài – Ba Vì'
-/** Mã liên kết mẫu cho chế độ mô phỏng (xem /chap-nhan-loi-moi?token=…). */
+/** Mã liên kết mẫu cho chế độ mô phỏng (xem /invitation/accept?token=…). */
 export const SAMPLE_TOKEN = 'mock-invitation-token'
 export const EXPIRED_TOKEN = 'mock-invitation-expired'
 /** Trại của lời mời mẫu; không trùng mã trại đã có hoặc sắp cấp. */
@@ -27,7 +27,7 @@ export function seedFarms(): FarmDetails[] {
     {
       ...base, id: 3, name: 'Trại Cẩm Lĩnh', role: 'MANAGER', serviceStatus: 'ACTIVE', province: 'Hà Nội', commune: 'Cẩm Lĩnh, Ba Vì', detailedAddress: '',
       contactPerson: '', contactPhone: '', registrationCertificateInfo: '', morningShiftStart: '', operatingNotes: '',
-      serviceUntil: null, renewalOpensAt: null, activeCattleCount: 132, ownerName: 'Chủ trại Cẩm Lĩnh',
+      serviceUntil: '2027-03-31', renewalOpensAt: null, activeCattleCount: 132, ownerName: 'Chủ trại Cẩm Lĩnh',
     },
     {
       ...base, id: 4, name: 'Trại Suối Hai', role: 'OWNER', serviceStatus: 'SUSPENDED', province: 'Hà Nội', commune: 'Suối Hai, Ba Vì', detailedAddress: '',
@@ -38,7 +38,7 @@ export function seedFarms(): FarmDetails[] {
 }
 
 const member = (id: number, fullName: string, email: string, role: Membership['role'], joinedAt: string, status: Membership['status'] = 'ACTIVE'): Membership =>
-  ({ id, userId: id, fullName, email, role, status, effectiveDate: joinedAt, reason: '', version: 1, joinedAt })
+  ({ id, userId: id, fullName, email, role, status, joinedAt: `${joinedAt}T08:00:00+07:00`, version: 1, actions: [] })
 
 /** Bảy thành viên của trại Yên Bài (Figma "Thành viên & vai trò"). */
 export function seedYenBaiMembers(): Membership[] {
@@ -58,7 +58,7 @@ const invitation = (id: number, email: string, role: Invitation['role'], status:
 
 /** Hai lời mời đang chờ như Figma, cùng sáu lời mời đã chấp nhận, một hết hạn và một đã hủy. */
 export function seedYenBaiInvitations(): Invitation[] {
-  const accepted = seedYenBaiMembers().slice(1).map((item, index) => invitation(3 + index, item.email, item.role as Invitation['role'], 'ACCEPTED', `${item.joinedAt}T08:00:00+07:00`, `${item.joinedAt}T08:00:00+07:00`, 'HAS_ACCOUNT'))
+  const accepted = seedYenBaiMembers().slice(1).map((item, index) => invitation(3 + index, item.email, item.role as Invitation['role'], 'ACCEPTED', item.joinedAt, item.joinedAt, 'HAS_ACCOUNT'))
   return [
     invitation(1, 'dinhthuy.kt@gmail.com', 'TECHNICIAN', 'PENDING', '2026-10-17T08:10:00+07:00', '2026-10-24T08:10:00+07:00', 'NO_ACCOUNT'),
     invitation(2, 'quang.manager@gmail.com', 'MANAGER', 'PENDING', '2026-10-12T14:30:00+07:00', '2026-10-19T14:30:00+07:00', 'HAS_ACCOUNT'),
@@ -70,6 +70,6 @@ export function seedYenBaiInvitations(): Invitation[] {
 
 /** Lời mời của Kỹ thuật viên Lê Thị Mai (Figma "Chấp nhận lời mời" và "Lời mời không còn hiệu lực"). */
 export const samplePreview: InvitationPreview = {
-  farmName: YEN_BAI, email: 'technician@beefcare.local', role: 'TECHNICIAN', status: 'PENDING',
-  invitedAt: '2026-10-17T08:10:00+07:00', expiresAt: '2026-10-24T08:10:00+07:00', invitedBy: 'Nguyễn Văn Hùng · Chủ trại', farmId: INVITED_FARM_ID,
+  farmName: YEN_BAI, email: 'technician@beefcare.local', role: 'TECHNICIAN', status: 'PENDING', timeZone: 'Asia/Ho_Chi_Minh',
+  sentAt: '2026-10-17T08:10:00+07:00', expiresAt: '2026-10-24T08:10:00+07:00', invitedBy: 'Nguyễn Văn Hùng', farmId: INVITED_FARM_ID,
 }

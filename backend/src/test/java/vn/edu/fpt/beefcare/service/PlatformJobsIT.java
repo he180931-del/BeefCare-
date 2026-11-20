@@ -16,6 +16,7 @@ import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.CashReportSnapshot;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.FarmInvitation;
+import vn.edu.fpt.beefcare.domain.SePayWebhookRejection;
 import vn.edu.fpt.beefcare.domain.Subscription;
 import vn.edu.fpt.beefcare.domain.User;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
@@ -83,6 +84,32 @@ class PlatformJobsIT extends DomainTestSupport {
         assertThat(em.find(CashReportSnapshot.class, available.getId())).isNotNull();
     }
 
+    /** Review UC8 #4: UC-FE19-08 E1 metadata of unauthenticated calls is technical data kept for 30 days. */
+    @Test
+    void purgeDropsRejectedWebhookMetadataOlderThanThirtyDaysOnly() {
+        Instant now = clock.instant();
+        SePayWebhookRejection old = rejection(now.minus(Duration.ofDays(31)));
+        SePayWebhookRejection recent = rejection(now.minus(Duration.ofDays(29)));
+
+        DataRetentionJob.Result result = retention.purge();
+        em.flush();
+        em.clear();
+
+        assertThat(em.find(SePayWebhookRejection.class, old.getId())).isNull();
+        assertThat(em.find(SePayWebhookRejection.class, recent.getId())).isNotNull();
+        assertThat(result.webhookRejections()).isGreaterThanOrEqualTo(1);
+    }
+
+    private SePayWebhookRejection rejection(Instant receivedAt) {
+        SePayWebhookRejection rejected = new SePayWebhookRejection();
+        rejected.setReceivedAt(receivedAt);
+        rejected.setReason("INVALID_AUTHENTICATION");
+        rejected.setBodyBytes(128);
+        em.persist(rejected);
+        em.flush();
+        return rejected;
+    }
+
     // ------------------------------------------------------------------ JOB-02
 
     @Test
@@ -99,7 +126,7 @@ class PlatformJobsIT extends DomainTestSupport {
 
         FarmInvitation expired = em.find(FarmInvitation.class, due.getId());
         assertThat(expired.getStatus()).isEqualTo("EXPIRED");
-        assertThat(expired.getTokenHash()).isNull();
+        assertThat(expired.getTokenHash()).isNotNull(); // D28: kept so the link can say EXPIRED until JOB-08
         assertThat(em.find(FarmInvitation.class, valid.getId()).getStatus()).isEqualTo("PENDING");
         assertThat(audits("INVITE_EXPIRED", due.getId())).isEqualTo(1);
         assertThat(audits("INVITE_EXPIRED", valid.getId())).isZero();

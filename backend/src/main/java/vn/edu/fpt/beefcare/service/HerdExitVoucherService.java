@@ -548,8 +548,11 @@ public class HerdExitVoucherService {
             }
             return;
         }
-        if (v.getBuyer() == null && isBlank(v.getDestination())) {
-            throw DomainException.required("buyerOrDestination");
+        if ((v.getExitType() == ExitType.SALE || v.getExitType() == ExitType.CULL) && v.getBuyer() == null) {
+            throw DomainException.required("buyerId");
+        }
+        if (v.getExitType() == ExitType.OTHER && isBlank(v.getDestination())) {
+            throw DomainException.required("destination");
         }
         if (v.getPricingBasis() == null) {
             throw DomainException.required("pricingBasis");

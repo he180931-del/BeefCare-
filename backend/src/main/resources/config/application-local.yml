@@ -2,6 +2,13 @@
 spring:
   config:
     import: optional:file:../.env[.properties]
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID:}
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET:}
   datasource:
     url: ${BEEFCARE_DB_URL:jdbc:postgresql://localhost:15432/beefcare}
     username: ${BEEFCARE_DB_USERNAME:beefcare}
@@ -9,11 +16,14 @@ spring:
   liquibase:
     contexts: local
   mail:
-    host: localhost
-    port: 1025
+    host: ${BEEFCARE_SMTP_HOST:localhost}
+    port: ${BEEFCARE_SMTP_PORT:1025}
+    username: ${BEEFCARE_SMTP_USERNAME:}
+    password: ${BEEFCARE_SMTP_PASSWORD:}
     properties:
-      mail.smtp.auth: false
-      mail.smtp.starttls.enable: false
+      mail.smtp.auth: ${BEEFCARE_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${BEEFCARE_SMTP_STARTTLS_ENABLE:false}
+      mail.smtp.starttls.required: ${BEEFCARE_SMTP_STARTTLS_REQUIRED:false}
       mail.smtp.connectiontimeout: 5000
       mail.smtp.timeout: 5000
       mail.smtp.writetimeout: 5000
@@ -41,6 +51,8 @@ beefcare:
     backend-base-url: ${BEEFCARE_BACKEND_URL:http://localhost:8080}
     link-signing-key: ${BEEFCARE_LINK_SECRET}
 jhipster:
+  mail:
+    from: ${BEEFCARE_MAIL_FROM:BeefCare@gmail.com}
   cors:
     allowed-origins: ${BEEFCARE_CORS_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000}
     allow-credentials: true

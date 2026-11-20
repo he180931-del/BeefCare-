@@ -11,7 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.fpt.beefcare.ServiceIntegrationTest;
 import vn.edu.fpt.beefcare.domain.*;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod;
+import vn.edu.fpt.beefcare.domain.enumeration.PaymentRecordStatus;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.*;
+import vn.edu.fpt.beefcare.service.dto.RecordPaymentRequest;
+import vn.edu.fpt.beefcare.service.dto.VoidPaymentRequest;
 import vn.edu.fpt.beefcare.support.DomainTestSupport;
 
 /** UC-FE23-04 / GBR-100 / BR-D34 / BR-D36 against the real H2 schema, including migration 20261029001000. */
@@ -20,6 +24,7 @@ import vn.edu.fpt.beefcare.support.DomainTestSupport;
 class FeedStockAdjustmentServiceIT extends DomainTestSupport {
     @Autowired FeedStockAdjustmentService adjustments;
     @Autowired FeedManagementService feedService;
+    @Autowired VoucherPaymentService voucherPayments;
 
     private FeedItem feed(Farm farm,String kg,String avgCost) {
         FeedItem f=new FeedItem();f.setFarm(farm);f.setCode("TA-"+next());f.setName("Cỏ khô "+next());f.setFeedGroup("DRY_ROUGHAGE");
@@ -117,5 +122,96 @@ class FeedStockAdjustmentServiceIT extends DomainTestSupport {
         var receipt=new CreateReceiptRequest(TODAY,supplier.getId(),null,null,null,null,0L,line,false);
         assertThat(feedService.createReceipt(farm.getId(),receipt,false).code()).isEqualTo("PNK-2026-0001");
         assertThat(feedService.createReceipt(farm.getId(),receipt,false).code()).isEqualTo("PNK-2026-0002");
+    }
+
+    @Test void feedReceiptDraftPaymentPostReadbackAndVoidStayConsistent() {
+        Farm farm=farm();AppUser manager=memberWithRole(farm,FarmRole.MANAGER);actAs(manager);FeedItem hay=feed(farm,"0.000","0.00");
+        TradingPartner supplier=partner(farm,manager,false,false);supplier.setSupplier(true);save(supplier);
+        List<ReceiptLineRequest> receiptLines=List.of(
+            new ReceiptLineRequest(hay.getId(),"LOT-A",TODAY.plusMonths(6),new BigDecimal("2.000"),"kg",1_000L),
+            new ReceiptLineRequest(hay.getId(),"LOT-B",TODAY.plusMonths(12),new BigDecimal("1.000"),"kg",2_000L));
+        LocalDate dueDate=TODAY.plusDays(30);
+        var create=new CreateReceiptRequest(TODAY,supplier.getId(),"INV-23","Manager","Shed A","delivery note",100L,300L,PaymentMethod.BANK_TRANSFER,TODAY,dueDate,receiptLines,false);
+
+        ReceiptView draft=feedService.createReceipt(farm.getId(),create,false);
+        assertThat(draft.status()).isEqualTo("DRAFT");assertThat(draft.initialPaymentAmount()).isEqualTo(300L);
+        assertThat(draft.initialPaymentMethod()).isEqualTo(PaymentMethod.BANK_TRANSFER);assertThat(draft.paymentDueDate()).isEqualTo(dueDate);
+        assertThat(draft.amountPaid()).isZero();assertThat(draft.outstandingAmount()).isEqualTo(4_100L);
+        assertThat(movementCount(hay)).isZero();assertThat(hay.getOnHandKg()).isEqualByComparingTo("0.000");
+
+        var update=new UpdateDraftReceiptRequest(draft.version(),TODAY,supplier.getId(),"INV-23","Manager","Shed A","corrected note",100L,
+            500L,PaymentMethod.CASH,TODAY,dueDate,receiptLines);
+        ReceiptView edited=feedService.updateDraftReceipt(farm.getId(),draft.id(),update);
+        assertThat(edited.version()).isGreaterThan(draft.version());assertThat(edited.initialPaymentAmount()).isEqualTo(500L);
+        assertThat(edited.note()).isEqualTo("corrected note");assertThat(edited.lines()).hasSize(2);
+        assertThat(edited.lines()).extracting(line->line.lotNumber()).containsExactly("LOT-A","LOT-B");
+        assertThat(edited.lines()).extracting(line->line.lineAmount()).containsExactly(2_000L,2_000L);
+
+        ReceiptView posted=feedService.postReceipt(farm.getId(),edited.id(),edited.version());
+        assertThat(posted.status()).isEqualTo("POSTED");assertThat(posted.postedById()).isEqualTo(manager.getId());assertThat(posted.postedAt()).isNotNull();
+        assertThat(posted.amountPaid()).isEqualTo(500L);assertThat(posted.outstandingAmount()).isEqualTo(3_600L);
+        assertThat(posted.paymentState().name()).isEqualTo("PARTLY_PAID");
+        em.flush();em.refresh(hay);assertThat(hay.getOnHandKg()).isEqualByComparingTo("3.000");assertThat(hay.getAvgUnitCost()).isEqualByComparingTo("1333.33");assertThat(movementCount(hay)).isEqualTo(2L);
+        List<FeedStockMovement> receiptMoves=em.createQuery("select m from FeedStockMovement m where m.feedItem.id=:feedId and m.movementType='RECEIPT' order by m.id",FeedStockMovement.class)
+            .setParameter("feedId",hay.getId()).getResultList();
+        assertThat(receiptMoves).extracting(FeedStockMovement::getBalanceAfterKg).containsExactly(new BigDecimal("2.000"),new BigDecimal("3.000"));
+        var history=voucherPayments.listFeedReceiptPayments(farm.getId(),posted.id());
+        assertThat(history.summary().paid()).isEqualTo(500L);assertThat(history.payments()).hasSize(1);
+        assertThat(history.payments().get(0).amount()).isEqualTo(500L);assertThat(history.payments().get(0).paymentDate()).isEqualTo(TODAY);
+        assertThat(history.payments().get(0).method()).isEqualTo(PaymentMethod.CASH);
+        assertThat(feedService.receipt(farm.getId(),posted.id()).invoiceNumber()).isEqualTo("INV-23");
+
+        var later=voucherPayments.recordFeedReceiptPayment(farm.getId(),posted.id(),
+            new RecordPaymentRequest(TODAY,200L,PaymentMethod.BANK_TRANSFER,"REF-1","second payment",posted.version()));
+        assertThat(later.summary().paid()).isEqualTo(700L);assertThat(later.summary().voucherVersion()).isGreaterThan(posted.version());
+        assertThatThrownBy(()->voucherPayments.recordFeedReceiptPayment(farm.getId(),posted.id(),
+            new RecordPaymentRequest(TODAY,100L,PaymentMethod.CASH,null,null,posted.version())))
+            .isInstanceOfSatisfying(DomainException.class,e->assertThat(e.getCode()).isEqualTo(MessageCodes.COM_05));
+
+        var latestHistory=voucherPayments.listFeedReceiptPayments(farm.getId(),posted.id());
+        var wrongPayment=latestHistory.payments().get(0);
+        voucherPayments.voidPayment(farm.getId(),wrongPayment.id(),new VoidPaymentRequest("wrong transfer",wrongPayment.version()));
+        ReceiptView beforeVoid=feedService.receipt(farm.getId(),posted.id());
+        assertThat(beforeVoid.amountPaid()).isEqualTo(200L);assertThat(beforeVoid.outstandingAmount()).isEqualTo(3_900L);
+
+        ReceiptView voided=feedService.voidReceipt(farm.getId(),posted.id(),new VoidReceiptRequest("wrong receipt",beforeVoid.version()));
+        assertThat(voided.status()).isEqualTo("VOIDED");assertThat(voided.voidReason()).isEqualTo("wrong receipt");
+        assertThat(voided.voidedById()).isEqualTo(manager.getId());assertThat(voided.voidedAt()).isNotNull();
+        em.flush();em.refresh(hay);assertThat(hay.getOnHandKg()).isEqualByComparingTo("0.000");assertThat(hay.getAvgUnitCost()).isEqualByComparingTo("0.00");assertThat(movementCount(hay)).isEqualTo(4L);
+        List<FeedStockMovement> voidMoves=em.createQuery("select m from FeedStockMovement m where m.feedItem.id=:feedId and m.movementType='RECEIPT_VOID' order by m.id",FeedStockMovement.class)
+            .setParameter("feedId",hay.getId()).getResultList();
+        assertThat(voidMoves).extracting(FeedStockMovement::getBalanceAfterKg).containsExactly(new BigDecimal("1.000"),new BigDecimal("0.000"));
+        var retainedHistory=voucherPayments.listFeedReceiptPayments(farm.getId(),posted.id());
+        assertThat(retainedHistory.payments()).hasSize(2);assertThat(retainedHistory.payments()).extracting(p->p.status()).contains(PaymentRecordStatus.RECORDED,PaymentRecordStatus.VOIDED);
+    }
+
+    @Test void feedCatalogueNutritionNoteRoundTripsThroughPersistence() {
+        Farm farm=farm();AppUser manager=memberWithRole(farm,FarmRole.MANAGER);actAs(manager);
+        var create=new FeedItemRequest("TA-77","Calf starter","CALF_FEED","bag",new BigDecimal("25.000"),new BigDecimal("10.000"),"High protein starter",true,null);
+        var created=feedService.createFeedItem(farm.getId(),create);
+        assertThat(created.nutritionNote()).isEqualTo("High protein starter");
+        em.clear();
+        assertThat(feedService.catalogue(farm.getId())).filteredOn(item->item.id().equals(created.id())).singleElement()
+            .extracting(item->item.nutritionNote()).isEqualTo("High protein starter");
+
+        var update=new FeedItemRequest("TA-77","Calf starter","CALF_FEED","bag",new BigDecimal("25.000"),new BigDecimal("10.000"),"Use for calves under six months",true,created.version());
+        var updated=feedService.updateFeedItem(farm.getId(),created.id(),update);
+        assertThat(updated.nutritionNote()).isEqualTo("Use for calves under six months");
+        em.flush();em.clear();assertThat(em.find(FeedItem.class,created.id()).getNutritionNote()).isEqualTo("Use for calves under six months");
+    }
+
+    @Test void discardingDraftReceiptRemovesOnlyTheDraftAndHasNoStockEffect() {
+        Farm farm=farm();AppUser manager=memberWithRole(farm,FarmRole.MANAGER);actAs(manager);FeedItem hay=feed(farm,"0.000","0.00");
+        TradingPartner supplier=partner(farm,manager,false,false);supplier.setSupplier(true);save(supplier);
+        var request=new CreateReceiptRequest(TODAY,supplier.getId(),null,null,null,null,0L,0L,null,null,null,
+            List.of(new ReceiptLineRequest(hay.getId(),"L-1",TODAY.plusMonths(2),new BigDecimal("4.000"),"kg",1_000L)),false);
+        ReceiptView draft=feedService.createReceipt(farm.getId(),request,false);
+        feedService.discardDraftReceipt(farm.getId(),draft.id(),new VersionRequest(draft.version()));
+
+        assertThatThrownBy(()->feedService.receipt(farm.getId(),draft.id()))
+            .isInstanceOfSatisfying(DomainException.class,e->assertThat(e.getCode()).isEqualTo(MessageCodes.COM_08));
+        assertThat(movementCount(hay)).isZero();em.flush();em.refresh(hay);assertThat(hay.getOnHandKg()).isEqualByComparingTo("0.000");
+        long leftoverLines=((Number)em.createNativeQuery("select count(*) from feed_receipt_line where receipt_id=:id").setParameter("id",draft.id()).getSingleResult()).longValue();
+        assertThat(leftoverLines).isZero();
     }
 }

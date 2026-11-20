@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCatalogueApi } from '../../../src/features/farm-catalogue/api/catalogueApi'
+import { createCatalogueApi, decorateVersions, mapMedicine, mapVaccine, toBackendParameters } from '../../../src/features/farm-catalogue/api/catalogueApi'
 import { createCatalogueDemoStore } from '../../../src/features/farm-catalogue/data/catalogueDemoStore'
 import { FieldErrors } from '../../../src/features/farm-catalogue/domain/catalogueRules'
 import { DEFAULT_PARAMETERS } from '../../../src/features/farm-catalogue/domain/parameterRules'
@@ -65,8 +65,8 @@ describe('catalogue api: vaccines, medicines and purposes', () => {
     const all = await api.listVaccines()
     const used = all.find((v) => v.code === 'AFT-O')!
     const unused = all.find((v) => v.code === 'ANTH-1')!
-    await expect(api.deleteVaccine(used.id)).rejects.toThrow(/đã được dùng/)
-    await api.deleteVaccine(unused.id)
+    await expect(api.deleteVaccine(used)).rejects.toThrow(/đã được dùng/)
+    await api.deleteVaccine(unused)
     expect((await api.listVaccines()).some((v) => v.code === 'ANTH-1')).toBe(false)
   })
 
@@ -122,16 +122,58 @@ describe('catalogue api: parameters', () => {
     expect(all).toHaveLength(5)
     expect(all.find((v) => v.status === 'CURRENT')?.versionNo).toBe(4)
   })
+
+  it('uses the newest effective date even if an earlier date was saved later', async () => {
+    let today = TODAY
+    const store = createCatalogueDemoStore(undefined, { today: () => today })
+    const scheduled = await store.saveParameterVersion(params({}, { effectiveFrom: '2026-12-01' }), 'An')
+    await store.saveParameterVersion(params({}, { baseVersion: scheduled.versionNo }), 'An')
+    today = '2026-12-01'
+    const all = await store.listParameterVersions()
+    expect(all.find((v) => v.status === 'CURRENT')?.versionNo).toBe(scheduled.versionNo)
+  })
 })
 
 describe('catalogue api: backend mode', () => {
-  it('rejects without touching the mock store', async () => {
-    const transport = { get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }
+  it('diffs each version against the effective snapshot available when it was saved', () => {
+    const version = (versionNo: number, effectiveFrom: string, weight: number) => ({
+      id: versionNo, versionNo, effectiveFrom, parameters: toBackendParameters({ ...DEFAULT_PARAMETERS, minBreedingWeightKg: weight }),
+    })
+    const history = decorateVersions([
+      version(1, '2026-10-01', 230),
+      version(2, '2026-12-01', 260),
+      version(3, '2026-10-20', 235),
+      version(4, '2026-12-01', 265),
+    ], TODAY)
+    expect(history.find((v) => v.versionNo === 2)?.changes).toBe('Cân tối thiểu phối 230 → 260 kg')
+    expect(history.find((v) => v.versionNo === 3)).toMatchObject({ changes: 'Cân tối thiểu phối 230 → 235 kg', status: 'CURRENT' })
+    expect(history.find((v) => v.versionNo === 4)).toMatchObject({ changes: 'Cân tối thiểu phối 260 → 265 kg', status: 'SCHEDULED' })
+  })
+
+  it('maps legacy administration routes to the current catalogue options', () => {
+    expect(mapVaccine({ route: 'IM' }).route).toBe('INTRAMUSCULAR')
+    expect(mapVaccine({ route: 'IN' }).route).toBe('INTRANASAL')
+    expect(mapMedicine({ route: 'SC' }).route).toBe('SUBCUTANEOUS')
+    expect(mapMedicine({ route: 'IV' }).route).toBe('INTRAVENOUS')
+    expect(mapMedicine({ route: null }).route).toBe('')
+  })
+
+  it('uses backend routes without touching the mock store', async () => {
+    const transport = {
+      get: vi.fn().mockResolvedValue([]),
+      command: vi.fn().mockResolvedValue({ id: 9, versionNo: 4, effectiveFrom: TODAY, parameters: {}, sourceNote: 'Nguồn', savedBy: 'An' }),
+      farmPath: vi.fn((_farmId: number, suffix: string) => `/api/farms/1${suffix}`),
+    }
     const store = createCatalogueDemoStore()
     const spy = vi.spyOn(store, 'listBreeds')
     const api = createCatalogueApi({ mode: 'backend', farmId: 1, transport, store })
-    await expect(api.listBreeds()).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.saveParameterVersion(params())).rejects.toThrow(/Chưa tích hợp/)
+    await api.listBreeds({ q: 'lai', status: 'ACTIVE' })
+    expect(await api.saveParameterVersion(params({}, { baseVersion: 3 }))).toMatchObject({ id: 9, versionNo: 4 })
+    expect(transport.get).toHaveBeenNthCalledWith(1, '/api/farms/1/catalogues/breeds?q=lai&status=ACTIVE')
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/1/parameters/versions', expect.objectContaining({ baseVersion: 3, sourceNote: 'Phỏng vấn chủ trại 20/10/2026' }), { method: 'POST' })
+    expect(transport.get).toHaveBeenCalledTimes(1)
+    await api.deleteVaccine({ id: 12, version: 3 })
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/1/vaccines/12', undefined, { method: 'DELETE', headers: { 'If-Match': '3' } })
     expect(spy).not.toHaveBeenCalled()
   })
 })

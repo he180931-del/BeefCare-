@@ -1,0 +1,2712 @@
+{
+  "schema_version": 1,
+  "harness": "tai_local_performance.py",
+  "harness_version": "1.0",
+  "started_at_utc": "2026-11-16T10:32:01.960353+00:00",
+  "target": {
+    "base_url": "http://127.0.0.1:8080",
+    "farm_id": 1153,
+    "farm_name": "BeefCare Local Farm C",
+    "explicit_qa_local_acknowledgement": true,
+    "database_guard": "QA identity is asserted by the operator; this client cannot inspect the selected database name."
+  },
+  "synthetic_identity": {
+    "pattern": "qa-tai-load-NNN@beefcare.local",
+    "user_count": 100,
+    "password_source_env": "BEEFCARE_PERF_PASSWORD",
+    "password_or_session_tokens_recorded": false,
+    "verified_roles": [
+      "MANAGER"
+    ]
+  },
+  "scope": {
+    "business_data_mutations": false,
+    "browser_ui": false,
+    "network_profile": "localhost loopback only",
+    "test_identity_data": "synthetic local identities only",
+    "auth_session_activity": "Synthetic login/logout only; authentication bookkeeping may run."
+  },
+  "status": "MEASUREMENTS_WRITTEN_NOT_FORMALLY_EVALUATED",
+  "limits": [
+    "Direct localhost API measurements do not measure time-to-usable browser content, QR scanning, camera, or network outside loopback.",
+    "P95/P90 are descriptive summaries; the SRS does not define a required percentile.",
+    "P07 source-event propagation is not measured without a controlled source mutation; this harness performs none.",
+    "A numeric comparison with an SRS threshold is not a formal Pass result."
+  ],
+  "date_range": {
+    "from": "2024-11-16",
+    "to": "2026-11-16",
+    "months": 24
+  },
+  "session_preparation": {
+    "distinct_authenticated_accounts": 100,
+    "login_concurrency_cap": 5,
+    "all_identities_and_memberships_verified": true
+  },
+  "observed_dataset": {
+    "active_cattle": 300,
+    "matches_exact_300_target": true,
+    "report_range": {
+      "from": "2024-11-16",
+      "to": "2026-11-16",
+      "month_span": 24
+    }
+  },
+  "cases": {
+    "P01": {
+      "status": "MEASURED_LOCAL_API_ONLY_NOT_SRS_EVALUATION",
+      "measurement_scope": "Dashboard API surrogate only; not time-to-usable browser page.",
+      "sample_count": 1,
+      "error_count": 0,
+      "threshold_ms": 3000,
+      "numeric_threshold_comparisons": {
+        "min_within": true,
+        "median_within": true,
+        "max_within": true,
+        "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+      },
+      "elapsed_ms": {
+        "min": 184.588,
+        "median": 184.588,
+        "mean": 184.588,
+        "p90_descriptive": 184.588,
+        "p95_descriptive": 184.588,
+        "max": 184.588
+      },
+      "samples": [
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 184.588,
+          "response_bytes": 1340,
+          "tag": "P01_dashboard_api",
+          "iteration": 1
+        }
+      ]
+    },
+    "P02": {
+      "status": "MEASURED_LOCAL_API_ONLY_NOT_SRS_EVALUATION",
+      "measurement_scope": "Cattle detail API surrogate only; excludes QR/camera scan and browser rendering.",
+      "sample_count": 1,
+      "error_count": 0,
+      "threshold_ms": 2000,
+      "numeric_threshold_comparisons": {
+        "min_within": true,
+        "median_within": true,
+        "max_within": true,
+        "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+      },
+      "elapsed_ms": {
+        "min": 79.728,
+        "median": 79.728,
+        "mean": 79.728,
+        "p90_descriptive": 79.728,
+        "p95_descriptive": 79.728,
+        "max": 79.728
+      },
+      "samples": [
+        {
+          "status": "OK",
+          "http_status": 200,
+          "elapsed_ms": 79.728,
+          "response_bytes": 1148,
+          "tag": "P02_cattle_profile_api",
+          "iteration": 1
+        }
+      ]
+    },
+    "P03": {
+      "status": "MEASURED_LOCAL_READ_ONLY_REPORT_FORM_NOT_SRS_EVALUATION",
+      "valid_form_success": {
+        "measurement_scope": "Successful report-form POST to read-only service; no domain write.",
+        "sample_count": 1,
+        "error_count": 0,
+        "threshold_ms": 2000,
+        "numeric_threshold_comparisons": {
+          "min_within": false,
+          "median_within": false,
+          "max_within": false,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 2636.637,
+          "median": 2636.637,
+          "mean": 2636.637,
+          "p90_descriptive": 2636.637,
+          "p95_descriptive": 2636.637,
+          "max": 2636.637
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2636.637,
+            "response_bytes": 2446,
+            "tag": "P03_report_form_success",
+            "safe_observations": {},
+            "iteration": 1
+          }
+        ]
+      },
+      "validation_error": {
+        "measurement_scope": "Reversed report-period error from read-only service; validation occurs before source queries.",
+        "sample_count": 1,
+        "error_count": 0,
+        "threshold_ms": 2000,
+        "numeric_threshold_comparisons": {
+          "min_within": true,
+          "median_within": true,
+          "max_within": true,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 46.462,
+          "median": 46.462,
+          "mean": 46.462,
+          "p90_descriptive": 46.462,
+          "p95_descriptive": 46.462,
+          "max": 46.462
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 400,
+            "elapsed_ms": 46.462,
+            "response_bytes": 308,
+            "tag": "P03_report_form_validation_error",
+            "iteration": 1
+          }
+        ]
+      },
+      "mutating_form_success": "NOT_RUN: this harness never sends a successful business mutation."
+    },
+    "P04": {
+      "status": "LOCAL_API_TIMINGS_DATASET_SIZE_AND_RANGE_MATCH_HISTORY_COVERAGE_UNVERIFIED",
+      "expected_active_cattle": 300,
+      "expected_history_months": 24,
+      "filtered_report": {
+        "measurement_scope": "Filtered report API only; UI timing is not measured.",
+        "sample_count": 1,
+        "error_count": 0,
+        "threshold_ms": 5000,
+        "numeric_threshold_comparisons": {
+          "min_within": true,
+          "median_within": true,
+          "max_within": true,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 338.122,
+          "median": 338.122,
+          "mean": 338.122,
+          "p90_descriptive": 338.122,
+          "p95_descriptive": 338.122,
+          "max": 338.122
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 338.122,
+            "response_bytes": 1957,
+            "tag": "P04_filtered_report_24_months",
+            "safe_observations": {
+              "validWeighings": 1250,
+              "recordsWithoutWeight": 0
+            },
+            "iteration": 1
+          }
+        ]
+      },
+      "dataset_note": "The target cattle count is checked from dashboard. Requested 24-month range and safe aggregate counts are recorded; date-by-date historical coverage is not proven by this client."
+    },
+    "P07": {
+      "status": "NOT_MEASURED_NO_CONTROLLED_SOURCE_EVENT",
+      "read_only_probe": "No read-only endpoint exposes time since a source mutation; measuring propagation requires a controlled source event.",
+      "required_manual_follow_up": "On a dedicated disposable synthetic record, time source save to event-driven reminder update and separately measure scheduled reconciliation; do not mutate this fixture as part of this harness."
+    }
+  },
+  "P06": {
+    "status": "MEASURED_LOCAL_API_LOAD_ONLY_NOT_SRS_EVALUATION",
+    "distinct_authenticated_synthetic_sessions": 100,
+    "maximum_concurrent_workers": 100,
+    "request_pattern": "Each authenticated session performs dashboard GET, filtered report POST (read-only service), and cattle detail GET in sequence; 100 sessions begin behind a start gate.",
+    "wall_elapsed_ms": 10656.838,
+    "cases": {
+      "P06_dashboard": {
+        "measurement_scope": "Local loopback API under concurrent distinct sessions; no browser or external network.",
+        "sample_count": 100,
+        "error_count": 0,
+        "threshold_ms": 3000,
+        "numeric_threshold_comparisons": {
+          "min_within": true,
+          "median_within": true,
+          "max_within": false,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 483.577,
+          "median": 2272.914,
+          "mean": 2248.288,
+          "p90_descriptive": 3651.066,
+          "p95_descriptive": 3857.026,
+          "max": 3984.024
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 501.098,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 12
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1347.83,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 97
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 483.577,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 63
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1435.13,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 94
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 493.734,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 99
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 505.792,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 100
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 511.335,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 5
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 520.006,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 6
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 518.909,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 38
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 562.252,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 2
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 561.48,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 20
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 511.43,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 54
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 854.601,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 37
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 851.503,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 17
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 882.18,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 39
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 903.5,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 96
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 877.86,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 70
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2044.36,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 60
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 927.371,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 13
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 962.979,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 98
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 954.838,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 41
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1230.311,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 93
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1333.082,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 59
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2471.398,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 26
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1208.007,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 77
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1453.076,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 8
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1268.372,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 34
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1540.942,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 53
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1608.394,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 92
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2567.346,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 44
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1681.114,
+            "response_bytes": 1337,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 90
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1670.61,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 89
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1729.933,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 29
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1781.378,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 80
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1814.343,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 64
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1799.378,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 28
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1910.529,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 7
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1935.139,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 42
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1929.952,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 25
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1917.952,
+            "response_bytes": 1337,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 73
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2033.646,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 58
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2043.258,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 36
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 940.168,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 51
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2141.017,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 52
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2148.051,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 87
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 943.655,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 81
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2156.928,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 86
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2279.898,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 95
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2196.962,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 85
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2405.026,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 45
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2263.189,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 4
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2403.498,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 30
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2265.929,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 83
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2406.788,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 14
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1530.924,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 31
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2440.008,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 84
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1532.681,
+            "response_bytes": 1337,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 88
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2584.149,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 10
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2685.176,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 65
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2634.815,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 19
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2687.952,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 18
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2749.061,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 15
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2727.586,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 69
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2744.927,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 57
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2909.549,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 33
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2872.579,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 50
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2835.362,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 3
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2950.639,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 91
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3045.654,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 35
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3043.321,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 78
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3048.059,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 11
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3174.957,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 9
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2846.5,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 75
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3254.903,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 1
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3306.848,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 47
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3157.599,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 82
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3415.01,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 40
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3274.356,
+            "response_bytes": 1337,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 48
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3332.669,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 24
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3593.497,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 79
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3440.78,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 27
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3406.249,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 76
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3274.974,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 46
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3633.208,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 23
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3560.622,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 67
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3854.751,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 68
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3621.47,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 32
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3646.49,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 16
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3769.97,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 43
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3633.842,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 22
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2455.291,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 49
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3692.249,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 61
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2464.754,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 71
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3773.115,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 72
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3915.421,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 62
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3789.346,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 56
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3976.993,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 66
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3984.024,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 74
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3900.241,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 21
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3965.24,
+            "response_bytes": 1340,
+            "tag": "P06_dashboard",
+            "synthetic_user_index": 55
+          }
+        ]
+      },
+      "P06_filtered_report": {
+        "measurement_scope": "Local loopback API under concurrent distinct sessions; no browser or external network.",
+        "sample_count": 100,
+        "error_count": 0,
+        "threshold_ms": 5000,
+        "numeric_threshold_comparisons": {
+          "min_within": true,
+          "median_within": true,
+          "max_within": false,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 2715.595,
+          "median": 4361.038,
+          "mean": 4342.585,
+          "p90_descriptive": 5192.851,
+          "p95_descriptive": 5258.208,
+          "max": 5484.331
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3642.655,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 12
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3805.122,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 97
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3655.969,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 63
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2715.595,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 94
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3704.694,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 99
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3730.564,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 100
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3772.558,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 5
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3807.247,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 6
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3864.751,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 38
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4013.517,
+            "response_bytes": 1954,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 2
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4000.285,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 20
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4028.244,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 54
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3774.583,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 37
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3828.903,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 17
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3795.98,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 39
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3785.795,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 96
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3810.985,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 70
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4050.906,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 60
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3948.207,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 13
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3913.467,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 98
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3955.227,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 41
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3883.52,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 93
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3767.869,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 59
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4369.573,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 26
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3936.749,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 77
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3720.206,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 8
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3898.137,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 34
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3700.159,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 53
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3805.272,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 92
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4548.866,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 44
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3803.22,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 90
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3826.04,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 89
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3868.433,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 29
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3810.881,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 80
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3868.915,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 64
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3831.541,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 28
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3741.693,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 7
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3789.01,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 42
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3850.872,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 25
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4029.317,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 73
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3971.802,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 58
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4056.8,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 36
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5155.185,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 51
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4074.701,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 52
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4194.026,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 87
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5257.261,
+            "response_bytes": 1954,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 81
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4219.185,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 86
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4225.817,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 95
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4289.609,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 85
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4211.442,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 45
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4390.26,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 4
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4309.961,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 30
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4392.571,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 83
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4352.503,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 14
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5226.281,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 31
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4394.001,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 84
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3680.113,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 88
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4509.359,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 10
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4435.733,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 65
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4567.765,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 19
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4531.783,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 18
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4511.709,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 15
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4493.631,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 69
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4477.551,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 57
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4650.227,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 33
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4570.716,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 50
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4590.593,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 3
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4754.173,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 91
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4688.782,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 35
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4715.159,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 78
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4728.991,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 11
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4612.7,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 9
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4989.558,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 75
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4704.783,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 1
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4741.943,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 47
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4865.601,
+            "response_bytes": 1954,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 82
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4848.237,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 40
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4727.721,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 48
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4929.861,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 24
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4670.618,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 79
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4822.657,
+            "response_bytes": 1954,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 27
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4862.055,
+            "response_bytes": 1954,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 76
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2890.756,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 46
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4742.574,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 23
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4838.005,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 67
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4860.426,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 68
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5051.845,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 32
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5116.541,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 16
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5191.044,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 43
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5209.114,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 22
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4479.814,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 49
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5290.947,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 61
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4532.978,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 71
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5319.867,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 72
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5218.82,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 62
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5210.051,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 56
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5131.737,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 66
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5276.2,
+            "response_bytes": 1954,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 74
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5354.451,
+            "response_bytes": 1954,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 21
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5484.331,
+            "response_bytes": 1957,
+            "tag": "P06_filtered_report",
+            "synthetic_user_index": 55
+          }
+        ]
+      },
+      "P06_cattle_detail": {
+        "measurement_scope": "Local loopback API under concurrent distinct sessions; no browser or external network.",
+        "sample_count": 100,
+        "error_count": 0,
+        "threshold_ms": 2000,
+        "numeric_threshold_comparisons": {
+          "min_within": true,
+          "median_within": false,
+          "max_within": false,
+          "warning": "Descriptive local API comparison only; this is not an SRS pass/fail result."
+        },
+        "elapsed_ms": {
+          "min": 1137.336,
+          "median": 3461.2,
+          "mean": 3391.164,
+          "p90_descriptive": 4879.711,
+          "p95_descriptive": 5060.617,
+          "max": 5102.197
+        },
+        "samples": [
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5074.909,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 12
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4058.977,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 97
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5082.04,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 63
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5102.197,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 94
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5066.208,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 99
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5060.323,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 100
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5017.816,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 5
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5068.991,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 6
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 5023.669,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 38
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4857.114,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 2
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4878.142,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 20
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4906.112,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 54
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4838.238,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 37
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4811.52,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 17
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4828.04,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 39
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4842.418,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 96
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4850.679,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 70
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3441.583,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 60
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4685.604,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 13
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4689.329,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 98
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4661.917,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 41
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4495.143,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 93
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4514.64,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 59
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2781.74,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 26
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4495.027,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 77
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4498.085,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 8
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4504.785,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 34
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4454.558,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 53
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4290.88,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 92
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2585.825,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 44
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4253.202,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 90
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4244.373,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 89
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4163.334,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 29
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4168.457,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 80
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4116.454,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 64
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4171.669,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 28
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4153.399,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 7
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4124.855,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 42
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4083.788,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 25
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3924.098,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 73
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3892.646,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 58
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3811.295,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 36
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3815.493,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 51
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3706.983,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 52
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3582.252,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 87
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3728.867,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 81
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3559.21,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 86
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3480.818,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 95
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3501.846,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 85
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3402.2,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 45
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3371.019,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 4
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3342.872,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 30
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3395.431,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 83
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3302.112,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 14
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3302.854,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 31
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3221.275,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 84
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4893.831,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 88
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3020.375,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 10
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2990.583,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 65
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2950.632,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 19
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2946.883,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 18
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2911.169,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 15
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2955.57,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 69
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2958.158,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 57
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2626.172,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 33
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2774.114,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 50
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2807.45,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 3
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2526.239,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 91
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2531.496,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 35
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2505.608,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 78
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2506.558,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 11
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2514.901,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 9
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2469.973,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 75
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2363.277,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 1
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2260.785,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 47
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2299.773,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 82
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2059.77,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 40
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2343.556,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 48
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2093.302,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 24
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2092.719,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 79
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2115.283,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 27
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2136.028,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 76
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 4249.701,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 46
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2052.119,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 23
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 2036.7,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 67
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1726.858,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 68
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1777.428,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 32
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1717.369,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 16
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1532.775,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 43
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1660.74,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 22
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3589.133,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 49
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1569.219,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 61
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 3554.307,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 71
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1468.63,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 72
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1428.964,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 62
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1572.108,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 56
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1462.852,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 66
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1319.106,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 74
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1319.579,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 21
+          },
+          {
+            "status": "OK",
+            "http_status": 200,
+            "elapsed_ms": 1137.336,
+            "response_bytes": 1148,
+            "tag": "P06_cattle_detail",
+            "synthetic_user_index": 55
+          }
+        ]
+      }
+    },
+    "errors": 0,
+    "assessment": "No SRS pass is reported: this is loopback API load, not 4G/office-network UI measurement or deployment-capstone evidence."
+  },
+  "session_cleanup": {
+    "attempted": 100,
+    "logged_out": 100,
+    "failed": 0
+  },
+  "ended_at_utc": "2026-11-16T10:32:22.467607+00:00"
+}

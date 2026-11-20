@@ -1,12 +1,11 @@
-import { caseDay, computeHealthState, HealthValidationError, intError, latestWithdrawalEnd, MSG, temperatureError, textError, timeError, withdrawalEnd } from '../domain/healthRules'
+import { caseDay, computeHealthState, latestWithdrawalEnd, MSG, withdrawalEnd } from '../domain/healthRules'
+import { followUpErrors, HealthValidationError, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
   CorrectEntryCommand, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
-  HealthTimelineRow, OpenCaseCommand, PendingExit, RecordResult, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
+  HealthTimelineRow, OpenCaseCommand, PendingExit, Progress, RecordResult, StatusCommand, TreatmentCommand, TreatmentResult, VoidEntryCommand,
 } from '../types'
 import { HEALTH_DEMO_NOW, HEALTH_SEED, type CaseRecord, type EntryRecord, type HealthSeed } from './healthMock'
-
-const ROUTES = ['INTRAMUSCULAR', 'SUBCUTANEOUS', 'INTRAVENOUS', 'ORAL', 'TOPICAL', 'OTHER']
 
 export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: { now?: () => string } = {}) {
   let db = structuredClone(seed)
@@ -97,25 +96,14 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
   }
 
   function observationErrors(label: string, v: { time?: string; temperatureC?: number | null }, ctx: { cattle: HealthCattle; min?: string; minWhat?: string }, errors: Record<string, string>) {
-    const t = timeError(label, v.time, { now: now(), entryDate: ctx.cattle.entryDate, min: ctx.min, minWhat: ctx.minWhat })
-    if (t) errors.observedAt = t
-    const temp = temperatureError(v.temperatureC)
-    if (temp) errors.temperatureC = temp
+    Object.assign(errors, observationFieldErrors(label, v, { now: now(), entryDate: ctx.cattle.entryDate, min: ctx.min, minWhat: ctx.minWhat }))
   }
 
   function treatmentErrors(v: Required<Pick<TreatmentCommand, 'medicineId' | 'treatmentTime' | 'dose' | 'route' | 'courseDays' | 'withdrawalDays' | 'performer'>> & { veterinaryAdvice?: string }, ctx: { cattle: HealthCattle; openedAt: string; currentMedicineId?: number }, errors: Record<string, string>) {
+    Object.assign(errors, treatmentFieldErrors(v, { now: now(), entryDate: ctx.cattle.entryDate, openedAt: ctx.openedAt }))
     const medicine = db.medicines.find((m) => m.id === v.medicineId)
-    if (!v.medicineId) errors.medicineId = MSG.required('Thuốc')
-    else if (!medicine) errors.medicineId = 'Không tìm thấy thuốc trong danh mục của trại.'
-    else if (!medicine.active && medicine.id !== ctx.currentMedicineId) errors.medicineId = MSG.inactiveMedicine(medicine.name)
-    const dose = textError('Liều', v.dose, { required: true, max: 50 }); if (dose) errors.dose = dose
-    if (!v.route) errors.route = MSG.required('Đường dùng')
-    else if (!ROUTES.includes(v.route)) errors.route = 'Đường dùng không hợp lệ.'
-    const t = timeError('Thời điểm bắt đầu', v.treatmentTime, { now: now(), entryDate: ctx.cattle.entryDate, min: ctx.openedAt, minWhat: 'lúc mở ca' }); if (t) errors.treatmentTime = t
-    const course = intError('Liệu trình (ngày)', v.courseDays, 1, 30); if (course) errors.courseDays = course
-    const wd = intError('Số ngày ngưng', v.withdrawalDays, 0, 365); if (wd) errors.withdrawalDays = wd
-    const who = textError('Người thực hiện', v.performer, { max: 100 }); if (who) errors.performer = who
-    const advice = textError('Lời khuyên thú y', v.veterinaryAdvice, { max: 500 }); if (advice) errors.veterinaryAdvice = advice
+    if (v.medicineId && !medicine) errors.medicineId = 'Không tìm thấy thuốc trong danh mục của trại.'
+    else if (medicine && !medicine.active && medicine.id !== ctx.currentMedicineId) errors.medicineId = MSG.inactiveMedicine(medicine.name)
     return medicine
   }
 
@@ -170,19 +158,12 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       return structuredClone({ medicines: db.medicines, members: db.members, diagnoses })
     },
 
-    async listPendingExits(): Promise<PendingExit[]> { return structuredClone(db.vouchers.filter((v) => v.status === 'PENDING')) },
-
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {
       const cattle = ensureCattle(cattleCode)
       assertCanAdd(cattle)
       const existing = cmd.existingCaseId !== undefined ? activeCase(cmd.existingCaseId, cmd.expectedVersion) : null
       if (existing && existing.cattleCode !== cattleCode) throw new Error(MSG.changed)
-      const errors: Record<string, string> = {}
-      observationErrors('Thời điểm quan sát', { time: cmd.observedAt, temperatureC: cmd.temperatureC }, { cattle, min: existing?.openedAt, minWhat: 'lúc mở ca' }, errors)
-      const signs = textError('Dấu hiệu / mô tả', cmd.signs, { required: true, max: 1000 }); if (signs) errors.signs = signs
-      const diagnosis = textError('Chẩn đoán nghi ngờ', cmd.diagnosis, { max: 100 }); if (diagnosis) errors.diagnosis = diagnosis
-      if (!cmd.severity) errors.severity = MSG.required('Mức độ')
-      throwIf(errors)
+      throwIf(openCaseErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: existing?.openedAt }))
 
       const base = { occurredAt: cmd.observedAt, recordedBy: cmd.observer || 'Quản lý', temperatureC: cmd.temperatureC, description: cmd.signs.trim() }
       if (existing) {
@@ -207,11 +188,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const c = activeCase(caseId, cmd.expectedVersion)
       const cattle = cattleOf(c.cattleCode)
       assertCanAdd(cattle)
-      const errors: Record<string, string> = {}
-      observationErrors('Thời điểm', { time: cmd.observedAt, temperatureC: cmd.temperatureC }, { cattle, min: c.openedAt, minWhat: 'lúc mở ca' }, errors)
-      if (!cmd.progress) errors.progress = MSG.required('Diễn biến')
-      const description = textError('Mô tả', cmd.description, { required: true, max: 1000 }); if (description) errors.description = description
-      throwIf(errors)
+      throwIf(followUpErrors(cmd, { now: now(), entryDate: cattle.entryDate, min: c.openedAt }))
       const row = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: cmd.observedAt, recordedBy: cmd.observer || 'Quản lý', temperatureC: cmd.temperatureC, progress: cmd.progress as Exclude<typeof cmd.progress, ''>, description: cmd.description.trim() })
       c.version += 1
       return structuredClone(result(c, 'FOLLOWED', row.id))
@@ -227,7 +204,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const returnedToOpen = c.status === 'CHRONIC'
       const row = addEntry({
         caseId, type: 'TREATMENT', occurredAt: cmd.treatmentTime, recordedBy: cmd.performer.trim() || 'Quản lý', temperatureC: null, medicineId: medicine!.id, medicineName: medicine!.name,
-        dose: cmd.dose.trim(), route: cmd.route as Exclude<typeof cmd.route, ''>, courseDays: cmd.courseDays!, withdrawalDays: cmd.withdrawalDays!, veterinaryAdvice: cmd.veterinaryAdvice.trim(),
+        dose: cmd.dose.trim(), route: cmd.route as Exclude<typeof cmd.route, ''>, courseDays: cmd.courseDays ?? 1, withdrawalDays: cmd.withdrawalDays ?? medicine!.withdrawalDays ?? 0, veterinaryAdvice: cmd.veterinaryAdvice.trim(),
       })
       if (returnedToOpen) { c.status = 'OPEN'; c.chronicSince = undefined }
       c.version += 1
@@ -243,24 +220,14 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       assertCanAdd(cattle)
       const allowed = c.status === 'OPEN' ? ['KEEP', 'TO_CHRONIC', 'CLOSE'] : ['KEEP', 'TO_OPEN', 'CLOSE']
       if (!allowed.includes(cmd.action)) throw new Error(MSG.changed)
-      const errors: Record<string, string> = {}
-      const progress = textError('Diễn biến mới', cmd.progressText, { max: 1000 }); if (progress) errors.progressText = progress
-      const diagnosis = textError('Chẩn đoán nghi ngờ', cmd.diagnosis, { max: 100 }); if (diagnosis) errors.diagnosis = diagnosis
       const closing = cmd.action === 'CLOSE'
-      if (closing) {
-        if (!cmd.outcome) errors.outcome = MSG.required('Kết quả')
-        const latest = toCard(c).latestEntryAt
-        const t = timeError('Thời điểm đóng', cmd.closedAt, { now: now(), entryDate: cattle.entryDate, min: latest, minWhat: 'lần ghi gần nhất của ca này' }); if (t) errors.closedAt = t
-      }
-      throwIf(errors)
+      throwIf(statusErrors(cmd, { now: now(), entryDate: cattle.entryDate, latestAt: toCard(c).latestEntryAt }))
 
       c.diagnosis = cmd.diagnosis.trim()
       c.suspectedContagious = cmd.suspectedContagious
       let observationId: number | null = null
       if (cmd.progressText.trim()) {
-        // Diễn biến nhập trong hộp thoại đóng ca không có ô "tiến triển": suy ra từ kết quả.
-        const progressValue = closing && cmd.outcome === 'RECOVERED' ? 'IMPROVED' : closing && cmd.outcome === 'DIED' ? 'WORSENED' : 'UNCHANGED'
-        observationId = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: closing ? cmd.closedAt! : now(), recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: null, progress: progressValue, description: cmd.progressText.trim() }).id
+        observationId = addEntry({ caseId, type: 'FOLLOW_UP', occurredAt: closing ? cmd.closedAt! : now(), recordedBy: cmd.confirmedBy || 'Quản lý', temperatureC: null, progress: cmd.progress as Progress, description: cmd.progressText.trim() }).id
       }
       let kind: HealthCaseResult['kind'] = 'KEPT'
       let voucher: PendingExit | null = null
@@ -290,12 +257,12 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       assertExitedFree(cattle)
       const before = cattleWithdrawal(c.cattleCode)
       const errors: Record<string, string> = {}
-      const reason = textError('Lý do', cmd.reason, { required: true, max: 500 }); if (reason) errors.reason = reason
+      Object.assign(errors, reasonErrors(cmd.reason))
       const snapshot: Record<string, unknown> = {}
       if (e.type === 'TREATMENT') {
         const next = {
           medicineId: cmd.medicineId ?? e.medicineId!, treatmentTime: cmd.treatmentTime ?? e.occurredAt, dose: cmd.dose ?? e.dose!, route: (cmd.route || e.route)!,
-          courseDays: cmd.courseDays === undefined ? e.courseDays! : cmd.courseDays, withdrawalDays: cmd.withdrawalDays === undefined ? e.withdrawalDays! : cmd.withdrawalDays, performer: cmd.performer ?? e.recordedBy,
+          courseDays: cmd.courseDays === undefined || cmd.courseDays === null ? e.courseDays! : cmd.courseDays, withdrawalDays: cmd.withdrawalDays === undefined || cmd.withdrawalDays === null ? e.withdrawalDays! : cmd.withdrawalDays, performer: cmd.performer ?? e.recordedBy,
         }
         const medicine = treatmentErrors(next as never, { cattle, openedAt: c.openedAt, currentMedicineId: e.medicineId }, errors)
         throwIf(errors)
@@ -334,8 +301,7 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const c = caseById(e.caseId)
       if (c.outcome === 'CLOSED_BY_EXIT') throw new Error(MSG.changed)
       assertExitedFree(cattleOf(c.cattleCode))
-      const reason = textError('Lý do', cmd.reason, { required: true, max: 500 })
-      if (reason) throw new HealthValidationError({ reason })
+      throwIf(reasonErrors(cmd.reason))
       const before = cattleWithdrawal(c.cattleCode)
       e.revisions.push({ at: now(), reason: cmd.reason.trim(), actor: 'Quản lý', kind: 'VOIDED', before: {} })
       e.status = 'VOIDED'

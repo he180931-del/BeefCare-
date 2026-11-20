@@ -65,3 +65,27 @@ test('backend pen mapping translates the compact accepts summary when list omits
   assert.equal(mapped.minAge, 45)
   assert.equal(mapped.minWeight, 200)
 })
+
+test('backend pen mapping keeps the lock version apart from the criteria version (A2)', async () => {
+  const { mapBackendPenDetail } = await import('../../src/features/pen-management/api/penApi')
+  const mapped = mapBackendPenDetail({
+    id: 9, code: 'A2', name: 'Bò chửa', capacity: 30, headcount: 2, status: 'ACTIVE', version: 4,
+    currentCriteria: { versionNo: 2, effectiveFrom: '2026-09-01', criteria: { purposeTypes: ['BREEDING', 'FATTENING'], lifeStages: [], sex: 'FEMALE', minAgeMonths: null, minWeightKg: 230 } },
+    cattle: [{ id: 5, code: 'BC-5', exitPending: false, hints: [{ code: 'PREGNANT', params: { expectedCalvingDate: '2027-01-15' } }] }],
+  })
+
+  assert.equal(mapped.lockVersion, 4)
+  assert.equal(mapped.criteriaVersionNo, 2)
+  assert.equal(mapped.criteriaEffectiveFrom, '2026-09-01')
+  assert.deepEqual(mapped.receptionCriteria, { purposeTypes: ['BREEDING', 'FATTENING'], lifeStages: [], sex: 'FEMALE', minAgeMonths: null, minWeightKg: 230 })
+  assert.equal(mapped.cattleInPen.length, 1)
+  assert.equal(mapped.cattleInPen[0].id, 5)
+  assert.equal(mapped.cattleInPen[0].hints[0].code, 'PREGNANT')
+})
+
+test('backend accepts summary with several purposes is split on "/"', async () => {
+  const { mapBackendPen } = await import('../../src/features/pen-management/api/penApi')
+  const mapped = mapBackendPen({ id: 3, code: 'C1', name: 'C1', capacity: 5, status: 'ACTIVE', acceptsSummary: 'BREEDING/FATTENING | YOUNG_STOCK' })
+  assert.deepEqual(mapped.receptionCriteria?.purposeTypes, ['BREEDING', 'FATTENING'])
+  assert.deepEqual(mapped.receptionCriteria?.lifeStages, ['YOUNG_STOCK'])
+})

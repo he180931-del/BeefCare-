@@ -1,8 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStockAdjustments } from '../api/feedStockAdjustmentApi'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 

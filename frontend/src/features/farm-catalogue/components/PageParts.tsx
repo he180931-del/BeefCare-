@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Button, Note } from '../../../components/ui'
+import { Button, Icon, Note } from '../../../shared/ui'
 import { HeaderActions } from './CatalogueShell'
 
 export const SplitLayout = ({ children }: { children: ReactNode }) => (

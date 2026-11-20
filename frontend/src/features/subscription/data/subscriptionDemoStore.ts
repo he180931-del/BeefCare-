@@ -4,9 +4,9 @@ import {
 import {
   SubscriptionError,
   type BankTransfer, type CreatePaymentCommand, type FarmRecord, type Payment, type PaymentFilters, type PriceDTO, type PriceQuote, type PurchasedPeriod,
-  type RefreshDemo, type SubscriptionOverview, type SubscriptionSeed, type Term, type TransferResult,
+  type RefreshDemo, type StateDialogState, type SubscriptionOverview, type SubscriptionSeed, type Term, type TransferResult,
 } from '../types'
-import { DEMO_START, SUBSCRIPTION_SEED } from './subscriptionMock'
+import { DEMO_START, DIALOG_FIXTURES, SUBSCRIPTION_SEED } from './subscriptionMock'
 
 const loadedAt = Date.now()
 /** Đồng hồ demo: bắt đầu ở 18/10/2026 09:00:52 rồi chạy theo thời gian thực để bộ đếm ngược chạy thật. */
@@ -21,6 +21,8 @@ export function createSubscriptionDemoStore(seed: SubscriptionSeed = SUBSCRIPTIO
   let pricesAvailable = true
   let nextCode = 0
   const evidence = new Map<string, TransferResult['status']>()
+  /** First time an incoming transfer to the right account named a request (D15 "received"), even with a wrong amount. */
+  const receivedAt = new Map<string, string>()
 
   const farmOf = (id: number): FarmRecord => {
     const f = farms.find((x) => x.id === id)
@@ -88,6 +90,8 @@ export function createSubscriptionDemoStore(seed: SubscriptionSeed = SUBSCRIPTIO
     return p
   }
 
+  const windowEnd = (p: Payment) => (p.cancelledAt ? Math.min(toMs(p.cancelledAt), toMs(p.expiresAt)) : toMs(p.expiresAt))
+
   /** Xác nhận chung cho webhook SePay và PM (GBR-72): chỉ PAID khi khớp mã, số tiền, tài khoản và cửa sổ thời gian. */
   function receiveBankTransfer(txn: BankTransfer): TransferResult {
     if (evidence.has(txn.transactionId)) return { status: 'DUPLICATE', payment: null }
@@ -100,9 +104,11 @@ export function createSubscriptionDemoStore(seed: SubscriptionSeed = SUBSCRIPTIO
     else if ((txn.accountNumber ?? hit.p.accountNumber) !== hit.p.accountNumber) status = 'ACCOUNT_MISMATCH'
     else if (hit.p.state === 'PAID') status = 'ALREADY_ALLOCATED'
     else if (txn.amountVnd !== hit.p.amountVnd) status = 'AMOUNT_MISMATCH'
-    else if (paidAt < toMs(hit.p.requestedAt) || paidAt >= toMs(hit.p.expiresAt)) status = 'WINDOW_MISSED'
+    // D38: a cancelled request only takes money banked before its cancellation.
+    else if (paidAt < toMs(hit.p.requestedAt) || paidAt >= windowEnd(hit.p)) status = 'WINDOW_MISSED'
     else status = 'CONFIRMED'
     evidence.set(txn.transactionId, status)
+    if (hit && txn.direction === 'IN' && status !== 'ACCOUNT_MISMATCH' && !receivedAt.has(hit.p.quoteRef)) receivedAt.set(hit.p.quoteRef, toIso(clock()))
     if (status !== 'CONFIRMED' || !hit) return { status, payment: null }
     const confirmedAt = clock()
     const period = planPeriod(confirmedAt, latestEndOf(periodsOf(hit.f)), hit.p.durationYears)
@@ -116,6 +122,8 @@ export function createSubscriptionDemoStore(seed: SubscriptionSeed = SUBSCRIPTIO
 
   return {
     now: () => clock(),
+    /** `?m=<tên>` mở hộp thoại trạng thái với dữ liệu mẫu của frame Figma. */
+    previewDialog(name: string): StateDialogState | null { return DIALOG_FIXTURES[name] ?? null },
     async getOverview(farmId: number) { return structuredClone(buildOverview(farmOf(farmId))) },
 
     async listPayments(farmId: number, filters: PaymentFilters = {}) {
@@ -179,6 +187,19 @@ export function createSubscriptionDemoStore(seed: SubscriptionSeed = SUBSCRIPTIO
         receiveBankTransfer({ transactionId: `DEMO-${p.quoteRef}`, direction: 'IN', amountVnd: p.amountVnd, content: p.quoteRef, paidAt: toIso(clock()) })
         p = findPayment(f, code)
       }
+      return structuredClone(p)
+    },
+
+    /** D38: Owner hủy yêu cầu PENDING chưa hết hạn, chưa nhận giao dịch; cùng quy tắc với backend (A18). */
+    async cancelPayment(farmId: number, code: string, reason: string) {
+      const f = farmOf(farmId)
+      const p = findPayment(f, code)
+      if (p.state !== 'PENDING' || toMs(p.expiresAt) <= clock()) {
+        throw new SubscriptionError('STALE', 'Yêu cầu đã thay đổi trạng thái. Trang đã tải lại trạng thái mới nhất.')
+      }
+      const received = p.receivedAt ?? receivedAt.get(p.quoteRef) ?? null
+      if (received) throw new SubscriptionError('CANCEL_BLOCKED', 'Yêu cầu đã nhận giao dịch ngân hàng.', { code: p.quoteRef, receivedAt: received })
+      Object.assign(p, { state: 'CANCELLED', cancelledAt: toIso(clock()), cancelReason: reason.trim() || null })
       return structuredClone(p)
     },
 

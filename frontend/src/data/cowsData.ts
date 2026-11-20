@@ -19,6 +19,7 @@ const RECORDER = 'Nguyễn Văn Hùng'
 // Bò có đủ hồ sơ mẫu theo Figma; các trường chưa nêu được điền mặc định.
 export type CowSeed = Cattle & {
   barn: string
+  photoUrl?: string
   status: CattleStatus
   ageShort: string
   ageLong: string
@@ -147,7 +148,6 @@ export const initialCows: CowSeed[] = [
 ]
 
 /** Mã QR kế tiếp theo số thẻ đã cấp (lần đầu của BC-000125 = QR-9M2D-0125). */
-export const newQrCode = (cow: Pick<CowSeed, 'code' | 'qrHistory'>): string => `QR-${['9M2D', '4K8P', '7X3Q', '2H6V'][(cow.qrHistory.length - 1) % 4]}-${cow.code.slice(-4)}`
 
 /** Số đếm một nhóm đàn = phần nền + bò đang nuôi trong danh sách ở giai đoạn đó. */
 export const groupCount = (cows: Cattle[], stage: keyof typeof BASELINE): number =>

@@ -7,8 +7,8 @@ export type FeedCatalogueItem = {
   group: FeedGroup | string
   stockUnit: string
   purchaseUnit: string
-  kgPerPurchaseUnit: number
-  minimumStockKg: number
+  kgPerPurchaseUnit: number | null
+  minimumStockKg: number | null
   nutritionNote: string
   available: boolean
   version: number
@@ -16,7 +16,18 @@ export type FeedCatalogueItem = {
   averageUnitCost?: number | null
 }
 
-export type FeedCatalogueInput = Omit<FeedCatalogueItem, 'id' | 'stockUnit' | 'version' | 'averageUnitCost'> & { id?: number }
+/** Local demo-store input remains numeric; the SRS/backend form may leave both values unset. */
+export type FeedCatalogueInput = Omit<FeedCatalogueItem, 'id' | 'stockUnit' | 'version' | 'averageUnitCost' | 'kgPerPurchaseUnit' | 'minimumStockKg'> & {
+  id?: number
+  kgPerPurchaseUnit: number
+  minimumStockKg: number
+}
+
+/** User-facing input for both create and update, with backend expectedVersion on updates. */
+export type FeedCatalogueSaveInput = Omit<FeedCatalogueItem, 'id' | 'stockUnit' | 'version' | 'averageUnitCost'> & {
+  id?: number
+  expectedVersion?: number
+}
 
 export type FeedSupplier = {
   id: number
@@ -26,9 +37,12 @@ export type FeedSupplier = {
   note: string
   active: boolean
   version: number
+  /** TradingPartner roles are preserved when a supplier record has more than one role. */
+  seller?: boolean
+  buyer?: boolean
 }
 
-export type FeedSupplierInput = Omit<FeedSupplier, 'id' | 'active' | 'version'> & { id?: number; active?: boolean }
+export type FeedSupplierInput = Omit<FeedSupplier, 'id' | 'active' | 'version'> & { id?: number; active?: boolean; expectedVersion?: number }
 
 export type FeedCatalogueDemoStore = {
   listFeeds: () => Promise<FeedCatalogueItem[]>

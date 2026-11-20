@@ -35,7 +35,7 @@ describe('purchase entry page in backend mode', () => {
     serverVoucher = null
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
     localStorage.setItem('beefcare:latency', '0')
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url, 'http://backend.test')
@@ -74,6 +74,7 @@ describe('purchase entry page in backend mode', () => {
     cleanup()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('saves a purchase draft, reopens its header/line/document metadata, then posts through the real adapter', async () => {

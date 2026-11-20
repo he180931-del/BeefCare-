@@ -31,9 +31,12 @@ const sellers = [
 
 vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/features/herd-entry/api/index')>()
+  const { entryToday } = await import('../../../src/features/herd-entry/validation/entryValidation')
   return {
     ...actual,
     entryExcelBackendEnabled: true,
+    // Same blank voucher as the backend adapter.
+    newEntryDefaults: ({ receiver }: { receiver: string }) => ({ recordId: 'Tự động khi lưu', date: entryToday(), quarantine: '', receiver, note: '', cows: [], freight: 0, paid: 0, method: '', due: '' }),
     herdEntryApi: {
       ...actual.herdEntryApi,
       list: async () => structuredClone(state.entries),

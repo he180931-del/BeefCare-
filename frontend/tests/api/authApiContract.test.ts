@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBackendClient, BackendError } from '../../src/api/backendClient'
+import { createBackendClient, BackendError } from '../../src/shared/api/backendClient'
 
 test('TC-AUTH-API01: /api/csrf retrieves CSRF token and header name', async () => {
   const fetchMock: typeof fetch = async (input, init) => {
@@ -114,3 +114,22 @@ test('TC-AUTH-API04: /api/logout clears authentication session', async () => {
   assert.equal(loggedOut, true)
 })
 
+test('TC-AUTH-API05: logout treats an already-missing server session as signed out', async () => {
+  const fetchMock: typeof fetch = async (input) => {
+    const url = String(input)
+    if (url.endsWith('/api/csrf')) {
+      return new Response(JSON.stringify({ token: 'csrf-ok' }), { headers: { 'Content-Type': 'application/json' } })
+    }
+    if (url.endsWith('/api/logout')) {
+      return new Response(JSON.stringify({ message: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    throw new Error(`Unexpected request: ${url}`)
+  }
+
+  const client = createBackendClient({ fetchImpl: fetchMock })
+
+  await assert.doesNotReject(() => client.logout())
+})

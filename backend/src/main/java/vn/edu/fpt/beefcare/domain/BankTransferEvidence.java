@@ -82,20 +82,35 @@ public class BankTransferEvidence implements Serializable {
     @Column(name = "transfer_direction", length = 20)
     private String transferDirection;
 
-    @Size(max = 50)
-    @Column(name = "receiving_account", length = 50)
+    // Provider text columns hold any field a signed webhook body (≤ 65,536 bytes) can carry: never refused or cut (R-19-08).
+    @Size(max = 65536)
+    @Column(name = "receiving_account", length = 65536)
     private String receivingAccount;
 
-    @Size(max = 255)
-    @Column(name = "transfer_content", length = 255)
+    @Size(max = 65536)
+    @Column(name = "transfer_content", length = 65536)
     private String transferContent;
 
-    @Size(max = 100)
-    @Column(name = "gateway", length = 100)
+    @Column(name = "delivery_attempts")
+    private Integer deliveryAttempts;
+
+    @Size(max = 65536)
+    @Column(name = "provider_code", length = 65536)
+    private String providerCode;
+
+    @Size(max = 65536)
+    @Column(name = "description", length = 65536)
+    private String description;
+
+    @Column(name = "conflicting_references", nullable = false)
+    private boolean conflictingReferences;
+
+    @Size(max = 65536)
+    @Column(name = "gateway", length = 65536)
     private String gateway;
 
-    @Size(max = 100)
-    @Column(name = "reference_code", length = 100)
+    @Size(max = 65536)
+    @Column(name = "reference_code", length = 65536)
     private String referenceCode;
 
     @NotNull
@@ -103,8 +118,9 @@ public class BankTransferEvidence implements Serializable {
     @Column(name = "review_status", length = 30, nullable = false)
     private String reviewStatus;
 
-    @Size(max = 500)
-    @Column(name = "review_reason", length = 500)
+    /** D19: SCR-62 "Reason and evidence references", up to 1,000 characters. */
+    @Size(max = 1000)
+    @Column(name = "review_reason", length = 1000)
     private String reviewReason;
 
     @Column(name = "locked_for_return", nullable = false)
@@ -118,6 +134,10 @@ public class BankTransferEvidence implements Serializable {
     @Column(name = "return_result", length = 500)
     private String returnResult;
 
+    /** D19: date the money was returned outside BeefCare (Asia/Ho_Chi_Minh); recorded once. */
+    @Column(name = "return_date")
+    private java.time.LocalDate returnDate;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -125,6 +145,22 @@ public class BankTransferEvidence implements Serializable {
     @Size(max = 64)
     @Column(name = "payload_hash", length = 64)
     private String payloadHash;
+
+    /** First authenticated receipt; retries must not replace this timestamp. Legacy evidence remains null. */
+    @Column(name = "first_received_at")
+    private Instant firstReceivedAt;
+
+    public Instant getFirstReceivedAt() { return firstReceivedAt; }
+    public void setFirstReceivedAt(Instant firstReceivedAt) { this.firstReceivedAt = firstReceivedAt; }
+
+    public Integer getDeliveryAttempts() { return deliveryAttempts; }
+    public void setDeliveryAttempts(Integer value) { deliveryAttempts = value; }
+    public String getProviderCode() { return providerCode; }
+    public void setProviderCode(String value) { providerCode = value; }
+    public String getDescription() { return description; }
+    public void setDescription(String value) { description = value; }
+    public boolean isConflictingReferences() { return conflictingReferences; }
+    public void setConflictingReferences(boolean value) { conflictingReferences = value; }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -258,6 +294,8 @@ public class BankTransferEvidence implements Serializable {
     public void setReturnReference(String returnReference) { this.returnReference = returnReference; }
     public String getReturnResult() { return returnResult; }
     public void setReturnResult(String returnResult) { this.returnResult = returnResult; }
+    public java.time.LocalDate getReturnDate() { return returnDate; }
+    public void setReturnDate(java.time.LocalDate returnDate) { this.returnDate = returnDate; }
     public Long getVersion() { return version; }
     public void setVersion(Long version) { this.version = version; }
     public String getPayloadHash() { return payloadHash; }

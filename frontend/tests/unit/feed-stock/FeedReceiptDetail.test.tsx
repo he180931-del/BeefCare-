@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import App from '../../../src/App'
+import App from '../../../src/app/routes/AppRoutes'
 import { listFeedReceipts, resetFeedReceiptDemoStore } from '../../../src/features/feed-stock/api/feedReceiptApi'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { listFeedMovements } from '../../../src/features/feed-stock/api/feedMovementApi'
@@ -18,13 +18,14 @@ describe('SCR-79 posted receipt detail: payment and void', () => {
     await resetFeedReceiptDemoStore()
   })
 
-  it('shows a posted receipt read-only with its stock before and after', async () => {
+  it('shows a posted receipt read-only without presenting current stock as historical stock', async () => {
     renderApp('/thuc-an/phieu-nhap/8129')
     expect(await screen.findByRole('heading', { name: 'Phiếu nhập kho PNK-2026-0029 · Đã ghi' })).toBeInTheDocument()
     expect(screen.getByLabelText('Đã thanh toán')).toHaveValue(16_500_000)
     expect(screen.getByLabelText('Đã thanh toán')).toHaveAttribute('readonly')
     expect(screen.getByLabelText('Còn nợ')).toHaveValue('2.500.000')
-    expect(screen.getByText('Tồn trước → sau khi nhập')).toBeInTheDocument()
+    expect(screen.getByText('Tồn kho hiện tại')).toBeInTheDocument()
+    expect(screen.queryByText('Tồn trước → sau khi nhập')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Lưu & cộng kho' })).not.toBeInTheDocument()
   })
 
@@ -84,7 +85,7 @@ describe('SCR-79 posted receipt detail: payment and void', () => {
     expect(await screen.findByText(`Phiếu ${created.code} đã được hủy.`)).toBeInTheDocument()
     expect((await listFeedStock()).find((row) => row.feedItemId === 101)?.onHandKg).toBe(1850)
     expect((await listFeedReceipts()).find((row) => row.id === created.id)).toMatchObject({ status: 'VOIDED', voidReason: 'Nhập trùng phiếu' })
-    const movements = await listFeedMovements(101)
+    const movements = (await listFeedMovements(101)).filter((movement) => movement.sourceId === created.id)
     expect(movements[0]).toMatchObject({ movementType: 'RECEIPT_VOID', quantityKg: -100, balanceAfterKg: 1850 })
     expect(movements[1]).toMatchObject({ movementType: 'RECEIPT', quantityKg: 100, balanceAfterKg: 1950 })
   })

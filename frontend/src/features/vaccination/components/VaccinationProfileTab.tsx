@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { vaccinationApi } from '../api/vaccinationApi'
 import { fmtDate, fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
 import type { CattleVaccination, DoseRow, VaccinationRecord } from '../types'
@@ -33,7 +33,15 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
   const goRecord = (doseId?: number) => navigate(`/tiem-phong/ghi-nhan?${doseId ? `doses=${doseId}` : `cattle=${cattleCode}`}&back=${back}`)
   const saved = (message: string) => { setNotice(message); setModal(null); refetch() }
   const deferTarget = modal === 'defer' ? (data.doses.find((d) => String(d.id) === params.get('d')) ?? data.doses[0]) : undefined
-  const correctTarget = modal === 'correct' ? (data.records.find((r) => String(r.id) === params.get('r')) ?? data.records.find((r) => r.status === 'VALID')) : undefined
+  // With ?r= (e.g. opened from the timeline) only that record opens; never fall back to another one.
+  const correctTarget = modal === 'correct'
+    ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
+    : undefined
+  const sourceId = modal ? null : params.get('r')
+  const sourceRecord = sourceId == null ? undefined : data.records.find((record) => String(record.id) === sourceId)
+  if (sourceId != null) return sourceRecord
+    ? <History data={{ ...data, records: [sourceRecord] }} title="Bản ghi tiêm phòng" canWrite={false} onCorrect={() => undefined} />
+    : <Note tone="warn">Không tìm thấy bản ghi tiêm phòng này.</Note>
 
   return (
     <div className="flex flex-col gap-4">
@@ -72,11 +80,11 @@ function Scheduled({ data, canWrite, onRecord, onDefer }: { data: CattleVaccinat
   )
 }
 
-function History({ data, canWrite, onCorrect }: { data: CattleVaccination; canWrite: boolean; onCorrect: (id: number) => void }) {
+function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect }: { data: CattleVaccination; title?: string; canWrite: boolean; onCorrect: (id: number) => void }) {
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
   const rows = [...data.records].sort((a, b) => (a.administeredAt < b.administeredAt ? 1 : -1) * (dir === 'desc' ? 1 : -1))
   return (
-    <Card title="Lịch sử tiêm" sub="Mới nhất ở trên · dòng đã hủy in xám">
+    <Card title={title} sub={title === 'Lịch sử tiêm' ? 'Mới nhất ở trên · dòng đã hủy in xám' : undefined}>
       {rows.length === 0 ? (
         <EmptyBlock title="Chưa có mũi tiêm nào" sub="Các mũi đã tiêm và lịch sử nhập từ người bán sẽ hiện ở đây." />
       ) : (

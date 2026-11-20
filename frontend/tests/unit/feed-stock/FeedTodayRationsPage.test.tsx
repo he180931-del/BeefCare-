@@ -28,9 +28,10 @@ const dateToday = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-const ration = (penId: number, code: string, session1Kg: number, session2Kg: number): FeedRation => ({
+const ration = (penId: number, code: string, session1Kg: number, session2Kg: number, mixedFeedOutOfStock = true): FeedRation => ({
   id: penId,
   rationCode: code,
+  version: 0,
   versionNo: 2,
   name: `${code} khẩu phần`,
   herdGroup: 'BREEDING_FEMALES',
@@ -42,8 +43,8 @@ const ration = (penId: number, code: string, session1Kg: number, session2Kg: num
   sessionTimes: ['06:30', '16:30'],
   penIds: [penId],
   components: [
-    { feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ voi', session1Kg, session2Kg, session3Kg: 0, dailyKg: session1Kg + session2Kg, estimatedDailyCost: null },
-    { feedItemId: 102, feedCode: 'TA-02', feedName: 'Cám hỗn hợp', session1Kg: 0.1, session2Kg: 0.2, session3Kg: 0, dailyKg: 0.3, estimatedDailyCost: null },
+    { feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ voi', session1Kg, session2Kg, session3Kg: 0, dailyKg: session1Kg + session2Kg, estimatedDailyCost: null, outOfStock: false },
+    { feedItemId: 102, feedCode: 'TA-02', feedName: 'Cám hỗn hợp', session1Kg: 0.1, session2Kg: 0.2, session3Kg: 0, dailyKg: 0.3, estimatedDailyCost: null, outOfStock: mixedFeedOutOfStock },
   ],
 })
 
@@ -119,12 +120,21 @@ describe('SCR-86 technician today’s rations', () => {
     // The empty pen has no card; the out-of-stock feed turns the line red with "(hết kho)".
     expect(screen.getAllByRole('article')).toHaveLength(2)
     expect(screen.getAllByText(/\(hết kho\)/)).toHaveLength(2)
+    expect(api.listFeedStock).not.toHaveBeenCalled()
     expect(screen.getByText(/Quản lý ghi cữ cho ăn/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi cữ cho ăn' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Ghi cữ' })).not.toBeInTheDocument()
 
     const logLink = screen.getByRole('link', { name: /Nhật ký cho ăn/ })
     expect(logLink).toHaveAttribute('href', `/thuc-an/nhat-ky?date=${dateToday()}&readOnly=1`)
+  })
+
+  it('does not mark any feed out of stock when the ration projection flags are false', async () => {
+    api.listFeedRations.mockResolvedValue([ration(1, 'KP-01', 0.25, 0.15, false), ration(2, 'KP-02', 0.2, 0.1, false)])
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Khẩu phần hôm nay' })).toBeInTheDocument()
+    expect(screen.queryByText(/\(hết kho\)/)).not.toBeInTheDocument()
   })
 
   it('switches session and recalculates the plan from the selected session quantities', async () => {

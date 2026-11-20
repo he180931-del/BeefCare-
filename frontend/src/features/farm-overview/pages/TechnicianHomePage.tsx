@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import TechnicianLayout from '../../../components/TechnicianLayout'
-import { Badge, Button, ErrorBlock, Field, inputCls, LoadingBlock } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Badge, Button, ErrorBlock, Field, Icon, inputCls, LoadingBlock } from '../../../shared/ui'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { announcementsApi } from '../../farm-announcements'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { farmOverviewApi } from '../api/farmOverviewApi'
 import { dueLabel } from '../domain/reminderRules'
 import { formatKeyShort, weekdayOf } from '../domain/format'
@@ -52,8 +51,8 @@ export default function TechnicianHomePage() {
   if (home.loading && !home.data) return <TechnicianLayout title={`Chào ${given}`} hero><LoadingBlock /></TechnicianLayout>
   if (home.error || !home.data) return <TechnicianLayout title={`Chào ${given}`} hero><ErrorBlock message={userFacingError(home.error, 'Không tải được trang chủ.')} onRetry={home.refetch} /></TechnicianLayout>
 
-  const { today, reminders, feeding } = home.data
-  const sub = `${session?.farmName ?? home.data.farmName} · ${weekdayOf(today)} ${formatKeyShort(today)}`
+  const { today, reminders, unrecordedFeedings } = home.data
+  const sub = [session?.farmName, `${weekdayOf(today)} ${formatKeyShort(today)}`].filter(Boolean).join(' · ')
   const open = (e: FormEvent) => { e.preventDefault(); if (code.trim()) navigate(`/kt/dan-bo/${encodeURIComponent(code.trim())}`) }
 
   return (
@@ -64,6 +63,10 @@ export default function TechnicianHomePage() {
           <input id="open-cattle" className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Nhập mã bò hoặc số thẻ tai" enterKeyHint="go" />
         </Field>
       </form>
+      <section className={card} aria-label="Tra cứu trại">
+        {cardHead('Chuồng trại', '/pens', 'Xem chuồng')}
+        {cardHead('Danh mục trại', '/danh-muc', 'Xem danh mục')}
+      </section>
 
       <section className={card} aria-label="Thông báo mới">
         {cardHead('Thông báo mới', '/kt/thong-bao', 'Xem tất cả')}
@@ -82,7 +85,7 @@ export default function TechnicianHomePage() {
 
       <section className={card} aria-label="Khẩu phần hôm nay">
         {cardHead('Khẩu phần hôm nay', '/kt/thuc-an', 'Xem khẩu phần')}
-        <p className="m-0 text-xs text-[#212121]">{`${feeding.label} · ${feeding.unrecorded} / ${feeding.total} chuồng chưa ghi`}</p>
+        <p className="m-0 text-xs text-[#212121]">{unrecordedFeedings ? `${unrecordedFeedings} bữa ăn chưa ghi` : 'Không có bữa ăn chưa ghi.'}</p>
       </section>
     </TechnicianLayout>
   )

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!--
+        UC-FE19-06 / D19: SCR-62 "Reason and evidence references" holds up to 1,000 characters (SRS 4961, Q4) and a
+        recorded return carries its outgoing date (SRS 4963). Widening only: existing values are kept as they are;
+        no backfill, because an old return has no known date.
+    -->
+    <changeSet id="20261110000100-evidence-reconciliation" author="beefcare">
+        <modifyDataType tableName="bank_transfer_evidence" columnName="review_reason" newDataType="varchar(1000)"/>
+        <addColumn tableName="bank_transfer_evidence">
+            <column name="return_date" type="date"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

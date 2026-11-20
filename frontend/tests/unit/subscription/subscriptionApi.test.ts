@@ -60,7 +60,7 @@ describe('subscriptionApi (store demo)', () => {
     expect(p).toMatchObject({ state: 'PENDING', durationYears: 2, amountVnd: 2_160_000, priceVersionId: 3, bankCode: 'MB' })
     expect(Date.parse(p.expiresAt) - Date.parse(p.requestedAt)).toBe(24 * 3_600_000)
     const list = await api.listPayments(1)
-    expect(list.find((x) => x.quoteRef === 'BCF7K2Q9')?.state).toBe('EXPIRED')
+    expect(list.content.find((x) => x.quoteRef === 'BCF7K2Q9')?.state).toBe('EXPIRED')
   })
 
   it('giá đổi giữa lúc xem và lúc tạo thì báo giá cũ và giá mới, chưa tạo yêu cầu (AF2)', async () => {
@@ -70,7 +70,7 @@ describe('subscriptionApi (store demo)', () => {
     expect(e.code).toBe('PRICE_CHANGED')
     expect(e.detail.seen).toMatchObject({ version: 3, amountVnd: 1_200_000 })
     expect(e.detail.current).toMatchObject({ version: 4, amountVnd: 1_320_000 })
-    expect(await api.listPayments(2)).toHaveLength(0)
+    expect((await api.listPayments(2)).content).toHaveLength(0)
     const ok = await api.createPayment(2, { durationYears: 1, expectedPriceVersionId: 4 })
     expect(ok.amountVnd).toBe(1_320_000)
     expect(ok.quoteRef).toBe('BCK4M7R2')
@@ -124,12 +124,12 @@ describe('subscriptionApi (store demo)', () => {
 
   it('lịch sử lọc theo mã, trạng thái, ngày và sắp xếp', async () => {
     const { api } = setup()
-    expect((await api.listPayments(1)).map((p) => p.quoteRef)).toEqual(['BCF7K2Q9', 'BCE3P8L2', 'BCA9X2M1', 'BC77QK30'])
-    expect((await api.listPayments(1, { q: 'e3p' })).map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
-    expect((await api.listPayments(1, { state: 'PAID' }))).toHaveLength(2)
-    expect((await api.listPayments(1, { from: '2026-10-01', to: '2026-10-10' })).map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
-    expect((await api.listPayments(1, { sort: 'requestedAt', dir: 'asc' }))[0].quoteRef).toBe('BC77QK30')
-    expect(await api.listPayments(2)).toEqual([])
+    expect((await api.listPayments(1)).content.map((p) => p.quoteRef)).toEqual(['BCF7K2Q9', 'BCE3P8L2', 'BCA9X2M1', 'BC77QK30'])
+    expect((await api.listPayments(1, { q: 'e3p' })).content.map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
+    expect((await api.listPayments(1, { state: 'PAID' })).content).toHaveLength(2)
+    expect((await api.listPayments(1, { from: '2026-10-01', to: '2026-10-10' })).content.map((p) => p.quoteRef)).toEqual(['BCE3P8L2'])
+    expect((await api.listPayments(1, { sort: 'requestedAt', dir: 'asc' })).content[0].quoteRef).toBe('BC77QK30')
+    expect((await api.listPayments(2)).content).toEqual([])
   })
 
   it('kiểm tra lại: lỗi tra cứu giữ nguyên yêu cầu cũ; trạng thái chờ thì trả lại như cũ', async () => {
@@ -142,12 +142,43 @@ describe('subscriptionApi (store demo)', () => {
     expect((await rejects(api.getPayment(1, 'KHONGCO'))).code).toBe('NOT_FOUND')
   })
 
-  it('chế độ backend từ chối và không chạm store', async () => {
+  it('backend không dùng store khi API lỗi; lệnh tạo yêu cầu chưa tích hợp vẫn bị chặn', async () => {
     const store = { getOverview: vi.fn(), createPayment: vi.fn(), now: vi.fn() }
-    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: transport(), store: store as never })
-    await expect(api.getOverview(1)).rejects.toThrow(/Chưa tích hợp/)
+    const http = transport()
+    const unavailable = new Error('API unavailable')
+    http.get.mockRejectedValue(unavailable)
+    const api = createSubscriptionApi({ mode: 'backend', farmId: 1, transport: http, store: store as never })
+    await expect(api.getOverview(1)).rejects.toBe(unavailable)
     await expect(api.createPayment(1, { durationYears: 1 })).rejects.toThrow()
     expect(store.getOverview).not.toHaveBeenCalled()
     expect(store.createPayment).not.toHaveBeenCalled()
+  })
+})
+
+describe('D38 hủy yêu cầu (store demo, cùng quy tắc backend)', () => {
+  it('hủy yêu cầu đang chờ và tạo được yêu cầu mới; tiền trước lúc hủy vẫn xác nhận, từ lúc hủy thì không', async () => {
+    const { api, store, advance } = setup()
+    const pending = (await api.getOverview(1)).pendingPayment!
+    advance(1000)
+    const cancelled = await api.cancelPayment(1, pending, '  Đổi ý ', 'key')
+    expect(cancelled).toMatchObject({ state: 'CANCELLED', cancelReason: 'Đổi ý' })
+    expect((await rejects(api.cancelPayment(1, pending, '', 'key-2'))).code).toBe('STALE')
+    expect((await api.createPayment(1, { durationYears: 1 })).state).toBe('PENDING')
+    const at = Date.parse(cancelled.cancelledAt!)
+    const late = await store.receiveBankTransfer({ transactionId: 'D38-late', direction: 'IN', amountVnd: pending.amountVnd, content: pending.quoteRef, paidAt: toIso(at) })
+    expect(late.status).toBe('WINDOW_MISSED')
+    const early = await store.receiveBankTransfer({ transactionId: 'D38-early', direction: 'IN', amountVnd: pending.amountVnd, content: pending.quoteRef, paidAt: toIso(at - 1) })
+    expect(early.status).toBe('CONFIRMED')
+    expect(early.payment).toMatchObject({ state: 'PAID', cancelledAt: cancelled.cancelledAt })
+  })
+
+  it('đã nhận giao dịch đúng mã (kể cả sai số tiền) thì không hủy được', async () => {
+    const { api, store } = setup()
+    const pending = (await api.getOverview(1)).pendingPayment!
+    await store.receiveBankTransfer({ transactionId: 'D38-wrong', direction: 'IN', amountVnd: 1000, content: pending.quoteRef, paidAt: toIso(DEMO_START) })
+    const e = await rejects(api.cancelPayment(1, pending, '', 'key'))
+    expect(e.code).toBe('CANCEL_BLOCKED')
+    expect(e.detail.code).toBe(pending.quoteRef)
+    expect((await api.getPayment(1, pending.quoteRef)).state).toBe('PENDING')
   })
 })

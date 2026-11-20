@@ -1,7 +1,7 @@
 // Tên trường theo DTO trong openapi (RecordDTO, CashReport, NotificationView).
 export type RecordType = 'INCOME' | 'EXPENSE'
 export type RecordScope = 'GENERAL' | 'FARM'
-export type RecordState = 'DRAFT' | 'POSTED' | 'VOID'
+export type RecordState = 'DRAFT' | 'POSTED' | 'VOID' | 'DISCARDED'
 export type RecordSourceType = 'MANUAL' | 'BANK'
 
 export interface Farm { id: number; name: string }
@@ -74,6 +74,8 @@ export type RecordErrors = Partial<Record<'category' | 'amountVnd' | 'occurredOn
 export interface BankTransactionChoice {
   sourceReference: string
   transactionId: number
+  /** ID của BankTransferEvidence để gửi vào sourceEvidenceId; transactionId là mã giao dịch ngân hàng hiển thị. */
+  evidenceId?: number
   amount: number
   bankPaidAt: string
   direction: 'IN' | 'OUT'
@@ -89,8 +91,8 @@ export interface ReceiptFilters { search?: string; farmId?: number | ''; from?: 
 
 export type SourceFilter = 'BOTH' | 'RECEIPTS' | 'MANUAL'
 export interface ReportCriteria { dateFrom: string; dateTo: string; farmId: number | null; sourceFilter: SourceFilter }
-export interface ScopeTotals { scope: RecordScope | 'OTHER' | 'TOTAL'; farmId: number | null; farmName: string; subscriptionReceipts: number; otherIncome: number; expense: number }
-export interface ReportLine { sourceType: 'RECEIPT' | 'MANUAL'; code: string; scope: RecordScope; farmName: string; direction: 'IN' | 'OUT'; category: string; amountVnd: number; cashDate: string; status: string; reference: string }
+export interface ScopeTotals { scope: RecordScope | 'OTHER' | 'PLATFORM'; farmId: number | null; farmName: string; subscriptionReceipts: number; otherIncome: number; expense: number }
+export interface ReportLine { sourceType: 'RECEIPT' | 'MANUAL'; code: string; scope: RecordScope; farmName: string; direction: 'IN' | 'OUT'; category: string; amountVnd: number; cashDate: string; status: string; reference: string; sourceVersion: number | null }
 export interface ReportSummary { subscriptionReceipts: number; otherIncome: number; totalIncome: number; totalExpense: number; netCashFlow: number; scopes: ScopeTotals[]; dailyIncome: { date: string; income: number }[]; note: string }
 export interface CashReport { id: number; code: string; expired: boolean; criteria: ReportCriteria; summary: ReportSummary; lines: ReportLine[]; generatedAt: string; expiresAt: string }
 

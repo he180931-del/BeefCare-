@@ -1,9 +1,8 @@
 import { useRef, type ReactNode } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Field, Radio, Select, inputCls } from '../../../components/ui'
-import { REPRODUCTION_EXTERNAL_PEOPLE, REPRODUCTION_MEMBERS } from '../data/reproductionMock'
+import { Field, Icon, inputCls, Radio, Select } from '../../../shared/ui'
 import type { DataSource } from '../types'
-import { reproductionNow } from '../domain/reproductionClock'
+import { reproductionApi } from '../api/reproductionApi'
+import { useReproductionOptions } from './reproductionOptions'
 
 export const SOURCE_OPTIONS: Array<[DataSource, string]> = [
   ['DIRECT_OBSERVATION', 'Quan sát trực tiếp'], ['FARM_NOTEBOOK', 'Sổ trại'], ['EXTERNAL_REPORT', 'Báo cáo bên ngoài'],
@@ -17,7 +16,7 @@ export const COURSE_OPTIONS: Array<[string, string]> = [['NORMAL', 'Bình thư�
 export const DAM_CONDITION_OPTIONS: Array<[string, string]> = [['GOOD', 'Tốt'], ['MONITORING', 'Cần theo dõi'], ['CRITICAL', 'Nguy kịch']]
 export const SIGNS = ['Đứng yên cho nhảy', 'Chảy dịch nhờn trong', 'Nhảy lên con khác', 'Kêu rống', 'Âm hộ sưng đỏ']
 
-export const nowLocal = reproductionNow
+export const nowLocal = (): string => reproductionApi.now()
 
 /** Label without the required marker, used as the control's accessible name. */
 export const plain = (label: string): string => label.replace(/ \*$/, '')
@@ -83,24 +82,26 @@ export const memberLabel = (member: { name: string; role: string }) => `${member
 
 /** Dropdown of ACTIVE members (observer). */
 export function MemberSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const known = REPRODUCTION_MEMBERS.some((member) => member.name === value)
+  const { members } = useReproductionOptions()
+  const known = members.some((member) => member.name === value)
   return (
     <Select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">Chọn người</option>
       {!known && value && <option value={value}>{value}</option>}
-      {REPRODUCTION_MEMBERS.map((member) => <option key={member.name} value={member.name}>{memberLabel(member)}</option>)}
+      {members.map((member) => <option key={member.id} value={member.name}>{memberLabel(member)}</option>)}
     </Select>
   )
 }
 
-/** Member name or a typed outside person (performer, examiner, birth attendant). */
+/** Member name or a typed outside person (performer, examiner, birth attendant); a member name is sent as its id (P1). */
 export function PersonInput({ label, value, onChange, id }: { label: string; value: string; onChange: (value: string) => void; id: string }) {
   const listId = `${id}-people`
+  const { members, externalPeople } = useReproductionOptions()
   return (
     <>
       <input id={id} list={listId} aria-label={label} maxLength={100} className={inputCls} value={value} onChange={(event) => onChange(event.target.value)} placeholder="Chọn thành viên hoặc nhập tên" />
       <datalist id={listId}>
-        {[...REPRODUCTION_MEMBERS.map((member) => member.name), ...REPRODUCTION_EXTERNAL_PEOPLE].map((name) => <option key={name} value={name} />)}
+        {[...new Set([...members.map((member) => member.name), ...externalPeople])].map((name) => <option key={name} value={name} />)}
       </datalist>
     </>
   )

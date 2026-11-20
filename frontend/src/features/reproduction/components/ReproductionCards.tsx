@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Badge, Card, KV, Table, Td, Th } from '../../../components/ui'
+import { Badge, Card, KV, Table, Td, Th } from '../../../shared/ui'
 import {
-  METHOD_TEXT, addDaysText, daysBetween, expectedCalvingDate, formatDate, formatDateTime, isDueSoon, windowBar,
+  METHOD_TEXT, NO_WEIGHING, addDaysText, daysBetween, expectedCalvingDate, formatDate, formatDateTime, hasNoWeighing, isDueSoon, windowBar,
 } from '../domain/reproductionRules'
 import type { CalvingRecord, ReproductionEvent, ReproductionFemale } from '../types'
 import { nowLocal } from './reproductionFields'
@@ -14,9 +14,11 @@ export function EligibilityCard({ profile }: { profile: ReproductionFemale }) {
   if (!e) return null
   const met = e.status === 'MET'
   const met3 = [e.minimumAgeMet, e.minimumWeightMet, e.noOpenHealthCase].filter(Boolean).length
-  const rows: Array<[string, string, boolean]> = [
+  const noWeighing = hasNoWeighing(e)
+  const rows: Array<[string, string, boolean, string?]> = [
     [`Tuổi ≥ ${e.requiredAgeMonths} tháng`, `${e.actualAgeMonths} tháng`, e.minimumAgeMet],
-    [`Cân ≥ ${e.requiredWeightKg} kg`, e.actualWeightKg == null ? 'Chưa có cân' : `${e.actualWeightKg} kg`, e.minimumWeightMet],
+    // Chốt 15/11/2026: chưa có bản ghi cân VALID → "Chưa có lần cân" (cân lúc nhập đàn không tính).
+    [`Cân ≥ ${e.requiredWeightKg} kg`, noWeighing ? NO_WEIGHING : `${e.actualWeightKg} kg`, e.minimumWeightMet, noWeighing ? NO_WEIGHING : undefined],
     ['Không có ca bệnh mở', e.noOpenHealthCase ? 'Không có' : 'Có ca mở', e.noOpenHealthCase],
   ]
   return (
@@ -24,11 +26,11 @@ export function EligibilityCard({ profile }: { profile: ReproductionFemale }) {
       <Table stack={false}>
         <thead><tr><Th>Tiêu chí</Th><Th>Giá trị</Th><Th>Kết quả</Th></tr></thead>
         <tbody>
-          {rows.map(([criterion, value, ok]) => (
+          {rows.map(([criterion, value, ok, missing]) => (
             <tr key={criterion}>
               <Td className="font-medium">{criterion}</Td>
               <Td className="whitespace-nowrap">{value}</Td>
-              <Td><Badge tone={ok ? 'ok' : 'err'} icon={ok ? 'circle-check' : undefined}>{ok ? 'Đạt' : 'Chưa đạt'}</Badge></Td>
+              <Td><Badge tone={ok ? 'ok' : missing ? 'warn' : 'err'} icon={ok ? 'circle-check' : undefined}>{ok ? 'Đạt' : missing ?? 'Chưa đạt'}</Badge></Td>
             </tr>
           ))}
         </tbody>
@@ -85,7 +87,7 @@ export function LastBreedingCard({ profile }: { profile: ReproductionFemale }) {
         <KV k="Phương pháp">{breeding.method ? METHOD_TEXT[breeding.method as keyof typeof METHOD_TEXT] : '—'}</KV>
         <KV k="Giống tinh · mã lô">{sire}</KV>
         <KV k="Người thực hiện">{breeding.performer || '—'}</KV>
-        <KV k="Ngày dự kiến đẻ (tạm tính)"><span className="whitespace-nowrap">{formatDate(expectedCalvingDate(breeding.occurredAt))}</span></KV>
+        <KV k="Ngày dự kiến đẻ (tạm tính)"><span className="whitespace-nowrap">{breeding.expectedCalvingAt === null ? 'Chưa cấu hình thời gian mang thai' : formatDate(breeding.expectedCalvingAt ?? expectedCalvingDate(breeding.occurredAt))}</span></KV>
         <KV k="Số ngày sau phối">{days} ngày</KV>
         <KV k="Số lần khám">{checks}</KV>
         <KV k="Có thể khám từ"><span className="whitespace-nowrap">{formatDate(addDaysText(breeding.occurredAt, 30))}</span></KV>
@@ -144,8 +146,8 @@ export function CalfHistoryCard({ profile }: { profile: ReproductionFemale }) {
               <Td className="whitespace-nowrap">
                 {calfLine(calving).map(({ calf, key }) => (
                   <div key={key}>
-                    {calf.outcome === 'STILLBORN' ? '—' : calf.registrationStatus === 'REGISTERED' && calf.earTag
-                      ? <Link className="font-medium text-brand" to={`/cattle/${encodeURIComponent(calf.earTag)}`}>{calf.earTag}</Link>
+                    {calf.outcome === 'STILLBORN' ? '—' : calf.registrationStatus === 'REGISTERED' && (calf.cattleCode || calf.earTag)
+                      ? <Link className="font-medium text-brand" to={`/cattle/${encodeURIComponent(calf.cattleCode || calf.earTag || '')}`}>{calf.cattleCode || calf.earTag}</Link>
                       : 'Bê nháp'}
                   </div>
                 ))}

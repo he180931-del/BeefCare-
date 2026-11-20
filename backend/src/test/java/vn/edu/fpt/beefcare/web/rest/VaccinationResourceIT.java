@@ -236,21 +236,7 @@ class VaccinationResourceIT {
         assertSameRepositoryCount(databaseSizeBeforeTest);
     }
 
-    @Test
-    @Transactional
-    void checkDoseIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        vaccination.setDose(null);
-
-        // Create the Vaccination, which fails.
-
-        restVaccinationMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vaccination)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
+    // Dose is optional since changeset 20261115000200 (FE-09 spec §3.3), so there is no checkDoseIsRequired.
 
     @Test
     @Transactional

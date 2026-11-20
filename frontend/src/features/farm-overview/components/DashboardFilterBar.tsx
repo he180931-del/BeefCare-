@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { DateInput, FilterSelect, Segmented } from '../../../components/ui'
-import { HERD_GROUP_LABEL, HERD_GROUP_ORDER, LIFE_STAGES, LIFE_STAGE_LABEL, validateFilters } from '../domain/dashboardRules'
+import { DateInput, FilterSelect, Segmented } from '../../../shared/ui'
+import { HERD_GROUP_LABEL, HERD_GROUP_ORDER, LIFE_STAGES, LIFE_STAGE_LABEL } from '../domain/dashboardRules'
+import { validateFilters } from '../validation/dashboardValidation'
 import type { DashboardFilters, HerdGroup, LifeStage, PenInfo } from '../types'
 
 const PERIODS = [

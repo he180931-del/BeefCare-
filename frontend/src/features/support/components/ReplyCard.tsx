@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Button, Card, Note, Textarea } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { canReply, REPLY_MAX, validateReply } from '../domain/ticketRules'
+import { Button, Card, Icon, Note, Textarea } from '../../../shared/ui'
+import { canReply } from '../domain/ticketRules'
+import { REPLY_MAX, validateReply } from '../validation/ticketValidation'
 import type { Ticket } from '../types'
 import { FieldError } from './FieldError'
-import type { ActionResult } from './useTicketActions'
+import type { ActionResult } from '../hooks/useTicketActions'
 
 /** Phản hồi công khai (UC-FE20-03). Phiếu đã đóng chỉ đọc (MSG-FE20-06). */
 export function ReplyCard({ ticket, onSend }: { ticket: Ticket; onSend: (content: string) => Promise<ActionResult> }) {
@@ -31,7 +31,7 @@ export function ReplyCard({ ticket, onSend }: { ticket: Ticket; onSend: (content
   return (
     <Card title="Phản hồi">
       <div className="flex flex-col gap-3">
-        {closed && <Note tone="grey">Ticket này đã đóng và chỉ đọc. Hãy tạo ticket mới nếu bạn cần hỗ trợ thêm.</Note>}
+        {closed && <Note tone="grey">Yêu cầu này đã đóng và chỉ đọc. Hãy tạo yêu cầu mới nếu bạn cần hỗ trợ thêm.</Note>}
         <div>
           <Textarea
             id="tk-reply"

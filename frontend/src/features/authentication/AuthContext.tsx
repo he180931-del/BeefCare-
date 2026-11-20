@@ -1,10 +1,14 @@
-import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { useInRouterContext } from 'react-router-dom'
-import { BackendError } from '../../api/backendClient'
-import { userFacingError } from '../../api/userFacingError'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useInRouterContext, useLocation, useNavigate } from 'react-router-dom'
+import { BackendError } from '../../shared/api/backendClient'
+import { notifySessionSignedOut, onSessionExpired, onSessionSignedOut } from '../../app/session/sessionLifecycle'
+import { userFacingError } from '../../shared/api/userFacingError'
 import { defaultAuthClient } from './client'
 import { GuestAuthFlow } from './pages/GuestAuthFlow'
+import { takeInvitationLink } from './invitationReturn'
+import { clearCurrentFarmId } from '../../app/session/currentFarm'
 import type { AuthClient } from './types'
+import { AUTH_PATH } from './domain/authErrors'
 
 export type { AuthClient } from './types'
 
@@ -26,9 +30,14 @@ function loginErrorMessage(error: unknown): string {
 }
 
 export function AuthProvider({ client = defaultAuthClient, children }: { client?: AuthClient; children: ReactNode }) {
-  const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated'>('checking')
+  const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated' | 'suspended'>('checking')
   const [error, setError] = useState<string | null>(null)
   const hasRouter = useInRouterContext()
+  const expireSession = useCallback(() => {
+    clearCurrentFarmId()
+    setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
+    setStatus('anonymous')
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -36,10 +45,14 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     setError(null)
     client.isAuthenticated().then((ok) => {
       if (active) setStatus(ok ? 'authenticated' : 'anonymous')
-    }).catch(() => {
+    }).catch((reason: unknown) => {
       if (active) {
-        setError('Không thể kiểm tra phiên đăng nhập với máy chủ. Hãy thử đăng nhập lại hoặc kiểm tra kết nối.')
-        setStatus('anonymous')
+        if (reason instanceof BackendError && reason.code === 'MSG-FE01-03') {
+          setStatus('suspended')
+        } else {
+          setError('Không thể kiểm tra phiên đăng nhập với máy chủ. Hãy thử đăng nhập lại hoặc kiểm tra kết nối.')
+          setStatus('anonymous')
+        }
       }
     })
     return () => { active = false }
@@ -49,7 +62,17 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     authenticated: status === 'authenticated',
     mode: client.mode ?? 'backend',
     logout: async () => {
-      await client.logout()
+      let logoutFailed = false
+      try {
+        await client.logout()
+      } catch {
+        logoutFailed = true
+      }
+      clearCurrentFarmId()
+      setError(logoutFailed
+        ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa; bạn có thể đăng nhập lại.'
+        : null)
+      notifySessionSignedOut()
       setStatus('anonymous')
     },
   }), [client, status])
@@ -57,13 +80,46 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
   if (status === 'checking') return <div className="grid min-h-screen place-items-center text-sm text-subtle">Đang kiểm tra phiên đăng nhập…</div>
   return (
     <AuthContext.Provider value={value}>
+      {status === 'authenticated' && hasRouter && <SessionRedirect onExpired={expireSession} />}
+      {status === 'authenticated' && hasRouter && <InvitationResume />}
       {status === 'authenticated'
         ? children
         : hasRouter
-          ? <GuestAuthFlow client={client} initialError={error} onAuthenticated={() => setStatus('authenticated')} />
+          ? <GuestAuthFlow client={client} initialError={error} forceSuspended={status === 'suspended'} onExitSuspended={() => { setError(null); setStatus('anonymous') }} onAuthenticated={() => setStatus('authenticated')} />
           : <LegacyLoginForm client={client} initialError={error} onSuccess={() => setStatus('authenticated')} />}
     </AuthContext.Provider>
   )
+}
+
+/** After sign-in (password, Google or e-mail verification), reopen an invitation link the visitor started from (D28). */
+function InvitationResume() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const current = location.pathname + location.search
+  useEffect(() => {
+    const target = takeInvitationLink(current)
+    if (target) navigate(target, { replace: true })
+    // Only the moment of signing in matters; later navigation must not be redirected again.
+  }, [])
+  return null
+}
+
+function SessionRedirect({ onExpired }: { onExpired: () => void }) {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const stopListeningForExpiry = onSessionExpired(() => {
+      onExpired()
+      navigate(AUTH_PATH.signIn, { replace: true })
+    })
+    const stopListeningForSignOut = onSessionSignedOut(() => {
+      navigate(AUTH_PATH.signIn, { replace: true })
+    })
+    return () => {
+      stopListeningForExpiry()
+      stopListeningForSignOut()
+    }
+  }, [navigate, onExpired])
+  return null
 }
 
 export function useAuth() {

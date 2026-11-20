@@ -9,6 +9,7 @@ export type QueueTab = 'all' | 'unassigned' | 'mine' | 'waiting' | 'resolved'
 
 export interface Actor { id: number; name: string; role: 'CS' | 'PM' | 'SA' }
 export interface StaffMember { id: number; name: string; role: 'CS' | 'PM' | 'SA'; available: boolean }
+export interface FarmOption { id: number; name: string }
 export interface ContextRef { type: string; id: number; label: string }
 
 export interface TicketMessage {
@@ -18,6 +19,12 @@ export interface TicketMessage {
   authorRole: 'OWNER' | 'CS'
   text: string
   at: string
+}
+
+export interface MessagePage {
+  items: TicketMessage[]
+  nextBeforeId: number | null
+  hasMore: boolean
 }
 
 export interface ResolutionView {
@@ -53,6 +60,8 @@ export interface InternalView {
   status: InternalStatus
   outcome?: InternalOutcome
   result?: string
+  /** OPEN và người nhận không còn khả dụng (tài khoản bị tạm ngưng / mất vai trò): CS cần đổi người nhận (UC-FE03-08, D32). */
+  needsReassignment?: boolean
   domainResultAuditId?: number
   completedAt?: string
   completedBy?: string
@@ -79,6 +88,8 @@ export interface Ticket {
   updatedAt: string
   version: number
   messages: TicketMessage[]
+  messagesBeforeId?: number | null
+  messagesHasMore?: boolean
   resolutions: ResolutionView[]
   history: HistoryEvent[]
   internalRequests: InternalView[]
@@ -87,6 +98,7 @@ export interface Ticket {
 
 export interface TicketRow {
   id: number
+  version: number
   code: string
   subject: string
   category: TicketCategory
@@ -104,7 +116,7 @@ export interface TicketRow {
 export interface QueueFilters {
   q?: string
   farm?: string
-  /** 'all' | 'unassigned' | 'unavailable' | id của CS */
+  /** 'all' | 'unassigned' | 'unavailable' */
   assignment?: string
   category?: string
   priority?: string
@@ -131,6 +143,9 @@ export interface SupportNotification {
   read: boolean
   actionLabel: string
   ticketCode: string
+  /** Backend target fields let platform notifications open an internal request as well as a ticket. */
+  targetType?: string
+  targetId?: number
 }
 
 export interface CompleteCommand {

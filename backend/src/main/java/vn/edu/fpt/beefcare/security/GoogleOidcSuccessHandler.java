@@ -5,6 +5,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,11 +18,14 @@ import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Component;
 import vn.edu.fpt.beefcare.service.GoogleIdentityService;
+import vn.edu.fpt.beefcare.service.DomainException;
+import vn.edu.fpt.beefcare.service.MessageCodes;
 
 /** Converts a verified OIDC identity into BeefCare's current server-side session principal. */
 @Component
@@ -66,14 +71,29 @@ public class GoogleOidcSuccessHandler implements AuthenticationSuccessHandler {
             contextRepository.saveContext(context, request, response);
             sessions.registerNewSession(session.getId(), beefCareAuthentication.getName());
             session.setAttribute(GoogleReauthentication.AUTHENTICATED_AT, java.time.Instant.now());
-            boolean reauthentication = Boolean.TRUE.equals(session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE));
-            session.removeAttribute(GoogleReauthentication.RETURN_TO_PROFILE);
-            String destination = reauthentication ? "/profile?googleReauthenticated=true"
-                : linked.ownerRegistrationCompleted() ? "/select-farm" : "/owner-registration";
+            Object requestedReturnPath = session.getAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH);
+            session.removeAttribute(GoogleReauthentication.RETURN_TO_PROFILE_PATH);
+            String destination = requestedReturnPath instanceof String returnPath
+                ? returnPath + "?m=doi-mat-khau&googleReauthenticated=true"
+                : linked.ownerRegistrationCompleted() ? "/chon-trai" : "/owner-registration";
             response.sendRedirect(frontendBaseUrl + destination);
+        } catch (DomainException failure) {
+            SecurityContextHolder.clearContext();
+            if (MessageCodes.FE01_03.equals(failure.getCode())) {
+                String email = String.valueOf(failure.getParams().getOrDefault("email", ""));
+                String destination = "/tai-khoan-tam-ngung";
+                if (!email.isBlank()) destination += "?email=" + URLEncoder.encode(email, StandardCharsets.UTF_8);
+                response.sendRedirect(frontendBaseUrl + destination);
+                return;
+            }
+            LOG.warn("Google sign-in was rejected [{}]", failure.getCode());
+            response.sendRedirect(frontendBaseUrl + "/sign-in?error=google-sign-in");
         } catch (RuntimeException failure) {
             SecurityContextHolder.clearContext();
-            LOG.warn("Google sign-in was rejected ({})", failure.getClass().getSimpleName());
+            String reason = failure instanceof OAuth2AuthenticationException oauthFailure
+                ? oauthFailure.getError().getDescription()
+                : failure.getClass().getSimpleName();
+            LOG.warn("Google sign-in was rejected [{}]", reason);
             response.sendRedirect(frontendBaseUrl + "/sign-in?error=google-sign-in");
         }
     }

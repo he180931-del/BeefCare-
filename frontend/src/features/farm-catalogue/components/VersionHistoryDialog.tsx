@@ -1,5 +1,4 @@
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, LoadingBlock, Table, Td, Th } from '../../../components/ui'
+import { Badge, LoadingBlock, Modal, ModalButton, ModalFooter, Table, Td, Th } from '../../../shared/ui'
 import { formatDate } from '../domain/catalogueRules'
 import type { ParameterVersion } from '../types'
 

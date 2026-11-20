@@ -68,6 +68,27 @@ describe('SCR-77 Feed Stock page', () => {
     expect(await screen.findByRole('heading', { name: 'Phiếu điều chỉnh kho' })).toBeInTheDocument()
   })
 
+  it('makes the low / out of stock tile the prominent first block, red only when a feed has run out', async () => {
+    const tileOf = async () => {
+      const tiles = within(await screen.findByRole('region', { name: 'Chỉ số tồn kho' }))
+      const low = tiles.getByText('Sắp hết / hết').closest('div.rounded-2xl') as HTMLElement
+      return { low, first: (await screen.findByRole('region', { name: 'Chỉ số tồn kho' })).firstElementChild }
+    }
+    const rows = FEED_STOCK_MOCK.map((row) => ({ ...row }))
+    listFeedStockMock.mockResolvedValue(rows.map((row, index) => ({ ...row, status: index === 0 ? 'OUT_OF_STOCK' as const : 'SUFFICIENT' as const })))
+    const { unmount } = renderPage()
+    let tile = await tileOf()
+    expect(tile.first).toBe(tile.low)
+    expect(tile.low.className).toContain('bg-err-bg')
+    unmount()
+
+    listFeedStockMock.mockResolvedValue(rows.map((row, index) => ({ ...row, status: index === 0 ? 'LOW' as const : 'SUFFICIENT' as const })))
+    renderPage()
+    tile = await tileOf()
+    expect(tile.low.className).toContain('bg-warn-bg')
+    expect(within(tile.low).getByText('1')).toBeInTheDocument()
+  })
+
   it('combines text, group, and status filters', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -149,5 +170,22 @@ describe('SCR-77 Feed Stock page', () => {
 
     expect(screen.getByText('NEW_GROUP')).toBeInTheDocument()
     expect(screen.getByText('FUTURE_STATUS')).toBeInTheDocument()
+  })
+
+  it('labels the expiry warning as a date recorded on a posted receipt, not as per-lot stock', () => {
+    const row = {
+      ...FEED_STOCK_MOCK[0],
+      nearestLotNumber: 'LOT-NEAR',
+      nearestLotExpiryDate: '2026-11-20',
+    }
+
+    render(<MemoryRouter><FeedStockTable rows={[row]} /></MemoryRouter>)
+
+    expect(screen.getByRole('columnheader', { name: /Lô gần hạn theo phiếu nhập/ })).toHaveAttribute(
+      'title',
+      'Hạn gần nhất trong 30 ngày theo phiếu nhập đã ghi sổ; không thể hiện số dư riêng của lô.',
+    )
+    expect(screen.getByText('LOT-NEAR')).toBeInTheDocument()
+    expect(screen.getByText(/Hạn trên phiếu đã ghi:/)).toBeInTheDocument()
   })
 })

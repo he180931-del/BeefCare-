@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { Button, Field, Foot, Select, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { catalogueApi } from '../api/catalogueApi'
+import { Button, Field, Foot, Select, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useCatalogueApi } from '../hooks/useCatalogueApi'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
 import { DeactivateDialog, DeleteVaccineDialog } from '../components/ConfirmDialogs'
 import { EditorEmpty, EditorFooter, EditorPanel, PairGrid } from '../components/EditorPanel'
 import { AvailabilityBadge, StatusField, TextInput, UnitInput, fieldError } from '../components/fields'
 import { AddButton, SavedNotice, SplitLayout } from '../components/PageParts'
-import { useCanEdit } from '../components/useCanEdit'
-import { useCatalogueEditor } from '../components/useCatalogueEditor'
+import { useCanEdit } from '../hooks/useCanEdit'
+import { useCatalogueEditor } from '../hooks/useCatalogueEditor'
 import {
   CODE_HINT, ROUTE_LABELS, VACCINE_ROUTES, numberToText, parseNumber, vaccineDoseRoute, vaccineUsage, vaccineUsageLabel,
 } from '../domain/catalogueRules'
@@ -26,6 +26,7 @@ const toDraft = (v: Vaccine): VaccineDraft => ({
 })
 
 export default function VaccinesPage() {
+  const catalogueApi = useCatalogueApi()
   const canEdit = useCanEdit()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<AvailabilityFilter>('')
@@ -48,7 +49,7 @@ export default function VaccinesPage() {
     setDeleting(true)
     setDeleteError(null)
     try {
-      await catalogueApi.deleteVaccine(item.id)
+      await catalogueApi.deleteVaccine(item)
       ed.closeModal()
       ed.clear()
       list.refetch()

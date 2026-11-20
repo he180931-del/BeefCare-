@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Table, Td, Th } from '../../../components/ui'
+import { Table, Td, Th } from '../../../shared/ui'
 import { formatDayTime } from '../domain/format'
 import { categoryLabel, shortFarmName } from '../domain/ticketRules'
 import type { Ticket } from '../types'

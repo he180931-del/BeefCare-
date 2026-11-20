@@ -76,7 +76,8 @@ public class SecurityConfiguration {
         HttpSecurity http,
         FarmAccessService farmAccessService,
         SessionRegistry sessionRegistry,
-        vn.edu.fpt.beefcare.security.GoogleOidcSuccessHandler googleSuccessHandler
+        vn.edu.fpt.beefcare.security.GoogleOidcSuccessHandler googleSuccessHandler,
+        vn.edu.fpt.beefcare.security.GoogleOidcFailureHandler googleFailureHandler
     ) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookiePath("/");
@@ -84,7 +85,8 @@ public class SecurityConfiguration {
         CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
 
         http.cors(withDefaults())
-            .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository).csrfTokenRequestHandler(csrfRequestHandler).ignoringRequestMatchers("/api/webhooks/sepay"))
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfRepository).csrfTokenRequestHandler(csrfRequestHandler)
+                .ignoringRequestMatchers("/api/webhooks/sepay", "/api/v1/payments/sepay/webhook"))
             .addFilterAfter(new SpaWebFilter(), AnonymousAuthenticationFilter.class)
             .addFilterAfter(new ActiveAccountFilter(farmAccessService, sessionRegistry), AnonymousAuthenticationFilter.class)
             .headers(headers ->
@@ -119,7 +121,7 @@ public class SecurityConfiguration {
                     .requestMatchers(HttpMethod.GET, "/api/platform/subscriptions", "/api/platform/subscriptions/*").authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/public/prices").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/public/landing").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/webhooks/sepay").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/webhooks/sepay", "/api/v1/payments/sepay/webhook").permitAll()
                     .requestMatchers("/api/dev/sepay/**").authenticated()
                     .requestMatchers("/api/support/tickets/**", "/api/platform/support/tickets/**", "/api/platform/support/recipients", "/api/platform/internal-requests/**").authenticated()
                     .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
@@ -140,7 +142,7 @@ public class SecurityConfiguration {
             )
             .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint((request, response, exception) -> response.sendError(401)));
 
-        if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler));
+        if (googleLoginEnabled) http.oauth2Login(oauth2 -> oauth2.successHandler(googleSuccessHandler).failureHandler(googleFailureHandler));
 
         return http.build();
     }
@@ -185,7 +187,9 @@ public class SecurityConfiguration {
                         session.invalidate();
                     }
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
-                    response.sendError(ex.getStatus().value());
+                    response.setStatus(ex.getStatus().value());
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"code\":\"" + ex.getCode() + "\"}");
                     return;
                 }
             }

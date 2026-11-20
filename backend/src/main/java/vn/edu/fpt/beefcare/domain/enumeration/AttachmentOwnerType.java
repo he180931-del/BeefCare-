@@ -7,6 +7,8 @@ public enum AttachmentOwnerType {
     FEED_RECEIPT,
     /** Count record or photos of a feed stock adjustment (SCR-80). */
     FEED_ADJUSTMENT,
+    /** Optional payment evidence attached to one feed receipt VoucherPayment. */
+    FEED_RECEIPT_PAYMENT,
     HERD_ENTRY_VOUCHER,
     HERD_EXIT_VOUCHER,
 }

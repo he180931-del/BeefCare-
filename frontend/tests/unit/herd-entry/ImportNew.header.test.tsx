@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -99,6 +99,32 @@ beforeEach(() => {
 })
 
 describe('Phiếu nhập mới — thông tin phiếu', () => {
+  it('giữ các trường của phiếu mua ngoài và các hành động lưu trong đúng vùng', async () => {
+    renderPage()
+    await waitForForm()
+
+    const fields = within(screen.getByRole('region', { name: 'Nội dung phiếu nhập mua ngoài' }))
+    const review = within(screen.getByRole('region', { name: 'Tóm tắt và lưu phiếu' }))
+    expect(fields.getByRole('textbox', { name: 'Biển số xe' })).toBeInTheDocument()
+    expect(fields.getByRole('button', { name: 'Nhập từ Excel' })).toBeInTheDocument()
+    expect(fields.getByRole('button', { name: 'Thanh toán' })).toBeInTheDocument()
+    expect(review.getByText('Kiểm tra trước khi lưu')).toBeInTheDocument()
+    expect(review.getByRole('button', { name: /Lưu & tạo hồ sơ/ })).toBeInTheDocument()
+    expect(review.getByRole('button', { name: 'Lưu nháp phiếu' })).toBeInTheDocument()
+  })
+
+  it('dùng cùng bố cục form và vùng lưu cho phiếu bê sinh tại trại', async () => {
+    renderPage('/herd-entry/new?kind=calf')
+    await waitForForm()
+
+    const fields = within(screen.getByRole('region', { name: 'Nội dung phiếu nhập bê sinh tại trại' }))
+    const review = within(screen.getByRole('region', { name: 'Tóm tắt và lưu phiếu' }))
+    expect(fields.getByText('1. Thông tin phiếu')).toBeInTheDocument()
+    expect(fields.getByText('3. Chứng từ đính kèm')).toBeInTheDocument()
+    expect(fields.queryByText('4. Thanh toán')).not.toBeInTheDocument()
+    expect(review.getByRole('button', { name: 'Lưu nháp phiếu' })).toBeInTheDocument()
+  })
+
   it('prices each line per kg by default and shows the voucher-level pricing basis', async () => {
     renderPage()
     await waitForForm()

@@ -14,7 +14,7 @@
 
 The backend adapter is `frontend/src/features/herd-entry/api/herdEntryBackendApi.ts`;
 the local adapter is `frontend/src/features/herd-entry/api/herdEntryLocalApi.ts`,
-selected by `frontend/src/api/backendTransport.ts`. The backend
+selected by `backendMode` in `frontend/src/shared/config/runtime.ts`. The backend
 resource is `HerdEntryVoucherResource` at
 `/api/farms/{farmId}/entry-vouchers`.
 

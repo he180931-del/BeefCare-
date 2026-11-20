@@ -41,13 +41,43 @@ public class PlanVersion implements Serializable {
     @Column(name = "price_3_y", precision = 21, scale = 2, nullable = false)
     private BigDecimal price3y;
 
-    @Size(max = 255)
-    @Column(name = "terms", length = 255)
+    @Size(max = 500)
+    @Column(name = "terms", length = 500)
     private String terms;
 
     @NotNull
     @Column(name = "effective_at", nullable = false)
     private Instant effectiveAt;
+
+    @Version
+    @Column(name = "revision", nullable = false)
+    private Long revision;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "published_by_id")
+    private AppUser publishedBy;
+    @Column(name = "published_at")
+    private Instant publishedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "withdrawn_by_id")
+    private AppUser withdrawnBy;
+    @Column(name = "withdrawn_at")
+    private Instant withdrawnAt;
+    @Size(max = 1000)
+    @Column(name = "withdraw_reason", length = 1000)
+    private String withdrawReason;
+
+    public Long getRevision() { return revision; }
+    public void setRevision(Long value) { revision = value; }
+    public AppUser getPublishedBy() { return publishedBy; }
+    public void setPublishedBy(AppUser value) { publishedBy = value; }
+    public Instant getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(Instant value) { publishedAt = value; }
+    public AppUser getWithdrawnBy() { return withdrawnBy; }
+    public void setWithdrawnBy(AppUser value) { withdrawnBy = value; }
+    public Instant getWithdrawnAt() { return withdrawnAt; }
+    public void setWithdrawnAt(Instant value) { withdrawnAt = value; }
+    public String getWithdrawReason() { return withdrawReason; }
+    public void setWithdrawReason(String value) { withdrawReason = value; }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 

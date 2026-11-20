@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { DateInput, Field, KV, Note, Select, Table, Td, Th } from '../../../components/ui'
-import { BREEDS, PURPOSE_OPTIONS, STAGES } from '../data/importsData'
-import { money } from '../../../data/format'
+import { DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Th } from '../../../shared/ui'
+import { PURPOSE_OPTIONS, STAGES } from '../constants/entryOptions'
+import { money } from '../../../shared/lib/format'
 import { RadioRow } from './parts'
-import type { EntryCow, Pen } from '../../../types'
+import { entryToday } from '../validation/entryValidation'
+import type { EntryCow } from '../types'
+import type { Pen } from '../../pen-management'
 import type { EntryBreedOption, EntryVaccineOption } from '../api/herdEntryBackendApi'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
@@ -79,7 +80,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
       if (months != null && (!Number.isInteger(months) || months < 1 || months > 9)) return setValidationError('Số tháng mang thai phải từ 1 đến 9.')
       setHist({ pregnancyMonths: months, earlierCalvings: c.hist.earlierCalvings, pregnantAtEntry, reproductionNote: detailSource.slice(0, 1000) })
     } else if (detailModal === 'vaccine') {
-      if (detailDate && detailDate > new Date().toISOString().slice(0, 10)) return setValidationError('Ngày tiêm không được ở tương lai.')
+      if (detailDate && detailDate > entryToday()) return setValidationError('Ngày tiêm không được ở tương lai.')
       const items = vaccineRows.filter((item) => item.vaccineName.trim() || item.vaccineId != null || item.date || item.source).map((item) => ({ vaccineId: item.vaccineId, vaccineName: item.vaccineName, vaccineDate: item.date, vaccineSource: item.source }))
       setHist({ vaccineItems: items, vaccineId: items[0]?.vaccineId, vaccineName: items[0]?.vaccineName, vaccineDate: items[0]?.vaccineDate, vaccineSource: items[0]?.vaccineSource, vaccineNote: items[0]?.vaccineSource || items[0]?.vaccineName })
     } else setHist({ diseaseNote: detailDraft.trim().slice(0, 1000) })
@@ -170,7 +171,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
               set({ breed, breedId: selected?.id ?? null })
             }}>
               <option value="">Chọn giống</option>
-              {(breeds.length ? breeds.map((option) => option.name) : BREEDS).map((b) => <option key={b}>{b}</option>)}
+              {breeds.map((option) => option.name).map((b) => <option key={b}>{b}</option>)}
             </Select>
           </Field>
           <div className="flex min-w-0 flex-col gap-1.5">

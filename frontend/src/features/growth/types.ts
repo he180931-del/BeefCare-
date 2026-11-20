@@ -19,6 +19,8 @@ export interface GrowthCattle {
   herdEntryDate: string // yyyy-mm-dd
   targetWeightKg?: number
   status: 'ACTIVE' | 'EXITED'
+  /** Bò trên phiếu chết / mất PENDING (R-08-10, MSG-COM-17): không ghi mới, vẫn sửa / loại trừ bản ghi cũ. */
+  exitPending?: boolean
 }
 
 export interface GrowthRevision {
@@ -130,6 +132,8 @@ export interface GrowthProfile {
   count: number
   correctedCount: number
   nextWeighingDate?: string
+  /** Ngày nghiệp vụ hiện tại của trại (yyyy-mm-dd), để biết lần cân tới đã quá hạn chưa. */
+  today: string
   projection?: GrowthProjection
   chart: GrowthChartPoint[]
 }

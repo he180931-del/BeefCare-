@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Info, Note, Radio } from '../../../components/ui'
+import { Badge, Button, Card, Info, Note, Radio } from '../../../shared/ui'
 import type { Evidence, PlatformPayment, ReviewDecision } from '../types'
 import { fmtMoney, fmtSeconds, fmtShort } from '../domain/dates'
 import { evidenceCode, evidenceStatusLabel } from '../domain/reconciliation'

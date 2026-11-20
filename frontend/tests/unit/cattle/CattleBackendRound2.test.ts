@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCattleBackendApi, mapBackendCattle } from '../../../src/api/cattleBackendApi'
+import { createCattleBackendApi, mapBackendCattle } from '../../../src/features/cattle/api/cattleBackendApi'
 
 describe('backend cattle round 2 contract', () => {
   it('sends every server-side cattle filter and preserves backend pagination/counts', async () => {
@@ -33,6 +33,6 @@ describe('backend cattle round 2 contract', () => {
     expect(cow.qrHistory).toHaveLength(1)
     expect(cow.qrHistory[0]).toMatchObject({ code: 'QR-REAL', status: 'ACTIVE' })
     expect(cow.events).toHaveLength(1)
-    expect(cow.events[0]).toMatchObject({ cat: 'qr', detail: expect.stringContaining('QR-REAL') })
+    expect(cow.events[0]).toMatchObject({ cat: 'qr', title: 'Cấp thẻ QR QR-REAL' })
   })
 })

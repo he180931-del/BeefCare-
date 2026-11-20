@@ -1,18 +1,17 @@
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, inputCls, Radio } from '../../../components/ui'
-import { useSession } from '../../authorization'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Badge, Icon, inputCls, Radio } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useCanRecordCare } from '../../authorization'
 import { ENTRY_LABEL, HEALTH_STATE_LABEL, OUTCOME_LABEL, PROGRESS_LABEL, ROUTE_LABEL, SEVERITY_LABEL, fmtDate, fmtDateTime, fmtTemp } from '../domain/healthFormat'
-import { HealthValidationError } from '../domain/healthRules'
+import { HealthValidationError } from '../validation/healthValidation'
 import type { CaseOutcome, CaseStatus, HealthCattle, HealthState, HealthTimelineRow, Severity } from '../types'
 
-/** Chỉ Quản lý ghi nhận (GBR-08); Chủ trại và Kỹ thuật viên chỉ xem. Không có phiên được coi là Quản lý. */
+/** Chủ trại và Quản lý ghi nhận (GBR-08, D41); Kỹ thuật viên chỉ xem. Không có phiên thì không áp quyền theo vai trò. */
 export function useCanRecord() {
-  const session = useSession()
-  return (session?.role ?? 'MANAGER') === 'MANAGER'
+  return useCanRecordCare()
 }
 
 /** Hộp thoại mở bằng `?m=<tên>`; `case` / `entry` chọn ca hoặc bản ghi cần thao tác. */
@@ -70,7 +69,7 @@ export function DateTimeInput({ id, value, onChange }: { id?: string; value: str
     setText(next)
     const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(next.trim())
     const iso = m ? `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}` : ''
-    onChange(iso && !Number.isNaN(Date.parse(iso)) ? iso : '')
+    onChange(iso && !Number.isNaN(parseBusinessTime(iso)) ? iso : '')
   }
   return (
     <div className="relative">
@@ -82,9 +81,9 @@ export function DateTimeInput({ id, value, onChange }: { id?: string; value: str
 
 export const ReadonlyBox = ({ id, value }: { id?: string; value: string }) => <input id={id} readOnly value={value} className={inputCls} />
 
-export function RadioGroup<T extends string>({ name, value, options, onChange }: { name: string; value: T | ''; options: Array<{ value: T; label: string }>; onChange: (value: T) => void }) {
+export function RadioGroup<T extends string>({ name, value, options, onChange, ariaLabel }: { name: string; value: T | ''; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; ariaLabel?: string }) {
   return (
-    <div role="radiogroup" className="flex flex-wrap items-center gap-x-6 gap-y-2">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap items-center gap-x-6 gap-y-2">
       {options.map((o) => <Radio key={o.value} name={name} checked={value === o.value} onChange={() => onChange(o.value)} className="text-[13px]">{o.label}</Radio>)}
     </div>
   )

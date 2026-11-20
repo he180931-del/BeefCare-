@@ -1,5 +1,5 @@
-import { Metric } from '../../../components/ui'
-import { shortSupplierName, summarizeFeedReceipts } from '../data/feedReceipts'
+import { Metric } from '../../../shared/ui'
+import { shortSupplierName, summarizeFeedReceipts } from '../domain/feedReceiptList'
 import { formatKg, formatVnd } from '../domain/feedLabels'
 import type { FeedSupplier } from '../types/feedCatalogue'
 import type { FeedReceipt } from '../types/feedReceipt'

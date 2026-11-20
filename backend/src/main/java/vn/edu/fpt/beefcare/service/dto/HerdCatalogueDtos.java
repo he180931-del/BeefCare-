@@ -10,9 +10,10 @@ public final class HerdCatalogueDtos {
         @Size(max=50) String group,@Size(max=500) String description,@NotNull Boolean available,Integer expectedVersion) {}
     public record PurposeWrite(@NotBlank @Pattern(regexp="[A-Z0-9-]{2,20}") String code,@NotBlank @Size(max=100) String name,
         @NotNull PurposeType purposeType,@Size(max=500) String description,@NotNull Boolean available,Integer expectedVersion) {}
+    /** {@code referencedCount}: records that use the breed (MSG-FE18-03 before stopping; 0 = may be deleted, Q4). */
     public record BreedView(Long id,String code,String name,String group,String description,boolean available,long activeCattle,
-        boolean referenced,Integer version,List<String> messages) {}
+        boolean referenced,Integer version,List<String> messages,long referencedCount) {}
     public record ReceivingPen(Long id,String code,String name) {}
     public record PurposeView(Long id,String code,String name,PurposeType purposeType,String description,boolean available,
-        long activeCattle,boolean referenced,List<ReceivingPen> receivingPens,Integer version,List<String> messages) {}
+        long activeCattle,boolean referenced,List<ReceivingPen> receivingPens,Integer version,List<String> messages,long referencedCount) {}
 }

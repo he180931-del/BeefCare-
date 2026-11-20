@@ -5,18 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:backend": "vite --mode backend",
     "dev:mock": "vite --mode mock --host 127.0.0.1 --port 5174",
     "build": "vite build",
     "test": "npm run test:api && npm run test:unit:run && npm run test:integration",
-    "test:api": "node --import tsx --test tests/api/*.test.ts",
+    "test:api": "node --import tsx --import ./tests/node/setup.ts --test tests/api/*.test.ts",
     "test:unit": "vitest",
     "test:unit:run": "vitest run --passWithNoTests",
-    "test:integration": "node --import tsx --test tests/integration/herd-entry/*.test.ts",
+    "test:integration": "node --import tsx --import ./tests/node/setup.ts --test tests/integration/herd-entry/*.test.ts",
     "test:integration:ui": "vitest run tests/integration/**/*.test.tsx",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
     "@tailwindcss/vite": "4.3.3",
+    "jsqr": "1.4.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.30.6",

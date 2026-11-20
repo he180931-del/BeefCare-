@@ -136,17 +136,17 @@ AF1 Manager mở → tab Mục đích chỉ đọc + MSG-FE05-03 · AF2 mở t�
 E1 trùng số tai → MSG-FE05-02 · E2 danh mục ngưng → MSG-FE18-08 · E3 thiếu lý do / ngày, ngày tương lai, ngày trước nhập đàn → MSG-COM-06 / 07 / 15 · E4 bò EXITED → MSG-COM-13 · E5 sửa đồng thời → MSG-COM-05 · E6 lỗi lưu → MSG-COM-02.
 
 ### UC-FE05-04 Cấp / thay thẻ QR
-1. Popup hiện thẻ hiện tại (mã, trạng thái, tháng cấp) và mã thẻ mới hệ thống tạo (hoặc người dùng nhập mã thẻ in sẵn).
+1. Popup hiện thẻ hiện tại (mã, trạng thái, tháng cấp). Để trống ô mã để hệ thống cấp khi xác nhận, hoặc nhập mã thẻ in sẵn.
 2. Chọn lý do thay (Mất / Hỏng / Khác), ghi chú tùy chọn.
-3. **In thử** (không lưu, tùy chọn) → **Xác nhận thẻ mới**.
-4. Kiểm trạng thái bò, mã mới duy nhất → R-05-12 → MSG-FE05-04 → đề nghị in.
+3. Nếu đã nhập mã hợp lệ, có thể xem QR, tải PNG hoặc **In thẻ thử**. Tem thử chưa được gắn với bò ở bước này.
+4. **Xác nhận thẻ mới** kiểm trạng thái bò và tính duy nhất của mã (R-05-12). Sau khi lưu, hiển thị QR của mã vừa cấp, cho tải hoặc in lại ngay (MSG-FE05-04).
 
 AF1 cấp lần đầu → không hỏi lý do · AF2 Hủy.
 E1 bò EXITED → MSG-COM-13 · E2 in lỗi → MSG-FE05-08 · E3 lỗi lưu → MSG-COM-02.
 
 ### UC-FE05-05 Quét QR
-1. Mở SCR-22, xin quyền camera khi cần.
-2. Đưa camera vào thẻ → hệ thống đọc mã, tìm bò (R-05-14), kiểm bò thuộc trại hiện tại và người dùng được xem.
+1. Mở SCR-22, bấm **Bật camera** để xin quyền. Có thể chọn **Quét từ ảnh** hoặc nhập mã thủ công.
+2. Hệ thống đọc QR từ camera hoặc tệp ảnh trên thiết bị rồi tra cứu cùng API (R-05-14). Camera tự tắt khi đã đọc được mã hoặc rời màn hình.
 3. Hiện thẻ tóm tắt bò → **Mở hồ sơ** (SCR-19, chỉ nút theo vai trò) hoặc **Quét lại**.
 
 AF1 **Nhập mã thủ công** (mã hiển thị, số tai hoặc mã thẻ) → xử lý như quét · AF2 thẻ REPLACED → MSG-FE05-05 · AF3 bò của trại khác có quyền → MSG-FE05-06, đồng ý thì chuyển trại (UC-FE02-02) rồi mở hồ sơ · AF4 bò EXITED → hồ sơ chỉ đọc + MSG-COM-13.
@@ -185,7 +185,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | # | Trường | Loại | Nội dung / Hành vi |
 |---|---|---|---|
 | **Tiêu đề** | | | |
-| 1 | Photo / Ảnh | Ảnh nhỏ | Ảnh hiện tại hoặc ảnh mặc định; bấm để phóng to |
+| 1 | Photo / Ảnh | Ảnh nhỏ và nút | Bấm ảnh hiện tại để mở hộp thoại phóng to, giữ tỷ lệ gốc. Khi chưa có ảnh, hiển thị biểu tượng bò. Chủ trại và Quản lý được sửa hồ sơ thấy nút **Thêm ảnh** hoặc **Đổi ảnh**, mở tab **Định danh & mô tả**. |
 | 2 | Display code, name / Mã, tên | Chữ | Ví dụ BC-000125 "Hoa Đỏ" |
 | 3 | Summary line / Dòng tóm tắt | Chữ | Số tai ("Gắn tai sau" khi trống) · giống · giới tính · tuổi · chuồng hiện tại |
 | 4 | Badges / Huy hiệu | Huy hiệu | Theo thứ tự §3.2; quy tắc cho EXITED / VOIDED / phiếu chết PENDING ở mục 5 |
@@ -229,7 +229,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | 1 | Tag code, Status / Mã thẻ, Trạng thái | Chỉ đọc |
 | 2 | Code printed on tag / Mã in trên thẻ | Mã hiển thị in phía trên QR (OR-02) |
 | 3 | Issued at · by / Cấp lúc · bởi | Chỉ đọc |
-| 4 | Print tag / In thẻ | Nút (Owner, Manager) |
+| 4 | Print tag / In thẻ | Owner/Manager có quyền ghi có thể mở hộp thoại in hoặc tải tem PNG của thẻ ACTIVE. Mã hiển thị của bò nằm trên QR. |
 | 5 | Replace tag / Thay thẻ | Nút (Owner, Manager); mở popup Cấp / Thay thẻ QR |
 | 6 | Tag history / Lịch sử thẻ | Dòng chỉ đọc: mã thẻ, cấp, kết thúc, lý do (Mất / Hỏng / Khác / "Cấp lần đầu"), người làm |
 
@@ -238,7 +238,7 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | # | Trường | Loại | Bắt buộc | Ràng buộc | Lỗi |
 |---|---|---|---|---|---|
 | **Tab Định danh & mô tả** | | | | | |
-| 1 | Photo / Ảnh | File | — | JPG / PNG, ≤ 5 MB; thay hoặc xóa | MSG-COM-10 |
+| 1 | Photo / Ảnh nhận diện | File | — | Nút **Chọn ảnh** mở trình chọn tệp JPG/PNG, tối đa 5 MB. Hiện tên tệp đã chọn. Khi có ảnh hiện tại, nút **Xóa ảnh** đánh dấu xóa. Bấm **Lưu thay đổi** để áp dụng. | MSG-COM-10 |
 | 2 | Ear tag number / Số tai | Ô chữ | — | ≤ 30; duy nhất trong bò ACTIVE | MSG-COM-10, MSG-FE05-02 |
 | 3 | Name / Tên | Ô chữ | — | ≤ 50 | MSG-COM-10 |
 | 4 | Colour and markings / Màu lông, đặc điểm | Ô chữ | — | ≤ 255 | MSG-COM-10 |
@@ -263,19 +263,21 @@ E1 camera không dùng được → MSG-FE05-07 + nhập thủ công · E2 mã l
 | 2 | Replacement reason / Lý do thay | Dropdown | * (chỉ khi thay) | Mất / Hỏng / Khác | MSG-COM-06 |
 | 3 | New tag code / Mã thẻ mới | Chỉ đọc hoặc ô chữ | — | Hệ thống tạo; hoặc nhập mã thẻ in sẵn (duy nhất) | MSG-FE12-08 |
 | 4 | Note / Ghi chú | Ô chữ | — | ≤ 255 | MSG-COM-10 |
-| 5 | Print test tag / In thử | Nút | — | In không lưu | — |
+| 5 | Print test tag / In thẻ thử | Nút | — | Hiện với mã do người dùng nhập hợp lệ. In hoặc tải ảnh không cấp thẻ. | — |
 | 6 | Cancel / Confirm new tag – Hủy / Xác nhận thẻ mới | Nút | — | — | MSG-COM-13, MSG-COM-02; thành công MSG-FE05-04; in lỗi MSG-FE05-08 |
 
 ### SCR-22 Quét QR
 
 | # | Trường | Loại | Nội dung |
 |---|---|---|---|
-| 1 | Camera view / Khung camera | Camera | Khung quét; không dùng được → MSG-FE05-07 |
+| 1 | Camera view / Khung camera | Camera | Bật/tắt camera. Camera cần quyền của trình duyệt và trang HTTPS hoặc localhost. |
 | 2 | Identified cattle card / Thẻ bò đã nhận diện | Chỉ đọc | Mã hiển thị, số tai, giống, giới tính, tuổi, chuồng, trạng thái đàn, sức khỏe, sinh sản |
 | 3 | Open profile / Mở hồ sơ | Nút | Mở SCR-19 |
 | 4 | Scan again / Quét lại | Nút | Xóa kết quả |
 | 5 | Enter code manually / Nhập mã thủ công | Ô chữ | Mã hiển thị, số tai hoặc mã thẻ; xử lý như quét |
 | 6 | Messages / Thông báo | — | MSG-FE05-05, 06, 09, 10, MSG-COM-13 |
+| 7 | Scan from image / Quét từ ảnh | Tệp | PNG, JPG, WebP hoặc GIF, tối đa 10 MB. Ảnh được đọc trên thiết bị. |
+| 8 | Switch farm / Chuyển trại và mở hồ sơ | Nút | Chỉ hiện khi API xác nhận người dùng có thể vào trại của bò. Kiểm lại trại, tra cứu lại mã rồi mở đúng hồ sơ. |
 
 ---
 

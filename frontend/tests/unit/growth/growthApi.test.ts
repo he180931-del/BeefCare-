@@ -114,10 +114,14 @@ describe('chế độ backend', () => {
   it('không đọc hay ghi mock', async () => {
     const store = createGrowthDemoStore()
     const spies = [vi.spyOn(store, 'listHerd'), vi.spyOn(store, 'record'), vi.spyOn(store, 'getProfile')]
-    const api = createGrowthApi({ mode: 'backend', farmId: 1, transport: transport() as never, store })
-    await expect(api.listHerd()).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.record('BC-000203', { ...base, bcs: 3 })).rejects.toThrow(/Chưa tích hợp/)
-    await expect(api.getProfile('BC-000203')).rejects.toThrow(/Chưa tích hợp/)
+    const t = transport()
+    t.farmPath.mockImplementation((id: number, suffix = '') => `/api/farms/${id}${suffix}`)
+    t.get.mockRejectedValue(new Error('backend down'))
+    const api = createGrowthApi({ mode: 'backend', farmId: 1, transport: t as never, store })
+    await expect(api.listHerd()).rejects.toThrow(/backend down/)
+    await expect(api.record('BC-000203', { ...base, bcs: 3 })).rejects.toThrow(/backend down/)
+    await expect(api.getProfile('BC-000203')).rejects.toThrow(/backend down/)
     spies.forEach((s) => expect(s).not.toHaveBeenCalled())
+    expect(t.get).toHaveBeenCalledWith('/api/farms/1/growth?windowDays=90&page=0&size=7')
   })
 })

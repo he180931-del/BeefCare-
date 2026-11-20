@@ -80,6 +80,36 @@ public class MailService {
         jobs.save(job);
     }
 
+    /** Payment-only JOB-07 intent. Its database key prevents a second email job for the same committed payment. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void queuePaymentReceipt(vn.edu.fpt.beefcare.domain.Payment payment, vn.edu.fpt.beefcare.domain.AppUser owner) {
+        String key = "PAYMENT_PAID:" + payment.getId();
+        if (jobs.findByEventKey(key).isPresent()) return;
+        EmailDeliveryJob job = new EmailDeliveryJob();
+        job.setEventKey(key); job.setRecipient(owner.getEmail()); job.setDisplayName(owner.getFullName());
+        job.setTemplateKey("SUBSCRIPTION_PAYMENT_CONFIRMED"); job.setLinkSource("PAYMENT_RECEIPT"); job.setLinkSourceId(payment.getId());
+        job.setSubject("Xác nhận thanh toán gói dịch vụ BeefCare");
+        job.setCreatedAt(java.time.Instant.now()); job.setAvailableAt(job.getCreatedAt()); job.setStatus("PENDING");
+        jobs.save(job);
+    }
+
+    /**
+     * UC-FE03-04 step 8 (D28): Owner e-mail for an accepted invitation, saved with the acceptance (GBR-64). The event key
+     * gives one e-mail per membership (BR-D22); JOB-07 resolves the farm's current ACTIVE Owner at dispatch and retries.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void queueMemberJoined(vn.edu.fpt.beefcare.domain.AppUser owner, vn.edu.fpt.beefcare.domain.FarmMembership membership) {
+        String key = "MEMBER_JOINED:" + membership.getId();
+        if (jobs.findByEventKey(key).isPresent()) return;
+        EmailDeliveryJob job = new EmailDeliveryJob();
+        job.setEventKey(key); job.setRecipient(owner.getEmail()); job.setDisplayName(owner.getFullName());
+        job.setTemplateKey("MEMBER_JOINED"); job.setLinkSource("MEMBERSHIP"); job.setLinkSourceId(membership.getId());
+        job.setContextName(membership.getFarm().getName()); job.setContextRole(membership.getRole());
+        job.setSubject("Thành viên mới đã tham gia trang trại");
+        job.setCreatedAt(java.time.Instant.now()); job.setAvailableAt(job.getCreatedAt()); job.setStatus("PENDING");
+        jobs.save(job);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void cancelActionLink(String linkSource, Long linkSourceId) {
         jobs.cancelForLink(linkSource, linkSourceId);

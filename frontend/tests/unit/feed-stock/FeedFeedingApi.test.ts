@@ -8,7 +8,7 @@ import {
 } from '../../../src/features/feed-stock/api/feedFeedingApi'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { resetFeedReceiptDemoStore } from '../../../src/features/feed-stock/api/feedReceiptApi'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 import type { FeedFeedingDemoStore, FeedFeedingDraftInput } from '../../../src/features/feed-stock/types/feedFeeding'
 
 const makeTransport = (): BackendTransport => ({
@@ -39,7 +39,7 @@ function input(overrides: Partial<FeedFeedingDraftInput> = {}): FeedFeedingDraft
   }
 }
 
-describe('SCR-83 feeding log boundary and local demo store', () => {
+describe('SCR-83 feeding API boundary and local demo store', () => {
   it('reads the backend interval and never falls back to demo after a failure', async () => {
     const transport = makeTransport()
     vi.mocked(transport.get).mockRejectedValueOnce(new Error('backend unavailable'))
@@ -54,20 +54,49 @@ describe('SCR-83 feeding log boundary and local demo store', () => {
     expect(demoStore.list).not.toHaveBeenCalled()
   })
 
-  it('keeps every feeding mutation out of backend mode', async () => {
+  it('reads the server plan, then posts, corrects and voids through versioned idempotent commands', async () => {
     const transport = makeTransport()
+    const result = {
+      id: 77, penId: 6, penCode: 'C1', penName: 'Chuồng C1', feedingDate: today(), sessionNo: 1,
+      time: '06:30:00', headCount: 12, status: 'VALID', version: 0, rationVersionId: 5, rationCode: 'KP-01', rationVersion: 2,
+      fedBy: 'Nhân viên demo', recordedBy: 'Quản lý', recordedAt: '2026-11-15T01:00:00Z', leftoverKg: 1, note: 'Ghi chú', voidReason: null,
+      plannedTotalKg: 6, actualTotalKg: 5, lines: [{ feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ', plannedKg: 6, actualKg: 5, inRation: true, unitCost: 2, totalCost: 10 }], revisions: [],
+    }
+    vi.mocked(transport.get).mockResolvedValueOnce({
+      penId: 6, penCode: 'C1', feedingDate: today(), sessionNo: 1, feedingTime: '06:30:00',
+      ration: { id: 5, rationCode: 'KP-01', versionNo: 2, name: 'Tăng trọng', sessionsPerDay: 2 }, headCount: 12,
+      lines: [{ feedItemId: 101, feedCode: 'TA-01', feedName: 'Cỏ', kgPerHead: 0.5, plannedKg: 6, stockKg: 40, available: true }], existingRecordId: null,
+    })
+    vi.mocked(transport.command).mockResolvedValue(result)
     const demoStore: FeedFeedingDemoStore = {
       list: vi.fn(async () => []), record: vi.fn(), correct: vi.fn(), voidRecord: vi.fn(), reset: vi.fn(),
     }
     const api = createFeedFeedingApi({ mode: 'backend', farmId: 32, transport, demoStore })
 
-    await expect(api.record(input())).rejects.toThrow('bản demo')
-    await expect(api.correct(1, { reason: 'Điều chỉnh số đã cân', lines: input().lines })).rejects.toThrow('bản demo')
-    await expect(api.voidRecord(1, 'Ghi nhầm cữ')).rejects.toThrow('bản demo')
+    const plan = await api.plan({ penId: 6, date: today(), sessionNo: 1 })
+    expect(plan.lines[0]).toMatchObject({ feedItemId: 101, plannedKg: 6, stockKg: 40 })
+    expect(transport.get).toHaveBeenCalledWith(`/api/farms/32/feed/feeding-records/plan?penId=6&date=${today()}&session=1`)
+
+    await api.record(input(), { key: 'create-key' })
+    await api.correct(77, { expectedVersion: 0, reason: 'Đã cân lại lượng thức ăn', lines: input().lines }, { key: 'correct-key' })
+    await api.voidRecord(77, 'Ghi nhầm cữ', 1, { key: 'void-key' })
+    await api.record(input({ note: '  Hết cỏ khô, chờ nhập hàng  ' }), { key: 'stock-note-key' })
+
+    expect(transport.command).toHaveBeenNthCalledWith(1, '/api/farms/32/feed/feeding-records', {
+      penId: 6, feedingDate: today(), sessionNo: 1, feedingTime: '06:30', fedBy: 'Nhân viên demo', leftoverKg: null, note: null,
+      lines: [{ feedItemId: 101, actualKg: 2 }],
+    }, { key: 'create-key' })
+    expect(transport.command).toHaveBeenNthCalledWith(2, '/api/farms/32/feed/feeding-records/77/correct', {
+      expectedVersion: 0, reason: 'Đã cân lại lượng thức ăn', fedBy: null, lines: [{ feedItemId: 101, actualKg: 2 }],
+    }, { key: 'correct-key' })
+    expect(transport.command).toHaveBeenNthCalledWith(3, '/api/farms/32/feed/feeding-records/77/void', { reason: 'Ghi nhầm cữ', expectedVersion: 1 }, { key: 'void-key' })
+    expect(transport.command).toHaveBeenNthCalledWith(4, '/api/farms/32/feed/feeding-records', {
+      penId: 6, feedingDate: today(), sessionNo: 1, feedingTime: '06:30', fedBy: 'Nhân viên demo', leftoverKg: null,
+      note: 'Hết cỏ khô, chờ nhập hàng', lines: [{ feedItemId: 101, actualKg: 2 }],
+    }, { key: 'stock-note-key' })
     expect(demoStore.record).not.toHaveBeenCalled()
     expect(demoStore.correct).not.toHaveBeenCalled()
     expect(demoStore.voidRecord).not.toHaveBeenCalled()
-    expect(transport.command).not.toHaveBeenCalled()
   })
 
   it('records, corrects and voids a session with one stock adjustment per action', async () => {

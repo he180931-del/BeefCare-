@@ -1,10 +1,11 @@
+import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, ErrorBlock, LoadingBlock } from '../../../components/ui'
-import { useModalParam } from '../../../components/Modal'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, ErrorBlock, LoadingBlock } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { loadProfile } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import CowHeader, { COW_TABS } from '../components/CowHeader'
 import OverviewTab from '../components/OverviewTab'
 import TimelineTab from '../components/TimelineTab'
@@ -29,9 +30,12 @@ export default function CowProfile() {
   const profileQuery = useQuery(() => loadProfile(code ?? ''), [code])
   const { cow, barns: barnRows } = profileQuery.data ?? {}
   const barns = Object.fromEntries((barnRows ?? []).map((b) => [b.code, b]))
-  const saved = () => {
+  const [notice, setNotice] = useState('')
+  // MSG-FE05-01 / MSG-FE05-04 sau khi lưu; hồ sơ được tải lại để lấy version mới.
+  const saved = (message?: string) => {
     profileQuery.refetch()
     closeModal()
+    setNotice(message ?? '')
   }
 
   const rawTab = params.get('tab') || ''
@@ -58,9 +62,11 @@ export default function CowProfile() {
       <>
         <CowHeader cow={cow} tab={tab} canWrite={canWrite} onTab={onTab} onOpenModal={openModal} />
         {tabViews[tab] ?? <ComingSoon label={tabLabel} />}
-        {canWrite && modal === 'update' && <UpdateModal cow={cow} owner={session?.role === 'OWNER'} onClose={closeModal} onSaved={saved} />}
+        {canWrite && (modal === 'update' || modal === 'photo') && (
+          <UpdateModal key={modal} cow={cow} owner={session?.role === 'OWNER'} initialTab={modal === 'photo' ? 'identity' : 'stage'} onClose={closeModal} onSaved={saved} />
+        )}
         {canWrite && modal === 'qr-reissue' && <QrReissueModal cow={cow} onClose={closeModal} onSaved={saved} />}
-        {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onSaved={saved} />}
+        {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onReload={saved} onSaved={saved} />}
         {canWrite && modal === 'record-edit' && cow.importRecord && <RecordEditModal cow={cow} record={cow.importRecord} onClose={closeModal} onSaved={saved} />}
       </>
     )
@@ -70,6 +76,7 @@ export default function CowProfile() {
     <Layout title={`Hồ sơ bò › ${tabLabel}`} user="manager">
       <div className="flex flex-col gap-5 leading-[normal]">
         {profileQuery.loading && !cow && <LoadingBlock>Đang tải hồ sơ…</LoadingBlock>}
+        {notice && <div className="text-sm font-medium text-brand" role="status" aria-live="polite">{notice}</div>}
         {cow && content}
         {!cow && !profileQuery.loading && (
           <>

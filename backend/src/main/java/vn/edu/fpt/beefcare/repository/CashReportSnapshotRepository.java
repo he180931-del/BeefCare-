@@ -10,6 +10,7 @@ import vn.edu.fpt.beefcare.domain.CashReportSnapshot;
 @SuppressWarnings("unused")
 @Repository
 public interface CashReportSnapshotRepository extends JpaRepository<CashReportSnapshot, Long> {
+    java.util.Optional<CashReportSnapshot> findFirstByExpiresAtAfterOrderByIdDesc(java.time.Instant now);
     /** JOB-08: snapshots past their 30-day availability. */
     @org.springframework.data.jpa.repository.Query("select s.id from CashReportSnapshot s where s.expiresAt <= :now order by s.id")
     java.util.List<Long> findIdsExpiredAt(@org.springframework.data.repository.query.Param("now") java.time.Instant now, org.springframework.data.domain.Pageable page);

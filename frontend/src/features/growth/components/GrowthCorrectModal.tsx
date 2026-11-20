@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, Note, Radio, Select, Table, Td, Textarea, Th, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import { growthApi } from '../api/growthApi'
 import { fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { METHOD_LABEL } from '../domain/growthLabels'
@@ -60,17 +59,17 @@ export default function GrowthCorrectModal({ record, onClose, onSaved }: { recor
           <tbody>
             <tr>
               <Td className="font-medium">Cân nặng</Td><Td>{record.weightKg === undefined ? '—' : `${fmtKg(record.weightKg)} kg`}</Td>
-              <Td><UnitInput aria-label="Cân nặng mới" unit="kg" value={weight} onChange={(e) => setWeight(e.target.value)} /><FieldError>{errors.weightKg}</FieldError></Td>
+              <Td><UnitInput aria-label="Cân nặng mới" unit="kg" min={1} max={1500} step={0.1} value={weight} onChange={(e) => setWeight(e.target.value)} /><FieldError>{errors.weightKg}</FieldError></Td>
             </tr>
             {tape && (
               <>
                 <tr>
                   <Td className="font-medium">Vòng ngực</Td><Td>{record.heartGirthCm === undefined ? '—' : `${record.heartGirthCm} cm`}</Td>
-                  <Td><UnitInput aria-label="Vòng ngực mới" unit="cm" value={girth} onChange={(e) => setGirth(e.target.value)} /><FieldError>{errors.heartGirthCm}</FieldError></Td>
+                  <Td><UnitInput aria-label="Vòng ngực mới" unit="cm" min={50} max={300} step={0.1} value={girth} onChange={(e) => setGirth(e.target.value)} /><FieldError>{errors.heartGirthCm}</FieldError></Td>
                 </tr>
                 <tr>
                   <Td className="font-medium">Dài thân chéo</Td><Td>{record.bodyLengthCm === undefined ? '—' : `${record.bodyLengthCm} cm`}</Td>
-                  <Td><UnitInput aria-label="Dài thân chéo mới" unit="cm" value={length} onChange={(e) => setLength(e.target.value)} /><FieldError>{errors.bodyLengthCm}</FieldError></Td>
+                  <Td><UnitInput aria-label="Dài thân chéo mới" unit="cm" min={30} max={250} step={0.1} value={length} onChange={(e) => setLength(e.target.value)} /><FieldError>{errors.bodyLengthCm}</FieldError></Td>
                 </tr>
               </>
             )}
@@ -102,7 +101,7 @@ export default function GrowthCorrectModal({ record, onClose, onSaved }: { recor
         </Table>
       )}
       <Field label="Lý do *" id="gc-reason" hint="Tối đa 500 ký tự">
-        <Textarea id="gc-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Textarea id="gc-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         <FieldError>{errors.reason}</FieldError>
       </Field>
       {errors.form && <Note tone="err">{errors.form}</Note>}

@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import { Field, Foot, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { catalogueApi } from '../api/catalogueApi'
+import { Field, Foot, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useCatalogueApi } from '../hooks/useCatalogueApi'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
 import { DeactivateDialog } from '../components/ConfirmDialogs'
 import { EditorEmpty, EditorFooter, EditorPanel } from '../components/EditorPanel'
 import { AvailabilityBadge, StatusField, TextInput, fieldError } from '../components/fields'
 import { AddButton, SavedNotice, SplitLayout } from '../components/PageParts'
-import { useCanEdit } from '../components/useCanEdit'
-import { useCatalogueEditor } from '../components/useCatalogueEditor'
+import { useCanEdit } from '../hooks/useCanEdit'
+import { useCatalogueEditor } from '../hooks/useCatalogueEditor'
 import { CODE_HINT, PURPOSE_TYPES, PURPOSE_TYPE_LABELS, purposeUsage } from '../domain/catalogueRules'
 import type { AvailabilityFilter, Purpose, PurposeType } from '../types'
 
@@ -17,6 +17,7 @@ const newDraft = (): PurposeDraft => ({ code: '', name: '', purposeType: 'UNDECI
 const toDraft = (p: Purpose): PurposeDraft => ({ code: p.code, name: p.name, purposeType: p.purposeType, description: p.description, available: p.available })
 
 export default function PurposesPage() {
+  const catalogueApi = useCatalogueApi()
   const canEdit = useCanEdit()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<AvailabilityFilter>('')

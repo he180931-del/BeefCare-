@@ -47,10 +47,20 @@ public class FeedManagementResource {
     @GetMapping("/receipts")
     public List<ReceiptView> receipts(@PathVariable Long farmId) { return service.receipts(farmId); }
 
+    @GetMapping("/receipts/{receiptId}")
+    public ReceiptView receipt(@PathVariable Long farmId,@PathVariable Long receiptId) { return service.receipt(farmId,receiptId); }
+
     @PostMapping("/receipts")
     public ResponseEntity<ReceiptView> createReceipt(@PathVariable Long farmId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CreateReceiptRequest request) {
         ReceiptView result=commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_RECEIPT_CREATE",key,request,ReceiptView.class,()->service.createReceipt(farmId,request,request.postNow()));
         return ResponseEntity.ok(result);
+    }
+
+    @DeleteMapping("/receipts/{receiptId}")
+    public ResponseEntity<Void> discardDraftReceipt(@PathVariable Long farmId,@PathVariable Long receiptId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody VersionRequest request){
+        record Command(Long receiptId,VersionRequest body){}
+        commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_RECEIPT_DISCARD:"+receiptId,key,new Command(receiptId,request),Boolean.class,()->{service.discardDraftReceipt(farmId,receiptId,request);return true;});
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/receipts/{receiptId}/draft")
@@ -105,9 +115,31 @@ public class FeedManagementResource {
         return ResponseEntity.ok(commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_RATION_SAVE",key,request,RationView.class,()->service.saveRation(farmId,request)));
     }
 
+    @PostMapping("/rations/{rationId}/versions/{versionNo}/cancel")
+    public ResponseEntity<RationView> cancelRationVersion(@PathVariable Long farmId,@PathVariable Long rationId,@PathVariable Integer versionNo,
+        @RequestHeader("Idempotency-Key") String key,@Valid @RequestBody RationVersionRequest request){
+        record Command(Long rationId,Integer versionNo,RationVersionRequest body){}
+        return ResponseEntity.ok(commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_RATION_VERSION_CANCEL:"+rationId,key,
+            new Command(rationId,versionNo,request),RationView.class,()->service.cancelRationVersion(farmId,rationId,versionNo,request)));
+    }
+
+    @PostMapping("/rations/{rationId}/stop")
+    public ResponseEntity<RationView> stopRation(@PathVariable Long farmId,@PathVariable Long rationId,@RequestHeader("Idempotency-Key") String key,
+        @Valid @RequestBody StopRationRequest request){
+        record Command(Long rationId,StopRationRequest body){}
+        return ResponseEntity.ok(commands.execute(farmId,FarmAction.MANAGE_FEED,"FEED_RATION_STOP:"+rationId,key,
+            new Command(rationId,request),RationView.class,()->service.stopRation(farmId,rationId,request)));
+    }
+
     @PostMapping("/feeding-records")
     public ResponseEntity<FeedingView> recordFeeding(@PathVariable Long farmId,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody RecordFeedingRequest request){
         return ResponseEntity.ok(commands.execute(farmId,FarmAction.MANAGE_FEEDING,"FEEDING_RECORD_CREATE",key,request,FeedingView.class,()->service.recordFeeding(farmId,request)));
+    }
+
+    @GetMapping("/feeding-records/plan")
+    public FeedingPlanView feedingPlan(@PathVariable Long farmId,@RequestParam Long penId,
+        @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date,@RequestParam("session") Integer sessionNo) {
+        return service.feedingPlan(farmId,penId,date,sessionNo);
     }
 
     @GetMapping("/feeding-records")

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { accountDemoStore } from '../../../src/features/account/data/accountDemoStore'
 import ProfilePage from '../../../src/features/account/pages/ProfilePage'
 import PlatformProfilePage from '../../../src/features/account/pages/PlatformProfilePage'
@@ -28,6 +28,17 @@ describe('profile page', () => {
     expect(screen.getByText('Quyền của tôi trong trại này')).toBeInTheDocument()
     expect(screen.getByText('Hồ sơ bò & thẻ QR')).toBeInTheDocument()
     expect(screen.queryByText('Gói dịch vụ & thanh toán')).not.toBeInTheDocument()
+  })
+
+  it('shows no role or permission table while the tab has not entered a farm', async () => {
+    const user = userEvent.setup()
+    render(<SessionContext.Provider value={{ ...sessions.manager, farmId: null, farmName: null }}><MemoryRouter initialEntries={['/ho-so']}><Routes>
+      <Route path="/ho-so" element={<ProfilePage />} /><Route path="/chon-trai" element={<p>Trang chọn trại</p>} />
+    </Routes></MemoryRouter></SessionContext.Provider>)
+    expect(await screen.findByText('Chưa vào trại nào trong tab này')).toBeInTheDocument()
+    expect(screen.queryByText('Hồ sơ bò & thẻ QR')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Chọn trại' }))
+    expect(await screen.findByText('Trang chọn trại')).toBeInTheDocument()
   })
 
   it('saves the profile and reports field errors', async () => {
@@ -73,12 +84,19 @@ describe('profile page', () => {
     expect(await screen.findByText(/Mật khẩu đã được đổi/)).toBeInTheDocument()
   })
 
+  it('restores the password dialog after Google re-authentication without asking for the current password', async () => {
+    renderAs('manager', '/ho-so?m=doi-mat-khau&googleReauthenticated=true', <ProfilePage />)
+    const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu' })
+    expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
+    expect(within(dialog).getByText('Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.')).toBeInTheDocument()
+  })
+
   it('shows the whole table including Owner-only rows to the Owner, and no farm table to platform staff', async () => {
     const owner = renderAs('owner', '/ho-so', <ProfilePage />)
     expect(await screen.findByText('Gói dịch vụ & thanh toán')).toBeInTheDocument()
     owner.unmount()
     renderAs('pm', '/nen-tang/ho-so', <PlatformProfilePage />)
-    expect(await screen.findByText('Platform Manager · PM')).toBeInTheDocument()
+    expect(await screen.findByText('Quản lý nền tảng · PM')).toBeInTheDocument()
     expect(screen.queryByText('Quyền của tôi trong trại này')).not.toBeInTheDocument()
   })
 })
@@ -91,5 +109,25 @@ describe('technician account page', () => {
     expect(screen.getByText('Lê Thị Mai')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Đăng xuất/ }))
     expect(sessions.technician.logout).toHaveBeenCalledOnce()
+  })
+
+  it('lets a technician update their full name and phone without changing email', async () => {
+    const user = userEvent.setup()
+    renderAs('technician', '/kt/tai-khoan', <TechnicianAccountPage />)
+    const name = await screen.findByLabelText('Họ và tên *')
+    await user.clear(name)
+    await user.type(name, 'Lê Thị Mai Mới')
+    await user.clear(screen.getByLabelText('Điện thoại liên hệ'))
+    await user.type(screen.getByLabelText('Điện thoại liên hệ'), '0934 567 891')
+    await user.click(screen.getByRole('button', { name: 'Lưu hồ sơ' }))
+    expect(await screen.findByText('Hồ sơ của bạn đã được cập nhật.')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('technician@beefcare.local')).toHaveAttribute('readonly')
+  })
+
+  it('restores the password dialog after Google re-authentication', async () => {
+    renderAs('technician', '/kt/tai-khoan?m=doi-mat-khau&googleReauthenticated=true', <TechnicianAccountPage />)
+    const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu' })
+    expect(within(dialog).queryByLabelText('Mật khẩu hiện tại *')).not.toBeInTheDocument()
+    expect(within(dialog).getByText('Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.')).toBeInTheDocument()
   })
 })

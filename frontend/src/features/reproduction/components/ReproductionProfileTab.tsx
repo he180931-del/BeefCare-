@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { Badge, Button, Card, Foot, KV, Note } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
-import { backendMode } from '../../../api/backendTransport'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Badge, Button, Card, Foot, Icon, type IconName, KV, Note } from '../../../shared/ui'
 import { reproductionApi } from '../api/reproductionApi'
-import { useModalParam } from '../../../components/Modal'
-import { useSession } from '../../authorization'
+import { resolveReproductionSource } from '../api/reproductionBackend'
+import { ReproductionOptionsProvider } from './reproductionOptions'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import {
   ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
 } from '../domain/reproductionRules'
@@ -23,7 +24,7 @@ const ACTION_ICON: Record<ReproductionAction, IconName> = {
   RECORD_ESTRUS: 'flame', RECORD_BREEDING: 'dna', RECORD_PREGNANCY_CHECK: 'heartbeat', RECORD_PREGNANCY_UPDATE: 'clipboard-list', RECORD_CALVING: 'baby-carriage',
 }
 const CAPTION: Record<string, string> = {
-  IN_ESTRUS: 'Tab Sinh sản khi bò Đang động dục. Nút ghi hiện theo trạng thái (chỉ Quản lý): Ghi động dục, Ghi phối giống; "Thêm" chứa Ghi khám thai và Ghi sự kiện đẻ khi thai không được theo dõi. Điều kiện xét phối và cửa sổ phối chỉ để tham khảo.',
+  IN_ESTRUS: 'Tab Sinh sản khi bò Đang động dục. Nút ghi hiện theo trạng thái (Chủ trại, Quản lý): Ghi động dục, Ghi phối giống; "Thêm" chứa Ghi khám thai và Ghi sự kiện đẻ khi thai không được theo dõi. Điều kiện xét phối và cửa sổ phối chỉ để tham khảo.',
   BRED: 'Tab Sinh sản khi bò Đã phối – chờ khám thai. Nút chính là Ghi khám thai; vẫn có Ghi động dục (nếu bò động dục lại) và Ghi sự kiện đẻ. Dải chỉ số sinh sản tính riêng cho từng bò, hiện "—" khi chưa áp dụng.',
   PREGNANT: 'Tab Sinh sản khi bò Đang mang thai (hiện "Sắp đẻ" khi trong thời gian chuẩn bị đẻ của trại). Nút chính là Ghi sự kiện đẻ; có thêm Ghi khám thai và Ghi diễn biến thai. Lịch sử sinh bê liên kết tới hồ sơ bê đã đăng ký, hoặc ghi "Bê nháp".',
 }
@@ -106,15 +107,23 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [localDialog, setLocalDialog] = useState<ReproductionDialogTarget | null>(null)
-  const canManage = role === 'MANAGER'
+  // GBR-08, D41: the Owner and a Manager record and correct; a Technician only views.
+  const canManage = canRecordCare(role)
   const notice = (location.state as { reproductionNotice?: string } | null)?.reproductionNotice
-  // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only a Manager gets it.
+  // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only the Owner or a Manager gets it.
   const modalAction = modal ? ACTION_FOR_MODAL[modal] : undefined
   const dialog: ReproductionDialogTarget | null = localDialog ?? (canManage && modalAction ? { mode: 'record', action: modalAction } : null)
+  const [params, setParams] = useSearchParams()
   const setDialog = (next: ReproductionDialogTarget | null) => {
     setLocalDialog(next && next.mode !== 'record' ? next : null)
     if (next?.mode === 'record') openModal(MODAL_FOR_ACTION[next.action])
-    else if (!next && modal) closeModal()
+    else if (!next && params.has('r')) {
+      // Opened from the timeline (?m=correct|void&r=<id>): clear both so the dialog does not reopen.
+      const rest = new URLSearchParams(params)
+      rest.delete('m')
+      rest.delete('r')
+      setParams(rest)
+    } else if (!next && modal) closeModal()
   }
 
   const refresh = async () => {
@@ -125,6 +134,18 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   }
   useEffect(() => { void refresh() }, [cattleCode])
 
+  // FE-16 R-16-07: the timeline opens ?tab=repro&m=correct|void&r=<record id>; same convention as the growth and
+  // vaccination tabs. Only the Owner or a Manager gets the dialog; an unknown id opens nothing.
+  useEffect(() => {
+    const action = params.get('m')
+    const id = params.get('r')
+    if (!profile || !canManage || localDialog || !id || (action !== 'correct' && action !== 'void')) return
+    const event = profile.events.find((item) => String(item.id) === id)
+    if (!event) return
+    const calving = event.type === 'CALVING' ? profile.calvings.find((item) => item.id === event.id) : undefined
+    setLocalDialog({ mode: 'revise', record: calving ? { kind: 'calving', calving } : { kind: 'event', event }, action })
+  }, [profile, canManage, params])
+
   const run = (action: ReproductionAction) => {
     if (action === 'RECORD_CALVING') navigate(`/cattle/${encodeURIComponent(cattleCode)}/sinh-san/de`)
     else setDialog({ mode: 'record', action })
@@ -132,7 +153,15 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   const revise = (record: TimelineRecord, action: 'correct' | 'void') => setDialog({ mode: 'revise', record, action })
 
   if (loading && !profile) return <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ sinh sản…</p></Card>
-  if (!profile) return <Card>{error && <Note tone={backendMode === 'backend' ? 'warn' : 'err'}>{error}</Note>}<p className="m-0 text-sm text-muted">Chưa có dữ liệu sinh sản cho {cattleCode}.</p></Card>
+  if (!profile) return <Card>{error && <Note tone="err">{error}</Note>}<p className="m-0 text-sm text-muted">Chưa có dữ liệu sinh sản cho {cattleCode}.</p></Card>
+
+  const sourceId = modal ? null : params.get('r')
+  if (sourceId != null) {
+    const source = resolveReproductionSource(profile.events, sourceId, params.get('type'))
+    return source
+      ? <ReproductionTimeline profile={profile} source={source} canManage={false} onRevise={revise} />
+      : <Note tone="warn">Không tìm thấy bản ghi sinh sản này.</Note>
+  }
 
   const status = profile.status
   const showEligibility = !!profile.eligibility && (status === 'AWAITING_BREEDING' || status === 'IN_ESTRUS' || status === 'POST_CALVING')
@@ -142,9 +171,8 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
-      {error && <Note tone={backendMode === 'backend' ? 'warn' : 'err'}>{error}</Note>}
-      {backendMode === 'backend' && <Note tone="warn">Hồ sơ sinh sản chưa nối API. Dữ liệu minh họa không được dùng trong chế độ backend.</Note>}
-      {!canManage && <Note tone="info">{role === 'TECHNICIAN' ? 'Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.' : 'Chủ trại xem hồ sơ sinh sản ở chế độ chỉ đọc.'}</Note>}
+      {error && <Note tone="err">{error}</Note>}
+      {!canManage && <Note tone="info">Kỹ thuật viên chỉ xem hồ sơ và dòng thời gian sinh sản.</Note>}
       {profile.herdStatus !== 'ACTIVE' && <Note tone="warn">Bò đã rời đàn hoặc đang chờ xác nhận xuất; hồ sơ sinh sản chỉ xem.</Note>}
 
       {!profile.applicable ? (
@@ -176,6 +204,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
       {status && CAPTION[status] && <Foot>{CAPTION[status]}</Foot>}
 
       {dialog && (
+        <ReproductionOptionsProvider cattleCode={cattleCode}>
         <ReproductionActionDialog
           target={dialog} profile={profile} onClose={() => setDialog(null)}
           onRecord={async (command) => setProfile(await reproductionApi.recordEvent(cattleCode, command, role))}
@@ -185,6 +214,7 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
           onVoidCalving={async (id, reason) => setProfile(await reproductionApi.voidCalving(cattleCode, id, reason, role))}
           onVoidCalf={async (calvingId, calfId, reason) => setProfile(await reproductionApi.voidCalf(cattleCode, calvingId, calfId, reason, role))}
         />
+        </ReproductionOptionsProvider>
       )}
     </div>
   )

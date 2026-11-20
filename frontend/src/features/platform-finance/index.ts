@@ -1,5 +1,2 @@
-export const loadReceiptRoutes = () => import('./pages/ReceiptRoutes')
-export const loadManualFinanceRoutes = () => import('./pages/ManualFinanceRoutes')
-export const loadCashReportRoutes = () => import('./pages/CashReportRoutes')
-export const loadReconciliationNoticePage = () => import('./pages/ReconciliationNoticePage')
-export const loadPmSupportNoticePage = () => import('./pages/PmSupportNoticePage')
+// Nothing of this feature is used by other features; its screens load through routes.ts.
+export {}

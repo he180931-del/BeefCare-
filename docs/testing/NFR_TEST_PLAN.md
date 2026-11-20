@@ -1,5 +1,14 @@
 # Tiêu chí và kế hoạch kiểm thử NFR BeefCare
 
+## Kết quả QA local ngày 16/11/2026
+
+- Sau tối ưu dashboard và chạy lại trên cùng dataset, dashboard một phiên mất 182–245 ms trong ba lượt. Lượt 100 phiên không có lỗi request: dashboard trung vị 2.273 ms, lớn nhất 3.984 ms; RPT-02 trung vị 4.361 ms, lớn nhất 5.484 ms; hồ sơ bò lớn nhất 5.102 ms. Một số mẫu vượt ngưỡng SRS nên cần tiếp tục tối ưu và kiểm trên môi trường triển khai. Bằng chứng lượt sau: [`perf-load-100-dashboard2.json`](evidence/tai-2026-11-16/perf-load-100-dashboard2.json) và [`perf-serial-dashboard2.json`](evidence/tai-2026-11-16/perf-serial-dashboard2.json).
+- Bộ dữ liệu Farm C trong PostgreSQL QA gồm 300 bò ACTIVE, 7.500 lần cân trong 24 tháng, sáu chuồng và 100 tài khoản tổng hợp. Backend chạy profile `dev,local` trên máy Windows i5-11400H, 16 GiB RAM. Các phép đo qua loopback và chưa đại diện cho mạng hoặc hạ tầng triển khai.
+- RPT-02 lọc một chuồng mất 15.544 ms trước tối ưu và 131–195 ms ở ba lượt sau tối ưu. Dashboard toàn trại mất 5.229–5.508 ms ở ba lượt đo một phiên.
+- Khi 100 phiên đồng thời gọi dashboard, báo cáo rồi hồ sơ bò, dashboard có 88/100 request quá timeout 40 giây; báo cáo có 84/100 request lỗi timeout; hồ sơ bò không có lỗi trong 100 request. Đây là ca tải QA local không đạt, cần đo lại sau tối ưu, không dùng để suy rộng thành kết quả nghiệm thu môi trường triển khai.
+- Một sự kiện tạo thức ăn dưới ngưỡng phát sinh nhắc việc REM-10 trong 150 ms tại Farm A. Mailpit nhận một thư mời khi request được gửi lại với cùng khóa. Chưa đo nhánh cron P07, quét QR P02 và giao dịch SePay sandbox P05.
+- Bằng chứng đã loại thông tin phiên nằm tại [`evidence/tai-2026-11-16/perf-serial.json`](evidence/tai-2026-11-16/perf-serial.json) và [`perf-load-100.json`](evidence/tai-2026-11-16/perf-load-100.json). Các case và trạng thái tương ứng được cập nhật ở Report 5.4.
+
 Nguồn: `docs/requirements/SRS_2026-10-28.txt`, mục IV.2; đối chiếu repo tại `5acd384`. Đây là **kế hoạch**, chưa phải kết quả kiểm thử. Mỗi case ghi ID NFR, dữ liệu và môi trường, bước, kết quả mong đợi/thực tế, Pass/Fail/Blocked, thời điểm, người thực hiện, phiên bản commit và link bằng chứng trong Report 5.4; lỗi ghi ID issue. Tránh lưu mật khẩu/token trong bằng chứng.
 
 ## 1. Hiệu năng và tải
