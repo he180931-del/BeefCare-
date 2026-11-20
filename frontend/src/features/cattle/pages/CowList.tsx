@@ -223,8 +223,8 @@ export default function CowList() {
   const purposeOptions = backend ? (purposesQuery.data ?? []).filter((p) => p.available).map((p) => [String(p.id), p.name]) : [...new Set(cows.map((c) => c.purpose))].map((p) => [p, p])
   const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => [o.value, o.label]) : (local?.stages ?? []).map((s) => [s, s])
 
-  const filterSelect = (label: string, value: string, onChange: (value: string) => void, options: ReadonlyArray<ReadonlyArray<string>>, all = 'Tất cả', allValue = '') => (
-    <Select className={SELECT_CLS} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
+  const filterSelect = (label: string, value: string, onChange: (value: string) => void, options: ReadonlyArray<ReadonlyArray<string>>, all = 'Tất cả', allValue = '', wide = false) => (
+    <Select className={`${SELECT_CLS} ${wide ? '@min-[1024px]:col-span-3' : ''}`} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value={allValue}>{label}: {all}</option>
       {options.map(([v, text]) => <option key={v} value={v}>{label}: {text}</option>)}
     </Select>
@@ -245,6 +245,11 @@ export default function CowList() {
           {canEnter && <Button variant="primary" className="gap-1.5 leading-[normal]" onClick={() => nav('/herd-entry/new', { state: { from: '/cattle' } })}><Icon name="circle-plus" />Nhập đàn</Button>}
         </PageHeader>
 
+        {/*
+          Trạng thái đàn chọn phạm vi (đang nuôi / đã xuất) nên đứng ngay sau ô tìm và rộng cả hàng trên điện thoại: chữ
+          "Trạng thái đàn: Đang nuôi" không bị cắt, 7 bộ lọc + Sắp xếp xếp kín 4 hàng đôi. Lưới 8 cột: 2 + 4 + 4 ô;
+          lưới 12 cột: tìm 3 + trạng thái 3 + 3 bộ lọc, rồi 4 bộ lọc + Sắp xếp (Dữ liệu cân, Sắp xếp rộng 3 cột).
+        */}
         <section aria-label="Bộ lọc đàn bò" className="grid grid-cols-4 gap-3 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12">
           <input
             ref={searchRef}
@@ -252,19 +257,19 @@ export default function CowList() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Mã hiển thị, số tai, tên gọi…"
             aria-label="Tìm bò"
-            className={`${inputCls} col-span-4 min-w-0 !leading-[normal]`}
+            className={`${inputCls} col-span-4 min-w-0 !leading-[normal] @min-[1024px]:col-span-3`}
           />
+          <Select className="col-span-4 min-w-0 [&_select]:!leading-[normal] @min-[1024px]:col-span-3" aria-label="Trạng thái đàn" value={status} onChange={(e) => onStatus(e.target.value)}>
+            {STATUS_OPTIONS.map(([v, text]) => <option key={v} value={v}>Trạng thái đàn: {text}</option>)}
+          </Select>
           {filterSelect('Giống', breed, setBreed, breedOptions)}
           {filterSelect('Giới tính', sex, setSex, sexOptions)}
           {filterSelect('Chuồng', barn, setBarn, barnOptions)}
           {filterSelect('Giai đoạn', stageSel, setStageSel, stageOptions, 'Tất cả', 'ALL')}
           {filterSelect('Mục đích', purpose, setPurpose, purposeOptions)}
           {filterSelect('Sức khỏe', health, setHealth, HEALTH_OPTIONS.map(([v, t]) => [v, t]))}
-          {filterSelect('Dữ liệu cân', weightFilter, (value) => { setPage(0); setWeightFilter(value) }, [['yes', 'Có số cân'], ['no', 'Chưa có số cân']])}
-          <Select className={`${SELECT_CLS} @min-[640px]:col-span-3`} aria-label="Trạng thái đàn" value={status} onChange={(e) => onStatus(e.target.value)}>
-            {STATUS_OPTIONS.map(([v, text]) => <option key={v} value={v}>Trạng thái đàn: {text}</option>)}
-          </Select>
-          <Select className={`${SELECT_CLS} @min-[640px]:col-span-3`} aria-label="Sắp xếp" value={sort} onChange={(e) => changeSort(e.target.value)}>
+          {filterSelect('Dữ liệu cân', weightFilter, (value) => { setPage(0); setWeightFilter(value) }, [['yes', 'Có số cân'], ['no', 'Chưa có số cân']], 'Tất cả', '', true)}
+          <Select className={`${SELECT_CLS} @min-[1024px]:col-span-3`} aria-label="Sắp xếp" value={sort} onChange={(e) => changeSort(e.target.value)}>
             {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>Sắp xếp: {label}</option>)}
           </Select>
         </section>
