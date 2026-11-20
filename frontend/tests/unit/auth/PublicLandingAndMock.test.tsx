@@ -38,6 +38,23 @@ describe('mock auth client', () => {
 })
 
 describe('public landing page', () => {
+  it('shows the published features in order, including when fewer than six are published', async () => {
+    const features = [
+      { title: 'Hồ sơ cá thể', description: 'Xem lịch sử của từng con.' },
+      { title: 'Theo dõi chuồng nhận', description: 'Xem sức chứa trong trại.' },
+      { title: 'Việc đến hạn', description: 'Mở danh sách việc cần xử lý.' },
+    ]
+    const client: AuthClient = { ...createMockAuthClient(), getPublicLanding: async () => ({ features }) }
+    renderGuest(client, '/')
+    const featureArea = within(await screen.findByRole('region', { name: 'Mọi thông tin quan trọng, cùng một chỗ' }))
+    await featureArea.findByRole('heading', { name: features[1].title })
+    expect(featureArea.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual(features.map(({ title }) => title))
+    expect(featureArea.getByText('Dữ liệu minh họa')).toBeInTheDocument()
+    // Ảnh sản phẩm là màn hình thật, không gắn vào thẻ tính năng đứng đầu (Admin đổi thứ tự không làm lệch ảnh).
+    expect(featureArea.getByRole('img', { name: /Tab Tăng trưởng & BCS/ })).toBeInTheDocument()
+    expect(featureArea.getAllByRole('listitem')).toHaveLength(features.length)
+  })
+
   it('shows the three prices from the effective version and derived notes', async () => {
     renderGuest(createMockAuthClient(), '/')
     expect(await screen.findByText('1.200.000 đ')).toBeInTheDocument()

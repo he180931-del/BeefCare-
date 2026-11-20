@@ -30,9 +30,11 @@ export function Pagination({ page, pageCount, onChange, summary }: { page: numbe
 const STACK = {
   wide: '@max-[720px]:block @max-[720px]:[&_thead]:hidden @max-[720px]:[&_tbody]:block @max-[720px]:[&_tfoot]:block @max-[720px]:[&_tr]:block @max-[720px]:[&_tr]:border-b @max-[720px]:[&_tr]:border-rule @max-[720px]:[&_td]:flex @max-[720px]:[&_td]:items-center @max-[720px]:[&_td]:justify-between @max-[720px]:[&_td]:gap-4 @max-[720px]:[&_td]:border-b-0 @max-[720px]:[&_td]:before:content-[attr(data-label)] @max-[720px]:[&_td]:before:text-[11px] @max-[720px]:[&_td]:before:font-semibold @max-[720px]:[&_td]:before:text-muted @max-[720px]:[&_td:empty]:hidden',
   normal: '@max-[640px]:block @max-[640px]:[&_thead]:hidden @max-[640px]:[&_tbody]:block @max-[640px]:[&_tfoot]:block @max-[640px]:[&_tr]:block @max-[640px]:[&_tr]:border-b @max-[640px]:[&_tr]:border-rule @max-[640px]:[&_td]:flex @max-[640px]:[&_td]:items-center @max-[640px]:[&_td]:justify-between @max-[640px]:[&_td]:gap-4 @max-[640px]:[&_td]:border-b-0 @max-[640px]:[&_td]:before:content-[attr(data-label)] @max-[640px]:[&_td]:before:text-[11px] @max-[640px]:[&_td]:before:font-semibold @max-[640px]:[&_td]:before:text-muted @max-[640px]:[&_td:empty]:hidden',
+  // Bảng ít cột, chữ ngắn (vd. "Cần chú ý hôm nay" của Tổng quan): vẫn là bảng tới 480 px, hẹp hơn mới thành thẻ.
+  narrow: '@max-[480px]:block @max-[480px]:[&_thead]:hidden @max-[480px]:[&_tbody]:block @max-[480px]:[&_tfoot]:block @max-[480px]:[&_tr]:block @max-[480px]:[&_tr]:border-b @max-[480px]:[&_tr]:border-rule @max-[480px]:[&_td]:flex @max-[480px]:[&_td]:items-center @max-[480px]:[&_td]:justify-between @max-[480px]:[&_td]:gap-4 @max-[480px]:[&_td]:border-b-0 @max-[480px]:[&_td]:before:content-[attr(data-label)] @max-[480px]:[&_td]:before:text-[11px] @max-[480px]:[&_td]:before:font-semibold @max-[480px]:[&_td]:before:text-muted @max-[480px]:[&_td:empty]:hidden',
 }
 
-export function Table({ children, wide, scroll, stack = !scroll, bordered = true }: { children: ReactNode; wide?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean }) {
+export function Table({ children, wide, narrow, scroll, stack = !scroll, bordered = true }: { children: ReactNode; wide?: boolean; narrow?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean }) {
   const ref = useRef<HTMLTableElement>(null)
   useLayoutEffect(() => {
     const t = ref.current
@@ -46,7 +48,7 @@ export function Table({ children, wide, scroll, stack = !scroll, bordered = true
     <div className={cx('@container bg-white', bordered && 'rounded border border-edge', scroll || wide ? 'overflow-x-auto' : 'overflow-hidden')}>
       <table
         ref={ref}
-        className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : 'normal'])}
+        className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : narrow ? 'narrow' : 'normal'])}
       >
         {children}
       </table>

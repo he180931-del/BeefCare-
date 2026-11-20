@@ -44,6 +44,34 @@ describe('danh sách đàn /can-nang', () => {
 })
 
 describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
+  it('ưu tiên dự kiến xuất bán và tiến độ vỗ béo, sau đó là biểu đồ và lịch sử đo (Figma Tab 17)', async () => {
+    renderAs('OWNER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
+    const projection = await screen.findByRole('region', { name: 'Dự kiến xuất bán' })
+    const progress = screen.getByRole('region', { name: 'Tiến độ vỗ béo' })
+    const nextSteps = screen.getByRole('region', { name: 'Tăng cân và lần cân tới' })
+    const trend = screen.getByRole('region', { name: 'Cân nặng theo thời gian' })
+    const history = screen.getByRole('region', { name: 'Lịch sử đo' })
+
+    expect(within(projection).getByText('Ước tính')).toBeInTheDocument()
+    expect(within(projection).getByText('Đủ 380 kg vào khoảng')).toBeInTheDocument()
+    expect(within(projection).getByText('04/03/2027')).toBeInTheDocument()
+    expect(within(projection).getByText('145 ngày sau lần cân 10/10')).toBeInTheDocument()
+    expect(within(projection).getByText('≥ 380 kg')).toBeInTheDocument()
+    // Lần cân hợp lệ đầu tiên 205 kg (25/03, trước khung biểu đồ) → 318 kg (10/10), mục tiêu 380 kg: 113 / 175 kg.
+    expect(within(progress).getByText('65%')).toBeInTheDocument()
+    expect(within(progress).getByText('318 / 380 kg')).toBeInTheDocument()
+    expect(within(progress).getByText('Đã tăng 113 / 175 kg từ 25/03')).toBeInTheDocument()
+    expect(within(nextSteps).getByText('Cân tới · 09/11/2026')).toBeInTheDocument()
+    expect(within(nextSteps).getByText('≈ 331 kg')).toBeInTheDocument()
+    expect(projection.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(nextSteps.compareDocumentPosition(trend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(trend.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const chart = within(trend).getByRole('img', { name: 'Biểu đồ cân nặng theo thời gian' })
+    expect(within(chart).getByText('318 kg')).toBeInTheDocument()
+    expect(within(chart).queryByText('251 kg')).not.toBeInTheDocument()
+    expect(within(history).getByText('251 kg')).toBeInTheDocument()
+  })
+
   it('Quản lý ghi nhận được lần cân mới và danh sách cập nhật', async () => {
     const user = userEvent.setup()
     renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
@@ -119,9 +147,27 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     spy.mockRestore()
   })
 
+  it('lần cân tới đã quá hạn: tô đỏ, ghi số ngày quá hạn mà vẫn giữ chữ "ước tính" cạnh số cân dự báo', async () => {
+    const real = await growthDemoStore.getProfile('BC-000203')
+    // Lần cân tới 09/11/2026 (10/10 + 30 ngày); hôm nay của trại 20/11/2026.
+    const spy = vi.spyOn(growthApi, 'getProfile').mockResolvedValue({ ...real, today: '2026-11-20' })
+    renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
+    const nextSteps = await screen.findByRole('region', { name: 'Tăng cân và lần cân tới' })
+    expect(within(nextSteps).getByText('≈ 331 kg')).toBeInTheDocument()
+    expect(within(nextSteps).getByText('Quá hạn 11 ngày · Ước tính nếu giữ ADG 60 ngày')).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
   it('bò chưa có lần đo hiện trạng thái rỗng', async () => {
     renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000219" />, '/?tab=growth')
     expect(await screen.findByText('Chưa có lần đo nào')).toBeInTheDocument()
+    expect(screen.getByText('Chưa có lần cân hợp lệ để vẽ biểu đồ.')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Dự kiến xuất bán' })).not.toBeInTheDocument()
+    // Không có dự kiến: 5 chỉ số đứng chung một hàng trước biểu đồ.
+    const summary = screen.getByRole('region', { name: 'Chỉ số tăng trưởng' })
+    expect(within(summary).getByText('BCS gần nhất')).toBeInTheDocument()
+    expect(within(summary).getByText('Số lần đo')).toBeInTheDocument()
+    expect(summary.compareDocumentPosition(screen.getByRole('region', { name: 'Cân nặng theo thời gian' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('bản kỹ thuật viên chỉ đọc', async () => {

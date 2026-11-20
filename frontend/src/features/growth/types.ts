@@ -132,6 +132,8 @@ export interface GrowthProfile {
   count: number
   correctedCount: number
   nextWeighingDate?: string
+  /** Ngày nghiệp vụ hiện tại của trại (yyyy-mm-dd), để biết lần cân tới đã quá hạn chưa. */
+  today: string
   projection?: GrowthProjection
   chart: GrowthChartPoint[]
 }

@@ -1,15 +1,33 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { GrowthChartPoint } from '../types'
 import { dayFloat, fmtDayMonth, fmtKg } from '../domain/growthFormat'
 
 const BRAND = '#08734e'
 const niceStep = (range: number) => [5, 10, 15, 20, 25, 50, 100, 200].find((s) => range / s <= 4) ?? 200
 
-/** Biểu đồ cân nặng bằng SVG thuần: chấm đặc là cân thực tế, chấm rỗng là ước tính. */
+const LABEL_GAP = 44 // px giữa hai nhãn "318 kg" cạnh nhau
+
+/**
+ * Biểu đồ cân nặng bằng SVG thuần: chấm đặc là cân thực tế, chấm rỗng là ước tính. Bề rộng vẽ bằng bề rộng thật của
+ * khung, nên chữ luôn 10 px (không co theo màn hình); khung hẹp thì chỉ ghi nhãn cách quãng, luôn giữ mốc mới nhất.
+ */
 export default function GrowthChart({ points, height = 190 }: { points: GrowthChartPoint[]; height?: number }) {
-  if (!points.length) {
+  const frame = useRef<HTMLDivElement>(null)
+  const [frameWidth, setFrameWidth] = useState(640)
+  const hasPoints = points.length > 0
+  useLayoutEffect(() => {
+    const el = frame.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => { const width = Math.round(el.clientWidth); if (width > 0) setFrameWidth(Math.max(280, width)) }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasPoints])
+  if (!hasPoints) {
     return <div className="flex items-center justify-center rounded border border-dashed border-edge text-xs text-muted" style={{ height }}>Chưa có lần cân hợp lệ để vẽ biểu đồ.</div>
   }
-  const W = 640
+  const W = frameWidth
   const padL = 56
   const padR = 28
   const padT = 24
@@ -28,7 +46,11 @@ export default function GrowthChart({ points, height = 190 }: { points: GrowthCh
   const x = (at: string) => padL + 20 + (t1 === t0 ? inner / 2 : ((dayFloat(at) - t0) / (t1 - t0)) * inner)
   const y = (kg: number) => padT + (1 - (kg - lo) / (hi - lo)) * (height - padT - padB)
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(p.at).toFixed(1)} ${y(p.kg).toFixed(1)}`).join(' ')
+  const gaps = points.slice(1).map((p, i) => x(p.at) - x(points[i].at))
+  const every = gaps.length && Math.min(...gaps) < LABEL_GAP ? Math.ceil(LABEL_GAP / Math.max(1, Math.min(...gaps))) : 1
+  const labelled = (index: number) => (points.length - 1 - index) % every === 0
   return (
+    <div ref={frame}>
     <svg viewBox={`0 0 ${W} ${height}`} role="img" aria-label="Biểu đồ cân nặng theo thời gian" className="block h-auto w-full">
       {ticks.map((v) => (
         <g key={v}>
@@ -37,14 +59,15 @@ export default function GrowthChart({ points, height = 190 }: { points: GrowthCh
         </g>
       ))}
       {points.length > 1 && <path d={path} fill="none" stroke={BRAND} strokeWidth="2" />}
-      {points.map((p) => (
+      {points.map((p, i) => (
         <g key={p.at}>
           <circle cx={x(p.at)} cy={y(p.kg)} r="5" fill={p.basis === 'MEASURED' ? BRAND : '#ffffff'} stroke={BRAND} strokeWidth="2" />
-          <text x={x(p.at)} y={y(p.kg) - 10} textAnchor="middle" fontSize="10" fontWeight="500" fill="#212121">{`${fmtKg(p.kg)} kg`}</text>
-          <text x={x(p.at)} y={height - 8} textAnchor="middle" fontSize="10" fill="#666666">{fmtDayMonth(p.at)}</text>
+          {labelled(i) && <text x={x(p.at)} y={y(p.kg) - 10} textAnchor="middle" fontSize="10" fontWeight="500" fill="#212121">{`${fmtKg(p.kg)} kg`}</text>}
+          {labelled(i) && <text x={x(p.at)} y={height - 8} textAnchor="middle" fontSize="10" fill="#666666">{fmtDayMonth(p.at)}</text>}
         </g>
       ))}
     </svg>
+    </div>
   )
 }
 

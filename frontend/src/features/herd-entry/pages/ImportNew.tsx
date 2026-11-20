@@ -384,7 +384,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
   return (
     <Layout title={isBuy ? 'Phiếu nhập mới – Mua ngoài (theo phiếu)' : 'Phiếu nhập mới – Bê sinh tại trại'} user="manager">
-      <div className="contents leading-[normal]">
+      {/* gap-5 = gap của <main> trong Layout, để khoảng cách giữa tiêu đề, lưới và chú thích giữ như các màn khác. */}
+      <div className="@container/entry flex min-w-0 flex-col gap-5 leading-[normal]">
         <div className="flex flex-wrap items-start gap-3">
           <Button
             variant="link"
@@ -409,11 +410,18 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           />
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_330px]">
-          <div className="flex min-w-0 flex-col gap-[18px]">
-            <Card title="1. Thông tin phiếu">
+        {/*
+          Bento (docs/BeefCare-Bento-Grid.md §1–2, Figma Tab 16): form 8 + tóm tắt 4 khi vùng nội dung từ 1.024 px; từ 880 px
+          (laptop 1.280 px có sidebar) form 5 + tóm tắt 3 trên lưới 8 cột để nút lưu vẫn nằm cạnh form; hẹp hơn thì xếp dọc.
+        */}
+        <div className="grid grid-cols-4 items-start gap-4 @min-[640px]/entry:grid-cols-8 @min-[1024px]/entry:grid-cols-12 @min-[1024px]/entry:gap-6">
+          <section
+            aria-label={isBuy ? 'Nội dung phiếu nhập mua ngoài' : 'Nội dung phiếu nhập bê sinh tại trại'}
+            className="@container/entry-form col-span-full flex min-w-0 flex-col gap-4 @min-[880px]/entry:col-span-5 @min-[1024px]/entry:col-span-8 @min-[1024px]/entry:gap-6"
+          >
+            <Card variant="panel" title="1. Thông tin phiếu">
               <div className="flex flex-col gap-3.5">
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3.5 @min-[460px]/entry-form:grid-cols-2 @min-[640px]/entry-form:grid-cols-3">
                   <Field id="entry-voucher-code" label="Mã phiếu"><input id="entry-voucher-code" className={inputCls} value={recordId} readOnly /></Field>
                   <Field id="entry-date" label={isBuy ? 'Ngày nhập trại *' : 'Ngày lập phiếu *'}>
                     <DateInput id="entry-date" value={date} onChange={setDate} />
@@ -444,6 +452,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
             {isBuy ? (
               <Card
+                variant="panel"
                 title={`2. Danh sách bò trong phiếu (${cows.length} con)`}
                 sub='Lịch sử trước nhập đàn mặc định "Không rõ" · sửa từng con bằng nút bút chì'
                 actions={
@@ -511,7 +520,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                 </p>
               </Card>
             ) : (
-              <Card title="2. Chọn bê chờ xác nhận" sub={`${picked.length} / ${calves.length} bê được chọn`}>
+              <Card variant="panel" title="2. Chọn bê chờ xác nhận" sub={`${picked.length} / ${calves.length} bê được chọn`}>
                 {calves.length === 0 && (
                   <div className="mb-3 flex items-end gap-3 rounded-md border border-field bg-page p-3">
                     <Field label="Số lượng bê muốn nhập *">
@@ -601,8 +610,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               </Card>
             )}
 
-            <div className={`grid items-start gap-[18px] ${isBuy ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
-              <Card title="3. Chứng từ đính kèm" sub={isBuy ? undefined : 'Không bắt buộc'}>
+            <div className={`grid grid-cols-1 items-start gap-4 @min-[1024px]/entry:gap-6 ${isBuy ? '@min-[640px]/entry-form:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}>
+              <Card variant="panel" title="3. Chứng từ đính kèm" sub={isBuy ? undefined : 'Không bắt buộc'}>
                 <Dropzone
                   hint={isBuy ? 'PDF, JPG ≤ 10MB' : 'Ảnh bê, biên bản đỡ đẻ · PDF, JPG ≤ 10MB'}
                   onFiles={addDocuments}
@@ -616,7 +625,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                 )}
               </Card>
               {isBuy && (
-                <Card title="4. Thanh toán" actions={<Button size="sm" onClick={() => setPaymentModalOpen(true)}>Thanh toán</Button>}>
+                <Card variant="panel" title="4. Thanh toán" actions={<Button size="sm" onClick={() => setPaymentModalOpen(true)}>Thanh toán</Button>}>
                   <Info cols={2} items={[
                     ['Tiền bò', `${money(cowsMoney)} đ`],
                     ['Phí vận chuyển', `${money(freight)} đ`],
@@ -629,10 +638,13 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                 </Card>
               )}
             </div>
-          </div>
+          </section>
 
-          <div className="flex flex-col gap-[18px]">
-            <Card title="Tóm tắt phiếu nhập" actions={<Badge>Nháp</Badge>}>
+          <section
+            aria-label="Tóm tắt và lưu phiếu"
+            className="col-span-full flex min-w-0 flex-col gap-4 @min-[880px]/entry:col-span-3 @min-[1024px]/entry:col-span-4 @min-[1024px]/entry:gap-6"
+          >
+            <Card variant="panel" title="Tóm tắt phiếu nhập" actions={<Badge>Nháp</Badge>}>
               <div className="flex flex-col gap-3">
                 <KV k="Số con">{n}</KV>
                 <KV k="Loại nhập">{isBuy ? 'Mua ngoài · theo phiếu' : 'Bê sinh tại trại'}</KV>
@@ -663,7 +675,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               {isBuy && overflow.map((b) => <Note tone="err" key={b.code}>{`Chuồng ${b.code} vượt sức chứa (${b.after}/${b.capacity}).`}</Note>)}
             </Card>
 
-            <Card title="Kiểm tra trước khi lưu">
+            <Card variant="panel" title="Kiểm tra trước khi lưu">
               {(isBuy
                 ? [
                   'Thẻ tai không trùng với bò đang có trong trại',
@@ -682,7 +694,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               ))}
             </Card>
 
-            <Card>
+            <Card variant="panel">
               <Checkbox checked={printQr} onChange={(e) => setPrintQr(e.target.checked)}>
                 <span className="text-[13px]">{`In tem QR cho ${n} con sau khi lưu`}</span>
               </Checkbox>
@@ -694,7 +706,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               <Button block disabled={loading} onClick={() => { void save('Nháp').catch(() => undefined) }}>Lưu nháp phiếu</Button>
               <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
             </Card>
-          </div>
+          </section>
         </div>
 
         <Foot>

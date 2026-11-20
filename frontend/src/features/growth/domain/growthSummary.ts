@@ -101,6 +101,7 @@ export function buildProfile(cattle: GrowthCattle, records: GrowthRecord[], now:
     count: sorted.length,
     correctedCount: sorted.filter((r) => r.corrected).length,
     nextWeighingDate: latest ? addDays(latest.at, WEIGHING_INTERVAL_DAYS) : undefined,
+    today: now.slice(0, 10),
     projection: cattle.herdGroup === 'FATTENING' ? finishingProjection(weights, cattle.targetWeightKg, now) : undefined,
     chart: weights.filter((w) => dayFloat(w.at) >= cutoff).map((w) => ({ at: w.at, kg: w.kg, basis: w.basis })),
   }

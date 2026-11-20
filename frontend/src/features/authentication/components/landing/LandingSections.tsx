@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import farm from '../../../../shared/assets/farm.png'
 import wave from '../../../../shared/assets/wave.png'
+import growthPreview from '../../assets/landing-growth-profile.jpg'
 import { HERO_POINTS, OVERVIEW_CARDS, STEPS } from '../../constants/landingContent'
 import { AUTH_PATH } from '../../domain/authErrors'
 import { container } from './LandingHeader'
@@ -52,19 +53,48 @@ export function Overview() {
 
 export function Features({ items }: { items: ReadonlyArray<readonly [string, string]> }) {
   return (
-    <section id="features" className={`${container} scroll-mt-20 py-6 lg:py-10`}>
+    <section id="features" aria-labelledby="landing-features-title" className={`${container} @container scroll-mt-20 py-6 lg:py-10`}>
       <p className={eyebrow}>Công cụ hằng ngày</p>
-      <h2 className={`${sectionTitle} lg:mt-3`}><span className="lg:hidden">Mọi việc trong tầm tay</span><span className="hidden lg:inline">Từ chiếc thẻ tai đến quyết định mỗi ngày</span></h2>
-      <div className="mt-5 grid gap-3 lg:mt-8 lg:grid-cols-3 lg:gap-x-[17px] lg:gap-y-[18px]">
-        {items.map(([title, text], index) => (
-          <article key={title} className={`${card} grid min-h-[94px] grid-cols-[auto_1fr] content-start gap-x-3 gap-y-1 p-4 lg:min-h-[172px] lg:gap-y-3 lg:p-6`}>
-            <span className={`${circle} bg-[#d7f0e1] text-brand-dark`}>{String(index + 1).padStart(2, '0')}</span>
-            <h3 className="m-0 self-center text-sm font-bold text-ink lg:text-lg">{title}</h3>
-            <p className="m-0 col-start-2 ml-3 border-l-2 border-brand/25 pl-3 text-[13px] leading-5 text-brand-dark before:mr-1.5 before:font-bold before:text-brand before:content-['•'] lg:col-span-2 lg:col-start-1 lg:text-[15px] lg:leading-6">{text}</p>
-          </article>
-        ))}
+      <h2 id="landing-features-title" className={`${sectionTitle} lg:mt-3`}>Mọi thông tin quan trọng, cùng một chỗ</h2>
+      {/* Bento (docs/BeefCare-Bento-Grid.md §1): một ảnh sản phẩm đủ lớn + các thẻ tính năng do Admin xuất bản. */}
+      <div className="mt-5 grid gap-4 @min-[1024px]:mt-8 @min-[1024px]:grid-cols-2 @min-[1024px]:gap-6">
+        <ProfilePreview />
+        <ul className="m-0 grid min-w-0 list-none content-start gap-4 p-0 @min-[640px]:grid-cols-2 @min-[1024px]:content-stretch">
+          {items.map(([title, text], index) => (
+            <li key={title} className={`min-w-0 rounded-2xl border border-field bg-white p-4 @min-[1024px]:p-5 ${items.length % 2 === 1 && index === items.length - 1 ? '@min-[640px]:col-span-full' : ''}`}>
+              <h3 className="m-0 text-base font-bold text-ink @min-[1024px]:text-lg">{title}</h3>
+              <p className="mb-0 mt-2 text-sm leading-6 text-subtle">{text}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
+  )
+}
+
+/**
+ * Ảnh chụp màn hình thật (tab Tăng trưởng & BCS, dữ liệu mẫu của chế độ mô phỏng), cắt quanh phần giải thích tính năng
+ * (§3). Khối này không gắn với thẻ tính năng nào, nên Admin đổi thứ tự hay nội dung thẻ cũng không làm ảnh lệch chữ.
+ */
+function ProfilePreview() {
+  return (
+    <figure className="m-0 flex min-w-0 flex-col gap-4 rounded-2xl bg-brand-dark p-4 text-white @min-[640px]:p-6">
+      <figcaption>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="m-0 text-lg font-bold @min-[640px]:text-xl">Xem hồ sơ bò trong BeefCare</p>
+          <span className="rounded-full bg-ok-bg px-2 py-1 text-[11px] font-medium text-ok-fg">Dữ liệu minh họa</span>
+        </div>
+        <p className="mb-0 mt-2 text-sm leading-6 text-side-text">Mỗi con có tab Tăng trưởng &amp; BCS: tăng cân, lần cân tới, cân nặng theo thời gian và điểm thể trạng.</p>
+      </figcaption>
+      <img
+        src={growthPreview}
+        width={592}
+        height={543}
+        loading="lazy"
+        alt="Tab Tăng trưởng & BCS với dữ liệu minh họa: tăng cân 0,43 kg/ngày, cân tới khoảng 331 kg vào 09/11/2026, biểu đồ cân nặng tăng từ 282 kg (20/07) lên 318 kg (10/10), BCS 3,0 / 5 và 9 lần đo."
+        className="block h-auto w-full max-w-[592px] rounded-xl bg-page"
+      />
+    </figure>
   )
 }
 

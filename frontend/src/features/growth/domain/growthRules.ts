@@ -102,3 +102,36 @@ export function finishingProjection(weights: WeightPoint[], targetKg: number | u
   const days = Math.ceil(missingKg / adg60)
   return { state: 'PROJECTED', targetKg, missingKg, adg60, days, projectedDate: addDays(latest.at, days) }
 }
+
+export interface FinishingProgress {
+  percent: number
+  currentKg: number
+  currentAt: string
+  currentBasis: GrowthBasis
+  targetKg: number
+  gainedKg: number
+  plannedKg: number
+  since: string
+}
+
+/**
+ * Tiến độ chặng vỗ béo (Figma Tab 17): phần đã tăng từ lần cân hợp lệ đầu tiên ÷ (cân mục tiêu − cân đầu tiên).
+ * Cân hiện tại là lần cân hợp lệ gần nhất — cùng mốc mà dự kiến xuất bán (GBR-107) dùng.
+ */
+export function finishingProgress(records: GrowthRecord[], targetKg: number): FinishingProgress | undefined {
+  const weights = validWeights(records)
+  const first = weights[0]
+  const last = weights[weights.length - 1]
+  if (!first || !last) return undefined
+  const plannedKg = targetKg - first.kg
+  const gainedKg = round(last.kg - first.kg, 1)
+  const percent = plannedKg <= 0 || last.kg >= targetKg ? 100 : Math.min(100, Math.max(0, Math.round((gainedKg / plannedKg) * 100)))
+  return { percent, currentKg: last.kg, currentAt: last.at, currentBasis: last.basis, targetKg, gainedKg, plannedKg: Math.max(0, round(plannedKg, 1)), since: first.at }
+}
+
+/** Cân ước tính vào ngày cân tới nếu giữ ADG 60 ngày (Figma Tab 17 "Cân tới"): cân gần nhất + ADG × số ngày. */
+export function weightAtNextWeighing(currentKg: number, currentAt: string, nextWeighingDate: string | undefined, adg60: number | undefined): number | undefined {
+  if (adg60 === undefined || !nextWeighingDate) return undefined
+  const days = Math.max(0, Math.round(dayFloat(nextWeighingDate) - dayFloat(currentAt.slice(0, 10))))
+  return round(currentKg + adg60 * days, 1)
+}

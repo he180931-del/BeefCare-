@@ -2,9 +2,10 @@ import { isValidElement, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cx } from '../cx'
 
-export function Card({ title, sub, actions, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+/** `variant="panel"`: khối Bento (bo 16 px, viền nhạt) cho màn đã chuyển sang docs/BeefCare-Bento-Grid.md. */
+export function Card({ title, sub, actions, variant = 'default', children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; variant?: 'default' | 'panel'; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
+    <section className={cx('flex flex-col gap-3 border bg-white p-4', variant === 'panel' ? 'rounded-2xl border-field' : 'rounded-md border-edge')}>
       {(title || actions) && (
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="m-0 text-sm font-semibold">
@@ -30,21 +31,38 @@ export function Tile({ label, value, note, warn }: { label: ReactNode; value: Re
   )
 }
 
+export type MetricTone = 'default' | 'emphasis' | 'err' | 'warn' | 'ok'
+
+// Bento (docs/BeefCare-Bento-Grid.md §3): xanh đậm = khối nổi bật, đỏ nhạt = lỗi/quá hạn, vàng nhạt = cần chú ý,
+// xanh nhạt = tích cực. Nhãn/dòng phụ #5b6a60 đạt ≥ 4,9:1 trên cả ba nền nhạt (#66756b chỉ 4,2:1 trên nền đỏ nhạt).
+const METRIC_PANEL: Record<MetricTone, { box: string; label: string; value: string; accent: string }> = {
+  default: { box: 'border-field bg-white', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+  emphasis: { box: 'border-brand-dark bg-brand-dark', label: 'text-side-text', value: 'text-white', accent: 'text-white' },
+  err: { box: 'border-err-bg bg-err-bg', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+  warn: { box: 'border-warn-bg bg-warn-bg', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+  ok: { box: 'border-ok-bg bg-ok-bg', label: 'text-[#5b6a60]', value: 'text-[#173629]', accent: 'text-[#08734f]' },
+}
+
 /**
  * Thẻ chỉ số của Redesign (Tổng quan, Hàng đợi...). `dot`: mã màu chấm trước nhãn; `compact`: số 20px thay vì 28px;
- * `sub`: dòng phụ xám; `link`: liên kết cuối thẻ.
+ * `sub`: dòng phụ xám; `link`: liên kết cuối thẻ. `surface="panel"` + `tone`: thẻ của bố cục Bento (bo 16 px, nền theo
+ * mức độ); màu luôn đi kèm nhãn chữ của thẻ.
  */
-export function Metric({ label, value, note, sub, dot, compact, warn, link }: { label: ReactNode; value: ReactNode; note?: ReactNode; sub?: ReactNode; dot?: string; compact?: boolean; warn?: boolean; link?: { label: ReactNode; to: string } }) {
+export function Metric({ label, value, note, sub, dot, compact, warn, link, surface = 'card', tone = 'default' }: { label: ReactNode; value: ReactNode; note?: ReactNode; sub?: ReactNode; dot?: string; compact?: boolean; warn?: boolean; link?: { label: ReactNode; to: string }; surface?: 'card' | 'panel'; tone?: MetricTone }) {
+  const panel = surface === 'panel' ? METRIC_PANEL[tone] : undefined
+  const muted = panel?.label ?? 'text-[#66756b]'
+  const accent = panel?.accent ?? 'text-[#08734f]'
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-md border border-edge bg-white px-[18px] py-4">
-      <div className="flex items-center gap-2 text-xs text-[#66756b]">
+    <div className={cx('flex min-w-0 flex-col gap-1.5 border px-[18px] py-4', panel ? `rounded-2xl ${panel.box}` : 'rounded-md border-edge bg-white')}>
+      <div className={cx('flex items-center gap-2 text-xs', muted)}>
         {dot && <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />}
         {label}
       </div>
-      <div className={cx('font-bold', compact ? 'text-xl leading-[25px]' : 'text-[28px] leading-[35px]', warn ? 'text-warn-fg' : 'text-[#173629]')}>{value}</div>
-      {sub && <div className="text-[11px] text-[#66756b]">{sub}</div>}
-      {note && <div className="text-[11px] font-bold text-[#08734f]">{note}</div>}
-      {link && <Link to={link.to} className="text-[11px] font-bold text-[#08734f] no-underline hover:underline">{link.label}</Link>}
+      <div className={cx('font-bold', compact ? 'text-xl leading-[25px]' : 'text-[28px] leading-[35px]', warn ? 'text-warn-fg' : panel?.value ?? 'text-[#173629]')}>{value}</div>
+      {sub && <div className={cx('text-[11px]', muted)}>{sub}</div>}
+      {note && <div className={cx('text-[11px] font-bold', accent)}>{note}</div>}
+      {/* Thẻ Bento: -my/py mở vùng chạm lên ~44 px (§3) mà không đổi chiều cao thẻ. */}
+      {link && <Link to={link.to} className={cx('text-[11px] font-bold no-underline hover:underline', accent, panel && '-my-3.5 py-3.5')}>{link.label}</Link>}
     </div>
   )
 }
