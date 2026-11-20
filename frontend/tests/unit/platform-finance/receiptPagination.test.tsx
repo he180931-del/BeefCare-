@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import { financeDemoStore } from '../../../src/features/platform-finance/data/financeDemoStore'
-import { backendTransport } from '../../../src/api/backendTransport'
+import { backendTransport } from '../../../src/shared/api/backendTransport'
 
 vi.mock('../../../src/features/platform-finance/api/financeApi', async () => {
   const { createFinanceApi } = await vi.importActual<typeof import('../../../src/features/platform-finance/api/financeApi')>('../../../src/features/platform-finance/api/financeApi')

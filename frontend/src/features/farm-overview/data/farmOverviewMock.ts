@@ -144,7 +144,7 @@ export const FARM_OVERVIEW_SEED: FarmOverviewSeed = {
   },
   today: '2026-10-20',
   reminders: REMINDERS,
-  feeding: { label: 'Cữ chiều 16:30', unrecorded: 2, total: 5 },
+  unrecordedFeedings: 2,
   reports: REPORTS,
   reportGeneratedAt: d('26'),
   conceptionByMonth: [{ label: 'T7', value: 52 }, { label: 'T8', value: 61 }, { label: 'T9', value: 58 }],

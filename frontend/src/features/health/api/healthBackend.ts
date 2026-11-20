@@ -1,9 +1,10 @@
-import { BackendError } from '../../../api/backendClient'
-import { backendPending } from '../../../api/backendPending'
-import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
+import { BackendError } from '../../../shared/api/backendClient'
+import { asRecord, asRows, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { dateOf, fmtTemp, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
-import { caseDay, followUpErrors, HealthValidationError, latestWithdrawalEnd, MSG, observationErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors } from '../domain/healthRules'
+import { caseDay, latestWithdrawalEnd, MSG } from '../domain/healthRules'
+import { followUpErrors, HealthValidationError, observationErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors } from '../validation/healthValidation'
 import type {
   CaseOutcome, CaseResultKind, CaseStatus, CorrectEntryCommand, EntryType, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult,
   HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile, HealthState, HealthTimelineRow, Medicine, OpenCaseCommand, PendingExit, Progress, RecordResult,
@@ -156,7 +157,7 @@ const query = (params: Record<string, string | number | undefined>) => {
 interface CaseRef { caseCode: string; cattleCode: string; openedAt?: string; latestEntryAt?: string }
 interface EntryRef { type: EntryType; caseId: number }
 
-export function createHealthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
+export function createHealthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number | null; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   const now = () => toFarmTime(clock().toISOString())
   const resolved = new Map<string, { cattleId: number; cattle: HealthCattle }>()
@@ -342,9 +343,6 @@ export function createHealthBackend({ farmId, transport, clock = () => new Date(
         return { medicines: medicineList.map(mapMedicine), members: memberRows.map((m) => m.name), diagnoses }
       })
     },
-
-    /** Phiếu xuất chờ Chủ trại thuộc FE-13 (herd-exit); tab sức khỏe đọc phiếu của từng con qua A2 (pendingExit). */
-    async listPendingExits(): Promise<PendingExit[]> { throw backendPending('danh sách phiếu xuất chờ xác nhận (FE-13)') },
 
     // A3
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {

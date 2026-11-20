@@ -1,18 +1,17 @@
-import { addCalendarDays, businessDate } from '../../../api/farmTimeZone'
+import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, Foot, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { canRecordCare, useSession } from '../../authorization'
-import { listFeedFeedingRecords } from '../api/feedFeedingApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, Foot, Icon, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
+import { feedFeedingServerBacked, listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedReceipts } from '../api/feedReceiptApi'
 import { listFeedRationFeeds, listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { effectiveRationForPen } from '../data/feedTodayRations'
+import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
@@ -70,7 +69,7 @@ export default function FeedFeedingPage() {
   const [modal, openModal, closeModal] = useModalParam()
   // GBR-102, D41: Chủ trại và Quản lý ghi, sửa, hủy cữ cho ăn; Kỹ thuật viên chỉ xem.
   const readOnlyView = searchParams.get('readOnly') === '1' || Boolean(session && !canRecordCare(session.role))
-  const canRecord = !readOnlyView && (backendMode === 'backend' ? canRecordCare(session?.role) : !session || canRecordCare(session.role))
+  const canRecord = !readOnlyView && (feedFeedingServerBacked ? canRecordCare(session?.role) : !session || canRecordCare(session.role))
   const canViewStock = session?.role !== 'TECHNICIAN'
   const initialDate = searchParams.get('date')
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedingMessage' in location.state
@@ -161,7 +160,7 @@ export default function FeedFeedingPage() {
       <FeedManagementTabs />
       {message && <Note tone="ok">{message}</Note>}
       {readOnlyView && <Note tone="info">Chế độ chỉ xem. Chủ trại và Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
-      {canRecord && backendMode === 'backend' && <Note tone="info">Ghi, sửa và hủy cữ sẽ cập nhật tồn kho theo phản hồi từ máy chủ.</Note>}
+      {canRecord && feedFeedingServerBacked && <Note tone="info">Ghi, sửa và hủy cữ sẽ cập nhật tồn kho theo phản hồi từ máy chủ.</Note>}
 
       <section role="tabpanel" aria-label="Nhật ký cho ăn" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">

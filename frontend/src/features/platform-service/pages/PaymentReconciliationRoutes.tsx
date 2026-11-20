@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { activateTableRow, activateTableRowByKey, Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import { platformServiceApi } from '../api/platformServiceApi'
 import EvidencePanel from '../components/EvidencePanel'
 import EvidenceTrack from '../components/EvidenceTrack'
@@ -13,11 +13,9 @@ import { usePmAccess } from '../components/common'
 import type { EvidenceFilters, ReviewDecision, ReviewResult } from '../types'
 import { fmtDateTime, fmtMoney, fmtShort } from '../domain/dates'
 import { MATCH_LABEL, MATCH_TONE, PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE, blockReason, checkAcceptance, evidenceCode, exactCodeMatches, maskTransaction } from '../domain/reconciliation'
-import { validateReason } from '../domain/servicePeriods'
+import { validateReason } from '../validation/servicePeriodValidation'
 import PaymentSourcePage from './PaymentSourcePage'
-import { backendMode } from '../../../api/backendTransport'
 import PaymentReadPage from './PaymentReadPage'
-import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
@@ -26,7 +24,7 @@ const PAY_TONE = PAYMENT_STATE_TONE
 export default function PaymentReconciliationRoutes() {
   const [params] = useSearchParams()
   if (params.has('paymentId') && params.get('origin') !== 'payments') return <PaymentSourcePage key={params.get('paymentId')} />
-  return backendMode === 'backend' ? <PaymentReadPage /> : <ReconciliationPage />
+  return platformServiceApi.demoReconciliation ? <ReconciliationPage /> : <PaymentReadPage />
 }
 
 function ReconciliationPage() {

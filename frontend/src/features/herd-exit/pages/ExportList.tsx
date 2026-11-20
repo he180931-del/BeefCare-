@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, FilterSelect, Foot, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { dmy, money } from '../../../data/format'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, FilterSelect, Foot, Icon, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
+import { dmy, money } from '../../../shared/lib/format'
 import { herdExitApi } from '../api/index'
-import { useQuery } from '../../../hooks/useApi'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { ExitStatusBadge, TH, cx, useIsOwner } from '../components/parts'
-import type { HerdExit } from '../../../types'
+import type { HerdExit } from '../types'
 
 const TABS: Array<{ value: string; match: (r: HerdExit) => boolean }> = [
   { value: 'Tất cả', match: () => true },

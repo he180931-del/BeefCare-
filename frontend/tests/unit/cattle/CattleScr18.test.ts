@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCattleBackendApi, mapBackendCattle } from '../../../src/api/cattleBackendApi'
+import { createCattleBackendApi, mapBackendCattle } from '../../../src/features/cattle/api/cattleBackendApi'
 
 describe('SCR-18 cattle contract', () => {
   it.each([

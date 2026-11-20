@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Badge, Card, KV, Table, Td, Th } from '../../../components/ui'
+import { Badge, Card, KV, Table, Td, Th } from '../../../shared/ui'
 import {
   METHOD_TEXT, NO_WEIGHING, addDaysText, daysBetween, expectedCalvingDate, formatDate, formatDateTime, hasNoWeighing, isDueSoon, windowBar,
 } from '../domain/reproductionRules'

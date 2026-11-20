@@ -1,11 +1,9 @@
-import { toBusinessTime } from '../../../api/farmTimeZone'
+import { toBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, Radio, Segmented, Table, Td, Th } from '../../../components/ui'
+import { activateTableRow, activateTableRowByKey, Badge, Button, Card, Icon, interactiveRowClass, Radio, Segmented, Table, Td, Th } from '../../../shared/ui'
 import type { Evidence, PlatformPayment } from '../types'
 import { fmtDateTime, fmtMoney, fmtSeconds, fmtShort } from '../domain/dates'
 import { candidateSummary, checkAcceptance, evidenceCode } from '../domain/reconciliation'
-import { activateTableRow, activateTableRowByKey, interactiveRowClass } from '../../../components/interactiveTableRow'
 
 type Tab = 'candidates' | 'history' | 'checks'
 

@@ -1,12 +1,12 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport, asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../api/backendTransport'
-import { FEED_DEMO_PENS } from '../data/feedPenMock'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { FeedStockRow } from '../types'
 import type { FeedRation, FeedRationDemoStore, FeedRationPenOption, SaveFeedRationInput } from '../types/feedRation'
 import { listFeedStock } from './feedStockApi'
-import {
-  feedRationDemoStore,
-  resetFeedRationDemoStore as resetDemoStore,
-} from '../data/feedRationDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 type MutationOptions = { key?: string }
 const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-ration:${Date.now()}:${Math.random().toString(36).slice(2)}`
@@ -59,11 +59,11 @@ export function createFeedRationApi({
   farmId,
   transport,
   mockRows,
-  demoStore = feedRationDemoStore,
+  demoStore = lazyObject(() => demo.feedRation.feedRationDemoStore),
   getFeedStock = listFeedStock,
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedRation[]
   demoStore?: FeedRationDemoStore
@@ -116,7 +116,10 @@ export function createFeedRationApi({
   }
 }
 
-const feedRationApi = createFeedRationApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedRationApi = createFeedRationApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
+
+/** Máy chủ cấp mã khẩu phần khi lưu; bản mô phỏng tự đánh mã tiếp theo. */
+export const feedRationServerBacked = backendMode === 'backend'
 
 /** Reads the server list in backend mode; writes persist only to the separate local ration demo store. */
 export const listFeedRations = () => feedRationApi.list()
@@ -125,13 +128,13 @@ export const saveFeedRationVersion = (input: SaveFeedRationInput, options?: Muta
 export const cancelFeedRationVersion = (id: number, versionNo: number, version: number, options?: MutationOptions) => feedRationApi.cancelVersion(id, versionNo, version, options)
 export const stopFeedRation = (id: number, endDate: string, version: number, options?: MutationOptions) => feedRationApi.stop(id, endDate, version, options)
 export const saveFeedRationDemoVersion = (input: SaveFeedRationInput, options?: MutationOptions) => feedRationApi.saveVersion(input, options)
-export const resetFeedRationDemoStore = () => resetDemoStore()
+export const resetFeedRationDemoStore = () => demo.feedRation.resetFeedRationDemoStore()
 
 export async function listFeedRationPens(): Promise<FeedRationPenOption[]> {
   if (backendMode === 'backend') {
-    return backendPens(await backendTransport.get(backendTransport.farmPath(backendFarmId, '/pens')))
+    return backendPens(await backendTransport.get(backendTransport.farmPath(activeFarmId, '/pens')))
   }
-  return FEED_DEMO_PENS.map((pen) => ({ ...pen }))
+  return demo.feedPens.FEED_DEMO_PENS.map((pen) => ({ ...pen }))
 }
 
 export const listFeedRationFeeds = (): Promise<FeedStockRow[]> => listFeedStock()

@@ -1,4 +1,5 @@
-import { addMinutes, computeReport, filterReceipts, filterRecords, validateCriteria, validateRecordFields, isReportExpired } from '../domain/financeRules'
+import { addMinutes, computeReport, filterReceipts, filterRecords, isReportExpired } from '../domain/financeRules'
+import { validateCriteria, validateRecordFields } from '../validation/financeValidation'
 import type { BankTransactionChoice, CashReport, Farm, FinanceRecord, NoticeKind, PmNotice, Receipt, ReceiptFilters, RecordFields, RecordFilters, RecordState, ReportCriteria } from '../types'
 import { BANK_SEED, DEMO_NOW, FARMS, NOTICES_SEED, PM_NAME, RECEIPTS_SEED, RECORDS_SEED } from './financeMock'
 

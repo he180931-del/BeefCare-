@@ -1,22 +1,17 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note } from '../../../components/ui'
-import SetupLayout from '../../farm-workspace/components/SetupLayout'
-import { InactiveFarmBanner, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace/components/WorkspaceUi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note } from '../../../shared/ui'
+import { InactiveFarmBanner, SetupLayout, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
-import { useFarmScope } from '../components/useFarmScope'
+import { useFarmScope } from '../hooks/useFarmScope'
 import { TERMS, estimatePeriod, fmtDate, fmtPeriod, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
-import { backendMode } from '../../../api/backendTransport'
-import { usePaymentRequest } from './usePaymentRequest'
+import { usePaymentRequest } from '../hooks/usePaymentRequest'
 import type { Term } from '../types'
-import { useOverview } from './useOverview'
-
-const ONBOARDING_FARM_ID = 2 // Trại Tản Lĩnh: trại vừa đăng ký ở bước 2
+import { useOverview } from '../hooks/useOverview'
 
 function OnboardingShell({ children }: { children: ReactNode }) {
   return (
@@ -27,7 +22,7 @@ function OnboardingShell({ children }: { children: ReactNode }) {
 }
 
 export default function FirstSubscriptionPage() {
-  const { farmId, to } = useFarmScope(ONBOARDING_FARM_ID)
+  const { farmId, to } = useFarmScope()
   const createPayment = usePaymentRequest(farmId)
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -51,7 +46,7 @@ export default function FirstSubscriptionPage() {
     try {
       const p = await createPayment(term, price.id)
       if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
-      else navigate(to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? p.id : p.quoteRef}`, { from: 'onboarding' }))
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${subscriptionApi.paymentRouteId(p)}`, { from: 'onboarding' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)

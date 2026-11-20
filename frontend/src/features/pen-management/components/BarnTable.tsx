@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Badge, Table, Td, Th } from '../../../components/ui'
+import { Badge, Table, Td, Th } from '../../../shared/ui'
 import { acceptsSummary, criteriaOf } from '../domain/penRules'
 import { cx, TH } from './parts'
-import type { Pen } from '../../../types'
+import type { Pen } from '../types'
 
 export const penName = (b: { code: string; name: string }) => b.name.startsWith(b.code) ? b.name.slice(b.code.length).replace(/^\s*[–-]\s*/, '') : b.name
 const HEAD = 'bg-[#f0f0f0] whitespace-nowrap'

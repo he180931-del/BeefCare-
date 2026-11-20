@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Card } from '../../../components/ui'
+import { Button, Card } from '../../../shared/ui'
 import { formatDayTime, initials } from '../domain/format'
 import type { MessagePage, Ticket, TicketMessage } from '../types'
 

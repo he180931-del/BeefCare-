@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import PlanPriceRoutes from '../../../src/features/platform-service/pages/PlanPriceRoutes'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn() }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
 }))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
 const session: Session = { role: 'PM', fullName: 'PM UC7', email: 'pm-uc7@example.test', farmId: null, farmName: null, logout: async () => {} }
 const row = (id = 701, extra: Record<string, unknown> = {}) => ({ id, revision: 0, price1y: 1234567, price2y: 2345678, price3y: 3456789,
   terms: 'Không tự gia hạn', effectiveAt: '2026-10-28T00:00:00Z', status: 'EFFECTIVE', publishedById: 7, publishedBy: 'PM công bố',

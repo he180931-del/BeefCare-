@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BackendError, createBackendClient } from '../../src/api/backendClient'
-import type { BackendTransport } from '../../src/api/backendTransport'
+import { BackendError, createBackendClient } from '../../src/shared/api/backendClient'
+import type { BackendTransport } from '../../src/shared/api/backendTransport'
 import { createGrowthBackend, toFarmTime, toInstant } from '../../src/features/growth/api/growthBackend'
 import { GrowthLargeChangeError, GrowthValidationError } from '../../src/features/growth/domain/growthRules'
 

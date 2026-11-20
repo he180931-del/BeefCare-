@@ -1,4 +1,5 @@
-import { caseDay, computeHealthState, followUpErrors, HealthValidationError, latestWithdrawalEnd, MSG, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors, withdrawalEnd } from '../domain/healthRules'
+import { caseDay, computeHealthState, latestWithdrawalEnd, MSG, withdrawalEnd } from '../domain/healthRules'
+import { followUpErrors, HealthValidationError, observationErrors as observationFieldErrors, openCaseErrors, reasonErrors, statusErrors, textError, treatmentErrors as treatmentFieldErrors } from '../validation/healthValidation'
 import { dateOf, fmtTemp, ROUTE_LABEL } from '../domain/healthFormat'
 import type {
   CorrectEntryCommand, FollowUpCommand, HealthCaseCard, HealthCaseFilters, HealthCaseList, HealthCaseResult, HealthCaseRow, HealthCattle, HealthFormOptions, HealthProfile,
@@ -156,8 +157,6 @@ export function createHealthDemoStore(seed: HealthSeed = HEALTH_SEED, options: {
       const diagnoses = [...new Set([...db.diagnoses, ...db.cases.map((c) => c.diagnosis).filter(Boolean)])]
       return structuredClone({ medicines: db.medicines, members: db.members, diagnoses })
     },
-
-    async listPendingExits(): Promise<PendingExit[]> { return structuredClone(db.vouchers.filter((v) => v.status === 'PENDING')) },
 
     async openCase(cattleCode: string, cmd: OpenCaseCommand): Promise<HealthCaseResult> {
       const cattle = ensureCattle(cattleCode)

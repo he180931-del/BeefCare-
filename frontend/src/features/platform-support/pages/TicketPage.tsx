@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented, inputCls, smInputCls } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, inputCls, LoadingBlock, Note, PageHeader, Pagination, Segmented, smInputCls } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { supportApi } from '../api/supportApi'
 import { Avatar, StatusBadge, errText, useActor, useFlash } from '../components/common'
 import { ReasonDialog } from '../components/ReasonDialog'
@@ -112,7 +111,7 @@ export default function TicketPage() {
     } catch (e) {
       setReplyError(errText(e))
       if (e instanceof SupportError && e.code === 'CONFLICT') {
-        try { await refetch() } catch { /* Giữ lỗi gửi hiện tại; ErrorBlock sẽ hiển thị nếu tải lại cũng thất bại. */ }
+        await refetch() // Giữ lỗi gửi hiện tại; ErrorBlock hiển thị nếu tải lại cũng thất bại.
       }
     } finally {
       replySendingRef.current = false

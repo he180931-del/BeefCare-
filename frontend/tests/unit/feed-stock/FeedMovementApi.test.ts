@@ -4,7 +4,7 @@ import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi
 import { recordFeedSessionDemo } from '../../../src/features/feed-stock/api/feedFeedingApi'
 import { postFeedStockAdjustmentDemo, saveFeedStockAdjustmentDemoDraft } from '../../../src/features/feed-stock/api/feedStockAdjustmentApi'
 import { resetFeedReceiptDemoStore } from '../../../src/features/feed-stock/api/feedReceiptApi'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const makeTransport = (): BackendTransport => ({
   get: vi.fn(async () => []),

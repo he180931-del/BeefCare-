@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
+import { REPRODUCTION_DEMO, REPRODUCTION_DEMO_NOW } from '../../../src/features/reproduction/data/reproductionMock'
 import {
   dueLabel, filterWorklist, formatDateTime, primaryActionFor, tabCounts, technicianRowInfo, windowBar,
 } from '../../../src/features/reproduction/domain/reproductionRules'
@@ -40,10 +40,10 @@ describe('worklist labels', () => {
   })
 
   it('builds the technician card line and badge from the same data', () => {
-    expect(technicianRowInfo(row('BC-000142'))).toEqual({
+    expect(technicianRowInfo(row('BC-000142'), REPRODUCTION_DEMO_NOW)).toEqual({
       subtitle: 'Zebu đỏ · C1 · động dục 20/10 06:30', badge: { label: 'Phối 14:30–18:30', tone: 'warn' },
     })
-    expect(technicianRowInfo(row('BC-000188'))).toEqual({
+    expect(technicianRowInfo(row('BC-000188'), REPRODUCTION_DEMO_NOW)).toEqual({
       subtitle: 'Zebu đỏ · C1 · 228 kg', badge: { label: 'Chưa đủ điều kiện', tone: 'err' },
     })
   })

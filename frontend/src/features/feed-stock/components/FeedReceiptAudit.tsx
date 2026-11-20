@@ -1,5 +1,5 @@
-import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../api/farmTimeZone'
-import { Card } from '../../../components/ui'
+import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
+import { Card } from '../../../shared/ui'
 import type { FeedReceipt } from '../types/feedReceipt'
 
 type AuditFields = Pick<FeedReceipt, 'createdByName' | 'createdAt' | 'postedByName' | 'postedAt' | 'voidedByName' | 'voidedAt' | 'voidReason'>

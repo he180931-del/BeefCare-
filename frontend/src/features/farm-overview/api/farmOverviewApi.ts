@@ -1,8 +1,11 @@
-import { backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
-import { farmOverviewDemoStore, type FarmOverviewDemoStore } from '../data/farmOverviewDemoStore'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import type { FarmOverviewDemoStore } from '../data/farmOverviewDemoStore'
 import { createFarmOverviewBackendApi } from './farmOverviewBackend'
 import type { DashboardFilters, ReportRequest, Scenario, ViewerRole } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** `role` và `scenario` chỉ phục vụ mock; backend lấy vai trò từ phiên đăng nhập. */
 export interface Viewer { role: ViewerRole; scenario?: Scenario }
@@ -13,7 +16,7 @@ const localProfileRoute = (code: string | null, role: ViewerRole): string | null
   return role === 'TECHNICIAN' ? `/kt/dan-bo/${pathCode}` : `/cattle/${pathCode}`
 }
 
-export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FarmOverviewDemoStore }) {
+export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: FarmOverviewDemoStore }) {
   const backend = mode === 'backend' ? createFarmOverviewBackendApi({ farmId, transport }) : null
   return {
     // GET /api/farms/{farmId}/dashboard?from&to&penId&herdGroup&lifeStage
@@ -34,8 +37,8 @@ export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode
     async runReport(request: ReportRequest, role: ViewerRole) { return backend ? backend.runReport(request) : store.runReport(request, role) },
     async listPenOptions() { return backend ? backend.listPenOptions() : store.listPenOptions() },
     async listBreedOptions() { return backend ? backend.listBreedOptions() : Promise.resolve([{ code: 'ZEBU_RED', name: 'Zebu đỏ' }, { code: 'LAI_SIND', name: 'Lai Sind' }]) },
-    // FE-14 SCR-74 còn thiếu endpoint tổng hợp REM-11 và khẩu phần chưa ghi cho Technician.
-    async getTechnicianHome() { return backend ? Promise.reject(backendPending('trang chủ Technician và REM-11')) : store.getTechnicianHome() },
+    // SCR-74: lắp từ GET /api/farms/{farmId}/reminders (nhắc việc và REM-11 bữa ăn chưa ghi).
+    async getTechnicianHome() { return backend ? backend.getTechnicianHome() : store.getTechnicianHome() },
   }
 }
-export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: farmOverviewDemoStore })
+export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.farmOverview.farmOverviewDemoStore) })

@@ -1,6 +1,7 @@
-import { BackendError } from '../../../api/backendClient'
-import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
+import { BackendError } from '../../../shared/api/backendClient'
+import { asRecord, asRows, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { ReproductionValidationError, breedingDetails, calvingSummary, formatDate, validateReproductionCommand } from '../domain/reproductionRules'
 import type {
   BreedingEligibility, CalfOutcome, CalvingCommand, CalvingRecord, DataSource, OpenPregnancy, ReproductionCommand, ReproductionEvent,
@@ -320,7 +321,7 @@ export function mapReproductionError(error: unknown): unknown {
 
 interface Cached { cattleId: number; profile?: ReproductionFemale }
 
-export function createReproductionBackend({ farmId, transport }: { farmId: string | number; transport: BackendTransport }) {
+export function createReproductionBackend({ farmId, transport }: { farmId: string | number | null; transport: BackendTransport }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   const cache = new Map<string, Cached>()
   let options: Omit<ReproductionFormOptions, 'healthCases'> & { breedIds: Map<string, number>; memberIds: Map<string, number> } | undefined

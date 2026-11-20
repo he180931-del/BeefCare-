@@ -1,12 +1,11 @@
-import { BackendError } from '../../../api/backendClient'
-import { asRecord, asRows, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { fromFarmLocal, toFarmLocal } from '../../../api/farmTimeZone'
-import { STATIC_OPTIONS } from '../data/vaccinationMock'
+import { BackendError } from '../../../shared/api/backendClient'
+import { asRecord, asRows, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
+import { VACCINATION_HERD_GROUPS, VACCINATION_LIFE_STAGES } from '../constants/vaccinationOptions'
 import { addMonths, fmtDate } from '../domain/vaccinationFormat'
-import {
-  CONFLICT_MESSAGE, VaccinationValidationError, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget,
-  validateDefer, validateReason, validateRecordFields, validateSchedule, type FieldErrors,
-} from '../domain/vaccinationRules'
+import { CONFLICT_MESSAGE, VaccinationValidationError, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, type FieldErrors } from '../domain/vaccinationRules'
+import { validateDefer, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import type {
   CattleVaccination, CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, DosePage, DoseRow, DoseStatus, DoseTab, HerdGroup,
   HistoryFilters, HistoryPage, HistoryRow, LifeStage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,
@@ -272,7 +271,7 @@ const sameList = (a: string[], b: string[]) => a.length === b.length && [...a].s
 const sameTarget = (a: ScheduleTarget, b: ScheduleTarget) =>
   sameList(a.penCodes, b.penCodes) && sameList(a.herdGroups, b.herdGroups) && sameList(a.lifeStages, b.lifeStages) && sameList(a.excluded, b.excluded) && sameList(a.added, b.added)
 
-export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
+export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number | null; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   const now = () => toFarmTime(clock().toISOString())
   const today = () => now().slice(0, 10)
@@ -363,8 +362,8 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
         vaccines: catalogue.filter((v) => v.active),
         members: people,
         pens: pensList.map((p) => ({ code: p.code, label: p.name })),
-        herdGroups: structuredClone(STATIC_OPTIONS.herdGroups),
-        lifeStages: structuredClone(STATIC_OPTIONS.lifeStages),
+        herdGroups: structuredClone(VACCINATION_HERD_GROUPS),
+        lifeStages: structuredClone(VACCINATION_LIFE_STAGES),
         now: now(),
       }
     },

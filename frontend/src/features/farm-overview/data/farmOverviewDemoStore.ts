@@ -1,8 +1,10 @@
 import { FARM_OVERVIEW_SEED } from './farmOverviewMock'
-import { buildDashboard, validateFilters } from '../domain/dashboardRules'
+import { buildDashboard } from '../domain/dashboardRules'
+import { validateFilters } from '../validation/dashboardValidation'
 import { buildGettingStarted, isMarkable } from '../domain/gettingStarted'
-import { isVisibleTo, sortReminders, toItem } from '../domain/reminderRules'
-import { buildReport, validateReportRequest } from '../domain/reportRules'
+import { isVisibleTo, sortReminders, technicianHomeReminders, toItem } from '../domain/reminderRules'
+import { buildReport } from '../domain/reportRules'
+import { validateReportRequest } from '../validation/reportValidation'
 import type {
   DashboardFilters, DashboardView, FarmOverviewSeed, GettingStarted, ReminderList, ReportRequest, ReportView, Scenario, TechnicianHome, ViewerRole,
 } from '../types'
@@ -52,8 +54,8 @@ export function createFarmOverviewDemoStore(seed: FarmOverviewSeed = FARM_OVERVI
       return structuredClone(state.dashboards.default.pens.map(({ code, name }) => ({ code, name })))
     },
     async getTechnicianHome(): Promise<TechnicianHome> {
-      const items = sortReminders(state.reminders.filter((r) => isVisibleTo(r, 'TECHNICIAN')).map((r) => toItem(r, state.today)))
-      return structuredClone({ farmName: state.dashboards.default.farmName, today: state.today, feeding: state.feeding, reminders: items.slice(0, 6) })
+      const items = state.reminders.filter((r) => isVisibleTo(r, 'TECHNICIAN')).map((r) => toItem(r, state.today))
+      return structuredClone({ today: state.today, reminders: technicianHomeReminders(items), unrecordedFeedings: state.unrecordedFeedings })
     },
     async reset() { state = structuredClone(seed) },
   }

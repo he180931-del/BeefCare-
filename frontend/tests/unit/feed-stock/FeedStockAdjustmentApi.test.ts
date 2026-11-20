@@ -1,4 +1,4 @@
-import { addCalendarDays, businessDate } from '../../../src/api/farmTimeZone'
+import { addCalendarDays, businessDate } from '../../../src/shared/lib/date/farmTime'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createFeedStockAdjustmentApi,
@@ -8,7 +8,7 @@ import {
 } from '../../../src/features/feed-stock/api/feedStockAdjustmentApi'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { FEED_STOCK_MOCK } from '../../../src/features/feed-stock/data/feedStockMock'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 import type { FeedStockAdjustmentDemoStore, FeedStockAdjustmentDraftInput } from '../../../src/features/feed-stock/types/feedStockAdjustment'
 
 const makeTransport = (): BackendTransport => ({

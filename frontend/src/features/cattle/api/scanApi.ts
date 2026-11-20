@@ -1,6 +1,6 @@
-import { toFarmLocal } from '../../../api/farmTimeZone'
-import { backendMode } from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
+import { toFarmLocal } from '../../../shared/lib/date/farmTime'
+import { backendMode } from '../../../shared/config/runtime'
+import { BackendError } from '../../../shared/api/backendClient'
 import { listCows, resolveScannedCode } from './cattleApi'
 import type { CowSeed } from '../../../data/cowsData'
 
@@ -19,6 +19,9 @@ const dateLabel = (iso: string | null) => {
   const date = toFarmLocal(iso).slice(0, 10)
   return date ? date.split('-').reverse().join('/') : null
 }
+
+/** Bản mô phỏng đối chiếu mã quét với đàn mẫu; máy chủ thật không có ghi chú này. */
+export const scanSampleNotice: string | null = backendMode === 'backend' ? null : 'Đang dùng dữ liệu mẫu. Mã quét được đối chiếu với đàn mẫu.'
 
 /** GET /api/farms/{farmId}/cattle/resolve?code= — display code, ear tag or tag code (or an app link to the tag). */
 export async function scanCode(input: string): Promise<ScanOutcome | null> {

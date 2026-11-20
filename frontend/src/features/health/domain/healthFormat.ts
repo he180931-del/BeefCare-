@@ -1,4 +1,4 @@
-import { businessDateTime } from '../../../api/farmTimeZone'
+import { businessDateTime } from '../../../shared/lib/date/farmTime'
 import type { CaseOutcome, CaseStatus, EntryType, HealthState, Progress, Severity, TreatmentRoute } from '../types'
 
 export const SEVERITY_LABEL: Record<Severity, string> = { MILD: 'Nhẹ', MODERATE: 'Trung bình', SEVERE: 'Nặng' }

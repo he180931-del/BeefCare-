@@ -1,14 +1,12 @@
-import { toBusinessTime } from '../../../api/farmTimeZone'
+import { toBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Field, Note, inputCls } from '../../../components/ui'
+import { Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note } from '../../../shared/ui'
 import { platformServiceApi } from '../api/platformServiceApi'
 import type { Evidence, PlatformPayment, ReviewDecision, ReviewResult } from '../types'
 import { fmtDateTime, fmtMoney, fmtSeconds, fmtShort } from '../domain/dates'
 import { blockReason, checkAcceptance, evidenceCode, maskTransaction, PAYMENT_STATE_LABEL } from '../domain/reconciliation'
-import { validateReason } from '../domain/servicePeriods'
+import { validateReason } from '../validation/servicePeriodValidation'
 import { ReadField, ReasonField, useAction } from './common'
 
 export interface DialogCtx {

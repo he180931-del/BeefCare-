@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
-import { inputCls } from '../../../components/ui'
+import { inputCls } from '../../../shared/ui'
 
 export const FieldError = ({ children }: { children?: ReactNode }) =>
   children ? <p role="alert" className="m-0 text-[11px] text-err-fg">{children}</p> : null

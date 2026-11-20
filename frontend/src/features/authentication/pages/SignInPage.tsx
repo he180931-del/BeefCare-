@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { DEMO_USERS } from '../demoUsers'
 import type { AuthClient } from '../types'
-import { normalizeEmail, validateSignIn } from '../validation'
+import { normalizeEmail, validateSignIn } from '../validation/authValidation'
 import { Alert, AuthShell, Form, FormField, primaryButtonClass } from '../components/AuthShell'
 import { ActionLink, Divider, GoogleButton, PasswordField } from '../components/AuthControls'
 import { AUTH_PATH, AUTH_PATHS, CREDENTIAL_MESSAGE, emailFromState, friendlyLoginError, isCredentialError, readError } from '../domain/authErrors'
@@ -78,15 +77,15 @@ export function SignInPage({ client, onAuthenticated, initialError, startFailed 
           </div>
           <button type="submit" disabled={submitting} className={primaryButtonClass}>{submitting ? 'Đang đăng nhập…' : failed ? 'Thử đăng nhập lại' : 'Đăng nhập'}</button>
         </Form>
-        {client.mode === 'mock' && (
+        {Boolean(client.demoAccounts?.length) && (
           <div className="rounded-xl bg-[#eef4ef] p-3 text-xs text-subtle">
             <p className="m-0 mb-2 font-bold text-ink">Tài khoản mock theo vai trò</p>
             <div className="flex flex-wrap gap-1.5">
-              {DEMO_USERS.map((user) => (
-                <button key={user.email} type="button" title={user.email} onClick={() => { setEmail(user.email); setPassword('mock-demo') }} className="cursor-pointer rounded-md border border-field bg-white px-2 py-1 font-medium text-brand-dark">{user.label}</button>
+              {client.demoAccounts?.map((user) => (
+                <button key={user.email} type="button" title={user.email} onClick={() => { setEmail(user.email); setPassword(user.password) }} className="cursor-pointer rounded-md border border-field bg-white px-2 py-1 font-medium text-brand-dark">{user.label}</button>
               ))}
             </div>
-            <p className="m-0 mt-2 text-[11px]">Xem khung lỗi: <code>sai@beefcare.local</code> (sai thông tin), <code>tam-ngung@beefcare.local</code> (tạm ngưng).</p>
+            {client.demoErrorEmails && <p className="m-0 mt-2 text-[11px]">Xem khung lỗi: <code>{client.demoErrorEmails.wrongCredentials}</code> (sai thông tin), <code>{client.demoErrorEmails.suspended}</code> (tạm ngưng).</p>}
           </div>
         )}
       </div>

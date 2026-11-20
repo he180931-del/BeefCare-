@@ -8,7 +8,7 @@ import {
 } from '../../../src/features/feed-stock/api/feedFeedingApi'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { resetFeedReceiptDemoStore } from '../../../src/features/feed-stock/api/feedReceiptApi'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 import type { FeedFeedingDemoStore, FeedFeedingDraftInput } from '../../../src/features/feed-stock/types/feedFeeding'
 
 const makeTransport = (): BackendTransport => ({

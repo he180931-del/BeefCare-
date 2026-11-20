@@ -1,13 +1,11 @@
-import { businessDate } from '../../../api/farmTimeZone'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useRef, useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, DateInput, Dropzone, ErrorBlock, Field, LoadingBlock, Note, Select, Table, Td, Textarea, Th, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { backendMode } from '../../../api/backendTransport'
-import { useQuery } from '../../../hooks/useApi'
+import { Badge, Button, DateInput, ErrorBlock, Field, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Dropzone } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { saveFeedSupplier } from '../api/feedCatalogueApi'
-import { checkFeedReceiptVoid, discardFeedReceiptDraft, recordFeedReceiptPayment, uploadFeedReceiptPaymentAttachment, voidFeedReceipt, voidFeedReceiptPayment } from '../api/feedReceiptApi'
+import { checkFeedReceiptVoid, discardFeedReceiptDraft, feedReceiptServerBacked, recordFeedReceiptPayment, uploadFeedReceiptPaymentAttachment, voidFeedReceipt, voidFeedReceiptPayment } from '../api/feedReceiptApi'
 import { formatDate, formatKg, formatMoney, formatVnd } from '../domain/feedLabels'
 import { feedReceiptError } from '../domain/feedReceiptErrors'
 import type { FeedSupplier } from '../types/feedCatalogue'
@@ -128,7 +126,7 @@ export function FeedReceiptVoidDialog({ record, onClose, onDone }: { record: Fee
 }
 
 /** Popup "Record Voucher Payment" (UC-FE23-02 AF2): amount must not exceed what is still owed (GBR-91). */
-export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachments = backendMode === 'backend' }: { record: FeedReceipt; onClose: () => void; onDone: (result: FeedReceiptPaymentResult) => void; allowAttachments?: boolean }) {
+export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachments = feedReceiptServerBacked }: { record: FeedReceipt; onClose: () => void; onDone: (result: FeedReceiptPaymentResult) => void; allowAttachments?: boolean }) {
   const outstanding = record.outstanding ?? record.totalPayable - (record.amountPaid ?? 0)
   const [amount, setAmount] = useState(String(outstanding))
   const [method, setMethod] = useState<'CASH' | 'BANK_TRANSFER'>('CASH')

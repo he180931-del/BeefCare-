@@ -1,8 +1,7 @@
-import {
-  FieldErrors, matchesFilters, purposeUsage, todayIso, validateBreed, validateMedicine, validatePurpose, validateVaccine, vaccineUsage,
-  type FieldErrorMap,
-} from '../domain/catalogueRules'
-import { effectiveVersion, parameterVersionChanges, validateParameterVersion } from '../domain/parameterRules'
+import { FieldErrors, matchesFilters, purposeUsage, todayIso, vaccineUsage, type FieldErrorMap } from '../domain/catalogueRules'
+import { validateBreed, validateMedicine, validatePurpose, validateVaccine } from '../validation/catalogueValidation'
+import { effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
+import { validateParameterVersion } from '../validation/parameterValidation'
 import type {
   Breed, BreedCommand, CatalogueBase, CatalogueFilters, Medicine, MedicineCommand, ParameterVersion, ParameterVersionCommand, Purpose,
   PurposeCommand, Vaccine, VaccineCommand,

@@ -17,7 +17,3 @@ export function localReproductionOptions(cattleCode?: string): ReproductionFormO
     healthCases: (cattleCode ? REPRODUCTION_HEALTH_CASES[cattleCode] ?? [] : Object.values(REPRODUCTION_HEALTH_CASES).flat()).map((item) => ({ ...item })),
   }
 }
-
-export const EMPTY_REPRODUCTION_OPTIONS: ReproductionFormOptions = {
-  members: [], externalPeople: [], sires: [], breeds: [], pens: [], purposes: [], healthCases: [],
-}

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { inputCls } from '../../../components/ui'
-import { STARTER_BREEDS } from '../data/starterBreeds'
+import { Icon, inputCls } from '../../../shared/ui'
+import { STARTER_BREEDS } from '../constants/starterBreeds'
 
 /** Chọn nhiều giống chủ lực từ danh mục giống có sẵn (SCR-10); giống được chọn bật sẵn cho trại. */
 export function BreedMultiSelect({ id, value, onChange }: { id: string; value: string[]; onChange: (codes: string[]) => void }) {

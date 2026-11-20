@@ -322,6 +322,32 @@ describe('backend mode', () => {
     expect((await api.listReminders('OWNER')).items[3]?.to).toBe('/thuc-an/nhat-ky?date=2026-11-15')
   })
 
+  it('builds the Technician home (SCR-74) from the reminder list: six reminders, REM-11 counted as unrecorded meals', async () => {
+    const row = (id: number, ruleType: string, urgency: string, dueTime: string) =>
+      ({ id, ruleType, sourceRecord: `R:${id}`, dueTime, lifecycleStatus: 'ACTIVE', urgency, highlighted: false })
+    const store = createFarmOverviewDemoStore()
+    const demoHome = vi.spyOn(store, 'getTechnicianHome')
+    const get = vi.fn(async (path: string) => path.endsWith('/reminders') ? [
+      row(1, 'REM-01', 'UPCOMING', '2026-11-18T01:00:00Z'),
+      row(2, 'REM-11', 'TODAY', '2026-11-15T03:00:00Z'),
+      row(3, 'REM-06', 'OVERDUE', '2026-11-13T01:00:00Z'),
+      row(4, 'REM-11', 'OVERDUE', '2026-11-14T10:00:00Z'),
+      row(5, 'REM-03', 'TODAY', '2026-11-15T01:00:00Z'),
+      row(6, 'REM-05', 'UPCOMING', '2026-11-20T01:00:00Z'),
+      row(7, 'REM-02', 'UPCOMING', '2026-11-16T01:00:00Z'),
+      row(8, 'REM-11', 'UPCOMING', '2026-11-19T01:00:00Z'),
+    ] : contextBody)
+    const api = createFarmOverviewApi({ mode: 'backend', farmId: 1, transport: { get, command: vi.fn(), farmPath: (id, suffix = '') => `/api/farms/${id}${suffix}` }, store })
+
+    const home = await api.getTechnicianHome()
+
+    expect(home.today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(home.reminders.map((item) => item.id)).toEqual([3, 4, 5, 2, 7, 1])
+    expect(home.unrecordedFeedings).toBe(3)
+    expect(get.mock.calls.map(([path]) => path).filter((path) => !path.endsWith('/context'))).toEqual(['/api/farms/1/reminders'])
+    expect(demoHome).not.toHaveBeenCalled()
+  })
+
   it('keeps source links closed when target details or the source identity do not match', async () => {
     const { api } = backend({
       '/context': contextBody,

@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Button, Foot, Table } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
+import { Button, Foot, Icon, type IconName, Table } from '../../../shared/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
 import { PURPOSE_TYPE_LABELS } from '../domain/profileRules'
 import type { CowSeed } from '../../../data/cowsData'

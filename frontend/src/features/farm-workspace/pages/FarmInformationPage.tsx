@@ -1,19 +1,20 @@
-import { FARM_TIME_ZONE_ID, parseBusinessTime } from '../../../api/farmTimeZone'
+import { FARM_TIME_ZONE_ID, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Card, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { homePathFor, useSession } from '../../authorization'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { homePathFor } from '../../authorization'
+import { roleInFarm, useSession } from '../../../app/session/sessionContext'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
-import { PROVINCES } from '../data/provinces'
+import { PROVINCES } from '../constants/provinces'
 import { Avatar, farmWorkspaceError, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
 import { serviceView } from '../domain/statusViews'
-import { useFarmId } from '../components/useFarmId'
+import { useFarmId } from '../hooks/useFarmId'
 import { useRequestKey } from '../hooks/useRequestKey'
 import type { FarmDetails, FarmInfoInput } from '../types'
-import { validateFarmInfo, type FormErrors } from '../validation'
+import { validateFarmInfo, type FormErrors } from '../validation/workspaceValidation'
 
 const DAY = 86_400_000
 const SAVED = 'Đã cập nhật thông tin trại.' // MSG-FE02-05
@@ -35,7 +36,9 @@ const daysLeft = (farm: FarmDetails) => farm.daysRemaining
  */
 export default function FarmInformationPage() {
   const session = useSession()
-  if (session && session.role !== 'OWNER') return <Navigate to={homePathFor(session.role)} replace />
+  const farmId = useFarmId()
+  const role = session ? roleInFarm(session, farmId) : 'OWNER'
+  if (role !== 'OWNER') return <Navigate to={homePathFor(role)} replace />
   return <FarmInformationForm />
 }
 

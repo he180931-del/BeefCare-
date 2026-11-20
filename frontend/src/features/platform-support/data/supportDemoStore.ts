@@ -1,4 +1,4 @@
-import { DOMAIN_RESULTS_SEED, IR_SEED, NOTIFICATIONS_SEED, STAFF_SEED, TICKETS_SEED } from './supportMock'
+import { DOMAIN_RESULTS_SEED, IR_SEED, NOTIFICATIONS_SEED, STAFF_SEED, TICKETS_SEED, actorForRole } from './supportMock'
 import {
   SupportError, closeConditions, filterQueue, isAssignedTo, isClaimable, latestResolution, nowIso, openIrOf, queueCounts, required, toRow, ROLE_LABEL,
 } from '../domain/supportRules'
@@ -66,6 +66,8 @@ export function createSupportDemoStore(seed = { tickets: TICKETS_SEED, irs: IR_S
   }
 
   return {
+    /** Nhân viên mẫu theo vai trò, dùng khi phiên mô phỏng không mang id. */
+    actorForRole,
     async listQueue(actor: Actor, filters: QueueFilters = {}): Promise<QueuePage> {
       const matched = filterQueue(tickets.map(view), filters, actor.id)
       const size = filters.size ?? 50

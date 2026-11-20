@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter } from 'react-router-dom'
-import type { BackendTransport } from '../../../src/api/backendTransport'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import SubscriptionHomePage from '../../../src/features/subscription/pages/SubscriptionHomePage'
@@ -11,9 +11,12 @@ import SubscriptionRoutes from '../../../src/features/subscription/pages/Subscri
 import type { Payment, SubscriptionOverview } from '../../../src/features/subscription/types'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: (id: string | number, suffix = '') => `/api/farms/${id}${suffix}` }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(),
-  backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 
 const period = { paymentCode: 'BC-PAID', durationYears: 1 as const, amountVnd: 1_200_000,
@@ -100,13 +103,14 @@ describe('UC-FE19-01 backend adapter and SCR-57', () => {
     expect(screen.getByRole('button', { name: 'Gia hạn gói' })).toBeEnabled()
   })
 
-  it('prefers the authenticated farm context to the configured fallback ID', async () => {
-    http.get.mockResolvedValue(overview({ farmId: 77, farmName: 'Trại đang chọn 77' }))
-    render(<SessionContext.Provider value={{ ...session, farmId: 77, farmName: 'Trại đang chọn 77' }}>
+  it('works on the farm of this tab, never on a farm guessed from the session or a configured one', async () => {
+    http.get.mockResolvedValue(overview())
+    render(<SessionContext.Provider value={{ ...session, farmId: 77, farmName: 'Trại khác 77' }}>
       <MemoryRouter><SubscriptionHomePage /></MemoryRouter>
     </SessionContext.Provider>)
     expect(await screen.findByText('0 ngày')).toBeInTheDocument()
-    expect(http.get).toHaveBeenCalledWith('/api/farms/77/subscription')
+    expect(http.get).toHaveBeenCalledWith('/api/farms/42/subscription')
+    expect(http.get).not.toHaveBeenCalledWith('/api/farms/77/subscription')
   })
 
   it('shows the exact confirmed end date used for renewal, even when the boundary is midnight in Vietnam', async () => {

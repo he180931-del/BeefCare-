@@ -1,8 +1,5 @@
-import { DEFAULT_FARM_TIME_ZONE, addCalendarDays, businessDate, businessDateTime, parseBusinessTime } from '../../../api/farmTimeZone'
-import type {
-  AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AccountStatusAction, AuditActionOption, AuditFilters, AuditRow, AuditTargetType, FarmRole,
-  PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole,
-} from '../types'
+import { addCalendarDays, businessDate, businessDateTime, DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
+import type { AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AccountStatusAction, AuditActionOption, AuditFilters, AuditRow, AuditTargetType, FarmRole, PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole } from '../types'
 
 export const REASON_MAX = 500
 export const PLATFORM_ROLES: readonly PlatformRole[] = ['CS', 'PM', 'SA']
@@ -184,7 +181,6 @@ export function checkAccountChange(accounts: AccountRecord[], target: AccountRec
   if (op === 'suspend' && isLastActiveSa(accounts, target.id)) throw new PlatformAdminError('LAST_SA', MSG.lastSa)
 }
 
-
 const nameOrder = new Intl.Collator('vi', { sensitivity: 'accent' })
 
 /** Thứ tự cột Người dùng như A9 (D31): tên tiếng Việt, không phân biệt hoa thường; chưa có tên theo email; rồi email, id. */
@@ -245,9 +241,9 @@ export const verificationText = (a: Pick<AccountDetail, 'emailVerified' | 'signI
 // ---------- Ngày giờ ----------
 
 export const toYmd = businessDate
-const ymdParts = (ymd: string) => ymd.split('-').map(Number) as [number, number, number]
+export const ymdParts = (ymd: string) => ymd.split('-').map(Number) as [number, number, number]
 export const addDaysYmd = addCalendarDays
-const calendarDate = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10)
+export const calendarDate = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10)
 export const addMonthsYmd = (ymd: string, months: number) => { const [y, m, d] = ymdParts(ymd); return calendarDate(y, m - 1 + months, d) }
 
 const platformParts = (iso: string) =>
@@ -389,21 +385,6 @@ export const AUDIT_RANGE_HINT = 'Tối đa 12 tháng'
 
 /** "7 ngày gần nhất" gồm cả hôm nay (D34): từ hôm nay − 6 đến hôm nay. */
 export const defaultAuditRange = (todayYmd: string) => ({ from: addDaysYmd(todayYmd, -6), to: todayYmd })
-
-/** Cộng tháng như máy chủ (LocalDate.plusMonths): 29/02 + 12 tháng = 28/02. */
-const plusMonthsClamped = (ymd: string, months: number) => {
-  const [y, m, d] = ymdParts(ymd)
-  const last = new Date(Date.UTC(y, m + months, 0)).getUTCDate()
-  return calendarDate(y, m - 1 + months, Math.min(d, last))
-}
-
-/** MSG-COM-06 / MSG-COM-11 / MSG-COM-10, cùng thứ tự kiểm của máy chủ. */
-export function validateAuditRange({ from, to }: { from: string; to: string }): string | null {
-  if (!from || !to) return 'Vui lòng nhập Khoảng thời gian.'
-  if (from > to) return 'Ngày bắt đầu không được sau ngày kết thúc.'
-  if (to > plusMonthsClamped(from, 12)) return 'Khoảng thời gian không hợp lệ.'
-  return null
-}
 
 const SYSTEM_ACTOR_WORDS = ['hệ thống', 'system']
 

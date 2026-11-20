@@ -1,4 +1,4 @@
-import { BackendError } from '../../../api/backendClient'
+import { BackendError } from '../../../shared/api/backendClient'
 import { MSG, PlatformAdminError, accountSuspendedMessage, noChangeMessage } from '../domain/platformRules'
 import { errorMessage } from './common'
 

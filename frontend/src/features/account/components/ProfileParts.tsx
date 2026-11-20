@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, Field, inputCls, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Card, Field, Icon, inputCls, Table, Td, Th } from '../../../shared/ui'
 import { FARM_ROLE_LABEL, initials } from '../domain/profileRules'
 import type { AccountProfile, FarmPermissions, ProfileErrors } from '../types'
 

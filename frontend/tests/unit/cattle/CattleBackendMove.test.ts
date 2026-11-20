@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCattleBackendApi } from '../../../src/api/cattleBackendApi'
+import { createCattleBackendApi } from '../../../src/features/cattle/api/cattleBackendApi'
 
 describe('backend cattle pen move contract', () => {
   it('checks and moves one backend cattle with the canonical pen-move endpoints', async () => {

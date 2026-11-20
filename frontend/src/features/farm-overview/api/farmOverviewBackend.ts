@@ -1,11 +1,15 @@
-import { asRecord, asRows, nullableNumber, textValue, type BackendTransport } from '../../../api/backendTransport'
-import { FARM_TIME_ZONE_ID, addCalendarDays, businessDate, parseBusinessTime } from '../../../api/farmTimeZone'
-import { REPORT_CATALOGUE, validateReportRequest } from '../domain/reportRules'
-import { HERD_GROUP_LABEL, HERD_GROUP_ORDER, LIFE_STAGE_LABEL, periodDays, validateFilters } from '../domain/dashboardRules'
+import { asRecord, asRows, nullableNumber, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
+import { addCalendarDays, businessDate, FARM_TIME_ZONE_ID, parseBusinessTime } from '../../../shared/lib/date/farmTime'
+import { REPORT_CATALOGUE } from '../domain/reportRules'
+import { validateReportRequest } from '../validation/reportValidation'
+import { HERD_GROUP_LABEL, HERD_GROUP_ORDER, LIFE_STAGE_LABEL, periodDays } from '../domain/dashboardRules'
+import { validateFilters } from '../validation/dashboardValidation'
 import { STEP_DEFS } from '../domain/gettingStarted'
+import { technicianHomeReminders } from '../domain/reminderRules'
 import type {
   DashboardFilters, DashboardView, GettingStarted, HerdGroup, PenInfo, ReportMetricChart, ReportRequest, ReportSection, ReportView,
-  ReminderItem, ReminderList, ReminderTarget, ReminderTargetType, ReminderType, Urgency, ViewerRole,
+  ReminderItem, ReminderList, ReminderTarget, ReminderTargetType, ReminderType, TechnicianHome, Urgency, ViewerRole,
 } from '../types'
 
 type FarmContext = { timeZone: string; serviceUntil: string }
@@ -473,7 +477,7 @@ function mapGettingStarted(body: unknown): GettingStarted {
   return { visible: row.visible === true, dismissed: row.dismissed === true, allDone: row.allDone === true, steps }
 }
 
-export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: string | number; transport: BackendTransport }) {
+export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: string | number | null; transport: BackendTransport }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   let contextPromise: Promise<FarmContext> | undefined
   let pensPromise: Promise<PenOption[]> | undefined
@@ -485,6 +489,13 @@ export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: st
       return { timeZone: FARM_TIME_ZONE_ID, serviceUntil: textValue(row.serviceUntil, textValue(row.currentPeriodUntil)) }
     }).catch((error: unknown) => { contextPromise = undefined; throw error })
     return contextPromise
+  }
+
+  const reminders = async (role: ViewerRole) => {
+    const [body, farm] = await Promise.all([transport.get(path('/reminders')), context()])
+    const rows = requiredRows(body, 'reminders')
+    const list: ReminderList = { today: businessDate(), timeZone: farm.timeZone, items: rows.map((row, index) => mapReminder(row, index, role)) }
+    return { rows, list }
   }
 
   const pens = () => {
@@ -535,8 +546,12 @@ export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: st
       return mapGettingStarted(await transport.command(path('/dashboard/getting-started/dismiss'), undefined, { method: 'POST' }))
     },
     async listReminders(role: ViewerRole): Promise<ReminderList> {
-      const [body, farm] = await Promise.all([transport.get(path('/reminders')), context()])
-      return { today: businessDate(), timeZone: farm.timeZone, items: requiredRows(body, 'reminders').map((row, index) => mapReminder(row, index, role)) }
+      return (await reminders(role)).list
+    },
+    // SCR-74 has no aggregate endpoint: GET /reminders gives the day's reminders and REM-11, one per pen and feeding session not recorded.
+    async getTechnicianHome(): Promise<TechnicianHome> {
+      const { rows, list } = await reminders('TECHNICIAN')
+      return { today: list.today, reminders: technicianHomeReminders(list.items), unrecordedFeedings: rows.filter((row) => row.ruleType === 'REM-11').length }
     },
     async runReport(request: ReportRequest): Promise<ReportView> {
       const validationError = validateReportRequest(request)

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initialCows } from '../../../src/data/cowsData'
+import { businessDate } from '../../../src/shared/lib/date/farmTime'
 
 const response = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 
@@ -9,12 +10,13 @@ describe('backend cattle update modal', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('does not seed demo reason/date and posts the current date for a backend cattle', async () => {
@@ -35,7 +37,8 @@ describe('backend cattle update modal', () => {
     const user = userEvent.setup()
     render(<UpdateModal cow={cow} onClose={() => undefined} onSaved={() => undefined} />)
 
-    const today = new Date().toISOString().slice(0, 10)
+    // Farm business date (UTC+7), not the UTC date: they differ between 00:00 and 07:00 in Viet Nam.
+    const today = businessDate()
     expect(screen.getByLabelText('Chọn ngày')).toHaveValue(today)
     expect(screen.getAllByRole('textbox')[1]).toHaveValue('')
     expect(screen.queryByText(/Đủ 13 tháng/)).not.toBeInTheDocument()

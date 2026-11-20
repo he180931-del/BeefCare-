@@ -1,10 +1,11 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, nullableNumber, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows, nullableNumber, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentDemoStore, FeedStockAdjustmentDraftInput } from '../types/feedStockAdjustment'
-import {
-  feedStockAdjustmentDemoStore,
-  resetFeedStockAdjustmentDemoStore as resetDemoStore,
-} from '../data/feedReceiptDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 type MutationOptions = { key?: string }
 
@@ -89,10 +90,10 @@ export function createFeedStockAdjustmentApi({
   farmId,
   transport,
   mockRows,
-  demoStore = feedStockAdjustmentDemoStore,
+  demoStore = lazyObject(() => demo.feedReceipt.feedStockAdjustmentDemoStore),
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedStockAdjustment[]
   demoStore?: FeedStockAdjustmentDemoStore
@@ -170,7 +171,10 @@ export function createFeedStockAdjustmentApi({
   }
 }
 
-const feedStockAdjustmentApi = createFeedStockAdjustmentApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedStockAdjustmentApi = createFeedStockAdjustmentApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
+
+/** Máy chủ cấp mã phiếu, lưu chứng từ và xác định lại tồn hệ thống tại ngày kiểm kê; bản mô phỏng không có các việc này. */
+export const feedStockAdjustmentServerBacked = backendMode === 'backend'
 
 export const listFeedStockAdjustments = () => feedStockAdjustmentApi.list()
 export const getFeedStockAdjustment = (id: string) => feedStockAdjustmentApi.get(id)
@@ -184,4 +188,4 @@ export const downloadFeedStockAdjustmentAttachment = (id: number, attachmentId: 
 /** Kept for callers that specifically exercise the local demo store. */
 export const saveFeedStockAdjustmentDemoDraft = saveFeedStockAdjustmentDraft
 export const postFeedStockAdjustmentDemo = postFeedStockAdjustment
-export const resetFeedStockAdjustmentDemoStore = () => resetDemoStore()
+export const resetFeedStockAdjustmentDemoStore = () => demo.feedReceipt.resetFeedStockAdjustmentDemoStore()

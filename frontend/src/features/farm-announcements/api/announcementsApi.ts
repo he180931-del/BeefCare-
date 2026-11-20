@@ -1,12 +1,17 @@
-import { BackendError } from '../../../api/backendClient'
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { announcementsDemoStore, type AnnouncementsDemoStore } from '../data/announcementsDemoStore'
+import { BackendError } from '../../../shared/api/backendClient'
+import { asRecord, asRows } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import type { AnnouncementsDemoStore } from '../data/announcementsDemoStore'
 import { allowedRecipientRoles, AnnouncementError, audienceLabel, MESSAGES } from '../domain/announcementRules'
 import { formatDayMonth, formatDayMonthTime } from '../domain/format'
 import type {
   AnnouncementRole, AnnouncementSummary, AnnouncementView, CorrectionCommand, DraftCommand, Member, MemberOptions,
   PublishPreview, PublishResult, ReadResult, Viewer,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const roles = ['OWNER', 'MANAGER', 'TECHNICIAN'] as const satisfies readonly AnnouncementRole[]
 const validRole = (value: unknown): AnnouncementRole => {
@@ -163,7 +168,7 @@ function newKey(): string {
   return globalThis.crypto.randomUUID()
 }
 
-export function createAnnouncementsApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: AnnouncementsDemoStore }) {
+export function createAnnouncementsApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: AnnouncementsDemoStore }) {
   const base = transport.farmPath(farmId, '/announcements')
   const pendingKeys = new Map<string, string>()
 
@@ -287,4 +292,4 @@ export function createAnnouncementsApi({ mode, farmId, transport, store }: { mod
 }
 
 export type AnnouncementsApi = ReturnType<typeof createAnnouncementsApi>
-export const announcementsApi = createAnnouncementsApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: announcementsDemoStore })
+export const announcementsApi = createAnnouncementsApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.announcements.announcementsDemoStore) })

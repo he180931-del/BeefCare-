@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, inputCls, Note, Textarea } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { plainStatus, REASON_MAX, validateReason, latestResolution } from '../domain/ticketRules'
+import { Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
+import { plainStatus, latestResolution } from '../domain/ticketRules'
+import { REASON_MAX, validateReason } from '../validation/ticketValidation'
 import type { ResolutionView, Ticket } from '../types'
 import { FieldError } from './FieldError'
-import type { ActionResult } from './useTicketActions'
+import type { ActionResult } from '../hooks/useTicketActions'
 
 const ReadOnly = ({ id, label, value }: { id: string; label: string; value: string }) => (
   <Field label={label} id={id}>

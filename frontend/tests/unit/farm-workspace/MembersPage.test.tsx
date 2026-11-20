@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import MembersPage from '../../../src/features/farm-workspace/pages/MembersPage'
 import type { MemberList, Membership } from '../../../src/features/farm-workspace/types'
 
@@ -96,6 +96,14 @@ describe('UC-FE03-05 / SCR-13 (D29)', () => {
     expect(screen.queryByRole('button', { name: 'Mời thành viên' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Đã ngưng/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Tất cả (5)' })).toBeInTheDocument()
+  })
+
+  it('reads the viewer role in the farm of the page, not the session role of another farm', async () => {
+    api.listMembers.mockResolvedValue(list(roster().filter((row) => row.status === 'ACTIVE').map((row) => ({ ...row, actions: [] })), { counts: { all: 5, managers: 1, technicians: 3 } }))
+    open({ ...owner, farmRoles: { 7: 'OWNER', 401: 'MANAGER' } })
+    expect(await screen.findByText(/Chế độ xem chỉ đọc/)).toBeInTheDocument()
+    expect(api.listMembers).toHaveBeenCalledWith(401, 'MANAGER')
+    expect(screen.queryByRole('button', { name: 'Mời thành viên' })).not.toBeInTheDocument()
   })
 
   it('shows 20 rows per page and returns to the first page when the tab changes', async () => {

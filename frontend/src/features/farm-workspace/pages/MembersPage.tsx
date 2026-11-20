@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { roleInFarm, useSession } from '../../../app/session/sessionContext'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { InviteDialog } from '../components/InviteDialog'
 import { MemberChangeDialog } from '../components/MemberChangeDialog'
 import { MemberTable } from '../components/MemberTable'
 import { PermissionTable } from '../components/PermissionChecklist'
-import { useFarmId } from '../components/useFarmId'
+import { useFarmId } from '../hooks/useFarmId'
 import { compareMembers } from '../domain/members'
 import type { FarmRole, MemberAction, Membership } from '../types'
 
@@ -48,7 +47,8 @@ export default function MembersPage() {
   const [search, setSearch] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
   // Outside a SessionProvider (route smoke, page tests) no role rule applies, as for RoleGate; A1 still decides the rows.
-  const viewer: FarmRole = session?.role === 'MANAGER' || session?.role === 'TECHNICIAN' ? session.role : 'OWNER'
+  const role = session ? roleInFarm(session, farmId) : 'OWNER'
+  const viewer: FarmRole = role === 'MANAGER' || role === 'TECHNICIAN' ? role : 'OWNER'
   const owner = viewer === 'OWNER'
   const preferencesKey = `beefcare:member-filters:${session?.email ?? ''}:${farmId}`
   const saved = useMemo(() => readPreferences(preferencesKey, owner), [preferencesKey, owner])

@@ -1,7 +1,11 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
+import { asRecord, asRows, numberValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedReceipt, FeedReceiptAttachment, FeedReceiptPayment, FeedReceiptPaymentResult } from '../types/feedReceipt'
 import type { FeedReceiptDemoStore, FeedReceiptDraftInput, FeedReceiptVoidCheckRow } from '../types/feedReceiptDemo'
-import { feedReceiptDemoStore } from '../data/feedReceiptDemoStore'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 type ReceiptMutationOptions = { key?: string }
 type RecordPaymentInput = {
@@ -227,10 +231,10 @@ export function createFeedReceiptApi({
   farmId,
   transport,
   mockRows,
-  demoStore = feedReceiptDemoStore,
+  demoStore = lazyObject(() => demo.feedReceipt.feedReceiptDemoStore),
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedReceipt[]
   demoStore?: FeedReceiptDemoStore
@@ -431,7 +435,12 @@ export function createFeedReceiptApi({
   }
 }
 
-const feedReceiptApi = createFeedReceiptApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedReceiptApi = createFeedReceiptApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
+
+/**
+ * Phần máy chủ đảm nhận mà bản mô phỏng không có: cấp mã phiếu khi lưu, lưu chứng từ, hủy khoản trả và bỏ phiếu nháp.
+ */
+export const feedReceiptServerBacked = backendMode === 'backend'
 
 export const listFeedReceipts = () => feedReceiptApi.list()
 export const getFeedReceipt = (id: string) => feedReceiptApi.get(id)
@@ -454,4 +463,4 @@ export const listFeedReceiptPaymentAttachments = (id: number, paymentId: number)
 export const uploadFeedReceiptPaymentAttachment = (id: number, paymentId: number, file: File, options?: ReceiptMutationOptions) => feedReceiptApi.uploadPaymentAttachment(id, paymentId, file, options)
 export const downloadFeedReceiptPaymentAttachment = (id: number, paymentId: number, attachmentId: number) => feedReceiptApi.downloadPaymentAttachment(id, paymentId, attachmentId)
 export const checkFeedReceiptVoid = (id: number) => feedReceiptApi.voidCheck(id)
-export const resetFeedReceiptDemoStore = () => feedReceiptDemoStore.reset()
+export const resetFeedReceiptDemoStore = () => demo.feedReceipt.feedReceiptDemoStore.reset()

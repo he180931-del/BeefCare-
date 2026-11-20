@@ -1,9 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { userFacingError } from '../../../api/userFacingError'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Badge, Note } from '../../../components/ui'
-import { useSession } from '../../authorization'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Icon, Note } from '../../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
 import { MSG, PlatformAdminError, initials } from '../domain/platformRules'
 import type { AccountStatus } from '../types'
 

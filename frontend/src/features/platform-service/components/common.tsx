@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { useSession } from '../../authorization'
-import { Badge, Field, Textarea, inputCls, type BadgeTone } from '../../../components/ui'
-import type { IconName } from '../../../components/Icon'
-import { SERVICE_STATUS_VIEW } from '../../farm-workspace/domain/statusViews'
+import { useSession } from '../../../app/session/sessionContext'
+import { Badge, type BadgeTone, Field, inputCls, Textarea } from '../../../shared/ui'
+import type { IconName } from '../../../shared/ui'
+import { SERVICE_STATUS_VIEW } from '../../farm-workspace'
 import type { ServiceStatus } from '../types'
 import { STATUS_LABEL } from '../domain/servicePeriods'
 

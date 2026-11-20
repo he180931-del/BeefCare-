@@ -1,5 +1,4 @@
-import { Icon, type IconName } from '../../../components/Icon'
-import { Badge } from '../../../components/ui'
+import { Badge, Icon, type IconName } from '../../../shared/ui'
 import { serviceView } from '../domain/statusViews'
 import type { FarmServiceStatus, FarmSummary } from '../types'
 import { lastServiceDay, roleLabel, serviceLabel } from './WorkspaceUi'

@@ -1,16 +1,14 @@
-import { parseBusinessTime } from '../../../api/farmTimeZone'
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Badge, Card, ErrorBlock, Foot, LoadingBlock, EmptyBlock, FilterSelect, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import { reproductionApi } from '../api/reproductionApi'
 import { NO_WEIGHING, dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
 import type { ReproductionRole, ReproductiveStatus, WorklistFilters } from '../types'
-import { reproductionNow } from '../domain/reproductionClock'
 
 const TABS: Array<{ value: WorklistTab; label: string }> = [
   { value: 'AWAITING_BREEDING', label: 'Chờ phối' },
@@ -32,13 +30,13 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
   const [filters, setFilters] = useState<WorklistFilters>({ status: 'IN_ESTRUS', eligibility: 'ALL', penCode: 'ALL', breed: 'ALL', query: '' })
   const { data: rows, loading, error, refetch } = useQuery(() => reproductionApi.listWorklist(), [])
   const all = useMemo(() => rows ?? [], [rows])
-  const tracked = useMemo(() => filterWorklist(all, {}), [all])
-  const counts = useMemo(() => tabCounts(all), [all])
-  const filtered = useMemo(() => filterWorklist(all, filters), [all, filters])
+  const tracked = useMemo(() => filterWorklist(all, {}, reproductionApi.now()), [all])
+  const counts = useMemo(() => tabCounts(all, reproductionApi.now()), [all])
+  const filtered = useMemo(() => filterWorklist(all, filters, reproductionApi.now()), [all, filters])
   const setFilter = (patch: Partial<WorklistFilters>) => setFilters((current) => ({ ...current, ...patch }))
   const open = (code: string) => navigate(`/cattle/${encodeURIComponent(code)}?tab=repro`)
 
-  const now = parseBusinessTime(reproductionNow())
+  const now = parseBusinessTime(reproductionApi.now())
   const notMet = (status: string | null) => ['AWAITING_BREEDING', 'IN_ESTRUS', 'POST_CALVING'].includes(status ?? '')
   const tiles = [
     { label: 'Đang động dục', value: counts.IN_ESTRUS },

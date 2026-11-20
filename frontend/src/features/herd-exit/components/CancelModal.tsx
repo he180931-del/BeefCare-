@@ -1,20 +1,20 @@
 import { useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, Note, Textarea } from '../../../components/ui'
-import { cancelHerdExit, pens } from '../api/index'
-import { useMutation } from '../../../hooks/useApi'
-import { useQuery } from '../../../hooks/useApi'
-import { money } from '../../../data/format'
-import { penCode, restoreCounts } from '../data/occupancy'
-import type { HerdExit, CattleInput, Pen } from '../../../types'
+import { Field, Icon, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
+import { cancelHerdExit, exitCancelDefaults, listExitCancelPens } from '../api/index'
+import { useMutation } from '../../../shared/hooks/useMutation'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { money } from '../../../shared/lib/format'
+import { penCode, restoreCounts } from '../domain/occupancy'
+import type { HerdExit } from '../types'
+import type { CattleInput } from '../../cattle'
+import type { Pen } from '../../pen-management'
 
 const MAX_REASON = 500
 
 export default function CancelModal({ row, onClose, onCancelled }: { row: HerdExit; onClose: () => void; onCancelled: () => void }) {
   const { mutate: cancelExit, loading: saving } = useMutation<{ id: string; cows: CattleInput[]; patch: Partial<HerdExit> }, HerdExit>(({ id, cows, patch }) => cancelHerdExit(id, cows, patch))
-  const { data: canonicalPens } = useQuery(() => pens.list(), [])
-  const [cancelReason, setCancelReason] = useState('Lò mổ trả lại 4 con do đổi lịch giết mổ')
+  const { data: canonicalPens } = useQuery(() => listExitCancelPens(), [])
+  const [cancelReason, setCancelReason] = useState(() => exitCancelDefaults().reason)
   const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
   const barnCount = row.count
   const restoringByPen = restoreCounts(row.detail?.cows ?? [])
@@ -28,18 +28,11 @@ export default function CancelModal({ row, onClose, onCancelled }: { row: HerdEx
     : 'Chuồng sẽ được kiểm tra theo dữ liệu hiện tại'
 
   const confirm = async () => {
-    const time = new Date().toTimeString().slice(0, 5)
     await cancelExit({
       id: row.id,
       cows: row.detail?.cows ?? [],
-      patch: {
-        status: 'Đã hủy',
-        cancelReason,
-        detail: {
-          ...row.detail,
-          history: [...(row.detail?.history ?? []), `22/10 ${time} · N. V. Hùng hủy phiếu: ${cancelReason}`],
-        },
-      },
+      // The server records who cancelled and when; the demo adapter writes its own history line.
+      patch: { status: 'Đã hủy', cancelReason, detail: { ...row.detail } },
     })
     onCancelled()
   }

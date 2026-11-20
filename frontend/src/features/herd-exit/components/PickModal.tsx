@@ -1,12 +1,9 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, Button, Checkbox, Field, Note, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { money } from '../../../data/format'
+import { Badge, Button, Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, QrCamera, Select, Table, Td, Th } from '../../../shared/ui'
+import { money } from '../../../shared/lib/format'
 import { TH } from './parts'
-import type { HerdExit } from '../../../types'
-import { scanCode } from '../../cattle/api/scanApi'
-import QrCamera from '../../../components/QrCamera'
+import type { HerdExit } from '../types'
+import { scanCode } from '../../cattle'
 type HerdCow = { code: string; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string; weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number }
 
 // Bò đang nằm trong phiếu khác (Nháp / Chờ xác nhận / Đã xuất) thì không hiện để chọn.

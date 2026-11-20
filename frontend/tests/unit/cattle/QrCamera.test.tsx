@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import QrCamera from '../../../src/components/QrCamera'
+import QrCamera from '../../../src/shared/ui/QrScanner/QrCamera'
 import { QR_BORDER, tagQrModules } from '../../../src/features/cattle/domain/tagQr'
 
 // The decoder reads real QR pixels. Browser camera/media APIs supply those pixels in these unit tests.

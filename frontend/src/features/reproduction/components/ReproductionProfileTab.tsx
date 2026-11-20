@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Badge, Button, Card, Foot, KV, Note } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
+import { Badge, Button, Card, Foot, Icon, type IconName, KV, Note } from '../../../shared/ui'
 import { reproductionApi } from '../api/reproductionApi'
 import { resolveReproductionSource } from '../api/reproductionBackend'
 import { ReproductionOptionsProvider } from './reproductionOptions'
-import { useModalParam } from '../../../components/Modal'
-import { canRecordCare, useSession } from '../../authorization'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import {
   ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
 } from '../domain/reproductionRules'

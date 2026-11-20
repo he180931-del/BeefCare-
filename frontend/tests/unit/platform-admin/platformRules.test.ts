@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  accessActionsOf, allowedAuditChange, auditActionLabel, auditActorQuery, auditChanges, auditRoleLabel, compareAccounts, defaultAuditRange,
-  farmsJoinedText, formatNoticeTime, formatPlatformDate, formatPlatformDateTime, initials, platformRoleText, revokedRoleNote, validateAuditRange,
-  validateReason, verificationText,
-} from '../../../src/features/platform-admin/domain/platformRules'
+import { accessActionsOf, allowedAuditChange, auditActionLabel, auditActorQuery, auditChanges, auditRoleLabel, compareAccounts, defaultAuditRange, farmsJoinedText, formatNoticeTime, formatPlatformDate, formatPlatformDateTime, initials, platformRoleText, revokedRoleNote, validateReason, verificationText } from '../../../src/features/platform-admin/domain/platformRules'
+import { validateAuditRange } from '../../../src/features/platform-admin/validation/platformValidation'
 import type { AccountListItem, AccountRecord } from '../../../src/features/platform-admin/types'
 
 describe('platformRules', () => {

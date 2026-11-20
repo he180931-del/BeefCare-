@@ -18,7 +18,7 @@ describe('herd-exit draft upload failure in backend mode', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '1')
+    sessionStorage.setItem('beefcare.currentFarmId', '1')
     localStorage.setItem('beefcare:latency', '0')
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url, 'http://backend.test')
@@ -40,6 +40,7 @@ describe('herd-exit draft upload failure in backend mode', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('preserves the hydrated draft and stays on the page when upload fails before confirm', async () => {

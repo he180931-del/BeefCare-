@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import TechnicianLayout from '../../../components/TechnicianLayout'
-import { Button, Foot, Note, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { Icon } from '../../../components/Icon'
-import QrCamera from '../../../components/QrCamera'
-import { userFacingError } from '../../../api/userFacingError'
-import { enterFarm } from '../../farm-workspace/components/enterFarm'
-import { scanCode, type ScanOutcome } from '../api/scanApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
+import { Button, Foot, Icon, inputCls, Note, QrCamera } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { enterFarm } from '../../farm-workspace'
+import { scanCode, scanSampleNotice, type ScanOutcome } from '../api/scanApi'
 import { Chip, chipIcon } from '../components/parts'
 import { scanImage } from '../domain/scanImage'
 
@@ -94,7 +91,7 @@ export default function ScanQrPage() {
 
   const body = (
     <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3 leading-[normal]">
-      {backendMode === 'local' && <Note tone="warn">Đang dùng dữ liệu mẫu. Mã quét được đối chiếu với đàn mẫu.</Note>}
+      {scanSampleNotice && <Note tone="warn">{scanSampleNotice}</Note>}
       {camera && <QrCamera onCode={(value) => void lookup(() => value)} />}
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={loading} onClick={() => { setError(''); setCamera(!camera) }}><Icon name="scan" />{camera ? 'Tắt camera' : 'Bật camera'}</Button>

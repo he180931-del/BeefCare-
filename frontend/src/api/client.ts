@@ -1,8 +1,10 @@
 // Local collection adapter. Persistence is deliberately treated as an
 // untrusted JSON boundary: every row is validated by the schema supplied by
 // the caller before it enters the in-memory collection.
+import { runtimeEnv } from '../shared/config/runtime'
+
 const PREFIX = 'beefcare:'
-const persistenceEnabled = () => import.meta.env?.VITE_BEEFCARE_DATA_SOURCE !== 'backend'
+const persistenceEnabled = () => runtimeEnv().VITE_BEEFCARE_DATA_SOURCE === 'local'
 
 export type CollectionRow = Record<string, unknown>
 export type NewCollectionInput<T extends CollectionRow, K extends keyof T & string> = Omit<T, K> & Partial<Pick<T, K>>

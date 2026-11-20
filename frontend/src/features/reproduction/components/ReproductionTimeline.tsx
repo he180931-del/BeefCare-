@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Badge, Card, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Badge, Card, Icon, inputCls, Select, Table, Td, Th } from '../../../shared/ui'
 import { formatDate, formatDateTime } from '../domain/reproductionRules'
 import type { CalvingRecord, ReproductionEvent, ReproductionEventType, ReproductionFemale } from '../types'
 import { SOURCE_LABEL, nowLocal } from './reproductionFields'

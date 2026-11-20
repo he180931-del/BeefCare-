@@ -1,15 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import TechnicianLayout from '../../../components/TechnicianLayout'
-import { useModalParam } from '../../../components/Modal'
-import { Button, Note, PageHeader, Select, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { backendMode } from '../../../api/backendTransport'
-import { useSession } from '../../authorization'
+import { Button, Icon, inputCls, Note, PageHeader, Select } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useSession } from '../../../app/session/sessionContext'
 import { penApi, type PenCattle } from '../api/penApi'
-import { useMutation, useQuery } from '../../../hooks/useApi'
+import { useMutation } from '../../../shared/hooks/useMutation'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import BarnTable from '../components/BarnTable'
 import BarnPanel from '../components/BarnPanel'
 import EditModal from '../components/EditModal'
@@ -17,7 +16,7 @@ import DisableModal from '../components/DisableModal'
 import MoveDialog from '../components/MoveDialog'
 import { cx } from '../components/parts'
 import { headerSummary } from '../domain/penRules'
-import type { Pen, PenStatus } from '../../../types'
+import type { Pen, PenStatus } from '../types'
 
 const ALL_STATUS = 'all'
 const STATUS_OPTIONS = [
@@ -98,7 +97,8 @@ export default function BarnList() {
   const header = headerSummary(barns)
   const viewAll = () => {
     if (!selected) return
-    const pen = backendMode === 'backend' && selected.id != null ? String(selected.id) : selected.code
+    // Backend pens filter by id; demo pens have no id and filter by code.
+    const pen = selected.id != null ? String(selected.id) : selected.code
     navigate(`/cattle?pen=${encodeURIComponent(pen)}`)
   }
 

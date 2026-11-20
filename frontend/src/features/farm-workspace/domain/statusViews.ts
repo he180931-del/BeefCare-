@@ -1,4 +1,4 @@
-import type { BadgeTone } from '../../../components/ui'
+import type { BadgeTone } from '../../../shared/ui'
 
 export interface StatusView { label: string; tone: BadgeTone }
 

@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom'
 import { AuthShell, NoticePanel, primaryButtonClass } from '../components/AuthShell'
 import { ActionLink } from '../components/AuthControls'
 import { AUTH_PATH, emailFromState } from '../domain/authErrors'
-import { CONTACT } from '../data/landingContent'
+import { CONTACT } from '../constants/landingContent'
 
 /** MSG-FE01-03: tài khoản bị tạm ngưng, kèm thông tin liên hệ chính thức (GBR-87). */
 export function SuspendedPage({ onBackToSignIn }: { onBackToSignIn?: () => void }) {

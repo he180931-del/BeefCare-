@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { supportApi } from '../api/supportApi'
 import { errText } from '../components/common'
 

@@ -1,10 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, inputCls, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { healthApi } from '../api/healthApi'
 import { recordToast } from '../domain/healthMessages'
 import { fmtDate, fmtDateTime, fmtTemp, PROGRESS_LABEL, PROGRESSES, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
-import { latestWithdrawalEnd, MSG, parseTemperature } from '../domain/healthRules'
+import { latestWithdrawalEnd, MSG } from '../domain/healthRules'
+import { parseTemperature } from '../validation/healthValidation'
 import type { HealthFormOptions, HealthProfile, HealthTimelineRow, Progress, TreatmentRoute } from '../types'
 import { DateTimeInput, hint, RadioGroup, ReadonlyBox, toIntOrNull, useDialogSave } from './healthUi'
 

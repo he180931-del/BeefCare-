@@ -1,4 +1,4 @@
-import { Badge, Button, Table, Td, Th } from '../../../components/ui'
+import { Badge, Button, Table, Td, Th } from '../../../shared/ui'
 import { useNavigate } from 'react-router-dom'
 import { formatDate, formatKg, formatMoney } from '../domain/feedLabels'
 import type { FeedReceipt } from '../types/feedReceipt'

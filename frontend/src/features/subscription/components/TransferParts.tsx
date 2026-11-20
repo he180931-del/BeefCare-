@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import { backendMode } from '../../../api/backendTransport'
-import { Badge, Button, Card, Note, Table, Th, Td } from '../../../components/ui'
+import { Badge, Button, Card, Icon, Note, Table, Td, Th } from '../../../shared/ui'
+import { subscriptionApi } from '../api/subscriptionApi'
 import { BANK_NAMES, fmtAccount, fmtClock, fmtDateTime, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
 import type { Payment } from '../types'
 import { Facts, ICON_BTN, PaymentBadge } from './shared'
@@ -54,7 +53,7 @@ const remaining = (p: Payment, now: number) => Math.max(0, toMs(p.expiresAt) - n
 /** `phone`: the transfer details are below the QR on phones and beside it on wider screens. */
 function QrImage({ url, phone = false }: { url?: string | null; phone?: boolean }) {
   const [failed, setFailed] = useState(false)
-  if (backendMode === 'local') return <QrPlaceholder />
+  if (subscriptionApi.illustrativeQr) return <QrPlaceholder />
   if (!url || failed) return <div className={QR_HIDDEN}>Không tải được mã QR. Vui lòng dùng thông tin chuyển khoản {phone ? 'bên dưới' : 'bên cạnh'}.</div>
   return <img src={url} alt="Mã VietQR thanh toán" onError={() => setFailed(true)} className="mx-auto aspect-square w-full max-w-[280px] object-contain" />
 }

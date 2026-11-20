@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  followUpErrors,
-  openCaseErrors,
-  parseTemperature,
-  reasonErrors,
-  statusErrors,
-  temperatureError,
-  treatmentErrors,
-} from '../../../src/features/health/domain/healthRules'
+import { followUpErrors, openCaseErrors, parseTemperature, reasonErrors, statusErrors, temperatureError, treatmentErrors } from '../../../src/features/health/validation/healthValidation'
 
 // Quy tắc trường FE-10 (spec mục 6) dùng chung cho chế độ local và backend.
 const ctx = { now: '2026-11-05T12:00', entryDate: '2026-10-01' }

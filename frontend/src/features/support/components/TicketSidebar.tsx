@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Card, Pagination, Table, Td, Th } from '../../../components/ui'
+import { Badge, Card, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { formatDateTime, formatDayTime } from '../domain/format'
 import { categoryLabel, HISTORY_EVENTS, PRIORITY_LABELS, shortFarmName } from '../domain/ticketRules'
 import type { Ticket } from '../types'

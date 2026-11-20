@@ -1,7 +1,7 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { BackendError } from '../../../src/api/backendClient'
-import { userFacingError } from '../../../src/api/userFacingError'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { userFacingError } from '../../../src/shared/api/userFacingError'
 
 test('maps server and transport failures', () => {
   assert.match(userFacingError(new BackendError(500, { message: 'error.http.500' })), /Máy chủ đang gặp sự cố/)

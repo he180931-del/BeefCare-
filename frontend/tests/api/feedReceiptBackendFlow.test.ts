@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createBackendClient } from '../../src/api/backendClient'
+import { createBackendClient } from '../../src/shared/api/backendClient'
 import { createFeedReceiptApi } from '../../src/features/feed-stock/api/feedReceiptApi'
 
 const receiptView = (status: string, version: number) => ({

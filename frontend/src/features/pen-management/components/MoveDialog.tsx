@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Button, DateInput, Field, KV, Note, Select, Table, Td, Textarea, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { BackendError } from '../../../api/backendClient'
+import { Button, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { BackendError } from '../../../shared/api/backendClient'
 import { penApi, type MoveCattle, type PenMoveCheckResult } from '../api/penApi'
 import { CRITERION_LABELS, dmy, todayIso, type CriterionType } from '../domain/penRules'
 import { cx, TH } from './parts'
-import type { Pen } from '../../../types'
+import type { Pen } from '../types'
 
 const OUTCOME_TEXT = { MET: 'Đạt', NOT_MET: 'Không đạt', NOT_APPLICABLE: 'Không áp dụng' } as const
 const OUTCOME_TONE = { MET: 'text-brand', NOT_MET: 'text-err-fg', NOT_APPLICABLE: 'text-muted' } as const

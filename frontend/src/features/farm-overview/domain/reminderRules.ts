@@ -73,3 +73,7 @@ export const reminderGroupKey = (item: Pick<ReminderItem, 'dueAt' | 'urgency'>, 
 const ORDER: Record<Urgency, number> = { OVERDUE: 0, TODAY: 1, UPCOMING: 2 }
 export const sortReminders = (items: ReminderItem[]) =>
   [...items].sort((a, b) => ORDER[a.urgency] - ORDER[b.urgency] || (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9') || String(a.id).localeCompare(String(b.id)))
+
+/** SCR-74 lists at most six reminders, most urgent first. */
+export const TECHNICIAN_HOME_REMINDER_LIMIT = 6
+export const technicianHomeReminders = (items: ReminderItem[]) => sortReminders(items).slice(0, TECHNICIAN_HOME_REMINDER_LIMIT)

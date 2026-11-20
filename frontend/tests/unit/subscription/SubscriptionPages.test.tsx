@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/api/currentFarm'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import FirstSubscriptionPage from '../../../src/features/subscription/pages/FirstSubscriptionPage'
 import SubscriptionRoutes from '../../../src/features/subscription/pages/SubscriptionRoutes'
@@ -107,7 +107,7 @@ describe('Chọn thời hạn và tạo yêu cầu', () => {
 
   it('đăng ký gói lần đầu của trại mới dẫn tới hướng dẫn chuyển khoản', async () => {
     const user = userEvent.setup()
-    renderAt('/dang-ky-goi', 'OWNER')
+    renderAt('/dang-ky-goi?farm=2', 'OWNER') // the farm just registered (SCR-15 → SCR-58)
     expect(await screen.findByText('Đăng ký gói dịch vụ · Trại Tản Lĩnh')).toBeInTheDocument()
     expect(screen.getByText('Chờ thanh toán')).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: /1 năm/ }))
@@ -160,7 +160,7 @@ describe('Hướng dẫn chuyển khoản', () => {
     expect(screen.getByRole('button', { name: 'Về gói dịch vụ' })).toBeInTheDocument()
   })
 
-  it('lần mua đầu ở dữ liệu mẫu: "Vào trại" chỉ chuyển trang, không lưu trại cho tab (hai kho mẫu không chung trại)', async () => {
+  it('lần mua đầu ở dữ liệu mẫu: "Vào trại" lưu trại cho tab rồi mở trang chủ trại (hai kho mẫu không chung trại nên không kiểm lại)', async () => {
     const user = userEvent.setup()
     clearCurrentFarmId()
     const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
@@ -169,9 +169,9 @@ describe('Hướng dẫn chuyển khoản', () => {
     renderAt(`/goi-dich-vu/chuyen-khoan/${payment.quoteRef}?farm=2&demo=bank-paid`, 'OWNER')
     await user.click(await screen.findByRole('button', { name: 'Kiểm tra lại' }))
     await user.click(await screen.findByRole('button', { name: 'Vào trại' }))
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/tong-quan'))
-    expect(load).not.toHaveBeenCalled()
-    expect(readCurrentFarmId()).toBeNull()
+    // Farm screens need the farm of the tab (RequireFarm); a plain route change would land on Select Farm.
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    expect(readCurrentFarmId()).toBe(2)
   })
 
   it('không lấy được kết quả: giữ nguyên yêu cầu và cho thử lại', async () => {

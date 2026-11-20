@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
-import { Icon } from '../../../components/Icon'
-import Modal from '../../../components/Modal'
+import { Icon, Modal } from '../../../shared/ui'
 
 export default function CowPhoto({ code, photoUrl }: { code: string; photoUrl?: string }) {
   const [open, setOpen] = useState(false)

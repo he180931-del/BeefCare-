@@ -1,16 +1,12 @@
 import { useId, useRef, useState } from 'react'
-import { Button, Field, Select, Textarea, DateInput, Note } from '../../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { STAGES, TODAY } from '../../../data/cowsData'
-import { LIFE_STAGE_OPTIONS } from '../../../api/cattleBackendApi'
-import { BackendError } from '../../../api/backendClient'
-import { listPurposes, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import {
-  PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, validateDatedChange, validateIdentity, validatePhoto,
-  type DatedChangeErrors, type IdentityErrors, type IdentityValues,
-} from '../domain/profileRules'
+import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
+import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
+import { BackendError } from '../../../shared/api/backendClient'
+import { cattleToday, demoCowPrefill, listPurposes, localCattleList, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, type DatedChangeErrors, type IdentityErrors, type IdentityValues } from '../domain/profileRules'
+import { validateDatedChange, validateIdentity, validatePhoto } from '../validation/profileValidation'
 import { Panel, Seg, fieldCls } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
 
@@ -41,7 +37,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
 }) {
   const backend = cow.backendId != null && cow.backendVersion != null
   const purposes = useQuery(() => listPurposes(), [])
-  const isDemo = !backend && cow.code === 'BC-000142'
+  const prefill = demoCowPrefill(cow)
   const initialIdentity: IdentityValues = { name: cow.name ?? '', tag: cow.tag ?? '', colour: backend ? cow.colourMarkings ?? '' : cow.description ?? '', notes: cow.notes ?? '' }
   const currentStage = (backend ? cow.lifeStage : cow.stage) ?? ''
   const [tab, setTab] = useState<string>(suggestion ? 'stage' : initialTab)
@@ -59,9 +55,9 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
   const [photoError, setPhotoError] = useState('')
   const photoInput = useRef<HTMLInputElement>(null)
   const photoInputId = useId()
-  const [stage, setStage] = useState(suggestion?.stage ?? (backend ? cow.lifeStage ?? 'ADULT' : isDemo ? 'Bò cái sinh sản' : cow.stage))
-  const [date, setDate] = useState(suggestion?.date ?? (backend ? today : TODAY))
-  const [reason, setReason] = useState(suggestion?.reason ?? (isDemo ? 'Đủ 13 tháng & 236 kg, đưa vào theo dõi sinh sản' : ''))
+  const [stage, setStage] = useState(suggestion?.stage ?? (backend ? cow.lifeStage ?? 'ADULT' : prefill?.stage ?? cow.stage))
+  const [date, setDate] = useState(suggestion?.date ?? (backend ? today : cattleToday()))
+  const [reason, setReason] = useState(suggestion?.reason ?? prefill?.stageReason ?? '')
   const [purposeId, setPurposeId] = useState(cow.purposeId ? String(cow.purposeId) : '')
   const [identityErrors, setIdentityErrors] = useState<IdentityErrors>({})
   const [errors, setErrors] = useState<DatedChangeErrors>({})
@@ -154,7 +150,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
     setPhotoError(file ? validatePhoto(file) : '')
   }
 
-  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : STAGES.map((s) => ({ value: s, label: s }))
+  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : (localCattleList?.stages ?? []).map((s) => ({ value: s, label: s }))
   const datedFields = (
     <>
       <Field label="Ngày hiệu lực *">

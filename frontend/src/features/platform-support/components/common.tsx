@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Badge } from '../../../components/ui'
-import { useSession } from '../../authorization'
-import { actorForRole } from '../data/supportMock'
+import { Badge } from '../../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
+import { supportApi } from '../api/supportApi'
 import { PRIORITY_LABEL, STATUS_LABEL, initials } from '../domain/supportRules'
 import type { Actor, TicketPriority, TicketStatus } from '../types'
 
 export function useActor(): Actor {
   const session = useSession()
-  return useMemo(() => {
-    const fallback = actorForRole(session?.role)
-    return typeof session?.id === 'number' && session.id > 0
-      ? { ...fallback, id: session.id, name: session.fullName }
-      : fallback
-  }, [session?.fullName, session?.id, session?.role])
+  // Keyed by the session values so the actor keeps its identity across renders.
+  return useMemo(() => supportApi.actorFor(session), [session?.fullName, session?.id, session?.role])
 }
 
 export const errText = (e: unknown, fallback = 'Không lưu được dữ liệu. Vui lòng thử lại.') => (e instanceof Error && e.message ? e.message : fallback)

@@ -3,8 +3,9 @@ import { cattle, pens, registerEntryCattle, voidEntryCattle } from '../../../api
 import { initialImports } from '../data/importsData'
 import { errorMessage } from '../../../api/herdDomainApi'
 import { herdEntrySchema } from '../../../api/collectionSchemas'
-import { entryToday } from '../entryValidation'
-import type { CattleInput, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../../../types'
+import { entryToday } from '../validation/entryValidation'
+import type { CattleInput } from '../../cattle'
+import type { EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../types'
 
 const nextEntryId = (rows: HerdEntry[]): string => {
   const max = Math.max(0, ...rows.map((row) => Number(String(row.id ?? '').split('-')[2]) || 0))

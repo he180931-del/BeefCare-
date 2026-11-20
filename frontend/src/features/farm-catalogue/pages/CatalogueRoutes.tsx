@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import CatalogueShell from '../components/CatalogueShell'
 import BreedsPage from './BreedsPage'
 import MedicinesPage from './MedicinesPage'

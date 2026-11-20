@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DEFAULT_FARM_TIME_ZONE, FARM_TIME_ZONE_ID, businessDate, fromFarmLocal, toFarmLocal } from '../../src/api/farmTimeZone'
+import { DEFAULT_FARM_TIME_ZONE, FARM_TIME_ZONE_ID, businessDate, fromFarmLocal, toFarmLocal } from '../../src/shared/lib/date/farmTime'
 
 const backendList = resolve(dirname(fileURLToPath(import.meta.url)), '../../../backend/src/main/java/vn/edu/fpt/beefcare/service/FarmTimeZones.java')
 

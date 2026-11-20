@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Badge, Button, Card } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Badge, Button, Card } from '../../../shared/ui'
 import { dueLabel, pillLabel, sortReminders, TYPE_LABEL } from '../domain/reminderRules'
 import type { AttentionRow, ReminderItem, ReminderList, Urgency } from '../types'
 

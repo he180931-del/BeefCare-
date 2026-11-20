@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { platformAdminApi } from '../../../src/features/platform-admin/api/platformAdminApi'
 import { platformAdminDemoStore } from '../../../src/features/platform-admin/data/platformAdminDemoStore'
 import AdminNoticePage from '../../../src/features/platform-admin/pages/AdminNoticePage'

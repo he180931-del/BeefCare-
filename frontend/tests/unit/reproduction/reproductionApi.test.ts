@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createReproductionApi } from '../../../src/features/reproduction/api/reproductionApi'
 import { createReproductionDemoStore } from '../../../src/features/reproduction/data/reproductionDemoStore'
 import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const transport: BackendTransport = {
   get: vi.fn(),
@@ -137,6 +137,7 @@ describe('reproduction mock API boundary', () => {
 
   it('never falls back to synthetic reproduction data in backend mode', async () => {
     const store = {
+      now: vi.fn(() => '2026-10-20T15:00'),
       list: vi.fn(async () => REPRODUCTION_DEMO),
       get: vi.fn(async () => REPRODUCTION_DEMO[0]),
       recordEvent: vi.fn(), recordCalving: vi.fn(), correctEvent: vi.fn(), voidEvent: vi.fn(),
@@ -152,6 +153,7 @@ describe('reproduction mock API boundary', () => {
     expect(await api.listWorklist()).toEqual([])
     expect(backend.get).toHaveBeenCalledWith('/api/farms/1/reproduction-worklist?tab=ALL')
     expect(store.list).not.toHaveBeenCalled()
+    expect(store.now).not.toHaveBeenCalled()
     await expect(api.resetDemo()).rejects.toThrow('Chế độ backend không có dữ liệu minh họa')
     expect(store.reset).not.toHaveBeenCalled()
   })

@@ -1,4 +1,4 @@
-import { Table, Td, Th } from '../../../components/ui'
+import { Table, Td, Th } from '../../../shared/ui'
 import { PERMISSION_AREAS, ROLE_SUMMARY } from '../domain/rolePermissions'
 import type { FarmRole } from '../types'
 import { roleLabel } from './WorkspaceUi'

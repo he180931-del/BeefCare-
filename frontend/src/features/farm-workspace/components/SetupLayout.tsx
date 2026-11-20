@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import logo from '../../../assets/logo.png'
-import farm from '../../../assets/farm.png'
-import wave from '../../../assets/wave.png'
-import { Icon } from '../../../components/Icon'
-import { useSession } from '../../authorization'
+import logo from '../../../shared/assets/logo.png'
+import farm from '../../../shared/assets/farm.png'
+import wave from '../../../shared/assets/wave.png'
+import { Icon } from '../../../shared/ui'
+import { useSession } from '../../../app/session/sessionContext'
 import { Avatar } from './WorkspaceUi'
+import { demoSessionUser } from '../../../demo/demoModules'
 
 const ONBOARDING_STEPS = [
   { title: 'Hồ sơ chủ trại', sub: 'Thông tin người chịu trách nhiệm' },
@@ -13,7 +14,6 @@ const ONBOARDING_STEPS = [
   { title: 'Dịch vụ', sub: 'Chọn kỳ và xem giá' },
 ]
 
-const FALLBACK_USER = { fullName: 'Nguyễn Văn Hùng', email: 'owner@beefcare.local' }
 
 /**
  * Khung thiết lập ngoài trại (chọn trại, đăng ký chủ trại và trại, chấp nhận lời mời): cột xanh 264px
@@ -23,7 +23,8 @@ export default function SetupLayout({ eyebrow, heading, lines = [], badge, step,
   eyebrow: string; heading: string; lines?: string[]; badge?: string; step?: 1 | 2 | 3; narrow?: boolean; children: ReactNode
 }) {
   const session = useSession()
-  const user = session ?? FALLBACK_USER
+  // Outside a session (single-page tests) the demo owner stands in; production always has a session.
+  const user = session ?? demoSessionUser('OWNER') ?? { fullName: '', email: '' }
   return (
     <div className="min-h-screen bg-page text-ink lg:pl-[264px]">
       <aside className="fixed inset-y-0 left-0 hidden w-[264px] overflow-hidden bg-side text-white lg:block">

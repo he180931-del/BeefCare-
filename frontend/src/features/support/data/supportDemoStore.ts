@@ -1,7 +1,8 @@
-import { parseBusinessTime } from '../../../api/farmTimeZone'
+import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { toLocalIso } from '../domain/format'
 import { MESSAGES, SupportError } from '../domain/supportError'
-import { buildPage, latestResolution, validateCreate, validateReason, validateReply } from '../domain/ticketRules'
+import { buildPage, latestResolution } from '../domain/ticketRules'
+import { validateCreate, validateReason, validateReply } from '../validation/ticketValidation'
 import type {
   AcknowledgeCommand,
   CreateTicketCommand,

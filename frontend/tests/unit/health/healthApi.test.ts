@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createHealthApi } from '../../../src/features/health/api/healthApi'
 import { createHealthDemoStore } from '../../../src/features/health/data/healthDemoStore'
-import { HealthValidationError } from '../../../src/features/health/domain/healthRules'
+import { HealthValidationError } from '../../../src/features/health/validation/healthValidation'
 import type { StatusCommand, TreatmentCommand } from '../../../src/features/health/types'
 
 const NOW = '2026-10-20T08:00'
@@ -149,10 +149,9 @@ describe('đóng ca', () => {
     const card = profile.activeCases[0]
     const r = await api.updateStatus(card.id, status({ expectedVersion: card.version, action: 'CLOSE', outcome: 'DIED', closedAt: NOW, progressText: 'Bỏ ăn hoàn toàn, nằm liệt', progress: 'WORSENED' }))
     expect(r.deathVoucher).toMatchObject({ type: 'DEATH', status: 'PENDING', cattleCode: 'BC-000203', caseCode: 'HC-0412' })
-    expect(await api.listPendingExits()).toHaveLength(1)
     const after = await api.getProfile('BC-000203')
     expect(after.cattle.status).toBe('ACTIVE')
-    expect(after.pendingExit).not.toBeNull()
+    expect(after.pendingExit).toMatchObject({ type: 'DEATH', status: 'PENDING', cattleCode: 'BC-000203', caseCode: 'HC-0412' })
     const blocked = await rejection(api.openCase('BC-000203', { observedAt: NOW, observer: 'Trần Quốc Long', temperatureC: null, signs: 'x', diagnosis: '', suspectedContagious: false, severity: 'MILD' }))
     expect(blocked.message).toContain('chờ xác nhận chết / mất')
     const row = profile.timeline.find((t) => t.type === 'TREATMENT')!

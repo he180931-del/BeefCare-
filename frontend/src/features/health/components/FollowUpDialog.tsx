@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, inputCls, Note, Textarea } from '../../../components/ui'
+import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { healthApi } from '../api/healthApi'
 import { followUpToast } from '../domain/healthMessages'
 import { fmtDate, PROGRESS_LABEL, PROGRESSES } from '../domain/healthFormat'
-import { parseTemperature } from '../domain/healthRules'
+import { parseTemperature } from '../validation/healthValidation'
 import type { HealthCaseCard, HealthFormOptions, Progress } from '../types'
 import { caseLine, DateTimeInput, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
 

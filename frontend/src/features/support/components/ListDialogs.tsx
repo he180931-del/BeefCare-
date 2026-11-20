@@ -1,6 +1,4 @@
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Info } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import { Icon, Info, Modal, ModalButton, ModalFooter } from '../../../shared/ui'
 import { categoryLabel, plainStatus, PRIORITY_LABELS } from '../domain/ticketRules'
 import type { Ticket } from '../types'
 

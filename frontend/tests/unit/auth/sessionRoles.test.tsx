@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import Layout from '../../../src/components/Layout'
-import { createMockAuthClient } from '../../../src/features/authentication/client'
-import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/demoUsers'
-import { HomeRedirect, RoleGate, canRecordCare, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
-import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/api/currentFarm'
+import Layout from '../../../src/app/layouts/FarmPlatformLayout'
+import { createMockAuthClient } from '../../../src/features/authentication/data/mockAuthClient'
+import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/data/demoUsers'
+import { HomeRedirect, RoleGate, canRecordCare, type AppRole } from '../../../src/features/authorization'
+import { markOwnerRegistrationCompleted } from '../../../src/app/session/sessionContext'
+import { sessionFromProfile } from '../../../src/app/session/SessionProvider'
+import { needsOwnerRegistration } from '../../../src/features/authorization/roles'
+import { roleInFarm } from '../../../src/app/session/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
+import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/app/session/currentFarm'
 
 afterEach(() => clearCurrentFarmId())
 
@@ -60,6 +64,36 @@ describe('session from the backend profile', () => {
     expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 9, farmName: 'Trại B', activeFarmCount: 2 })
   })
 
+  it('names no farm while the tab has not entered one, and routes by the strongest farm role', () => {
+    sessionStorage.clear()
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'OWNER', serviceStatus: 'ACTIVE' },
+    ] })
+    expect(session).toMatchObject({ role: 'OWNER', farmId: null, farmName: null, farmCount: 2, activeFarmCount: 2 })
+  })
+
+  it('does not send an invited member without a farm in the tab to owner registration (D28)', () => {
+    sessionStorage.clear()
+    const session = sessionFromProfile({ fullName: 'Lan', email: 'l@x', ownerRegistrationCompleted: false, platformRole: null, farms: [
+      { farmId: 3, farmName: 'Trại C', role: 'MANAGER', serviceStatus: 'SUSPENDED' },
+    ] })
+    expect(session).toMatchObject({ role: 'MANAGER', farmId: null, farmCount: 1 })
+    expect(needsOwnerRegistration(session)).toBe(false)
+  })
+
+  it('keeps the role in each farm, so a page naming its farm checks the role there', () => {
+    sessionStorage.setItem('beefcare.currentFarmId', '1')
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'MANAGER', serviceStatus: 'SUSPENDED' },
+    ] })
+    expect(session.farmRoles).toEqual({ 1: 'OWNER', 9: 'MANAGER' })
+    expect(roleInFarm(session, 9)).toBe('MANAGER')
+    expect(roleInFarm(session, null)).toBe('OWNER')
+    expect(roleInFarm(session, 42)).toBe('OWNER')
+  })
+
   it('treats an account with no farm as an owner still onboarding', () => {
     expect(sessionFromProfile({ fullName: 'Mới', email: 'n@x', platformRole: null, farms: [] })).toMatchObject({ role: 'OWNER', farmId: null, farmName: null })
   })
@@ -71,6 +105,9 @@ describe('session from the backend profile', () => {
 })
 
 describe('role navigation', () => {
+  // A tab that has not entered a farm yet; the cases about an entered farm write one themselves.
+  beforeEach(() => sessionStorage.clear())
+
   it.each([
     ['OWNER', 'Chọn trại'],
     ['MANAGER', 'Chọn trại'],

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBackendClient, BackendError } from '../../src/api/backendClient'
+import { createBackendClient, BackendError } from '../../src/shared/api/backendClient'
 
 test('TC-CAT-API01: GET /api/farms/{id}/cattle lists cattle with filters and pagination', async () => {
   const fetchMock: typeof fetch = async (input) => {

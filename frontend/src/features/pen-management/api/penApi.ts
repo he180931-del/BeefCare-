@@ -1,19 +1,13 @@
-import { seedPens } from '../../../data/pensData'
-import { createCollection } from '../../../api/client'
-import { migrateHerdStorage } from '../../../api/storageMigrations'
-import { penSchema } from '../../../api/collectionSchemas'
-import { moveBarn } from '../../../api/cattleApi'
-import { BackendError } from '../../../api/backendClient'
-import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue } from '../../../api/backendTransport'
-import type { Pen } from '../../../types'
+import { moveBarn } from '../../cattle'
+import { BackendError } from '../../../shared/api/backendClient'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode } from '../../../shared/config/runtime'
+import { backendTransport } from '../../../shared/api/backendTransport'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import type { Pen } from '../types'
 import type { ReceptionCriteria } from '../domain/penRules'
+import { demo } from '../../../demo/demoModules'
 
-// Backend mode is authoritative for pen management. Do not initialize the
-// local collection (which reads/writes localStorage) when the real API is on.
-const pens = backendMode === 'backend' ? null : (() => {
-  migrateHerdStorage()
-  return createCollection<Pen, 'code'>('pens', seedPens, { schema: penSchema })
-})()
 
 const normalize = (pen: Pen): Pen => ({
   ...pen,
@@ -222,28 +216,28 @@ const outcome = (value: unknown): PenMoveCheckRow['results'][number]['outcome'] 
 
 const backendApi = {
   list: async (): Promise<Pen[]> => {
-    const response = await backendTransport.get(backendTransport.farmPath(backendFarmId, '/pens'))
+    const response = await backendTransport.get(backendTransport.farmPath(activeFarmId, '/pens'))
     const body = asRecord(response)
     return (Array.isArray(response) ? asRows(response) : asRows(body.pens)).map(mapBackendPen)
   },
   detail: async (pen: Pen): Promise<PenDetail> => {
     if (pen.id == null) return { ...pen, cattleInPen: [] }
-    return mapBackendPenDetail(await backendTransport.get(backendTransport.farmPath(backendFarmId, `/pens/${pen.id}`)))
+    return mapBackendPenDetail(await backendTransport.get(backendTransport.farmPath(activeFarmId, `/pens/${pen.id}`)))
   },
-  create: async (pen: Pen): Promise<Pen> => mapBackendPen(await backendTransport.command(backendTransport.farmPath(backendFarmId, '/pens'), {
+  create: async (pen: Pen): Promise<Pen> => mapBackendPen(await backendTransport.command(backendTransport.farmPath(activeFarmId, '/pens'), {
     code: pen.code, name: pen.name, capacity: pen.capacity, description: pen.desc ?? '', criteria: criteriaPayload(pen), initialStatus: pen.status,
   })),
   update: async (pen: Pen): Promise<Pen> => {
     if (pen.id == null) throw new Error('Không xác định được chuồng trên backend')
     const expectedVersion = lockVersionOf(pen)
-    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(backendFarmId, `/pens/${pen.id}`), {
+    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(activeFarmId, `/pens/${pen.id}`), {
       code: pen.code, name: pen.name, capacity: pen.capacity, description: pen.desc ?? '', criteria: criteriaPayload(pen), ...(expectedVersion == null ? {} : { expectedVersion }),
     }, { method: 'PUT' }))
   },
   changeAvailability: async (pen: Pen, status: 'ACTIVE' | 'INACTIVE', note: { date: string; reason: string }): Promise<Pen> => {
     if (pen.id == null) throw new Error('Không xác định được chuồng trên backend')
     const expectedVersion = lockVersionOf(pen)
-    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(backendFarmId, `/pens/${pen.id}/availability`), {
+    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(activeFarmId, `/pens/${pen.id}/availability`), {
       status,
       effectiveDate: note.date,
       reason: note.reason,
@@ -252,7 +246,7 @@ const backendApi = {
   },
   checkMove: async (cattle: MoveCattle[], _from: Pen, to: Pen, moveDate: string): Promise<PenMoveCheckResult> => {
     const cattleIds = cattle.map((c) => c.id).filter((id): id is number => typeof id === 'number')
-    const body = asRecord(await backendTransport.command(backendTransport.farmPath(backendFarmId, '/pen-moves/check'), { cattleIds, toPenId: to.id, moveDate }, { method: 'POST' }))
+    const body = asRecord(await backendTransport.command(backendTransport.farmPath(activeFarmId, '/pen-moves/check'), { cattleIds, toPenId: to.id, moveDate }, { method: 'POST' }))
     return {
       destinationActive: body.destinationActive === true,
       freePlaces: numberValue(body.freePlaces),
@@ -293,7 +287,7 @@ const backendApi = {
         .filter(([, reason]) => reason.trim())
         .map(([code, reason]) => [String(byCode.get(code) ?? code), reason.trim()]),
     )
-    const body = asRecord(await backendTransport.command(backendTransport.farmPath(backendFarmId, '/pen-moves'), {
+    const body = asRecord(await backendTransport.command(backendTransport.farmPath(activeFarmId, '/pen-moves'), {
       cattleIds, toPenId: command.to.id, moveDate: command.moveDate, reason: command.reason, warningReasons, cattleVersions,
     }, { method: 'POST' }))
     return { moved: asRows(body.moved).length, skipped: asRows(body.skipped).map((row) => ({ cattleCode: textValue(row.cattleCode) })) }
@@ -319,15 +313,15 @@ const localCheckMove = async (cattle: MoveCattle[], from: Pen, to: Pen): Promise
 
 // Chuồng trại: mã chuồng là khoá. Backend mode never consults localStorage.
 export const penApi = backendMode === 'backend' ? backendApi : {
-  list: () => pens!.list(),
+  list: () => demo.penLocal.pens!.list(),
   detail: async (pen: Pen): Promise<PenDetail> => ({
     ...pen,
     cattleInPen: pen.cows.map(([code, situation]) => ({ code, situation, hints: [], exitPending: false })),
   }),
-  create: (pen: Pen) => pens!.create(normalize(pen)),
-  update: (pen: Pen) => pens!.update(pen.code, normalize(pen)),
+  create: (pen: Pen) => demo.penLocal.pens!.create(normalize(pen)),
+  update: (pen: Pen) => demo.penLocal.pens!.update(pen.code, normalize(pen)),
   changeAvailability: async (pen: Pen, status: 'ACTIVE' | 'INACTIVE', note: { date: string; reason: string }) =>
-    pens!.update(pen.code, normalize({ ...pen, status, statusNote: note })),
+    demo.penLocal.pens!.update(pen.code, normalize({ ...pen, status, statusNote: note })),
   checkMove: localCheckMove,
   move: async (command: PenMoveCommand): Promise<PenMoveResult> => {
     // Cattle known to the local cattle collection move through the shared adapter, which also updates both pens.
@@ -339,11 +333,11 @@ export const penApi = backendMode === 'backend' ? backendApi : {
     }
     if (linkOnly.length) {
       const codes = new Set(linkOnly)
-      const fromPen = await pens!.get(command.from.code)
-      const toPen = await pens!.get(command.to.code)
+      const fromPen = await demo.penLocal.pens!.get(command.from.code)
+      const toPen = await demo.penLocal.pens!.get(command.to.code)
       const links = fromPen.cows.filter(([code]) => codes.has(code))
-      await pens!.update(fromPen.code, { ...fromPen, count: Math.max(0, fromPen.count - links.length), cows: fromPen.cows.filter(([code]) => !codes.has(code)) })
-      await pens!.update(toPen.code, { ...toPen, count: toPen.count + links.length, cows: [...toPen.cows, ...links] })
+      await demo.penLocal.pens!.update(fromPen.code, { ...fromPen, count: Math.max(0, fromPen.count - links.length), cows: fromPen.cows.filter(([code]) => !codes.has(code)) })
+      await demo.penLocal.pens!.update(toPen.code, { ...toPen, count: toPen.count + links.length, cows: [...toPen.cows, ...links] })
     }
     return { moved: command.cattle.length, skipped: [] }
   },

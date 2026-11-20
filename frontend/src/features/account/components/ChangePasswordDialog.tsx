@@ -1,12 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalFooter } from '../../../components/Modal'
-import { Button, Field, inputCls, Note } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Field, Icon, inputCls, Modal, ModalFooter, Note } from '../../../shared/ui'
 import { accountApi } from '../api/accountApi'
-import { MOCK_PASSWORD } from '../data/accountMock'
-import { validatePasswordChange } from '../domain/profileRules'
+import { validatePasswordChange } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, PasswordErrors } from '../types'
 
 const errorText = (message?: string) => message ? <span className="text-xs text-err-fg">{message}</span> : null
@@ -50,6 +46,7 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
   const [saving, setSaving] = useState(false)
   const [visible, setVisible] = useState<Record<PasswordFieldKey, boolean>>({ current: false, new: false, confirm: false })
   const [reauthed, setReauthed] = useState(googleReauthenticated)
+  const samplePasswordHint = accountApi.samplePasswordHint()
   const hasPassword = profile.passwordSignInEnabled
   const needsReauth = !hasPassword && !reauthed
   const requireCurrent = hasPassword && !reauthed
@@ -106,7 +103,7 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
           <div className="text-xs text-subtle">{hasPassword ? 'Quên mật khẩu hiện tại? ' : ''}<Button variant="link" size="sm" onClick={reauthenticate}>Xác thực lại với Google</Button></div>
         )}
         {reauthed && <Note tone="ok">Đã xác thực lại với Google. Bạn không cần nhập mật khẩu hiện tại.</Note>}
-        {backendMode === 'local' && hasPassword && <p className="m-0 text-[11px] text-subtle">Bản mô phỏng: mật khẩu hiện tại là {MOCK_PASSWORD}.</p>}
+        {samplePasswordHint && hasPassword && <p className="m-0 text-[11px] text-subtle">{samplePasswordHint}</p>}
         <ModalFooter compact>
           <Button size="lg" onClick={onClose}>Hủy</Button>
           <Button size="lg" variant="primary" type="submit" disabled={saving || needsReauth}><Icon name="lock" size={16} />{saving ? 'Đang lưu…' : hasPassword ? 'Đổi mật khẩu' : 'Thêm mật khẩu'}</Button>

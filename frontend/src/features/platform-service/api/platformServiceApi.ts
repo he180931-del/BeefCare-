@@ -1,11 +1,16 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
-import { platformServiceDemoStore, type PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { backendPending } from '../../../shared/api/backendPending'
+import type { PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
 import { lastVnDay, vnDateOf } from '../domain/dates'
 import type {
   ChangeFarmCommand, ChangeOptions, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, FarmServicePreview, LockCommand, PaymentFilters,
   ReturnCommand, ReviewCommand, ServiceStatus, SourcePayment, SubscriptionDetail, SubscriptionFilters, SubscriptionPage, SubscriptionRow, PeriodState, PeriodView, TermYears, UnlockCommand,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const STATUSES: readonly ServiceStatus[] = ['ACTIVE', 'PENDING_PAYMENT', 'EXPIRED', 'SUSPENDED']
 const status = (value: unknown): ServiceStatus => {
@@ -114,7 +119,7 @@ function sourcePayment(value: unknown): SourcePayment {
   }
 }
 
-export function createPlatformServiceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: PlatformServiceDemoStore }) {
+export function createPlatformServiceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: PlatformServiceDemoStore }) {
   void farmId
   // UC4 has a backend adapter; reconciliation commands and prices remain separate scopes.
   const requireLocal = () => { if (mode === 'backend') throw backendPending('dịch vụ trang trại và thanh toán') }
@@ -123,6 +128,8 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
     return farmOverview(await transport.command(`/api/platform/farms/${id}/${action}`, cmd, key ? { method: 'POST', key } : { method: 'POST' }))
   }
   return {
+    /** Bản mô phỏng không có API đọc thanh toán: SCR-62 dùng bàn đối soát trên dữ liệu mẫu thay cho màn đọc từ máy chủ. */
+    demoReconciliation: mode !== 'backend',
     // GET /api/platform/farms (UC-FE02-04): 20 rows a page (Table III-1); the export reads pages of up to 100.
     async listFarms(filters: FarmFilters = {}): Promise<FarmListResult> {
       const page = Math.max(0, Math.trunc(filters.page ?? 0))
@@ -217,4 +224,4 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
   }
 }
 export type PlatformServiceApi = ReturnType<typeof createPlatformServiceApi>
-export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: platformServiceDemoStore })
+export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.platformService.platformServiceDemoStore) })

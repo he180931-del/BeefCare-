@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Icon } from '../../../components/Icon'
+import { Icon } from '../../../shared/ui'
 
 /** `hint` is shown under the label; `keywords` (e.g. a code) are searched but never shown. */
 export interface SearchOption { value: string; label: string; hint?: string; keywords?: string }

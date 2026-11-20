@@ -1,18 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BackendError } from '../../../api/backendClient'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton } from '../../../components/Modal'
-import { Button, Card, Field, Foot, inputCls, Note, Select } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
+import { BackendError } from '../../../shared/api/backendClient'
+import { Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, Note, Select } from '../../../shared/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { BreedMultiSelect } from '../components/BreedMultiSelect'
 import SetupLayout from '../components/SetupLayout'
 import { farmWorkspaceError, FieldError, Stepper } from '../components/WorkspaceUi'
-import { HERD_SIZES, PROVINCES } from '../data/provinces'
+import { HERD_SIZES, PROVINCES } from '../constants/provinces'
 import { useRequestKey } from '../hooks/useRequestKey'
 import type { ExpectedHerdSize, FarmRegistrationInput } from '../types'
-import { validateFarmRegistration, type FormErrors } from '../validation'
+import { validateFarmRegistration, type FormErrors } from '../validation/workspaceValidation'
 
 const initialForm: FarmRegistrationInput = {
   name: '', province: '', commune: '', detailedAddress: '', contactPerson: '', contactPhone: '',

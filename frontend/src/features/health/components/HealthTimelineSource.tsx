@@ -1,4 +1,4 @@
-import { Card, Note } from '../../../components/ui'
+import { Card, Note } from '../../../shared/ui'
 import { fmtDate, fmtDateTime, OUTCOME_LABEL } from '../domain/healthFormat'
 import type { HealthProfile } from '../types'
 import { EntryBadge, Meta } from './healthUi'

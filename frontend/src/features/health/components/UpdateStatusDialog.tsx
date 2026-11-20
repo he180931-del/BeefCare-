@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Checkbox, Field, inputCls, Note, Select, Textarea } from '../../../components/ui'
+import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
 import { healthApi } from '../api/healthApi'
 import { statusToast } from '../domain/healthMessages'
 import { fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES } from '../domain/healthFormat'
