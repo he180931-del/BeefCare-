@@ -4,9 +4,16 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+const FRONTEND_DIR = fileURLToPath(new URL('.', import.meta.url))
 const NO_DEMO = fileURLToPath(new URL('./src/demo/noDemo.ts', import.meta.url))
-/** Modules that only exist for the demo data. None of them may reach a bundle built without demo data. */
-const DEMO_MODULE = /\/src\/(demo\/(demoModules|useDemoState)|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|demoCattlePhotos|penApi|testUtils)\.ts|features\/[^/]+\/api\/\w+LocalApi\.ts)/
+/** This app's own sources, as Rollup names them (forward slashes; drive letter case differs on Windows). */
+const SRC = fileURLToPath(new URL('./src/', import.meta.url)).split('\\').join('/').toLowerCase()
+/** Modules (path under src/) that only exist for the demo data. None of them may reach a bundle built without demo data. */
+const DEMO_PATH = /^(demo\/(demoModules|useDemoState)|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|demoCattlePhotos|penApi|testUtils)\.ts|features\/[^/]+\/api\/\w+LocalApi\.ts)/
+const demoModuleOf = (id) => {
+  const file = id.split('\\').join('/')
+  return file.toLowerCase().startsWith(SRC) && DEMO_PATH.test(file.slice(SRC.length)) ? `src/${file.slice(SRC.length)}` : null
+}
 
 /**
  * Demo data enters the app only through `src/demo/demoModules.ts`. Without demo data (`vite build`, `vite` on the real
@@ -21,9 +28,8 @@ function demoDoor(withDemo) {
     },
     generateBundle(_options, bundle) {
       if (withDemo) return
-      const leaked = Object.values(bundle).flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds : []))
-        .map((id) => id.split('\\').join('/')).filter((id) => DEMO_MODULE.test(id))
-      if (leaked.length) this.error(`Bundle không được chứa dữ liệu mẫu, còn ${leaked.length} module:\n${leaked.map((id) => id.replace(/^.*\/src\//, 'src/')).sort().join('\n')}`)
+      const leaked = Object.values(bundle).flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds : [])).map(demoModuleOf).filter(Boolean)
+      if (leaked.length) this.error(`Bundle không được chứa dữ liệu mẫu, còn ${leaked.length} module:\n${leaked.sort().join('\n')}`)
     },
   }
 }
@@ -38,16 +44,16 @@ export default defineConfig(({ command, mode }) => {
     process.env.VITE_BEEFCARE_DATA_SOURCE = 'backend'
     process.env.VITE_BEEFCARE_AUTH_MODE = 'backend'
   }
+  // frontend/.env is read from this folder, whatever directory vite is started from; an empty value means backend, as at runtime.
+  const runtime = loadEnv(mode, FRONTEND_DIR, 'VITE_BEEFCARE_')
   if (command === 'build') {
     // Bản build chỉ đọc dữ liệu thật: đặt local/mock là lỗi cấu hình, không lặng lẽ ra bản dùng dữ liệu mẫu.
-    const built = loadEnv(mode, process.cwd(), 'VITE_BEEFCARE_')
-    if ((built.VITE_BEEFCARE_DATA_SOURCE ?? 'backend') !== 'backend' || built.VITE_BEEFCARE_AUTH_MODE === 'mock') {
+    if ((runtime.VITE_BEEFCARE_DATA_SOURCE || 'backend') !== 'backend' || runtime.VITE_BEEFCARE_AUTH_MODE === 'mock') {
       throw new Error('vite build chỉ cho phép VITE_BEEFCARE_DATA_SOURCE=backend và không cho VITE_BEEFCARE_AUTH_MODE=mock; dữ liệu mẫu chỉ dùng với npm run dev:mock và Vitest.')
     }
   }
-  const runtime = loadEnv(mode, process.cwd(), 'VITE_BEEFCARE_')
   const withDemo = runtime.VITE_BEEFCARE_DATA_SOURCE === 'local' || runtime.VITE_BEEFCARE_AUTH_MODE === 'mock'
-  const env = loadEnv(mode, process.cwd(), 'BEEFCARE_DEV_HTTPS_')
+  const env = loadEnv(mode, FRONTEND_DIR, 'BEEFCARE_DEV_HTTPS_')
   const cert = env.BEEFCARE_DEV_HTTPS_CERT
   const key = env.BEEFCARE_DEV_HTTPS_KEY
   if (Boolean(cert) !== Boolean(key)) throw new Error('Cần đặt cả BEEFCARE_DEV_HTTPS_CERT và BEEFCARE_DEV_HTTPS_KEY để bật HTTPS.')

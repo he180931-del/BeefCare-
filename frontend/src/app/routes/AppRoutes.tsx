@@ -157,7 +157,7 @@ export default function AppRoutes() {
         <Route path="/goi-dich-vu/*" element={ownerFarm(<Subscription />, 'farm')} />
         <Route path="/ho-tro/*" element={owner(<Support />)} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />
-        <Route path="/ho-so" element={desk(<Profile />)} />
+        <Route path="/ho-so" element={only(['OWNER', 'MANAGER'], <Profile />)} />
 
         <Route path="/kt" element={technician(<TechnicianHome />)} />
         <Route path="/kt/nhac-viec" element={technician(<TechnicianReminders />)} />
@@ -166,7 +166,7 @@ export default function AppRoutes() {
         <Route path="/kt/quet-qr" element={technician(<ScanQr />)} />
         <Route path="/kt/sinh-san" element={technician(<TechnicianReproduction />)} />
         <Route path="/kt/thuc-an" element={technician(<FeedTodayRations />)} />
-        <Route path="/kt/tai-khoan" element={technician(<TechnicianAccount />)} />
+        <Route path="/kt/tai-khoan" element={only(['TECHNICIAN'], <TechnicianAccount />)} />
 
         <Route path="/nen-tang/ho-tro/*" element={cs(<SupportDesk />)} />
         <Route path="/nen-tang/yeu-cau/*" element={only(['PM', 'SA'], <InternalRequests />)} />

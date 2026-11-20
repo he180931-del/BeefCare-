@@ -7,13 +7,19 @@ import type { NotificationView } from '../types'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
 
+/**
+ * Target types the backend writes for an Owner (NotificationService callers): SUBSCRIPTION and Farm carry the farm id,
+ * Payment the payment request id. An unknown type is read as naming no farm.
+ */
+const SUBSCRIPTION_TARGETS: Record<string, NotificationView['targetType']> = {
+  SUBSCRIPTION: 'SUBSCRIPTION', FARM: 'FARM_SERVICE', FARM_SERVICE: 'FARM_SERVICE', PAYMENT: 'PAYMENT_REQUEST', PAYMENT_REQUEST: 'PAYMENT_REQUEST',
+}
+
 export const mapBackendNotification = (value: unknown): NotificationView => {
   const row = asRecord(value)
   const category = textValue(row.category).toUpperCase() === 'SUPPORT' ? 'SUPPORT' : 'SUBSCRIPTION_PAYMENT'
   const rawTarget = textValue(row.targetType).toUpperCase()
-  const targetType = category === 'SUPPORT'
-    ? 'TICKET'
-    : rawTarget === 'PAYMENT_REQUEST' ? 'PAYMENT_REQUEST' : rawTarget === 'SUBSCRIPTION' ? 'SUBSCRIPTION' : 'FARM_SERVICE'
+  const targetType = category === 'SUPPORT' ? 'TICKET' : SUBSCRIPTION_TARGETS[rawTarget] ?? 'PAYMENT_REQUEST'
   return {
     id: numberValue(row.id), category, title: textValue(row.title), summary: textValue(row.summary), targetType,
     targetId: numberValue(row.targetId), createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime),

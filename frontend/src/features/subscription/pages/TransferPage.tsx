@@ -5,7 +5,8 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
 import { useDemoState } from '../../../demo/demoModules'
-import { SetupLayout, Stepper, enterFarm, farmWorkspaceError } from '../../farm-workspace'
+import { pageLoader, writeCurrentFarmId } from '../../../app/session/currentFarm'
+import { STORAGE_BLOCKED, SetupLayout, Stepper, enterFarm, farmWorkspaceError } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { useIsPhone, useTick } from '../components/shared'
 import CancelRequestDialog from '../components/CancelRequestDialog'
@@ -75,10 +76,15 @@ export default function TransferPage() {
   // D38: same rule as A18 — unexpired PENDING and no transfer received yet (bước 2 của tiến trình còn "Đang chờ").
   const cancellable = pending && !current.receivedAt && now < toMs(current.expiresAt)
   const openCancel = () => { setPageNotice(null); setCancelling(true) }
-  // UC-FE02-02: open the paid farm through the same check as SCR-09 so this tab keeps it; a plain route change would leave
-  // every farm API on the configured fallback farm.
+  // UC-FE02-02: open the paid farm through the same check as SCR-09 so this tab keeps it; a plain route change would land on
+  // Select Farm (farm screens need the farm of the tab). The demo stores of service and farm workspace do not share farms, so
+  // the demo keeps the farm for the tab without that check.
   const openFarm = async () => {
-    if (!subscriptionApi.entersFarmAfterPayment) { navigate('/tong-quan'); return }
+    if (!subscriptionApi.entersFarmAfterPayment) {
+      if (writeCurrentFarmId(farmId)) pageLoader.load('/tong-quan')
+      else setEnterError(STORAGE_BLOCKED)
+      return
+    }
     if (entering) return
     setEntering(true); setEnterError(null)
     try {

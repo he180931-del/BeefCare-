@@ -21,7 +21,7 @@ export const useCanRecordCare = (): boolean => {
  * platform role. A Manager or Technician who joined by invitation enters their farm (UC-FE03-04, D28).
  */
 export const needsOwnerRegistration = (session: SessionUser | null | undefined): boolean =>
-  session?.ownerRegistrationCompleted === false && session.farmId == null && !session.platformRole
+  session?.ownerRegistrationCompleted === false && (session.farmCount ?? (session.farmId == null ? 0 : 1)) === 0 && !session.platformRole
 
 const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 export const isFarmRole = (role: AppRole): role is FarmRole => FARM_ROLES.includes(role)

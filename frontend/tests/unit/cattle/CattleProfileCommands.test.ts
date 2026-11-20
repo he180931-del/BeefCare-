@@ -97,3 +97,31 @@ describe('backend cattle profile commands', () => {
     expect(puts[0]).toMatchObject({ lifeStage: 'UNWEANED_CALF', acknowledgedReproductionChange: true })
   })
 })
+
+describe('backend cattle commands without the server identity of the cow', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
+  })
+
+  it('refuse clearly instead of writing the demo store', async () => {
+    const fetchSpy = vi.fn(async () => { throw new Error('nothing may be sent') })
+    vi.stubGlobal('fetch', fetchSpy)
+    const api = await import('../../../src/features/cattle/api/cattleApi')
+    const reload = /tải lại hồ sơ/
+    await expect(api.updateIdentity('BC-1', { name: 'X' })).rejects.toThrow(reload)
+    await expect(api.updateStage('BC-1', { stage: 'Bò tơ / hậu bị', date: '2026-11-20', reason: 'x' })).rejects.toThrow(reload)
+    await expect(api.updatePurpose('BC-1', 3)).rejects.toThrow(reload)
+    await expect(api.moveBarn('BC-1', { to: 'A1', date: '2026-11-20', reason: 'x', by: 'y' }, { backendId: 42 })).rejects.toThrow(/chọn lại chuồng/)
+    await expect(api.editImportRecord('BC-1', { values: {}, reason: 'x' })).rejects.toThrow(/phiếu nhập/)
+    await expect(api.voidImportRecord('BC-1', { reason: 'x' })).rejects.toThrow(/phiếu nhập/)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(0)
+  })
+})

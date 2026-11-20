@@ -20,10 +20,10 @@ const dateLabel = (iso: string | null) => {
   return date ? date.split('-').reverse().join('/') : null
 }
 
-/** GET /api/farms/{farmId}/cattle/resolve?code= — display code, ear tag or tag code (or an app link to the tag). */
 /** Bản mô phỏng đối chiếu mã quét với đàn mẫu; máy chủ thật không có ghi chú này. */
 export const scanSampleNotice: string | null = backendMode === 'backend' ? null : 'Đang dùng dữ liệu mẫu. Mã quét được đối chiếu với đàn mẫu.'
 
+/** GET /api/farms/{farmId}/cattle/resolve?code= — display code, ear tag or tag code (or an app link to the tag). */
 export async function scanCode(input: string): Promise<ScanOutcome | null> {
   const key = input.trim()
   if (!key) return null

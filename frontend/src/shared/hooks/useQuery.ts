@@ -25,5 +25,8 @@ export function useQuery<T>(fetcher: () => Promise<T>, deps: DependencyList = []
     void run().catch(() => undefined)
     return () => { requestId.current += 1 }
   }, deps)
-  return { ...state, refetch: run, setData }
+  // Screens wire `onRetry={query.refetch}` and `await query.refetch()` after a command: a failure stays in `error` (shown by
+  // the screen) and never becomes an unhandled rejection. Resolves the data, or undefined when loading failed.
+  const refetch = useCallback((): Promise<T | undefined> => run().catch(() => undefined), [run])
+  return { ...state, refetch, setData }
 }

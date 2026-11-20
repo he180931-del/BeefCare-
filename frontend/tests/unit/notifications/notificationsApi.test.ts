@@ -45,6 +45,15 @@ describe('notificationsApi (SCR-45)', () => {
     http.command.mockResolvedValue(1)
     const api = createNotificationsApi({ mode: 'backend', farmId: 1, transport: http, store })
     await expect(api.listMine()).resolves.toMatchObject([{ id: 9, category: 'SUPPORT', targetType: 'TICKET' }])
+    // The backend writes the target type as "SUBSCRIPTION", "Farm" or "Payment" (NotificationService callers).
+    http.get.mockResolvedValue([
+      { id: 1, category: 'subscription', targetType: 'SUBSCRIPTION', targetId: 1151, title: 'a', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+      { id: 2, category: 'service', targetType: 'Farm', targetId: 1152, title: 'b', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+      { id: 3, category: 'subscription', targetType: 'Payment', targetId: 2001, title: 'c', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+    ])
+    await expect(api.listMine()).resolves.toMatchObject([
+      { id: 1, targetType: 'SUBSCRIPTION', targetId: 1151 }, { id: 2, targetType: 'FARM_SERVICE', targetId: 1152 }, { id: 3, targetType: 'PAYMENT_REQUEST', targetId: 2001 },
+    ])
     await api.markRead(9)
     await api.markAllRead()
     expect(spy).not.toHaveBeenCalled()
@@ -67,6 +76,9 @@ describe('notificationRules', () => {
 
   it('đích mở theo loại', () => {
     expect(notificationTarget({ targetType: 'TICKET', targetId: 1031 })).toBe('/ho-tro/1031')
+    // targetId names the farm for SUBSCRIPTION and FARM_SERVICE; a payment request names only the payment.
+    expect(notificationTarget({ targetType: 'SUBSCRIPTION', targetId: 1151 })).toBe('/goi-dich-vu?farm=1151')
+    expect(notificationTarget({ targetType: 'FARM_SERVICE', targetId: 3 })).toBe('/goi-dich-vu?farm=3')
     expect(notificationTarget({ targetType: 'PAYMENT_REQUEST', targetId: 7 })).toBe('/goi-dich-vu')
   })
 })

@@ -13,6 +13,8 @@ export interface SessionUser {
   ownerRegistrationCompleted?: boolean
   platformRole?: PlatformRole | null
   activeFarmCount?: number
+  /** Every farm the account belongs to, whatever its service status. */
+  farmCount?: number
 }
 
 export type Session = SessionUser & { logout: () => Promise<void> }

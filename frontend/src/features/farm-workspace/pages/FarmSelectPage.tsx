@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { BackendError } from '../../../shared/api/backendClient'
-import { pageLoader, writeCurrentFarmId } from '../../../app/session/currentFarm'
+import { pageLoader, safeReturnTo, writeCurrentFarmId, type SelectFarmState } from '../../../app/session/currentFarm'
 import { STORAGE_BLOCKED } from '../components/enterFarm'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
@@ -28,7 +28,8 @@ function enterFailure(error: unknown): { message: string; reloadList: boolean } 
 
 /**
  * SCR-09 (UC-FE02-02). Entering a farm rechecks access, keeps the farm for this tab and reloads the page into it, so no
- * data or filter of the previous farm survives (R-02-12). After sign-in the only ACTIVE farm opens directly (AF4).
+ * data or filter of the previous farm survives (R-02-12). After sign-in the only ACTIVE farm opens directly (AF4); a farm
+ * screen opened without a farm (new tab, bookmark) is loaded again once its farm is entered.
  * `?demo=empty` và `?demo=load-error` hiện hai trạng thái không có dữ liệu (mô phỏng).
  */
 export default function FarmSelectPage() {
@@ -42,7 +43,9 @@ export default function FarmSelectPage() {
   const farms = query.data ?? []
   const [entering, setEntering] = useState<number | null>(null)
   const [enterMessage, setEnterMessage] = useState('')
-  const fromSignIn = (location.state as { fromSignIn?: boolean } | null)?.fromSignIn === true
+  const selectState = location.state as SelectFarmState | null
+  const fromSignIn = selectState?.fromSignIn === true
+  const returnTo = safeReturnTo(selectState?.returnTo)
   const autoOpened = useRef(false)
 
   async function open(farm: FarmSummary) {
@@ -60,7 +63,7 @@ export default function FarmSelectPage() {
         setEnterMessage(STORAGE_BLOCKED)
         return
       }
-      pageLoader.load(target)
+      pageLoader.load(returnTo ?? target)
     } catch (error) {
       const failure = enterFailure(error)
       setEnterMessage(failure.message)

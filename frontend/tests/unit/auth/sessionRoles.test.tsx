@@ -7,6 +7,7 @@ import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/da
 import { HomeRedirect, RoleGate, canRecordCare, type AppRole } from '../../../src/features/authorization'
 import { markOwnerRegistrationCompleted } from '../../../src/app/session/sessionContext'
 import { sessionFromProfile } from '../../../src/app/session/SessionProvider'
+import { needsOwnerRegistration } from '../../../src/features/authorization/roles'
 import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/app/session/currentFarm'
 
@@ -60,6 +61,24 @@ describe('session from the backend profile', () => {
       { farmId: 9, farmName: 'Trại B', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
     ] })
     expect(session).toMatchObject({ role: 'TECHNICIAN', farmId: 9, farmName: 'Trại B', activeFarmCount: 2 })
+  })
+
+  it('names no farm while the tab has not entered one, and routes by the strongest farm role', () => {
+    sessionStorage.clear()
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'TECHNICIAN', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'OWNER', serviceStatus: 'ACTIVE' },
+    ] })
+    expect(session).toMatchObject({ role: 'OWNER', farmId: null, farmName: null, farmCount: 2, activeFarmCount: 2 })
+  })
+
+  it('does not send an invited member without a farm in the tab to owner registration (D28)', () => {
+    sessionStorage.clear()
+    const session = sessionFromProfile({ fullName: 'Lan', email: 'l@x', ownerRegistrationCompleted: false, platformRole: null, farms: [
+      { farmId: 3, farmName: 'Trại C', role: 'MANAGER', serviceStatus: 'SUSPENDED' },
+    ] })
+    expect(session).toMatchObject({ role: 'MANAGER', farmId: null, farmCount: 1 })
+    expect(needsOwnerRegistration(session)).toBe(false)
   })
 
   it('treats an account with no farm as an owner still onboarding', () => {

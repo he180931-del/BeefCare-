@@ -58,10 +58,22 @@ export function clearCurrentFarmId(): void {
 
 /**
  * The farm this page load works in: the farm entered on Select Farm in this tab, or null. There is no default farm:
- * farm screens open Select Farm without one (`RequireActiveFarm`) and a farm-scoped request is refused before it is
+ * farm screens open Select Farm without one (`RequireFarm`) and a farm-scoped request is refused before it is
  * sent (`farmPath`). Read once; entering another farm reloads the page.
  */
 export const activeFarmId: number | null = readCurrentFarmId()
+
+/**
+ * Router state for Select Farm: `fromSignIn` lets it open the only ACTIVE farm directly (AF4), `returnTo` is the screen
+ * that asked for a farm (a link opened in a new tab, a bookmark), loaded again once the farm is entered.
+ */
+export interface SelectFarmState { fromSignIn?: boolean; returnTo?: string }
+
+/** An in-app path to come back to; another origin (`//host`), a URL or Select Farm itself is ignored. */
+export function safeReturnTo(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return null
+  return value === '/chon-trai' || value.startsWith('/chon-trai?') ? null : value
+}
 
 /** Full page load, so every feature API starts again with the farm just kept. Replaced in tests. */
 export const pageLoader = {

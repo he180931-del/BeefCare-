@@ -83,6 +83,10 @@ const profileBody = (context: BackendMutationContext, overrides: Partial<Profile
   ...overrides,
 })
 
+/** Backend mode never writes the demo store: a command missing the server identity of the cow is refused clearly. */
+const RELOAD_PROFILE = 'Vui lòng tải lại hồ sơ bò rồi thử lại.'
+const refuseInBackend = (message: string) => { if (backendMode === 'backend') throw new Error(message) }
+
 export const updateIdentity = async (code: string, { name, tag, description, notes }: { name: string; tag?: string; description?: string; notes?: string }, context: BackendMutationContext = {}) => {
   if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
     return backendApi.updateProfile(context.backendId, profileBody({ ...context, reason: context.reason || 'Cập nhật định danh và mô tả' }, {
@@ -92,6 +96,7 @@ export const updateIdentity = async (code: string, { name, tag, description, not
       notes: notes ?? context.currentProfile?.notes ?? '',
     }))
   }
+  refuseInBackend(RELOAD_PROFILE)
   await getActiveCow(code)
   return demo.cattleLocal.cattle.update(code, { name, tag, description })
 }
@@ -100,6 +105,7 @@ export async function updateStage(code: string, { stage, date, reason, acknowled
   if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
     return backendApi.updateProfile(context.backendId, profileBody({ ...context, effectiveDate: date, reason }, { lifeStage: lifeStageValue(stage), acknowledgedReproductionChange: acknowledgedReproductionChange === true }))
   }
+  refuseInBackend(RELOAD_PROFILE)
   const cow = await getActiveCow(code)
   const change = event('stage', `${date}T08:00`, `Đổi giai đoạn: ${cow.stage} → ${stage}`, { label: 'Thực tế', tone: 'ok' }, reason, `Hiệu lực ${dm(date)} · ghi ${dm(demo.cattleLocal.TODAY)} · ${demo.cattleLocal.MANAGER}`)
   return demo.cattleLocal.cattle.update(code, { stage, events: [change, ...(cow.events ?? [])] })
@@ -109,6 +115,7 @@ export async function updatePurpose(code: string, purposeId: number, context: Ba
   if (backendMode === 'backend' && context.backendId != null && context.backendVersion != null) {
     return backendApi.updateProfile(context.backendId, profileBody({ ...context, reason: context.reason || 'Cập nhật mục đích nuôi' }, { productionPurposeId: purposeId, acknowledgedReproductionChange: context.acknowledgedReproductionChange === true }))
   }
+  refuseInBackend(RELOAD_PROFILE)
   return getActiveCow(code)
 }
 
@@ -116,6 +123,7 @@ export async function moveBarn(code: string, { to, date, reason, by }: { to: str
   if (backendMode === 'backend' && context.backendId != null && context.toPenId != null) {
     return backendApi.movePen({ cattleId: context.backendId, toPenId: context.toPenId, moveDate: date, reason, warningReason: context.warningReason, cattleVersion: context.backendVersion })
   }
+  refuseInBackend('Vui lòng tải lại hồ sơ bò và chọn lại chuồng rồi thử lại.')
   const cow = await getActiveCow(code)
   const from = cow.barn
   if (from === to) return cow
@@ -183,7 +191,11 @@ export async function reissueQr(code: string, { reason, note, by, tagCode }: { r
   })
 }
 
+/** The server keeps the entry on its voucher: correct or void it from the entry voucher (Nhập đàn), not the cow profile. */
+const ENTRY_ON_VOUCHER = 'Bản ghi nhập đàn được sửa hoặc hủy trên phiếu nhập (Nhập đàn).'
+
 export async function editImportRecord(code: string, { values, reason }: { values: Record<string, string>; reason: string }) {
+  refuseInBackend(ENTRY_ON_VOUCHER)
   const cow = await getActiveCow(code)
   if (!cow.importRecord) return cow
   let weight = cow.weight
@@ -198,6 +210,7 @@ export async function editImportRecord(code: string, { values, reason }: { value
 }
 
 export async function voidImportRecord(code: string, { reason }: { reason: string }) {
+  refuseInBackend(ENTRY_ON_VOUCHER)
   const cow = asCowSeed(await demo.cattleLocal.cattle.get(code))
   const change = event('barn', `${demo.cattleLocal.TODAY}T08:00`, 'Hủy bản ghi nhập đàn', { label: 'Thực tế', tone: 'err' }, reason, `Ghi ${dm(demo.cattleLocal.TODAY)} · ${demo.cattleLocal.MANAGER}`)
   return demo.cattleLocal.cattle.update(code, {

@@ -8,6 +8,7 @@ import AcceptInvitationPage from '../../../src/features/farm-workspace/pages/Acc
 import FarmInformationPage from '../../../src/features/farm-workspace/pages/FarmInformationPage'
 import FarmRegistrationPage from '../../../src/features/farm-workspace/pages/FarmRegistrationPage'
 import FarmSelectPage from '../../../src/features/farm-workspace/pages/FarmSelectPage'
+import { farmWorkspaceApi } from '../../../src/features/farm-workspace/api/farmWorkspaceApi'
 
 const farm = { farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì' }
 const sessions: Record<string, Session> = {
@@ -22,6 +23,40 @@ const renderAt = (who: string, path: string, route: string, element: JSX.Element
 )
 
 describe('Select Farm', () => {
+  const openWithState = (state: unknown) => render(
+    <SessionContext.Provider value={sessions.owner}>
+      <MemoryRouter initialEntries={[{ pathname: '/chon-trai', state }]}><Routes><Route path="/chon-trai" element={<FarmSelectPage />} /></Routes></MemoryRouter>
+    </SessionContext.Provider>,
+  )
+
+  it('comes back to the farm screen that asked for a farm once one is entered (deep link in a new tab)', async () => {
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    openWithState({ returnTo: '/cattle/BC-000142?tab=vaccine' })
+    await user.click((await screen.findAllByRole('button', { name: 'Vào trại' }))[0])
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/cattle/BC-000142?tab=vaccine'))
+    load.mockRestore()
+  })
+
+  it('opens the only ACTIVE farm directly (AF4) and returns to the requested screen', async () => {
+    const active = (await farmWorkspaceApi.listFarms()).find((farm) => farm.serviceStatus === 'ACTIVE')!
+    const list = vi.spyOn(farmWorkspaceApi, 'listFarms').mockResolvedValue([active])
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    openWithState({ fromSignIn: true, returnTo: '/pens' })
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/pens'))
+    load.mockRestore()
+    list.mockRestore()
+  })
+
+  it('ignores a return address outside the app and opens the farm home instead', async () => {
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    openWithState({ returnTo: '//evil.example/steal' })
+    await user.click((await screen.findAllByRole('button', { name: 'Vào trại' }))[0])
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    load.mockRestore()
+  })
+
   it('shows each farm with its role, size and the action its service state allows', async () => {
     renderAt('owner', '/chon-trai', '/chon-trai', <FarmSelectPage />)
     expect(await screen.findByText('Trại Tản Lĩnh')).toBeInTheDocument()

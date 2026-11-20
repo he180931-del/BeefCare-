@@ -12,14 +12,18 @@ import { OWNER_REGISTRATION_COMPLETED_EVENT } from './sessionLifecycle'
 const PLATFORM_ROLES: readonly string[] = ['CS', 'PM', 'SA']
 const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 
-/** GET /api/account/profile (ProfileResponse): vai trò nền tảng ưu tiên, sau đó là vai trò trong trại hiện tại. */
+/**
+ * GET /api/account/profile (ProfileResponse): vai trò nền tảng ưu tiên, sau đó là vai trò trong trại của tab. Tab chưa vào
+ * trại thì phiên không gắn trại nào (không đoán `farms[0]`); điều hướng dùng vai trò cao nhất của tài khoản, máy chủ vẫn
+ * kiểm quyền ở từng trại.
+ */
 export function sessionFromProfile(value: unknown): SessionUser {
   const row = asRecord(value)
   const farms = asRows(row.farms)
   const selectedFarm = readCurrentFarmId()
-  const farm = farms.find((item) => Number(item.farmId) === selectedFarm) ?? farms[0]
+  const farm = selectedFarm == null ? undefined : farms.find((item) => Number(item.farmId) === selectedFarm)
   const platformRole = textValue(row.platformRole)
-  const farmRole = textValue(farm?.role)
+  const farmRole = farm ? textValue(farm.role) : FARM_ROLES.find((role) => farms.some((item) => textValue(item.role) === role)) ?? ''
   // Tài khoản mới chưa có trại vẫn là chủ trại đang hoàn tất đăng ký (SCR-07 → SCR-10).
   const role = (PLATFORM_ROLES.includes(platformRole) ? platformRole : FARM_ROLES.includes(farmRole) ? farmRole : 'OWNER') as AppRole
   return {
@@ -32,6 +36,7 @@ export function sessionFromProfile(value: unknown): SessionUser {
     ownerRegistrationCompleted: row.ownerRegistrationCompleted === true,
     platformRole: PLATFORM_ROLES.includes(platformRole) ? platformRole as 'CS' | 'PM' | 'SA' : null,
     activeFarmCount: farms.filter((item) => textValue(item.serviceStatus, 'ACTIVE') === 'ACTIVE').length,
+    farmCount: farms.length,
   }
 }
 
@@ -49,7 +54,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
     if (mode === 'mock') {
-      setUser(demo.demoUsers.demoUserFor(demo.demoUsers.readMockUserEmail()))
+      // Same rule as the server profile: the demo user names its farm only once this tab has entered one.
+      const user = demo.demoUsers.demoUserFor(demo.demoUsers.readMockUserEmail())
+      const farmCount = user.farmId == null ? 0 : 1
+      setUser(readCurrentFarmId() == null ? { ...user, farmId: null, farmName: null, farmCount } : { ...user, farmCount })
       return undefined
     }
     const loadProfile = () => backendTransport.get('/api/account/profile').then(

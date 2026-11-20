@@ -4,7 +4,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from '../../../src/app/routes/AppRoutes'
 
 function Where() {
-  return <output data-testid="where">{useLocation().pathname}</output>
+  const location = useLocation()
+  return <output data-testid="where" data-return-to={(location.state as { returnTo?: string } | null)?.returnTo ?? ''}>{location.pathname}</output>
 }
 
 const routeCases = [
@@ -35,6 +36,18 @@ describe('farm screens without an entered farm (UC-FE02-02)', () => {
     render(<MemoryRouter initialEntries={[path]}><App /><Where /></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: 'Chọn trang trại' })).toBeInTheDocument()
     expect(screen.getByTestId('where')).toHaveTextContent('/chon-trai')
+  })
+
+  it('remembers the requested screen so Select Farm can come back to it', async () => {
+    render(<MemoryRouter initialEntries={['/cattle/BC-000142?tab=vaccine']}><App /><Where /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Chọn trang trại' })).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveAttribute('data-return-to', '/cattle/BC-000142?tab=vaccine')
+  })
+
+  it.each([['/ho-so', 'Hồ sơ & quyền của tôi'], ['/kt/tai-khoan', 'Tài khoản']])('keeps the account page %s open: profile and password do not need a farm', async (path, heading) => {
+    render(<MemoryRouter initialEntries={[path]}><App /><Where /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(path)
   })
 
   it('keeps the Owner pages that name their farm in the address (?farm=, ?farmId=) reachable', async () => {
