@@ -24,8 +24,8 @@ describe('notificationsApi (SCR-45)', () => {
     const { api } = setup()
     const first = (await api.listMine())[0]
     const read = await api.markRead(first.id)
-    expect(read.readTime).not.toBeNull()
-    expect((await api.markRead(first.id)).readTime).toBe(read.readTime)
+    expect(read?.readTime).toEqual(expect.any(String))
+    expect((await api.markRead(first.id))?.readTime).toBe(read?.readTime)
     expect((await api.listMine()).filter((n) => n.readTime === null)).toHaveLength(1)
     await expect(api.markRead(424242)).rejects.toThrow('Không tìm thấy thông báo')
   })
@@ -54,6 +54,14 @@ describe('notificationsApi (SCR-45)', () => {
     await expect(api.listMine()).resolves.toMatchObject([
       { id: 1, targetType: 'SUBSCRIPTION', targetId: 1151 }, { id: 2, targetType: 'FARM_SERVICE', targetId: 1152 }, { id: 3, targetType: 'PAYMENT_REQUEST', targetId: 2001 },
     ])
+    // /mine also returns feed, announcement and internal-request notices: not shown here, never as a payment.
+    http.get.mockResolvedValue([
+      { id: 4, category: 'feed', targetType: 'FEED_RECEIPT', targetId: 5, title: 'd', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+      { id: 5, category: 'announcement', targetType: 'ANNOUNCEMENT_VERSION', targetId: 6, title: 'e', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+      { id: 6, category: 'SUPPORT', targetType: 'INTERNAL_REQUEST', targetId: 7, title: 'f', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+      { id: 7, category: 'subscription', targetType: 'Farm', targetId: 1153, title: 'g', summary: '', createdTime: '2026-11-20T01:00:00Z', readTime: null },
+    ])
+    await expect(api.listMine()).resolves.toMatchObject([{ id: 7, targetType: 'FARM_SERVICE', targetId: 1153 }])
     await api.markRead(9)
     await api.markAllRead()
     expect(spy).not.toHaveBeenCalled()

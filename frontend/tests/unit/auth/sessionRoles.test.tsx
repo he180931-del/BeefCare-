@@ -8,6 +8,7 @@ import { HomeRedirect, RoleGate, canRecordCare, type AppRole } from '../../../sr
 import { markOwnerRegistrationCompleted } from '../../../src/app/session/sessionContext'
 import { sessionFromProfile } from '../../../src/app/session/SessionProvider'
 import { needsOwnerRegistration } from '../../../src/features/authorization/roles'
+import { roleInFarm } from '../../../src/app/session/sessionContext'
 import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/app/session/currentFarm'
 
@@ -79,6 +80,18 @@ describe('session from the backend profile', () => {
     ] })
     expect(session).toMatchObject({ role: 'MANAGER', farmId: null, farmCount: 1 })
     expect(needsOwnerRegistration(session)).toBe(false)
+  })
+
+  it('keeps the role in each farm, so a page naming its farm checks the role there', () => {
+    sessionStorage.setItem('beefcare.currentFarmId', '1')
+    const session = sessionFromProfile({ fullName: 'Mai', email: 'm@x', platformRole: null, farms: [
+      { farmId: 1, farmName: 'Trại A', role: 'OWNER', serviceStatus: 'ACTIVE' },
+      { farmId: 9, farmName: 'Trại B', role: 'MANAGER', serviceStatus: 'SUSPENDED' },
+    ] })
+    expect(session.farmRoles).toEqual({ 1: 'OWNER', 9: 'MANAGER' })
+    expect(roleInFarm(session, 9)).toBe('MANAGER')
+    expect(roleInFarm(session, null)).toBe('OWNER')
+    expect(roleInFarm(session, 42)).toBe('OWNER')
   })
 
   it('treats an account with no farm as an owner still onboarding', () => {

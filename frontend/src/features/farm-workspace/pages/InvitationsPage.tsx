@@ -5,7 +5,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { Badge, Button, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Modal, ModalFooter, Note, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { useSession } from '../../../app/session/sessionContext'
+import { roleInFarm, useSession } from '../../../app/session/sessionContext'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { InviteDialog } from '../components/InviteDialog'
 import { useFarmId } from '../hooks/useFarmId'
@@ -36,7 +36,7 @@ export default function InvitationsPage() {
   const [search, setSearch] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
   // Outside a SessionProvider (route smoke, page tests) no role rule applies, as for RoleGate; the API still checks the Owner.
-  const owner = session == null || session.role === 'OWNER'
+  const owner = session == null || roleInFarm(session, farmId) === 'OWNER'
   const preferencesKey = `beefcare:invitation-filters:${session?.email ?? ''}:${farmId}`
   const saved = useMemo(() => readPreferences(preferencesKey), [preferencesKey])
   const selectedStatus = STATUSES.find(status => status === search.get('status')) ?? saved.status

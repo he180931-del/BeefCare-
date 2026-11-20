@@ -111,7 +111,7 @@ export default function TicketPage() {
     } catch (e) {
       setReplyError(errText(e))
       if (e instanceof SupportError && e.code === 'CONFLICT') {
-        try { await refetch() } catch { /* Giữ lỗi gửi hiện tại; ErrorBlock sẽ hiển thị nếu tải lại cũng thất bại. */ }
+        await refetch() // Giữ lỗi gửi hiện tại; ErrorBlock hiển thị nếu tải lại cũng thất bại.
       }
     } finally {
       replySendingRef.current = false

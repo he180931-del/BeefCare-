@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { accountDemoStore } from '../../../src/features/account/data/accountDemoStore'
@@ -28,6 +28,17 @@ describe('profile page', () => {
     expect(screen.getByText('Quyền của tôi trong trại này')).toBeInTheDocument()
     expect(screen.getByText('Hồ sơ bò & thẻ QR')).toBeInTheDocument()
     expect(screen.queryByText('Gói dịch vụ & thanh toán')).not.toBeInTheDocument()
+  })
+
+  it('shows no role or permission table while the tab has not entered a farm', async () => {
+    const user = userEvent.setup()
+    render(<SessionContext.Provider value={{ ...sessions.manager, farmId: null, farmName: null }}><MemoryRouter initialEntries={['/ho-so']}><Routes>
+      <Route path="/ho-so" element={<ProfilePage />} /><Route path="/chon-trai" element={<p>Trang chọn trại</p>} />
+    </Routes></MemoryRouter></SessionContext.Provider>)
+    expect(await screen.findByText('Chưa vào trại nào trong tab này')).toBeInTheDocument()
+    expect(screen.queryByText('Hồ sơ bò & thẻ QR')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Chọn trại' }))
+    expect(await screen.findByText('Trang chọn trại')).toBeInTheDocument()
   })
 
   it('saves the profile and reports field errors', async () => {

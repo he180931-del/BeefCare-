@@ -37,6 +37,9 @@ export function sessionFromProfile(value: unknown): SessionUser {
     platformRole: PLATFORM_ROLES.includes(platformRole) ? platformRole as 'CS' | 'PM' | 'SA' : null,
     activeFarmCount: farms.filter((item) => textValue(item.serviceStatus, 'ACTIVE') === 'ACTIVE').length,
     farmCount: farms.length,
+    farmRoles: Object.fromEntries(farms
+      .filter((item) => FARM_ROLES.includes(textValue(item.role)))
+      .map((item) => [numberValue(item.farmId), textValue(item.role) as AppRole])),
   }
 }
 
@@ -57,7 +60,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // Same rule as the server profile: the demo user names its farm only once this tab has entered one.
       const user = demo.demoUsers.demoUserFor(demo.demoUsers.readMockUserEmail())
       const farmCount = user.farmId == null ? 0 : 1
-      setUser(readCurrentFarmId() == null ? { ...user, farmId: null, farmName: null, farmCount } : { ...user, farmCount })
+      const farmRoles = user.farmId == null ? {} : { [user.farmId]: user.role }
+      setUser(readCurrentFarmId() == null ? { ...user, farmId: null, farmName: null, farmCount, farmRoles } : { ...user, farmCount, farmRoles })
       return undefined
     }
     const loadProfile = () => backendTransport.get('/api/account/profile').then(

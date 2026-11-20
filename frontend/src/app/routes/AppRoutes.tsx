@@ -93,11 +93,12 @@ const Audit = lazy(loadAuditRoutes)
 const AdminNotices = lazy(loadAdminNoticePage)
 const Placeholder = lazy(() => import('./PlaceholderPage'))
 
-const only = (allow: readonly AppRole[], element: ReactElement) => <RoleGate allow={allow}>{element}</RoleGate>
+const only = (allow: readonly AppRole[], element: ReactElement, farmParam?: 'farm' | 'farmId') => <RoleGate allow={allow} farmParam={farmParam}>{element}</RoleGate>
 // Farm screens: the farm entered in this tab, or (Owner pages reached from Select Farm) the farm named in the address.
-const inFarm = (allow: readonly AppRole[], element: ReactElement, param?: 'farm' | 'farmId') => only(allow, <RequireFarm param={param}>{element}</RequireFarm>)
+// The farm comes first: the role checked is the role in that farm.
+const inFarm = (allow: readonly AppRole[], element: ReactElement, param?: 'farm' | 'farmId') => <RequireFarm param={param}>{only(allow, element, param)}</RequireFarm>
 const desk = (element: ReactElement, param?: 'farm' | 'farmId') => inFarm(['OWNER', 'MANAGER'], element, param)
-const owner = (element: ReactElement) => only(['OWNER'], element)
+const owner = (element: ReactElement, farmParam?: 'farm' | 'farmId') => only(['OWNER'], element, farmParam)
 const ownerFarm = (element: ReactElement, param: 'farm' | 'farmId') => inFarm(['OWNER'], element, param)
 const farmMember = (element: ReactElement) => inFarm(['OWNER', 'MANAGER', 'TECHNICIAN'], element)
 const technician = (element: ReactElement) => inFarm(['TECHNICIAN'], element)
@@ -155,7 +156,7 @@ export default function AppRoutes() {
         <Route path="/loi-moi" element={ownerFarm(<Invitations />, 'farmId')} />
         <Route path="/invitation/accept" element={<AcceptInvitation />} />
         <Route path="/goi-dich-vu/*" element={ownerFarm(<Subscription />, 'farm')} />
-        <Route path="/ho-tro/*" element={owner(<Support />)} />
+        <Route path="/ho-tro/*" element={owner(<Support />, 'farmId')} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />
         <Route path="/ho-so" element={only(['OWNER', 'MANAGER'], <Profile />)} />
 

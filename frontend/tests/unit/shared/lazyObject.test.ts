@@ -41,3 +41,22 @@ describe('lazyObject', () => {
     expect(store.list).toBe(store.list)
   })
 })
+
+describe('lazyObject invariants', () => {
+  it('refuses a non-configurable definition before the real object changes', () => {
+    const real: Record<string, unknown> = {}
+    const store = lazyObject(() => real)
+    expect(() => Object.defineProperty(store, 'flag', { value: true, configurable: false })).toThrow(TypeError)
+    expect('flag' in real).toBe(false)
+    Object.defineProperty(store, 'other', { value: 1, configurable: true, writable: true, enumerable: true })
+    expect(real.other).toBe(1)
+  })
+
+  it('reports the prototype of the real object and cannot be frozen', () => {
+    class Store { size() { return 1 } }
+    const store = lazyObject(() => new Store())
+    expect(store instanceof Store).toBe(true)
+    expect(() => Object.freeze(store)).toThrow(TypeError)
+    expect(store.size()).toBe(1)
+  })
+})

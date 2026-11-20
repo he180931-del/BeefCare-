@@ -6,7 +6,7 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { homePathFor } from '../../authorization'
-import { useSession } from '../../../app/session/sessionContext'
+import { roleInFarm, useSession } from '../../../app/session/sessionContext'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { PROVINCES } from '../constants/provinces'
 import { Avatar, farmWorkspaceError, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
@@ -36,7 +36,9 @@ const daysLeft = (farm: FarmDetails) => farm.daysRemaining
  */
 export default function FarmInformationPage() {
   const session = useSession()
-  if (session && session.role !== 'OWNER') return <Navigate to={homePathFor(session.role)} replace />
+  const farmId = useFarmId()
+  const role = session ? roleInFarm(session, farmId) : 'OWNER'
+  if (role !== 'OWNER') return <Navigate to={homePathFor(role)} replace />
   return <FarmInformationForm />
 }
 

@@ -48,7 +48,7 @@ export default function FarmSelectPage() {
   const returnTo = safeReturnTo(selectState?.returnTo)
   const autoOpened = useRef(false)
 
-  async function open(farm: FarmSummary) {
+  async function open(farm: FarmSummary, automatic = false) {
     setEnterMessage('')
     setEntering(farm.id)
     try {
@@ -59,11 +59,18 @@ export default function FarmSelectPage() {
         query.refetch()
         return
       }
+      // Payment, renewal or support of a farm that is not ACTIVE: its page names the farm, and this tab keeps its own farm.
+      if (current.serviceStatus !== 'ACTIVE') {
+        navigate(target)
+        return
+      }
       if (!writeCurrentFarmId(current.id)) {
         setEnterMessage(STORAGE_BLOCKED)
         return
       }
-      pageLoader.load(returnTo ?? target)
+      const destination = returnTo ?? target
+      if (automatic) pageLoader.replace(destination)
+      else pageLoader.load(destination)
     } catch (error) {
       const failure = enterFailure(error)
       setEnterMessage(failure.message)
@@ -78,7 +85,7 @@ export default function FarmSelectPage() {
     autoOpened.current = true
     const [only, ...others] = query.data
     // AF4 "only one available farm": one farm in the list and it can be entered; otherwise the user chooses on SCR-09.
-    if (only && others.length === 0 && only.serviceStatus === 'ACTIVE') void open(only)
+    if (only && others.length === 0 && only.serviceStatus === 'ACTIVE') void open(only, true)
     // `open` is left out on purpose: the ref limits this to one attempt when the list first arrives.
   }, [fromSignIn, query.data])
 

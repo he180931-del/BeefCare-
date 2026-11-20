@@ -1,15 +1,30 @@
 import type { ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
-import { readCurrentFarmId } from '../../app/session/currentFarm'
-import { useSession } from '../../app/session/sessionContext'
+import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { parseFarmId, readCurrentFarmId, sectionPath, type SelectFarmState } from '../../app/session/currentFarm'
+import { roleInFarm, useSession } from '../../app/session/sessionContext'
 import { homePathFor, isFarmRole, needsOwnerRegistration, type AppRole } from './roles'
 
-/** Chỉ ẩn màn hình theo vai trò để điều hướng đúng; quyền thật vẫn do backend kiểm tra trên từng lệnh. */
-export function RoleGate({ allow, children }: { allow: readonly AppRole[]; children: ReactNode }) {
+/**
+ * Chỉ ẩn màn hình theo vai trò để điều hướng đúng; quyền thật vẫn do backend kiểm tra trên từng lệnh. The role is the one
+ * in the farm named in the address (`farmParam`), else in the farm of this tab. Without either, a farm role is only the
+ * account's strongest one: a screen another of its farm roles may open asks for the farm first, then comes back.
+ */
+export function RoleGate({ allow, farmParam, children }: { allow: readonly AppRole[]; farmParam?: 'farm' | 'farmId'; children: ReactNode }) {
   const session = useSession()
+  const [search] = useSearchParams()
+  const location = useLocation()
+  const params = useParams()
   if (needsOwnerRegistration(session)) return <Navigate to="/owner-registration" replace />
-  if (session && !allow.includes(session.role)) return <Navigate to={homePathFor(session.role)} replace />
-  return children
+  if (!session) return children
+  const named = farmParam ? parseFarmId(search.get(farmParam)) : null
+  const role = roleInFarm(session, named)
+  if (allow.includes(role)) return children
+  const heldElsewhere = Object.values(session.farmRoles ?? {}).some((held) => allow.includes(held))
+  if (isFarmRole(role) && named == null && readCurrentFarmId() == null && heldElsewhere) {
+    const state: SelectFarmState = { fromSignIn: true, returnTo: sectionPath(location.pathname, params) }
+    return <Navigate to="/chon-trai" replace state={state} />
+  }
+  return <Navigate to={homePathFor(role)} replace />
 }
 
 /**

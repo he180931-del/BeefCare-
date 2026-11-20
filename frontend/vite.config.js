@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -6,13 +7,22 @@ import tailwindcss from '@tailwindcss/vite'
 
 const FRONTEND_DIR = fileURLToPath(new URL('.', import.meta.url))
 const NO_DEMO = fileURLToPath(new URL('./src/demo/noDemo.ts', import.meta.url))
-/** This app's own sources, as Rollup names them (forward slashes; drive letter case differs on Windows). */
-const SRC = fileURLToPath(new URL('./src/', import.meta.url)).split('\\').join('/').toLowerCase()
+const slashes = (file) => file.split('\\').join('/')
+/**
+ * This app's own sources, as Rollup names them: the real path (a checkout reached through a symlink or junction is
+ * named by its target), forward slashes, lower case (drive letter case differs on Windows).
+ */
+const SRC = `${slashes(realpathSync.native(path.join(FRONTEND_DIR, 'src'))).toLowerCase()}/`
 /** Modules (path under src/) that only exist for the demo data. None of them may reach a bundle built without demo data. */
 const DEMO_PATH = /^(demo\/(demoModules|useDemoState)|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|demoCattlePhotos|penApi|testUtils)\.ts|features\/[^/]+\/api\/\w+LocalApi\.ts)/
+/** The path under src/ of a module of this app, or null for a dependency or a virtual module. */
+const underSrc = (id) => {
+  const file = slashes(id)
+  return file.toLowerCase().startsWith(SRC) ? file.slice(SRC.length) : null
+}
 const demoModuleOf = (id) => {
-  const file = id.split('\\').join('/')
-  return file.toLowerCase().startsWith(SRC) && DEMO_PATH.test(file.slice(SRC.length)) ? `src/${file.slice(SRC.length)}` : null
+  const file = underSrc(id)
+  return file != null && DEMO_PATH.test(file) ? `src/${file}` : null
 }
 
 /**
@@ -28,7 +38,10 @@ function demoDoor(withDemo) {
     },
     generateBundle(_options, bundle) {
       if (withDemo) return
-      const leaked = Object.values(bundle).flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds : [])).map(demoModuleOf).filter(Boolean)
+      const ids = Object.values(bundle).flatMap((chunk) => (chunk.type === 'chunk' ? chunk.moduleIds : []))
+      // A check that recognises none of the app's own modules would pass without checking anything.
+      if (!ids.some((id) => underSrc(id) != null)) this.error(`Không nhận ra module nào của src/ trong bundle (SRC=${SRC}); không kiểm được dữ liệu mẫu.`)
+      const leaked = ids.map(demoModuleOf).filter(Boolean)
       if (leaked.length) this.error(`Bundle không được chứa dữ liệu mẫu, còn ${leaked.length} module:\n${leaked.sort().join('\n')}`)
     },
   }
@@ -60,7 +73,8 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [demoDoor(withDemo), react(), tailwindcss()],
     server: {
-      https: cert && key ? { cert: readFileSync(cert), key: readFileSync(key) } : undefined,
+      // Relative paths in frontend/.env are relative to frontend/, like the file itself.
+      https: cert && key ? { cert: readFileSync(path.resolve(FRONTEND_DIR, cert)), key: readFileSync(path.resolve(FRONTEND_DIR, key)) } : undefined,
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:8080',

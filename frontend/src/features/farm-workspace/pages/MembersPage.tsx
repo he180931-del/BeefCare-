@@ -5,7 +5,7 @@ import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, P
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { useSession } from '../../../app/session/sessionContext'
+import { roleInFarm, useSession } from '../../../app/session/sessionContext'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { InviteDialog } from '../components/InviteDialog'
 import { MemberChangeDialog } from '../components/MemberChangeDialog'
@@ -47,7 +47,8 @@ export default function MembersPage() {
   const [search, setSearch] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
   // Outside a SessionProvider (route smoke, page tests) no role rule applies, as for RoleGate; A1 still decides the rows.
-  const viewer: FarmRole = session?.role === 'MANAGER' || session?.role === 'TECHNICIAN' ? session.role : 'OWNER'
+  const role = session ? roleInFarm(session, farmId) : 'OWNER'
+  const viewer: FarmRole = role === 'MANAGER' || role === 'TECHNICIAN' ? role : 'OWNER'
   const owner = viewer === 'OWNER'
   const preferencesKey = `beefcare:member-filters:${session?.email ?? ''}:${farmId}`
   const saved = useMemo(() => readPreferences(preferencesKey, owner), [preferencesKey, owner])

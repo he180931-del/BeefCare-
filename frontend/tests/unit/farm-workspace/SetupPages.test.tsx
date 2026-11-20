@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { pageLoader } from '../../../src/app/session/currentFarm'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
 import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import AcceptInvitationPage from '../../../src/features/farm-workspace/pages/AcceptInvitationPage'
 import FarmInformationPage from '../../../src/features/farm-workspace/pages/FarmInformationPage'
@@ -11,6 +11,10 @@ import FarmSelectPage from '../../../src/features/farm-workspace/pages/FarmSelec
 import { farmWorkspaceApi } from '../../../src/features/farm-workspace/api/farmWorkspaceApi'
 
 const farm = { farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì' }
+function Where() {
+  const location = useLocation()
+  return <output data-testid="where">{location.pathname + location.search}</output>
+}
 const sessions: Record<string, Session> = {
   owner: { role: 'OWNER', fullName: 'Nguyễn Văn Hùng', email: 'owner@beefcare.local', ...farm, logout: vi.fn() },
   manager: { role: 'MANAGER', fullName: 'Trần Quốc Long', email: 'manager@beefcare.local', ...farm, logout: vi.fn() },
@@ -42,10 +46,32 @@ describe('Select Farm', () => {
     const active = (await farmWorkspaceApi.listFarms()).find((farm) => farm.serviceStatus === 'ACTIVE')!
     const list = vi.spyOn(farmWorkspaceApi, 'listFarms').mockResolvedValue([active])
     const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const replace = vi.spyOn(pageLoader, 'replace').mockImplementation(() => undefined)
     openWithState({ fromSignIn: true, returnTo: '/pens' })
-    await waitFor(() => expect(load).toHaveBeenCalledWith('/pens'))
+    // Select Farm leaves the history: Back must not reopen it and enter the farm again.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/pens'))
+    expect(load).not.toHaveBeenCalled()
     load.mockRestore()
+    replace.mockRestore()
     list.mockRestore()
+  })
+
+  it('opens the payment page of a farm that cannot be entered yet, keeping the farm of the tab and ignoring returnTo', async () => {
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    render(
+      <SessionContext.Provider value={sessions.owner}>
+        <MemoryRouter initialEntries={[{ pathname: '/chon-trai', state: { returnTo: '/cattle' } }]}><Routes>
+          <Route path="/chon-trai" element={<FarmSelectPage />} />
+          <Route path="/dang-ky-goi" element={<Where />} />
+        </Routes></MemoryRouter>
+      </SessionContext.Provider>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'Thanh toán để kích hoạt' }))
+    expect(await screen.findByTestId('where')).toHaveTextContent(/^\/dang-ky-goi\?farm=\d+&from=chon-trai$/)
+    expect(load).not.toHaveBeenCalled()
+    expect(readCurrentFarmId()).toBe(1)
+    load.mockRestore()
   })
 
   it('ignores a return address outside the app and opens the farm home instead', async () => {

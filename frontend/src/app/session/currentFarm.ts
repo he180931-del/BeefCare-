@@ -75,9 +75,29 @@ export function safeReturnTo(value: unknown): string | null {
   return value === '/chon-trai' || value.startsWith('/chon-trai?') ? null : value
 }
 
+/**
+ * The screen Select Farm comes back to for an address opened without a farm. The address names no farm, and codes of
+ * cows, vouchers and records are unique only within a farm, so a record (a route parameter, or a query that picks one)
+ * is never reopened in whichever farm gets entered: the section that lists it opens instead (`/cattle/BC-1` → `/cattle`).
+ */
+export function sectionPath(pathname: string, params: Readonly<Record<string, string | undefined>>): string {
+  const segments = pathname.split('/')
+  const decoded = segments.map((segment) => { try { return decodeURIComponent(segment) } catch { return segment } })
+  const cuts = Object.values(params)
+    .map((value) => value?.split('/')[0])
+    .filter((first): first is string => Boolean(first))
+    .map((first) => decoded.indexOf(first, 1))
+    .filter((index) => index > 0)
+  return cuts.length ? segments.slice(0, Math.min(...cuts)).join('/') || '/' : pathname
+}
+
 /** Full page load, so every feature API starts again with the farm just kept. Replaced in tests. */
 export const pageLoader = {
   load(url: string): void {
     window.location.assign(url)
+  },
+  /** Same, without leaving Select Farm in the history: Back must not land on a page that opens the farm again (AF4). */
+  replace(url: string): void {
+    window.location.replace(url)
   },
 }
