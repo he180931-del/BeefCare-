@@ -6,7 +6,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select } from '../../../shared/ui'
 import { useQuery } from '../../../shared/hooks/useQuery'
 // Deep import kept on purpose until refactor phase 3 (see tests/api/layerBoundary.test.ts).
-import { catalogueApi } from '../../farm-catalogue/api/catalogueApi'
+import { catalogueApi } from '../../farm-catalogue'
 import type { CattleEvent } from '../types'
 
 type Options = ReadonlyArray<readonly [string, string]>

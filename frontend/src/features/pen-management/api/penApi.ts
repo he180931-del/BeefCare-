@@ -1,5 +1,5 @@
 // Deep import kept on purpose until refactor phase 3 (see tests/api/layerBoundary.test.ts).
-import { moveBarn } from '../../cattle/api/cattleApi'
+import { moveBarn } from '../../cattle'
 import { BackendError } from '../../../shared/api/backendClient'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'

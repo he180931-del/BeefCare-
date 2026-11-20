@@ -30,23 +30,28 @@ test('shared imports nothing from app, features or the legacy root folders', () 
   assert.deepEqual(violations, [])
 })
 
-test('app reaches a feature only through its public index', () => {
+test('app reaches a feature only through its public index or its route loaders', () => {
   const violations = sourceFiles('app').flatMap((file) => importTargets(file)
-    .filter((target) => /^features\/[^/]+\/(?!index$).+/.test(target))
+    .filter((target) => /^features\/[^/]+\/(?!(index|routes)$).+/.test(target))
     .map((target) => `${file} -> ${target}`))
   assert.deepEqual(violations, [])
 })
 
-// cattleApi and catalogueApi still create their local demo collections / store when they load. Re-exporting them from
-// the feature index.ts would run that at start-up (the route table imports every index), so these consumers keep
-// importing the module itself until refactor phase 3 removes the local demo data.
+// Refactor phase 4c: the route table imports routes.ts, not index.ts. A routes.ts holds lazy page loaders only, so the
+// entry chunk carries no feature screen or API and an index (the API other features use) loads with its users.
+test('feature routes.ts files hold lazy page loaders only', () => {
+  const offenders = sourceFiles('features').filter((file) => /^features\/[^/]+\/routes\.ts$/.test(file)).flatMap((file) => {
+    const code = readFileSync(join(srcDir, file), 'utf8').split(/\r?\n/).filter((line) => line.trim() && !line.trimStart().startsWith('//'))
+    return code.filter((line) => !/^export const load\w+ = \(\) => import\('\.\/pages\/[^']+'\)$/.test(line)).map((line) => `${file}: ${line}`)
+  })
+  assert.deepEqual(offenders, [])
+  const routeTable = readFileSync(join(srcDir, 'app/routes/AppRoutes.tsx'), 'utf8')
+  assert.doesNotMatch(routeTable, /import \{ load\w+[^}]*\} from '\.\.\/\.\.\/features\/[^/']+'/, 'page loaders come from routes.ts')
+})
+
 const ALLOWED_DEEP_IMPORTS = new Set([
-  // The route table loads every feature index at start-up; exporting these APIs there would pull them, with their
-  // backend adapters, into the entry chunk (none of the three is in it today).
-  'features/pen-management/api/penApi.ts -> features/cattle/api/cattleApi',
-  'features/herd-exit/components/PickModal.tsx -> features/cattle/api/scanApi',
-  'features/cattle/components/TimelineCorrectionDialog.tsx -> features/farm-catalogue/api/catalogueApi',
-  // A rule module needs only the status table; the farm-workspace index also loads its screens.
+  // Rule modules (also run by the Node suites) need only the status table; the farm-workspace index loads its screens,
+  // whose Icon uses the Vite-only import.meta.glob (25 Node tests fail through the index, checked 20/11/2026).
   'features/platform-service/domain/reconciliation.ts -> features/farm-workspace/domain/statusViews',
   'features/platform-service/domain/servicePeriods.ts -> features/farm-workspace/domain/statusViews',
 ])
