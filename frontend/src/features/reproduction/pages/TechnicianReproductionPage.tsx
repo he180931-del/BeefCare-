@@ -5,7 +5,7 @@ import { Badge, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Segmented } fr
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { reproductionApi } from '../api/reproductionApi'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { filterWorklist, tabCounts, technicianRowInfo, type WorklistTab } from '../domain/reproductionRules'
 
 const TABS: Array<{ value: WorklistTab; label: string }> = [

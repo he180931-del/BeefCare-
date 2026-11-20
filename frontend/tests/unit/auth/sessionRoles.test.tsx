@@ -4,8 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../../../src/app/layouts/FarmPlatformLayout'
 import { createMockAuthClient } from '../../../src/features/authentication/data/mockAuthClient'
 import { demoUserFor, DEMO_USERS } from '../../../src/features/authentication/data/demoUsers'
-import { HomeRedirect, RoleGate, canRecordCare, markOwnerRegistrationCompleted, sessionFromProfile, type AppRole } from '../../../src/features/authorization'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { HomeRedirect, RoleGate, canRecordCare, type AppRole } from '../../../src/features/authorization'
+import { markOwnerRegistrationCompleted } from '../../../src/app/session/sessionContext'
+import { sessionFromProfile } from '../../../src/app/session/SessionProvider'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { clearCurrentFarmId, writeCurrentFarmId } from '../../../src/app/session/currentFarm'
 
 afterEach(() => clearCurrentFarmId())

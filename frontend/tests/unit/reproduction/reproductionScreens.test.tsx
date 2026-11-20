@@ -7,7 +7,7 @@ import ReproductionProfileTab from '../../../src/features/reproduction/component
 import ReproductionTechnicianTab from '../../../src/features/reproduction/components/ReproductionTechnicianTab'
 import CalvingPage from '../../../src/features/reproduction/pages/CalvingPage'
 import TechnicianProfile from '../../../src/features/cattle/components/TechnicianProfile'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 
 const technician = { role: 'TECHNICIAN' as const, fullName: 'Lê Thị Mai', email: 'mai@x.vn', farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì', logout: async () => undefined }
 const profileAt = (code: string, role: 'MANAGER' | 'OWNER' | 'TECHNICIAN' = 'MANAGER') =>

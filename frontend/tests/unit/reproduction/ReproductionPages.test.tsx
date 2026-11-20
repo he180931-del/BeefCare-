@@ -6,7 +6,7 @@ import { resetReproductionDemo, reproductionApi } from '../../../src/features/re
 import ReproductionWorklistPage from '../../../src/features/reproduction/pages/ReproductionWorklistPage'
 import TechnicianReproductionPage from '../../../src/features/reproduction/pages/TechnicianReproductionPage'
 import ReproductionProfileTab from '../../../src/features/reproduction/components/ReproductionProfileTab'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import CalvingPage from '../../../src/features/reproduction/pages/CalvingPage'
 
 describe('reproduction screens', () => {

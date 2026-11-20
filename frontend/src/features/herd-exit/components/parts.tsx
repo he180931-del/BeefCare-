@@ -1,5 +1,5 @@
 import { Badge, type BadgeTone, Icon, type IconName, inputCls, KV, Table, Td, Th } from '../../../shared/ui'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import type { ReactNode, ChangeEvent } from 'react'
 import { money } from '../../../shared/lib/format'
 

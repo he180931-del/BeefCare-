@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { accountApi } from '../api/accountApi'
 import { validateProfile } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, ProfileErrors } from '../types'

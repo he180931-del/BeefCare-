@@ -1,7 +1,7 @@
 import { parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useState, type ReactNode } from 'react'
 import { Badge, Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { ReproductionDuplicateError } from '../api/reproductionBackend'
 import {
   METHOD_TEXT, addDaysText, eligibilityScore, expectedCalvingDate, findNearbyEvent, formatDate, formatDateTime,

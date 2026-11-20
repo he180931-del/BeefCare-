@@ -1,7 +1,7 @@
 import { toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { useEffect, useRef, useState } from 'react'
 import { Button, Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { correctFeedSession, feedFeedingServerBacked, feedingPeopleSuggestions, getFeedFeedingPlan, recordFeedSession, voidFeedSession } from '../api/feedFeedingApi'

@@ -1,5 +1,5 @@
 import type { demo as DemoModules } from './demoModules'
-import type { SessionUser } from '../features/authorization'
+import type { SessionUser } from '../app/session/sessionContext'
 
 /** No `?demo=<state>` switch without demo data. */
 export const useDemoState = (): string | null => null

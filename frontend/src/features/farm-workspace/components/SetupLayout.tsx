@@ -4,7 +4,7 @@ import logo from '../../../shared/assets/logo.png'
 import farm from '../../../shared/assets/farm.png'
 import wave from '../../../shared/assets/wave.png'
 import { Icon } from '../../../shared/ui'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { Avatar } from './WorkspaceUi'
 import { demoSessionUser } from '../../../demo/demoModules'
 

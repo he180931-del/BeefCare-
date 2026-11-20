@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { useSession, type AppRole } from '../../features/authorization'
+import { type AppRole } from '../../features/authorization'
+import { useSession } from '../session/sessionContext'
 import logo from '../../shared/assets/logo.png'
 import farm from '../../shared/assets/farm.png'
 import wave from '../../shared/assets/wave.png'

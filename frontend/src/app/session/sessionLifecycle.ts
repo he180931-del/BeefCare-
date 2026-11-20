@@ -12,3 +12,10 @@ export function onSessionSignedOut(listener: () => void): () => void {
   window.addEventListener(SESSION_SIGNED_OUT_EVENT, listener)
   return () => window.removeEventListener(SESSION_SIGNED_OUT_EVENT, listener)
 }
+
+/** The Owner profile was accepted (SCR-10): the session reloads the profile so routing sees the completed registration. */
+export const OWNER_REGISTRATION_COMPLETED_EVENT = 'beefcare:owner-registration-completed'
+
+export function notifyOwnerRegistrationCompleted(): void {
+  window.dispatchEvent(new Event(OWNER_REGISTRATION_COMPLETED_EVENT))
+}

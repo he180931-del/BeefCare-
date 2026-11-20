@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asRecord, asRows, numberValue, textValue } from '../../shared/api/parse'
 import { backendTransport } from '../../shared/api/backendTransport'
-import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../app/session/currentFarm'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from './currentFarm'
 import { userFacingError } from '../../shared/api/userFacingError'
-import { useAuth } from '../authentication'
+import { useAuth } from '../../features/authentication'
+import type { AppRole } from '../../features/authorization'
 import { demo } from '../../demo/demoModules'
-import { markOwnerRegistrationCompleted, SessionContext, type AppRole, type Session, type SessionUser } from './sessionContext'
-
-export const OWNER_REGISTRATION_COMPLETED_EVENT = 'beefcare:owner-registration-completed'
+import { markOwnerRegistrationCompleted, SessionContext, type Session, type SessionUser } from './sessionContext'
+import { OWNER_REGISTRATION_COMPLETED_EVENT } from './sessionLifecycle'
 
 const PLATFORM_ROLES: readonly string[] = ['CS', 'PM', 'SA']
 const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']

@@ -40,7 +40,7 @@ import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'

@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Note } from '../../../shared/ui'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import HistoryPage from './HistoryPage'
 import RenewPage from './RenewPage'
 import SubscriptionHomePage from './SubscriptionHomePage'

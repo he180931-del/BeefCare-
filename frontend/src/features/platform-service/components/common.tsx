@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { Badge, type BadgeTone, Field, inputCls, Textarea } from '../../../shared/ui'
 import type { IconName } from '../../../shared/ui'
 import { SERVICE_STATUS_VIEW } from '../../farm-workspace'

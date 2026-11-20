@@ -5,7 +5,7 @@ import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, P
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { InviteDialog } from '../components/InviteDialog'
 import { MemberChangeDialog } from '../components/MemberChangeDialog'

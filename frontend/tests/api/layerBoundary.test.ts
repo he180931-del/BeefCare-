@@ -65,9 +65,32 @@ test('a feature reaches another feature only through its public index', () => {
   assert.deepEqual(violations, [])
 })
 
+// Refactor phase 4b: the session (who is signed in, the tab's farm, sign-out and expiry) belongs to the app. Features
+// use the app only through its layouts and these session modules; the provider, routes and the rest are the app's own.
+const FEATURE_APP_IMPORTS = new Set([
+  'app/layouts/FarmPlatformLayout', 'app/layouts/TechnicianLayout',
+  'app/session/currentFarm', 'app/session/sessionContext', 'app/session/sessionLifecycle',
+])
+
+test('features reach the app only through its layouts and the public session modules', () => {
+  const violations = sourceFiles('features').flatMap((file) => importTargets(file)
+    .filter((target) => target.startsWith('app/') && !FEATURE_APP_IMPORTS.has(target))
+    .map((target) => `${file} -> ${target}`))
+  assert.deepEqual(violations, [])
+})
+
+test('authentication, authorization and farm-workspace meet through the session, not through each other', () => {
+  const edges = (from: string, to: string) => sourceFiles(`features/${from}`).flatMap((file) => importTargets(file)
+    .filter((target) => target === `features/${to}` || target.startsWith(`features/${to}/`))
+    .map((target) => `${file} -> ${target}`))
+  // Sign-in knows nothing of roles or farms; role policy knows nothing of the farm workspace.
+  assert.deepEqual([...edges('authentication', 'authorization'), ...edges('authentication', 'farm-workspace'), ...edges('authorization', 'farm-workspace')], [])
+  assert.equal(existsSync(join(srcDir, 'app/session/selectedFarm.ts')), false, 'the farm is kept per tab in app/session/currentFarm')
+})
+
 test('the entry stays thin and the route table, providers and layouts live in app', () => {
   assert.equal(readFileSync(join(srcDir, 'main.tsx'), 'utf8').trim(), "import './app/bootstrap'")
-  for (const path of ['app/bootstrap.tsx', 'app/routes/AppRoutes.tsx', 'app/providers/AppProviders.tsx', 'app/layouts/FarmPlatformLayout.tsx', 'app/layouts/TechnicianLayout.tsx', 'app/session/currentFarm.ts', 'app/session/sessionLifecycle.ts', 'app/styles/index.css']) {
+  for (const path of ['app/bootstrap.tsx', 'app/routes/AppRoutes.tsx', 'app/providers/AppProviders.tsx', 'app/layouts/FarmPlatformLayout.tsx', 'app/layouts/TechnicianLayout.tsx', 'app/session/currentFarm.ts', 'app/session/sessionContext.ts', 'app/session/SessionProvider.tsx', 'app/session/sessionLifecycle.ts', 'app/styles/index.css']) {
     assert.equal(existsSync(join(srcDir, path)), true, `missing ${path}`)
   }
   assert.equal(existsSync(join(srcDir, 'pages')), false, 'feature screens belong to features/<feature>/pages')

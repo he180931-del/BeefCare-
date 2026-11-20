@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { readCurrentFarmId } from '../../app/session/currentFarm'
-import { homePathFor, isFarmRole, needsOwnerRegistration, useSession, type AppRole } from './sessionContext'
+import { useSession } from '../../app/session/sessionContext'
+import { homePathFor, isFarmRole, needsOwnerRegistration, type AppRole } from './roles'
 
 /** Chỉ ẩn màn hình theo vai trò để điều hướng đúng; quyền thật vẫn do backend kiểm tra trên từng lệnh. */
 export function RoleGate({ allow, children }: { allow: readonly AppRole[]; children: ReactNode }) {

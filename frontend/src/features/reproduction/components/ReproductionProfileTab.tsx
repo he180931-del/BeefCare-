@@ -5,7 +5,8 @@ import { reproductionApi } from '../api/reproductionApi'
 import { resolveReproductionSource } from '../api/reproductionBackend'
 import { ReproductionOptionsProvider } from './reproductionOptions'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { canRecordCare, useSession } from '../../authorization'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import {
   ACTION_FOR_MODAL, MODAL_FOR_ACTION, actionsForStatus, formatDate, isDueSoon, primaryActionFor, type ReproductionAction,
 } from '../domain/reproductionRules'

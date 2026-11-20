@@ -1,4 +1,4 @@
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 
 /** Chủ trại và Quản lý được sửa; vai trò khác (nếu có vào được) chỉ xem. Không có phiên thì coi như Chủ trại. */
 export function useCanEdit(): boolean {

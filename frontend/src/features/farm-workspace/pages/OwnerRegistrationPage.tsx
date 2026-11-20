@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Field, Foot, inputCls, Note } from '../../../shared/ui'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { OWNER_REGISTRATION_COMPLETED_EVENT, useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
+import { notifyOwnerRegistrationCompleted } from '../../../app/session/sessionLifecycle'
 import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import SetupLayout from '../components/SetupLayout'
 import { farmWorkspaceError, FieldError, Stepper } from '../components/WorkspaceUi'
@@ -36,7 +37,7 @@ export default function OwnerRegistrationPage() {
     setSaving(true); setError(null)
     try {
       await farmWorkspaceApi.completeOwnerRegistration(form)
-      window.dispatchEvent(new Event(OWNER_REGISTRATION_COMPLETED_EVENT))
+      notifyOwnerRegistrationCompleted()
       navigate('/dang-ky-trai', { replace: true })
     }
     catch (reason) { setError(farmWorkspaceError(reason, 'Không thể lưu hồ sơ lúc này.')) }

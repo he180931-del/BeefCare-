@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { PageHeader, Segmented } from '../../../shared/ui'
 
 export const TABS = [

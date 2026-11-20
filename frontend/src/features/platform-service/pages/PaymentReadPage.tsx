@@ -6,7 +6,7 @@ import EvidenceActions, { type ActionDraft } from '../components/EvidenceActions
 import SePayLookup from '../components/SePayLookup'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { CONFIRMATION_SOURCE_TEXT, MATCH_TEXT, REVIEW_TEXT, platformPaymentReadApi as api, reasonText, type EvidenceReadFilters, type EvidenceRow, type PaymentRead, type PaymentReadFilters, type ReadPage } from '../api/platformPaymentReadApi'
 import { fmtDate, fmtEndDate, fmtSeconds, fmtVnd } from '../domain/dates'
 import { PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE } from '../domain/reconciliation'

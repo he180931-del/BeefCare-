@@ -8,7 +8,7 @@
  */
 import * as account from '../features/account/data/accountDemoStore'
 import * as demoUsers from '../features/authentication/data/demoUsers'
-import type { SessionUser } from '../features/authorization'
+import type { SessionUser } from '../app/session/sessionContext'
 import * as mockAuth from '../features/authentication/data/mockAuthClient'
 import * as announcements from '../features/farm-announcements/data/announcementsDemoStore'
 import * as catalogue from '../features/farm-catalogue/data/catalogueDemoStore'

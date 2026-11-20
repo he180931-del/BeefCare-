@@ -1,29 +1,8 @@
-import { createContext, useContext } from 'react'
+import { useSession, type SessionUser } from '../../app/session/sessionContext'
 
 export type FarmRole = 'OWNER' | 'MANAGER' | 'TECHNICIAN'
 export type PlatformRole = 'CS' | 'PM' | 'SA'
 export type AppRole = FarmRole | PlatformRole
-
-export interface SessionUser {
-  /** ID tài khoản do backend cấp; dùng cho các kiểm tra quyền theo người được giao. */
-  id?: number
-  role: AppRole
-  fullName: string
-  email: string
-  farmId: number | null
-  farmName: string | null
-  /** Server-authoritative onboarding and membership facts used only for initial routing. */
-  ownerRegistrationCompleted?: boolean
-  platformRole?: PlatformRole | null
-  activeFarmCount?: number
-}
-
-export type Session = SessionUser & { logout: () => Promise<void> }
-
-export const SessionContext = createContext<Session | null>(null)
-
-/** Null khi trang được render ngoài `SessionProvider` (vd. test từng trang): khi đó không áp quyền theo vai trò. */
-export const useSession = () => useContext(SessionContext)
 
 /**
  * GBR-08, GBR-102, D41: Chủ trại và Quản lý ghi, sửa, hủy dữ liệu chăm sóc, sinh sản và sổ cho ăn; Kỹ thuật viên chỉ xem.
@@ -43,9 +22,6 @@ export const useCanRecordCare = (): boolean => {
  */
 export const needsOwnerRegistration = (session: SessionUser | null | undefined): boolean =>
   session?.ownerRegistrationCompleted === false && session.farmId == null && !session.platformRole
-
-/** Optimistic session update after the server accepts the Owner profile form. */
-export const markOwnerRegistrationCompleted = <T extends SessionUser>(session: T): T => ({ ...session, ownerRegistrationCompleted: true })
 
 const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
 export const isFarmRole = (role: AppRole): role is FarmRole => FARM_ROLES.includes(role)

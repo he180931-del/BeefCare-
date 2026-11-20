@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Badge } from '../../../shared/ui'
-import { useSession } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { supportApi } from '../api/supportApi'
 import { PRIORITY_LABEL, STATUS_LABEL, initials } from '../domain/supportRules'
 import type { Actor, TicketPriority, TicketStatus } from '../types'

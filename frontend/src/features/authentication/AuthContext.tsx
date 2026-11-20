@@ -6,7 +6,7 @@ import { userFacingError } from '../../shared/api/userFacingError'
 import { defaultAuthClient } from './client'
 import { GuestAuthFlow } from './pages/GuestAuthFlow'
 import { takeInvitationLink } from './invitationReturn'
-import { clearSelectedFarmOnDevice } from '../../app/session/selectedFarm'
+import { clearCurrentFarmId } from '../../app/session/currentFarm'
 import type { AuthClient } from './types'
 import { AUTH_PATH } from './domain/authErrors'
 
@@ -34,7 +34,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
   const [error, setError] = useState<string | null>(null)
   const hasRouter = useInRouterContext()
   const expireSession = useCallback(() => {
-    clearSelectedFarmOnDevice()
+    clearCurrentFarmId()
     setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
     setStatus('anonymous')
   }, [])
@@ -68,7 +68,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       } catch {
         logoutFailed = true
       }
-      clearSelectedFarmOnDevice()
+      clearCurrentFarmId()
       setError(logoutFailed
         ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa; bạn có thể đăng nhập lại.'
         : null)
