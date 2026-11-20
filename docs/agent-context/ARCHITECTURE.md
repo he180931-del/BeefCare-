@@ -45,8 +45,11 @@ herd entry, herd exit, cattle and pen management (`FEATURE_*.md`).
 Neutral infrastructure lives in `frontend/src/shared/` (HTTP client and
 transport, runtime config, date/format helpers, generic hooks, UI primitives,
 assets). App composition lives in `frontend/src/app/`: routes
-(`app/routes/AppRoutes.tsx`), providers, layouts and the tab's active farm and
-session events (`app/session/`). Demo data (`npm run dev:mock`, tests) enters only through
+(`app/routes/AppRoutes.tsx`), providers, layouts and the session (`app/session/`: the
+signed-in user `sessionContext` / `SessionProvider`, the tab's farm `currentFarm`, sign-out and expiry
+`sessionLifecycle`). Features use the app only through the layouts and those three session modules
+(`SessionProvider` is mounted by `app/providers`); `features/authorization` keeps the gates, roles and
+role policy. Demo data (`npm run dev:mock`, tests) enters only through
 `frontend/src/demo/demoModules.ts`; production builds replace it with
 `src/demo/noDemo.ts`. The legacy `api/`, `components/`, `data/` and `types.ts`
 only keep the leftovers listed with their reason in
