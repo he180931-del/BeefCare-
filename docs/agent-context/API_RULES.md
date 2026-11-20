@@ -35,10 +35,16 @@ The farm of every farm-scoped request is `activeFarmId`
 this browser tab (UC-FE02-02), read once per page load. There is no configured
 or default farm. Farm screens are wrapped in `RequireFarm`
 (`app/routes/RequireFarm.tsx`), which opens Select Farm when the tab has no farm
-and comes back to the requested screen once a farm is entered (router state
-`returnTo`, in-app paths only; the only ACTIVE farm opens directly, AF4). The
-Owner pages reached from Select Farm may name the farm in the address with
-`?farm=` / `?farmId=`; the account pages (`/ho-so`, `/kt/tai-khoan`) need no farm. `transport.farmPath(null, ...)` builds a path the client
+and comes back to the requested section once a farm is entered (router state
+`returnTo`, in-app paths only; the only ACTIVE farm opens directly, AF4, and
+leaves no history entry). `returnTo` keeps the section, never a record
+(`/cattle/BC-1` → `/cattle`, query dropped): the address names no farm and
+codes are unique only within a farm. `RequireFarm` runs before `RoleGate`; the
+role checked is the one in the farm of the page (`roleInFarm`, from the
+profile's farm list), never the account's strongest role. The Owner pages
+reached from Select Farm may name the farm in the address with `?farm=` /
+`?farmId=`; a farm that is not ACTIVE is never kept as the tab's farm. The
+account pages (`/ho-so`, `/kt/tai-khoan`) need no farm. `transport.farmPath(null, ...)` builds a path the client
 refuses with `NoActiveFarmError` before anything is sent. Keep numeric internal
 IDs separate from display codes such as cattle and voucher codes.
 
