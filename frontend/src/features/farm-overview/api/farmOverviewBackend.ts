@@ -147,6 +147,11 @@ function reminderSourceAction(rule: string, sourceType: string | null, sourceId:
   return { to: null, openLabel: null }
 }
 
+/** Mã enum backend xuất hiện trong báo cáo (EntrySource, ExitType) → chữ hiển thị, cùng chữ với màn Nhập đàn / Xuất đàn. */
+const REPORT_ENUM_LABEL: Record<string, string> = {
+  EXTERNAL: 'Mua ngoài', FARM_BORN: 'Bê sinh tại trại', SALE: 'Bán', CULL: 'Loại thải', DEATH: 'Chết / mất', OTHER: 'Khác', UNKNOWN: 'Chưa rõ',
+}
+
 const labelForKey = (key: string) => ({
   headAtEnd: 'Số bò cuối kỳ', entriesInPeriod: 'Nhập đàn trong kỳ', exitsInPeriod: 'Xuất đàn trong kỳ', entriesBySource: 'Nhập đàn theo nguồn', exitsByType: 'Xuất đàn theo loại', closedCasesByOutcome: 'Ca đóng theo kết quả',
   validWeighings: 'Lượt cân hợp lệ', averageGroupWeightKg: 'Cân trung bình theo nhóm', estimatedWeightCount: 'Lượt cân ước tính', averageADGKgPerDay: 'Tăng trọng bình quân ngày (kg/ngày)',
@@ -161,11 +166,11 @@ const labelForKey = (key: string) => ({
   planned: 'Kế hoạch', done: 'Đã tiêm', deferred: 'Hoãn', overdue: 'Quá hạn', cancelled: 'Đã hủy',
   feedKgPerGain: 'Thức ăn trên mỗi kg tăng (kg/kg)', feedCostPerGain: 'Chi phí thức ăn trên mỗi kg tăng (đ/kg)',
   count: 'Số con',
-  recordsWithoutWeight: 'Bản ghi VALID thiếu trọng lượng', estimatedCount: 'Lượt cân ước tính', estimatedShare: 'Tỷ lệ cân ước tính',
+  recordsWithoutWeight: 'Bản ghi hợp lệ thiếu trọng lượng', estimatedCount: 'Lượt cân ước tính', estimatedShare: 'Tỷ lệ cân ước tính',
   adgKgPerDay: 'ADG (kg/ngày)', adgSampleSize: 'Số bò có ADG',
   averageStartWeightKg: 'Cân đầu kỳ (kg)', averageEndWeightKg: 'Cân cuối kỳ (kg)', totalGainKg: 'Tổng tăng trọng (kg)', averageAdgKgPerDay: 'ADG (kg/ngày)', feedUsedKg: 'Thức ăn đã dùng (kg)',
   feedPerKgGain: 'Thức ăn trên mỗi kg tăng (kg/kg)', feedCostPerKgGain: 'Chi phí thức ăn trên mỗi kg tăng (đ/kg)', targetReached: 'Đạt cân mục tiêu', projectedDaysToTarget: 'Số ngày dự kiến đến mục tiêu',
-}[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (first) => first.toUpperCase()))
+}[key] ?? REPORT_ENUM_LABEL[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (first) => first.toUpperCase()))
 
 const formatValue = (value: unknown): string => {
   if (value == null) return 'Chưa có dữ liệu'
@@ -181,6 +186,8 @@ function flattenSummary(summary: Record<string, unknown>): ReportView['tiles'] {
   const tiles: ReportView['tiles'] = []
   const visit = (key: string, value: unknown, parent = '') => {
     const label = [parent, labelForKey(key)].filter(Boolean).join(' · ')
+    // Danh sách chi tiết (vd. overdueFemales.items: các con quá hạn) không phải chỉ số: không thành một ô trống.
+    if (Array.isArray(value) && (value.length === 0 || value.some((item) => item !== null && typeof item === 'object'))) return
     if (value == null || typeof value !== 'object' || Array.isArray(value)) {
       tiles.push({ label, value: formatValue(value), note: value == null ? 'Chưa có dữ liệu' : '' })
       return
@@ -216,7 +223,7 @@ function labelForRow(row: Record<string, unknown>) {
   const value = textValue(row.value)
   if (dimension && value) {
     const dimensionLabel = ({ herdGroup: 'Nhóm đàn', pen: 'Chuồng', breed: 'Giống', purpose: 'Mục đích', lifeStage: 'Giai đoạn', schedule: 'Lịch tiêm', onFarmVaccine: 'Vắc-xin tại trại', caseOutcome: 'Kết quả ca', severity: 'Mức độ', treatmentMedicine: 'Thuốc điều trị', eventTypeAndResult: 'Sự kiện sinh sản', entrySource: 'Nguồn nhập đàn', exitType: 'Loại xuất đàn', penMoveTo: 'Chuồng chuyển đến' } as Record<string, string>)[dimension] ?? labelForKey(dimension)
-    const displayValue = fromBackendGroup[value] ? HERD_GROUP_LABEL[fromBackendGroup[value]!] : value
+    const displayValue = fromBackendGroup[value] ? HERD_GROUP_LABEL[fromBackendGroup[value]!] : REPORT_ENUM_LABEL[value] ?? value
     return `${dimensionLabel}: ${displayValue}`
   }
   const group = textValue(row.group)
@@ -235,6 +242,7 @@ function formatReportDimension(value: string) {
   const group = fromBackendGroup[value]
   if (group) return HERD_GROUP_LABEL[group]
   if (Object.hasOwn(LIFE_STAGE_LABEL, value)) return LIFE_STAGE_LABEL[value as keyof typeof LIFE_STAGE_LABEL]
+  if (Object.hasOwn(REPORT_ENUM_LABEL, value)) return REPORT_ENUM_LABEL[value]
   return value
 }
 

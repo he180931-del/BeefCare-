@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, PageHeader, Segmented, Select } from '../../../shared/ui'
+import { Button, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, PageHeader, Panel, Segmented, Select } from '../../../shared/ui'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
 import { farmOverviewApi } from '../api/farmOverviewApi'
@@ -43,12 +43,12 @@ export default function ManagementReportPage() {
 
   return (
     <Layout title={TITLE}>
-      <div className="flex flex-col gap-4">
+      <div className="@container flex min-w-0 flex-col gap-4">
         <PageHeader title="Báo cáo quản lý" sub="Chọn loại báo cáo, kỳ và bộ lọc để xem kết quả theo chuồng.">
           <Button onClick={() => window.print()}><Icon name="printer" size={16} /> In / xuất</Button>
         </PageHeader>
 
-        <Card title="Tiêu chí báo cáo">
+        <Panel title="Tiêu chí báo cáo">
           <div className="flex flex-col gap-4">
             <Field label="Loại báo cáo *">
               <div className="overflow-x-auto">
@@ -58,9 +58,9 @@ export default function ManagementReportPage() {
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Kỳ báo cáo *" hint={periodError ? <span role="alert" className="text-err-fg">{periodError}</span> : undefined}>
                 <div className="flex items-center gap-2">
-                  <DateInput id="rpt-from" value={draft.dateFrom} onChange={(v) => set({ dateFrom: v })} className="w-[150px]" />
+                  <DateInput id="rpt-from" value={draft.dateFrom} onChange={(v) => set({ dateFrom: v })} className="w-[150px] min-w-0" />
                   <span className="text-muted">–</span>
-                  <DateInput id="rpt-to" value={draft.dateTo} onChange={(v) => set({ dateTo: v })} className="w-[150px]" />
+                  <DateInput id="rpt-to" value={draft.dateTo} onChange={(v) => set({ dateTo: v })} className="w-[150px] min-w-0" />
                 </div>
               </Field>
               {shows('pen') && (
@@ -95,11 +95,11 @@ export default function ManagementReportPage() {
                   </Select>
                 </Field>
               )}
-              <Button variant="primary" onClick={submit}>Xem báo cáo</Button>
+              <Button variant="primary" className="min-h-11" onClick={submit}>Xem báo cáo</Button>
             </div>
             {shows('breed') && Boolean(breeds.error) && <p role="alert" className="m-0 text-xs text-err-fg">{userFacingError(breeds.error, 'Không tải được danh sách giống.')}</p>}
           </div>
-        </Card>
+        </Panel>
 
         {report.loading && !report.data && <LoadingBlock />}
         {Boolean(report.error) && <ErrorBlock message={userFacingError(report.error, 'Không tính được số liệu.')} onRetry={report.refetch} />}

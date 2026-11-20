@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, ErrorBlock, Foot, Icon, inputCls, PageHeader, Pagination, Select, Table } from '../../../shared/ui'
+import { Button, ErrorBlock, Foot, Icon, inputCls, PageHeader, Pagination, Panel, Select, Table } from '../../../shared/ui'
 import { dm } from '../../../shared/lib/format'
 import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
 import { listBarns, listBreeds, listCows, listCowsPage, listPurposes, localCattleList } from '../api/cattleApi'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { Chip, Panel, Th, Td, chipIcon } from '../components/parts'
+import { Chip, Th, Td, chipIcon } from '../components/parts'
 import type { StatusChip } from '../types'
 import type { CowSeed, groupCount } from '../../../data/cowsData'
 
@@ -23,7 +23,7 @@ const TAB_HERD_GROUP = Object.fromEntries(Object.entries(GROUP_TAB).map(([group,
 const STATUS_OPTIONS = [['ACTIVE', 'Đang nuôi'], ['EXIT_PENDING', 'Chờ xuất'], ['EXITED', 'Đã xuất'], ['VOIDED', 'Đã hủy'], ['ALL', 'Tất cả']] as const
 const HEALTH_OPTIONS = [['HEALTHY', 'Khỏe'], ['MONITORING', 'Theo dõi'], ['UNDER_TREATMENT', 'Đang điều trị'], ['MEAT_WITHDRAWAL', 'Ngưng sử dụng thịt']] as const
 const LOCAL_HEALTH: Record<string, string> = { HEALTHY: 'Khỏe', MONITORING: 'Theo dõi', UNDER_TREATMENT: 'Đang điều trị' }
-const SELECT_CLS = 'w-[calc(50%-5px)] sm:w-[170px] [&_select]:!leading-[normal]'
+const SELECT_CLS = 'col-span-2 min-w-0 [&_select]:!leading-[normal]'
 const SORT_FIELDS = {
   displayCode: ['Mã bò', (cow: CowSeed) => cow.code],
   name: ['Tên bò', (cow: CowSeed) => cow.name],
@@ -239,20 +239,20 @@ export default function CowList() {
 
   return (
     <Layout title="Đàn bò – Danh sách" user="manager">
-      <div className="flex flex-col gap-5 leading-[normal]">
+      <div className="@container flex min-w-0 flex-col gap-5 leading-[normal]">
         <PageHeader title="Đàn bò" sub={`${initialLoad ? '…' : total} con đang nuôi · ${exportedTotal} con đã xuất đàn`}>
           <Button className="gap-1.5 leading-[normal]" onClick={() => nav('/quet-qr')}><Icon name="qrcode" />Quét QR</Button>
           {canEnter && <Button variant="primary" className="gap-1.5 leading-[normal]" onClick={() => nav('/herd-entry/new', { state: { from: '/cattle' } })}><Icon name="circle-plus" />Nhập đàn</Button>}
         </PageHeader>
 
-        <div className="flex flex-wrap gap-2.5">
+        <section aria-label="Bộ lọc đàn bò" className="grid grid-cols-4 gap-3 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12">
           <input
             ref={searchRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Mã hiển thị, số tai, tên gọi…"
             aria-label="Tìm bò"
-            className={`${inputCls} w-full !leading-[normal] sm:w-[300px]`}
+            className={`${inputCls} col-span-4 min-w-0 !leading-[normal]`}
           />
           {filterSelect('Giống', breed, setBreed, breedOptions)}
           {filterSelect('Giới tính', sex, setSex, sexOptions)}
@@ -261,21 +261,22 @@ export default function CowList() {
           {filterSelect('Mục đích', purpose, setPurpose, purposeOptions)}
           {filterSelect('Sức khỏe', health, setHealth, HEALTH_OPTIONS.map(([v, t]) => [v, t]))}
           {filterSelect('Dữ liệu cân', weightFilter, (value) => { setPage(0); setWeightFilter(value) }, [['yes', 'Có số cân'], ['no', 'Chưa có số cân']])}
-          <Select className="w-[calc(50%-5px)] sm:w-[230px] [&_select]:!leading-[normal]" aria-label="Trạng thái đàn" value={status} onChange={(e) => onStatus(e.target.value)}>
+          <Select className={`${SELECT_CLS} @min-[640px]:col-span-3`} aria-label="Trạng thái đàn" value={status} onChange={(e) => onStatus(e.target.value)}>
             {STATUS_OPTIONS.map(([v, text]) => <option key={v} value={v}>Trạng thái đàn: {text}</option>)}
           </Select>
-          <Select className="w-[calc(50%-5px)] sm:w-[230px] [&_select]:!leading-[normal]" aria-label="Sắp xếp" value={sort} onChange={(e) => changeSort(e.target.value)}>
+          <Select className={`${SELECT_CLS} @min-[640px]:col-span-3`} aria-label="Sắp xếp" value={sort} onChange={(e) => changeSort(e.target.value)}>
             {SORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>Sắp xếp: {label}</option>)}
           </Select>
-        </div>
+        </section>
 
-        <div className="flex max-w-full flex-wrap gap-[3px] self-start rounded-[5px] bg-chip p-[3px]">
+        <div role="group" aria-label="Nhóm đàn" className="flex max-w-full flex-wrap gap-1 self-start rounded-lg bg-chip p-1">
           {tabs.map(([v, label]) => (
             <button
               key={v}
               type="button"
+              aria-pressed={v === tab}
               onClick={() => onTab(v)}
-              className={`cursor-pointer rounded border px-3.5 py-[7px] text-xs leading-[normal] ${
+              className={`cursor-pointer rounded-md border px-2.5 py-[7px] text-xs leading-[normal] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand @min-[1024px]:px-3.5 ${
                 v === tab ? 'border-faint bg-white font-semibold text-[#212121]' : 'border-transparent text-muted'
               }`}
             >
@@ -287,8 +288,8 @@ export default function CowList() {
         {listQuery.error ? (
           <ErrorBlock message="Không tải được danh sách đàn bò." onRetry={listQuery.refetch} />
         ) : (
-          <Panel pad="p-2" gap="gap-0">
-            <Table wide>
+          <Panel className="overflow-hidden p-2! gap-0!">
+            <Table wide bordered={false}>
               <thead>
                 <tr className="bg-chip">
                   {sortableHeader('displayCode', 'Bò', 'w-[150px]')}

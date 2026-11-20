@@ -15,6 +15,9 @@ export function FeedStockSummary({ rows, headCount }: { rows: readonly FeedStock
   const averageDailyUse = rows?.reduce((total, row) => total + row.averageDailyUseKg, 0)
   const activeRows = rows?.filter((row) => row.available !== false)
   const lowRows = activeRows?.filter((row) => row.status === 'LOW' || row.status === 'OUT_OF_STOCK')
+  // Khối nổi bật của màn tồn kho là việc cần xử lý (docs/BeefCare-Bento-Grid.md §1, §3): đỏ khi có mặt hàng đã hết,
+  // vàng khi chỉ sắp hết, trắng khi không có gì cần nhập thêm.
+  const lowTone = lowRows?.some((row) => row.status === 'OUT_OF_STOCK') ? 'err' : lowRows?.length ? 'warn' : 'default'
   const groupNote = activeRows?.length
     ? GROUP_BUCKETS.map(([label, groups]) => [label, activeRows.filter((row) => groups.includes(row.group)).length] as const)
       .filter(([, count]) => count > 0).map(([label, count]) => `${label} ${count}`).join(' · ')
@@ -24,16 +27,17 @@ export function FeedStockSummary({ rows, headCount }: { rows: readonly FeedStock
     : 'Chưa có số liệu theo đầu bò'
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric compact label="Thức ăn đang dùng" value={activeRows === undefined ? '—' : activeRows.length} sub={activeRows === undefined ? 'Chưa tải được danh mục' : groupNote} />
+    <section aria-label="Chỉ số tồn kho" className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
       <Metric
-        compact
+        surface="panel"
+        tone={lowTone}
         label="Sắp hết / hết"
         value={lowRows === undefined ? '—' : <span className={lowRows.length ? 'text-err-fg' : undefined}>{lowRows.length}</span>}
         sub={lowRows === undefined ? 'Chưa tải được danh mục' : lowRows.length ? lowRows.map((row) => row.name).join(' · ') : 'Không có thức ăn sắp hết'}
       />
-      <Metric compact label="Giá trị tồn kho" value={stockValue === undefined ? '—' : formatVnd(stockValue)} sub={stockValue === undefined ? 'Chưa tải được dữ liệu' : 'Theo giá nhập bình quân'} />
-      <Metric compact label="Tiêu thụ TB 7 ngày" value={averageDailyUse === undefined ? '—' : `${formatNumber(averageDailyUse, 0)} kg/ngày`} sub={averageDailyUse === undefined ? 'Chưa tải được dữ liệu' : perHead} />
-    </div>
+      <Metric compact surface="panel" label="Thức ăn đang dùng" value={activeRows === undefined ? '—' : activeRows.length} sub={activeRows === undefined ? 'Chưa tải được danh mục' : groupNote} />
+      <Metric compact surface="panel" label="Giá trị tồn kho" value={stockValue === undefined ? '—' : formatVnd(stockValue)} sub={stockValue === undefined ? 'Chưa tải được dữ liệu' : 'Theo giá nhập bình quân'} />
+      <Metric compact surface="panel" label="Tiêu thụ TB 7 ngày" value={averageDailyUse === undefined ? '—' : `${formatNumber(averageDailyUse, 0)} kg/ngày`} sub={averageDailyUse === undefined ? 'Chưa tải được dữ liệu' : perHead} />
+    </section>
   )
 }

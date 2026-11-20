@@ -463,10 +463,36 @@ describe('backend mode', () => {
     })
   })
 
+  it('names entry sources and exit types instead of showing backend enum codes (RPT-01)', async () => {
+    const report = {
+      reportType: 'RPT-01', from: '2026-10-22', to: '2026-11-20', generatedAt: '2026-11-20T13:17:00Z',
+      summary: { headAtEnd: 2, entriesBySource: { EXTERNAL: 1, FARM_BORN: 2 }, exitsByType: { SALE: 1, CULL: 1, DEATH: 1, OTHER: 1 } },
+      rows: [{ dimension: 'entrySource', value: 'EXTERNAL', count: 1 }], totalRow: null, chart: null, unavailableData: [],
+      sections: [{
+        key: 'entrySource', title: 'Nhập đàn theo nguồn', rowHeading: 'Nguồn nhập',
+        rows: [{ label: 'EXTERNAL', count: 1 }, { label: 'FARM_BORN', count: 2 }],
+        totalRow: { label: 'Tổng (lượt)', cells: { count: 3 } },
+      }],
+    }
+    const { api } = backend(
+      { '/context': contextBody, '/pens': penBody, '/catalogues/breeds': [] },
+      { '/dashboard/reports': report },
+    )
+
+    const view = await api.runReport({ ...rpt05, reportType: 'RPT-01' }, 'OWNER')
+
+    expect(view.tiles.map((tile) => tile.label)).toEqual([
+      'Số bò cuối kỳ', 'Nhập đàn theo nguồn · Mua ngoài', 'Nhập đàn theo nguồn · Bê sinh tại trại',
+      'Xuất đàn theo loại · Bán', 'Xuất đàn theo loại · Loại thải', 'Xuất đàn theo loại · Chết / mất', 'Xuất đàn theo loại · Khác',
+    ])
+    expect(view.sections?.[0].rows.map((row) => row.label)).toEqual(['Mua ngoài', 'Bê sinh tại trại'])
+    expect(view.rows[0].label).toBe('Nguồn nhập đàn: Mua ngoài')
+  })
+
   it('maps the RPT-05 tracked female status tile and breakdown section', async () => {
     const report = {
       reportType: 'RPT-05', from: '2026-10-01', to: '2026-10-28', generatedAt: '2026-11-16T04:00:00Z',
-      summary: { trackedFemales: 3 }, rows: [], totalRow: null, chart: null, unavailableData: [],
+      summary: { trackedFemales: 3, overdueFemales: { count: 0, items: [] } }, rows: [], totalRow: null, chart: null, unavailableData: [],
       sections: [{
         key: 'trackedFemalesByStatus', title: 'Bò cái theo dõi theo trạng thái sinh sản', rowHeading: 'Trạng thái sinh sản',
         rows: [
@@ -484,6 +510,8 @@ describe('backend mode', () => {
     const view = await api.runReport(rpt05, 'OWNER')
 
     expect(view.tiles).toContainEqual({ label: 'Bò cái theo dõi', value: '3', note: '' })
+    // The overdue list itself is detail, not an indicator: only its count becomes a tile.
+    expect(view.tiles.map((tile) => tile.label)).toEqual(['Bò cái theo dõi', 'Cái quá hạn thụ thai · Số con'])
     expect(view.sections?.[0]).toMatchObject({
       key: 'trackedFemalesByStatus', rowHeading: 'Trạng thái sinh sản',
       columns: [{ key: 'count', label: 'Số con' }],

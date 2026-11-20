@@ -19,7 +19,7 @@ function equivalent(row: FeedStockRow) {
 export default function FeedStockTable({ rows, onView }: { rows: readonly FeedStockRow[]; onView?: (row: FeedStockRow) => void }) {
   const navigate = useNavigate()
   return (
-    <Table scroll stack={false}>
+    <Table scroll stack={false} bordered={false}>
       <thead>
         <tr>
           <Th>Mã</Th>
@@ -52,9 +52,9 @@ export default function FeedStockTable({ rows, onView }: { rows: readonly FeedSt
               <Td className="whitespace-nowrap">{row.minimumStockKg === null ? '—' : formatKg(row.minimumStockKg)}</Td>
               <Td className="whitespace-nowrap">{formatKg(row.averageDailyUseKg)}</Td>
               <Td className="whitespace-nowrap">{formatDaysOfCover(row.daysOfCover)}</Td>
-              <Td className="whitespace-nowrap">
+              <Td className="min-w-[110px]">
                 {row.nearestLotExpiryDate
-                  ? <><div className="font-medium">{row.nearestLotNumber ?? 'Lô gần hạn'}</div><div className="text-[11px] text-muted">Hạn trên phiếu đã ghi: {formatDate(row.nearestLotExpiryDate)}</div></>
+                  ? <><div className="font-medium">{row.nearestLotNumber ?? 'Lô gần hạn'}</div><div className="text-[11px] leading-snug text-muted">Hạn trên phiếu đã ghi: {formatDate(row.nearestLotExpiryDate)}</div></>
                   : '—'}
               </Td>
               <Td>
