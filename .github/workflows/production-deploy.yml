@@ -1,0 +1,124 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Run CI gates
+    uses: ./.github/workflows/ci.yml
+
+  railway:
+    name: Deploy backend to Railway
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+
+      - name: Validate Railway secrets
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          test -n "$RAILWAY_TOKEN" || { echo "Missing RAILWAY_TOKEN"; exit 1; }
+          test -n "$RAILWAY_SERVICE_ID" || { echo "Missing RAILWAY_SERVICE_ID"; exit 1; }
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli@5.75.0
+
+      - name: Deploy backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: >-
+          railway up ./backend
+          --path-as-root
+          --service "$RAILWAY_SERVICE_ID"
+          --environment production
+          --ci
+          --message "GitHub Actions ${GITHUB_SHA}"
+
+      - name: Check backend health
+        if: ${{ vars.RAILWAY_BACKEND_URL != '' }}
+        env:
+          BACKEND_URL: ${{ vars.RAILWAY_BACKEND_URL }}
+        run: >-
+          curl --fail --silent --show-error
+          --retry 12 --retry-delay 10 --retry-all-errors
+          "${BACKEND_URL%/}/management/health"
+
+  vercel:
+    name: Deploy frontend to Vercel
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Validate Vercel secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "Missing VERCEL_TOKEN"; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo "Missing VERCEL_ORG_ID"; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "Missing VERCEL_PROJECT_ID"; exit 1; }
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@66.5.0
+
+      - name: Pull Vercel production settings
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Build frontend for Vercel
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy frontend
+        id: deploy
+        run: |
+          deployment_url="$(vercel deploy --prebuilt --prod --token='${{ secrets.VERCEL_TOKEN }}')"
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $deployment_url"
+
+      - name: Check frontend
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: >-
+          curl --fail --silent --show-error
+          --retry 12 --retry-delay 10 --retry-all-errors
+          "$DEPLOYMENT_URL"
