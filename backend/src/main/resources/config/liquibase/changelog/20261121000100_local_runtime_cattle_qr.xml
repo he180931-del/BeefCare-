@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261121000100-local-runtime-cattle-qr" author="beefcare" context="local or test">
+        <!-- Only the QR reservation survives shutdown. The two demo cattle and their tags are removed. -->
+        <createTable tableName="local_runtime_cattle_qr">
+            <column name="farm_id" type="bigint">
+                <constraints primaryKey="true" primaryKeyName="pk_local_runtime_cattle_qr" nullable="false"/>
+            </column>
+            <column name="tag_code" type="varchar(50)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_local_runtime_cattle_qr_tag"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="local_runtime_cattle_qr" baseColumnNames="farm_id" referencedTableName="farm" referencedColumnNames="id" constraintName="fk_local_runtime_cattle_qr_farm" onDelete="CASCADE"/>
+        <rollback><dropTable tableName="local_runtime_cattle_qr"/></rollback>
+    </changeSet>
+</databaseChangeLog>
