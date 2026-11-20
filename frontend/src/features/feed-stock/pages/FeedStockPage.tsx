@@ -1,16 +1,16 @@
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, Foot, Note, PageHeader, Select, inputCls } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Foot, Icon, type IconName, inputCls, Note, PageHeader, Select } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { getFeedStockUpdatedAt } from '../api/feedMovementApi'
 import { listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
 import { listFeedStock } from '../api/feedStockApi'
-import { filterFeedStock } from '../data/feedStock'
-import { summarizeTodaySessions } from '../data/feedTodayRations'
+import { filterFeedStock } from '../domain/feedStockList'
+import { summarizeTodaySessions } from '../domain/feedTodayRations'
 import { feedGroupLabel, formatDate } from '../domain/feedLabels'
 import type { FeedGroup, FeedStockRow, FeedStockStatus } from '../types'
 import { FeedStockSummary } from '../components/FeedStockSummary'
@@ -24,10 +24,6 @@ const STATUS_LABELS: Record<FeedStockStatus, string> = {
   OUT_OF_STOCK: 'Hết hàng',
 }
 
-const localToday = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
 
 function updatedText(iso: string | null | undefined) {
   const match = iso?.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/)
@@ -57,7 +53,7 @@ export default function FeedStockPage() {
   const updatedQuery = useQuery(() => getFeedStockUpdatedAt().catch(() => null), [])
   // Side data for the quick-action hint and the per-head tile; the page works without it.
   const sideQuery = useQuery(async () => {
-    const date = localToday()
+    const date = businessDate()
     const [pens, rations, records] = await Promise.all([listFeedRationPens(), listFeedRations(), listFeedFeedingRecords({ from: date, to: date })])
     return { pens, headCount: pens.filter((pen) => pen.status === 'ACTIVE').reduce((sum, pen) => sum + pen.headcount, 0), sessions: summarizeTodaySessions({ pens, rations, records, stock: [], date }) }
   }, []).data

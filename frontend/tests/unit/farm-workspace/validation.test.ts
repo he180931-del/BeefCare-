@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation'
+import { describe, expect, it, vi } from 'vitest'
+import { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from '../../../src/features/farm-workspace/validation/workspaceValidation'
 
 describe('farm workspace validation', () => {
   it('requires a valid Owner profile and terms acceptance during onboarding', () => {
@@ -53,6 +53,15 @@ describe('farm workspace validation', () => {
       expect(validateFarmRegistration({ ...farm, province: 'Hà Tây' })).toHaveProperty('province')
       expect(validateFarmRegistration({ ...farm, province: 'TP. Hồ Chí Minh' })).toEqual({})
     })
+
+    it('says "{field} là bắt buộc." (MSG-COM-06) for an empty required field, the length rule only for text that is there', () => {
+      expect(validateFarmRegistration({ name: '', province: '', commune: ' ' })).toEqual({ name: 'Tên trại là bắt buộc.', province: 'Tỉnh/Thành là bắt buộc.', commune: 'Xã/Phường là bắt buộc.' })
+      expect(validateFarmRegistration({ ...farm, name: 'A', province: 'Hà Tây', commune: 'x'.repeat(151) }))
+        .toEqual({ name: 'Tên trại cần có từ 2 đến 150 ký tự.', province: 'Chọn tỉnh hoặc thành phố trong danh sách.', commune: 'Xã/Phường tối đa 150 ký tự.' })
+      // The error names the field with its label on screen ("Thông tin giấy chứng nhận"), not "giấy đăng ký".
+      expect(validateFarmRegistration({ ...farm, registrationCertificateInfo: 'x'.repeat(256) })).toEqual({ registrationCertificateInfo: 'Thông tin giấy chứng nhận tối đa 255 ký tự.' })
+      expect(validateFarmInfo({ name: ' ', province: '', commune: '', timeZone: 'Asia/Ho_Chi_Minh' })).toMatchObject({ name: 'Tên trại là bắt buộc.', province: 'Tỉnh/Thành là bắt buộc.', commune: 'Xã/Phường là bắt buộc.' })
+    })
   })
 
   it('validates invitation email, role and allowed expiry windows', () => {
@@ -60,10 +69,23 @@ describe('farm workspace validation', () => {
     expect(validateInvite({ email: 'manager@beefcare.vn', role: 'MANAGER', validityDays: 7 })).toEqual({})
   })
 
+  it('separates a missing invitation field (MSG-COM-06) from an invalid one (MSG-COM-10) — TC-03-01/02', () => {
+    expect(validateInvite({ email: '   ', validityDays: 7 })).toEqual({ email: 'Email người nhận là bắt buộc.', role: 'Vai trò là bắt buộc.' })
+    expect(validateInvite({ email: 'abc', role: 'OWNER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.', role: 'Chọn Quản lý hoặc Kỹ thuật viên.' })
+    expect(validateInvite({ email: `a@${'x'.repeat(248)}.test`, role: 'MANAGER', validityDays: 7 })).toEqual({ email: 'Nhập địa chỉ email hợp lệ.' })
+  })
+
   it('requires valid member action and prevents future effective dates', () => {
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
-    expect(validateMemberChange({ action: 'CHANGE_ROLE', role: 'TECHNICIAN', effectiveDate: tomorrow, reason: 'Thay đổi phân công' })).toHaveProperty('effectiveDate')
-    expect(validateMemberChange({ action: 'DEACTIVATE', effectiveDate: new Date().toISOString().slice(0, 10), reason: 'Kết thúc hợp đồng' })).toEqual({})
+    expect(validateMemberChange({ action: 'CHANGE_ROLE', role: 'TECHNICIAN', effectiveDate: '2026-11-12', reason: 'Thay đổi phân công' }, '2026-11-11')).toHaveProperty('effectiveDate')
+    expect(validateMemberChange({ action: 'DEACTIVATE', effectiveDate: '2026-11-11', reason: 'Kết thúc hợp đồng' }, '2026-11-11')).toEqual({})
+  })
+
+  it('uses the Vietnam business date for reactivation around midnight, rather than the previous UTC date', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-10T18:00:00Z'))
+    try {
+      expect(validateMemberChange({ action: 'REACTIVATE', effectiveDate: '2026-11-11', reason: 'Tiếp tục công việc' })).toEqual({})
+      expect(validateMemberChange({ action: 'REACTIVATE', effectiveDate: '2026-11-12', reason: 'Tiếp tục công việc' })).toHaveProperty('effectiveDate')
+    } finally { vi.useRealTimers() }
   })
 
   it('caps farm information notes and validates the contact phone when present', () => {
@@ -90,9 +112,9 @@ describe('farm workspace validation', () => {
       expect(validateFarmInfo({ ...info, province: ' Phú Thọ ' })).toEqual({})
     })
 
-    it('Q2 the time zone must be one of the offered UTC+7 zones', () => {
+    it('D39 accepts legacy UTC+7 values', () => {
       expect(validateFarmInfo({ ...info, timeZone: 'Asia/Bangkok' })).toEqual({})
-      expect(validateFarmInfo({ ...info, timeZone: 'Europe/London' })).toEqual({ timeZone: 'Chọn múi giờ trong danh sách.' })
+      expect(validateFarmInfo({ ...info, timeZone: 'Europe/London' })).toEqual({ timeZone: 'Múi giờ phải là UTC+7.' })
     })
   })
 })

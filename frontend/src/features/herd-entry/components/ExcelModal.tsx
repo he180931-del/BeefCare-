@@ -1,12 +1,10 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import readXlsxFile from 'read-excel-file'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Badge, Button, Table, Td, Th, Note } from '../../../components/ui'
-import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../data/entryExcel'
-import { kg } from '../../../data/format'
-import type { EntryCow } from '../../../types'
-import { userFacingError } from '../../../api/userFacingError'
+import { Badge, Button, Icon, Modal, ModalButton, ModalFooter, Note, Table, Td, Th } from '../../../shared/ui'
+import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../domain/entryExcel'
+import { kg } from '../../../shared/lib/format'
+import type { EntryCow } from '../types'
+import { userFacingError } from '../../../shared/api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 

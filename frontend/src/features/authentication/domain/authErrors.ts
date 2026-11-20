@@ -1,5 +1,6 @@
-import { BackendError } from '../../../api/backendClient'
-import { userFacingError } from '../../../api/userFacingError'
+import { DEFAULT_FARM_TIME_ZONE } from '../../../shared/lib/date/farmTime'
+import { BackendError } from '../../../shared/api/backendClient'
+import { userFacingError } from '../../../shared/api/userFacingError'
 
 export const AUTH_PATH = {
   home: '/', signIn: '/sign-in', register: '/dang-ky', verification: '/xac-minh-email',
@@ -35,7 +36,7 @@ export function friendlyLoginError(error: unknown): string {
   if (code === 'MSG-FE01-11') return 'Email chưa được xác minh. Vui lòng mở email xác minh hoặc gửi lại liên kết.'
   if (isCredentialError(error)) return CREDENTIAL_MESSAGE
   if (code === 'MSG-FE01-02' || status === 423) {
-    const time = typeof params.time === 'string' ? new Date(params.time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null
+    const time = typeof params.time === 'string' ? new Date(params.time).toLocaleTimeString('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, hour: '2-digit', minute: '2-digit' }) : null
     return `Đăng nhập bằng mật khẩu đang bị khóa sau 5 lần sai. Thử lại sau 15 phút${time ? ` (sau ${time})` : ''} hoặc tiếp tục với Google.`
   }
   if (code === 'MSG-FE01-03') return 'Tài khoản đang tạm ngưng.'

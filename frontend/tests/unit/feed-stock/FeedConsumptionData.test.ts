@@ -3,13 +3,14 @@ import {
   buildFeedConsumptionReport,
   filterFeedConsumptionReport,
   summarizeFeedConsumptionReport,
-} from '../../../src/features/feed-stock/data/feedConsumptionReport'
+} from '../../../src/features/feed-stock/domain/feedConsumptionReport'
 import type { FeedFeedingRecord } from '../../../src/features/feed-stock/types/feedFeeding'
 import type { FeedRation } from '../../../src/features/feed-stock/types/feedRation'
 
 const ration: FeedRation = {
   id: 41,
   rationCode: 'KP-A',
+  version: 0,
   versionNo: 1,
   name: 'Khẩu phần A',
   herdGroup: 'Bò thịt',

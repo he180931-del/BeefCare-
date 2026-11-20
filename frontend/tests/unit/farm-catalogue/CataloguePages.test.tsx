@@ -5,7 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { catalogueApi } from '../../../src/features/farm-catalogue/api/catalogueApi'
 import { catalogueDemoStore } from '../../../src/features/farm-catalogue/data/catalogueDemoStore'
 import CatalogueRoutes from '../../../src/features/farm-catalogue/pages/CatalogueRoutes'
-import { SessionContext, type AppRole, type Session } from '../../../src/features/authorization/sessionContext'
+import { type AppRole } from '../../../src/features/authorization'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 
 const sessionFor = (role: AppRole): Session => ({
   role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại bò Yên Bài – Ba Vì', logout: async () => undefined,
@@ -160,12 +161,17 @@ describe('parameters tab', () => {
     await user.clear(weaning)
     await user.type(weaning, '7')
     const date = screen.getByLabelText('Áp dụng từ *')
+    const today = (date as HTMLInputElement).value
     fireEvent.change(date, { target: { value: '2099-01-01' } })
     const source = screen.getByLabelText('Ghi chú nguồn *')
     await user.type(source, 'Điều chỉnh lên lịch')
     const save = screen.getAllByRole('button', { name: 'Lưu phiên bản mới' }).at(-1)!
     await user.click(save)
     expect(await screen.findByText(/Đã lên lịch phiên bản v4/)).toBeInTheDocument()
+    expect(weaning).toHaveValue('6')
+    fireEvent.change(date, { target: { value: '2099-02-01' } })
+    expect(weaning).toHaveValue('7')
+    fireEvent.change(date, { target: { value: today } })
     expect(weaning).toHaveValue('6')
     await user.type(source, 'Điều chỉnh hôm nay')
     await user.click(save)

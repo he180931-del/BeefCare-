@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import farm from '../../../../assets/farm.png'
-import wave from '../../../../assets/wave.png'
-import { HERO_POINTS, OVERVIEW_CARDS, STEPS } from '../../data/landingContent'
+import farm from '../../../../shared/assets/farm.png'
+import wave from '../../../../shared/assets/wave.png'
+import { HERO_POINTS, OVERVIEW_CARDS, STEPS } from '../../constants/landingContent'
 import { AUTH_PATH } from '../../domain/authErrors'
 import { container } from './LandingHeader'
 

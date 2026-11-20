@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFeedCatalogueApi } from '../../../src/features/feed-stock/api/feedCatalogueApi'
 import { listFeedStock } from '../../../src/features/feed-stock/api/feedStockApi'
 import { feedCatalogueDemoStore, resetFeedCatalogueDemoStore } from '../../../src/features/feed-stock/data/feedReceiptDemoStore'
-import { initialFeedReceiptForm, validateFeedReceiptForm } from '../../../src/features/feed-stock/data/feedReceiptForm'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import { initialFeedReceiptForm } from '../../../src/features/feed-stock/domain/feedReceiptForm'
+import { validateFeedReceiptForm } from '../../../src/features/feed-stock/validation/feedReceiptValidation'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 import type { FeedCatalogueDemoStore } from '../../../src/features/feed-stock/types/feedCatalogue'
 
 const makeTransport = (): BackendTransport => ({

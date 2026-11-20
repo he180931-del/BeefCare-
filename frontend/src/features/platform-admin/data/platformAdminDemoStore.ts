@@ -1,14 +1,18 @@
-import {
-  MSG, PlatformAdminError, allowedAuditDetails, accessText, checkAccountChange, filterAccounts, filterAudit, isActiveSa, paginate,
-  planAccessChange, validateAuditRange,
-} from '../domain/platformRules'
+import { AUDIT_ACTIONS, MSG, PlatformAdminError, accessActionsOf, allowedAuditChange, checkAccountChange, filterAccounts, filterAudit, initials, isActiveSa, paginate, planAccessChange, statusActions } from '../domain/platformRules'
+import { validateAuditRange } from '../validation/platformValidation'
 import type {
-  AccountChange, AccountFilters, AccountSummary, AuditActorOption, AuditEntry, AuditFilters, AuditItem, NotificationOpenResult,
-  NotificationView, PlatformAccessChange,
+  AccessHistoryItem, AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AuditActionOption, AuditDetail, AuditFilters, AuditRow,
+  NotificationOpenResult, NotificationView, PageResult, PlatformAccessChange,
 } from '../types'
 import { createPlatformAdminSeed, type PlatformAdminSeed, type RawAuditEntry } from './platformAdminMock'
 
 const ACCOUNT_PAGE_SIZE = 20
+
+/** A9 chỉ trả các cột của danh sách; chi tiết đọc riêng bằng A10 (D31). */
+const listItem = (a: AccountRecord): AccountListItem => ({
+  id: a.id, email: a.email, fullName: a.fullName, accountStatus: a.accountStatus, platformRole: a.platformRole,
+  platformAccessStatus: a.platformAccessStatus, emailVerified: a.emailVerified, farmCount: a.farmCount, farmRoles: [...a.farmRoles],
+})
 const AUDIT_PAGE_SIZE = 20
 
 export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPlatformAdminSeed()) {
@@ -19,7 +23,15 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
   // Giờ mock cố định theo "hôm nay" của seed để sự kiện mới luôn nằm trong khoảng audit mặc định.
   const nowIso = () => new Date(new Date(`${state.today}T09:00:00`).getTime() + clock++ * 60_000).toISOString()
   const nextId = () => ++seq
-  const view = (e: RawAuditEntry): AuditEntry => ({ ...structuredClone(e), details: allowedAuditDetails(e.details) })
+  /** A1: chỉ các cột của danh sách. */
+  const row = (e: RawAuditEntry): AuditRow => ({
+    id: e.id, time: e.time, actor: e.actor && { ...e.actor }, action: e.action, targetType: e.targetType, targetLabel: e.targetLabel,
+  })
+  /** A2: giá trị trước / sau trong danh sách cho phép (GBR-86); lý do, nội dung ticket, chứng từ bị bỏ như máy chủ. */
+  const detail = (e: RawAuditEntry): AuditDetail => {
+    const { details, actorEmail: _actorEmail, ...rest } = structuredClone(e)
+    return { ...rest, ...allowedAuditChange(details) }
+  }
 
   const find = (id: number) => {
     const found = state.accounts.find((a) => a.id === id)
@@ -31,13 +43,23 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
     if (!actor || !isActiveSa(actor)) throw new PlatformAdminError('FORBIDDEN', MSG.forbidden)
     return actor
   }
-  const log = (actor: AccountSummary, action: string, target: AccountSummary, before: string, after: string, scope = '') => {
+  /** Như AuditService (D34): vai trò lúc thực hiện, mã truy vết của "request", trước / sau theo trường. */
+  const log = (
+    actor: AccountRecord, action: string, targetType: 'ACCOUNT' | 'PLATFORM_ACCESS', target: AccountRecord,
+    before: Record<string, string>, after: Record<string, string>,
+  ) => {
+    const id = nextId()
     state.audit.push({
-      id: nextId(), loggedAt: nowIso(), actorId: actor.id, actorEmail: actor.email, actorName: actor.fullName, actorRole: actor.platformRole,
-      farmName: null, action, targetType: 'ACCOUNT', targetId: target.id, targetLabel: target.fullName, targetRef: `a${String(target.id).padStart(3, '0')}…${String(nextId()).slice(-4)}`,
-      details: { before, after, correlationId: `req-${seq.toString(16)}-${(seq * 7919).toString(16).slice(-4)}`, scope },
+      id, time: nowIso(), actor: { id: actor.id, name: actor.fullName, initials: initials(actor.fullName), role: actor.platformRole }, actorEmail: actor.email,
+      action, targetType, targetId: target.id, targetLabel: target.fullName || target.email, farm: null,
+      correlationId: `req-${id.toString(16)}-${(id * 7919).toString(16).slice(-4)}`, details: { before, after },
     })
   }
+
+  /** A10 như máy chủ trả (D32, D33): `actions` và `accessActions` tính theo SA đang xem. */
+  const detailOf = (a: AccountRecord): AccountDetail => ({
+    ...structuredClone(a), actions: statusActions(a, state.currentUserId), accessActions: accessActionsOf(a, state.currentUserId),
+  })
 
   function changeStatus(id: number, command: AccountChange, op: 'suspend' | 'restore') {
     const actor = requireSa()
@@ -45,9 +67,9 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
     checkAccountChange(state.accounts, target, actor.id, command, op)
     target.accountStatus = op === 'suspend' ? 'SUSPENDED' : 'ACTIVE'
     target.version += 1
-    log(actor, op === 'suspend' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_RESTORED', target,
-      `status: ${op === 'suspend' ? 'ACTIVE' : 'SUSPENDED'}`, `status: ${target.accountStatus}`)
-    return structuredClone(target)
+    log(actor, op === 'suspend' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_RESTORED', 'ACCOUNT', target,
+      { status: op === 'suspend' ? 'ACTIVE' : 'SUSPENDED' }, { status: target.accountStatus })
+    return detailOf(target)
   }
 
   return {
@@ -55,16 +77,17 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
 
     async listAccounts(filters: AccountFilters = {}) {
       requireSa()
-      return structuredClone(paginate(filterAccounts(state.accounts, filters), filters.page ?? 1, filters.size ?? ACCOUNT_PAGE_SIZE))
+      return paginate(filterAccounts(state.accounts, filters).map(listItem), filters.page ?? 1, filters.size ?? ACCOUNT_PAGE_SIZE)
     },
-    async getAccount(id: number) { requireSa(); return structuredClone(find(id)) },
-    async accountHistory(id: number): Promise<AuditItem[]> {
+    async getAccount(id: number) { requireSa(); return detailOf(find(id)) },
+    /** A11 (D33): lịch sử vai trò, mới nhất trước. */
+    async accountHistory(id: number): Promise<AccessHistoryItem[]> {
       requireSa()
       find(id)
       return state.history
         .filter((h) => h.accountId === id)
         .sort((a, b) => b.id - a.id)
-        .map((h) => ({ id: h.id, action: h.operation, at: h.at, details: `${h.role} · ${h.reason} · bởi ${h.by}` }))
+        .map(({ accountId: _accountId, ...item }) => structuredClone(item))
     },
     async suspendAccount(id: number, command: AccountChange) { return changeStatus(id, command, 'suspend') },
     async restoreAccount(id: number, command: AccountChange) { return changeStatus(id, command, 'restore') },
@@ -72,42 +95,43 @@ export function createPlatformAdminDemoStore(seed: PlatformAdminSeed = createPla
     async changePlatformAccess(id: number, command: PlatformAccessChange) {
       const actor = requireSa()
       const target = find(id)
-      const before = accessText(target.platformRole, target.platformAccessStatus)
-      const next = planAccessChange(state.accounts, target, command)
+      const roleBefore = target.platformRole
+      const statusBefore = target.platformAccessStatus
+      const next = planAccessChange(state.accounts, target, actor.id, command)
       target.platformRole = next.role
       target.platformAccessStatus = next.status
-      target.platformAccessVersion += 1
-      state.history.push({ id: nextId(), accountId: id, operation: command.operation, role: next.role, reason: command.reason.trim(), by: actor.fullName, at: nowIso() })
+      target.platformAccessVersion = (target.platformAccessVersion ?? 0) + 1
+      state.history.push({
+        id: nextId(), accountId: id, action: command.operation, roleBefore, statusBefore, roleAfter: next.role, statusAfter: next.status,
+        reason: command.reason.trim(), byName: actor.fullName, byEmail: actor.email, at: nowIso(),
+      })
       const action = { GRANT: 'PLATFORM_ACCESS_GRANTED', CHANGE: 'PLATFORM_ACCESS_CHANGED', REVOKE: 'PLATFORM_ACCESS_REVOKED', RESTORE: 'PLATFORM_ACCESS_RESTORED' }[command.operation]
-      log(actor, action, target, before, accessText(next.role, next.status), next.role)
-      return structuredClone(target)
+      const before: Record<string, string> = {}
+      if (roleBefore) before.role = roleBefore
+      if (statusBefore) before.status = statusBefore
+      log(actor, action, 'PLATFORM_ACCESS', target, before, { role: next.role, status: next.status })
+      return detailOf(target)
     },
 
-    async listAudit(filters: AuditFilters) {
+    /** A1 (D34). */
+    async listAudit(filters: AuditFilters): Promise<PageResult<AuditRow>> {
       requireSa()
       const error = validateAuditRange(filters)
       if (error) throw new PlatformAdminError('VALIDATION', error)
-      const rows = filterAudit(state.audit, filters).map((e) => view(e))
-      return paginate(rows, filters.page ?? 1, filters.size ?? AUDIT_PAGE_SIZE)
+      return paginate(filterAudit(state.audit, filters).map(row), filters.page ?? 1, filters.size ?? AUDIT_PAGE_SIZE)
     },
-    async getAuditEntry(id: number) {
+    /** A2 (D34): mục không tồn tại là MSG-COM-08. */
+    async getAuditEntry(id: number): Promise<AuditDetail> {
       requireSa()
       const found = state.audit.find((e) => e.id === id)
-      if (!found) throw new PlatformAdminError('NOT_FOUND', 'Không tìm thấy sự kiện audit.')
-      return view(found)
+      if (!found) throw new PlatformAdminError('NOT_FOUND', MSG.gone)
+      return detail(found)
     },
-    async listAuditActors(): Promise<AuditActorOption[]> {
+    /** A3 (D34). */
+    async listAuditActions(): Promise<AuditActionOption[]> {
       requireSa()
-      const people = new Map<number, string>()
-      let hasSystem = false
-      for (const e of state.audit) {
-        if (e.actorId === null) hasSystem = true
-        else people.set(e.actorId, `${e.actorName} · ${e.actorRole}`)
-      }
-      const options = [...people].map(([value, label]) => ({ value: String(value), label })).sort((a, b) => a.label.localeCompare(b.label, 'vi'))
-      return hasSystem ? [{ value: 'SYSTEM', label: 'Hệ thống' }, ...options] : options
+      return AUDIT_ACTIONS.map((a) => ({ ...a }))
     },
-
     async listNotifications(): Promise<NotificationView[]> {
       requireSa()
       return state.notifications

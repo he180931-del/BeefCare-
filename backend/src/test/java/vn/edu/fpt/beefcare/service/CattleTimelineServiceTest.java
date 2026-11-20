@@ -52,12 +52,19 @@ class CattleTimelineServiceTest extends DomainTestSupport {
     }
 
     @Test
-    void tc1610TechnicianAndOwnerSeeTheRecordButCannotCorrectIt() {
+    void tc1610TechnicianSeesTheRecordButCannotCorrectIt() {
         actAs(memberWithRole(farm, FarmRole.TECHNICIAN));
         assertThat(growthEvent().canCorrect()).isFalse();
         assertThat(growthEvent().canOpen()).isTrue();
+    }
+
+    /** D41 (TC-16-17): the Owner corrects from the timeline like a Manager. */
+    @Test
+    void tc1617OwnerMayCorrectAValidGrowthRecord() {
         actAs(memberWithRole(farm, FarmRole.OWNER));
-        assertThat(growthEvent().canCorrect()).isFalse();
+        CattleTimelineService.Event e = growthEvent();
+        assertThat(e.canCorrect()).isTrue();
+        assertThat(e.sourceId()).isEqualTo(weighing.getId());
     }
 
     @Test

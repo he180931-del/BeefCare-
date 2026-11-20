@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { VaccinationProfileTab, VaccinationTechnicianTab } from '../../../src/features/vaccination'
 import { vaccinationApi } from '../../../src/features/vaccination/api/vaccinationApi'
 import { vaccinationDemoStore } from '../../../src/features/vaccination/data/vaccinationDemoStore'
@@ -40,6 +40,29 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     expect(await screen.findByText('Quá hạn (10)')).toBeInTheDocument()
   })
 
+  // Lỗi phát hiện khi thử trên trình duyệt (15/11/2026): gõ "100ml" vào ô số bị trình duyệt bỏ âm thầm, mũi tiêm gửi đi không có liều.
+  it('ô Liều nhận "100ml", báo "Liều không hợp lệ." khi không đọc được và không lưu', async () => {
+    const user = userEvent.setup()
+    const record = vi.spyOn(vaccinationApi, 'recordVaccinations')
+    app('MANAGER')
+    await user.click(await screen.findByLabelText('Chọn BC-000131'))
+    await user.click(screen.getByRole('button', { name: 'Ghi nhận 1 mũi đã chọn' }))
+    await screen.findByRole('heading', { name: /Ghi nhận tiêm/ })
+    await user.type(screen.getByLabelText('Số lô'), 'AFT-1')
+    const dose = screen.getByLabelText('Liều')
+    await user.clear(dose)
+    await user.type(dose, 'nhiều')
+    await user.click(screen.getByRole('button', { name: 'Lưu 1 mũi tiêm' }))
+    expect(await screen.findByText('Liều không hợp lệ.')).toBeInTheDocument()
+    expect(record).not.toHaveBeenCalled()
+    await user.clear(dose)
+    await user.type(dose, '100ml')
+    await user.click(screen.getByRole('button', { name: 'Lưu 1 mũi tiêm' }))
+    expect(await screen.findByText(/Đã ghi nhận 1 mũi tiêm/)).toBeInTheDocument()
+    expect(record.mock.calls[0][0].dose).toBe('100 ml')
+    record.mockRestore()
+  })
+
   it('hoãn một mũi cần lý do', async () => {
     const user = userEvent.setup()
     app('MANAGER')
@@ -62,7 +85,14 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     spy.mockRestore()
   })
 
-  it.each(['OWNER', 'TECHNICIAN'] as const)('%s chỉ xem: không có ô chọn, thao tác, ghi nhận hay quản lý lịch', async (role) => {
+  it('D41: Chủ trại chọn mũi, ghi nhận và quản lý lịch như Quản lý', async () => {
+    app('OWNER')
+    await screen.findByText('BC-000131')
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Quản lý lịch' })).toBeInTheDocument()
+  })
+
+  it.each(['TECHNICIAN'] as const)('%s chỉ xem: không có ô chọn, thao tác, ghi nhận hay quản lý lịch', async (role) => {
     app(role)
     await screen.findByText('BC-000131')
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
@@ -71,9 +101,14 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     expect(screen.queryByRole('button', { name: 'Quản lý lịch' })).not.toBeInTheDocument()
   })
 
-  it('Chủ trại mở màn quản lý lịch thì bị chặn', async () => {
+  it('D41: Chủ trại mở được màn quản lý lịch', async () => {
     app('OWNER', '/tiem-phong/quan-ly')
-    expect(await screen.findByText('Chỉ Quản lý mới thực hiện được thao tác này')).toBeInTheDocument()
+    expect(await screen.findByText('86 con khớp')).toBeInTheDocument()
+  })
+
+  it('Kỹ thuật viên mở màn quản lý lịch thì bị chặn', async () => {
+    app('TECHNICIAN', '/tiem-phong/quan-ly')
+    expect(await screen.findByText('Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này')).toBeInTheDocument()
   })
 })
 
@@ -123,7 +158,13 @@ describe('tab Tiêm phòng của hồ sơ bò', () => {
     expect(await screen.findAllByText(/đã hủy/)).not.toHaveLength(0)
   })
 
-  it.each(['OWNER', 'TECHNICIAN'] as const)('%s chỉ xem', async (role) => {
+  it('D41: Chủ trại thấy cột Thao tác như Quản lý', async () => {
+    renderAs('OWNER', <VaccinationProfileTab cattleCode="BC-000125" />, '/?tab=vaccine')
+    await screen.findByText('Lịch sử tiêm')
+    expect(screen.getAllByText('Thao tác').length).toBeGreaterThan(0)
+  })
+
+  it.each(['TECHNICIAN'] as const)('%s chỉ xem', async (role) => {
     renderAs(role, <VaccinationProfileTab cattleCode="BC-000125" />, '/?tab=vaccine&m=defer')
     await screen.findByText('Lịch sử tiêm')
     expect(screen.queryByRole('button', { name: /Ghi nhận tiêm/ })).not.toBeInTheDocument()

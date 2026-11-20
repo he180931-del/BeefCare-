@@ -1,14 +1,11 @@
 import { useMemo, useState } from 'react'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Button, Card, DateInput, Foot, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { loadFeedConsumptionReport } from '../api/feedConsumptionApi'
-import { buildFeedConsumptionReport, filterFeedConsumptionReport, summarizeFeedConsumptionReport } from '../data/feedConsumptionReport'
-import { rationGroupLabel } from '../data/feedRationForm'
-import { daysFromToday } from '../data/feedDemoDates'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Card, DateInput, Foot, Icon, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { defaultFeedConsumptionPeriod, feedConsumptionMayLackSources, loadFeedConsumptionReport } from '../api/feedConsumptionApi'
+import { buildFeedConsumptionReport, filterFeedConsumptionReport, summarizeFeedConsumptionReport } from '../domain/feedConsumptionReport'
+import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatKg, formatNumber, formatShortDate, formatVnd } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import type { FeedConsumptionGroupBy, FeedConsumptionProjectionRow } from '../types/feedConsumption'
@@ -21,14 +18,8 @@ const GROUP_BY: Array<{ value: FeedConsumptionGroupBy; label: string; title: str
 const HERD_ORDER = ['BREEDING_FEMALES', 'FATTENING', 'BREEDING_BULLS', 'CALVES', 'YOUNG_STOCK', 'OTHER']
 const FOOT = 'Báo cáo tiêu thụ và chi phí thức ăn theo kỳ (Chủ trại, Quản lý). Đổi cách xem theo nhóm đàn, chuồng hoặc thức ăn; nhóm lệch khẩu phần nhiều được tô đỏ kèm lý do. “In báo cáo” xuất bản in PDF.'
 
-const dateValue = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
-/** SRS GBR-66: month start to today. The local demo has 3 weeks of history, so it opens on the last 22 days instead. */
-function initialPeriod() {
-  const today = new Date()
-  if (backendMode === 'local') return { from: daysFromToday(-21), to: daysFromToday(0) }
-  return { from: dateValue(new Date(today.getFullYear(), today.getMonth(), 1)), to: dateValue(today) }
-}
+const initialPeriod = defaultFeedConsumptionPeriod
 
 function calendarDays(from: string, to: string) {
   const start = new Date(`${from}T00:00:00`)
@@ -189,7 +180,7 @@ export default function FeedConsumptionReportPage() {
               </Card>
             </div>
           )}
-          {backendMode === 'backend' && !loaded && <Note tone="grey">Một số trường hợp thiếu nguồn số liệu sẽ hiển thị “—”.</Note>}
+          {feedConsumptionMayLackSources && !loaded && <Note tone="grey">Một số trường hợp thiếu nguồn số liệu sẽ hiển thị “—”.</Note>}
         </section>
         <Foot>{FOOT}</Foot>
       </div>

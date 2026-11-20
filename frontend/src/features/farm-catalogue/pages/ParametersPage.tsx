@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, LoadingBlock, Note, Select } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
-import { useCatalogueApi } from '../api/useCatalogueApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, Note, Select } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
+import { useCatalogueApi } from '../hooks/useCatalogueApi'
 import { HeaderActions } from '../components/CatalogueShell'
 import { TextInput, UnitInput, fieldError } from '../components/fields'
-import { useCanEdit } from '../components/useCanEdit'
+import { useCanEdit } from '../hooks/useCanEdit'
 import { VersionHistoryDialog } from '../components/VersionHistoryDialog'
 import { FieldErrors, formatDate, numberToText, parseNumber, todayIso, type FieldErrorMap } from '../domain/catalogueRules'
-import { BCS_SCALES, DEFAULT_PARAMETERS, PARAMETER_GROUPS, rangeHint, validateParameterVersion, versionSavedMessage, type ParameterFieldDef } from '../domain/parameterRules'
+import { BCS_SCALES, DEFAULT_PARAMETERS, PARAMETER_GROUPS, effectiveVersion, rangeHint, versionSavedMessage, type ParameterFieldDef } from '../domain/parameterRules'
+import { validateParameterVersion } from '../validation/parameterValidation'
 import { NUMERIC_PARAMETER_KEYS, type BcsScale, type NumericParameterKey, type ParameterValues } from '../types'
 
 type ParameterDraft = Record<NumericParameterKey, string> & { bcsScale: BcsScale }
@@ -32,9 +32,9 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
   const canEdit = useCanEdit()
   const navigate = useNavigate()
   const [modalName, , closeModal] = useModalParam()
-  const { data, error, refetch } = useQuery(() => catalogueApi.listParameterVersions(), [])
-  const [draft, setDraft] = useState<ParameterDraft | null>(null)
-  const [baseVersion, setBaseVersion] = useState(0)
+  const { data, error, loading, refetch } = useQuery(() => catalogueApi.listParameterVersions(), [])
+  const [baseVersion, setBaseVersion] = useState<number | null>(null)
+  const [edited, setEdited] = useState<Partial<ParameterDraft>>({})
   const [source, setSource] = useState('')
   const [effectiveFrom, setEffectiveFrom] = useState(todayIso())
   const [errors, setErrors] = useState<FieldErrorMap>({})
@@ -43,11 +43,12 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
   const [notice, setNotice] = useState<string | null>(null)
 
   const current = data?.find((v) => v.status === 'CURRENT')
+  const baseline = effectiveVersion(data ?? [], effectiveFrom)
+  const draft = data ? { ...toDraft(baseline?.parameters ?? DEFAULT_PARAMETERS), ...edited } : null
   useEffect(() => {
-    if (!data || draft) return
+    if (!data || baseVersion !== null) return
     setBaseVersion(data.reduce((latest, version) => Math.max(latest, version.versionNo), 0))
-    setDraft(toDraft(current?.parameters ?? DEFAULT_PARAMETERS))
-  }, [data, current, draft])
+  }, [data, baseVersion])
 
   const clearError = (key: string) => setErrors((e) => {
     if (!(key in e)) return e
@@ -55,12 +56,16 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
     return rest
   })
   const setValue = (key: NumericParameterKey, value: string) => {
-    setDraft((d) => (d ? { ...d, [key]: value } : d))
+    setEdited((fields) => ({ ...fields, [key]: value }))
     clearError(key)
+  }
+  const changeEffectiveDate = (date: string) => {
+    setEffectiveFrom(date)
+    clearError('effectiveFrom')
   }
 
   async function submit() {
-    if (!draft || !canEdit || saving) return
+    if (!draft || baseVersion === null || !canEdit || saving || loading) return
     const parameters = fromDraft(draft)
     const command = { parameters, gestationLengthDays: parameters.gestationLengthDays, effectiveFrom, sourceNote: source, baseVersion }
     const validation = validateParameterVersion(command, todayIso())
@@ -76,7 +81,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
       const saved = await catalogueApi.saveParameterVersion(command, session?.fullName)
       setNotice(versionSavedMessage(saved.versionNo, saved.effectiveFrom)) // MSG-FE18-05
       setBaseVersion(saved.versionNo)
-      setDraft(toDraft(saved.status === 'SCHEDULED' ? current?.parameters ?? DEFAULT_PARAMETERS : saved.parameters))
+      setEdited({})
       setSource('')
       setEffectiveFrom(todayIso())
       refetch()
@@ -102,7 +107,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
         <Icon name="history" size={16} />
         Lịch sử phiên bản
       </Button>
-      {canEdit && <Button variant="primary" disabled={saving || !draft} onClick={() => void submit()}>Lưu phiên bản mới</Button>}
+      {canEdit && <Button variant="primary" disabled={saving || loading || !draft} onClick={() => void submit()}>Lưu phiên bản mới</Button>}
     </HeaderActions>
   )
 
@@ -139,7 +144,11 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
             <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${g.minCol}px, 1fr))` }}>
               {g.hasBcs && (
                 <Field label="Thang BCS *" id="param-bcs" hint={fieldError(errors.bcsScale)}>
-                  <Select id="param-bcs" value={draft.bcsScale} disabled={!canEdit} onChange={(e) => { setDraft({ ...draft, bcsScale: e.target.value as BcsScale }); clearError('bcsScale') }}>
+                  <Select id="param-bcs" value={draft.bcsScale} disabled={!canEdit} onChange={(e) => {
+                    const bcsScale = e.target.value as BcsScale
+                    setEdited((fields) => ({ ...fields, bcsScale }))
+                    clearError('bcsScale')
+                  }}>
                     {BCS_SCALES.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
                   </Select>
                 </Field>
@@ -167,7 +176,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
             </div>
             <div className="min-w-[180px] flex-1">
               <Field label="Áp dụng từ *" id="param-effective" hint={fieldError(errors.effectiveFrom, 'Từ hôm nay trở đi')}>
-                <DateInput id="param-effective" value={effectiveFrom} onChange={(v) => { setEffectiveFrom(v); clearError('effectiveFrom') }} />
+                <DateInput id="param-effective" value={effectiveFrom} onChange={changeEffectiveDate} />
               </Field>
             </div>
             <Button type="submit" variant="primary" className="mt-[26px]" disabled={saving}>Lưu phiên bản mới</Button>

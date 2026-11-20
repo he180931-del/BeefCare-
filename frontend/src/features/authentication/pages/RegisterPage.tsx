@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { AuthClient, RegistrationRequest } from '../types'
-import { normalizeEmail, validateRegistration } from '../validation'
+import { normalizeEmail, validateRegistration } from '../validation/authValidation'
 import { Alert, AuthShell, Form, FormField, primaryButtonClass } from '../components/AuthShell'
 import { ActionLink, Divider, GoogleButton, PasswordField } from '../components/AuthControls'
 import { AUTH_PATH, friendlyAccountError } from '../domain/authErrors'

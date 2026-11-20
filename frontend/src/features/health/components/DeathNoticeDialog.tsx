@@ -1,5 +1,4 @@
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Info } from '../../../components/ui'
+import { Info, Modal, ModalButton, ModalFooter } from '../../../shared/ui'
 import { fmtDate } from '../domain/healthFormat'
 import type { PendingExit } from '../types'
 

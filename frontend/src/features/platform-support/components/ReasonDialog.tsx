@@ -1,7 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon, type IconName } from '../../../components/Icon'
-import { Field, Note, Textarea, inputCls } from '../../../components/ui'
+import { Field, Icon, type IconName, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { FieldError, useSubmit } from './common'
 
 /** Hộp thoại một ô văn bản bắt buộc (lý do, câu hỏi công khai, ghi chú...). */

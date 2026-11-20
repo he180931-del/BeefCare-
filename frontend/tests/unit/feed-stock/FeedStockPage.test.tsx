@@ -150,4 +150,21 @@ describe('SCR-77 Feed Stock page', () => {
     expect(screen.getByText('NEW_GROUP')).toBeInTheDocument()
     expect(screen.getByText('FUTURE_STATUS')).toBeInTheDocument()
   })
+
+  it('labels the expiry warning as a date recorded on a posted receipt, not as per-lot stock', () => {
+    const row = {
+      ...FEED_STOCK_MOCK[0],
+      nearestLotNumber: 'LOT-NEAR',
+      nearestLotExpiryDate: '2026-11-20',
+    }
+
+    render(<MemoryRouter><FeedStockTable rows={[row]} /></MemoryRouter>)
+
+    expect(screen.getByRole('columnheader', { name: /Lô gần hạn theo phiếu nhập/ })).toHaveAttribute(
+      'title',
+      'Hạn gần nhất trong 30 ngày theo phiếu nhập đã ghi sổ; không thể hiện số dư riêng của lô.',
+    )
+    expect(screen.getByText('LOT-NEAR')).toBeInTheDocument()
+    expect(screen.getByText(/Hạn trên phiếu đã ghi:/)).toBeInTheDocument()
+  })
 })

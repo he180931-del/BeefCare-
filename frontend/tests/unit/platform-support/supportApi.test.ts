@@ -161,6 +161,22 @@ describe('chế độ backend', () => {
     expect(http.get).toHaveBeenCalledWith('/api/platform/support/tickets/9/messages?beforeId=42&size=20')
   })
 
+  it('UC-FE03-08 (D32): giữ cờ cần đổi người nhận của yêu cầu nội bộ khi người nhận bị tạm ngưng', async () => {
+    const store = createSupportDemoStore()
+    const http = transport()
+    const request = { id: 81, code: 'IR-081', targetRole: 'SA', recipientId: 31, recipient: 'Nam', question: 'Kiểm tra tài khoản', context: [], version: 1 }
+    http.get.mockImplementation(async (path: string) => path === '/api/platform/support/tickets/9' ? {
+      id: 9, code: 'TK-0009', subject: 'Cần hỗ trợ', category: 'OTHER', priority: 'NORMAL', status: 'IN_PROGRESS',
+      requesterId: 17, requester: 'Chủ trại', assignedCsId: 4, assignedCs: 'CS', assignedCsAvailable: true,
+      createdAt: '2026-11-01T08:00:00Z', updatedAt: '2026-11-01T09:00:00Z', version: 2, messages: [], messagesBeforeId: null, messagesHasMore: false,
+      resolutions: [], history: [], contextOptions: { PM: [], SA: [] },
+      internalRequests: [{ ...request, status: 'OPEN', needsReassignment: true }, { ...request, id: 82, code: 'IR-082', status: 'DONE', needsReassignment: false }],
+    } : {})
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store })
+    const ticket = await api.getTicket(CS_ME, '9')
+    expect(ticket.internalRequests.map((r) => [r.code, r.needsReassignment])).toEqual([['IR-081', true], ['IR-082', false]])
+  })
+
   it('giải mã mã IR bằng endpoint yêu cầu nội bộ và không ép chỉ trạng thái OPEN', async () => {
     const store = createSupportDemoStore()
     const http = transport()

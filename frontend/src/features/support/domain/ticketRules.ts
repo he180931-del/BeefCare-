@@ -1,6 +1,6 @@
-import type { BadgeTone } from '../../../components/ui'
+import { toFarmLocal } from '../../../shared/lib/date/farmTime'
+import type { BadgeTone } from '../../../shared/ui'
 import type {
-  CreateTicketCommand,
   HistoryEvent,
   ResolutionView,
   Ticket,
@@ -8,6 +8,7 @@ import type {
   TicketFilters,
   TicketPage,
   TicketPriority,
+  TicketScope,
   TicketStatus,
   TicketTab,
 } from '../types'
@@ -20,6 +21,14 @@ export const TICKET_CATEGORIES: ReadonlyArray<{ value: TicketCategory; label: st
   { value: 'OTHER', label: 'Khác', hint: 'Ngoài danh mục' },
 ]
 export const categoryLabel = (c: TicketCategory) => TICKET_CATEGORIES.find((x) => x.value === c)?.label ?? c
+
+const FARM_REQUIRED_CATEGORIES: ReadonlySet<TicketCategory> = new Set(['PAYMENT', 'FARM_SERVICE'])
+
+export function requiredScopeForCategory(category: TicketCategory | ''): TicketScope | null {
+  if (category === 'ACCOUNT_ACCESS') return 'ACCOUNT'
+  if (category && FARM_REQUIRED_CATEGORIES.has(category)) return 'FARM'
+  return null
+}
 
 export const PRIORITY_LABELS: Record<TicketPriority, string> = { LOW: 'Thấp', NORMAL: 'Bình thường', HIGH: 'Cao' }
 
@@ -87,7 +96,7 @@ export function filterTickets(tickets: Ticket[], { q, category, from, to }: Tick
   return tickets.filter((t) => {
     if (needle && !normalize(`${t.code} ${t.subject}`).includes(needle)) return false
     if (category && t.category !== category) return false
-    const day = t.updatedAt.slice(0, 10)
+    const day = toFarmLocal(t.updatedAt).slice(0, 10)
     if (from && day < from) return false
     if (to && day > to) return false
     return true
@@ -105,41 +114,4 @@ export function buildPage(tickets: Ticket[], filters: TicketFilters = {}): Ticke
   const size = filters.size ?? 20
   const page = Math.max(1, filters.page ?? 1)
   return { items: rows.slice((page - 1) * size, page * size), total: rows.length, page, size, counts }
-}
-
-// ---- Kiểm tra dữ liệu nhập (SRS 20.1.2, MSG-COM-06) ----
-export const SUBJECT_MAX = 150
-export const DESCRIPTION_MAX = 3000
-export const REPLY_MAX = 3000
-export const REASON_MAX = 1000
-
-export function validateCreate(cmd: CreateTicketCommand, ownedFarmIds: number[]): Record<string, string> {
-  const errors: Record<string, string> = {}
-  if (!cmd.category) errors.category = 'Vui lòng chọn danh mục.'
-  if (cmd.scope !== 'FARM' && cmd.scope !== 'ACCOUNT') errors.scope = 'Vui lòng chọn phạm vi.'
-  if (cmd.scope === 'FARM') {
-    if (cmd.farmId == null) errors.farmId = 'Vui lòng chọn trang trại liên quan.'
-    else if (!ownedFarmIds.includes(cmd.farmId)) errors.farmId = 'Bạn không có quyền với trang trại này.'
-  }
-  const subject = cmd.subject.trim()
-  if (!subject) errors.subject = 'Vui lòng nhập tiêu đề.'
-  else if (subject.length > SUBJECT_MAX) errors.subject = 'Tiêu đề tối đa 150 ký tự.'
-  const description = cmd.description.trim()
-  if (!description) errors.description = 'Vui lòng nhập mô tả.'
-  else if (description.length > DESCRIPTION_MAX) errors.description = 'Mô tả tối đa 3.000 ký tự.'
-  return errors
-}
-
-export function validateReply(content: string): string | null {
-  const text = content.trim()
-  if (!text) return 'Vui lòng nhập nội dung phản hồi.'
-  if (text.length > REPLY_MAX) return 'Phản hồi tối đa 3.000 ký tự.'
-  return null
-}
-
-export function validateReason(reason: string): string | null {
-  const text = reason.trim()
-  if (!text) return 'Vui lòng nhập lý do mở lại.'
-  if (text.length > REASON_MAX) return 'Lý do tối đa 1.000 ký tự.'
-  return null
 }

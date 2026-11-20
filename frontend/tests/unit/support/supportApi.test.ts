@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { BackendError } from '../../../src/shared/api/backendClient'
 import { createSupportApi } from '../../../src/features/support/api/supportApi'
 import { createSupportDemoStore } from '../../../src/features/support/data/supportDemoStore'
 import { SupportError } from '../../../src/features/support/domain/supportError'
@@ -64,7 +65,7 @@ describe('supportApi: gửi yêu cầu (SCR-65)', () => {
 
   it('phạm vi tài khoản không gắn trại; trại không thuộc sở hữu bị từ chối; quá dài bị từ chối', async () => {
     const { api } = setup()
-    const acct = await api.createTicket({ category: 'ACCOUNT_ACCESS', scope: 'ACCOUNT', farmId: 2, subject: 'Không đăng nhập được', description: 'x' })
+    const acct = await api.createTicket({ category: 'ACCOUNT_ACCESS', scope: 'ACCOUNT', farmId: null, subject: 'Không đăng nhập được', description: 'x' })
     expect(acct.farmId).toBeNull()
     expect(await code(api.createTicket({ category: 'OTHER', scope: 'FARM', farmId: 77, subject: 'a', description: 'b' }))).toBe('VALIDATION')
     expect(await code(api.createTicket({ category: 'OTHER', scope: 'ACCOUNT', farmId: null, subject: 'a'.repeat(151), description: 'b' }))).toBe('VALIDATION')
@@ -128,6 +129,17 @@ describe('supportApi: trả lời, xác nhận, mở lại (SCR-66)', () => {
 })
 
 describe('supportApi: chế độ backend', () => {
+  it('hiện lỗi chung khi backend trả validation không có lỗi theo trường', async () => {
+    const http = transport()
+    vi.mocked(http.command).mockRejectedValue(new BackendError(400, { code: 'MSG-COM-10', message: 'scope không hợp lệ.' }))
+    const api = createSupportApi({ mode: 'backend', farmId: 1, transport: http, store: createSupportDemoStore() })
+
+    const error = await api.createTicket({ category: 'OTHER', scope: 'ACCOUNT', farmId: null, subject: 'a', description: 'b' }).catch((value) => value)
+
+    expect(error).toBeInstanceOf(SupportError)
+    expect(error.fields).toEqual({ _form: 'scope không hợp lệ.' })
+  })
+
   it('map con trỏ hội thoại và tải trang tin nhắn cũ', async () => {
     const http = transport()
     vi.mocked(http.get).mockImplementation(async (path) => {

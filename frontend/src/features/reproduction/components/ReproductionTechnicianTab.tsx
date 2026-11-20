@@ -1,12 +1,13 @@
-import { Link } from 'react-router-dom'
-import { Badge, Card, ErrorBlock, Foot, Info, LoadingBlock } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Badge, Card, ErrorBlock, Foot, Info, LoadingBlock, Note } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { reproductionApi } from '../api/reproductionApi'
+import { resolveReproductionSource } from '../api/reproductionBackend'
 import { daysBetween, eligibilityScore, formatDate, formatDateTime, formatShort, isDueSoon } from '../domain/reproductionRules'
 import type { ReproductionFemale } from '../types'
 import { nowLocal } from './reproductionFields'
-import { EventBadge } from './ReproductionTimeline'
+import ReproductionTimeline, { EventBadge } from './ReproductionTimeline'
 
 function StatusBadge({ profile }: { profile: ReproductionFemale }) {
   if (profile.status === 'PREGNANT') return isDueSoon(profile, nowLocal()) ? <Badge tone="warn" icon="baby-carriage">Sắp đẻ</Badge> : <Badge tone="ok" icon="heartbeat">Mang thai</Badge>
@@ -18,9 +19,17 @@ function StatusBadge({ profile }: { profile: ReproductionFemale }) {
 
 // Technician phone tab: read-only status, suggested window and the latest reproduction records (frames 2617:12112, 2617:12205).
 export default function ReproductionTechnicianTab({ cattleCode }: { cattleCode: string }) {
+  const [params] = useSearchParams()
   const { data: profile, loading, error, refetch } = useQuery(() => reproductionApi.getProfile(cattleCode), [cattleCode])
   if (loading && !profile) return <LoadingBlock />
   if (error || !profile) return <ErrorBlock message={userFacingError(error, 'Không tải được hồ sơ sinh sản.')} onRetry={refetch} />
+  const sourceId = params.get('r')
+  if (sourceId != null) {
+    const source = resolveReproductionSource(profile.events, sourceId, params.get('type'))
+    return source?.status === 'VALID'
+      ? <ReproductionTimeline profile={profile} source={source} canManage={false} onRevise={() => undefined} />
+      : <Note tone="warn">Không tìm thấy bản ghi sinh sản này.</Note>
+  }
   if (!profile.applicable) return <Card title="Trạng thái sinh sản"><p className="m-0 text-sm text-muted">Không theo dõi sinh sản cho bò này theo giai đoạn hoặc mục đích nuôi.</p></Card>
 
   const preg = profile.openPregnancy

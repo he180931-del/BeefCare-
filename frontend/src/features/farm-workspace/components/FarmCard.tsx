@@ -1,9 +1,9 @@
-import { Icon, type IconName } from '../../../components/Icon'
-import { Badge } from '../../../components/ui'
+import { Badge, Icon, type IconName } from '../../../shared/ui'
+import { serviceView } from '../domain/statusViews'
 import type { FarmServiceStatus, FarmSummary } from '../types'
 import { lastServiceDay, roleLabel, serviceLabel } from './WorkspaceUi'
 
-const tone = (status: string) => status === 'ACTIVE' ? 'ok' : status === 'SUSPENDED' ? 'err' : 'warn'
+const tone = (status: string) => serviceView(status).tone
 const place = (farm: FarmSummary) => [farm.commune?.replace(/^(Xã|Phường|Thị trấn) /, ''), farm.province].filter(Boolean).join(', ')
 
 export interface FarmCardAction { label: string; icon: IconName; primary: boolean; disabled: boolean; to: string | null }

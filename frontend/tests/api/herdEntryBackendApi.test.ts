@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createHerdEntryBackendApi, type BackendTransport } from '../../src/features/herd-entry/api/herdEntryBackendApi'
-import { BackendError } from '../../src/api/backendClient'
+import { BackendError } from '../../src/shared/api/backendClient'
 
 const voucher = (status = 'DRAFT') => ({
   id: 41, code: 'PN-2026-0041', entryType: 'PURCHASE', status, entryDate: '2026-10-29',

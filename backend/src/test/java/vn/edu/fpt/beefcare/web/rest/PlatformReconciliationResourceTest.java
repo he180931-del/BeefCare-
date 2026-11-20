@@ -192,6 +192,41 @@ class PlatformReconciliationResourceTest extends DomainTestSupport {
             .setParameter("id", p.getId()).getSingleResult()).isEqualTo(1);
     }
 
+    /**
+     * TC-17-05 (FE-17, D34): after a PM accepts a payment, the SA sees PAYMENT_CONFIRMED and EVIDENCE_REVIEWED with the PM's
+     * role and allowlisted values only – no bank evidence content, no reason; the evidence rows are not in the central audit.
+     */
+    @Test
+    void theCentralAuditShowsThePaymentAcceptanceWithoutBankEvidenceOrReason() throws Exception {
+        AppUser pm = staff("PM");
+        AppUser sa = staff("SA");
+        Payment p = pending("BCFE17AUDIT01");
+        BankTransferEvidence e = evidence();
+        String reason = "Khách gõ sai mã; đối chiếu sao kê TK-77";
+        body(command(pm, "/evidence/" + e.getId() + "/review", review("ACCEPT", p.getId(), reason, versionOf(e)), "fe17-accept"));
+        em.flush(); em.clear();
+
+        LocalDate day = clock.instant().atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
+        String list = mvc.perform(get("/api/platform/audit").param("from", day.toString()).param("to", day.toString()).param("targetType", "PAYMENT")
+                .with(SecurityMockMvcRequestPostProcessors.user(sa.getEmail())))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        Map<String, JsonNode> rows = new LinkedHashMap<>();
+        for (JsonNode row : om.readTree(list).path("items")) if ("BCFE17AUDIT01".equals(row.path("targetLabel").asText())) rows.put(row.path("action").asText(), row);
+        assertThat(rows).containsOnlyKeys("PAYMENT_CONFIRMED", "EVIDENCE_REVIEWED");
+        assertThat(rows.get("PAYMENT_CONFIRMED").path("actor").path("role").asText()).isEqualTo("PM");
+
+        StringBuilder details = new StringBuilder(list);
+        for (JsonNode row : rows.values()) {
+            details.append(mvc.perform(get("/api/platform/audit/{id}", row.path("id").asLong()).with(SecurityMockMvcRequestPostProcessors.user(sa.getEmail())))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        }
+        assertThat(details.toString()).contains("\"amountVnd\":\"1200000\"").contains("\"decision\":\"ACCEPT\"")
+            .doesNotContain(reason).doesNotContain(String.valueOf(e.getProviderTxnId())).doesNotContain("Transfer ").doesNotContain("UC6-ACCOUNT")
+            .doesNotContain("reason");
+        // The evidence row itself (SEPAY_EVIDENCE / PM_ACCEPT_EVIDENCE) is a payment-module record, never listed
+        assertThat(om.readTree(list).path("items").toString()).doesNotContain("EVIDENCE\"").doesNotContain("PM_ACCEPT");
+    }
+
     @Test
     void acceptByExactCodeNeedsNoCandidateButAMistypedCodeDoes() throws Exception {
         AppUser pm = staff("PM");

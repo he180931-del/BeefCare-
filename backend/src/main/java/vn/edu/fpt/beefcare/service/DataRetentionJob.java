@@ -58,7 +58,7 @@ public class DataRetentionJob {
         this.batch = new TransactionTemplate(transactionManager);
     }
 
-    @Scheduled(cron = "${beefcare.jobs.retention-cron:0 0 2 * * *}", zone = "${beefcare.jobs.retention-zone:Asia/Ho_Chi_Minh}")
+    @Scheduled(cron = "${beefcare.jobs.retention-cron:0 0 2 * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     public void purgeExpired() {
         Result result = purge();
         if (result.total() > 0) {

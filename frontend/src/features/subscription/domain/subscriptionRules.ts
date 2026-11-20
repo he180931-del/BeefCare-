@@ -1,3 +1,4 @@
+import { BUSINESS_OFFSET_MS, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type { Payment, PeriodStatus, PriceDTO, RequestEligibility, ServiceStatus, StateDialogState, SubscriptionOverview, Term } from '../types'
 import { SubscriptionError } from '../types'
 
@@ -7,17 +8,16 @@ export const REQUEST_VALIDITY_MS = 24 * 3_600_000 // GBR-70
 export const BANK_NAMES: Record<string, string> = { MB: 'MB Bank (Ngân hàng Quân đội)' }
 
 const DAY = 86_400_000
-const VN_OFFSET = 7 * 3_600_000 // Asia/Ho_Chi_Minh, không có giờ mùa hè
 
-export const toMs = (t: string | number) => (typeof t === 'number' ? t : Date.parse(t))
+export const toMs = (t: string | number) => (typeof t === 'number' ? t : parseBusinessTime(t))
 export const toIso = (t: number) => new Date(t).toISOString()
-const vn = (t: string | number) => new Date(toMs(t) + VN_OFFSET)
+const vn = (t: string | number) => new Date(toMs(t) + BUSINESS_OFFSET_MS)
 const p2 = (n: number) => String(n).padStart(2, '0')
 
-export const vnTime = (y: number, m: number, d: number, h = 0, mi = 0, s = 0) => Date.UTC(y, m - 1, d, h, mi, s) - VN_OFFSET
+export const vnTime = (y: number, m: number, d: number, h = 0, mi = 0, s = 0) => Date.UTC(y, m - 1, d, h, mi, s) - BUSINESS_OFFSET_MS
 export const startOfVnDay = (t: string | number) => {
   const d = vn(t)
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - VN_OFFSET
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - BUSINESS_OFFSET_MS
 }
 
 /** Cộng số năm lịch; 29/02 về 28/02 ở năm không nhuận (GBR-73). */
@@ -25,7 +25,7 @@ export function addYears(t: string | number, years: number): number {
   const d = vn(t)
   const y = d.getUTCFullYear() + years
   const last = new Date(Date.UTC(y, d.getUTCMonth() + 1, 0)).getUTCDate()
-  return Date.UTC(y, d.getUTCMonth(), Math.min(d.getUTCDate(), last), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds()) - VN_OFFSET
+  return Date.UTC(y, d.getUTCMonth(), Math.min(d.getUTCDate(), last), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds()) - BUSINESS_OFFSET_MS
 }
 
 export const priceFor = (p: PriceDTO, term: Term) => (term === 1 ? p.price1y : term === 2 ? p.price2y : p.price3y)
@@ -67,7 +67,6 @@ export const fmtDate = (t: string | number) => {
 }
 const hm = (t: string | number) => `${p2(vn(t).getUTCHours())}:${p2(vn(t).getUTCMinutes())}`
 export const fmtDateTime = (t: string | number) => `${fmtDate(t)} ${hm(t)}`
-export const fmtTimeDate = (t: string | number) => `${hm(t)} ${fmtDate(t)}`
 export const fmtDateTimeSec = (t: string | number) => `${fmtDate(t)} ${hm(t)}:${p2(vn(t).getUTCSeconds())}`
 /** Ngày cuối cùng còn hiệu lực của kỳ nửa mở [start, end). */
 export const fmtEndDay = (end: string | number) => fmtDate(toMs(end) - 1)
@@ -98,6 +97,7 @@ export function stateFromError(e: unknown): StateDialogState | null {
     case 'PRICE_CHANGED': return d.seen && d.current ? { kind: 'price-changed', seen: d.seen, current: d.current } : null
     case 'PRICE_UNAVAILABLE': return { kind: 'price-unavailable' }
     case 'RESULT_UNAVAILABLE': return d.payment ? { kind: 'result-unavailable', payment: d.payment, checkedAt: d.checkedAt ?? '' } : null
+    case 'CANCEL_BLOCKED': return { kind: 'cancel-blocked', code: d.code ?? '', receivedAt: d.receivedAt ?? null }
     default: return null
   }
 }

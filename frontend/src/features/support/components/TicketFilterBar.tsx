@@ -1,4 +1,4 @@
-import { DateInput, FilterSelect, SearchInput } from '../../../components/ui'
+import { DateInput, FilterSelect, SearchInput } from '../../../shared/ui'
 import { TICKET_CATEGORIES } from '../domain/ticketRules'
 import type { TicketCategory, TicketFilters } from '../types'
 

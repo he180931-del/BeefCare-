@@ -1,5 +1,7 @@
 package vn.edu.fpt.beefcare.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -54,6 +56,7 @@ public class PenMoveService {
     private final PenCriteriaVersionRepository criteriaRepository;
     private final ReminderRepository reminderRepository;
     private final AuditService audit;
+    private final EntityManager entityManager;
 
     public PenMoveService(
         FarmAccessService access,
@@ -67,7 +70,8 @@ public class PenMoveService {
         FarmMembershipRepository membershipRepository,
         PenCriteriaVersionRepository criteriaRepository,
         ReminderRepository reminderRepository,
-        AuditService audit
+        AuditService audit,
+        EntityManager entityManager
     ) {
         this.access = access;
         this.clock = clock;
@@ -81,14 +85,16 @@ public class PenMoveService {
         this.criteriaRepository = criteriaRepository;
         this.reminderRepository = reminderRepository;
         this.audit = audit;
+        this.entityManager = entityManager;
     }
 
     /** Dry run for the Move Pen popup: the reception-check table per cattle; writes nothing. */
     @Transactional(readOnly = true)
     public PenMoveCheckDTO check(Long farmId, PenMoveCheckRequest request) {
-        access.require(farmId, FarmAction.MOVE_CATTLE);
+        FarmContext ctx = access.require(farmId, FarmAction.MOVE_CATTLE);
         Pen toPen = penService.findPen(farmId, request.toPenId());
-        LocalDate moveDate = request.moveDate() == null ? clock.today() : request.moveDate();
+        LocalDate today = clock.today();
+        LocalDate moveDate = request.moveDate() == null ? today : request.moveDate();
         int headcount = occupancy.headcount(toPen.getId());
         int free = Math.max(0, toPen.getCapacity() - headcount);
         boolean active = toPen.getStatus() == ActiveStatus.ACTIVE;
@@ -104,7 +110,7 @@ public class PenMoveService {
                 if (open.isEmpty()) {
                     throw DomainException.conflict(MessageCodes.COM_05);
                 }
-                if (moveDate.isAfter(clock.today()) || moveDate.isBefore(open.get().getFromDate())) {
+                if (moveDate.isAfter(today) || moveDate.isBefore(open.get().getFromDate())) {
                     throw DomainException.unprocessable(MessageCodes.FE04_09, "start_date", open.get().getFromDate());
                 }
             } catch (DomainException e) {
@@ -156,7 +162,8 @@ public class PenMoveService {
         if (reason.length() > 500) {
             throw DomainException.invalid("reason");
         }
-        LocalDate moveDate = request.moveDate() == null ? clock.today() : request.moveDate();
+        LocalDate today = clock.today();
+        LocalDate moveDate = request.moveDate() == null ? today : request.moveDate();
         penService.findPen(farmId, request.toPenId());
         AppUser performer = performer(ctx, request.performedBy());
         Map<Long, String> warnings = request.warningReasons() == null ? Map.of() : request.warningReasons();
@@ -167,9 +174,11 @@ public class PenMoveService {
         Map<Long, PenAssignment> current = new LinkedHashMap<>();
         for (Long id : ids) {
             Cattle c = cattleGuard.lockWritable(farmId, id);
-            VersionGuard.requireExpected(c.getVersion(), versions.get(id));
+            PenAssignment assignment = assignments.findOpen(id)
+                .orElseThrow(() -> DomainException.conflict(MessageCodes.COM_05, "cattle_code", c.getDisplayCode()));
+            requireMoveVersion(c, assignment, versions.get(id));
             cattle.put(id, c);
-            current.put(id, assignments.findOpen(id).orElseThrow(() -> DomainException.conflict(MessageCodes.COM_05, "cattle_code", c.getDisplayCode())));
+            current.put(id, assignment);
         }
         Set<Long> penIds = new TreeSet<>();
         penIds.add(request.toPenId());
@@ -197,7 +206,7 @@ public class PenMoveService {
         Map<Long, ReceptionCheck> checks = new LinkedHashMap<>();
         for (Long id : moving) {
             PenAssignment open = current.get(id);
-            if (moveDate.isAfter(clock.today()) || moveDate.isBefore(open.getFromDate())) {
+            if (moveDate.isAfter(today) || moveDate.isBefore(open.getFromDate())) {
                 throw DomainException.unprocessable(MessageCodes.FE04_09, "start_date", open.getFromDate());
             }
             ReceptionCheck check = receptionCriteria.check(toPen, cattle.get(id), moveDate);
@@ -211,6 +220,8 @@ public class PenMoveService {
             Cattle c = cattle.get(id);
             Pen from = current.get(id).getPen();
             PenAssignment created = assignments.move(c, toPen, moveDate, source, reason, checks.get(id), warnings.get(id), performer);
+            // A new assignment changes the profile snapshot even though the cattle row itself was not edited.
+            entityManager.lock(c, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
             moved.add(
                 new PenMoveResultDTO.Moved(id, c.getDisplayCode(), created.getId(), from.getId(), from.getCode(), toPen.getId(), toPen.getCode(), moveDate, source.name())
             );
@@ -242,6 +253,17 @@ public class PenMoveService {
             ? null
             : new ApiMessage(MessageCodes.FE04_08, DomainException.params("moved", moved.size(), "pen_code", toPen.getCode()));
         return new PenMoveResultDTO(moved, skipped, message, penService.toDto(toPen));
+    }
+
+    private void requireMoveVersion(Cattle cattle, PenAssignment assignment, Integer expectedVersion) {
+        try {
+            VersionGuard.requireExpected(cattle.getVersion(), expectedVersion);
+        } catch (DomainException conflict) {
+            Map<String, Object> params = new LinkedHashMap<>(conflict.getParams());
+            params.put("cattle_code", cattle.getDisplayCode());
+            params.put("pen_code", assignment.getPen().getCode());
+            throw new DomainException(conflict.getCode(), params, conflict.getStatus());
+        }
     }
 
     /** Current pen and the pen history of a cattle, newest first (SCR-20 Pen History tab). */

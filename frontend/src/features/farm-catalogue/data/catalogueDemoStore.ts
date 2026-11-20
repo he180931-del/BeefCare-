@@ -1,8 +1,7 @@
-import {
-  FieldErrors, matchesFilters, purposeUsage, todayIso, validateBreed, validateMedicine, validatePurpose, validateVaccine, vaccineUsage,
-  type FieldErrorMap,
-} from '../domain/catalogueRules'
-import { describeChanges, effectiveVersion, validateParameterVersion } from '../domain/parameterRules'
+import { FieldErrors, matchesFilters, purposeUsage, todayIso, vaccineUsage, type FieldErrorMap } from '../domain/catalogueRules'
+import { validateBreed, validateMedicine, validatePurpose, validateVaccine } from '../validation/catalogueValidation'
+import { effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
+import { validateParameterVersion } from '../validation/parameterValidation'
 import type {
   Breed, BreedCommand, CatalogueBase, CatalogueFilters, Medicine, MedicineCommand, ParameterVersion, ParameterVersionCommand, Purpose,
   PurposeCommand, Vaccine, VaccineCommand,
@@ -48,9 +47,9 @@ export function createCatalogueDemoStore(seed: CatalogueSeed = CATALOGUE_DEMO, o
     const sorted = [...data.parameterVersions].sort((a, b) => a.versionNo - b.versionNo)
     const current = effectiveVersion(sorted, today())
     return sorted
-      .map((v, i) => ({
+      .map((v) => ({
         ...structuredClone(v),
-        changes: describeChanges(i === 0 ? null : sorted[i - 1]!.parameters, v.parameters),
+        changes: parameterVersionChanges(sorted, v),
         status: (v.id === current?.id ? 'CURRENT' : v.effectiveFrom > today() ? 'SCHEDULED' : 'PAST') as ParameterVersion['status'],
       }))
       .reverse()

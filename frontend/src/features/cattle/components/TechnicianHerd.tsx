@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import TechnicianLayout from '../../../components/TechnicianLayout'
-import { ErrorBlock, LoadingBlock, EmptyBlock, SearchInput } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
+import { EmptyBlock, ErrorBlock, Icon, LoadingBlock, SearchInput } from '../../../shared/ui'
 import { listCowsPage } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { Chip, Seg, chipIcon } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
 

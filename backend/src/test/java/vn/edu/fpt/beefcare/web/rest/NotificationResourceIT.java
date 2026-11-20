@@ -41,8 +41,11 @@ class NotificationResourceIT {
     }
 
     @Test void genericCrudCannotCreateArbitraryRecipientNotifications() throws Exception {
-        mvc.perform(post("/api/notifications").contentType(MediaType.APPLICATION_JSON).content("{\"recipient\":{\"id\":999},\"targetType\":\"FARM\",\"targetId\":1}"))
-            .andExpect(status().isNotFound());
+        mvc.perform(post("/api/notifications")
+            .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recipient\":{\"id\":999},\"targetType\":\"FARM\",\"targetId\":1}"))
+            .andExpect(status().isForbidden());
         verifyNoInteractions(notifications);
     }
 }

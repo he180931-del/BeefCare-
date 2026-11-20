@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { useInRouterContext, useNavigate } from 'react-router-dom'
-import { BackendError } from '../../api/backendClient'
-import { notifySessionSignedOut, onSessionExpired, onSessionSignedOut } from '../../api/sessionLifecycle'
-import { userFacingError } from '../../api/userFacingError'
+import { useInRouterContext, useLocation, useNavigate } from 'react-router-dom'
+import { BackendError } from '../../shared/api/backendClient'
+import { notifySessionSignedOut, onSessionExpired, onSessionSignedOut } from '../../app/session/sessionLifecycle'
+import { userFacingError } from '../../shared/api/userFacingError'
 import { defaultAuthClient } from './client'
 import { GuestAuthFlow } from './pages/GuestAuthFlow'
-import { clearSelectedFarmOnDevice } from '../farm-workspace/selectedFarm'
+import { takeInvitationLink } from './invitationReturn'
+import { clearCurrentFarmId } from '../../app/session/currentFarm'
 import type { AuthClient } from './types'
 import { AUTH_PATH } from './domain/authErrors'
 
@@ -33,7 +34,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
   const [error, setError] = useState<string | null>(null)
   const hasRouter = useInRouterContext()
   const expireSession = useCallback(() => {
-    clearSelectedFarmOnDevice()
+    clearCurrentFarmId()
     setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
     setStatus('anonymous')
   }, [])
@@ -67,7 +68,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       } catch {
         logoutFailed = true
       }
-      clearSelectedFarmOnDevice()
+      clearCurrentFarmId()
       setError(logoutFailed
         ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa; bạn có thể đăng nhập lại.'
         : null)
@@ -80,6 +81,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
   return (
     <AuthContext.Provider value={value}>
       {status === 'authenticated' && hasRouter && <SessionRedirect onExpired={expireSession} />}
+      {status === 'authenticated' && hasRouter && <InvitationResume />}
       {status === 'authenticated'
         ? children
         : hasRouter
@@ -87,6 +89,19 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
           : <LegacyLoginForm client={client} initialError={error} onSuccess={() => setStatus('authenticated')} />}
     </AuthContext.Provider>
   )
+}
+
+/** After sign-in (password, Google or e-mail verification), reopen an invitation link the visitor started from (D28). */
+function InvitationResume() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const current = location.pathname + location.search
+  useEffect(() => {
+    const target = takeInvitationLink(current)
+    if (target) navigate(target, { replace: true })
+    // Only the moment of signing in matters; later navigation must not be redirected again.
+  }, [])
+  return null
 }
 
 function SessionRedirect({ onExpired }: { onExpired: () => void }) {

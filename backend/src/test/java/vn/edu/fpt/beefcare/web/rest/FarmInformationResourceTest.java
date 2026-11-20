@@ -168,7 +168,7 @@ class FarmInformationResourceTest extends DomainTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Trại " + status))
                 .andExpect(jsonPath("$.province").value("Hà Nội"))
-                .andExpect(jsonPath("$.timeZone").value("Asia/Bangkok"))
+                .andExpect(jsonPath("$.timeZone").value("Asia/Ho_Chi_Minh"))
                 .andExpect(jsonPath("$.morningShiftStart").value("05:30:00"))
                 .andExpect(jsonPath("$.serviceStatus").value(status));
             assertThat(audits(farm, "FARM_UPDATE")).as(status).isEqualTo(1);
@@ -220,16 +220,16 @@ class FarmInformationResourceTest extends DomainTestSupport {
         putFarm(owner, farm, form(farm, "province", " Phú Thọ ")).andExpect(status().isOk()).andExpect(jsonPath("$.province").value("Phú Thọ"));
     }
 
-    /** Decision FE-02 Q2: only the UTC+7 time zones offered on SCR-11; blank means Asia/Ho_Chi_Minh. */
+    /** D39: older UTC+7 values are accepted and normalized to Asia/Ho_Chi_Minh. */
     @Test
-    void timeZoneMustBeOneOfTheOfferedZones() throws Exception {
+    void normalizesLegacyUtcPlusSevenValuesAndRejectsOtherOffsets() throws Exception {
         Farm farm = farm();
         AppUser owner = memberWithRole(farm, FarmRole.OWNER);
         putFarm(owner, farm, form(farm, "timeZone", "Europe/London"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("MSG-COM-10"))
             .andExpect(jsonPath("$.params.field").value("timeZone"));
-        putFarm(owner, farm, form(farm, "timeZone", "Asia/Vientiane")).andExpect(status().isOk()).andExpect(jsonPath("$.timeZone").value("Asia/Vientiane"));
+        putFarm(owner, farm, form(farm, "timeZone", "Asia/Vientiane")).andExpect(status().isOk()).andExpect(jsonPath("$.timeZone").value("Asia/Ho_Chi_Minh"));
         putFarm(owner, farm, form(farm, "timeZone", "")).andExpect(status().isOk()).andExpect(jsonPath("$.timeZone").value("Asia/Ho_Chi_Minh"));
     }
 

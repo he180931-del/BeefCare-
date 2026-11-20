@@ -1,13 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import PaymentReconciliationRoutes from '../../../src/features/platform-service/pages/PaymentReconciliationRoutes'
 import { platformServiceDemoStore } from '../../../src/features/platform-service/data/platformServiceDemoStore'
+import { MATCH_TEXT, createPlatformPaymentReadApi } from '../../../src/features/platform-service/api/platformPaymentReadApi'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const session: Session = { role: 'PM', fullName: 'PM UC5', email: 'uc5@example.test', farmId: null, farmName: null, logout: async () => {} }
 const row = (id = 742) => ({ id, provider: 'SEPAY', environment: 'TEST', accountNamespace: 'UC5-NAMESPACE',
@@ -53,6 +58,8 @@ describe('UC5 backend read workbench', () => {
     const list = await screen.findByRole('table', { name: 'Chứng từ ngân hàng' })
     expect(within(list).getByText('****5678')).toBeInTheDocument()
     expect(within(list).queryByText('12345678')).not.toBeInTheDocument()
+    // Review status keeps its colour in backend mode (UI review B2): evidence still to review is amber, not plain grey.
+    expect(within(list).getAllByText('Cần xem')[0]).toHaveClass('bg-warn-bg')
     expect(new URL(listCalls().at(-1)!, 'http://test').searchParams.get('status')).toBe('ALL')
     expect(new URL(listCalls().at(-1)!, 'http://test').searchParams.get('size')).toBe('20')
     expect(await screen.findByText('UC5-NAMESPACE')).toBeInTheDocument()
@@ -233,5 +240,31 @@ describe('UC5 backend read workbench', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Yêu cầu thanh toán' }))
     expect(await screen.findByRole('link', { name: 'BCUC5PAID' })).toBeInTheDocument()
     expect(screen.getByLabelText('Trạng thái thanh toán')).toBeInTheDocument()
+  })
+})
+
+describe('D38: SCR-62 reads cancelled requests', () => {
+  it('TC-19-109: accepts CANCELLED with its time and reason, the REQUEST_CANCELLED match and the CANCELLED filter', async () => {
+    const cancelled = { ...payment(503), quoteRef: 'BCUC5CANCEL', state: 'CANCELLED', purchasedStart: null, purchasedEnd: null, receiptCode: null,
+      evidenceId: null, confirmedAt: null, confirmationSource: null, bankPaidAt: null, receivedAt: null,
+      cancelledAt: '2026-10-28T00:10:00Z', cancelReason: 'Chọn nhầm kỳ hạn' }
+    http.get.mockImplementation(async (path: string) => {
+      const url = new URL(path, 'http://test')
+      if (url.pathname === '/api/platform/payments') return pageOf([cancelled])
+      if (url.pathname === '/api/platform/payments/503') return cancelled
+      return pageOf([{ ...row(), matchResult: 'REQUEST_CANCELLED' }])
+    })
+    const api = createPlatformPaymentReadApi(http)
+    const list = await api.payments({ q: '', state: 'CANCELLED', page: 0 })
+    expect(new URL(String(http.get.mock.calls.at(-1)![0]), 'http://test').searchParams.get('state')).toBe('CANCELLED')
+    expect(list.items[0]).toMatchObject({ state: 'CANCELLED', cancelledAt: '2026-10-28T00:10:00Z', cancelReason: 'Chọn nhầm kỳ hạn' })
+    expect((await api.payment(503)).cancelReason).toBe('Chọn nhầm kỳ hạn')
+    const evidence = await api.evidence({ status: 'ALL', bankFrom: '', bankTo: '', page: 0 })
+    expect(evidence.items[0].matchResult).toBe('REQUEST_CANCELLED')
+    expect(MATCH_TEXT.REQUEST_CANCELLED).toBe('Giờ ngân hàng sau lúc Owner hủy yêu cầu')
+    // A legacy row without the D38 fields stays valid and shows no cancellation.
+    const { cancelledAt: _a, cancelReason: _b, ...legacy } = cancelled
+    http.get.mockResolvedValueOnce({ ...legacy, state: 'EXPIRED' })
+    expect(await api.payment(503)).toMatchObject({ state: 'EXPIRED', cancelledAt: null, cancelReason: null })
   })
 })

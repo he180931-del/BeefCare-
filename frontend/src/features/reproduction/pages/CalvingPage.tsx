@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, Field, Foot, Note, PageHeader, Select, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { useSession } from '../../authorization'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, Field, Foot, Icon, inputCls, Note, PageHeader, Select } from '../../../shared/ui'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
 import { reproductionApi } from '../api/reproductionApi'
-import { REPRODUCTION_BREEDS, REPRODUCTION_PENS, REPRODUCTION_PURPOSES } from '../data/reproductionMock'
 import { ReproductionValidationError, calvingIssues, formatDate } from '../domain/reproductionRules'
-import type { CalvingCommand, DataSource, ReproductionFemale, ReproductionIssue, ReproductionRole } from '../types'
+import type { CalvingCommand, DataSource, ReproductionFemale, ReproductionFormOptions, ReproductionIssue, ReproductionRole } from '../types'
 import {
   COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeField, PersonInput, RadioField, RadioRow, ReadOnlyField, SOURCE_HINT, SOURCE_OPTIONS, nowLocal,
 } from '../components/reproductionFields'
+import { ReproductionOptionsProvider, useReproductionOptions } from '../components/reproductionOptions'
 
 interface CalfForm {
   outcome: 'LIVE' | 'STILLBORN'
@@ -26,12 +25,15 @@ interface CalfForm {
 }
 
 const blankCalf = (profile: ReproductionFemale): CalfForm => ({
-  outcome: 'LIVE', sex: 'FEMALE', weightText: '', weightBasis: '', earTag: '', penId: profile.penId, breed: profile.breed, registration: 'DRAFT', purpose: 'UNDECIDED',
+  outcome: 'LIVE', sex: 'FEMALE', weightText: '', weightBasis: '', earTag: '', penId: profile.penId, breed: profile.breed, registration: 'DRAFT', purpose: '',
 })
-const DUPLICATE = /đã dùng cho|đã được sử dụng/
+/** Mục đích của bê: lựa chọn của người dùng, mặc định mục đích ACTIVE đầu tiên loại UNDECIDED (SCR-40 dòng 17). */
+const purposeOf = (calf: CalfForm, options: ReproductionFormOptions) =>
+  options.purposes.some((item) => item.value === calf.purpose) ? calf.purpose : options.purposes.find((item) => item.type === 'UNDECIDED')?.value ?? options.purposes[0]?.value ?? ''
+const DUPLICATE = /đã dùng cho|đã được sử dụng|đã được dùng/
 const backLink = 'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded border border-edge bg-white px-4 py-[9px] text-[13px] font-semibold text-[#212121] no-underline'
 
-function toCommand(form: { birthAt: string; pregnancyId: string; dataSource: DataSource; attendant: string; course: string; damCondition: string; retainedPlacenta: boolean }, calves: CalfForm[], profile: ReproductionFemale): CalvingCommand {
+function toCommand(form: { birthAt: string; pregnancyId: string; dataSource: DataSource; attendant: string; course: string; damCondition: string; retainedPlacenta: boolean }, calves: CalfForm[], profile: ReproductionFemale, options: ReproductionFormOptions): CalvingCommand {
   return {
     birthAt: form.birthAt, pregnancyId: form.pregnancyId || null, dataSource: form.dataSource, attendant: form.attendant,
     course: form.course as CalvingCommand['course'], damCondition: form.damCondition as CalvingCommand['damCondition'], retainedPlacenta: form.retainedPlacenta,
@@ -39,14 +41,19 @@ function toCommand(form: { birthAt: string; pregnancyId: string; dataSource: Dat
       const weight = calf.weightText.trim() === '' ? null : Number(calf.weightText)
       const base = { outcome: calf.outcome, sex: calf.sex, weightKg: weight, weightBasis: calf.weightBasis || null }
       if (calf.outcome === 'STILLBORN') return base
-      const pen = REPRODUCTION_PENS.find((item) => item.id === calf.penId)
-      return { ...base, earTag: calf.earTag.trim(), penId: calf.penId, penCode: pen?.code ?? profile.penCode, breed: calf.breed, registration: calf.registration, productionPurpose: calf.registration === 'REGISTER_NOW' ? calf.purpose : undefined }
+      const pen = options.pens.find((item) => item.id === calf.penId)
+      return { ...base, earTag: calf.earTag.trim(), penId: calf.penId, penCode: pen?.code ?? profile.penCode, breed: calf.breed, registration: calf.registration, productionPurpose: calf.registration === 'REGISTER_NOW' ? purposeOf(calf, options) : undefined }
     }),
   }
 }
 
-export default function CalvingPage({ role: roleProp }: { role?: ReproductionRole }) {
+export default function CalvingPage({ role }: { role?: ReproductionRole }) {
   const { code = '' } = useParams()
+  return <ReproductionOptionsProvider cattleCode={code}><CalvingForm code={code} role={role} /></ReproductionOptionsProvider>
+}
+
+function CalvingForm({ code, role: roleProp }: { code: string; role?: ReproductionRole }) {
+  const options = useReproductionOptions()
   const navigate = useNavigate()
   const session = useSession()
   const role: ReproductionRole = roleProp ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
@@ -72,7 +79,7 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
   }, [code])
 
   const back = `/cattle/${encodeURIComponent(code)}?tab=repro`
-  const canManage = role === 'MANAGER'
+  const canManage = canRecordCare(role) // GBR-08, D41: the Owner or a Manager records the calving
   const patchForm = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }))
   const patchCalf = (index: number, patch: Partial<CalfForm>) => setCalves((current) => current.map((calf, i) => i === index ? { ...calf, ...patch } : calf))
   const issueOf = (field: string, calf?: number) => issues.find((item) => item.field === field && item.calf === calf)?.message
@@ -86,7 +93,7 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
 
   const submit = async () => {
     if (!profile || !canManage) return
-    const command = toCommand(form, calves, profile)
+    const command = toCommand(form, calves, profile, options)
     const local = calvingIssues(command, { today: nowLocal(), existingEarTags: [], openPregnancyId: profile.openPregnancy?.id, openPregnancyConfirmedAt: profile.openPregnancy?.confirmedAt })
     if (local.length) { setIssues(local); return }
     setIssues([]); setSaving(true)
@@ -94,7 +101,7 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
       const saved = await reproductionApi.recordCalving(code, command, role)
       const record = saved.calvings[0]
       const drafts = record?.calves.filter((calf) => calf.registrationStatus === 'PENDING_CONFIRMATION').length ?? 0
-      const registered = record?.calves.filter((calf) => calf.registrationStatus === 'REGISTERED').map((calf) => calf.earTag).filter(Boolean) ?? []
+      const registered = record?.calves.filter((calf) => calf.registrationStatus === 'REGISTERED').map((calf) => calf.cattleCode || calf.earTag).filter(Boolean) ?? []
       const notice = [
         `Đã ghi sự kiện đẻ của ${code} với ${record?.calves.length ?? 0} kết quả bê.`,
         drafts ? `${drafts} bê sống lưu nháp: Chủ trại hoặc Quản lý đăng ký ở phiếu nhập bê sinh tại trại.` : '',
@@ -115,11 +122,10 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
   return (
     <Layout title="Hồ sơ bò › Ghi sự kiện đẻ" user={role === 'OWNER' ? 'owner' : 'manager'}>
       <div className="flex flex-col gap-4 leading-[normal]">
-        <PageHeader title="Ghi sự kiện đẻ" sub={subtitle} badge={backendMode === 'backend' ? <Badge tone="warn">Chưa nối backend</Badge> : undefined}>
+        <PageHeader title="Ghi sự kiện đẻ" sub={subtitle}>
           <Link className={backLink} to={back}><Icon name="arrow-left" size={16} />Quay lại hồ sơ</Link>
         </PageHeader>
-        {backendMode === 'backend' && <Note tone="warn">Sự kiện đẻ chưa tích hợp backend; biểu mẫu không lưu hoặc chuyển sang mock trong chế độ backend.</Note>}
-        {role !== 'MANAGER' && <Note tone="info">Chỉ Quản lý được ghi sự kiện đẻ. Chủ trại và Kỹ thuật viên xem ở chế độ chỉ đọc.</Note>}
+        {!canManage && <Note tone="info">Chỉ Chủ trại và Quản lý được ghi sự kiện đẻ. Kỹ thuật viên xem ở chế độ chỉ đọc.</Note>}
         {banner && <Note tone="err">{banner}</Note>}
         {loadError && <Note tone="err">{loadError}</Note>}
         {loading && <Card><p className="m-0 text-sm text-muted">Đang tải hồ sơ bò…</p></Card>}
@@ -163,7 +169,7 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
                   const tagError = issueOf('earTag', index)
                   const weightError = issueOf('weight', index)
                   const basisError = issueOf('weightBasis', index)
-                  const purposes = REPRODUCTION_PURPOSES.filter((item) => !(item.value === 'SIRE' && calf.sex === 'FEMALE') && !(item.value === 'BREEDING' && calf.sex === 'MALE'))
+                  const purposes = options.purposes.filter((item) => !(item.type === 'SIRE' && calf.sex === 'FEMALE') && !(item.type === 'BREEDING' && calf.sex === 'MALE'))
                   return (
                     <section key={index} role="group" aria-label={label} className="flex flex-col gap-3 rounded-md border border-rule p-[15px]">
                       <div className="flex items-center gap-2">
@@ -174,7 +180,10 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
                         <RadioField label="Kết quả *" name={`${label} – Kết quả`} value={calf.outcome} options={[['LIVE', 'Sống'], ['STILLBORN', 'Chết lúc sinh']]}
                           onChange={(value) => patchCalf(index, value === 'LIVE' ? { outcome: 'LIVE', sex: calf.sex === 'UNKNOWN' ? 'FEMALE' : calf.sex } : { outcome: 'STILLBORN' })} />
                         <Field label="Giới tính">
-                          <RadioRow name={`${label} – Giới tính`} value={calf.sex} onChange={(value) => patchCalf(index, { sex: value as CalfForm['sex'], purpose: value === 'FEMALE' && calf.purpose === 'SIRE' ? 'UNDECIDED' : value === 'MALE' && calf.purpose === 'BREEDING' ? 'UNDECIDED' : calf.purpose })}
+                          <RadioRow name={`${label} – Giới tính`} value={calf.sex} onChange={(value) => {
+                            const type = options.purposes.find((item) => item.value === calf.purpose)?.type
+                            patchCalf(index, { sex: value as CalfForm['sex'], purpose: (value === 'FEMALE' && type === 'SIRE') || (value === 'MALE' && type === 'BREEDING') ? '' : calf.purpose })
+                          }}
                             options={[['MALE', 'Đực'], ['FEMALE', 'Cái'], ...(live ? [] : [['UNKNOWN', 'Không rõ'] as [string, string]])]} />
                           {errText(issueOf('sex', index))}
                         </Field>
@@ -195,19 +204,21 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
                           <div className="text-xs font-semibold text-brand">Đăng ký bê</div>
                           <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
                             <Field label="Mã thẻ tai / QR" id={`calf-${index}-tag`}>
-                              <input id={`calf-${index}-tag`} aria-label="Mã thẻ tai / QR" aria-invalid={!!tagError} maxLength={50} className={`${inputCls} ${invalid(tagError)}`} value={calf.earTag} onChange={(event) => patchCalf(index, { earTag: event.target.value })} placeholder={calf.registration === 'DRAFT' ? 'Không bắt buộc với bê nháp' : ''} />
-                              {tagError ? errText(tagError) : <span className="text-[11px] text-muted">Duy nhất trong trại</span>}
+                              <input id={`calf-${index}-tag`} aria-label="Mã thẻ tai / QR" aria-invalid={!!tagError} maxLength={50} className={`${inputCls} ${invalid(tagError)}`} value={calf.earTag} onChange={(event) => patchCalf(index, { earTag: event.target.value })} placeholder="Không bắt buộc" />
+                              {/* FE-12 Q5 / D36: không bắt buộc kể cả khi Đăng ký ngay. */}
+                              {tagError ? errText(tagError) : <span className="text-[11px] text-muted">Để trống thì hệ thống cấp mã khi ghi sổ phiếu nhập bê · duy nhất trong trại</span>}
                             </Field>
                             <Field label="Chuồng ban đầu *" id={`calf-${index}-pen`}>
                               <Select id={`calf-${index}-pen`} aria-label="Chuồng ban đầu" value={calf.penId} onChange={(event) => patchCalf(index, { penId: event.target.value })}>
                                 <option value="">Chọn chuồng</option>
-                                {REPRODUCTION_PENS.map((pen) => <option key={pen.id} value={pen.id}>{pen.label}</option>)}
+                                {options.pens.map((pen) => <option key={pen.id} value={pen.id}>{pen.label}</option>)}
                               </Select>
                               {errText(issueOf('penId', index))}
                             </Field>
                             <Field label="Giống" id={`calf-${index}-breed`}>
                               <Select id={`calf-${index}-breed`} aria-label="Giống" value={calf.breed} onChange={(event) => patchCalf(index, { breed: event.target.value })}>
-                                {REPRODUCTION_BREEDS.map((breed) => <option key={breed} value={breed}>{breed}</option>)}
+                                {calf.breed && !options.breeds.includes(calf.breed) && <option value={calf.breed}>{calf.breed}</option>}
+                                {options.breeds.map((breed) => <option key={breed} value={breed}>{breed}</option>)}
                               </Select>
                             </Field>
                             <Field label="Hình thức đăng ký *">
@@ -217,7 +228,7 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
                           </div>
                           {calf.registration === 'REGISTER_NOW' && (
                             <Field label="Mục đích nuôi *" id={`calf-${index}-purpose`} hint={'Giai đoạn của bê đăng ký ngay là "Bê chưa cai sữa"'}>
-                              <Select id={`calf-${index}-purpose`} aria-label="Mục đích nuôi" value={calf.purpose} onChange={(event) => patchCalf(index, { purpose: event.target.value })}>
+                              <Select id={`calf-${index}-purpose`} aria-label="Mục đích nuôi" value={purposes.some((item) => item.value === calf.purpose) ? calf.purpose : purposeOf({ ...calf, purpose: '' }, { ...options, purposes })} onChange={(event) => patchCalf(index, { purpose: event.target.value })}>
                                 {purposes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                               </Select>
                               {errText(issueOf('purpose', index))}
@@ -234,9 +245,9 @@ export default function CalvingPage({ role: roleProp }: { role?: ReproductionRol
         )}
         <div className="flex flex-wrap items-center justify-end gap-2.5">
           <Button onClick={() => navigate(back)}>Hủy</Button>
-          <Button variant="primary" disabled={!canManage || !profile || saving || backendMode === 'backend'} onClick={() => void submit()}>{saving ? 'Đang lưu…' : 'Lưu sự kiện đẻ'}</Button>
+          <Button variant="primary" disabled={!canManage || !profile || saving} onClick={() => void submit()}>{saving ? 'Đang lưu…' : 'Lưu sự kiện đẻ'}</Button>
         </div>
-        <Foot>Trang ghi sự kiện đẻ (chỉ Quản lý). Mặc định liên kết thai kỳ đang mở. Bê sống mặc định "Lưu bê nháp" để đăng ký sau ở phiếu nhập bê sinh tại trại; chọn "Đăng ký ngay" thì cần mã thẻ, chuồng và mục đích nuôi. Có cân sơ sinh thì phải chọn cơ sở cân.</Foot>
+        <Foot>Trang ghi sự kiện đẻ (Chủ trại, Quản lý). Mặc định liên kết thai kỳ đang mở. Bê sống mặc định "Lưu bê nháp" để đăng ký sau ở phiếu nhập bê sinh tại trại; chọn "Đăng ký ngay" thì cần chuồng và mục đích nuôi, mã thẻ để trống thì hệ thống cấp khi ghi sổ phiếu nhập bê. Có cân sơ sinh thì phải chọn cơ sở cân.</Foot>
       </div>
     </Layout>
   )

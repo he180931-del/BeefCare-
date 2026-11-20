@@ -19,11 +19,11 @@
 | UC | Tên | Tác nhân | Màn hình |
 |---|---|---|---|
 | UC-FE12-01 | Xem khám thai, thai hiện tại, ngày đẻ dự kiến, diễn biến thai, lịch sử đẻ | Owner, Manager, Technician | SCR-39 |
-| UC-FE12-02 | Ghi kết quả khám thai | Manager | Popup Ghi khám thai |
-| UC-FE12-03 | Ghi diễn biến thai (quan sát, biến chứng, sẩy thai) | Manager | Popup Ghi diễn biến thai |
-| UC-FE12-04 | Ghi sự kiện đẻ và kết quả từng bê | Manager | SCR-40 |
-| UC-FE12-05 | Sửa / hủy kết quả khám thai | Manager | Popup Sửa / Hủy khám thai |
-| UC-FE12-06 | Sửa / hủy diễn biến thai, lần đẻ, kết quả bê | Manager | Popup Sửa / Hủy bản ghi thai và đẻ |
+| UC-FE12-02 | Ghi kết quả khám thai | Owner, Manager | Popup Ghi khám thai |
+| UC-FE12-03 | Ghi diễn biến thai (quan sát, biến chứng, sẩy thai) | Owner, Manager | Popup Ghi diễn biến thai |
+| UC-FE12-04 | Ghi sự kiện đẻ và kết quả từng bê | Owner, Manager | SCR-40 |
+| UC-FE12-05 | Sửa / hủy kết quả khám thai | Owner, Manager | Popup Sửa / Hủy khám thai |
+| UC-FE12-06 | Sửa / hủy diễn biến thai, lần đẻ, kết quả bê | Owner, Manager | Popup Sửa / Hủy bản ghi thai và đẻ |
 
 ---
 
@@ -32,7 +32,7 @@
 | Hành động | Owner | Manager | Technician |
 |---|---|---|---|
 | Xem | Có | Có | Có |
-| Ghi, sửa, hủy | — | **Chỉ Manager** | — (có thể là người khám / đỡ đẻ) |
+| Ghi, sửa, hủy | Có (D41) | Có | — (có thể là người khám / đỡ đẻ) |
 | Xác nhận bê nháp (phiếu FARM_BORN), đánh dấu bê chết trước khi đăng ký | Có | Có | — (ở FE-06) |
 
 ---
@@ -127,7 +127,7 @@ Lần đẻ thứ hai của cùng bò mẹ trong vòng 30 ngày → bị gắn c
 | R-12-12 | Bê đăng ký: giai đoạn UNWEANED_CALF; ngày sinh = thời điểm đẻ; mẹ = bò mẹ; bố = đực giống của lần phối liên kết thai (không có → "Không rõ"); chuồng đề xuất = chuồng chọn lúc đẻ. Bò mẹ chưa ADULT → gợi ý REM-08 chuyển sang ADULT. | GBR-31, UC-04 POST-4 |
 | R-12-13 | Bê nháp: không nhận sự kiện nào khác cho đến khi đăng ký; bê chết trước khi đăng ký → DIED_BEFORE_REGISTRATION, **không** đổi LIVE thành STILLBORN. | GBR-58 |
 | R-12-14 | Sau đẻ: giải quyết REM-05, tạo REM-07 (đẻ + 45 ngày) nếu có tham số. | UC-04 POST-3 |
-| R-12-15 | Sửa / hủy: chỉ Manager, bắt buộc lý do, kèm version, giữ giá trị gốc. Không làm mồ côi / mâu thuẫn bản ghi sau (MSG-FE11-07): khám đã mở thai có diễn biến / lần đẻ / bê đăng ký thì không đổi thành KHÔNG CÓ THAI hay hủy; kết quả bê sống đã đăng ký không hủy và không đổi thành chết khi sinh; không hủy lần đẻ có bê đã đăng ký; hủy SẨY THAI chỉ mở lại thai khi không có thai mới hơn. | GBR-59 |
+| R-12-15 | Sửa / hủy: Owner hoặc Manager (D41), bắt buộc lý do, kèm version, giữ giá trị gốc. Không làm mồ côi / mâu thuẫn bản ghi sau (MSG-FE11-07): khám đã mở thai có diễn biến / lần đẻ / bê đăng ký thì không đổi thành KHÔNG CÓ THAI hay hủy; kết quả bê sống đã đăng ký không hủy và không đổi thành chết khi sinh; không hủy lần đẻ có bê đã đăng ký; hủy SẨY THAI chỉ mở lại thai khi không có thai mới hơn. | GBR-59 |
 | R-12-16 | Sửa khám làm mất kết quả CÓ THAI duy nhất của một thai chưa có bản ghi sau → thai VOIDED cùng lúc. Hủy lần đẻ mà mọi bê sống đều là nháp → các bê nháp bị hủy cùng, REM-09 hủy. | UC-05 AF2, UC-06 AF1 |
 | R-12-17 | Sau mọi thay đổi: tính lại thai, ngày dự kiến, trạng thái sinh sản, bê nháp, nhắc việc. | UC-05, UC-06 |
 
@@ -242,7 +242,7 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 | A2 | Ghi khám thai | `linkedBreedingId?, checkedAt, dataSource, result, method?, estimatedMonths?, examinerId? \| examinerName?, note?` + `Idempotency-Key` | `{checkId, result, episode? {episodeId, expectedDate, basis}, reproStatus}` | FE12-02, FE11-10, FE12-11 (thông tin), COM-06, COM-07, COM-13, COM-02 | `POST /api/farms/{farmId}/cattle/{cattleId}/pregnancy-checks` |
 | A3 | Ghi diễn biến thai | `type, occurredAt, dataSource, details, healthCaseId?` + `Idempotency-Key` | `{updateId, episodeStatus, reproStatus}` | FE12-12, COM-06, COM-07, COM-02 | `POST /api/farms/{farmId}/pregnancy-episodes/{episodeId}/updates` |
 | A4 | Ghi đẻ | `damId, episodeId? \| noTrackedPregnancy, birthAt, dataSource, attendantId? \| attendantName?, course?, damCondition?, retainedPlacenta, calves[{outcome, sex?, birthWeightKg?, weightBasis?, tagCode?, penId?, breedId?, registration: DRAFT\|REGISTER_NOW, purposeId?}]` + `Idempotency-Key` | `{calvingId, calves[{calfNo, outcome, registration, cattleId?, cattleCode?, voucherCode?}], damStatus}` | FE12-06, FE12-07, FE12-08, FE04-05, FE05-12, FE12-12, COM-07, COM-13, COM-02 | `POST /api/farms/{farmId}/calvings` |
-| A5 | Sửa / hủy khám thai | `changes?, reason, version` + `Idempotency-Key` | Kết quả + thai / trạng thái mới | FE11-07, COM-06, COM-05 | `POST …/reproduction-events/{eventId}/correction` · `/void` (dùng chung FE-11 – cần xác nhận áp dụng cho khám thai) |
+| A5 | Sửa / hủy khám thai | `changes?, reason, version` + `Idempotency-Key` | Kết quả + thai / trạng thái mới | FE11-07, COM-06, COM-05 | `POST …/reproduction-events/{eventId}/correction` · `/void` (dùng chung FE-11, áp dụng cho khám thai) |
 | A6 | Sửa / hủy diễn biến thai | Như A5 | Như A5 | Như A5 | `POST …/pregnancy-updates/{updateId}/correction` · `/void` |
 | A7 | Sửa / hủy lần đẻ | Như A5 | Như A5 | + FE11-07 khi có bê đã đăng ký | `POST …/calvings/{calvingId}/correction` · `/void` |
 | A8 | Sửa / hủy kết quả bê | Như A5 | Như A5 | + FE12-08; chặn với bê đã đăng ký | `POST …/calf-outcomes/{calfId}/correction` · `/void` |
@@ -297,7 +297,8 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 | TC-12-23 | Lần đẻ có 2 bê nháp | Hủy lần đẻ | 2 bê nháp hủy; REM-09 hủy; thai trở lại theo quy tắc | I | R-12-16 |
 | TC-12-24 | Bê sống đã đăng ký | Đổi sang chết khi sinh / hủy | MSG-FE11-07 | I | R-12-15 |
 | TC-12-25 | Sẩy thai, sau đó đã có thai mới | Hủy bản ghi sẩy thai | Thai cũ không mở lại | I | R-12-15 |
-| TC-12-26 | Owner / Technician | Gọi ghi khám / đẻ | 403 | H | §2 |
+| TC-12-26 | Technician | Gọi ghi khám / đẻ | 403 | H | §2 |
+| TC-12-27 | Owner, trại ACTIVE | Ghi khám thai, diễn biến thai, sự kiện đẻ (SCR-40); sửa / hủy | Thành công như Manager; người ghi = Owner | H, I, E | §2, D41 |
 
 ---
 
@@ -309,6 +310,7 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 | Q2 | UC-FE12-01 không có đặc tả Part II | Theo SCR-39 | Theo SCR-39 |
 | Q3 | Bê "Đăng ký ngay" không có mã thẻ | Hệ thống cấp mã khi ghi sổ phiếu FARM_BORN (như SCR-25) | Theo đề xuất |
 | Q4 | Người khám chọn thành viên hay chữ tự do – cần cả hai? | Cả hai, như người thực hiện ở các popup khác | Theo đề xuất |
+| Q5 | Thẻ tai bê: Figma bắt buộc khi "Đăng ký ngay", SRS không bắt buộc | Theo SRS (D12) | Theo SRS, không bắt buộc (D36, 15/11/2026); để trống thì cấp mã khi ghi sổ phiếu FARM_BORN (Q3) |
 
 ---
 
@@ -319,3 +321,4 @@ Popup → chọn loại bản ghi (với UC-06), bản ghi, hành động → s�
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 15/11/2026 | 28/10/2026 | Việc 6a: A1–A8 nối đủ trường mục 7; Q5 chốt (D36); P4 đẻ lần hai trong 30 ngày chặn MSG-FE12-12; P6 1–4 bê; P7 thai không ngày trả `notice: MSG-FE12-11`; khám CÓ THAI khi đã có thai OPEN xác nhận thai đó (AF2) | Tuấn |

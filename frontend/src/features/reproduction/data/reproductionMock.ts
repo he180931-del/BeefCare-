@@ -65,6 +65,9 @@ export const REPRODUCTION_HEALTH_CASES: Record<string, Array<{ id: string; label
 /** Male ACTIVE cattle of the farm offered as farm sire. */
 export const REPRODUCTION_SIRES = [{ id: 'sire-1', label: 'Sắm · BC-000301 · VN-BV-0101' }, { id: 'sire-2', label: 'Đại Hùng · BC-000302 · VN-BV-0118' }]
 
+/** Bản mô phỏng đứng ở ngày mà frame và dữ liệu mẫu mô tả, để số ngày và cửa sổ phối không trôi. */
+export const REPRODUCTION_DEMO_NOW = '2026-10-20T15:00'
+
 export const REPRODUCTION_DEMO: ReproductionFemale[] = [
   {
     cattleId: 'cattle-142', cattleCode: 'BC-000142', name: '—', earTag: '0142', sex: 'FEMALE', breed: 'Zebu đỏ',

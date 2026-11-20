@@ -557,6 +557,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -2888,6 +2898,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -2900,12 +2917,22 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -2925,6 +2952,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -2937,12 +2971,22 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -2962,6 +3006,13 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -2974,12 +3025,22 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -3000,6 +3061,16 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -3026,12 +3097,22 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/MemberView"
+                  "$ref" : "#/components/schemas/AcceptedInvitation"
                 }
               }
             }
@@ -3297,7 +3378,17 @@
         },
         "responses" : {
           "201" : {
-            "description" : "Created",
+            "description" : "At least one animal recorded or deferred; skipped lists the others",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VaccinationBatchResult"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "Every animal skipped (MSG-FE09-09 / MSG-COM-13); nothing saved",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -3521,6 +3612,15 @@
             "format" : "int32"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StopVaccinationSchedule"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -3759,7 +3859,7 @@
           "required" : false,
           "schema" : {
             "type" : "string",
-            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           }
         }, {
           "name" : "from",
@@ -3849,6 +3949,57 @@
             }
           },
           "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PaymentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/subscription/payments/{paymentId}/cancel" : {
+      "post" : {
+        "tags" : [ "subscription-payment-resource" ],
+        "operationId" : "cancelPayment",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "paymentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PaymentCancelRequest"
+              }
+            }
+          }
         },
         "responses" : {
           "200" : {
@@ -4710,19 +4861,77 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "CANCELLED" ]
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "maximum" : 21474836,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "lastSentAt",
+            "enum" : [ "lastSentAt" ]
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "desc",
+            "enum" : [ "asc", "desc" ]
+          }
+        }, {
+          "name" : "invitationId",
+          "in" : "query",
+          "description" : "Exact invitation lookup for UC1; still scoped to this Owner's farm",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 1
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/InvitationView"
-                  }
+                  "$ref" : "#/components/schemas/InvitationPage"
                 }
               }
             }
@@ -4759,6 +4968,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "201" : {
             "description" : "Created",
             "content" : {
@@ -4811,6 +5030,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -4863,6 +5092,16 @@
           "required" : true
         },
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -5089,6 +5328,36 @@
             "type" : "string",
             "format" : "date"
           }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -5096,10 +5365,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/HealthCaseRow"
-                  }
+                  "$ref" : "#/components/schemas/HealthCasePage"
                 }
               }
             }
@@ -5294,58 +5560,6 @@
         "responses" : {
           "201" : {
             "description" : "Created",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/HealthCaseResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/farms/{farmId}/health-cases/{caseId}/closure-correction" : {
-      "post" : {
-        "tags" : [ "health-care-command-resource" ],
-        "operationId" : "correctClosure",
-        "parameters" : [ {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "caseId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CorrectClosure"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -5912,6 +6126,118 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/SaveRationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RationView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/feed/rations/{rationId}/versions/{versionNo}/cancel" : {
+      "post" : {
+        "tags" : [ "feed-management-resource" ],
+        "operationId" : "cancelRationVersion",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "rationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "versionNo",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RationVersionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RationView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/feed/rations/{rationId}/stop" : {
+      "post" : {
+        "tags" : [ "feed-management-resource" ],
+        "operationId" : "stopRation",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "rationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StopRationRequest"
               }
             }
           },
@@ -7322,7 +7648,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/ReportRequest"
+                "$ref" : "#/components/schemas/FarmManagementReportRequest"
               }
             }
           },
@@ -7523,7 +7849,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/EventCommand"
+                "$ref" : "#/components/schemas/PregnancyCheckCommand"
               }
             }
           },
@@ -7693,7 +8019,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Summary"
+                  "$ref" : "#/components/schemas/GrowthSummary"
                 }
               }
             }
@@ -7843,7 +8169,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/EventCommand"
+                "$ref" : "#/components/schemas/EstrusCommand"
               }
             }
           },
@@ -7895,7 +8221,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/EventCommand"
+                "$ref" : "#/components/schemas/BreedingCommand"
               }
             }
           },
@@ -8279,7 +8605,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/CalfOutcomeResult"
+                  "$ref" : "#/components/schemas/CalfResult"
                 }
               }
             }
@@ -8331,7 +8657,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/CalfOutcomeResult"
+                  "$ref" : "#/components/schemas/CalfResult"
                 }
               }
             }
@@ -9334,7 +9660,8 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           }
         }, {
           "name" : "q",
@@ -9939,26 +10266,48 @@
     "/api/platform/audit" : {
       "get" : {
         "tags" : [ "platform-audit-resource" ],
+        "summary" : "A1 – Search the central audit (SCR-51)",
+        "description" : "SA only (403 MSG-COM-01). `from` and `to` are calendar days (yyyy-MM-dd, farm time zone), both included and required (MSG-COM-06); `from` after `to` is MSG-COM-11; more than 12 months is MSG-COM-10 (field dateRange). `actor` matches part of the name or email (case-insensitive); `system=true` keeps the actions done by the system and cannot be combined with `actor`. `action` is a code of A3, `targetType` one of ACCOUNT, PLATFORM_ACCESS, MEMBERSHIP, FARM, PAYMENT, FINANCE_RECORD, TICKET, INTERNAL_REQUEST (other values: MSG-COM-10). Newest first unless `dir=asc`; 20 per page, at most 100. Only the GBR-86 platform actions are listed; farm data (cattle, care, vouchers…) never is. `actor` is null for \"System\"; `actor.role` is empty for entries written before D34.",
         "operationId" : "search",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
+          "description" : "First day, yyyy-MM-dd",
           "required" : false,
           "schema" : {
             "type" : "string",
-            "format" : "date-time"
+            "format" : "date"
           }
         }, {
           "name" : "to",
           "in" : "query",
+          "description" : "Last day, yyyy-MM-dd (included)",
           "required" : false,
           "schema" : {
             "type" : "string",
-            "format" : "date-time"
+            "format" : "date"
+          }
+        }, {
+          "name" : "actor",
+          "in" : "query",
+          "description" : "Part of the actor's name or email",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "system",
+          "in" : "query",
+          "description" : "Only actions done by the system",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
           }
         }, {
           "name" : "action",
           "in" : "query",
+          "description" : "Public action code (A3)",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -9966,17 +10315,10 @@
         }, {
           "name" : "targetType",
           "in" : "query",
+          "description" : "SCR-51 target type",
           "required" : false,
           "schema" : {
             "type" : "string"
-          }
-        }, {
-          "name" : "actorId",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }, {
           "name" : "page",
@@ -9994,16 +10336,35 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 25
+            "default" : 20
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "description" : "desc (default, newest first) or asc",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "desc"
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageAuditEntry"
+                  "$ref" : "#/components/schemas/AuditPage"
                 }
               }
             }
@@ -10014,6 +10375,8 @@
     "/api/platform/audit/{id}" : {
       "get" : {
         "tags" : [ "platform-audit-resource" ],
+        "summary" : "A2 – One audit entry (SCR-51 detail)",
+        "description" : "SA only. Allowlisted before / after values only (no reason, ticket body, bank evidence or secret); a value missing on one side is shown as \"—\". An entry outside the central audit, or a missing one, is 404 MSG-COM-08. `correlationId` is empty for entries written before D34.",
         "operationId" : "get_9",
         "parameters" : [ {
           "name" : "id",
@@ -10025,12 +10388,55 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AuditEntry"
+                  "$ref" : "#/components/schemas/AuditDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/audit/actions" : {
+      "get" : {
+        "tags" : [ "platform-audit-resource" ],
+        "summary" : "A3 – Action codes of the SCR-51 Action filter",
+        "description" : "SA only. Code and target type of every central audit action.",
+        "operationId" : "actions",
+        "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AuditActionOption"
+                  }
                 }
               }
             }
@@ -10045,6 +10451,7 @@
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
+          "description" : "Matches the name or email; trimmed, case-insensitive, at most 100 characters",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -10054,7 +10461,17 @@
           "in" : "query",
           "required" : false,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SUSPENDED" ]
+          }
+        }, {
+          "name" : "platformRole",
+          "in" : "query",
+          "description" : "ACTIVE platform role; NONE = no ACTIVE role (a REVOKED one included)",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "NONE", "CS", "PM", "SA" ]
           }
         }, {
           "name" : "page",
@@ -10063,7 +10480,9 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 0
+            "default" : 0,
+            "maximum" : 21474836,
+            "minimum" : 0
           }
         }, {
           "name" : "size",
@@ -10072,16 +10491,46 @@
           "schema" : {
             "type" : "integer",
             "format" : "int32",
-            "default" : 25
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "name",
+            "enum" : [ "name" ]
+          }
+        }, {
+          "name" : "dir",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "asc",
+            "enum" : [ "asc", "desc" ]
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageAccountSummary"
+                  "$ref" : "#/components/schemas/AccountPage"
                 }
               }
             }
@@ -10103,12 +10552,22 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/AccountSummary"
+                  "$ref" : "#/components/schemas/AccountDetail"
                 }
               }
             }
@@ -10130,6 +10589,16 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
@@ -10137,7 +10606,7 @@
                 "schema" : {
                   "type" : "array",
                   "items" : {
-                    "$ref" : "#/components/schemas/AuditItem"
+                    "$ref" : "#/components/schemas/AccessHistoryItem"
                   }
                 }
               }
@@ -10317,6 +10786,43 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "tab",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "penId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "breedId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "eligibility",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -10324,10 +10830,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/ReproductionAnimal"
-                  }
+                  "$ref" : "#/components/schemas/Worklist"
                 }
               }
             }
@@ -10474,15 +10977,22 @@
           }
         } ],
         "responses" : {
+          "400" : {
+            "description" : "Bad Request",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/MemberView"
-                  }
+                  "$ref" : "#/components/schemas/MemberList"
                 }
               }
             }
@@ -10541,6 +11051,14 @@
           "name" : "cattleId",
           "in" : "path",
           "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "historyCaseId",
+          "in" : "query",
+          "required" : false,
           "schema" : {
             "type" : "integer",
             "format" : "int64"
@@ -10643,7 +11161,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Page"
+                  "$ref" : "#/components/schemas/GrowthHerdPage"
                 }
               }
             }
@@ -10964,6 +11482,57 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/AttachmentDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/feed/feeding-records/plan" : {
+      "get" : {
+        "tags" : [ "feed-management-resource" ],
+        "operationId" : "feedingPlan",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "penId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "date",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "session",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FeedingPlanView"
                 }
               }
             }
@@ -11783,6 +12352,7 @@
         }, {
           "name" : "sort",
           "in" : "query",
+          "description" : "Sort by displayCode, name, breedName, birthDate, penCode, purposeName, or latestWeightKg. Prefix with - for descending order. Missing values are sorted last.",
           "required" : false,
           "schema" : {
             "type" : "string"
@@ -11790,6 +12360,7 @@
         }, {
           "name" : "hasWeight",
           "in" : "query",
+          "description" : "Filter by whether the cattle has a latest weight.",
           "required" : false,
           "schema" : {
             "type" : "boolean"
@@ -11917,6 +12488,29 @@
             "type" : "integer",
             "format" : "int64"
           }
+        }, {
+          "name" : "type",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -11924,7 +12518,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ReproductionHistory"
+                  "$ref" : "#/components/schemas/Profile"
                 }
               }
             }
@@ -12094,6 +12688,71 @@
         }
       }
     },
+    "/api/farms/{farmId}/announcements/{id}/preview" : {
+      "get" : {
+        "tags" : [ "farm-announcements-resource" ],
+        "operationId" : "previewPublish",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublishPreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/farms/{farmId}/announcements/recipients" : {
+      "get" : {
+        "tags" : [ "farm-announcements-resource" ],
+        "operationId" : "recipients_1",
+        "parameters" : [ {
+          "name" : "farmId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MemberOption"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/csrf" : {
       "get" : {
         "tags" : [ "authenticate-controller" ],
@@ -12168,6 +12827,35 @@
   },
   "components" : {
     "schemas" : {
+      "ProblemDetail" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "instance" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "properties" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          }
+        }
+      },
       "RecordFields" : {
         "type" : "object",
         "properties" : {
@@ -12606,6 +13294,54 @@
           "boosterIntervalMonths" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "doseCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "removeBooster" : {
+            "type" : "boolean"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/ScheduleTarget"
+          }
+        }
+      },
+      "ScheduleTarget" : {
+        "type" : "object",
+        "properties" : {
+          "penIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "herdGroups" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "lifeStages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "cattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "excludedCattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
           }
         }
       },
@@ -12807,6 +13543,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "code" : {
             "type" : "string"
           },
@@ -12954,6 +13694,7 @@
           },
           "role" : {
             "type" : "string",
+            "description" : "New role; required for CHANGE_ROLE, ignored otherwise",
             "pattern" : "MANAGER|TECHNICIAN"
           },
           "effectiveDate" : {
@@ -12962,6 +13703,7 @@
           },
           "reason" : {
             "type" : "string",
+            "description" : "Trimmed; at least 5 non-space characters (Table III-1)",
             "maxLength" : 500,
             "minLength" : 0
           },
@@ -12995,16 +13737,19 @@
           "status" : {
             "type" : "string"
           },
-          "effectiveDate" : {
+          "joinedAt" : {
             "type" : "string",
-            "format" : "date"
-          },
-          "reason" : {
-            "type" : "string"
+            "format" : "date-time"
           },
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -14955,27 +15700,35 @@
         "properties" : {
           "title" : {
             "type" : "string",
-            "maxLength" : 255,
-            "minLength" : 0
+            "maxLength" : 150,
+            "minLength" : 1
           },
           "body" : {
             "type" : "string",
-            "maxLength" : 10000,
-            "minLength" : 0
+            "maxLength" : 5000,
+            "minLength" : 1
           },
           "recipientRoles" : {
             "type" : "array",
             "items" : {
               "type" : "string",
               "minLength" : 1
-            },
-            "minItems" : 1
+            }
+          },
+          "recipientMemberIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
           },
           "expectedVersion" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int32",
+            "description" : "Required when updating a draft; omit when creating one"
           }
-        }
+        },
+        "required" : [ "body", "recipientRoles", "title" ]
       },
       "AnnouncementView" : {
         "type" : "object",
@@ -14990,21 +15743,102 @@
           "authorName" : {
             "type" : "string"
           },
+          "authorRole" : {
+            "type" : "string"
+          },
           "draftTitle" : {
             "type" : "string"
           },
           "draftBody" : {
             "type" : "string"
           },
+          "title" : {
+            "type" : "string"
+          },
+          "body" : {
+            "type" : "string"
+          },
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "recipientRoles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "recipientMemberIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
           },
           "versions" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/VersionView"
             }
+          },
+          "recipientCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "deliveries" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DeliveryView"
+            }
+          },
+          "publishedTime" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "unread" : {
+            "type" : "boolean"
+          },
+          "readTime" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "isAuthor" : {
+            "type" : "boolean"
+          },
+          "isReceived" : {
+            "type" : "boolean"
+          },
+          "canCorrect" : {
+            "type" : "boolean"
+          },
+          "myDeliveryId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DeliveryView" : {
+        "type" : "object",
+        "properties" : {
+          "recipientId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "readTime" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -15122,15 +15956,19 @@
         "properties" : {
           "category" : {
             "type" : "string",
+            "enum" : [ "ACCOUNT_ACCESS", "PAYMENT", "FARM_SERVICE", "SYSTEM_USAGE", "OTHER" ],
             "minLength" : 1
           },
           "scope" : {
             "type" : "string",
+            "description" : "ACCOUNT_ACCESS requires ACCOUNT; PAYMENT and FARM_SERVICE require FARM; SYSTEM_USAGE and OTHER allow either scope",
+            "enum" : [ "FARM", "ACCOUNT" ],
             "minLength" : 1
           },
           "farmId" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "Required for PAYMENT and FARM_SERVICE, and for any FARM-scoped ticket; must be null for ACCOUNT_ACCESS and any ACCOUNT-scoped ticket"
           },
           "subject" : {
             "type" : "string",
@@ -15154,6 +15992,9 @@
           "id" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "label" : {
+            "type" : "string"
           }
         },
         "required" : [ "id" ]
@@ -15228,6 +16069,10 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "needsReassignment" : {
+            "type" : "boolean",
+            "description" : "OPEN request whose recipient is no longer available (account suspended or platform role lost): the CS should change the recipient (UC-FE03-08 step 6, D32)"
           }
         }
       },
@@ -16009,6 +16854,10 @@
           },
           "sourceReference" : {
             "type" : "string"
+          },
+          "sourceVersion" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -16165,51 +17014,107 @@
         "properties" : {
           "reason" : {
             "type" : "string",
+            "description" : "Trimmed; 5–500 characters with at least 5 that are not spaces (Table III-1)",
             "maxLength" : 500,
             "minLength" : 0
           },
           "version" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "The account version shown in A10"
           }
         },
         "required" : [ "version" ]
       },
-      "AccountSummary" : {
+      "AccountDetail" : {
         "type" : "object",
         "properties" : {
           "id" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "email" : {
-            "type" : "string"
-          },
           "fullName" : {
             "type" : "string"
           },
-          "phone" : {
+          "email" : {
             "type" : "string"
           },
           "accountStatus" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SUSPENDED" ]
           },
           "platformRole" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
           },
           "platformAccessStatus" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
           },
           "platformAccessVersion" : {
             "type" : "integer",
             "format" : "int64"
           },
+          "emailVerified" : {
+            "type" : "boolean"
+          },
+          "signInMethods" : {
+            "type" : "array",
+            "description" : "PASSWORD and/or GOOGLE",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastSignInAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Latest password or Google sign-in; null when never signed in"
+          },
           "ownerRegistrationCompleted" : {
             "type" : "boolean"
+          },
+          "ownerRegistrationCompletedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "ownedFarms" : {
+            "type" : "array",
+            "description" : "Names of the farms this account owns, Vietnamese order",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "farmCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmRoles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "version" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "actions" : {
+            "type" : "array",
+            "description" : "Status commands this SA may use now (D32): SUSPEND for an ACTIVE account other than the caller's own, RESTORE for a SUSPENDED one; empty otherwise",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "accessActions" : {
+            "type" : "array",
+            "description" : "Platform access commands this SA may use now (D33): GRANT (no access), CHANGE and REVOKE (ACTIVE access), RESTORE (REVOKED access); only REVOKE for a SUSPENDED or unverified account; empty on one's own account",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -16218,22 +17123,26 @@
         "properties" : {
           "operation" : {
             "type" : "string",
+            "enum" : [ "GRANT", "CHANGE", "REVOKE", "RESTORE" ],
             "maxLength" : 20,
             "minLength" : 0
           },
           "role" : {
             "type" : "string",
+            "description" : "CS, PM or SA; required for GRANT and CHANGE, ignored otherwise",
             "maxLength" : 30,
             "minLength" : 0
           },
           "reason" : {
             "type" : "string",
+            "description" : "Trimmed; 5–500 characters with at least 5 that are not spaces (Table III-1)",
             "maxLength" : 500,
             "minLength" : 0
           },
           "version" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "platformAccessVersion shown in A10; null or 0 when the account has no access yet"
           }
         }
       },
@@ -16243,6 +17152,28 @@
           "token" : {
             "type" : "string",
             "minLength" : 1
+          }
+        }
+      },
+      "AcceptedInvitation" : {
+        "type" : "object",
+        "properties" : {
+          "membershipId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "farmName" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
           }
         }
       },
@@ -16415,6 +17346,25 @@
           }
         }
       },
+      "SkippedAnimal" : {
+        "type" : "object",
+        "properties" : {
+          "cattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cattleCode" : {
+            "type" : "string"
+          },
+          "messageCode" : {
+            "type" : "string"
+          },
+          "doseNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "VaccinationBatchResult" : {
         "type" : "object",
         "properties" : {
@@ -16431,6 +17381,12 @@
             "items" : {
               "type" : "integer",
               "format" : "int64"
+            }
+          },
+          "skipped" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SkippedAnimal"
             }
           }
         }
@@ -16467,6 +17423,14 @@
           },
           "corrected" : {
             "type" : "boolean"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cattleWithdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -16503,6 +17467,10 @@
           },
           "reason" : {
             "type" : "string"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -16567,6 +17535,14 @@
           }
         }
       },
+      "StopVaccinationSchedule" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
       "RecordStatus" : {
         "type" : "object",
         "properties" : {
@@ -16583,6 +17559,21 @@
           },
           "healthState" : {
             "type" : "string"
+          },
+          "caseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "caseStatus" : {
+            "type" : "string"
+          },
+          "withdrawalBefore" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "withdrawalAfter" : {
+            "type" : "string",
+            "format" : "date"
           }
         }
       },
@@ -16600,12 +17591,9 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "treatmentTime" : {
+          "administeredAt" : {
             "type" : "string",
             "format" : "date-time"
-          },
-          "treatmentDetail" : {
-            "type" : "string"
           },
           "dose" : {
             "type" : "string"
@@ -16621,7 +17609,11 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "performer" : {
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
             "type" : "string"
           },
           "veterinaryAdvice" : {
@@ -16664,7 +17656,7 @@
           },
           "state" : {
             "type" : "string",
-            "enum" : [ "PENDING", "PAID", "EXPIRED" ]
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           },
           "requestedAt" : {
             "type" : "string",
@@ -16763,6 +17755,25 @@
             }, {
               "type" : "null"
             } ]
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "D38: when the Owner cancelled the request; kept if a transfer banked earlier still pays it"
+          },
+          "cancelReason" : {
+            "type" : "string",
+            "description" : "D38: optional reason given when cancelling"
+          }
+        }
+      },
+      "PaymentCancelRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "description" : "Optional; trimmed, at most 1,000 characters",
+            "maxLength" : 1000
           }
         }
       },
@@ -16808,10 +17819,51 @@
           }
         }
       },
+      "EligibilityWarning" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "conditions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "EpisodeInfo" : {
+        "type" : "object",
+        "properties" : {
+          "episodeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "parity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "expectedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "basis" : {
+            "type" : "string"
+          },
+          "notice" : {
+            "type" : "string"
+          }
+        }
+      },
       "EventResult" : {
         "type" : "object",
         "properties" : {
-          "id" : {
+          "eventId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -16825,17 +17877,44 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "tentativeExpectedCalvingDate" : {
-            "type" : "string",
-            "format" : "date"
-          },
-          "pregnancyEpisodeId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "cattleVersion" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "result" : {
+            "type" : "string"
+          },
+          "window" : {
+            "$ref" : "#/components/schemas/Window"
+          },
+          "tentativeCalvingDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "parameterMissing" : {
+            "type" : "string"
+          },
+          "eligibilityWarning" : {
+            "$ref" : "#/components/schemas/EligibilityWarning"
+          },
+          "episode" : {
+            "$ref" : "#/components/schemas/EpisodeInfo"
+          },
+          "reproStatus" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Window" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
@@ -16853,22 +17932,77 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "dataSource" : {
+            "type" : "string"
+          },
+          "signs" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "observerName" : {
+            "type" : "string"
+          },
           "method" : {
+            "type" : "string"
+          },
+          "sireSource" : {
+            "type" : "string"
+          },
+          "sireCattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreedId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreed" : {
+            "type" : "string"
+          },
+          "semenCode" : {
+            "type" : "string"
+          },
+          "semenSupplier" : {
+            "type" : "string"
+          },
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
+            "type" : "string"
+          },
+          "linkedEventId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unlinkEvent" : {
+            "type" : "boolean"
+          },
+          "note" : {
             "type" : "string"
           },
           "result" : {
             "type" : "string"
           },
-          "description" : {
-            "type" : "string"
+          "estimatedMonths" : {
+            "type" : "integer",
+            "format" : "int32"
           },
-          "performedBy" : {
-            "type" : "string"
+          "examinerId" : {
+            "type" : "integer",
+            "format" : "int64"
           },
-          "examiner" : {
-            "type" : "string"
-          },
-          "observer" : {
+          "examinerName" : {
             "type" : "string"
           }
         }
@@ -16876,7 +18010,7 @@
       "PregnancyUpdateResult" : {
         "type" : "object",
         "properties" : {
-          "id" : {
+          "updateId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -16887,12 +18021,22 @@
           "type" : {
             "type" : "string"
           },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "episodeStatus" : {
             "type" : "string"
           },
           "episodeVersion" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "reproStatus" : {
+            "type" : "string"
           }
         }
       },
@@ -16906,12 +18050,25 @@
           "reason" : {
             "type" : "string"
           },
+          "type" : {
+            "type" : "string"
+          },
           "occurredAt" : {
             "type" : "string",
             "format" : "date-time"
           },
+          "dataSource" : {
+            "type" : "string"
+          },
           "details" : {
             "type" : "string"
+          },
+          "healthCaseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unlinkHealthCase" : {
+            "type" : "boolean"
           }
         }
       },
@@ -16922,14 +18079,14 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "type" : {
+            "type" : "string"
+          },
           "occurredAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
-            "type" : "string"
-          },
-          "type" : {
+          "dataSource" : {
             "type" : "string"
           },
           "details" : {
@@ -17106,14 +18263,15 @@
             "additionalProperties" : {
               "type" : "integer",
               "format" : "int32"
-            }
+            },
+            "description" : "Version observed for every selected cattle, keyed by cattle ID."
           },
           "performedBy" : {
             "type" : "integer",
             "format" : "int64"
           }
         },
-        "required" : [ "toPenId" ]
+        "required" : [ "cattleVersions", "toPenId" ]
       },
       "Moved" : {
         "type" : "object",
@@ -17344,19 +18502,26 @@
         "properties" : {
           "email" : {
             "type" : "string",
+            "format" : "email",
             "maxLength" : 254,
-            "minLength" : 0
+            "minLength" : 1
           },
           "role" : {
             "type" : "string",
-            "minLength" : 1,
-            "pattern" : "MANAGER|TECHNICIAN"
+            "enum" : [ "MANAGER", "TECHNICIAN" ]
           },
           "validityDays" : {
-            "type" : "integer",
-            "format" : "int32"
+            "anyOf" : [ {
+              "type" : "integer",
+              "format" : "int32",
+              "default" : 7,
+              "enum" : [ 3, 7, 14 ]
+            }, {
+              "type" : "null"
+            } ]
           }
-        }
+        },
+        "required" : [ "email", "role" ]
       },
       "InvitationView" : {
         "type" : "object",
@@ -17369,10 +18534,12 @@
             "type" : "string"
           },
           "role" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "MANAGER", "TECHNICIAN" ]
           },
           "status" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "CANCELLED" ]
           },
           "createdAt" : {
             "type" : "string",
@@ -17388,13 +18555,18 @@
           },
           "validityDays" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int32",
+            "enum" : [ 3, 7, 14 ]
           },
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "hasAccount" : {
+            "type" : "boolean"
           }
-        }
+        },
+        "required" : [ "createdAt", "email", "expiresAt", "hasAccount", "id", "lastSentAt", "role", "status", "validityDays", "version" ]
       },
       "InvitationAction" : {
         "type" : "object",
@@ -17480,6 +18652,10 @@
           },
           "progress" : {
             "type" : "string"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -17520,6 +18696,10 @@
           },
           "severity" : {
             "type" : "string"
+          },
+          "vaccinationId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -17544,28 +18724,51 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "cattleCode" : {
+            "type" : "string"
+          },
           "observationId" : {
             "type" : "integer",
             "format" : "int64"
           },
           "healthState" : {
             "type" : "string"
+          },
+          "cattleWithdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "chronicSince" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "closedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "pendingExitVoucherId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
       "TreatmentCommand" : {
         "type" : "object",
         "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "medicineId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "treatmentTime" : {
+          "administeredAt" : {
             "type" : "string",
             "format" : "date-time"
-          },
-          "treatmentDetail" : {
-            "type" : "string"
           },
           "dose" : {
             "type" : "string"
@@ -17581,7 +18784,11 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "performer" : {
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
             "type" : "string"
           },
           "veterinaryAdvice" : {
@@ -17611,12 +18818,22 @@
             "type" : "string",
             "format" : "date"
           },
+          "cattleWithdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "healthState" : {
+            "type" : "string"
+          },
           "courseDays" : {
             "type" : "integer",
             "format" : "int32"
           },
           "medicineName" : {
             "type" : "string"
+          },
+          "returnedToOpen" : {
+            "type" : "boolean"
           }
         }
       },
@@ -17630,15 +18847,28 @@
           "action" : {
             "type" : "string"
           },
+          "latestProgress" : {
+            "type" : "string"
+          },
+          "progress" : {
+            "type" : "string"
+          },
+          "suspectedDiagnosis" : {
+            "type" : "string"
+          },
+          "suspectedContagious" : {
+            "type" : "boolean"
+          },
           "outcome" : {
             "type" : "string"
           },
-          "closingDate" : {
+          "closedAt" : {
             "type" : "string",
-            "format" : "date"
+            "format" : "date-time"
           },
-          "reason" : {
-            "type" : "string"
+          "confirmedById" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -17661,25 +18891,10 @@
           },
           "description" : {
             "type" : "string"
-          }
-        }
-      },
-      "CorrectClosure" : {
-        "type" : "object",
-        "properties" : {
-          "expectedVersion" : {
+          },
+          "observerId" : {
             "type" : "integer",
-            "format" : "int32"
-          },
-          "outcome" : {
-            "type" : "string"
-          },
-          "closingDate" : {
-            "type" : "string",
-            "format" : "date"
-          },
-          "reason" : {
-            "type" : "string"
+            "format" : "int64"
           }
         }
       },
@@ -17951,6 +19166,10 @@
               "$ref" : "#/components/schemas/RationComponentRequest"
             },
             "minItems" : 1
+          },
+          "baseVersion" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         },
         "required" : [ "effectiveFrom", "sessionsPerDay" ]
@@ -17982,6 +19201,9 @@
           },
           "estimatedDailyCost" : {
             "type" : "number"
+          },
+          "outOfStock" : {
+            "type" : "boolean"
           }
         }
       },
@@ -18019,9 +19241,20 @@
           "status" : {
             "type" : "string"
           },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Persisted row concurrency token; versionNo is the business ration version"
+          },
           "sessionsPerDay" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sessionTimes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "penIds" : {
             "type" : "array",
@@ -18036,7 +19269,36 @@
               "$ref" : "#/components/schemas/RationComponentView"
             }
           }
-        }
+        },
+        "required" : [ "version" ]
+      },
+      "RationVersionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Persisted row concurrency token, distinct from versionNo",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "version" ]
+      },
+      "StopRationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "endDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Persisted row concurrency token, distinct from versionNo",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "endDate", "version" ]
       },
       "FeedingLineRequest" : {
         "type" : "object",
@@ -18069,20 +19331,34 @@
             "maximum" : 3,
             "minimum" : 1
           },
+          "feedingTime" : {
+            "type" : "string",
+            "example" : "14:30:00"
+          },
           "fedBy" : {
             "type" : "string",
             "maxLength" : 100,
             "minLength" : 0
           },
+          "leftoverKg" : {
+            "type" : "number",
+            "minimum" : 0.0
+          },
+          "note" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
           "lines" : {
             "type" : "array",
+            "description" : "At least one feeding line",
             "items" : {
               "$ref" : "#/components/schemas/FeedingLineRequest"
             },
             "minItems" : 1
           }
         },
-        "required" : [ "feedingDate", "penId", "sessionNo" ]
+        "required" : [ "feedingDate", "lines", "penId", "sessionNo" ]
       },
       "FeedingLineView" : {
         "type" : "object",
@@ -18094,11 +19370,17 @@
           "feedCode" : {
             "type" : "string"
           },
+          "feedName" : {
+            "type" : "string"
+          },
           "plannedKg" : {
             "type" : "number"
           },
           "actualKg" : {
             "type" : "number"
+          },
+          "inRation" : {
+            "type" : "boolean"
           },
           "unitCost" : {
             "type" : "number"
@@ -18106,6 +19388,24 @@
           "totalCost" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "FeedingRevisionView" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "actorName" : {
+            "type" : "string"
           }
         }
       },
@@ -18120,6 +19420,12 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "penCode" : {
+            "type" : "string"
+          },
+          "penName" : {
+            "type" : "string"
+          },
           "feedingDate" : {
             "type" : "string",
             "format" : "date"
@@ -18127,6 +19433,10 @@
           "sessionNo" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "time" : {
+            "type" : "string",
+            "example" : "14:30:00"
           },
           "headCount" : {
             "type" : "integer",
@@ -18143,10 +19453,48 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "rationCode" : {
+            "type" : "string"
+          },
+          "rationVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "fedBy" : {
+            "type" : "string"
+          },
+          "recordedBy" : {
+            "type" : "string"
+          },
+          "recordedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "leftoverKg" : {
+            "type" : "number"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "voidReason" : {
+            "type" : "string"
+          },
+          "plannedTotalKg" : {
+            "type" : "number"
+          },
+          "actualTotalKg" : {
+            "type" : "number"
+          },
           "lines" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/FeedingLineView"
+            }
+          },
+          "revisions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FeedingRevisionView"
             }
           }
         }
@@ -18156,23 +19504,25 @@
         "properties" : {
           "reason" : {
             "type" : "string",
+            "description" : "At least five non-whitespace characters",
             "maxLength" : 500,
-            "minLength" : 0
+            "minLength" : 5
           },
           "expectedVersion" : {
             "type" : "integer",
             "format" : "int32"
           }
         },
-        "required" : [ "expectedVersion" ]
+        "required" : [ "expectedVersion", "reason" ]
       },
       "FeedingCorrectionRequest" : {
         "type" : "object",
         "properties" : {
           "reason" : {
             "type" : "string",
+            "description" : "At least five non-whitespace characters",
             "maxLength" : 500,
-            "minLength" : 0
+            "minLength" : 5
           },
           "expectedVersion" : {
             "type" : "integer",
@@ -18185,13 +19535,14 @@
           },
           "lines" : {
             "type" : "array",
+            "description" : "At least one feeding line",
             "items" : {
               "$ref" : "#/components/schemas/FeedingLineRequest"
             },
             "minItems" : 1
           }
         },
-        "required" : [ "expectedVersion" ]
+        "required" : [ "expectedVersion", "lines", "reason" ]
       },
       "StockAdjustmentRequest" : {
         "type" : "object",
@@ -18595,6 +19946,167 @@
           }
         }
       },
+      "FarmManagementReportRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reportType" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "penIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "breedIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "herdGroups" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "lifeStages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ReportChart" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string"
+          },
+          "sub" : {
+            "type" : "string"
+          },
+          "bars" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReportChartBar"
+            }
+          }
+        }
+      },
+      "ReportChartBar" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "number"
+          },
+          "numerator" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "denominator" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReportMetricChart" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string"
+          },
+          "sub" : {
+            "type" : "string"
+          },
+          "unit" : {
+            "type" : "string"
+          },
+          "bars" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReportMetricChartBar"
+            }
+          }
+        }
+      },
+      "ReportMetricChartBar" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "number"
+          },
+          "sampleSize" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "numerator" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "denominator" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReportSection" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "rowHeading" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "additionalProperties" : {
+                "type" : "object"
+              }
+            }
+          },
+          "totalRow" : {
+            "$ref" : "#/components/schemas/ReportTotalRow"
+          }
+        }
+      },
+      "ReportTotalRow" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "cells" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          }
+        }
+      },
       "ReportView" : {
         "type" : "object",
         "properties" : {
@@ -18628,10 +20140,28 @@
               }
             }
           },
+          "totalRow" : {
+            "$ref" : "#/components/schemas/ReportTotalRow"
+          },
+          "chart" : {
+            "$ref" : "#/components/schemas/ReportChart"
+          },
           "unavailableData" : {
             "type" : "array",
             "items" : {
               "type" : "string"
+            }
+          },
+          "sections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReportSection"
+            }
+          },
+          "charts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReportMetricChart"
             }
           }
         }
@@ -18740,74 +20270,42 @@
           }
         }
       },
-      "EventCommand" : {
+      "PregnancyCheckCommand" : {
         "type" : "object",
         "properties" : {
-          "cattleId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "expectedCattleVersion" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "occurredAt" : {
+          "linkedBreedingId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "checkedAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
-            "type" : "string"
-          },
-          "method" : {
+          "dataSource" : {
             "type" : "string"
           },
           "result" : {
             "type" : "string"
           },
-          "signs" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "description" : {
+          "method" : {
             "type" : "string"
           },
-          "performedBy" : {
-            "type" : "string"
-          },
-          "examiner" : {
-            "type" : "string"
-          },
-          "linkedEventId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sireSource" : {
-            "type" : "string"
-          },
-          "externalSireName" : {
-            "type" : "string"
-          },
-          "sireBreedId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "semenBatch" : {
-            "type" : "string"
-          },
-          "supplier" : {
-            "type" : "string"
-          },
-          "estimatedMonthsPregnant" : {
+          "estimatedMonths" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "observer" : {
+          "examinerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "examinerName" : {
+            "type" : "string"
+          },
+          "note" : {
             "type" : "string"
           }
         }
@@ -18907,6 +20405,46 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "revisions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Revision"
+            }
+          }
+        }
+      },
+      "Revision" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "changedBy" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "before" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "after" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
           }
         }
       },
@@ -18932,24 +20470,108 @@
         },
         "required" : [ "expectedVersion" ]
       },
-      "CalfCommand" : {
+      "EstrusCommand" : {
         "type" : "object",
         "properties" : {
-          "calfNo" : {
+          "expectedCattleVersion" : {
             "type" : "integer",
             "format" : "int32"
           },
+          "observedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "observerName" : {
+            "type" : "string"
+          },
+          "signs" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "dataSource" : {
+            "type" : "string"
+          },
+          "confirmDuplicate" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "BreedingCommand" : {
+        "type" : "object",
+        "properties" : {
+          "expectedCattleVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dataSource" : {
+            "type" : "string"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "sireSource" : {
+            "type" : "string"
+          },
+          "sireCattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreedId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sireBreed" : {
+            "type" : "string"
+          },
+          "semenCode" : {
+            "type" : "string"
+          },
+          "semenSupplier" : {
+            "type" : "string"
+          },
+          "performerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "performerName" : {
+            "type" : "string"
+          },
+          "linkedEstrusId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "confirmDuplicate" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "CalfCommand" : {
+        "type" : "object",
+        "properties" : {
           "outcome" : {
             "type" : "string"
           },
           "sex" : {
             "type" : "string"
           },
-          "birthWeight" : {
+          "birthWeightKg" : {
             "type" : "number"
-          },
-          "weightUnit" : {
-            "type" : "string"
           },
           "weightBasis" : {
             "type" : "string"
@@ -18957,7 +20579,7 @@
           "tagCode" : {
             "type" : "string"
           },
-          "proposedPenId" : {
+          "penId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -18965,19 +20587,19 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "registration" : {
+            "type" : "string"
+          },
           "purposeId" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "registerNow" : {
-            "type" : "boolean"
           }
         }
       },
       "CalvingCommand" : {
         "type" : "object",
         "properties" : {
-          "cattleId" : {
+          "damId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -18993,11 +20615,21 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "birthTime" : {
+          "noTrackedPregnancy" : {
+            "type" : "boolean"
+          },
+          "birthAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
+          "dataSource" : {
+            "type" : "string"
+          },
+          "attendantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "attendantName" : {
             "type" : "string"
           },
           "course" : {
@@ -19009,9 +20641,6 @@
           "retainedPlacenta" : {
             "type" : "boolean"
           },
-          "attendant" : {
-            "type" : "string"
-          },
           "calves" : {
             "type" : "array",
             "items" : {
@@ -19020,10 +20649,49 @@
           }
         }
       },
+      "CalfResult" : {
+        "type" : "object",
+        "properties" : {
+          "calfId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "calfNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "registration" : {
+            "type" : "string"
+          },
+          "cattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cattleCode" : {
+            "type" : "string"
+          },
+          "voucherCode" : {
+            "type" : "string"
+          },
+          "tagCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "CalvingResult" : {
         "type" : "object",
         "properties" : {
-          "id" : {
+          "calvingId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -19038,25 +20706,14 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "calfOutcomeIds" : {
+          "calves" : {
             "type" : "array",
             "items" : {
-              "type" : "integer",
-              "format" : "int64"
+              "$ref" : "#/components/schemas/CalfResult"
             }
           },
-          "registeredCattleIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
-          },
-          "warnings" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
+          "damStatus" : {
+            "type" : "string"
           }
         }
       },
@@ -19070,11 +20727,18 @@
           "reason" : {
             "type" : "string"
           },
-          "birthTime" : {
+          "birthAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "source" : {
+          "dataSource" : {
+            "type" : "string"
+          },
+          "attendantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "attendantName" : {
             "type" : "string"
           },
           "course" : {
@@ -19085,41 +20749,6 @@
           },
           "retainedPlacenta" : {
             "type" : "boolean"
-          },
-          "attendant" : {
-            "type" : "string"
-          }
-        }
-      },
-      "CalfOutcomeResult" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "outcome" : {
-            "type" : "string"
-          },
-          "sex" : {
-            "type" : "string"
-          },
-          "birthWeight" : {
-            "type" : "number"
-          },
-          "registrationState" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "registeredCattleId" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },
@@ -19139,19 +20768,19 @@
           "sex" : {
             "type" : "string"
           },
-          "birthWeight" : {
+          "birthWeightKg" : {
             "type" : "number"
-          },
-          "weightUnit" : {
-            "type" : "string"
           },
           "weightBasis" : {
             "type" : "string"
           },
+          "clearWeight" : {
+            "type" : "boolean"
+          },
           "tagCode" : {
             "type" : "string"
           },
-          "proposedPenId" : {
+          "penId" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -19162,9 +20791,6 @@
           "purposeId" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "registerNow" : {
-            "type" : "boolean"
           }
         }
       },
@@ -19183,25 +20809,25 @@
         "properties" : {
           "title" : {
             "type" : "string",
-            "maxLength" : 255,
-            "minLength" : 0
+            "maxLength" : 150,
+            "minLength" : 1
           },
           "body" : {
             "type" : "string",
-            "maxLength" : 10000,
-            "minLength" : 0
+            "maxLength" : 5000,
+            "minLength" : 1
           },
           "reason" : {
             "type" : "string",
             "maxLength" : 500,
-            "minLength" : 0
+            "minLength" : 1
           },
           "expectedVersion" : {
             "type" : "integer",
             "format" : "int32"
           }
         },
-        "required" : [ "expectedVersion" ]
+        "required" : [ "body", "expectedVersion", "reason", "title" ]
       },
       "ReadResult" : {
         "type" : "object",
@@ -19951,7 +21577,8 @@
             "type" : "number"
           },
           "state" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "PAID", "EXPIRED", "CANCELLED" ]
           },
           "requestedAt" : {
             "type" : "string",
@@ -20033,6 +21660,14 @@
             }, {
               "type" : "null"
             } ]
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "D38: set when the Owner cancelled the request"
+          },
+          "cancelReason" : {
+            "type" : "string"
           }
         }
       },
@@ -20186,7 +21821,7 @@
           },
           "matchResult" : {
             "type" : "string",
-            "enum" : [ "PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST", "REQUEST_EXPIRED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE" ]
+            "enum" : [ "PAID_AUTO", "PAID_PM", "PAID", "OUTGOING", "ACCOUNT_MISMATCH", "CODE_MISMATCH", "NO_REQUEST", "REQUEST_EXPIRED", "REQUEST_CANCELLED", "OUTSIDE_WINDOW", "AMOUNT_MISMATCH", "ALREADY_ALLOCATED", "EXACT_CODE" ]
           },
           "reviewReason" : {
             "anyOf" : [ {
@@ -20416,13 +22051,29 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "totalElements" : {
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "size" : {
             "type" : "integer",
@@ -20438,22 +22089,6 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "empty" : {
             "type" : "boolean"
           }
@@ -20462,39 +22097,39 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "paged" : {
+            "type" : "boolean"
+          },
           "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageSize" : {
             "type" : "integer",
             "format" : "int32"
           },
           "unpaged" : {
             "type" : "boolean"
           },
-          "paged" : {
-            "type" : "boolean"
-          },
-          "pageSize" : {
+          "offset" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int64"
           }
         }
       },
       "SortObject" : {
         "type" : "object",
         "properties" : {
-          "empty" : {
-            "type" : "boolean"
-          },
           "sorted" : {
             "type" : "boolean"
           },
           "unsorted" : {
+            "type" : "boolean"
+          },
+          "empty" : {
             "type" : "boolean"
           }
         }
@@ -20794,25 +22429,88 @@
           }
         }
       },
-      "AuditEntry" : {
+      "AuditActor" : {
         "type" : "object",
         "properties" : {
           "id" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "loggedAt" : {
+          "name" : {
+            "type" : "string"
+          },
+          "initials" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AuditPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AuditRow"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "AuditRow" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "time" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "actorEmail" : {
+          "actor" : {
+            "$ref" : "#/components/schemas/AuditActor"
+          },
+          "action" : {
             "type" : "string"
           },
-          "actorName" : {
+          "targetType" : {
             "type" : "string"
           },
-          "farmName" : {
+          "targetLabel" : {
             "type" : "string"
+          }
+        }
+      },
+      "AuditDetail" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "time" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "actor" : {
+            "$ref" : "#/components/schemas/AuditActor"
+          },
+          "farm" : {
+            "$ref" : "#/components/schemas/AuditFarm"
           },
           "action" : {
             "type" : "string"
@@ -20824,107 +22522,115 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "details" : {
+          "targetLabel" : {
+            "type" : "string"
+          },
+          "before" : {
             "type" : "object",
             "additionalProperties" : {
-              "type" : "object"
+              "type" : "string"
+            }
+          },
+          "after" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "correlationId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AuditFarm" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AuditActionOption" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AccountListItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "fullName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "accountStatus" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SUSPENDED" ]
+          },
+          "platformRole" : {
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
+          },
+          "platformAccessStatus" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
+          },
+          "emailVerified" : {
+            "type" : "boolean"
+          },
+          "farmCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "ACTIVE farm memberships"
+          },
+          "farmRoles" : {
+            "type" : "array",
+            "description" : "Roles of the ACTIVE memberships, ordered OWNER, MANAGER, TECHNICIAN",
+            "items" : {
+              "type" : "string"
             }
           }
         }
       },
-      "PageAuditEntry" : {
+      "AccountPage" : {
         "type" : "object",
         "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AccountListItem"
+            }
           },
-          "totalElements" : {
+          "total" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/AuditEntry"
-            }
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "empty" : {
-            "type" : "boolean"
           }
         }
       },
-      "PageAccountSummary" : {
-        "type" : "object",
-        "properties" : {
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "size" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/AccountSummary"
-            }
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "empty" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "AuditItem" : {
+      "AccessHistoryItem" : {
         "type" : "object",
         "properties" : {
           "id" : {
@@ -20932,21 +22638,54 @@
             "format" : "int64"
           },
           "action" : {
+            "type" : "string",
+            "enum" : [ "GRANT", "CHANGE", "REVOKE", "RESTORE" ]
+          },
+          "roleBefore" : {
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
+          },
+          "statusBefore" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
+          },
+          "roleAfter" : {
+            "type" : "string",
+            "enum" : [ "CS", "PM", "SA" ]
+          },
+          "statusAfter" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "REVOKED" ]
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "byName" : {
+            "type" : "string"
+          },
+          "byEmail" : {
             "type" : "string"
           },
           "at" : {
             "type" : "string",
             "format" : "date-time"
-          },
-          "details" : {
-            "type" : "string"
           }
         }
       },
       "InvitationAcceptance" : {
         "type" : "object",
         "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "farmId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "farmName" : {
+            "type" : "string"
+          },
+          "timeZone" : {
             "type" : "string"
           },
           "email" : {
@@ -20955,13 +22694,20 @@
           "role" : {
             "type" : "string"
           },
-          "invitedAt" : {
+          "invitedBy" : {
+            "type" : "string"
+          },
+          "sentAt" : {
             "type" : "string",
             "format" : "date-time"
           },
           "expiresAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "membershipId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -20998,6 +22744,9 @@
           "serviceUntil" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "timeZone" : {
+            "type" : "string"
           }
         }
       },
@@ -21072,6 +22821,109 @@
           "version" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "route" : {
+            "type" : "string"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "revisions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VaccinationRevision"
+            }
+          }
+        }
+      },
+      "VaccinationRevision" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "changedBy" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "before" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "after" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          }
+        }
+      },
+      "ScheduleTargetView" : {
+        "type" : "object",
+        "properties" : {
+          "penIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "penCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "herdGroups" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "lifeStages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "cattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "cattleCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "excludedCattleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "excludedCattleCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -21161,6 +23013,12 @@
             "items" : {
               "$ref" : "#/components/schemas/ScheduledDoseView"
             }
+          },
+          "stopReason" : {
+            "type" : "string"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/ScheduleTargetView"
           }
         }
       },
@@ -21360,18 +23218,206 @@
         },
         "required" : [ "content", "number", "size", "totalElements", "totalPages" ]
       },
-      "ReproductionAnimal" : {
+      "Counts" : {
+        "type" : "object",
+        "properties" : {
+          "awaitingBreeding" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inEstrus" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bred" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pregnant" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dueSoon" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "postCalving" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "all" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Criterion" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          },
+          "met" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Due" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "windowFrom" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "windowTo" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Eligibility" : {
+        "type" : "object",
+        "properties" : {
+          "met" : {
+            "type" : "boolean"
+          },
+          "failed" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "criteria" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Criterion"
+            }
+          }
+        }
+      },
+      "LatestEvent" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "daysAgo" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Tiles" : {
+        "type" : "object",
+        "properties" : {
+          "inEstrus" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inWindow" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "checkDue" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "calving30" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "postCalvingReady" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "notEligible" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Worklist" : {
+        "type" : "object",
+        "properties" : {
+          "tiles" : {
+            "$ref" : "#/components/schemas/Tiles"
+          },
+          "counts" : {
+            "$ref" : "#/components/schemas/Counts"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WorklistItem"
+            }
+          }
+        }
+      },
+      "WorklistItem" : {
         "type" : "object",
         "properties" : {
           "cattleId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "cattleCode" : {
+          "code" : {
             "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "earTag" : {
+            "type" : "string"
+          },
+          "ageMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "latestWeightKg" : {
+            "type" : "number"
+          },
+          "breed" : {
+            "$ref" : "#/components/schemas/Ref"
+          },
+          "pen" : {
+            "$ref" : "#/components/schemas/Ref"
           },
           "status" : {
             "type" : "string"
+          },
+          "statusSince" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "eligibility" : {
+            "$ref" : "#/components/schemas/Eligibility"
+          },
+          "latestEvent" : {
+            "$ref" : "#/components/schemas/LatestEvent"
+          },
+          "nextAction" : {
+            "type" : "string"
+          },
+          "due" : {
+            "$ref" : "#/components/schemas/Due"
           },
           "expectedCalvingDate" : {
             "type" : "string",
@@ -21380,14 +23426,61 @@
           "expectedBasis" : {
             "type" : "string"
           },
-          "breedingEligible" : {
-            "type" : "boolean"
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "CattleDetail" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
           },
-          "failedBreedingConditions" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
+          "breed" : {
+            "type" : "string"
+          },
+          "sex" : {
+            "type" : "string"
+          },
+          "ageMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pen" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReminderTarget" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cattleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "penId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "date" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "sessionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "code" : {
+            "type" : "string"
           }
         }
       },
@@ -21431,6 +23524,33 @@
           "parameterVersion" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "sourceType" : {
+            "type" : "string"
+          },
+          "sourceId" : {
+            "type" : "string"
+          },
+          "sourceSummary" : {
+            "type" : "string"
+          },
+          "cattle" : {
+            "$ref" : "#/components/schemas/CattleDetail"
+          },
+          "basisValues" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "basisMissing" : {
+            "type" : "string"
+          },
+          "cattleProfileTarget" : {
+            "$ref" : "#/components/schemas/ReminderTarget"
+          },
+          "sourceTarget" : {
+            "$ref" : "#/components/schemas/ReminderTarget"
           }
         }
       },
@@ -21482,6 +23602,104 @@
           }
         }
       },
+      "MemberCounts" : {
+        "type" : "object",
+        "properties" : {
+          "all" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "managers" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "technicians" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inactive" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "MemberList" : {
+        "type" : "object",
+        "properties" : {
+          "farmName" : {
+            "type" : "string"
+          },
+          "timeZone" : {
+            "type" : "string"
+          },
+          "serviceStatus" : {
+            "type" : "string"
+          },
+          "counts" : {
+            "$ref" : "#/components/schemas/MemberCounts"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MemberView"
+            }
+          }
+        }
+      },
+      "InvitationPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationView"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "counts" : {
+            "additionalProperties" : false,
+            "properties" : {
+              "PENDING" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              },
+              "ACCEPTED" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              },
+              "EXPIRED" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              },
+              "CANCELLED" : {
+                "type" : "integer",
+                "format" : "int64",
+                "minimum" : 0
+              }
+            },
+            "required" : [ "ACCEPTED", "CANCELLED", "EXPIRED", "PENDING" ]
+          },
+          "asOf" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "asOf", "counts", "items", "page", "size", "total" ]
+      },
       "VoidCheckRow" : {
         "type" : "object",
         "properties" : {
@@ -21511,6 +23729,36 @@
           },
           "reason" : {
             "type" : "string"
+          }
+        }
+      },
+      "HealthCasePage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HealthCaseRow"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "counts" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
           }
         }
       },
@@ -21563,6 +23811,14 @@
             "type" : "string",
             "format" : "date"
           },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dayN" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "status" : {
             "type" : "string"
           },
@@ -21572,6 +23828,10 @@
           },
           "outcome" : {
             "type" : "string"
+          },
+          "closedDate" : {
+            "type" : "string",
+            "format" : "date"
           },
           "treatmentCount" : {
             "type" : "integer",
@@ -21583,7 +23843,7 @@
           }
         }
       },
-      "HealthCaseCard" : {
+      "HealthCaseView" : {
         "type" : "object",
         "properties" : {
           "id" : {
@@ -21602,6 +23862,9 @@
           "diagnosis" : {
             "type" : "string"
           },
+          "suspectedContagious" : {
+            "type" : "boolean"
+          },
           "openingSigns" : {
             "type" : "string"
           },
@@ -21609,16 +23872,35 @@
             "type" : "string",
             "format" : "date"
           },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dayN" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "chronicSince" : {
             "type" : "string",
             "format" : "date"
           },
-          "outcome" : {
-            "type" : "string"
-          },
           "treatmentCount" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "linkedVaccinationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "latestEntryAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "timeline" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HealthTimelineRow"
+            }
           },
           "version" : {
             "type" : "integer",
@@ -21633,6 +23915,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "cattleCode" : {
+            "type" : "string"
+          },
           "healthState" : {
             "type" : "string"
           },
@@ -21643,22 +23928,19 @@
           "suspectedContagious" : {
             "type" : "boolean"
           },
-          "activeCases" : {
+          "pendingExit" : {
+            "$ref" : "#/components/schemas/PendingHealthExit"
+          },
+          "openCases" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/HealthCaseCard"
+              "$ref" : "#/components/schemas/HealthCaseView"
             }
           },
           "previousCases" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/HealthCaseCard"
-            }
-          },
-          "timeline" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HealthTimelineRow"
+              "$ref" : "#/components/schemas/PreviousHealthCase"
             }
           }
         }
@@ -21670,6 +23952,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "caseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "type" : {
             "type" : "string"
           },
@@ -21677,11 +23963,15 @@
             "type" : "string",
             "format" : "date-time"
           },
-          "details" : {
-            "type" : "string"
-          },
           "recordedBy" : {
             "type" : "string"
+          },
+          "observer" : {
+            "type" : "string"
+          },
+          "observerId" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "status" : {
             "type" : "string"
@@ -21689,13 +23979,161 @@
           "corrected" : {
             "type" : "boolean"
           },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "temperatureC" : {
+            "type" : "number"
+          },
+          "progress" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
           "linkedVaccinationId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "version" : {
+          "medicineId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "medicineName" : {
+            "type" : "string"
+          },
+          "dose" : {
+            "type" : "string"
+          },
+          "route" : {
+            "type" : "string"
+          },
+          "courseDays" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "withdrawalDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "withdrawalEndDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "performer" : {
+            "type" : "string"
+          },
+          "veterinaryAdvice" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PendingHealthExit" : {
+        "type" : "object",
+        "properties" : {
+          "voucherId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "lossKind" : {
+            "type" : "string"
+          },
+          "exitDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "caseId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "caseCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PreviousHealthCase" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "caseCode" : {
+            "type" : "string"
+          },
+          "openingSigns" : {
+            "type" : "string"
+          },
+          "diagnosis" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "openedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "closedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "month" : {
+            "type" : "string"
+          },
+          "confirmedBy" : {
+            "type" : "string"
+          },
+          "timeline" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HealthTimelineRow"
+            }
+          }
+        }
+      },
+      "GrowthHerdPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Row"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "summary" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "windowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "activeCount" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -21886,6 +24324,97 @@
           }
         }
       },
+      "FeedingPlanLineView" : {
+        "type" : "object",
+        "properties" : {
+          "feedItemId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "feedCode" : {
+            "type" : "string"
+          },
+          "feedName" : {
+            "type" : "string"
+          },
+          "kgPerHead" : {
+            "type" : "number"
+          },
+          "plannedKg" : {
+            "type" : "number"
+          },
+          "stockKg" : {
+            "type" : "number"
+          },
+          "available" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "FeedingPlanRationView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "rationCode" : {
+            "type" : "string"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sessionsPerDay" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "FeedingPlanView" : {
+        "type" : "object",
+        "properties" : {
+          "penId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "penCode" : {
+            "type" : "string"
+          },
+          "feedingDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "sessionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "feedingTime" : {
+            "type" : "string",
+            "example" : "14:30:00"
+          },
+          "ration" : {
+            "$ref" : "#/components/schemas/FeedingPlanRationView"
+          },
+          "headCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FeedingPlanLineView"
+            }
+          },
+          "existingRecordId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "ListResult" : {
         "type" : "object",
         "properties" : {
@@ -21912,38 +24441,6 @@
             "items" : {
               "$ref" : "#/components/schemas/Row"
             }
-          }
-        }
-      },
-      "Tiles" : {
-        "type" : "object",
-        "properties" : {
-          "cattleExitedByType" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "integer",
-              "format" : "int32"
-            }
-          },
-          "cattleExited" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "salesRevenue" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "toCollect" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "vouchersToCollect" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "awaitingOwner" : {
-            "type" : "integer",
-            "format" : "int32"
           }
         }
       },
@@ -22332,170 +24829,6 @@
           }
         }
       },
-      "CalvingHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "birthTime" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "corrected" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "calves" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/CalfOutcomeResult"
-            }
-          }
-        }
-      },
-      "EventHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "type" : {
-            "type" : "string"
-          },
-          "occurredAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "recordedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "recordedById" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "result" : {
-            "type" : "string"
-          },
-          "method" : {
-            "type" : "string"
-          },
-          "observer" : {
-            "type" : "string"
-          },
-          "performedBy" : {
-            "type" : "string"
-          },
-          "examiner" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "corrected" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }
-      },
-      "PregnancyHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "parity" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "expectedCalvingDate" : {
-            "type" : "string",
-            "format" : "date"
-          },
-          "expectedBasis" : {
-            "type" : "string"
-          },
-          "updates" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PregnancyUpdateHistory"
-            }
-          }
-        }
-      },
-      "PregnancyUpdateHistory" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "type" : {
-            "type" : "string"
-          },
-          "occurredAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "recordedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "corrected" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }
-      },
-      "ReproductionHistory" : {
-        "type" : "object",
-        "properties" : {
-          "cattleId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "events" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/EventHistory"
-            }
-          },
-          "pregnancies" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PregnancyHistory"
-            }
-          },
-          "calvings" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/CalvingHistory"
-            }
-          }
-        }
-      },
       "Current" : {
         "type" : "object",
         "properties" : {
@@ -22551,6 +24884,58 @@
             "items" : {
               "$ref" : "#/components/schemas/Row"
             }
+          }
+        }
+      },
+      "GrowthSummary" : {
+        "type" : "object",
+        "properties" : {
+          "currentWeight" : {
+            "$ref" : "#/components/schemas/Record"
+          },
+          "latestBcs" : {
+            "type" : "number"
+          },
+          "adg" : {
+            "type" : "number"
+          },
+          "windowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextWeighing" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "projectedFinishingDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "finishingStatus" : {
+            "type" : "string"
+          },
+          "measurements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "records" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Record"
+            }
+          },
+          "targetKg" : {
+            "type" : "number"
+          },
+          "missingKg" : {
+            "type" : "number"
+          },
+          "adg60" : {
+            "type" : "number"
+          },
+          "finishingDays" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -22636,16 +25021,48 @@
           }
         }
       },
+      "MemberOption" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "active" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PublishPreview" : {
+        "type" : "object",
+        "properties" : {
+          "announcement" : {
+            "$ref" : "#/components/schemas/AnnouncementView"
+          },
+          "recipients" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MemberOption"
+            }
+          }
+        }
+      },
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "headerName" : {
+          "token" : {
             "type" : "string"
           },
           "parameterName" : {
             "type" : "string"
           },
-          "token" : {
+          "headerName" : {
             "type" : "string"
           }
         }

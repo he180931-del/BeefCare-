@@ -1,15 +1,11 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Checkbox, Field, Radio, Table, Td, Th, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import {
-  CRITERION_LABELS, CRITERION_TYPES, LIFE_STAGES, PURPOSE_LABELS, PURPOSE_TYPES, SEXES, SEX_LABELS, STAGE_LABELS,
-  criteriaFromForm, criteriaOf, dmy, formFromCriteria, todayIso, validatePenForm,
-  type CriterionType, type PenFormValues,
-} from '../domain/penRules'
+import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Radio, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { CRITERION_LABELS, CRITERION_TYPES, LIFE_STAGES, PURPOSE_LABELS, PURPOSE_TYPES, SEXES, SEX_LABELS, STAGE_LABELS, criteriaFromForm, criteriaOf, dmy, formFromCriteria, todayIso, type CriterionType, type PenFormValues } from '../domain/penRules'
+import { validatePenForm } from '../validation/penValidation'
 import { cx, TH } from './parts'
 import type { ReactNode } from 'react'
-import type { Pen, PenStatus } from '../../../types'
+import type { Pen, PenStatus } from '../types'
 import { penName } from './BarnTable'
 
 const ErrorText = ({ children }: { children: ReactNode }) => <span className="text-[11px] text-err-fg">{children}</span>

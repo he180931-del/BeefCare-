@@ -5,20 +5,20 @@ import {
   validateCalving,
   validateReproductionCommand,
 } from '../../../src/features/reproduction/domain/reproductionRules'
-import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
+import { REPRODUCTION_DEMO, REPRODUCTION_DEMO_NOW } from '../../../src/features/reproduction/data/reproductionMock'
 
 describe('reproduction rules', () => {
   it('filters the worklist by status, text, pen, breed and advisory eligibility', () => {
-    const all = filterWorklist(REPRODUCTION_DEMO, {})
+    const all = filterWorklist(REPRODUCTION_DEMO, {}, REPRODUCTION_DEMO_NOW)
     expect(all.length).toBeGreaterThan(4)
 
-    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'IN_ESTRUS' }).map((row) => row.cattleCode))
+    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'IN_ESTRUS' }, REPRODUCTION_DEMO_NOW).map((row) => row.cattleCode))
       .toContain('BC-000142')
-    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'BRED', query: 'Nâu' }).map((row) => row.cattleCode))
+    expect(filterWorklist(REPRODUCTION_DEMO, { status: 'BRED', query: 'Nâu' }, REPRODUCTION_DEMO_NOW).map((row) => row.cattleCode))
       .toEqual(['BC-000061'])
-    expect(filterWorklist(REPRODUCTION_DEMO, { penCode: 'C1', breed: 'Zebu đỏ' }).map((row) => row.cattleCode))
+    expect(filterWorklist(REPRODUCTION_DEMO, { penCode: 'C1', breed: 'Zebu đỏ' }, REPRODUCTION_DEMO_NOW).map((row) => row.cattleCode))
       .toContain('BC-000142')
-    expect(filterWorklist(REPRODUCTION_DEMO, { eligibility: 'NOT_MET' }).every((row) => row.eligibility?.status === 'NOT_MET'))
+    expect(filterWorklist(REPRODUCTION_DEMO, { eligibility: 'NOT_MET' }, REPRODUCTION_DEMO_NOW).every((row) => row.eligibility?.status === 'NOT_MET'))
       .toBe(true)
   })
 

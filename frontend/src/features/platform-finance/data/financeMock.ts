@@ -66,7 +66,7 @@ function rec(id: number, over: Partial<FinanceRecord> & Pick<FinanceRecord, 'rec
   return base
 }
 
-const FILLER_CATS: [string, string, 'INCOME' | 'EXPENSE'][] = [['Hạ tầng máy chủ', 'VPS tháng', 'EXPENSE'], ['Phí dịch vụ email', 'Gói gửi email', 'EXPENSE'], ['Đào tạo tại trại', 'Buổi hướng dẫn', 'INCOME'], ['Phí nhắn tin SMS', 'SMS OTP', 'EXPENSE']]
+const FILLER_CATS: [string, string, 'INCOME' | 'EXPENSE'][] = [['SERVER_STORAGE', 'VPS tháng', 'EXPENSE'], ['EMAIL_NOTIFICATIONS', 'Gói email và thông báo', 'EXPENSE'], ['IMPLEMENTATION_SUPPORT', 'Hỗ trợ triển khai', 'INCOME'], ['USER_TRAINING', 'Hướng dẫn sử dụng', 'INCOME']]
 const FILLERS = Array.from({ length: 16 }, (_, i) => {
   const [category, description, type] = FILLER_CATS[i % 4]
   const month = i < 8 ? '08' : '09'
@@ -74,22 +74,22 @@ const FILLERS = Array.from({ length: 16 }, (_, i) => {
 })
 
 export const RECORDS_SEED: FinanceRecord[] = [
-  rec(104, { recordCode: 'FR-0104', type: 'EXPENSE', category: 'Hạ tầng máy chủ', description: 'VPS & CDN tháng 10', amountVnd: 3200000, occurredOn: '2026-10-15', documentNumber: 'VPS-CDN-1026', state: 'POSTED' }),
-  rec(103, { recordCode: 'FR-0103', type: 'EXPENSE', category: 'Phí dịch vụ email', description: 'Gói gửi email 50k/tháng', amountVnd: 650000, occurredOn: '2026-10-12', state: 'POSTED' }),
-  rec(101, { recordCode: 'FR-0101', type: 'INCOME', category: 'Đào tạo tại trại', description: 'Buổi hướng dẫn quét QR & nhập lịch sử', amountVnd: 1500000, occurredOn: '2026-10-10', scope: 'FARM', farmId: 2, sourceType: 'BANK', sourceEvidenceId: 1010, sourceReference: 'SePay / LIVE / beefcare-main / TX-TRAIN-1010', state: 'POSTED' }),
+  rec(104, { recordCode: 'FR-0104', type: 'EXPENSE', category: 'SERVER_STORAGE', description: 'VPS & CDN tháng 10', amountVnd: 3200000, occurredOn: '2026-10-15', documentNumber: 'VPS-CDN-1026', state: 'POSTED' }),
+  rec(103, { recordCode: 'FR-0103', type: 'EXPENSE', category: 'EMAIL_NOTIFICATIONS', description: 'Gói gửi email 50k/tháng', amountVnd: 650000, occurredOn: '2026-10-12', state: 'POSTED' }),
+  rec(101, { recordCode: 'FR-0101', type: 'INCOME', category: 'USER_TRAINING', description: 'Buổi hướng dẫn quét QR & nhập lịch sử', amountVnd: 1500000, occurredOn: '2026-10-10', scope: 'FARM', farmId: 2, sourceType: 'BANK', sourceEvidenceId: 1010, sourceReference: 'SePay / LIVE / beefcare-main / TX-TRAIN-1010', state: 'POSTED' }),
   rec(108, {
-    recordCode: 'FR-0108', type: 'EXPENSE', category: 'In thẻ tai QR', description: 'In 300 thẻ tai QR chống nước cho đàn Zebu đỏ', amountVnd: 2700000, occurredOn: '2026-10-08', scope: 'FARM', farmId: 1,
+    recordCode: 'FR-0108', type: 'EXPENSE', category: 'OTHER_EXPENSE', description: 'In 300 thẻ tai QR chống nước cho đàn Zebu đỏ', amountVnd: 2700000, occurredOn: '2026-10-08', scope: 'FARM', farmId: 1,
     documentNumber: 'HĐ 0001287 – In ấn Sơn Tây', state: 'DRAFT', version: 2, createdAt: '2026-10-08T14:22:00',
     history: hist([['Tạo nháp', '2026-10-08T14:22:00'], ['Sửa số tiền', '2026-10-09T09:10:00', undefined, '2.500.000 → 2.700.000']]),
   }),
   rec(95, {
-    recordCode: 'FR-0095', type: 'EXPENSE', category: 'Hạ tầng máy chủ', description: 'Ghi trùng khoản VPS', amountVnd: 3200000, occurredOn: '2026-10-01', state: 'VOID', version: 4,
+    recordCode: 'FR-0095', type: 'EXPENSE', category: 'SERVER_STORAGE', description: 'Ghi trùng khoản VPS', amountVnd: 3200000, occurredOn: '2026-10-01', state: 'VOID', version: 4,
     voidedAt: '2026-10-19T21:05:00', voidedBy: PM_NAME, voidReason: 'Ghi trùng khoản VPS; loại khoản trùng khỏi báo cáo', postedAt: '2026-10-19T21:00:00', postedBy: PM_NAME,
     history: hist([['Tạo nháp', '2026-10-08T14:22:00'], ['Ghi sổ', '2026-10-19T21:00:00'], ['Hủy bỏ', '2026-10-19T21:05:00', 'Ghi trùng khoản VPS; loại khoản trùng khỏi báo cáo']]),
   }),
-  rec(92, { recordCode: 'FR-0092', type: 'EXPENSE', category: 'Phí nhắn tin SMS', description: 'SMS OTP tháng 10', amountVnd: 2700000, occurredOn: '2026-10-01', state: 'POSTED' }),
-  rec(94, { recordCode: 'FR-0094', type: 'EXPENSE', category: 'Quảng bá', description: 'Bài quảng bá tháng 9 (nhập nhầm)', amountVnd: 900000, occurredOn: '2026-09-28', state: 'VOID', version: 4, voidedAt: '2026-09-30T10:00:00', voidedBy: PM_NAME, voidReason: 'Nhập nhầm số tiền', postedAt: '2026-09-29T09:00:00', postedBy: PM_NAME }),
-  rec(106, { recordCode: 'FR-0106', type: 'EXPENSE', category: 'Quảng bá', description: 'Banner hội chợ nông nghiệp', amountVnd: 1100000, occurredOn: '2026-09-29', state: 'DRAFT', version: 1 }),
+  rec(92, { recordCode: 'FR-0092', type: 'EXPENSE', category: 'EMAIL_NOTIFICATIONS', description: 'SMS OTP tháng 10', amountVnd: 2700000, occurredOn: '2026-10-01', state: 'POSTED' }),
+  rec(94, { recordCode: 'FR-0094', type: 'EXPENSE', category: 'OTHER_EXPENSE', description: 'Bài quảng bá tháng 9 (nhập nhầm)', amountVnd: 900000, occurredOn: '2026-09-28', state: 'VOID', version: 4, voidedAt: '2026-09-30T10:00:00', voidedBy: PM_NAME, voidReason: 'Nhập nhầm số tiền', postedAt: '2026-09-29T09:00:00', postedBy: PM_NAME }),
+  rec(106, { recordCode: 'FR-0106', type: 'EXPENSE', category: 'OTHER_EXPENSE', description: 'Banner hội chợ nông nghiệp', amountVnd: 1100000, occurredOn: '2026-09-29', state: 'DRAFT', version: 1 }),
   ...FILLERS,
 ]
 

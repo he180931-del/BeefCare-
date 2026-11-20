@@ -18,9 +18,9 @@
 | UC | Tên | Tác nhân | Màn hình |
 |---|---|---|---|
 | UC-FE11-01 | Xem danh sách sinh sản, trạng thái, điều kiện phối, khung phối, dòng thời gian sinh sản | Owner, Manager, Technician | SCR-38, SCR-39 |
-| UC-FE11-02 | Ghi động dục | Manager | Popup Ghi động dục |
-| UC-FE11-03 | Ghi phối giống | Manager | Popup Ghi phối giống |
-| UC-FE11-04 | Sửa / hủy bản ghi động dục, phối giống | Manager | Popup Sửa / Hủy động dục hoặc phối giống |
+| UC-FE11-02 | Ghi động dục | Owner, Manager | Popup Ghi động dục |
+| UC-FE11-03 | Ghi phối giống | Owner, Manager | Popup Ghi phối giống |
+| UC-FE11-04 | Sửa / hủy bản ghi động dục, phối giống | Owner, Manager | Popup Sửa / Hủy động dục hoặc phối giống |
 
 **Nguyên tắc:** mọi thao tác ghi bắt đầu từ hồ sơ bò cái (tab Sinh sản, SCR-39); SCR-38 **không** có nút ghi (GBR-48, SCR-38).
 
@@ -31,7 +31,7 @@
 | Hành động | Owner | Manager | Technician |
 |---|---|---|---|
 | Xem SCR-38, SCR-39 | Có | Có | Có (điện thoại: 3 tab) |
-| Ghi động dục, phối, sửa, hủy | — | **Chỉ Manager** | — (có thể là người quan sát / thực hiện) |
+| Ghi động dục, phối, sửa, hủy | Có (D41) | Có | — (có thể là người quan sát / thực hiện) |
 
 ---
 
@@ -120,8 +120,9 @@ Tuổi đẻ lứa đầu, khoảng cách lứa gần nhất, số ngày từ l�
 | R-11-07 | Sau phối: ngày đẻ tạm tính = phối + thời gian mang thai; thay ngày tạm tính cũ; tạo REM-03 (phối + 28 ngày). Thiếu tham số → lưu, không có ngày dự kiến (MSG-FE11-08). Động dục mới sau phối → hủy ngày tạm tính. | GBR-53, REM-03 |
 | R-11-08 | Phối lần hai trong cùng chu kỳ động dục được phép; ngày tạm tính theo lần phối mới nhất. | UC-03 AF3 |
 | R-11-09 | Điều kiện phối "Chưa đạt" → cảnh báo MSG-FE11-09, vẫn lưu được. | GBR-55 |
+| R-11-09a | Cân dùng cho điều kiện phối chỉ lấy từ bản ghi cân VALID (GBR-39); cân lúc nhập đàn **không** tính. Chưa có lần cân → tiêu chí cân không đạt, hiện "Chưa có lần cân"; "Cân gần nhất" để trống; việc tiếp theo "Theo dõi cân" (chốt TuanPQ 15/11/2026). | GBR-39, GBR-55 |
 | R-11-10 | Nút ghi chỉ hiện theo trạng thái (§3.3); bò không thuộc diện → panel "Không áp dụng" kèm lý do và MSG-FE11-11, dòng thời gian vẫn xem được. | GBR-54 |
-| R-11-11 | Sửa / hủy: chỉ Manager, bắt buộc lý do, kèm version; giữ giá trị gốc (Record Revision). Không được làm mồ côi hay mâu thuẫn bản ghi sau (khám thai, thai, cập nhật thai, đẻ, bê đã đăng ký) → MSG-FE11-07 liệt kê các bản ghi đó; không bao giờ xóa dây chuyền. | GBR-59, BR-D15 |
+| R-11-11 | Sửa / hủy: Owner hoặc Manager (D41), bắt buộc lý do, kèm version; giữ giá trị gốc (Record Revision). Không được làm mồ côi hay mâu thuẫn bản ghi sau (khám thai, thai, cập nhật thai, đẻ, bê đã đăng ký) → MSG-FE11-07 liệt kê các bản ghi đó; không bao giờ xóa dây chuyền. | GBR-59, BR-D15 |
 | R-11-12 | Sau ghi / sửa / hủy: tính lại trạng thái, ngày dự kiến, nhắc việc (REM-02, REM-03, REM-07) qua JOB-01. | UC-02, 03, 04 |
 | R-11-13 | Chỉ số GBR-106: chỉ dùng sự kiện VALID; n < 3 → "Chưa đủ dữ liệu" (ở báo cáo đàn). | GBR-106 |
 
@@ -181,14 +182,14 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 | 2 | Services in current cycle, Parity, Last calving, Latest weight / Số lần phối chu kỳ này, Số lứa, Lần đẻ cuối, Cân gần nhất | Luôn | Số lứa gồm số lứa khai báo khi nhập (GBR-30) |
 | 3 | Declared at entry / Khai báo khi nhập | Bò mua có khai báo mang thai, chưa khám | "Khai báo mang thai ~n tháng (chưa khám)" + nút "Ghi khám thai" |
 | 4 | Reproduction indicators / Chỉ số sinh sản | Luôn | §3.6 |
-| 5 | Action buttons / Nút ghi | Manager | Theo §3.3 |
+| 5 | Action buttons / Nút ghi | Owner, Manager | Theo §3.3 |
 | 6 | More actions / Thao tác khác | Manager, bò cái ACTIVE YOUNG_STOCK / ADULT | Ghi khám thai; Ghi đẻ (thai không theo dõi) |
 | 7 | Breeding eligibility / Điều kiện phối | Chờ phối, Động dục, Sau sinh | Kết quả chung; bảng Tiêu chí / Giá trị / Kết quả: tuổi tối thiểu, cân tối thiểu, không có ca sức khỏe OPEN |
 | 8 | Breeding window / Khung phối | Động dục | Thời điểm động dục, khung gợi ý (ví dụ "18/10/2026 06:30 → 14:30–18:30"), thanh thời gian; MSG-FE11-08 khi thiếu tham số |
 | 9 | Latest breeding / Lần phối gần nhất | Đã phối | Phương pháp, đực / tinh, người thực hiện, ngày đẻ tạm tính, số lần khám đã có, khám được từ ngày |
 | 10 | Current pregnancy / Thai hiện tại | Mang thai | Số thai, lần phối liên kết, xác nhận ngày, ngày đẻ dự kiến (CONFIRMED / TENTATIVE / ESTIMATED) + cơ sở, số ngày mang thai |
 | 11 | Reproduction timeline / Dòng thời gian sinh sản | Luôn | Lọc loại sự kiện, từ ngày, đến ngày; dòng: thời điểm, sự kiện, chi tiết, nguồn dữ liệu, người ghi; "Đã sửa"; dòng hủy mờ |
-| 12 | Actions / Thao tác | Manager | "Sửa · Hủy" → popup tương ứng (FE-11 hoặc FE-12) |
+| 12 | Actions / Thao tác | Owner, Manager | "Sửa · Hủy" → popup tương ứng (FE-11 hoặc FE-12) |
 | 13 | Calving history / Lịch sử đẻ | Luôn | Ngày đẻ, kết quả bê (ví dụ "Bê 1: Sống · Cái · 22 kg"), đăng ký (mã bò / "Nháp" / "Chết trước khi đăng ký") |
 
 ### Popup Ghi động dục
@@ -238,11 +239,11 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
-| A1 | Danh sách sinh sản | `tab, q?, penId?, breedId?, eligibility?` | `{tiles {inEstrus, inWindow, checkDue, calving30, postCalvingReady, notEligible}, counts{…}, items[{cattleId, code, earTag, breed, pen, status, statusSince, eligibility {met, failed[]}, latestEvent {type, date, daysAgo}, nextAction, due {date?, windowFrom?, windowTo?}}]}` | COM-03 | `GET /api/farms/{farmId}/reproduction-worklist` (thiếu ô, tab, lọc – Q1) |
+| A1 | Danh sách sinh sản | `tab, q?, penId?, breedId?, eligibility?` | `{tiles {inEstrus, inWindow, checkDue, calving30, postCalvingReady, notEligible}, counts{…}, items[{cattleId, code, earTag, breed, pen, status, statusSince, eligibility {met, failed[]}, latestEvent {type, date, daysAgo}, nextAction, due {date?, windowFrom?, windowTo?}}]}` | COM-03 | `GET /api/farms/{farmId}/reproduction-worklist` |
 | A2 | Tab sinh sản của bò cái | `type?, from?, to?` | `{applicable, notApplicableReason?, status, servicesInCycle, parity, lastCalving, latestWeight, declaredPregnancy?, indicators {ageAtFirstCalving, lastInterval, daysSinceCalving, daysOpen, conceptions, services, overdue}, allowedActions[], eligibility {met, criteria[{name, value, met}]}, window? {estrusAt, from, to, configured}, latestBreeding?, currentPregnancy?, timeline[{eventId, type, at, details, source, recordedBy, corrected, status, version}], calvings[]}` | COM-08 | `GET /api/farms/{farmId}/cattle/{cattleId}/reproduction-history` |
-| A3 | Ghi động dục | `observedAt, observerId?, signs[], description?, confirmDuplicate?` + `Idempotency-Key` | `{eventId, status, window? {from, to}, parameterMissing?}` | FE11-03 (cần `confirmDuplicate`), FE11-05, COM-06, COM-07, COM-15, COM-13, COM-17, COM-02 | `POST /api/farms/{farmId}/cattle/{cattleId}/estrus-events` |
+| A3 | Ghi động dục | `observedAt, observerId? \| observerName?, signs[], description?, confirmDuplicate?` + `Idempotency-Key` | `{eventId, status, window? {from, to}, parameterMissing?}` | FE11-03 (cần `confirmDuplicate`), FE11-05, COM-06, COM-07, COM-15, COM-13, COM-17, COM-02 | `POST /api/farms/{farmId}/cattle/{cattleId}/estrus-events` |
 | A4 | Ghi phối | `bredAt, dataSource, method, sireSource, sireCattleId?, sireBreed?, semenCode?, semenSupplier?, performerId? \| performerName?, linkedEstrusId?, note?` + `Idempotency-Key` | `{eventId, status: BRED, tentativeCalvingDate?, parameterMissing?, eligibilityWarning?}` | FE11-04, FE11-05, FE11-10, COM-06, COM-07, COM-13, COM-02 | `POST /api/farms/{farmId}/cattle/{cattleId}/breeding-events` |
-| A5 | Sửa | `changes{…}, reason, version` + `Idempotency-Key` | Sự kiện + trạng thái mới | FE11-07 (`{dependents[]}`), FE11-04, FE11-10, COM-06, COM-05 | `POST /api/farms/{farmId}/reproduction-events/{eventId}/correction` (cần nhận đổi đực giống) |
+| A5 | Sửa | `changes{…}, reason, version` + `Idempotency-Key` | Sự kiện + trạng thái mới | FE11-07 (`{dependents[]}`), FE11-04, FE11-10, COM-06, COM-05 | `POST /api/farms/{farmId}/reproduction-events/{eventId}/correction` |
 | A6 | Hủy | `reason, version` + `Idempotency-Key` | Như A5 | FE11-07, COM-06, COM-05 | `POST …/reproduction-events/{eventId}/void` |
 
 ---
@@ -288,11 +289,12 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 | TC-11-17 | Phối đã có khám CÓ THAI liên kết | Hủy phối | MSG-FE11-07 liệt kê lần khám | I | R-11-11 |
 | TC-11-18 | Phối chưa có phụ thuộc | Sửa thời điểm, có lý do | Revision giữ giá trị cũ; ngày tạm tính và REM-03 tính lại | I | R-11-11, R-11-12 |
 | TC-11-19 | Sửa đực giống từ A sang B | Lưu | Được (nếu không mâu thuẫn bản ghi sau) | I | UC-04 |
-| TC-11-20 | Owner / Technician | Gọi ghi động dục / phối | 403 | H | §2 |
+| TC-11-20 | Technician | Gọi ghi động dục / phối | 403 | H | §2 |
 | TC-11-21 | Bò cái mua khai báo mang thai ~4 tháng | Mở SCR-39 | "Khai báo mang thai ~4 tháng (chưa khám)" + nút Ghi khám thai | E | §6 |
 | TC-11-22 | 5 lần phối, 3 lần có thai | Chỉ số | "3 lần có thai / 5 lần phối" | U | GBR-106 |
 | TC-11-23 | Đẻ 01/07, chưa có thai, hôm nay 20/10 (111 ngày) | Chỉ số | Huy hiệu "Quá hạn thụ thai" (> 108) | U | GBR-106 |
 | TC-11-24 | SCR-38 | Bấm một dòng | Mở SCR-39; không có nút ghi trên SCR-38 | E | SCR-38 |
+| TC-11-25 | Owner, trại ACTIVE, bò cái đủ điều kiện | Ghi động dục, ghi phối, sửa / hủy bản ghi | Thành công như Manager; tab Sinh sản của Owner có nút ghi | H, I, E | §2, D41 |
 
 ---
 
@@ -313,3 +315,4 @@ SCR-38 → bấm dòng → SCR-39 của bò cái.
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho TuanPQ duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
 | 07/11/2026 | 28/10/2026 | Chốt các câu hỏi mục 10 (cột Quyết định), ghi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 15/11/2026 | 28/10/2026 | Việc 6a: A1–A6 đã nối đủ trường mục 7; chốt P1–P7 (D36): người quan sát / thực hiện có thể là thành viên hoặc tên ngoài, kiểm trùng 12 giờ cho cả động dục và phối (trừ cùng `linkedEstrusId`), phụ thuộc → MSG-FE11-07 `{records, dependents[]}`, thiếu tham số → `parameterMissing` (không mặc định 283 ngày) | Tuấn |

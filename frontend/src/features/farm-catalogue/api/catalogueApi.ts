@@ -1,12 +1,17 @@
-import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
-import { catalogueDemoStore, type CatalogueDemoStore } from '../data/catalogueDemoStore'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { BackendError } from '../../../shared/api/backendClient'
+import type { CatalogueDemoStore } from '../data/catalogueDemoStore'
 import { FieldErrors, todayIso, type FieldErrorMap } from '../domain/catalogueRules'
-import { DEFAULT_PARAMETERS, PARAMETER_FIELDS, describeChanges, effectiveVersion } from '../domain/parameterRules'
+import { DEFAULT_PARAMETERS, PARAMETER_FIELDS, effectiveVersion, parameterVersionChanges } from '../domain/parameterRules'
 import type {
   BcsScale, Breed, BreedCommand, CatalogueFilters, Medicine, MedicineCommand, NumericParameterKey, ParameterValues, ParameterVersion,
   ParameterVersionCommand, Purpose, PurposeCommand, PurposeType, Route, Vaccine, VaccineCommand,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** Frontend parameter keys ↔ backend FarmParameterVersion keys (SCR-56, §3.5). */
 const PARAMETER_KEY: Record<NumericParameterKey, string> = {
@@ -76,7 +81,7 @@ export function toBackendParameters(values: ParameterValues): Record<string, unk
   return out
 }
 
-/** Versions newest first, with the change summary against the previous version and CURRENT / SCHEDULED / PAST (SCR-56). */
+/** Versions newest first, with a change summary against their effective baseline (SCR-56). */
 export function decorateVersions(rows: Array<Record<string, unknown>>, today: string): ParameterVersion[] {
   const records = rows.map((row) => ({
     id: numberValue(row.id), versionNo: numberValue(row.versionNo), effectiveFrom: textValue(row.effectiveFrom),
@@ -84,9 +89,9 @@ export function decorateVersions(rows: Array<Record<string, unknown>>, today: st
     sourceNote: textValue(row.sourceNote), savedBy: textValue(row.savedBy, '—'),
   })).sort((a, b) => a.versionNo - b.versionNo)
   const current = effectiveVersion(records, today)
-  return records.map((v, i) => ({
+  return records.map((v) => ({
     ...v,
-    changes: describeChanges(i === 0 ? null : records[i - 1]!.parameters, v.parameters),
+    changes: parameterVersionChanges(records, v),
     status: (v.id === current?.id ? 'CURRENT' : v.effectiveFrom > today ? 'SCHEDULED' : 'PAST') as ParameterVersion['status'],
   })).reverse()
 }
@@ -131,7 +136,7 @@ const filterLocal = <T extends { code: string; name: string; available: boolean 
     && (!q || `${r.code} ${r.name} ${extra(r)}`.toLowerCase().includes(q)))
 }
 
-export function createCatalogueApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: CatalogueDemoStore }) {
+export function createCatalogueApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: CatalogueDemoStore }) {
   if (mode !== 'backend') {
     return {
       listBreeds: (filters: CatalogueFilters = {}) => store.listBreeds(filters),
@@ -195,4 +200,9 @@ export function createCatalogueApi({ mode, farmId, transport, store }: { mode: B
 }
 export type CatalogueApi = ReturnType<typeof createCatalogueApi>
 
-export const catalogueApi = createCatalogueApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: catalogueDemoStore })
+export const catalogueApi = createCatalogueApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.catalogue.catalogueDemoStore) })
+
+/** Catalogue of the farm in session. The demo store has one farm, so the local adapter is shared. */
+export function catalogueApiForFarm(farmId: string | number | null): CatalogueApi {
+  return backendMode === 'backend' ? createCatalogueApi({ mode: backendMode, farmId, transport: backendTransport, store: lazyObject(() => demo.catalogue.catalogueDemoStore) }) : catalogueApi
+}

@@ -29,7 +29,7 @@ Tổng: 18 mục.
 | FE-14 | A4 | Trang chủ Technician | Chưa có riêng – đề xuất `GET /api/farms/{farmId}/technician-home` (hoặc ghép A1 + FE-07 + A3) | TaiDX | Chưa làm |
 | FE-14 | A8 | Số chưa đọc (chuông) | Chưa có riêng – đề xuất `GET /api/notifications/unread-count` | TaiDX | Chưa làm |
 | FE-15 | A3 | Đóng panel Bắt đầu | Chưa có – đề xuất `POST /api/farms/{farmId}/dashboard/getting-started/dismiss` | TaiDX | Chưa làm |
-| FE-17 | A3 | Danh sách mã hành động | Chưa có – đề xuất `GET /api/platform/audit/actions` (hoặc enum cố định ở FE) | DucNV | Chưa làm |
+| FE-17 | A3 | Danh sách mã hành động | `GET /api/platform/audit/actions` (D34) | DucNV | Đã có (UC-FE17-01, D34); bằng chứng và giới hạn: docs/reviews/FE17_UC01_REVIEW.md; chưa READY_FOR_FE |
 | FE-18 | A7 | Kiểm trước khi ngưng | Chưa có riêng – trả `referencedCount` trong view A2, A3, A5, A6 | AnNT | Chưa làm |
 | FE-19 | A14 | Rút phiên bản đã lên lịch | `POST /api/platform/plan-prices/{version}/withdraw` (D23) | DucNV | Đã có (UC7, D23); bằng chứng và giới hạn: docs/reviews/FE19_UC07_REVIEW.md; chưa READY_FOR_FE |
 | FE-23 | A5 | Bỏ nháp phiếu nhập | Chưa có – đề xuất `DELETE …/feed/receipts/{receiptId}` | TaiDX | Chưa làm |
@@ -63,7 +63,7 @@ Từ đối chiếu Figma với frontend ngày 02/11. Trong code FE, mỗi metho
 | FE-20 | Hỗ trợ của Owner | Danh sách trại cho form tạo ticket | `Message` thiếu `author`, `authorRole`, `createdAt`, `kind` | LamKD |
 | FE-20 | CS | Danh sách trại, CS, thông báo CS | `processing.action` chỉ khai báo là string, tên hành động đang là phỏng đoán | LamKD |
 | FE-21 | PM tài chính | Danh sách trại, danh sách và chi tiết biên nhận, báo cáo mới nhất | Tải XLSX chưa nối vì route trả về bytes | LamKD |
-| FE-03, FE-17 | SA | Danh sách người thao tác audit, xuất CSV, kiểm tra lại khi mở thông báo, lọc theo vai trò nền tảng | `AccountSummary`, `AuditEntry` thiếu `emailVerified`, ngày tạo, đăng nhập gần nhất, số trại, vai trò người thao tác, nhãn đối tượng | DucNV |
+| FE-03, FE-17 | SA | Kiểm tra lại khi mở thông báo | Phần audit xong theo D34: ô tìm người thực hiện thay danh sách, bỏ xuất CSV (SRS không có), A1/A2 có vai trò người thực hiện và nhãn đối tượng; phần tài khoản xong theo D31 | DucNV |
 | FE-01, FE-03 | Tài khoản, trại | | `POST /api/account/profile` mô tả thành `ProfileUpdate` có trường của bò, FE đang gửi `{ fullName, phone }` theo SCR-08; lời mời thiếu ngày tham gia, `invitedBy`, `farmId` | LamKD, DucNV |
 | FE-04, FE-05 | Đàn bò, chuồng | Ảnh bò | Kiểm tra chuyển chuồng không trả kết quả theo từng tiêu chí | AnNT |
 | FE-06, FE-13 | Nhập, xuất đàn | Ảnh, quét QR, số bê chờ xác nhận, gán bố mẹ cho bê, danh sách vắc-xin, giống, bò bố mẹ | `colourMarkings` gửi đi nhưng không đọc lại được | AnNT |
@@ -79,13 +79,13 @@ Từ báo cáo triển khai backend và bàn giao ngày 28–29/10. Mỗi dòng 
 | FE-02 | Test ranh giới thời hạn dịch vụ và chuyển trạng thái; màn lịch sử chuyển trạng thái | DucNV |
 | FE-05 | Mã QR duy nhất khi tạo đồng thời; đối chiếu đủ trường SCR-19 | AnNT |
 | FE-08 | Fixture và truy vấn dữ liệu lớn cho tổng quan đàn | TuanPQ |
-| FE-09 | Test khớp đối tượng tiêm, lọc lịch sử, sửa lịch, khôi phục mũi, ca ON_FARM và HISTORICAL; JOB-01 dời nhắc việc khi đổi lịch; lưu lý do dừng lịch | TuanPQ |
+| FE-09 | Test lọc lịch sử; JOB-01 dời nhắc việc khi đổi lịch. (12/11/2026: đã có lưu lý do dừng lịch, sửa đối tượng / số mũi, khôi phục mũi khi hủy, ca ON_FARM và HISTORICAL khi sửa ngưng thịt – `VaccinationGapCommandTest`, `VaccinationCommandResourceTest`) | TuanPQ |
 | FE-10 | Test lọc ngày Open / Chronic / Closed, liên kết phản ứng, người ghi và người quan sát, sửa bản ghi, thứ tự ngày đóng ca; ánh xạ đủ MSG-FE10 | TuanPQ |
 | FE-11, FE-12 | Các nhánh sửa / hủy của lần đẻ và kết quả bê; đối chiếu đủ trường SCR-38, SCR-39; mọi nơi chọn snapshot tham số theo ngày hiệu lực rồi phiên bản | TuanPQ |
 | FE-14 | REM-11 (bữa ăn chưa ghi) chưa có test; JOB-07 bước 4 (nhắc yêu cầu nội bộ sau 4 giờ) chưa có test riêng | TaiDX |
 | FE-15 | RPT-03, RPT-04, RPT-06 chưa kiểm bằng số tính tay; phân bổ vỗ béo GBR-107 chưa kiểm mẫu số | TaiDX |
 | FE-16 | Fixture luồng kết hợp cho bản ghi sửa đổi của sinh sản, sức khỏe, xuất đàn | AnNT |
-| FE-17 | Xuất dữ liệu và hành vi khi kết quả lớn | DucNV |
+| FE-17 | Xuất dữ liệu bỏ theo D34 (SRS không có). Kết quả lớn: phân trang ≤ 100, index `logged_at,id` / `action,logged_at`, số câu lệnh cố định mỗi trang (H2 + PostgreSQL); chưa đo với dữ liệu lớn trên bản tích hợp. Chưa ghi audit: đổi / đặt lại mật khẩu (FE-01, LamKD), job trả ticket về hàng đợi (FE-20); mục `SUPPORT_PROCESS` ghi trước D34 không hiện trên SCR-51 | DucNV |
 | FE-18 | Lưu tham số (SCR-56) chưa gọi JOB-01 tính lại nhắc việc tương lai | AnNT |
 | FE-19 | UC8 D24 đã kiểm webhook trùng/worker đồng thời, lease/retry/rollback, khóa trại, migration và email trên H2/PostgreSQL local; còn xác minh bản tích hợp và SePay LIVE, chưa READY_FOR_FE. Bằng chứng: docs/reviews/FE19_UC08_REVIEW.md | DucNV |
 | FE-20 | Ca replay qua REST / security; ánh xạ thông báo theo trường cho yêu cầu nội bộ | LamKD |

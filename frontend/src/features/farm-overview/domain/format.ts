@@ -1,13 +1,16 @@
-const TZ = 'Asia/Ho_Chi_Minh'
+import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 
 const parts = (iso: string, opts: Intl.DateTimeFormatOptions) =>
-  Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hourCycle: 'h23', ...opts }).formatToParts(new Date(iso)).map((p) => [p.type, p.value]))
+  Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: DEFAULT_FARM_TIME_ZONE, hourCycle: 'h23', ...opts }).formatToParts(new Date(parseBusinessTime(iso))).map((p) => [p.type, p.value]))
 
 /** yyyy-MM-dd theo múi giờ của trại. */
-export const dateKey = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(iso))
-export const formatDayMonth = (iso: string) => { const p = parts(iso, { day: '2-digit', month: '2-digit' }); return `${p.day}/${p.month}` }
-export const formatTime = (iso: string) => { const p = parts(iso, { hour: '2-digit', minute: '2-digit' }); return `${p.hour}:${p.minute}` }
-export const formatDateTime = (iso: string) => { const p = parts(iso, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); return `${p.hour}:${p.minute} ${p.day}/${p.month}/${p.year}` }
+export const dateKey = (iso: string, _timeZone?: string) => {
+  const p = parts(iso, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  return `${p.year}-${p.month}-${p.day}`
+}
+export const formatDayMonth = (iso: string, _timeZone?: string) => { const p = parts(iso, { day: '2-digit', month: '2-digit' }); return `${p.day}/${p.month}` }
+export const formatTime = (iso: string, _timeZone?: string) => { const p = parts(iso, { hour: '2-digit', minute: '2-digit' }); return `${p.hour}:${p.minute}` }
+export const formatDateTime = (iso: string, _timeZone?: string) => { const p = parts(iso, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); return `${p.hour}:${p.minute} ${p.day}/${p.month}/${p.year}` }
 
 /** 'yyyy-mm-dd' -> 'dd/mm/yyyy' */
 export const formatKey = (key: string) => { const [y, m, d] = key.split('-'); return `${d}/${m}/${y}` }

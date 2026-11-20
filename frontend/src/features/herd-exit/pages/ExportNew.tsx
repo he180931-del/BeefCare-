@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Checkbox, DateInput, Docs, Dropzone, Field, Foot, Note, Segmented, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { useModalParam } from '../../../components/Modal'
-import { BARNS, PAY_METHODS } from '../data/exitData'
-import { todayIso } from '../data/exportsData'
-import { dm, money } from '../../../data/format'
-import { backendMode } from '../../../api/backendTransport'
-import { confirmHerdExit, downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, saveHerdExit, pens, listExitBuyers, listSelectableExitCattle } from '../api/index'
-import { useMutation, useQuery } from '../../../hooks/useApi'
-import { Icon } from '../../../components/Icon'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { Docs, Dropzone } from '../../../components/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { PAY_METHODS } from '../constants/exitOptions'
+import { businessDate as todayIso } from '../../../shared/lib/date/farmTime'
+import { dm, money } from '../../../shared/lib/format'
+import { confirmHerdExit, downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, saveHerdExit, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
+import { useMutation } from '../../../shared/hooks/useMutation'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
-import type { ExitDraftCow, HerdExit, ExitType } from '../../../types'
-import { userFacingError } from '../../../api/userFacingError'
+import type { ExitDraftCow, HerdExit, ExitType } from '../types'
+import { userFacingError } from '../../../shared/api/userFacingError'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
@@ -80,10 +80,9 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const d = draftState
   const [savedId, setSavedId] = useState(draftId ?? '')
-  const isBackend = backendMode === 'backend'
-  const nextId = isBackend ? '' : `PX-2026-${String(Math.max(0, ...exports.map((r) => Number(r.id.split('-')[2]) || 0)) + 1).padStart(4, '0')}`
-  const id = draftRow?.id ?? (isBackend && !draftId ? 'Tự động khi lưu' : nextId)
-  const saveId = savedId || draftRow?.id || draftId || (isBackend ? undefined : id)
+  const nextId = newExitVoucherId(exports)
+  const id = draftRow?.id ?? nextId ?? (draftId ? '' : 'Tự động khi lưu')
+  const saveId = savedId || draftRow?.id || draftId || nextId
 
   const [type, setType] = useState<ExitType>((d.type as ExitType | undefined) ?? 'Bán')
   const [date, setDate] = useState(d?.date ?? todayIso())
@@ -122,7 +121,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const cowsMoney = hasPricing ? picked.reduce((s, c) => s + amount(c), 0) : 0
   const receivable = Math.max(cowsMoney - deduction, 0)
   const remaining = Math.max(receivable - collected, 0)
-  const barnDelta = BARNS.map((b) => ({ ...b, out: picked.filter((c) => c.barn === b.code).length })).filter((b) => b.out)
+  const barnDelta = exitPenShift(picked)
 
   const formSnapshot = () => JSON.stringify({
     date, type, pricing, buyerId, quarantine, plate, note, picked, deduction, collected, method, dueDate,
@@ -456,7 +455,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
               ['Số con', picked.length],
               ['Loại xuất', type],
               ['Tổng cân xuất', `${money(totalWeight)} kg${estimated ? ` (${estimated} con ước tính)` : ''}`],
-              ['Chuồng giảm', barnDelta.length ? barnDelta.map((b) => `${b.name} (${b.count} → ${b.count - b.out})`).join(' · ') : '—'],
+              ['Chuồng giảm', barnDelta.length ? barnDelta.map((b) => (b.count == null ? `${b.name} (−${b.out})` : `${b.name} (${b.count} → ${b.count - b.out})`)).join(' · ') : '—'],
               ...(hasPricing ? [['Tổng phải thu', `${money(receivable)} đ`]] : []),
             ]}
           />

@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Field, Textarea } from '../../../components/ui'
-import type { HerdExit } from '../../../types'
+import { Field, Modal, ModalButton, ModalFooter, Textarea } from '../../../shared/ui'
+import type { HerdExit } from '../types'
 
 // Figma không vẽ modal này: dựng cùng kiểu modal 560 của hệ thống.
 export default function RejectModal({ row, onClose, onRejected }: { row: HerdExit; onClose: () => void; onRejected: (reason: string) => void }) {

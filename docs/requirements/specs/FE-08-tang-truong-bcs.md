@@ -16,9 +16,9 @@
 
 | UC | Tên | Tác nhân | Màn hình |
 |---|---|---|---|
-| UC-FE08-01 | Ghi cân và / hoặc BCS | Manager | Popup Ghi cân & BCS (từ SCR-30 hoặc REM-01) |
+| UC-FE08-01 | Ghi cân và / hoặc BCS | Owner, Manager | Popup Ghi cân & BCS (từ SCR-30 hoặc REM-01) |
 | UC-FE08-02 | Xem tăng trưởng đàn và của một con | Owner, Manager, Technician | SCR-29, SCR-30 |
-| UC-FE08-03 | Sửa / loại trừ bản ghi cân | Manager | Popup Sửa / Loại trừ bản ghi (từ SCR-30 hoặc SCR-50) |
+| UC-FE08-03 | Sửa / loại trừ bản ghi cân | Owner, Manager | Popup Sửa / Loại trừ bản ghi (từ SCR-30 hoặc SCR-50) |
 
 **Liên quan:** nhắc cân REM-01, gợi ý REM-08, đạt cân xuất chuồng REM-13 (FE-14); hiệu quả vỗ béo RPT-07 (FE-15); cân ở phiếu nhập / xuất **không phải** bản ghi tăng trưởng (GBR-92).
 
@@ -29,7 +29,7 @@
 | Hành động | Owner | Manager | Technician |
 |---|---|---|---|
 | Xem SCR-29, SCR-30 | Có | Có | Có |
-| Ghi, sửa, loại trừ | — | **Chỉ Manager** | — (có thể được chọn là người đo) |
+| Ghi, sửa, loại trừ | Có (D41) | Có | — (có thể được chọn là người đo) |
 
 Cần trại ACTIVE, bò ACTIVE, không phải bê nháp (GBR-08, GBR-26).
 
@@ -43,7 +43,7 @@ Cần trại ACTIVE, bò ACTIVE, không phải bê nháp (GBR-08, GBR-26).
 | Thời điểm đo | Ngày giờ | Có | Không ở tương lai, không trước ngày nhập đàn | GBR-38, BR-D14 |
 | Thời điểm ghi | Ngày giờ hệ thống | Có | Lưu riêng với thời điểm đo | BR-D14 |
 | Người đo | Thành viên ACTIVE | Có | Mặc định người ghi; có thể là Technician | UC-01 AF3 |
-| Người ghi | Manager | Có | Người dùng hiện tại | GBR-08 |
+| Người ghi | Owner hoặc Manager | Có | Người dùng hiện tại | GBR-08, D41 |
 | Phương pháp | `ELECTRONIC_SCALE` / `TAPE` / `OTHER_ESTIMATE` | Có khi có cân | — | GBR-38 |
 | Vòng ngực (cm) | Số | Chỉ khi TAPE | 50–300 | Popup |
 | Dài thân (cm) | Số | Chỉ khi TAPE | 30–250 | Popup |
@@ -79,7 +79,7 @@ Cần trại ACTIVE, bò ACTIVE, không phải bê nháp (GBR-08, GBR-26).
 | R-08-06 | Chỉ số chỉ dùng bản ghi VALID; EXCLUDED / VOIDED không vào tính toán và không vẽ trên biểu đồ. | GBR-39, GBR-40 |
 | R-08-07 | Sửa / loại trừ bắt buộc lý do; giữ giá trị gốc, người, thời điểm (Record Revision) trong cùng transaction; kiểm version (MSG-COM-05). | GBR-40, BR-D15, GBR-89 |
 | R-08-08 | Sau ghi / sửa / loại trừ: tính lại cân hiện tại, ADG, dự kiến xuất chuồng; giải quyết REM-01 (khi ghi); đánh giá lại REM-08, REM-13. | UC-01 POST-2, UC-03 POST-3 |
-| R-08-09 | Chỉ Manager ghi / sửa / loại trừ; Owner và Technician xem. | GBR-08 |
+| R-08-09 | Owner và Manager ghi / sửa / loại trừ (D41); Technician xem. | GBR-08 |
 | R-08-10 | Bò EXITED / VOIDED: không ghi mới (MSG-COM-13). Bò trên phiếu chết PENDING: không ghi mới (MSG-COM-17) nhưng vẫn sửa / loại trừ được bản ghi cũ. | GBR-26 |
 
 ---
@@ -129,7 +129,7 @@ Popup → chọn **Sửa giá trị** (cân, vòng ngực + dài thân, BCS, ph�
 
 | # | Trường | Hiện với | Nội dung |
 |---|---|---|---|
-| 1 | Record weight & BCS / Ghi cân & BCS | Manager | Mở popup |
+| 1 | Record weight & BCS / Ghi cân & BCS | Owner, Manager | Mở popup |
 | 2 | Latest weight / Cân gần nhất | Tất cả | kg, ngày, cơ sở |
 | 3 | ADG 90 days | | kg/ngày |
 | 4 | Finishing projection / Dự kiến xuất chuồng | Bò FATTENING có cân mục tiêu | "Mục tiêu 450 kg · dự kiến dd/mm/yyyy (n ngày) theo ADG 60 ngày" / "Đạt cân mục tiêu" / "Chưa đủ số lần cân" |
@@ -142,7 +142,7 @@ Popup → chọn **Sửa giá trị** (cân, vòng ngực + dài thân, BCS, ph�
 | 11 | ADG | | kg/ngày so với lần cân VALID trước |
 | 12 | Measured by / Người đo | | Tên |
 | 13 | Status / Trạng thái | | VALID (kèm "Đã sửa"), EXCLUDED, VOIDED (dòng mờ) |
-| 14 | Actions / Thao tác | Manager | "Sửa · Loại trừ" |
+| 14 | Actions / Thao tác | Owner, Manager | "Sửa · Loại trừ" |
 | 15 | Next weighing / Lần cân tới | | Hạn từ REM-01 |
 
 ### Popup Ghi cân & BCS
@@ -217,9 +217,10 @@ Popup → chọn **Sửa giá trị** (cân, vòng ngực + dài thân, BCS, ph�
 | TC-08-16 | Có REM-01 cho bò | Ghi cân | REM-01 được giải quyết | I | R-08-08 |
 | TC-08-17 | Bò FATTENING mục tiêu 450, ADG 60 ngày 1,0, cân 400 ngày 01/11 | Dự kiến | 20/12 (50 ngày) | U | GBR-107 |
 | TC-08-18 | Bò FATTENING cân 455, mục tiêu 450 | — | "Đạt cân mục tiêu"; có REM-13 | I | GBR-107 |
-| TC-08-19 | Owner / Technician | Gọi ghi cân | 403 | H | R-08-09 |
+| TC-08-19 | Technician | Gọi ghi cân | 403 | H | R-08-09 |
 | TC-08-20 | Manager chọn Technician làm người đo | Lưu | Người đo = Technician, người ghi = Manager | I | UC-01 AF3 |
 | TC-08-21 | Bò trên phiếu chết PENDING | Ghi mới / loại trừ bản ghi cũ | MSG-COM-17 / được | I | R-08-10 |
+| TC-08-22 | Owner, trại ACTIVE, bò ACTIVE | Ghi cân & BCS, rồi sửa / loại trừ một bản ghi do Manager ghi | Thành công; người ghi = Owner; bản gốc giữ trong lịch sử sửa | H, I, E | R-08-09, D41 |
 
 ---
 

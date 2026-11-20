@@ -99,6 +99,10 @@ public class AppUser implements Serializable {
     @Column(name = "google_last_used_at")
     private Instant googleLastUsedAt;
 
+    /** SRS Part I §3.2 User Account "created time" (D31): set once when the row is inserted, shown on SCR-16. */
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -278,6 +282,20 @@ public class AppUser implements Serializable {
 
     public void setGoogleLastUsedAt(Instant googleLastUsedAt) {
         this.googleLastUsedAt = googleLastUsedAt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    /** Every creation path (registration, first Google sign-in, provisioning, seed, tests) gets a created time. */
+    @PrePersist
+    void defaultCreatedAt() {
+        if (createdAt == null) createdAt = Instant.now();
     }
 
     public Long getVersion() {

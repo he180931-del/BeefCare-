@@ -7,7 +7,7 @@ export const REASON_MAX = 500
 export type AnnouncementErrorCode = 'FORBIDDEN' | 'CONFLICT' | 'NOT_ALLOWED' | 'NO_RECIPIENT' | 'VALIDATION' | 'NOT_FOUND'
 
 export class AnnouncementError extends Error {
-  constructor(readonly code: AnnouncementErrorCode, message: string, readonly field?: 'title' | 'body' | 'reason') {
+  constructor(readonly code: AnnouncementErrorCode, message: string, readonly field?: 'title' | 'body' | 'reason' | 'audience') {
     super(message)
   }
 }

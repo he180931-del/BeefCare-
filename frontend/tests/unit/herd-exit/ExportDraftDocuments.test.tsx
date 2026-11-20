@@ -17,7 +17,8 @@ const apiState = vi.hoisted(() => ({
   checkGate: null as Promise<void> | null,
 }))
 
-vi.mock('../../../src/features/herd-exit/api/index', () => ({
+vi.mock('../../../src/features/herd-exit/api/index', async (importOriginal) => ({
+  ...(({ newExitVoucherId, exitPenShift }) => ({ newExitVoucherId, exitPenShift }))(await importOriginal<typeof import('../../../src/features/herd-exit/api/index')>()),
   herdExitApi: {
     list: async () => structuredClone(apiState.exports),
     get: async (id: string) => { apiState.fetched.push(id); return structuredClone(apiState.hydrated) },

@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { growthDemoStore } from '../../../src/features/growth/data/growthDemoStore'
 import { growthApi } from '../../../src/features/growth/api/growthApi'
 import GrowthRoutes from '../../../src/features/growth/pages/GrowthRoutes'
@@ -83,12 +83,40 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     expect(await screen.findByText(/Bản ghi đã được loại trừ/)).toBeInTheDocument()
   })
 
-  it.each(['OWNER', 'TECHNICIAN'] as const)('%s chỉ xem, không có nút ghi nhận và cột Thao tác', async (role) => {
-    renderAs(role, <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
+  it('D41: Chủ trại ghi nhận và sửa như Quản lý', async () => {
+    renderAs('OWNER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
+    expect(await screen.findByLabelText('Cân nặng')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Sửa · Loại trừ' }).length).toBeGreaterThan(0)
+  })
+
+  it('TECHNICIAN chỉ xem, không có nút ghi nhận và cột Thao tác', async () => {
+    renderAs('TECHNICIAN', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
     await screen.findByText('Lịch sử đo')
     expect(screen.queryByRole('button', { name: /Ghi nhận cân & BCS/ })).not.toBeInTheDocument()
     expect(screen.queryByText('Thao tác')).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  // Lỗi phát hiện khi thử trên trình duyệt (16/11/2026): bò trên phiếu chết PENDING mất nút ghi cân mà không báo lý do.
+  it('R-08-10: bò chờ xác nhận chết / mất báo lý do, không mở ghi mới nhưng vẫn sửa / loại trừ được', async () => {
+    const real = await growthDemoStore.getProfile('BC-000203')
+    const spy = vi.spyOn(growthApi, 'getProfile').mockResolvedValue({ ...real, cattle: { ...real.cattle, exitPending: true } })
+    renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth&m=record')
+    expect(await screen.findByText(/Chờ xác nhận chết \/ mất: BC-000203 không ghi được lần cân mới/)).toBeInTheDocument()
+    expect(screen.getByText(/Vẫn sửa hoặc loại trừ được các bản ghi cân đã có/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Sửa · Loại trừ' }).length).toBeGreaterThan(0)
+    spy.mockRestore()
+  })
+
+  it('bò chờ xác nhận chết / mất: Kỹ thuật viên chỉ thấy lý do, không thấy câu về sửa / loại trừ', async () => {
+    const real = await growthDemoStore.getProfile('BC-000203')
+    const spy = vi.spyOn(growthApi, 'getProfile').mockResolvedValue({ ...real, cattle: { ...real.cattle, exitPending: true } })
+    renderAs('TECHNICIAN', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
+    expect(await screen.findByText(/Chờ xác nhận chết \/ mất: BC-000203/)).toBeInTheDocument()
+    expect(screen.queryByText(/Vẫn sửa hoặc loại trừ/)).not.toBeInTheDocument()
+    spy.mockRestore()
   })
 
   it('bò chưa có lần đo hiện trạng thái rỗng', async () => {

@@ -10,7 +10,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.fpt.beefcare.ServiceIntegrationTest;
 import vn.edu.fpt.beefcare.domain.*;
 import vn.edu.fpt.beefcare.domain.enumeration.*;
@@ -25,6 +28,10 @@ class ReminderReconciliationIT extends DomainTestSupport {
         +"\"PREGNANCY_RECHECK_DAYS\":14,\"CALVING_LEAD_DAYS\":30,\"VACCINATION_LEAD_DAYS\":7,\"POST_CALVING_DAYS\":45,\"TARGET_FINISHING_WEIGHT_KG\":450}";
     static final ZoneId ZONE=ZoneId.of("Asia/Ho_Chi_Minh");
     @Autowired ReminderReconciliationService job;
+    @Autowired ReminderReconciliationOutboxHandler reminderEvents;
+    @Autowired OutboxService outbox;
+    @Autowired PlatformTransactionManager transactionManager;
+    @Autowired List<OutboxEventHandler> outboxHandlers;
     @Autowired FarmReminderQueryService screen;
     @Autowired ReproductionReminderService reproductionReminders;
 
@@ -174,6 +181,16 @@ class ReminderReconciliationIT extends DomainTestSupport {
         assertThat(rows(farm,"REM-10")).extracting(Reminder::getStatus).containsExactly("ACTIVE");
     }
 
+    /** D41 (TC-14-27): an unrecorded feeding session is shown to the Owner as well as the Manager and the Technician. */
+    @Test void anUnrecordedFeedingSessionIsShownToTheOwnerManagerAndTechnician() {
+        Farm farm=farmWith(ALL_PARAMETERS);Pen pen=pen(farm,"F"+next(),10);
+        String source="PEN:"+pen.getId()+":RATION:1:DAY:"+TODAY+":SESSION:1";
+        Reminder session=new Reminder();session.setFarm(farm);session.setRuleType("REM-11");session.setSourceType("PEN");session.setSourceId(source);session.setSourceRecord(source);
+        session.setRuleKey(farm.getId()+":REM-11:PEN:"+source);session.setDueTime(clock.instant().minus(1,ChronoUnit.HOURS));session.setStatus("ACTIVE");save(session);
+        for(FarmRole role:List.of(FarmRole.MANAGER,FarmRole.TECHNICIAN))assertThat(seenBy(farm,memberWithRole(farm,role),"REM-11")).hasSize(1);
+        assertThat(seenBy(farm,owner,"REM-11")).singleElement().satisfies(v->assertThat(v.sourceTarget().type()).isEqualTo("FEEDING_LOG"));
+    }
+
     @Test void finishingWeightIsResolvedByExitAndCancelledWhenTheWeightNoLongerReachesTheTarget() {
         Farm farm=farmWith(ALL_PARAMETERS);ProductionPurpose fattening=purpose(farm,PurposeType.FATTENING);
         Cattle sold=cattle(farm,breed(farm),fattening,Sex.MALE,LifeStage.ADULT);weight(sold,TODAY.minusDays(1),"460");
@@ -196,6 +213,104 @@ class ReminderReconciliationIT extends DomainTestSupport {
             .isEqualTo(before).hasSize(2);
         Farm other=farm();actAs(memberWithRole(other,FarmRole.OWNER));
         assertThatThrownBy(()->screen.mine(farm.getId())).isInstanceOf(DomainException.class);
+    }
+
+    @Test void reminderProjectionContainsCattleDetailsBasisAndTenantScopedTargets() {
+        Farm farm=farmWith(ALL_PARAMETERS);Cattle cow=cow(farm);Pen pen=pen(farm,"R-14-"+next(),12);
+        PenAssignment assignment=new PenAssignment();assignment.setFarm(farm);assignment.setCattle(cow);assignment.setPen(pen);
+        assignment.setFromDate(TODAY.minusDays(40));assignment.setSource(AssignmentSource.HERD_ENTRY);assignment.setMovedBy(owner);
+        assignment.setRecordedAt(clock.instant());save(assignment);
+        Growth weight=weight(cow,TODAY.minusDays(30),"400");reconcile(farm);
+
+        ReminderView ownerView=seenBy(farm,owner,"REM-01").get(0);
+        assertThat(ownerView.cattleId()).isEqualTo(cow.getId());
+        assertThat(ownerView.cattle()).satisfies(detail->{
+            assertThat(detail.code()).isEqualTo(cow.getDisplayCode());
+            assertThat(detail.breed()).isEqualTo(cow.getBreed().getName());
+            assertThat(detail.sex()).isEqualTo("FEMALE");
+            assertThat(detail.ageMonths()).isEqualTo(30);
+            assertThat(detail.pen()).isEqualTo(pen.getCode());
+        });
+        assertThat(ownerView.sourceSummary()).contains("400 kg");
+        assertThat(ownerView.sourceId()).contains("WEIGHT:"+weight.getId());
+        assertThat(ownerView.basisValues()).containsEntry("WEIGHING_INTERVAL_DAYS",30);
+        assertThat(ownerView.basisMissing()).isNull();
+        assertThat(ownerView.cattleProfileTarget()).satisfies(target->{
+            assertThat(target.type()).isEqualTo("CATTLE_PROFILE");
+            assertThat(target.id()).isEqualTo(cow.getId());
+        });
+        assertThat(ownerView.sourceTarget()).satisfies(target->{
+            assertThat(target.type()).isEqualTo("GROWTH_RECORD");
+            assertThat(target.id()).isEqualTo(weight.getId());
+        });
+
+        ReminderView technicianView=seenBy(farm,memberWithRole(farm,FarmRole.TECHNICIAN),"REM-01").get(0);
+        assertThat(technicianView.sourceTarget()).isEqualTo(ownerView.sourceTarget());
+    }
+
+    @Test void sourceOutboxEventReconcilesJob01AndCanBeRetriedWithoutDuplicates() {
+        Farm farm=farmWith(ALL_PARAMETERS);Cattle cow=cow(farm);weight(cow,TODAY.minusDays(30),"400");
+        for(String eventType:ReminderReconciliationOutboxHandler.SOURCE_CHANGE_EVENTS)
+            assertThat(outboxHandlers.stream().filter(handler->handler.supports(eventType))).hasSize(1);
+        assertThat(reminderEvents.supports("FARM_COMMAND_COMMITTED")).isFalse();
+        assertThat(reminderEvents.supports("FEED_RECEIPT_DRAFT_UPDATED")).isFalse();
+        assertThat(reminderEvents.supports("SUPPORT_UPDATED")).isFalse();
+        OutboxEvent event=new OutboxEvent();event.setFarmId(farm.getId());event.setEventType("GROWTH_RECORDED");
+        reminderEvents.handle(event);em.flush();
+        reminderEvents.handle(event);em.flush();
+
+        assertThat(rows(farm,"REM-01")).singleElement().satisfies(r->{
+            assertThat(r.getStatus()).isEqualTo("ACTIVE");
+            assertThat(r.getDueTime()).isEqualTo(day(TODAY));
+        });
+    }
+
+    @Test @Transactional(propagation=Propagation.NOT_SUPPORTED)
+    void supportedReminderEventPassesAnEarlierBacklogOfMoreThanFiftyUnownedEvents() {
+        TransactionTemplate transactions=new TransactionTemplate(transactionManager);
+        DispatchFixture fixture=transactions.execute(status->{
+            Farm farm=farm();
+            for(int i=0;i<51;i++)outbox.enqueue(farm.getId(),"FARM_COMMAND_COMMITTED","FarmCommand",i,java.util.Map.of("action","unowned-test-"+i));
+            OutboxEvent reminderEvent=outbox.enqueue(farm.getId(),"FARM_REMINDER_SOURCE_CHANGED","ReminderSourceChange","HEALTH_CASE_STATUS",java.util.Map.of("action","HEALTH_CASE_STATUS"));
+            return new DispatchFixture(farm.getId(),reminderEvent.getId());
+        });
+        assertThat(fixture).isNotNull();
+
+        try {
+            // Production dispatch starts after the command transaction commits. Use that same visibility boundary here.
+            outbox.dispatchDueEvents();
+            transactions.executeWithoutResult(status->{
+                OutboxEvent delivered=em.find(OutboxEvent.class,fixture.reminderEventId());
+                assertThat(delivered.getPublishedAt())
+                    .as("delivery attempts=%s, last error=%s",delivered.getAttempts(),delivered.getLastError())
+                    .isNotNull();
+                assertThat(delivered.getAttempts()).isEqualTo(1);
+                List<OutboxEvent> unowned=em.createQuery("select e from OutboxEvent e where e.farmId=:farmId and e.eventType='FARM_COMMAND_COMMITTED'",OutboxEvent.class)
+                    .setParameter("farmId",fixture.farmId()).getResultList();
+                assertThat(unowned).hasSize(51).allSatisfy(event->{
+                    assertThat(event.getPublishedAt()).isNull();
+                    assertThat(event.getAttempts()).isZero();
+                });
+            });
+        } finally {
+            transactions.executeWithoutResult(status->{
+                em.createQuery("delete from OutboxEvent e where e.farmId=:farmId").setParameter("farmId",fixture.farmId()).executeUpdate();
+                Farm farm=em.find(Farm.class,fixture.farmId());
+                if(farm!=null)em.remove(farm);
+            });
+        }
+    }
+
+    @Test void technicianGetsNoRem08SourceActionTarget() {
+        Farm farm=farmWith(ALL_PARAMETERS.replace("{","{\"WEANING_AGE_MONTHS\":6,"));
+        Cattle calf=cattle(farm,breed(farm),purpose(farm,PurposeType.BREEDING),Sex.FEMALE,LifeStage.UNWEANED_CALF);
+        calf.setBirthDate(TODAY.minusMonths(7));calf.setLifeStage(LifeStage.UNWEANED_CALF);em.flush();reconcile(farm);
+        ReminderView managerView=seenBy(farm,memberWithRole(farm,FarmRole.MANAGER),"REM-08").get(0);
+        ReminderView technicianView=seenBy(farm,memberWithRole(farm,FarmRole.TECHNICIAN),"REM-08").get(0);
+
+        assertThat(managerView.sourceTarget()).isNotNull();
+        assertThat(technicianView.cattleProfileTarget()).isNotNull();
+        assertThat(technicianView.sourceTarget()).isNull();
     }
 
     @Test void pendingDeathVoucherRemindsOwnerAndManagerUntilTheOwnerDismissesIt() {
@@ -224,4 +339,6 @@ class ReminderReconciliationIT extends DomainTestSupport {
         heifer.setLifeStage(LifeStage.ADULT);em.flush();reconcile(farm);
         assertThat(rows(farm,"REM-08")).filteredOn(r->r.getCattle().getId().equals(heifer.getId())).extracting(Reminder::getStatus).containsOnly("RESOLVED");
     }
+
+    private record DispatchFixture(Long farmId, Long reminderEventId) {}
 }

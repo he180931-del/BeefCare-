@@ -1,8 +1,13 @@
-import { asRecord, backendFarmId, backendMode, backendTransport, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
-import { subscriptionDemoStore, type SubscriptionDemoStore } from '../data/subscriptionDemoStore'
-import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, SubscriptionOverview } from '../types'
+import { asRecord, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { BackendError } from '../../../shared/api/backendClient'
+import type { SubscriptionDemoStore } from '../data/subscriptionDemoStore'
+import type { CreatePaymentCommand, Payment, PaymentFilters, PaymentPage, RefreshDemo, StateDialogState, SubscriptionOverview } from '../types'
 import { SubscriptionError, type PriceQuote } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** A missing overview contract is an API error; it must never be filled with demo fields. */
 function readOverview(value: unknown, farmId: number): SubscriptionOverview {
@@ -29,7 +34,7 @@ function readOverview(value: unknown, farmId: number): SubscriptionOverview {
 function readPayment(value: unknown): Payment {
   const row = asRecord(value)
   if (typeof row.id !== 'number' || typeof row.quoteRef !== 'string' || ![1, 2, 3].includes(Number(row.durationYears))
-    || typeof row.amountVnd !== 'number' || !['PENDING', 'PAID', 'EXPIRED'].includes(String(row.state))
+    || typeof row.amountVnd !== 'number' || !['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(String(row.state))
     || typeof row.requestedAt !== 'string' || typeof row.expiresAt !== 'string' || typeof row.priceVersionId !== 'number') {
     throw new Error('Dữ liệu yêu cầu thanh toán từ máy chủ không đầy đủ.')
   }
@@ -43,10 +48,14 @@ function readPayment(value: unknown): Payment {
     reopened: row.reopened as boolean | undefined,
     bankPaidAt: row.bankPaidAt as string | null | undefined, receivedAt: row.receivedAt as string | null | undefined,
     confirmedAt: row.confirmedAt as string | null | undefined, confirmationSource: row.confirmationSource as Payment['confirmationSource'],
+    cancelledAt: row.cancelledAt as string | null | undefined, cancelReason: row.cancelReason as string | null | undefined,
   }
 }
 
-export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SubscriptionDemoStore }) {
+/** D38: reason after trim, as on the backend. */
+export const CANCEL_REASON_MAX = 1000
+
+export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: SubscriptionDemoStore }) {
   void farmId
   const getPayment = async (farm: number, id: string): Promise<Payment> => {
     if (mode !== 'backend') return store.getPayment(farm, id)
@@ -54,6 +63,17 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
     return readPayment(await transport.get(transport.farmPath(farm, `/subscription/payments/${id}`)))
   }
   return {
+    /** Mã trên đường dẫn `/goi-dich-vu/chuyen-khoan/:id`: id của máy chủ; bản mô phỏng dùng mã quoteRef. */
+    paymentRouteId(payment: Payment): string { return mode === 'backend' ? String(payment.id) : payment.quoteRef },
+    /** Bản mô phỏng không tạo VietQR thật: trang hiện ô minh họa thay cho ảnh QR. */
+    illustrativeQr: mode !== 'backend',
+    /**
+     * Mở trại sau khi thanh toán qua kiểm tra vào trại (UC-FE02-02). Các store mô phỏng không dùng chung danh sách trại,
+     * nên bản mô phỏng chỉ chuyển trang.
+     */
+    entersFarmAfterPayment: mode === 'backend',
+    /** Hộp thoại trạng thái mở thẳng bằng `?m=<tên>` chỉ có ở bản mô phỏng; máy chủ thật không có dữ liệu mẫu. */
+    previewDialog(name: string): StateDialogState | null { return mode === 'backend' ? null : store.previewDialog(name) },
     // chưa có API: đồng hồ phía client (backend dùng giờ hệ thống)
     now(): number { return mode === 'backend' ? Date.now() : store.now() },
     // GET /api/farms/{farmId}/subscription
@@ -111,7 +131,30 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
     },
     // GET /api/farms/{farmId}/subscription/payments/{paymentId} (Kiểm tra lại)
     async refreshPayment(farm: number, code: string, demo?: RefreshDemo) { return mode === 'backend' ? getPayment(farm, code) : store.refreshPayment(farm, code, demo) },
+    /**
+     * POST /api/farms/{farmId}/subscription/payments/{paymentId}/cancel (D38, A18). Reuse `idempotencyKey` when retrying
+     * the same confirmation. MSG-FE19-19 → CANCEL_BLOCKED (transfer received); MSG-COM-05 → STALE (no longer cancellable).
+     */
+    async cancelPayment(farm: number, payment: Payment, reason: string, idempotencyKey: string): Promise<Payment> {
+      const note = reason.trim()
+      if (note.length > CANCEL_REASON_MAX) throw new Error(`Lý do tối đa ${CANCEL_REASON_MAX.toLocaleString('vi-VN')} ký tự.`)
+      if (mode !== 'backend') return store.cancelPayment(farm, payment.quoteRef, note)
+      try {
+        return readPayment(await transport.command(transport.farmPath(farm, `/subscription/payments/${payment.id}/cancel`),
+          note ? { reason: note } : {}, { key: idempotencyKey }))
+      } catch (error) {
+        if (!(error instanceof BackendError)) throw error
+        if (error.code === 'MSG-FE19-19') {
+          throw new SubscriptionError('CANCEL_BLOCKED', error.message, {
+            code: typeof error.params.code === 'string' ? error.params.code : payment.quoteRef,
+            receivedAt: typeof error.params.receivedAt === 'string' ? error.params.receivedAt : null,
+          })
+        }
+        if (error.code === 'MSG-COM-05') throw new SubscriptionError('STALE', 'Yêu cầu đã thay đổi trạng thái. Trang đã tải lại trạng thái mới nhất.')
+        throw error
+      }
+    },
   }
 }
 export type SubscriptionApi = ReturnType<typeof createSubscriptionApi>
-export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: subscriptionDemoStore })
+export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.subscription.subscriptionDemoStore) })

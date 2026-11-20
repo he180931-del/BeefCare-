@@ -2,6 +2,23 @@ export type FarmRole = 'OWNER' | 'MANAGER' | 'TECHNICIAN'
 export type MemberStatus = 'ACTIVE' | 'INACTIVE'
 export type FarmServiceStatus = 'ACTIVE' | 'PENDING_PAYMENT' | 'EXPIRED' | 'SUSPENDED'
 export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED'
+export interface InvitationListQuery {
+  status?: InvitationStatus
+  page?: number
+  size?: number
+  sort?: 'lastSentAt'
+  dir?: 'asc' | 'desc'
+  /** Exact UC1 conflict lookup; it must not depend on the current list page. */
+  invitationId?: number
+}
+export interface InvitationPage {
+  items: Invitation[]
+  total: number
+  page: number
+  size: number
+  counts: Record<InvitationStatus, number>
+  asOf: string
+}
 export type ExpectedHerdSize = 'UNDER_50' | '50_149' | '150_300' | 'OVER_300'
 export type MemberAction = 'CHANGE_ROLE' | 'DEACTIVATE' | 'REACTIVATE'
 
@@ -78,6 +95,9 @@ export interface RequestKeyOptions {
   idempotencyKey?: string
 }
 
+/** Phiên bản bản ghi người dùng đã xem; không thay bằng version mới trước khi ghi. */
+export interface MemberCommandOptions extends RequestKeyOptions { expectedVersion: number }
+
 export interface FarmInfoInput extends Omit<FarmRegistrationInput, 'mainBreedCodes' | 'expectedHerdSize'> {
   timeZone: string
   morningShiftStart: string
@@ -86,6 +106,7 @@ export interface FarmInfoInput extends Omit<FarmRegistrationInput, 'mainBreedCod
   expectedVersion: number
 }
 
+/** A1 row (D29). The last change's reason and effective date are not part of SCR-13 and are not read. */
 export interface Membership {
   id: number
   userId: number
@@ -93,10 +114,23 @@ export interface Membership {
   email: string
   role: FarmRole
   status: MemberStatus
-  effectiveDate: string
-  reason: string
-  version: number
+  /** Instant the membership was created (registration or invitation acceptance); shown as mm/yyyy in the farm time zone. */
   joinedAt: string
+  version: number
+  /** Owner commands available now; empty on the Owner row and for a Manager (D29). */
+  actions: MemberAction[]
+}
+
+/** SCR-13 tabs (D29): all rows; ACTIVE managers / technicians; INACTIVE only for the Owner. */
+export interface MemberCounts { all: number; managers: number; technicians: number; inactive?: number }
+
+/** A1 (D29): the whole member list of the farm, ordered by name, with what SCR-13 needs about the farm. */
+export interface MemberList {
+  farmName: string
+  timeZone: string
+  serviceStatus: FarmServiceStatus
+  counts: MemberCounts
+  items: Membership[]
 }
 
 export interface Invitation {
@@ -112,15 +146,26 @@ export interface Invitation {
   accountHint?: 'HAS_ACCOUNT' | 'NO_ACCOUNT'
 }
 
+/** A7 / SCR-15 (D28): PENDING to review, or ACCEPTED with the signed-in person's own ACTIVE membership (AF2). */
 export interface InvitationPreview {
+  status: 'PENDING' | 'ACCEPTED'
+  farmId: number
   farmName: string
+  timeZone?: string
   email: string
   role: Exclude<FarmRole, 'OWNER'>
-  invitedAt: string
-  expiresAt: string
-  status: InvitationStatus
   invitedBy?: string
-  farmId?: number
+  sentAt: string
+  expiresAt: string
+  membershipId?: number
+}
+
+/** A8 (D28): the farm to open after joining; repeating the acceptance returns the same membership. */
+export interface AcceptedInvitation {
+  membershipId: number
+  farmId: number
+  farmName: string
+  role: Exclude<FarmRole, 'OWNER'>
 }
 
 export interface InviteMemberInput { email: string; role: Exclude<FarmRole, 'OWNER'>; validityDays: 3 | 7 | 14 }

@@ -91,10 +91,21 @@ Mỗi loại tiêu chí tối đa 1 lần; không có tiêu chí nào = nhận m
 | R-04-08 | Ngày chuyển không sớm hơn ngày bắt đầu phân chuồng hiện tại và không sau hôm nay → MSG-FE04-09. | GBR-22 |
 | R-04-09 | Chuyển nhầm được sửa bằng một lần chuyển ngược với lý do "Correction" (Sửa nhầm); không sửa / xóa lịch sử cũ. | GBR-22, UC-05 AF2 |
 | R-04-10 | Chỉ chuyển bò ACTIVE; bò EXITED / VOIDED chỉ đọc (MSG-COM-13); bò đang trên phiếu chết / mất tích PENDING không chuyển được (MSG-COM-17); bê nháp không chuyển. | GBR-26, UC-05 PRE-2 |
-| R-04-11 | Bò đã ở chuồng đích → MSG-FE04-07, bỏ qua con đó, các con khác vẫn chuyển. | UC-05 E3 |
-| R-04-12 | Kiểm tra lại ngay trước khi lưu: trạng thái chuồng, chỗ trống, trạng thái từng con, version; khác so với lúc xem → MSG-COM-05. | UC-05 bước 5 |
+| R-04-11 | Bò đã ở chuồng đích và phiên bản gửi lên vẫn hiện hành → MSG-FE04-07, bỏ qua con đó. Sau khi cả lô qua kiểm tra phiên bản, các con còn lại vẫn được chuyển. | UC-05 E3 |
+| R-04-12 | Khi xác nhận, kiểm phiên bản của tất cả bò đã chọn và đếm lại số chỗ trống sau khi khóa chuồng. Bò đã đổi phiên bản → 409 MSG-COM-05, từ chối cả lô. Chuồng ngưng hoặc thiếu chỗ → 422 MSG-FE04-05. | UC-05 bước 5, BR-D09, BR-D31 |
 | R-04-13 | Ngưng / dùng lại chuồng cần ngày hiệu lực (mặc định hôm nay, không ở tương lai) và lý do. | Popup Ngưng / Dùng lại |
 | R-04-14 | Bò ACTIVE luôn có đúng một phân chuồng đang mở; bò EXITED / VOIDED không có. | GBR-24 |
+
+### 4.1 Chuyển chuồng đồng thời
+
+| Vấn đề | Cách xử lý và kết quả |
+|---|---|
+| Race condition về sức chứa. Hai người chuyển hai con khác nhau vào chuồng còn một chỗ. | Xem trước có thể báo còn chỗ cho cả hai. Khi xác nhận, backend lấy khóa ghi trên chuồng và đếm lại phân chuồng đang mở. Lượt ghi trước nhận chỗ cuối. Lượt sau bị từ chối với MSG-FE04-05 và `free=0`. Nếu lượt trước rollback, lượt sau đánh giá lại sức chứa từ dữ liệu đã commit. |
+| Concurrency conflict trên một con. Hai người cùng xem bò Y ở A rồi chọn hai chuồng đích khác nhau. | Backend khóa bò và so phiên bản người dùng đã xem. Lượt chuyển thành công tăng phiên bản Y trong cùng giao dịch. Lượt dùng phiên bản cũ nhận 409 MSG-COM-05 kèm mã bò và mã chuồng hiện tại. Người dùng tải lại rồi xác nhận một lượt mới nếu còn cần chuyển. |
+| Concurrency conflict khi hai lô giao nhau. Lượt 1 chuyển X, Y đến B. Lượt 2 chuyển Y, Z đến C. | Nếu lượt 1 ghi trước, lượt 2 bị từ chối cả lô do phiên bản Y đã đổi. Z giữ phân chuồng cũ. Người dùng tải lại danh sách rồi chọn bò cho lượt mới. |
+| Popup chuyển lô gửi thiếu phiên bản. | SCR-17 lấy phiên bản từng con từ chi tiết chuồng (A2), SCR-20 lấy từ hồ sơ bò. A7 gửi `cattleVersions` cho toàn bộ bò đã chọn, gồm cả phiên bản `0`. |
+
+Backend khóa các bò theo ID tăng dần rồi khóa chuồng nguồn và chuồng đích theo ID tăng dần. Kiểm tất cả phiên bản trước khi thay đổi phân chuồng. Đóng phân chuồng cũ, mở phân chuồng mới, tăng phiên bản từng con thực sự chuyển, ghi audit và xử lý REM-08 trong cùng giao dịch. Hộp thoại dùng lại bản ghi đã tải để gửi lần xác nhận đầu và yêu cầu tải lại khi nhận xung đột phiên bản.
 
 ---
 
@@ -192,12 +203,12 @@ E1 chuồng đích INACTIVE / thiếu chỗ → MSG-FE04-05, nút xác nhận b�
 | # | Thao tác | Vào | Ra | Lỗi | Route (code hiện có) |
 |---|---|---|---|---|---|
 | A1 | Danh sách chuồng | `q?, status?` | `{summary {penCount, usedPlaces, totalPlaces}, items[{penId, code, name, headcount, capacity, freePlaces, acceptsSummary, status}]}` | COM-03 | `GET /api/farms/{farmId}/pens` |
-| A2 | Chi tiết chuồng | — | `{…A1 item, description, criteria {versionNo, effectiveFrom, items[{type, values[] / min}]}, cattle[{cattleId, code, situation}], version}` | COM-08 | `GET /api/farms/{farmId}/pens/{penId}` |
+| A2 | Chi tiết chuồng | — | `{…A1 item, description, currentCriteria, cattle[{id, version, code, exitPending, hints}], version}`. `cattle[].version` là phiên bản của bò, `version` ngoài cùng là phiên bản của chuồng. | COM-08 | `GET /api/farms/{farmId}/pens/{penId}` |
 | A3 | Tạo chuồng | `code, name, capacity, description?, criteria[{type, values?, min?}], initialStatus` + `Idempotency-Key` | A2 | FE04-02, FE04-03, COM-06, COM-10, COM-02 | `POST /api/farms/{farmId}/pens` |
 | A4 | Sửa chuồng | Như A3 (không có `initialStatus`) + `version` | A2 | FE04-02, FE04-03, COM-05, COM-02 | `PUT /api/farms/{farmId}/pens/{penId}` |
 | A5 | Ngưng / dùng lại | `newStatus, effectiveDate, reason, version` + `Idempotency-Key` | A2 | COM-06, COM-07, COM-05, COM-02 | `POST /api/farms/{farmId}/pens/{penId}/availability` |
 | A6 | Kiểm tra trước khi chuyển | `cattleIds[], destinationPenId, moveDate` | `{destination {active, freePlaces, enough}, rows[{cattleId, code, alreadyInDestination, checks[{criterion, result: MET\|NOT_MET\|NOT_APPLICABLE}]}], warningRequired}` | FE04-05, FE04-09 | `POST /api/farms/{farmId}/pen-moves/check` |
-| A7 | Chuyển chuồng | `cattleIds[], destinationPenId, moveDate, performedById?, reason, warningReason?, versions{cattleId: version}` + `Idempotency-Key` | `{moved, skipped[{cattleId, code: MSG-FE04-07}], destinationPen}` | FE04-05, FE04-06 (thiếu lý do cảnh báo), FE04-09, COM-13, COM-17, COM-05, COM-02 | `POST /api/farms/{farmId}/pen-moves` |
+| A7 | Chuyển chuồng | `cattleIds[], toPenId, moveDate, performedBy?, reason, warningReasons{cattleId: reason}?, cattleVersions{cattleId: version}` + `Idempotency-Key` | `{moved, skipped, message, destination}`. Xung đột phiên bản trả `cattle_code, pen_code, expected, actual` trong `params`. | FE04-05, FE04-06 (thiếu lý do cảnh báo), FE04-09, COM-13, COM-17, COM-05, COM-02 | `POST /api/farms/{farmId}/pen-moves` |
 | A8 | Lịch sử chuồng của một con (dùng ở SCR-20) | — | `[{penCode, from, to, reason, warningReason, performedBy}]` | COM-08 | `GET /api/farms/{farmId}/cattle/{cattleId}/pen-history` |
 
 ---
@@ -243,10 +254,13 @@ E1 chuồng đích INACTIVE / thiếu chỗ → MSG-FE04-05, nút xác nhận b�
 | TC-04-19 | Bò trên phiếu chết PENDING | Chuyển | MSG-COM-17 | I | R-04-10 |
 | TC-04-20 | Chuyển nhầm A → B | Chuyển B → A với lý do "Correction" | Lịch sử có 3 đoạn A, B, A; không đoạn nào bị xóa | I | R-04-09 |
 | TC-04-21 | Có REM-08 gợi ý chuyển con X | Chuyển X | REM-08 được giải quyết | I | R-04-07 |
-| TC-04-22 | Hai người cùng chuyển vào chuồng còn 1 chỗ | Gửi đồng thời | Một thành công, một MSG-FE04-05 hoặc MSG-COM-05; số con không vượt sức chứa | I | BR-D09 |
+| TC-04-22 | Hai người xem trước thấy cùng một chỗ trống, chọn hai con khác nhau, giữ đúng phiên bản mỗi con | Xác nhận đồng thời trên hai giao dịch PostgreSQL | Một lượt thành công, lượt kia nhận 422 MSG-FE04-05 với `free=0`. Chuồng đạt đúng sức chứa, bò bị từ chối giữ chuồng cũ, chỉ ghi một lượt chuyển | I | R-04-03, R-04-12 |
 | TC-04-23 | Technician | Gọi tạo chuồng / chuyển chuồng | 403 | H | §2 |
 | TC-04-24 | Technician | Mở SCR-17 | Không có nút Tạo, Sửa, Ngưng, checkbox, Chuyển | E | SCR-17 |
 | TC-04-25 | 3 chuồng ACTIVE (10/20, 5/10, 0/5) + 1 INACTIVE (3/10) | Mở SCR-17 | Tiêu đề "4 chuồng · 15/35 chỗ" | E | SCR-17 |
+| TC-04-26 | Hai người xem cùng phiên bản của bò Y ở A và chọn chuồng B, C | Xác nhận đồng thời trên hai giao dịch PostgreSQL | Lượt đầu thành công, phiên bản Y tăng một lần. Lượt sau nhận 409 MSG-COM-05 kèm mã Y và chuồng B. Lịch sử thêm đúng một lần chuyển | I | R-04-12 |
+| TC-04-27 | Hai lô X, Y → B và Y, Z → C dùng cùng phiên bản Y | Xác nhận đồng thời, giữ giao dịch thứ nhất mở để lượt hai chờ khóa trên PostgreSQL | Lượt đầu chuyển X và Y. Lượt hai nhận 409 ở Y. Z giữ nguyên chuồng, phiên bản và lịch sử | I | R-04-07, R-04-12 |
+| TC-04-28 | Chi tiết chuồng trả hai bò có phiên bản 0 và 7 | Chọn hai con và xác nhận từ SCR-17 | A7 gửi cả hai phiên bản gốc theo ID. Khi API trả xung đột, hộp thoại hiện bò bị ảnh hưởng và cho tải lại danh sách trước lượt mới | H, E | A2, A7, R-04-12 |
 
 ---
 
@@ -267,3 +281,4 @@ E1 chuồng đích INACTIVE / thiếu chỗ → MSG-FE04-05, nút xác nhận b�
 |---|---|---|---|
 | 06/11/2026 | 28/10/2026 | Bản đầu, viết lại từ SRS; Route theo code hiện có | Claude (cho AnNT duyệt) |
 | 07/11/2026 | 28/10/2026 | Nhóm chốt SRS 28/10 và bộ spec làm nguồn yêu cầu (D12). Câu hỏi mục 10 theo dõi tại `OPEN_QUESTIONS.md` | Tuấn |
+| 16/11/2026 | 28/10/2026 | Ghi cách xử lý cạnh tranh sức chứa, xung đột phiên bản một con hoặc cả lô, hợp đồng A2/A7 và ca kiểm đồng thời | AnNT |

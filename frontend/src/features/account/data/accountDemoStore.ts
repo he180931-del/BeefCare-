@@ -1,4 +1,4 @@
-import { validatePasswordChange, validateProfile } from '../domain/profileRules'
+import { validatePasswordChange, validateProfile } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, PasswordChangeInput, ProfileUpdateInput } from '../types'
 import { MOCK_PASSWORD, REAUTH_WINDOW_MS, seedProfile } from './accountMock'
 
@@ -22,6 +22,8 @@ export function createAccountDemoStore(options: { now?: () => number } = {}) {
   const recentlyReauthenticated = (key: string) => now() - (reauthAt.get(key) ?? -Infinity) <= REAUTH_WINDOW_MS
 
   return {
+    /** Mật khẩu ban đầu của mọi tài khoản mẫu, hiện cho người thử bản mô phỏng. */
+    samplePassword: MOCK_PASSWORD,
     async getProfile(identity: AccountIdentity) { return copy(ensure(identity).profile) },
 
     async updateProfile(identity: AccountIdentity, input: ProfileUpdateInput) {

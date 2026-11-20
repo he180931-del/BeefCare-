@@ -13,13 +13,13 @@ import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.Farm;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.Subscription;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
 import vn.edu.fpt.beefcare.repository.PaymentRepository;
 import vn.edu.fpt.beefcare.repository.SubscriptionRepository;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
+import vn.edu.fpt.beefcare.service.AuditService;
 import vn.edu.fpt.beefcare.service.FarmClock;
-import vn.edu.fpt.beefcare.service.JsonSupport;
 import vn.edu.fpt.beefcare.service.NotificationService;
 
 /** Implements JOB-03 and JOB-04 with per-farm serialized state changes and retry-safe notices. */
@@ -30,7 +30,7 @@ public class SubscriptionLifecycleJob {
     private final SubscriptionRepository subscriptions;
     private final FarmRepository farms;
     private final FarmMembershipRepository memberships;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final NotificationService notifications;
     private final FarmClock clock;
     private final TransactionTemplate transactions;
@@ -40,7 +40,7 @@ public class SubscriptionLifecycleJob {
         SubscriptionRepository subscriptions,
         FarmRepository farms,
         FarmMembershipRepository memberships,
-        AuditLogRepository auditLogs,
+        AuditService audit,
         NotificationService notifications,
         FarmClock clock,
         PlatformTransactionManager transactionManager
@@ -49,13 +49,13 @@ public class SubscriptionLifecycleJob {
         this.subscriptions = subscriptions;
         this.farms = farms;
         this.memberships = memberships;
-        this.auditLogs = auditLogs;
+        this.audit = audit;
         this.notifications = notifications;
         this.clock = clock;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    @Scheduled(cron = "${beefcare.jobs.payment-expiry-cron:0 */5 * * * *}")
+    @Scheduled(cron = "${beefcare.jobs.payment-expiry-cron:0 */5 * * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     public void expireUnpaidRequests() {
         Instant now = clock.now();
         AtomicInteger expiredCount = new AtomicInteger();
@@ -82,7 +82,7 @@ public class SubscriptionLifecycleJob {
         if (expiredCount.get() > 0) LOG.info("Expired {} unpaid subscription payment requests", expiredCount.get());
     }
 
-    @Scheduled(cron = "${beefcare.jobs.subscription-coverage-cron:0 */15 * * * *}")
+    @Scheduled(cron = "${beefcare.jobs.subscription-coverage-cron:0 */15 * * * *}", zone = FarmTimeZones.SCHEDULER_ZONE)
     public void evaluateCoverage() {
         Instant now = clock.now();
         AtomicInteger changedCount = new AtomicInteger();
@@ -133,14 +133,6 @@ public class SubscriptionLifecycleJob {
     }
 
     private AuditLog audit(vn.edu.fpt.beefcare.domain.AppUser actor, String action, String targetType, Long targetId, Farm farm, Object details) {
-        AuditLog entry = new AuditLog();
-        entry.setActor(actor);
-        entry.setFarm(farm);
-        entry.setAction(action);
-        entry.setTargetType(targetType);
-        entry.setTargetId(targetId);
-        entry.setLoggedAt(clock.now());
-        entry.setDetails(JsonSupport.toJson(details));
-        return auditLogs.save(entry);
+        return audit.log(farm, actor, action, targetType, targetId, details);
     }
 }

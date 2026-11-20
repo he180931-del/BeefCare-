@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, Card, DateInput, EmptyBlock, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader, Radio, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Card, DateInput, EmptyBlock, ErrorBlock, Field, Foot, Info, inputCls, LoadingBlock, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import { vaccinationApi } from '../api/vaccinationApi'
-import { FieldError, ManagerOnly, ROUTE_LABEL, UnitInput, parseNum, profilePath } from '../components/vaccinationParts'
+import { CareWriterOnly, DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, profilePath } from '../components/vaccinationParts'
 import { addDays, fmtDate } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
 import type { RecordContext, VaccinationAnimal, VaccinationSource, VaccineRoute } from '../types'
@@ -19,14 +19,14 @@ export default function RecordPage() {
   const { data, loading, error, refetch } = useQuery(() => vaccinationApi.recordContext({ doseIds, cattleCodes }), [params.toString()])
   const title = data?.title ?? 'Ghi nhận tiêm'
   return (
-    <ManagerOnly title="Ghi nhận tiêm">
+    <CareWriterOnly title="Ghi nhận tiêm">
       <Layout title={title}>
         {loading && !data ? <LoadingBlock />
           : error || !data ? <ErrorBlock message={userFacingError(error, 'Không tải được thông tin ghi nhận tiêm.')} onRetry={refetch} />
           : data.rows.length === 0 ? <EmptyBlock title="Chưa chọn bò nào để ghi nhận" sub="Quay lại lịch tiêm phòng và chọn các mũi cần ghi nhận." action={<Link to={back} className="text-brand">Quay lại</Link>} />
           : <RecordForm ctx={data} back={back} />}
       </Layout>
-    </ManagerOnly>
+    </CareWriterOnly>
   )
 }
 
@@ -41,7 +41,8 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
   const [vaccineId, setVaccineId] = useState(String(first.id))
   const [batchNo, setBatchNo] = useState('')
   const [administeredAt, setAdministeredAt] = useState(options.now)
-  const [amount, setAmount] = useState(String(first.referenceDose))
+  // Vắc-xin không có liều tham chiếu (0): ô Liều để trống, liều không bắt buộc (spec FE-09 §3.3).
+  const [amount, setAmount] = useState(first.referenceDose > 0 ? String(first.referenceDose) : '')
   const [route, setRoute] = useState<VaccineRoute>(first.route)
   const [withdrawal, setWithdrawal] = useState(String(first.withdrawalDays))
   const [vaccinator, setVaccinator] = useState(names.includes(session?.fullName ?? '') ? session!.fullName : names[0])
@@ -67,10 +68,12 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
   const pickVaccine = (id: string) => {
     setVaccineId(id)
     const v = options.vaccines.find((x) => String(x.id) === id)
-    if (v) { setAmount(String(v.referenceDose)); setRoute(v.route); setWithdrawal(String(v.withdrawalDays)) }
+    if (v) { setAmount(v.referenceDose > 0 ? String(v.referenceDose) : ''); setRoute(v.route); setWithdrawal(String(v.withdrawalDays)) }
   }
 
   const submit = async () => {
+    const dose = parseDoseAmount(amount, vaccine.doseUnit)
+    if (dose.invalid) { setErrors({ dose: DOSE_INVALID }); return }
     const animals: VaccinationAnimal[] = rows.map((r) => {
       const s = rowOf(r.cattle.code)
       return { cattleCode: r.cattle.code, scheduledDoseId: r.dose?.id, expectedDoseVersion: r.dose?.version, decision: s.decision, deferralReason: s.reason, newExpectedDate: s.date || undefined }
@@ -80,7 +83,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
     setRowErrors({})
     try {
       const result = await vaccinationApi.recordVaccinations({
-        vaccineId: Number(vaccineId), source, administeredAt, batchNo, dose: amount.trim() ? `${amount.trim()} ${vaccine.doseUnit}` : undefined, route,
+        vaccineId: Number(vaccineId), source, administeredAt, batchNo, dose: dose.amount ? `${dose.amount} ${vaccine.doseUnit}` : undefined, route,
         withdrawalDays: onFarm ? days : 0, vaccinator: vaccinator === '__other' ? other : vaccinator, animals,
       })
       navigate(back, { state: { notice: [result.message, ...result.skipped.map((s) => s.message)].join(' ') } })
@@ -112,14 +115,17 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
               <input id="rv-at" type="datetime-local" className={inputCls} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} />
               <FieldError>{errors.administeredAt}</FieldError>
             </Field>
-            <Field label="Liều" id="rv-dose"><UnitInput id="rv-dose" unit={vaccine.doseUnit} value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+            <Field label="Liều" id="rv-dose">
+              <UnitInput id="rv-dose" type="text" inputMode="decimal" unit={vaccine.doseUnit} aria-invalid={!!errors.dose} value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <FieldError>{errors.dose}</FieldError>
+            </Field>
             <Field label="Đường tiêm" id="rv-route">
               <Select id="rv-route" value={route} onChange={(e) => setRoute(e.target.value as VaccineRoute)}>{(Object.keys(ROUTE_LABEL) as VaccineRoute[]).map((r) => <option key={r} value={r}>{ROUTE_LABEL[r]}</option>)}</Select>
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Ngưng sử dụng thịt" id="rv-wd" hint="Lấy từ danh mục, có thể sửa">
-              <UnitInput id="rv-wd" unit="ngày" disabled={!onFarm} value={onFarm ? withdrawal : '0'} onChange={(e) => setWithdrawal(e.target.value)} />
+              <UnitInput id="rv-wd" unit="ngày" min={0} max={365} step={1} disabled={!onFarm} value={onFarm ? withdrawal : '0'} onChange={(e) => setWithdrawal(e.target.value)} />
               <FieldError>{errors.withdrawalDays}</FieldError>
             </Field>
             <Field label="Hết ngưng" id="rv-end"><input id="rv-end" readOnly value={endDate} className={`${inputCls} bg-page text-muted`} /></Field>
@@ -168,7 +174,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
                   <Td>
                     {s.decision === 'DEFER' ? (
                       <div className="flex flex-wrap items-center gap-2">
-                        <input aria-label={`Lý do hoãn ${cattle.code}`} placeholder="Lý do hoãn" className={`${inputCls} min-w-[200px] flex-1`} value={s.reason} onChange={(e) => patch(cattle.code, { reason: e.target.value })} />
+                        <input aria-label={`Lý do hoãn ${cattle.code}`} maxLength={500} placeholder="Lý do hoãn" className={`${inputCls} min-w-[200px] flex-1`} value={s.reason} onChange={(e) => patch(cattle.code, { reason: e.target.value })} />
                         <DateInput id={`rv-new-${cattle.code}`} value={s.date} onChange={(v) => patch(cattle.code, { date: v })} />
                         <FieldError>{rowErrors[cattle.code]}</FieldError>
                       </div>
@@ -180,7 +186,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
           </tbody>
         </Table>
       </Card>
-      <Foot>Màn ghi tiêm cho 1 con hoặc nhiều con (chỉ Quản lý). Vắc-xin, liều, đường tiêm và số ngày ngưng được điền sẵn từ danh mục. "Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không bắt buộc số lô và không tính ngày ngưng.</Foot>
+      <Foot>Màn ghi tiêm cho 1 con hoặc nhiều con (Chủ trại, Quản lý). Vắc-xin, liều, đường tiêm và số ngày ngưng được điền sẵn từ danh mục. "Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không bắt buộc số lô và không tính ngày ngưng.</Foot>
     </div>
   )
 }

@@ -1,6 +1,20 @@
-import { Card, Table, Td, Th } from '../../../components/ui'
+import { activateTableRow, activateTableRowByKey, Card, interactiveRowClass, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { formatMoney, formatVnd } from '../domain/financeRules'
 import type { CashReport, ScopeTotals } from '../types'
+
+export const REPORT_SCOPE_PAGE_SIZE = 5
+export const REPORT_DETAIL_PAGE_SIZE = 5
+
+export function getPageCount(totalRows: number | readonly unknown[], pageSize: number) {
+  const total = typeof totalRows === 'number' ? totalRows : totalRows.length
+  return Math.max(1, Math.ceil(total / pageSize))
+}
+
+export function paginateReportRows<T>(rows: readonly T[], requestedPage: number, pageSize: number) {
+  const pageCount = getPageCount(rows, pageSize)
+  const page = Math.min(pageCount, Math.max(1, requestedPage))
+  return { rows: rows.slice((page - 1) * pageSize, page * pageSize), page, pageCount, total: rows.length }
+}
 
 /** Biểu đồ cột thu theo ngày (triệu đồng); cột cuối nhấn màu. */
 export function IncomeChart({ days }: { days: CashReport['summary']['dailyIncome'] }) {
@@ -17,17 +31,26 @@ export function IncomeChart({ days }: { days: CashReport['summary']['dailyIncome
   )
 }
 
-export function ScopeTable({ scopes, onFarm }: { scopes: ScopeTotals[]; onFarm: (row: ScopeTotals) => void }) {
+export function ScopeTable({ scopes, onFarm, page = 1, onPageChange = () => {} }: { scopes: ScopeTotals[]; onFarm: (row: ScopeTotals) => void; page?: number; onPageChange?: (page: number) => void }) {
+  const totalRow = scopes.find((s) => s.scope === 'PLATFORM')
+  const pageData = paginateReportRows(scopes.filter((s) => s.scope !== 'PLATFORM'), page, REPORT_SCOPE_PAGE_SIZE)
   return (
     <Card title="Dòng tiền theo phạm vi">
       <Table scroll>
         <thead><tr><Th>Phạm vi</Th><Th>Gói đăng ký</Th><Th>Thu khác</Th><Th>Chi</Th><Th>Ròng</Th></tr></thead>
         <tbody>
-          {scopes.map((s) => {
+          {pageData.rows.map((s) => {
             const net = s.subscriptionReceipts + s.otherIncome - s.expense
-            const total = s.scope === 'TOTAL'
+            const total = s.scope === 'PLATFORM'
             return (
-              <tr key={`${s.scope}-${s.farmId ?? s.farmName}`} className={total ? 'font-semibold' : ''}>
+              <tr
+                key={`${s.scope}-${s.farmId ?? s.farmName}`}
+                tabIndex={total ? undefined : 0}
+                aria-label={total ? undefined : `Mở dòng tiền của ${s.farmName}`}
+                className={total ? 'font-semibold' : interactiveRowClass}
+                onClick={total ? undefined : (event) => activateTableRow(event, () => onFarm(s))}
+                onKeyDown={total ? undefined : (event) => activateTableRowByKey(event, () => onFarm(s))}
+              >
                 <Td>{s.scope === 'FARM' ? <button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-left text-[12px] font-medium text-brand" onClick={() => onFarm(s)}>{s.farmName}</button> : <span className="font-medium">{s.farmName}</span>}</Td>
                 <Td className="whitespace-nowrap">{formatVnd(s.subscriptionReceipts)}</Td>
                 <Td className="whitespace-nowrap">{formatVnd(s.otherIncome)}</Td>
@@ -36,8 +59,14 @@ export function ScopeTable({ scopes, onFarm }: { scopes: ScopeTotals[]; onFarm: 
               </tr>
             )
           })}
+          {totalRow && (() => {
+            const s = totalRow
+            const net = s.subscriptionReceipts + s.otherIncome - s.expense
+            return <tr key="PLATFORM-total" className="font-semibold"><Td>{s.farmName}</Td><Td className="whitespace-nowrap">{formatVnd(s.subscriptionReceipts)}</Td><Td className="whitespace-nowrap">{formatVnd(s.otherIncome)}</Td><Td className="whitespace-nowrap">{formatVnd(s.expense)}</Td><Td className="whitespace-nowrap"><span className={net < 0 ? 'font-medium text-err-fg' : ''}>{formatMoney(net)}</span></Td></tr>
+          })()}
         </tbody>
       </Table>
+      {pageData.total > REPORT_SCOPE_PAGE_SIZE && <Pagination page={pageData.page} pageCount={pageData.pageCount} onChange={onPageChange} summary={`Hiển thị ${(pageData.page - 1) * REPORT_SCOPE_PAGE_SIZE + 1}–${Math.min(pageData.page * REPORT_SCOPE_PAGE_SIZE, pageData.total)} / ${pageData.total} phạm vi`} />}
     </Card>
   )
 }

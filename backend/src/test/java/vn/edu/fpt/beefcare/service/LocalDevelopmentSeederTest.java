@@ -34,18 +34,18 @@ class LocalDevelopmentSeederTest {
             .collect(Collectors.toMap(LocalDevelopmentSeeder.LocalAccount::login, account -> FarmRole.valueOf(account.role())));
 
         Set<FarmAction> ownerActions = EnumSet.of(
-            FarmAction.VIEW_FARM_INFORMATION, FarmAction.MANAGE_FARM_INFORMATION, FarmAction.SELECT_FARM, FarmAction.VIEW_CATALOGUES,
-            FarmAction.VIEW_CATTLE, FarmAction.MANAGE_CATTLE, FarmAction.MANAGE_CATALOGUES, FarmAction.VIEW_PENS,
-            FarmAction.MANAGE_PENS, FarmAction.MANAGE_CATTLE_PHOTOS, FarmAction.VIEW_HEALTH,
-            FarmAction.VIEW_REPRODUCTION, FarmAction.VIEW_CARE_CATALOGUES, FarmAction.MANAGE_CARE_CATALOGUES,
+            FarmAction.VIEW_FARM_INFORMATION, FarmAction.MANAGE_FARM_INFORMATION, FarmAction.SELECT_FARM, FarmAction.VIEW_MEMBERS, FarmAction.VIEW_CATALOGUES,
+            FarmAction.VIEW_CATTLE, FarmAction.MANAGE_CATTLE, FarmAction.MANAGE_GROWTH, FarmAction.MANAGE_CATALOGUES, FarmAction.VIEW_PENS,
+            FarmAction.MANAGE_PENS, FarmAction.MANAGE_CATTLE_PHOTOS, FarmAction.VIEW_HEALTH, FarmAction.MANAGE_HEALTH,
+            FarmAction.VIEW_REPRODUCTION, FarmAction.MANAGE_REPRODUCTION, FarmAction.VIEW_CARE_CATALOGUES, FarmAction.MANAGE_CARE_CATALOGUES,
             FarmAction.MOVE_CATTLE, FarmAction.VIEW_ENTRY_VOUCHERS, FarmAction.MANAGE_ENTRY_VOUCHERS,
             FarmAction.RECORD_ENTRY_PAYMENT, FarmAction.VIEW_EXIT_VOUCHERS, FarmAction.MANAGE_EXIT_VOUCHERS,
             FarmAction.RECORD_EXIT_COLLECTION, FarmAction.VIEW_PARTNERS, FarmAction.MANAGE_SELLERS,
-            FarmAction.MANAGE_BUYERS, FarmAction.VIEW_FEED, FarmAction.VIEW_FEED_STOCK, FarmAction.MANAGE_FEED, FarmAction.VIEW_ANNOUNCEMENTS,
+            FarmAction.MANAGE_BUYERS, FarmAction.VIEW_FEED, FarmAction.VIEW_FEED_STOCK, FarmAction.MANAGE_FEED, FarmAction.MANAGE_FEEDING, FarmAction.VIEW_ANNOUNCEMENTS,
             FarmAction.MANAGE_ANNOUNCEMENTS, FarmAction.VIEW_REPORTS
         );
         Set<FarmAction> managerActions = EnumSet.of(
-            FarmAction.SELECT_FARM, FarmAction.VIEW_CATALOGUES, FarmAction.VIEW_CATTLE, FarmAction.MANAGE_CATTLE, FarmAction.MANAGE_GROWTH,
+            FarmAction.SELECT_FARM, FarmAction.VIEW_MEMBERS, FarmAction.VIEW_CATALOGUES, FarmAction.VIEW_CATTLE, FarmAction.MANAGE_CATTLE, FarmAction.MANAGE_GROWTH,
             FarmAction.MANAGE_CATALOGUES, FarmAction.VIEW_PENS, FarmAction.MANAGE_PENS, FarmAction.MANAGE_CATTLE_PHOTOS,
             FarmAction.VIEW_HEALTH, FarmAction.MANAGE_HEALTH, FarmAction.VIEW_REPRODUCTION, FarmAction.MANAGE_REPRODUCTION,
             FarmAction.VIEW_CARE_CATALOGUES, FarmAction.MANAGE_CARE_CATALOGUES, FarmAction.MOVE_CATTLE,

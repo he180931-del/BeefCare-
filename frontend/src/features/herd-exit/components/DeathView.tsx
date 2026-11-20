@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Checkbox, DateInput, Docs, Field, Foot, Note, Radio, Segmented, Table, Td, Th, Textarea, inputCls } from '../../../components/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { Badge, Button, Checkbox, DateInput, Field, Foot, inputCls, Note, Radio, Segmented, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { Docs } from '../../../components/ui'
 import { confirmHerdExit, dismissHerdExit, downloadExitAttachment, herdExitApi, saveHerdExit } from '../api/index'
-import { useMutation, useQuery } from '../../../hooks/useApi'
-import { dmy } from '../../../data/format'
-import { backendMode } from '../../../api/backendTransport'
+import { useMutation } from '../../../shared/hooks/useMutation'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { dmy } from '../../../shared/lib/format'
 import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, useIsOwner } from './parts'
 import RejectModal from './RejectModal'
-import type { HerdExit, ExitDetail } from '../../../types'
+import type { HerdExit, ExitDetail } from '../types'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
 const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa phương', 'Khác']
@@ -184,7 +185,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
           </SummaryCard>
 
           <Box title="Kiểm tra trước khi xác nhận" gap="gap-[10px]">
-            <CheckList rows={backendMode !== 'backend' && (d.checks ?? []).length ? (d.checks ?? []) : checks ? [
+            <CheckList rows={(d.checks ?? []).length ? (d.checks ?? []) : checks ? [
               ['Tổng quan', checks.cattle.some((check) => check.hasWarnings) ? `${checks.cattle.filter((check) => check.hasWarnings).length} mục có cảnh báo` : 'Không có cảnh báo', checks.cattle.some((check) => check.hasWarnings)],
               ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ') || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, string, boolean?]),
               ...checks.occupancy.map((pen) => [`Chuồng ${pen.penCode}`, `${pen.before} → ${pen.after} / ${pen.capacity}`, false] as [string, string, boolean?]),

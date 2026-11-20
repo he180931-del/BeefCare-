@@ -1,19 +1,19 @@
 import { useState } from 'react'
-import { Field, Note, Select, Textarea } from '../../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { MANAGER, newQrCode } from '../../../data/cowsData'
-import { reissueQr } from '../api/cattleApi'
-import { useMutation } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import { REPLACEMENT_REASONS, validateTag, type TagErrors } from '../domain/profileRules'
+import { Field, Icon, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
+import { demoRecorder, reissueQr } from '../api/cattleApi'
+import { useMutation } from '../../../shared/hooks/useMutation'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { REPLACEMENT_REASONS, type TagErrors } from '../domain/profileRules'
+import { validateTag } from '../validation/profileValidation'
 import { fieldCls } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
+import QrTagLabel from './QrTagLabel'
 
 type ReissuePayload = { reason: string; note: string; by: string; tagCode?: string }
 
 const tagCodeOf = (result: unknown): string => {
-  const code = typeof result === 'object' && result !== null ? (result as { tagCode?: unknown }).tagCode : undefined
+  const values = result as { tagCode?: unknown; qr?: unknown } | null | undefined
+  const code = values?.tagCode ?? values?.qr
   return typeof code === 'string' ? code : ''
 }
 const ErrorText = ({ children }: { children?: string }) => (children ? <span className="text-[11px] text-err-fg">{children}</span> : null)
@@ -32,23 +32,23 @@ export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed
   const [tagCode, setTagCode] = useState('')
   // Ghi chú mẫu của Figma chỉ dành cho dữ liệu demo, không áp cho bò từ backend.
   const [note, setNote] = useState(!backend && cow.code === 'BC-000125' ? 'Thẻ bị rách khi bò cọ vào hàng rào' : '')
-  const [printMsg, setPrintMsg] = useState('')
   const [error, setError] = useState('')
   const [errors, setErrors] = useState<TagErrors>({})
-  const newCode = issued || (backend ? tagCode.trim() : newQrCode(cow))
+  const trialCode = /^[A-Za-z0-9_-]{1,50}$/.test(tagCode.trim()) ? tagCode.trim() : ''
+  const newCode = issued || trialCode
   const successMessage = (code: string) => `Thẻ QR ${code} đã kích hoạt cho ${cow.code}.`
 
   const confirm = async () => {
     setError('')
-    const e = validateTag({ replacing, reason, tagCode: backend ? tagCode : '', note })
+    const e = validateTag({ replacing, reason, tagCode, note })
     setErrors(e)
     if (Object.keys(e).length) return
     try {
       const label = REPLACEMENT_REASONS.find(([code]) => code === reason)?.[1] ?? ''
-      const result = await reissue.mutate({ reason: backend ? reason : label, note: note.trim(), by: MANAGER, tagCode: backend ? tagCode : undefined })
-      if (!backend) return onSaved(successMessage(newQrCode(cow)))
-      // Giữ mã do backend cấp hiển thị đến khi người dùng đóng hộp thoại, để in ngay (R-05-13).
-      setIssued(tagCodeOf(result) || '—')
+      const result = await reissue.mutate({ reason: backend ? reason : label, note: note.trim(), by: demoRecorder, tagCode: tagCode.trim() || undefined })
+      const savedCode = tagCodeOf(result)
+      if (!savedCode) return onSaved('Đã lưu thẻ. Mở tab Thẻ QR để xem mã hiện hành.')
+      setIssued(savedCode)
     } catch (e) {
       setError(userFacingError(e, 'Không cấp được thẻ mới. Vui lòng thử lại.'))
     }
@@ -71,7 +71,7 @@ export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed
           <ErrorText>{errors.reason}</ErrorText>
         </Field>
       )}
-      {backend && !issued ? (
+      {!issued ? (
         <Field label="Mã thẻ mới" hint="Để trống để hệ thống tạo mã; nhập mã nếu dùng thẻ in sẵn.">
           <input className={fieldCls} maxLength={50} value={tagCode} onChange={(e) => setTagCode(e.target.value)} placeholder="Hệ thống tạo khi xác nhận" aria-label="Mã thẻ mới" />
           <ErrorText>{errors.tagCode}</ErrorText>
@@ -86,12 +86,11 @@ export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed
         <ErrorText>{errors.note}</ErrorText>
       </Field>
       {issued && <Note tone="ok">{successMessage(issued)}</Note>}
-      {printMsg && <p className="m-0 -mt-2 text-[11px] text-ok-fg">{printMsg}</p>}
+      {newCode && <QrTagLabel key={newCode} cowCode={cow.code} tagCode={newCode} trial={!issued} canExport />}
       {error && <Note tone="err">{error}</Note>}
       <ModalFooter>
         {!issued && <ModalButton onClick={onClose}>Hủy</ModalButton>}
-        {/* In thử không lưu (UC-04 bước 3); chỉ in được khi đã biết mã thẻ, không in mã QR giữ chỗ. */}
-        <ModalButton disabled={!newCode} onClick={() => setPrintMsg(`Đã gửi lệnh in thử tem ${newCode}${issued ? '' : ' (chưa lưu thẻ)'}.`)}><Icon name="printer" />In thẻ thử</ModalButton>
+        {!newCode && <ModalButton disabled><Icon name="printer" />In thẻ thử</ModalButton>}
         {issued ? (
           <ModalButton variant="primary" onClick={() => onSaved(successMessage(issued))}>Đóng</ModalButton>
         ) : (

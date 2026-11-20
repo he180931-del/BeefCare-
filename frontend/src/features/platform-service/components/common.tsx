@@ -1,9 +1,13 @@
 import { useState, type ReactNode } from 'react'
-import { useSession } from '../../authorization'
-import { Badge, Field, Textarea, inputCls, type BadgeTone } from '../../../components/ui'
-import type { IconName } from '../../../components/Icon'
+import { useSession } from '../../../app/session/sessionContext'
+import { Badge, type BadgeTone, Field, inputCls, Textarea } from '../../../shared/ui'
+import type { IconName } from '../../../shared/ui'
+import { SERVICE_STATUS_VIEW } from '../../farm-workspace'
 import type { ServiceStatus } from '../types'
 import { STATUS_LABEL } from '../domain/servicePeriods'
+
+/** From xl (1280 px) a detail panel sits beside its list; below it the panel is under the list and must be scrolled to. */
+export const wideScreen = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1280px)').matches
 
 /** Chỉ PM thao tác được; các vai trò khác chỉ xem. Ngoài phiên đăng nhập (test/mock) coi như PM. */
 export function usePmAccess() {
@@ -11,11 +15,12 @@ export function usePmAccess() {
   return !session || session.role === 'PM'
 }
 
+// Colour from farm-workspace/domain/statusViews, so SCR-12/61 match SCR-09/11 and SCR-57; PM badges keep their icons.
 const STATUS_VIEW: Record<ServiceStatus, { tone: BadgeTone; icon?: IconName }> = {
-  ACTIVE: { tone: 'ok', icon: 'circle-check' },
-  PENDING_PAYMENT: { tone: 'warn', icon: 'clock' },
-  SUSPENDED: { tone: 'err', icon: 'player-pause' },
-  EXPIRED: { tone: 'outline' },
+  ACTIVE: { tone: SERVICE_STATUS_VIEW.ACTIVE.tone, icon: 'circle-check' },
+  PENDING_PAYMENT: { tone: SERVICE_STATUS_VIEW.PENDING_PAYMENT.tone, icon: 'clock' },
+  SUSPENDED: { tone: SERVICE_STATUS_VIEW.SUSPENDED.tone, icon: 'player-pause' },
+  EXPIRED: { tone: SERVICE_STATUS_VIEW.EXPIRED.tone },
 }
 export function ServiceBadge({ status }: { status: ServiceStatus }) {
   const v = STATUS_VIEW[status]

@@ -1,18 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { backendMode } from '../../../api/backendTransport'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../components/ui'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization/sessionContext'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Facts, PaymentBadge, useIsPhone } from '../components/shared'
-import { useFarmScope } from '../components/useFarmScope'
+import { Facts, PaymentBadge, paymentLabel, useIsPhone } from '../components/shared'
+import { useFarmScope } from '../hooks/useFarmScope'
 import { fmtDateTime, fmtDateTimeSec, fmtPeriod, fmtVnd, termLabel, versionLabel } from '../domain/subscriptionRules'
 import type { Payment, PaymentFilters, PaymentState } from '../types'
-import { useOverview } from './useOverview'
+import { useOverview } from '../hooks/useOverview'
 
 const TITLE = 'Lịch sử thanh toán'
 type SortKey = NonNullable<PaymentFilters['sort']>
@@ -20,7 +18,7 @@ const DEFAULT_FILTERS: Required<PaymentFilters> = { q: '', state: '', from: '', 
 /** One request after the Owner pauses typing instead of one per keystroke. */
 const SEARCH_DELAY_MS = 300
 const invalidRange = (filters: PaymentFilters) => !!(filters.from && filters.to && filters.from > filters.to)
-const paymentRouteId = (payment: Payment) => backendMode === 'backend' ? String(payment.id) : payment.quoteRef
+const paymentRouteId = (payment: Payment) => subscriptionApi.paymentRouteId(payment)
 
 function savedFilters(key: string): Required<PaymentFilters> {
   try {
@@ -28,7 +26,7 @@ function savedFilters(key: string): Required<PaymentFilters> {
     if (!value || typeof value !== 'object') return DEFAULT_FILTERS
     return {
       q: typeof value.q === 'string' ? value.q.slice(0, 100) : '',
-      state: ['PENDING', 'PAID', 'EXPIRED'].includes(value.state) ? value.state : '',
+      state: ['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(value.state) ? value.state : '',
       from: typeof value.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.from) ? value.from : '',
       to: typeof value.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.to) ? value.to : '',
       sort: value.sort === 'expiresAt' ? 'expiresAt' : 'requestedAt', dir: value.dir === 'asc' ? 'asc' : 'desc',
@@ -39,7 +37,7 @@ function savedFilters(key: string): Required<PaymentFilters> {
 
 function SortHead({ label, active, dir, onClick }: { label: string; active: boolean; dir: 'asc' | 'desc'; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-muted" aria-label={`Sắp xếp theo ${label}`}>
+    <button type="button" onClick={onClick} className="inline-flex min-h-6 cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-muted" aria-label={`Sắp xếp theo ${label}`}>
       {label}
       {active && <Icon name="chevron-down" size={12} className={dir === 'asc' ? 'rotate-180' : ''} />}
     </button>
@@ -70,6 +68,8 @@ function PaymentDetail({ payment, farmName, onClose }: { payment: Payment; farmN
         ['Hệ thống nhận lúc', sec(payment.receivedAt)],
         ['Hệ thống xác nhận lúc', sec(payment.confirmedAt)],
         ['Kỳ đã mua', payment.purchasedStart && payment.purchasedEnd ? fmtPeriod(payment.purchasedStart, payment.purchasedEnd) : '—'],
+        // D38: shown whenever the request was cancelled, also if a transfer banked earlier still paid it.
+        ...(payment.cancelledAt ? [['Đã hủy lúc', sec(payment.cancelledAt)] as [string, string], ['Lý do hủy', payment.cancelReason || '—'] as [string, string]] : []),
       ]} />
     </section>
   )
@@ -78,7 +78,7 @@ function PaymentDetail({ payment, farmName, onClose }: { payment: Payment; farmN
 export default function HistoryPage() {
   const { farmId, to } = useFarmScope()
   const session = useSession()
-  const storageKey = `beefcare:subscription-history:${backendMode}:${session?.email ?? ''}:${farmId}`
+  const storageKey = `beefcare:subscription-history:${session?.email ?? ''}:${farmId}`
   return <FarmHistory key={storageKey} farmId={farmId} to={to} storageKey={storageKey} />
 }
 
@@ -136,11 +136,9 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
         <div className={`flex flex-wrap items-center gap-2.5${rangeError ? ' pb-5' : ''}`}>
           <div className="w-full sm:w-[220px]"><SearchInput placeholder="Tìm mã thanh toán" aria-label="Tìm mã thanh toán" maxLength={100} value={q} onChange={(e) => change({ q: e.target.value })} /></div>
           <div className="w-full sm:w-[170px]">
-            <FilterSelect aria-label="Trạng thái" value={state} onChange={(e) => change({ state: e.target.value as PaymentState | '' })}>
+            <FilterSelect size="lg" aria-label="Trạng thái" value={state} onChange={(e) => change({ state: e.target.value as PaymentState | '' })}>
               <option value="">Trạng thái: Tất cả</option>
-              <option value="PENDING">Đang chờ</option>
-              <option value="PAID">Đã thanh toán</option>
-              <option value="EXPIRED">Đã hết hạn</option>
+              {(['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'] as const).map((s) => <option key={s} value={s}>{paymentLabel(s)}</option>)}
             </FilterSelect>
           </div>
           <div className="flex items-center gap-1.5 text-[13px] text-muted">Tạo từ <div className="w-[150px]"><DateInput id="from" value={from} onChange={(value) => change({ from: value })} /></div></div>

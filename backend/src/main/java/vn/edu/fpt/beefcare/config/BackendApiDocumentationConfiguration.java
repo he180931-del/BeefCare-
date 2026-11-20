@@ -5,6 +5,8 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.ComposedSchema;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
@@ -26,6 +28,35 @@ public class BackendApiDocumentationConfiguration {
                     "Mutating business commands require Idempotency-Key and observed versions where specified. " +
                     "Identifiers are numeric IDs; display codes are separate fields. See docs/api/README.md for integration and verification status.")))
             .addOpenApiCustomizer(api -> {
+                // FE-03 / D25: record annotations do not export requiredness or numeric enums reliably in 3.1.
+                Schema<?> invite = api.getComponents().getSchemas().get("InviteRequest");
+                if (invite != null) {
+                    invite.setRequired(java.util.List.of("email", "role"));
+                    invite.addProperty("email", new StringSchema().format("email").minLength(1).maxLength(254));
+                    invite.addProperty("role", new StringSchema()._enum(java.util.List.of("MANAGER", "TECHNICIAN")));
+                    IntegerSchema days = new IntegerSchema();
+                    days.setEnum(java.util.List.of(3, 7, 14)); days.setDefault(7);
+                    invite.addProperty("validityDays", days);
+                    nullableFields(api, "InviteRequest", "validityDays");
+                }
+                Schema<?> invitation = api.getComponents().getSchemas().get("InvitationView");
+                if (invitation != null) {
+                    invitation.setRequired(java.util.List.of("id", "email", "role", "status", "createdAt", "lastSentAt", "expiresAt", "validityDays", "version", "hasAccount"));
+                    invitation.addProperty("role", new StringSchema()._enum(java.util.List.of("MANAGER", "TECHNICIAN")));
+                    invitation.addProperty("status", new StringSchema()._enum(java.util.List.of("PENDING", "ACCEPTED", "EXPIRED", "CANCELLED")));
+                    IntegerSchema duration = new IntegerSchema(); duration.setEnum(java.util.List.of(3, 7, 14));
+                    invitation.addProperty("validityDays", duration);
+                }
+                Schema<?> invitationPage = api.getComponents().getSchemas().get("InvitationPage");
+                if (invitationPage != null) {
+                    invitationPage.setRequired(java.util.List.of("items", "total", "page", "size", "counts", "asOf"));
+                    Schema<?> counts = new Schema<>().type("object");
+                    counts.setRequired(java.util.List.of("PENDING", "ACCEPTED", "EXPIRED", "CANCELLED"));
+                    for (String state : java.util.List.of("PENDING", "ACCEPTED", "EXPIRED", "CANCELLED")) {
+                        counts.addProperty(state, new IntegerSchema().format("int64").minimum(java.math.BigDecimal.ZERO));
+                    }
+                    counts.setAdditionalProperties(false); invitationPage.addProperty("counts", counts);
+                }
                 for (String route : java.util.List.of("/api/webhooks/sepay", "/api/v1/payments/sepay/webhook")) {
                     if (api.getPaths().get(route) != null && api.getPaths().get(route).getPost() != null)
                         api.getPaths().get(route).getPost().setSecurity(java.util.List.of());

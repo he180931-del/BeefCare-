@@ -2,7 +2,6 @@ package vn.edu.fpt.beefcare.service.email;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +23,7 @@ import vn.edu.fpt.beefcare.repository.AppUserRepository;
 import vn.edu.fpt.beefcare.repository.EmailDeliveryJobRepository;
 import vn.edu.fpt.beefcare.repository.FarmInvitationRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.FarmClock;
 import vn.edu.fpt.beefcare.repository.PaymentRepository;
 import vn.edu.fpt.beefcare.repository.FarmMembershipRepository;
@@ -124,14 +124,14 @@ public class EmailDeliveryJobService {
                 if (!"PENDING".equals(job.getStatus())) return;
                 job.setLeaseUntil(null);
                 job.setLastError(failure.getClass().getSimpleName());
-                boolean paymentNotice = "PAYMENT_RECEIPT".equals(job.getLinkSource());
+                boolean dayLimited = "PAYMENT_RECEIPT".equals(job.getLinkSource()) || "INVITATION".equals(job.getLinkSource()) || "MEMBERSHIP".equals(job.getLinkSource());
                 Instant deadline = job.getCreatedAt().plus(Duration.ofHours(24));
-                if (paymentNotice ? !Instant.now().isBefore(deadline) : job.getAttempts() >= MAX_ATTEMPTS) {
+                if (dayLimited ? !Instant.now().isBefore(deadline) : job.getAttempts() >= MAX_ATTEMPTS) {
                     job.setStatus("FAILED");
                 } else {
                     long delay = Math.min(3600, 1L << Math.min(12, job.getAttempts()));
                     Instant available = Instant.now().plusSeconds(delay);
-                    job.setAvailableAt(paymentNotice && available.isAfter(deadline) ? deadline : available);
+                    job.setAvailableAt(dayLimited && available.isAfter(deadline) ? deadline : available);
                 }
             }));
         }
@@ -146,7 +146,27 @@ public class EmailDeliveryJobService {
         String expectedRecipient;
         String actionUrl;
         Farm subscriptionFarm = null;
-        if ("ACCOUNT_LINK".equals(job.getLinkSource())) {
+        String joinedMember = null;
+        if ("MEMBERSHIP".equals(job.getLinkSource()) && "MEMBER_JOINED".equals(job.getTemplateKey())) {
+            // UC-FE03-04 step 8 / JOB-07 (D28): retried for 24 hours; the farm's current ACTIVE Owner is resolved now, and a lost
+            // recipient closes the event without sending.
+            if (!Instant.now().isBefore(job.getCreatedAt().plus(Duration.ofHours(24)))) {
+                job.setStatus("FAILED"); job.setLeaseUntil(null); return null;
+            }
+            var membership = memberships.findById(job.getLinkSourceId()).orElse(null);
+            if (membership == null) return cancel(job);
+            Farm farm = membership.getFarm();
+            AppUser owner = memberships.findFirstByFarmIdAndRoleIgnoreCaseAndStatusIgnoreCase(farm.getId(), "OWNER", "ACTIVE")
+                .map(value -> value.getUser()).filter(value -> "ACTIVE".equalsIgnoreCase(value.getAccountStatus())).orElse(null);
+            if (owner == null) return cancel(job);
+            job.setRecipient(owner.getEmail()); job.setDisplayName(owner.getFullName()); job.setContextName(farm.getName());
+            AppUser member = membership.getUser();
+            joinedMember = blankDefault(member.getFullName(), member.getEmail()) + " (" + member.getEmail() + ")";
+            expectedRecipient = owner.getEmail();
+            expiry = job.getCreatedAt();
+            actionUrl = frontendBaseUrl + "/thanh-vien?farmId=" + farm.getId();
+            bearer = null;
+        } else if ("ACCOUNT_LINK".equals(job.getLinkSource())) {
             AccountLinkToken link = accountLinks.findById(job.getLinkSourceId()).orElse(null);
             if (link == null || link.getUsedAt() != null || link.getTokenNonce() == null || !link.getExpiresAt().isAfter(Instant.now())) return cancel(job);
             String templateKey = EMAIL_VERIFICATION.equals(link.getTokenType()) ? "VERIFY_EMAIL" : "PASSWORD_RESET".equals(link.getTokenType()) ? "RESET_PASSWORD" : null;
@@ -158,6 +178,10 @@ public class EmailDeliveryJobService {
             String base = templateKey.equals("VERIFY_EMAIL") ? backendBaseUrl + "/api/activate?token=" : frontendBaseUrl + "/resetpassword?token=";
             actionUrl = base + bearer;
         } else if ("INVITATION".equals(job.getLinkSource())) {
+            // JOB-07 / D25: retries are bounded by elapsed time, not a fixed attempt count.
+            if (!Instant.now().isBefore(job.getCreatedAt().plus(Duration.ofHours(24)))) {
+                job.setStatus("FAILED"); job.setLeaseUntil(null); return null;
+            }
             FarmInvitation invitation = invitations.findById(job.getLinkSourceId()).orElse(null);
             if (invitation == null || !"PENDING".equalsIgnoreCase(invitation.getStatus()) || invitation.getTokenNonce() == null || !invitation.getExpiresAt().isAfter(farmClock.now())) return cancel(job);
             bearer = signer.bearer("FARM_INVITATION", invitation.getId(), invitation.getTokenNonce());
@@ -207,13 +231,13 @@ public class EmailDeliveryJobService {
                 title = "Xác minh email của bạn";
                 intro = "Xác minh địa chỉ email để kích hoạt tài khoản BeefCare và tiếp tục đăng ký.";
                 button = "Xác minh email";
-                expiryText = "Liên kết có hiệu lực đến " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+                expiryText = "Liên kết có hiệu lực đến " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "RESET_PASSWORD" -> {
                 title = "Đặt lại mật khẩu";
                 intro = "Bạn đã yêu cầu đặt lại mật khẩu BeefCare. Nếu bạn không yêu cầu, hãy bỏ qua email này.";
                 button = "Đặt lại mật khẩu";
-                expiryText = "Liên kết chỉ sử dụng một lần và hết hạn lúc " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+                expiryText = "Liên kết chỉ sử dụng một lần và hết hạn lúc " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "FARM_INVITATION" -> {
                 String farmName = blankDefault(job.getContextName(), "trang trại");
@@ -221,7 +245,7 @@ public class EmailDeliveryJobService {
                 intro = "Bạn được mời tham gia trang trại “" + farmName + "” với vai trò " + role + ". Hãy đăng nhập bằng email này để xem và chấp nhận lời mời.";
                 title = "Lời mời tham gia trang trại";
                 button = "Xem lời mời";
-                expiryText = "Lời mời hết hạn lúc " + DISPLAY_TIME.withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(expiry) + " (giờ Việt Nam).";
+                expiryText = "Lời mời hết hạn lúc " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "GOOGLE_SIGN_IN_ADVICE" -> {
                 title = "Đăng nhập bằng Google";
@@ -234,9 +258,17 @@ public class EmailDeliveryJobService {
                 try { notice = SubscriptionNoticeJob.Notice.valueOf(job.getContextRole()); } catch (RuntimeException unknown) { return cancel(job); }
                 title = notice == SubscriptionNoticeJob.Notice.RENEWAL_OPEN ? "Đã mở gia hạn gói dịch vụ"
                     : notice == SubscriptionNoticeJob.Notice.EXPIRED ? "Thời hạn dịch vụ đã hết" : "Gói dịch vụ sắp hết hạn";
-                intro = SubscriptionNoticeJob.summary(notice, subscriptionFarm, expiry.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate());
+                intro = SubscriptionNoticeJob.summary(notice, subscriptionFarm, expiry.atZone(FarmTimeZones.OFFSET).toLocalDate());
                 button = "Xem gói dịch vụ";
                 expiryText = "BeefCare không tự động gia hạn; bạn tạo yêu cầu thanh toán khi muốn gia hạn.";
+            }
+            case "MEMBER_JOINED" -> {
+                String farmName = blankDefault(job.getContextName(), "trang trại");
+                String role = "MANAGER".equalsIgnoreCase(job.getContextRole()) ? "Quản lý" : "Kỹ thuật viên";
+                title = "Thành viên mới đã tham gia trang trại";
+                intro = joinedMember + " đã chấp nhận lời mời và tham gia trang trại “" + farmName + "” với vai trò " + role + ".";
+                button = "Xem thành viên";
+                expiryText = "Thời điểm tham gia: " + DISPLAY_TIME.withZone(FarmTimeZones.OFFSET).format(expiry) + " (giờ Việt Nam).";
             }
             case "SUPPORT_TICKET_UPDATE" -> {
                 title = "Cập nhật yêu cầu hỗ trợ";
@@ -271,7 +303,7 @@ public class EmailDeliveryJobService {
         if (owner == null) return cancel(job);
         job.setRecipient(owner.getEmail()); job.setDisplayName(owner.getFullName());
         String actionUrl = frontendBaseUrl + "/goi-dich-vu/lich-su?farm=" + farm.getId();
-        var vn = ZoneId.of("Asia/Ho_Chi_Minh");
+        var vn = FarmTimeZones.OFFSET;
         var number = java.text.NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN"));
         String amount = number.format(payment.getAmountVnd()) + " VND";
         String period = DISPLAY_TIME.format(payment.getPurchasedStart().atZone(vn)) + " – " + DISPLAY_TIME.format(payment.getPurchasedEnd().atZone(vn));

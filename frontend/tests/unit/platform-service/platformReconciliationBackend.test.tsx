@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import PaymentReconciliationRoutes from '../../../src/features/platform-service/pages/PaymentReconciliationRoutes'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const session: Session = { role: 'PM', fullName: 'PM UC6', email: 'uc6@example.test', farmId: null, farmName: null, logout: async () => {} }
 type Row = Record<string, unknown>
@@ -161,12 +165,13 @@ describe('UC-FE19-06 reconciliation on SCR-62 (D19)', () => {
         relatedPaymentId: null, relatedPaymentCode: null, pmId: 7, pmName: 'PM UC6', at: '2026-10-28T00:00:00Z' },
     ] })
     page()
-    const history = within(await screen.findByRole('table', { name: 'Lịch sử xử lý' }))
-    const first = within(history.getByText('Đối chiếu A').closest('tr')!)
-    const final = within(history.getByText('Đối chiếu B').closest('tr')!)
+    // A list, not a three-column table squeezed into the 440 px panel (UI review B10).
+    const history = within(await screen.findByRole('list', { name: 'Lịch sử xử lý' }))
+    const first = within(history.getByText('Đối chiếu A').closest('li')!)
+    const final = within(history.getByText('Đối chiếu B').closest('li')!)
     expect(first.getByRole('link', { name: 'BCFIRST' })).toHaveAttribute('href', '/nen-tang/thanh-toan?paymentId=601&origin=payments')
     expect(final.getByRole('link', { name: 'BCFINAL' })).toHaveAttribute('href', '/nen-tang/thanh-toan?paymentId=602&origin=payments')
-    expect(within(history.getByText('Lịch sử cũ').closest('tr')!).queryByRole('link')).not.toBeInTheDocument()
+    expect(within(history.getByText('Lịch sử cũ').closest('li')!).queryByRole('link')).not.toBeInTheDocument()
   })
 
   it('reports automatic payment confirmation after importing an eligible looked-up transfer', async () => {
@@ -216,10 +221,10 @@ describe('UC-FE19-06 reconciliation on SCR-62 (D19)', () => {
     p = await panel()
     expect(await p.findByText('Đã ghi hoàn trả: không thể mở khóa hay dùng giao dịch này cho thanh toán.')).toBeInTheDocument()
     expect(p.queryByRole('button', { name: 'Mở khóa' })).not.toBeInTheDocument()
-    const history = screen.getByRole('table', { name: 'Lịch sử xử lý' })
+    const history = screen.getByRole('list', { name: 'Lịch sử xử lý' })
     expect(within(history).getByText('Xác minh hoàn trả')).toBeInTheDocument()
     expect(within(history).getByText(/Ngày hoàn trả: 28\/10\/2026/)).toBeInTheDocument()
-    expect(within(history).getByRole('cell', { name: /^Tham chiếu: FT-OUT-9/ })).toBeInTheDocument()
+    expect(within(history).getByText(/^Tham chiếu: FT-OUT-9/)).toBeInTheDocument()
   })
 
   it('unlocks a locked evidence with a reason', async () => {

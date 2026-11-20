@@ -17,7 +17,12 @@ public class GrowthOverviewService {
     public record Row(Long cattleId,String code,String earTag,String breed,Sex sex,LifeStage lifeStage,String herdGroup,
         Long penId,String penCode,String penName,BigDecimal weightKg,String basis,LocalDate weighedOn,BigDecimal adg,
         BigDecimal penAverageAdg,BigDecimal bcs,LocalDate nextWeighing,List<String> flags) {}
-    public record Page(List<Row> items,long total,int page,int size,Map<String,Long> summary,int windowDays) {}
+    /**
+     * {@code activeCount} (GAP-FE08-03): ACTIVE cattle of the whole farm, independent of the filters; {@code total} is after filtering.
+     * Schema name GrowthHerdPage: the plain name Page is shared by several list DTOs in the OpenAPI contract.
+     */
+    @io.swagger.v3.oas.annotations.media.Schema(name = "GrowthHerdPage")
+    public record Page(List<Row> items,long total,int page,int size,Map<String,Long> summary,int windowDays,long activeCount) {}
     private final EntityManager em;private final FarmAccessService access;private final GrowthAssessmentService growth;
     private final CattleProfileService profiles;private final FarmClock clock;
     public GrowthOverviewService(EntityManager em,FarmAccessService access,GrowthAssessmentService growth,CattleProfileService profiles,FarmClock clock) {
@@ -28,7 +33,7 @@ public class GrowthOverviewService {
         FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATTLE);
         if(!Set.of(30,90,180).contains(window))throw DomainException.invalid("windowDays");
         if(page<0||page>100000||size<1||size>200)throw DomainException.invalid("pagination");
-        ZoneId zone=ZoneId.of(ctx.farm().getTimeZone());LocalDate today=LocalDate.ofInstant(clock.now(),zone);
+        ZoneId zone=clock.zone();LocalDate today=LocalDate.ofInstant(clock.now(),zone);
         List<Cattle> all=em.createQuery("select c from Cattle c where c.farm.id=:f and c.herdStatus=:s order by c.displayCode",Cattle.class)
             .setParameter("f",farmId).setParameter("s",HerdStatus.ACTIVE).getResultList();
         Map<Long,PenAssignment> penByCattle=new HashMap<>();
@@ -66,6 +71,6 @@ public class GrowthOverviewService {
             default->throw DomainException.invalid("sort");
         };
         rows.sort(desc?comparator.reversed():comparator);int start=Math.min(page*size,rows.size());
-        return new Page(List.copyOf(rows.subList(start,Math.min(start+size,rows.size()))),rows.size(),page,size,counts,window);
+        return new Page(List.copyOf(rows.subList(start,Math.min(start+size,rows.size()))),rows.size(),page,size,counts,window,all.size());
     }
 }

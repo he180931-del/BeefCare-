@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import logo from '../../../../assets/logo.png'
-import { NAV_LINKS } from '../../data/landingContent'
+import logo from '../../../../shared/assets/logo.png'
+import { NAV_LINKS } from '../../constants/landingContent'
 import { AUTH_PATH } from '../../domain/authErrors'
 
 export const container = 'mx-auto w-full max-w-[1216px] px-5 xl:px-0'

@@ -1,20 +1,18 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { Button, Card, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../components/ui'
-import { InactiveFarmBanner, openedInactiveFromFarmSelect } from '../../farm-workspace/components/WorkspaceUi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { InactiveFarmBanner, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { backendMode } from '../../../api/backendTransport'
-import { usePaymentRequest } from './usePaymentRequest'
+import { usePaymentRequest } from '../hooks/usePaymentRequest'
 import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
-import { useFarmScope } from '../components/useFarmScope'
+import { useFarmScope } from '../hooks/useFarmScope'
 import { TERMS, estimatePeriod, fmtDate, fmtPeriod, fmtVnd, priceFor, stateForOverview, stateFromError, termLabel, versionLabel } from '../domain/subscriptionRules'
 import type { Term } from '../types'
-import { useOverview } from './useOverview'
+import { useOverview } from '../hooks/useOverview'
 
 const TITLE = 'Gia hạn gói – chọn thời hạn'
 
@@ -49,7 +47,7 @@ export default function RenewPage() {
     try {
       const p = await createPayment(term, price.id)
       if (p.reopened) dialog.show({ kind: 'pending-exists', payment: p })
-      else navigate(to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? p.id : p.quoteRef}`, { from: 'subscription' }))
+      else navigate(to(`/goi-dich-vu/chuyen-khoan/${subscriptionApi.paymentRouteId(p)}`, { from: 'subscription' }))
     } catch (e) {
       const state = stateFromError(e)
       if (state) dialog.show(state)

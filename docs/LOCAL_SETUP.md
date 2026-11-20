@@ -75,17 +75,26 @@ Lưu ý:
 cd frontend
 npm install
 npm run dev          # chế độ theo frontend/.env (xem bên dưới)
+npm run dev:backend  # đăng nhập và dữ liệu từ backend thật, kể cả khi chưa có frontend/.env
 npm run dev:mock     # mọi màn hình chạy bằng dữ liệu mock, không cần backend, cổng 5174
 ```
 
 Khi cần mở từ thiết bị khác hoặc chạy kiểm runtime: `npm run dev -- --host 0.0.0.0 --port 5174`.
 
-Cấu hình `frontend/.env` (không commit). Vite chỉ đọc `.env`, không đọc `.env.example`; chưa có `.env` thì `npm run dev` chạy adapter local, không gọi backend.
+Cấu hình `frontend/.env` (không commit). Vite chỉ đọc `.env`, không đọc `.env.example`; chưa có `.env` thì `npm run dev` vẫn gọi backend thật qua proxy `/api`. Muốn chạy bằng dữ liệu mẫu, không cần backend, dùng `npm run dev:mock` (cổng 5174).
 
-- `VITE_BEEFCARE_DATA_SOURCE=backend` dùng backend thật; giá trị khác hoặc để trống dùng adapter local. `VITE_BEEFCARE_FARM_ID` là ID số của trại trên backend.
+- `VITE_BEEFCARE_DATA_SOURCE`: để trống hoặc `backend` là backend thật; chỉ `local` mới dùng adapter dữ liệu mẫu (`npm run dev:mock` và Vitest tự đặt). `vite build` báo lỗi khi gặp `local` hoặc `VITE_BEEFCARE_AUTH_MODE=mock`, nên bản build không thể chạy bằng dữ liệu mẫu. Không có biến chọn trại: trại làm việc là trại đã vào ở màn Chọn trại, giữ riêng cho từng tab.
 - `VITE_BEEFCARE_API_URL` **để trống**: request đi theo đường dẫn tương đối `/api` qua proxy của Vite tới `127.0.0.1:8080`. Đây là cách đúng theo quy tắc dự án (không hardcode origin).
 - Nếu đặt `VITE_BEEFCARE_API_URL` (ví dụ `http://localhost:8080`), trình duyệt gọi thẳng backend, bỏ qua proxy, và backend phải cho phép origin của frontend qua `BEEFCARE_CORS_ORIGINS` (mặc định ở profile `local`: `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`).
 - Dùng cùng hostname cho frontend và backend: cookie của `localhost` và `127.0.0.1` là khác nhau. Cookie production cần HTTPS.
+
+### Quét QR bằng camera
+
+Chạy backend rồi chạy `npm run dev:backend` trong `frontend`. Đăng nhập và chọn trại, mở `/quet-qr` hoặc `/kt/quet-qr`, bấm **Bật camera** và cho phép quyền camera. Có thể chọn camera khi thiết bị có nhiều camera. Bộ đọc giải mã hình ảnh camera rồi gọi `GET /api/farms/{farmId}/cattle/resolve?code=...` để tìm bò trên backend. Nút **Quét từ ảnh** đọc ảnh QR trên thiết bị và tra cùng API.
+
+Trên máy chạy frontend, dùng `http://localhost:5173`. Trên điện thoại truy cập qua mạng LAN, camera cần HTTPS. Có thể đặt `BEEFCARE_DEV_HTTPS_CERT` và `BEEFCARE_DEV_HTTPS_KEY` trong `frontend/.env.local` trỏ đến cặp chứng chỉ/khóa local đã được điện thoại tin cậy, phù hợp với hostname/IP truy cập. Khởi động lại bằng `npm run dev:backend -- --host 0.0.0.0`. Chứng chỉ và khóa nằm ngoài Git.
+
+Lấy tem thử từ hồ sơ bò của trại đang chọn, tab **Thẻ QR**, tải PNG hoặc in thẻ ACTIVE. Đưa tem vào khung quét. Mã thẻ chưa được cấp cho bò sẽ bị từ chối khi tra dữ liệu thật. Chế độ `dev:mock` hiển thị nhắc dùng dữ liệu mẫu trên màn hình quét.
 
 ## 5. Tài khoản và dữ liệu seed
 
@@ -120,6 +129,7 @@ Mặc định tắt. Bật bằng `BEEFCARE_GOOGLE_ENABLED=true` cùng `SPRING_S
 
 - **Webhook (UC8, D24):** `POST /api/webhooks/sepay`, alias SRS `POST /api/v1/payments/sepay/webhook`. Kiểm HMAC-SHA256 trên đúng `<timestamp>.<raw-body>`, header `X-SePay-Timestamp` (giây Unix), `X-SePay-Signature: sha256=<hex>`, lệch tối đa300 giây. Sai trả401, chỉ lưu metadata hạn chế (JOB-08 xóa sau 30 ngày; không lưu được metadata vẫn trả 401), không lưu chứng từ. JSON≤65536 bytes; id phải là số nguyên thật. Trường chữ của giao dịch đã xác thực luôn được lưu đủ, không bị từ chối hay cắt vì độ dài. Giao lặp tăng số lần giao mà không đổi version chứng từ PM đang mở. Chỉ trả `200 {"success":true}` sau khi chứng từ và job cùng commit; JOB-06 xác nhận sau, 200 chưa có nghĩa PAID. Giữ môi trường/namespace/snapshot tài khoản và điều kiện ngân hàng. Giao lặp so dữ liệu nghiệp vụ theo D19/D22 (không theo hash/chữ payload đơn thuần), không tạo job/kỳ thứ hai; cùng ID khác dữ liệu nghiệp vụ trả409. Mã mâu thuẫn để PM, không chọn mã đầu.
 - **Giả lập local:** `POST /api/dev/sepay/events`, chỉ PM dùng, chỉ có ở profile `dev`, `local`, `testh2` khi môi trường là `MOCK` hoặc `TEST`. Nó đi qua đúng luồng bằng chứng và xác nhận như webhook. Không có ở `prod`. Mặc định `BEEFCARE_SEPAY_ENVIRONMENT=MOCK`, namespace `LOCAL-MOCK`.
+- **Nút "Giả lập chuyển khoản" trên SCR-59:** khi chạy frontend bằng `npm run dev` hoặc `npm run dev:mock` và yêu cầu còn PENDING, Owner thấy ô này dưới hướng dẫn chuyển khoản. Số tiền điền sẵn đúng số tiền yêu cầu: để nguyên thì thanh toán thành công, nhập số khác thì thử sai số tiền (chứng từ chuyển PM đối soát). Nút gọi `POST /api/dev/sepay/farms/{farmId}/payments/{paymentId}/transfer`, chỉ Owner của trại đó, cùng điều kiện profile và môi trường như trên. Backend lấy mã, tài khoản nhận và ngân hàng từ chính yêu cầu rồi chạy cùng luồng với `/api/dev/sepay/events`. Đây là công cụ thử, không thuộc SRS; bản `npm run build` không có ô này và route không có trong OpenAPI.
 - **Tài khoản nhận (bắt buộc từ UC-FE19-02):** tạo yêu cầu thanh toán cần đủ `BEEFCARE_SEPAY_BANK_CODE`, `BEEFCARE_SEPAY_ACCOUNT_NUMBER`, `BEEFCARE_SEPAY_ACCOUNT_NAME`; thiếu thì trả MSG-FE19-04 và không tạo gì. Ở local chép ba giá trị giả trong `.env.example` vào `.env` (profile `local` tự nạp `../.env`). Không dùng tài khoản thật khi môi trường là `MOCK`: QR thật có thể nhận tiền thật nhưng webhook không về được localhost. Với giá trị giả, ảnh QR không tải được và SCR-59 hiện thông tin chuyển khoản dạng chữ. Ngoài ra cần một bảng giá đang hiệu lực do PM công bố (`POST /api/platform/plan-prices`). Merchant ID / Secret Key của Cổng thanh toán SePay không dùng trong luồng này.
 - **Tra cứu giao dịch:** dùng `Authorization: Bearer <API_TOKEN>` (`BEEFCARE_SEPAY_API_TOKEN`), giữ token ở server, timeout có giới hạn (`BEEFCARE_SEPAY_API_TIMEOUT`, mặc định 5s). Đổi tài khoản nhận thì đặt namespace mới; báo giá cũ giữ nguyên môi trường, namespace và tài khoản lúc tạo.
 - **Job:** JOB-03 cho yêu cầu thanh toán hết hạn mỗi5 phút; JOB-04 tính bao phủ mỗi15 phút, giữ SUSPENDED. Cả xác nhận/JOB-04 khóa trại trước khi đọc subscription. JOB-06 đọc queue mỗi giây (`beefcare.sepay.processing-delay-ms`, test gọi chủ động), lease2 phút, retry1/5/15 phút rồi mỗi giờ đến24h từ lỗi đầu; hết hạn chuyển lỗi kỹ thuật cho PM, không mất chứng từ/ghi đè quyết định. D20 vẫn không báo đối soát chiều ra. Giờ ngân hàng trong cửa sổ gốc vẫn nhận EXPIRED đến muộn. Simulator/API-03 dùng cùng processor và giữ kết quả thành công ngay: job được giữ lease cho chính request ngay trong commit lưu, nên JOB-06 không lấy chen vào; lỗi sau lưu còn job retry. Thanh toán PAID ghi một email intent trong queue hiện có; dispatcher gửi tiếng Việt cho Owner hiện tại, retry độc lập≤24h, không rollback tiền/cấp kỳ và không bật consumer outbox của feature khác.

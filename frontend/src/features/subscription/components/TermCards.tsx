@@ -3,10 +3,14 @@ import type { PriceDTO, Term } from '../types'
 
 const CARD = 'flex min-w-0 flex-col items-start gap-1.5 rounded-md border p-4 text-left'
 
-/** Ba thẻ thời hạn. Có `onSelect` thì chọn được (radio), không thì chỉ hiển thị bảng giá. */
+/**
+ * Ba thẻ thời hạn. Có `onSelect` thì chọn được (radio), không thì chỉ hiển thị bảng giá.
+ * Số cột theo bề rộng khung chứa, không theo màn hình: ở cột trái hẹp của SCR-58 (1024–1279 px) các thẻ xếp dọc thay vì bị bóp.
+ */
 export function TermCards({ prices, selected, onSelect }: { prices: PriceDTO | null; selected?: Term | null; onSelect?: (t: Term) => void }) {
   return (
-    <div role={onSelect ? 'radiogroup' : undefined} aria-label="Thời hạn" className="grid gap-3 sm:grid-cols-3">
+    <div className="@container">
+    <div role={onSelect ? 'radiogroup' : undefined} aria-label="Thời hạn" className="grid gap-3 @min-[520px]:grid-cols-3">
       {TERMS.map((t) => {
         const active = selected === t
         const body = (
@@ -15,7 +19,7 @@ export function TermCards({ prices, selected, onSelect }: { prices: PriceDTO | n
               {onSelect && <span aria-hidden className={`size-3.5 shrink-0 rounded-full border ${active ? 'border-[#454545] bg-[#454545] shadow-[inset_0_0_0_3px_#fff]' : 'border-[#8f8f8f] bg-white'}`} />}
               Gói BeefCare · {termLabel(t)}
             </span>
-            <span className="text-xl font-bold text-ink">{prices ? fmtVnd(priceFor(prices, t)) : '—'}</span>
+            <span className="whitespace-nowrap text-xl font-bold text-ink">{prices ? fmtVnd(priceFor(prices, t)) : '—'}</span>
             <span className="text-[11px] text-muted">Tổng tiền cho {termLabel(t)}</span>
           </>
         )
@@ -28,6 +32,7 @@ export function TermCards({ prices, selected, onSelect }: { prices: PriceDTO | n
           <div key={t} className={`${CARD} border-edge bg-white`}>{body}</div>
         )
       })}
+    </div>
     </div>
   )
 }

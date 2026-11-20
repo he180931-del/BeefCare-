@@ -1,9 +1,14 @@
-import { backendFarmId, backendMode, backendTransport, asRecord, asRows, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { supportDemoStore, type SupportDemoStore } from '../data/supportDemoStore'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import type { SupportDemoStore } from '../data/supportDemoStore'
 import type { Actor, CompleteCommand, ContextRef, QueueFilters, TargetRole, TicketCategory, TicketPriority } from '../types'
-import { BackendError } from '../../../api/backendClient'
+import { BackendError } from '../../../shared/api/backendClient'
 import { SupportError } from '../domain/supportRules'
 import type { FarmOption, InternalView, MessagePage, QueuePage, StaffMember, SupportNotification, Ticket, TicketMessage, TicketRow } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const mapError = (error: unknown): never => {
   if (!(error instanceof BackendError)) throw error
@@ -26,6 +31,7 @@ const mapInternal = (value: unknown): InternalView => {
     status, outcome: row.outcome == null ? undefined : textValue(row.outcome) as InternalView['outcome'], result: row.result == null ? undefined : textValue(row.result),
     domainResultAuditId: row.domainResultAuditId == null ? undefined : numberValue(row.domainResultAuditId), completedAt: row.completedAt == null ? undefined : textValue(row.completedAt),
     version: numberValue(row.version), history: [],
+    needsReassignment: row.needsReassignment === true,
   }
 }
 
@@ -140,12 +146,19 @@ function createBackendApi(transport: BackendTransport) {
   }
 }
 
-export function createSupportApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SupportDemoStore }) {
+export function createSupportApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: SupportDemoStore }) {
   // Kept for the later backend hookup; backend mode must never read the mock.
   void farmId
   void transport
   const backend = createBackendApi(transport)
   return {
+    /** Người thao tác của phiên. Máy chủ thật dùng đúng người đăng nhập; bản mô phỏng có nhân viên mẫu khi phiên không mang id. */
+    actorFor(session: { id?: number; fullName: string; role?: string } | null | undefined): Actor {
+      const role: Actor['role'] = session?.role === 'PM' || session?.role === 'SA' ? session.role : 'CS'
+      if (mode === 'backend') return { id: session?.id ?? 0, name: session?.fullName ?? '', role }
+      const fallback = store.actorForRole(session?.role)
+      return typeof session?.id === 'number' && session.id > 0 ? { ...fallback, id: session.id, name: session.fullName } : fallback
+    },
     // GET /api/platform/support/tickets (?q,category,tab,farmId,priority,assignment,page,size)
     async listQueue(actor: Actor, filters: QueueFilters = {}) { return mode === 'backend' ? backend.listQueue(actor, filters) : store.listQueue(actor, filters) },
     // chưa có API (danh sách trại cho bộ lọc; lấy từ trường farmName của ticket)
@@ -197,4 +210,4 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
   }
 }
 export type SupportApi = ReturnType<typeof createSupportApi>
-export const supportApi = createSupportApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: supportDemoStore })
+export const supportApi = createSupportApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.platformSupport.supportDemoStore) })

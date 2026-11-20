@@ -1,5 +1,4 @@
 import type { PriceStatus, PriceVersion, PriceVersionView } from '../types'
-import { fmtDateTime } from './dates'
 
 export const MIN_PRICE = 1000
 export const MAX_PRICE = 1_000_000_000
@@ -26,14 +25,4 @@ export function withStatuses(versions: PriceVersion[], now: string): PriceVersio
       return { ...v, status }
     })
     .sort((a, b) => b.version - a.version)
-}
-
-export function validateEffective(mode: 'NOW' | 'SCHEDULE', effectiveAt: string, now: string, versions: PriceVersion[]) {
-  if (mode === 'NOW') return null
-  if (!effectiveAt) return 'Thời điểm hiệu lực là bắt buộc.'
-  const at = effectiveAt.length === 16 ? `${effectiveAt}:00` : effectiveAt
-  if (at < now) return PAST_ERROR
-  const clash = versions.find((v) => !v.withdrawn && v.effectiveAt === at)
-  if (clash) return `Phiên bản v${clash.version} đã được lên lịch vào ${fmtDateTime(at)}.`
-  return null
 }

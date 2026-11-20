@@ -23,9 +23,10 @@ public class FarmWorkspaceService {
     private final AuditService audit;
     private final OutboxService outbox;
     private final FarmServiceFacts facts;
+    private final FarmClock clock;
     public FarmWorkspaceService(EntityManager em,FarmAccessService access,FarmRepository farms,
-        StarterCatalogueService starters,AuditService audit,OutboxService outbox,FarmServiceFacts facts) {
-        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;this.facts=facts;
+        StarterCatalogueService starters,AuditService audit,OutboxService outbox,FarmServiceFacts facts,FarmClock clock) {
+        this.em=em;this.access=access;this.farms=farms;this.starters=starters;this.audit=audit;this.outbox=outbox;this.facts=facts;this.clock=clock;
     }
     /**
      * UC-FE02-02 step 2: every farm where the caller has an ACTIVE membership, whatever its service status. A Manager or
@@ -44,7 +45,7 @@ public class FarmWorkspaceService {
     }
     private static Summary summary(Farm farm,String role,Map<Long,Long> cattle,Map<Long,Instant> until) {
         return new Summary(farm.getId(),farm.getName(),role,farm.getServiceStatus(),farm.getVersion(),farm.getProvince(),farm.getCommune(),
-            cattle.getOrDefault(farm.getId(),0L),until.get(farm.getId()));
+            cattle.getOrDefault(farm.getId(),0L),until.get(farm.getId()),farm.getTimeZone());
     }
     /** UC-FE02-01: one farm in PENDING_PAYMENT with its OWNER membership, parameters, starter catalogue and audit (R-02-03). */
     @Transactional
@@ -52,12 +53,12 @@ public class FarmWorkspaceService {
         AppUser owner=access.currentActiveUser();
         if (!owner.isOwnerRegistrationCompleted()) throw DomainException.forbidden(MessageCodes.FE02_02);
         String province=VietnamProvinces.require(request.province(),"province");
-        Farm farm=new Farm(); farm.setServiceStatus("PENDING_PAYMENT"); farm.setTimeZone("Asia/Ho_Chi_Minh");
+        Farm farm=new Farm(); farm.setServiceStatus("PENDING_PAYMENT"); farm.setTimeZone(FarmTimeZones.DEFAULT);
         applyContact(farm,request.name(),province,request.commune(),request.detailedAddress(),
             blankDefault(request.contactPerson(),owner.getFullName()),blankDefault(request.contactPhone(),owner.getPhone()),request.registrationCertificateInfo());
         farm.setExpectedHerdSize(blankDefault(request.expectedHerdSize(),null)); em.persist(farm);
         FarmMembership membership=new FarmMembership();membership.setFarm(farm);membership.setUser(owner);
-        membership.setRole("OWNER");membership.setStatus("ACTIVE");em.persist(membership);
+        membership.setRole("OWNER");membership.setStatus("ACTIVE");membership.setJoinedAt(clock.now());em.persist(membership); // SCR-13 Joined (D29)
         starters.create(farm,owner,request.mainBreedCodes());
         audit.log(farm,owner,"FARM_REGISTER","Farm",farm.getId(),Map.of("name",farm.getName()));
         outbox.enqueue(farm.getId(),"FARM_REGISTERED","Farm",farm.getId(),Map.of("farmId",farm.getId(),"ownerId",owner.getId()));
@@ -74,7 +75,7 @@ public class FarmWorkspaceService {
     }
     /**
      * UC-FE02-03 (SCR-11, flow confirmed as Q1): the Owner saves registration, contact and operating information in any
-     * service status. Province as SCR-10 (Q3), time zone one of the offered UTC+7 zones (Q2), a blank optional field is
+     * service status. Province as SCR-10 (Q3), time zone fixed to UTC+7, a blank optional field is
      * "not provided"; main breeds change only when the request sends them (SCR-11 has no such field).
      */
     @Transactional

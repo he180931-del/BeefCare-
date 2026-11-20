@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCattleBackendApi, mapBackendCattle } from '../../../src/api/cattleBackendApi'
+import { createCattleBackendApi, mapBackendCattle } from '../../../src/features/cattle/api/cattleBackendApi'
 
 describe('backend cattle round 2 contract', () => {
   it('sends every server-side cattle filter and preserves backend pagination/counts', async () => {

@@ -23,8 +23,46 @@ public final class MessageCodes {
     public static final String COM_15 = "MSG-COM-15";
     public static final String COM_16 = "MSG-COM-16";
     public static final String COM_17 = "MSG-COM-17";
+    /** FE-09 R-09-10: the animal already received this dose of the schedule and is skipped in a batch. */
+    public static final String FE09_09 = "MSG-FE09-09";
     public static final String COM_18 = "MSG-COM-18";
     public static final String COM_19 = "MSG-COM-19";
+
+    /** FE-10 R-10-04: body temperature outside 35.0–43.0 °C. */
+    public static final String FE10_06 = "MSG-FE10-06";
+    /** FE-10 R-10-05: a follow-up, treatment, closure or corrected time earlier than the latest record of the case; params.date. */
+    public static final String FE10_07 = "MSG-FE10-07";
+    /** FE-10 R-10-11: the opening observation of a case cannot be voided. */
+    public static final String FE10_13 = "MSG-FE10-13";
+
+    /** FE-11 R-11-03 / Q2: a similar estrus or breeding of the cow within 12 hours; resend with confirmDuplicate. */
+    public static final String FE11_03 = "MSG-FE11-03";
+    /** FE-11 R-11-01: the farm sire must be another ACTIVE male of the farm; params.field. */
+    public static final String FE11_04 = "MSG-FE11-04";
+    /** FE-11 R-11-04: the cow has an OPEN (confirmed) pregnancy. */
+    public static final String FE11_05 = "MSG-FE11-05";
+    /** FE-11 R-11-11 / FE-12 R-12-15: later records depend on this one; params.records, params.dependents[]. */
+    public static final String FE11_07 = "MSG-FE11-07";
+    /** FE-11 R-11-07 / REM-02: a farm parameter is missing; returned as {@code parameterMissing}, never thrown. */
+    public static final String FE11_08 = "MSG-FE11-08";
+    /** FE-11 R-11-09: breeding eligibility not met; a warning ({@code eligibilityWarning}), never thrown. */
+    public static final String FE11_09 = "MSG-FE11-09";
+    /** FE-11 R-11-05: the time is earlier than the linked event; params.event, params.time, params.field. */
+    public static final String FE11_10 = "MSG-FE11-10";
+    /** FE-11 R-11-10: the cattle is not tracked for reproduction; params.reason. */
+    public static final String FE11_11 = "MSG-FE11-11";
+    /** FE-12 R-12-04: the check contradicts a check or pregnancy of the cow. */
+    public static final String FE12_02 = "MSG-FE12-02";
+    /** FE-12 R-12-08: a calving needs at least one calf outcome. */
+    public static final String FE12_06 = "MSG-FE12-06";
+    /** FE-12 R-12-09: birth weight 1–80 kg with a basis; params.field. */
+    public static final String FE12_07 = "MSG-FE12-07";
+    /** FE-12 R-12-10: the calf tag is already used in the farm; params.tag_code, params.field. */
+    public static final String FE12_08 = "MSG-FE12-08";
+    /** FE-12 R-12-03: the pregnancy has no expected calving date (notice, never thrown). */
+    public static final String FE12_11 = "MSG-FE12-11";
+    /** FE-12 R-12-05 / §3.4: the pregnancy is no longer OPEN, or a second calving within 30 days; params.dam_code. */
+    public static final String FE12_12 = "MSG-FE12-12";
 
     /** UC-FE02-01 E1: Owner registration is not complete. */
     public static final String FE02_02 = "MSG-FE02-02";
@@ -34,14 +72,23 @@ public final class MessageCodes {
     public static final String FE02_09 = "MSG-FE02-09";
     /** UC-FE19-06 E1/E2: PM acceptance blocked; params.reason names the rule (D19). */
     public static final String FE19_11 = "MSG-FE19-11";
+    /** FE-14 UC-FE14-03 / FE-20 TC-20-17: a still-authorized former recipient opens a reassigned request notice. */
+    public static final String FE20_19 = "MSG-FE20-19";
+    /** D38 (UC-FE19-02 E7): a transfer was already received for the request; params.code, params.receivedAt. */
+    public static final String FE19_19 = "MSG-FE19-19";
 
     public static final String FE03_17 = "MSG-FE03-17";
     public static final String FE03_18 = "MSG-FE03-18";
     public static final String FE03_20 = "MSG-FE03-20";
+    public static final String FE03_21 = "MSG-FE03-21";
+    /** D33 (FE-03 Q4): grant / change / restore platform access of a SUSPENDED account. */
+    public static final String FE03_22 = "MSG-FE03-22";
 
     public static final String FE18_02 = "MSG-FE18-02";
     public static final String FE18_04 = "MSG-FE18-04";
     public static final String FE18_06 = "MSG-FE18-06";
+    /** A catalogue value (medicine, vaccine) that is not ACTIVE; params.field. */
+    public static final String FE18_08 = "MSG-FE18-08";
     public static final String FE18_09 = "MSG-FE18-09";
     public static final String FE04_01 = "MSG-FE04-01";
     public static final String FE04_02 = "MSG-FE04-02";
@@ -91,6 +138,12 @@ public final class MessageCodes {
     public static final String FE23_03 = "MSG-FE23-03";
     public static final String FE23_05 = "MSG-FE23-05";
     public static final String FE23_08 = "MSG-FE23-08";
+    public static final String FE23_10 = "MSG-FE23-10";
+    public static final String FE23_11 = "MSG-FE23-11";
+    public static final String FE23_13 = "MSG-FE23-13";
+    public static final String FE23_14 = "MSG-FE23-14";
+    public static final String FE23_21 = "MSG-FE23-21";
+    public static final String FE23_22 = "MSG-FE23-22";
 
     public static final String FE01_01 = "MSG-FE01-01";
     public static final String FE01_02 = "MSG-FE01-02";

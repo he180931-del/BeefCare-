@@ -1,21 +1,39 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, textValue, numberValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { notificationsDemoStore, type NotificationsDemoStore } from '../data/notificationsDemoStore'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import type { NotificationsDemoStore } from '../data/notificationsDemoStore'
 import type { NotificationView } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
-export const mapBackendNotification = (value: unknown): NotificationView => {
+/**
+ * Target types the backend writes for an Owner's subscriptions (NotificationService callers): SUBSCRIPTION and Farm carry
+ * the farm id, Payment the payment request id. Support notices target SUPPORT_TICKET.
+ */
+const SUBSCRIPTION_TARGETS: Record<string, NotificationView['targetType']> = {
+  SUBSCRIPTION: 'SUBSCRIPTION', FARM: 'FARM_SERVICE', FARM_SERVICE: 'FARM_SERVICE', PAYMENT: 'PAYMENT_REQUEST', PAYMENT_REQUEST: 'PAYMENT_REQUEST',
+}
+
+const TICKET_TARGETS = new Set(['SUPPORT_TICKET', 'TICKET'])
+
+/**
+ * `/api/notifications/mine` returns every notification the account may open (feed, announcements, internal requests…).
+ * This page shows support and subscription notices only; every other kind is null, never shown as a payment.
+ */
+export const mapBackendNotification = (value: unknown): NotificationView | null => {
   const row = asRecord(value)
   const category = textValue(row.category).toUpperCase() === 'SUPPORT' ? 'SUPPORT' : 'SUBSCRIPTION_PAYMENT'
   const rawTarget = textValue(row.targetType).toUpperCase()
-  const targetType = category === 'SUPPORT'
-    ? 'TICKET'
-    : rawTarget === 'PAYMENT_REQUEST' ? 'PAYMENT_REQUEST' : rawTarget === 'SUBSCRIPTION' ? 'SUBSCRIPTION' : 'FARM_SERVICE'
+  const targetType = category === 'SUPPORT' ? (TICKET_TARGETS.has(rawTarget) ? 'TICKET' : null) : SUBSCRIPTION_TARGETS[rawTarget] ?? null
+  if (!targetType) return null
   return {
     id: numberValue(row.id), category, title: textValue(row.title), summary: textValue(row.summary), targetType,
     targetId: numberValue(row.targetId), createdTime: textValue(row.createdTime), readTime: row.readTime == null ? null : textValue(row.readTime),
   }
 }
 
-export function createNotificationsApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: NotificationsDemoStore }) {
+export function createNotificationsApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: NotificationsDemoStore }) {
   void farmId
   return {
     // chưa có API (giờ máy chủ để tính "n phút trước"; backend dùng đồng hồ trình duyệt)
@@ -24,7 +42,9 @@ export function createNotificationsApi({ mode, farmId, transport, store }: { mod
     },
     // GET /api/notifications/mine
     async listMine() {
-      return mode === 'backend' ? asRows(await transport.get('/api/notifications/mine')).map(mapBackendNotification) : store.listMine()
+      return mode === 'backend'
+        ? asRows(await transport.get('/api/notifications/mine')).map(mapBackendNotification).filter((item): item is NotificationView => item != null)
+        : store.listMine()
     },
     // PUT /api/notifications/{id}/read
     async markRead(id: number) {
@@ -37,4 +57,4 @@ export function createNotificationsApi({ mode, farmId, transport, store }: { mod
   }
 }
 export type NotificationsApi = ReturnType<typeof createNotificationsApi>
-export const notificationsApi = createNotificationsApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: notificationsDemoStore })
+export const notificationsApi = createNotificationsApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.notifications.notificationsDemoStore) })

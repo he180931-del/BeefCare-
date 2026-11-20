@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  <!-- FE-09 spec §3.3: a vaccination's dose is optional (prefilled from the vaccine, whose reference dose may be empty). -->
+  <changeSet id="20261115000200-vaccination-optional-dose" author="beefcare">
+    <dropNotNullConstraint tableName="vaccination" columnName="dose" columnDataType="varchar(255)"/>
+  </changeSet>
+</databaseChangeLog>

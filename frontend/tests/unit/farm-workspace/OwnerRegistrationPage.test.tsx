@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { farmWorkspaceApi } from '../../../src/features/farm-workspace/api/farmWorkspaceApi'
 import OwnerRegistrationPage from '../../../src/features/farm-workspace/pages/OwnerRegistrationPage'
 

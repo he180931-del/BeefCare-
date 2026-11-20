@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { ErrorBlock, Field, LoadingBlock, Note, Radio, Segmented, Select, Textarea, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Radio, Segmented, Select, Textarea } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import { growthApi } from '../api/growthApi'
 import { fmtDec } from '../domain/growthFormat'
 import { METHOD_LABEL } from '../domain/growthLabels'
@@ -103,18 +102,18 @@ function RecordForm({ cattleCode, options, onClose, onSaved }: Props & { options
       {method === 'TAPE' && (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Vòng ngực (cm)" id="gr-girth" hint="Khi dùng thước dây · 50 – 300 cm">
-            <UnitInput id="gr-girth" unit="cm" value={girth} onChange={(e) => setGirth(e.target.value)} />
+            <UnitInput id="gr-girth" unit="cm" min={50} max={300} step={0.1} value={girth} onChange={(e) => setGirth(e.target.value)} />
             <FieldError>{errors.heartGirthCm}</FieldError>
           </Field>
           <Field label="Dài thân chéo (cm)" id="gr-length" hint="30 – 250 cm · cân = 88,4 × VN² × DTC (m), sửa được">
-            <UnitInput id="gr-length" unit="cm" value={length} onChange={(e) => setLength(e.target.value)} />
+            <UnitInput id="gr-length" unit="cm" min={30} max={250} step={0.1} value={length} onChange={(e) => setLength(e.target.value)} />
             <FieldError>{errors.bodyLengthCm}</FieldError>
           </Field>
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Cân nặng" id="gr-weight" hint="1 – 1.500 kg · tự tính khi đo thước dây">
-          <UnitInput id="gr-weight" unit="kg" value={weightText} onChange={(e) => { setWeight(e.target.value); setWeightTouched(true) }} />
+          <UnitInput id="gr-weight" unit="kg" min={1} max={1500} step={0.1} value={weightText} onChange={(e) => { setWeight(e.target.value); setWeightTouched(true) }} />
           <FieldError>{errors.weightKg}</FieldError>
         </Field>
         <Field label="Cơ sở số liệu" id="gr-basis" hint="Tự đặt theo phương pháp">
@@ -130,7 +129,7 @@ function RecordForm({ cattleCode, options, onClose, onSaved }: Props & { options
         <FieldError>{errors.bcs}</FieldError>
       </Field>
       <Field label="Ghi chú" id="gr-note" hint="Tối đa 500 ký tự">
-        <Textarea id="gr-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+        <Textarea id="gr-note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
         <FieldError>{errors.note}</FieldError>
       </Field>
       {errors.form && <Note tone="err">{errors.form}</Note>}

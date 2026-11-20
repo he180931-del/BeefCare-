@@ -1,24 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, ErrorBlock, PageHeader, Pagination, Table, Foot, Select, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
-import { BARNS0, BREEDS, EXPORTED_COUNT, STAGES, groupCount } from '../../../data/cowsData'
-import { dm } from '../../../data/format'
-import { backendMode } from '../../../api/backendTransport'
-import { LIFE_STAGE_OPTIONS } from '../../../api/cattleBackendApi'
-import { listBarns, listBreeds, listCows, listCowsPage, listPurposes } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, ErrorBlock, Foot, Icon, inputCls, PageHeader, Pagination, Select, Table } from '../../../shared/ui'
+import { dm } from '../../../shared/lib/format'
+import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
+import { listBarns, listBreeds, listCows, listCowsPage, listPurposes, localCattleList } from '../api/cattleApi'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import { Chip, Panel, Th, Td, chipIcon } from '../components/parts'
-import type { StatusChip } from '../../../types'
-import type { CowSeed } from '../../../data/cowsData'
+import type { StatusChip } from '../types'
+import type { CowSeed, groupCount } from '../../../data/cowsData'
 
-const backend = backendMode === 'backend'
+// Máy chủ thật lọc, đếm và phân trang; bản mô phỏng tính tại trình duyệt từ đàn mẫu.
+const local = localCattleList
+const backend = local === null
 const EXPORTED = 'Đã xuất'
 const TAB_STAGE: Record<string, string> = { 'Tất cả': '', 'Khác': 'Chưa xác định' }
 // Nhóm đàn theo hợp đồng backend (GBR-24) và khóa đếm tương ứng trong `counts`.
 const TAB_GROUP: Record<string, string> = { 'Bò cái sinh sản': 'BREEDING_FEMALES', 'Bò tơ': 'YOUNG_STOCK', 'Vỗ béo': 'FATTENING', 'Bê': 'CALVES', 'Đực giống': 'BREEDING_BULLS', 'Khác': 'OTHER' }
+const GROUP_TAB: Record<string, string> = { BREEDING_FEMALE: 'Bò cái sinh sản', YOUNG_STOCK: 'Bò tơ', FATTENING: 'Vỗ béo', CALF: 'Bê', BREEDING_BULL: 'Đực giống', OTHER: 'Khác' }
+const TAB_HERD_GROUP = Object.fromEntries(Object.entries(GROUP_TAB).map(([group, label]) => [label, group])) as Record<string, string>
 const STATUS_OPTIONS = [['ACTIVE', 'Đang nuôi'], ['EXIT_PENDING', 'Chờ xuất'], ['EXITED', 'Đã xuất'], ['VOIDED', 'Đã hủy'], ['ALL', 'Tất cả']] as const
 const HEALTH_OPTIONS = [['HEALTHY', 'Khỏe'], ['MONITORING', 'Theo dõi'], ['UNDER_TREATMENT', 'Đang điều trị'], ['MEAT_WITHDRAWAL', 'Ngưng sử dụng thịt']] as const
 const LOCAL_HEALTH: Record<string, string> = { HEALTHY: 'Khỏe', MONITORING: 'Theo dõi', UNDER_TREATMENT: 'Đang điều trị' }
@@ -81,7 +82,9 @@ function CowRow({ c, barnTag, onOpen }: { c: CowSeed; barnTag: string; onOpen: (
 export default function CowList() {
   const nav = useNavigate()
   const session = useSession()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
+  const herdGroupParam = params.get('nhom') ?? ''
+  const skipGroupUrlSync = useRef(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const [q, setQ] = useState(params.get('q') ?? '')
   const [debouncedQ, setDebouncedQ] = useState(q)
@@ -93,7 +96,7 @@ export default function CowList() {
   const [purpose, setPurpose] = useState('')
   const [health, setHealth] = useState('')
   const [status, setStatus] = useState('ACTIVE')
-  const [tab, setTab] = useState('Tất cả')
+  const [tab, setTab] = useState(() => GROUP_TAB[herdGroupParam] ?? 'Tất cả')
   const [page, setPage] = useState(0)
   const [sort, setSort] = useState('displayCode')
   const [weightFilter, setWeightFilter] = useState('')
@@ -103,6 +106,14 @@ export default function CowList() {
   // Ô tìm kiếm trên thanh trên đổi ?q= ngay trên trang này.
   const urlQ = params.get('q') ?? ''
   useEffect(() => { setQ(urlQ) }, [urlQ])
+  useEffect(() => {
+    if (skipGroupUrlSync.current) {
+      skipGroupUrlSync.current = false
+      return
+    }
+    setStatus('ACTIVE')
+    setTab(GROUP_TAB[herdGroupParam] ?? 'Tất cả')
+  }, [herdGroupParam])
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQ(q), backend ? 300 : 0)
     return () => clearTimeout(timer)
@@ -124,10 +135,10 @@ export default function CowList() {
   const barnRows = barnsQuery.data ?? []
   const barnsByCode = Object.fromEntries(barnRows.map((b) => [b.code, b]))
 
-  const localTotal = STAGES.reduce((sum, s) => sum + groupCount(cows, s), 0)
+  const localTotal = local ? local.stages.reduce((sum, s) => sum + local.groupCount(cows, s), 0) : 0
   const total = backend ? counts.ACTIVE ?? 0 : localTotal
-  const exportedTotal = backend ? counts.EXITED ?? 0 : EXPORTED_COUNT
-  const countOf = (label: string, stage: Parameters<typeof groupCount>[1]) => (backend ? counts[TAB_GROUP[label]] ?? 0 : groupCount(cows, stage))
+  const exportedTotal = local ? local.exported : counts.EXITED ?? 0
+  const countOf = (label: string, stage: Parameters<typeof groupCount>[1]) => (local ? local.groupCount(cows, stage) : counts[TAB_GROUP[label]] ?? 0)
   const tabs = [
     ['Tất cả', `Tất cả (${total})`],
     ['Bò cái sinh sản', `Bò cái sinh sản (${countOf('Bò cái sinh sản', 'Bò cái sinh sản')})`],
@@ -143,10 +154,25 @@ export default function CowList() {
     if (value === EXPORTED) setStatus('EXITED')
     else if (tab === EXPORTED) setStatus('ACTIVE')
     setTab(value)
+    const next = new URLSearchParams(params)
+    const group = value === EXPORTED ? undefined : TAB_HERD_GROUP[value]
+    if (group) next.set('nhom', group)
+    else next.delete('nhom')
+    if (next.toString() !== params.toString()) {
+      skipGroupUrlSync.current = true
+      setParams(next, { replace: true })
+    }
   }
   const onStatus = (value: string) => {
     setStatus(value)
     if (tab === EXPORTED && value !== 'EXITED') setTab('Tất cả')
+    else if (value !== 'ACTIVE' && tab !== EXPORTED) setTab('Tất cả')
+    if (value !== 'ACTIVE' && herdGroupParam) {
+      const next = new URLSearchParams(params)
+      next.delete('nhom')
+      skipGroupUrlSync.current = true
+      setParams(next, { replace: true })
+    }
   }
   const changeSort = (value: string) => {
     setPage(0)
@@ -192,10 +218,10 @@ export default function CowList() {
   const initialLoad = listQuery.loading && !listQuery.data
 
   const sexOptions = backend ? [['FEMALE', 'Cái'], ['MALE', 'Đực']] : [['Cái', 'Cái'], ['Đực', 'Đực']]
-  const breedOptions = backend ? (breedsQuery.data ?? []).map((b) => [String(b.id), b.name]) : BREEDS.map((b) => [b, b])
-  const barnOptions = backend ? barnRows.filter((b) => typeof b.backendId === 'number').map((b) => [String(b.backendId), b.code]) : Object.keys(BARNS0).map((b) => [b, b])
+  const breedOptions = backend ? (breedsQuery.data ?? []).map((b) => [String(b.id), b.name]) : (local?.breeds ?? []).map((b) => [b, b])
+  const barnOptions = backend ? barnRows.filter((b) => typeof b.backendId === 'number').map((b) => [String(b.backendId), b.code]) : (local?.barns ?? []).map((b) => [b, b])
   const purposeOptions = backend ? (purposesQuery.data ?? []).filter((p) => p.available).map((p) => [String(p.id), p.name]) : [...new Set(cows.map((c) => c.purpose))].map((p) => [p, p])
-  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => [o.value, o.label]) : STAGES.map((s) => [s, s])
+  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => [o.value, o.label]) : (local?.stages ?? []).map((s) => [s, s])
 
   const filterSelect = (label: string, value: string, onChange: (value: string) => void, options: ReadonlyArray<ReadonlyArray<string>>, all = 'Tất cả', allValue = '') => (
     <Select className={SELECT_CLS} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>

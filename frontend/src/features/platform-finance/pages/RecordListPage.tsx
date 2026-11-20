@@ -1,16 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useDemoState } from '../../../hooks/useDemoState'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, interactiveRowClass, LoadingBlock, Modal, ModalButton, ModalFooter, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useDemoState } from '../../../demo/demoModules'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { financeApi } from '../api/financeApi'
 import { FINANCE_BASE, FlashNote, StateBadge, useFlash } from '../components/common'
 import { RecordDialogs } from '../components/RecordDialogs'
-import { formatDate, formatSigned, signedAmount } from '../domain/financeRules'
+import { categoryLabel, formatDate, formatSigned, signedAmount } from '../domain/financeRules'
 import type { RecordFilters, RecordState } from '../types'
 
 const TITLE = 'Thu chi khác'
@@ -27,6 +25,14 @@ export default function RecordListPage() {
   const cats = useQuery(() => financeApi.listCategories(), [])
   const { data, loading, error, refetch } = useQuery(() => financeApi.listRecords(filters), [filters, reloadKey])
   const patch = (p: RecordFilters) => setFilters((f) => ({ ...f, ...p, page: 1 }))
+
+  useEffect(() => {
+    // A mutation or a newly narrowed result can remove the current last page.
+    // Only clamp after the response for the requested page arrives; retained
+    // data from useQuery must not move the user while the next page is loading.
+    if (!data || data.page !== (filters.page ?? 1) || filters.page === undefined || filters.page <= data.pageCount) return
+    setFilters((current) => current.page === filters.page ? { ...current, page: data.pageCount } : current)
+  }, [data, filters.page])
 
   if (demo === 'loi-tai' || error) {
     return (
@@ -56,7 +62,7 @@ export default function RecordListPage() {
         </PageHeader>
         <FlashNote flash={flash} />
         <div className="flex flex-wrap items-end gap-3">
-          <div className="w-[190px]"><FilterSelect aria-label="Danh mục" value={filters.category ?? ''} onChange={(e) => patch({ category: e.target.value })}><option value="">Danh mục: Tất cả</option>{categories.map((x) => <option key={x}>{x}</option>)}</FilterSelect></div>
+          <div className="w-[190px]"><FilterSelect aria-label="Danh mục" value={filters.category ?? ''} onChange={(e) => patch({ category: e.target.value })}><option value="">Danh mục: Tất cả</option>{categories.map((x) => <option key={x} value={x}>{categoryLabel(x)}</option>)}</FilterSelect></div>
           <div className="flex items-center gap-2 text-[12px] text-muted">Ngày phát sinh<div className="w-[150px]"><DateInput id="fr-from" value={filters.from ?? ''} onChange={(v) => patch({ from: v })} /></div>–<div className="w-[150px]"><DateInput id="fr-to" value={filters.to ?? ''} onChange={(v) => patch({ to: v })} /></div></div>
           <div className="w-[170px]"><FilterSelect aria-label="Loại" value={filters.type ?? ''} onChange={(e) => patch({ type: e.target.value as RecordFilters['type'] })}><option value="">Loại: Thu &amp; chi</option><option value="INCOME">Loại: Thu</option><option value="EXPENSE">Loại: Chi</option></FilterSelect></div>
           <div className="w-[190px]"><FilterSelect aria-label="Phạm vi" value={filters.scope ?? ''} onChange={(e) => patch({ scope: e.target.value })}><option value="">Phạm vi: Tất cả</option><option value="GENERAL">Chung nền tảng</option>{(farms.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</FilterSelect></div>
@@ -75,14 +81,21 @@ export default function RecordListPage() {
                 <thead><tr><Th>Mã</Th><Th>Ngày phát sinh</Th><Th>Loại</Th><Th>Danh mục</Th><Th>Diễn giải</Th><Th>Phạm vi</Th><Th>Số tiền</Th><Th>Trạng thái</Th></tr></thead>
                 <tbody>
                   {data.rows.map((r) => (
-                    <tr key={r.recordCode} className={r.state === 'VOID' ? 'opacity-60' : ''}>
+                    <tr
+                      key={r.recordCode}
+                      tabIndex={0}
+                      aria-label={`Mở khoản thu chi ${r.recordCode}`}
+                      className={`${interactiveRowClass} ${r.state === 'VOID' || r.state === 'DISCARDED' ? 'opacity-60' : ''}`}
+                      onClick={(event) => activateTableRow(event, () => openRow(r.recordCode, r.state))}
+                      onKeyDown={(event) => activateTableRowByKey(event, () => openRow(r.recordCode, r.state))}
+                    >
                       <Td><button type="button" className="cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 text-[12px] font-semibold text-brand" onClick={() => openRow(r.recordCode, r.state)}>{r.recordCode}</button></Td>
                       <Td><span className="whitespace-nowrap">{formatDate(r.occurredOn)}</span></Td>
                       <Td>{r.type === 'INCOME' ? 'Thu' : 'Chi'}</Td>
-                      <Td>{r.category}</Td>
+                      <Td>{categoryLabel(r.category)}</Td>
                       <Td>{r.description}</Td>
                       <Td>{r.scope === 'GENERAL' ? 'Chung' : r.farmName}</Td>
-                      <Td><span className={`whitespace-nowrap font-semibold ${r.state === 'VOID' ? 'text-muted' : r.type === 'INCOME' ? 'text-ok-fg' : 'text-err-fg'}`}>{formatSigned(signedAmount(r))}</span></Td>
+                      <Td><span className={`whitespace-nowrap font-semibold ${r.state === 'VOID' || r.state === 'DISCARDED' ? 'text-muted' : r.type === 'INCOME' ? 'text-ok-fg' : 'text-err-fg'}`}>{formatSigned(signedAmount(r))}</span></Td>
                       <Td><StateBadge state={r.state} /></Td>
                     </tr>
                   ))}

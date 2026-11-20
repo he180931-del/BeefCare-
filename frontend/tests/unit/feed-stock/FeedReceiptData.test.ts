@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FEED_RECEIPT_MOCK } from '../../../src/features/feed-stock/data/feedReceiptMock'
-import { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from '../../../src/features/feed-stock/data/feedReceipts'
+import { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from '../../../src/features/feed-stock/domain/feedReceiptList'
 
 describe('SCR-78 receipt list projections', () => {
   it('summarizes posted receipts in the selected calendar month and keeps status counts separate', () => {

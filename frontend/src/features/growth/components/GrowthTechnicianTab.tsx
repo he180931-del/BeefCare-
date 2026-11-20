@@ -1,6 +1,7 @@
-import { Badge, ErrorBlock, Info, LoadingBlock } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import { useSearchParams } from 'react-router-dom'
+import { Badge, ErrorBlock, Info, LoadingBlock, Note } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { growthApi } from '../api/growthApi'
 import { fmtDate, fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
@@ -11,13 +12,18 @@ const heading = 'm-0 text-[10px] font-semibold uppercase tracking-wide text-bran
 
 /** Bản đọc cho điện thoại, hiển thị trong hồ sơ bò của kỹ thuật viên (không có khung riêng). */
 export default function GrowthTechnicianTab({ cattleCode }: { cattleCode: string }) {
+  const [params] = useSearchParams()
   const { data, loading, error, refetch } = useQuery(() => growthApi.getProfile(cattleCode), [cattleCode])
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu tăng trưởng.')} onRetry={refetch} />
   const { latest, adg90, latestBcs, nextWeighingDate } = data
-  const history = data.records.filter((r) => r.status === 'VALID').slice(0, 5)
+  const sourceId = params.get('r')
+  const valid = data.records.filter((r) => r.status === 'VALID')
+  const history = sourceId == null ? valid.slice(0, 5) : valid.filter((r) => String(r.id) === sourceId)
+  if (sourceId != null && history.length === 0) return <Note tone="warn">Không tìm thấy bản ghi tăng trưởng này.</Note>
   return (
     <div className="flex flex-col gap-3">
+      {sourceId == null && <>
       <div className={cardCls}>
         <Info
           cols={2}
@@ -34,7 +40,8 @@ export default function GrowthTechnicianTab({ cattleCode }: { cattleCode: string
         <GrowthChart points={data.chart} height={150} />
         <p className="m-0 text-[10px] text-muted">● cân thực tế   ○ ước tính</p>
       </div>
-      <h3 className={heading}>Lịch sử đo</h3>
+      </>}
+      <h3 className={heading}>{sourceId == null ? 'Lịch sử đo' : 'Bản ghi tăng trưởng'}</h3>
       {history.length === 0 && <p className="m-0 text-xs text-muted">Chưa có lần đo nào.</p>}
       {history.map((r) => (
         <div key={r.id} className={cardCls}>

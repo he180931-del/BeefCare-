@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter, useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader, Pagination, Segmented, inputCls } from '../../../components/ui'
-import { useDemoState } from '../../../hooks/useDemoState'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, Icon, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { useDemoState } from '../../../demo/demoModules'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { supportApi } from '../api/supportApi'
 import { errText, useActor, useFlash } from '../components/common'
 import { ResultForm } from '../components/ResultForm'
@@ -138,7 +137,7 @@ function Detail({ ir, simulateFailure, onDone, onSaveFailed }: { ir: InternalVie
         ['Phạm vi', `Chỉ trong quyền ${ROLE_LABEL[ir.targetRole]}`],
       ]} />
       <div className="rounded-md bg-page px-3 py-2.5 text-xs text-[#183528]"><b className="mb-1 block font-semibold">Câu hỏi từ nhân viên hỗ trợ</b>{ir.question}</div>
-      <h3 className="m-0 text-sm font-semibold text-ink">Kết quả nội bộ (đã làm sạch)</h3>
+      <h3 className="m-0 text-sm font-semibold text-ink">Kết quả nội bộ</h3>
       {ir.status === 'OPEN' ? (
         <ResultForm ir={ir} me={me} simulateFailure={simulateFailure} onDone={onDone} onSaveFailed={onSaveFailed} />
       ) : (

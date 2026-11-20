@@ -1,11 +1,16 @@
-import { asRecord, asRows, backendFarmId, backendMode, backendTransport, numberValue, textValue, type BackendMode, type BackendTransport } from '../../../api/backendTransport'
-import { backendPending } from '../../../api/backendPending'
-import { platformServiceDemoStore, type PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { activeFarmId } from '../../../app/session/currentFarm'
+import { backendMode, type BackendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { backendPending } from '../../../shared/api/backendPending'
+import type { PlatformServiceDemoStore } from '../data/platformServiceDemoStore'
 import { lastVnDay, vnDateOf } from '../domain/dates'
 import type {
   ChangeFarmCommand, ChangeOptions, EvidenceFilters, FarmFilters, FarmListResult, FarmOverview, FarmServicePreview, LockCommand, PaymentFilters,
   ReturnCommand, ReviewCommand, ServiceStatus, SourcePayment, SubscriptionDetail, SubscriptionFilters, SubscriptionPage, SubscriptionRow, PeriodState, PeriodView, TermYears, UnlockCommand,
 } from '../types'
+import { demo } from '../../../demo/demoModules'
+import { lazyObject } from '../../../shared/lib/lazyObject'
 
 const STATUSES: readonly ServiceStatus[] = ['ACTIVE', 'PENDING_PAYMENT', 'EXPIRED', 'SUSPENDED']
 const status = (value: unknown): ServiceStatus => {
@@ -102,7 +107,7 @@ function sourcePayment(value: unknown): SourcePayment {
   const p = asRecord(value)
   if (!isId(p.id) || !isId(p.farmId) || typeof p.farmName !== 'string' || typeof p.quoteRef !== 'string'
     || ![1, 2, 3].includes(p.termYears as number) || typeof p.amount !== 'number' || !Number.isSafeInteger(p.amount) || p.amount <= 0
-    || !['PENDING', 'PAID', 'EXPIRED'].includes(p.state as string) || !isInstant(p.requestedAt) || !isInstant(p.expiresAt)
+    || !['PENDING', 'PAID', 'EXPIRED', 'CANCELLED'].includes(p.state as string) || !isInstant(p.requestedAt) || !isInstant(p.expiresAt)
     || !nullableInstant(p.purchasedStart) || !nullableInstant(p.purchasedEnd) || !nullableString(p.receiptCode)
     || !nullableString(p.requestedByEmail) || !isId(p.priceVersionId)) throw invalidSubscription()
   return {
@@ -114,7 +119,7 @@ function sourcePayment(value: unknown): SourcePayment {
   }
 }
 
-export function createPlatformServiceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: PlatformServiceDemoStore }) {
+export function createPlatformServiceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: PlatformServiceDemoStore }) {
   void farmId
   // UC4 has a backend adapter; reconciliation commands and prices remain separate scopes.
   const requireLocal = () => { if (mode === 'backend') throw backendPending('dịch vụ trang trại và thanh toán') }
@@ -123,14 +128,23 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
     return farmOverview(await transport.command(`/api/platform/farms/${id}/${action}`, cmd, key ? { method: 'POST', key } : { method: 'POST' }))
   }
   return {
-    // GET /api/platform/farms (UC-FE02-04); at most 100 rows, the screen has no paging.
+    /** Bản mô phỏng không có API đọc thanh toán: SCR-62 dùng bàn đối soát trên dữ liệu mẫu thay cho màn đọc từ máy chủ. */
+    demoReconciliation: mode !== 'backend',
+    // GET /api/platform/farms (UC-FE02-04): 20 rows a page (Table III-1); the export reads pages of up to 100.
     async listFarms(filters: FarmFilters = {}): Promise<FarmListResult> {
-      if (mode !== 'backend') return store.listFarms(filters)
+      const page = Math.max(0, Math.trunc(filters.page ?? 0))
+      const size = Math.min(100, Math.max(1, Math.trunc(filters.size ?? 20)))
+      if (mode !== 'backend') {
+        // The demo store returns every matching farm; page it the same way as the server.
+        const all = await store.listFarms(filters)
+        return { ...all, items: all.items.slice(page * size, page * size + size) }
+      }
       const query = new URLSearchParams()
       if (filters.q?.trim()) query.set('q', filters.q.trim())
       if (filters.status) query.set('status', filters.status)
       if (filters.sort) query.set('sort', filters.sort)
-      query.set('size', '100')
+      query.set('page', String(page))
+      query.set('size', String(size))
       return farmList(await transport.get(`/api/platform/farms?${query}`))
     },
     // GET /api/platform/farms/{farmId} (popup of UC-FE02-05)
@@ -210,4 +224,4 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
   }
 }
 export type PlatformServiceApi = ReturnType<typeof createPlatformServiceApi>
-export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: platformServiceDemoStore })
+export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.platformService.platformServiceDemoStore) })

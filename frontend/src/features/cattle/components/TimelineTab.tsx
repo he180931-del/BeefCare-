@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Checkbox, ErrorBlock, Foot, LoadingBlock, Note } from '../../../components/ui'
-import Modal from '../../../components/Modal'
-import { listCattleTimeline } from '../../../api/cattleApi'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
-import { TIMELINE_FILTERS } from '../../../api/cattleTimeline'
+import { Button, Checkbox, ErrorBlock, Foot, LoadingBlock, Modal, Note } from '../../../shared/ui'
+import { listCattleTimeline } from '../api/cattleApi'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { canRecordCare } from '../../authorization'
+import { useSession } from '../../../app/session/sessionContext'
+import { TIMELINE_FILTERS } from '../api/cattleTimeline'
 import { Chip, Panel, Seg } from './parts'
 import TimelineCorrectionDialog, { hasTimelineCorrection } from './TimelineCorrectionDialog'
 import type { CowSeed } from '../../../data/cowsData'
-import type { CattleEvent } from '../../../types'
+import type { CattleEvent } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')
 
@@ -58,18 +58,20 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
   const events = cattleId != null && query.data?.showCorrections === showCorrections ? query.data.events : cow.events
   const groups = timelineGroups(events, cat, showCorrections)
   const code = encodeURIComponent(cow.code)
-  const mayCorrect = (e: CattleEvent) => role === 'MANAGER' && cow.status === 'ACTIVE' &&
+  // R-16-07, D41: Chủ trại và Quản lý sửa / hủy từ dòng thời gian.
+  const mayCorrect = (e: CattleEvent) => canRecordCare(role) && cow.status === 'ACTIVE' &&
     e.correctable && !e.openDenied && e.tab && e.sourceId != null &&
     (cattleId == null || (e.accessFromBackend && (e.tab === 'growth' || hasTimelineCorrection(e))))
   const sourceLink = (e: CattleEvent, edit = false) => {
     const params = new URLSearchParams({ tab: e.tab ?? '' })
     if (e.sourceId != null) params.set('r', String(e.sourceId))
     if (e.sourceType) params.set('type', e.sourceType)
+    if (e.healthCaseId != null) params.set('case', String(e.healthCaseId))
     if (edit) {
       params.set('m', 'correct')
       params.set('from', 'timeline')
     }
-    return `/cattle/${code}?${params}`
+    return `${role === 'TECHNICIAN' ? '/kt/dan-bo' : '/cattle'}/${code}?${params}`
   }
 
   const openSource = (e: CattleEvent) => {
@@ -78,7 +80,7 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
     if (e.voucher) return nav(e.voucher.kind === 'entry' ? `/herd-entry/${encodeURIComponent(e.voucher.code)}` : `/herd-exit/${encodeURIComponent(e.voucher.code)}`)
     if (e.cat === 'entryExit') return setDenied('Bạn không có quyền xem chi tiết này.')
     if (e.tab === undefined) return setDenied('Bạn không có quyền xem chi tiết này.')
-    if (e.tab === 'growth' && role !== 'TECHNICIAN' && e.sourceId != null) return nav(sourceLink(e))
+    if (e.sourceId != null && ['growth', 'vaccine', 'health', 'repro'].includes(e.tab)) return nav(sourceLink(e))
     setSelected(e)
   }
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Refresh the embedded, offline API reference; review state lives separately in the HTML.
 Run from any directory: python docs/tools/generate_api_catalog.py
 Mappings are candidates, never acceptance evidence. No network or backend execution.

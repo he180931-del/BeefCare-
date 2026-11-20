@@ -1,3 +1,4 @@
+import { toFarmLocal } from '../../../shared/lib/date/farmTime'
 import type { FeedGroup } from '../types'
 
 /** Short group names as shown in the stock, catalogue and receipt frames. */
@@ -19,11 +20,11 @@ export const formatMoney = (value: number) => nf(0).format(Math.round(value))
 export const formatVnd = (value: number) => `${formatMoney(value)} đ`
 
 export function formatDate(iso: string | null | undefined) {
-  const match = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const match = toFarmLocal(iso).match(/^(\d{4})-(\d{2})-(\d{2})/)
   return match ? `${match[3]}/${match[2]}/${match[1]}` : iso ?? ''
 }
 export function formatShortDate(iso: string) {
-  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const match = toFarmLocal(iso).match(/^(\d{4})-(\d{2})-(\d{2})/)
   return match ? `${match[3]}/${match[2]}` : iso
 }
 

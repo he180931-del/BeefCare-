@@ -32,7 +32,7 @@ public class CattleTimelineService {
     public List<Event> timeline(Long farmId,Long cattleId,String category,boolean showCorrections){
         FarmContext ctx=access.require(farmId,FarmAction.VIEW_CATTLE);Cattle cattle=em.find(Cattle.class,cattleId);
         if(cattle==null||!farmId.equals(cattle.getFarm().getId()))throw DomainException.notFound(MessageCodes.COM_08);
-        ZoneId zone=ZoneId.of(cattle.getFarm().getTimeZone());List<Event> events=new ArrayList<>();
+        ZoneId zone=FarmTimeZones.OFFSET;List<Event> events=new ArrayList<>();
         for(HerdEntry e:rows("select e from HerdEntry e where e.cattle.id=:c",HerdEntry.class,cattleId)){
             Map<String,Object> details=values("source",e.getSource(),"weight",e.getEntryWeightKg(),"basis",e.getWeightBasis());
             if(ctx.role()!=FarmRole.TECHNICIAN){details.put("voucherId",e.getVoucher().getId());details.put("voucherCode",e.getVoucher().getCode());}

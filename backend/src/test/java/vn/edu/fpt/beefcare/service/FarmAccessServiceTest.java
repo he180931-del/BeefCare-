@@ -32,20 +32,20 @@ class FarmAccessServiceTest extends DomainTestSupport {
         Set<FarmRole> all = EnumSet.of(FarmRole.OWNER, FarmRole.MANAGER, FarmRole.TECHNICIAN);
         Set<FarmRole> ownerManager = EnumSet.of(FarmRole.OWNER, FarmRole.MANAGER);
         Set<FarmRole> ownerOnly = EnumSet.of(FarmRole.OWNER);
-        Set<FarmRole> managerOnly = EnumSet.of(FarmRole.MANAGER);
         MATRIX.put(FarmAction.VIEW_FARM_INFORMATION, ownerOnly);
         MATRIX.put(FarmAction.MANAGE_FARM_INFORMATION, ownerOnly);
         MATRIX.put(FarmAction.SELECT_FARM, all); // UC-FE02-02: every member; only the Owner while not ACTIVE (below)
+        MATRIX.put(FarmAction.VIEW_MEMBERS, ownerManager); // SCR-13, Table III-2: Technician "—"; Owner also while not ACTIVE (D29)
         MATRIX.put(FarmAction.VIEW_CATALOGUES, all);
         MATRIX.put(FarmAction.VIEW_CATTLE, all);
         MATRIX.put(FarmAction.MANAGE_CATTLE, ownerManager);
-        MATRIX.put(FarmAction.MANAGE_GROWTH, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_GROWTH, ownerManager); // D41: the Owner records care like a Manager
         MATRIX.put(FarmAction.MANAGE_CATALOGUES, ownerManager);
         MATRIX.put(FarmAction.MANAGE_CATTLE_PHOTOS, ownerManager);
         MATRIX.put(FarmAction.VIEW_HEALTH, all);
-        MATRIX.put(FarmAction.MANAGE_HEALTH, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_HEALTH, ownerManager); // D41
         MATRIX.put(FarmAction.VIEW_REPRODUCTION, all);
-        MATRIX.put(FarmAction.MANAGE_REPRODUCTION, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_REPRODUCTION, ownerManager); // D41
         MATRIX.put(FarmAction.VIEW_CARE_CATALOGUES, all);
         MATRIX.put(FarmAction.MANAGE_CARE_CATALOGUES, ownerManager);
         MATRIX.put(FarmAction.VIEW_PENS, all); // view pens, headcount, pen history: technician read-only
@@ -63,7 +63,7 @@ class FarmAccessServiceTest extends DomainTestSupport {
         MATRIX.put(FarmAction.VIEW_FEED, all);
         MATRIX.put(FarmAction.VIEW_FEED_STOCK, ownerManager);
         MATRIX.put(FarmAction.MANAGE_FEED, ownerManager);
-        MATRIX.put(FarmAction.MANAGE_FEEDING, managerOnly);
+        MATRIX.put(FarmAction.MANAGE_FEEDING, ownerManager); // D41
         MATRIX.put(FarmAction.VIEW_ANNOUNCEMENTS, all);
         MATRIX.put(FarmAction.MANAGE_ANNOUNCEMENTS, ownerManager);
         MATRIX.put(FarmAction.VIEW_REPORTS, ownerManager);
@@ -156,7 +156,8 @@ class FarmAccessServiceTest extends DomainTestSupport {
                 if (
                     action == FarmAction.VIEW_FARM_INFORMATION ||
                     action == FarmAction.MANAGE_FARM_INFORMATION ||
-                    action == FarmAction.SELECT_FARM
+                    action == FarmAction.SELECT_FARM ||
+                    action == FarmAction.VIEW_MEMBERS // GBR-14 read exception supporting deactivation (D29)
                 ) {
                     assertThat(access.require(farm.getId(), action).farm().getId()).isEqualTo(farm.getId());
                 } else if (MATRIX.get(action).contains(FarmRole.OWNER)) {
@@ -189,6 +190,19 @@ class FarmAccessServiceTest extends DomainTestSupport {
         }
         actAs(memberWithRole(farm, FarmRole.OWNER));
         assertThat(access.require(farm.getId(), FarmAction.SELECT_FARM).role()).isEqualTo(FarmRole.OWNER);
+    }
+
+    /** UC-FE03-05 (D29, GBR-14): only the Owner keeps the member list of a farm that is not ACTIVE; a Manager gets COM-12. */
+    @Test
+    void onlyTheOwnerReadsTheMembersOfAFarmThatIsNotActive() {
+        Farm farm = farm("EXPIRED");
+        actAs(memberWithRole(farm, FarmRole.MANAGER));
+        assertThatThrownBy(() -> access.require(farm.getId(), FarmAction.VIEW_MEMBERS))
+            .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getCode()).isEqualTo(MessageCodes.COM_12));
+        actAs(memberWithRole(farm, FarmRole.TECHNICIAN));
+        assertForbidden(() -> access.require(farm.getId(), FarmAction.VIEW_MEMBERS));
+        actAs(memberWithRole(farm, FarmRole.OWNER));
+        assertThat(access.require(farm.getId(), FarmAction.VIEW_MEMBERS).role()).isEqualTo(FarmRole.OWNER);
     }
 
     @Test

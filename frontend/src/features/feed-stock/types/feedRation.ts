@@ -10,11 +10,15 @@ export type FeedRationComponent = {
   session3Kg: number
   dailyKg: number
   estimatedDailyCost: number | null
+  /** Backend projection exposes only the no-stock flag to the read-only technician view. */
+  outOfStock?: boolean
 }
 
 export type FeedRation = {
   id: number
   rationCode: string
+  /** Persisted optimistic concurrency token; distinct from the business versionNo. */
+  version: number
   versionNo: number
   name: string
   herdGroup: string
@@ -23,7 +27,7 @@ export type FeedRation = {
   effectiveTo: string | null
   status: string
   sessionsPerDay: number
-  /** Available in the local demo; current backend RationView does not return configured times yet. */
+  /** Configured session times, returned by backend RationView and local demo. */
   sessionTimes?: string[]
   penIds: number[]
   components: FeedRationComponent[]
@@ -54,6 +58,8 @@ export type SaveFeedRationInput = {
   sessionTimes: string[]
   penIds: number[]
   components: FeedRationDraftComponentInput[]
+  /** Latest version number the editor was based on; absent for a new ration code. */
+  baseVersion?: number
   /** Local demo: id of a scheduled version this save replaces (it is cancelled in the same step). */
   replacesId?: number
 }
@@ -63,9 +69,9 @@ export type FeedRationDemoStore = {
   get: (id: string) => Promise<FeedRation>
   saveVersion: (input: SaveFeedRationInput, currentStock: readonly FeedStockRow[]) => Promise<FeedRation>
   /** SRS GBR-101: cancel a version that has not taken effect yet; the previous version stays effective. */
-  cancelVersion: (id: number) => Promise<FeedRation>
+  cancelVersion: (id: number, versionNo: number, version: number) => Promise<FeedRation>
   /** SRS UC-FE23-06 AF2: stop an effective ration from a date tomorrow or later. */
-  stop: (id: number, endDate: string) => Promise<FeedRation>
+  stop: (id: number, endDate: string, version: number) => Promise<FeedRation>
   reset: () => Promise<void>
 }
 

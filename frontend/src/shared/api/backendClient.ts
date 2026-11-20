@@ -1,0 +1,141 @@
+/** HTTP transport for the real backend. Existing localStorage prototype adapters stay separate. */
+type ErrorBody = {
+  message?: string
+  detail?: string
+  title?: string
+  code?: string
+  errorKey?: string
+  params?: Record<string, unknown>
+  fieldErrors?: Array<{ field: string; message: string }>
+  violations?: Array<{ field?: string; propertyPath?: string; message?: string }>
+}
+
+const errorBody = (value: unknown): ErrorBody => typeof value === 'object' && value !== null ? value as ErrorBody : {}
+
+export class BackendError extends Error {
+  readonly status: number
+  readonly code: string | null
+  readonly params: Record<string, unknown>
+  readonly fieldErrors: Array<{ field: string; message: string }>
+  readonly violations: Array<{ field?: string; propertyPath?: string; message?: string }>
+
+  constructor(status: number, value: unknown = {}) {
+    const body = errorBody(value)
+    super(body.message || body.detail || body.title || `HTTP ${status}`)
+    this.name = 'BackendError'
+    this.status = status
+    this.code = body.code || body.errorKey || null
+    this.params = body.params || {}
+    this.fieldErrors = body.fieldErrors || []
+    this.violations = body.violations || []
+  }
+}
+
+/**
+ * A farm-scoped request made before this tab entered a farm (UC-FE02-02). It is never sent and never guessed: there is
+ * no default farm to send it to.
+ */
+export class NoActiveFarmError extends Error {
+  constructor() {
+    super('Tab này chưa vào trại nào. Mở trang Chọn trại để vào trại làm việc.')
+    this.name = 'NoActiveFarmError'
+  }
+}
+
+/**
+ * The path `farmPath` builds without a farm. Building it does not throw, so an API module that prepares its paths when
+ * it loads still loads; `request` refuses it before anything is sent.
+ */
+const NO_FARM_PATH = '/api/farms/-'
+
+type ClientOptions = { baseUrl?: string; fetchImpl?: typeof fetch; newKey?: () => string; onUnauthorized?: () => void }
+type RequestOptions = { method?: string; body?: unknown; key?: string; signal?: AbortSignal; headers?: Record<string, string> }
+type CsrfBody = { token: string; headerName?: string }
+
+export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch, newKey = () => globalThis.crypto.randomUUID(), onUnauthorized }: ClientOptions = {}) {
+  let csrfToken: string | undefined
+  let csrfHeader = 'X-XSRF-TOKEN'
+  const pathUrl = (path: string): string => {
+    if (!path.startsWith('/api/')) throw new TypeError('Use a relative /api/ path')
+    return `${baseUrl.replace(/\/$/, '')}${path}`
+  }
+  async function responseBody(response: Response): Promise<unknown> {
+    if (response.status === 204) return undefined
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('json')) return response.json()
+    if (!response.ok) return { message: await response.text() }
+    return response.blob()
+  }
+  async function getCsrf(): Promise<CsrfBody> {
+    const response = await fetchImpl(pathUrl('/api/csrf'), { credentials: 'include', headers: { Accept: 'application/json' } })
+    const body = await responseBody(response)
+    if (!response.ok) throw new BackendError(response.status, body)
+    const csrf = errorBody(body) as ErrorBody & Partial<CsrfBody>
+    if (!csrf.token) throw new Error('Backend did not return a CSRF token')
+    csrfToken = csrf.token
+    csrfHeader = csrf.headerName || 'X-XSRF-TOKEN'
+    return { token: csrf.token, headerName: csrf.headerName }
+  }
+  async function request<T = unknown>(path: string, { method = 'GET', body, key, signal, headers = {} }: RequestOptions = {}, retried = false): Promise<T> {
+    if (path.startsWith(NO_FARM_PATH)) throw new NoActiveFarmError()
+    const changing = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())
+    if (changing && !csrfToken) await getCsrf()
+    const multipart = typeof FormData !== 'undefined' && body instanceof FormData
+    const actualHeaders: Record<string, string> = { Accept: 'application/json', ...headers }
+    if (body !== undefined && !multipart) actualHeaders['Content-Type'] = 'application/json'
+    if (changing && csrfToken) actualHeaders[csrfHeader] = csrfToken
+    if (key) actualHeaders['Idempotency-Key'] = key
+    const response = await fetchImpl(pathUrl(path), {
+      method, credentials: 'include', headers: actualHeaders,
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body), signal,
+    })
+    const result = await responseBody(response)
+    if (response.status === 401) onUnauthorized?.()
+    // A 403 without a domain code is the CSRF filter: the token belongs to an earlier session (another client in the
+    // same tab signed out / in). Refresh it and resend once with the same Idempotency-Key; a domain 403 (MSG-COM-01) stays.
+    if (response.status === 403 && changing && !retried && !new BackendError(403, result).code) {
+      csrfToken = undefined
+      await getCsrf()
+      return request<T>(path, { method, body, key, signal, headers }, true)
+    }
+    if (!response.ok) throw new BackendError(response.status, result)
+    return result as T
+  }
+  return {
+    request,
+    getCsrf,
+    newCommandKey: newKey,
+    async login(username: string, password: string, rememberMe = false) {
+      await getCsrf()
+      await request('/api/authenticate', { method: 'POST', body: { username, password, rememberMe } })
+      csrfToken = undefined
+      await getCsrf()
+    },
+    async logout() {
+      try {
+        await request('/api/logout', { method: 'POST' })
+      } catch (error) {
+        if (!(error instanceof BackendError && error.status === 401)) throw error
+      } finally {
+        csrfToken = undefined
+      }
+    },
+    async isAuthenticated() {
+      try {
+        await request('/api/authenticate')
+        return true
+      } catch (error) {
+        if (error instanceof BackendError && error.status === 401) return false
+        throw error
+      }
+    },
+    get: <T = unknown>(path: string, options?: RequestOptions) => request<T>(path, options),
+    // Keep this key for a retry after a timeout; generate a new key only for a new user action.
+    command: <T = unknown>(path: string, body: unknown, { method = 'POST', key = newKey(), ...options }: RequestOptions = {}) => request<T>(path, { ...options, method, body, key }),
+    farmPath: (farmId: string | number | null, suffix = '') => {
+      if (farmId == null) return `${NO_FARM_PATH}${suffix}`
+      if (!/^\d+$/.test(String(farmId))) throw new TypeError('farmId must be the backend numeric ID')
+      return `/api/farms/${farmId}${suffix}`
+    },
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { validateEntryForPost } from '../../../src/features/herd-entry/entryValidation'
+import { validateEntryForPost } from '../../../src/features/herd-entry/validation/entryValidation'
 
 const cow = {
   tag: 'TEST-001', name: '', breed: 'Lai Sind', sex: 'Cái', dob: '', dobAccuracy: 'Không rõ',

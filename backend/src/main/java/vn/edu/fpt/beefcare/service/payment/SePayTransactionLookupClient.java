@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,12 +13,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import vn.edu.fpt.beefcare.service.FarmTimeZones;
 import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.SePayPayload;
 
 /** Read-only SePay API lookup. A token is required at call time and is never logged or returned. */
 @Component
 public class SePayTransactionLookupClient {
-    private static final DateTimeFormatter SEPAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+    private static final DateTimeFormatter SEPAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(FarmTimeZones.OFFSET);
     private final RestClient client;
     private final String apiToken;
 

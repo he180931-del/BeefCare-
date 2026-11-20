@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BackendError } from '../../../src/api/backendClient'
+import { BackendError } from '../../../src/shared/api/backendClient'
 import { farmWorkspaceError } from '../../../src/features/farm-workspace/components/WorkspaceUi'
 
 describe('farm workspace server validation messages', () => {

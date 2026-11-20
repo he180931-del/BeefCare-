@@ -1,4 +1,6 @@
-import { asRecord, asRows, numberValue, textValue, type BackendTransport } from '../../../api/backendTransport'
+import { toBusinessTime } from '../../../shared/lib/date/farmTime'
+import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
+import { type BackendTransport } from '../../../shared/api/backendTransport'
 import type { BankTransactionChoice, CashReport, Farm, FinanceRecord, Receipt, ReceiptFilters, RecordFields, RecordFilters, ReportCriteria, ReportLine, ReportSummary, ScopeTotals } from '../types'
 
 const decimal = (value: unknown, fallback = 0): number => {
@@ -15,14 +17,14 @@ const query = (values: Record<string, unknown>) => {
   return params.toString()
 }
 
-const mapFarm = (value: unknown): Farm => { const row = asRecord(value); return { id: numberValue(row.id), name: textValue(row.name, '—') } }
+const mapFarm = (value: unknown): Farm => { const row = asRecord(value); return { id: numberValue(row.farmId ?? row.id), name: textValue(row.farmName ?? row.name, '—') } }
 
 const mapBank = (value: unknown): BankTransactionChoice => {
   const row = asRecord(value)
   return {
     sourceReference: textValue(row.sourceReference), transactionId: numberValue(row.transactionId), amount: decimal(row.amount),
     evidenceId: row.evidenceId == null ? undefined : numberValue(row.evidenceId),
-    bankPaidAt: iso(row.bankPaidAt), direction: textValue(row.direction) === 'OUT' ? 'OUT' : 'IN', bank: textValue(row.bank),
+    bankPaidAt: toBusinessTime(row.bankPaidAt), direction: textValue(row.direction) === 'OUT' ? 'OUT' : 'IN', bank: textValue(row.bank),
     paymentReference: textValue(row.paymentReference), claimedBy: row.claimedBy == null ? undefined : textValue(row.claimedBy), evidenceCode: textValue(row.sourceReference),
   }
 }
@@ -37,11 +39,11 @@ const mapRecord = (value: unknown, history: Record<string, unknown>[] = []): Fin
     farmName: textValue(row.farmName), documentNumber: textValue(row.documentNumber), description: textValue(row.description),
     sourceType: backendSource.toUpperCase() === 'BANK_TRANSACTION' || backendSource.toUpperCase() === 'BANK' ? 'BANK' : 'MANUAL',
     sourceReference: textValue(row.sourceReference), sourceEvidenceId: row.sourceEvidenceId == null ? null : numberValue(row.sourceEvidenceId),
-    state: textValue(row.state, 'DRAFT') === 'DISCARDED' ? 'VOID' : textValue(row.state, 'DRAFT') as FinanceRecord['state'], version: numberValue(row.version),
-    createdAt: iso(row.createdAt), createdBy: textValue(row.createdBy), postedAt: row.postedAt == null ? undefined : iso(row.postedAt), postedBy: row.postedBy == null ? undefined : textValue(row.postedBy),
-    voidedAt: row.voidedAt == null ? undefined : iso(row.voidedAt), voidedBy: row.voidedBy == null ? undefined : textValue(row.voidedBy), voidReason: row.voidReason == null ? undefined : textValue(row.voidReason),
+    state: textValue(row.state, 'DRAFT') as FinanceRecord['state'], version: numberValue(row.version),
+    createdAt: toBusinessTime(row.createdAt), createdBy: textValue(row.createdBy), postedAt: row.postedAt == null ? undefined : toBusinessTime(row.postedAt), postedBy: row.postedBy == null ? undefined : textValue(row.postedBy),
+    voidedAt: row.voidedAt == null ? undefined : toBusinessTime(row.voidedAt), voidedBy: row.voidedBy == null ? undefined : textValue(row.voidedBy), voidReason: row.voidReason == null ? undefined : textValue(row.voidReason),
     replacementOf: row.replacementOf == null ? undefined : textValue(row.replacementOf), replacementRecordId: row.replacementRecordId == null ? undefined : numberValue(row.replacementRecordId),
-    history: history.map((item) => { const h = asRecord(item); return { id: numberValue(h.id), action: textValue(h.action), changedAt: iso(h.changedAt), actor: textValue(h.actor), reason: h.reason == null ? undefined : textValue(h.reason), detail: h.afterJson == null ? undefined : textValue(h.afterJson) } }),
+    history: history.map((item) => { const h = asRecord(item); return { id: numberValue(h.id), action: textValue(h.action), changedAt: toBusinessTime(h.changedAt), actor: textValue(h.actor), reason: h.reason == null ? undefined : textValue(h.reason), detail: h.afterJson == null ? undefined : textValue(h.afterJson) } }),
   }
 }
 
@@ -53,22 +55,31 @@ const mapReceipt = (value: unknown, detail: Record<string, unknown> = {}): Recei
   return {
     code: textValue(merged.receiptCode), paymentCode: textValue(merged.paymentCode), farmId: numberValue(merged.farmId), farmName: textValue(merged.farmName),
     termYears: Math.max(1, Math.min(3, numberValue(merged.termYears, 1))) as 1 | 2 | 3, amountVnd: decimal(merged.amount), priceVersion: extra.priceVersionId == null ? '—' : `v${numberValue(extra.priceVersionId)}`,
-    bankPaidAt: iso(merged.bankPaidAt), bankFirstSeenAt: iso(merged.bankPaidAt), confirmedAt: iso(extra.confirmedAt) || iso(merged.bankPaidAt), confirmedBy,
+    bankPaidAt: toBusinessTime(merged.bankPaidAt), bankFirstSeenAt: toBusinessTime(merged.bankPaidAt), confirmedAt: toBusinessTime(extra.confirmedAt) || toBusinessTime(merged.bankPaidAt), confirmedBy,
     periodStart: iso(extra.purchasedStart), periodEnd: iso(extra.purchasedEnd), evidenceCode: extra.evidenceId == null ? '—' : `E-${numberValue(extra.evidenceId)}`, evidenceLabel: textValue(extra.maskedTransactionId, 'Chứng từ ngân hàng'),
   }
 }
 
 const mapSummary = (value: unknown): ReportSummary => {
   const row = asRecord(value)
-  const scopeRows: ScopeTotals[] = asRows(row.scopes).map((item) => ({ scope: textValue(item.scope, 'OTHER') as ScopeTotals['scope'], farmId: item.farmId == null ? null : numberValue(item.farmId), farmName: textValue(item.farmName), subscriptionReceipts: decimal(item.subscriptionReceipts), otherIncome: decimal(item.otherIncome), expense: decimal(item.expense) }))
-  return { subscriptionReceipts: decimal(row.subscriptionReceipts), otherIncome: decimal(row.otherIncome), totalIncome: decimal(row.totalIncome), totalExpense: decimal(row.totalExpense), netCashFlow: decimal(row.netCashFlow), scopes: scopeRows, dailyIncome: asRows(row.dailyIncome).map((item) => ({ date: iso(item.date), income: decimal(item.income) })), note: textValue(row.note, 'Dòng tiền, không phải lợi nhuận kế toán.') }
+  const scopeRows: ScopeTotals[] = asRows(row.scopes).map((item) => {
+    const scope = textValue(item.scope, 'OTHER') as ScopeTotals['scope']
+    const rawName = textValue(item.farmName)
+    return { scope, farmId: item.farmId == null ? null : numberValue(item.farmId), farmName: scope === 'PLATFORM' ? 'Toàn nền tảng' : scope === 'GENERAL' ? 'Chung nền tảng' : rawName, subscriptionReceipts: decimal(item.subscriptionReceipts), otherIncome: decimal(item.otherIncome), expense: decimal(item.expense) }
+  })
+  const rawNote = textValue(row.note)
+  return { subscriptionReceipts: decimal(row.subscriptionReceipts), otherIncome: decimal(row.otherIncome), totalIncome: decimal(row.totalIncome), totalExpense: decimal(row.totalExpense), netCashFlow: decimal(row.netCashFlow), scopes: scopeRows, dailyIncome: asRows(row.dailyIncome).map((item) => ({ date: iso(item.date), income: decimal(item.income) })), note: rawNote && !/^Cash flow only/i.test(rawNote) ? rawNote : 'Dòng tiền, không phải lợi nhuận theo luật định.' }
 }
 
-const mapLine = (value: unknown): ReportLine => { const row = asRecord(value); return { sourceType: textValue(row.sourceType) === 'SUBSCRIPTION_RECEIPT' ? 'RECEIPT' : 'MANUAL', code: textValue(row.code), scope: textValue(row.scope, 'GENERAL') as ReportLine['scope'], farmName: textValue(row.farmName), direction: textValue(row.direction) === 'EXPENSE' || textValue(row.direction) === 'OUT' ? 'OUT' : 'IN', category: textValue(row.category), amountVnd: decimal(row.amount ?? row.amountVnd), cashDate: iso(row.cashDate), status: textValue(row.status), reference: textValue(row.sourceReference ?? row.reference) } }
+const mapLine = (value: unknown): ReportLine => {
+  const row = asRecord(value)
+  const scope = textValue(row.scope, 'GENERAL') as ReportLine['scope']
+  return { sourceType: textValue(row.sourceType) === 'SUBSCRIPTION_RECEIPT' ? 'RECEIPT' : 'MANUAL', code: textValue(row.code), scope, farmName: scope === 'GENERAL' ? 'Chung nền tảng' : textValue(row.farmName), direction: textValue(row.direction) === 'EXPENSE' || textValue(row.direction) === 'OUT' ? 'OUT' : 'IN', category: textValue(row.category), amountVnd: decimal(row.amount ?? row.amountVnd), cashDate: iso(row.cashDate), status: textValue(row.status), reference: textValue(row.sourceReference ?? row.reference), sourceVersion: row.sourceVersion == null ? null : numberValue(row.sourceVersion) }
+}
 
 const mapReport = (value: unknown): CashReport => {
   const row = asRecord(value)
-  return { id: numberValue(row.id), code: textValue(row.code, `SNAP-${numberValue(row.id)}`), expired: row.expired === true, criteria: (() => { const c = asRecord(row.criteria); const source = textValue(c.sourceFilter, 'ALL'); return { dateFrom: iso(c.dateFrom), dateTo: iso(c.dateTo), farmId: c.farmId == null ? null : numberValue(c.farmId), sourceFilter: (source === 'ALL' ? 'BOTH' : source.replace('_ONLY', '')) as ReportCriteria['sourceFilter'] } })(), summary: mapSummary(row.summary), lines: asRows(row.lines).map(mapLine), generatedAt: iso(row.generatedAt), expiresAt: iso(row.expiresAt) }
+  return { id: numberValue(row.id), code: textValue(row.code, `SNAP-${numberValue(row.id)}`), expired: row.expired === true, criteria: (() => { const c = asRecord(row.criteria); const source = textValue(c.sourceFilter, 'ALL'); return { dateFrom: iso(c.dateFrom), dateTo: iso(c.dateTo), farmId: c.farmId == null ? null : numberValue(c.farmId), sourceFilter: (source === 'ALL' ? 'BOTH' : source.replace('_ONLY', '')) as ReportCriteria['sourceFilter'] } })(), summary: mapSummary(row.summary), lines: asRows(row.lines).map(mapLine), generatedAt: toBusinessTime(row.generatedAt), expiresAt: toBusinessTime(row.expiresAt) }
 }
 
 export function createFinanceBackendApi(transport: BackendTransport) {
@@ -91,7 +102,7 @@ export function createFinanceBackendApi(transport: BackendTransport) {
   const recordCommand = (input: RecordFields, sourceEvidenceId?: number | null) => ({ fields: fields(input), sourceEvidenceId: sourceEvidenceId ?? input.sourceEvidenceId ?? null })
   const mapRecordResponse = (value: unknown) => mapRecord(value)
   return {
-    async listFarms() { const page = await getPage('/api/platform/farms?page=0&size=100'); return asRows(page.content).map(mapFarm) },
+    async listFarms() { const page = await getPage('/api/platform/farms?page=0&size=100'); return asRows(page.items).map(mapFarm) },
     async listCategories() { const row = asRecord(await transport.get(`${root}/categories`)); return { income: strings(row.income), expense: strings(row.expense) } },
     async listReceipts(filters: ReceiptFilters = {}) { const suffix = query({ q: filters.search, farmId: filters.farmId, bankFrom: filters.from, bankTo: filters.to, page: (filters.page ?? 1) - 1, size: filters.size ?? 5 }); const page = await getPage(`/api/platform/finance/receipts?${suffix}`); return { rows: asRows(page.items).map((item) => mapReceipt(item)), total: numberValue(page.total), page: numberValue(page.page) + 1, pageCount: Math.max(1, Math.ceil(numberValue(page.total) / numberValue(page.size, filters.size ?? 5))), totalAmount: decimal(page.totalAmount) } },
     async getReceipt(code: string) { const page = await getPage(`/api/platform/finance/receipts?q=${encodeURIComponent(code)}&page=0&size=100`); const row = asRows(page.items).find((item) => textValue(item.receiptCode) === code); if (!row) throw new Error('Không tìm thấy biên nhận.'); const detail = asRecord(await transport.get(`/api/platform/finance/receipts/${numberValue(row.paymentId)}`)); return mapReceipt(detail.receipt ?? detail, detail) },
@@ -115,7 +126,12 @@ export function createFinanceBackendApi(transport: BackendTransport) {
     async currentReport() { return mapReport(await transport.get(`${root}/reports/latest`)) },
     async getReport(id: number) { return mapReport(await transport.get(`${root}/reports/${id}`)) },
     async runReport(criteria: ReportCriteria) { const sourceFilter = criteria.sourceFilter === 'RECEIPTS' ? 'RECEIPTS_ONLY' : criteria.sourceFilter === 'MANUAL' ? 'MANUAL_ONLY' : 'ALL'; return mapReport(await transport.command(`${root}/reports`, { ...criteria, sourceFilter })) },
-    async exportXlsx(id: number) { const value = await transport.get(`${root}/reports/${id}/xlsx`); return { fileName: `beefcare-cash-report-${id}.xlsx`, blob: value } },
+    async exportXlsx(id: number) {
+      const value = await transport.get(`${root}/reports/${id}/xlsx`, {
+        headers: { Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      })
+      return { fileName: `beefcare-cash-report-${id}.xlsx`, blob: value }
+    },
   }
 }
 

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, ErrorBlock, LoadingBlock } from '../../../components/ui'
-import { useModalParam } from '../../../components/Modal'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, ErrorBlock, LoadingBlock } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { loadProfile } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useSession } from '../../../app/session/sessionContext'
 import CowHeader, { COW_TABS } from '../components/CowHeader'
 import OverviewTab from '../components/OverviewTab'
 import TimelineTab from '../components/TimelineTab'
@@ -62,9 +62,11 @@ export default function CowProfile() {
       <>
         <CowHeader cow={cow} tab={tab} canWrite={canWrite} onTab={onTab} onOpenModal={openModal} />
         {tabViews[tab] ?? <ComingSoon label={tabLabel} />}
-        {canWrite && modal === 'update' && <UpdateModal cow={cow} owner={session?.role === 'OWNER'} onClose={closeModal} onSaved={saved} />}
+        {canWrite && (modal === 'update' || modal === 'photo') && (
+          <UpdateModal key={modal} cow={cow} owner={session?.role === 'OWNER'} initialTab={modal === 'photo' ? 'identity' : 'stage'} onClose={closeModal} onSaved={saved} />
+        )}
         {canWrite && modal === 'qr-reissue' && <QrReissueModal cow={cow} onClose={closeModal} onSaved={saved} />}
-        {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onSaved={saved} />}
+        {canWrite && modal === 'move' && <MoveModal cow={cow} barns={barns} onClose={closeModal} onReload={saved} onSaved={saved} />}
         {canWrite && modal === 'record-edit' && cow.importRecord && <RecordEditModal cow={cow} record={cow.importRecord} onClose={closeModal} onSaved={saved} />}
       </>
     )

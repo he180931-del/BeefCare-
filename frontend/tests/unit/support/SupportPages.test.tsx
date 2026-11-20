@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { SessionContext } from '../../../src/features/authorization/sessionContext'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import { supportApi } from '../../../src/features/support/api/supportApi'
 import { supportDemoStore } from '../../../src/features/support/data/supportDemoStore'
 import SupportRoutes from '../../../src/features/support/pages/SupportRoutes'
@@ -87,7 +87,7 @@ describe('SCR-65 gửi yêu cầu', () => {
   it('phạm vi tài khoản không gắn trại', async () => {
     const user = userEvent.setup()
     renderAt('/ho-tro/moi')
-    await user.click(await screen.findByText('Vấn đề tài khoản (không gắn trại)'))
+    await user.click(await screen.findByRole('button', { name: 'Không gắn trại' }))
     expect(screen.getByLabelText('Trang trại liên quan', { selector: 'select' })).toBeDisabled()
   })
 })

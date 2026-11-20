@@ -1,26 +1,21 @@
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { Button, FilterSelect, Foot, Note, PageHeader, Segmented, Table, Td, Th, Tile, inputCls } from '../../../components/ui'
-import { Icon } from '../../../components/Icon'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, FilterSelect, Foot, Icon, inputCls, Note, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import { herdEntryApi, listPendingEntryCalves } from '../api/index'
-import { useQuery } from '../../../hooks/useApi'
-import { SOURCE_FILTERS } from '../data/importsData'
-import { dmy, dm, kg, money } from '../../../data/format'
-import type { HerdEntry } from '../../../types'
-import { userFacingError } from '../../../api/userFacingError'
+import { herdEntryApi, listEntrySourceFilters, listPendingEntryCalves } from '../api/index'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { dm, dmy, kg, money } from '../../../shared/lib/format'
+import type { HerdEntry } from '../types'
+import { userFacingError } from '../../../shared/api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 // Keep the initial filter aligned with the actual current date.  The previous
 // fixed 2026-10-22 end date made a newly posted voucher disappear from the
 // list when the entry date was today (and made it look as if saving failed).
-const localToday = () => {
-  const date = new Date()
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-const DEFAULT_TO = localToday()
+const DEFAULT_TO = businessDate()
 const DEFAULT_FROM = `${DEFAULT_TO.slice(0, 4)}-01-01`
 
 export default function ImportList() {
@@ -35,6 +30,7 @@ export default function ImportList() {
     to,
   }), [type, from, to])
   const { data: pending } = useQuery(() => listPendingEntryCalves(), [])
+  const { data: sourceFilters } = useQuery(() => listEntrySourceFilters(), [])
   const view = data
   const imports = view?.rows ?? []
   const tiles = view?.tiles ?? {}
@@ -109,7 +105,7 @@ export default function ImportList() {
           </FilterSelect>
           <FilterSelect className="w-[200px]" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Nguồn">
             <option value="">Nguồn: Tất cả</option>
-            {SOURCE_FILTERS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {(sourceFilters ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
           </FilterSelect>
         </div>
 

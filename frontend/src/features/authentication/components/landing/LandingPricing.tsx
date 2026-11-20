@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Badge, Button } from '../../../../components/ui'
-import { PLAN_YEARS } from '../../data/landingContent'
+import { Badge, Button } from '../../../../shared/ui'
+import { PLAN_YEARS } from '../../constants/landingContent'
 import { AUTH_PATH } from '../../domain/authErrors'
 import { container } from './LandingHeader'
-import type { PriceState, Prices } from './usePublicLanding'
+import type { PriceState, Prices } from '../../hooks/usePublicLanding'
 
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(Math.round(value))} đ`
 const priceOf = (prices: Prices, years: 1 | 2 | 3) => years === 1 ? prices.price1y : years === 2 ? prices.price2y : prices.price3y

@@ -2,8 +2,10 @@ package vn.edu.fpt.beefcare.service.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import vn.edu.fpt.beefcare.domain.enumeration.PaymentMethod;
 import vn.edu.fpt.beefcare.domain.enumeration.PaymentState;
@@ -66,21 +68,39 @@ public final class FeedManagementDtos {
     public record SaveRationRequest(@Size(max=30) String rationCode,@NotBlank @Size(max=100) String name,
         @Size(max=30) String herdGroup,@Size(max=500) String basis,@NotNull LocalDate effectiveFrom,
         @NotNull @Min(1) @Max(3) Integer sessionsPerDay,@NotEmpty List<@NotBlank String> sessionTimes,
-        @NotEmpty List<@NotNull Long> penIds,@NotEmpty List<@Valid RationComponentRequest> components) {}
+        @NotEmpty List<@NotNull Long> penIds,@NotEmpty List<@Valid RationComponentRequest> components,Integer baseVersion) {
+        public SaveRationRequest(String rationCode,String name,String herdGroup,String basis,LocalDate effectiveFrom,
+            Integer sessionsPerDay,List<String> sessionTimes,List<Long> penIds,List<RationComponentRequest> components) {
+            this(rationCode,name,herdGroup,basis,effectiveFrom,sessionsPerDay,sessionTimes,penIds,components,null);
+        }
+    }
+    /** `version` is the optimistic concurrency token; versionNo remains the public ration revision number. */
+    public record RationVersionRequest(@Schema(requiredMode=Schema.RequiredMode.REQUIRED,description="Persisted row concurrency token, distinct from versionNo") @NotNull @Min(0) Integer version) {}
+    public record StopRationRequest(@NotNull LocalDate endDate,@Schema(requiredMode=Schema.RequiredMode.REQUIRED,description="Persisted row concurrency token, distinct from versionNo") @NotNull @Min(0) Integer version) {}
     public record RationComponentView(Long feedItemId,String feedCode,String feedName,BigDecimal session1Kg,
-        BigDecimal session2Kg,BigDecimal session3Kg,BigDecimal dailyKg,BigDecimal estimatedDailyCost) {}
+        BigDecimal session2Kg,BigDecimal session3Kg,BigDecimal dailyKg,BigDecimal estimatedDailyCost,boolean outOfStock) {}
     public record RationView(Long id,String rationCode,Integer versionNo,String name,String herdGroup,String basis,
-        LocalDate effectiveFrom,LocalDate effectiveTo,String status,Integer sessionsPerDay,List<Long> penIds,
+        LocalDate effectiveFrom,LocalDate effectiveTo,String status,@Schema(requiredMode=Schema.RequiredMode.REQUIRED,description="Persisted row concurrency token; versionNo is the business ration version") Integer version,Integer sessionsPerDay,List<String> sessionTimes,List<Long> penIds,
         List<RationComponentView> components) {}
     public record FeedingLineRequest(@NotNull Long feedItemId,@NotNull @DecimalMin("0.0") BigDecimal actualKg) {}
     public record RecordFeedingRequest(@NotNull Long penId,@NotNull LocalDate feedingDate,@NotNull @Min(1) @Max(3) Integer sessionNo,
-        @Size(max=100) String fedBy,@NotEmpty List<@Valid FeedingLineRequest> lines) {}
-    public record FeedingLineView(Long feedItemId,String feedCode,BigDecimal plannedKg,BigDecimal actualKg,BigDecimal unitCost,Long totalCost) {}
-    public record FeedingView(Long id,Long penId,LocalDate feedingDate,Integer sessionNo,Integer headCount,String status,
-        Integer version,Long rationVersionId,List<FeedingLineView> lines) {}
-    public record FeedingVoidRequest(@NotBlank @Size(max=500) String reason,@NotNull Integer expectedVersion) {}
-    public record FeedingCorrectionRequest(@NotBlank @Size(max=500) String reason,@NotNull Integer expectedVersion,
-        @Size(max=100) String fedBy,@NotEmpty List<@Valid FeedingLineRequest> lines) {}
+        LocalTime feedingTime,@Size(max=100) String fedBy,@DecimalMin("0.0") @Digits(integer=11,fraction=1) BigDecimal leftoverKg,
+        @Size(max=500) String note,@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least one feeding line") @NotEmpty List<@Valid FeedingLineRequest> lines) {}
+    public record FeedingPlanRationView(Long id,String rationCode,Integer versionNo,String name,Integer sessionsPerDay) {}
+    public record FeedingPlanLineView(Long feedItemId,String feedCode,String feedName,BigDecimal kgPerHead,
+        BigDecimal plannedKg,BigDecimal stockKg,boolean available) {}
+    public record FeedingPlanView(Long penId,String penCode,LocalDate feedingDate,Integer sessionNo,LocalTime feedingTime,
+        FeedingPlanRationView ration,Integer headCount,List<FeedingPlanLineView> lines,Long existingRecordId) {}
+    public record FeedingLineView(Long feedItemId,String feedCode,String feedName,BigDecimal plannedKg,BigDecimal actualKg,
+        boolean inRation,BigDecimal unitCost,Long totalCost) {}
+    public record FeedingRevisionView(String action,String reason,java.time.Instant changedAt,String actorName) {}
+    public record FeedingView(Long id,Long penId,String penCode,String penName,LocalDate feedingDate,Integer sessionNo,
+        LocalTime time,Integer headCount,String status,Integer version,Long rationVersionId,String rationCode,Integer rationVersion,
+        String fedBy,String recordedBy,java.time.Instant recordedAt,BigDecimal leftoverKg,String note,String voidReason,
+        BigDecimal plannedTotalKg,BigDecimal actualTotalKg,List<FeedingLineView> lines,List<FeedingRevisionView> revisions) {}
+    public record FeedingVoidRequest(@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least five non-whitespace characters") @NotBlank @Size(min=5,max=500) String reason,@NotNull Integer expectedVersion) {}
+    public record FeedingCorrectionRequest(@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least five non-whitespace characters") @NotBlank @Size(min=5,max=500) String reason,@NotNull Integer expectedVersion,
+        @Size(max=100) String fedBy,@Schema(requiredMode=Schema.RequiredMode.REQUIRED, description="At least one feeding line") @NotEmpty List<@Valid FeedingLineRequest> lines) {}
     public record FeedReminderView(String ruleType,Long sourceId,Long feedItemId,Long penId,String code,String title,
         java.time.Instant dueTime,String status) {}
     public record ConsumptionRow(Long penId,String penCode,String herdGroup,Long feedItemId,String feedCode,

@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
-import vn.edu.fpt.beefcare.domain.AuditLog;
 import vn.edu.fpt.beefcare.domain.BankTransferEvidence;
 import vn.edu.fpt.beefcare.domain.CashReportSnapshot;
 import vn.edu.fpt.beefcare.domain.Farm;
@@ -34,7 +33,6 @@ import vn.edu.fpt.beefcare.domain.ManualFinanceHistory;
 import vn.edu.fpt.beefcare.domain.ManualFinanceRecord;
 import vn.edu.fpt.beefcare.domain.Payment;
 import vn.edu.fpt.beefcare.domain.enumeration.PlatformRole;
-import vn.edu.fpt.beefcare.repository.AuditLogRepository;
 import vn.edu.fpt.beefcare.repository.BankTransferEvidenceRepository;
 import vn.edu.fpt.beefcare.repository.CashReportSnapshotRepository;
 import vn.edu.fpt.beefcare.repository.FarmRepository;
@@ -47,7 +45,7 @@ import vn.edu.fpt.beefcare.service.payment.SePayWebhookService.EvidenceDTO;
 /** PM-only finance records and cash snapshots; all state changes are audited and version checked. */
 @Service
 public class PlatformFinanceService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId BUSINESS_ZONE = FarmTimeZones.OFFSET;
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     /** SRS scheduled cleanup (daily 02:00, step 2): cash report snapshots are available for 30 days. */
     private static final long SNAPSHOT_RETENTION_SECONDS = 30L * 24 * 3600;
@@ -62,7 +60,7 @@ public class PlatformFinanceService {
     private final BankTransferEvidenceRepository evidence;
     private final PaymentRepository payments;
     private final FarmRepository farms;
-    private final AuditLogRepository auditLogs;
+    private final AuditService audit;
     private final JdbcTemplate jdbc;
     private final FarmClock clock;
     private final ObjectMapper mapper;
@@ -78,12 +76,12 @@ public class PlatformFinanceService {
         BankTransferEvidenceRepository evidence,
         PaymentRepository payments,
         FarmRepository farms,
-        AuditLogRepository auditLogs,
+        AuditService audit,
         JdbcTemplate jdbc,
         FarmClock clock,
         ObjectMapper mapper,
-        @Value("${beefcare.finance.income-categories:OTHER_INCOME,REFUND,INTEREST}") List<String> incomeCategories,
-        @Value("${beefcare.finance.expense-categories:OPERATIONS,MARKETING,SOFTWARE,BANK_FEE,OTHER_EXPENSE}") List<String> expenseCategories
+        @Value("${beefcare.finance.income-categories:IMPLEMENTATION_SUPPORT,USER_TRAINING,COST_REIMBURSEMENT,OTHER_INCOME}") List<String> incomeCategories,
+        @Value("${beefcare.finance.expense-categories:SERVER_STORAGE,DOMAIN_SOFTWARE,EMAIL_NOTIFICATIONS,OTHER_EXPENSE}") List<String> expenseCategories
     ) {
         this.access = access;
         this.records = records;
@@ -93,7 +91,7 @@ public class PlatformFinanceService {
         this.evidence = evidence;
         this.payments = payments;
         this.farms = farms;
-        this.auditLogs = auditLogs;
+        this.audit = audit;
         this.jdbc = jdbc;
         this.clock = clock;
         this.mapper = mapper;
@@ -139,6 +137,7 @@ public class PlatformFinanceService {
         access.requireRole(PlatformRole.PM);
         return evidence.findAllByPaymentIsNullOrderByBankPaidAtDescIdDesc().stream()
             .filter(e -> StringUtils.hasText(e.getAuthOutcome()) && "VERIFIED".equalsIgnoreCase(e.getAuthOutcome()))
+            .filter(e -> !StringUtils.hasText(e.getQuoteRef()))
             .filter(e -> !claims.existsById(sourceReference(e)))
             .map(e -> new BankTransactionChoice(sourceReference(e), e.getProviderTxnId(), e.getId(), e.getAmount(), e.getBankPaidAt(), e.getTransferDirection(), e.getGateway(), e.getQuoteRef()))
             .toList();
@@ -182,8 +181,13 @@ public class PlatformFinanceService {
         String oldReference = record.getSourceReference();
         applyFields(record, request.fields());
         resolveSource(record, request.sourceEvidenceId());
+        if (oldReference != null && !oldReference.equals(record.getSourceReference())) {
+            claims.findById(oldReference)
+                .filter(claim -> claim.getRecord().getId().equals(record.getId()))
+                .ifPresent(claims::delete);
+            claims.flush();
+        }
         claimSource(record);
-        if (oldReference != null && !oldReference.equals(record.getSourceReference())) claims.findById(oldReference).ifPresent(claims::delete);
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
         writeHistory(record, actor, "EDIT", before, dto(record), null);
@@ -227,7 +231,7 @@ public class PlatformFinanceService {
         record.setUpdatedAt(clock.now());
         records.saveAndFlush(record);
         writeHistory(record, actor, "POST", before, dto(record), null);
-        audit(actor, "FINANCE_RECORD_POST", record, before.state(), record.getState());
+        audit(actor, "FINANCE_RECORD_POSTED", record, before.state(), record.getState());
         return dto(record);
     }
 
@@ -248,7 +252,7 @@ public class PlatformFinanceService {
         records.saveAndFlush(record);
         claims.findFirstByRecord_Id(id).ifPresent(claims::delete);
         writeHistory(record, actor, "VOID", before, dto(record), request.reason().trim());
-        audit(actor, "FINANCE_RECORD_VOID", record, before.state(), record.getState());
+        audit(actor, "FINANCE_RECORD_VOIDED", record, before.state(), record.getState());
         return dto(record);
     }
 
@@ -371,7 +375,7 @@ public class PlatformFinanceService {
             .filter(e -> selectedFarm == null || selectedFarm.getId().equals(e.getPayment().getSubscription().getFarm().getId()))
             .forEach(e -> {
                 Payment p = e.getPayment(); Farm farm = p.getSubscription().getFarm();
-                lines.add(new ReportLine("SUBSCRIPTION_RECEIPT", p.getReceiptCode(), "FARM", farm.getId(), farm.getName(), "INCOME", "SUBSCRIPTION", "Gói " + p.getDurationYears() + " năm", p.getAmountVnd(), e.getBankPaidAt().atZone(BUSINESS_ZONE).toLocalDate(), "PAID", sourceReference(e)));
+                lines.add(new ReportLine("SUBSCRIPTION_RECEIPT", p.getReceiptCode(), "FARM", farm.getId(), farm.getName(), "INCOME", "SUBSCRIPTION", "Gói " + p.getDurationYears() + " năm", p.getAmountVnd(), e.getBankPaidAt().atZone(BUSINESS_ZONE).toLocalDate(), "PAID", sourceReference(e), e.getVersion()));
             });
     }
 
@@ -379,7 +383,7 @@ public class PlatformFinanceService {
         records.findAll().stream()
             .filter(r -> "POSTED".equalsIgnoreCase(r.getState()) && inRange(r.getOccurredOn(), from, to))
             .filter(r -> selectedFarm == null ? true : r.getFarm() != null && selectedFarm.getId().equals(r.getFarm().getId()))
-            .forEach(r -> lines.add(new ReportLine("MANUAL_FINANCE", r.getRecordCode(), r.getScope(), r.getFarm() == null ? null : r.getFarm().getId(), r.getFarm() == null ? "General platform" : r.getFarm().getName(), r.getType(), r.getCategory(), r.getDescription(), r.getAmountVnd(), r.getOccurredOn(), r.getState(), r.getSourceReference())));
+            .forEach(r -> lines.add(new ReportLine("MANUAL_FINANCE", r.getRecordCode(), r.getScope(), r.getFarm() == null ? null : r.getFarm().getId(), r.getFarm() == null ? "Chung nền tảng" : r.getFarm().getName(), r.getType(), r.getCategory(), r.getDescription(), r.getAmountVnd(), r.getOccurredOn(), r.getState(), r.getSourceReference(), r.getVersion())));
     }
 
     private ReportSummary summarize(List<ReportLine> rows) {
@@ -398,12 +402,12 @@ public class PlatformFinanceService {
             }
         }
         BigDecimal income = receiptIncome.add(otherIncome);
-        ScopeTotals platform = new ScopeTotals("PLATFORM", null, "Platform total", receiptIncome, otherIncome, expense);
+        ScopeTotals platform = new ScopeTotals("PLATFORM", null, "Toàn nền tảng", receiptIncome, otherIncome, expense);
         scopes.put("PLATFORM", platform);
         Map<LocalDate, BigDecimal> daily = new java.util.TreeMap<>();
         rows.stream().filter(row -> "INCOME".equals(row.direction())).forEach(row -> daily.merge(row.cashDate(), row.amount(), BigDecimal::add));
         List<DailyTotals> dailyIncome = daily.entrySet().stream().map(e -> new DailyTotals(e.getKey(), e.getValue())).toList();
-        return new ReportSummary(receiptIncome, otherIncome, income, expense, income.subtract(expense), List.copyOf(scopes.values()), dailyIncome, "Cash flow only; not statutory profit.");
+        return new ReportSummary(receiptIncome, otherIncome, income, expense, income.subtract(expense), List.copyOf(scopes.values()), dailyIncome, "Dòng tiền, không phải lợi nhuận theo luật định.");
     }
 
     private void validate(RecordFields f, Long sourceEvidenceId) {
@@ -510,7 +514,7 @@ public class PlatformFinanceService {
     }
 
     private void audit(vn.edu.fpt.beefcare.domain.AppUser actor, String action, String targetType, Long targetId, Farm farm, Object details) {
-        AuditLog entry = new AuditLog(); entry.setActor(actor); entry.setAction(action); entry.setTargetType(targetType); entry.setTargetId(targetId); entry.setFarm(farm); entry.setLoggedAt(clock.now()); entry.setDetails(json(details)); auditLogs.save(entry);
+        audit.log(farm, actor, action, targetType, targetId, details);
     }
 
     private String nextCode() {
@@ -580,7 +584,7 @@ public class PlatformFinanceService {
     public record DailyTotals(LocalDate date, BigDecimal income) {}
     public record ReportSummary(BigDecimal subscriptionReceipts, BigDecimal otherIncome, BigDecimal totalIncome, BigDecimal totalExpense, BigDecimal netCashFlow, List<ScopeTotals> scopes, List<DailyTotals> dailyIncome, String note) {}
     public record FinanceCategories(List<String> income, List<String> expense) {}
-    public record ReportLine(String sourceType, String code, String scope, Long farmId, String farmName, String direction, String category, String description, BigDecimal amount, LocalDate cashDate, String status, String sourceReference) {}
+    public record ReportLine(String sourceType, String code, String scope, Long farmId, String farmName, String direction, String category, String description, BigDecimal amount, LocalDate cashDate, String status, String sourceReference, Long sourceVersion) {}
     public record CashReport(Long id, String code, ReportCriteria criteria, ReportSummary summary, List<ReportLine> lines, Instant generatedAt, Instant expiresAt) {}
     public record ExportSnapshot(Long id, LocalDate dateFrom, LocalDate dateTo, Instant asOf, ReportCriteria criteria, ReportSummary summary, List<ReportLine> lines) {}
 }

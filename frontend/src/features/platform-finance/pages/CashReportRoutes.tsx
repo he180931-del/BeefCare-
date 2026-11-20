@@ -1,16 +1,16 @@
-import { useState } from 'react'
-import Layout from '../../../components/Layout'
-import { Icon } from '../../../components/Icon'
-import Modal, { ModalButton, ModalFooter, useModalParam } from '../../../components/Modal'
-import { Button, Card, DateInput, ErrorBlock, FilterSelect, Foot, LoadingBlock, Metric, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { BackendError } from '../../../api/backendClient'
-import { useDemoState } from '../../../hooks/useDemoState'
-import { useQuery } from '../../../hooks/useApi'
+import { useEffect, useState } from 'react'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { Button, Card, DateInput, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Table, Td, Th } from '../../../shared/ui'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { BackendError } from '../../../shared/api/backendClient'
+import { useDemoState } from '../../../demo/demoModules'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { financeApi } from '../api/financeApi'
 import { FlashNote, RoField, useFlash } from '../components/common'
-import { IncomeChart, ScopeTable } from '../components/ReportParts'
-import { formatDate, formatDateTime, formatMoney, formatVnd, validateCriteria } from '../domain/financeRules'
+import { getPageCount, IncomeChart, paginateReportRows, REPORT_DETAIL_PAGE_SIZE, REPORT_SCOPE_PAGE_SIZE, ScopeTable } from '../components/ReportParts'
+import { categoryLabel, formatDate, formatDateTime, formatMoney, formatVnd } from '../domain/financeRules'
+import { validateCriteria } from '../validation/financeValidation'
 import type { CashReport, ReportCriteria, ScopeTotals, SourceFilter } from '../types'
 
 const TITLE = 'Báo cáo dòng tiền nền tảng'
@@ -29,22 +29,33 @@ export default function CashReportRoutes() {
   const [criteria, setCriteria] = useState<ReportCriteria>(() => financeApi.defaultReportCriteria())
   const [shown, setShown] = useState<CashReport | null>(null)
   const [focus, setFocus] = useState<ScopeTotals | null>(null)
+  const [scopePage, setScopePage] = useState(1)
+  const [detailPage, setDetailPage] = useState(1)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const farms = useQuery(() => financeApi.listFarms(), [])
   const { data, loading, error, refetch } = useQuery(() => financeApi.currentReport(), [])
 
+  const report = shown ?? data ?? emptyReport(criteria)
+  const s = report.summary
+  const setCrit = (p: Partial<ReportCriteria>) => setCriteria((c) => ({ ...c, ...p }))
+  useEffect(() => {
+    setScopePage(1)
+    setDetailPage(1)
+  }, [report.id, report.criteria.dateFrom, report.criteria.dateTo, report.criteria.farmId, report.criteria.sourceFilter])
+  useEffect(() => {
+    setScopePage((page) => Math.min(page, getPageCount(s.scopes.filter((row) => row.scope !== 'PLATFORM'), REPORT_SCOPE_PAGE_SIZE)))
+    setDetailPage((page) => Math.min(page, getPageCount(report.lines, REPORT_DETAIL_PAGE_SIZE)))
+  }, [report.id, report.lines.length, s.scopes.length])
+
   const noSnapshot = error instanceof BackendError && (error.status === 404 || error.status === 410)
   if (loading && !data && !noSnapshot) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if ((error && !noSnapshot) || (!data && !noSnapshot)) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
 
-  const report = shown ?? data ?? emptyReport(criteria)
   const hasSnapshot = report.id > 0
   const expired = report.expired || demo === 'het-han'
-  const s = report.summary
   const farmLabel = report.criteria.farmId ? farms.data?.find((f) => f.id === report.criteria.farmId)?.name ?? 'Một trại' : 'Tất cả trại'
   const dirty = JSON.stringify(criteria) !== JSON.stringify(report.criteria)
-  const setCrit = (p: Partial<ReportCriteria>) => setCriteria((c) => ({ ...c, ...p }))
 
   const run = async () => {
     const problem = validateCriteria(criteria)
@@ -119,7 +130,7 @@ export default function CashReportRoutes() {
             </ul>
           </Card>
         </div>
-        <ScopeTable scopes={s.scopes} onFarm={(row) => { setFocus(row); open('rieng-trai') }} />
+        <ScopeTable scopes={s.scopes} page={scopePage} onPageChange={setScopePage} onFarm={(row) => { setFocus(row); open('rieng-trai') }} />
         <Foot>Báo cáo dòng tiền nền tảng (PM). Báo cáo chạy trên một bản chốt dữ liệu (snapshot) để số liệu không đổi khi xem và xuất; &quot;Chạy / làm mới&quot; tạo bản chốt mới. Biểu đồ cột hiển thị thu theo ngày trong kỳ, bảng dưới chia theo phạm vi.</Foot>
       </div>
 
@@ -128,16 +139,20 @@ export default function CashReportRoutes() {
           <div className="flex flex-col gap-3">
             <RoField label="Bản chốt / thời điểm" value={snapshot} />
             <RoField label="Tiêu chí" value={`${formatDate(report.criteria.dateFrom).slice(0, 5)} – ${formatDate(report.criteria.dateTo)} · ${farmLabel} · VND · Asia/Ho_Chi_Minh`} />
-            {report.lines.length === 0 ? <Note tone="info">Chi tiết rỗng; bộ lọc và thời điểm chốt được giữ.</Note> : (
-              <div className="max-h-[320px] overflow-auto">
-                <Table stack={false}>
-                  <thead><tr><Th>Mã</Th><Th>Phạm vi</Th><Th>Danh mục</Th><Th>Số tiền</Th><Th>Ngày</Th><Th>Nguồn</Th></tr></thead>
-                  <tbody>{report.lines.map((l) => (
-                    <tr key={l.code}><Td>{l.code}</Td><Td>{l.farmName}</Td><Td>{l.category}</Td><Td><span className={l.direction === 'OUT' ? 'text-err-fg' : ''}>{l.direction === 'OUT' ? '−' : '+'}{formatVnd(l.amountVnd)}</span></Td><Td>{formatDate(l.cashDate)}</Td><Td>{l.reference}</Td></tr>
-                  ))}</tbody>
-                </Table>
-              </div>
-            )}
+            {report.lines.length === 0 ? <Note tone="info">Chi tiết rỗng; bộ lọc và thời điểm chốt được giữ.</Note> : (() => {
+              const pageData = paginateReportRows(report.lines, detailPage, REPORT_DETAIL_PAGE_SIZE)
+              return <>
+                <div>
+                  <Table stack={false}>
+                    <thead><tr><Th>Mã</Th><Th>Phạm vi</Th><Th>Danh mục</Th><Th>Số tiền</Th><Th>Ngày</Th><Th>Nguồn</Th><Th>Phiên bản nguồn</Th></tr></thead>
+                    <tbody>{pageData.rows.map((l) => (
+                      <tr key={l.code}><Td>{l.code}</Td><Td>{l.farmName}</Td><Td>{categoryLabel(l.category)}</Td><Td><span className={l.direction === 'OUT' ? 'text-err-fg' : ''}>{l.direction === 'OUT' ? '−' : '+'}{formatVnd(l.amountVnd)}</span></Td><Td>{formatDate(l.cashDate)}</Td><Td>{l.reference}</Td><Td>{l.sourceVersion == null ? '—' : `v${l.sourceVersion}`}</Td></tr>
+                    ))}</tbody>
+                  </Table>
+                </div>
+                {pageData.total > REPORT_DETAIL_PAGE_SIZE && <Pagination page={pageData.page} pageCount={pageData.pageCount} onChange={setDetailPage} summary={`Hiển thị ${(pageData.page - 1) * REPORT_DETAIL_PAGE_SIZE + 1}–${Math.min(pageData.page * REPORT_DETAIL_PAGE_SIZE, pageData.total)} / ${pageData.total} giao dịch`} />}
+              </>
+            })()}
             <Note tone="info">Các dòng là dữ liệu và phiên bản đã chốt trong bản chốt. Mở nguồn được kiểm tra quyền riêng. Biên nhận tính theo bank_paid; khoản Đã ghi sổ tính theo ngày phát sinh.</Note>
           </div>
           <ModalFooter><ModalButton onClick={close}><Icon name="arrow-left" size={16} /> Về báo cáo</ModalButton></ModalFooter>

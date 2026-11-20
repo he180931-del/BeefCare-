@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { Field, Note, Table, Textarea } from '../../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { MANAGER } from '../../../data/cowsData'
+import { Field, Modal, ModalButton, ModalFooter, Note, Table, Textarea } from '../../../shared/ui'
 import { editImportRecord, voidImportRecord } from '../api/cattleApi'
-import { useMutation } from '../../../hooks/useApi'
+import { useMutation } from '../../../shared/hooks/useMutation'
 import { Td, Th, fieldCls } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
-import type { ImportRecord } from '../../../types'
+import type { ImportRecord } from '../types'
 
 const REASON_MAX = 500
 

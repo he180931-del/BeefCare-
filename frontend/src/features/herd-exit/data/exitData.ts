@@ -7,6 +7,5 @@ export const BUYERS = [
   { id: 'b2', name: 'Lò mổ Hà Đông', phone: '0243 555 018' },
   { id: 'b3', name: 'HTX chăn nuôi Ba Vì', phone: '0243 777 009' },
 ]
-export const PAY_METHODS = ['Chuyển khoản', 'Tiền mặt']
 // Backward-compatible name; the candidate list has one source of truth.
 export { EXPORT_HERD as HERD } from './exportsData'

@@ -1,15 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import SubscriptionRoutes from '../../../src/features/subscription/pages/SubscriptionRoutes'
 import type { Payment, SubscriptionOverview } from '../../../src/features/subscription/types'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: (id: string | number, suffix = '') => `/api/farms/${id}${suffix}` }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const pending: Payment = { id: 501, quoteRef: 'BC-HISTORY', durationYears: 1, amountVnd: 1_200_000, state: 'PENDING',
   requestedAt: '2026-11-08T03:00:01Z', expiresAt: new Date(Date.now() + 86_400_000).toISOString(), priceVersionId: 7,
@@ -18,6 +22,7 @@ const paid: Payment = { ...pending, id: 502, quoteRef: 'BC-PAID', state: 'PAID',
   bankPaidAt: '2026-11-08T03:01:02Z', receivedAt: '2026-11-08T03:02:03Z', confirmedAt: '2026-11-08T03:03:04Z',
   purchasedStart: '2026-11-08T03:03:04Z', purchasedEnd: '2027-11-08T03:03:04Z' }
 const expired: Payment = { ...pending, id: 503, quoteRef: 'BC-EXPIRED', state: 'EXPIRED', expiresAt: '2026-11-09T03:00:01Z' }
+const cancelled: Payment = { ...pending, id: 504, quoteRef: 'BC-CANCELLED', state: 'CANCELLED', cancelledAt: '2026-11-08T04:05:06Z', cancelReason: 'Chọn nhầm kỳ hạn' }
 const overview: SubscriptionOverview = { farmId: 42, farmName: 'Trại lịch sử', serviceStatus: 'SUSPENDED', latestEnd: null,
   entitlementStatus: 'NONE', currentPrices: null, pendingPayment: null, renewalOpensAt: null, suspended: true,
   suspendedSince: '2026-11-09T00:00:00Z', currentPeriod: null, daysRemaining: null, futurePeriods: [], periods: [], eligibility: { ok: false, reason: 'SUSPENDED' } }
@@ -35,8 +40,8 @@ beforeEach(() => {
   http.get.mockImplementation(async (path: string) => {
     const url = new URL(path, 'http://test')
     if (url.pathname.endsWith('/subscription')) return { ...overview, farmId: Number(url.pathname.split('/')[3]) }
-    if (url.pathname.endsWith('/payments')) return pageOf([pending, paid, expired])
-    return [pending, paid, expired].find((p) => url.pathname.endsWith(`/${p.id}`))
+    if (url.pathname.endsWith('/payments')) return pageOf([pending, paid, expired, cancelled])
+    return [pending, paid, expired, cancelled].find((p) => url.pathname.endsWith(`/${p.id}`))
   })
   vi.spyOn(subscriptionDemoStore, 'listPayments').mockImplementation(() => { throw new Error('No demo fallback') })
 })
@@ -133,6 +138,23 @@ describe('UC3 backend history contract', () => {
     expect(within(expiredDetail).getAllByText('—')).toHaveLength(4)
     expect(screen.queryByRole('button', { name: 'Tạo yêu cầu mới' })).not.toBeInTheDocument()
     expect(http.command).not.toHaveBeenCalled()
+  })
+
+  it('TC-19-109: filters CANCELLED and shows the cancellation time and reason without "Mở lại"', async () => {
+    page('/goi-dich-vu/lich-su?farm=42')
+    const filter = await screen.findByRole('combobox', { name: 'Trạng thái' })
+    expect(within(filter).getByRole('option', { name: 'Đã hủy' })).toHaveValue('CANCELLED')
+    fireEvent.change(filter, { target: { value: 'CANCELLED' } })
+    await waitFor(() => expect(listCalls().some((path) => new URL(path, 'http://test').searchParams.get('status') === 'CANCELLED')).toBe(true))
+    const row = (await screen.findAllByText('BC-CANCELLED'))[0].closest('tr')!
+    expect(within(row).getByText('Đã hủy')).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: /Mở lại/ })).not.toBeInTheDocument()
+    cleanup()
+    page('/goi-dich-vu/lich-su/504?farm=42')
+    const detail = await screen.findByRole('region', { name: 'Chi tiết thanh toán' })
+    expect(within(detail).getByText('Đã hủy lúc')).toBeInTheDocument()
+    expect(within(detail).getByText('08/11/2026 11:05:06')).toBeInTheDocument()
+    expect(within(detail).getByText('Chọn nhầm kỳ hạn')).toBeInTheDocument()
   })
 
   it('reopens with the numeric id and refreshes on return while preserving the farm filters', async () => {

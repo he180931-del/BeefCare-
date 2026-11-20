@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import ExcelModal from '../../../src/features/herd-entry/components/ExcelModal'
-import { ENTRY_EXCEL_HEADERS, parseEntryExcelRows } from '../../../src/features/herd-entry/data/entryExcel'
+import { ENTRY_EXCEL_HEADERS, parseEntryExcelRows } from '../../../src/features/herd-entry/domain/entryExcel'
 
 describe('Nhập bò từ Excel', () => {
   it('cung cấp file mẫu chuẩn và control chọn tệp xlsx', () => {

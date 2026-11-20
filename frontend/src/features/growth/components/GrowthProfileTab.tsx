@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useModalParam } from '../../../components/Modal'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Info, LoadingBlock, Metric, Note, Table, Td, Th } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
-import { useSession } from '../../authorization'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Info, LoadingBlock, Metric, Note, Table, Td, Th } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useCanRecordCare } from '../../authorization'
 import { growthApi } from '../api/growthApi'
 import { fmtDate, fmtDateTime, fmtDayMonth, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
@@ -16,7 +16,7 @@ import GrowthRecordModal from './GrowthRecordModal'
 const HISTORY_ROWS = 5
 
 export default function GrowthProfileTab({ cattleCode }: { cattleCode: string }) {
-  const canWrite = (useSession()?.role ?? 'MANAGER') === 'MANAGER'
+  const canWrite = useCanRecordCare()
   const [modal, , closeModal] = useModalParam()
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useState<string | null>(null)
@@ -44,6 +44,8 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
   const recordId = params.get('r')
   const selectedRecord = recordId == null ? undefined : data.records.find((record) => String(record.id) === recordId)
   // With ?r= (e.g. opened from the timeline) only that record opens; never fall back to another one.
+  // R-08-10 / MSG-COM-17: bò trên phiếu chết / mất PENDING không ghi mới nhưng vẫn sửa / loại trừ bản ghi cũ.
+  const exitPending = data.cattle.status === 'ACTIVE' && data.cattle.exitPending === true
   const correctTarget = modal === 'correct'
     ? (params.get('r') ? data.records.find((r) => String(r.id) === params.get('r')) : data.records.find((r) => r.status === 'VALID'))
     : undefined
@@ -51,6 +53,12 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
   return (
     <div className="flex flex-col gap-4">
       {notice && <Note tone="ok">{notice}</Note>}
+      {exitPending && (
+        <Note tone="warn">
+          {`Chờ xác nhận chết / mất: ${data.cattle.code} không ghi được lần cân mới cho đến khi Chủ trại xác nhận hoặc bỏ qua phiếu xuất.`}
+          {canWrite && ' Vẫn sửa hoặc loại trừ được các bản ghi cân đã có.'}
+        </Note>
+      )}
       <Summary profile={data} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,720fr)_minmax(0,376fr)]">
         <Card title="Cân nặng theo thời gian" sub="Chỉ vẽ bản ghi hợp lệ" actions={<ChartLegend />}>
@@ -61,7 +69,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
       {!modal && recordId != null && !selectedRecord && <Note tone="warn">Không tìm thấy bản ghi tăng trưởng này.</Note>}
       <History profile={data} selectedRecord={!modal ? selectedRecord : undefined} canWrite={canWrite} onCorrect={openCorrect} />
       <Foot>Tab Tăng trưởng & BCS trong hồ sơ bò. Quản lý thấy nút Ghi nhận và cột Thao tác; Chủ trại và Kỹ thuật viên chỉ xem. ADG mỗi dòng tính từ lần cân hợp lệ trước đó; dòng đã loại trừ in xám và không tính. Dự kiến xuất bán chỉ hiện với bò Vỗ béo có mục tiêu cân xuất.</Foot>
-      {canWrite && modal === 'record' && <GrowthRecordModal cattleCode={cattleCode} onClose={closeModal} onSaved={saved} />}
+      {canWrite && !exitPending && modal === 'record' && <GrowthRecordModal cattleCode={cattleCode} onClose={closeModal} onSaved={saved} />}
       {canWrite && correctTarget && <GrowthCorrectModal key={correctTarget.id} record={correctTarget} onClose={closeAll} onSaved={saved} />}
     </div>
   )

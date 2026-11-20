@@ -1,7 +1,7 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { BackendError } from '../../../src/api/backendClient'
-import { userFacingError } from '../../../src/api/userFacingError'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { userFacingError } from '../../../src/shared/api/userFacingError'
 
 test('maps server and transport failures', () => {
   assert.match(userFacingError(new BackendError(500, { message: 'error.http.500' })), /Máy chủ đang gặp sự cố/)
@@ -20,6 +20,7 @@ test('maps access, missing data and validation failures', () => {
 })
 test('renders actionable Vietnamese field messages from Entry domain errors', () => {
   assert.equal(userFacingError(new BackendError(400, { code: 'MSG-COM-06', params: { field: 'weightBasis' }, message: 'Vui lòng nhập weightBasis.' })), 'Vui lòng nhập Cơ sở cân.')
+  assert.equal(userFacingError(new BackendError(400, { code: 'MSG-COM-06', params: { field: 'note' }, message: 'Vui lòng nhập note.' })), 'Vui lòng nhập Ghi chú.')
   assert.equal(userFacingError(new BackendError(422, { code: 'MSG-COM-10', params: { field: 'unitPrice' }, message: 'unitPrice không hợp lệ.' })), 'Đơn giá không hợp lệ.')
   assert.equal(userFacingError(new BackendError(422, { code: 'MSG-FE18-08', params: { field: 'breed' }, message: 'breed không phải là giá trị danh mục đang hoạt động.' })), 'Giống không nằm trong danh mục đang hoạt động.')
 })
@@ -38,6 +39,9 @@ test('maps pen update domain errors to actionable Vietnamese messages', () => {
     userFacingError(new BackendError(422, { code: 'MSG-FE04-03', params: { min_capacity: 4 }, message: 'error.validation' })),
     'Sức chứa phải là số nguyên tối thiểu 4.',
   )
+})
+
+test('uses a shared message for version conflicts across features', () => {
   assert.equal(
     userFacingError(new BackendError(409, { code: 'MSG-COM-05', message: 'error.validation' })),
     'Dữ liệu đã thay đổi. Vui lòng tải lại trang rồi thử lại.',

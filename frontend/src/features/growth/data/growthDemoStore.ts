@@ -1,5 +1,6 @@
 import type { CorrectGrowthCommand, GrowthCattle, GrowthFilters, GrowthFormOptions, GrowthRecord, RecordGrowthCommand } from '../types'
-import { GrowthLargeChangeError, GrowthValidationError, basisOf, largeChangeAgainst, tapeWeightKg, validWeights, validateMeasurement, validateReason } from '../domain/growthRules'
+import { GrowthLargeChangeError, GrowthValidationError, basisOf, largeChangeAgainst, tapeWeightKg, validWeights } from '../domain/growthRules'
+import { validateMeasurement, validateReason } from '../validation/growthValidation'
 import { buildHerdPage, buildProfile } from '../domain/growthSummary'
 import { GROWTH_DEMO, GROWTH_FILTER_OPTIONS, GROWTH_MEMBERS, GROWTH_NOW } from './growthMock'
 

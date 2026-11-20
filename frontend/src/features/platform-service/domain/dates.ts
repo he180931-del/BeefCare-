@@ -1,12 +1,10 @@
+import { businessDateTime, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 const pad = (n: number) => String(n).padStart(2, '0')
 
-/** Giờ Việt Nam (UTC+7) dạng yyyy-mm-ddTHH:mm:ss. */
-export function vnNow(d = new Date()) {
-  return new Date(d.getTime() + 7 * 3600_000).toISOString().slice(0, 19)
-}
+export const vnNow = businessDateTime
 export const toDate = (iso: string) => iso.slice(0, 10)
 /** yyyy-mm-dd của một thời điểm (có múi giờ, từ backend) theo giờ Việt Nam. */
-export const vnDateOf = (instant: string, minusMs = 0) => vnNow(new Date(Date.parse(instant) - minusMs)).slice(0, 10)
+export const vnDateOf = (instant: string, minusMs = 0) => vnNow(new Date(parseBusinessTime(instant) - minusMs)).slice(0, 10)
 /** Ngày cuối được phục vụ của một kỳ có mốc kết thúc không bao gồm (backend), như SCR-57 hiển thị. */
 export const lastVnDay = (instant: string) => vnDateOf(instant, 1)
 

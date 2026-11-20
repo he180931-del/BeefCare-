@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.Instant;
 import java.time.LocalDate;
 
 /**
@@ -36,10 +37,18 @@ public class FarmMembership implements Serializable {
 
     @NotNull
     @Column(name = "effective_date", nullable = false)
-    private LocalDate effectiveDate = LocalDate.now();
+    private LocalDate effectiveDate = LocalDate.now(java.time.ZoneOffset.ofHours(7));
 
     @Column(name = "change_reason", length = 500)
     private String changeReason;
+
+    /**
+     * SRS Part I §3.2 "joined time" (SCR-13 Joined, D29): set once when the membership is created, by farm registration
+     * or invitation acceptance; role changes, deactivation and reactivation never move it.
+     */
+    @NotNull
+    @Column(name = "joined_at", nullable = false, updatable = false)
+    private Instant joinedAt = Instant.now();
 
     @Version
     @Column(name = "version", nullable = false)
@@ -100,6 +109,8 @@ public class FarmMembership implements Serializable {
     public void setEffectiveDate(LocalDate effectiveDate) { this.effectiveDate = effectiveDate; }
     public String getChangeReason() { return changeReason; }
     public void setChangeReason(String changeReason) { this.changeReason = changeReason; }
+    public Instant getJoinedAt() { return joinedAt; }
+    public void setJoinedAt(Instant joinedAt) { this.joinedAt = joinedAt; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
 

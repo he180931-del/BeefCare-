@@ -1,6 +1,9 @@
-import { asRecord, backendMode, backendTransport, type BackendTransport } from '../../../api/backendTransport'
-import { BackendError } from '../../../api/backendClient'
-import { platformServiceDemoStore } from '../data/platformServiceDemoStore'
+import { parseBusinessTime, toBusinessTime } from '../../../shared/lib/date/farmTime'
+import { asRecord } from '../../../shared/api/parse'
+import { backendMode } from '../../../shared/config/runtime'
+import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
+import { BackendError } from '../../../shared/api/backendClient'
+import { demo } from '../../../demo/demoModules'
 import { fmtDateTime } from '../domain/dates'
 import type { PriceStatus } from '../types'
 
@@ -15,13 +18,12 @@ const whole = (v: unknown): v is number => typeof v === 'number' && Number.isSaf
 const instant = (v: unknown): v is string => typeof v === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v))
 const text = (v: unknown): v is string | null => v === null || typeof v === 'string'
 const nullableInstant = (v: unknown): v is string | null => v === null || instant(v)
-const priceStatus = (v: unknown): v is PriceStatus =>
-  v === 'SCHEDULED' || v === 'EFFECTIVE' || v === 'SUPERSEDED' || v === 'WITHDRAWN'
 /**
  * Stored versions only need BR-D25 positive whole VND. The 1,000–1,000,000,000 range applies to new input (validPrice);
  * a legacy version published before that rule must not make SCR-63 unreadable.
  */
 const storedPrice = (v: unknown): v is number => whole(v) && v > 0
+const priceStatus = (v: unknown): v is PriceStatus => typeof v === 'string' && ['SCHEDULED', 'EFFECTIVE', 'SUPERSEDED', 'WITHDRAWN'].includes(v)
 function price(value: unknown): PlanPrice {
   const p = asRecord(value)
   if (!whole(p.id) || p.id === 0 || !whole(p.revision) || !storedPrice(p.price1y) || !storedPrice(p.price2y) || !storedPrice(p.price3y)
@@ -41,7 +43,7 @@ function pricePage(value: unknown): PlanPricePage {
     || !instant(p.asOf) || !nullableInstant(p.nextEffectiveAt)) throw invalid()
   const current = p.current === null ? null : price(p.current)
   if (current && current.status !== 'EFFECTIVE') throw invalid()
-  return { items: p.items.map(price), total: p.total, page: p.page, size: p.size, asOf: p.asOf, current, nextEffectiveAt: p.nextEffectiveAt }
+  return { items: p.items.map(price), total: p.total, page: p.page, size: p.size, asOf: p.asOf, current, nextEffectiveAt: p.nextEffectiveAt as string | null }
 }
 export function createPlanPriceApi(transport: BackendTransport) {
   return {
@@ -70,10 +72,10 @@ export function priceError(error: unknown, action = 'công bố bảng giá') {
 }
 
 /** Explicit local demo adapter. It is never used when backend mode is selected. */
-const iso = (v: string) => new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(v) ? v : `${v}+07:00`).toISOString()
-const demo = {
+const iso = (value: string) => new Date(parseBusinessTime(value)).toISOString()
+const localPlanPriceApi = {
   async list(page = 0): Promise<PlanPricePage> {
-    const versions = (await platformServiceDemoStore.listPriceVersions()).map(p => ({ id: p.version, revision: p.withdrawn ? 1 : 0,
+    const versions = (await demo.platformService.platformServiceDemoStore.listPriceVersions()).map(p => ({ id: p.version, revision: p.withdrawn ? 1 : 0,
       price1y: p.price1y, price2y: p.price2y, price3y: p.price3y, effectiveAt: iso(p.effectiveAt), terms: p.terms || null, status: p.status,
       publishedById: null, publishedBy: p.publishedBy, publishedAt: iso(p.publishedAt), withdrawnBy: null, withdrawnAt: null, withdrawReason: p.withdrawReason }))
       .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '') || b.id - a.id)
@@ -81,12 +83,12 @@ const demo = {
       current: versions.find(v => v.status === 'EFFECTIVE') ?? null, nextEffectiveAt: versions.filter(v => v.status === 'SCHEDULED').map(v => v.effectiveAt).sort()[0] ?? null }
   },
   async publish(body: PublishPrice, _key: string) {
-    const created = await platformServiceDemoStore.publishPrice({ ...body, mode: body.applyNow ? 'NOW' : 'SCHEDULE', terms: body.terms ?? '',
-      effectiveAt: body.effectiveAt ? new Date(Date.parse(body.effectiveAt) + 7 * 3600_000).toISOString().slice(0, 19) : '' })
+    const created = await demo.platformService.platformServiceDemoStore.publishPrice({ ...body, mode: body.applyNow ? 'NOW' : 'SCHEDULE', terms: body.terms ?? '',
+      effectiveAt: toBusinessTime(body.effectiveAt) })
     return (await this.list()).items.find(v => v.id === created.version)!
   },
   async withdraw(id: number, reason: string, _revision: number, _key: string) {
-    await platformServiceDemoStore.withdrawPrice(id, reason); return (await this.list()).items.find(v => v.id === id)!
+    await demo.platformService.platformServiceDemoStore.withdrawPrice(id, reason); return (await this.list()).items.find(v => v.id === id)!
   },
 }
-export const planPriceApi = backendMode === 'backend' ? createPlanPriceApi(backendTransport) : demo
+export const planPriceApi = backendMode === 'backend' ? createPlanPriceApi(backendTransport) : localPlanPriceApi

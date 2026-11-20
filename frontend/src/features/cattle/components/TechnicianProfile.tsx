@@ -1,16 +1,16 @@
 import { useParams, useSearchParams } from 'react-router-dom'
 import TimelineTab from './TimelineTab'
-import TechnicianLayout from '../../../components/TechnicianLayout'
-import { ErrorBlock, LoadingBlock } from '../../../components/ui'
-import { Icon, type IconName } from '../../../components/Icon'
+import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
+import { ErrorBlock, Icon, type IconName, LoadingBlock } from '../../../shared/ui'
 import { loadProfile } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { GrowthTechnicianTab } from '../../growth'
 import { VaccinationTechnicianTab } from '../../vaccination'
 import { HealthTechnicianTab } from '../../health'
 import { ReproductionTechnicianTab } from '../../reproduction'
 import { Chip, Fields, Panel, chipIcon } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
+import CowPhoto from './CowPhoto'
 
 const TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['', 'Tổng quan', 'id'],
@@ -66,7 +66,7 @@ export default function TechnicianProfile() {
   } : {}
 
   return (
-    <TechnicianLayout title={cow?.code ?? code} sub={sub} back="/kt/dan-bo">
+    <TechnicianLayout title={cow?.code ?? code} sub={sub} back="/kt/dan-bo" actions={cow && <CowPhoto key={cow.code} code={cow.code} photoUrl={cow.photoUrl} />}>
       {loading && !cow && <LoadingBlock />}
       {!cow && !loading && <ErrorBlock message={`Không tải được hồ sơ bò ${code}.`} onRetry={refetch} />}
       {cow && (

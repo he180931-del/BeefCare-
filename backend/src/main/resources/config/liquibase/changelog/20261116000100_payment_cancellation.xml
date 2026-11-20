@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261116000100-payment-cancellation" author="beefcare">
+        <!-- D38 (FE-19 Q11): the Owner cancels an unexpired PENDING request that has not received a transfer. The three
+             values are written once with state CANCELLED; cancelled_at also closes the request's bank-time window (GBR-72).
+             Existing rows were never cancelled, so all three stay null. -->
+        <addColumn tableName="payment">
+            <column name="cancelled_at" type="${datetimeType}"/>
+            <column name="cancelled_by_id" type="bigint"/>
+            <column name="cancel_reason" type="varchar(1000)"/>
+        </addColumn>
+        <addForeignKeyConstraint baseColumnNames="cancelled_by_id"
+                                 baseTableName="payment"
+                                 constraintName="fk_payment__cancelled_by_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="app_user"/>
+    </changeSet>
+</databaseChangeLog>

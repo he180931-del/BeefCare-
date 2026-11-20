@@ -105,18 +105,21 @@ test('entry editor receives canonical pen rows instead of the legacy static barn
   assert.match(entryNew, /canonicalPens/)
   assert.match(entryNew, /pens=\{importBarns\}/)
   assert.doesNotMatch(rowEdit, /IMPORT_BARNS\.map/)
-  assert.match(entryApi, /export const listEntryPens = \(\) => usingBackend \? backendApi\.listPens\(\) : pens\.list\(\)/)
+  assert.match(entryApi, /export const listEntryPens = \(\) => usingBackend \? backendApi\.listPens\(\) : demo\.entryLocal\.pens\.list\(\)/)
 })
 
 test('exit cancellation copy is derived from canonical pens', () => {
   const cancelModal = readFileSync(resolve(root, 'features/herd-exit/components/CancelModal.tsx'), 'utf8')
-  assert.match(cancelModal, /useQuery\(\(\) => pens\.list\(\)/)
+  assert.match(cancelModal, /useQuery\(\(\) => listExitCancelPens\(\)/)
+  // The demo reads its canonical pens; the real backend checks occupancy itself when cancelling.
+  const exitApi = readFileSync(resolve(root, 'features/herd-exit/api/herdExitApi.ts'), 'utf8')
+  assert.match(exitApi, /export const listExitCancelPens = \(\): Promise<Pen\[\] \| null> => \(usingBackend \? Promise\.resolve\(null\) : demo\.exitLocal\.pens\.list\(\)\)/)
   assert.match(cancelModal, /occupancyText/)
   assert.doesNotMatch(cancelModal, /43\/50|47\/50/)
 })
 
 test('exit occupancy normalizes compact and legacy barn labels to one pen code', async () => {
-  const { penCode, restoreCounts } = await import(`../../src/features/herd-exit/data/occupancy.ts?occupancy=${Date.now()}`)
+  const { penCode, restoreCounts } = await import(`../../src/features/herd-exit/domain/occupancy.ts?occupancy=${Date.now()}`)
   assert.equal(penCode('B1'), 'B1')
   assert.equal(penCode('B1 – Vỗ béo'), 'B1')
   assert.equal(penCode('B1 Vỗ béo'), 'B1')

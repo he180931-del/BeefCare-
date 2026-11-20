@@ -41,7 +41,7 @@ describe('farm-born entry draft in backend mode', () => {
     pendingResponse = pendingCalf
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '9')
+    sessionStorage.setItem('beefcare.currentFarmId', '9')
     localStorage.setItem('beefcare:latency', '0')
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url, 'http://backend.test')
@@ -116,6 +116,7 @@ describe('farm-born entry draft in backend mode', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('reopens a backend FARM_BORN draft with the pending calf selected and no seller/payment fields', async () => {

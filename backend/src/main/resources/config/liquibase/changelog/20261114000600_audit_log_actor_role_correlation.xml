@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261114000600-audit-log-actor-role-correlation" author="beefcare">
+        <!-- D34 / UC-FE17-01, SRS Part I §3.2 J: the actor's role at the time of the change and the correlation ID of the
+             request or job run. Earlier rows keep both empty: the role is not derived from today's role (it may have
+             changed) and no correlation ID was recorded. -->
+        <addColumn tableName="audit_log">
+            <column name="actor_role" type="varchar(30)"/>
+            <column name="correlation_id" type="varchar(64)"/>
+        </addColumn>
+        <!-- SCR-51 lists one date range newest first, optionally of one action. -->
+        <createIndex tableName="audit_log" indexName="ix_audit_log_logged_at">
+            <column name="logged_at"/>
+            <column name="id"/>
+        </createIndex>
+        <createIndex tableName="audit_log" indexName="ix_audit_log_action_logged_at">
+            <column name="action"/>
+            <column name="logged_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

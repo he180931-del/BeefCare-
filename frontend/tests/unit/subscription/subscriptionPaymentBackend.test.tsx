@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { BackendError } from '../../../src/api/backendClient'
-import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
+import { BackendError } from '../../../src/shared/api/backendClient'
+import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from '../../../src/app/session/currentFarm'
+import { SessionContext, type Session } from '../../../src/app/session/sessionContext'
+import { createDevTransferApi } from '../../../src/features/subscription/api/devTransferApi'
 import { createSubscriptionApi } from '../../../src/features/subscription/api/subscriptionApi'
 import { subscriptionDemoStore } from '../../../src/features/subscription/data/subscriptionDemoStore'
 import FirstSubscriptionPage from '../../../src/features/subscription/pages/FirstSubscriptionPage'
@@ -10,8 +12,12 @@ import SubscriptionRoutes from '../../../src/features/subscription/pages/Subscri
 import type { Payment, SubscriptionOverview } from '../../../src/features/subscription/types'
 
 const http = vi.hoisted(() => ({ get: vi.fn(), command: vi.fn(), farmPath: (id: string | number, suffix = '') => `/api/farms/${id}${suffix}` }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendMode: 'backend', backendFarmId: '42', backendTransport: http,
+vi.mock('../../../src/shared/config/runtime', async (original) => ({
+  ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
+}))
+vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const NOW = Date.parse('2026-11-09T03:00:00Z')
 const pending: Payment = { id: 501, quoteRef: 'BC-UC02', durationYears: 1, amountVnd: 1_200_000, state: 'PENDING',
@@ -149,6 +155,32 @@ describe('UC2 backend contract and forms', () => {
   })
 })
 
+describe('SCR-59 on phones (UI review B5)', () => {
+  const phone = () => Object.defineProperty(window, 'matchMedia', { configurable: true, value: (query: string) => ({
+    matches: query.includes('max-width'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }) })
+  let media: PropertyDescriptor | undefined
+  beforeEach(() => { media = Object.getOwnPropertyDescriptor(window, 'matchMedia'); phone() })
+  afterEach(() => { if (media) Object.defineProperty(window, 'matchMedia', media); else Reflect.deleteProperty(window, 'matchMedia') })
+
+  it('names a first purchase "Đăng ký gói" and points below to the transfer details when the QR image fails', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(NOW + 60_000) // the request is still open, so its QR is shown
+    try {
+      page()
+      expect(await screen.findByText('Đăng ký gói · Trại thật 42')).toBeInTheDocument()
+      fireEvent.error(await screen.findByAltText('Mã VietQR thanh toán'))
+      expect(screen.getByText('Không tải được mã QR. Vui lòng dùng thông tin chuyển khoản bên dưới.')).toBeInTheDocument()
+    } finally { clock.mockRestore() }
+  })
+
+  it('names a request of a farm that already bought a period "Gia hạn gói"', async () => {
+    const renewing: SubscriptionOverview = { ...overview, serviceStatus: 'ACTIVE', latestEnd: '2027-11-09T03:00:00Z',
+      periods: [{ start: '2026-11-09T03:00:00Z', end: '2027-11-09T03:00:00Z', paymentCode: 'BC-EARLIER', durationYears: 1, amountVnd: 1_200_000, status: 'CURRENT' }] }
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? renewing : pending)
+    page()
+    expect(await screen.findByText('Gia hạn gói · Trại thật 42')).toBeInTheDocument()
+  })
+})
+
 describe('five-second automatic payment status updates', () => {
   async function open(changes: Partial<Payment> = {}) {
     vi.useFakeTimers(); vi.setSystemTime(NOW)
@@ -211,5 +243,228 @@ describe('five-second automatic payment status updates', () => {
     await act(async () => { finish({ ...pending, state: 'PAID' }) })
     expect(screen.queryByText(/đã được xác nhận/)).not.toBeInTheDocument()
     expect(screen.getByText(/Yêu cầu BC-NEW/)).toBeInTheDocument()
+  })
+})
+
+describe('local transfer simulator on SCR-59 (dev only)', () => {
+  const api = () => createDevTransferApi({ mode: 'backend', transport: http, store: subscriptionDemoStore })
+
+  it('posts the amount to the dev route and tells a confirmed transfer from an unmatched one', async () => {
+    http.command.mockResolvedValueOnce({ success: true, duplicate: false, evidenceId: 9, reviewStatus: 'ACCEPTED', paymentId: 501 })
+    expect(await api().simulateTransfer(42, pending, 1_200_000)).toEqual({ confirmed: true, duplicate: false })
+    expect(http.command).toHaveBeenCalledWith('/api/dev/sepay/farms/42/payments/501/transfer', { amountVnd: 1_200_000 }, { method: 'POST' })
+    http.command.mockResolvedValueOnce({ success: true, duplicate: false, evidenceId: 10, reviewStatus: 'TO_REVIEW', paymentId: null })
+    expect(await api().simulateTransfer(42, pending, 1_000)).toEqual({ confirmed: false, duplicate: false })
+    await expect(api().simulateTransfer(42, pending, 0)).rejects.toThrow('Số tiền phải là số nguyên dương.')
+    expect(http.command).toHaveBeenCalledTimes(2)
+    expect(subscriptionDemoStore.getOverview).not.toHaveBeenCalled()
+  })
+
+  it('explains a server without the simulator instead of a generic not-found', async () => {
+    http.command.mockRejectedValueOnce(new BackendError(404, {}))
+    await expect(api().simulateTransfer(42, pending, 1_200_000)).rejects.toThrow(/chưa bật giả lập chuyển khoản/)
+  })
+
+  it('prefills the requested amount, refreshes after sending and disappears once the request is paid', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.command.mockImplementation(async () => {
+      value = { ...pending, state: 'PAID', confirmedAt: new Date(NOW + 1000).toISOString(), purchasedStart: pending.requestedAt,
+        purchasedEnd: '2027-11-09T03:00:00Z', receiptCode: 'RC-1' }
+      return { success: true, duplicate: false, evidenceId: 9, reviewStatus: 'ACCEPTED', paymentId: 501 }
+    })
+    page()
+    const amount = await screen.findByLabelText('Số tiền giả lập (VND)')
+    expect(amount).toHaveValue('1200000')
+    fireEvent.click(screen.getByRole('button', { name: 'Giả lập chuyển khoản' }))
+    expect(await screen.findByText(/Thanh toán BC-UC02 đã được xác nhận/)).toBeInTheDocument()
+    expect(http.command).toHaveBeenCalledWith('/api/dev/sepay/farms/42/payments/501/transfer', { amountVnd: 1_200_000 }, { method: 'POST' })
+    expect(screen.queryByRole('region', { name: 'Giả lập chuyển khoản' })).not.toBeInTheDocument()
+  })
+
+  it('rejects an invalid amount without calling the server', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    page()
+    const amount = await screen.findByLabelText('Số tiền giả lập (VND)')
+    fireEvent.change(amount, { target: { value: '12a' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Giả lập chuyển khoản' }))
+    expect(screen.getByText('Số tiền phải là số nguyên dương.')).toBeInTheDocument()
+    expect(http.command).not.toHaveBeenCalled()
+  })
+})
+
+describe('D38: the Owner cancels a payment request on SCR-59', () => {
+  const api = () => createSubscriptionApi({ mode: 'backend', farmId: 42, transport: http, store: subscriptionDemoStore })
+  const cancelledDto = { ...pending, state: 'CANCELLED' as const, cancelledAt: new Date(NOW + 2000).toISOString(), cancelReason: 'Chọn nhầm kỳ hạn' }
+
+  it('TC-19-107: posts the trimmed reason with the caller key and maps MSG-FE19-19 / MSG-COM-05', async () => {
+    http.command.mockResolvedValueOnce(cancelledDto)
+    expect(await api().cancelPayment(42, pending, '  Chọn nhầm kỳ hạn  ', 'key-1')).toMatchObject({ state: 'CANCELLED', cancelReason: 'Chọn nhầm kỳ hạn' })
+    expect(http.command).toHaveBeenLastCalledWith('/api/farms/42/subscription/payments/501/cancel', { reason: 'Chọn nhầm kỳ hạn' }, { key: 'key-1' })
+    http.command.mockResolvedValueOnce({ ...cancelledDto, cancelReason: null })
+    await api().cancelPayment(42, pending, '   ', 'key-2')
+    expect(http.command).toHaveBeenLastCalledWith('/api/farms/42/subscription/payments/501/cancel', {}, { key: 'key-2' })
+    http.command.mockRejectedValueOnce(new BackendError(409, { code: 'MSG-FE19-19', params: { code: 'BC-UC02', receivedAt: '2026-11-09T03:00:10Z' } }))
+    await expect(api().cancelPayment(42, pending, '', 'key-3')).rejects.toMatchObject({ code: 'CANCEL_BLOCKED', detail: { code: 'BC-UC02', receivedAt: '2026-11-09T03:00:10Z' } })
+    http.command.mockRejectedValueOnce(new BackendError(409, { code: 'MSG-COM-05' }))
+    await expect(api().cancelPayment(42, pending, '', 'key-4')).rejects.toMatchObject({ code: 'STALE' })
+    await expect(api().cancelPayment(42, pending, 'x'.repeat(1001), 'key-5')).rejects.toThrow(/tối đa 1\.000/)
+    expect(http.command).toHaveBeenCalledTimes(4)
+    expect(subscriptionDemoStore.getOverview).not.toHaveBeenCalled()
+  })
+
+  it('TC-19-107: confirms once with one key, then shows MSG-FE19-18 without QR, copy or cancel buttons', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    let finish!: (body: unknown) => void
+    http.command.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+    page()
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    let dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText(/Nếu bạn đã chuyển khoản, đừng hủy/)).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(http.command).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy yêu cầu' }))
+    dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Lý do (không bắt buộc)'), { target: { value: ' Chọn nhầm kỳ hạn ' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Hủy yêu cầu' }))
+    const busy = await within(dialog).findByRole('button', { name: 'Đang hủy…' })
+    expect(busy).toBeDisabled()
+    fireEvent.click(busy)
+    expect(http.command).toHaveBeenCalledTimes(1)
+    const [path, body, options] = http.command.mock.calls[0]
+    expect(path).toBe('/api/farms/42/subscription/payments/501/cancel')
+    expect(body).toEqual({ reason: 'Chọn nhầm kỳ hạn' })
+    expect(options.key).toMatch(/^[0-9a-f-]{36}$/)
+    value = cancelledDto
+    await act(async () => { finish(cancelledDto) })
+
+    expect(await screen.findByText(/Yêu cầu thanh toán BC-UC02 đã hủy lúc/)).toBeInTheDocument()
+    expect(screen.getByText(/Đừng chuyển khoản vào mã này/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Mã VietQR thanh toán' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Yêu cầu đã hủy').length).toBeGreaterThan(0)
+    expect(screen.queryAllByRole('button', { name: /^Sao chép/ })).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Hủy yêu cầu' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tạo yêu cầu mới' })).toBeInTheDocument()
+    // The bank step no longer says "Đang chờ" once the request is cancelled.
+    const bankStep = screen.getByText('Ngân hàng ghi nhận giao dịch').closest('tr')!
+    expect(within(bankStep).getByText('Chưa')).toBeInTheDocument()
+    expect(within(bankStep).queryByText('Đang chờ')).not.toBeInTheDocument()
+    expect(within(screen.getByText('Đã hủy yêu cầu').closest('tr')!).getByText('Xong')).toBeInTheDocument()
+  })
+
+  it('TC-19-108: no cancel button once a transfer was received; a refused cancel shows MSG-FE19-19 and reloads', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    const received = { ...pending, receivedAt: new Date(NOW - 5000).toISOString() }
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : received)
+    const view = page()
+    await screen.findByText('Ngân hàng ghi nhận giao dịch')
+    expect(screen.queryByRole('button', { name: 'Hủy yêu cầu' })).not.toBeInTheDocument()
+    view.unmount()
+
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.command.mockImplementation(async () => {
+      value = received
+      throw new BackendError(409, { code: 'MSG-FE19-19', params: { code: 'BC-UC02', receivedAt: received.receivedAt } })
+    })
+    page()
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hủy yêu cầu' }))
+    expect(await screen.findByText('Không hủy được yêu cầu')).toBeInTheDocument()
+    expect(screen.getByText(/đã nhận giao dịch ngân hàng lúc .* nên không hủy được nữa/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Hủy yêu cầu' })).not.toBeInTheDocument())
+  })
+
+  it('TC-19-108: a stale request (MSG-COM-05) closes the dialog, reloads and explains why', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(NOW)
+    let value: Payment = pending
+    http.get.mockImplementation(async (path: string) => path.endsWith('/subscription') ? overview : value)
+    http.command.mockImplementation(async () => {
+      value = { ...pending, state: 'PAID', confirmedAt: new Date(NOW).toISOString(), purchasedStart: pending.requestedAt, purchasedEnd: '2027-11-09T03:00:00Z' }
+      throw new BackendError(409, { code: 'MSG-COM-05' })
+    })
+    page()
+    fireEvent.click(await screen.findByRole('button', { name: 'Hủy yêu cầu' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hủy yêu cầu' }))
+    expect(await screen.findByText(/Yêu cầu đã thay đổi trạng thái/)).toBeInTheDocument()
+    expect(await screen.findByText(/Thanh toán BC-UC02 đã được xác nhận/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('SCR-59 "Vào trại" after the first paid period (UC-FE02-02)', () => {
+  // Farm 77 differs from the per-load fallback farm (activeFarmId 42) and from session.farmId (42): entering either of
+  // those instead of the paid farm is exactly the original bug (a fresh tab used to fall back to a configured farm).
+  const FARM = 77
+  const guide = `/goi-dich-vu/chuyen-khoan/501?farm=${FARM}`
+  const paid: Payment = { ...pending, state: 'PAID', confirmedAt: new Date(NOW + 1000).toISOString(),
+    purchasedStart: pending.requestedAt, purchasedEnd: '2027-11-09T03:00:00Z' }
+  const farmOverview = { ...overview, farmId: FARM, farmName: 'Trại mới 77' }
+  const context = { id: FARM, name: 'Trại mới 77', role: 'OWNER', serviceStatus: 'ACTIVE', version: 3 }
+  const contextOf = (path: string) => path === `/api/farms/${FARM}/context`
+  const answer = (onContext: (path: string) => Promise<unknown>) => http.get.mockImplementation((path: string) => contextOf(path)
+    ? onContext(path)
+    : path.endsWith('/context') ? Promise.reject(new Error(`unexpected farm check ${path}`))
+      : Promise.resolve(path.endsWith('/subscription') ? farmOverview : paid))
+  beforeEach(() => { clearCurrentFarmId(); vi.spyOn(Date, 'now').mockReturnValue(NOW) })
+  afterEach(() => clearCurrentFarmId())
+
+  it('enters the paid farm through the farm check, keeps it for this tab and reloads, once even when pressed twice', async () => {
+    let resolveContext!: (value: unknown) => void
+    answer(() => new Promise((resolve) => { resolveContext = resolve }))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    fireEvent.click(enter)
+    fireEvent.click(enter)
+    expect(enter).toBeDisabled()
+    await act(async () => { resolveContext(context) })
+    await waitFor(() => expect(load).toHaveBeenCalledWith('/tong-quan'))
+    expect(http.get.mock.calls.filter(([path]) => String(path).endsWith('/context'))).toEqual([[`/api/farms/${FARM}/context`]])
+    expect(readCurrentFarmId()).toBe(FARM)
+    // Not a bare route change: that kept every farm API on the configured fallback farm (403 on the new farm's pages).
+    expect(screen.queryByText('Destination')).not.toBeInTheDocument()
+  })
+
+  it('stays on the guide and explains why when the farm cannot be entered', async () => {
+    answer(() => Promise.reject(new BackendError(403, { code: 'MSG-FE02-03' })))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    fireEvent.click(enter)
+    expect(await screen.findByText('Trang trại chưa thể sử dụng dịch vụ. Chủ trại cần kiểm tra gói dịch vụ.')).toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+    expect(readCurrentFarmId()).toBeNull()
+    expect(enter).toBeEnabled()
+  })
+
+  it('says the browser blocks site data instead of leaving the button disabled when the farm cannot be kept', async () => {
+    answer(() => Promise.resolve(context))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    fireEvent.click(enter)
+    expect(await screen.findByText(/Trình duyệt đang chặn lưu dữ liệu/)).toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+    expect(enter).toBeEnabled()
+  })
+
+  it('shows the Vietnamese connection message, not the raw browser error, when the farm check cannot reach the server', async () => {
+    answer(() => Promise.reject(new TypeError('Failed to fetch')))
+    const load = vi.spyOn(pageLoader, 'load').mockImplementation(() => undefined)
+    page(guide)
+    const enter = await screen.findByRole('button', { name: 'Vào trại' })
+    fireEvent.click(enter)
+    expect(await screen.findByText(/Không thể kết nối máy chủ/)).toBeInTheDocument()
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument()
+    expect(load).not.toHaveBeenCalled()
+    expect(enter).toBeEnabled()
   })
 })

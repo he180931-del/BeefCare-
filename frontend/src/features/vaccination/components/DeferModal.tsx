@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { DateInput, ErrorBlock, Field, LoadingBlock, Note, Textarea, inputCls } from '../../../components/ui'
-import { userFacingError } from '../../../api/userFacingError'
-import { useQuery } from '../../../hooks/useApi'
+import { DateInput, ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { vaccinationApi } from '../api/vaccinationApi'
 import { fmtDate } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
@@ -49,7 +48,7 @@ function DeferForm({ dose, onClose, onSaved }: Props & { dose: DoseRow }) {
     <Modal title="Hoãn mũi tiêm" sub={`${name} · ${dose.breed} · ${dose.penName.split(' – ')[0] ? `Chuồng ${dose.penName.split(' – ')[0]}` : ''}`} width={560} onClose={onClose}>
       <Field label="Mũi tiêm" id="df-dose"><input id="df-dose" readOnly value={`${dose.scheduleName} · ${dose.doseText} · hạn ${fmtDate(dose.dueDate)}`} className={`${inputCls} bg-page text-muted`} /></Field>
       <Field label="Lý do chưa tiêm *" id="df-reason" hint="Tối đa 500 ký tự">
-        <Textarea id="df-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Textarea id="df-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         <FieldError>{errors.reason}</FieldError>
       </Field>
       <Field label="Ngày dự kiến mới" id="df-date" hint="Từ hôm nay trở đi · không bắt buộc">

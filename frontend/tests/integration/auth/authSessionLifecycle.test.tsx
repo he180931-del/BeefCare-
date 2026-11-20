@@ -3,8 +3,8 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth, type AuthClient } from '../../../src/features/authentication/AuthContext'
-import { SELECTED_FARM_STORAGE_KEY } from '../../../src/features/farm-workspace/selectedFarm'
-import { BackendError } from '../../../src/api/backendClient'
+import { CURRENT_FARM_KEY } from '../../../src/app/session/currentFarm'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 function AuthenticatedWorkspace() {
   const { authenticated, logout } = useAuth()
@@ -70,7 +70,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     expect(mockClient.login).toHaveBeenCalledWith('manager@beefcare.local', 'beefcare-dev-password', false)
 
     // 4. Thực hiện đăng xuất
-    localStorage.setItem(SELECTED_FARM_STORAGE_KEY, '42')
+    sessionStorage.setItem(CURRENT_FARM_KEY, '42')
     const logoutButton = screen.getByRole('button', { name: /đăng xuất/i })
     await user.click(logoutButton)
 
@@ -78,7 +78,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.queryByText('Trang chủ Quản lý Trại bò')).not.toBeInTheDocument()
     expect(mockClient.logout).toHaveBeenCalled()
-    expect(localStorage.getItem(SELECTED_FARM_STORAGE_KEY)).toBeNull()
+    expect(sessionStorage.getItem(CURRENT_FARM_KEY)).toBeNull()
   })
 
   it('TC-AUTH-INT02: a rejected authenticated request clears the local session and opens sign-in', async () => {
@@ -87,7 +87,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
       login: vi.fn(async () => undefined),
       logout: vi.fn(async () => undefined),
     }
-    localStorage.setItem(SELECTED_FARM_STORAGE_KEY, '42')
+    sessionStorage.setItem(CURRENT_FARM_KEY, '42')
 
     render(
       <MemoryRouter initialEntries={['/ho-tro']}>
@@ -105,7 +105,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.queryByText('Trang chủ Quản lý Trại bò')).not.toBeInTheDocument()
     expect(screen.getByTestId('current-path')).toHaveTextContent('/sign-in')
-    expect(localStorage.getItem(SELECTED_FARM_STORAGE_KEY)).toBeNull()
+    expect(sessionStorage.getItem(CURRENT_FARM_KEY)).toBeNull()
   })
 
   it('TC-AUTH-INT03: manual sign-out still opens sign-in when the server session cannot be closed', async () => {
@@ -115,7 +115,7 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
       login: vi.fn(async () => undefined),
       logout: vi.fn(async () => { throw new BackendError(403, { message: 'forbidden' }) }),
     }
-    localStorage.setItem(SELECTED_FARM_STORAGE_KEY, '42')
+    sessionStorage.setItem(CURRENT_FARM_KEY, '42')
 
     render(
       <MemoryRouter initialEntries={['/tong-quan']}>
@@ -130,6 +130,6 @@ describe('Auth Session Lifecycle Integration Tests (FE-01 & FE-02)', () => {
 
     expect(await screen.findByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.getByTestId('current-path')).toHaveTextContent('/sign-in')
-    expect(localStorage.getItem(SELECTED_FARM_STORAGE_KEY)).toBeNull()
+    expect(sessionStorage.getItem(CURRENT_FARM_KEY)).toBeNull()
   })
 })

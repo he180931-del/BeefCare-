@@ -1,23 +1,17 @@
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import Layout from '../../../components/Layout'
-import { useModalParam } from '../../../components/Modal'
-import { Icon } from '../../../components/Icon'
-import { Badge, Button, Card, DateInput, Docs, Dropzone, Field, Foot, Info, Note, PageHeader, Select, Table, Td, Th, inputCls } from '../../../components/ui'
-import { backendMode } from '../../../api/backendTransport'
-import { useQuery } from '../../../hooks/useApi'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
+import { useModalParam } from '../../../shared/hooks/useModalParam'
+import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
+import { Docs, Dropzone } from '../../../components/ui'
+import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
 import { listFeedSuppliers } from '../api/feedCatalogueApi'
-import { createAndPostFeedReceipt, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, getFeedReceipt, listFeedReceiptAttachments, listFeedReceipts, postFeedReceipt, removeFeedReceiptAttachment, saveFeedReceiptDraft, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
-import {
-  blankFeedReceiptLine,
-  initialFeedReceiptForm,
-  todayIso,
-  toFeedReceiptDraftInput,
-  validateFeedReceiptForm,
-  type FeedReceiptFormLine,
-  type FeedReceiptFormValues,
-} from '../data/feedReceiptForm'
+import { createAndPostFeedReceipt, downloadFeedReceiptAttachment, feedReceiptServerBacked, downloadFeedReceiptPaymentAttachment, getFeedReceipt, listFeedReceiptAttachments, listFeedReceipts, postFeedReceipt, removeFeedReceiptAttachment, saveFeedReceiptDraft, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
+import { blankFeedReceiptLine, initialFeedReceiptForm, minimumExpiryDate, todayIso, type FeedReceiptFormLine, type FeedReceiptFormValues } from '../domain/feedReceiptForm'
+import { toFeedReceiptDraftInput } from '../api/feedReceiptPayload'
+import { validateFeedReceiptForm } from '../validation/feedReceiptValidation'
 import { deriveFeedStockStatus } from '../domain/feedStockStatus'
 import { feedReceiptError } from '../domain/feedReceiptErrors'
 import { feedGroupLabel, formatDate, formatKg, formatMoney, formatNumber, formatVnd } from '../domain/feedLabels'
@@ -62,7 +56,7 @@ const STATUS_BADGE: Record<string, { label: string; tone: 'info' | 'ok' | 'outli
 }
 
 function nextReceiptCode(codes: readonly string[]) {
-  const prefix = `PNK-${new Date().getFullYear()}-`
+  const prefix = `PNK-${businessDate().slice(0, 4)}-`
   const max = Math.max(0, ...codes.filter((code) => code.startsWith(prefix)).map((code) => Number(code.slice(prefix.length)) || 0))
   return `${prefix}${String(max + 1).padStart(4, '0')}`
 }
@@ -80,7 +74,7 @@ export default function FeedReceiptFormPage() {
       listFeedReceipts(),
       id ? listFeedReceiptAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
     ])
-    return { stock, suppliers, receipt, attachments, nextCode: backendMode === 'backend' ? 'Tự sinh khi lưu' : nextReceiptCode(receipts.map((row) => row.code)) }
+    return { stock, suppliers, receipt, attachments, nextCode: feedReceiptServerBacked ? 'Tự sinh khi lưu' : nextReceiptCode(receipts.map((row) => row.code)) }
   }, [id, initialFeedItemId])
 
   if (formQuery.error) {
@@ -249,7 +243,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   const removeLine = (index: number) => { saveCommandKey.current = ''; pendingPost.current = null; setValues((current) => ({ ...current, lines: current.lines.filter((_, itemIndex) => itemIndex !== index) })) }
 
   const uploadPendingFiles = async (receiptId: number) => {
-    if (backendMode !== 'backend') return
+    if (!feedReceiptServerBacked) return
     for (const file of newFiles) {
       if (file.size > 10 * 1024 * 1024) throw new Error(`${file.name}: tệp vượt quá 10 MB.`)
       if (!['application/pdf', 'image/jpeg'].includes(file.type)) throw new Error(`${file.name}: chỉ chấp nhận PDF hoặc JPG.`)
@@ -429,7 +423,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
           >
             <Table scroll stack={false}>
               <thead>
-                <tr><Th>#</Th><Th>Thức ăn</Th><Th className="whitespace-nowrap">Số lô · HSD</Th><Th className="whitespace-nowrap">Số lượng</Th><Th className="whitespace-nowrap">Đơn vị</Th><Th className="whitespace-nowrap">Quy đổi</Th><Th className="whitespace-nowrap">Đơn giá</Th><Th className="whitespace-nowrap">Thành tiền</Th>{!readOnly && <Th aria-label="Xóa" />}</tr>
+                <tr><Th>#</Th><Th>Thức ăn</Th><Th className="whitespace-nowrap">Số lô · Hạn sử dụng</Th><Th className="whitespace-nowrap">Số lượng</Th><Th className="whitespace-nowrap">Đơn vị</Th><Th className="whitespace-nowrap">Quy đổi</Th><Th className="whitespace-nowrap">Đơn giá</Th><Th className="whitespace-nowrap">Thành tiền</Th>{!readOnly && <Th aria-label="Xóa" />}</tr>
               </thead>
               <tbody>
                 {values.lines.map((line, index) => {
@@ -453,11 +447,12 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                       </Td>
                       <Td className="min-w-[120px]">
                         {readOnly
-                          ? <><div className="font-medium">{line.lotNumber || '—'}</div>{line.expiryDate && <div className="whitespace-nowrap text-[11px] text-muted">HSD {formatDate(line.expiryDate)}</div>}</>
+                          ? <><div className="font-medium">{line.lotNumber || '—'}</div>{line.expiryDate && <div className="whitespace-nowrap text-[11px] text-muted">Hạn sử dụng {formatDate(line.expiryDate)}</div>}</>
                           : (
                             <div className="flex flex-col gap-1">
                               <input aria-label={`Số lô dòng ${lineNumber}`} placeholder="Số lô" maxLength={30} value={line.lotNumber} onChange={(event) => updateLine(index, 'lotNumber', event.target.value)} className="h-8 w-full rounded-lg border border-field bg-white px-2 text-xs outline-none focus:border-brand" />
-                              <input aria-label={`Hạn sử dụng dòng ${lineNumber}`} type="date" min={values.receiptDate} value={line.expiryDate} onChange={(event) => updateLine(index, 'expiryDate', event.target.value)} className="h-8 w-full rounded-lg border border-field bg-white px-2 text-xs outline-none focus:border-brand" />
+                              <input aria-label={`Hạn sử dụng dòng ${lineNumber}`} title="Hạn sử dụng phải sau ngày nhập kho" type="date" min={minimumExpiryDate(values.receiptDate)} value={line.expiryDate} onClick={(event) => event.currentTarget.showPicker?.()} onChange={(event) => updateLine(index, 'expiryDate', event.target.value)} className="h-8 w-full rounded-lg border border-field bg-white px-2 text-xs outline-none focus:border-brand" />
+                              {line.expiryDate && line.expiryDate <= values.receiptDate && <span className="text-[11px] text-err-fg">Hạn sử dụng phải sau ngày nhập kho.</span>}
                             </div>
                           )}
                       </Td>
@@ -509,7 +504,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
 
           <div className="grid items-start gap-4 md:grid-cols-2">
             <Card title="3. Chứng từ đính kèm">
-              {backendMode === 'backend' ? (
+              {feedReceiptServerBacked ? (
                 <>
                   {!readOnly && <Dropzone hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
                   <Docs docs={attachmentDocs} onView={(index) => { const item = attachments[index]; if (item) void viewAttachment(item) }} onRemove={readOnly ? undefined : (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }} />
@@ -577,7 +572,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                             {payment.attachments?.map((attachment) => <div key={attachment.id}><Button variant="link" size="sm" onClick={() => void viewPaymentAttachment(payment.id, attachment)}>{attachment.originalFilename} · {Math.ceil(attachment.fileSize / 1024)} KB</Button></div>)}
                           </Td>
                           <Td>{payment.status === 'VOIDED' ? `Đã hủy${payment.voidReason ? ` · ${payment.voidReason}` : ''}` : 'Đã ghi'}</Td>
-                          <Td>{payment.status === 'RECORDED' && backendMode === 'backend' && <Button variant="link" size="sm" onClick={() => { setPaymentToVoid(payment); openModal('huy-tra') }}>Hủy</Button>}</Td>
+                          <Td>{payment.status === 'RECORDED' && feedReceiptServerBacked && <Button variant="link" size="sm" onClick={() => { setPaymentToVoid(payment); openModal('huy-tra') }}>Hủy</Button>}</Td>
                         </tr>
                       ))}
                     </tbody>
@@ -633,7 +628,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             <div className="flex flex-col gap-2.5">
               <Button variant="primary" block disabled={saving} onClick={() => void submit(true)}>{saving ? 'Đang ghi…' : 'Lưu & cộng kho'}</Button>
               <Button block disabled={saving} onClick={() => void submit(false)}>{saving ? 'Đang lưu…' : 'Lưu nháp phiếu'}</Button>
-              {currentRecord?.status === 'DRAFT' && backendMode === 'backend'
+              {currentRecord?.status === 'DRAFT' && feedReceiptServerBacked
                 ? <Button variant="danger" block disabled={saving} onClick={() => openModal('bo-nhap')}>Bỏ nháp</Button>
                 : <Button block disabled={saving} onClick={() => navigate('/thuc-an/phieu-nhap')}>Hủy</Button>}
             </div>
@@ -668,7 +663,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
           }}
         />
       )}
-      {modal === 'bo-nhap' && currentRecord?.status === 'DRAFT' && backendMode === 'backend' && (
+      {modal === 'bo-nhap' && currentRecord?.status === 'DRAFT' && feedReceiptServerBacked && (
         <FeedReceiptDiscardDialog
           record={currentRecord}
           onClose={closeModal}

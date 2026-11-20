@@ -63,6 +63,7 @@ export interface OpenPregnancy {
   expectedDateBasis: 'CONFIRMED' | 'TENTATIVE' | 'ESTIMATED' | null
   estimatedMonths: number | null
   status: 'OPEN'
+  version?: number
 }
 
 export interface CalfOutcome {
@@ -81,6 +82,9 @@ export interface CalfOutcome {
   productionPurpose: string | null
   status?: ReproductionEventStatus
   voidReason?: string
+  /** Mã bò đã đăng ký từ bê này (backend); chế độ local dùng earTag. */
+  cattleCode?: string | null
+  version?: number
 }
 
 export interface CalvingRecord {
@@ -161,6 +165,8 @@ export type ReproductionCommand =
       signs?: string[]
       description?: string
       dataSource?: DataSource
+      /** Người dùng đã xác nhận MSG-FE11-03 (trùng trong 12 giờ). */
+      confirmDuplicate?: boolean
     }
   | {
       type: 'BREEDING'
@@ -175,6 +181,7 @@ export type ReproductionCommand =
       semenSupplier?: string
       performer?: string
       note?: string
+      confirmDuplicate?: boolean
     }
   | {
       type: 'PREGNANCY_CHECK'
@@ -228,6 +235,20 @@ export interface ReproductionRevision {
   after: Partial<ReproductionEvent | CalvingRecord>
 }
 
+
+/** Lựa chọn của các popup sinh sản và SCR-40; chế độ backend lấy từ API, chế độ local từ dữ liệu minh họa. */
+export interface ReproductionFormOptions {
+  members: Array<{ id: string; name: string; role: string }>
+  externalPeople: string[]
+  /** Bò đực ACTIVE của trại (đực giống trong trại). */
+  sires: Array<{ id: string; label: string }>
+  /** Giống: giá trị là tên giống. */
+  breeds: string[]
+  pens: Array<{ id: string; code: string; label: string }>
+  /** Mục đích nuôi: value gửi đi, type để lọc theo giới tính (SIRE chỉ đực, BREEDING chỉ cái). */
+  purposes: Array<{ value: string; type: string; label: string }>
+  healthCases: Array<{ id: string; label: string }>
+}
 
 /** One validation problem; `calf` (0-based) and `field` point at the input to mark red, none means the whole form. */
 export interface ReproductionIssue {

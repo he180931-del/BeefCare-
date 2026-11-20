@@ -1,16 +1,12 @@
-import { useState } from 'react'
-import { Field, Select, Textarea, DateInput, Note } from '../../../components/ui'
-import Modal, { ModalButton, ModalFooter } from '../../../components/Modal'
-import { STAGES, TODAY } from '../../../data/cowsData'
-import { LIFE_STAGE_OPTIONS } from '../../../api/cattleBackendApi'
-import { BackendError } from '../../../api/backendClient'
-import { listPurposes, removeCattlePhoto, updateIdentity, updatePurpose, updateStage, uploadCattlePhoto } from '../api/cattleApi'
-import { useQuery } from '../../../hooks/useApi'
-import { userFacingError } from '../../../api/userFacingError'
-import {
-  PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, validateDatedChange, validateIdentity, validatePhoto,
-  type DatedChangeErrors, type IdentityErrors, type IdentityValues,
-} from '../domain/profileRules'
+import { useId, useRef, useState } from 'react'
+import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
+import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
+import { BackendError } from '../../../shared/api/backendClient'
+import { cattleToday, demoCowPrefill, listPurposes, localCattleList, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, type DatedChangeErrors, type IdentityErrors, type IdentityValues } from '../domain/profileRules'
+import { validateDatedChange, validateIdentity, validatePhoto } from '../validation/profileValidation'
 import { Panel, Seg, fieldCls } from './parts'
 import type { CowSeed } from '../../../data/cowsData'
 
@@ -40,25 +36,28 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
   today?: string
 }) {
   const backend = cow.backendId != null && cow.backendVersion != null
-  const context = backend
-    ? {
-        backendId: cow.backendId,
-        backendVersion: cow.backendVersion,
-        currentProfile: { earTagNumber: cow.tag, name: cow.name, colourMarkings: cow.colourMarkings, notes: cow.notes, productionPurposeId: cow.purposeId, lifeStage: cow.lifeStage },
-      }
-    : {}
   const purposes = useQuery(() => listPurposes(), [])
-  const isDemo = !backend && cow.code === 'BC-000142'
+  const prefill = demoCowPrefill(cow)
   const initialIdentity: IdentityValues = { name: cow.name ?? '', tag: cow.tag ?? '', colour: backend ? cow.colourMarkings ?? '' : cow.description ?? '', notes: cow.notes ?? '' }
   const currentStage = (backend ? cow.lifeStage : cow.stage) ?? ''
   const [tab, setTab] = useState<string>(suggestion ? 'stage' : initialTab)
   const [identity, setIdentity] = useState<IdentityValues>(initialIdentity)
+  const [savedProfile, setSavedProfile] = useState(() => ({ identity: initialIdentity, version: cow.backendVersion }))
+  const context = backend
+    ? {
+        backendId: cow.backendId,
+        backendVersion: savedProfile.version,
+        currentProfile: { earTagNumber: savedProfile.identity.tag, name: savedProfile.identity.name, colourMarkings: savedProfile.identity.colour, notes: savedProfile.identity.notes, productionPurposeId: cow.purposeId, lifeStage: cow.lifeStage },
+      }
+    : {}
   const [photo, setPhoto] = useState<File | null>(null)
   const [removePhoto, setRemovePhoto] = useState(false)
   const [photoError, setPhotoError] = useState('')
-  const [stage, setStage] = useState(suggestion?.stage ?? (backend ? cow.lifeStage ?? 'ADULT' : isDemo ? 'Bò cái sinh sản' : cow.stage))
-  const [date, setDate] = useState(suggestion?.date ?? (backend ? today : TODAY))
-  const [reason, setReason] = useState(suggestion?.reason ?? (isDemo ? 'Đủ 13 tháng & 236 kg, đưa vào theo dõi sinh sản' : ''))
+  const photoInput = useRef<HTMLInputElement>(null)
+  const photoInputId = useId()
+  const [stage, setStage] = useState(suggestion?.stage ?? (backend ? cow.lifeStage ?? 'ADULT' : prefill?.stage ?? cow.stage))
+  const [date, setDate] = useState(suggestion?.date ?? (backend ? today : cattleToday()))
+  const [reason, setReason] = useState(suggestion?.reason ?? prefill?.stageReason ?? '')
   const [purposeId, setPurposeId] = useState(cow.purposeId ? String(cow.purposeId) : '')
   const [identityErrors, setIdentityErrors] = useState<IdentityErrors>({})
   const [errors, setErrors] = useState<DatedChangeErrors>({})
@@ -74,17 +73,18 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
 
   // AF4: closing with unsaved input asks first (MSG-COM-14); values pre-filled on open do not count.
   const [initial] = useState(() => ({ stage, reason, purposeId }))
-  const dirty = JSON.stringify(identity) !== JSON.stringify(initialIdentity) || photo != null || removePhoto
+  const identityChanged = JSON.stringify(identity) !== JSON.stringify(savedProfile.identity)
+  const dirty = identityChanged || photo != null || removePhoto
     || stage !== initial.stage || reason !== initial.reason || purposeId !== initial.purposeId
 
   const close = () => (dirty && !saving ? setConfirmDiscard(true) : onClose())
 
-  const run = async (job: (acknowledged: boolean) => Promise<unknown>, acknowledged = false) => {
+  const run = async (job: (acknowledged: boolean) => Promise<unknown>, acknowledged = false, message = `Đã cập nhật hồ sơ ${cow.code}.`) => {
     setFailure('')
     setSaving(true)
     try {
       await job(acknowledged)
-      onSaved(`Đã cập nhật hồ sơ ${cow.code}.`)
+      onSaved(message)
     } catch (e) {
       if (codeOf(e) === 'MSG-FE05-11' && !acknowledged) {
         setConfirmRepro(`Sau thay đổi này ${cow.code} sẽ không còn được theo dõi sinh sản. Lịch sử sinh sản được giữ lại. Tiếp tục?`)
@@ -97,20 +97,29 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
   }
 
   const saveIdentity = () => {
-    const e = validateIdentity(identity)
+    const e = identityChanged ? validateIdentity(identity) : {}
     setIdentityErrors(e)
     if (Object.keys(e).length || photoError) return
+    const message = !identityChanged && (photo || removePhoto)
+      ? `Đã ${removePhoto ? 'xóa ảnh' : cow.photoUrl ? 'đổi ảnh' : 'thêm ảnh'} bò ${cow.code}.`
+      : undefined
     return run(async () => {
-      const changed = JSON.stringify(identity) !== JSON.stringify(initialIdentity)
-      let version = cow.backendVersion
-      if (changed || !backend) {
+      let version = savedProfile.version
+      if (identityChanged) {
         const result = await updateIdentity(cow.code, { name: identity.name.trim(), tag: identity.tag.trim(), description: identity.colour.trim(), notes: identity.notes.trim() }, context)
         const next = (result as { version?: unknown } | null)?.version
         if (typeof next === 'number') version = next
+        setSavedProfile({ identity, version })
       }
-      if (backend && photo) await uploadCattlePhoto({ ...context, backendVersion: version }, photo)
-      else if (backend && removePhoto) await removeCattlePhoto({ ...context, backendVersion: version })
-    })
+      if (photo || removePhoto) {
+        try {
+          await saveCattlePhoto(cow.code, { ...context, backendVersion: version }, photo)
+        } catch (error) {
+          if (identityChanged) throw new Error(`Đã lưu định danh. ${userFacingError(error, 'Không lưu được ảnh. Vui lòng thử lại.')}`)
+          throw error
+        }
+      }
+    }, false, message)
   }
 
   const savePurpose = (acknowledged = false) => {
@@ -141,7 +150,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
     setPhotoError(file ? validatePhoto(file) : '')
   }
 
-  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : STAGES.map((s) => ({ value: s, label: s }))
+  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : (localCattleList?.stages ?? []).map((s) => ({ value: s, label: s }))
   const datedFields = (
     <>
       <Field label="Ngày hiệu lực *">
@@ -169,17 +178,26 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
 
       {tab === 'identity' && (
         <Panel pad="p-0" gap="gap-4" className="border-0">
-          {backend && (
-            <Field label="Ảnh">
-              <input type="file" accept="image/jpeg,image/png" aria-label="Chọn ảnh" onChange={(e) => pickPhoto(e.target.files?.[0] ?? null)} className="text-sm" />
-              {Boolean(cow.photoUrl) && !photo && (
-                <label className="flex items-center gap-2 text-xs text-ink">
-                  <input type="checkbox" checked={removePhoto} onChange={(e) => setRemovePhoto(e.target.checked)} />Xóa ảnh hiện tại
-                </label>
+          <Field label="Ảnh nhận diện" id={photoInputId} hint="JPG hoặc PNG, tối đa 5 MB. Bấm Lưu thay đổi để áp dụng.">
+            <input ref={photoInput} id={photoInputId} type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="Tệp ảnh bò" aria-invalid={Boolean(photoError)} tabIndex={-1} className="sr-only" onChange={(e) => pickPhoto(e.target.files?.[0] ?? null)} />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" small onClick={() => {
+                if (photoInput.current) {
+                  photoInput.current.value = ''
+                  photoInput.current.click()
+                }
+              }} disabled={saving}>Chọn ảnh</Button>
+              {photo && <Button type="button" small variant="link" onClick={() => pickPhoto(null)} disabled={saving}>Bỏ tệp đã chọn</Button>}
+              {cow.photoUrl && !photo && (
+                <Button type="button" small variant={removePhoto ? 'link' : 'danger'} onClick={() => setRemovePhoto(!removePhoto)} disabled={saving}>
+                  {removePhoto ? 'Giữ ảnh hiện tại' : 'Xóa ảnh'}
+                </Button>
               )}
-              <ErrorText>{photoError}</ErrorText>
-            </Field>
-          )}
+            </div>
+            {photo && <p className="m-0 break-all text-xs text-ink" role="status">{photo.name}</p>}
+            {removePhoto && <p className="m-0 text-xs text-ink" role="status">Ảnh hiện tại sẽ được xóa khi lưu.</p>}
+            <ErrorText>{photoError}</ErrorText>
+          </Field>
           <Field label="Số thẻ tai">
             <input className={fieldCls} maxLength={30} value={identity.tag} onChange={(e) => setIdentity({ ...identity, tag: e.target.value })} />
             <ErrorText>{identityErrors.tag}</ErrorText>

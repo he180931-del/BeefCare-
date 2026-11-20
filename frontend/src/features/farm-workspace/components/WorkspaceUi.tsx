@@ -1,9 +1,11 @@
+import { DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type { ReactNode, SelectHTMLAttributes } from 'react'
-import { BackendError } from '../../../api/backendClient'
-import { Icon } from '../../../components/Icon'
+import { BackendError } from '../../../shared/api/backendClient'
+import { Icon } from '../../../shared/ui'
+import { serviceView } from '../domain/statusViews'
 
 /** Ô nhập của trang thường theo Figma (cao 36px, bo 4, viền xám); hộp thoại và trang thiết lập dùng `inputCls` (44px). */
-export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted'
+export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted aria-invalid:border-err-fg'
 
 export function PageSelect({ children, className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
@@ -40,52 +42,57 @@ export function roleLabel(role: string) {
   return ({ OWNER: 'Chủ trại', MANAGER: 'Quản lý', TECHNICIAN: 'Kỹ thuật viên' } as Record<string, string>)[role] ?? role
 }
 
-export function serviceLabel(status: string) {
-  return ({ ACTIVE: 'Đang hoạt động', PENDING_PAYMENT: 'Chờ thanh toán', EXPIRED: 'Đã hết hạn', SUSPENDED: 'Tạm ngưng' } as Record<string, string>)[status] ?? status
-}
+/** Same label as SCR-12/61 and SCR-57/58 (domain/statusViews). */
+export const serviceLabel = (status: string) => serviceView(status).label
 
 export function inviteStatusLabel(status: string) {
   return ({ PENDING: 'Đang chờ', ACCEPTED: 'Đã chấp nhận', EXPIRED: 'Hết hạn', CANCELLED: 'Đã hủy' } as Record<string, string>)[status] ?? status
 }
 
 const MISSING = 'Chưa có dữ liệu từ máy chủ'
-const ZONE = 'Asia/Ho_Chi_Minh'
 
 /** dd/mm/yyyy HH:mm theo múi giờ mặc định của trại (GBR-66). */
-export function formatDateTime(value?: string | null) {
+export function formatDateTime(value?: string | null, _timeZone?: string) {
   if (!value) return MISSING
-  const date = new Date(value)
+  const date = new Date(parseBusinessTime(value))
   if (Number.isNaN(date.getTime())) return MISSING
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date).map((part) => [part.type, part.value]))
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date).map((part) => [part.type, part.value]))
   return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`
+}
+
+/** D25: lưu thành công xác nhận ý định gửi mail, chưa xác nhận email đã tới. */
+export function invitationNotice(invitation: { email: string; expiresAt: string }, resend = false, timeZone?: string) {
+  return `${resend ? 'Đã cập nhật' : 'Đã tạo'} lời mời tới ${invitation.email}. Hệ thống đang gửi email. Hết hạn lúc ${formatDateTime(invitation.expiresAt, timeZone)}.`
 }
 
 /** dd/mm/yyyy. */
 export function formatDate(value?: string | null) {
   if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
+  const date = new Date(parseBusinessTime(value))
+  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
 }
 
 /** A service period ends at an exclusive instant; show its last covered day, as SCR-57 does (`fmtEndDay`). */
 export function lastServiceDay(end: string) {
-  const ms = Date.parse(end)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(end)) return formatDate(end)
+  const ms = parseBusinessTime(end)
   return Number.isNaN(ms) ? formatDate(end) : formatDate(new Date(ms - 1).toISOString())
 }
 
-/** mm/yyyy (cột "Tham gia"). */
-export function formatMonth(value?: string | null) {
+/** mm/yyyy (cột "Tham gia" của SCR-13) theo múi giờ trại (Table III-1, D29). */
+export function formatMonth(value?: string | null, _timeZone?: string) {
   if (!value) return MISSING
-  const date = new Date(value)
+  const date = new Date(parseBusinessTime(value))
   if (Number.isNaN(date.getTime())) return MISSING
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: ZONE, month: '2-digit', year: 'numeric' }).formatToParts(date).map((part) => [part.type, part.value]))
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('vi-VN', { timeZone: DEFAULT_FARM_TIME_ZONE, month: '2-digit', year: 'numeric' }).formatToParts(date).map((part) => [part.type, part.value]))
   return `${parts.month}/${parts.year}`
 }
 
 export const initialsOf = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(-2).map((word) => word[0]).join('').toUpperCase() || '?'
 
+/** Same colours as the avatar of the farm top bar (Layout): dark green on light green; white on #bdbdbd was 1.9:1. */
 export function Avatar({ name, size = 40 }: { name: string; size?: number }) {
-  return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-edge text-xs font-semibold text-white">{initialsOf(name)}</span>
+  return <span aria-hidden="true" style={{ width: size, height: size }} className="grid shrink-0 place-items-center rounded-full bg-[#d7f0e1] text-xs font-bold text-brand-dark">{initialsOf(name)}</span>
 }
 
 const fieldLabels: Record<string, string> = {
@@ -104,6 +111,13 @@ function validationFieldMessage(field: string | undefined, message: string | und
   return `${label}: ${message ?? 'Dữ liệu không hợp lệ.'}`
 }
 
+/** MSG-FE03-08 carries the invitation's current status (UC-FE03-03 E2); INVALID means the link no longer identifies one. */
+function invalidInvitationMessage(status: unknown) {
+  const value = typeof status === 'string' ? status.toUpperCase() : ''
+  const label = value === 'INVALID' ? 'Liên kết không hợp lệ' : value ? inviteStatusLabel(value) : ''
+  return label ? `Lời mời không còn hiệu lực (${label}).` : 'Lời mời đã hết hạn, bị hủy hoặc đã được sử dụng.'
+}
+
 export function farmWorkspaceError(error: unknown, fallback: string) {
   if (error instanceof BackendError) {
     const code = error.code?.toUpperCase()
@@ -117,10 +131,11 @@ export function farmWorkspaceError(error: unknown, fallback: string) {
       'MSG-FE02-04': 'Chủ trại quản lý gói dịch vụ; thành viên chưa thể vào trang trại này.',
       'MSG-FE03-02': 'Email này đã là thành viên đang hoạt động.',
       'MSG-FE03-03': 'Đã có lời mời đang chờ cho email này.',
-      'MSG-FE03-04': 'Dịch vụ trang trại chưa hoạt động nên chưa thể gửi hoặc chấp nhận lời mời.',
-      'MSG-FE03-08': 'Lời mời đã hết hạn, bị hủy hoặc đã được sử dụng.',
+      'MSG-FE03-04': 'Mời thành viên, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).',
+      'MSG-FE03-08': invalidInvitationMessage(error.params.status),
       'MSG-FE03-09': 'Email đăng nhập không trùng với email được mời. Thông tin trang trại đã được ẩn.',
       'MSG-FE03-20': 'Thành viên đã có vai trò hoặc trạng thái này.',
+      'MSG-FE03-21': 'Email này là thành viên đã ngưng. Kích hoạt lại thay vì gửi lời mời mới.',
     }
     if (code && known[code]) return known[code]
     const fieldErrors = [...error.fieldErrors, ...error.violations.map((item) => ({ field: item.field ?? item.propertyPath, message: item.message }))]

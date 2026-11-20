@@ -1,16 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { userFacingError } from '../../../api/userFacingError'
-import { backendMode } from '../../../api/backendTransport'
-import { Icon } from '../../../components/Icon'
-import Layout from '../../../components/Layout'
-import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, PageHeader, Table, Td, Th } from '../../../components/ui'
+import { userFacingError } from '../../../shared/api/userFacingError'
+import { subscriptionApi } from '../api/subscriptionApi'
+import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Facts, ICON_BTN, ServiceBadge, type Fact } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
-import { useFarmScope } from '../components/useFarmScope'
+import { useFarmScope } from '../hooks/useFarmScope'
 import { fmtDate, fmtPeriod, fmtVnd, termLabel, toMs, versionLabel } from '../domain/subscriptionRules'
 import type { PeriodStatus, SubscriptionOverview } from '../types'
-import { useOverview } from './useOverview'
+import { useOverview } from '../hooks/useOverview'
 
 const TITLE = 'Gói dịch vụ của trại'
 const PERIOD_BADGE: Record<PeriodStatus, ['ok' | 'info' | 'outline', string]> = { CURRENT: ['ok', 'Hiện tại'], FUTURE: ['info', 'Tương lai'], PAST: ['outline', 'Đã qua'] }
@@ -57,7 +56,7 @@ export default function SubscriptionHomePage() {
         </PageHeader>
         {notice}
         <Card title="Trạng thái dịch vụ" actions={<ServiceBadge status={data.serviceStatus} />}>
-          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${backendMode === 'backend' ? data.pendingPayment?.id ?? '' : data.pendingPayment?.quoteRef ?? ''}`, { from: 'subscription' })} />
+          <ServiceFacts o={data} openHref={to(`/goi-dich-vu/chuyen-khoan/${data.pendingPayment ? subscriptionApi.paymentRouteId(data.pendingPayment) : ''}`, { from: 'subscription' })} />
         </Card>
         <Card title="Bảng giá gói BeefCare">
           {data.currentPrices ? (
