@@ -30,7 +30,14 @@ without it, `npm run dev` still talks to the backend through the `/api` proxy.
 Read the active env before claiming which mode is live; never infer runtime mode
 from the example file alone.
 
-`VITE_BEEFCARE_FARM_ID` is the numeric backend farm ID. Keep numeric internal
+The farm of every farm-scoped request is `activeFarmId`
+(`frontend/src/app/session/currentFarm.ts`): the farm entered on Select Farm in
+this browser tab (UC-FE02-02), read once per page load. There is no configured
+or default farm. Farm screens are wrapped in `RequireFarm`
+(`app/routes/RequireFarm.tsx`), which opens Select Farm when the tab has no farm
+(the Owner pages reached from Select Farm may name it in the address with
+`?farm=` / `?farmId=`). `transport.farmPath(null, ...)` builds a path the client
+refuses with `NoActiveFarmError` before anything is sent. Keep numeric internal
 IDs separate from display codes such as cattle and voucher codes.
 
 ## Session and commands

@@ -50,8 +50,8 @@ session events (`app/session/`). Demo data (`npm run dev:mock`, tests) enters on
 `frontend/src/demo/demoModules.ts`; production builds replace it with
 `src/demo/noDemo.ts`. The legacy `api/`, `components/`, `data/` and `types.ts`
 only keep the leftovers listed with their reason in
-`frontend/tests/api/layerBoundary.test.ts` (local/demo data, the
-`backendFarmId` fallback, the Entry/Exit parts whose owner is undecided); do
+`frontend/tests/api/layerBoundary.test.ts` (local/demo data, the Entry/Exit
+parts whose owner is undecided); do
 not add to them. Inside a feature: `validation/` field rules, `domain/`
 policies and calculations, `hooks/` React hooks, `api/` endpoints and DTO
 mapping.

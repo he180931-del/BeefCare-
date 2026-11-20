@@ -235,9 +235,9 @@ frontend/src/
                     swaps it for noDemo.ts, so production has no demo data
   api/, components/, data/, types.ts
                     legacy leftovers only (local/demo data reached through
-                    demo/, the backendFarmId fallback for phase 4, Entry/Exit
-                    parts whose owner is undecided); the allowed list and
-                    reasons are in tests/api/layerBoundary.test.ts
+                    demo/, Entry/Exit parts whose owner is undecided); the
+                    allowed list and reasons are in
+                    tests/api/layerBoundary.test.ts
 ```
 
 Entry, Exit, Cattle, and Pen Management now follow this feature boundary. New
