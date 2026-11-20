@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
@@ -95,7 +95,7 @@ function createBackendApi(transport: BackendTransport) {
   }
 }
 
-export function createSupportApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SupportDemoStore }) {
+export function createSupportApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: SupportDemoStore }) {
   void farmId
   const backend = createBackendApi(transport)
   return {
@@ -141,4 +141,4 @@ export function createSupportApi({ mode, farmId, transport, store }: { mode: Bac
   }
 }
 export type SupportApi = ReturnType<typeof createSupportApi>
-export const supportApi = createSupportApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.support.supportDemoStore) })
+export const supportApi = createSupportApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.support.supportDemoStore) })

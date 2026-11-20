@@ -69,7 +69,7 @@ const fileDigest = async (file: File): Promise<string> => {
   return digestBytes(bytes)
 }
 
-export function createHerdExitBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number }) {
+export function createHerdExitBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number | null }) {
   const root = transport.farmPath(farmId, '/exit-vouchers')
   const list = async (): Promise<HerdExit[]> => {
     const body = asRecord(await transport.get(root))

@@ -1,7 +1,7 @@
 import type { CattleInput } from '../../cattle'
 import type { EntryCalf, HerdEntry } from '../types'
 import type { Payment } from '../../../types'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import {
@@ -17,7 +17,7 @@ import { entryToday } from '../validation/entryValidation'
 import type { EntryCow } from '../types'
 import { demo } from '../../../demo/demoModules'
 
-const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: backendFarmId })
+const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: activeFarmId })
 
 // Explicit mode: `npm run dev:mock` (VITE_BEEFCARE_DATA_SOURCE unset) serves the demo data,
 // `backend` talks to the real API and never falls back to the demo data.

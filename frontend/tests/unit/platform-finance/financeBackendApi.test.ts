@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createFinanceBackendApi } from '../../../src/features/platform-finance/api/financeBackendApi'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const transport = (responses: Record<string, unknown> = {}) => {
   const get = vi.fn(async (path: string) => responses[path] ?? {})

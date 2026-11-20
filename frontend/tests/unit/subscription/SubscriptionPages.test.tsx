@@ -107,7 +107,7 @@ describe('Chọn thời hạn và tạo yêu cầu', () => {
 
   it('đăng ký gói lần đầu của trại mới dẫn tới hướng dẫn chuyển khoản', async () => {
     const user = userEvent.setup()
-    renderAt('/dang-ky-goi', 'OWNER')
+    renderAt('/dang-ky-goi?farm=2', 'OWNER') // the farm just registered (SCR-15 → SCR-58)
     expect(await screen.findByText('Đăng ký gói dịch vụ · Trại Tản Lĩnh')).toBeInTheDocument()
     expect(screen.getByText('Chờ thanh toán')).toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: /1 năm/ }))

@@ -1,6 +1,6 @@
 import { asRecord, asRows } from '../../../shared/api/parse'
 import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { createFeedFeedingApi } from './feedFeedingApi'
@@ -63,7 +63,7 @@ function parseConsumptionReport(value: unknown): FeedConsumptionBackendReport {
   }
 }
 
-function createSupportingDataLoader(mode: BackendMode, farmId: string | number, transport: BackendTransport): FeedConsumptionDataLoader {
+function createSupportingDataLoader(mode: BackendMode, farmId: string | number | null, transport: BackendTransport): FeedConsumptionDataLoader {
   const feedingApi = createFeedFeedingApi({ mode, farmId, transport })
   const receiptApi = createFeedReceiptApi({ mode, farmId, transport })
   const adjustmentApi = createFeedStockAdjustmentApi({ mode, farmId, transport })
@@ -89,7 +89,7 @@ export function createFeedConsumptionApi({
   loadBackendData,
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   loadDemoData?: FeedConsumptionDataLoader
   loadBackendData?: FeedConsumptionDataLoader
@@ -113,7 +113,7 @@ export function createFeedConsumptionApi({
   }
 }
 
-const api = createFeedConsumptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const api = createFeedConsumptionApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 export const loadFeedConsumptionReport = (range: FeedConsumptionRange) => api.load(range)
 

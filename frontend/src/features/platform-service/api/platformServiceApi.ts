@@ -1,5 +1,5 @@
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { backendPending } from '../../../shared/api/backendPending'
@@ -119,7 +119,7 @@ function sourcePayment(value: unknown): SourcePayment {
   }
 }
 
-export function createPlatformServiceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: PlatformServiceDemoStore }) {
+export function createPlatformServiceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: PlatformServiceDemoStore }) {
   void farmId
   // UC4 has a backend adapter; reconciliation commands and prices remain separate scopes.
   const requireLocal = () => { if (mode === 'backend') throw backendPending('dịch vụ trang trại và thanh toán') }
@@ -224,4 +224,4 @@ export function createPlatformServiceApi({ mode, farmId, transport, store }: { m
   }
 }
 export type PlatformServiceApi = ReturnType<typeof createPlatformServiceApi>
-export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.platformService.platformServiceDemoStore) })
+export const platformServiceApi = createPlatformServiceApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.platformService.platformServiceDemoStore) })

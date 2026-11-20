@@ -16,8 +16,8 @@ vi.mock('../../../src/shared/config/runtime', async (original) => ({
   ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
 }))
 vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendFarmId: '42',
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const NOW = Date.parse('2026-11-09T03:00:00Z')
 const pending: Payment = { id: 501, quoteRef: 'BC-UC02', durationYears: 1, amountVnd: 1_200_000, state: 'PENDING',
@@ -399,8 +399,8 @@ describe('D38: the Owner cancels a payment request on SCR-59', () => {
 })
 
 describe('SCR-59 "Vào trại" after the first paid period (UC-FE02-02)', () => {
-  // Farm 77 differs from the per-load fallback farm (backendFarmId '42') and from session.farmId (42): entering either of
-  // those instead of the paid farm is exactly the original bug (a fresh tab falls back to VITE_BEEFCARE_FARM_ID).
+  // Farm 77 differs from the per-load fallback farm (activeFarmId 42) and from session.farmId (42): entering either of
+  // those instead of the paid farm is exactly the original bug (a fresh tab used to fall back to a configured farm).
   const FARM = 77
   const guide = `/goi-dich-vu/chuyen-khoan/501?farm=${FARM}`
   const paid: Payment = { ...pending, state: 'PAID', confirmedAt: new Date(NOW + 1000).toISOString(),

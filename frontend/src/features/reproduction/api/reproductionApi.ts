@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { filterWorklist } from '../domain/reproductionRules'
@@ -49,7 +49,7 @@ export function createReproductionApi({
   store,
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   store: ReproductionDemoStore
 }): ReproductionApi {
@@ -92,7 +92,7 @@ export function createReproductionApi({
 
 export const reproductionApi = createReproductionApi({
   mode: backendMode,
-  farmId: backendFarmId,
+  farmId: activeFarmId,
   transport: backendTransport,
   store: lazyObject(() => demo.reproduction.reproductionDemoStore),
 })

@@ -1,5 +1,5 @@
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type {
@@ -160,7 +160,7 @@ function invitationPage(value: unknown): InvitationPage {
 export type FarmWorkspaceApi = Omit<FarmWorkspaceDemoStore, 'listFarms'> & { listFarms(): Promise<FarmSummary[]> }
 
 export function createFarmWorkspaceApi({ mode, transport, demoStore = lazyObject(() => demo.farmWorkspace.farmWorkspaceDemoStore) }: {
-  mode: BackendMode; farmId: string | number; transport: BackendTransport; demoStore?: FarmWorkspaceDemoStore
+  mode: BackendMode; farmId: string | number | null; transport: BackendTransport; demoStore?: FarmWorkspaceDemoStore
 }): FarmWorkspaceApi {
   const path = (id: number, suffix: string) => transport.farmPath(id, suffix)
   const command = (url: string, body: unknown, method: string) => transport.command(url, body, { method })
@@ -267,4 +267,4 @@ export function createFarmWorkspaceApi({ mode, transport, demoStore = lazyObject
   }
 }
 
-export const farmWorkspaceApi = createFarmWorkspaceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+export const farmWorkspaceApi = createFarmWorkspaceApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })

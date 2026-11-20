@@ -1,5 +1,5 @@
 import { asRecord, asRows, numberValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedReceipt, FeedReceiptAttachment, FeedReceiptPayment, FeedReceiptPaymentResult } from '../types/feedReceipt'
@@ -234,7 +234,7 @@ export function createFeedReceiptApi({
   demoStore = lazyObject(() => demo.feedReceipt.feedReceiptDemoStore),
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedReceipt[]
   demoStore?: FeedReceiptDemoStore
@@ -435,7 +435,7 @@ export function createFeedReceiptApi({
   }
 }
 
-const feedReceiptApi = createFeedReceiptApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedReceiptApi = createFeedReceiptApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 /**
  * Phần máy chủ đảm nhận mà bản mô phỏng không có: cấp mã phiếu khi lưu, lưu chứng từ, hủy khoản trả và bỏ phiếu nháp.

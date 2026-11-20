@@ -1,25 +1,19 @@
 import { useSearchParams } from 'react-router-dom'
-import { backendFarmId } from '../../../api/backendTransport'
-import { backendMode } from '../../../shared/config/runtime'
-import { useSession } from '../../authorization'
-
-export const DEFAULT_FARM_ID = 1 // Trại bò Yên Bài – Ba Vì trong mock
+import { activeFarmId, parseFarmId, requireFarm } from '../../../app/session/currentFarm'
 
 /**
- * Trại đang xem. Mock có sẵn 3 trại (1 Yên Bài, 2 Tản Lĩnh chưa mua, 3 Suối Hai tạm ngưng) chọn bằng `?farm=`;
- * `to()` dựng đường dẫn nội bộ và giữ `?farm=` để các bước sau vẫn cùng trại.
+ * The farm an Owner's service pages work on: `?farm=` (from Select Farm, farm registration or a notification), else the
+ * farm this page load works in (the one the feature APIs use); never a guessed one, since the route's `RequireFarm`
+ * opens Select Farm without either. `to()` builds an internal link that keeps `?farm=`, so the next steps stay on the
+ * same farm.
  */
-export function useFarmScope(defaultFarm = DEFAULT_FARM_ID) {
-  const session = useSession()
+export function useFarmScope() {
   const [params] = useSearchParams()
-  const raw = Number(params.get('farm'))
-  const selected = backendMode === 'backend' ? session?.farmId ?? Number(backendFarmId) : defaultFarm
-  const farmId = Number.isInteger(raw) && raw > 0 ? raw : selected
+  const farmId = requireFarm(parseFarmId(params.get('farm')) ?? activeFarmId)
   const to = (path: string, extra: Record<string, string> = {}) => {
     const q = new URLSearchParams(extra)
-    if (backendMode === 'backend' || farmId !== DEFAULT_FARM_ID) q.set('farm', String(farmId))
-    const s = q.toString()
-    return s ? `${path}?${s}` : path
+    q.set('farm', String(farmId))
+    return `${path}?${q.toString()}`
   }
   return { farmId, to }
 }

@@ -11,8 +11,8 @@ vi.mock('../../../src/shared/config/runtime', async (original) => ({
   ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
 }))
 vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendFarmId: '42',
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const session: Session = { role: 'PM', fullName: 'PM UC5', email: 'uc5@example.test', farmId: null, farmName: null, logout: async () => {} }
 const row = (id = 742) => ({ id, provider: 'SEPAY', environment: 'TEST', accountNamespace: 'UC5-NAMESPACE',

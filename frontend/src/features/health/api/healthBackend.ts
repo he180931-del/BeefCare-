@@ -157,7 +157,7 @@ const query = (params: Record<string, string | number | undefined>) => {
 interface CaseRef { caseCode: string; cattleCode: string; openedAt?: string; latestEntryAt?: string }
 interface EntryRef { type: EntryType; caseId: number }
 
-export function createHealthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
+export function createHealthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number | null; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   const now = () => toFarmTime(clock().toISOString())
   const resolved = new Map<string, { cattleId: number; cattle: HealthCattle }>()

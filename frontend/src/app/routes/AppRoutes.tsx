@@ -22,6 +22,7 @@ import { loadFarmServiceRoutes, loadPaymentReconciliationRoutes, loadPlanPriceRo
 import { loadCashReportRoutes, loadManualFinanceRoutes, loadPmSupportNoticePage, loadReceiptRoutes, loadReconciliationNoticePage } from '../../features/platform-finance'
 import { loadAdminNoticePage, loadAuditRoutes, loadStaffAccessRoutes, loadUserAccountRoutes } from '../../features/platform-admin'
 import { HomeRedirect, RoleGate, type AppRole } from '../../features/authorization'
+import { RequireFarm } from './RequireFarm'
 import { LegalPage } from '../../features/authentication'
 
 // Mỗi trang tải lazy: lỗi ở một trang không làm hỏng các trang khác.
@@ -93,10 +94,13 @@ const AdminNotices = lazy(loadAdminNoticePage)
 const Placeholder = lazy(() => import('./PlaceholderPage'))
 
 const only = (allow: readonly AppRole[], element: ReactElement) => <RoleGate allow={allow}>{element}</RoleGate>
-const desk = (element: ReactElement) => only(['OWNER', 'MANAGER'], element)
+// Farm screens: the farm entered in this tab, or (Owner pages reached from Select Farm) the farm named in the address.
+const inFarm = (allow: readonly AppRole[], element: ReactElement, param?: 'farm' | 'farmId') => only(allow, <RequireFarm param={param}>{element}</RequireFarm>)
+const desk = (element: ReactElement, param?: 'farm' | 'farmId') => inFarm(['OWNER', 'MANAGER'], element, param)
 const owner = (element: ReactElement) => only(['OWNER'], element)
-const farmMember = (element: ReactElement) => only(['OWNER', 'MANAGER', 'TECHNICIAN'], element)
-const technician = (element: ReactElement) => only(['TECHNICIAN'], element)
+const ownerFarm = (element: ReactElement, param: 'farm' | 'farmId') => inFarm(['OWNER'], element, param)
+const farmMember = (element: ReactElement) => inFarm(['OWNER', 'MANAGER', 'TECHNICIAN'], element)
+const technician = (element: ReactElement) => inFarm(['TECHNICIAN'], element)
 const cs = (element: ReactElement) => only(['CS'], element)
 const pm = (element: ReactElement) => only(['PM'], element)
 const sa = (element: ReactElement) => only(['SA'], element)
@@ -145,12 +149,12 @@ export default function AppRoutes() {
         <Route path="/owner-registration" element={<OwnerRegistration />} />
         <Route path="/chon-trai" element={<FarmSelect />} />
         <Route path="/dang-ky-trai" element={<FarmRegistration />} />
-        <Route path="/dang-ky-goi" element={owner(<FirstSubscription />)} />
-        <Route path="/thong-tin-trai" element={owner(<FarmInformation />)} />
-        <Route path="/thanh-vien" element={desk(<Members />)} />
-        <Route path="/loi-moi" element={owner(<Invitations />)} />
+        <Route path="/dang-ky-goi" element={ownerFarm(<FirstSubscription />, 'farm')} />
+        <Route path="/thong-tin-trai" element={ownerFarm(<FarmInformation />, 'farmId')} />
+        <Route path="/thanh-vien" element={desk(<Members />, 'farmId')} />
+        <Route path="/loi-moi" element={ownerFarm(<Invitations />, 'farmId')} />
         <Route path="/invitation/accept" element={<AcceptInvitation />} />
-        <Route path="/goi-dich-vu/*" element={owner(<Subscription />)} />
+        <Route path="/goi-dich-vu/*" element={ownerFarm(<Subscription />, 'farm')} />
         <Route path="/ho-tro/*" element={owner(<Support />)} />
         <Route path="/thong-bao-cua-toi" element={owner(<MyNotifications />)} />
         <Route path="/ho-so" element={desk(<Profile />)} />

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createFeedStockApi } from '../../../src/features/feed-stock/api/feedStockApi'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const makeTransport = (): BackendTransport => ({
   get: vi.fn(async () => []),

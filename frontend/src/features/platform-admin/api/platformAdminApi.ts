@@ -1,5 +1,5 @@
 import { asRecord } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { PlatformAdminDemoStore } from '../data/platformAdminDemoStore'
@@ -253,7 +253,7 @@ export function accountsPath({ q = '', status = '', platformRole = '', dir = 'as
   return `${ACCOUNTS_PATH}?${query.toString()}`
 }
 
-export function createPlatformAdminApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: PlatformAdminDemoStore }) {
+export function createPlatformAdminApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: PlatformAdminDemoStore }) {
   // Platform screens are not farm-scoped; backend mode must never read the mock.
   void farmId
   return {
@@ -346,4 +346,4 @@ export function createPlatformAdminApi({ mode, farmId, transport, store }: { mod
   }
 }
 export type PlatformAdminApi = ReturnType<typeof createPlatformAdminApi>
-export const platformAdminApi = createPlatformAdminApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.platformAdmin.platformAdminDemoStore) })
+export const platformAdminApi = createPlatformAdminApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.platformAdmin.platformAdminDemoStore) })

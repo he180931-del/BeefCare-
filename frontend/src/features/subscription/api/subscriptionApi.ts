@@ -1,5 +1,5 @@
 import { asRecord, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { BackendError } from '../../../shared/api/backendClient'
@@ -55,7 +55,7 @@ function readPayment(value: unknown): Payment {
 /** D38: reason after trim, as on the backend. */
 export const CANCEL_REASON_MAX = 1000
 
-export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: SubscriptionDemoStore }) {
+export function createSubscriptionApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: SubscriptionDemoStore }) {
   void farmId
   const getPayment = async (farm: number, id: string): Promise<Payment> => {
     if (mode !== 'backend') return store.getPayment(farm, id)
@@ -157,4 +157,4 @@ export function createSubscriptionApi({ mode, farmId, transport, store }: { mode
   }
 }
 export type SubscriptionApi = ReturnType<typeof createSubscriptionApi>
-export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.subscription.subscriptionDemoStore) })
+export const subscriptionApi = createSubscriptionApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.subscription.subscriptionDemoStore) })

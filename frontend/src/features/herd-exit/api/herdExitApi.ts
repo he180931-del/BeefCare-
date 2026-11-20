@@ -1,7 +1,7 @@
 import type { CattleInput } from '../../cattle'
 import type { HerdExit } from '../types'
 import type { Payment } from '../../../types'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks } from './herdExitBackendApi'
@@ -11,7 +11,7 @@ import { demo } from '../../../demo/demoModules'
 import type { Pen } from '../../pen-management'
 import type { Cattle } from '../../cattle'
 
-const backendApi = createHerdExitBackendApi({ transport: backendTransport, farmId: backendFarmId })
+const backendApi = createHerdExitBackendApi({ transport: backendTransport, farmId: activeFarmId })
 const usingBackend = backendMode === 'backend'
 
 export { getExitDraftState }

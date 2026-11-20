@@ -26,7 +26,7 @@ describe('FE-05 QR scan', () => {
     await user.click(screen.getByRole('button', { name: 'Tra cứu' }))
     const switchButton = await screen.findByRole('button', { name: 'Chuyển trại và mở hồ sơ' })
     expect(select).not.toHaveBeenCalled()
-    expect(readCurrentFarmId()).toBeNull()
+    expect(readCurrentFarmId()).toBe(1) // still the farm this tab works in
     await user.click(switchButton)
     await waitFor(() => expect(load).toHaveBeenCalledWith('/kt/quet-qr?code=QR-TRAI-12'))
     expect(select).toHaveBeenCalledWith(12)

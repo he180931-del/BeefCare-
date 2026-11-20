@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
@@ -63,7 +63,7 @@ export function createFeedRationApi({
   getFeedStock = listFeedStock,
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedRation[]
   demoStore?: FeedRationDemoStore
@@ -116,7 +116,7 @@ export function createFeedRationApi({
   }
 }
 
-const feedRationApi = createFeedRationApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedRationApi = createFeedRationApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 /** Máy chủ cấp mã khẩu phần khi lưu; bản mô phỏng tự đánh mã tiếp theo. */
 export const feedRationServerBacked = backendMode === 'backend'
@@ -132,7 +132,7 @@ export const resetFeedRationDemoStore = () => demo.feedRation.resetFeedRationDem
 
 export async function listFeedRationPens(): Promise<FeedRationPenOption[]> {
   if (backendMode === 'backend') {
-    return backendPens(await backendTransport.get(backendTransport.farmPath(backendFarmId, '/pens')))
+    return backendPens(await backendTransport.get(backendTransport.farmPath(activeFarmId, '/pens')))
   }
   return demo.feedPens.FEED_DEMO_PENS.map((pen) => ({ ...pen }))
 }

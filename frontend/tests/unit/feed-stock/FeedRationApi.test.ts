@@ -10,7 +10,7 @@ import { feedRationDemoStore } from '../../../src/features/feed-stock/data/feedR
 import { FEED_STOCK_MOCK } from '../../../src/features/feed-stock/data/feedStockMock'
 import { FEED_RATION_MOCK } from '../../../src/features/feed-stock/data/feedRationMock'
 import { localRationDate, rationCodeDisplay } from '../../../src/features/feed-stock/domain/feedRationForm'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 import type { FeedRationDemoStore, SaveFeedRationInput } from '../../../src/features/feed-stock/types/feedRation'
 
 const makeTransport = (): BackendTransport => ({

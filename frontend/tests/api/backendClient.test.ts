@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createBackendClient, BackendError } from '../../src/shared/api/backendClient'
+import { createBackendClient, BackendError, NoActiveFarmError } from '../../src/shared/api/backendClient'
 
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 test('command retains cookies, CSRF token and the caller request key', async () => {
@@ -82,4 +82,16 @@ test('a domain 403 (with a code) is not resent and a second bare 403 is reported
 test('absolute external URLs cannot receive session headers', async () => {
   const api = createBackendClient({ fetchImpl: async () => { throw new Error('must not fetch') } })
   await assert.rejects(api.get('https://example.test/api/farms'), /relative/)
+})
+
+test('a farm-scoped request without a farm is refused before anything is sent, never sent to a default farm', async () => {
+  const sent: string[] = []
+  const api = createBackendClient({ fetchImpl: async (path) => { sent.push(String(path)); return json({ token: 'csrf-value' }) } })
+  // An API module may prepare its paths when it loads, before any farm is entered: building the path must not throw.
+  const root = api.farmPath(null, '/cattle')
+  await assert.rejects(api.get(`${root}/7`), (error: Error) => error instanceof NoActiveFarmError && /Chọn trại/.test(error.message))
+  await assert.rejects(api.command(api.farmPath(null, '/pens'), { code: 'A' }), NoActiveFarmError)
+  assert.deepEqual(sent, [])
+  assert.equal(api.farmPath(12, '/pens'), '/api/farms/12/pens')
+  assert.throws(() => api.farmPath('BC-1', '/pens'), /numeric/)
 })

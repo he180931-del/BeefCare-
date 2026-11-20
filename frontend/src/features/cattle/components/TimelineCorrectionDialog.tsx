@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { userFacingError } from '../../../shared/api/userFacingError'
@@ -118,7 +118,7 @@ export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
     setBusy(true)
     try {
       if (lastCommand.current?.signature !== signature) lastCommand.current = { signature, key: crypto.randomUUID() }
-      await backendTransport.command(backendTransport.farmPath(backendFarmId, `${config.path}/${event.sourceId}/${action}`), payload, { key: lastCommand.current.key })
+      await backendTransport.command(backendTransport.farmPath(activeFarmId, `${config.path}/${event.sourceId}/${action}`), payload, { key: lastCommand.current.key })
       onSaved()
     } catch (failure) {
       setError(userFacingError(failure, 'Không cập nhật được bản ghi.'))

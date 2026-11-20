@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createReproductionApi } from '../../../src/features/reproduction/api/reproductionApi'
 import { createReproductionDemoStore } from '../../../src/features/reproduction/data/reproductionDemoStore'
 import { REPRODUCTION_DEMO } from '../../../src/features/reproduction/data/reproductionMock'
-import type { BackendTransport } from '../../../src/api/backendTransport'
+import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const transport: BackendTransport = {
   get: vi.fn(),

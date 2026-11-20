@@ -13,8 +13,8 @@ vi.mock('../../../src/shared/config/runtime', async (original) => ({
   ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
 }))
 vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendFarmId: '42',
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const row = (id = 42) => ({ farmId: id, farmName: `Trại UC4 ${id}`, ownerName: 'Owner hiện tại', ownerEmail: 'owner@example.test',
   serviceStatus: 'SUSPENDED', currentStart: '2026-01-01T00:00:00Z', currentEnd: '2027-01-01T17:00:00Z',

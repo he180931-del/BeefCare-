@@ -1,5 +1,5 @@
 import { asRecord, asRows } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedFeedingCorrectionInput, FeedFeedingDemoStore, FeedFeedingDraftInput, FeedFeedingPlan, FeedFeedingRange, FeedFeedingRecord } from '../types/feedFeeding'
@@ -120,7 +120,7 @@ export function createFeedFeedingApi({
   demoStore = lazyObject(() => demo.feedReceipt.feedFeedingDemoStore),
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   demoStore?: FeedFeedingDemoStore
 }) {
@@ -174,7 +174,7 @@ export function createFeedFeedingApi({
   }
 }
 
-const api = createFeedFeedingApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const api = createFeedFeedingApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 /**
  * Máy chủ tính kế hoạch cữ, kiểm cữ trùng, tồn kho và quyền ghi theo phiên. Bản mô phỏng tính tại trình duyệt từ dữ liệu

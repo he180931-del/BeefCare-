@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { AccountDemoStore } from '../data/accountDemoStore'
@@ -15,7 +15,7 @@ function mockPermissions(role: 'OWNER' | 'MANAGER' | 'TECHNICIAN'): FarmPermissi
 }
 
 /** `identity` chỉ dùng ở chế độ mô phỏng; máy chủ thật nhận diện người dùng qua phiên. */
-export function createAccountApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: AccountDemoStore }) {
+export function createAccountApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: AccountDemoStore }) {
   void farmId
   const backend = mode === 'backend'
   return {
@@ -30,7 +30,7 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
       return backend ? mapAccountProfile(await transport.command('/api/account/profile', { fullName: input.fullName.trim(), contactPhone: input.phone.trim() }, { method: 'POST' })) : store.updateProfile(identity, input)
     },
     async getFarmPermissions(identity: AccountIdentity, farmId: number): Promise<FarmPermissions> {
-      if (backend) return mapFarmPermissions(await transport.get(`/api/farms/${farmId}/my-permissions`))
+      if (backend) return mapFarmPermissions(await transport.get(transport.farmPath(farmId, '/my-permissions')))
       if (identity.role !== 'OWNER' && identity.role !== 'MANAGER' && identity.role !== 'TECHNICIAN') throw new Error('Tài khoản nền tảng không có quyền trại.')
       return mockPermissions(identity.role)
     },
@@ -50,4 +50,4 @@ export function createAccountApi({ mode, farmId, transport, store }: { mode: Bac
 }
 
 export type AccountApi = ReturnType<typeof createAccountApi>
-export const accountApi = createAccountApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.account.accountDemoStore) })
+export const accountApi = createAccountApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.account.accountDemoStore) })

@@ -13,8 +13,6 @@ import { usePaymentRequest } from '../hooks/usePaymentRequest'
 import type { Term } from '../types'
 import { useOverview } from '../hooks/useOverview'
 
-const ONBOARDING_FARM_ID = 2 // Trại Tản Lĩnh: trại vừa đăng ký ở bước 2
-
 function OnboardingShell({ children }: { children: ReactNode }) {
   return (
     <SetupLayout narrow step={3} eyebrow="Thiết lập trại" heading="Mỗi trại một hồ sơ rõ ràng." lines={['Thông tin, quyền truy cập và dịch vụ được quản lý riêng cho từng trại.']}>
@@ -24,7 +22,7 @@ function OnboardingShell({ children }: { children: ReactNode }) {
 }
 
 export default function FirstSubscriptionPage() {
-  const { farmId, to } = useFarmScope(ONBOARDING_FARM_ID)
+  const { farmId, to } = useFarmScope()
   const createPayment = usePaymentRequest(farmId)
   const navigate = useNavigate()
   const [params] = useSearchParams()

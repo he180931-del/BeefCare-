@@ -71,7 +71,7 @@ const fileDigest = async (file: File): Promise<string> => {
   return digestBytes(bytes)
 }
 
-export function createHerdEntryBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number }) {
+export function createHerdEntryBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number | null }) {
   const root = transport.farmPath(farmId, '/entry-vouchers')
   const listView = async (filters: EntryListFilters = {}): Promise<EntryListView> => {
     const params = new URLSearchParams()

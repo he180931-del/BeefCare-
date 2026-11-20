@@ -1,5 +1,5 @@
 import { asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedStockRow } from '../types'
@@ -12,7 +12,7 @@ export function createFeedStockApi({
   mockRows,
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedStockRow[]
 }) {
@@ -55,7 +55,7 @@ export function createFeedStockApi({
   }
 }
 
-const feedStockApi = createFeedStockApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedStockApi = createFeedStockApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 /** Reads the backend projection in backend mode; local demo mode uses the synthetic fixture. */
 export const listFeedStock = () => feedStockApi.list()

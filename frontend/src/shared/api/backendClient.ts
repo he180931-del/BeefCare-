@@ -31,6 +31,23 @@ export class BackendError extends Error {
   }
 }
 
+/**
+ * A farm-scoped request made before this tab entered a farm (UC-FE02-02). It is never sent and never guessed: there is
+ * no default farm to send it to.
+ */
+export class NoActiveFarmError extends Error {
+  constructor() {
+    super('Tab này chưa vào trại nào. Mở trang Chọn trại để vào trại làm việc.')
+    this.name = 'NoActiveFarmError'
+  }
+}
+
+/**
+ * The path `farmPath` builds without a farm. Building it does not throw, so an API module that prepares its paths when
+ * it loads still loads; `request` refuses it before anything is sent.
+ */
+const NO_FARM_PATH = '/api/farms/-'
+
 type ClientOptions = { baseUrl?: string; fetchImpl?: typeof fetch; newKey?: () => string; onUnauthorized?: () => void }
 type RequestOptions = { method?: string; body?: unknown; key?: string; signal?: AbortSignal; headers?: Record<string, string> }
 type CsrfBody = { token: string; headerName?: string }
@@ -60,6 +77,7 @@ export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch
     return { token: csrf.token, headerName: csrf.headerName }
   }
   async function request<T = unknown>(path: string, { method = 'GET', body, key, signal, headers = {} }: RequestOptions = {}, retried = false): Promise<T> {
+    if (path.startsWith(NO_FARM_PATH)) throw new NoActiveFarmError()
     const changing = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())
     if (changing && !csrfToken) await getCsrf()
     const multipart = typeof FormData !== 'undefined' && body instanceof FormData
@@ -114,7 +132,8 @@ export function createBackendClient({ baseUrl = '', fetchImpl = globalThis.fetch
     get: <T = unknown>(path: string, options?: RequestOptions) => request<T>(path, options),
     // Keep this key for a retry after a timeout; generate a new key only for a new user action.
     command: <T = unknown>(path: string, body: unknown, { method = 'POST', key = newKey(), ...options }: RequestOptions = {}) => request<T>(path, { ...options, method, body, key }),
-    farmPath: (farmId: string | number, suffix = '') => {
+    farmPath: (farmId: string | number | null, suffix = '') => {
+      if (farmId == null) return `${NO_FARM_PATH}${suffix}`
       if (!/^\d+$/.test(String(farmId))) throw new TypeError('farmId must be the backend numeric ID')
       return `/api/farms/${farmId}${suffix}`
     },

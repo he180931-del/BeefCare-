@@ -6,7 +6,7 @@ import type { AccountIdentity } from '../../../src/features/account/types'
 
 const manager: AccountIdentity = { email: 'manager@beefcare.local', fullName: 'Trần Quốc Long', role: 'MANAGER', farmName: 'Trại bò Yên Bài – Ba Vì', farmId: 1 }
 const pm: AccountIdentity = { email: 'pm@beefcare.local', fullName: 'Đỗ Minh Quân', role: 'PM', farmName: null, farmId: null }
-const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn() })
+const transport = () => ({ get: vi.fn(), command: vi.fn(), farmPath: vi.fn((farmId: string | number | null, suffix = '') => `/api/farms/${farmId}${suffix}`) })
 const localApi = (now?: () => number) => createAccountApi({ mode: 'local', farmId: 1, transport: transport(), store: createAccountDemoStore({ now }) })
 
 describe('profile and password rules', () => {

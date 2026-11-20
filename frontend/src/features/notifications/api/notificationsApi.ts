@@ -1,5 +1,5 @@
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { NotificationsDemoStore } from '../data/notificationsDemoStore'
@@ -20,7 +20,7 @@ export const mapBackendNotification = (value: unknown): NotificationView => {
   }
 }
 
-export function createNotificationsApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: NotificationsDemoStore }) {
+export function createNotificationsApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: NotificationsDemoStore }) {
   void farmId
   return {
     // chưa có API (giờ máy chủ để tính "n phút trước"; backend dùng đồng hồ trình duyệt)
@@ -42,4 +42,4 @@ export function createNotificationsApi({ mode, farmId, transport, store }: { mod
   }
 }
 export type NotificationsApi = ReturnType<typeof createNotificationsApi>
-export const notificationsApi = createNotificationsApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.notifications.notificationsDemoStore) })
+export const notificationsApi = createNotificationsApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.notifications.notificationsDemoStore) })

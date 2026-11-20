@@ -1,7 +1,7 @@
 // Deep import kept on purpose until refactor phase 3 (see tests/api/layerBoundary.test.ts).
 import { moveBarn } from '../../cattle/api/cattleApi'
 import { BackendError } from '../../../shared/api/backendClient'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
@@ -217,28 +217,28 @@ const outcome = (value: unknown): PenMoveCheckRow['results'][number]['outcome'] 
 
 const backendApi = {
   list: async (): Promise<Pen[]> => {
-    const response = await backendTransport.get(backendTransport.farmPath(backendFarmId, '/pens'))
+    const response = await backendTransport.get(backendTransport.farmPath(activeFarmId, '/pens'))
     const body = asRecord(response)
     return (Array.isArray(response) ? asRows(response) : asRows(body.pens)).map(mapBackendPen)
   },
   detail: async (pen: Pen): Promise<PenDetail> => {
     if (pen.id == null) return { ...pen, cattleInPen: [] }
-    return mapBackendPenDetail(await backendTransport.get(backendTransport.farmPath(backendFarmId, `/pens/${pen.id}`)))
+    return mapBackendPenDetail(await backendTransport.get(backendTransport.farmPath(activeFarmId, `/pens/${pen.id}`)))
   },
-  create: async (pen: Pen): Promise<Pen> => mapBackendPen(await backendTransport.command(backendTransport.farmPath(backendFarmId, '/pens'), {
+  create: async (pen: Pen): Promise<Pen> => mapBackendPen(await backendTransport.command(backendTransport.farmPath(activeFarmId, '/pens'), {
     code: pen.code, name: pen.name, capacity: pen.capacity, description: pen.desc ?? '', criteria: criteriaPayload(pen), initialStatus: pen.status,
   })),
   update: async (pen: Pen): Promise<Pen> => {
     if (pen.id == null) throw new Error('Không xác định được chuồng trên backend')
     const expectedVersion = lockVersionOf(pen)
-    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(backendFarmId, `/pens/${pen.id}`), {
+    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(activeFarmId, `/pens/${pen.id}`), {
       code: pen.code, name: pen.name, capacity: pen.capacity, description: pen.desc ?? '', criteria: criteriaPayload(pen), ...(expectedVersion == null ? {} : { expectedVersion }),
     }, { method: 'PUT' }))
   },
   changeAvailability: async (pen: Pen, status: 'ACTIVE' | 'INACTIVE', note: { date: string; reason: string }): Promise<Pen> => {
     if (pen.id == null) throw new Error('Không xác định được chuồng trên backend')
     const expectedVersion = lockVersionOf(pen)
-    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(backendFarmId, `/pens/${pen.id}/availability`), {
+    return mapBackendPen(await backendTransport.command(backendTransport.farmPath(activeFarmId, `/pens/${pen.id}/availability`), {
       status,
       effectiveDate: note.date,
       reason: note.reason,
@@ -247,7 +247,7 @@ const backendApi = {
   },
   checkMove: async (cattle: MoveCattle[], _from: Pen, to: Pen, moveDate: string): Promise<PenMoveCheckResult> => {
     const cattleIds = cattle.map((c) => c.id).filter((id): id is number => typeof id === 'number')
-    const body = asRecord(await backendTransport.command(backendTransport.farmPath(backendFarmId, '/pen-moves/check'), { cattleIds, toPenId: to.id, moveDate }, { method: 'POST' }))
+    const body = asRecord(await backendTransport.command(backendTransport.farmPath(activeFarmId, '/pen-moves/check'), { cattleIds, toPenId: to.id, moveDate }, { method: 'POST' }))
     return {
       destinationActive: body.destinationActive === true,
       freePlaces: numberValue(body.freePlaces),
@@ -288,7 +288,7 @@ const backendApi = {
         .filter(([, reason]) => reason.trim())
         .map(([code, reason]) => [String(byCode.get(code) ?? code), reason.trim()]),
     )
-    const body = asRecord(await backendTransport.command(backendTransport.farmPath(backendFarmId, '/pen-moves'), {
+    const body = asRecord(await backendTransport.command(backendTransport.farmPath(activeFarmId, '/pen-moves'), {
       cattleIds, toPenId: command.to.id, moveDate: command.moveDate, reason: command.reason, warningReasons, cattleVersions,
     }, { method: 'POST' }))
     return { moved: asRows(body.moved).length, skipped: asRows(body.skipped).map((row) => ({ cattleCode: textValue(row.cattleCode) })) }

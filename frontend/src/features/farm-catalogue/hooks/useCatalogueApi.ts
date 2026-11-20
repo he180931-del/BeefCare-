@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { useSession } from '../../authorization'
 import { catalogueApiForFarm } from '../api/catalogueApi'
 
 export function useCatalogueApi() {
-  const farmId = useSession()?.farmId ?? backendFarmId
+  const farmId = useSession()?.farmId ?? activeFarmId
   return useMemo(() => catalogueApiForFarm(farmId), [farmId])
 }

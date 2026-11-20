@@ -321,7 +321,7 @@ export function mapReproductionError(error: unknown): unknown {
 
 interface Cached { cattleId: number; profile?: ReproductionFemale }
 
-export function createReproductionBackend({ farmId, transport }: { farmId: string | number; transport: BackendTransport }) {
+export function createReproductionBackend({ farmId, transport }: { farmId: string | number | null; transport: BackendTransport }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   const cache = new Map<string, Cached>()
   let options: Omit<ReproductionFormOptions, 'healthCases'> & { breedIds: Map<string, number>; memberIds: Map<string, number> } | undefined

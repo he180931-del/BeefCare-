@@ -22,5 +22,3 @@ export const backendMode: BackendMode = env.VITE_BEEFCARE_DATA_SOURCE === 'local
 /** Backend origin. Empty means relative `/api` paths through the Vite proxy. */
 export const backendBaseUrl = env.VITE_BEEFCARE_API_URL || ''
 
-/** `VITE_BEEFCARE_FARM_ID`, used only by the legacy farm fallback that refactor phase 4 removes. */
-export const configuredFarmId = env.VITE_BEEFCARE_FARM_ID

@@ -1,5 +1,5 @@
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedCatalogueDemoStore, FeedCatalogueInput, FeedCatalogueItem, FeedCatalogueSaveInput, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
@@ -76,7 +76,7 @@ export function createFeedCatalogueApi({
   demoStore = lazyObject(() => demo.feedReceipt.feedCatalogueDemoStore),
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   demoStore?: FeedCatalogueDemoStore
 }) {
@@ -167,7 +167,7 @@ export function createFeedCatalogueApi({
   }
 }
 
-const api = createFeedCatalogueApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const api = createFeedCatalogueApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 export const listFeedCatalogue = () => api.listFeeds()
 export const saveFeedCatalogueItem = (input: FeedCatalogueSaveInput) => api.saveFeed(input)

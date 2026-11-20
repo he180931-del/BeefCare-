@@ -18,7 +18,7 @@ export type CattleListOptions = {
 export type PurposeOption = { id: number; code: string; name: string; purposeType: string; available: boolean }
 export type ResolvedCode = { cattle: CowSeed | null; switchFarmRequired: boolean; farmId: number | null; replacedTag: boolean; currentTagCode: string | null; replacedAt: string | null }
 
-export function createCattleBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number }) {
+export function createCattleBackendApi({ transport, farmId }: { transport: BackendTransport; farmId: string | number | null }) {
   const root = transport.farmPath(farmId, '/cattle')
   const listPage = async (options: CattleListOptions = {}): Promise<CattlePage> => {
     const params = new URLSearchParams()

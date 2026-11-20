@@ -271,7 +271,7 @@ const sameList = (a: string[], b: string[]) => a.length === b.length && [...a].s
 const sameTarget = (a: ScheduleTarget, b: ScheduleTarget) =>
   sameList(a.penCodes, b.penCodes) && sameList(a.herdGroups, b.herdGroups) && sameList(a.lifeStages, b.lifeStages) && sameList(a.excluded, b.excluded) && sameList(a.added, b.added)
 
-export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
+export function createVaccinationBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number | null; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   const now = () => toFarmTime(clock().toISOString())
   const today = () => now().slice(0, 10)

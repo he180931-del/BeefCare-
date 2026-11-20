@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FarmOverviewDemoStore } from '../data/farmOverviewDemoStore'
@@ -16,7 +16,7 @@ const localProfileRoute = (code: string | null, role: ViewerRole): string | null
   return role === 'TECHNICIAN' ? `/kt/dan-bo/${pathCode}` : `/cattle/${pathCode}`
 }
 
-export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FarmOverviewDemoStore }) {
+export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: FarmOverviewDemoStore }) {
   const backend = mode === 'backend' ? createFarmOverviewBackendApi({ farmId, transport }) : null
   return {
     // GET /api/farms/{farmId}/dashboard?from&to&penId&herdGroup&lifeStage
@@ -41,4 +41,4 @@ export function createFarmOverviewApi({ mode, farmId, transport, store }: { mode
     async getTechnicianHome() { return backend ? backend.getTechnicianHome() : store.getTechnicianHome() },
   }
 }
-export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.farmOverview.farmOverviewDemoStore) })
+export const farmOverviewApi = createFarmOverviewApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.farmOverview.farmOverviewDemoStore) })

@@ -71,6 +71,9 @@ describe('session from the backend profile', () => {
 })
 
 describe('role navigation', () => {
+  // A tab that has not entered a farm yet; the cases about an entered farm write one themselves.
+  beforeEach(() => sessionStorage.clear())
+
   it.each([
     ['OWNER', 'Chọn trại'],
     ['MANAGER', 'Chọn trại'],

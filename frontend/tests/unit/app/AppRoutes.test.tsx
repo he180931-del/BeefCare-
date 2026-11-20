@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import App from '../../../src/app/routes/AppRoutes'
+
+function Where() {
+  return <output data-testid="where">{useLocation().pathname}</output>
+}
 
 const routeCases = [
   ['/terms', 'Điều khoản sử dụng'],
@@ -22,5 +26,19 @@ describe('application route smoke', () => {
   it.each(routeCases)('renders %s through its registered route', async (path, heading) => {
     render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+  })
+})
+
+describe('farm screens without an entered farm (UC-FE02-02)', () => {
+  beforeEach(() => sessionStorage.clear())
+  it.each(['/tong-quan', '/cattle', '/pens', '/thuc-an/nhat-ky', '/thanh-vien', '/kt', '/kt/dan-bo/BC-1'])('sends %s to Select Farm instead of a default farm', async (path) => {
+    render(<MemoryRouter initialEntries={[path]}><App /><Where /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Chọn trang trại' })).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent('/chon-trai')
+  })
+
+  it('keeps the Owner pages that name their farm in the address (?farm=, ?farmId=) reachable', async () => {
+    render(<MemoryRouter initialEntries={['/thong-tin-trai?farmId=1']}><App /><Where /></MemoryRouter>)
+    expect(await screen.findByRole('heading', { name: 'Thông tin trại' })).toBeInTheDocument()
   })
 })

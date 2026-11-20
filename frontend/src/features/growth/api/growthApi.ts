@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { GrowthDemoStore } from '../data/growthDemoStore'
@@ -8,7 +8,7 @@ import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
 
 /** Chế độ backend chỉ gọi API (không bao giờ đọc mock); chế độ local dùng kho demo. */
-export function createGrowthApi({ mode, farmId, transport, store, clock }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: GrowthDemoStore; clock?: () => Date }) {
+export function createGrowthApi({ mode, farmId, transport, store, clock }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: GrowthDemoStore; clock?: () => Date }) {
   if (mode === 'backend') return createGrowthBackend({ farmId, transport, clock })
   return {
     async listHerd(filters: GrowthFilters = {}) {
@@ -31,4 +31,4 @@ export function createGrowthApi({ mode, farmId, transport, store, clock }: { mod
     },
   }
 }
-export const growthApi = createGrowthApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.growth.growthDemoStore) })
+export const growthApi = createGrowthApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.growth.growthDemoStore) })

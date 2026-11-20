@@ -477,7 +477,7 @@ function mapGettingStarted(body: unknown): GettingStarted {
   return { visible: row.visible === true, dismissed: row.dismissed === true, allDone: row.allDone === true, steps }
 }
 
-export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: string | number; transport: BackendTransport }) {
+export function createFarmOverviewBackendApi({ farmId, transport }: { farmId: string | number | null; transport: BackendTransport }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   let contextPromise: Promise<FarmContext> | undefined
   let pensPromise: Promise<PenOption[]> | undefined

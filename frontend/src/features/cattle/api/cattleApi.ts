@@ -1,6 +1,6 @@
 import type { CowSeed } from '../../../data/cowsData'
 import { dm, dmy } from '../../../shared/lib/format'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { createCattleBackendApi, lifeStageValue, type CattleListOptions, type CattlePage, type PenMoveCheck, type PurposeOption, type ProfileUpdateCommand } from './cattleBackendApi'
@@ -9,7 +9,7 @@ import type { Cattle, CattleEvent, QrHistoryRow, Tone } from '../types'
 import { toFarmLocal, businessDate } from '../../../shared/lib/date/farmTime'
 import { demo } from '../../../demo/demoModules'
 
-const backendApi = createCattleBackendApi({ transport: backendTransport, farmId: backendFarmId })
+const backendApi = createCattleBackendApi({ transport: backendTransport, farmId: activeFarmId })
 export const listCattleTimeline = backendApi.timeline
 
 /**

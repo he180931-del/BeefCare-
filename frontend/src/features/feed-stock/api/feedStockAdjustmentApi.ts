@@ -1,5 +1,5 @@
 import { asRecord, asRows, nullableNumber, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
@@ -93,7 +93,7 @@ export function createFeedStockAdjustmentApi({
   demoStore = lazyObject(() => demo.feedReceipt.feedStockAdjustmentDemoStore),
 }: {
   mode: BackendMode
-  farmId: string | number
+  farmId: string | number | null
   transport: BackendTransport
   mockRows?: readonly FeedStockAdjustment[]
   demoStore?: FeedStockAdjustmentDemoStore
@@ -171,7 +171,7 @@ export function createFeedStockAdjustmentApi({
   }
 }
 
-const feedStockAdjustmentApi = createFeedStockAdjustmentApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport })
+const feedStockAdjustmentApi = createFeedStockAdjustmentApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 /** Máy chủ cấp mã phiếu, lưu chứng từ và xác định lại tồn hệ thống tại ngày kiểm kê; bản mô phỏng không có các việc này. */
 export const feedStockAdjustmentServerBacked = backendMode === 'backend'

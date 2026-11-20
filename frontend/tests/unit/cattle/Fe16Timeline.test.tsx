@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { mapTimeline, timelineMeta, TIMELINE_FILTERS } from '../../../src/features/cattle/api/cattleTimeline'
-import { backendTransport } from '../../../src/api/backendTransport'
+import { backendTransport } from '../../../src/shared/api/backendTransport'
 import TimelineTab, { timelineGroups } from '../../../src/features/cattle/components/TimelineTab'
 import { SessionContext, type Session } from '../../../src/features/authorization/sessionContext'
 import { initialCows } from '../../../src/data/cowsData'

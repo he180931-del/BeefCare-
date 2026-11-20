@@ -18,13 +18,14 @@ describe('herd-exit successful backend flow', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_BEEFCARE_DATA_SOURCE', 'backend')
-    vi.stubEnv('VITE_BEEFCARE_FARM_ID', '1')
+    sessionStorage.setItem('beefcare.currentFarmId', '1')
     localStorage.setItem('beefcare:latency', '0')
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    sessionStorage.removeItem('beefcare.currentFarmId')
   })
 
   it('saves the draft, uploads documents, confirms, and navigates after success', async () => {

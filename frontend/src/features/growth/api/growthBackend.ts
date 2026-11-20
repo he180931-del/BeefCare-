@@ -189,7 +189,7 @@ const query = (params: Record<string, string | number | undefined>) => {
   return s ? `?${s}` : ''
 }
 
-export function createGrowthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number; transport: BackendTransport; clock?: () => Date }) {
+export function createGrowthBackend({ farmId, transport, clock = () => new Date() }: { farmId: string | number | null; transport: BackendTransport; clock?: () => Date }) {
   const path = (suffix: string) => transport.farmPath(farmId, suffix)
   const resolved = new Map<string, { cattleId: number; cattle: GrowthCattle }>()
   const records = new Map<number, GrowthRecord>()

@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { HealthDemoStore } from '../data/healthDemoStore'
@@ -10,7 +10,7 @@ import { lazyObject } from '../../../shared/lib/lazyObject'
 export type HealthApi = HealthBackend
 
 /** Chế độ backend chỉ gọi API (không bao giờ đọc mock, không fallback); chế độ local dùng kho demo. */
-export function createHealthApi({ mode, farmId, transport, store, clock }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: HealthDemoStore; clock?: () => Date }): HealthApi {
+export function createHealthApi({ mode, farmId, transport, store, clock }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: HealthDemoStore; clock?: () => Date }): HealthApi {
   if (mode === 'backend') return createHealthBackend({ farmId, transport, clock })
   return {
     async listCases(filters: HealthCaseFilters = {}) { return store.listCases(filters) },
@@ -27,4 +27,4 @@ export function createHealthApi({ mode, farmId, transport, store, clock }: { mod
   }
 }
 
-export const healthApi = createHealthApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.health.healthDemoStore) })
+export const healthApi = createHealthApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.health.healthDemoStore) })

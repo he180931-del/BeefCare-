@@ -12,8 +12,8 @@ vi.mock('../../../src/shared/config/runtime', async (original) => ({
   ...await original<typeof import('../../../src/shared/config/runtime')>(), backendMode: 'backend',
 }))
 vi.mock('../../../src/shared/api/backendTransport', () => ({ backendTransport: http }))
-vi.mock('../../../src/api/backendTransport', async (original) => ({
-  ...await original<typeof import('../../../src/api/backendTransport')>(), backendFarmId: '42',
+vi.mock('../../../src/app/session/currentFarm', async (original) => ({
+  ...await original<typeof import('../../../src/app/session/currentFarm')>(), activeFarmId: 42,
 }))
 const pending: Payment = { id: 501, quoteRef: 'BC-HISTORY', durationYears: 1, amountVnd: 1_200_000, state: 'PENDING',
   requestedAt: '2026-11-08T03:00:01Z', expiresAt: new Date(Date.now() + 86_400_000).toISOString(), priceVersionId: 7,

@@ -1,6 +1,6 @@
 import { businessDate, toBusinessTime } from '../../../shared/lib/date/farmTime'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import type { FinanceDemoStore } from '../data/financeDemoStore'
@@ -23,7 +23,7 @@ const mapNotice = (value: unknown): PmNotice => {
   return { id: numberValue(row.id), kind, title: textValue(row.title), summary: textValue(row.summary), createdTime: toBusinessTime(row.createdTime), readTime: row.readTime == null ? null : toBusinessTime(row.readTime), actionLabel, href }
 }
 
-export function createFinanceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: FinanceDemoStore }) {
+export function createFinanceApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: FinanceDemoStore }) {
   // Backend mode is always remote; local mode is the only mode allowed to read the demo store.
   void farmId
   const backend = createFinanceBackendApi(transport)
@@ -95,4 +95,4 @@ export function createFinanceApi({ mode, farmId, transport, store }: { mode: Bac
   }
 }
 export type FinanceApi = ReturnType<typeof createFinanceApi>
-export const financeApi = createFinanceApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.finance.financeDemoStore) })
+export const financeApi = createFinanceApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.finance.financeDemoStore) })

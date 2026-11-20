@@ -76,7 +76,6 @@ test('the entry stays thin and the route table, providers and layouts live in ap
 // What is still allowed in the legacy root folders after refactor phase 2, and why. New shared code goes to `shared/` or
 // `app/`; feature code goes to its feature. Removing an entry is fine, adding one needs a reason here.
 const LEGACY_ALLOWED: Record<string, string> = {
-  'api/backendTransport.ts': 'backendFarmId fallback (phase 4) and re-exports for the local adapters',
   'api/client.ts': 'local collections (phase 3)',
   'api/collectionSchemas.ts': 'local collections (phase 3)',
   'api/demoCattlePhotos.ts': 'demo data (phase 3)',
@@ -107,9 +106,7 @@ test('app providers keep the order Router > Auth > AuthGate > Session', () => {
 // Refactor phase 3a: screens and rules never pick the data source. The feature API says what its adapter offers (a flag
 // or a value) and owns every demo default, so the demo stores can leave the production bundle in phase 3b.
 const UI_LAYER = /^(app\/|features\/[^/]+\/(components|pages|hooks|domain|validation|constants)\/)/
-const UI_MODE_ALLOWED: Record<string, string> = {
-  'features/subscription/hooks/useFarmScope.ts': 'farm of the session (phase 4)',
-}
+const UI_MODE_ALLOWED: Record<string, string> = {}
 
 /** Value (not type-only) named imports and re-exports of one file, with their resolved target under `src/`. */
 const valueImports = (file: string): Array<{ names: string[]; target: string }> => {

@@ -1,4 +1,4 @@
-import { backendFarmId } from '../../../api/backendTransport'
+import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
@@ -136,7 +136,7 @@ const filterLocal = <T extends { code: string; name: string; available: boolean 
     && (!q || `${r.code} ${r.name} ${extra(r)}`.toLowerCase().includes(q)))
 }
 
-export function createCatalogueApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number; transport: BackendTransport; store: CatalogueDemoStore }) {
+export function createCatalogueApi({ mode, farmId, transport, store }: { mode: BackendMode; farmId: string | number | null; transport: BackendTransport; store: CatalogueDemoStore }) {
   if (mode !== 'backend') {
     return {
       listBreeds: (filters: CatalogueFilters = {}) => store.listBreeds(filters),
@@ -200,9 +200,9 @@ export function createCatalogueApi({ mode, farmId, transport, store }: { mode: B
 }
 export type CatalogueApi = ReturnType<typeof createCatalogueApi>
 
-export const catalogueApi = createCatalogueApi({ mode: backendMode, farmId: backendFarmId, transport: backendTransport, store: lazyObject(() => demo.catalogue.catalogueDemoStore) })
+export const catalogueApi = createCatalogueApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport, store: lazyObject(() => demo.catalogue.catalogueDemoStore) })
 
 /** Catalogue of the farm in session. The demo store has one farm, so the local adapter is shared. */
-export function catalogueApiForFarm(farmId: string | number): CatalogueApi {
+export function catalogueApiForFarm(farmId: string | number | null): CatalogueApi {
   return backendMode === 'backend' ? createCatalogueApi({ mode: backendMode, farmId, transport: backendTransport, store: lazyObject(() => demo.catalogue.catalogueDemoStore) }) : catalogueApi
 }
