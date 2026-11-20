@@ -167,4 +167,5 @@
     <include file="config/liquibase/changelog/20261115000200_fe23_feeding_sessions.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261115000300_fe23_ration_cancellation_snapshot.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261117000100_fixed_business_time_zone.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121000100_local_runtime_cattle_qr.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

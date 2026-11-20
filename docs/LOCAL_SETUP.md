@@ -113,6 +113,23 @@ Lấy tem thử từ hồ sơ bò của trại đang chọn, tab **Thẻ QR**, t
 
 Ba trại ở trạng thái ACTIVE, múi giờ `Asia/Ho_Chi_Minh`, có danh mục khởi tạo. Không ghi mật khẩu, token, cookie hay nội dung `.env` vào tài liệu hoặc Git. Các tài khoản này chỉ dùng ở local.
 
+### Hai bò demo tạm thời và QR đã cấp
+
+Khi chạy backend với profile `dev,local`, `LocalRuntimeCattleLifecycle` chạy sau seed tài khoản và tạo hai bò trong **BeefCare Local Farm A**:
+
+| Bò | Mã tai | Giới tính / mục đích | Nội dung QR |
+|---|---|---|---|
+| Bò kiểm thử camera QR, mã hiển thị `BC-000001` | `QR-CAMERA-TEST` | Đực, vỗ béo | `QR-1151-000001` — dùng lại ảnh tem đã tạo |
+| Bò cái demo QR, mã hiển thị lấy từ bộ đếm của trại | `QR-DEMO-FEMALE` | Cái, trưởng thành, sinh sản (`BREEDING`) | `QR-{farmId}-{số thứ tự 6 chữ số}`, cấp bằng `CodeSequenceService.nextQrTagCode` |
+
+Chọn trại A rồi quét ảnh tem cũ để mở đúng bò đực. Bò cái có sẵn trong danh sách đàn và có thẻ QR riêng. Mã thẻ bò cái được cấp một lần qua bộ sinh mã chung, rồi giữ trong cấu hình local `local_runtime_cattle_qr` để ảnh QR không đổi sau khi khởi động lại; không đặt lại hay giảm bộ đếm. Ví dụ trại `1151` với bộ đếm đang ở `1` sẽ nhận `QR-1151-000002`. Mã thực tế có trong log `Local runtime cattle ready` và tab **Thẻ QR**. Mã thử cũ `QR-LOCAL-DEMO-FEMALE` được dọn nếu còn thuộc bò demo; dùng ảnh mới sau khi cập nhật. Cả hai có cân mẫu và phân chuồng; dữ liệu được lưu trong database thật để dùng các API thông thường.
+
+Khi dừng backend bình thường (Ctrl+C hoặc đóng Spring context), chương trình xóa đúng hai bò demo và các bản ghi phụ thuộc. Tài khoản, trại, danh mục, chuồng cấu hình và bò khác được giữ lại. Tham chiếu cha/mẹ từ bò khác đến bò demo được bỏ, không xóa bò khác. Phiếu chỉ chứa bò demo được dọn; phiếu có cả bò khác giữ lại và tính lại tiền bò sau khi bỏ dòng demo.
+
+Nếu tiến trình bị kill cưỡng bức hoặc máy mất điện, shutdown hook không thể chạy; lần khởi động kế tiếp dọn phần demo còn sót trước khi tạo lại. Dấu nhận diện nằm trên thẻ QR gốc, nên đổi tên, số tai hoặc thay thẻ của bò demo không làm mất khả năng dọn. PostgreSQL có khóa theo phiên để hai backend không cùng chiếm hoặc dọn bộ dữ liệu này.
+
+Đặt `BEEFCARE_LOCAL_RUNTIME_CATTLE_ENABLED=false` rồi khởi động lại để tắt việc tạo demo; tài khoản local vẫn được seed. Tính năng không chạy ngoài profile `local`, và luôn tắt nếu có profile `prod`. Mã QR/mã bò đã thuộc dữ liệu khác sẽ báo lỗi, không ghi đè. Riêng bản ghi thử cũ đúng cặp `BC-000001` / `QR-CAMERA-TEST` gắn với QR mẫu ở trại A được nhận lại và chuyển thành dữ liệu tạm.
+
 ## 6. Email
 
 **Local.** Profile `local` chọn adapter SMTP gửi tới Mailpit (`localhost:1025`); xem thư tại <http://localhost:8025>. Mailpit giữ thư tại máy, không gửi ra ngoài. Dùng nó để xem các mẫu tiếng Việt: xác thực, đặt lại mật khẩu, lời mời vào trại, thông báo, kể cả bản plain-text và thời hạn link. Profile `dev` và `testh2` không có `local` dùng `MockEmailDelivery` trong bộ nhớ, trừ khi đặt `beefcare.email.provider=smtp`. Hộp thư local không có API.

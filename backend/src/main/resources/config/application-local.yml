@@ -42,6 +42,8 @@ application:
   liquibase:
     async-start: false
 beefcare:
+  local-runtime-cattle:
+    enabled: ${BEEFCARE_LOCAL_RUNTIME_CATTLE_ENABLED:true}
   local-seed:
     enabled: true
     password: ${BEEFCARE_DEV_PASSWORD:}
