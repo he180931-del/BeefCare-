@@ -16,8 +16,12 @@ frontend/src/app/routes/AppRoutes.tsx
 
 ## Frontend ownership
 
-Every feature folder under `frontend/src/features/` exposes its pages and API
-facade through `index.ts`. The four features with a dedicated context file are
+Every feature folder under `frontend/src/features/` exposes its lazy page loaders
+in `routes.ts` (only dynamic `import('./pages/…')`, read by
+`app/routes/AppRoutes.tsx`) and what other features use (API, shared
+components, types) in `index.ts`. Because the route table imports only
+`routes.ts`, an `index.ts` loads with the screens that use it, never in the
+entry chunk. The four features with a dedicated context file are
 herd entry, herd exit, cattle and pen management (`FEATURE_*.md`).
 
 | Folder in `frontend/src/features/` | Spec |

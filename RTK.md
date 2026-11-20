@@ -247,12 +247,14 @@ code goes to `shared/` or `app/`, not to the legacy root folders. Inside a
 feature, field rules live in `validation/`, policies and calculations in
 `domain/`, React hooks in `hooks/`, DTO mapping next to the API in `api/`. `shared`
 never imports `app`, `features` or the legacy folders, and `app` reaches a
-feature only through its `index.ts` (`tests/api/layerBoundary.test.ts`). Screens
+feature only through its `index.ts` or its `routes.ts` page loaders
+(`tests/api/layerBoundary.test.ts`). Screens
 never read `backendMode`; feature APIs reach demo data only through
 `src/demo/demoModules.ts`, inside their local branch.
 
-Each feature should expose a small `index.ts` for lazy page loaders and keep
-its API/data/components private to that feature. Cross-feature communication
+Each feature exposes its lazy page loaders in `routes.ts` (dynamic imports
+only, for the route table) and a small `index.ts` with what other features
+use; it keeps the rest of its API/data/components private to that feature. Cross-feature communication
 must go through an API/domain boundary, not by importing another feature's
 internal component or mock data.
 
