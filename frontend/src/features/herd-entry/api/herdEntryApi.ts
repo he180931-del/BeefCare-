@@ -16,6 +16,7 @@ import { businessDate } from '../../../shared/lib/date/farmTime'
 import { entryToday } from '../validation/entryValidation'
 import type { EntryCow } from '../types'
 import { demo } from '../../../demo/demoModules'
+import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 
 const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: activeFarmId })
 
@@ -40,17 +41,18 @@ export const herdEntryApi = {
   // GET /api/farms/{farmId}/entry-vouchers/{id}
   get: (id: string) => usingBackend ? backendApi.get(id) : demo.entryLocal.localApi.get(id),
   create: (record: Omit<HerdEntry, 'id'> & Partial<Pick<HerdEntry, 'id'>>) => usingBackend
-    ? backendApi.save({ id: record.id, record })
+    ? backendApi.save({ record })
     : demo.entryLocal.localApi.create(record),
-  update: async (id: string, patch: Partial<HerdEntry>) => {
+  update: async (id: string, patch: Partial<HerdEntry>, snapshot?: VoucherSnapshot) => {
     if (!usingBackend) return demo.entryLocal.localApi.update(id, patch)
+    const expectedVersion = requireVersion(snapshot?.expectedVersion)
     const current = await backendApi.get(id)
-    return backendApi.save({ id, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.calves ?? patch.draft?.cows ?? current.draft?.calves ?? current.draft?.cows ?? [] })
+    return backendApi.save({ id, expectedVersion, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.calves ?? patch.draft?.cows ?? current.draft?.calves ?? current.draft?.cows ?? [] })
   },
   reset: () => usingBackend ? Promise.reject(new Error('Entry reset yêu cầu dữ liệu mẫu; không dùng khi kết nối backend')) : demo.entryLocal.localApi.reset(),
   // POST /api/farms/{farmId}/vouchers/entry/{voucherId}/payments
-  recordPayment: (id: string, payment: Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
-    ? backendApi.recordPayment(id, payment)
+  recordPayment: (id: string, payment: Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }, snapshot?: VoucherPaymentSnapshot) => usingBackend
+    ? backendApi.recordPayment(id, payment, snapshot ?? { voucherVersion: undefined })
     : demo.entryLocal.localApi.get(id).then((row) => demo.entryLocal.localApi.update(id, {
       debt: Math.max((row.debt ?? 0) - payment.amount, 0),
       detail: { ...row.detail, payments: [...(row.detail?.payments ?? []), { by: 'Người dùng hiện tại', ...payment }] },
@@ -58,18 +60,18 @@ export const herdEntryApi = {
 }
 
 // POST|PUT /api/farms/{farmId}/entry-vouchers[/{id}] and POST .../{id}/post
-export const saveHerdEntry = (input: { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }) => {
+export const saveHerdEntry = (input: { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }) => {
   return usingBackend ? backendApi.save(input) : demo.entryLocal.saveDraft(input)
 }
 
 // POST /api/farms/{farmId}/entry-vouchers/{id}/void (máy chủ ghi lịch sử hủy theo phiên)
-export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }) => usingBackend
-  ? backendApi.voidVoucher(id, String(patch.cancelReason ?? 'Hủy phiếu nhập'))
+export const voidHerdEntry = (id: string, cattleRows: CattleInput[], patch: Partial<HerdEntry> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot) => usingBackend
+  ? backendApi.voidVoucher(id, { expectedVersion: snapshot?.expectedVersion, backendId: snapshot?.backendId, reason: String(patch.cancelReason ?? 'Hủy phiếu nhập') })
   : demo.entryLocal.voidEntry(id, cattleRows, patch)
 
 
 // DELETE /api/farms/{farmId}/entry-vouchers/{id}
-export const discardHerdEntryDraft = (id: string): Promise<void> => usingBackend ? backendApi.discard(id) : demo.entryLocal.localApi.remove(id).then(() => undefined)
+export const discardHerdEntryDraft = (id: string, expectedVersion?: number, backendId?: number): Promise<void> => usingBackend ? backendApi.discard(id, expectedVersion, backendId) : demo.entryLocal.localApi.remove(id).then(() => undefined)
 
 // GET /api/farms/{farmId}/pending-calves
 export const listPendingEntryCalves = (): Promise<EntryCalf[]> => usingBackend ? backendApi.pendingCalves() : Promise.resolve(demo.entryLocal.pendingCalves())

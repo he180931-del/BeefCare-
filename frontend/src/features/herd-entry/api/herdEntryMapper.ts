@@ -127,7 +127,7 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
     }) }),
   } : undefined
   return {
-    id: textValue(row.code), backendId: numberValue(row.id), version: numberValue(row.version), date: textValue(row.entryDate),
+    id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.entryDate),
     type: typeFromBackend(row.entryType), source: sellerName, count: numberValue(row.cattleCount, lines.length),
     weight: numberValue(row.totalWeightKg), total, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
     cancelReason: textValue(row.voidReason), pricing: 'kg', quarantine: textValue(row.quarantineCertNo),

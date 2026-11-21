@@ -4,12 +4,15 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EntryCow, HerdEntry } from '../../../src/features/herd-entry/types'
 import type { Pen } from '../../../src/features/pen-management/types'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 const state = vi.hoisted(() => ({
   entries: [] as HerdEntry[],
   details: {} as Record<string, HerdEntry>,
   getCalls: [] as string[],
-  saved: [] as Array<{ id?: string; record: Partial<HerdEntry>; cattleRows?: EntryCow[]; documents?: File[] }>,
+  saved: [] as Array<{ id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: EntryCow[]; documents?: File[] }>,
+  saveError: null as Error | null,
+  savedVersion: 3,
   previewCalls: [] as Array<{ id: string; file: File }>,
   commitCalls: [] as Array<{ id: string; file: File }>,
   removed: [] as Array<{ id: string; attachmentId: number }>,
@@ -54,10 +57,13 @@ vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => 
     listEntrySellers: async () => structuredClone(sellers),
     saveHerdEntry: async (input: (typeof state.saved)[number]) => {
       state.saved.push(input)
+      if (state.saveError) throw state.saveError
       return {
         ...input.record,
         id: input.id && state.details[input.id] ? input.id : state.generatedId,
         status: input.record.status ?? 'Nháp',
+        backendId: 41,
+        version: ++state.savedVersion,
         draft: input.record.draft,
       } as HerdEntry
     },
@@ -97,13 +103,15 @@ beforeEach(() => {
   state.entries = [{ id: 'PN-2026-0041', status: 'Nháp', type: 'Mua ngoài', date: '2026-10-18', count: 1 }]
   state.details = {
     'PN-2026-0041': {
-      id: 'PN-2026-0041', status: 'Nháp', type: 'Mua ngoài', date: '2026-10-18', source: sellers[0].name, count: 1,
+      id: 'PN-2026-0041', backendId: 41, version: 3, status: 'Nháp', type: 'Mua ngoài', date: '2026-10-18', source: sellers[0].name, count: 1,
       draft: { type: 'Mua ngoài', date: '2026-10-18', sourceId: '7', quarantine: '', plate: '29C-123.45', note: 'Nháp từ backend', cows: [cow] },
       detail: { docs: [{ id: 71, ext: 'PDF', name: 'kiem-dich-41.pdf', size: 12 }] },
     },
   }
   state.getCalls = []
   state.saved = []
+  state.saveError = null
+  state.savedVersion = 3
   state.previewCalls = []
   state.commitCalls = []
   state.removed = []
@@ -111,6 +119,47 @@ beforeEach(() => {
 })
 
 describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
+  it('keeps edited fields and files on 409/Stay, and replaces them only after explicit reload', async () => {
+    const user = userEvent.setup()
+    state.saveError = new BackendError(409, { code: 'MSG-COM-05' })
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    const plate = await screen.findByDisplayValue('29C-123.45')
+    await user.clear(plate); await user.type(plate, 'BIEN-DANG-SUA')
+    const file = new File(['pdf'], 'chua-luu.pdf', { type: 'application/pdf' })
+    await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
+    state.details['PN-2026-0041'] = { ...state.details['PN-2026-0041'], version: 9, draft: { ...state.details['PN-2026-0041'].draft, plate: 'BIEN-MOI-NHAT' } }
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await screen.findByRole('button', { name: 'Tải bản mới nhất' })
+    expect(state.saved[0]).toMatchObject({ expectedVersion: 3, record: { backendId: 41 } })
+    expect(state.saved[0].documents).toEqual([file])
+    expect(state.getCalls).toHaveLength(1)
+    expect(state.saved).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Ở lại' }))
+    expect(screen.getByDisplayValue('BIEN-DANG-SUA')).toBeInTheDocument()
+    expect(screen.getByText('chua-luu.pdf')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Tải bản mới nhất' })).not.toBeInTheDocument()
+    state.saveError = new BackendError(409, { code: 'MSG-COM-05' })
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await user.click(await screen.findByRole('button', { name: 'Tải bản mới nhất' }))
+    expect(await screen.findByDisplayValue('BIEN-MOI-NHAT')).toBeInTheDocument()
+    expect(screen.queryByText('chua-luu.pdf')).not.toBeInTheDocument()
+    expect(state.getCalls).toHaveLength(2)
+    expect(state.saved).toHaveLength(2)
+  })
+
+  it('uses the returned version for the second draft save during Excel preview', async () => {
+    const user = userEvent.setup()
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Nhập từ Excel' }))
+    const input = screen.getByLabelText('Chọn file Excel nhập đàn')
+    await user.upload(input, new File(['first'], 'one.xlsx'))
+    await waitFor(() => expect(state.previewCalls).toHaveLength(1))
+    await user.upload(input, new File(['second'], 'two.xlsx'))
+    await waitFor(() => expect(state.previewCalls).toHaveLength(2))
+    expect(state.saved.map((saved) => saved.expectedVersion)).toEqual([3, 4])
+    expect(state.saved.map((saved) => saved.record.backendId)).toEqual([41, 41])
+  })
+
   it('backend mode starts a blank voucher instead of seeding demo cattle and payment values', async () => {
     state.entries = []
     state.details = {}

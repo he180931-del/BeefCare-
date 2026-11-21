@@ -64,7 +64,7 @@ test('exit backend preserves per-head pricing and maps persisted per-head drafts
 
   const loaded = await api.get('PX-2026-0061')
   await api.save({
-    id: 'PX-2026-0061', record: { status: 'Nháp', type: 'Bán', date: '2026-10-29', draft: { pricing: 'con' } },
+    id: 'PX-2026-0061', expectedVersion: 5, record: { status: 'Nháp', type: 'Bán', date: '2026-10-29', draft: { pricing: 'con' } },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, unitPrice: 8500000, estimated: false }],
   })
 
@@ -115,7 +115,7 @@ test('exit backend preserves an OTHER MISSING loss when reopening and saving a d
   assert.equal(loaded.detail?.lossType, 'Mất tích')
 
   await api.save({
-    id: loaded.id,
+    id: loaded.id, expectedVersion: loaded.version,
     record: { status: 'Nháp', type: 'Khác', date: loaded.date, detail: { ...loaded.detail, lossType: loaded.detail?.lossType } },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, estimated: false, unitPrice: 0 }],
   })
@@ -167,7 +167,7 @@ test('pending health-sourced loss keeps the authoritative backend loss kind when
   assert.equal(loaded.detail?.lossKind, 'DIED')
 
   await api.save({
-    id: loaded.id,
+    id: loaded.id, expectedVersion: loaded.version,
     record: { status: 'Nháp', type: 'Chết / mất', date: loaded.date, detail: { ...loaded.detail, lossType: 'Mất tích' } },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, estimated: false, unitPrice: 0 }],
   })
@@ -219,14 +219,14 @@ test('exit backend records collection using ISO date, backend id and version', a
     command: async (path, body, options) => { commands.push({ path, body }); keys.push(options?.key); return voucher('CONFIRMED') },
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
-  await api.recordPayment('PX-2026-0061', { date: '2026-10-30', amount: 500000, method: 'Chuyển khoản', ref: 'MB-01', note: 'Đợt 2' })
+  await api.recordPayment('PX-2026-0061', { date: '2026-10-30', amount: 500000, method: 'Chuyển khoản', ref: 'MB-01', note: 'Đợt 2' }, { voucherVersion: 5 })
   assert.deepEqual(commands[0], {
     path: '/api/farms/9/vouchers/exit/61/payments',
     body: { paymentDate: '2026-10-30', amount: 500000, method: 'BANK_TRANSFER', reference: 'MB-01', note: 'Đợt 2', voucherVersion: 5 },
   })
   assert.ok(keys[0])
   assert.match(keys[0]!, /^beefcare-exit-collection-/)
-  await api.recordPayment('PX-2026-0061', { date: '2026-10-30', amount: 500000, method: 'Chuyển khoản', ref: '', note: '' })
+  await api.recordPayment('PX-2026-0061', { date: '2026-10-30', amount: 500000, method: 'Chuyển khoản', ref: '', note: '' }, { voucherVersion: 5 })
   assert.deepEqual(commands[1]?.body, { paymentDate: '2026-10-30', amount: 500000, method: 'BANK_TRANSFER', reference: null, note: null, voucherVersion: 5 })
   assert.ok(keys[1])
 })
@@ -244,7 +244,7 @@ test('exit backend void and dismiss commands keep the backend id and version', a
     },
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
-  assert.equal((await api.voidVoucher('PX-2026-0061', 'Khách trả lại')).status, 'Đã hủy')
+  assert.equal((await api.voidVoucher('PX-2026-0061', { reason: 'Khách trả lại', expectedVersion: 5 })).status, 'Đã hủy')
   assert.equal((await api.dismissVoucher('PX-2026-0061', 'Ca sức khỏe sai', 9)).status, 'Đã bác')
   assert.deepEqual(commands, [
     { path: '/api/farms/9/exit-vouchers/61/void', body: { reason: 'Khách trả lại', penOverrides: {}, warningReasons: {}, expectedVersion: 5 } },
@@ -254,7 +254,7 @@ test('exit backend void and dismiss commands keep the backend id and version', a
   assert.match(keys[1]!, /^beefcare-exit-dismiss-/)
 })
 
-test('exit backend persists the draft, uploads documents, then confirms without changing the saved type', async () => {
+test('exit backend persists the loaded draft type, uploads documents, then confirms', async () => {
   const calls: Array<{ method: string; path: string; body?: unknown }> = []
   const draft = voucher('DRAFT')
   const transport: BackendTransport = {
@@ -277,8 +277,8 @@ test('exit backend persists the draft, uploads documents, then confirms without 
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
   const file = new File(['%PDF-1.4'], 'hop-dong.pdf', { type: 'application/pdf' })
   await api.save({
-    id: 'PX-2026-0061',
-    record: { type: 'Chết / mất', status: 'Đã xuất', date: '2026-10-29', who: 'Lò mổ Hà Đông', draft: { pricing: 'con' } },
+    id: 'PX-2026-0061', expectedVersion: 5,
+    record: { type: 'Bán', status: 'Đã xuất', date: '2026-10-29', who: 'Lò mổ Hà Đông', draft: { pricing: 'con' } },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, estimated: false, unitPrice: 80000 }],
     documents: [file],
   })
@@ -384,7 +384,7 @@ test('exit backend stops before confirmation when a document upload fails', asyn
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
   await assert.rejects(api.save({
-    id: 'PX-2026-0061', record: { status: 'Đã xuất', type: 'Bán', date: '2026-10-29' },
+    id: 'PX-2026-0061', expectedVersion: 5, record: { status: 'Đã xuất', type: 'Bán', date: '2026-10-29' },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, unitPrice: 80000, estimated: false }],
     documents: [new File(['%PDF'], 'fail.pdf', { type: 'application/pdf' })],
   }), /upload failed/)
@@ -421,7 +421,7 @@ test('exit backend retries a partial upload without re-uploading the attachment 
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
   const input = {
-    id: 'PX-2026-0061', record: { status: 'Đã xuất' as const, type: 'Bán' as const, date: '2026-10-29' },
+    id: 'PX-2026-0061', expectedVersion: 5, record: { status: 'Đã xuất' as const, type: 'Bán' as const, date: '2026-10-29' },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, unitPrice: 80000, estimated: false }], documents: [first, second],
   }
 
@@ -457,7 +457,7 @@ test('exit backend retries a failed confirmation without uploading the same pers
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
   const input = {
-    id: 'PX-2026-0061', record: { status: 'Đã xuất' as const, type: 'Bán' as const, date: '2026-10-29' },
+    id: 'PX-2026-0061', expectedVersion: 5, record: { status: 'Đã xuất' as const, type: 'Bán' as const, date: '2026-10-29' },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, unitPrice: 80000, estimated: false }], documents: [file],
   }
 
@@ -483,6 +483,8 @@ test('exit backend reconciles a confirmation that succeeded before the response 
       return { ...voucher(confirmed ? 'CONFIRMED' : 'DRAFT'), status: confirmed ? 'CONFIRMED' : 'DRAFT', version: confirmed ? 7 : 5 }
     },
     command: async (path) => {
+      // The same key replays the committed confirmation after a lost response.
+      if (path.endsWith('/confirm') && confirmed) return { voucher: { ...voucher('CONFIRMED'), version: 7 } }
       writes.push(path)
       if (path.endsWith('/confirm')) { confirmed = true; throw new Error('response lost after confirmation') }
       if (path.endsWith('/attachments')) { uploaded = true; return { id: 901, contentType: 'application/pdf', fileSize: 1, originalFilename: 'one.pdf' } }
@@ -491,7 +493,7 @@ test('exit backend reconciles a confirmation that succeeded before the response 
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
   const input = {
-    id: 'PX-2026-0061', record: { status: 'Đã xuất' as const, type: 'Bán' as const, date: '2026-10-29' },
+    id: 'PX-2026-0061', expectedVersion: 5, record: { status: 'Đã xuất' as const, type: 'Bán' as const, date: '2026-10-29' },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, unitPrice: 80000, estimated: false }], documents: [file],
   }
 
@@ -542,7 +544,7 @@ test('exit backend uses bounded content digests for stable save and upload idemp
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
   const longName = `${'a'.repeat(255)}.pdf`
   const input = {
-    id: 'PX-2026-0061', record: { status: 'Nháp' as const, type: 'Bán' as const, date: '2026-10-29' },
+    id: 'PX-2026-0061', expectedVersion: 5, record: { status: 'Nháp' as const, type: 'Bán' as const, date: '2026-10-29' },
     cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 410, unitPrice: 80000, estimated: false }],
     documents: [new File(['same-content'], longName, { type: 'application/pdf' })],
   }

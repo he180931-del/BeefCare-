@@ -12,6 +12,7 @@ export function isWorkflowCurrent(revision: number, snapshot: string, currentRev
 type WorkflowArgs<T extends { code: string }> = {
   baseId?: string
   initialSavedId?: string
+  initialRecord?: HerdExit
   picked: T[]
   documents: File[]
   formSnapshot: () => string
@@ -19,12 +20,13 @@ type WorkflowArgs<T extends { code: string }> = {
   beforeSave?: () => boolean
 }
 
-export function useExitWorkflow<T extends { code: string }>({ baseId, initialSavedId = '', picked, documents, formSnapshot, buildDraftRecord, beforeSave }: WorkflowArgs<T>) {
+export function useExitWorkflow<T extends { code: string }>({ baseId, initialSavedId = '', initialRecord, picked, documents, formSnapshot, buildDraftRecord, beforeSave }: WorkflowArgs<T>) {
   const nav = useNavigate()
   const { mutate: persistExit, error: saveError, loading: saving } = useMutation(saveHerdExit)
   const savingRef = useRef(false)
   const formRevision = useRef(0)
   const [savedId, setSavedId] = useState(initialSavedId)
+  const savedRecord = useRef(initialRecord)
   const [checks, setChecks] = useState<ExitChecks | null>(null)
   const [checksError, setChecksError] = useState<unknown>(null)
   const [checking, setChecking] = useState(false)
@@ -40,7 +42,10 @@ export function useExitWorkflow<T extends { code: string }>({ baseId, initialSav
     setConfirmError(null)
   }, [snapshot])
 
-  const saveId = savedId || baseId
+  // A suggested display code is not an existing backend voucher. The local adapter
+  // may use record.id for its display code; backend creation receives no target id.
+  const saveId = savedId || undefined
+  const saveInput = () => ({ id: saveId, expectedVersion: savedRecord.current?.version, record: { ...buildDraftRecord(), id: savedId || baseId, backendId: savedRecord.current?.backendId }, cattleRows, documents })
   const cattleRows = picked.map((cow) => ({ ...cow, barn: (cow as T & { barn?: string }).barn }))
 
   const saveDraftAndLoadChecks = async () => {
@@ -55,7 +60,8 @@ export function useExitWorkflow<T extends { code: string }>({ baseId, initialSav
     setConfirmed(false)
     setConfirmError(null)
     try {
-      const saved = await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows, documents })
+      const saved = await persistExit(saveInput())
+      savedRecord.current = saved
       const nextId = saved.id || savedId || baseId || ''
       setSavedId(nextId)
       if (!current() || !nextId) return
@@ -73,8 +79,11 @@ export function useExitWorkflow<T extends { code: string }>({ baseId, initialSav
   const saveDraft = async () => {
     if (savingRef.current || beforeSave?.()) return
     savingRef.current = true
+    setConfirmError(null)
     try {
-      await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows, documents })
+      const saved = await persistExit(saveInput())
+      savedRecord.current = saved
+      setSavedId(saved.id)
       nav('/herd-exit')
     } catch {
       // Keep the draft and selected files visible for a retry.

@@ -71,7 +71,7 @@ export const mapChecks = (value: unknown): ExitChecks => {
     })),
   }))
   return {
-    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: numberValue(row.version), exitDate: textValue(row.exitDate), cattle,
+    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: nullableNumber(row.version) ?? undefined, exitDate: textValue(row.exitDate), cattle,
     occupancy: asRows(row.occupancy).map((item) => ({ penId: numberValue(item.penId), penCode: textValue(item.penCode), capacity: numberValue(item.capacity), before: numberValue(item.before), after: numberValue(item.after) })),
   }
 }
@@ -126,7 +126,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     })),
   } : undefined
   return {
-    id: textValue(row.code), backendId: numberValue(row.id), version: numberValue(row.version), date: textValue(row.exitDate),
+    id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.exitDate),
     type: typeFromBackend(row.exitType, isLoss), who: buyerName || textValue(row.destination ?? row.deathCause),
     sub: textValue(row.note), count: numberValue(row.cattleCount, lines.length), weight: numberValue(row.totalWeightKg),
     total, due, status: statusFromBackend(row.status), detail, draft, reason: textValue(row.closeReason), cancelReason: textValue(row.closeReason), note: textValue(row.note),

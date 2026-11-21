@@ -13,7 +13,7 @@ export function useEntryNewCommands() {
   }, [])
   const assignCalfParentage = useCallback((calfOutcomeId: number, parentage: Parameters<typeof assignParentage>[1]): Promise<EntryCalf> => run('assignCalfParentage', () => assignParentage(calfOutcomeId, parentage)), [run])
   const markCalfDiedBeforeRegistration = useCallback((calfOutcomeId: number, reason: string): Promise<EntryCalf> => run('markCalfDiedBeforeRegistration', () => markDied(calfOutcomeId, reason)), [run])
-  const discardHerdEntryDraft = useCallback((id: string): Promise<void> => run('discardHerdEntryDraft', () => discardDraft(id)), [run])
+  const discardHerdEntryDraft = useCallback((id: string, expectedVersion: number | undefined, backendId?: number): Promise<void> => run('discardHerdEntryDraft', () => discardDraft(id, expectedVersion, backendId)), [run])
   const previewEntryExcel = useCallback((id: string, file: File) => run('previewEntryExcel', () => previewExcel(id, file)), [run])
   const commitEntryExcel = useCallback((id: string, file: File) => run('commitEntryExcel', () => commitExcel(id, file)), [run])
   const downloadEntryImportTemplate = useCallback(() => run('downloadEntryImportTemplate', () => downloadTemplate()), [run])

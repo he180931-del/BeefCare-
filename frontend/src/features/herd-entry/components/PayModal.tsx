@@ -4,12 +4,13 @@ import { entryPaymentDefaults } from '../api/index'
 import { money } from '../../../shared/lib/format'
 import { RadioRow } from './parts'
 import type { EntryPayment, HerdEntry } from '../types'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 /**
  * Ghi nhận một khoản thanh toán cho phiếu nhập còn nợ. `record` là phiếu (có detail), `onSave(payment)`
  * nhận { date, by, method, ref, amount } để trang chi tiết ghi vào phiếu.
  */
-export default function PayModal({ record, onSave, onClose }: { record: HerdEntry; onSave: (payment: EntryPayment & { note?: string }) => void; onClose: () => void }) {
+export default function PayModal({ record, onSave, onClose, error, saving, onReload }: { record: HerdEntry; onSave: (payment: EntryPayment & { note?: string }) => void | Promise<void>; onClose: () => void; error?: unknown; saving?: boolean; onReload?: () => Promise<unknown> }) {
   const d = { sourceName: record.source, payments: [], ...record.detail }
   const total = record.total ?? 0
   const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
@@ -83,9 +84,10 @@ export default function PayModal({ record, onSave, onClose }: { record: HerdEntr
           : 'Sau khi lưu: Còn nợ = 0 đ, phiếu hiện "Đã thanh toán đủ". Khoản đã ghi chỉ sửa/hủy kèm lý do và giữ lịch sử.'}
       </Note>
 
+      {onReload && <VoucherCommandError error={error} onReload={onReload} />}
       <ModalFooter>
         <ModalButton onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={invalid} onClick={() => onSave({ date, by: defaults.by, method, ref, amount, note })}>
+        <ModalButton variant="primary" disabled={invalid || saving} onClick={() => { void Promise.resolve(onSave({ date, by: defaults.by, method, ref, amount, note })).catch(() => undefined) }}>
           Lưu thanh toán
         </ModalButton>
       </ModalFooter>
