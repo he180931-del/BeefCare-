@@ -8,7 +8,7 @@ RUN chmod +x mvnw
 
 COPY src src
 
-RUN --mount=type=cache,target=/root/.m2 ./mvnw --batch-mode \
+RUN --mount=type=cache,id=maven-repository,target=/root/.m2 ./mvnw --batch-mode \
     '-Pdev,!webapp' \
     -Dmaven.test.skip=true \
     -Dspotless.skip=true \
