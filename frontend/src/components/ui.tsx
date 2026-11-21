@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from 'react'
-import { Badge, Button, Table, Td, Th, type BadgeTone } from '../shared/ui'
-import type { DocumentRow, Payment } from '../types'
+import { Badge, Button, type BadgeTone } from '../shared/ui'
+import type { DocumentRow } from '../types'
 
 // These four parts know Herd Entry / Herd Exit models or copy, so they are not shared UI. They stay here until their
 // owner is decided (docs/frontend-refactor-guide.md §6.2 and §13 item 2); neutral primitives live in `shared/ui`.
@@ -57,24 +57,5 @@ export function Dropzone({ hint, onFiles, accept = 'application/pdf,image/jpeg',
       ⇪ Kéo thả tệp hoặc Chọn tệp
       <small className="mt-1 block text-[11px] font-normal text-muted">{hint}</small>
     </div>
-  )
-}
-
-export function PaymentTable({ payments }: { payments: Payment[] }) {
-  return (
-    <Table stack={false}>
-      <thead>
-        <tr><Th>Ngày · người ghi</Th><Th>Phương thức · tham chiếu</Th><Th>Số tiền (đ)</Th></tr>
-      </thead>
-      <tbody>
-        {payments.map((p) => (
-          <tr key={p.ref}>
-            <Td>{p.date}<br />{p.by}</Td>
-            <Td>{p.method}<br />{p.ref}</Td>
-            <Td className="whitespace-nowrap">{Number(p.amount).toLocaleString('vi-VN')}</Td>
-          </tr>
-        ))}
-      </tbody>
-    </Table>
   )
 }
