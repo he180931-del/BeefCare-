@@ -1,4 +1,5 @@
 export { AuthProvider, useAuth, type AuthClient } from './AuthContext'
+export { useAuthenticationUseCase } from './hooks/useAuthenticationUseCase'
 export { GuestAuthFlow, guestAuthPaths } from './pages/GuestAuthFlow'
 export { LegalPage } from './pages/LegalPage'
 export { googleAuthorizationUrl } from './googleOAuth'
