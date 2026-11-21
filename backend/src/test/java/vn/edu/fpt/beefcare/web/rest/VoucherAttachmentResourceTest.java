@@ -24,11 +24,17 @@ import vn.edu.fpt.beefcare.ServiceIntegrationTest;
 import vn.edu.fpt.beefcare.domain.AppUser;
 import vn.edu.fpt.beefcare.domain.Attachment;
 import vn.edu.fpt.beefcare.domain.Farm;
+import vn.edu.fpt.beefcare.domain.HealthCase;
 import vn.edu.fpt.beefcare.domain.HerdEntryVoucher;
 import vn.edu.fpt.beefcare.domain.HerdExitVoucher;
 import vn.edu.fpt.beefcare.domain.enumeration.EntryVoucherStatus;
+import vn.edu.fpt.beefcare.domain.enumeration.ExitType;
 import vn.edu.fpt.beefcare.domain.enumeration.ExitVoucherStatus;
 import vn.edu.fpt.beefcare.domain.enumeration.FarmRole;
+import vn.edu.fpt.beefcare.domain.enumeration.LifeStage;
+import vn.edu.fpt.beefcare.domain.enumeration.LossKind;
+import vn.edu.fpt.beefcare.domain.enumeration.PurposeType;
+import vn.edu.fpt.beefcare.domain.enumeration.Sex;
 import vn.edu.fpt.beefcare.support.DomainTestSupport;
 
 /** Integration contract for private attachments on entry and exit vouchers. */
@@ -115,6 +121,50 @@ class VoucherAttachmentResourceTest extends DomainTestSupport {
         mvc.perform(get(exitFiles() + "/" + id).with(as(manager))).andExpect(status().isOk());
         mvc.perform(delete(exitFiles() + "/" + id).with(as(manager))).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("MSG-COM-01"));
         mvc.perform(multipart(exitFiles()).file(file("x.pdf", "application/pdf", PDF)).with(as(manager))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void pendingHealthLossEvidenceCanBeUploadedReadAndRemovedByOwner() throws Exception {
+        var cattle = cattle(farm, breed(farm), purpose(farm, PurposeType.FATTENING), Sex.MALE, LifeStage.ADULT);
+        HealthCase source = new HealthCase();
+        source.setCattle(cattle);
+        source.setOpenedDate(TODAY.minusDays(4));
+        source.setStatus("CLOSED");
+        source.setOutcome("DIED");
+        source.setIsSuspectedContagious(false);
+        source = save(source);
+        exit.setExitType(ExitType.DEATH);
+        exit.setBuyer(null);
+        exit.setPricingBasis(null);
+        exit.setLossKind(LossKind.DIED);
+        exit.setSourceHealthCase(source);
+        exit.setStatus(ExitVoucherStatus.PENDING);
+        em.flush();
+
+        MvcResult uploaded = mvc.perform(multipart(exitFiles()).file(file("vet-report.pdf", "application/pdf", PDF)).with(as(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.originalFilename").value("vet-report.pdf"))
+            .andReturn();
+        long id = com.jayway.jsonpath.JsonPath.<Integer>read(uploaded.getResponse().getContentAsString(), "$.id");
+
+        mvc.perform(get(exitFiles()).with(as(manager))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get(exitFiles() + "/" + id).with(as(manager))).andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/pdf"));
+        mvc.perform(delete(exitFiles() + "/" + id).with(as(owner))).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(id));
+        mvc.perform(get(exitFiles()).with(as(owner))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        assertThat(em.find(Attachment.class, id).getRemovedAt()).isNotNull();
+    }
+
+    @Test
+    void pendingExitWithoutHealthSourceCannotMutateEvidence() throws Exception {
+        exit.setExitType(ExitType.DEATH);
+        exit.setBuyer(null);
+        exit.setPricingBasis(null);
+        exit.setLossKind(LossKind.DIED);
+        exit.setStatus(ExitVoucherStatus.PENDING);
+        em.flush();
+
+        mvc.perform(multipart(exitFiles()).file(file("report.pdf", "application/pdf", PDF)).with(as(owner)))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MSG-COM-05"));
     }
 
     @Test

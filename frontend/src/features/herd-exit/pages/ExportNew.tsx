@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
@@ -7,14 +7,16 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PAY_METHODS } from '../constants/exitOptions'
 import { businessDate as todayIso } from '../../../shared/lib/date/farmTime'
 import { dm, money } from '../../../shared/lib/format'
-import { confirmHerdExit, downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, saveHerdExit, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
-import { useMutation } from '../../../shared/hooks/useMutation'
+import { getExitDraftState, herdExitApi, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
-import type { ExitDraftCow, HerdExit, ExitType } from '../types'
+import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
+import { useExitEditor } from '../hooks/useExitEditor'
+import { useExitWorkflow } from '../hooks/useExitWorkflow'
+import { useExitDocuments } from '../hooks/useExitDocuments'
+import { useExitComposition } from '../hooks/useExitComposition'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import type { ExitChecks } from '../api/herdExitBackendApi'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const displayError = userFacingError
@@ -69,9 +71,6 @@ export default function ExportNew() {
 }
 
 function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: HerdExit[]; draftId: string | null; selectableCattle: HerdCow[]; buyers: Array<{ id: string; name: string; phone: string }> }) {
-  const { mutate: persistExit, error: saveError, loading: saving } = useMutation(saveHerdExit)
-  const savingRef = useRef(false)
-  const formRevision = useRef(0)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
 
@@ -79,35 +78,21 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const draftState = draftId ? getExitDraftState(exports, draftId) : { type: 'Bán' as const, row: undefined }
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const d = draftState
-  const [savedId, setSavedId] = useState(draftId ?? '')
   const nextId = newExitVoucherId(exports)
   const id = draftRow?.id ?? nextId ?? (draftId ? '' : 'Tự động khi lưu')
-  const saveId = savedId || draftRow?.id || draftId || nextId
 
-  const [type, setType] = useState<ExitType>((d.type as ExitType | undefined) ?? 'Bán')
-  const [date, setDate] = useState(d?.date ?? todayIso())
-  const [pricing, setPricing] = useState<'kg' | 'con'>(d?.pricing ?? 'kg')
-  const [buyerId, setBuyerId] = useState(d?.buyerId ?? buyers[0]?.id ?? '')
-  const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
-  const [plate, setPlate] = useState(d?.plate ?? '')
-  const [note, setNote] = useState(d?.note ?? '')
   const candidateByCode = new Map(selectableCattle.map((cow) => [cow.code, cow]))
   const candidateById = new Map(selectableCattle.filter((cow) => typeof cow.backendId === 'number').map((cow) => [cow.backendId as number, cow]))
-  const [picked, setPicked] = useState<HerdCow[]>(() => (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))))
-  const [deduction, setDeduction] = useState(d?.deduction ?? 0)
-  const [collected, setCollected] = useState(d?.collected ?? 0)
-  const [method, setMethod] = useState(d?.method ?? PAY_METHODS[0])
-  const [dueDate, setDueDate] = useState(d?.dueDate ?? todayIso())
-  const [confirmed, setConfirmed] = useState(false)
+  const editor = useExitEditor({
+    type: (d.type as ExitType | undefined) ?? 'Bán', lossKind: d.lossKind ?? (draftRow?.detail?.lossType === 'Mất tích' ? 'MISSING' : 'DIED'),
+    deathCause: d.deathCause ?? (d.type === 'Chết / mất' ? d.note ?? '' : ''), carcassDisposal: d.carcassDisposal ?? '', date: d?.date ?? todayIso(),
+    pricing: d?.pricing ?? 'kg', buyerId: d?.buyerId ?? buyers[0]?.id ?? '', quarantine: d?.quarantine ?? '', plate: d?.plate ?? '', note: d?.note ?? '',
+    picked: (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))),
+    deduction: d?.deduction ?? 0, collected: d?.collected ?? 0, method: d?.method ?? PAY_METHODS[0], dueDate: d?.dueDate ?? todayIso(),
+  })
+  const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
   const [menu, setMenu] = useState<string | null>(null)
-  const [documents, setDocuments] = useState<File[]>([])
-  const [documentError, setDocumentError] = useState('')
-  const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
-  const [checks, setChecks] = useState<ExitChecks | null>(null)
-  const [checksError, setChecksError] = useState<unknown>(null)
-  const [checking, setChecking] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [confirmError, setConfirmError] = useState<unknown>(null)
 
   const needsBuyer = type === 'Bán' || type === 'Loại thải'
   const isLoss = type === 'Chết / mất'
@@ -123,81 +108,9 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const remaining = Math.max(receivable - collected, 0)
   const barnDelta = exitPenShift(picked)
 
-  const formSnapshot = () => JSON.stringify({
-    date, type, pricing, buyerId, quarantine, plate, note, picked, deduction, collected, method, dueDate,
-    documents: documents.map((file) => ({ name: file.name, size: file.size, type: file.type })),
-    removedAttachmentIds,
-  })
-
-  const patch = (code: string, p: Partial<HerdCow>) => setPicked(picked.map((c) => (c.code === code ? { ...c, ...p } : c)))
   const persistedDocuments = (d.docs ?? []).filter((document) => typeof document.id !== 'number' || !removedAttachmentIds.includes(document.id))
-  const selectedDocuments = documents.map((file) => ({ name: file.name, ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', size: file.size }))
-  const documentRows = [...persistedDocuments, ...selectedDocuments]
-  const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-  const isJpg = (file: File) => ['image/jpeg', 'image/jpg'].includes(file.type) || /\.jpe?g$/i.test(file.name)
-  const addDocuments = (files: File[]) => {
-    const invalid = files.find((file) => (!isPdf(file) && !isJpg(file)) || file.size > 10 * 1024 * 1024)
-    if (invalid) {
-      setDocumentError(`Tệp ${invalid.name} không hợp lệ. Chỉ nhận PDF/JPG tối đa 10MB.`)
-      return
-    }
-    setDocumentError('')
-    setDocuments((current) => [...current, ...files.filter((file) => !current.some((item) => item.name === file.name && item.size === file.size))])
-  }
-  const removeDocument = async (index: number) => {
-    if (index < persistedDocuments.length) {
-      const persisted = persistedDocuments[index]
-      if (typeof persisted.id !== 'number' || persisted.id <= 0 || !draftRow) return
-      try {
-        await removeExitAttachment(id, persisted.id)
-        setRemovedAttachmentIds((current) => [...current, persisted.id as number])
-        setDocumentError('')
-      } catch (error) {
-        setDocumentError(error instanceof Error ? error.message : 'Không thể xóa chứng từ.')
-      }
-      return
-    }
-    setDocuments((current) => current.filter((_, currentIndex) => currentIndex !== index - persistedDocuments.length))
-  }
-  const viewDocument = async (index: number) => {
-    const persisted = persistedDocuments[index]
-    if (persisted) {
-      try {
-        let url = typeof persisted.url === 'string' ? persisted.url : ''
-        if (typeof persisted.id === 'number' && persisted.id > 0) url = URL.createObjectURL(await downloadExitAttachment(id, persisted.id))
-        if (url) {
-          window.open(url, '_blank', 'noopener,noreferrer')
-          if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-        }
-      } catch (error) {
-        setDocumentError(error instanceof Error ? error.message : 'Không thể mở chứng từ.')
-      }
-      return
-    }
-    const file = documents[index - persistedDocuments.length]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    window.open(url, '_blank', 'noopener,noreferrer')
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  }
-  useEffect(() => {
-    formRevision.current += 1
-    setChecks(null)
-    setChecksError(null)
-    setConfirmed(false)
-    setConfirmError(null)
-  }, [date, type, pricing, buyerId, quarantine, plate, note, picked, deduction, collected, method, dueDate, documents, removedAttachmentIds])
-
-  const checkMessages = (check: ExitChecks['cattle'][number]) => check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ')
-  const warningChecks = checks?.cattle.filter((check) => check.hasWarnings) ?? []
-  const checkRows: Array<[string, ReactNode, boolean?]> = checks
-    ? [
-      ['Tổng quan', warningChecks.length ? `${warningChecks.length} con có cảnh báo` : 'Không có cảnh báo', warningChecks.length > 0],
-      ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? checkMessages(check) || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, ReactNode, boolean?]),
-    ]
-    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : checking ? 'Đang tải kết quả kiểm tra…' : 'Chưa kiểm tra. Lưu phiếu để xem kết quả.', true]]
-  const checksReady = Boolean(checks)
-
+  const documentWorkflow = useExitDocuments({ id, persistedDocuments, canRemovePersisted: Boolean(draftRow), documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds })
+  const { documentError, documentRows, addDocuments, removeDocument, viewDocument } = documentWorkflow
   const buildDraftRecord = (): Partial<HerdExit> => ({
     date,
     type,
@@ -210,7 +123,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     dueNote: '(nháp)',
     status: 'Nháp',
     draft: {
-      type, date, buyerId, quarantine, plate, note, pricing, deduction, collected, method, dueDate,
+      type, lossKind: isLoss ? lossKind : undefined, deathCause: isLoss ? deathCause : undefined, carcassDisposal: isLoss && lossKind === 'DIED' ? carcassDisposal : undefined,
+      date, buyerId, quarantine, plate, note: isLoss ? deathCause : note, pricing, deduction, collected, method, dueDate,
       docs: documentRows,
       cows: picked.map((c) => ({ code: c.code, weight: c.weight, unitPrice: c.unitPrice, estimated: c.estimated })),
     },
@@ -221,75 +135,37 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       setFormError('Vui lòng chọn người mua.')
       return true
     }
-    if (!needsBuyer && !note.trim()) {
-      setFormError(isLoss ? 'Vui lòng nhập lý do xuất.' : 'Vui lòng nhập nơi đến.')
+    if (!needsBuyer && !(isLoss ? deathCause : note).trim()) {
+      setFormError(isLoss ? 'Vui lòng nhập nguyên nhân.' : 'Vui lòng nhập nơi đến.')
+      return true
+    }
+    if (isLoss && lossKind === 'DIED' && !carcassDisposal.trim()) {
+      setFormError('Vui lòng nhập phương án xử lý xác.')
       return true
     }
     setFormError(null)
     return false
   }
 
-  const saveDraftAndLoadChecks = async () => {
-    if (savingRef.current || missingRequiredField()) return
-    const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
-    if (missingWeight) {
-      setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
-      return
-    }
-    const revision = formRevision.current
-    const snapshot = formSnapshot()
-    const isCurrentForm = () => revision === formRevision.current && snapshot === formSnapshot()
-    savingRef.current = true
-    setChecking(true)
-    setChecks(null)
-    setChecksError(null)
-    setConfirmed(false)
-    setConfirmError(null)
-    try {
-      const saved = await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
-      const nextId = saved.id || savedId || draftRow?.id || id
-      setSavedId(nextId)
-      if (!isCurrentForm()) return
-      const nextChecks = await herdExitApi.checks(nextId)
-      if (!isCurrentForm()) return
-      setChecks(nextChecks)
-    } catch (error) {
-      // useMutation exposes the rejection through saveError; keep the form and
-      // selected files mounted so the user can retry without losing the draft.
-      if (revision === formRevision.current) setChecksError(error)
-    } finally {
-      setChecking(false)
-      savingRef.current = false
-    }
-  }
-
-  const saveDraft = async () => {
-    if (savingRef.current || missingRequiredField()) return
-    savingRef.current = true
-    try {
-      await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
-      nav('/herd-exit')
-    } catch {
-      // Keep the draft and selected files visible for a retry.
-    } finally {
-      savingRef.current = false
-    }
-  }
-
-  const confirm = async () => {
-    if (savingRef.current || !checks || !confirmed) return
-    savingRef.current = true
-    try {
-      await confirmHerdExit(savedId || draftRow?.id || id, checks.version)
-      nav('/herd-exit')
-    } catch (error) {
-      // useMutation errors remain visible; a direct confirm failure also keeps
-      // this form mounted so the user can safely retry.
-      setConfirmError(error)
-    } finally {
-      savingRef.current = false
-    }
-  }
+  const workflow = useExitWorkflow({
+    baseId: draftRow?.id || draftId || nextId,
+    initialSavedId: draftId ?? '',
+    picked,
+    documents,
+    formSnapshot,
+    buildDraftRecord,
+    beforeSave: () => {
+      if (missingRequiredField()) return true
+      const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
+      if (missingWeight) {
+        setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
+        return true
+      }
+      return false
+    },
+  })
+  const { savedId, saving, saveError, checks, checksError, checking, confirmed, setConfirmed, confirmError, saveDraftAndLoadChecks, saveDraft, confirm } = workflow
+  const { checkRows, checksReady } = useExitComposition({ checks, checksError, checking, displayError })
 
   return (
     <Layout title={`Phiếu xuất mới – ${type}`}>
@@ -321,9 +197,28 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                 </>
               )}
             </div>
-            <Field label={needsBuyer ? 'Ghi chú' : isLoss ? 'Lý do *' : 'Nơi đến *'}>
-              <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : undefined} onChange={(e) => setNote(e.target.value)} />
-            </Field>
+            {isLoss ? (
+              <>
+                <Field label="Loại chết / mất">
+                  <Select aria-label="Loại chết / mất" value={lossKind} onChange={(e) => setLossKind(e.target.value as LossKind)} className="w-full">
+                    <option value="DIED">Chết</option>
+                    <option value="MISSING">Mất tích</option>
+                  </Select>
+                </Field>
+                <Field id="exit-death-cause" label={lossKind === 'DIED' ? 'Nguyên nhân chết *' : 'Nguyên nhân mất tích *'}>
+                  <input id="exit-death-cause" className={inputCls} value={deathCause} onChange={(e) => setDeathCause(e.target.value)} />
+                </Field>
+                {lossKind === 'DIED' && (
+                  <Field id="exit-carcass-disposal" label="Phương án xử lý xác *">
+                    <input id="exit-carcass-disposal" className={inputCls} value={carcassDisposal} onChange={(e) => setCarcassDisposal(e.target.value)} />
+                  </Field>
+                )}
+              </>
+            ) : (
+              <Field label={needsBuyer ? 'Ghi chú' : 'Nơi đến *'}>
+                <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : undefined} onChange={(e) => setNote(e.target.value)} />
+              </Field>
+            )}
           </Box>
 
           <Box

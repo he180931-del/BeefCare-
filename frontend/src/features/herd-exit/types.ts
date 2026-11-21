@@ -11,6 +11,7 @@ export interface ExitPayment { date: string; by: string; method: string; ref: st
 export type ExitStatus = 'Nháp' | 'Chờ xác nhận' | 'Đã xuất' | 'Đã hủy' | 'Đã bác'
 
 export type ExitType = 'Bán' | 'Chết / mất' | 'Loại thải' | 'Khác'
+export type LossKind = 'DIED' | 'MISSING'
 
 export interface ExitDraftCow {
   code: CattleCode
@@ -32,6 +33,7 @@ export interface ExitDraftCow {
 
 export interface ExitDetail {
   death?: boolean
+  lossKind?: LossKind
   lossType?: string
   date?: string
   source?: string
@@ -45,6 +47,7 @@ export interface ExitDetail {
   docs?: ExitDocument[]
   history?: string[]
   buyer?: string
+  sourceHealthCaseId?: number
   barnShift?: string
   checks?: Array<[string, string, boolean?]>
   deduction?: number
@@ -53,6 +56,9 @@ export interface ExitDetail {
 
 export interface ExitDraft {
   type?: ExitType
+  lossKind?: LossKind
+  deathCause?: string
+  carcassDisposal?: string
   date?: string
   buyerId?: string
   quarantine?: string

@@ -1,39 +1,14 @@
-import { useState } from 'react'
 import { DateInput, Field, Info, inputCls, Modal, ModalButton, ModalFooter, Note, Radio } from '../../../shared/ui'
-import { exitCollectionDefaults, herdExitApi } from '../api/index'
-import { useMutation } from '../../../shared/hooks/useMutation'
-import { dmy, money } from '../../../shared/lib/format'
+import { money } from '../../../shared/lib/format'
 import { DocRow, MoneyInput } from './parts'
 import type { HerdExit } from '../types'
+import { useExitCollection } from '../hooks/useExitCollection'
 
 const METHODS = ['Tiền mặt', 'Chuyển khoản']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 
 export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit; onClose: () => void; onSaved?: () => void }) {
-  const { mutate: recordPayment, loading: saving, error } = useMutation<{ id: string; payment: { date: string; amount: number; method: string; ref: string; note?: string } }, HerdExit>(({ id, payment }) => herdExitApi.recordPayment(id, payment))
-  const payments = row.detail?.payments ?? []
-  const collected = payments.reduce((s, p) => s + p.amount, 0)
-  const total = row.total
-  const owed = row.due ?? 0
-  const [defaults] = useState(exitCollectionDefaults)
-  const [date, setDate] = useState(defaults.date)
-  const [amount, setAmount] = useState(owed)
-  const [method, setMethod] = useState('Chuyển khoản')
-  const [reference, setReference] = useState(defaults.reference)
-  const [showStatement, setShowStatement] = useState(defaults.statement)
-  const [note, setNote] = useState(defaults.note)
-
-  const valid = amount > 0 && amount <= owed
-  const left = owed - amount
-
-  const save = async () => {
-    await recordPayment({
-      id: row.id,
-      payment: { date, method, ref: method === 'Tiền mặt' && defaults.cashReference ? defaults.cashReference : reference, amount, note },
-    })
-    onSaved?.()
-    onClose()
-  }
+  const { defaults, collected, total, owed, date, setDate, amount, setAmount, method, setMethod, reference, setReference, showStatement, setShowStatement, note, setNote, valid, left, saving, error, save } = useExitCollection(row, onSaved, onClose)
 
   return (
     <Modal width={600} title={`Ghi nhận thu tiền – ${row.id}`} sub={`Thu tiền từ người mua: ${row.detail?.buyer ?? row.who}`} topTitle="Ghi nhận thu tiền phiếu xuất" onClose={onClose}>

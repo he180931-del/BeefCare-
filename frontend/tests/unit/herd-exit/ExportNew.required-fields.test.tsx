@@ -36,7 +36,7 @@ describe('herd-exit required-field validation', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
 
     expect(saveHerdExit).not.toHaveBeenCalled()
-    expect(screen.getByText('Vui lòng nhập lý do xuất.')).toBeInTheDocument()
+    expect(screen.getByText('Vui lòng nhập nguyên nhân.')).toBeInTheDocument()
   })
 
   it('requires a buyer for a cull voucher', async () => {
@@ -49,5 +49,21 @@ describe('herd-exit required-field validation', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     expect(screen.getByText('Vui lòng chọn người mua.')).toBeInTheDocument()
     expect(saveHerdExit).not.toHaveBeenCalled()
+  })
+
+  it('collects an explicit loss kind and requires carcass disposal only for death', async () => {
+    const user = userEvent.setup()
+    const { default: ExportNew } = await import('../../../src/features/herd-exit/pages/ExportNew')
+    render(<MemoryRouter initialEntries={['/herd-exit/new']}><Routes><Route path="/herd-exit/new" element={<ExportNew />} /></Routes></MemoryRouter>)
+
+    await screen.findByText('1. Thông tin phiếu')
+    await user.click(screen.getByRole('button', { name: 'Chết / mất' }))
+    expect(screen.getByRole('combobox', { name: 'Loại chết / mất' })).toHaveValue('DIED')
+    expect(screen.getByLabelText('Nguyên nhân chết')).toBeInTheDocument()
+    expect(screen.getByLabelText('Phương án xử lý xác')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Loại chết / mất' }), 'MISSING')
+    expect(screen.getByLabelText('Nguyên nhân mất tích')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Phương án xử lý xác')).not.toBeInTheDocument()
   })
 })

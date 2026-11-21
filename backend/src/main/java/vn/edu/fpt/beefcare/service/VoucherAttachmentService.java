@@ -87,7 +87,7 @@ public class VoucherAttachmentService {
     @Transactional
     public AttachmentDTO upload(Long farmId, Owner owner, Long voucherId, MultipartFile file) {
         FarmContext context = access.require(farmId, owner.manageAction);
-        requireDraft(owner, status(farmId, owner, voucherId, true));
+        requireAttachmentMutation(owner, voucher(farmId, owner, voucherId, true));
         Upload upload = validate(file);
         Attachment saved = store.store(
             farmId,
@@ -117,7 +117,7 @@ public class VoucherAttachmentService {
     @Transactional
     public AttachmentDTO remove(Long farmId, Owner owner, Long voucherId, Long attachmentId) {
         FarmContext context = access.require(farmId, owner.manageAction);
-        requireDraft(owner, status(farmId, owner, voucherId, true));
+        requireAttachmentMutation(owner, voucher(farmId, owner, voucherId, true));
         Attachment attachment = find(farmId, owner, voucherId, attachmentId);
         attachment.setRemovedAt(Instant.now());
         audit.log(context, "VOUCHER_DETACH", target(owner), voucherId, Map.of("attachmentId", attachment.getId()));
@@ -135,21 +135,27 @@ public class VoucherAttachmentService {
     }
 
     private String status(Long farmId, Owner owner, Long voucherId, boolean lock) {
+        return voucher(farmId, owner, voucherId, lock).status();
+    }
+
+    private VoucherState voucher(Long farmId, Owner owner, Long voucherId, boolean lock) {
         return switch (owner) {
             case ENTRY -> (lock ? entries.lockByIdAndFarmId(farmId, voucherId) : entries.findByIdAndFarmId(voucherId, farmId))
-                .map(HerdEntryVoucher::getStatus)
-                .map(Enum::name)
+                .map(v -> new VoucherState(v.getStatus().name(), false))
                 .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
             case EXIT -> (lock ? exits.lockByIdAndFarmId(farmId, voucherId) : exits.findByIdAndFarmId(voucherId, farmId))
-                .map(HerdExitVoucher::getStatus)
-                .map(Enum::name)
+                .map(v -> new VoucherState(v.getStatus().name(), v.getSourceHealthCase() != null && v.getLossKind() != null))
                 .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08));
         };
     }
 
-    private static void requireDraft(Owner owner, String status) {
-        if (!"DRAFT".equals(status)) throw DomainException.conflict(MessageCodes.COM_05, "reason", owner.notDraftReason);
+    private static void requireAttachmentMutation(Owner owner, VoucherState voucher) {
+        boolean draft = "DRAFT".equals(voucher.status());
+        boolean pendingHealthLoss = owner == Owner.EXIT && "PENDING".equals(voucher.status()) && voucher.healthSourcedLoss();
+        if (!draft && !pendingHealthLoss) throw DomainException.conflict(MessageCodes.COM_05, "reason", owner.notDraftReason);
     }
+
+    private record VoucherState(String status, boolean healthSourcedLoss) {}
 
     private Attachment find(Long farmId, Owner owner, Long voucherId, Long attachmentId) {
         return attachments.findByIdAndFarm_Id(attachmentId, farmId)
