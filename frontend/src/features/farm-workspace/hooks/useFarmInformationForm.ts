@@ -1,11 +1,10 @@
 import { FARM_TIME_ZONE_ID, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { PROVINCES } from '../constants/provinces'
 import { farmWorkspaceError } from '../components/WorkspaceUi'
+import { useFarmWorkspaceUseCase } from './useFarmWorkspaceUseCase'
 import { useFarmId } from './useFarmId'
 import { useRequestKey } from './useRequestKey'
 import type { FarmDetails, FarmInfoInput } from '../types'
@@ -23,7 +22,7 @@ export const farmDaysLeft = (farm: FarmDetails) => farm.daysRemaining ?? (farm.s
 
 export function useFarmInformationForm() {
   const navigate = useNavigate(); const session = useSession(); const farmId = useFarmId()
-  const query = useQuery(() => farmWorkspaceApi.getFarm(farmId), [farmId])
+  const { farm: query, updateFarm } = useFarmWorkspaceUseCase({ farmId, loadFarm: true })
   const requestKey = useRequestKey(`farm-information-${farmId}`)
   const [form, setForm] = useState<FarmInfoInput | null>(null)
   const [errors, setErrors] = useState<FormErrors<FarmInfoInput>>({})
@@ -35,7 +34,7 @@ export function useFarmInformationForm() {
     event.preventDefault(); if (!form) return
     const next = validateFarmInfo(form); setErrors(next); if (Object.keys(next).length) return
     setSaving(true); setError(null); setNotice(null)
-    try { await farmWorkspaceApi.updateFarm(farmId, form, { idempotencyKey: requestKey.keyFor(form) }); requestKey.clear(); query.refetch(); setNotice(FARM_INFO_SAVED) }
+    try { await updateFarm(farmId, form, { idempotencyKey: requestKey.keyFor(form) }); requestKey.clear(); query.refetch(); setNotice(FARM_INFO_SAVED) }
     catch (reason) { setError(farmWorkspaceError(reason, 'Không thể lưu thông tin trang trại.')) }
     finally { setSaving(false) }
   }

@@ -4,11 +4,11 @@ import { BackendError } from '../../../shared/api/backendClient'
 import { Badge, Button, ErrorBlock, Foot, Icon, LoadingBlock, Note } from '../../../shared/ui'
 import { CONTACT, INVITATION_PATH, rememberInvitationLink } from '../../authentication'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { enterFarm } from '../components/enterFarm'
 import { RoleSummary } from '../components/PermissionChecklist'
 import SetupLayout from '../components/SetupLayout'
 import { farmWorkspaceError, formatDateTime, inviteStatusLabel, roleLabel } from '../components/WorkspaceUi'
+import { useFarmWorkspaceUseCase } from '../hooks/useFarmWorkspaceUseCase'
 import type { InvitationPreview } from '../types'
 
 const Fact = ({ label, children }: { label: string; children: ReactNode }) => <div><dt className="text-[11px] text-subtle">{label}</dt><dd className="m-0 mt-0.5 text-[13px] font-medium text-ink">{children}</dd></div>
@@ -57,17 +57,15 @@ export default function AcceptInvitationPage() {
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { invitationPreview, acceptInvitation } = useFarmWorkspaceUseCase({ invitationToken: token || null, signedInEmail: signedIn, refreshKey: revision })
 
   useEffect(() => {
-    let current = true
-    setView({ kind: 'loading' }); setError(null)
+    setError(null)
     if (!token) { setView({ kind: 'invalid', status: 'INVALID' }); return }
-    farmWorkspaceApi.previewInvitation(token, signedIn).then(
-      (invite) => { if (current) setView({ kind: 'ready', invite }) },
-      (reason) => { if (current) setView(stateFor(reason) ?? { kind: 'error', message: farmWorkspaceError(reason, 'Không tải được lời mời. Vui lòng thử lại.') }) },
-    )
-    return () => { current = false }
-  }, [token, signedIn, revision])
+    if (invitationPreview.loading) { setView({ kind: 'loading' }); return }
+    if (invitationPreview.data) { setView({ kind: 'ready', invite: invitationPreview.data }); return }
+    if (invitationPreview.error) setView(stateFor(invitationPreview.error) ?? { kind: 'error', message: farmWorkspaceError(invitationPreview.error, 'Không tải được lời mời. Vui lòng thử lại.') })
+  }, [invitationPreview.data, invitationPreview.error, invitationPreview.loading, token])
 
   const open = async (farmId: number) => {
     try {
@@ -82,7 +80,7 @@ export default function AcceptInvitationPage() {
     if (saving) return
     setSaving(true); setError(null)
     try {
-      const joined = await farmWorkspaceApi.acceptInvitation(token, signedIn)
+      const joined = await acceptInvitation(token, signedIn)
       // MSG-FE03-10, then open the farm home of the new role (SCR-48 / SCR-74).
       setNotice(`Bạn đã tham gia ${joined.farmName} với vai trò ${roleLabel(joined.role)}.`)
       setView({ kind: 'ready', invite: { ...invite, status: 'ACCEPTED', membershipId: joined.membershipId } })
