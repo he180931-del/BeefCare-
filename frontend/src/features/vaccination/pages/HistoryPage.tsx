@@ -3,10 +3,9 @@ import { Link } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { vaccinationApi } from '../api/vaccinationApi'
 import { SOURCE_LABEL, healthCasePath, profilePath } from '../components/vaccinationParts'
 import { fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
+import { useVaccinationHistory, useVaccinationOptions } from '../hooks/useVaccinationUseCase'
 import type { HistoryRow, VaccinationSource } from '../types'
 
 const TITLE = 'Lịch sử tiêm phòng'
@@ -18,11 +17,8 @@ export default function HistoryPage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [page, setPage] = useState(1)
-  const options = useQuery(() => vaccinationApi.options(), [])
-  const { data, loading, error, refetch } = useQuery(
-    () => vaccinationApi.listHistory({ q, vaccineId: vaccineId ? Number(vaccineId) : undefined, source: (source || undefined) as VaccinationSource | undefined, from: from || undefined, to: to || undefined, page }),
-    [q, vaccineId, source, from, to, page],
-  )
+  const options = useVaccinationOptions()
+  const { data, loading, error, refetch } = useVaccinationHistory({ q, vaccineId: vaccineId ? Number(vaccineId) : undefined, source: (source || undefined) as VaccinationSource | undefined, from: from || undefined, to: to || undefined, page })
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1) }
 
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>

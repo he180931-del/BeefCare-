@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { vaccinationApi } from '../api/vaccinationApi'
 import { fmtDate, fmtDateTime } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
+import { useVaccinationCommands, useVaccinationOptions } from '../hooks/useVaccinationUseCase'
 import type { VaccinationOptions, VaccinationRecord, VaccineRoute } from '../types'
 import { DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, splitDose } from './vaccinationParts'
 
 interface Props { record: VaccinationRecord; onClose: () => void; onSaved: (message: string) => void }
 
 export default function CorrectVaccinationModal(props: Props) {
-  const options = useQuery(() => vaccinationApi.options(), [])
+  const options = useVaccinationOptions()
   if (!options.data) {
     return (
       <Modal title="Sửa / hủy bản ghi tiêm" width={700} onClose={props.onClose}>
@@ -36,6 +35,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
   const [reason, setReason] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
+  const { correctRecord, voidRecord } = useVaccinationCommands()
 
   const names = options.members.map((m) => m.name)
   const vaccinatorChoices = record.vaccinator && !names.includes(record.vaccinator) ? [record.vaccinator, ...names] : names
@@ -46,9 +46,9 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
     setSaving(true)
     setErrors({})
     try {
-      if (action === 'VOID') await vaccinationApi.voidRecord(record.id, { expectedVersion: record.version, reason })
+      if (action === 'VOID') await voidRecord(record.id, { expectedVersion: record.version, reason })
       else {
-        await vaccinationApi.correctRecord(record.id, {
+        await correctRecord(record.id, {
           expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, batchNo, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
           route: route || undefined, withdrawalDays: parseNum(withdrawal), vaccinator: vaccinator || undefined, reason,
         })

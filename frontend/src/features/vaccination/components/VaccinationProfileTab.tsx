@@ -3,9 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, LoadingBlock, Note, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { vaccinationApi } from '../api/vaccinationApi'
 import { fmtDate, fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
+import { useCattleVaccination } from '../hooks/useVaccinationUseCase'
 import type { CattleVaccination, DoseRow, VaccinationRecord } from '../types'
 import CorrectVaccinationModal from './CorrectVaccinationModal'
 import DeferModal from './DeferModal'
@@ -17,7 +16,7 @@ export default function VaccinationProfileTab({ cattleCode }: { cattleCode: stri
   const [modal] = useModalParam()
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useNotice()
-  const { data, loading, error, refetch } = useQuery(() => vaccinationApi.getCattleVaccination(cattleCode), [cattleCode])
+  const { data, loading, error, refetch } = useCattleVaccination(cattleCode)
 
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu tiêm phòng.')} onRetry={refetch} />

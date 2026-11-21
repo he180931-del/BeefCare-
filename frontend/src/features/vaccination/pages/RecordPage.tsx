@@ -3,12 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Card, DateInput, EmptyBlock, ErrorBlock, Field, Foot, Info, inputCls, LoadingBlock, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { vaccinationApi } from '../api/vaccinationApi'
 import { CareWriterOnly, DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, profilePath } from '../components/vaccinationParts'
 import { addDays, fmtDate } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
+import { useVaccinationCommands, useVaccinationRecordContext } from '../hooks/useVaccinationUseCase'
 import type { RecordContext, VaccinationAnimal, VaccinationSource, VaccineRoute } from '../types'
 
 export default function RecordPage() {
@@ -16,7 +15,7 @@ export default function RecordPage() {
   const doseIds = (params.get('doses') ?? '').split(',').map(Number).filter(Boolean)
   const cattleCodes = (params.get('cattle') ?? '').split(',').filter(Boolean)
   const back = params.get('back') ?? '/tiem-phong'
-  const { data, loading, error, refetch } = useQuery(() => vaccinationApi.recordContext({ doseIds, cattleCodes }), [params.toString()])
+  const { data, loading, error, refetch } = useVaccinationRecordContext({ doseIds, cattleCodes }, params.toString())
   const title = data?.title ?? 'Ghi nhận tiêm'
   return (
     <CareWriterOnly title="Ghi nhận tiêm">
@@ -35,6 +34,7 @@ type RowState = { decision: 'VACCINATE' | 'DEFER'; reason: string; date: string 
 function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
   const navigate = useNavigate()
   const session = useSession()
+  const { recordVaccinations } = useVaccinationCommands()
   const { options, rows } = ctx
   const first = options.vaccines.find((v) => v.id === ctx.vaccineId) ?? options.vaccines[0]
   const names = options.members.map((m) => m.name)
@@ -82,7 +82,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
     setErrors({})
     setRowErrors({})
     try {
-      const result = await vaccinationApi.recordVaccinations({
+      const result = await recordVaccinations({
         vaccineId: Number(vaccineId), source, administeredAt, batchNo, dose: dose.amount ? `${dose.amount} ${vaccine.doseUnit}` : undefined, route,
         withdrawalDays: onFarm ? days : 0, vaccinator: vaccinator === '__other' ? other : vaccinator, animals,
       })
