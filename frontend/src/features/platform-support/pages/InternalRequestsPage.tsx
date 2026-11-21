@@ -4,12 +4,11 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Field, Foot, Icon, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { supportApi } from '../api/supportApi'
 import { errText, useActor, useFlash } from '../components/common'
 import { ResultForm } from '../components/ResultForm'
-import { IR_STATUS_LABEL, OUTCOME_LABEL, PLATFORM_ROLE_LABEL, ROLE_LABEL, SupportError, formatStamp } from '../domain/supportRules'
+import { IR_STATUS_LABEL, OUTCOME_LABEL, PLATFORM_ROLE_LABEL, ROLE_LABEL, formatStamp } from '../domain/supportRules'
 import type { CompleteCommand, InternalStatus, InternalView } from '../types'
+import { useSupportAssigned, useSupportCommands } from '../hooks/usePlatformSupportUseCase'
 
 const TITLE = 'Yêu cầu nội bộ được giao'
 const BASE = '/nen-tang/yeu-cau'
@@ -26,11 +25,10 @@ export default function InternalRequestsPage() {
   const [tabState, setTab] = useState<InternalStatus>('OPEN')
   const [listPage, setListPage] = useState(1)
   const [pending, setPending] = useState<CompleteCommand | null>(null)
-  const { data: all, loading, error, refetch } = useQuery(() => supportApi.listAssigned(me), [me])
-  const { data: access } = useQuery(async () => {
-    if (!code) return 'none'
-    try { await supportApi.getAssigned(me, code); return 'ok' } catch (e) { return e instanceof SupportError ? e.code : 'ERROR' }
-  }, [code, me, all])
+  const { requests, access: accessQuery } = useSupportAssigned(me, code)
+  const { data: all, loading, error, refetch } = requests
+  const { data: access } = accessQuery
+  const { completeInternal } = useSupportCommands()
 
   if (loading && !all) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (error || !all) return <Layout title={TITLE}><ErrorBlock message={errText(error, 'Không tải được danh sách yêu cầu.')} onRetry={refetch} /></Layout>
@@ -56,7 +54,7 @@ export default function InternalRequestsPage() {
   const saveFailed = (cmd: CompleteCommand) => { setPending(cmd); openModal('thu-lai') }
   const retry = async () => {
     if (!selected || !pending) return
-    done(await supportApi.completeInternal(me, selected.code, { ...pending, simulateSaveFailure: false }))
+    done(await completeInternal(me, selected.code, { ...pending, simulateSaveFailure: false }))
   }
 
   return (
