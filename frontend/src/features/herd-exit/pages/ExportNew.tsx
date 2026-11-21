@@ -7,13 +7,14 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PAY_METHODS } from '../constants/exitOptions'
 import { businessDate as todayIso } from '../../../shared/lib/date/farmTime'
 import { dm, money } from '../../../shared/lib/format'
-import { downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
+import { getExitDraftState, herdExitApi, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
 import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
 import { useExitEditor } from '../hooks/useExitEditor'
 import { useExitWorkflow } from '../hooks/useExitWorkflow'
+import { useExitDocuments } from '../hooks/useExitDocuments'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
@@ -91,7 +92,6 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   })
   const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
   const [menu, setMenu] = useState<string | null>(null)
-  const [documentError, setDocumentError] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
   const needsBuyer = type === 'Bán' || type === 'Loại thải'
@@ -109,55 +109,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const barnDelta = exitPenShift(picked)
 
   const persistedDocuments = (d.docs ?? []).filter((document) => typeof document.id !== 'number' || !removedAttachmentIds.includes(document.id))
-  const selectedDocuments = documents.map((file) => ({ name: file.name, ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', size: file.size }))
-  const documentRows = [...persistedDocuments, ...selectedDocuments]
-  const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-  const isJpg = (file: File) => ['image/jpeg', 'image/jpg'].includes(file.type) || /\.jpe?g$/i.test(file.name)
-  const addDocuments = (files: File[]) => {
-    const invalid = files.find((file) => (!isPdf(file) && !isJpg(file)) || file.size > 10 * 1024 * 1024)
-    if (invalid) {
-      setDocumentError(`Tệp ${invalid.name} không hợp lệ. Chỉ nhận PDF/JPG tối đa 10MB.`)
-      return
-    }
-    setDocumentError('')
-    setDocuments((current) => [...current, ...files.filter((file) => !current.some((item) => item.name === file.name && item.size === file.size))])
-  }
-  const removeDocument = async (index: number) => {
-    if (index < persistedDocuments.length) {
-      const persisted = persistedDocuments[index]
-      if (typeof persisted.id !== 'number' || persisted.id <= 0 || !draftRow) return
-      try {
-        await removeExitAttachment(id, persisted.id)
-        setRemovedAttachmentIds((current) => [...current, persisted.id as number])
-        setDocumentError('')
-      } catch (error) {
-        setDocumentError(error instanceof Error ? error.message : 'Không thể xóa chứng từ.')
-      }
-      return
-    }
-    setDocuments((current) => current.filter((_, currentIndex) => currentIndex !== index - persistedDocuments.length))
-  }
-  const viewDocument = async (index: number) => {
-    const persisted = persistedDocuments[index]
-    if (persisted) {
-      try {
-        let url = typeof persisted.url === 'string' ? persisted.url : ''
-        if (typeof persisted.id === 'number' && persisted.id > 0) url = URL.createObjectURL(await downloadExitAttachment(id, persisted.id))
-        if (url) {
-          window.open(url, '_blank', 'noopener,noreferrer')
-          if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-        }
-      } catch (error) {
-        setDocumentError(error instanceof Error ? error.message : 'Không thể mở chứng từ.')
-      }
-      return
-    }
-    const file = documents[index - persistedDocuments.length]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    window.open(url, '_blank', 'noopener,noreferrer')
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  }
+  const documentWorkflow = useExitDocuments({ id, persistedDocuments, canRemovePersisted: Boolean(draftRow), documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds })
+  const { documentError, documentRows, addDocuments, removeDocument, viewDocument } = documentWorkflow
   const buildDraftRecord = (): Partial<HerdExit> => ({
     date,
     type,
