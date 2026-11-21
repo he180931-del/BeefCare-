@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { createFeedStockApi, filterFeedStock, type FeedStockRow } from '../../../src/features/feed-stock'
+import { createFeedStockApi } from '../../../src/features/feed-stock/api/feedStockApi'
 import { FEED_STOCK_MOCK } from '../../../src/features/feed-stock/data/feedStockMock'
+import { filterFeedStock } from '../../../src/features/feed-stock/domain/feedStockList'
 import { deriveFeedStockStatus } from '../../../src/features/feed-stock/domain/feedStockStatus'
+import type { FeedStockRow } from '../../../src/features/feed-stock/types'
 
 describe('FE-23 feed stock read model', () => {
   const feedGroups = [

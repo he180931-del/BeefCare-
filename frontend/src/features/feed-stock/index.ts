@@ -1,24 +1,4 @@
-export { createFeedStockApi, listFeedStock } from './api/feedStockApi'
-export { createFeedReceiptApi, listFeedReceipts } from './api/feedReceiptApi'
-export { createFeedStockAdjustmentApi, downloadFeedStockAdjustmentAttachment, getFeedStockAdjustment, listFeedStockAdjustmentAttachments, listFeedStockAdjustments, postFeedStockAdjustment, removeFeedStockAdjustmentAttachment, saveFeedStockAdjustmentDraft, uploadFeedStockAdjustmentAttachment } from './api/feedStockAdjustmentApi'
-export { createFeedRationApi, getFeedRation, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from './api/feedRationApi'
-export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recordFeedSession, voidFeedSession } from './api/feedFeedingApi'
-export { feedFeedingServerBacked, useFeedFeedingCommands, useFeedFeedingScreen, useFeedFeedingSession } from './hooks/useFeedFeeding'
-export { useFeedRationForm } from './hooks/useFeedRationForm'
-export { useFeedRationList } from './hooks/useFeedRationList'
-export { useFeedReceiptForm } from './hooks/useFeedReceiptForm'
-export { useFeedReceiptList } from './hooks/useFeedReceiptList'
-export { useFeedStockAdjustmentForm } from './hooks/useFeedStockAdjustmentForm'
-export { useFeedStockAdjustmentList } from './hooks/useFeedStockAdjustmentList'
-export { useFeedMovements, useFeedStock, useFeedStockUpdatedAt } from './hooks/useFeedStockQueries'
-export { useFeedStockOverview } from './hooks/useFeedStockQueries'
-export { useFeedTodayRations } from './hooks/useFeedTodayRations'
-export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'
-export { useFeedCatalogue } from './hooks/useFeedCatalogue'
-export type { FeedCatalogueCommandOptions, FeedSupplierQuery } from './api/feedCatalogueApi'
-export { createFeedConsumptionApi, loadFeedConsumptionReport } from './api/feedConsumptionApi'
-export { newFeedCommandKey } from './api/command'
-export type { FeedCommandOptions } from './api/command'
-export { filterFeedStock, type FeedStockFilters } from './domain/feedStockList'
-export { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from './domain/feedReceiptList'
-export type { FeedStockRow } from './types'
+// Feed Stock has no production consumers of a public feature barrel. Keep the
+// boundary explicit so consumers use the owning route, hook, API, or domain
+// module instead of depending on an accidental aggregate surface.
+export {}
