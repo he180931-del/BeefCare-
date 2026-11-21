@@ -2,17 +2,15 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { useDemoState } from '../../../demo/demoModules'
-import { platformAdminApi } from '../api/platformAdminApi'
+import { auditDefaultRange, useAudit, useAuditDetail } from '../hooks/useAudit'
 import { ICON_BUTTON, PersonCell, SaPage, Toast, restPathId, searchWithoutModal, wideScreen } from '../components/common'
 import SearchSelect from '../components/SearchSelect'
 import { AUDIT_RANGE_HINT, AUDIT_TARGET_TYPES, auditActionLabel, auditChanges, auditRoleLabel, formatPlatformDateTime, targetTypeLabel } from '../domain/platformRules'
 import { validateAuditRange } from '../validation/platformValidation'
 import type { AuditFilters } from '../types'
 
-const PAGE_SIZE = 20
 const TITLE = 'Lịch sử audit nền tảng'
+const PAGE_SIZE = 20
 const LABEL_CLS = 'text-xs font-medium text-ink'
 /** Red border on both date boxes while the range is invalid (the message below has role="alert"). */
 const DATE_INVALID_CLS = '[&>div]:border-err-fg'
@@ -38,7 +36,7 @@ function ActionCode({ code }: { code: string }) {
 
 /** Chi tiết (A2, D34): hành động, vai trò, mã đối tượng, trước / sau trong danh sách cho phép, mã truy vết sao chép được. */
 function AuditDetailCard({ id, reveal }: { id: number; reveal: boolean }) {
-  const detail = useQuery(() => platformAdminApi.getAuditEntry(id), [id])
+  const detail = useAuditDetail(id)
   const [toast, setToast] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
   const shownId = detail.data?.id ?? null
@@ -106,11 +104,10 @@ function AuditDetailCard({ id, reveal }: { id: number; reveal: boolean }) {
 }
 
 function AuditContent() {
-  const demo = useDemoState()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const selectedId = restPathId(useParams()['*'])
-  const [range, setRange] = useState(() => platformAdminApi.auditDefaultRange())
+  const [range, setRange] = useState(() => auditDefaultRange())
   const [actorInput, setActorInput] = useState('')
   const [actor, setActor] = useState('')
   const [action, setAction] = useState('')
@@ -127,19 +124,13 @@ function AuditContent() {
   }, [actorInput, actor])
 
   const rangeError = validateAuditRange(range)
-  const actions = useQuery(() => platformAdminApi.listAuditActions(), [])
-  const { data, loading, error, refetch } = useQuery(
-    () => {
-      if (demo === 'load-error') return Promise.reject(new Error(LOAD_ERROR))
-      if (rangeError) return Promise.resolve(null)
-      return platformAdminApi.listAudit({ ...range, actor, action, targetType, dir, page, size: PAGE_SIZE })
-    },
-    [range.from, range.to, actor, action, targetType, dir, page, demo, rangeError],
-  )
+  const audit = useAudit({ range, actor, action, targetType, dir, page, detailId: null, enabled: !rangeError })
+  const { actions, list } = audit
+  const { data, loading, error, refetch } = list
 
   const filterChange = (apply: () => void) => { apply(); setPage(1) }
   const clearFilters = () => {
-    setRange(platformAdminApi.auditDefaultRange())
+    setRange(auditDefaultRange())
     setActorInput('')
     setActor('')
     setAction('')
