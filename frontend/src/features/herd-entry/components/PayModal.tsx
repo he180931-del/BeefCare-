@@ -3,14 +3,13 @@ import { Badge, DateInput, Field, inputCls, KV, Modal, ModalButton, ModalFooter,
 import { entryPaymentDefaults } from '../api/index'
 import { money } from '../../../shared/lib/format'
 import { RadioRow } from './parts'
-import type { HerdEntry } from '../types'
-import type { Payment } from '../../../types'
+import type { EntryPayment, HerdEntry } from '../types'
 
 /**
  * Ghi nhận một khoản thanh toán cho phiếu nhập còn nợ. `record` là phiếu (có detail), `onSave(payment)`
  * nhận { date, by, method, ref, amount } để trang chi tiết ghi vào phiếu.
  */
-export default function PayModal({ record, onSave, onClose }: { record: HerdEntry; onSave: (payment: Payment & { note?: string }) => void; onClose: () => void }) {
+export default function PayModal({ record, onSave, onClose }: { record: HerdEntry; onSave: (payment: EntryPayment & { note?: string }) => void; onClose: () => void }) {
   const d = { sourceName: record.source, payments: [], ...record.detail }
   const total = record.total ?? 0
   const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0

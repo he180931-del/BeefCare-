@@ -1,6 +1,6 @@
 import type { CattleInput } from '../../cattle'
 import type { HerdExit } from '../types'
-import type { Payment } from '../../../types'
+import type { ExitPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
@@ -42,7 +42,7 @@ export const herdExitApi = {
     return backendApi.save({ id, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.cows ?? current.draft?.cows ?? [] })
   },
   reset: () => usingBackend ? Promise.resolve([] as HerdExit[]) : demo.exitLocal.localApi.reset(),
-  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
+  recordPayment: (id: string, payment: Pick<ExitPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
     ? backendApi.recordPayment(id, payment)
     : demo.exitLocal.localApi.get(id).then((row) => demo.exitLocal.localApi.update(id, {
       due: Math.max((row.due ?? 0) - payment.amount, 0),

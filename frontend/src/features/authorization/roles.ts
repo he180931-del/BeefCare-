@@ -1,8 +1,7 @@
-import { useSession, type SessionUser } from '../../app/session/sessionContext'
+import { isFarmRole, useSession } from '../../app/session/sessionContext'
+import type { AppRole, FarmRole, PlatformRole, SessionUser } from '../../app/session/sessionContext'
 
-export type FarmRole = 'OWNER' | 'MANAGER' | 'TECHNICIAN'
-export type PlatformRole = 'CS' | 'PM' | 'SA'
-export type AppRole = FarmRole | PlatformRole
+export type { AppRole, FarmRole, PlatformRole } from '../../app/session/sessionContext'
 
 /**
  * GBR-08, GBR-102, D41: Chủ trại và Quản lý ghi, sửa, hủy dữ liệu chăm sóc, sinh sản và sổ cho ăn; Kỹ thuật viên chỉ xem.
@@ -23,8 +22,7 @@ export const useCanRecordCare = (): boolean => {
 export const needsOwnerRegistration = (session: SessionUser | null | undefined): boolean =>
   session?.ownerRegistrationCompleted === false && (session.farmCount ?? (session.farmId == null ? 0 : 1)) === 0 && !session.platformRole
 
-const FARM_ROLES: readonly string[] = ['OWNER', 'MANAGER', 'TECHNICIAN']
-export const isFarmRole = (role: AppRole): role is FarmRole => FARM_ROLES.includes(role)
+export { isFarmRole }
 
 export function homePathFor(role: AppRole): string {
   switch (role) {

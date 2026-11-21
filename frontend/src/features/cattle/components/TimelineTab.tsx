@@ -9,7 +9,7 @@ import { useSession } from '../../../app/session/sessionContext'
 import { TIMELINE_FILTERS } from '../api/cattleTimeline'
 import { Chip, Panel, Seg } from './parts'
 import TimelineCorrectionDialog, { hasTimelineCorrection } from './TimelineCorrectionDialog'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import type { CattleEvent } from '../types'
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ')

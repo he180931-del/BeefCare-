@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Foot, Icon, type IconName, Table } from '../../../shared/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
 import { PURPOSE_TYPE_LABELS } from '../domain/profileRules'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 const ageFull = (cow: CowSeed) => cow.ageLong.replace('tuổi', 'năm')
 const dmy = (value?: string) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split('-').reverse().join('/') : value ?? '')

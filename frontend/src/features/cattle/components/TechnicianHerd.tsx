@@ -5,7 +5,7 @@ import { EmptyBlock, ErrorBlock, Icon, LoadingBlock, SearchInput } from '../../.
 import { listCowsPage } from '../api/cattleApi'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { Chip, Seg, chipIcon } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 const FILTERS = [
   ['all', 'Tất cả'],

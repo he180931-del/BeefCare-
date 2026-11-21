@@ -1,5 +1,5 @@
 import { penMap } from './pensData'
-import type { Cattle, CattleCare, CattleEvent, CattleStatus, Tone } from '../types'
+import type { Cattle, CattleCare, CattleEvent, Tone, CattleViewModel } from '../features/cattle/types'
 
 export const TODAY = '2026-10-20'
 export const MANAGER = 'Trần Quốc Long'
@@ -17,25 +17,7 @@ export const EXPORTED_COUNT = 17
 const RECORDER = 'Nguyễn Văn Hùng'
 
 // Bò có đủ hồ sơ mẫu theo Figma; các trường chưa nêu được điền mặc định.
-export type CowSeed = Cattle & {
-  barn: string
-  photoUrl?: string
-  status: CattleStatus
-  ageShort: string
-  ageLong: string
-  months: number
-  purpose: string
-  stage: string
-  inList: boolean
-  weight: number | null
-  weightDate: string
-  headerBadges: Array<[string, Tone]>
-  qr: string
-  qrHistory: NonNullable<Cattle['qrHistory']>
-  barnHistory: NonNullable<Cattle['barnHistory']>
-  events: NonNullable<Cattle['events']>
-  care: CattleCare
-}
+type CowSeed = CattleViewModel
 
 type AutoSeed = Partial<CowSeed> & Pick<CowSeed, 'code' | 'barn' | 'ageShort' | 'ageLong' | 'months' | 'purpose' | 'stage' | 'inList' | 'weight' | 'weightDate' | 'qr' | 'care'>
 

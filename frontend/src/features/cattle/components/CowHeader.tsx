@@ -4,7 +4,7 @@ import { Button, Icon, type IconName } from '../../../shared/ui'
 import { useCanRecordCare } from '../../authorization'
 import { Chip, chipIcon } from './parts'
 import CowPhoto from './CowPhoto'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 export const COW_TABS: ReadonlyArray<readonly [string, string, IconName]> = [
   ['', 'Tổng quan', 'id'],

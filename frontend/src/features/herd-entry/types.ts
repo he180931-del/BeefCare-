@@ -1,6 +1,31 @@
-import type { CattleDetail, DocumentRow, Payment } from '../../types'
 import type { CattleCode } from '../cattle'
 import type { PenCode } from '../pen-management'
+
+export interface EntryCattleDetail {
+  code?: CattleCode
+  tag?: string
+  breed?: string
+  sex?: string
+  barn?: string | null
+  weight?: number | null
+  amount?: number
+  current?: string
+  name?: string
+  dob?: string
+  dobAccuracy?: string
+  stage?: string
+  purpose?: string
+  estimated?: boolean
+  unitPrice?: number
+  hist?: { vaccine: string; vaccineNote?: string; vaccineName?: string; vaccineDate?: string; vaccineSource?: string; disease: string; diseaseNote?: string; repro: string; pregnantAtEntry?: string; pregnancyMonths?: number }
+  events?: string[]
+  age?: string
+  caseLine?: string[]
+  [key: string]: unknown
+}
+
+export interface EntryDocument { ext?: string; name: string; [key: string]: unknown }
+export interface EntryPayment { date: string; by: string; method: string; ref: string; amount: number; [key: string]: unknown }
 
 export type EntryStatus = 'Nháp' | 'Đã nhập' | 'Đã hủy'
 
@@ -74,11 +99,11 @@ export interface EntryDetail {
   plate?: string
   by?: string
   note?: string
-  cows?: CattleDetail[]
+  cows?: EntryCattleDetail[]
   cowsTotal?: number
   freight?: number
-  payments?: Payment[]
-  docs?: DocumentRow[]
+  payments?: EntryPayment[]
+  docs?: EntryDocument[]
   history?: string[]
   [key: string]: unknown
 }
@@ -99,7 +124,7 @@ export interface EntryDraft {
   method?: string
   due?: string
   printQr?: boolean
-  docs?: DocumentRow[]
+  docs?: EntryDocument[]
   [key: string]: unknown
 }
 

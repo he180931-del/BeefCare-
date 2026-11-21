@@ -1,6 +1,5 @@
-import type { DocumentRow, Payment } from '../../../types'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
-import type { EntryCalf, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../types'
+import type { EntryCalf, EntryDetail, EntryDocument, EntryDraft, EntryPayment, EntryStatus, EntryType, HerdEntry } from '../types'
 
 // Entry voucher DTO ↔ screen model mapping (EntryVoucherResource, PendingCalfResource), moved out of herdEntryBackendApi.ts.
 export const statusFromBackend = (status: unknown): EntryStatus => status === 'POSTED' ? 'Đã nhập' : status === 'VOIDED' ? 'Đã hủy' : 'Nháp'
@@ -22,7 +21,7 @@ export const lifeStage = (value: unknown, farmBorn = false) => {
   return 'ADULT'
 }
 
-export const paymentRows = (value: unknown): Payment[] => asRows(value).map((row) => ({
+export const paymentRows = (value: unknown): EntryPayment[] => asRows(value).map((row) => ({
   date: textValue(row.paymentDate ?? row.date),
   by: textValue(row.recordedBy ?? row.createdBy, '—'),
   method: row.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản',
@@ -38,9 +37,9 @@ export const mapDocuments = (value: unknown, root: string, voucherId: number) =>
   url: `${root}/${voucherId}/attachments/${numberValue(document.id)}`,
 }))
 
-export const mergeDocuments = (...groups: Array<ReadonlyArray<DocumentRow> | undefined>): DocumentRow[] => {
+export const mergeDocuments = (...groups: Array<ReadonlyArray<EntryDocument> | undefined>): EntryDocument[] => {
   const seen = new Set<string>()
-  const merged: DocumentRow[] = []
+  const merged: EntryDocument[] = []
   for (const group of groups) {
     for (const document of group ?? []) {
       const key = document.id == null ? `${document.name}\u0000${String(document.size ?? '')}` : `id:${String(document.id)}`

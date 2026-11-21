@@ -3,7 +3,7 @@ import { Field, Modal, ModalButton, ModalFooter, Note, Table, Textarea } from '.
 import { editImportRecord, voidImportRecord } from '../api/cattleApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { Td, Th, fieldCls } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import type { ImportRecord } from '../types'
 
 const REASON_MAX = 500

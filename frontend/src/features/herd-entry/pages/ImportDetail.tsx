@@ -12,8 +12,7 @@ import { dmy, kg, money } from '../../../shared/lib/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
 import type { CattleInput } from '../../cattle'
-import type { EntryDetail, HerdEntry } from '../types'
-import type { Payment } from '../../../types'
+import type { EntryDetail, EntryPayment, HerdEntry } from '../types'
 import { userFacingError } from '../../../shared/api/userFacingError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
@@ -26,7 +25,7 @@ export default function ImportDetail() {
   const [m, openModal, closeModal] = useModalParam()
   const [documentError, setDocumentError] = useState<string | null>(null)
   const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
-  const { mutate: recordPayment, error: paymentError } = useMutation<{ recordId: string; payment: Payment & { note?: string } }, HerdEntry>(({ recordId: targetId, payment }) => herdEntryApi.recordPayment(targetId, payment))
+  const { mutate: recordPayment, error: paymentError } = useMutation<{ recordId: string; payment: EntryPayment & { note?: string } }, HerdEntry>(({ recordId: targetId, payment }) => herdEntryApi.recordPayment(targetId, payment))
   const { mutate: voidEntry, error: voidError } = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, cattleRows, patch }) => voidHerdEntry(targetId, cattleRows, patch))
   const r = query.data
 
@@ -69,7 +68,7 @@ export default function ImportDetail() {
   const canCancel = r.status === 'Đã nhập' && Boolean(d.cows?.length)
 
   // Ghi thay đổi qua API, rồi tải lại phiếu và đóng modal.
-  const savePayment = async (p: Payment) => {
+  const savePayment = async (p: EntryPayment) => {
     await recordPayment({
       recordId: r.id,
       payment: p,

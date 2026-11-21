@@ -6,7 +6,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { REPLACEMENT_REASONS, type TagErrors } from '../domain/profileRules'
 import { validateTag } from '../validation/profileValidation'
 import { fieldCls } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import QrTagLabel from './QrTagLabel'
 
 type ReissuePayload = { reason: string; note: string; by: string; tagCode?: string }

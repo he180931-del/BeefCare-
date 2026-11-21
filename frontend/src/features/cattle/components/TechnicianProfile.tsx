@@ -9,7 +9,7 @@ import { VaccinationTechnicianTab } from '../../vaccination'
 import { HealthTechnicianTab } from '../../health'
 import { ReproductionTechnicianTab } from '../../reproduction'
 import { Chip, Fields, Panel, chipIcon } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import CowPhoto from './CowPhoto'
 
 const TABS: ReadonlyArray<readonly [string, string, IconName]> = [

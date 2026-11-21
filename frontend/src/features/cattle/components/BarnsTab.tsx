@@ -1,7 +1,7 @@
 import { Button, Foot, Icon, Table } from '../../../shared/ui'
 import { Panel, Td, Th } from './parts'
 import type { Pen } from '../../pen-management'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 export default function BarnsTab({ cow, barns, canWrite, onOpenModal }: { cow: CowSeed; barns: Record<string, Pen>; canWrite: boolean; onOpenModal: (name: string) => void }) {
   const cur = barns[cow.barn]

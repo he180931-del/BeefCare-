@@ -1,5 +1,12 @@
-import type { CattleDetail, DocumentRow, Payment } from '../../types'
 import type { CattleCode } from '../cattle'
+
+export interface ExitCattleDetail {
+  code?: CattleCode; tag?: string; breed?: string; sex?: string; barn?: string | null; weight?: number | null; amount?: number; current?: string; name?: string; dob?: string; dobAccuracy?: string; stage?: string; purpose?: string; estimated?: boolean; unitPrice?: number
+  hist?: { vaccine: string; vaccineNote?: string; vaccineName?: string; vaccineDate?: string; vaccineSource?: string; disease: string; diseaseNote?: string; repro: string; pregnantAtEntry?: string; pregnancyMonths?: number }
+  events?: string[]; age?: string; caseLine?: string[]; [key: string]: unknown
+}
+export interface ExitDocument { ext?: string; name: string; [key: string]: unknown }
+export interface ExitPayment { date: string; by: string; method: string; ref: string; amount: number; [key: string]: unknown }
 
 export type ExitStatus = 'Nháp' | 'Chờ xác nhận' | 'Đã xuất' | 'Đã hủy' | 'Đã bác'
 
@@ -31,11 +38,11 @@ export interface ExitDetail {
   reporter?: string
   reason?: string
   disposal?: string
-  cow?: CattleDetail
-  cows?: CattleDetail[]
+  cow?: ExitCattleDetail
+  cows?: ExitCattleDetail[]
   cowsTotal?: number
-  payments?: Payment[]
-  docs?: DocumentRow[]
+  payments?: ExitPayment[]
+  docs?: ExitDocument[]
   history?: string[]
   buyer?: string
   barnShift?: string
@@ -57,7 +64,7 @@ export interface ExitDraft {
   method?: string
   dueDate?: string
   cows?: ExitDraftCow[]
-  docs?: DocumentRow[]
+  docs?: ExitDocument[]
   [key: string]: unknown
 }
 

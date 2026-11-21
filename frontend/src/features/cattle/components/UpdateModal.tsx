@@ -8,7 +8,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, type DatedChangeErrors, type IdentityErrors, type IdentityValues } from '../domain/profileRules'
 import { validateDatedChange, validateIdentity, validatePhoto } from '../validation/profileValidation'
 import { Panel, Seg, fieldCls } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 const TABS = [
   ['identity', 'Định danh & mô tả'],

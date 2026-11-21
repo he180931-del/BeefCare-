@@ -1,6 +1,6 @@
 import type { CattleInput } from '../../cattle'
 import type { HerdExit } from '../types'
-import type { Payment } from '../../../types'
+import type { ExitPayment } from '../types'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { BackendTransport } from '../../../shared/api/backendTransport'
 import { isoDate } from '../../../shared/lib/date/isoDate'
@@ -9,7 +9,7 @@ import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, find
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
 type SaveInput = { id?: string; record: Partial<HerdExit>; cattleRows?: CattleInput[]; documents?: File[] }
-type PaymentInput = Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
+type PaymentInput = Pick<ExitPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
 export type ExitCheckMessage = { code?: string; text?: string; params?: Record<string, unknown> }
 export type ExitCattleCheck = {
   cattleId: number; cattleCode: string; penId: number; penCode: string; hasWarnings: boolean; messages: ExitCheckMessage[]

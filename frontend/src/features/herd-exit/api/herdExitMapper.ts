@@ -1,6 +1,5 @@
-import type { Payment } from '../../../types'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
-import type { ExitDetail, ExitDraft, ExitStatus, ExitType, HerdExit } from '../types'
+import type { ExitDetail, ExitDraft, ExitPayment, ExitStatus, ExitType, HerdExit } from '../types'
 import type { ExitChecks } from './herdExitBackendApi'
 
 // Exit voucher DTO ↔ screen model mapping (ExitVoucherResource), moved out of herdExitBackendApi.ts.
@@ -36,7 +35,7 @@ export const lossTypeLabel = (value: unknown) => {
   return textValue(value)
 }
 
-export const paymentRows = (value: unknown): Payment[] => asRows(value).map((row) => ({
+export const paymentRows = (value: unknown): ExitPayment[] => asRows(value).map((row) => ({
   date: textValue(row.paymentDate ?? row.date), by: textValue(row.recordedBy ?? row.createdBy, '—'),
   method: row.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', ref: textValue(row.reference, '—'), amount: numberValue(row.amount),
 }))

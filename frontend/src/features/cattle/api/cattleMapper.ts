@@ -1,5 +1,5 @@
 import { businessDate, toFarmLocal } from '../../../shared/lib/date/farmTime'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import type { Pen } from '../../pen-management'
 import type { BarnHistoryRow, CattleCare, CattleEvent, CattleStatus, QrHistoryRow, StatusChip, Tone } from '../types'
 import type { BackendPen, BackendPenHistory, BackendProfile, BackendQrTag } from './cattle.dto'

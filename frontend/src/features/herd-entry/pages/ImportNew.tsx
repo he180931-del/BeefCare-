@@ -35,8 +35,7 @@ import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
 import PayModal from '../components/PayModal'
 import { entryToday as localToday, validateEntryForPost } from '../validation/entryValidation'
-import type { DocumentRow } from '../../../types'
-import type { EntryCalf, EntryCow, HerdEntry } from '../types'
+import type { EntryCalf, EntryCow, EntryDocument, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
 import { userFacingError } from '../../../shared/api/userFacingError'
@@ -145,7 +144,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
   const [printQr, setPrintQr] = useState(draft?.printQr ?? true)
   const [documents, setDocuments] = useState<File[]>([])
-  const [storedDocuments, setStoredDocuments] = useState<DocumentRow[]>(draftRow?.detail?.docs ?? [])
+  const [storedDocuments, setStoredDocuments] = useState<EntryDocument[]>(draftRow?.detail?.docs ?? [])
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
   const [temporaryExcelDraftId, setTemporaryExcelDraftId] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)

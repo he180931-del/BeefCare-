@@ -5,7 +5,7 @@ import { useMutation } from '../../../shared/hooks/useMutation'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { Chip, Td, Th, fieldCls } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import type { Pen } from '../../pen-management'
 
 type MovePayload = { to: string; date: string; reason: string; by: string }
