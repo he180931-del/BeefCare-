@@ -11,7 +11,7 @@ import { buildSourceGraph, routeLoaderViolations, routeTableViolations, type Imp
 const srcDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../src')
 
 const sourceFiles = (dir: string): string[] =>
-  readdirSync(join(srcDir, dir), { recursive: true })
+  !existsSync(join(srcDir, dir)) ? [] : readdirSync(join(srcDir, dir), { recursive: true })
     .filter((file): file is string => typeof file === 'string' && /\.(ts|tsx)$/.test(file))
     .map((file) => join(dir, file).split(sep).join('/'))
 
