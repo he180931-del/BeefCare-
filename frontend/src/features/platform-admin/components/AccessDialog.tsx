@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { Button, DISCARD_PROMPT, Field, Modal, ModalButton, ModalFooter, Note, Radio, Textarea } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { platformAdminApi } from '../api/platformAdminApi'
 import {
   MSG, OPERATION_LABEL, PLATFORM_ROLES, REASON_MAX, ROLE_LABEL, accessButtonLabel, accessDoneMessage, formatPlatformDateTime, noAccessActionReason,
-  validateReason,
 } from '../domain/platformRules'
-import { useCommandKey } from '../hooks/useCommandKey'
+import { useStaffAccess } from '../hooks/useStaffAccess'
+import { validateReason } from '../validation/accountStatusValidation'
 import type { AccessHistoryItem, AccountDetail, PlatformAccessOperation, PlatformRole } from '../types'
 import { commandOutcome } from './commandOutcome'
 import { AccountStatusBadge, PersonCell, errorMessage } from './common'
@@ -34,8 +32,7 @@ export default function AccessDialog({ account, onClose, onDone, onRefused }: {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [discarding, setDiscarding] = useState(false)
-  const requestKey = useCommandKey()
-  const history = useQuery(() => platformAdminApi.accountHistory(account.id), [account.id, account.platformAccessVersion])
+  const { history, changePlatformAccess, clearRequestKey } = useStaffAccess(account)
 
   const needsRole = operation === 'GRANT' || operation === 'CHANGE'
   const blocked = noAccessActionReason(account)
@@ -53,15 +50,14 @@ export default function AccessDialog({ account, onClose, onDone, onRefused }: {
     setBusy(true)
     setError(null)
     const command = { operation, role: needsRole ? role : undefined, reason: reason.trim(), expectedVersion: account.platformAccessVersion }
-    const key = requestKey.keyFor([account.id, command])
     try {
-      const next = await platformAdminApi.changePlatformAccess(account.id, command, key)
-      requestKey.clear()
+      const next = await changePlatformAccess(command)
+      clearRequestKey()
       onDone(accessDoneMessage(next.platformRole ?? role, next.email, operation))
     } catch (failure) {
       const outcome = commandOutcome(failure, account.email)
-      if (outcome.kind === 'refused') { requestKey.clear(); onRefused(outcome.message); return }
-      if (outcome.kind === 'field') { requestKey.clear(); setFieldError(outcome.message); return }
+      if (outcome.kind === 'refused') { clearRequestKey(); onRefused(outcome.message); return }
+      if (outcome.kind === 'field') { clearRequestKey(); setFieldError(outcome.message); return }
       setError(outcome.message) // lỗi lưu / mạng: giữ popup và khóa để thử lại (GBR-88)
     } finally {
       setBusy(false)

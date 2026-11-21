@@ -1,7 +1,9 @@
 import { addCalendarDays, businessDate, businessDateTime, DEFAULT_FARM_TIME_ZONE, parseBusinessTime } from '../../../shared/lib/date/farmTime'
 import type { AccountChange, AccountDetail, AccountFilters, AccountListItem, AccountRecord, AccountStatusAction, AuditActionOption, AuditFilters, AuditRow, AuditTargetType, FarmRole, PageResult, PlatformAccessChange, PlatformAccessOperation, PlatformAccessStatus, PlatformRole } from '../types'
+import { ACCOUNT_REASON_MAX, ACCOUNT_REASON_MESSAGES, validateReason } from '../validation/accountStatusValidation'
+export { validateReason } from '../validation/accountStatusValidation'
 
-export const REASON_MAX = 500
+export const REASON_MAX = ACCOUNT_REASON_MAX
 export const PLATFORM_ROLES: readonly PlatformRole[] = ['CS', 'PM', 'SA']
 export const ROLE_LABEL: Record<PlatformRole, string> = {
   CS: 'Nhân viên hỗ trợ (CS)',
@@ -27,9 +29,9 @@ export const MSG = {
   /** MSG-FE03-18. */
   noAccount: 'Chưa có tài khoản BeefCare cho email này. Người đó cần đăng nhập một lần trước khi được cấp quyền.',
   noLongerAssigned: 'Yêu cầu này không còn được giao cho bạn.',
-  reasonRequired: 'Lý do là bắt buộc.',
+  reasonRequired: ACCOUNT_REASON_MESSAGES.required,
   /** Table III-1 (D32, D33): lý do tạm ngưng / khôi phục và lý do đổi quyền nền tảng. */
-  reasonRule: 'Lý do cần từ 5 đến 500 ký tự, trong đó ít nhất 5 ký tự không phải khoảng trắng.',
+  reasonRule: ACCOUNT_REASON_MESSAGES.rule,
   /** MSG-FE03-17 (spec FE-03 mục 8). */
   lastSa: 'Phải luôn còn ít nhất một System Admin đang hoạt động, và bạn không thể tạm ngưng tài khoản của chính mình.',
   /** Ghi chú cố định "Last SA notice" của popup quyền nền tảng (SCR-16, MSG-FE03-17). */
@@ -49,14 +51,6 @@ export const noChangeMessage = (target: string, value: string) =>
   `Không có thay đổi: ${target} đã ở ${value === 'role' ? 'vai trò' : 'trạng thái'} này.`
 
 const noChange = (target: string, value: 'role' | 'status') => new PlatformAdminError('NO_CHANGE', noChangeMessage(target, value))
-
-/** Lý do của SCR-16 (D32, D33): bỏ khoảng trắng đầu cuối, 5–500 ký tự, ít nhất 5 ký tự không phải khoảng trắng. */
-export function validateReason(reason: string): string | null {
-  const text = reason.trim()
-  if (!text) return MSG.reasonRequired
-  if (text.length > REASON_MAX || text.replace(/\s/g, '').length < 5) return MSG.reasonRule
-  return null
-}
 
 /** `actions` của A10 (D32), dùng cho bản mô phỏng: máy chủ tính cùng quy tắc. */
 export function statusActions(a: Pick<AccountRecord, 'id' | 'accountStatus'>, actorId: number): AccountStatusAction[] {
