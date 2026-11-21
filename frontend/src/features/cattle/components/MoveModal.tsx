@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Table } from '../../../shared/ui'
-import { cattleToday, checkPenMove, demoActors, demoCowPrefill, demoRecorder, moveBarn } from '../api/cattleApi'
-import { useMutation } from '../../../shared/hooks/useMutation'
+import { cattleToday, demoActors, demoCowPrefill, demoRecorder } from '../api/cattleApi'
+import { useCattleMoveCommand, useCattlePenMoveCheck } from '../hooks/useCattleCommands'
 import { cattleError as cattleErrorMessage } from '../api/cattleError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { Chip, Td, Th, fieldCls } from './parts'
 import type { CattleViewModel as CowSeed } from '../types'
 import type { Pen } from '../../pen-management'
+import type { PenMoveCheck } from '../api/cattleBackendApi'
 
-type MovePayload = { to: string; date: string; reason: string; by: string }
-type CheckResult = Awaited<ReturnType<typeof checkPenMove>>
+type CheckResult = PenMoveCheck | null
 
 const CRITERION_TEXT: Record<string, string> = {
   PURPOSE_TYPE: 'Loại mục đích phù hợp',
@@ -32,29 +32,20 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
   const [reason, setReason] = useState(prefill?.moveReason ?? '')
   // R-04-05: lý do cảnh báo là trường riêng, lưu theo phân chuồng mới, không dùng lại lý do chuyển.
   const [warningReason, setWarningReason] = useState('')
-  const [check, setCheck] = useState<CheckResult>(null)
   const [checkRun, setCheckRun] = useState(0)
   const [needsReload, setNeedsReload] = useState(false)
-  const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
 
   const dest = barns[to]
   const destId = typeof dest?.backendId === 'number' ? dest.backendId : undefined
-  const warningRequired = check?.cattle?.some((c) => c.warningReasonRequired) === true
-  const move = useMutation((payload: MovePayload) => moveBarn(cow.code, payload, backend ? { backendId: cow.backendId, backendVersion: cow.backendVersion, toPenId: destId, warningReason: warningRequired ? warningReason.trim() : undefined } : {}))
-
   // Backend kiểm tra tiếp nhận (chuồng đích ACTIVE, còn chỗ, tiêu chí) trước khi cho chuyển.
-  useEffect(() => {
-    if (!backend || destId == null || !date) { setCheck(null); setChecking(false); return }
-    let active = true
-    setChecking(true)
-    setError('')
-    checkPenMove(cow.code, { date, toPenId: destId }, { backendId: cow.backendId })
-      .then((result) => { if (active) setCheck(result) })
-      .catch((e: unknown) => { if (active) { setCheck(null); setError(cattleErrorMessage(e, 'Không kiểm tra được điều kiện tiếp nhận.')) } })
-      .finally(() => { if (active) setChecking(false) })
-    return () => { active = false }
-  }, [backend, destId, date, cow.code, cow.backendId, checkRun])
+  const checkQuery = useCattlePenMoveCheck({ cow, backend, destId, date, checkRun })
+  const check: CheckResult = checkQuery.data
+  const checking = checkQuery.loading
+  const checkFailure = checkQuery.error ? cattleErrorMessage(checkQuery.error, 'Không kiểm tra được điều kiện tiếp nhận.') : ''
+  const warningRequired = check?.cattle?.some((c) => c.warningReasonRequired) === true
+  const move = useCattleMoveCommand(cow, { backend, destId, warningReason: warningRequired ? warningReason.trim() : undefined })
+  useEffect(() => { setError('') }, [backend, destId, date, checkRun])
 
   const blockText = check?.blocked ? check.block?.text ?? check.block?.message ?? 'Chuồng đích không nhận được bò này.' : ''
   // Backend trả kết quả theo từng tiêu chí (MET / NOT_MET / NOT_APPLICABLE); null = Không áp dụng.
@@ -86,7 +77,6 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
       if (e instanceof BackendError) {
         if (e.code === 'MSG-COM-05') setNeedsReload(true)
         if (e.code === 'MSG-FE04-05') {
-          setCheck(null)
           setCheckRun((run) => run + 1)
         }
       }
@@ -129,7 +119,7 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
 
       <p className="m-0 text-[14px] font-semibold leading-[normal] text-[#212121]">Kiểm tra tiếp nhận</p>
       {blockText && <Note tone="err">{blockText}</Note>}
-      {error && <Note tone="err">{error}</Note>}
+      {(error || checkFailure) && <Note tone="err">{error || checkFailure}</Note>}
       {cattleError && <Note tone="err">{cattleError.message ?? cattleError.text ?? 'Bò này không chuyển được chuồng.'}</Note>}
       <Table stack={false}>
         <thead>

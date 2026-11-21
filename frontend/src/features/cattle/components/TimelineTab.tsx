@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Checkbox, ErrorBlock, Foot, LoadingBlock, Modal, Note } from '../../../shared/ui'
-import { listCattleTimeline } from '../api/cattleApi'
 import { cattleError } from '../api/cattleError'
-import { useQuery } from '../../../shared/hooks/useQuery'
+import { useCattleTimelineQuery } from '../hooks/useCattleQueries'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
 import { TIMELINE_FILTERS } from '../api/cattleTimeline'
@@ -51,11 +50,8 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
   const [denied, setDenied] = useState('')
   const [selected, setSelected] = useState<CattleEvent | null>(null)
   const [editing, setEditing] = useState<CattleEvent | null>(null)
-  const cattleId = cow.backendId
-  const query = useQuery(async () => cattleId != null
-    ? { showCorrections, events: await listCattleTimeline(cattleId, showCorrections) }
-    : { showCorrections, events: cow.events }, [cattleId, showCorrections])
-  const events = cattleId != null && query.data?.showCorrections === showCorrections ? query.data.events : cow.events
+  const query = useCattleTimelineQuery(cow, showCorrections)
+  const { cattleId, events } = query
   const groups = timelineGroups(events, cat, showCorrections)
   const code = encodeURIComponent(cow.code)
   // R-16-07, D41: Chủ trại và Quản lý sửa / hủy từ dòng thời gian.

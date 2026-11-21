@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { EmptyBlock, ErrorBlock, Icon, LoadingBlock, SearchInput } from '../../../shared/ui'
-import { listCowsPage } from '../api/cattleApi'
-import { useQuery } from '../../../shared/hooks/useQuery'
+import { useTechnicianHerdQuery } from '../hooks/useCattleQueries'
 import { Chip, Seg, chipIcon } from './parts'
 import type { CattleViewModel as CowSeed } from '../types'
 
@@ -21,7 +20,7 @@ const matches = (c: CowSeed, filter: string): boolean =>
 export default function TechnicianHerd() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all')
-  const { data, loading, error, refetch } = useQuery(() => listCowsPage({ herdStatus: 'ACTIVE', size: 100 }), [])
+  const { data, loading, error, refetch } = useTechnicianHerdQuery()
   const needle = q.trim().toLowerCase()
   const rows = (data?.items ?? []).filter((c) => c.status === 'ACTIVE' && c.inList !== false && matches(c, filter) && (!needle || [c.code, c.tag, c.name].some((v) => v && v.toLowerCase().includes(needle))))
   const total = data ? data.counts.ACTIVE ?? data.items.filter((c) => c.status === 'ACTIVE' && c.inList !== false).length : 0

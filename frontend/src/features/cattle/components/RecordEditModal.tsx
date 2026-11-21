@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Field, Modal, ModalButton, ModalFooter, Note, Table, Textarea } from '../../../shared/ui'
-import { editImportRecord, voidImportRecord } from '../api/cattleApi'
-import { useMutation } from '../../../shared/hooks/useMutation'
+import { useCattleRecordCommands } from '../hooks/useCattleCommands'
 import { Td, Th, fieldCls } from './parts'
 import type { CattleViewModel as CowSeed } from '../types'
 import type { ImportRecord } from '../types'
@@ -9,8 +8,7 @@ import type { ImportRecord } from '../types'
 const REASON_MAX = 500
 
 export default function RecordEditModal({ cow, record, onClose, onSaved }: { cow: CowSeed; record: ImportRecord; onClose: () => void; onSaved: () => void }) {
-  const edit = useMutation((payload: { values: Record<string, string>; reason: string }) => editImportRecord(cow.code, payload))
-  const voidRecord = useMutation((payload: { reason: string }) => voidImportRecord(cow.code, payload))
+  const { edit, voidRecord } = useCattleRecordCommands(cow, record)
   const [action, setAction] = useState('edit')
   const [drafts, setDrafts] = useState<Record<string, string>>(() => Object.fromEntries(record.fields.map(([key, , , next]) => [key, next])))
   const [editingPrior, setEditingPrior] = useState(false)

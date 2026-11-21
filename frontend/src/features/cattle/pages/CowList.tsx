@@ -3,17 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, ErrorBlock, Foot, Icon, inputCls, PageHeader, Pagination, Panel, Select, Table } from '../../../shared/ui'
 import { dm } from '../../../shared/lib/format'
-import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
-import { listBarns, listBreeds, listCows, listCowsPage, listPurposes, localCattleList } from '../api/cattleApi'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
+import { LIFE_STAGE_OPTIONS, useCattleListQueries } from '../hooks/useCattleQueries'
 import { Chip, Th, Td, chipIcon } from '../components/parts'
 import type { StatusChip } from '../types'
 import type { CattleViewModel as CowSeed } from '../types'
 
 // Máy chủ thật lọc, đếm và phân trang; bản mô phỏng tính tại trình duyệt từ đàn mẫu.
-const local = localCattleList
-const backend = local === null
 const EXPORTED = 'Đã xuất'
 const TAB_STAGE: Record<string, string> = { 'Tất cả': '', 'Khác': 'Chưa xác định' }
 type LocalStage = 'Bò cái sinh sản' | 'Bò tơ' | 'Vỗ béo' | 'Bê' | 'Đực giống' | 'Chưa xác định'
@@ -122,15 +118,20 @@ export default function CowList() {
   useEffect(() => { setPage(0) }, [debouncedQ, breed, sex, barn, stageSel, purpose, health, status, tab])
 
   const group = status === 'ACTIVE' ? TAB_GROUP[tab] : undefined
-  const listQuery = useQuery(
-    () => backend
-      ? listCowsPage({ q: debouncedQ, breedId: breed, sex, penId: barn, purposeId: purpose, lifeStage: stageSel === 'ALL' ? '' : stageSel, health, herdStatus: status, herdGroup: group, page, sort, hasWeight: weightFilter ? weightFilter === 'yes' : undefined })
-      : listCows().then((items) => ({ items, total: items.length, page: 0, size: items.length, counts: {} as Record<string, number> })),
-    [debouncedQ, breed, sex, barn, purpose, stageSel, health, status, group, page, sort, weightFilter],
-  )
-  const barnsQuery = useQuery(listBarns, [])
-  const breedsQuery = useQuery(() => listBreeds().catch(() => []), [])
-  const purposesQuery = useQuery(() => listPurposes().catch(() => []), [])
+  const { backend, local, listQuery, barnsQuery, breedsQuery, purposesQuery } = useCattleListQueries({
+    q: debouncedQ,
+    breedId: breed,
+    sex,
+    penId: barn,
+    purposeId: purpose,
+    lifeStage: stageSel === 'ALL' ? '' : stageSel,
+    health,
+    herdStatus: status,
+    herdGroup: group,
+    page,
+    sort,
+    weightFilter,
+  })
   const cows = useMemo(() => listQuery.data?.items ?? [], [listQuery.data])
   const counts = listQuery.data?.counts ?? {}
   const barnRows = barnsQuery.data ?? []

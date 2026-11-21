@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Field, Icon, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { demoRecorder, reissueQr } from '../api/cattleApi'
-import { useMutation } from '../../../shared/hooks/useMutation'
+import { demoRecorder } from '../api/cattleApi'
+import { useCattleQrCommand } from '../hooks/useCattleCommands'
 import { cattleError } from '../api/cattleError'
 import { REPLACEMENT_REASONS, type TagErrors } from '../domain/profileRules'
 import { validateTag } from '../validation/profileValidation'
@@ -24,7 +24,7 @@ const ErrorText = ({ children }: { children?: string }) => (children ? <span cla
  */
 export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed; onClose: () => void; onSaved: (message?: string) => void }) {
   const backend = cow.backendId != null && cow.backendVersion != null
-  const reissue = useMutation((payload: ReissuePayload) => reissueQr(cow.code, payload, backend ? { backendId: cow.backendId, backendVersion: cow.backendVersion } : {}))
+  const reissue = useCattleQrCommand(cow, backend)
   const cur = cow.qrHistory.find((q) => q.status === 'ACTIVE')
   const replacing = !!cur
   const [issued, setIssued] = useState('')

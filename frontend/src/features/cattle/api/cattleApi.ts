@@ -63,10 +63,19 @@ export async function loadProfile(code: string): Promise<{ cow: CowSeed; barns: 
   return { cow: photo === undefined ? asCowSeed(cow) : { ...asCowSeed(cow), photoUrl: photo ?? undefined }, barns: barnRows }
 }
 
-type BackendMutationContext = {
+export type BackendMutationContext = {
   backendId?: number; backendVersion?: number; effectiveDate?: string; reason?: string
   currentProfile?: Partial<Pick<ProfileUpdateCommand, 'earTagNumber' | 'name' | 'colourMarkings' | 'notes' | 'productionPurposeId' | 'lifeStage'>>
 }
+
+/** FE-16 correction command boundary; screens supply only the feature command payload. */
+export const correctTimelineRecord = (
+  path: string,
+  sourceId: number,
+  action: 'correction' | 'void',
+  body: Record<string, unknown>,
+  key: string,
+) => backendTransport.command(backendTransport.farmPath(activeFarmId, `${path}/${sourceId}/${action}`), body, { key })
 const profileBody = (context: BackendMutationContext, overrides: Partial<ProfileUpdateCommand>): ProfileUpdateCommand => ({
   // ProfileUpdate is a full snapshot command. Never let an omitted field from
   // one tab turn into JSON null and erase a value changed in another tab.
