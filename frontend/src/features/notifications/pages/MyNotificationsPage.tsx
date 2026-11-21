@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Segmented } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { notificationsApi } from '../api/notificationsApi'
 import { NotificationRow } from '../components/NotificationRow'
 import { countByTab, filterByTab, isUnread, NOTIFICATION_TABS, notificationTarget } from '../domain/notificationRules'
 import type { NotificationTab, NotificationView } from '../types'
+import { useNotificationsUseCase } from '../hooks/useNotificationsUseCase'
 
 const TITLE = 'Thông báo của tôi'
 
@@ -17,7 +16,7 @@ export default function MyNotificationsPage() {
   const [tab, setTab] = useState<NotificationTab>('ALL')
   const [notice, setNotice] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  const { data, loading, error, refetch } = useQuery(async () => ({ list: await notificationsApi.listMine(), now: notificationsApi.now() }), [])
+  const { data, loading, error, refetch, markRead, markAllRead } = useNotificationsUseCase()
 
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
@@ -30,9 +29,8 @@ export default function MyNotificationsPage() {
   const markAll = async () => {
     setBusy(true)
     try {
-      await notificationsApi.markAllRead()
+      await markAllRead()
       setNotice({ tone: 'ok', text: 'Tất cả thông báo đã được đánh dấu là đã đọc.' })
-      await refetch()
     } catch {
       setNotice({ tone: 'err', text: 'Không cập nhật được thông báo. Vui lòng thử lại.' })
     } finally {
@@ -41,7 +39,7 @@ export default function MyNotificationsPage() {
   }
   const open = async (item: NotificationView) => {
     try {
-      await notificationsApi.markRead(item.id)
+      await markRead(item.id)
       navigate(notificationTarget(item))
     } catch {
       setNotice({ tone: 'err', text: 'Không mở được thông báo này. Vui lòng thử lại.' })
