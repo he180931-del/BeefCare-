@@ -6,7 +6,6 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import {
   commitEntryExcel,
   discardHerdEntryDraft,
-  downloadEntryAttachment,
   downloadEntryImportTemplate,
   entryExcelBackendEnabled,
   newEntryDefaults,
@@ -21,7 +20,6 @@ import {
   markCalfDiedBeforeRegistration,
   assignCalfParentage,
   previewEntryExcel,
-  removeEntryAttachment,
 } from '../api/index'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { PURPOSES } from '../constants/entryOptions'
@@ -29,13 +27,14 @@ import { ageOf, blankCow } from '../domain/entryCow'
 import { lineAmount } from '../domain/entryTotals'
 import { useEntryEditor } from '../hooks/useEntryEditor'
 import { useEntryDraftWorkflow } from '../hooks/useEntryDraftWorkflow'
+import { useEntryAttachments } from '../hooks/useEntryAttachments'
 import { dmy, money } from '../../../shared/lib/format'
 import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
 import PayModal from '../components/PayModal'
 import { entryToday as localToday, validateEntryForPost } from '../validation/entryFormValidation'
-import type { EntryCalf, EntryCow, EntryDocument, HerdEntry } from '../types'
+import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
 import { herdEntryError } from '../api/herdEntryError'
@@ -129,12 +128,11 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   // Payment belongs to the entry voucher (not an individual cattle row). Keep
   // the editor behind an explicit CTA so the payment action is discoverable.
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
-  const [documents, setDocuments] = useState<File[]>([])
-  const [storedDocuments, setStoredDocuments] = useState<EntryDocument[]>(draftRow?.detail?.docs ?? [])
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
   const [temporaryExcelDraftId, setTemporaryExcelDraftId] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const recordId = persistedRecordId ?? initialRecordId
+  const { documents, storedDocuments, setStoredDocuments, resetDocuments, attachmentError, addDocuments, viewDocument, removeDocument } = useEntryAttachments({ persistedRecordId, initialStored: draftRow?.detail?.docs ?? [] })
   const backTarget = (location.state as { from?: string } | null)?.from
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
@@ -168,52 +166,6 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
     try {
       await markCalfDiedBeforeRegistration(calfOutcomeId, reason)
       setCalves((current) => current.filter((row) => row.calfOutcomeId !== calfOutcomeId))
-    } catch (error) {
-      setValidationError(displayError(error))
-    }
-  }
-  const addDocuments = (files: File[]) => {
-    const invalid = files.find((file) => !['application/pdf', 'image/jpeg'].includes(file.type) || file.size > 10 * 1024 * 1024)
-    if (invalid) {
-      setValidationError(`Tệp ${invalid.name} không hợp lệ. Chỉ nhận PDF/JPG tối đa 10MB.`)
-      return
-    }
-    setValidationError(null)
-    setDocuments((current) => [...current, ...files.filter((file) => !current.some((item) => item.name === file.name && item.size === file.size))])
-  }
-  const viewDocument = async (index: number) => {
-    try {
-      if (index < storedDocuments.length) {
-        const document = storedDocuments[index]
-        const attachmentId = Number(document.id)
-        if (!persistedRecordId || !Number.isFinite(attachmentId)) throw new Error('Không xác định được chứng từ đã lưu')
-        const blob = await downloadEntryAttachment(persistedRecordId, attachmentId)
-        const url = URL.createObjectURL(blob)
-        window.open(url, '_blank', 'noopener,noreferrer')
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-        return
-      }
-      const file = documents[index - storedDocuments.length]
-      if (!file) return
-      const url = URL.createObjectURL(file)
-      window.open(url, '_blank', 'noopener,noreferrer')
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    } catch (error) {
-      setValidationError(displayError(error))
-    }
-  }
-  const removeDocument = async (index: number) => {
-    try {
-      if (index < storedDocuments.length) {
-        const document = storedDocuments[index]
-        const attachmentId = Number(document.id)
-        if (!persistedRecordId || !Number.isFinite(attachmentId)) throw new Error('Không xác định được chứng từ đã lưu')
-        await removeEntryAttachment(persistedRecordId, attachmentId)
-        setStoredDocuments((current) => current.filter((_, currentIndex) => currentIndex !== index))
-        return
-      }
-      const localIndex = index - storedDocuments.length
-      setDocuments((current) => current.filter((_, currentIndex) => currentIndex !== localIndex))
     } catch (error) {
       setValidationError(displayError(error))
     }
@@ -309,7 +261,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
     setPersistedRecordId(saved.id)
     if (saved.detail?.docs) {
       setStoredDocuments(saved.detail.docs)
-      setDocuments([])
+      resetDocuments()
     }
     if (navigateAfter) nav('/herd-entry')
     return saved
@@ -658,7 +610,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
               <Checkbox checked={printQr} onChange={(e) => setPrintQr(e.target.checked)}>
                 <span className="text-[13px]">{`In tem QR cho ${n} con sau khi lưu`}</span>
               </Checkbox>
-              {validationError && <Note tone="err">{validationError}</Note>}
+              {(validationError || attachmentError) && <Note tone="err">{validationError || attachmentError}</Note>}
               {Boolean(saveError) && <Note tone="err">{displayError(saveError)}</Note>}
               <Button variant="primary" block disabled={!n || blocked || loading} onClick={() => { void save('Đã nhập').catch(() => undefined) }}>
                 <Icon name="circle-check" />{`Lưu & tạo hồ sơ ${n} con`}
