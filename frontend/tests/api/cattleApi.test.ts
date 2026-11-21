@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { MemoryStorage } from '../../src/api/testUtils'
+import { MemoryStorage } from '../support/memoryStorage'
 
 const store = new MemoryStorage({ 'beefcare:latency': '0' })
 global.localStorage = store

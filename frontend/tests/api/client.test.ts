@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createCollection, createCollectionSchema } from '../../src/api/client'
 import type { CollectionRow } from '../../src/api/client'
-import { MemoryStorage } from '../../src/api/testUtils'
+import { MemoryStorage } from '../support/memoryStorage'
 import { cattleSchema, herdEntrySchema, herdExitSchema, penSchema } from '../../src/api/collectionSchemas'
 import type { Cattle, HerdEntry, HerdExit, Pen } from '../../src/types'
 

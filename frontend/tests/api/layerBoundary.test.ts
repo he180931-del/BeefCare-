@@ -186,13 +186,6 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     reason: 'Storage migration helpers are reachable only from legacy local persistence.',
     removalTask: 'Task 3.8',
   },
-  'api/testUtils.ts': {
-    owner: 'test-support',
-    allowedConsumers: [],
-    runtime: 'dead-until-removal',
-    reason: 'Legacy source-side test helper has no inbound source consumer.',
-    removalTask: 'Task 3.8',
-  },
   /* removed in Task 3.8: components/ui.tsx */
 /*
     owner: 'herd-entry-exit-compatibility',
@@ -447,7 +440,7 @@ test('the dev transfer simulator only renders under the Vite dev server', () => 
 
 // Refactor phase 3b: demo data reaches the app only through src/demo/demoModules.ts, which `vite build` swaps for
 // src/demo/noDemo.ts (vite.config.js). Demo modules may import each other; nothing else imports them directly.
-const DEMO_MODULE = /^(demo\/|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|demoCattlePhotos|penApi|testUtils)$|features\/[^/]+\/api\/\w+LocalApi$)/
+const DEMO_MODULE = /^(demo\/|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|demoCattlePhotos|penApi)$|features\/[^/]+\/api\/\w+LocalApi$)/
 
 test('production code reaches demo modules only through the demo door', () => {
   const production = [...sourceFiles('app'), ...sourceFiles('features'), ...sourceFiles('shared'), ...sourceFiles('api'), 'main.tsx']
