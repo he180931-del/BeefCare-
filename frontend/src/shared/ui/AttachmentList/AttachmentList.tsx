@@ -1,4 +1,5 @@
-import { Badge, Button } from '../index'
+import { Badge } from '../Badge/Badge'
+import { Button } from '../Button/Button'
 
 export interface AttachmentItem { key: string; name: string; extension?: string }
 export function AttachmentList({ items, onView, onRemove }: { items: AttachmentItem[]; onView?: (key: string) => void; onRemove?: (key: string) => void }) {

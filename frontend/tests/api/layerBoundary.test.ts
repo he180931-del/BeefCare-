@@ -193,7 +193,8 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     reason: 'Legacy source-side test helper has no inbound source consumer.',
     removalTask: 'Task 3.8',
   },
-  'components/ui.tsx': {
+  /* removed in Task 3.8: components/ui.tsx */
+/*
     owner: 'herd-entry-exit-compatibility',
     allowedConsumers: [
       'features/feed-stock/components/FeedReceiptDialogs.tsx', 'features/feed-stock/pages/FeedReceiptFormPage.tsx',
@@ -204,7 +205,7 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     runtime: 'production-compatibility',
     reason: 'Legacy UI still owns Entry/Exit business props and also has the documented Feed Stock consumers.',
     removalTask: 'Task 3.8',
-  },
+  }, */
   'data/cattleData.ts': {
     owner: 'legacy-local-aggregate',
     allowedConsumers: ['api/herdDomainApi.ts'],
@@ -239,7 +240,7 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
   'types.ts': {
     owner: 'herd-entry-exit-compatibility',
     allowedConsumers: [
-      'api/collectionSchemas.ts', 'api/herdDomainApi.ts', 'api/penApi.ts', 'components/ui.tsx',
+      'api/collectionSchemas.ts', 'api/herdDomainApi.ts', 'api/penApi.ts',
       'data/cattleData.ts', 'data/pensData.ts',
     ],
     runtime: 'production-compatibility',
@@ -309,6 +310,10 @@ const assertLegacyAllowances = (
   if (violations.length > 0) throw new Error(`legacy allowance violation:\n${violations.join('\n')}`)
 }
 
+test('legacy attachment UI compatibility module is removed after consumer migration', () => {
+  assert.equal(existsSync(join(srcDir, 'components/ui.tsx')), false)
+})
+/* legacy allowance regression retained as historical documentation:
 test('legacy allowance rejects a components/ui allowance that omits Feed Stock consumers', () => {
   const allowance: LegacyAllowance = {
     ...LEGACY_ALLOWED['components/ui.tsx'],
@@ -322,7 +327,7 @@ test('legacy allowance rejects a components/ui allowance that omits Feed Stock c
     () => assertLegacyAllowances(sourceGraph, { 'components/ui.tsx': allowance }),
     /components\/ui\.tsx: unexpected inbound consumers: .*features\/feed-stock/,
   )
-})
+}) */
 
 test('legacy allowance requires an explicit dead-until-removal state for an unreferenced file', () => {
   const graph = { nodes: ['data/penData.ts'], edges: [] as ImportEdge[] }
