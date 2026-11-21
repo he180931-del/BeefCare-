@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { announcementsApi } from '../../farm-announcements'
 import { farmOverviewApi, type Viewer } from '../api/farmOverviewApi'
@@ -20,11 +20,11 @@ import type {
  */
 export function useFarmDashboardUseCases(filters: DashboardFilters, viewer: Viewer) {
   const filtersApplied = Boolean(filters.pen || filters.herdGroup || filters.lifeStage)
-  const overviewFilters: DashboardFilters = {
+  const overviewFilters = useMemo<DashboardFilters>(() => ({
     period: filters.period,
     ...(filters.from ? { from: filters.from } : {}),
     ...(filters.to ? { to: filters.to } : {}),
-  }
+  }), [filters.period, filters.from, filters.to])
   const overview = useQuery<DashboardView>(() => farmOverviewApi.getDashboard(overviewFilters, viewer), [overviewFilters, viewer])
   const filtered = useQuery<DashboardView | null>(
     () => filtersApplied ? farmOverviewApi.getDashboard(filters, viewer) : Promise.resolve(null),
