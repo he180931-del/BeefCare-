@@ -130,6 +130,8 @@ export interface EntryDraft {
 
 export interface HerdEntry {
   id: string
+  backendId?: number
+  version?: number
   date?: string
   type?: EntryType
   source?: string

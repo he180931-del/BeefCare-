@@ -76,6 +76,8 @@ export interface ExitDraft {
 
 export interface HerdExit {
   id: string
+  backendId?: number
+  version?: number
   date?: string
   type?: ExitType
   who?: string
