@@ -1,19 +1,18 @@
 import { useState } from 'react'
 import { ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Radio, Segmented, Select, Textarea } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { growthApi } from '../api/growthApi'
 import { fmtDec } from '../domain/growthFormat'
 import { METHOD_LABEL } from '../domain/growthLabels'
 import { BCS_SCALE, GrowthLargeChangeError, GrowthValidationError, basisOf, tapeWeightKg, type GrowthFieldErrors } from '../domain/growthRules'
+import { useGrowthCommands, useGrowthFormOptions } from '../hooks/useGrowthUseCase'
 import type { GrowthFormOptions, GrowthMethod, RecordGrowthCommand } from '../types'
 import { FieldError, UnitInput, parseNum } from './growthParts'
 
 interface Props { cattleCode: string; onClose: () => void; onSaved: (message: string) => void }
 
 export default function GrowthRecordModal(props: Props) {
-  const options = useQuery(() => growthApi.formOptions(props.cattleCode), [props.cattleCode])
+  const options = useGrowthFormOptions(props.cattleCode)
   if (!options.data) {
     return (
       <Modal title="Ghi nhận cân & BCS" sub="Đánh giá tăng trưởng cho 1 con · lưu vào lịch sử đo" width={640} onClose={props.onClose}>
@@ -26,6 +25,7 @@ export default function GrowthRecordModal(props: Props) {
 
 function RecordForm({ cattleCode, options, onClose, onSaved }: Props & { options: GrowthFormOptions }) {
   const session = useSession()
+  const { record } = useGrowthCommands()
   const { cattle, now } = options
   const members = session?.fullName && !options.members.some((m) => m.name === session.fullName) ? [{ id: 0, name: session.fullName }, ...options.members] : options.members
   const [measuredAt, setMeasuredAt] = useState(now)
@@ -65,7 +65,7 @@ function RecordForm({ cattleCode, options, onClose, onSaved }: Props & { options
     setSaving(true)
     setErrors({})
     try {
-      await growthApi.record(cattleCode, command)
+      await record(cattleCode, command)
       onSaved(`Đã lưu đánh giá cho ${cattleCode}.`)
     } catch (error) {
       if (error instanceof GrowthValidationError) setErrors(error.fields)

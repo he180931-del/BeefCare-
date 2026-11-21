@@ -3,12 +3,11 @@ import { useSearchParams } from 'react-router-dom'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, EmptyBlock, ErrorBlock, LoadingBlock, Metric, Note, Panel, Table, Td, Th, type MetricTone } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useCanRecordCare } from '../../authorization'
-import { growthApi } from '../api/growthApi'
 import { addDays, dayFloat, fmtDate, fmtDateTime, fmtDayMonth, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
 import { finishingProgress, weightAtNextWeighing, type FinishingProgress } from '../domain/growthRules'
+import { useGrowthProfile } from '../hooks/useGrowthUseCase'
 import type { GrowthProfile, GrowthProjection, GrowthRecord } from '../types'
 import GrowthChart, { ChartLegend } from './GrowthChart'
 import GrowthCorrectModal from './GrowthCorrectModal'
@@ -21,7 +20,7 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
   const [modal, , closeModal] = useModalParam()
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useState<string | null>(null)
-  const { data, loading, error, refetch } = useQuery(() => growthApi.getProfile(cattleCode), [cattleCode])
+  const { data, loading, error, refetch } = useGrowthProfile(cattleCode)
 
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu tăng trưởng.')} onRetry={refetch} />
