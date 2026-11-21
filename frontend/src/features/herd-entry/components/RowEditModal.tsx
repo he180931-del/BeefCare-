@@ -39,12 +39,11 @@ export const isFatteningPurpose = (purpose: string) => /vỗ béo|fattening/i.te
  * Sửa một con trong phiếu nhập. `others` là các con khác trong phiếu (để kiểm tra sức chứa chuồng).
  * onSave(cow) ghi lại con; onRemove() xóa con khỏi phiếu.
  */
-export default function RowEditModal({ cow, index, recordId, dateIso, others, pens = [], vaccines = [], breeds = [], onSave, onRemove, onClose }: { cow: EditCow; index: number; recordId: string; dateIso: string; pricing?: 'kg' | 'con'; others: EditCow[]; pens?: Pen[]; vaccines?: EntryVaccineOption[]; breeds?: EntryBreedOption[]; onSave: (cow: EditCow) => void; onRemove: () => void; onClose: () => void }) {
-  const initialPricing = cow.pricing ?? 'kg'
+export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 'kg', others, pens = [], vaccines = [], breeds = [], onSave, onRemove, onClose }: { cow: EditCow; index: number; recordId: string; dateIso: string; pricing?: 'kg' | 'con'; others: EditCow[]; pens?: Pen[]; vaccines?: EntryVaccineOption[]; breeds?: EntryBreedOption[]; onSave: (cow: EditCow) => void; onRemove: () => void; onClose: () => void }) {
   const initialWeightBasis: 'MEASURED' | 'ESTIMATED' | null = cow.weightBasis === 'MEASURED' || cow.weightBasis === 'ESTIMATED'
     ? cow.weightBasis
     : cow.weightBasis === null ? null : cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null
-  const [c, setC] = useState(() => ({ ...cow, pricing: initialPricing, unitPrice: initialPricing === 'con' ? cow.unitPrice : initialWeightBasis ? cow.unitPrice : 0 }))
+  const [c, setC] = useState(() => ({ ...cow, pricing, unitPrice: pricing === 'con' ? cow.unitPrice : initialWeightBasis ? cow.unitPrice : 0 }))
   const [validationError, setValidationError] = useState<string | null>(null)
   const warningReason = String(cow.warningReason ?? '')
   const [detailModal, setDetailModal] = useState<HistoryDetail | null>(null)
@@ -122,7 +121,6 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
     return initialWeightBasis
   })
   const hasWeightBasis = weightBasis !== null
-  const pricing = c.pricing ?? 'kg'
   const amount = pricing === 'con' ? c.unitPrice : hasWeightBasis ? c.weight * c.unitPrice : 0
   const save = () => {
     if (!c.tag.trim()) return setValidationError('Vui lòng nhập số thẻ tai.')
@@ -131,8 +129,8 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
     if (!c.stage.trim() || c.stage === 'Chưa xác định') return setValidationError('Vui lòng chọn giai đoạn sinh trưởng.')
     if (!c.purpose.trim() || c.purpose === 'Chưa xác định') return setValidationError('Vui lòng chọn mục đích nuôi.')
     if (!c.barn.trim()) return setValidationError('Vui lòng chọn chuồng nhận.')
-    if (pricing === 'kg' && (!Number.isFinite(c.weight) || c.weight <= 0)) return setValidationError('Cân nhập phải từ 1 đến 1.500 kg.')
-    if (pricing === 'kg' && !hasWeightBasis) return setValidationError('Vui lòng chọn cơ sở cân.')
+    if ((pricing === 'kg' || c.weight !== 0) && (!Number.isFinite(c.weight) || c.weight < 1 || c.weight > 1500)) return setValidationError('Cân nhập phải từ 1 đến 1.500 kg.')
+    if (c.weight > 0 && !hasWeightBasis) return setValidationError('Vui lòng chọn cơ sở cân.')
     if (!Number.isFinite(c.unitPrice) || c.unitPrice <= 0) return setValidationError(pricing === 'con' ? 'Vui lòng nhập số tiền cuối lớn hơn 0.' : 'Đơn giá phải lớn hơn 0.')
     if (receptionError) return setValidationError(receptionError)
     if (c.hist.vaccine === 'Có' && !c.hist.vaccineNote?.trim()) return setValidationError('Vui lòng nhập thông tin tiêm phòng.')
@@ -140,7 +138,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
     if (c.hist.repro === 'Có' && c.hist.pregnantAtEntry === 'YES' && (!Number.isInteger(c.hist.pregnancyMonths) || Number(c.hist.pregnancyMonths) < 1 || Number(c.hist.pregnancyMonths) > 9)) return setValidationError('Vui lòng nhập số tháng mang thai từ 1 đến 9.')
     if (c.hist.repro === 'Có' && (!Number.isInteger(c.hist.earlierCalvings) || Number(c.hist.earlierCalvings) < 0 || Number(c.hist.earlierCalvings) > 15)) return setValidationError('Vui lòng nhập số lứa đã đẻ từ 0 đến 15.')
     setValidationError(null)
-    onSave({ ...c, pricing, weightBasis, estimated: weightBasis === 'ESTIMATED', warningReason: criterionIssues.length ? (warningReason.trim() || 'Không phù hợp tiêu chí chuồng') : (warningReason.trim() || undefined) })
+    onSave({ ...c, pricing, weightBasis: c.weight > 0 ? weightBasis : null, estimated: c.weight > 0 && weightBasis === 'ESTIMATED', warningReason: criterionIssues.length ? (warningReason.trim() || 'Không phù hợp tiêu chí chuồng') : (warningReason.trim() || undefined) })
   }
 
   return (
@@ -225,11 +223,13 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
             </Select>
           </Field>
           {!c.sex.trim() && <span id="entry-cow-sex-hint" className="text-[11px] text-muted sm:col-span-2">Chọn giới tính trước để mở danh sách giai đoạn sinh trưởng và mục đích nuôi.</span>}
-          <Field label="Cân nhập (kg) *">
+          <Field label={`Cân nhập (kg)${pricing === 'kg' ? ' *' : ''}`} hint={pricing === 'con' ? 'Không bắt buộc khi tính theo con; nếu nhập: 1–1.500 kg' : undefined}>
             <input
               id="entry-cow-weight"
               type="number"
               min="0"
+              max="1500"
+              step="any"
               className={compactInputCls}
               value={weightInput}
               onChange={(e) => {
@@ -243,7 +243,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
             />
           </Field>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span className="text-xs font-medium text-ink">Cơ sở cân *</span>
+            <span className="text-xs font-medium text-ink">{`Cơ sở cân${pricing === 'kg' || c.weight > 0 ? ' *' : ' (khi có cân)'}`}</span>
               <RadioRow name="weigh" value={weightBasis === 'ESTIMATED' ? 'Ước tính' : weightBasis === 'MEASURED' ? 'Cân thực tế' : ''} options={['Cân thực tế', 'Ước tính']} onChange={(v) => {
                 const next = v === 'Ước tính' ? 'ESTIMATED' : 'MEASURED'
                 setWeightBasis(next)
@@ -257,7 +257,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
               {pens.map((b) => <option key={b.code} value={b.code}>{`${b.name} · ${b.count}/${b.capacity}`}</option>)}
             </Select>
           </Field>
-          <Field label="Đơn giá (đ/kg) *">
+          <Field label={`Đơn giá (đ/${pricing === 'con' ? 'con' : 'kg'}) *`}>
             <input id="entry-cow-unit-price" type="number" min="0" disabled={pricing === 'con' || (pricing === 'kg' && !hasWeightBasis)} className={`${compactInputCls} disabled:cursor-not-allowed disabled:bg-page disabled:text-muted`} value={c.unitPrice} onChange={(e) => set({ unitPrice: Number(e.target.value) || 0 })} />
           </Field>
           <Field label={pricing === 'con' ? 'Thành tiền *' : 'Thành tiền'}>
@@ -271,22 +271,7 @@ export default function RowEditModal({ cow, index, recordId, dateIso, others, pe
             )}
           </Field>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-ink">Cách tính giá *</span>
-              <div className="flex items-center gap-4" role="radiogroup" aria-label="Cách tính giá">
-                {(['kg', 'con'] as const).map((basis) => <label key={basis} className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-ink">
-                  <input
-                    type="radio"
-                    name="pricing-basis"
-                    value={basis}
-                    checked={pricing === basis}
-                    onChange={() => set({ pricing: basis, unitPrice: 0 })}
-                    className="h-4 w-4 accent-brand"
-                  />
-                  {basis === 'kg' ? 'Theo cân' : 'Theo con'}
-                </label>)}
-              </div>
-        </div>
+        <p className="m-0 text-xs font-medium text-ink">{`Cách tính giá: ${pricing === 'con' ? 'Theo con' : 'Theo kg'} (áp cho cả phiếu)`}</p>
         <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
           <Field label="Cách ly đến" hint="Không bắt buộc · hiện trên hồ sơ đến hết ngày">
             <DateInput id="entry-cow-quarantine" value={String(c.quarantineUntil ?? '')} onChange={(quarantineUntil) => set({ quarantineUntil })} />
