@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { platformServiceApi } from '../api/platformServiceApi'
 import { platformPaymentReadApi as paymentReadApi } from '../api/platformPaymentReadApi'
@@ -65,4 +66,21 @@ export function usePaymentReadEvidenceList(filters: EvidenceReadFilters, refresh
 
 export function usePlanPriceList(page: number, refresh = 0) {
   return useQuery(() => planPriceApi.list(page), [page, refresh])
+}
+
+export function useFarmServiceCommands() {
+  const suspendFarm = useCallback((farmId: number, command: { reason: string; version: number }, options: { idempotencyKey: string }) => platformServiceApi.suspendFarm(farmId, command, options), [])
+  const restoreFarm = useCallback((farmId: number, command: { reason: string; version: number }, options: { idempotencyKey: string }) => platformServiceApi.restoreFarm(farmId, command, options), [])
+  const listFarms = useCallback((filters: FarmFilters) => platformServiceApi.listFarms(filters), [])
+  return { suspendFarm, restoreFarm, listFarms }
+}
+
+export function usePlatformServiceDemoMode() {
+  return platformServiceApi.demoReconciliation
+}
+
+export function usePlanPriceCommands() {
+  const withdraw = useCallback((id: number, reason: string, revision: number, idempotencyKey: string) => planPriceApi.withdraw(id, reason, revision, idempotencyKey), [])
+  const publish = useCallback((command: Parameters<typeof planPriceApi.publish>[0], idempotencyKey: string) => planPriceApi.publish(command, idempotencyKey), [])
+  return { withdraw, publish }
 }

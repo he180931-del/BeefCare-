@@ -4,8 +4,7 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { activateTableRow, activateTableRowByKey, Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { platformServiceApi } from '../api/platformServiceApi'
-import { useReconciliationQueries } from '../hooks/usePlatformServiceUseCase'
+import { usePlatformServiceDemoMode, useReconciliationQueries } from '../hooks/usePlatformServiceUseCase'
 import EvidencePanel from '../components/EvidencePanel'
 import EvidenceTrack from '../components/EvidenceTrack'
 import ReconcileDialogs from '../components/ReconcileDialogs'
@@ -23,8 +22,9 @@ const PAY_TONE = PAYMENT_STATE_TONE
 
 export default function PaymentReconciliationRoutes() {
   const [params] = useSearchParams()
+  const demoReconciliation = usePlatformServiceDemoMode()
   if (params.has('paymentId') && params.get('origin') !== 'payments') return <PaymentSourcePage key={params.get('paymentId')} />
-  return platformServiceApi.demoReconciliation ? <ReconciliationPage /> : <PaymentReadPage />
+  return demoReconciliation ? <ReconciliationPage /> : <PaymentReadPage />
 }
 
 function ReconciliationPage() {

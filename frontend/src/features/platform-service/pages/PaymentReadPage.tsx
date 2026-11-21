@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DependencyList } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { activateTableRow, activateTableRowByKey, Badge, type BadgeTone, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
@@ -6,10 +6,10 @@ import EvidenceActions, { type ActionDraft } from '../components/EvidenceActions
 import SePayLookup from '../components/SePayLookup'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../../app/session/sessionContext'
-import { CONFIRMATION_SOURCE_TEXT, MATCH_TEXT, REVIEW_TEXT, platformPaymentReadApi as api, reasonText, type EvidenceReadFilters, type EvidenceRow, type PaymentRead, type PaymentReadFilters, type ReadPage } from '../api/platformPaymentReadApi'
+import { CONFIRMATION_SOURCE_TEXT, MATCH_TEXT, REVIEW_TEXT, reasonText, type EvidenceReadFilters, type EvidenceRow, type PaymentReadFilters } from '../api/platformPaymentReadApi'
 import { fmtDate, fmtEndDate, fmtSeconds, fmtVnd } from '../domain/dates'
 import { PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE } from '../domain/reconciliation'
-import { usePaymentReadEvidence, usePaymentReadPaymentDetail, usePaymentReadTiles } from '../hooks/usePlatformServiceUseCase'
+import { usePaymentReadEvidence, usePaymentReadEvidenceList, usePaymentReadPayment, usePaymentReadPaymentDetail, usePaymentReadTiles } from '../hooks/usePlatformServiceUseCase'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
@@ -40,19 +40,6 @@ function stored(key: string) {
     }
   } catch { /* Session preferences are optional; business data always comes from the API. */ }
   return { tab: 'evidence' as Tab, evidence: EVIDENCE, payments: PAYMENTS }
-}
-
-/** Keep the previous page while a refresh is in flight; discard responses after unmount/filter changes. */
-function useReadPage<T>(load: () => Promise<ReadPage<T>>, deps: DependencyList) {
-  const [result, setResult] = useState<{ data: ReadPage<T> | null; loading: boolean; error: unknown; query: unknown }>({ data: null, loading: true, error: null, query: deps[0] })
-  useEffect(() => {
-    let active = true
-    const query = deps[0]
-    setResult((old) => ({ ...old, loading: true, error: null, query }))
-    load().then((data) => active && setResult({ data, loading: false, error: null, query }), (error: unknown) => active && setResult({ data: null, loading: false, error, query }))
-    return () => { active = false }
-  }, deps)
-  return { ...result, loading: result.loading || result.query !== deps[0] }
 }
 
 function EvidencePanel({ id, refresh, onDone, onStale }: { id: number; refresh: number; onDone: (message: string) => void; onStale: (message: string) => void }) {
@@ -124,7 +111,7 @@ function EvidenceList({ filters, refresh, selected, choose, preview, changePage,
   filters: EvidenceReadFilters; refresh: number; selected: number | null; choose: (id: number) => void; preview: (id: number) => void
   changePage: (p: number) => void; clampPage: (p: number) => void; reload: () => void
 }) {
-  const { data, loading, error } = useReadPage(() => api.evidence(filters), [filters, refresh])
+  const { data, loading, error } = usePaymentReadEvidenceList(filters, refresh)
   useEffect(() => {
     if (data && data.page > 0 && data.page >= Math.max(1, Math.ceil(data.total / 20))) clampPage(Math.max(0, Math.ceil(data.total / 20) - 1))
   }, [data])
@@ -160,7 +147,7 @@ function AutoSelect({ rows, selected, choose }: { rows: EvidenceRow[]; selected:
 
 function PaymentList({ filters, refresh, changePage, reload }: { filters: PaymentReadFilters; refresh: number; changePage: (p: number) => void; reload: () => void }) {
   const navigate = useNavigate()
-  const { data, loading, error } = useReadPage<PaymentRead>(() => api.payments(filters), [filters, refresh])
+  const { data, loading, error } = usePaymentReadPayment(filters, refresh)
   useEffect(() => { if (data && data.page > 0 && data.page >= Math.max(1, Math.ceil(data.total / 20))) changePage(Math.max(0, Math.ceil(data.total / 20) - 1)) }, [data])
   if (error) return <ErrorBlock message={userFacingError(error, 'Không tải được yêu cầu thanh toán.')} onRetry={reload} />
   if (!data) return <LoadingBlock />
