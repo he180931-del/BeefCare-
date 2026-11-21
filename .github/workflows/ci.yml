@@ -36,7 +36,8 @@ jobs:
 
       - name: Run backend unit tests
         env:
-          TZ: UTC
+          TZ: Asia/Ho_Chi_Minh
+          JAVA_TOOL_OPTIONS: -Duser.timezone=UTC
         run: >-
           ./mvnw --batch-mode '-Pdev,!webapp'
           -Dspotless.skip=true
@@ -45,7 +46,8 @@ jobs:
 
       - name: Run backend integration smoke tests
         env:
-          TZ: UTC
+          TZ: Asia/Ho_Chi_Minh
+          JAVA_TOOL_OPTIONS: -Duser.timezone=UTC
         run: >-
           ./mvnw --batch-mode '-Pdev,!webapp'
           -Dspotless.skip=true
