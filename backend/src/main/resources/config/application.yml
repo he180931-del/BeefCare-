@@ -38,6 +38,7 @@ beefcare:
       timeout-seconds: 28800
       remember-me-timeout-seconds: 2592000
     cookie-secure: false
+    cookie-same-site: Lax
     google:
       enabled: ${BEEFCARE_GOOGLE_ENABLED:false}
   public:

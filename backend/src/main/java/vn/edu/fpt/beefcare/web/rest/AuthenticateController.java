@@ -48,6 +48,9 @@ public class AuthenticateController {
     @Value("${beefcare.security.cookie-secure:false}")
     private boolean secureCookies;
 
+    @Value("${beefcare.security.cookie-same-site:Lax}")
+    private String cookieSameSite;
+
     public AuthenticateController(
         AuthenticationManager authenticationManager,
         FarmAccessService farmAccessService,
@@ -108,7 +111,7 @@ public class AuthenticateController {
                 ResponseCookie.from("JSESSIONID", session.getId())
                     .httpOnly(true)
                     .secure(secureCookies)
-                    .sameSite("Lax")
+                    .sameSite(cookieSameSite)
                     .path("/")
                     .maxAge(rememberMeTimeoutSeconds)
                     .build()
