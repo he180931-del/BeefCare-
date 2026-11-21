@@ -3,25 +3,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedFeedingRecords } from '../api/feedFeedingApi'
-import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
 import { buildTodayRationPens, effectiveRationForPen, sessionsForToday, TODAY_SESSION_LABELS } from '../domain/feedTodayRations'
 import { sessionTimeFor } from '../domain/feedPlan'
 import { formatDate, formatNumber } from '../domain/feedLabels'
+import { useFeedTodayRations, type FeedTodayRationsData } from '../hooks/useFeedTodayRations'
 
-type TodayData = Awaited<ReturnType<typeof loadTodayData>>
+type TodayData = FeedTodayRationsData
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-
-
-async function loadTodayData(date: string) {
-  const [rations, pens, records] = await Promise.all([
-    listFeedRations(),
-    listFeedRationPens(),
-    listFeedFeedingRecords({ from: date, to: date }),
-  ])
-  return { rations, pens, records, stock: [] }
-}
 
 function recordedTime(recordedAt: string | null, time: string | null) {
   if (time) return time.slice(0, 5)
@@ -34,8 +22,8 @@ function recordedTime(recordedAt: string | null, time: string | null) {
 export default function FeedTodayRationsPage() {
   const [date] = useState(businessDate)
   const [sessionNo, setSessionNo] = useState(1)
-  const query = useQuery(() => loadTodayData(date), [date])
-  const data: TodayData | null = query.data
+  const query = useFeedTodayRations(date)
+  const data: TodayData | null = query.today
   const activePens = data?.pens.filter((pen) => pen.status === 'ACTIVE' && pen.headcount > 0) ?? []
   const sessions = data ? sessionsForToday(data.pens, data.rations, date) : []
   const effective = data ? activePens.flatMap((pen) => effectiveRationForPen(data.rations, pen.id, date) ?? []) : []
