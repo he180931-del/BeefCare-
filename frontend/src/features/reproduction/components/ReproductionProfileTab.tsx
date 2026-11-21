@@ -201,12 +201,12 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
         <ReproductionOptionsProvider cattleCode={cattleCode}>
         <ReproductionActionDialog
           target={dialog} profile={profile} onClose={() => setDialog(null)}
-          onRecord={recordEvent}
-          onCorrectEvent={correctEvent}
-          onVoidEvent={voidEvent}
-          onCorrectCalving={correctCalving}
-          onVoidCalving={voidCalving}
-          onVoidCalf={voidCalf}
+          onRecord={async (command) => { await recordEvent(command) }}
+          onCorrectEvent={async (id, patch, reason) => { await correctEvent(id, patch, reason) }}
+          onVoidEvent={async (id, reason) => { await voidEvent(id, reason) }}
+          onCorrectCalving={async (id, patch, reason) => { await correctCalving(id, patch, reason) }}
+          onVoidCalving={async (id, reason) => { await voidCalving(id, reason) }}
+          onVoidCalf={async (calvingId, calfId, reason) => { await voidCalf(calvingId, calfId, reason) }}
         />
         </ReproductionOptionsProvider>
       )}
