@@ -1,66 +1,17 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { BackendError } from '../../../shared/api/backendClient'
+import { useFarmRegistration } from '../hooks/useFarmRegistration'
 import { Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, Note, Select } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { BreedMultiSelect } from '../components/BreedMultiSelect'
 import SetupLayout from '../components/SetupLayout'
-import { farmWorkspaceError, FieldError, Stepper } from '../components/WorkspaceUi'
+import { FieldError, Stepper } from '../components/WorkspaceUi'
 import { HERD_SIZES, PROVINCES } from '../constants/provinces'
-import { useRequestKey } from '../hooks/useRequestKey'
-import type { ExpectedHerdSize, FarmRegistrationInput } from '../types'
-import { validateFarmRegistration, type FormErrors } from '../validation/workspaceValidation'
-
-const initialForm: FarmRegistrationInput = {
-  name: '', province: '', commune: '', detailedAddress: '', contactPerson: '', contactPhone: '',
-  registrationCertificateInfo: '', expectedHerdSize: '', mainBreedCodes: [],
-}
-
-const OWNER_PROFILE_REQUIRED = 'MSG-FE02-02'
+import type { ExpectedHerdSize } from '../types'
 
 /** SCR-10 (UC-FE02-01), bước 2 của đăng ký chủ trại. */
 export default function FarmRegistrationPage() {
-  const navigate = useNavigate()
-  const ownerProfile = useQuery(() => farmWorkspaceApi.getProfile(), [])
-  const requestKey = useRequestKey('farm-registration')
-  const [form, setForm] = useState(initialForm)
-  const [errors, setErrors] = useState<FormErrors<FarmRegistrationInput>>({})
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [profileRequired, setProfileRequired] = useState(false)
-  useEffect(() => {
-    const profile = ownerProfile.data
-    if (!profile) return
-    // E1 (R-02-01): chưa hoàn tất hồ sơ Chủ trại → MSG-FE02-02 rồi mở SCR-07.
-    if (!profile.ownerRegistrationCompleted) setProfileRequired(true)
-    setForm((current) => ({ ...current, contactPerson: current.contactPerson || profile.fullName, contactPhone: current.contactPhone || profile.phone }))
-  }, [ownerProfile.data])
-  const set = <K extends keyof FarmRegistrationInput>(key: K, value: FarmRegistrationInput[K]) => setForm((current) => ({ ...current, [key]: value }))
-  const openOwnerProfile = () => navigate('/owner-registration', { replace: true })
+  const { form, set, errors, error, saving, profileRequired, back, openOwnerProfile, submit } = useFarmRegistration()
   // SCR-10 #11 "Quay lại" returns to SCR-07 / SCR-09: the previous page of the app when there is one (SCR-07 during
   // onboarding, SCR-09 otherwise); a page opened straight from a link ("default" location) goes to Select Farm instead
   // of leaving BeefCare.
-  const location = useLocation()
-  const back = () => (location.key === 'default' ? navigate('/chon-trai') : navigate(-1))
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    const next = validateFarmRegistration(form)
-    setErrors(next)
-    if (Object.keys(next).length) return
-    setSaving(true); setError(null)
-    try {
-      // Cùng dữ liệu → cùng khóa: bấm lại sau lỗi mạng hoặc tải lại trang không tạo trại thứ hai (R-02-02).
-      const farm = await farmWorkspaceApi.registerFarm(form, { idempotencyKey: requestKey.keyFor(form) })
-      requestKey.clear()
-      // Bước 3 của onboarding: SCR-58 chọn gói cho đúng trại vừa tạo (MSG-FE02-01).
-      navigate(`/dang-ky-goi?farm=${farm.id}`, { replace: true, state: { notice: `Đã đăng ký trại ${farm.name}. Hãy chọn gói để kích hoạt.` } })
-    } catch (reason) {
-      if (reason instanceof BackendError && reason.code?.toUpperCase() === OWNER_PROFILE_REQUIRED) setProfileRequired(true)
-      else setError(farmWorkspaceError(reason, 'Không lưu được dữ liệu. Vui lòng thử lại.'))
-    }
-    finally { setSaving(false) }
-  }
   return (
     <SetupLayout
       narrow step={2} eyebrow="Thiết lập trại" heading="Mỗi trại một hồ sơ rõ ràng."

@@ -1,87 +1,17 @@
-import { useState, type FormEvent } from 'react'
-import { BackendError } from '../../../shared/api/backendClient'
+import { useInviteDialog } from '../hooks/useInviteDialog'
+import type { FarmRole } from '../types'
 import { Button, DISCARD_PROMPT, Field, Icon, inputCls, Modal, ModalFooter, Note, Segmented, Select } from '../../../shared/ui'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
-import { useRequestKey } from '../hooks/useRequestKey'
-import type { FarmRole, Invitation, InviteMemberInput, Membership } from '../types'
-import { validateInvite, type FormErrors } from '../validation/workspaceValidation'
 import { PermissionChecklist } from './PermissionChecklist'
 import { MemberChangeDialog } from './MemberChangeDialog'
-import { farmWorkspaceError, FieldError, invitationNotice, roleLabel } from './WorkspaceUi'
+import { FieldError, roleLabel } from './WorkspaceUi'
 
 const fullWidth = '[&>div]:flex [&>div]:w-full [&_button]:flex-1'
-type Alternative = { kind: 'resend'; invitation: Invitation } | { kind: 'reactivate'; member: Membership }
 
 /** UC-FE03-01 (popup "Invite Member"), mở bằng `?m=invite` từ Thành viên và Lời mời. */
 export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSent }: {
   farmId: number; farmName?: string; timeZone?: string; active: boolean; onClose: () => void; onSent: (message: string) => void
 }) {
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState<Exclude<FarmRole, 'OWNER'> | ''>('')
-  const [validityDays, setValidityDays] = useState<3 | 7 | 14>(7)
-  const [errors, setErrors] = useState<FormErrors<InviteMemberInput>>({})
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [alternative, setAlternative] = useState<Alternative | null>(null)
-  const [reactivating, setReactivating] = useState<Membership | null>(null)
-  const [discarding, setDiscarding] = useState(false)
-  const createKey = useRequestKey(`invite:${farmId}`)
-  const resendKey = useRequestKey(`invite-resend:${farmId}`)
-
-  const close = () => {
-    if (saving) return
-    if (email || role || validityDays !== 7) setDiscarding(true)
-    else onClose()
-  }
-  const discard = () => { createKey.clear(); resendKey.clear(); onClose() }
-  const done = (message: string) => { createKey.clear(); resendKey.clear(); onSent(message) }
-
-  const showFailure = async (reason: unknown) => {
-    if (reason instanceof BackendError) {
-      if (reason.code === 'MSG-FE03-02') { setErrors({ email: farmWorkspaceError(reason, '') }); return }
-      // Load the existing row before offering a command; its version remains fixed until the Owner confirms.
-      if (reason.code === 'MSG-FE03-03') {
-        const invitationId = Number(reason.params.invitationId)
-        if (!Number.isSafeInteger(invitationId) || invitationId < 1) throw new Error('Không xác định được lời mời. Tải lại danh sách rồi thử lại.')
-        const result = await farmWorkspaceApi.listInvitations(farmId, { invitationId })
-        const existing = result.items.find((row) => row.id === invitationId)
-        if (!existing || existing.status !== 'PENDING') throw new Error('Lời mời đã thay đổi. Tải lại danh sách rồi thử lại.')
-        setAlternative({ kind: 'resend', invitation: existing }); return
-      }
-      if (reason.code === 'MSG-FE03-21') {
-        // A1 is the whole member list (D29), so the inactive membership named by MSG-FE03-21 is always in it.
-        const { items } = await farmWorkspaceApi.listMembers(farmId)
-        const existing = items.find((row) => row.id === Number(reason.params.membershipId))
-        if (!existing || existing.status !== 'INACTIVE') throw new Error('Thành viên đã thay đổi. Tải lại danh sách rồi thử lại.')
-        setAlternative({ kind: 'reactivate', member: existing }); return
-      }
-    }
-    setError(farmWorkspaceError(reason, 'Không thể gửi lời mời.'))
-  }
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (saving || alternative?.kind === 'reactivate') return
-    const input = { email: email.trim().toLowerCase(), role, validityDays } as Partial<InviteMemberInput>
-    const next = validateInvite(input)
-    setErrors(next); setError(null)
-    if (Object.keys(next).length) return
-    setSaving(true)
-    try {
-      if (alternative?.kind === 'resend') {
-        const { id, version } = alternative.invitation
-        const result = await farmWorkspaceApi.resendInvitation(farmId, id, { expectedVersion: version, idempotencyKey: resendKey.keyFor({ id, version }) })
-        done(invitationNotice(result, true, timeZone))
-      } else {
-        const created = await farmWorkspaceApi.inviteMember(farmId, input as InviteMemberInput, { idempotencyKey: createKey.keyFor(input) })
-        done(invitationNotice(created, false, timeZone))
-      }
-    } catch (reason) {
-      try { await showFailure(reason) }
-      catch (loadError) { setError(farmWorkspaceError(loadError, 'Không tải được lời mời hoặc thành viên hiện tại.')) }
-    }
-    finally { setSaving(false) }
-  }
+  const { email, setEmail, role, setRole, validityDays, setValidityDays, errors, error, setError, saving, alternative, setAlternative, reactivating, setReactivating, discarding, setDiscarding, close, discard, done, submit } = useInviteDialog(farmId, timeZone, onClose, onSent)
 
   if (reactivating) {
     return <MemberChangeDialog farmId={farmId} farmName={farmName ?? ''} timeZone={timeZone ?? 'Asia/Ho_Chi_Minh'} member={reactivating} initialAction="REACTIVATE" active={active}
