@@ -2,7 +2,7 @@
 import type { CattleInput } from '../../cattle'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { EntryBreedOption, EntryListFilters, EntryListView, EntryParentOption, EntryVaccineOption } from '../api/herdEntryBackendApi'
-import { cattle, pens } from '../../../api/herdDomainApi'
+import { cattle, pens } from '../../../demo/api/herdDomainApi'
 import {
   herdEntryApi as localApi,
   saveHerdEntry as saveLocal,

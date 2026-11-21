@@ -6,7 +6,7 @@ const memoryStorage = () => new MemoryStorage({ 'beefcare:latency': '0' })
 
 test('registering, exiting and restoring cattle adjusts one shared pen count exactly once', async () => {
   globalThis.localStorage = memoryStorage()
-  const domain = await import(`../../src/api/herdDomainApi.ts?test=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?test=${Date.now()}`)
   const a1 = await domain.pens.get('A1')
   const before = a1.count
 
@@ -31,7 +31,7 @@ test('registering, exiting and restoring cattle adjusts one shared pen count exa
 
 test('moving cattle rejects inactive destinations without changing either pen', async () => {
   globalThis.localStorage = memoryStorage()
-  const domain = await import(`../../src/api/herdDomainApi.ts?move=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?move=${Date.now()}`)
   await domain.cattle.upsert({ code: 'BC-MOVE', barn: 'A1', status: 'ACTIVE', barnHistory: [], events: [] })
   const fromBefore = (await domain.pens.get('A1')).count
   const toBefore = (await domain.pens.get('E')).count
@@ -46,7 +46,7 @@ test('moving cattle rejects inactive destinations without changing either pen', 
 
 test('voiding an entry marks its cattle VOIDED and releases pen occupancy once', async () => {
   globalThis.localStorage = memoryStorage()
-  const domain = await import(`../../src/api/herdDomainApi.ts?void-entry=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?void-entry=${Date.now()}`)
   const before = (await domain.pens.get('A1')).count
   const [cow] = await domain.registerEntryCattle(
     [{ tag: 'VN-VOID', breed: 'Zebu đỏ', sex: 'Cái', stage: 'Bò tơ', barn: 'A1', weight: 220 }],
@@ -64,7 +64,7 @@ test('voiding an entry marks its cattle VOIDED and releases pen occupancy once',
 
 test('moving a non-active cattle is rejected before occupancy changes', async () => {
   globalThis.localStorage = memoryStorage()
-  const domain = await import(`../../src/api/herdDomainApi.ts?move-exited=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?move-exited=${Date.now()}`)
   await domain.cattle.upsert({ code: 'BC-EXITED-MOVE', barn: 'A1', status: 'EXITED', barnHistory: [], events: [] })
   const fromBefore = (await domain.pens.get('A1')).count
   const toBefore = (await domain.pens.get('C1')).count

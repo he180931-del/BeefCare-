@@ -1,8 +1,8 @@
-import { createCollection, type NewCollectionInput } from '../../../api/client'
-import { cancelCattleExit, confirmCattleExit } from '../../../api/herdDomainApi'
+import { createCollection, type NewCollectionInput } from '../../../demo/api/client'
+import { cancelCattleExit, confirmCattleExit } from '../../../demo/api/herdDomainApi'
 import { initialExports } from '../data/exportsData'
-import { errorMessage } from '../../../api/herdDomainApi'
-import { herdExitSchema } from '../../../api/collectionSchemas'
+import { errorMessage } from '../../../demo/api/herdDomainApi'
+import { herdExitSchema } from '../../../demo/api/collectionSchemas'
 import type { CattleInput } from '../../cattle'
 import type { ExitDraft, ExitStatus, ExitType, HerdExit } from '../types'
 

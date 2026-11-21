@@ -1,5 +1,5 @@
 import { createCollectionSchema, type CollectionRow, type CollectionSchema } from './client'
-import type { Cattle, DocumentRow, EntryCalf, EntryCow, EntryDraft, ExitDraft, ExitDraftCow, HerdEntry, HerdExit, Pen } from '../types'
+import type { Cattle, DocumentRow, EntryCalf, EntryCow, EntryDraft, ExitDraft, ExitDraftCow, HerdEntry, HerdExit, Pen } from '../../types'
 
 export const asRecord = (value: unknown, label: string): CollectionRow => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(`Invalid ${label}: expected object`)

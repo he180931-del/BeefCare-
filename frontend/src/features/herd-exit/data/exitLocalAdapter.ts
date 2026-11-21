@@ -2,7 +2,7 @@
 import type { CattleInput } from '../../cattle'
 import type { HerdExit } from '../types'
 import type { ExitCandidate } from '../api/herdExitBackendApi'
-import { cattle, pens } from '../../../api/herdDomainApi'
+import { cattle, pens } from '../../../demo/api/herdDomainApi'
 import {
   cancelHerdExit as cancelLocal,
   herdExitApi as localApi,

@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createCollection, createCollectionSchema } from '../../src/api/client'
-import type { CollectionRow } from '../../src/api/client'
+import { createCollection, createCollectionSchema } from '../../src/demo/api/client'
+import type { CollectionRow } from '../../src/demo/api/client'
 import { MemoryStorage } from '../support/memoryStorage'
-import { cattleSchema, herdEntrySchema, herdExitSchema, penSchema } from '../../src/api/collectionSchemas'
+import { cattleSchema, herdEntrySchema, herdExitSchema, penSchema } from '../../src/demo/api/collectionSchemas'
 import type { Cattle, HerdEntry, HerdExit, Pen } from '../../src/types'
 
 const memoryStorage = () => new MemoryStorage()

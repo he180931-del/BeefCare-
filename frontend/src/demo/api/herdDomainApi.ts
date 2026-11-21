@@ -1,10 +1,10 @@
 import { createCollection, type CollectionApi } from './client'
-import { seedPens } from '../demo/data/pensData'
-import { canonicalCattle } from '../demo/data/cattleData'
+import { seedPens } from '../data/pensData'
+import { canonicalCattle } from '../data/cattleData'
 import { migrateHerdStorage } from './storageMigrations'
 import { cattleSchema, penSchema } from './collectionSchemas'
-import type { Cattle, Pen, PenCowLink, CattleInput } from '../types'
-import { backendMode } from '../shared/config/runtime'
+import type { Cattle, Pen, PenCowLink, CattleInput } from '../../types'
+import { backendMode } from '../../shared/config/runtime'
 
 if (backendMode !== 'backend') migrateHerdStorage()
 

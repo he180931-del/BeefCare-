@@ -131,47 +131,6 @@ type LegacyAllowance = {
 }
 
 const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
-  'api/client.ts': {
-    owner: 'local-demo-adapters',
-    allowedConsumers: [
-      'api/collectionSchemas.ts', 'api/herdDomainApi.ts',
-      'features/cattle/data/cattleLocalStore.ts', 'features/feed-stock/data/feedRationDemoStore.ts',
-      'features/feed-stock/data/feedReceiptDemoStore.ts', 'features/herd-entry/api/herdEntryLocalApi.ts',
-      'features/herd-exit/api/herdExitLocalApi.ts', 'features/pen-management/data/penLocalStore.ts',
-    ],
-    runtime: 'demo-only',
-    reason: 'Local collection storage used by dev:mock adapters; no production backend boundary.',
-    removalTask: 'Task 3.8',
-  },
-  'api/collectionSchemas.ts': {
-    owner: 'local-demo-adapters',
-    allowedConsumers: [
-      'api/herdDomainApi.ts', 'features/cattle/data/cattleLocalStore.ts',
-      'features/herd-entry/api/herdEntryLocalApi.ts', 'features/herd-exit/api/herdExitLocalApi.ts',
-      'features/pen-management/data/penLocalStore.ts',
-    ],
-    runtime: 'demo-only',
-    reason: 'Collection schemas support the legacy local adapters only.',
-    removalTask: 'Task 3.8',
-  },
-  'api/herdDomainApi.ts': {
-    owner: 'local-demo-adapters',
-    allowedConsumers: [
-      'features/cattle/data/cattleLocalStore.ts', 'features/herd-entry/api/herdEntryLocalApi.ts',
-      'features/herd-entry/data/entryLocalAdapter.ts', 'features/herd-exit/api/herdExitLocalApi.ts',
-      'features/herd-exit/data/exitLocalAdapter.ts', 'features/pen-management/data/penLocalStore.ts',
-    ],
-    runtime: 'demo-only',
-    reason: 'Aggregate local/demo adapter joining Cattle, Pen, Entry and Exit.',
-    removalTask: 'Task 3.8',
-  },
-  'api/storageMigrations.ts': {
-    owner: 'local-demo-adapters',
-    allowedConsumers: ['api/herdDomainApi.ts', 'features/pen-management/data/penLocalStore.ts'],
-    runtime: 'demo-only',
-    reason: 'Storage migration helpers are reachable only from legacy local persistence.',
-    removalTask: 'Task 3.8',
-  },
   /* removed in Task 3.8: components/ui.tsx */
 /*
     owner: 'herd-entry-exit-compatibility',
@@ -185,34 +144,10 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     reason: 'Legacy UI still owns Entry/Exit business props and also has the documented Feed Stock consumers.',
     removalTask: 'Task 3.8',
   }, */
-  'data/cattleData.ts': {
-    owner: 'legacy-local-aggregate',
-    allowedConsumers: ['api/herdDomainApi.ts'],
-    runtime: 'demo-only',
-    reason: 'Seeded cattle records remain reachable only through the legacy aggregate local adapter.',
-    removalTask: 'Task 3.8',
-  },
-  'data/cowsData.ts': {
-    owner: 'cattle-demo-adapter',
-    allowedConsumers: ['features/cattle/data/cattleLocalStore.ts'],
-    runtime: 'demo-only',
-    reason: 'Seeded records remain behind the Cattle local demo adapter; production Cattle types now belong to the feature.',
-    removalTask: 'Task 2.5A',
-  },
-  'data/pensData.ts': {
-    owner: 'legacy-local-aggregate',
-    allowedConsumers: [
-      'api/herdDomainApi.ts', 'api/storageMigrations.ts', 'data/cowsData.ts',
-      'features/herd-exit/data/exitData.ts', 'features/pen-management/data/penLocalStore.ts',
-    ],
-    runtime: 'demo-only',
-    reason: 'Seeded pen records remain in the legacy local/demo adapter graph.',
-    removalTask: 'Task 3.8',
-  },
   'types.ts': {
     owner: 'herd-entry-exit-compatibility',
     allowedConsumers: [
-      'api/collectionSchemas.ts', 'api/herdDomainApi.ts',
+      'demo/api/collectionSchemas.ts', 'demo/api/herdDomainApi.ts',
       'demo/data/cattleData.ts', 'demo/data/pensData.ts',
     ],
     runtime: 'production-compatibility',
@@ -308,7 +243,10 @@ test('legacy allowance rejects a feature type-only import from root data', () =>
       source: 'features/cattle/types.ts', target: 'data/cowsData.ts', specifier: '../../../data/cowsData', kind: 'type' as const,
     }],
   }
-  const allowance: LegacyAllowance = { ...LEGACY_ALLOWED['data/cowsData.ts'], allowedConsumers: [] }
+  const allowance: LegacyAllowance = {
+    owner: 'demo-data', allowedConsumers: [], runtime: 'demo-only',
+    reason: 'Synthetic regression fixture for feature-to-root-data imports.', removalTask: 'Task 3.8',
+  }
   assert.throws(
     () => assertLegacyAllowances(graph, { 'data/cowsData.ts': allowance }),
     /feature production import from root data: features\/cattle\/types\.ts -> data\/cowsData\.ts \(type\)/,

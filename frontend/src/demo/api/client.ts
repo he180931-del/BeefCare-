@@ -1,7 +1,7 @@
 // Local collection adapter. Persistence is deliberately treated as an
 // untrusted JSON boundary: every row is validated by the schema supplied by
 // the caller before it enters the in-memory collection.
-import { runtimeEnv } from '../shared/config/runtime'
+import { runtimeEnv } from '../../shared/config/runtime'
 
 const PREFIX = 'beefcare:'
 const persistenceEnabled = () => runtimeEnv().VITE_BEEFCARE_DATA_SOURCE === 'local'

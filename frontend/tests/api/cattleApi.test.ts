@@ -20,7 +20,7 @@ test('every sample cow shown by a pen resolves to a cattle profile in that pen',
 })
 
 test('profile mutations reject cattle that are no longer ACTIVE', async () => {
-  const [{ updateIdentity }, { cattle }] = await Promise.all([import('../../src/features/cattle/api/cattleApi'), import('../../src/api/herdDomainApi')])
+  const [{ updateIdentity }, { cattle }] = await Promise.all([import('../../src/features/cattle/api/cattleApi'), import('../../src/demo/api/herdDomainApi')])
   await cattle.update('BC-000125', { status: 'EXITED' })
 
   await assert.rejects(updateIdentity('BC-000125', { name: 'Không được sửa' }), /not active/i)

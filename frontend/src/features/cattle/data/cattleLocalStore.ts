@@ -1,9 +1,9 @@
 // Local demo herd of the cattle screens. Reached only through src/demo/demoModules.ts.
 // herdDomainApi creates the shared `cattle` and `pens` collections first (canonical cattle); the profile seeds below are
 // merged into that same `cattle` collection afterwards, exactly as when cattleApi created it while loading.
-import { moveCattle, pens } from '../../../api/herdDomainApi'
-import { createCollection } from '../../../api/client'
-import { cattleSchema } from '../../../api/collectionSchemas'
+import { moveCattle, pens } from '../../../demo/api/herdDomainApi'
+import { createCollection } from '../../../demo/api/client'
+import { cattleSchema } from '../../../demo/api/collectionSchemas'
 import { initialCows } from '../../../demo/data/cowsData'
 import type { Cattle } from '../types'
 

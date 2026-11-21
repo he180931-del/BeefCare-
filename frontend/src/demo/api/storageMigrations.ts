@@ -1,4 +1,4 @@
-import { seedPens } from '../demo/data/pensData'
+import { seedPens } from '../data/pensData'
 
 const PREFIX = 'beefcare:'
 const PEN_MIGRATION = `${PREFIX}migration:pens-v2`

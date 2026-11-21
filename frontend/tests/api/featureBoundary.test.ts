@@ -22,7 +22,7 @@ test('herd entry and exit own their pages, data, and API modules', () => {
     'features/herd-exit/api/index.ts',
     'features/herd-exit/data/exportsData.ts',
     'features/herd-exit/data/exitData.ts',
-    'data/cattleData.ts',
+    'demo/data/cattleData.ts',
     'features/herd-exit/pages/ExportList.tsx',
     'features/herd-exit/pages/ExportNew.tsx',
     'features/herd-exit/pages/ExportDetail.tsx',

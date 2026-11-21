@@ -28,7 +28,7 @@ test('entry API generates IDs and preserves complete editable drafts', async () 
 test('entry posting allocates its ID before linking cattle when no ID is supplied', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../../src/features/herd-entry/api/herdEntryApi.ts?entry-post=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?entry-post=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?entry-post=${Date.now()}`)
   const saved = await entries.saveHerdEntry({
     record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-GEN' } },
     cattleRows: [{ tag: 'VN-GEN', barn: 'C1', weight: 210, date: '2026-10-28' }],
@@ -44,7 +44,7 @@ test('entry posting allocates its ID before linking cattle when no ID is supplie
 test('exit API restores non-sale draft type and synchronizes confirm/cancel once', async () => {
   globalThis.localStorage = memoryStorage()
   const exits = await import(`../../src/features/herd-exit/api/herdExitApi.ts?exit-lifecycle=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?exit-lifecycle=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?exit-lifecycle=${Date.now()}`)
   const draft = { id: 'PX-DRAFT', type: 'Loại thải', status: 'Nháp', draft: { note: 'saved' } }
   assert.equal(exits.getExitDraftState([draft]).type, 'Loại thải')
   assert.equal(exits.getExitDraftState([draft], draft.id).row.id, draft.id)
@@ -66,7 +66,7 @@ test('exit API restores non-sale draft type and synchronizes confirm/cancel once
 test('exit posting allocates its ID first and blocks withdrawal confirmation', async () => {
   globalThis.localStorage = memoryStorage()
   const exits = await import(`../../src/features/herd-exit/api/herdExitApi.ts?exit-generated=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?exit-generated=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?exit-generated=${Date.now()}`)
   await domain.cattle.upsert({ code: 'BC-GEN-EXIT', barn: 'A1', status: 'ACTIVE', events: [] })
   await assert.rejects(
     exits.saveHerdExit({
@@ -89,7 +89,7 @@ test('exit posting allocates its ID first and blocks withdrawal confirmation', a
 test('exit confirmation preflights missing, inactive, and differently linked cattle without side effects', async () => {
   globalThis.localStorage = memoryStorage()
   const exits = await import(`../../src/features/herd-exit/api/herdExitApi.ts?exit-preflight=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?exit-preflight=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?exit-preflight=${Date.now()}`)
   await domain.cattle.upsert({ code: 'BC-EXIT-PREFLIGHT', barn: 'A1', status: 'ACTIVE', events: [] })
   await domain.cattle.upsert({ code: 'BC-EXIT-INACTIVE', barn: 'A1', status: 'EXITED', events: [] })
   await domain.cattle.upsert({ code: 'BC-EXIT-DIFFERENT', barn: 'A1', status: 'EXITED', exitVoucherId: 'PX-OTHER', events: [] })
@@ -119,7 +119,7 @@ test('exit confirmation preflights missing, inactive, and differently linked cat
 test('canceling an exit requires every linked cattle row and restores all exactly once', async () => {
   globalThis.localStorage = memoryStorage()
   const exits = await import(`../../src/features/herd-exit/api/herdExitApi.ts?exit-cancel-complete=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?exit-cancel-complete=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?exit-cancel-complete=${Date.now()}`)
   await domain.cattle.upsert({ code: 'BC-CANCEL-1', barn: 'A1', status: 'ACTIVE', events: [] })
   await domain.cattle.upsert({ code: 'BC-CANCEL-2', barn: 'A1', status: 'ACTIVE', events: [] })
   const before = (await domain.pens.get('A1')).count
@@ -157,7 +157,7 @@ test('canceled entry vouchers cannot be reopened through the save facade', async
 test('voiding an entry requires every linked cattle row before canceling the voucher', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../../src/features/herd-entry/api/herdEntryApi.ts?entry-void-complete=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?entry-void-complete=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?entry-void-complete=${Date.now()}`)
   const saved = await entries.saveHerdEntry({
     record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-VOID' } },
     cattleRows: [
@@ -194,7 +194,7 @@ test('empty-link cancellation never changes old posted entry or sold exit vouche
 test('entry posting preflights every row before mutating cattle', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../../src/features/herd-entry/api/herdEntryApi.ts?entry-preflight=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?entry-preflight=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?entry-preflight=${Date.now()}`)
   await assert.rejects(entries.saveHerdEntry({
     record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-PREFLIGHT' } },
     cattleRows: [
@@ -208,7 +208,7 @@ test('entry posting preflights every row before mutating cattle', async () => {
 test('entry posting allows missing quarantine but still validates future dates and duplicate ear tags', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../../src/features/herd-entry/api/herdEntryApi.ts?entry-validation=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?entry-validation=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?entry-validation=${Date.now()}`)
   const withoutQuarantine = await entries.saveHerdEntry({
     record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập' },
     cattleRows: [{ tag: 'VN-REQUIRED-KD', barn: 'A1', weight: 100 }],
@@ -232,7 +232,7 @@ test('entry posting allows missing quarantine but still validates future dates a
 test('entry posting rejects duplicate explicit cattle codes before overwriting or changing pens', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../../src/features/herd-entry/api/herdEntryApi.ts?entry-code-preflight=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?entry-code-preflight=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?entry-code-preflight=${Date.now()}`)
   const before = (await domain.pens.get('A1')).count
   await assert.rejects(entries.saveHerdEntry({
     record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-CODE-DUP' } },
@@ -268,7 +268,7 @@ test('posting APIs reject missing required fields before mutating cattle', async
 test('entry posting rejects inactive and full canonical pens', async () => {
   globalThis.localStorage = memoryStorage()
   const entries = await import(`../../src/features/herd-entry/api/herdEntryApi.ts?pen-validation=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?pen-validation=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?pen-validation=${Date.now()}`)
   await assert.rejects(entries.saveHerdEntry({ record: { date: '2026-10-28', type: 'Mua ngoài', status: 'Đã nhập', detail: { quarantine: 'KD-INACTIVE' } }, cattleRows: [{ code: 'BC-INACTIVE', barn: 'E', weight: 100 }] }), /inactive/i)
   const pen = await domain.pens.get('C1')
   await domain.pens.update('C1', { count: pen.capacity })
@@ -279,7 +279,7 @@ test('rich seeded vouchers use canonical cattle for exit cancel, death confirm, 
   globalThis.localStorage = memoryStorage()
   const exits = await import(`../../src/features/herd-exit/api/herdExitApi.ts?rich-seed=${Date.now()}`)
   const entries = await import(`../../src/features/herd-entry/api/herdEntryApi.ts?rich-seed=${Date.now()}`)
-  const domain = await import(`../../src/api/herdDomainApi.ts?rich-seed=${Date.now()}`)
+  const domain = await import(`../../src/demo/api/herdDomainApi.ts?rich-seed=${Date.now()}`)
   const soldRows = [
     { code: 'BC-000188', barn: 'B1' }, { code: 'BC-000190', barn: 'B1' },
     { code: 'BC-000193', barn: 'B1' }, { code: 'BC-000196', barn: 'B1' },
