@@ -3,10 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Badge, Button, ErrorBlock, Field, Icon, inputCls, LoadingBlock } from '../../../shared/ui'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../../farm-announcements'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { useTechnicianHomeUseCases } from '../hooks/useFarmOverviewUseCases'
 import { dueLabel } from '../domain/reminderRules'
 import { formatKeyShort, weekdayOf } from '../domain/format'
 import type { ReminderItem } from '../types'
@@ -43,9 +41,7 @@ export default function TechnicianHomePage() {
   const session = useSession()
   const navigate = useNavigate()
   const [code, setCode] = useState('')
-  const viewer = { name: session?.fullName ?? '', role: 'TECHNICIAN' as const }
-  const home = useQuery(() => farmOverviewApi.getTechnicianHome(), [])
-  const unread = useQuery(() => announcementsApi.listUnread(viewer, 3), [viewer.name])
+  const { home, unread } = useTechnicianHomeUseCases(session?.fullName ?? '')
   const given = session?.fullName.trim().split(/\s+/).pop() || 'bạn'
 
   if (home.loading && !home.data) return <TechnicianLayout title={`Chào ${given}`} hero><LoadingBlock /></TechnicianLayout>

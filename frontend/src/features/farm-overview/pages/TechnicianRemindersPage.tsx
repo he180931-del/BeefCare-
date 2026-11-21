@@ -4,8 +4,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { EmptyBlock, ErrorBlock, LoadingBlock, Note, Segmented } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { useTechnicianReminders } from '../hooks/useFarmOverviewUseCases'
 import { ReminderDetailModal } from '../components/ReminderParts'
 import { dueLabel } from '../domain/reminderRules'
 import type { ReminderItem, Urgency } from '../types'
@@ -17,7 +16,7 @@ export default function TechnicianRemindersPage() {
   const [tab, setTab] = useState<Urgency>('TODAY')
   const [m, , closeModal] = useModalParam()
   const [params, setParams] = useSearchParams()
-  const { data, loading, error, refetch } = useQuery(() => farmOverviewApi.listReminders('TECHNICIAN'), [])
+  const { data, loading, error, refetch } = useTechnicianReminders()
   const items = useMemo(() => data?.items ?? [], [data])
 
   if (loading && !data) return <TechnicianLayout title={TITLE} back="/kt"><LoadingBlock /></TechnicianLayout>
