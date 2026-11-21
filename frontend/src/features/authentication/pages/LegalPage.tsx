@@ -13,7 +13,7 @@ const copy = {
   },
 } as const
 
-export function LegalPage({ kind }: { kind: keyof typeof copy }) {
+export default function LegalPage({ kind }: { kind: keyof typeof copy }) {
   const page = copy[kind]
   return <main className="mx-auto min-h-screen max-w-3xl bg-page px-5 py-12 text-ink sm:px-8">
     <Link to="/sign-in" className="text-sm font-bold text-brand underline">Quay lại đăng nhập</Link>

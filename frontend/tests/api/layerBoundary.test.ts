@@ -48,9 +48,9 @@ test('feature routes.ts files hold lazy page loaders only', () => {
       join(srcDir, 'app/routes/AppRoutes.tsx'),
       readFileSync(join(srcDir, 'app/routes/AppRoutes.tsx'), 'utf8'),
       {
-        // Authorization provides route policy, not a page. Authentication is the one temporary screen exception:
-        // its routes.ts is introduced only by Task 9.0, so this exact compatibility import must not become a glob.
-        allowedStaticFeatureImports: ['features/authorization', 'features/authentication'],
+        // Authorization provides route policy, not a page. Every feature screen, including authentication's legal
+        // pages, enters the route table through its dedicated routes.ts loader module.
+        allowedStaticFeatureImports: ['features/authorization'],
       },
     ),
     [],
