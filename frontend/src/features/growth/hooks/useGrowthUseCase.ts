@@ -11,7 +11,7 @@ import type { CorrectGrowthCommand, GrowthFilters, RecordGrowthCommand } from '.
  * adapter remains the single place that switches between backend and local
  * demo implementations.
  */
-export function useGrowthHerd(filters: GrowthFilters, demoMode: string) {
+export function useGrowthHerd(filters: GrowthFilters, demoMode: string | null) {
   const options = useQuery(() => growthApi.filterOptions(), [])
   const herd = useQuery(
     () => demoMode === 'load-error' ? Promise.reject(new Error('demo')) : growthApi.listHerd(filters),
