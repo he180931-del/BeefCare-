@@ -44,8 +44,8 @@ export default function FeedConsumptionReportPage() {
   const validPeriod = Boolean(from && to && from <= to)
   const query = useQuery(async () => {
     if (!validPeriod) return { from, to, data: null }
-    return { from, to, data: await loadFeedConsumptionReport({ from, to }) }
-  }, [from, to])
+    return { from, to, data: await loadFeedConsumptionReport({ from, to, groupBy }) }
+  }, [from, groupBy, to])
   const loaded = query.data?.from === from && query.data?.to === to ? query.data.data : null
   const report = useMemo(() => loaded ? buildFeedConsumptionReport({ ...loaded, from, to, backendReport: loaded.backendReport }) : null, [from, loaded, to])
   const projection = useMemo(() => report ? filterFeedConsumptionReport(report, { from, to, groupBy }, loaded?.catalogue ?? []) : null, [from, groupBy, loaded?.catalogue, report, to])

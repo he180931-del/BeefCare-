@@ -28,11 +28,43 @@ export type FeedConsumptionBackendRow = {
 export type FeedConsumptionBackendReport = {
   from: string
   to: string
-  rows: FeedConsumptionBackendRow[]
+  groupBy: FeedConsumptionGroupBy
+  tiles: FeedConsumptionReportTiles
+  rows: FeedConsumptionReportGroupedRow[]
+  total: FeedConsumptionReportTotal
+  costByFeed: FeedConsumptionReportCostByFeed[]
+  adjustmentLosses: { kg: number; value: number }
+  rawRows: FeedConsumptionBackendRow[]
   adjustmentLossKg: number | null
   adjustmentLossValue: number | null
   generatedAt: string | null
 }
+
+export type FeedConsumptionReportTiles = {
+  kg: number
+  cost: number
+  averageKgPerHeadDay: number
+  averageCostPerHeadDay: number
+  days: number
+  headDays: number
+  receivedKg: number
+  receiptCount: number
+  receivedAmount: number
+}
+
+export type FeedConsumptionReportGroupedRow = {
+  group: string
+  avgHead: number
+  kg: number
+  kgPerHeadDay: number
+  cost: number
+  costPerHeadDay: number
+  variancePct: number | null
+  notes: string[]
+}
+
+export type FeedConsumptionReportTotal = Omit<FeedConsumptionReportTiles, 'receivedKg' | 'receiptCount' | 'receivedAmount'>
+export type FeedConsumptionReportCostByFeed = { feedCode: string; feedName: string; kg: number; cost: number }
 
 export type FeedConsumptionSupportingData = {
   feedings: FeedFeedingRecord[]

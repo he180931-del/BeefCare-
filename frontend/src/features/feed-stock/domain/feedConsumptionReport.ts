@@ -104,9 +104,9 @@ export function buildFeedConsumptionReport(input: BuildInput): Omit<FeedConsumpt
   rations: FeedRation[]
 } {
   const feedings = input.feedings.filter((record) => record.status === 'VALID' && inRange(record.feedingDate, input.from, input.to))
-  const baseRows = input.backendReport?.rows ?? localRows(feedings, input.rations, input.from, input.to)
-  let adjustmentLossKg: number | null = input.backendReport?.adjustmentLossKg ?? null
-  let adjustmentLossValue: number | null = input.backendReport?.adjustmentLossValue ?? null
+  const baseRows = input.backendReport?.rawRows ?? localRows(feedings, input.rations, input.from, input.to)
+  let adjustmentLossKg: number | null = input.backendReport?.adjustmentLosses.kg ?? null
+  let adjustmentLossValue: number | null = input.backendReport?.adjustmentLosses.value ?? null
   if (!input.backendReport) {
     const losses = input.adjustments.filter((adjustment) => adjustment.status === 'POSTED' && inRange(adjustment.countDate, input.from, input.to))
       .flatMap((adjustment) => adjustment.lines)
