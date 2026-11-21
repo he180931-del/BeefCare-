@@ -81,6 +81,11 @@ test('herd-entry owns its entry-only contracts instead of importing the legacy r
   assert.deepEqual(violations, [])
 })
 
+test('shared user-facing errors stay transport-generic', () => {
+  const source = readFileSync(join(srcDir, 'shared/api/userFacingError.ts'), 'utf8')
+  assert.doesNotMatch(source, /MSG-(?:FE|COM)-/)
+})
+
 // Refactor phase 4b: the session (who is signed in, the tab's farm, sign-out and expiry) belongs to the app. Features
 // use the app only through its layouts and these session modules; the provider, routes and the rest are the app's own.
 const FEATURE_APP_IMPORTS = new Set([
