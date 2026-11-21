@@ -63,8 +63,28 @@ export type FeedConsumptionReportGroupedRow = {
   notes: string[]
 }
 
-export type FeedConsumptionReportTotal = Omit<FeedConsumptionReportTiles, 'receivedKg' | 'receiptCount' | 'receivedAmount'>
+export type FeedConsumptionReportTotal = {
+  kg: number
+  cost: number
+  kgPerHeadDay: number
+  costPerHeadDay: number
+  days: number
+  headDays: number
+}
 export type FeedConsumptionReportCostByFeed = { feedCode: string; feedName: string; kg: number; cost: number }
+
+/** Display projection of the grouped server contract; no client-side re-aggregation. */
+export type FeedConsumptionServerRow = {
+  key: string
+  label: string
+  herdGroup: string | null
+  averageHead: number
+  actualKg: number
+  averageKgPerHeadDay: number
+  totalCost: number
+  averageCostPerHeadDay: number
+  varianceRatio: number | null
+}
 
 export type FeedConsumptionSupportingData = {
   feedings: FeedFeedingRecord[]

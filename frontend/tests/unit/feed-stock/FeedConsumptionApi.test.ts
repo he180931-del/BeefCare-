@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createFeedConsumptionApi } from '../../../src/features/feed-stock/api/feedConsumptionApi'
+import { createFeedConsumptionApi, defaultFeedConsumptionPeriod } from '../../../src/features/feed-stock/api/feedConsumptionApi'
 import type { FeedConsumptionSupportingData } from '../../../src/features/feed-stock/types/feedConsumption'
 import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
@@ -24,6 +24,18 @@ function transport(overrides: Partial<BackendTransport> = {}): BackendTransport 
 }
 
 describe('SCR-85 consumption report API boundary', () => {
+  it('defaults both modes to the first day of the business month through today', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-11-15T05:00:00Z'))
+      expect(defaultFeedConsumptionPeriod()).toEqual({ from: '2026-11-01', to: '2026-11-15' })
+      vi.setSystemTime(new Date('2026-12-01T00:00:00Z'))
+      expect(defaultFeedConsumptionPeriod()).toEqual({ from: '2026-12-01', to: '2026-12-01' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('loads the local demo projection without requesting the backend report', async () => {
     const http = transport()
     const loadDemoData = vi.fn(async () => emptyData)

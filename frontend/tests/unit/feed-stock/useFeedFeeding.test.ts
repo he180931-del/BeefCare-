@@ -1,6 +1,6 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useFeedFeeding } from '../../../src/features/feed-stock/hooks/useFeedFeeding'
+import { useFeedFeedingCommands } from '../../../src/features/feed-stock/hooks/useFeedFeeding'
 
 const api = vi.hoisted(() => ({
   listFeedFeedingRecords: vi.fn(), getFeedFeedingPlan: vi.fn(), recordFeedSession: vi.fn(), correctFeedSession: vi.fn(), voidFeedSession: vi.fn(),
@@ -8,26 +8,23 @@ const api = vi.hoisted(() => ({
 
 vi.mock('../../../src/features/feed-stock/api/feedFeedingApi', () => api)
 
-describe('useFeedFeeding', () => {
+describe('useFeedFeedingCommands', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    api.listFeedFeedingRecords.mockResolvedValue([])
-    api.getFeedFeedingPlan.mockResolvedValue({})
     api.recordFeedSession.mockResolvedValue({ id: 1 })
     api.correctFeedSession.mockResolvedValue({ id: 1 })
     api.voidFeedSession.mockResolvedValue({ id: 1 })
   })
 
-  it('loads records for the selected range and exposes command boundaries', async () => {
-    const range = { from: '2026-06-01', to: '2026-06-01' }
-    const record = { id: 7 }
-    api.listFeedFeedingRecords.mockResolvedValue([record])
-    const { result } = renderHook(() => useFeedFeeding(range))
-
-    await waitFor(() => expect(result.current.records).toEqual([record]))
-    expect(api.listFeedFeedingRecords).toHaveBeenCalledWith(range)
-
-    await act(async () => { await result.current.record({ input: { penId: 1 } as never, options: { key: 'feed-key' } }) })
-    expect(api.recordFeedSession).toHaveBeenCalledWith({ penId: 1 }, { key: 'feed-key' })
+  it('owns one idempotency key across retries of one command intent', async () => {
+    const { result } = renderHook(() => useFeedFeedingCommands())
+    api.recordFeedSession.mockRejectedValueOnce(new Error('temporary'))
+    const input = { penId: 1 } as never
+    await act(async () => { await expect(result.current.record({ input })).rejects.toThrow('temporary') })
+    await act(async () => { await result.current.record({ input }) })
+    const firstOptions = api.recordFeedSession.mock.calls[0][1]
+    const secondOptions = api.recordFeedSession.mock.calls[1][1]
+    expect(firstOptions.key).toEqual(expect.any(String))
+    expect(secondOptions.key).toBe(firstOptions.key)
   })
 })

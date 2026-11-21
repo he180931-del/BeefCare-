@@ -9,6 +9,7 @@ import type {
   FeedConsumptionGroupBy,
   FeedConsumptionProjection,
   FeedConsumptionProjectionRow,
+  FeedConsumptionServerRow,
   FeedConsumptionSupportingData,
   FeedConsumptionSummary,
 } from '../types/feedConsumption'
@@ -142,6 +143,22 @@ function matchesFilters(row: BaseRow, filters: FeedConsumptionFilters) {
   return (filters.feedItemId === undefined || filters.feedItemId === 'ALL' || row.feedItemId === filters.feedItemId)
     && (filters.penId === undefined || filters.penId === 'ALL' || row.penId === filters.penId)
     && (filters.herdGroup === undefined || filters.herdGroup === 'ALL' || row.herdGroup === filters.herdGroup)
+}
+
+/** Maps the already-grouped backend response for rendering without recomputing it from rawRows. */
+export function mapBackendConsumptionRows(report: FeedConsumptionBackendReport): FeedConsumptionServerRow[] {
+  const names = new Map(report.costByFeed.map((item) => [item.feedCode, item.feedName]))
+  return report.rows.map((row) => ({
+    key: `${report.groupBy}:${row.group}`,
+    label: report.groupBy === 'FEED' ? names.get(row.group) ?? row.group : row.group,
+    herdGroup: report.groupBy === 'HERD_GROUP' ? row.group : null,
+    averageHead: row.avgHead,
+    actualKg: row.kg,
+    averageKgPerHeadDay: row.kgPerHeadDay,
+    totalCost: row.cost,
+    averageCostPerHeadDay: row.costPerHeadDay,
+    varianceRatio: row.variancePct,
+  }))
 }
 
 export function filterFeedConsumptionReport(

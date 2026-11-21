@@ -1,5 +1,5 @@
 import { asRecord, asRows } from '../../../shared/api/parse'
-import { addCalendarDays, businessDate } from '../../../shared/lib/date/farmTime'
+import { businessDate } from '../../../shared/lib/date/farmTime'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode, type BackendMode } from '../../../shared/config/runtime'
 import { backendTransport, type BackendTransport } from '../../../shared/api/backendTransport'
@@ -59,8 +59,9 @@ function parseConsumptionReport(value: unknown): FeedConsumptionBackendReport {
   const tiles = asRecord(body.tiles); const total = asRecord(body.total)
   if (numberFields.some((field) => !isFiniteNumber(tiles[field])) || ['kg', 'cost', 'kgPerHeadDay', 'costPerHeadDay', 'days', 'headDays'].some((field) => !isFiniteNumber(total[field]))) throw new Error('Tổng hợp báo cáo tiêu thụ từ máy chủ không hợp lệ.')
   const costByFeed = asRows(body.costByFeed).map((row) => { if (typeof row.feedCode !== 'string' || typeof row.feedName !== 'string' || !isFiniteNumber(row.kg) || !isFiniteNumber(row.cost)) throw new Error('Chi phí theo thức ăn từ máy chủ không hợp lệ.'); return { feedCode: row.feedCode, feedName: row.feedName, kg: row.kg, cost: row.cost } })
-  const adjustmentLossKg = isFiniteNumber(body.adjustmentLosses.kg) ? body.adjustmentLosses.kg : NaN
-  const adjustmentLossValue = isFiniteNumber(body.adjustmentLosses.value) ? body.adjustmentLosses.value : NaN
+  const adjustmentLosses = asRecord(body.adjustmentLosses)
+  const adjustmentLossKg = isFiniteNumber(adjustmentLosses.kg) ? adjustmentLosses.kg : NaN
+  const adjustmentLossValue = isFiniteNumber(adjustmentLosses.value) ? adjustmentLosses.value : NaN
   if ((adjustmentLossKg !== null && !Number.isFinite(adjustmentLossKg))
     || (adjustmentLossValue !== null && !Number.isFinite(adjustmentLossValue))) {
     throw new Error('Dữ liệu tổn thất trong báo cáo không hợp lệ.')
@@ -139,11 +140,8 @@ export const loadFeedConsumptionReport = (range: FeedConsumptionRange & { groupB
 /** Một số chỉ số của máy chủ có thể thiếu nguồn số liệu; bản mô phỏng luôn đủ. */
 export const feedConsumptionMayLackSources = backendMode === 'backend'
 
-/**
- * Kỳ mở đầu của báo cáo: SRS GBR-66 là đầu tháng đến hôm nay. Bản mô phỏng chỉ có 3 tuần lịch sử nên mở 22 ngày gần nhất.
- */
+/** Kỳ mở đầu của báo cáo: SRS GBR-66 quy định từ đầu tháng đến hôm nay. */
 export function defaultFeedConsumptionPeriod(): { from: string; to: string } {
   const today = businessDate()
-  if (backendMode !== 'backend') return { from: addCalendarDays(today, -21), to: today }
   return { from: today.slice(0, 7) + '-01', to: today }
 }

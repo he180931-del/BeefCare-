@@ -51,7 +51,7 @@ export default function FeedReceiptPage() {
       {routeMessage && <Note tone="ok">{routeMessage}</Note>}
 
       <section role="tabpanel" aria-label="Danh sách phiếu nhập kho" className="flex flex-col gap-4">
-        <FeedReceiptSummary rows={receiptQuery.data} suppliers={suppliers} />
+        <FeedReceiptSummary rows={rows} suppliers={suppliers} />
 
         <div className="flex flex-wrap items-center gap-3">
           <Segmented

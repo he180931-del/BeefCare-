@@ -1,14 +1,12 @@
 import { toFarmLocal } from '../../../shared/lib/date/farmTime'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { useSession } from '../../../app/session/sessionContext'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { correctFeedSession, feedFeedingServerBacked, feedingPeopleSuggestions, getFeedFeedingPlan, recordFeedSession, voidFeedSession } from '../api/feedFeedingApi'
 import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
-import { newFeedCommandKey } from '../api/command'
+import { feedFeedingServerBacked, useFeedFeedingCommands, useFeedFeedingSession } from '../hooks/useFeedFeeding'
 import type { FeedStockRow } from '../types'
 import type { FeedFeedingDraftInput, FeedFeedingLineInput, FeedFeedingRecord } from '../types/feedFeeding'
 import type { FeedRation, FeedRationPenOption } from '../types/feedRation'
@@ -17,7 +15,6 @@ export type FeedingData = { records: FeedFeedingRecord[]; rations: FeedRation[];
 type FormLine = { feedItemId: string; plannedKg: string; actualKg: string; inRation: boolean }
 
 const sessionLabel = (sessionNo: number) => `Cữ ${SESSION_NAMES[sessionNo] ?? sessionNo}`
-const commandKey = () => newFeedCommandKey('feed-session')
 
 function buildLines(pen: FeedRationPenOption | undefined, ration: FeedRation | null, sessionNo: number, prefill = false): FormLine[] {
   return planForSession(ration, pen, sessionNo).map((line) => ({ feedItemId: String(line.feedItemId), plannedKg: String(line.plannedKg), actualKg: prefill ? String(line.plannedKg) : '0', inRation: true }))
@@ -34,27 +31,24 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
   onSaved: (message: string) => void
 }) {
   const session = useSession()
+  const commands = useFeedFeedingCommands()
   const activePens = data.pens.filter((pen) => pen.status === 'ACTIVE')
   const [pen, setPen] = useState<number | ''>(penId ?? '')
   const [sessionValue, setSessionValue] = useState(sessionNo ?? 1)
   const selectedPen = data.pens.find((row) => row.id === pen)
   const localRation = selectedPen ? effectiveRationForPen(data.rations, selectedPen.id, date) : null
-  const planQuery = useQuery(() => feedFeedingServerBacked && pen !== ''
-    ? getFeedFeedingPlan({ penId: pen, date, sessionNo: sessionValue })
-    : Promise.resolve(null), [pen, date, sessionValue])
+  const planQuery = useFeedFeedingSession({ penId: pen === '' ? undefined : pen, date, sessionNo: sessionValue })
   const serverPlan = planQuery.data && planQuery.data.penId === pen && planQuery.data.feedingDate === date && planQuery.data.sessionNo === sessionValue
     ? planQuery.data
     : null
   const [time, setTime] = useState(sessionTimeFor(data.rations, sessionNo ?? 1))
-  const people = feedingPeopleSuggestions(session?.fullName)
+  const people = planQuery.peopleSuggestions(session?.fullName)
   const [fedBy, setFedBy] = useState(session?.fullName ?? people[0] ?? '')
   const [leftover, setLeftover] = useState('')
   const [note, setNote] = useState('')
   const [lines, setLines] = useState<FormLine[]>(() => feedFeedingServerBacked ? [] : buildLines(data.pens.find((row) => row.id === penId), penId ? effectiveRationForPen(data.rations, penId, date) : null, sessionNo ?? 1, prefillFromPlan))
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const commandKeyRef = useRef<string | undefined>(undefined)
-  const nextCommandKey = () => commandKeyRef.current ?? (commandKeyRef.current = commandKey())
 
   useEffect(() => {
     if (!serverPlan) return
@@ -64,7 +58,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
   }, [serverPlan, prefillFromPlan])
 
   const rescope = (nextPen: number | '', nextSession: number) => {
-    commandKeyRef.current = undefined
+    commands.resetCommandKey()
     const nextPenRow = data.pens.find((row) => row.id === nextPen)
     const nextRation = nextPenRow ? effectiveRationForPen(data.rations, nextPenRow.id, date) : null
     setPen(nextPen)
@@ -73,7 +67,7 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
     setLines(feedFeedingServerBacked ? [] : buildLines(nextPenRow, nextRation, nextSession, prefillFromPlan))
     setError('')
   }
-  const updateLine = (index: number, key: keyof FormLine, value: string) => { commandKeyRef.current = undefined; setLines((current) => current.map((line, i) => i === index ? { ...line, [key]: value } : line)); setError('') }
+  const updateLine = (index: number, key: keyof FormLine, value: string) => { commands.resetCommandKey(); setLines((current) => current.map((line, i) => i === index ? { ...line, [key]: value } : line)); setError('') }
   const plannedTotal = lines.reduce((sum, line) => sum + (Number(line.plannedKg) || 0), 0)
   const actualTotal = lines.reduce((sum, line) => sum + (Number(line.actualKg) || 0), 0)
   const ration = feedFeedingServerBacked ? serverPlan?.ration : localRation
@@ -120,8 +114,8 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
         rationCode: ration?.rationCode ?? null, rationVersion: ration?.versionNo ?? null,
         lines: lines.map((line): FeedFeedingLineInput => ({ feedItemId: Number(line.feedItemId), plannedKg: Number(line.plannedKg), actualKg: Number(line.actualKg), inRation: line.inRation })),
       }
-      await recordFeedSession(payload, { key: nextCommandKey() })
-      commandKeyRef.current = undefined
+      await commands.record({ input: payload })
+      commands.resetCommandKey()
       onSaved(`Đã ghi cữ cho ăn của ${selectedPen.code} (${SESSION_NAMES[sessionValue] ?? sessionValue}). Đã trừ ${formatNumber(actualTotal)} kg khỏi kho.`)
     } catch (saveError) {
       setError(userFacingError(saveError, 'Không thể ghi cữ cho ăn.'))
@@ -145,12 +139,12 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
             {Array.from({ length: sessionsOfPen }, (_, index) => index + 1).map((value) => <option key={value} value={value}>{sessionLabel(value)}</option>)}
           </Select>
         </Field>
-        <Field label="Giờ cho ăn" id="feeding-form-time"><input id="feeding-form-time" type="time" disabled={saving} value={time} onChange={(event) => { commandKeyRef.current = undefined; setTime(event.target.value) }} className={inputCls} /></Field>
+        <Field label="Giờ cho ăn" id="feeding-form-time"><input id="feeding-form-time" type="time" disabled={saving} value={time} onChange={(event) => { commands.resetCommandKey(); setTime(event.target.value) }} className={inputCls} /></Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Khẩu phần áp dụng" id="feeding-form-ration"><input id="feeding-form-ration" readOnly value={ration ? `${ration.rationCode} · ${ration.name}` : selectedPen ? 'Chưa có khẩu phần hiệu lực' : ''} className={inputCls} /></Field>
         <Field label="Người cho ăn" id="feeding-form-fedby">
-          <input id="feeding-form-fedby" list="feeding-people" maxLength={100} disabled={saving} value={fedBy} onChange={(event) => { commandKeyRef.current = undefined; setFedBy(event.target.value) }} className={inputCls} />
+          <input id="feeding-form-fedby" list="feeding-people" maxLength={100} disabled={saving} value={fedBy} onChange={(event) => { commands.resetCommandKey(); setFedBy(event.target.value) }} className={inputCls} />
           <datalist id="feeding-people">{people.map((name) => <option key={name} value={name} />)}</datalist>
         </Field>
       </div>
@@ -199,18 +193,18 @@ export function FeedRecordDialog({ data, date, penId, sessionNo, prefillFromPlan
           <tr><Td className="font-semibold">Tổng cữ</Td><Td className="whitespace-nowrap font-semibold">{formatKg(plannedTotal)}</Td><Td className="whitespace-nowrap font-semibold">{formatKg(actualTotal)}</Td><Td /><Td /></tr>
         </tfoot>
       </Table>
-      <button type="button" disabled={saving} onClick={() => { commandKeyRef.current = undefined; setLines((current) => [...current, { feedItemId: '', plannedKg: '0', actualKg: '0', inRation: false }]) }} className="mx-auto inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-xs font-semibold text-brand">
+      <button type="button" disabled={saving} onClick={() => { commands.resetCommandKey(); setLines((current) => [...current, { feedItemId: '', plannedKg: '0', actualKg: '0', inRation: false }]) }} className="mx-auto inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-xs font-semibold text-brand">
         <Icon name="circle-plus" size={16} />Thêm thức ăn ngoài khẩu phần
       </button>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Thức ăn thừa (kg)" id="feeding-form-leftover"><input id="feeding-form-leftover" type="number" min="0" step="0.1" disabled={saving} value={leftover} onChange={(event) => { commandKeyRef.current = undefined; setLeftover(event.target.value) }} className={inputCls} /></Field>
+        <Field label="Thức ăn thừa (kg)" id="feeding-form-leftover"><input id="feeding-form-leftover" type="number" min="0" step="0.1" disabled={saving} value={leftover} onChange={(event) => { commands.resetCommandKey(); setLeftover(event.target.value) }} className={inputCls} /></Field>
         <Field label={zeroOutOfStockLines.length > 0 ? 'Ghi chú *' : 'Ghi chú'} id="feeding-form-note" hint={zeroOutOfStockLines.length > 0 ? 'Bắt buộc khi ghi thực tế 0 kg do hết hàng.' : undefined}>
-          <input id="feeding-form-note" maxLength={500} disabled={saving} value={note} aria-required={zeroOutOfStockLines.length > 0} aria-invalid={missingOutOfStockNote} onChange={(event) => { commandKeyRef.current = undefined; setNote(event.target.value) }} className={inputCls} />
+          <input id="feeding-form-note" maxLength={500} disabled={saving} value={note} aria-required={zeroOutOfStockLines.length > 0} aria-invalid={missingOutOfStockNote} onChange={(event) => { commands.resetCommandKey(); setNote(event.target.value) }} className={inputCls} />
         </Field>
       </div>
       <Note tone="info">Lưu sẽ trừ kho {formatNumber(actualTotal)} kg{selectedPen?.headcount ? ` (${formatNumber(actualTotal / selectedPen.headcount)} kg/con)` : ''}.</Note>
       <ModalFooter className="!px-0 !pb-0">
-        <ModalButton disabled={saving || !lines.length} onClick={() => { commandKeyRef.current = undefined; setLines((current) => current.map((line) => ({ ...line, actualKg: line.plannedKg }))) }}>Điền theo kế hoạch</ModalButton>
+        <ModalButton disabled={saving || !lines.length} onClick={() => { commands.resetCommandKey(); setLines((current) => current.map((line) => ({ ...line, actualKg: line.plannedKg }))) }}>Điền theo kế hoạch</ModalButton>
         <ModalButton disabled={saving} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={saving || (feedFeedingServerBacked && (planQuery.loading || !serverPlan)) || Boolean(duplicate)} onClick={() => void submit()}>{saving ? 'Đang ghi…' : 'Lưu & trừ kho'}</ModalButton>
       </ModalFooter>
@@ -226,13 +220,12 @@ export function FeedCorrectDialog({ data, record, initialAction, onClose, onSave
   onClose: () => void
   onSaved: (message: string) => void
 }) {
+  const commands = useFeedFeedingCommands()
   const [action, setAction] = useState(initialAction)
   const [values, setValues] = useState(() => record.lines.map((line) => String(line.actualKg)))
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const commandKeyRef = useRef<string | undefined>(undefined)
-  const nextCommandKey = () => commandKeyRef.current ?? (commandKeyRef.current = commandKey())
   const diffs = record.lines.map((line, index) => Math.round(((Number(values[index]) || 0) - line.actualKg) * 10) / 10)
   const changed = diffs.some((diff) => diff !== 0)
 
@@ -248,16 +241,16 @@ export function FeedCorrectDialog({ data, record, initialAction, onClose, onSave
     setError('')
     try {
       if (action === 'void') {
-        await voidFeedSession(record.id, reason, record.version, { key: nextCommandKey() })
-        commandKeyRef.current = undefined
+        await commands.voidRecord({ id: record.id, reason, expectedVersion: record.version })
+        commands.resetCommandKey()
         onSaved(`Đã hủy bản ghi ${record.penCode} (${SESSION_NAMES[record.sessionNo] ?? record.sessionNo}). Đã hoàn ${formatNumber(record.actualTotalKg)} kg vào kho.`)
       } else {
-        await correctFeedSession(record.id, {
+        await commands.correct({ id: record.id, input: {
           expectedVersion: record.version,
           reason,
           lines: record.lines.map((line, index): FeedFeedingLineInput => ({ feedItemId: line.feedItemId, plannedKg: line.plannedKg, actualKg: Number(values[index]) || 0, inRation: line.inRation === true })),
-        }, { key: nextCommandKey() })
-        commandKeyRef.current = undefined
+        } })
+        commands.resetCommandKey()
         onSaved(`Đã sửa bản ghi ${record.penCode} (${SESSION_NAMES[record.sessionNo] ?? record.sessionNo}). Tồn kho điều chỉnh theo chênh lệch.`)
       }
     } catch (saveError) {
@@ -289,8 +282,8 @@ export function FeedCorrectDialog({ data, record, initialAction, onClose, onSave
       {error && <div role="alert" className="rounded-md bg-err-bg px-3 py-2.5 text-xs text-err-fg">{error}</div>}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px]">
         <span className="text-xs font-medium">Thao tác *</span>
-        <Radio name="feeding-action" checked={action === 'correct'} onChange={() => { commandKeyRef.current = undefined; setAction('correct') }}>Sửa số lượng</Radio>
-        <Radio name="feeding-action" checked={action === 'void'} onChange={() => { commandKeyRef.current = undefined; setAction('void') }}>Hủy bản ghi</Radio>
+        <Radio name="feeding-action" checked={action === 'correct'} onChange={() => { commands.resetCommandKey(); setAction('correct') }}>Sửa số lượng</Radio>
+        <Radio name="feeding-action" checked={action === 'void'} onChange={() => { commands.resetCommandKey(); setAction('void') }}>Hủy bản ghi</Radio>
       </div>
       {action === 'correct' && (
         <Table scroll stack={false}>
@@ -302,7 +295,7 @@ export function FeedCorrectDialog({ data, record, initialAction, onClose, onSave
                 <Td className="whitespace-nowrap">{formatKg(line.actualKg)}</Td>
                 <Td>
                   <div className="relative w-[140px]">
-                    <input aria-label={`Giá trị mới ${line.feedCode}`} type="number" min="0" step="0.1" disabled={saving} value={values[index]} onChange={(event) => { commandKeyRef.current = undefined; setValues((current) => current.map((value, i) => i === index ? event.target.value : value)); setError('') }} className={`${inputCls} pr-9`} />
+                    <input aria-label={`Giá trị mới ${line.feedCode}`} type="number" min="0" step="0.1" disabled={saving} value={values[index]} onChange={(event) => { commands.resetCommandKey(); setValues((current) => current.map((value, i) => i === index ? event.target.value : value)); setError('') }} className={`${inputCls} pr-9`} />
                     <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">kg</span>
                   </div>
                 </Td>
@@ -312,7 +305,7 @@ export function FeedCorrectDialog({ data, record, initialAction, onClose, onSave
           </tbody>
         </Table>
       )}
-      <Field label="Lý do *" id="feeding-correct-reason"><Textarea id="feeding-correct-reason" maxLength={500} value={reason} onChange={(event) => { commandKeyRef.current = undefined; setReason(event.target.value); setError('') }} /></Field>
+      <Field label="Lý do *" id="feeding-correct-reason"><Textarea id="feeding-correct-reason" maxLength={500} value={reason} onChange={(event) => { commands.resetCommandKey(); setReason(event.target.value); setError('') }} /></Field>
       <Note tone="info">{effectNote}</Note>
       <ModalFooter className="!px-0 !pb-0">
         <ModalButton disabled={saving} onClick={onClose}>Đóng</ModalButton>

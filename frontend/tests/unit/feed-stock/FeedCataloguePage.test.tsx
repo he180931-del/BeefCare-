@@ -38,7 +38,7 @@ describe('SCR-84 feed catalogue', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
 
     expect(await screen.findByText('Cám ngô đã được lưu.')).toBeInTheDocument()
-    expect(saveFeed).toHaveBeenCalledWith(expect.objectContaining({ id: 106, expectedVersion: 2 }))
+    expect(saveFeed).toHaveBeenCalledWith(expect.objectContaining({ id: 106, expectedVersion: 2 }), expect.objectContaining({ key: expect.any(String) }))
     expect((await listFeedCatalogue()).find((item) => item.code === 'TA-06')?.minimumStockKg).toBe(300)
   })
 

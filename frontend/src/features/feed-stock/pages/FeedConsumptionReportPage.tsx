@@ -4,11 +4,11 @@ import { Button, Card, DateInput, Foot, Icon, Metric, Note, PageHeader, Segmente
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { defaultFeedConsumptionPeriod, feedConsumptionMayLackSources, loadFeedConsumptionReport } from '../api/feedConsumptionApi'
-import { buildFeedConsumptionReport, filterFeedConsumptionReport, summarizeFeedConsumptionReport } from '../domain/feedConsumptionReport'
+import { buildFeedConsumptionReport, filterFeedConsumptionReport, mapBackendConsumptionRows, summarizeFeedConsumptionReport } from '../domain/feedConsumptionReport'
 import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatKg, formatNumber, formatShortDate, formatVnd } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
-import type { FeedConsumptionGroupBy, FeedConsumptionProjectionRow } from '../types/feedConsumption'
+import type { FeedConsumptionGroupBy, FeedConsumptionProjectionRow, FeedConsumptionServerRow } from '../types/feedConsumption'
 
 const GROUP_BY: Array<{ value: FeedConsumptionGroupBy; label: string; title: string; column: string }> = [
   { value: 'HERD_GROUP', label: 'Theo nhóm đàn', title: 'Theo nhóm đàn', column: 'Nhóm đàn' },
@@ -47,32 +47,53 @@ export default function FeedConsumptionReportPage() {
     return { from, to, data: await loadFeedConsumptionReport({ from, to, groupBy }) }
   }, [from, groupBy, to])
   const loaded = query.data?.from === from && query.data?.to === to ? query.data.data : null
-  const report = useMemo(() => loaded ? buildFeedConsumptionReport({ ...loaded, from, to, backendReport: loaded.backendReport }) : null, [from, loaded, to])
+  const backendReport = loaded?.backendReport?.groupBy === groupBy ? loaded.backendReport : null
+  // Backend mode is already grouped and priced by the report endpoint. Do not
+  // rebuild it from rawRows: that would discard the server contract (tiles,
+  // grouped rows, total and costByFeed) and can apply different denominators.
+  const report = useMemo(() => loaded && !backendReport ? buildFeedConsumptionReport({ ...loaded, from, to, backendReport: null }) : null, [backendReport, from, loaded, to])
   const projection = useMemo(() => report ? filterFeedConsumptionReport(report, { from, to, groupBy }, loaded?.catalogue ?? []) : null, [from, groupBy, loaded?.catalogue, report, to])
-  const costByFeed = useMemo(() => report ? filterFeedConsumptionReport(report, { from, to, groupBy: 'FEED' }, loaded?.catalogue ?? []) : null, [from, loaded?.catalogue, report, to])
-  const summary = projection ? summarizeFeedConsumptionReport(projection) : null
+  const serverRows = useMemo<FeedConsumptionServerRow[]>(() => backendReport ? mapBackendConsumptionRows(backendReport) : [], [backendReport])
+  const summary = useMemo(() => {
+    if (backendReport) return {
+      actualKg: backendReport.tiles.kg,
+      plannedKg: 0,
+      cost: backendReport.tiles.cost,
+      days: backendReport.tiles.days,
+      headDays: backendReport.tiles.headDays,
+      averageKgPerHeadDay: backendReport.tiles.averageKgPerHeadDay,
+      averageCostPerHeadDay: backendReport.tiles.averageCostPerHeadDay,
+      receivedKg: backendReport.tiles.receivedKg,
+      receiptCount: backendReport.tiles.receiptCount,
+      receivedAmount: backendReport.tiles.receivedAmount,
+      receivedAmountIsGoodsOnly: false,
+    }
+    return projection ? summarizeFeedConsumptionReport(projection) : null
+  }, [backendReport, projection])
   const error = query.error ? userFacingError(query.error, 'Không thể tải báo cáo tiêu thụ thức ăn.') : null
   const days = calendarDays(from, to)
   const loading = query.loading && !loaded
   const option = GROUP_BY.find((item) => item.value === groupBy) ?? GROUP_BY[0]
 
   const rows = useMemo(() => {
-    const list = [...(projection?.rows ?? [])]
+    const list = backendReport ? [...serverRows] : [...(projection?.rows ?? [])]
     if (groupBy === 'HERD_GROUP') list.sort((a, b) => (HERD_ORDER.indexOf(a.herdGroup ?? '') + 1 || 99) - (HERD_ORDER.indexOf(b.herdGroup ?? '') + 1 || 99))
     else if (groupBy === 'FEED') list.sort((a, b) => (b.totalCost ?? 0) - (a.totalCost ?? 0))
     return list
-  }, [groupBy, projection])
-  const feedBars = useMemo(() => [...(costByFeed?.rows ?? [])].sort((a, b) => (b.totalCost ?? 0) - (a.totalCost ?? 0)), [costByFeed])
+  }, [backendReport, groupBy, projection, serverRows])
+  const feedBars = useMemo(() => backendReport
+    ? backendReport.costByFeed.map((row) => ({ key: row.feedCode, label: row.feedName, totalCost: row.cost }))
+    : [...(projection ? filterFeedConsumptionReport(report!, { from, to, groupBy: 'FEED' }, loaded?.catalogue ?? []).rows : [])].map((row) => ({ key: row.key, label: row.label, totalCost: row.totalCost })).sort((a, b) => (b.totalCost ?? 0) - (a.totalCost ?? 0)), [backendReport, from, groupBy, loaded?.catalogue, projection, report, to])
   const maxCost = Math.max(1, ...feedBars.map((row) => row.totalCost ?? 0))
-  const rowLabel = (row: FeedConsumptionProjectionRow) => groupBy === 'HERD_GROUP' ? (row.herdGroup === 'Unknown' ? 'Chưa phân nhóm' : rationGroupLabel(row.label)) : row.label
+  const rowLabel = (row: FeedConsumptionServerRow | FeedConsumptionProjectionRow) => groupBy === 'HERD_GROUP' ? (row.herdGroup === 'Unknown' ? 'Chưa phân nhóm' : rationGroupLabel(row.label)) : row.label
   // Reason shown under a strongly negative variance: the first day a planned feed was recorded as 0 because it was out of stock.
-  const reasonFor = (row: FeedConsumptionProjectionRow) => {
+  const reasonFor = (row: FeedConsumptionServerRow | FeedConsumptionProjectionRow) => {
     if (row.varianceRatio === null || row.varianceRatio > -0.1) return null
-    const first = (projection?.feedings ?? [])
-      .filter((record) => (row.penId === null || record.penId === row.penId) && record.lines.some((line) => line.plannedKg > 0 && line.actualKg === 0))
+    const first = (loaded?.feedings ?? [])
+      .filter((record) => ('penId' in row ? row.penId === null || record.penId === row.penId : true) && record.lines.some((line) => line.plannedKg > 0 && line.actualKg === 0))
       .map((record) => ({ date: record.feedingDate, line: record.lines.find((line) => line.plannedKg > 0 && line.actualKg === 0), group: record.rationCode }))
       .sort((a, b) => a.date.localeCompare(b.date))
-    const match = groupBy === 'HERD_GROUP' ? first.filter((item) => report?.rations.find((ration) => ration.rationCode === item.group)?.herdGroup === row.herdGroup) : first
+    const match = groupBy === 'HERD_GROUP' ? first.filter((item) => loaded?.rations.find((ration) => ration.rationCode === item.group)?.herdGroup === row.herdGroup) : first
     const earliest = match[0]
     return earliest?.line ? `${earliest.line.feedName ?? earliest.line.feedCode} hết kho từ ${formatShortDate(earliest.date)}` : null
   }
@@ -111,17 +132,17 @@ export default function FeedConsumptionReportPage() {
 
           {loading && <div role="status" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">Đang tổng hợp báo cáo…</div>}
           {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg"><span>{error}</span><Button size="sm" disabled={query.loading || !validPeriod} onClick={() => query.refetch()}>Thử tải lại</Button></div>}
-          {!loading && !error && validPeriod && projection && projection.rows.length === 0 && <Note tone="info">Không có dữ liệu tiêu thụ trong khoảng thời gian này.</Note>}
+          {!loading && !error && validPeriod && rows.length === 0 && <Note tone="info">Không có dữ liệu tiêu thụ trong khoảng thời gian này.</Note>}
 
-          {!loading && !error && projection && projection.rows.length > 0 && (
+          {!loading && !error && rows.length > 0 && (
             <Card title={option.title} sub="So với khẩu phần = (thực tế − kế hoạch) ÷ kế hoạch của các cữ đã ghi">
               <Table scroll stack={false}>
                 <thead><tr><Th>{option.column}</Th><Th>Số con TB</Th><Th>Tiêu thụ (kg)</Th><Th>kg/con/ngày</Th><Th>Chi phí (đ)</Th><Th>đ/con/ngày</Th><Th>So với khẩu phần</Th></tr></thead>
                 <tbody>
                   {rows.map((row) => {
-                    const averageHead = days > 0 && row.headDays > 0 ? row.headDays / days : null
-                    const averageKg = row.headDays > 0 ? row.actualKg / row.headDays : null
-                    const averageCost = row.totalCost !== null && row.headDays > 0 ? row.totalCost / row.headDays : null
+                    const averageHead = 'averageHead' in row ? row.averageHead : days > 0 && row.headDays > 0 ? row.headDays / days : null
+                    const averageKg = 'averageKgPerHeadDay' in row ? row.averageKgPerHeadDay : row.headDays > 0 ? row.actualKg / row.headDays : null
+                    const averageCost = 'averageCostPerHeadDay' in row ? row.averageCostPerHeadDay : row.totalCost !== null && row.headDays > 0 ? row.totalCost / row.headDays : null
                     const reason = reasonFor(row)
                     const bad = row.varianceRatio !== null && row.varianceRatio <= -0.1
                     return (
@@ -143,7 +164,7 @@ export default function FeedConsumptionReportPage() {
                 <tfoot>
                   <tr>
                     <Td className="font-semibold">Tổng</Td>
-                    <Td className="whitespace-nowrap font-semibold">{days > 0 && projection.headDays > 0 ? formatNumber(projection.headDays / days, 0) : '—'}</Td>
+                    <Td className="whitespace-nowrap font-semibold">{summary && summary.days > 0 && summary.headDays > 0 ? formatNumber(summary.headDays / summary.days, 0) : '—'}</Td>
                     <Td className="whitespace-nowrap font-semibold">{formatNumber(summary?.actualKg ?? 0, 0)}</Td>
                     <Td className="whitespace-nowrap font-semibold">{summary?.averageKgPerHeadDay == null ? '—' : formatNumber(summary.averageKgPerHeadDay)}</Td>
                     <Td className="whitespace-nowrap font-semibold">{currency(summary?.cost ?? null)}</Td>
@@ -155,7 +176,7 @@ export default function FeedConsumptionReportPage() {
             </Card>
           )}
 
-          {!loading && !error && projection && projection.rows.length > 0 && (
+          {!loading && !error && rows.length > 0 && (
             <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,660px)_minmax(0,436px)]">
               <Card title="Chi phí theo thức ăn">
                 <div className="flex flex-col gap-3">
@@ -174,7 +195,7 @@ export default function FeedConsumptionReportPage() {
                     'Chi phí = lượng thực tế đã ghi trong nhật ký × giá nhập bình quân gia quyền của thức ăn tại thời điểm ghi.',
                     'Số con TB = trung bình số con có mặt mỗi ngày trong kỳ (theo phân chuồng).',
                     'So với khẩu phần = (thực tế − kế hoạch) ÷ kế hoạch của các cữ đã ghi.',
-                    projection.adjustmentLossValue ? `Hao hụt từ phiếu điều chỉnh kho (−${formatNumber(projection.adjustmentLossValue, 0)} đ) không tính vào chi phí theo nhóm đàn.` : 'Hao hụt từ phiếu điều chỉnh kho được theo dõi riêng, không tính vào chi phí theo nhóm đàn.',
+                    (backendReport?.adjustmentLosses.value ?? projection?.adjustmentLossValue ?? 0) ? `Hao hụt từ phiếu điều chỉnh kho (−${formatNumber(backendReport?.adjustmentLosses.value ?? projection?.adjustmentLossValue ?? 0, 0)} đ) không tính vào chi phí theo nhóm đàn.` : 'Hao hụt từ phiếu điều chỉnh kho được theo dõi riêng, không tính vào chi phí theo nhóm đàn.',
                   ].map((text) => <li key={text} className="flex gap-2"><span aria-hidden="true" className="text-muted">•</span><span>{text}</span></li>)}
                 </ul>
               </Card>

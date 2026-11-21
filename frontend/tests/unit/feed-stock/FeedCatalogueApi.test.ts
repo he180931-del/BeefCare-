@@ -98,7 +98,7 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
     expect(await api.listSuppliers()).toMatchObject([{ id: 8, name: 'NCC server', seller: false, buyer: false, active: true, version: 1 }])
     expect(transport.get).toHaveBeenNthCalledWith(1, '/api/farms/32/feed/catalogue')
     expect(transport.get).toHaveBeenNthCalledWith(2, '/api/farms/32/trading-partners?role=SUPPLIER')
-    expect(await api.listSuppliers({ q: 'server', status: 'ACTIVE' })).toEqual([{ id: 8, name: 'NCC server', seller: false, buyer: false, active: true, version: 1 }])
+    expect(await api.listSuppliers({ q: 'server', status: 'ACTIVE' })).toMatchObject([{ id: 8, name: 'NCC server', seller: false, buyer: false, active: true, version: 1, phone: '', area: '', note: '' }])
     expect(transport.get).toHaveBeenNthCalledWith(3, '/api/farms/32/trading-partners?role=SUPPLIER&q=server&status=ACTIVE')
     vi.mocked(transport.command)
       .mockResolvedValueOnce({ id: 10, code: 'TA-09', name: 'Cỏ voi demo', feedGroup: 'GREEN_ROUGHAGE', purchaseUnit: 'bó', kgPerPurchaseUnit: 12, stockUnit: 'kg', onHandKg: 0, averageUnitCost: 0, minimumStockKg: 45, available: true, version: 0 })
