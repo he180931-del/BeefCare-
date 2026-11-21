@@ -4,7 +4,7 @@ import { Button, Icon, inputCls, Note, PageHeader, Select } from '../../../share
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { penError } from '../api/penError'
 import { useSession } from '../../../app/session/sessionContext'
 import { penApi, type PenCattle } from '../api/penApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
@@ -123,7 +123,7 @@ export default function BarnList() {
         </Select>
       </div>
       {notice && <div className="text-sm font-medium text-brand" role="status" aria-live="polite">{notice}</div>}
-      {Boolean(loadError) && <Note tone="err">{userFacingError(loadError, 'Không tải được danh sách chuồng. Vui lòng thử lại.')}</Note>}
+      {Boolean(loadError) && <Note tone="err">{penError(loadError, 'Không tải được danh sách chuồng. Vui lòng thử lại.')}</Note>}
 
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[560px_minmax(0,1fr)]">
         <div className="min-w-0 rounded-md border border-[#bdbdbd] bg-white p-2 xl:w-[560px]">

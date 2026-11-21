@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button, Field, Foot, Select, Table, Td, Th } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { catalogueError } from '../api/catalogueError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { useCatalogueApi } from '../hooks/useCatalogueApi'
 import { CatalogueList, SelectableRow } from '../components/CatalogueList'
@@ -54,7 +54,7 @@ export default function VaccinesPage() {
       ed.clear()
       list.refetch()
     } catch (error) {
-      setDeleteError(userFacingError(error, 'Không xóa được vắc-xin. Vui lòng thử lại.'))
+      setDeleteError(catalogueError(error, 'Không xóa được vắc-xin. Vui lòng thử lại.'))
     } finally {
       setDeleting(false)
     }

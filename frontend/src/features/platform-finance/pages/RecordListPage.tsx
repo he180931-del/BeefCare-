@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, interactiveRowClass, LoadingBlock, Modal, ModalButton, ModalFooter, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { financeError } from '../api/financeError'
 import { useDemoState } from '../../../demo/demoModules'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { financeApi } from '../api/financeApi'
@@ -37,7 +37,7 @@ export default function RecordListPage() {
   if (demo === 'loi-tai' || error) {
     return (
       <Layout title={TITLE}>
-        <ErrorBlock message={demo === 'loi-tai' ? 'Không thể lấy danh sách lúc này. Không có thay đổi nào được xác nhận; thử lại để nhận trạng thái hiện tại.' : userFacingError(error, 'Chưa tải được dữ liệu.')} onRetry={() => { if (demo) navigate(FINANCE_BASE); else refetch() }} />
+        <ErrorBlock message={demo === 'loi-tai' ? 'Không thể lấy danh sách lúc này. Không có thay đổi nào được xác nhận; thử lại để nhận trạng thái hiện tại.' : financeError(error, 'Chưa tải được dữ liệu.')} onRetry={() => { if (demo) navigate(FINANCE_BASE); else refetch() }} />
       </Layout>
     )
   }

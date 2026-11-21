@@ -1,6 +1,6 @@
 import { userFacingError } from '../../../shared/api/userFacingError'
 
-export function herdEntryError(error: unknown, fallback: string): string {
+export function herdEntryError(error: unknown, fallback = 'Không thể hoàn tất thao tác. Vui lòng thử lại.'): string {
   const value = typeof error === 'object' && error !== null ? error as { code?: unknown; params?: Record<string, unknown> } : {}
   const p = value.params ?? {}
   switch (value.code) {

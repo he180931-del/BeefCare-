@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { Badge, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Segmented } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { reproductionError } from '../api/reproductionError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { reproductionApi } from '../api/reproductionApi'
 import { useSession } from '../../../app/session/sessionContext'
@@ -31,7 +31,7 @@ export default function TechnicianReproductionPage() {
         <div className="overflow-x-auto">
           <Segmented value={tab} onChange={(value) => setTab(value as WorklistTab)} options={TABS.map((item) => ({ value: item.value, label: `${item.label} (${counts[item.value]})` }))} />
         </div>
-        {loading && !data ? <LoadingBlock /> : error ? <ErrorBlock message={userFacingError(error, 'Không tải được danh sách sinh sản.')} onRetry={refetch} /> : shown.length === 0 ? <EmptyBlock title="Không có bò nào" sub="Đổi tab hoặc từ khóa tìm kiếm." /> : shown.map((row) => {
+        {loading && !data ? <LoadingBlock /> : error ? <ErrorBlock message={reproductionError(error, 'Không tải được danh sách sinh sản.')} onRetry={refetch} /> : shown.length === 0 ? <EmptyBlock title="Không có bò nào" sub="Đổi tab hoặc từ khóa tìm kiếm." /> : shown.map((row) => {
           const info = technicianRowInfo(row, reproductionApi.now())
           return (
             <button key={row.cattleCode} type="button" onClick={() => navigate(`/kt/dan-bo/${encodeURIComponent(row.cattleCode)}?tab=repro`)} className="flex w-full items-center gap-2 rounded-lg border border-edge bg-white p-3 text-left">

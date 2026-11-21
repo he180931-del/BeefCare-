@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Checkbox, ErrorBlock, Foot, LoadingBlock, Modal, Note } from '../../../shared/ui'
 import { listCattleTimeline } from '../api/cattleApi'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleError } from '../api/cattleError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
@@ -93,7 +93,7 @@ export default function TimelineTab({ cow }: { cow: CowSeed }) {
         </Checkbox>
       </div>
       {denied && <Note tone="warn">{denied}</Note>}
-      {cattleId != null && query.error ? <ErrorBlock message={userFacingError(query.error, 'Không tải được dòng thời gian.')} onRetry={query.refetch} /> :
+      {cattleId != null && query.error ? <ErrorBlock message={cattleError(query.error, 'Không tải được dòng thời gian.')} onRetry={query.refetch} /> :
       <Panel gap="gap-2.5" pad="p-4">
         {cattleId != null && query.loading && <LoadingBlock />}
         {groups.length === 0 && (cattleId == null || !query.loading) && <p className="m-0 text-xs text-muted">Chưa có sự kiện</p>}

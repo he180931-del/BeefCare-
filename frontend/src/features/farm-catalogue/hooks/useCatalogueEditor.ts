@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { catalogueError } from '../api/catalogueError'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { FieldErrors, type FieldErrorMap } from '../domain/catalogueRules'
 
@@ -56,7 +56,7 @@ export function useCatalogueEditor<I extends EditorItem, D extends { available: 
       cfg.refetch()
     } catch (error) {
       if (error instanceof FieldErrors) setErrors(error.fields)
-      else setFormError(userFacingError(error, 'Không lưu được. Vui lòng thử lại.'))
+      else setFormError(catalogueError(error, 'Không lưu được. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
     }

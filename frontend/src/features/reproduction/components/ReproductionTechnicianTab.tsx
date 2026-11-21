@@ -1,6 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Card, ErrorBlock, Foot, Info, LoadingBlock, Note } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { reproductionError } from '../api/reproductionError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { reproductionApi } from '../api/reproductionApi'
 import { resolveReproductionSource } from '../api/reproductionBackend'
@@ -22,7 +22,7 @@ export default function ReproductionTechnicianTab({ cattleCode }: { cattleCode: 
   const [params] = useSearchParams()
   const { data: profile, loading, error, refetch } = useQuery(() => reproductionApi.getProfile(cattleCode), [cattleCode])
   if (loading && !profile) return <LoadingBlock />
-  if (error || !profile) return <ErrorBlock message={userFacingError(error, 'Không tải được hồ sơ sinh sản.')} onRetry={refetch} />
+  if (error || !profile) return <ErrorBlock message={reproductionError(error, 'Không tải được hồ sơ sinh sản.')} onRetry={refetch} />
   const sourceId = params.get('r')
   if (sourceId != null) {
     const source = resolveReproductionSource(profile.events, sourceId, params.get('type'))

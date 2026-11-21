@@ -38,7 +38,7 @@ import { entryToday as localToday, validateEntryForPost } from '../validation/en
 import type { EntryCalf, EntryCow, EntryDocument, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { herdEntryError } from '../api/herdEntryError'
 import { useSession } from '../../../app/session/sessionContext'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
@@ -49,7 +49,7 @@ type EntryInput = Pick<EntryCow, 'code' | 'tag' | 'breed' | 'sex' | 'weight' | '
 type Calf = EntryCalf
 const barnLabel = (b: Pen & { showName?: boolean }) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` : b.code)
 const num = (v: unknown) => Number(v) || 0
-const displayError = userFacingError
+const displayError = herdEntryError
 
 export default function ImportNew() {
   const [params] = useSearchParams()

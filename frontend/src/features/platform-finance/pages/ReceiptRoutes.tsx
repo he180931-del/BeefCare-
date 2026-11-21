@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { financeError } from '../api/financeError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { financeApi } from '../api/financeApi'
 import { PAYMENT_ROUTE, REPORT_BASE, RoField } from '../components/common'
@@ -40,7 +40,7 @@ export default function ReceiptRoutes() {
   }, [data, page, picked])
 
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được biên nhận.')} onRetry={refetch} /></Layout>
+  if (error || !data) return <Layout title={TITLE}><ErrorBlock message={financeError(error, 'Không tải được biên nhận.')} onRetry={refetch} /></Layout>
 
   const current = selectedDetail && data.rows.some((row) => row.code === selectedDetail.code)
     ? selectedDetail

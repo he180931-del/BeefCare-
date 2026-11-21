@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Field, Icon, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
 import { demoRecorder, reissueQr } from '../api/cattleApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleError } from '../api/cattleError'
 import { REPLACEMENT_REASONS, type TagErrors } from '../domain/profileRules'
 import { validateTag } from '../validation/profileValidation'
 import { fieldCls } from './parts'
@@ -50,7 +50,7 @@ export default function QrReissueModal({ cow, onClose, onSaved }: { cow: CowSeed
       if (!savedCode) return onSaved('Đã lưu thẻ. Mở tab Thẻ QR để xem mã hiện hành.')
       setIssued(savedCode)
     } catch (e) {
-      setError(userFacingError(e, 'Không cấp được thẻ mới. Vui lòng thử lại.'))
+      setError(cattleError(e, 'Không cấp được thẻ mới. Vui lòng thử lại.'))
     }
   }
 

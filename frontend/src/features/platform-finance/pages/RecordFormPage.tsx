@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio, Select, Textarea } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { financeError } from '../api/financeError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { financeApi } from '../api/financeApi'
 import { FINANCE_BASE, FlashNote, StateBadge, useFlash } from '../components/common'
@@ -52,7 +52,7 @@ export default function RecordFormPage() {
   }, [record, bank.data, fields.sourceEvidenceId])
 
   if (loading && code && !data) return <Layout title="Khoản thu chi"><LoadingBlock /></Layout>
-  if (error) return <Layout title="Khoản thu chi"><ErrorBlock message={userFacingError(error, 'Không tải được khoản thu chi.')} onRetry={refetch} /></Layout>
+  if (error) return <Layout title="Khoản thu chi"><ErrorBlock message={financeError(error, 'Không tải được khoản thu chi.')} onRetry={refetch} /></Layout>
 
   const editable = !record || record.state === 'DRAFT'
   const set = (p: Partial<RecordFields>) => setFields((f) => ({ ...f, ...p }))
@@ -79,7 +79,7 @@ export default function RecordFormPage() {
       changeReload()
       return saved
     } catch (e) {
-      setFormError(userFacingError(e, 'Không lưu được dữ liệu. Vui lòng thử lại.'))
+      setFormError(financeError(e, 'Không lưu được dữ liệu. Vui lòng thử lại.'))
       return null
     } finally { setBusy(false) }
   }

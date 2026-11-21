@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { financeError } from '../api/financeError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { financeApi } from '../api/financeApi'
 import { categoryLabel, formatDate, formatDateTime, formatVnd, TYPE_LABEL } from '../domain/financeRules'
@@ -32,7 +32,7 @@ export function RecordDialogs({ code, onChanged }: { code: string | null; onChan
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true); setError(null)
-    try { await fn() } catch (e) { setError(userFacingError(e, 'Không lưu được dữ liệu. Vui lòng thử lại.')) } finally { setBusy(false) }
+    try { await fn() } catch (e) { setError(financeError(e, 'Không lưu được dữ liệu. Vui lòng thử lại.')) } finally { setBusy(false) }
   }
   const back = () => { setError(null); close(); navigate(FINANCE_BASE) }
   const goOpen = (name: string) => { setError(null); open(name) }

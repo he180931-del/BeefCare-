@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Card, EmptyBlock, ErrorBlock, LoadingBlock, SearchInput, Select } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { catalogueError } from '../api/catalogueError'
 import type { AvailabilityFilter } from '../types'
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 /** Thẻ danh sách: ô tìm, lọc trạng thái, rồi bảng hoặc trạng thái tải / lỗi / trống. */
 export function CatalogueList({ q, onQ, status, onStatus, rows, error, onRetry, errorText, emptyTitle, children }: Props) {
   let body: ReactNode = children
-  if (error) body = <ErrorBlock message={userFacingError(error, errorText)} onRetry={onRetry} />
+  if (error) body = <ErrorBlock message={catalogueError(error, errorText)} onRetry={onRetry} />
   else if (!rows) body = <LoadingBlock />
   else if (rows.length === 0) body = <EmptyBlock title={emptyTitle} sub="Thử đổi từ khóa hoặc bộ lọc trạng thái." />
   return (

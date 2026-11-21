@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { reproductionError } from '../api/reproductionError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
 import { reproductionApi } from '../api/reproductionApi'
@@ -49,7 +49,7 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
 
   const title = 'Sinh sản'
   if (loading && !rows) return <Layout title={title}><LoadingBlock /></Layout>
-  if (error) return <Layout title={title}><ErrorBlock message={userFacingError(error, 'Không tải được danh sách sinh sản.')} onRetry={refetch} /></Layout>
+  if (error) return <Layout title={title}><ErrorBlock message={reproductionError(error, 'Không tải được danh sách sinh sản.')} onRetry={refetch} /></Layout>
 
   return (
     <Layout title={title} user={effective === 'OWNER' ? 'owner' : 'manager'}>

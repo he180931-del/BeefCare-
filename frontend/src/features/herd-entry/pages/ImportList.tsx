@@ -8,7 +8,7 @@ import { herdEntryApi, listEntrySourceFilters, listPendingEntryCalves } from '..
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { dm, dmy, kg, money } from '../../../shared/lib/format'
 import type { HerdEntry } from '../types'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { herdEntryError } from '../api/herdEntryError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
@@ -62,7 +62,7 @@ export default function ImportList() {
   return (
     <Layout title="Phiếu nhập – Danh sách" user="manager">
       <div className="contents leading-[normal]">
-        {Boolean(error) && <Note tone="err">{userFacingError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
+        {Boolean(error) && <Note tone="err">{herdEntryError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
         <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được cấp mã bò và thẻ QR khi lưu.">
             <Button onClick={() => nav('/herd-entry/new?kind=calf', { state: { from: '/herd-entry' } })}>Bê chờ xác nhận ({pending?.length ?? 0})</Button>
             <Button variant="primary" onClick={() => nav('/herd-entry/new', { state: { from: '/herd-entry' } })}><Icon name="circle-plus" />Tạo phiếu nhập</Button>

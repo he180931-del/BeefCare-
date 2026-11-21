@@ -13,11 +13,11 @@ import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
 import type { CattleInput } from '../../cattle'
 import type { EntryDetail, EntryPayment, HerdEntry } from '../types'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { herdEntryError } from '../api/herdEntryError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
-const displayError = userFacingError
+const displayError = herdEntryError
 
 export default function ImportDetail() {
   const { id } = useParams()

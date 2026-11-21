@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { penError } from '../api/penError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { penApi, type MoveCattle, type PenMoveCheckResult } from '../api/penApi'
 import { CRITERION_LABELS, dmy, todayIso, type CriterionType } from '../domain/penRules'
@@ -50,7 +50,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
     setCheckError('')
     penApi.checkMove(cattle, from, to, date)
       .then((result) => { if (active) setCheck(result) })
-      .catch((e: unknown) => { if (active) { setCheck(null); setCheckError(userFacingError(e, 'Không kiểm tra được điều kiện nhận bò.')) } })
+      .catch((e: unknown) => { if (active) { setCheck(null); setCheckError(penError(e, 'Không kiểm tra được điều kiện nhận bò.')) } })
       .finally(() => { if (active) setChecking(false) })
     return () => { active = false }
   }, [to, date, cattle, from, checkRun])
@@ -86,7 +86,7 @@ export default function MoveDialog({ from, cattle, pens, onClose, onReload = onC
       const result = await penApi.move({ cattle, from, to, moveDate: date, reason: reason.trim(), warningReasons: warnings })
       onMoved(`Đã chuyển ${result.moved} con sang ${to.code}.`)
     } catch (e) {
-      setSaveError(userFacingError(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
+      setSaveError(penError(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
       if (e instanceof BackendError) {
         if (e.code === 'MSG-COM-05') setNeedsReload(true)
         if (e.code === 'MSG-FE04-05') {

@@ -4,7 +4,7 @@ import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
 import { BackendError } from '../../../shared/api/backendClient'
 import { cattleToday, demoCowPrefill, listPurposes, localCattleList, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleError } from '../api/cattleError'
 import { PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, type DatedChangeErrors, type IdentityErrors, type IdentityValues } from '../domain/profileRules'
 import { validateDatedChange, validateIdentity, validatePhoto } from '../validation/profileValidation'
 import { Panel, Seg, fieldCls } from './parts'
@@ -90,7 +90,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
         setConfirmRepro(`Sau thay đổi này ${cow.code} sẽ không còn được theo dõi sinh sản. Lịch sử sinh sản được giữ lại. Tiếp tục?`)
         return
       }
-      setFailure(userFacingError(e, 'Không lưu được thay đổi. Vui lòng thử lại.'))
+      setFailure(cattleError(e, 'Không lưu được thay đổi. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
     }
@@ -115,7 +115,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
         try {
           await saveCattlePhoto(cow.code, { ...context, backendVersion: version }, photo)
         } catch (error) {
-          if (identityChanged) throw new Error(`Đã lưu định danh. ${userFacingError(error, 'Không lưu được ảnh. Vui lòng thử lại.')}`)
+          if (identityChanged) throw new Error(`Đã lưu định danh. ${cattleError(error, 'Không lưu được ảnh. Vui lòng thử lại.')}`)
           throw error
         }
       }

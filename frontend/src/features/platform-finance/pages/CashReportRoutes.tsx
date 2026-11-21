@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Card, DateInput, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { financeError } from '../api/financeError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { useDemoState } from '../../../demo/demoModules'
 import { useQuery } from '../../../shared/hooks/useQuery'
@@ -50,7 +50,7 @@ export default function CashReportRoutes() {
 
   const noSnapshot = error instanceof BackendError && (error.status === 404 || error.status === 410)
   if (loading && !data && !noSnapshot) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if ((error && !noSnapshot) || (!data && !noSnapshot)) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
+  if ((error && !noSnapshot) || (!data && !noSnapshot)) return <Layout title={TITLE}><ErrorBlock message={financeError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
 
   const hasSnapshot = report.id > 0
   const expired = report.expired || demo === 'het-han'
@@ -66,7 +66,7 @@ export default function CashReportRoutes() {
       setShown(next)
       setFlash({ tone: 'ok', text: `Báo cáo ${next.code} được tạo lúc ${formatDateTime(next.generatedAt)}.` })
       open(next.lines.length === 0 ? 'rong' : 'lam-moi')
-    } catch (e) { setFormError(userFacingError(e, 'Không chạy được báo cáo.')) } finally { setBusy(false) }
+    } catch (e) { setFormError(financeError(e, 'Không chạy được báo cáo.')) } finally { setBusy(false) }
   }
   const doExport = async () => {
     if (!hasSnapshot) return

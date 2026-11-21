@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Radio, Table, Td, Th } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { penError } from '../api/penError'
 import { CRITERION_LABELS, CRITERION_TYPES, LIFE_STAGES, PURPOSE_LABELS, PURPOSE_TYPES, SEXES, SEX_LABELS, STAGE_LABELS, criteriaFromForm, criteriaOf, dmy, formFromCriteria, todayIso, type CriterionType, type PenFormValues } from '../domain/penRules'
 import { validatePenForm } from '../validation/penValidation'
 import { cx, TH } from './parts'
@@ -213,7 +213,7 @@ export default function EditModal({ barn, barns, onSave, onClose, saving = false
 
       <ModalFooter>
         <div className="mr-auto min-w-0 flex-1" role="status" aria-live="polite">
-          {Boolean(saveError) && <span className="text-sm text-err-fg">{userFacingError(saveError, 'Không thể lưu chuồng. Vui lòng kiểm tra lại thông tin.')}</span>}
+          {Boolean(saveError) && <span className="text-sm text-err-fg">{penError(saveError, 'Không thể lưu chuồng. Vui lòng kiểm tra lại thông tin.')}</span>}
         </div>
         <ModalButton className="text-ink" onClick={onClose} disabled={saving}>Hủy</ModalButton>
         <ModalButton variant="primary" onClick={save} disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu chuồng'}</ModalButton>

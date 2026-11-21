@@ -4,7 +4,7 @@ import { Badge, Button, Icon, Modal, ModalButton, ModalFooter, Note, Table, Td, 
 import { parseEntryExcelRows, type EntryExcelPreviewRow } from '../domain/entryExcel'
 import { kg } from '../../../shared/lib/format'
 import type { EntryCow } from '../types'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { herdEntryError } from '../api/herdEntryError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
@@ -87,7 +87,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
       try {
         onAdd(await onBackendCommit(selectedFile))
       } catch (nextError) {
-        setError(userFacingError(nextError, 'Không thể nhập file Excel. Vui lòng kiểm tra tệp rồi thử lại.'))
+        setError(herdEntryError(nextError, 'Không thể nhập file Excel. Vui lòng kiểm tra tệp rồi thử lại.'))
       } finally {
         setLoading(false)
         setLoadingLabel('')
@@ -114,7 +114,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
       anchor.remove()
       URL.revokeObjectURL(url)
     } catch (nextError) {
-      setError(userFacingError(nextError, 'Không thể tải file mẫu Excel. Vui lòng thử lại.'))
+      setError(herdEntryError(nextError, 'Không thể tải file mẫu Excel. Vui lòng thử lại.'))
     } finally {
       setLoading(false)
       setLoadingLabel('')
@@ -145,7 +145,7 @@ export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplat
       }
       setPreviewComplete(true)
     } catch (nextError) {
-      setError(userFacingError(nextError, 'Không thể đọc file Excel. Vui lòng kiểm tra tệp rồi thử lại.'))
+      setError(herdEntryError(nextError, 'Không thể đọc file Excel. Vui lòng kiểm tra tệp rồi thử lại.'))
     } finally {
       setLoading(false)
       setLoadingLabel('')

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge, DateInput, Field, KV, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { penError } from '../api/penError'
 import { todayIso } from '../domain/penRules'
 import { validateAvailability } from '../validation/penValidation'
 import type { Pen, PenStatus } from '../types'
@@ -58,7 +58,7 @@ export default function DisableModal({ barn, onConfirm, onClose, saving = false,
 
       <ModalFooter>
         <div className="mr-auto min-w-0 flex-1" role="status" aria-live="polite">
-          {Boolean(saveError) && <span className="text-sm text-err-fg">{userFacingError(saveError, 'Không đổi được trạng thái chuồng. Vui lòng thử lại.')}</span>}
+          {Boolean(saveError) && <span className="text-sm text-err-fg">{penError(saveError, 'Không đổi được trạng thái chuồng. Vui lòng thử lại.')}</span>}
         </div>
         <ModalButton className="text-ink" onClick={onClose} disabled={saving}>Hủy</ModalButton>
         <ModalButton variant="primary" disabled={!canConfirm} onClick={confirm}>

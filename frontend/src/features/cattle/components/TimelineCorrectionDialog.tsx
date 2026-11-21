@@ -2,7 +2,7 @@ import { useId, useRef, useState, type FormEvent } from 'react'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendTransport } from '../../../shared/api/backendTransport'
 import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleError } from '../api/cattleError'
 import { Button, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select } from '../../../shared/ui'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { catalogueApi } from '../../farm-catalogue'
@@ -120,7 +120,7 @@ export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
       await backendTransport.command(backendTransport.farmPath(activeFarmId, `${config.path}/${event.sourceId}/${action}`), payload, { key: lastCommand.current.key })
       onSaved()
     } catch (failure) {
-      setError(userFacingError(failure, 'Không cập nhật được bản ghi.'))
+      setError(cattleError(failure, 'Không cập nhật được bản ghi.'))
     } finally {
       setBusy(false)
     }

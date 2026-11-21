@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { catalogueError } from '../api/catalogueError'
 import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, Note, Select } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { useQuery } from '../../../shared/hooks/useQuery'
@@ -91,7 +91,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
         setErrors(e.fields)
         if (Object.keys(e.fields).join() === 'sourceNote') document.getElementById('param-source')?.focus()
       } else {
-        setFormError(userFacingError(e, 'Không lưu được phiên bản. Vui lòng thử lại.'))
+        setFormError(catalogueError(e, 'Không lưu được phiên bản. Vui lòng thử lại.'))
       }
     } finally {
       setSaving(false)
@@ -111,7 +111,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
     </HeaderActions>
   )
 
-  if (error) return <>{actions}<ErrorBlock message={userFacingError(error, 'Không tải được tham số trại.')} onRetry={refetch} /></>
+  if (error) return <>{actions}<ErrorBlock message={catalogueError(error, 'Không tải được tham số trại.')} onRetry={refetch} /></>
   if (!data || !draft) return <>{actions}<LoadingBlock /></>
 
   const scheduled = data.find((v) => v.status === 'SCHEDULED')

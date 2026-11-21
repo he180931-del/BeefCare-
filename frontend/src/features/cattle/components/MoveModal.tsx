@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Table } from '../../../shared/ui'
 import { cattleToday, checkPenMove, demoActors, demoCowPrefill, demoRecorder, moveBarn } from '../api/cattleApi'
 import { useMutation } from '../../../shared/hooks/useMutation'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleError as cattleErrorMessage } from '../api/cattleError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { Chip, Td, Th, fieldCls } from './parts'
 import type { CattleViewModel as CowSeed } from '../types'
@@ -51,7 +51,7 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
     setError('')
     checkPenMove(cow.code, { date, toPenId: destId }, { backendId: cow.backendId })
       .then((result) => { if (active) setCheck(result) })
-      .catch((e: unknown) => { if (active) { setCheck(null); setError(userFacingError(e, 'Không kiểm tra được điều kiện tiếp nhận.')) } })
+      .catch((e: unknown) => { if (active) { setCheck(null); setError(cattleErrorMessage(e, 'Không kiểm tra được điều kiện tiếp nhận.')) } })
       .finally(() => { if (active) setChecking(false) })
     return () => { active = false }
   }, [backend, destId, date, cow.code, cow.backendId, checkRun])
@@ -82,7 +82,7 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
       await move.mutate({ to, date, reason: reason.trim(), by })
       onSaved()
     } catch (e) {
-      setError(userFacingError(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
+      setError(cattleErrorMessage(e, 'Không chuyển được chuồng. Vui lòng thử lại.'))
       if (e instanceof BackendError) {
         if (e.code === 'MSG-COM-05') setNeedsReload(true)
         if (e.code === 'MSG-FE04-05') {
@@ -130,7 +130,7 @@ export default function MoveModal({ cow, barns, onClose, onReload = onClose, onS
       <p className="m-0 text-[14px] font-semibold leading-[normal] text-[#212121]">Kiểm tra tiếp nhận</p>
       {blockText && <Note tone="err">{blockText}</Note>}
       {error && <Note tone="err">{error}</Note>}
-      {cattleError && <Note tone="err">{userFacingError(cattleError, 'Bò này không chuyển được chuồng.')}</Note>}
+      {cattleError && <Note tone="err">{cattleError.message ?? cattleError.text ?? 'Bò này không chuyển được chuồng.'}</Note>}
       <Table stack={false}>
         <thead>
           <tr>
