@@ -5,6 +5,7 @@ import type { EntryCalf, EntryDetail, EntryDocument, EntryDraft, EntryPayment, E
 export const statusFromBackend = (status: unknown): EntryStatus => status === 'POSTED' ? 'Đã nhập' : status === 'VOIDED' ? 'Đã hủy' : 'Nháp'
 export const typeFromBackend = (type: unknown): EntryType => type === 'FARM_BORN' ? 'Bê sinh tại trại' : 'Mua ngoài'
 export const entryType = (type: unknown) => type === 'Bê sinh tại trại' ? 'FARM_BORN' : 'PURCHASE'
+export const pricingFromBackend = (value: unknown): 'kg' | 'con' => value === 'PER_HEAD' ? 'con' : 'kg'
 export const sex = (value: unknown) => value === 'Đực' || value === 'MALE' ? 'MALE' : 'FEMALE'
 export const declaration = (value: unknown) => value === 'Có' || value === 'KNOWN' ? 'KNOWN' : value === 'Không' || value === 'NONE' ? 'NONE' : 'UNKNOWN'
 export const birthAccuracy = (value: unknown) => value === 'Chính xác' || value === 'EXACT' ? 'EXACT' : value === 'Ước tính' || value === 'ESTIMATED' ? 'ESTIMATED' : 'UNKNOWN'
@@ -55,6 +56,7 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
   const row = asRecord(value)
   const seller = asRecord(row.seller)
   const lines = asRows(row.lines)
+  const pricing = pricingFromBackend(row.pricingBasis)
   const sellerName = textValue(row.sellerName ?? asRecord(row.seller).name)
   const total = nullableNumber(row.totalPayable ?? row.totalAmount)
   const outstanding = nullableNumber(row.outstanding ?? row.outstandingAmount)
@@ -82,7 +84,7 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
   }
   const farmBorn = row.entryType === 'FARM_BORN'
   const draft: EntryDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
-    type: typeFromBackend(row.entryType), date: textValue(row.entryDate), sourceId: row.sellerId == null && seller.id == null ? '' : String(row.sellerId ?? seller.id), pricing: 'kg',
+    type: typeFromBackend(row.entryType), date: textValue(row.entryDate), sourceId: row.sellerId == null && seller.id == null ? '' : String(row.sellerId ?? seller.id), pricing,
     quarantine: textValue(row.quarantineCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note), freight: numberValue(row.transportFee),
     paid: numberValue(row.amountPaid), method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', due: textValue(row.paymentDueDate),
     ...(farmBorn ? { calves: lines.map((line) => {
@@ -95,6 +97,8 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
       }
     }) } : { cows: lines.map((line) => {
       const data = asRecord(line.data)
+      const weight = numberValue(line.entryWeightKg ?? data.entryWeightKg)
+      const basis = line.weightBasis ?? data.weightBasis
       return {
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber), name: textValue(data.name),
         // The voucher line response owns catalogue ids at line level. Older
@@ -103,7 +107,7 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
         // submit a null breedId.
         breed: textValue(line.breedName ?? data.breedName, (line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate),
         dobAccuracy: textValue(data.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
-        weight: numberValue(line.entryWeightKg ?? data.entryWeightKg), estimated: (line.weightBasis ?? data.weightBasis) === 'ESTIMATED',
+        weight, weightBasis: weight > 0 && (basis === 'MEASURED' || basis === 'ESTIMATED') ? basis : null, estimated: basis === 'ESTIMATED', pricing,
         barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: (() => {
           const vaccination = asRecord(line.vaccination)
           const vaccineItem = asRecord(asRows(vaccination.items)[0])
@@ -130,7 +134,7 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
     id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.entryDate),
     type: typeFromBackend(row.entryType), source: sellerName, count: numberValue(row.cattleCount, lines.length),
     weight: numberValue(row.totalWeightKg), total, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
-    cancelReason: textValue(row.voidReason), pricing: 'kg', quarantine: textValue(row.quarantineCertNo),
+    cancelReason: textValue(row.voidReason), pricing, quarantine: textValue(row.quarantineCertNo),
   }
 }
 
