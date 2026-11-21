@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { catalogueApiForFarm } from '../api/catalogueApi'
-import { useCatalogueApi } from './useCatalogueApi'
+import { useCatalogueUseCase, type CatalogueUseCase } from './useCatalogueUseCase'
 import { useCanEdit } from './useCanEdit'
 import { useCatalogueEditor, type EditorItem } from './useCatalogueEditor'
 import type { AvailabilityFilter, CatalogueFilters } from '../types'
-
-type CatalogueApi = ReturnType<typeof catalogueApiForFarm>
 
 interface Config<I extends EditorItem, D extends { available: boolean }> {
   list: (filters: CatalogueFilters) => Promise<I[]>
@@ -22,9 +19,9 @@ interface Config<I extends EditorItem, D extends { available: boolean }> {
  * screens. Pages remain responsible for rendering fields and tables only.
  */
 export function useCatalogueItemPage<I extends EditorItem, D extends { available: boolean }>(
-  configure: (api: CatalogueApi) => Config<I, D>,
+  configure: (api: CatalogueUseCase) => Config<I, D>,
 ) {
-  const api = useCatalogueApi()
+  const api = useCatalogueUseCase()
   const canEdit = useCanEdit()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<AvailabilityFilter>('')

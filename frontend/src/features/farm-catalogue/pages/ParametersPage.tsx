@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { catalogueError } from '../api/catalogueError'
 import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, Icon, LoadingBlock, Note, Select } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { useCatalogueApi } from '../hooks/useCatalogueApi'
+import { useCatalogueParametersUseCase } from '../hooks/useCatalogueUseCase'
 import { HeaderActions } from '../components/CatalogueShell'
 import { TextInput, UnitInput, fieldError } from '../components/fields'
 import { useCanEdit } from '../hooks/useCanEdit'
@@ -28,11 +27,10 @@ const fromDraft = (d: ParameterDraft): ParameterValues => ({
 
 export default function ParametersPage({ historyOpen = false }: { historyOpen?: boolean }) {
   const session = useSession()
-  const catalogueApi = useCatalogueApi()
   const canEdit = useCanEdit()
   const navigate = useNavigate()
   const [modalName, , closeModal] = useModalParam()
-  const { data, error, loading, refetch } = useQuery(() => catalogueApi.listParameterVersions(), [])
+  const { data, error, loading, refetch, saveParameterVersion } = useCatalogueParametersUseCase()
   const [baseVersion, setBaseVersion] = useState<number | null>(null)
   const [edited, setEdited] = useState<Partial<ParameterDraft>>({})
   const [source, setSource] = useState('')
@@ -78,7 +76,7 @@ export default function ParametersPage({ historyOpen = false }: { historyOpen?: 
     }
     setSaving(true)
     try {
-      const saved = await catalogueApi.saveParameterVersion(command, session?.fullName)
+      const saved = await saveParameterVersion(command, session?.fullName)
       setNotice(versionSavedMessage(saved.versionNo, saved.effectiveFrom)) // MSG-FE18-05
       setBaseVersion(saved.versionNo)
       setEdited({})
