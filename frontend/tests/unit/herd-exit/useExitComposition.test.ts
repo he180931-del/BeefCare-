@@ -3,7 +3,7 @@ import { useExitComposition } from '../../../src/features/herd-exit/hooks/useExi
 
 describe('useExitComposition', () => {
   it('composes warning rows from backend checks', () => {
-    const result = useExitComposition({ checks: { version: 2, cattle: [{ cattleCode: 'BC-1', hasWarnings: true, messages: [{ code: 'WARN', text: 'Cân thiếu' }] }] }, checksError: null, checking: false, displayError: () => 'error' })
+    const result = useExitComposition({ checks: { voucherId: 1, code: 'PX-1', version: 2, exitDate: '2026-11-21', occupancy: [], cattle: [{ cattleId: 1, cattleCode: 'BC-1', penId: 2, penCode: 'A2', hasWarnings: true, messages: [{ code: 'WARN', text: 'Cân thiếu' }] }] }, checksError: null, checking: false, displayError: () => 'error' })
     expect(result.checksReady).toBe(true)
     expect(result.warningCount).toBe(1)
     expect(result.checkRows[1]).toEqual(['BC-1', 'Cân thiếu', true])

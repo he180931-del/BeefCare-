@@ -2,6 +2,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { SessionContext } from '../../../src/app/session/sessionContext'
 import type { HerdExit } from '../../../src/types'
 
 const apiState = vi.hoisted(() => ({
@@ -45,6 +46,21 @@ beforeEach(() => {
 })
 
 describe('pending death/missing exit checks', () => {
+  it('keeps a pending health-sourced voucher read-only for a Manager while Owner evidence remains available', async () => {
+    const manager = { role: 'MANAGER' as const, fullName: 'Quản lý', email: 'manager@example.test', farmId: 1, farmName: 'Trại kiểm thử', logout: async () => undefined }
+    render(<SessionContext.Provider value={manager}><MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter></SessionContext.Provider>)
+
+    await screen.findByText('Cảnh báo cần xem')
+    expect(screen.queryByLabelText('Chọn ngày')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Tiêu chảy cấp')).toHaveAttribute('readonly')
+
+    const otherDisposal = screen.getByLabelText('Giao thú y địa phương') as HTMLInputElement
+    expect(otherDisposal).not.toBeChecked()
+    fireEvent.click(otherDisposal)
+    expect(otherDisposal).not.toBeChecked()
+    expect(screen.getByText('Phiếu chờ xác nhận: chỉ Chủ trại được thêm hoặc xóa chứng từ; thành viên khác chỉ xem.')).toBeInTheDocument()
+  })
+
   it('keeps the health-case loss kind read-only', async () => {
     const user = userEvent.setup()
     render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)

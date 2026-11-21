@@ -142,11 +142,11 @@ export default function DeathView({ row }: { row: HerdExit }) {
           <Box title="1. Thông tin phiếu" gap="gap-[14px]">
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-3">
               <Field label="Mã phiếu"><input className={inputCls} value={row.id} readOnly /></Field>
-              <Field label="Ngày chết / mất *" hint="Mặc định = ngày đóng ca"><DateInput value={date} onChange={setDate} /></Field>
+              <Field label="Ngày chết / mất *" hint="Mặc định = ngày đóng ca"><DateInput value={date} readOnly={!canAct} onChange={canAct ? setDate : undefined} /></Field>
               <Field label="Loại mất *">
                 <div className="flex gap-[18px] pt-2">
                   {['Chết', 'Mất tích'].map((t) => (
-                    <Radio key={t} name="lossType" checked={lossType === t} className={lossKindReadOnly ? 'pointer-events-none opacity-60' : undefined} onChange={() => !lossKindReadOnly && pending && setLossType(t)}>{t}</Radio>
+                    <Radio key={t} name="lossType" checked={lossType === t} className={!canAct || lossKindReadOnly ? 'pointer-events-none opacity-60' : undefined} onChange={() => canAct && !lossKindReadOnly && setLossType(t)}>{t}</Radio>
                   ))}
                 </div>
                 {lossKindReadOnly && <Note>Loại chết / mất lấy từ kết quả ca sức khỏe và chỉ đọc.</Note>}
@@ -157,13 +157,13 @@ export default function DeathView({ row }: { row: HerdExit }) {
               <Field label="Người báo"><input className={inputCls} value={d.reporter} readOnly /></Field>
             </div>
             <Field label="Nguyên nhân / ghi chú *">
-              <Textarea className="!leading-[normal] h-14" rows={1} value={reason} readOnly={!pending} onChange={(e) => setReason(e.target.value)} />
+              <Textarea className="!leading-[normal] h-14" rows={1} value={reason} readOnly={!canAct} onChange={canAct ? (e) => setReason(e.target.value) : undefined} />
             </Field>
             {lossType === 'Chết' && (
               <Field label="Xử lý xác *">
                 <div className="flex flex-wrap gap-[18px] pt-1">
                   {DISPOSALS.map((t) => (
-                    <Radio key={t} name="disposal" checked={disposal === t} onChange={() => pending && setDisposal(t)}>{t}</Radio>
+                    <Radio key={t} name="disposal" checked={disposal === t} className={!canAct ? 'pointer-events-none opacity-60' : undefined} onChange={() => canAct && setDisposal(t)}>{t}</Radio>
                   ))}
                 </div>
               </Field>
