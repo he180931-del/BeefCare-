@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
@@ -7,13 +7,13 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PAY_METHODS } from '../constants/exitOptions'
 import { businessDate as todayIso } from '../../../shared/lib/date/farmTime'
 import { dm, money } from '../../../shared/lib/format'
-import { confirmHerdExit, downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, saveHerdExit, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
-import { useMutation } from '../../../shared/hooks/useMutation'
+import { downloadExitAttachment, getExitDraftState, herdExitApi, removeExitAttachment, listExitBuyers, listSelectableExitCattle, exitPenShift, newExitVoucherId } from '../api/index'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
 import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
 import { useExitEditor } from '../hooks/useExitEditor'
+import { useExitWorkflow } from '../hooks/useExitWorkflow'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
@@ -70,9 +70,6 @@ export default function ExportNew() {
 }
 
 function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: HerdExit[]; draftId: string | null; selectableCattle: HerdCow[]; buyers: Array<{ id: string; name: string; phone: string }> }) {
-  const { mutate: persistExit, error: saveError, loading: saving } = useMutation(saveHerdExit)
-  const savingRef = useRef(false)
-  const formRevision = useRef(0)
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
 
@@ -80,10 +77,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const draftState = draftId ? getExitDraftState(exports, draftId) : { type: 'Bán' as const, row: undefined }
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const d = draftState
-  const [savedId, setSavedId] = useState(draftId ?? '')
   const nextId = newExitVoucherId(exports)
   const id = draftRow?.id ?? nextId ?? (draftId ? '' : 'Tự động khi lưu')
-  const saveId = savedId || draftRow?.id || draftId || nextId
 
   const candidateByCode = new Map(selectableCattle.map((cow) => [cow.code, cow]))
   const candidateById = new Map(selectableCattle.filter((cow) => typeof cow.backendId === 'number').map((cow) => [cow.backendId as number, cow]))
@@ -95,14 +90,9 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     deduction: d?.deduction ?? 0, collected: d?.collected ?? 0, method: d?.method ?? PAY_METHODS[0], dueDate: d?.dueDate ?? todayIso(),
   })
   const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
-  const [confirmed, setConfirmed] = useState(false)
   const [menu, setMenu] = useState<string | null>(null)
   const [documentError, setDocumentError] = useState('')
-  const [checks, setChecks] = useState<ExitChecks | null>(null)
-  const [checksError, setChecksError] = useState<unknown>(null)
-  const [checking, setChecking] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [confirmError, setConfirmError] = useState<unknown>(null)
 
   const needsBuyer = type === 'Bán' || type === 'Loại thải'
   const isLoss = type === 'Chết / mất'
@@ -168,24 +158,6 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     window.open(url, '_blank', 'noopener,noreferrer')
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
-  useEffect(() => {
-    formRevision.current += 1
-    setChecks(null)
-    setChecksError(null)
-    setConfirmed(false)
-    setConfirmError(null)
-  }, [date, type, lossKind, pricing, buyerId, quarantine, plate, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate, documents, removedAttachmentIds])
-
-  const checkMessages = (check: ExitChecks['cattle'][number]) => check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ')
-  const warningChecks = checks?.cattle.filter((check) => check.hasWarnings) ?? []
-  const checkRows: Array<[string, ReactNode, boolean?]> = checks
-    ? [
-      ['Tổng quan', warningChecks.length ? `${warningChecks.length} con có cảnh báo` : 'Không có cảnh báo', warningChecks.length > 0],
-      ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? checkMessages(check) || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, ReactNode, boolean?]),
-    ]
-    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : checking ? 'Đang tải kết quả kiểm tra…' : 'Chưa kiểm tra. Lưu phiếu để xem kết quả.', true]]
-  const checksReady = Boolean(checks)
-
   const buildDraftRecord = (): Partial<HerdExit> => ({
     date,
     type,
@@ -222,67 +194,33 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     return false
   }
 
-  const saveDraftAndLoadChecks = async () => {
-    if (savingRef.current || missingRequiredField()) return
-    const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
-    if (missingWeight) {
-      setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
-      return
-    }
-    const revision = formRevision.current
-    const snapshot = formSnapshot()
-    const isCurrentForm = () => revision === formRevision.current && snapshot === formSnapshot()
-    savingRef.current = true
-    setChecking(true)
-    setChecks(null)
-    setChecksError(null)
-    setConfirmed(false)
-    setConfirmError(null)
-    try {
-      const saved = await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
-      const nextId = saved.id || savedId || draftRow?.id || id
-      setSavedId(nextId)
-      if (!isCurrentForm()) return
-      const nextChecks = await herdExitApi.checks(nextId)
-      if (!isCurrentForm()) return
-      setChecks(nextChecks)
-    } catch (error) {
-      // useMutation exposes the rejection through saveError; keep the form and
-      // selected files mounted so the user can retry without losing the draft.
-      if (revision === formRevision.current) setChecksError(error)
-    } finally {
-      setChecking(false)
-      savingRef.current = false
-    }
-  }
-
-  const saveDraft = async () => {
-    if (savingRef.current || missingRequiredField()) return
-    savingRef.current = true
-    try {
-      await persistExit({ id: saveId, record: buildDraftRecord(), cattleRows: picked.map((cow) => ({ ...cow, barn: cow.barn })), documents })
-      nav('/herd-exit')
-    } catch {
-      // Keep the draft and selected files visible for a retry.
-    } finally {
-      savingRef.current = false
-    }
-  }
-
-  const confirm = async () => {
-    if (savingRef.current || !checks || !confirmed) return
-    savingRef.current = true
-    try {
-      await confirmHerdExit(savedId || draftRow?.id || id, checks.version)
-      nav('/herd-exit')
-    } catch (error) {
-      // useMutation errors remain visible; a direct confirm failure also keeps
-      // this form mounted so the user can safely retry.
-      setConfirmError(error)
-    } finally {
-      savingRef.current = false
-    }
-  }
+  const workflow = useExitWorkflow({
+    baseId: draftRow?.id || draftId || nextId,
+    initialSavedId: draftId ?? '',
+    picked,
+    documents,
+    formSnapshot,
+    buildDraftRecord,
+    beforeSave: () => {
+      if (missingRequiredField()) return true
+      const missingWeight = hasPricing && pricing === 'kg' && picked.find((cow) => cow.weight === 0)
+      if (missingWeight) {
+        setFormError(`Vui lòng nhập cân xuất cho bò ${missingWeight.code} khi tính giá theo kg.`)
+        return true
+      }
+      return false
+    },
+  })
+  const { savedId, saving, saveError, checks, checksError, checking, confirmed, setConfirmed, confirmError, saveDraftAndLoadChecks, saveDraft, confirm } = workflow
+  const checkMessages = (check: ExitChecks['cattle'][number]) => check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ')
+  const warningChecks = checks?.cattle.filter((check) => check.hasWarnings) ?? []
+  const checkRows: Array<[string, ReactNode, boolean?]> = checks
+    ? [
+      ['Tổng quan', warningChecks.length ? `${warningChecks.length} con có cảnh báo` : 'Không có cảnh báo', warningChecks.length > 0],
+      ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? checkMessages(check) || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, ReactNode, boolean?]),
+    ]
+    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : checking ? 'Đang tải kết quả kiểm tra…' : 'Chưa kiểm tra. Lưu phiếu để xem kết quả.', true]]
+  const checksReady = Boolean(checks)
 
   return (
     <Layout title={`Phiếu xuất mới – ${type}`}>
