@@ -23,6 +23,7 @@ import { formatKg, formatMoney, formatNumber } from '../domain/feedLabels'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentFormValues, FeedStockAdjustmentType } from '../types/feedStockAdjustment'
 import FeedManagementTabs from '../components/FeedManagementTabs'
+import { newFeedCommandKey } from '../api/command'
 
 const TITLE = 'Thức ăn › Kiểm kê'
 const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
@@ -33,7 +34,7 @@ const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
 }
 const REASON_SUGGESTIONS = ['Hao hụt (héo, rơi vãi)', 'Ẩm mốc – hủy bỏ', 'Đếm lại, sai lệch sổ sách', 'Thất thoát']
 const FOOT = 'Phiếu điều chỉnh kho khi kiểm kê hoặc hao hụt (Chủ trại, Quản lý). Nhập tồn thực tế; chênh lệch và giá trị tự tính theo giá nhập bình quân. Dòng có chênh lệch được tô nền và bắt buộc có lý do.'
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-adjustment:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const commandKey = () => newFeedCommandKey('feed-adjustment')
 
 const signed = (value: number, digits = 3) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)}`
 

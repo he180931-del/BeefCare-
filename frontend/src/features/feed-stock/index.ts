@@ -5,6 +5,8 @@ export { createFeedRationApi, getFeedRation, listFeedRationFeeds, listFeedRation
 export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recordFeedSession, voidFeedSession } from './api/feedFeedingApi'
 export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'
 export { createFeedConsumptionApi, loadFeedConsumptionReport } from './api/feedConsumptionApi'
+export { newFeedCommandKey } from './api/command'
+export type { FeedCommandOptions } from './api/command'
 export { filterFeedStock, type FeedStockFilters } from './domain/feedStockList'
 export { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from './domain/feedReceiptList'
 export type { FeedStockRow } from './types'

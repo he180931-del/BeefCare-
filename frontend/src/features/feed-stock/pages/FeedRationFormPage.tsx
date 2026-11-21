@@ -13,6 +13,7 @@ import { formatDate, formatNumber, formatVnd } from '../domain/feedLabels'
 import type { FeedRation, FeedRationFormValues, FeedRationPenOption } from '../types/feedRation'
 import type { FeedStockRow } from '../types'
 import FeedManagementTabs from '../components/FeedManagementTabs'
+import { newFeedCommandKey } from '../api/command'
 
 const TITLE = 'Thức ăn › Khẩu phần'
 const FOOT = 'Sửa khẩu phần (Chủ trại, Quản lý). Khẩu phần đang dùng không bị ghi đè: mỗi lần lưu tạo phiên bản mới với ngày hiệu lực từ ngày mai trở đi. Bảng tồn kho cho biết đủ dùng bao nhiêu ngày với lượng mới để nhắc nhập kho kịp thời.'
@@ -73,7 +74,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
   const sameCode = record ? rows.filter((row) => row.rationCode === record.rationCode) : []
   const baseVersion = sameCode.length ? Math.max(...sameCode.map((row) => row.versionNo)) : undefined
   const nextVersion = (baseVersion ?? 0) + 1
-  const nextKey = () => commandKeyRef.current ?? (commandKeyRef.current = globalThis.crypto?.randomUUID?.() ?? `feed-ration:${Date.now()}:${Math.random().toString(36).slice(2)}`)
+  const nextKey = () => commandKeyRef.current ?? (commandKeyRef.current = newFeedCommandKey('feed-ration'))
   const inUse = sameCode.find((row) => row.status === 'EFFECTIVE') ?? (record?.status === 'EFFECTIVE' ? record : null)
   const previous = inUse
   const previousDailyCost = previous && previous.components.every((component) => component.estimatedDailyCost !== null)

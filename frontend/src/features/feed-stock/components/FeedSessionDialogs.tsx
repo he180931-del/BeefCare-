@@ -8,6 +8,7 @@ import { correctFeedSession, feedFeedingServerBacked, feedingPeopleSuggestions, 
 import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
+import { newFeedCommandKey } from '../api/command'
 import type { FeedStockRow } from '../types'
 import type { FeedFeedingDraftInput, FeedFeedingLineInput, FeedFeedingRecord } from '../types/feedFeeding'
 import type { FeedRation, FeedRationPenOption } from '../types/feedRation'
@@ -16,7 +17,7 @@ export type FeedingData = { records: FeedFeedingRecord[]; rations: FeedRation[];
 type FormLine = { feedItemId: string; plannedKg: string; actualKg: string; inRation: boolean }
 
 const sessionLabel = (sessionNo: number) => `Cữ ${SESSION_NAMES[sessionNo] ?? sessionNo}`
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-session:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const commandKey = () => newFeedCommandKey('feed-session')
 
 function buildLines(pen: FeedRationPenOption | undefined, ration: FeedRation | null, sessionNo: number, prefill = false): FormLine[] {
   return planForSession(ration, pen, sessionNo).map((line) => ({ feedItemId: String(line.feedItemId), plannedKg: String(line.plannedKg), actualKg: prefill ? String(line.plannedKg) : '0', inRation: true }))
@@ -396,4 +397,3 @@ export function FeedQuickFillDialog({ data, date, missing, onClose, onSaved }: {
     </Modal>
   )
 }
-

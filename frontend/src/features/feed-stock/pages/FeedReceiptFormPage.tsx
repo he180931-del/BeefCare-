@@ -21,10 +21,11 @@ import type { FeedReceiptDemoRecord } from '../types/feedReceiptDemo'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FeedReceiptAudit } from '../components/FeedReceiptAudit'
 import { FeedReceiptDiscardDialog, FeedReceiptPaymentDialog, FeedReceiptPaymentVoidDialog, FeedReceiptVoidDialog, FeedSupplierQuickDialog } from '../components/FeedReceiptDialogs'
+import { newFeedCommandKey } from '../api/command'
 
 const FOOT = 'Tạo phiếu nhập kho thức ăn (Chủ trại, Quản lý). “Lưu nháp” chưa cộng kho; “Lưu & cộng kho” cộng tồn từng thức ăn và cập nhật giá nhập bình quân. Số lô và hạn dùng dùng để cảnh báo lô sắp hết hạn; phần còn nợ được theo dõi như công nợ nhà cung cấp.'
 const TITLE = 'Thức ăn › Phiếu nhập kho'
-const newReceiptCommandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-receipt:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const newReceiptCommandKey = () => newFeedCommandKey('feed-receipt')
 
 const withPaymentResult = (receipt: FeedReceipt, result: FeedReceiptPaymentResult): FeedReceipt => ({
   ...receipt,
