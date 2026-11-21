@@ -4,11 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Card, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
 import { reproductionError } from '../api/reproductionError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { reproductionApi } from '../api/reproductionApi'
 import { NO_WEIGHING, dueLabel, eligibilityLabel, filterWorklist, formatDateTime, formatShort, tabCounts, type WorklistTab } from '../domain/reproductionRules'
 import type { ReproductionRole, ReproductiveStatus, WorklistFilters } from '../types'
+import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
 const TABS: Array<{ value: WorklistTab; label: string }> = [
   { value: 'AWAITING_BREEDING', label: 'Chờ phối' },
@@ -28,22 +27,23 @@ export default function ReproductionWorklistPage({ role }: { role?: Reproduction
   const session = useSession()
   const effective: ReproductionRole = role ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
   const [filters, setFilters] = useState<WorklistFilters>({ status: 'IN_ESTRUS', eligibility: 'ALL', penCode: 'ALL', breed: 'ALL', query: '' })
-  const { data: rows, loading, error, refetch } = useQuery(() => reproductionApi.listWorklist(), [])
+  const { rows: data, worklistLoading: loading, worklistError: error, refetchWorklist: refetch, now } = useReproductionUseCases({ scope: 'worklist' })
+  const rows = data ?? []
   const all = useMemo(() => rows ?? [], [rows])
-  const tracked = useMemo(() => filterWorklist(all, {}, reproductionApi.now()), [all])
-  const counts = useMemo(() => tabCounts(all, reproductionApi.now()), [all])
-  const filtered = useMemo(() => filterWorklist(all, filters, reproductionApi.now()), [all, filters])
+  const tracked = useMemo(() => filterWorklist(all, {}, now()), [all, now])
+  const counts = useMemo(() => tabCounts(all, now()), [all, now])
+  const filtered = useMemo(() => filterWorklist(all, filters, now()), [all, filters, now])
   const setFilter = (patch: Partial<WorklistFilters>) => setFilters((current) => ({ ...current, ...patch }))
   const open = (code: string) => navigate(`/cattle/${encodeURIComponent(code)}?tab=repro`)
 
-  const now = parseBusinessTime(reproductionApi.now())
+  const nowValue = parseBusinessTime(now())
   const notMet = (status: string | null) => ['AWAITING_BREEDING', 'IN_ESTRUS', 'POST_CALVING'].includes(status ?? '')
   const tiles = [
     { label: 'Đang động dục', value: counts.IN_ESTRUS },
-    { label: 'Trong cửa sổ phối', value: tracked.filter((r) => r.breedingWindow && parseBusinessTime(r.breedingWindow.from) <= now && parseBusinessTime(r.breedingWindow.to) >= now).length, note: 'phối ngay hôm nay', warn: true },
-    { label: 'Đến hạn khám thai', value: tracked.filter((r) => r.status === 'BRED' && r.dueAt && parseBusinessTime(r.dueAt) <= now).length },
+    { label: 'Trong cửa sổ phối', value: tracked.filter((r) => r.breedingWindow && parseBusinessTime(r.breedingWindow.from) <= nowValue && parseBusinessTime(r.breedingWindow.to) >= nowValue).length, note: 'phối ngay hôm nay', warn: true },
+    { label: 'Đến hạn khám thai', value: tracked.filter((r) => r.status === 'BRED' && r.dueAt && parseBusinessTime(r.dueAt) <= nowValue).length },
     { label: 'Sắp đẻ ≤ 30 ngày', value: counts.DUE_SOON },
-    { label: 'Sau đẻ – có thể phối', value: tracked.filter((r) => r.status === 'POST_CALVING' && r.dueAt && parseBusinessTime(r.dueAt) <= now + DAY).length },
+    { label: 'Sau đẻ – có thể phối', value: tracked.filter((r) => r.status === 'POST_CALVING' && r.dueAt && parseBusinessTime(r.dueAt) <= nowValue + DAY).length },
     { label: 'Chưa đủ điều kiện phối', value: tracked.filter((r) => notMet(r.status) && r.eligibility?.status === 'NOT_MET').length, warn: true },
   ]
 

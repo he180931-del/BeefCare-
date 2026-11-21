@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { Badge, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Segmented } from '../../../shared/ui'
 import { reproductionError } from '../api/reproductionError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { reproductionApi } from '../api/reproductionApi'
 import { useSession } from '../../../app/session/sessionContext'
 import { filterWorklist, tabCounts, technicianRowInfo, type WorklistTab } from '../domain/reproductionRules'
+import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
 const TABS: Array<{ value: WorklistTab; label: string }> = [
   { value: 'IN_ESTRUS', label: 'Động dục' },
@@ -19,10 +18,10 @@ export default function TechnicianReproductionPage() {
   const [tab, setTab] = useState<WorklistTab>('IN_ESTRUS')
   const [query, setQuery] = useState('')
   const session = useSession()
-  const { data, loading, error, refetch } = useQuery(() => reproductionApi.listWorklist(), [])
+  const { rows: data, worklistLoading: loading, worklistError: error, refetchWorklist: refetch, now } = useReproductionUseCases({ scope: 'worklist' })
   const rows = useMemo(() => data ?? [], [data])
-  const counts = useMemo(() => tabCounts(rows, reproductionApi.now()), [rows])
-  const shown = useMemo(() => filterWorklist(rows, { status: tab, query }, reproductionApi.now()), [rows, tab, query])
+  const counts = useMemo(() => tabCounts(rows, now()), [rows, now])
+  const shown = useMemo(() => filterWorklist(rows, { status: tab, query }, now()), [rows, tab, query, now])
 
   return (
     <TechnicianLayout title="Sinh sản" sub={session?.farmName ?? undefined}>
@@ -32,7 +31,7 @@ export default function TechnicianReproductionPage() {
           <Segmented value={tab} onChange={(value) => setTab(value as WorklistTab)} options={TABS.map((item) => ({ value: item.value, label: `${item.label} (${counts[item.value]})` }))} />
         </div>
         {loading && !data ? <LoadingBlock /> : error ? <ErrorBlock message={reproductionError(error, 'Không tải được danh sách sinh sản.')} onRetry={refetch} /> : shown.length === 0 ? <EmptyBlock title="Không có bò nào" sub="Đổi tab hoặc từ khóa tìm kiếm." /> : shown.map((row) => {
-          const info = technicianRowInfo(row, reproductionApi.now())
+          const info = technicianRowInfo(row, now())
           return (
             <button key={row.cattleCode} type="button" onClick={() => navigate(`/kt/dan-bo/${encodeURIComponent(row.cattleCode)}?tab=repro`)} className="flex w-full items-center gap-2 rounded-lg border border-edge bg-white p-3 text-left">
               <span className="flex min-w-0 flex-1 flex-col gap-1">
