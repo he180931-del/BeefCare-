@@ -19,12 +19,6 @@ logging:
     tech.jhipster: INFO
     vn.edu.fpt.beefcare: INFO
 
-server:
-  servlet:
-    session:
-      cookie:
-        secure: true
-
 beefcare:
   email:
     provider: ${BEEFCARE_EMAIL_PROVIDER:smtp}
@@ -105,6 +99,10 @@ spring:
 server:
   port: ${PORT:8080}
   shutdown: graceful # see https://docs.spring.io/spring-boot/reference/web/graceful-shutdown.html#web.graceful-shutdown
+  servlet:
+    session:
+      cookie:
+        secure: true
   compression:
     enabled: true
     mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json,image/svg+xml
