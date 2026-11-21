@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react'
 import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { healthApi } from '../api/healthApi'
 import { treatmentToast } from '../domain/healthMessages'
 import { fmtDate, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { lastDoseDate, MSG, withdrawalEnd } from '../domain/healthRules'
 import type { HealthCaseCard, HealthFormOptions, TreatmentRoute } from '../types'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { caseLine, DateTimeInput, hint, ReadonlyBox, toIntOrNull, useDialogSave } from './healthUi'
 
 export default function TreatmentDialog({ card, cattleCode, options, onClose, onSaved }: { card: HealthCaseCard; cattleCode: string; options: HealthFormOptions; onClose: () => void; onSaved: (message: string) => void }) {
+  const { now, recordTreatment } = useHealthCaseCommands()
   const medicines = useMemo(() => options.medicines.filter((m) => m.active), [options])
   const [medicineId, setMedicineId] = useState('')
   const [dose, setDose] = useState('')
   const [route, setRoute] = useState<TreatmentRoute | ''>('')
-  const [startAt, setStartAt] = useState(() => healthApi.now())
+  const [startAt, setStartAt] = useState(() => now())
   const [course, setCourse] = useState('1')
   const [wd, setWd] = useState('')
   const [performer, setPerformer] = useState(options.members[0] ?? '')
@@ -31,7 +32,7 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
   const wdN = toIntOrNull(wd)
   const valid = startAt && courseN !== null && Number.isInteger(courseN) && courseN >= 1 && wdN !== null && Number.isInteger(wdN) && wdN >= 0
   const save = () => form.run(async () => {
-    const r = await healthApi.recordTreatment(card.id, { expectedVersion: card.version, medicineId: medicine?.id ?? null, treatmentTime: startAt, dose, route, courseDays: courseN, withdrawalDays: wdN, performer, veterinaryAdvice: advice })
+    const r = await recordTreatment(card.id, { expectedVersion: card.version, medicineId: medicine?.id ?? null, treatmentTime: startAt, dose, route, courseDays: courseN, withdrawalDays: wdN, performer, veterinaryAdvice: advice })
     onSaved(treatmentToast(r.withdrawalEndDate))
   })
 

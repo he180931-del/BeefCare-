@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Checkbox, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { healthApi } from '../api/healthApi'
 import { statusToast } from '../domain/healthMessages'
 import { fmtDate, OUTCOME_LABEL, PROGRESS_LABEL, PROGRESSES } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
 import type { CaseOutcome, HealthCaseCard, HealthCaseResult, HealthFormOptions, Progress, StatusAction } from '../types'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { DateTimeInput, hint, RadioGroup, useDialogSave } from './healthUi'
 
 const OUTCOMES: CaseOutcome[] = ['RECOVERED', 'DIED', 'MISSING']
 
 export default function UpdateStatusDialog({ card, cattleCode, options, onClose, onSaved }: { card: HealthCaseCard; cattleCode: string; options: HealthFormOptions; onClose: () => void; onSaved: (message: string, result: HealthCaseResult) => void }) {
+  const { now, updateStatus } = useHealthCaseCommands()
   const chronic = card.status === 'CHRONIC'
   const [progressText, setProgressText] = useState('')
   const [progress, setProgress] = useState<Progress | ''>('')
@@ -17,7 +18,7 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
   const [contagious, setContagious] = useState(card.suspectedContagious)
   const [action, setAction] = useState<StatusAction>('KEEP')
   const [outcome, setOutcome] = useState<CaseOutcome | ''>('')
-  const [closedAt, setClosedAt] = useState(() => healthApi.now())
+  const [closedAt, setClosedAt] = useState(() => now())
   const [confirmedBy, setConfirmedBy] = useState(options.members[0] ?? '')
   const form = useDialogSave()
   const { errors } = form
@@ -33,7 +34,7 @@ export default function UpdateStatusDialog({ card, cattleCode, options, onClose,
     if (needsProgress && !progress) missing.progress = MSG.required('Diễn biến')
     if (Object.keys(missing).length) { form.setErrors(missing); return }
     return form.run(async () => {
-      const result = await healthApi.updateStatus(card.id, { expectedVersion: card.version, action, progressText, progress: needsProgress ? progress : '', diagnosis, suspectedContagious: contagious, outcome, closedAt: closing ? closedAt : undefined, confirmedBy })
+      const result = await updateStatus(card.id, { expectedVersion: card.version, action, progressText, progress: needsProgress ? progress : '', diagnosis, suspectedContagious: contagious, outcome, closedAt: closing ? closedAt : undefined, confirmedBy })
       onSaved(statusToast(result), result)
     })
   }
