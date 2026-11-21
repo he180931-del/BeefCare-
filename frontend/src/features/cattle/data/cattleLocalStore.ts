@@ -4,13 +4,13 @@
 import { moveCattle, pens } from '../../../api/herdDomainApi'
 import { createCollection } from '../../../api/client'
 import { cattleSchema } from '../../../api/collectionSchemas'
-import { initialCows } from '../../../data/cowsData'
+import { initialCows } from '../../../demo/data/cowsData'
 import type { Cattle } from '../types'
 
 export const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
 export { moveCattle, pens }
 export { readDemoCattlePhoto, saveDemoCattlePhoto } from './cattlePhotoDemoStore'
-export { BARNS0, BREEDS, EXPORTED_COUNT, MANAGER, OWNER, STAGES, TODAY, groupCount } from '../../../data/cowsData'
+export { BARNS0, BREEDS, EXPORTED_COUNT, MANAGER, OWNER, STAGES, TODAY, groupCount } from '../../../demo/data/cowsData'
 
 /** Nội dung điền sẵn theo frame Figma cho bò mẫu BC-000142 (chuyển chuồng, đổi giai đoạn). */
 export const COW_PREFILL: Record<string, { moveReason: string; stage: string; stageReason: string }> = {

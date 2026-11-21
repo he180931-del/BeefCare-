@@ -29,4 +29,4 @@ export const canonicalCattle: Cattle[] = [
   cow('BC-000193', { tag: 'VN-0395', breed: 'Brahman lai', sex: 'Đực', barn: 'B1', lastPen: 'B1', status: 'EXITED', exitVoucherId: 'PX-2026-0007' }),
   cow('BC-000196', { tag: 'VN-0399', breed: 'Zebu đỏ', sex: 'Đực', barn: 'B1', lastPen: 'B1', status: 'EXITED', exitVoucherId: 'PX-2026-0007' }),
 ]
-import type { Cattle } from '../types'
+import type { Cattle } from '../../types'

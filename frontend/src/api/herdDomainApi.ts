@@ -1,6 +1,6 @@
 import { createCollection, type CollectionApi } from './client'
-import { seedPens } from '../data/pensData'
-import { canonicalCattle } from '../data/cattleData'
+import { seedPens } from '../demo/data/pensData'
+import { canonicalCattle } from '../demo/data/cattleData'
 import { migrateHerdStorage } from './storageMigrations'
 import { cattleSchema, penSchema } from './collectionSchemas'
 import type { Cattle, Pen, PenCowLink, CattleInput } from '../types'

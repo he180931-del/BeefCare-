@@ -1,5 +1,5 @@
 import { penMap } from './pensData'
-import type { Cattle, CattleCare, CattleEvent, Tone, CattleViewModel } from '../features/cattle/types'
+import type { Cattle, CattleCare, CattleEvent, Tone, CattleViewModel } from '../../features/cattle/types'
 
 export const TODAY = '2026-10-20'
 export const MANAGER = 'Trần Quốc Long'

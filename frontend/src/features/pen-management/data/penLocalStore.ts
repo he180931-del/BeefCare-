@@ -5,7 +5,7 @@ import '../../../api/herdDomainApi'
 import { createCollection } from '../../../api/client'
 import { migrateHerdStorage } from '../../../api/storageMigrations'
 import { penSchema } from '../../../api/collectionSchemas'
-import { seedPens } from '../../../data/pensData'
+import { seedPens } from '../../../demo/data/pensData'
 import { backendMode } from '../../../shared/config/runtime'
 import type { Pen } from '../types'
 

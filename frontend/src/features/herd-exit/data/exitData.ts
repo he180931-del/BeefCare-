@@ -1,4 +1,4 @@
-import { seedPens } from '../../../data/pensData'
+import { seedPens } from '../../../demo/data/pensData'
 
 const penByCode = Object.fromEntries(seedPens.map((pen) => [pen.code, pen]))
 export const BARNS = ['A1', 'A2', 'B1', 'B2', 'C1'].map((code) => ({ code, name: penByCode[code].name, count: penByCode[code].count, capacity: penByCode[code].capacity }))

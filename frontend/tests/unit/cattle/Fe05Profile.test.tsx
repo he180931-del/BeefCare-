@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { initialCows } from '../../../src/data/cowsData'
+import { initialCows } from '../../../src/demo/data/cowsData'
 import { purposeFitsSex } from '../../../src/features/cattle/domain/profileRules'
 import { validateDatedChange, validateIdentity, validatePhoto, validateTag } from '../../../src/features/cattle/validation/profileValidation'
 

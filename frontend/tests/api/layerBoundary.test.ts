@@ -213,7 +213,7 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     owner: 'herd-entry-exit-compatibility',
     allowedConsumers: [
       'api/collectionSchemas.ts', 'api/herdDomainApi.ts',
-      'data/cattleData.ts', 'data/pensData.ts',
+      'demo/data/cattleData.ts', 'demo/data/pensData.ts',
     ],
     runtime: 'production-compatibility',
     reason: 'Herd Exit and a small legacy aggregate still share an unresolved root type owner (PR-05/PR-08).',

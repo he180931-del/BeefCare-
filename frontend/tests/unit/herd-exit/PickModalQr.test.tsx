@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import { scanCode } from '../../../src/features/cattle/api/scanApi'
-import { initialCows } from '../../../src/data/cowsData'
+import { initialCows } from '../../../src/demo/data/cowsData'
 import PickModal from '../../../src/features/herd-exit/components/PickModal'
 
 vi.mock('../../../src/features/cattle/api/scanApi', () => ({ scanCode: vi.fn() }))
