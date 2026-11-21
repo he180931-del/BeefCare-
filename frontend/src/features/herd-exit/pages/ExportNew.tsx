@@ -13,6 +13,7 @@ import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
 import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
+import { useExitEditor } from '../hooks/useExitEditor'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
@@ -84,28 +85,19 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const id = draftRow?.id ?? nextId ?? (draftId ? '' : 'Tự động khi lưu')
   const saveId = savedId || draftRow?.id || draftId || nextId
 
-  const [type, setType] = useState<ExitType>((d.type as ExitType | undefined) ?? 'Bán')
-  const [lossKind, setLossKind] = useState<LossKind>(d.lossKind ?? (draftRow?.detail?.lossType === 'Mất tích' ? 'MISSING' : 'DIED'))
-  const [date, setDate] = useState(d?.date ?? todayIso())
-  const [pricing, setPricing] = useState<'kg' | 'con'>(d?.pricing ?? 'kg')
-  const [buyerId, setBuyerId] = useState(d?.buyerId ?? buyers[0]?.id ?? '')
-  const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
-  const [plate, setPlate] = useState(d?.plate ?? '')
-  const [note, setNote] = useState(d?.note ?? '')
-  const [deathCause, setDeathCause] = useState(d.deathCause ?? (d.type === 'Chết / mất' ? d.note ?? '' : ''))
-  const [carcassDisposal, setCarcassDisposal] = useState(d.carcassDisposal ?? '')
   const candidateByCode = new Map(selectableCattle.map((cow) => [cow.code, cow]))
   const candidateById = new Map(selectableCattle.filter((cow) => typeof cow.backendId === 'number').map((cow) => [cow.backendId as number, cow]))
-  const [picked, setPicked] = useState<HerdCow[]>(() => (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))))
-  const [deduction, setDeduction] = useState(d?.deduction ?? 0)
-  const [collected, setCollected] = useState(d?.collected ?? 0)
-  const [method, setMethod] = useState(d?.method ?? PAY_METHODS[0])
-  const [dueDate, setDueDate] = useState(d?.dueDate ?? todayIso())
+  const editor = useExitEditor({
+    type: (d.type as ExitType | undefined) ?? 'Bán', lossKind: d.lossKind ?? (draftRow?.detail?.lossType === 'Mất tích' ? 'MISSING' : 'DIED'),
+    deathCause: d.deathCause ?? (d.type === 'Chết / mất' ? d.note ?? '' : ''), carcassDisposal: d.carcassDisposal ?? '', date: d?.date ?? todayIso(),
+    pricing: d?.pricing ?? 'kg', buyerId: d?.buyerId ?? buyers[0]?.id ?? '', quarantine: d?.quarantine ?? '', plate: d?.plate ?? '', note: d?.note ?? '',
+    picked: (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))),
+    deduction: d?.deduction ?? 0, collected: d?.collected ?? 0, method: d?.method ?? PAY_METHODS[0], dueDate: d?.dueDate ?? todayIso(),
+  })
+  const { type, setType, lossKind, setLossKind, date, setDate, pricing, setPricing, buyerId, setBuyerId, quarantine, setQuarantine, plate, setPlate, note, setNote, deathCause, setDeathCause, carcassDisposal, setCarcassDisposal, picked, setPicked, patch, deduction, setDeduction, collected, setCollected, method, setMethod, dueDate, setDueDate, documents, setDocuments, removedAttachmentIds, setRemovedAttachmentIds, formSnapshot } = editor
   const [confirmed, setConfirmed] = useState(false)
   const [menu, setMenu] = useState<string | null>(null)
-  const [documents, setDocuments] = useState<File[]>([])
   const [documentError, setDocumentError] = useState('')
-  const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
   const [checks, setChecks] = useState<ExitChecks | null>(null)
   const [checksError, setChecksError] = useState<unknown>(null)
   const [checking, setChecking] = useState(false)
@@ -126,13 +118,6 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const remaining = Math.max(receivable - collected, 0)
   const barnDelta = exitPenShift(picked)
 
-  const formSnapshot = () => JSON.stringify({
-    date, type, lossKind, pricing, buyerId, quarantine, plate, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate,
-    documents: documents.map((file) => ({ name: file.name, size: file.size, type: file.type })),
-    removedAttachmentIds,
-  })
-
-  const patch = (code: string, p: Partial<HerdCow>) => setPicked(picked.map((c) => (c.code === code ? { ...c, ...p } : c)))
   const persistedDocuments = (d.docs ?? []).filter((document) => typeof document.id !== 'number' || !removedAttachmentIds.includes(document.id))
   const selectedDocuments = documents.map((file) => ({ name: file.name, ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', size: file.size }))
   const documentRows = [...persistedDocuments, ...selectedDocuments]
