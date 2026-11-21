@@ -18908,9 +18908,13 @@
           "to" : {
             "type" : "string",
             "format" : "date"
+          },
+          "groupBy" : {
+            "type" : "string",
+            "enum" : [ "HERD_GROUP", "PEN", "FEED" ]
           }
         },
-        "required" : [ "from", "to" ]
+        "required" : [ "from", "to", "groupBy" ]
       },
       "ConsumptionReport" : {
         "type" : "object",
@@ -18923,11 +18927,28 @@
             "type" : "string",
             "format" : "date"
           },
+          "groupBy" : {
+            "type" : "string",
+            "enum" : [ "HERD_GROUP", "PEN", "FEED" ]
+          },
+          "tiles" : {
+            "$ref" : "#/components/schemas/ConsumptionReportTile"
+          },
           "rows" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/ConsumptionRow"
+              "$ref" : "#/components/schemas/ConsumptionReportGroupedRow"
             }
+          },
+          "total" : { "$ref" : "#/components/schemas/ConsumptionReportTotal" },
+          "costByFeed" : {
+            "type" : "array",
+            "items" : { "$ref" : "#/components/schemas/ConsumptionReportCostByFeed" }
+          },
+          "adjustmentLosses" : { "$ref" : "#/components/schemas/ConsumptionReportAdjustmentLosses" },
+          "rawRows" : {
+            "type" : "array",
+            "items" : { "$ref" : "#/components/schemas/ConsumptionRow" }
           },
           "adjustmentLossKg" : {
             "type" : "number"
@@ -18941,6 +18962,36 @@
             "format" : "date-time"
           }
         }
+      },
+      "ConsumptionReportTile" : {
+        "type" : "object",
+        "properties" : {
+          "kg" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" },
+          "averageKgPerHeadDay" : { "type" : "number" }, "averageCostPerHeadDay" : { "type" : "integer", "format" : "int64" },
+          "days" : { "type" : "number" }, "headDays" : { "type" : "number" }, "receivedKg" : { "type" : "number" },
+          "receiptCount" : { "type" : "integer", "format" : "int64" }, "receivedAmount" : { "type" : "integer", "format" : "int64" }
+        }
+      },
+      "ConsumptionReportGroupedRow" : {
+        "type" : "object", "properties" : {
+          "group" : { "type" : "string" }, "avgHead" : { "type" : "number" }, "kg" : { "type" : "number" },
+          "kgPerHeadDay" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" },
+          "costPerHeadDay" : { "type" : "integer", "format" : "int64" }, "variancePct" : { "type" : "number" },
+          "notes" : { "type" : "array", "items" : { "type" : "string" } }
+        }
+      },
+      "ConsumptionReportTotal" : {
+        "type" : "object", "properties" : {
+          "kg" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" },
+          "kgPerHeadDay" : { "type" : "number" }, "costPerHeadDay" : { "type" : "integer", "format" : "int64" },
+          "days" : { "type" : "number" }, "headDays" : { "type" : "number" }
+        }
+      },
+      "ConsumptionReportCostByFeed" : {
+        "type" : "object", "properties" : { "feedCode" : { "type" : "string" }, "feedName" : { "type" : "string" }, "kg" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" } }
+      },
+      "ConsumptionReportAdjustmentLosses" : {
+        "type" : "object", "properties" : { "kg" : { "type" : "number" }, "value" : { "type" : "integer", "format" : "int64" } }
       },
       "ConsumptionRow" : {
         "type" : "object",
