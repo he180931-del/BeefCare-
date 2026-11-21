@@ -3,31 +3,14 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { AttachmentList, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import {
-  commitEntryExcel,
-  discardHerdEntryDraft,
-  downloadEntryImportTemplate,
-  entryExcelBackendEnabled,
-  newEntryDefaults,
-  herdEntryApi,
-  getEntryDraftState,
-  listEntrySellers,
-  listEntryPens,
-  listEntryVaccines,
-  listEntryBreeds,
-  listEntryParentCattle,
-  listPendingEntryCalves,
-  markCalfDiedBeforeRegistration,
-  assignCalfParentage,
-  previewEntryExcel,
-} from '../api/index'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { PURPOSES } from '../constants/entryOptions'
 import { ageOf, blankCow } from '../domain/entryCow'
 import { lineAmount } from '../domain/entryTotals'
 import { useEntryEditor } from '../hooks/useEntryEditor'
 import { useEntryDraftWorkflow } from '../hooks/useEntryDraftWorkflow'
 import { useEntryAttachments } from '../hooks/useEntryAttachments'
+import { useEntryCatalogues, useEntryNewQueries } from '../hooks/useEntryNewQueries'
+import { useEntryNewCommands } from '../hooks/useEntryNewCommands'
 import { dmy, money } from '../../../shared/lib/format'
 import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
@@ -36,7 +19,7 @@ import PayModal from '../components/PayModal'
 import { entryToday as localToday, validateEntryForPost } from '../validation/entryFormValidation'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
-import type { EntryBreedOption, EntryParentOption } from '../api/herdEntryBackendApi'
+import type { EntryParentOption } from '../api/herdEntryBackendApi'
 import { herdEntryError } from '../api/herdEntryError'
 import { useSession } from '../../../app/session/sessionContext'
 
@@ -53,22 +36,11 @@ const displayError = herdEntryError
 export default function ImportNew() {
   const [params] = useSearchParams()
   const draftId = params.get('id')
-  const { data } = useQuery<HerdEntry[]>(() => herdEntryApi.list(), [])
-  const { data: detailedDraft, error: draftError } = useQuery<HerdEntry | null>(
-    () => draftId ? herdEntryApi.get(draftId) : Promise.resolve(null),
-    [draftId],
-  )
-  const { data: canonicalPens } = useQuery(() => listEntryPens(), [])
-  const { data: pendingCalves } = useQuery(() => listPendingEntryCalves(), [])
-  const { data: sellers } = useQuery(() => listEntrySellers(), [])
   // Parent selectors are only needed on the farm-born flow. Avoid waiting on
   // the cattle lookup for purchase vouchers (and keep the purchase form
   // independent from the parentage endpoint).
   const isFarmBornRoute = params.get('kind') === 'calf'
-  const { data: parentCattle } = useQuery<EntryParentOption[]>(
-    () => isFarmBornRoute ? listEntryParentCattle() : Promise.resolve([]),
-    [isFarmBornRoute],
-  )
+  const { data, detailedDraft, draftError, canonicalPens, pendingCalves, sellers, parentCattle, getEntryDraftState, newEntryDefaults } = useEntryNewQueries({ draftId: draftId ?? undefined, isFarmBornRoute })
   if (!data || !canonicalPens || !pendingCalves || !sellers || (draftId && !detailedDraft && !draftError)) {
     return <Layout title="Phiếu nhập mới" user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
   }
@@ -83,10 +55,10 @@ export default function ImportNew() {
   // value used to produce the misleading 0/0 state and hide parent selectors.
   const currentDraftBackendId = Number((detailedDraft as (HerdEntry & { backendId?: number }) | null)?.backendId)
   const availablePendingCalves = pendingCalves.filter((calf) => calf.draftVoucherId == null || (Number.isFinite(currentDraftBackendId) && calf.draftVoucherId === currentDraftBackendId))
-  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}`} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellers} parentCattle={parentCattle ?? []} />
+  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}`} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellers} parentCattle={parentCattle ?? []} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
 }
 
-function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCattle }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[] }) {
+function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCattle, getEntryDraftState, newEntryDefaults }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[]; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
   const { saveDraft, postEntry, saving: loading, error: saveError } = useEntryDraftWorkflow()
   const nav = useNavigate()
   const sessionName = useSession()?.fullName ?? ''
@@ -101,8 +73,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const draft = draftRow?.draft
   const kind = draftRow?.type ?? (params.get('kind') === 'calf' ? KIND_CALF : KIND_BUY)
   const isBuy = kind === KIND_BUY
-  const { data: vaccines } = useQuery(() => editingIndex >= 0 ? listEntryVaccines() : Promise.resolve([]), [editingIndex])
-  const { data: breeds } = useQuery(() => (editingIndex >= 0 || !isBuy) ? listEntryBreeds() : Promise.resolve([]), [editingIndex, isBuy])
+  const { vaccines, breeds } = useEntryCatalogues({ editingIndex, isBuy })
+  const { assignCalfParentage, commitEntryExcel, discardHerdEntryDraft, downloadEntryImportTemplate, entryExcelBackendEnabled, markCalfDiedBeforeRegistration, previewEntryExcel, getEntry } = useEntryNewCommands()
   // All receiving pens come from the farm endpoint. Do not reserve or remove
   // a hard-coded A3: farms may name their pens differently and purchase entry
   // must be able to select an active backend pen.
@@ -277,7 +249,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const commitBackendExcel = async (file: File) => {
     const targetId = persistedRecordId ?? recordId
     await commitEntryExcel(targetId, file)
-    const refreshed = await herdEntryApi.get(targetId)
+    const refreshed = await getEntry(targetId)
     return refreshed.draft?.cows ?? []
   }
   const cancelExcelImport = async () => {
