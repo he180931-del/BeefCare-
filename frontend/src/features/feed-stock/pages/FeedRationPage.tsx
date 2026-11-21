@@ -3,8 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, DateInput, Foot, Icon, inputCls, Metric, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
+import { useFeedRationList } from '../hooks/useFeedRationList'
 import { filterFeedRations, summarizeFeedRations, type FeedRationStatusFilter } from '../domain/feedRationList'
 import { rationGroupLabel } from '../domain/feedRationForm'
 import { formatDate, formatNumber, formatShortDate, formatVnd } from '../domain/feedLabels'
@@ -40,10 +39,7 @@ export default function FeedRationPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
-  const query = useQuery(async () => {
-    const [rows, pens] = await Promise.all([listFeedRations(), listFeedRationPens()])
-    return { rows, pens }
-  }, [])
+  const query = useFeedRationList()
   const [status, setStatus] = useState<FeedRationStatusFilter>('CURRENT')
   const [queryText, setQueryText] = useState('')
   const [herdGroup, setHerdGroup] = useState('ALL')
@@ -167,8 +163,8 @@ export default function FeedRationPage() {
         {query.data && summary.plannedDailyCost === null && <Note tone="warn">Chưa đủ dữ liệu giá bình quân để tính chi phí cho một số khẩu phần.</Note>}
       </section>
       <Foot>Danh sách khẩu phần theo chuồng (Chủ trại, Quản lý). Lượng kế hoạch của một cữ = khẩu phần × số con đang có trong chuồng; chi phí ước tính theo giá nhập bình quân. Dòng nền xanh là phiên bản sắp áp dụng; khẩu phần ngừng hiển thị mờ.</Foot>
-      {dialog === 'huy' && dialogRow?.status === 'SCHEDULED' && <FeedRationCancelDialog row={dialogRow} onClose={close} onDone={done} />}
-      {dialog === 'ngung' && dialogRow?.status === 'EFFECTIVE' && <FeedRationStopDialog row={dialogRow} onClose={close} onDone={done} />}
+      {dialog === 'huy' && dialogRow?.status === 'SCHEDULED' && <FeedRationCancelDialog row={dialogRow} onClose={close} onDone={done} cancelVersion={query.cancel} />}
+      {dialog === 'ngung' && dialogRow?.status === 'EFFECTIVE' && <FeedRationStopDialog row={dialogRow} onClose={close} onDone={done} stopVersion={query.stop} />}
     </Layout>
   )
 }

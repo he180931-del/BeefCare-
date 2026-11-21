@@ -5,6 +5,7 @@ export { createFeedRationApi, getFeedRation, listFeedRationFeeds, listFeedRation
 export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recordFeedSession, voidFeedSession } from './api/feedFeedingApi'
 export { useFeedFeeding } from './hooks/useFeedFeeding'
 export { useFeedRationForm } from './hooks/useFeedRationForm'
+export { useFeedRationList } from './hooks/useFeedRationList'
 export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'
 export type { FeedCatalogueCommandOptions, FeedSupplierQuery } from './api/feedCatalogueApi'
 export { createFeedConsumptionApi, loadFeedConsumptionReport } from './api/feedConsumptionApi'
