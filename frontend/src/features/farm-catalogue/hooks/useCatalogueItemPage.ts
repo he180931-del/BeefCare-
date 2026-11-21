@@ -24,7 +24,7 @@ export function useCatalogueItemPage<I extends EditorItem, D extends { available
   const api = useCatalogueUseCase()
   const canEdit = useCanEdit()
   const [q, setQ] = useState('')
-  const [status, setStatus] = useState<AvailabilityFilter>('')
+  const [status, setStatus] = useState<AvailabilityFilter>('ACTIVE')
   const config = configure(api)
   const list = useQuery(() => config.list({ q, status }), [q, status])
   const editor = useCatalogueEditor<I, D>({

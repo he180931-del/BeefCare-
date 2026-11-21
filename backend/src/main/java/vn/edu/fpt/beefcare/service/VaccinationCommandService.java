@@ -1,6 +1,7 @@
 package vn.edu.fpt.beefcare.service;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -81,8 +82,8 @@ public class VaccinationCommandService {
         if(req.vaccineId()!=null&&!req.vaccineId().equals(s.getVaccine().getId())){
             // FE-09 Q3: a schedule with given doses keeps its vaccine; stop it and create a new one instead.
             if(anyDone)throw DomainException.conflict(MessageCodes.COM_05,"reason","vaccine_change_after_done");
-            Vaccine v=em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm",Vaccine.class).setParameter("id",req.vaccineId()).setParameter("farm",farmId).getResultStream().findFirst().orElseThrow(()->DomainException.notFound(MessageCodes.COM_08,"vaccineId",req.vaccineId()));
-            if(!Boolean.TRUE.equals(v.getAvailable()))throw DomainException.conflict(MessageCodes.COM_05,"reason","vaccine_inactive");s.setVaccine(v);changes.put("vaccineId",v.getId());}
+            Vaccine v=em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm",Vaccine.class).setParameter("id",req.vaccineId()).setParameter("farm",farmId).setLockMode(LockModeType.PESSIMISTIC_READ).getResultStream().findFirst().orElseThrow(()->DomainException.notFound(MessageCodes.COM_08,"vaccineId",req.vaccineId()));
+            if(!Boolean.TRUE.equals(v.getAvailable()))throw DomainException.unprocessable(MessageCodes.FE18_08,"field","vaccineId");s.setVaccine(v);changes.put("vaccineId",v.getId());}
         boolean redate=false;
         if(req.intervalDays()!=null&&!req.intervalDays().equals(s.getIntervalDays())){if(req.intervalDays()<1||req.intervalDays()>365)throw DomainException.invalid("intervalDays");s.setIntervalDays(req.intervalDays());redate=true;changes.put("intervalDays",req.intervalDays());}
         if(req.firstDueDate()!=null&&!req.firstDueDate().equals(s.getFirstDueDate())){if(req.firstDueDate().isBefore(clock.today()))throw DomainException.invalid("firstDueDate");s.setFirstDueDate(req.firstDueDate());redate=true;changes.put("firstDueDate",req.firstDueDate());}
@@ -166,9 +167,9 @@ public class VaccinationCommandService {
         if (name == null || name.length() > 100) throw DomainException.required("name");
         if (req.vaccineId() == null) throw DomainException.required("vaccineId");
         Vaccine vaccine = em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm", Vaccine.class)
-            .setParameter("id", req.vaccineId()).setParameter("farm", farmId).getResultStream().findFirst()
+            .setParameter("id", req.vaccineId()).setParameter("farm", farmId).setLockMode(LockModeType.PESSIMISTIC_READ).getResultStream().findFirst()
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccineId", req.vaccineId()));
-        if (!Boolean.TRUE.equals(vaccine.getAvailable())) throw DomainException.conflict(MessageCodes.COM_05, "reason", "vaccine_inactive");
+        if (!Boolean.TRUE.equals(vaccine.getAvailable())) throw DomainException.unprocessable(MessageCodes.FE18_08, "field", "vaccineId");
         Integer count = req.doseCount(); Integer interval = req.intervalDays();
         if (count == null || count < 1 || count > 10) throw DomainException.invalid("doseCount");
         if (interval == null || interval < 1 || interval > 365) throw DomainException.invalid("intervalDays");
@@ -306,11 +307,11 @@ public class VaccinationCommandService {
         if (req.reason() == null || req.reason().isBlank()) throw DomainException.required("reason");
         if (req.reason().trim().length() > 500) throw DomainException.invalid("reason");
         Map<String, Object> before = vaccinationSnapshot(record);
-        if (req.vaccineId() != null) {
+        if (req.vaccineId() != null && !req.vaccineId().equals(record.getVaccine().getId())) {
             Vaccine vaccine = em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm", Vaccine.class)
-                .setParameter("id", req.vaccineId()).setParameter("farm", farmId).getResultStream().findFirst()
+                .setParameter("id", req.vaccineId()).setParameter("farm", farmId).setLockMode(LockModeType.PESSIMISTIC_READ).getResultStream().findFirst()
                 .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccineId", req.vaccineId()));
-            if (!Boolean.TRUE.equals(vaccine.getAvailable())) throw DomainException.conflict(MessageCodes.COM_05, "reason", "vaccine_inactive");
+            if (!Boolean.TRUE.equals(vaccine.getAvailable())) throw DomainException.unprocessable(MessageCodes.FE18_08, "field", "vaccineId");
             record.setVaccine(vaccine); record.setVaccineNameSnapshot(vaccine.getName());
         }
         if (req.dose() != null) record.setDose(requireMax(req.dose(), "dose", 255));
@@ -375,9 +376,9 @@ public class VaccinationCommandService {
         FarmContext ctx = access.require(farmId, FarmAction.MANAGE_HEALTH);
         if (req == null || req.vaccineId() == null) throw DomainException.required("vaccineId");
         Vaccine vaccine = em.createQuery("select v from Vaccine v where v.id=:id and v.farm.id=:farm", Vaccine.class)
-            .setParameter("id", req.vaccineId()).setParameter("farm", farmId).getResultStream().findFirst()
+            .setParameter("id", req.vaccineId()).setParameter("farm", farmId).setLockMode(LockModeType.PESSIMISTIC_READ).getResultStream().findFirst()
             .orElseThrow(() -> DomainException.notFound(MessageCodes.COM_08, "vaccineId", req.vaccineId()));
-        if (!Boolean.TRUE.equals(vaccine.getAvailable())) throw DomainException.conflict(MessageCodes.COM_05, "reason", "vaccine_inactive");
+        if (!Boolean.TRUE.equals(vaccine.getAvailable())) throw DomainException.unprocessable(MessageCodes.FE18_08, "field", "vaccineId");
         String source = upper(req.source());
         if (!java.util.Set.of("ON_FARM", "HISTORICAL").contains(source)) throw DomainException.invalid("source");
         List<CareDtos.VaccinationAnimal> animals = req.animals() == null ? List.of() : req.animals();

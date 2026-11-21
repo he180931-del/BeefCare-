@@ -630,54 +630,6 @@
             }
           }
         }
-      },
-      "delete" : {
-        "tags" : [ "care-catalogue-command-resource" ],
-        "operationId" : "deleteMedicine",
-        "parameters" : [ {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "medicineId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "If-Match",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "boolean"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/farms/{farmId}/feed/receipts/{receiptId}/draft" : {
@@ -1190,54 +1142,6 @@
             }
           }
         }
-      },
-      "delete" : {
-        "tags" : [ "herd-catalogue-resource" ],
-        "operationId" : "deletePurpose",
-        "parameters" : [ {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "If-Match",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "boolean"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/farms/{farmId}/catalogues/breeds/{id}" : {
@@ -1285,54 +1189,6 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BreedView"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete" : {
-        "tags" : [ "herd-catalogue-resource" ],
-        "operationId" : "deleteBreed",
-        "parameters" : [ {
-          "name" : "farmId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "id",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "If-Match",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "boolean"
                 }
               }
             }
@@ -18911,10 +18767,11 @@
           },
           "groupBy" : {
             "type" : "string",
-            "enum" : [ "HERD_GROUP", "PEN", "FEED" ]
+            "minLength" : 1,
+            "pattern" : "HERD_GROUP|PEN|FEED"
           }
         },
-        "required" : [ "from", "to", "groupBy" ]
+        "required" : [ "from", "to" ]
       },
       "ConsumptionReport" : {
         "type" : "object",
@@ -18928,8 +18785,7 @@
             "format" : "date"
           },
           "groupBy" : {
-            "type" : "string",
-            "enum" : [ "HERD_GROUP", "PEN", "FEED" ]
+            "type" : "string"
           },
           "tiles" : {
             "$ref" : "#/components/schemas/ConsumptionReportTile"
@@ -18940,15 +18796,23 @@
               "$ref" : "#/components/schemas/ConsumptionReportGroupedRow"
             }
           },
-          "total" : { "$ref" : "#/components/schemas/ConsumptionReportTotal" },
+          "total" : {
+            "$ref" : "#/components/schemas/ConsumptionReportTotal"
+          },
           "costByFeed" : {
             "type" : "array",
-            "items" : { "$ref" : "#/components/schemas/ConsumptionReportCostByFeed" }
+            "items" : {
+              "$ref" : "#/components/schemas/ConsumptionReportCostByFeed"
+            }
           },
-          "adjustmentLosses" : { "$ref" : "#/components/schemas/ConsumptionReportAdjustmentLosses" },
+          "adjustmentLosses" : {
+            "$ref" : "#/components/schemas/ConsumptionReportAdjustmentLosses"
+          },
           "rawRows" : {
             "type" : "array",
-            "items" : { "$ref" : "#/components/schemas/ConsumptionRow" }
+            "items" : {
+              "$ref" : "#/components/schemas/ConsumptionRow"
+            }
           },
           "adjustmentLossKg" : {
             "type" : "number"
@@ -18963,35 +18827,130 @@
           }
         }
       },
-      "ConsumptionReportTile" : {
+      "ConsumptionReportAdjustmentLosses" : {
         "type" : "object",
         "properties" : {
-          "kg" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" },
-          "averageKgPerHeadDay" : { "type" : "number" }, "averageCostPerHeadDay" : { "type" : "integer", "format" : "int64" },
-          "days" : { "type" : "number" }, "headDays" : { "type" : "number" }, "receivedKg" : { "type" : "number" },
-          "receiptCount" : { "type" : "integer", "format" : "int64" }, "receivedAmount" : { "type" : "integer", "format" : "int64" }
-        }
-      },
-      "ConsumptionReportGroupedRow" : {
-        "type" : "object", "properties" : {
-          "group" : { "type" : "string" }, "avgHead" : { "type" : "number" }, "kg" : { "type" : "number" },
-          "kgPerHeadDay" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" },
-          "costPerHeadDay" : { "type" : "integer", "format" : "int64" }, "variancePct" : { "type" : "number" },
-          "notes" : { "type" : "array", "items" : { "type" : "string" } }
-        }
-      },
-      "ConsumptionReportTotal" : {
-        "type" : "object", "properties" : {
-          "kg" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" },
-          "kgPerHeadDay" : { "type" : "number" }, "costPerHeadDay" : { "type" : "integer", "format" : "int64" },
-          "days" : { "type" : "number" }, "headDays" : { "type" : "number" }
+          "kg" : {
+            "type" : "number"
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
         }
       },
       "ConsumptionReportCostByFeed" : {
-        "type" : "object", "properties" : { "feedCode" : { "type" : "string" }, "feedName" : { "type" : "string" }, "kg" : { "type" : "number" }, "cost" : { "type" : "integer", "format" : "int64" } }
+        "type" : "object",
+        "properties" : {
+          "feedCode" : {
+            "type" : "string"
+          },
+          "feedName" : {
+            "type" : "string"
+          },
+          "kg" : {
+            "type" : "number"
+          },
+          "cost" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
       },
-      "ConsumptionReportAdjustmentLosses" : {
-        "type" : "object", "properties" : { "kg" : { "type" : "number" }, "value" : { "type" : "integer", "format" : "int64" } }
+      "ConsumptionReportGroupedRow" : {
+        "type" : "object",
+        "properties" : {
+          "group" : {
+            "type" : "string"
+          },
+          "avgHead" : {
+            "type" : "number"
+          },
+          "kg" : {
+            "type" : "number"
+          },
+          "kgPerHeadDay" : {
+            "type" : "number"
+          },
+          "cost" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "costPerHeadDay" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "variancePct" : {
+            "type" : "number"
+          },
+          "notes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ConsumptionReportTile" : {
+        "type" : "object",
+        "properties" : {
+          "kg" : {
+            "type" : "number"
+          },
+          "cost" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "averageKgPerHeadDay" : {
+            "type" : "number"
+          },
+          "averageCostPerHeadDay" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "days" : {
+            "type" : "number"
+          },
+          "headDays" : {
+            "type" : "number"
+          },
+          "receivedKg" : {
+            "type" : "number"
+          },
+          "receiptCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "receivedAmount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ConsumptionReportTotal" : {
+        "type" : "object",
+        "properties" : {
+          "kg" : {
+            "type" : "number"
+          },
+          "cost" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "kgPerHeadDay" : {
+            "type" : "number"
+          },
+          "costPerHeadDay" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "days" : {
+            "type" : "number"
+          },
+          "headDays" : {
+            "type" : "number"
+          }
+        }
       },
       "ConsumptionRow" : {
         "type" : "object",
@@ -22102,29 +22061,13 @@
       "PageRecordDTO" : {
         "type" : "object",
         "properties" : {
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "totalPages" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
+          "totalElements" : {
             "type" : "integer",
-            "format" : "int32"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+            "format" : "int64"
           },
           "size" : {
             "type" : "integer",
@@ -22140,6 +22083,22 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "empty" : {
             "type" : "boolean"
           }
@@ -22148,11 +22107,12 @@
       "PageableObject" : {
         "type" : "object",
         "properties" : {
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "paged" : {
-            "type" : "boolean"
           },
           "pageNumber" : {
             "type" : "integer",
@@ -22162,25 +22122,24 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "unpaged" : {
+          "paged" : {
             "type" : "boolean"
           },
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
+          "unpaged" : {
+            "type" : "boolean"
           }
         }
       },
       "SortObject" : {
         "type" : "object",
         "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
           "sorted" : {
             "type" : "boolean"
           },
           "unsorted" : {
-            "type" : "boolean"
-          },
-          "empty" : {
             "type" : "boolean"
           }
         }
@@ -25107,13 +25066,13 @@
       "CsrfToken" : {
         "type" : "object",
         "properties" : {
-          "token" : {
-            "type" : "string"
-          },
           "parameterName" : {
             "type" : "string"
           },
           "headerName" : {
+            "type" : "string"
+          },
+          "token" : {
             "type" : "string"
           }
         }

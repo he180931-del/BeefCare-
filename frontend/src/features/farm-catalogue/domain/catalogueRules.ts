@@ -1,5 +1,5 @@
 import { businessDate } from '../../../shared/lib/date/farmTime'
-import type { AvailabilityFilter, CatalogueFilters, Purpose, PurposeType, Route, Vaccine } from '../types'
+import type { AvailabilityFilter, Breed, CatalogueFilters, Purpose, PurposeType, Route, Vaccine } from '../types'
 
 export type FieldErrorMap = Record<string, string>
 
@@ -70,17 +70,19 @@ export const PURPOSE_TYPE_LABELS: Record<PurposeType, string> = {
 }
 
 // ---- Dùng / tham chiếu ----
-export const vaccineUsage = (v: Pick<Vaccine, 'scheduleCount' | 'recordCount'>) => v.scheduleCount + v.recordCount
-export function vaccineUsageLabel(v: Pick<Vaccine, 'scheduleCount' | 'recordCount'>): string {
-  const parts = [v.scheduleCount > 0 && `${v.scheduleCount} lịch`, v.recordCount > 0 && `${v.recordCount} mũi`].filter(Boolean)
+export const vaccineUsage = (v: Pick<Vaccine, 'scheduleCount' | 'recordCount' | 'referencedCount'>) => Math.max(v.referencedCount ?? 0, v.scheduleCount + v.recordCount)
+export function vaccineUsageLabel(v: Pick<Vaccine, 'scheduleCount' | 'recordCount' | 'referencedCount'>): string {
+  const other = vaccineUsage(v) - v.scheduleCount - v.recordCount
+  const parts = [v.scheduleCount > 0 && `${v.scheduleCount} lịch`, v.recordCount > 0 && `${v.recordCount} mũi`, other > 0 && `${other} tham chiếu khác`].filter(Boolean)
   return parts.length ? parts.join(' · ') : 'Chưa dùng'
 }
 export function vaccineDoseRoute(v: Pick<Vaccine, 'dose' | 'route'>): { text: string; needsLabel: boolean } {
   if (!v.dose && !v.route) return { text: 'Bổ sung theo nhãn', needsLabel: true }
   return { text: [v.dose || '—', v.route ? ROUTE_SHORT[v.route] : '—'].join(' · '), needsLabel: false }
 }
-/** Số bò hoặc tiêu chí chuồng đang tham chiếu mục đích (MSG-FE18-09). */
-export const purposeUsage = (p: Pick<Purpose, 'activeCattle' | 'receivingPens'>) => p.activeCattle + p.receivingPens.length
+/** The server counts historical references; older demo fixtures only carry the reference flag. */
+export const breedUsage = (b: Pick<Breed, 'activeCattle' | 'referenced' | 'referencedCount'>) => b.referencedCount ?? Math.max(b.activeCattle, b.referenced ? 1 : 0)
+export const purposeUsage = (p: Pick<Purpose, 'activeCattle' | 'receivingPens' | 'referenced' | 'referencedCount'>) => p.referencedCount ?? Math.max(p.activeCattle + p.receivingPens.length, p.referenced ? 1 : 0)
 
 // ---- Lọc ----
 const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd').replace(/\u0110/g, 'D').toLowerCase()

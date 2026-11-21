@@ -56,6 +56,7 @@ export const mapVaccine = (row: Record<string, unknown>): Vaccine => ({
   manufacturer: textValue(row.manufacturer), dose: textValue(row.dose), route: route(row.route),
   boosterInterval: typeof row.boosterInterval === 'number' ? row.boosterInterval : null, withdrawalDays: numberValue(row.withdrawalDays),
   available: row.available === true, version: numberValue(row.version), scheduleCount: numberValue(row.scheduleCount), recordCount: numberValue(row.recordCount),
+  referencedCount: typeof row.referencedCount === 'number' ? row.referencedCount : undefined,
   completeFromLabel: row.completeFromLabel === true,
 })
 export const mapMedicine = (row: Record<string, unknown>): Medicine => ({

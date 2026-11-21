@@ -58,13 +58,13 @@ export default function PurposesPage() {
             onSubmit={page.submit}
             footer={canEdit && <EditorFooter onCancel={page.cancel} saving={page.saving} create={page.isCreate} />}
           >
-            <Field label="Mã *" id="purpose-code" hint={fieldError(errors.code, locked ? 'Không sửa được khi đã có bò dùng' : CODE_HINT)}>
+            <Field label="Mã *" id="purpose-code" hint={fieldError(errors.code, locked ? 'Không sửa được khi đã được tham chiếu, kể cả dữ liệu lịch sử' : CODE_HINT)}>
               <TextInput id="purpose-code" upper value={draft.code} readOnly={readOnly || locked} invalid={Boolean(errors.code)} onChange={(v) => page.setField('code', v)} />
             </Field>
             <Field label="Tên mục đích *" id="purpose-name" hint={fieldError(errors.name)}>
               <TextInput id="purpose-name" value={draft.name} readOnly={readOnly} invalid={Boolean(errors.name)} onChange={(v) => page.setField('name', v)} />
             </Field>
-            <Field label="Loại mục đích *" id="purpose-type" hint={fieldError(errors.purposeType, locked ? 'Không đổi được khi đã có bò dùng' : undefined)}>
+            <Field label="Loại mục đích *" id="purpose-type" hint={fieldError(errors.purposeType, locked ? 'Không đổi được khi bò hoặc tiêu chí chuồng đã tham chiếu' : undefined)}>
               <Select id="purpose-type" value={draft.purposeType} disabled={readOnly || locked} onChange={(e) => page.setField('purposeType', e.target.value as PurposeType)}>
                 {PURPOSE_TYPES.map((t) => <option key={t} value={t}>{PURPOSE_TYPE_LABELS[t]}</option>)}
               </Select>

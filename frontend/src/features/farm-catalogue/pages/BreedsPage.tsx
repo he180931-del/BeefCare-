@@ -5,7 +5,7 @@ import { DeactivateDialog } from '../components/ConfirmDialogs'
 import { EditorEmpty, EditorFooter, EditorPanel } from '../components/EditorPanel'
 import { AvailabilityBadge, StatusField, TextInput, fieldError } from '../components/fields'
 import { AddButton, SavedNotice, SplitLayout, SubLine } from '../components/PageParts'
-import { CODE_HINT } from '../domain/catalogueRules'
+import { breedUsage, CODE_HINT } from '../domain/catalogueRules'
 import type { Breed } from '../types'
 
 interface BreedDraft { code: string; name: string; group: string; description: string; available: boolean }
@@ -17,7 +17,7 @@ export default function BreedsPage() {
     list: catalogueApi.listBreeds,
     newDraft,
     toDraft,
-    usage: (b) => b.activeCattle,
+    usage: breedUsage,
     save: (item, d) => catalogueApi.saveBreed(item?.id ?? null, { ...d, ...(item ? { expectedVersion: item.version } : {}) }),
   }))
   const { draft, item, errors } = page
@@ -57,7 +57,7 @@ export default function BreedsPage() {
             onSubmit={page.submit}
             footer={canEdit && <EditorFooter onCancel={page.cancel} saving={page.saving} create={page.isCreate} />}
           >
-            <Field label="Mã giống *" id="breed-code" hint={fieldError(errors.code, locked ? 'Không sửa được khi đã có bò dùng giống này' : CODE_HINT)}>
+            <Field label="Mã giống *" id="breed-code" hint={fieldError(errors.code, locked ? 'Không sửa được khi đã được tham chiếu, kể cả dữ liệu lịch sử' : CODE_HINT)}>
               <TextInput id="breed-code" upper value={draft.code} readOnly={readOnly || locked} invalid={Boolean(errors.code)} onChange={(v) => page.setField('code', v)} />
             </Field>
             <Field label="Tên giống *" id="breed-name" hint={fieldError(errors.name)}>
@@ -82,7 +82,7 @@ export default function BreedsPage() {
       </SplitLayout>
       <Foot>Danh mục giống bò của trại. Mọi thành viên xem được; Chủ trại và Quản lý thêm, sửa, ngừng dùng. Mã 2–20 ký tự in hoa, số và "-", không trùng trong trại. "Đang nuôi" đếm bò đang hoạt động của giống.</Foot>
       {page.confirmOpen && item && (
-        <DeactivateDialog name={item.name} count={item.activeCattle} busy={page.saving} onCancel={page.closeModal} onConfirm={page.confirmDeactivate} />
+        <DeactivateDialog name={item.name} count={breedUsage(item)} busy={page.saving} onCancel={page.closeModal} onConfirm={page.confirmDeactivate} />
       )}
     </>
   )
