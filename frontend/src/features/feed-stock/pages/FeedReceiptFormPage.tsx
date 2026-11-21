@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
-import { Docs, Dropzone } from '../../../components/ui'
+import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
 import { listFeedSuppliers } from '../api/feedCatalogueApi'
@@ -506,8 +506,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             <Card title="3. Chứng từ đính kèm">
               {feedReceiptServerBacked ? (
                 <>
-                  {!readOnly && <Dropzone hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
-                  <Docs docs={attachmentDocs} onView={(index) => { const item = attachments[index]; if (item) void viewAttachment(item) }} onRemove={readOnly ? undefined : (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }} />
+                  {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
+                  <AttachmentList items={attachmentDocs.map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void viewAttachment(item) }} onRemove={readOnly ? undefined : (key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void removeAttachment(item) }} />
                   {newFiles.map((file, index) => (
                     <div className="flex items-center gap-2 text-xs" key={`${file.name}-${index}`}>
                       <Badge>{file.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{file.name} · chờ tải lên</span><span className="flex-1" />
@@ -518,8 +518,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                 </>
               ) : (
                 <>
-                  {!readOnly && <Dropzone hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
-                  <Docs docs={docs} onRemove={readOnly ? undefined : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+                  {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
+                  <AttachmentList items={docs.map((doc, index) => ({ key: `new:${index}`, name: doc.name, extension: doc.ext }))} onRemove={readOnly ? undefined : (key) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== Number(key.split(':')[1])))} />
                   {docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
                   {readOnly && docs.length === 0 && <p className="m-0 text-xs text-muted">Phiếu không có chứng từ đính kèm.</p>}
                 </>

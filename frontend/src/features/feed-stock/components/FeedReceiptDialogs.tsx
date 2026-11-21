@@ -1,7 +1,7 @@
 import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useRef, useState } from 'react'
 import { Badge, Button, DateInput, ErrorBlock, Field, Icon, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { Dropzone } from '../../../components/ui'
+import { FileDropzone } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { saveFeedSupplier } from '../api/feedCatalogueApi'
@@ -228,7 +228,7 @@ export function FeedReceiptPaymentDialog({ record, onClose, onDone, allowAttachm
       <Field label="Ghi chú" id="feed-payment-note">
         <Textarea id="feed-payment-note" maxLength={500} value={note} onChange={(event) => { setNote(event.target.value); setError(''); commandKey.current = '' }} />
       </Field>
-      {allowAttachments && !savedPayment.current && <Dropzone hint="Biên lai chuyển khoản / phiếu thu · PDF hoặc JPG · tối đa 10 MB" multiple={false} onFiles={chooseAttachment} />}
+      {allowAttachments && !savedPayment.current && <FileDropzone label="Chọn chứng từ đính kèm" hint="Biên lai chuyển khoản / phiếu thu · PDF hoặc JPG · tối đa 10 MB" multiple={false} onFiles={chooseAttachment} />}
       {attachment && <div className="flex items-center gap-2 text-xs"><Badge>{attachment.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{attachment.name} · {(attachment.size / 1024).toFixed(0)} KB</span>{!savedPayment.current && <Button variant="link" size="sm" onClick={() => { setAttachment(null); attachmentKey.current = '' }}>Bỏ tệp</Button>}</div>}
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
       <ModalFooter className="!px-0 !pb-0">

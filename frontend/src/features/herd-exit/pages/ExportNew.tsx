@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
-import { Docs, Dropzone } from '../../../components/ui'
+import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PAY_METHODS } from '../constants/exitOptions'
 import { businessDate as todayIso } from '../../../shared/lib/date/farmTime'
@@ -413,12 +413,12 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
 
           <div className={cx('grid items-start gap-[18px]', needsBuyer ? 'grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]' : 'grid-cols-1 lg:grid-cols-[300px]')}>
             <Box title="3. Chứng từ đính kèm" gap="gap-[10px]">
-              <Dropzone hint="Hợp đồng, phiếu cân, giấy kiểm dịch · PDF, JPG ≤ 10MB" onFiles={addDocuments} />
+              <FileDropzone label="Chọn chứng từ đính kèm" hint="Hợp đồng, phiếu cân, giấy kiểm dịch · PDF, JPG ≤ 10MB" onFiles={addDocuments} />
               {documentError && <Note tone="err">{documentError}</Note>}
-              <Docs
-                docs={documentRows}
-                onView={viewDocument}
-                onRemove={removeDocument}
+              <AttachmentList
+                items={documentRows.map((doc, index) => ({ key: `${index < persistedDocuments.length ? 'saved' : 'new'}:${index < persistedDocuments.length ? index : index - persistedDocuments.length}`, name: doc.name, extension: doc.ext }))}
+                onView={(key) => viewDocument(Number(key.split(':')[1]) + (key.startsWith('saved:') ? 0 : persistedDocuments.length))}
+                onRemove={(key) => removeDocument(Number(key.split(':')[1]) + (key.startsWith('saved:') ? 0 : persistedDocuments.length))}
               />
             </Box>
             {needsBuyer && (

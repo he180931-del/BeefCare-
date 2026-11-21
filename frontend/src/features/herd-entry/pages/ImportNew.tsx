@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, Checkbox, DateInput, Field, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
-import { Docs, Dropzone } from '../../../components/ui'
+import { AttachmentList, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import {
   commitEntryExcel,
@@ -611,15 +610,16 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
             <div className={`grid grid-cols-1 items-start gap-4 @min-[1024px]/entry:gap-6 ${isBuy ? '@min-[640px]/entry-form:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}>
               <Card variant="panel" title="3. Chứng từ đính kèm" sub={isBuy ? undefined : 'Không bắt buộc'}>
-                <Dropzone
+                <FileDropzone
+                  label="Chọn chứng từ đính kèm"
                   hint={isBuy ? 'PDF, JPG ≤ 10MB' : 'Ảnh bê, biên bản đỡ đẻ · PDF, JPG ≤ 10MB'}
                   onFiles={addDocuments}
                 />
                 {(storedDocuments.length > 0 || documents.length > 0) && (
-                  <Docs
-                    docs={[...storedDocuments, ...documents.map((file) => ({ ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', name: file.name }))]}
-                    onView={viewDocument}
-                    onRemove={removeDocument}
+                  <AttachmentList
+                    items={[...storedDocuments.map((doc, index) => ({ ...doc, key: `stored:${index}` })), ...documents.map((file, index) => ({ ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', name: file.name, key: `new:${index}` }))].map((doc) => ({ key: doc.key, name: doc.name, extension: doc.ext }))}
+                    onView={(key) => { const [kind, rawIndex] = key.split(':'); const index = Number(rawIndex); void viewDocument(kind === 'new' ? storedDocuments.length + index : index) }}
+                    onRemove={(key) => { const [kind, rawIndex] = key.split(':'); const index = Number(rawIndex); void removeDocument(kind === 'new' ? storedDocuments.length + index : index) }}
                   />
                 )}
               </Card>

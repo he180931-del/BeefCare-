@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
-import { Docs, Dropzone } from '../../../components/ui'
+import { AttachmentList, Badge, Button, Card, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
@@ -342,12 +341,10 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
       </Card>
 
       <Card title="Chứng từ đính kèm">
-        {!readOnly && <Dropzone hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => feedStockAdjustmentServerBacked
+        {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Biên bản kiểm kê, ảnh chụp · PDF, JPG ≤ 10MB · tải lên khi lưu nháp hoặc ghi sổ" onFiles={(files) => feedStockAdjustmentServerBacked
           ? setNewFiles((current) => [...current, ...files])
           : setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
-        <Docs docs={displayedDocs} onView={feedStockAdjustmentServerBacked ? (index) => { const item = attachments[index]; if (item) void viewAttachment(item) } : undefined} onRemove={readOnly ? undefined : feedStockAdjustmentServerBacked
-          ? (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }
-          : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+        <AttachmentList items={displayedDocs.map((doc, index) => ({ key: `${feedStockAdjustmentServerBacked ? 'saved' : 'new'}:${index}`, name: doc.name, extension: doc.ext }))} onView={feedStockAdjustmentServerBacked ? (key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void viewAttachment(item) } : undefined} onRemove={readOnly ? undefined : (key) => { const index = Number(key.split(':')[1]); if (feedStockAdjustmentServerBacked) { const item = attachments[index]; if (item) void removeAttachment(item) } else setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index)) }} />
         {newFiles.map((file, index) => (
           <div className="flex items-center gap-2 text-xs" key={`${file.name}-${index}`}>
             <Badge>{file.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{file.name} · chờ tải lên</span><span className="flex-1" />

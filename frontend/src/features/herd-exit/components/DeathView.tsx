@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, inputCls, Note, Radio, Segmented, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { Docs } from '../../../components/ui'
+import { AttachmentList } from '../../../shared/ui'
 import { confirmHerdExit, dismissHerdExit, downloadExitAttachment, herdExitApi, saveHerdExit } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
@@ -171,7 +171,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
 
           <Box title="3. Chứng từ đính kèm" sub="Ảnh, biên bản tiêu hủy hoặc xác nhận của thú y" gap="gap-3">
             {documentError && <Note tone="err">{documentError}</Note>}
-            <Docs docs={persistedDocuments} onView={viewDocument} />
+            <AttachmentList items={persistedDocuments.map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} />
             {pending && <Note>Phiếu chờ xác nhận: chứng từ hiện có chỉ xem được; tải lên sau khi phiếu ở trạng thái Nháp.</Note>}
           </Box>
         </div>

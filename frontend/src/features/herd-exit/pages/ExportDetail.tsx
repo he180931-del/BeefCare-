@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
-import { Docs, PaymentTable } from '../../../components/ui'
+import { AttachmentList, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
+import { PaymentTable } from '../../../components/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import { downloadExitAttachment, exitCancelLinks, herdExitApi } from '../api/index'
@@ -124,7 +124,7 @@ export default function ExportDetail() {
 
           <Box title="Chứng từ đính kèm" gap="gap-[10px]">
             {documentError && <Note tone="err">{documentError}</Note>}
-            {(d.docs ?? []).length ? <Docs docs={d.docs} onView={viewDocument} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+            {(d.docs ?? []).length ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
           </Box>
         </div>
 

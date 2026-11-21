@@ -1,9 +1,8 @@
 import { Link, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import { Docs } from '../../../components/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
@@ -165,7 +164,7 @@ export default function ImportDetail() {
             </Card>
 
             <Card title="Chứng từ đính kèm">
-              {d ? <Docs docs={d.docs} onView={viewDocument} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+              {d ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
             </Card>
           </div>
 
