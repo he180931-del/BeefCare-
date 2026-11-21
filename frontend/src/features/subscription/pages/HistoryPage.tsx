@@ -3,11 +3,10 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { subscriptionApi } from '../api/subscriptionApi'
 import { Facts, PaymentBadge, paymentLabel, useIsPhone } from '../components/shared'
 import { useFarmScope } from '../hooks/useFarmScope'
+import { useSubscriptionUseCase } from '../hooks/useSubscriptionUseCase'
 import { fmtDateTime, fmtDateTimeSec, fmtPeriod, fmtVnd, termLabel, versionLabel } from '../domain/subscriptionRules'
 import type { Payment, PaymentFilters, PaymentState } from '../types'
 import { useOverview } from '../hooks/useOverview'
@@ -18,8 +17,6 @@ const DEFAULT_FILTERS: Required<PaymentFilters> = { q: '', state: '', from: '', 
 /** One request after the Owner pauses typing instead of one per keystroke. */
 const SEARCH_DELAY_MS = 300
 const invalidRange = (filters: PaymentFilters) => !!(filters.from && filters.to && filters.from > filters.to)
-const paymentRouteId = (payment: Payment) => subscriptionApi.paymentRouteId(payment)
-
 function savedFilters(key: string): Required<PaymentFilters> {
   try {
     const value = JSON.parse(sessionStorage.getItem(key) ?? 'null')
@@ -112,10 +109,8 @@ function FarmHistory({ farmId, to, storageKey }: { farmId: number; to: ReturnTyp
     setFilters((previous) => ({ ...previous, page: value }))
     setApplied((previous) => ({ ...previous, page: value }))
   }
-  const list = useQuery(() => subscriptionApi.listPayments(farmId, query),
-    [farmId, query.q, query.state, query.from, query.to, query.sort, query.dir, query.page])
+  const { list, detail, paymentRouteId } = useSubscriptionUseCase({ farmId, paymentId: id, query })
   const overview = useOverview(farmId)
-  const detail = useQuery(() => (id ? subscriptionApi.getPayment(farmId, id) : Promise.resolve(null)), [farmId, id])
   const open = detail.data && paymentRouteId(detail.data) === id ? detail.data : null
   const backToList = () => navigate(to('/goi-dich-vu/lich-su'))
   const farmName = overview.data?.farmId === farmId ? overview.data.farmName : ''
