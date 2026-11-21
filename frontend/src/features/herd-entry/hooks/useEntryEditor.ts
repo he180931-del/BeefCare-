@@ -20,7 +20,7 @@ export function useEntryEditor({ draft, defaults, pendingCalves, sellers, pens, 
   const [receiver, setReceiver] = useState(draft?.receiver ?? defaults.receiver)
   const [note, setNote] = useState(draft?.note ?? defaults.note)
   const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? defaults.cows)
-  const [pricing, setPricing] = useState<'kg' | 'con'>(() => (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
+  const [pricing, setPricing] = useState<'kg' | 'con'>(() => draft?.pricing ?? (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
   const [calves, setCalves] = useState<EntryCalf[]>(draft?.calves ?? pendingCalves)
   const [directCalfCount, setDirectCalfCount] = useState(0)
   const [freight, setFreight] = useState(draft?.freight ?? defaults.freight)
