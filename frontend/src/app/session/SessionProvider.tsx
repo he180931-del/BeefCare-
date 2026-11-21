@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asRecord, asRows, numberValue } from '../../shared/api/parse'
-import { backendTransport } from '../../shared/api/backendTransport'
 import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from './currentFarm'
 import { userFacingError } from '../../shared/api/userFacingError'
 import { useAuth } from '../../features/authentication'
+import { useAuthenticationUseCase } from '../../features/authentication/hooks/useAuthenticationUseCase'
 import { demo } from '../../demo/demoModules'
 import { markOwnerRegistrationCompleted, SessionContext } from './sessionContext'
 import { OWNER_REGISTRATION_COMPLETED_EVENT } from './sessionLifecycle'
@@ -18,6 +18,7 @@ export function isStaleFarmSelection(profile: unknown, selected: number | null):
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { mode, logout } = useAuth()
+  const { loadSessionProfile } = useAuthenticationUseCase()
   const [user, setUser] = useState<SessionUser | null>(null)
   const [error, setError] = useState('')
 
@@ -31,7 +32,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUser(readCurrentFarmId() == null ? { ...user, farmId: null, farmName: null, farmCount, farmRoles } : { ...user, farmCount, farmRoles })
       return undefined
     }
-    const loadProfile = () => backendTransport.get('/api/account/profile').then(
+    const loadProfile = () => loadSessionProfile().then(
       (profile) => {
         if (!active) return
         // Every feature API of this page already points at the stale farm, so forget it and reload into Select Farm.
@@ -57,7 +58,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       active = false
       window.removeEventListener(OWNER_REGISTRATION_COMPLETED_EVENT, markCompleted)
     }
-  }, [mode])
+  }, [loadSessionProfile, mode])
 
   const session = useMemo<Session | null>(() => user && { ...user, logout }, [user, logout])
 

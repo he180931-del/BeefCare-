@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, Field, Icon, inputCls, Modal, ModalFooter, Note } from '../../../shared/ui'
-import { accountApi } from '../api/accountApi'
+import { useAccountUseCase } from '../hooks/useAccountUseCase'
 import { validatePasswordChange } from '../validation/profileValidation'
 import type { AccountIdentity, AccountProfile, PasswordErrors } from '../types'
 
@@ -46,7 +46,8 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
   const [saving, setSaving] = useState(false)
   const [visible, setVisible] = useState<Record<PasswordFieldKey, boolean>>({ current: false, new: false, confirm: false })
   const [reauthed, setReauthed] = useState(googleReauthenticated)
-  const samplePasswordHint = accountApi.samplePasswordHint()
+  const account = useAccountUseCase()
+  const samplePasswordHint = account.samplePasswordHint()
   const hasPassword = profile.passwordSignInEnabled
   const needsReauth = !hasPassword && !reauthed
   const requireCurrent = hasPassword && !reauthed
@@ -56,7 +57,7 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
   const reauthenticate = async () => {
     setError(null)
     try {
-      const result = await accountApi.reauthenticateWithGoogle(identity, returnTo)
+      const result = await account.reauthenticateWithGoogle(identity, returnTo)
       if (result.redirectTo) window.location.assign(result.redirectTo)
       else setReauthed(true)
     } catch (reason) { setError(userFacingError(reason, 'Không xác thực lại được với Google.')) }
@@ -69,7 +70,7 @@ export function ChangePasswordDialog({ identity, profile, onClose, onChanged, go
     setErrors(next); setError(null)
     if (Object.keys(next).length) return
     setSaving(true)
-    try { onChanged((await accountApi.changePassword(identity, input)).message) }
+    try { onChanged((await account.changePassword(identity, input)).message) }
     catch (reason) {
       const message = userFacingError(reason, 'Không đổi được mật khẩu. Vui lòng thử lại.')
       const wrongCurrent = (reason as { code?: unknown })?.code === 'MSG-FE01-16' || message.startsWith('Mật khẩu hiện tại')
