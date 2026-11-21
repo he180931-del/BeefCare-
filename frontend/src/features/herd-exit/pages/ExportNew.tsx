@@ -337,12 +337,12 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                     <option value="MISSING">Mất tích</option>
                   </Select>
                 </Field>
-                <Field label={lossKind === 'DIED' ? 'Nguyên nhân chết *' : 'Nguyên nhân mất tích *'}>
-                  <input aria-label={lossKind === 'DIED' ? 'Nguyên nhân chết' : 'Nguyên nhân mất tích'} className={inputCls} value={deathCause} onChange={(e) => setDeathCause(e.target.value)} />
+                <Field id="exit-death-cause" label={lossKind === 'DIED' ? 'Nguyên nhân chết *' : 'Nguyên nhân mất tích *'}>
+                  <input id="exit-death-cause" className={inputCls} value={deathCause} onChange={(e) => setDeathCause(e.target.value)} />
                 </Field>
                 {lossKind === 'DIED' && (
-                  <Field label="Phương án xử lý xác *">
-                    <input aria-label="Phương án xử lý xác" className={inputCls} value={carcassDisposal} onChange={(e) => setCarcassDisposal(e.target.value)} />
+                  <Field id="exit-carcass-disposal" label="Phương án xử lý xác *">
+                    <input id="exit-carcass-disposal" className={inputCls} value={carcassDisposal} onChange={(e) => setCarcassDisposal(e.target.value)} />
                   </Field>
                 )}
               </>
