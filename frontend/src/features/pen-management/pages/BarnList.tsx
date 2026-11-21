@@ -6,9 +6,7 @@ import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { penError } from '../api/penError'
 import { useSession } from '../../../app/session/sessionContext'
-import { penApi, type PenCattle } from '../api/penApi'
-import { useMutation } from '../../../shared/hooks/useMutation'
-import { useQuery } from '../../../shared/hooks/useQuery'
+import type { PenCattle } from '../api/penApi'
 import BarnTable from '../components/BarnTable'
 import BarnPanel from '../components/BarnPanel'
 import EditModal from '../components/EditModal'
@@ -17,6 +15,8 @@ import MoveDialog from '../components/MoveDialog'
 import { cx } from '../components/parts'
 import { headerSummary } from '../domain/penRules'
 import type { Pen, PenStatus } from '../types'
+import { usePenCommands } from '../hooks/usePenCommands'
+import { usePenDetail, usePenList } from '../hooks/usePenList'
 
 const ALL_STATUS = 'all'
 const STATUS_OPTIONS = [
@@ -42,14 +42,20 @@ export default function BarnList() {
   const [notice, setNotice] = useState<string | null>(null)
   const [moving, setMoving] = useState<PenCattle[] | null>(null)
 
-  const { data, loading, error: loadError, refetch } = useQuery(() => penApi.list(), [])
-  const createPen = useMutation(penApi.create)
-  const updatePen = useMutation(penApi.update)
-  const availability = useMutation((input: { pen: Pen; status: PenStatus; note: { date: string; reason: string } }) => penApi.changeAvailability(input.pen, input.status, input.note))
-
-  const barns = data ?? []
+  const { data, loading, error: loadError, refetch, pens: barns } = usePenList()
+  const { data: detail, loading: detailLoading, refetch: refetchDetail } = usePenDetail(barns.find((b) => b.code === params.get('barn')) ?? barns[0])
+  const {
+    createPen,
+    creating,
+    createError,
+    updatePen,
+    updating,
+    updateError,
+    changeAvailability: changeAvailabilityCommand,
+    changingAvailability,
+    availabilityError,
+  } = usePenCommands()
   const selected = barns.find((b) => b.code === params.get('barn')) ?? barns[0]
-  const detailQuery = useQuery(() => (selected ? penApi.detail(selected) : Promise.resolve(null)), [selected?.code, selected?.lockVersion, selected?.count, selected?.status])
 
   const updateParams = (changes: Record<string, string | null | undefined>) => {
     const next = new URLSearchParams(params)
@@ -63,7 +69,7 @@ export default function BarnList() {
     setNotice(null)
     const exists = barns.some((b) => b.code === pen.code)
     try {
-      await (exists ? updatePen.mutate(pen) : createPen.mutate(pen))
+      await (exists ? updatePen(pen) : createPen(pen))
     } catch {
       return // lỗi hiện trong popup
     }
@@ -76,7 +82,7 @@ export default function BarnList() {
     if (!selected) return
     setNotice(null)
     try {
-      await availability.mutate({ pen: selected, status, note })
+      await changeAvailabilityCommand({ pen: selected, status, note })
     } catch {
       return // lỗi hiện trong popup
     }
@@ -140,8 +146,8 @@ export default function BarnList() {
             <BarnPanel
               key={selected.code}
               barn={selected}
-              detail={detailQuery.data}
-              loading={detailQuery.loading}
+              detail={detail}
+              loading={detailLoading}
               canManage={canManage}
               onEdit={() => openModal('edit')}
               onToggle={() => openModal('disable')}
@@ -156,10 +162,10 @@ export default function BarnList() {
         Chọn một chuồng để xem sức chứa, tiêu chí nhận bò theo phiên bản và bò đang ở; chuồng ngưng sử dụng không nhận bò mới.
       </p>
 
-      {canManage && modal === 'edit' && selected && <EditModal barn={detailQuery.data ?? selected} barns={barns} onSave={savePen} onClose={closeModal} saving={updatePen.loading} saveError={updatePen.error} />}
-      {canManage && modal === 'create' && <EditModal barn={null} barns={barns} onSave={savePen} onClose={closeModal} saving={createPen.loading} saveError={createPen.error} />}
+      {canManage && modal === 'edit' && selected && <EditModal barn={detail ?? selected} barns={barns} onSave={savePen} onClose={closeModal} saving={updating} saveError={updateError} />}
+      {canManage && modal === 'create' && <EditModal barn={null} barns={barns} onSave={savePen} onClose={closeModal} saving={creating} saveError={createError} />}
       {canManage && modal === 'disable' && selected && (
-        <DisableModal barn={selected} onConfirm={changePenStatus} onClose={closeModal} saving={availability.loading} saveError={availability.error} />
+        <DisableModal barn={selected} onConfirm={changePenStatus} onClose={closeModal} saving={changingAvailability} saveError={availabilityError} />
       )}
       {canManage && moving && selected && (
         <MoveDialog
@@ -167,8 +173,8 @@ export default function BarnList() {
           cattle={moving}
           pens={barns}
           onClose={() => setMoving(null)}
-          onReload={() => { setMoving(null); detailQuery.refetch(); refetch() }}
-          onMoved={(message) => { setMoving(null); setNotice(message); detailQuery.refetch(); refetch() }}
+          onReload={() => { setMoving(null); refetchDetail(); refetch() }}
+          onMoved={(message) => { setMoving(null); setNotice(message); refetchDetail(); refetch() }}
         />
       )}
     </>
