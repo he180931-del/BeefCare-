@@ -4,13 +4,13 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, Field, Foot, Icon, inputCls, Note, PageHeader, Select } from '../../../shared/ui'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
-import { reproductionApi } from '../api/reproductionApi'
 import { ReproductionValidationError, calvingIssues, formatDate } from '../domain/reproductionRules'
 import type { CalvingCommand, DataSource, ReproductionFemale, ReproductionFormOptions, ReproductionIssue, ReproductionRole } from '../types'
 import {
   COURSE_OPTIONS, DAM_CONDITION_OPTIONS, DateTimeField, PersonInput, RadioField, RadioRow, ReadOnlyField, SOURCE_HINT, SOURCE_OPTIONS, nowLocal,
 } from '../components/reproductionFields'
 import { ReproductionOptionsProvider, useReproductionOptions } from '../components/reproductionOptions'
+import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
 interface CalfForm {
   outcome: 'LIVE' | 'STILLBORN'
@@ -57,26 +57,25 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
   const navigate = useNavigate()
   const session = useSession()
   const role: ReproductionRole = roleProp ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
-  const [profile, setProfile] = useState<ReproductionFemale | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [issues, setIssues] = useState<ReproductionIssue[]>([])
   const [form, setForm] = useState({ birthAt: nowLocal(), pregnancyId: '', dataSource: 'DIRECT_OBSERVATION' as DataSource, attendant: '', course: 'NORMAL', damCondition: 'GOOD', retainedPlacenta: false })
   const [calves, setCalves] = useState<CalfForm[]>([])
 
+  const { profile, profileLoading: loading, profileError, recordCalving } = useReproductionUseCases({ cattleCode: code, role, scope: 'profile' })
+  const loadError = profileError instanceof Error ? profileError.message : profileError ? 'Không tải được hồ sơ bò.' : ''
+
+  // Initialise form defaults once the profile query resolves. The API query
+  // remains in the feature hook; this page only owns editable form state.
+  const [initialisedCode, setInitialisedCode] = useState('')
   useEffect(() => {
-    let active = true
-    void reproductionApi.getProfile(code).then((result) => {
-      if (!active) return
-      setProfile(result)
-      setForm((current) => ({ ...current, pregnancyId: result.openPregnancy?.id ?? '' }))
-      setCalves([blankCalf(result)])
-    }).catch((cause: unknown) => {
-      if (active) setLoadError(cause instanceof Error ? cause.message : 'Không tải được hồ sơ bò.')
-    }).finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  }, [code])
+    if (!profile) return
+    const key = `${code}:${profile.openPregnancy?.id ?? ''}`
+    if (initialisedCode === key) return
+    setInitialisedCode(key)
+    setForm((current) => ({ ...current, pregnancyId: profile.openPregnancy?.id ?? '' }))
+    setCalves([blankCalf(profile)])
+  }, [code, profile, initialisedCode])
 
   const back = `/cattle/${encodeURIComponent(code)}?tab=repro`
   const canManage = canRecordCare(role) // GBR-08, D41: the Owner or a Manager records the calving
@@ -98,7 +97,7 @@ function CalvingForm({ code, role: roleProp }: { code: string; role?: Reproducti
     if (local.length) { setIssues(local); return }
     setIssues([]); setSaving(true)
     try {
-      const saved = await reproductionApi.recordCalving(code, command, role)
+      const saved = await recordCalving(command)
       const record = saved.calvings[0]
       const drafts = record?.calves.filter((calf) => calf.registrationStatus === 'PENDING_CONFIRMATION').length ?? 0
       const registered = record?.calves.filter((calf) => calf.registrationStatus === 'REGISTERED').map((calf) => calf.cattleCode || calf.earTag).filter(Boolean) ?? []

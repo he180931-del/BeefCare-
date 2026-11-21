@@ -2,6 +2,7 @@
 // business policy stays in the domain file.
 import { dateOf } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
+import type { CorrectEntryCommand } from '../types'
 
 export const TEMP_MIN = 35
 export const TEMP_MAX = 43
@@ -122,4 +123,18 @@ export function reasonErrors(reason: string | undefined): FieldErrors {
   const errors: FieldErrors = {}
   put(errors, 'reason', textError('Lý do', reason, { required: true, max: 500 }))
   return errors
+}
+
+/** Shared field validator for partial correction commands. */
+export function textFieldErrors(key: string, label: string, value: string, max: number): Record<string, string> {
+  const message = textError(label, value, { required: true, max })
+  return message ? { [key]: message } : {}
+}
+
+/** Sửa điều trị: chỉ kiểm các trường có trong lệnh (cùng thông báo như popup ghi điều trị). */
+export function correctionTreatmentErrors(cmd: CorrectEntryCommand, ctx: { now: string; entryDate?: string; openedAt?: string }): Record<string, string> {
+  return treatmentErrors({
+    medicineId: cmd.medicineId === undefined ? 1 : cmd.medicineId, treatmentTime: cmd.treatmentTime ?? ctx.now, dose: cmd.dose ?? '-', route: cmd.route === undefined ? 'OTHER' : cmd.route,
+    courseDays: cmd.courseDays === undefined ? 1 : cmd.courseDays, withdrawalDays: cmd.withdrawalDays === undefined ? 0 : cmd.withdrawalDays, performer: cmd.performer ?? '',
+  }, cmd.treatmentTime === undefined ? { now: ctx.now } : ctx)
 }

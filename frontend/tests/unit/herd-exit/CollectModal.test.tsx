@@ -2,7 +2,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { HerdExit } from '../../../src/types'
+import type { HerdExit } from '../../../src/features/herd-exit/types'
 
 const exitApi = vi.hoisted(() => ({ recordPayment: vi.fn() }))
 // The defaults come from the real adapter, evaluated after the test switches to the backend.

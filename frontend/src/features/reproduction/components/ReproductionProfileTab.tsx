@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, Foot, Icon, type IconName, KV, Note } from '../../../shared/ui'
-import { reproductionApi } from '../api/reproductionApi'
 import { resolveReproductionSource } from '../api/reproductionBackend'
 import { ReproductionOptionsProvider } from './reproductionOptions'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
@@ -15,6 +14,7 @@ import ReproductionActionDialog, { type ReproductionDialogTarget } from './Repro
 import { CalfHistoryCard, EligibilityCard, LastBreedingCard, PregnancyCard, WindowCard } from './ReproductionCards'
 import ReproductionTimeline, { type TimelineRecord } from './ReproductionTimeline'
 import { nowLocal } from './reproductionFields'
+import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
 const ACTION_LABEL: Record<ReproductionAction, string> = {
   RECORD_ESTRUS: 'Ghi động dục', RECORD_BREEDING: 'Ghi phối giống', RECORD_PREGNANCY_CHECK: 'Ghi khám thai',
@@ -103,12 +103,14 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
   const session = useSession()
   const role: ReproductionRole = roleProp ?? (session?.role === 'OWNER' || session?.role === 'MANAGER' ? session.role : 'TECHNICIAN')
   const [modal, openModal, closeModal] = useModalParam()
-  const [profile, setProfile] = useState<ReproductionFemale | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [localDialog, setLocalDialog] = useState<ReproductionDialogTarget | null>(null)
   // GBR-08, D41: the Owner and a Manager record and correct; a Technician only views.
   const canManage = canRecordCare(role)
+  const {
+    profile, profileLoading: loading, profileError,
+    setProfile, recordEvent, correctEvent, voidEvent, correctCalving, voidCalving, voidCalf,
+  } = useReproductionUseCases({ cattleCode, role, scope: 'profile' })
+  const error = profileError instanceof Error ? profileError.message : profileError ? 'Không tải được hồ sơ sinh sản.' : ''
   const notice = (location.state as { reproductionNotice?: string } | null)?.reproductionNotice
   // ?m=ghi-dong-duc etc. lets the profile header open a recording dialog; only the Owner or a Manager gets it.
   const modalAction = modal ? ACTION_FOR_MODAL[modal] : undefined
@@ -125,14 +127,6 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
       setParams(rest)
     } else if (!next && modal) closeModal()
   }
-
-  const refresh = async () => {
-    setError('')
-    try { setProfile(await reproductionApi.getProfile(cattleCode)) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Không tải được hồ sơ sinh sản.') }
-    finally { setLoading(false) }
-  }
-  useEffect(() => { void refresh() }, [cattleCode])
 
   // FE-16 R-16-07: the timeline opens ?tab=repro&m=correct|void&r=<record id>; same convention as the growth and
   // vaccination tabs. Only the Owner or a Manager gets the dialog; an unknown id opens nothing.
@@ -207,12 +201,12 @@ export default function ReproductionProfileTab({ cattleCode, role: roleProp }: {
         <ReproductionOptionsProvider cattleCode={cattleCode}>
         <ReproductionActionDialog
           target={dialog} profile={profile} onClose={() => setDialog(null)}
-          onRecord={async (command) => setProfile(await reproductionApi.recordEvent(cattleCode, command, role))}
-          onCorrectEvent={async (id, patch, reason) => setProfile(await reproductionApi.correctEvent(cattleCode, id, patch, reason, role))}
-          onVoidEvent={async (id, reason) => setProfile(await reproductionApi.voidEvent(cattleCode, id, reason, role))}
-          onCorrectCalving={async (id, patch, reason) => setProfile(await reproductionApi.correctCalving(cattleCode, id, patch, reason, role))}
-          onVoidCalving={async (id, reason) => setProfile(await reproductionApi.voidCalving(cattleCode, id, reason, role))}
-          onVoidCalf={async (calvingId, calfId, reason) => setProfile(await reproductionApi.voidCalf(cattleCode, calvingId, calfId, reason, role))}
+          onRecord={async (command) => { await recordEvent(command) }}
+          onCorrectEvent={async (id, patch, reason) => { await correctEvent(id, patch, reason) }}
+          onVoidEvent={async (id, reason) => { await voidEvent(id, reason) }}
+          onCorrectCalving={async (id, patch, reason) => { await correctCalving(id, patch, reason) }}
+          onVoidCalving={async (id, reason) => { await voidCalving(id, reason) }}
+          onVoidCalf={async (calvingId, calfId, reason) => { await voidCalf(calvingId, calfId, reason) }}
         />
         </ReproductionOptionsProvider>
       )}

@@ -1,39 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { DEFAULTS, PAGE_SIZE, useMembersPage, type MemberTab } from '../hooks/useMembersPage'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Pagination, Segmented } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { roleInFarm, useSession } from '../../../app/session/sessionContext'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
 import { InviteDialog } from '../components/InviteDialog'
 import { MemberChangeDialog } from '../components/MemberChangeDialog'
 import { MemberTable } from '../components/MemberTable'
 import { PermissionTable } from '../components/PermissionChecklist'
-import { useFarmId } from '../hooks/useFarmId'
-import { compareMembers } from '../domain/members'
-import type { FarmRole, MemberAction, Membership } from '../types'
+import type { MemberAction } from '../types'
 
-type Tab = 'ALL' | 'MANAGER' | 'TECHNICIAN' | 'INACTIVE'
-type Direction = 'asc' | 'desc'
-interface Preferences { tab: Tab; dir: Direction }
-const PAGE_SIZE = 20
-const DEFAULTS: Preferences = { tab: 'ALL', dir: 'asc' }
 const TITLE = 'Thành viên & vai trò'
-
-/** Tab and name order are kept per account and farm while the session lasts (Table III-1, D29). */
-function readPreferences(key: string, owner: boolean): Preferences {
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(key) ?? '{}')
-    const tabs: Tab[] = owner ? ['ALL', 'MANAGER', 'TECHNICIAN', 'INACTIVE'] : ['ALL', 'MANAGER', 'TECHNICIAN']
-    return { tab: tabs.includes(saved?.tab) ? saved.tab : 'ALL', dir: saved?.dir === 'desc' ? 'desc' : 'asc' }
-  } catch { return DEFAULTS }
-}
-
-/** D29 Q3: Managers / Technicians show ACTIVE members of that role; Inactive shows INACTIVE members of both roles. */
-const inTab = (tab: Tab) => (member: Membership) =>
-  tab === 'ALL' ? true : tab === 'INACTIVE' ? member.status === 'INACTIVE' : member.status === 'ACTIVE' && member.role === tab
 
 /**
  * SCR-13 / UC-FE03-05 (D29): the Owner sees every member and the actions available now, in every service status; a
@@ -41,45 +16,7 @@ const inTab = (tab: Tab) => (member: Membership) =>
  * name and splits into pages of 20.
  */
 export default function MembersPage() {
-  const navigate = useNavigate()
-  const session = useSession()
-  const farmId = useFarmId()
-  const [search, setSearch] = useSearchParams()
-  const [m, openModal, closeModal] = useModalParam()
-  // Outside a SessionProvider (route smoke, page tests) no role rule applies, as for RoleGate; A1 still decides the rows.
-  const role = session ? roleInFarm(session, farmId) : 'OWNER'
-  const viewer: FarmRole = role === 'MANAGER' || role === 'TECHNICIAN' ? role : 'OWNER'
-  const owner = viewer === 'OWNER'
-  const preferencesKey = `beefcare:member-filters:${session?.email ?? ''}:${farmId}`
-  const saved = useMemo(() => readPreferences(preferencesKey, owner), [preferencesKey, owner])
-  const [preferences, setPreferences] = useState<Preferences & { key: string }>({ ...saved, key: preferencesKey })
-  const current = preferences.key === preferencesKey ? preferences : { ...saved, key: preferencesKey }
-  const [page, setPage] = useState(1)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [failure, setFailure] = useState<string | null>(null)
-  const query = useQuery(async () => ({ farmId, list: await farmWorkspaceApi.listMembers(farmId, viewer) }), [farmId, viewer])
-  // A response for another farm must never be shown while the new farm loads.
-  const list = query.data?.farmId === farmId ? query.data.list : undefined
-
-  useEffect(() => {
-    try { sessionStorage.setItem(preferencesKey, JSON.stringify({ tab: current.tab, dir: current.dir })) } catch { /* Preferences are optional when browser storage is unavailable. */ }
-  }, [preferencesKey, current.tab, current.dir])
-
-  const choose = (next: Partial<Preferences>) => { setPreferences({ ...current, ...next, key: preferencesKey }); setPage(1) }
-  const rows = useMemo(() => (list?.items ?? []).filter(inTab(current.tab))
-    .sort((a, b) => current.dir === 'asc' ? compareMembers(a, b) : compareMembers(b, a)), [list, current.tab, current.dir])
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
-  // After a refresh the current page may no longer exist (members left the tab): show the last one that does.
-  const shownPage = Math.min(page, pageCount)
-  const pageRows = rows.slice((shownPage - 1) * PAGE_SIZE, shownPage * PAGE_SIZE)
-
-  const selected = m === 'doi-vai-tro' ? list?.items.find((member) => member.id === Number(search.get('id'))) : undefined
-  const openChange = (id: number, action: MemberAction) => { const next = new URLSearchParams(search); next.set('m', 'doi-vai-tro'); next.set('id', String(id)); next.set('a', action); setSearch(next) }
-  const closeChange = () => { const next = new URLSearchParams(search); ['m', 'id', 'a'].forEach((key) => next.delete(key)); setSearch(next) }
-  const refresh = () => { setNotice(null); setFailure(null); query.refetch() }
-  const done = (message: string) => { setNotice(message); setFailure(null); closeChange(); query.refetch() }
-  // UC6 refused because the row changed (D30): show why, close the popup and read the list again.
-  const stale = (message: string) => { setFailure(message); setNotice(null); closeChange(); query.refetch() }
+  const { navigate, farmId, m, openModal, closeModal, owner, query, list, current, choose, pageRows, rows, shownPage, pageCount, setPage, search, selected, openChange, closeChange, refresh, done, stale, notice, failure, setNotice } = useMembersPage()
 
   if (query.error) return <Layout title={TITLE}><ErrorBlock message={userFacingError(query.error, 'Không tải được danh sách thành viên. Vui lòng thử lại.')} onRetry={query.refetch} /></Layout>
   if (!list) return <Layout title={TITLE}><LoadingBlock /></Layout>
@@ -104,7 +41,7 @@ export default function MembersPage() {
       {notice && <Note tone="ok">{notice}</Note>}
       {owner && !farmActive && <Note>Dịch vụ trại hiện không hoạt động. Bạn vẫn có thể xem và ngưng thành viên; mời, đổi vai trò và kích hoạt lại cần trại đang hoạt động (ACTIVE).</Note>}
       {!owner && <Note>Chế độ xem chỉ đọc. Chỉ Chủ trại được gửi lời mời hoặc thay đổi vai trò, trạng thái thành viên.</Note>}
-      <div><Segmented value={current.tab} onChange={(value) => choose({ tab: value as Tab })} options={tabs} /></div>
+      <div><Segmented value={current.tab} onChange={(value) => choose({ tab: value as MemberTab })} options={tabs} /></div>
       <MemberTable
         members={pageRows} owner={owner} timeZone={list.timeZone} dir={current.dir}
         onSort={() => choose({ dir: current.dir === 'asc' ? 'desc' : 'asc' })}

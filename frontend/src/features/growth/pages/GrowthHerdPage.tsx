@@ -4,10 +4,9 @@ import { Badge, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, 
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { growthApi } from '../api/growthApi'
 import { fmtDate, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, STATUS_LABEL } from '../domain/growthLabels'
+import { useGrowthHerd } from '../hooks/useGrowthUseCase'
 import type { GrowthFilters, GrowthHerdRow, GrowthHerdStatus, GrowthWindow } from '../types'
 
 const TITLE = 'Tăng trưởng & BCS'
@@ -28,11 +27,8 @@ export default function GrowthHerdPage() {
   const [dir, setDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
   const filters: GrowthFilters = { q, penCode, herdGroup, lifeStage, windowDays, dir, page }
-  const options = useQuery(() => growthApi.filterOptions(), [])
-  const { data, loading, error, refetch } = useQuery(
-    () => (demo === 'load-error' ? Promise.reject(new Error('demo')) : growthApi.listHerd(filters)),
-    [q, penCode, herdGroup, lifeStage, windowDays, dir, page, demo],
-  )
+  const { options, herd } = useGrowthHerd(filters, demo)
+  const { data, loading, error, refetch } = herd
   const change = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1) }
 
   if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>

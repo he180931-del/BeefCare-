@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HerdExit } from '../../../src/types'
+import type { HerdExit } from '../../../src/features/herd-exit/types'
 import { todayIso } from '../../../src/features/herd-exit/data/exportsData'
 
 const apiState = vi.hoisted(() => ({

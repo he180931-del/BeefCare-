@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Card, DateInput, ErrorBlock, FilterSelect, Foot, Icon, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { financeError } from '../api/financeError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { financeApi } from '../api/financeApi'
+import { useFinanceCurrentReport, useFinanceFarms, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { FlashNote, RoField, useFlash } from '../components/common'
 import { getPageCount, IncomeChart, paginateReportRows, REPORT_DETAIL_PAGE_SIZE, REPORT_SCOPE_PAGE_SIZE, ScopeTable } from '../components/ReportParts'
 import { categoryLabel, formatDate, formatDateTime, formatMoney, formatVnd } from '../domain/financeRules'
@@ -26,15 +25,16 @@ export default function CashReportRoutes() {
   const [m, open, close] = useModalParam()
   const demo = useDemoState()
   const [flash, setFlash] = useFlash()
-  const [criteria, setCriteria] = useState<ReportCriteria>(() => financeApi.defaultReportCriteria())
+  const useCases = usePlatformFinanceUseCases()
+  const [criteria, setCriteria] = useState<ReportCriteria>(() => useCases.defaultReportCriteria())
   const [shown, setShown] = useState<CashReport | null>(null)
   const [focus, setFocus] = useState<ScopeTotals | null>(null)
   const [scopePage, setScopePage] = useState(1)
   const [detailPage, setDetailPage] = useState(1)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const farms = useQuery(() => financeApi.listFarms(), [])
-  const { data, loading, error, refetch } = useQuery(() => financeApi.currentReport(), [])
+  const farms = useFinanceFarms()
+  const { data, loading, error, refetch } = useFinanceCurrentReport()
 
   const report = shown ?? data ?? emptyReport(criteria)
   const s = report.summary
@@ -50,7 +50,7 @@ export default function CashReportRoutes() {
 
   const noSnapshot = error instanceof BackendError && (error.status === 404 || error.status === 410)
   if (loading && !data && !noSnapshot) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if ((error && !noSnapshot) || (!data && !noSnapshot)) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
+  if ((error && !noSnapshot) || (!data && !noSnapshot)) return <Layout title={TITLE}><ErrorBlock message={financeError(error, 'Không tải được báo cáo.')} onRetry={refetch} /></Layout>
 
   const hasSnapshot = report.id > 0
   const expired = report.expired || demo === 'het-han'
@@ -62,18 +62,18 @@ export default function CashReportRoutes() {
     if (problem) { setFormError(problem); return }
     setBusy(true); setFormError(null)
     try {
-      const next = await financeApi.runReport(criteria)
+      const next = await useCases.runReport(criteria)
       setShown(next)
       setFlash({ tone: 'ok', text: `Báo cáo ${next.code} được tạo lúc ${formatDateTime(next.generatedAt)}.` })
       open(next.lines.length === 0 ? 'rong' : 'lam-moi')
-    } catch (e) { setFormError(userFacingError(e, 'Không chạy được báo cáo.')) } finally { setBusy(false) }
+    } catch (e) { setFormError(financeError(e, 'Không chạy được báo cáo.')) } finally { setBusy(false) }
   }
   const doExport = async () => {
     if (!hasSnapshot) return
     open('dang-tao')
     try {
       if (demo === 'xuat-loi') throw new Error('export-failed')
-      const file = await financeApi.exportXlsx(report.id)
+      const file = await useCases.exportXlsx(report.id)
       if ('blob' in file) {
         const url = URL.createObjectURL(file.blob as Blob)
         const anchor = document.createElement('a')

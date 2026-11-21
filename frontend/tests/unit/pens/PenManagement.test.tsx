@@ -8,7 +8,7 @@ import MoveDialog from '../../../src/features/pen-management/components/MoveDial
 import { penApi } from '../../../src/features/pen-management/api/penApi'
 import { headerSummary } from '../../../src/features/pen-management/domain/penRules'
 import { validateAvailability, validatePenForm } from '../../../src/features/pen-management/validation/penValidation'
-import type { Pen } from '../../../src/types'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const TODAY = '2026-11-07'
 

@@ -9,6 +9,7 @@ import { takeInvitationLink } from './invitationReturn'
 import { clearCurrentFarmId } from '../../app/session/currentFarm'
 import type { AuthClient } from './types'
 import { AUTH_PATH } from './domain/authErrors'
+import { useAuthenticationUseCase } from './hooks/useAuthenticationUseCase'
 
 export type { AuthClient } from './types'
 
@@ -30,6 +31,7 @@ function loginErrorMessage(error: unknown): string {
 }
 
 export function AuthProvider({ client = defaultAuthClient, children }: { client?: AuthClient; children: ReactNode }) {
+  const auth = useAuthenticationUseCase(client)
   const [status, setStatus] = useState<'checking' | 'anonymous' | 'authenticated' | 'suspended'>('checking')
   const [error, setError] = useState<string | null>(null)
   const hasRouter = useInRouterContext()
@@ -43,7 +45,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     let active = true
     setStatus('checking')
     setError(null)
-    client.isAuthenticated().then((ok) => {
+    auth.isAuthenticated().then((ok) => {
       if (active) setStatus(ok ? 'authenticated' : 'anonymous')
     }).catch((reason: unknown) => {
       if (active) {
@@ -56,7 +58,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       }
     })
     return () => { active = false }
-  }, [client])
+  }, [auth])
 
   const value = useMemo<AuthContextValue>(() => ({
     authenticated: status === 'authenticated',
@@ -64,7 +66,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
     logout: async () => {
       let logoutFailed = false
       try {
-        await client.logout()
+        await auth.logout()
       } catch {
         logoutFailed = true
       }
@@ -75,7 +77,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       notifySessionSignedOut()
       setStatus('anonymous')
     },
-  }), [client, status])
+  }), [auth, client, status])
 
   if (status === 'checking') return <div className="grid min-h-screen place-items-center text-sm text-subtle">Đang kiểm tra phiên đăng nhập…</div>
   return (

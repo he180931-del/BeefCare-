@@ -1,17 +1,22 @@
-import { BackendError } from '../../../shared/api/backendClient'
 import { asRecord, asRows, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
-import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { VACCINATION_HERD_GROUPS, VACCINATION_LIFE_STAGES } from '../constants/vaccinationOptions'
 import { addMonths, fmtDate } from '../domain/vaccinationFormat'
 import { CONFLICT_MESSAGE, VaccinationValidationError, doseTextOf, dueStateOf, effectiveDate, hasErrors, plannedDoseRows, resolveTarget, type FieldErrors } from '../domain/vaccinationRules'
 import { validateDefer, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import type {
-  CattleVaccination, CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, DosePage, DoseRow, DoseStatus, DoseTab, HerdGroup,
-  HistoryFilters, HistoryPage, HistoryRow, LifeStage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,
-  ScheduleDetail, ScheduleResult, ScheduleTarget, ScheduledDose, VaccCattle, VaccinationBatchResult, VaccinationOptions,
-  VaccinationRecord, VaccinationRevision, VaccineItem, VaccineRoute, VoidRecordCommand,
+  CattleVaccination, CorrectVaccinationCommand, DeferDoseCommand, DoseFilters, DosePage, DoseRow, DoseTab,
+  HistoryFilters, HistoryPage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,
+  ScheduleDetail, ScheduleResult, ScheduleTarget, ScheduledDose, VaccCattle, VaccinationBatchResult, VaccinationOptions, VaccineItem,
+  VaccinationRecord, VoidRecordCommand,
 } from '../types'
+import { mapCattle, mapRecord, mapSchedule, mapSkipped, mapVaccine, doseStatus, toFarmTime, toInstant, ROUTE_OUT, type CattleRef, type ScheduleView } from './vaccinationMapper'
+import { mapVaccinationError } from './vaccinationError'
+import { toVaccinationTargetDto } from './vaccinationDto'
+
+// Compatibility exports: existing callers keep importing the public adapter helpers.
+export { mapCattle, mapRecord, mapSchedule, mapSkipped, mapVaccine, mapRevision, toFarmTime, toInstant, toRoute } from './vaccinationMapper'
+export { mapVaccinationError } from './vaccinationError'
 
 /**
  * Adapter FE-09 cho chế độ backend (không bao giờ đọc mock).
@@ -32,216 +37,6 @@ const num = (value: unknown): number | undefined => {
 const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() !== '' ? value : undefined)
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 
-/** Instant → 'yyyy-mm-ddTHH:mm' theo UTC+7. */
-export const toFarmTime = (instant: unknown): string => toFarmLocal(textValue(instant))
-/** 'yyyy-mm-ddTHH:mm' giờ trại → Instant có offset của trại. */
-export const toInstant = (farmTime: string): string => fromFarmLocal(farmTime)
-
-// Danh mục FE-18 lưu đường tiêm dạng đầy đủ; màn tiêm phòng dùng mã ngắn.
-const ROUTE_IN: Record<string, VaccineRoute> = { INTRAMUSCULAR: 'IM', IM: 'IM', SUBCUTANEOUS: 'SC', SC: 'SC', ORAL: 'ORAL', INTRANASAL: 'IN', IN: 'IN' }
-const ROUTE_OUT: Record<VaccineRoute, string> = { IM: 'INTRAMUSCULAR', SC: 'SUBCUTANEOUS', ORAL: 'ORAL', IN: 'INTRANASAL', OTHER: 'OTHER' }
-export const toRoute = (value: unknown): VaccineRoute | undefined => {
-  const key = textValue(value).trim().toUpperCase()
-  if (!key) return undefined
-  return ROUTE_IN[key] ?? 'OTHER'
-}
-
-/** "2 ml" → { 2, 'ml' }; liều không có số giữ đơn vị là cả chuỗi. */
-const splitDose = (dose: unknown): { amount: number; unit: string } => {
-  const raw = textValue(dose).trim()
-  const match = raw.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/)
-  return match ? { amount: Number(match[1].replace(',', '.')), unit: match[2] || 'ml' } : { amount: 0, unit: raw || 'ml' }
-}
-
-export function mapVaccine(raw: unknown): VaccineItem {
-  const v = asRecord(raw)
-  const { amount, unit } = splitDose(v.dose)
-  const name = textValue(v.name)
-  return {
-    id: num(v.id) ?? 0, name, shortName: name, disease: textValue(v.diseasePrevented), referenceDose: amount, doseUnit: unit,
-    route: toRoute(v.route) ?? 'OTHER', withdrawalDays: num(v.withdrawalDays) ?? 0, active: v.available === true,
-  }
-}
-
-interface CattleRef extends VaccCattle { id: number }
-export function mapCattle(raw: unknown): CattleRef {
-  const p = asRecord(raw)
-  return {
-    id: num(p.id) ?? 0,
-    code: textValue(p.displayCode),
-    name: text(p.name),
-    breed: textValue(p.breedName),
-    sex: p.sex === 'FEMALE' ? 'Cái' : 'Đực',
-    penCode: textValue(p.penCode),
-    penName: textValue(p.penName),
-    herdGroup: (text(p.herdGroup) ?? 'OTHER') as HerdGroup,
-    lifeStage: textValue(p.lifeStage) as LifeStage,
-    herdEntryDate: textValue(p.entryDate, textValue(asRecord(p.entry).entryDate)),
-    status: p.herdStatus === undefined || p.herdStatus === 'ACTIVE' ? 'ACTIVE' : 'EXITED',
-  }
-}
-
-const DOSE_STATUSES: DoseStatus[] = ['PLANNED', 'DEFERRED', 'DONE', 'CANCELLED']
-const doseStatus = (value: unknown): DoseStatus => {
-  const s = textValue(value).toUpperCase()
-  return (DOSE_STATUSES as string[]).includes(s) ? s as DoseStatus : 'PLANNED'
-}
-
-interface ScheduleView { schedule: Schedule; vaccineName: string; doses: ScheduledDose[] }
-const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [])
-/**
- * Đối tượng lịch: backend lưu điều kiện (target, GAP-FE09-01) kèm mã chuồng / mã bò. Lịch lưu trước khi có target
- * thì dựng lại là danh sách bò còn mũi.
- */
-export function mapSchedule(raw: unknown): ScheduleView {
-  const s = asRecord(raw)
-  const doseCount = num(s.doseCount) ?? 1
-  const id = num(s.id) ?? 0
-  const doses: ScheduledDose[] = asRows(s.doses).map((d) => {
-    const doseNo = num(d.doseNo) ?? 1
-    return {
-      id: num(d.id) ?? 0, scheduleId: id, cattleCode: textValue(d.cattleCode), doseNo,
-      // Mũi nhắc lại backend sinh với số mũi tiếp theo sau mũi cuối (planBooster).
-      kind: doseNo > doseCount ? 'BOOSTER' : 'DOSE',
-      dueDate: textValue(d.dueDate), newExpectedDate: text(d.newExpectedDate), status: doseStatus(d.status),
-      deferralReason: text(d.deferralReason), version: num(d.version) ?? 0,
-    }
-  })
-  const codes = [...new Set(doses.filter((d) => d.status !== 'CANCELLED').map((d) => d.cattleCode))]
-  const stored = s.target === null || s.target === undefined ? undefined : asRecord(s.target)
-  const target: ScheduleTarget = stored
-    ? { penCodes: strings(stored.penCodes), herdGroups: strings(stored.herdGroups) as HerdGroup[], lifeStages: strings(stored.lifeStages) as LifeStage[], excluded: strings(stored.excludedCattleCodes), added: strings(stored.cattleCodes) }
-    : { penCodes: [], herdGroups: [], lifeStages: [], excluded: [], added: codes }
-  return {
-    vaccineName: textValue(s.vaccineName),
-    doses,
-    schedule: {
-      id, name: textValue(s.name), vaccineId: num(s.vaccineId) ?? 0, firstDueDate: textValue(s.firstDueDate), doseCount,
-      intervalDays: doseCount > 1 ? num(s.intervalDays) : undefined, boosterIntervalMonths: num(s.boosterIntervalMonths),
-      status: textValue(s.status).toUpperCase() === 'STOPPED' ? 'STOPPED' : 'ACTIVE', version: num(s.version) ?? 0,
-      target, stopReason: text(s.stopReason),
-    },
-  }
-}
-
-const SOURCES = ['ON_FARM', 'HISTORICAL'] as const
-/** Số ngày ngưng suy từ ngày hết ngưng khi backend không trả số ngày (bản ghi / revision cũ). */
-const daysBetween = (from: string, to: string | undefined) => (to && from ? Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) : 0)
-
-/** Revision của bản ghi tiêm (GAP-FE09-03): giá trị trước khi sửa / hủy, người, thời điểm, lý do (BR-D15). */
-export function mapRevision(raw: unknown): VaccinationRevision {
-  const r = asRecord(raw)
-  const b = asRecord(r.before)
-  const date = textValue(b.vaccinationDate)
-  return {
-    at: toFarmTime(r.changedAt),
-    by: textValue(r.changedBy),
-    action: textValue(r.action).toUpperCase() === 'VOID' ? 'VOID' : 'CORRECT',
-    reason: textValue(r.reason),
-    before: {
-      vaccineId: num(b.vaccineId) ?? 0,
-      administeredAt: text(b.administeredAt) ? toFarmTime(b.administeredAt) : date ? `${date}T00:00` : '',
-      batchNo: text(b.batchNo),
-      dose: text(b.dose),
-      route: toRoute(b.route),
-      withdrawalDays: num(b.withdrawalDays) ?? daysBetween(date, text(b.withdrawalEndDate)),
-      vaccinator: text(b.vaccinator),
-    },
-  }
-}
-
-export function mapRecord(raw: unknown): HistoryRow {
-  const r = asRecord(raw)
-  const date = textValue(r.vaccinationDate)
-  const administeredAt = text(r.administeredAt) ? toFarmTime(r.administeredAt) : `${date}T00:00`
-  const withdrawalEndDate = text(r.withdrawalEndDate)
-  const source = (SOURCES as readonly string[]).includes(textValue(r.source).toUpperCase()) ? textValue(r.source).toUpperCase() as 'ON_FARM' | 'HISTORICAL' : 'ON_FARM'
-  const days = num(r.withdrawalDays) ?? daysBetween(date, withdrawalEndDate)
-  return {
-    id: num(r.id) ?? 0,
-    cattleCode: textValue(r.cattleCode),
-    penCode: textValue(r.penCode),
-    vaccineId: num(r.vaccineId),
-    vaccineLabel: textValue(r.vaccineName),
-    batchNo: text(r.batchNo),
-    dose: text(r.dose),
-    route: toRoute(r.route),
-    administeredAt,
-    precision: 'EXACT',
-    source,
-    vaccinator: text(r.vaccinator),
-    withdrawalDays: days,
-    withdrawalEndDate,
-    reactionCaseCode: text(r.reactionCaseCode),
-    status: textValue(r.status).toUpperCase() === 'VOIDED' ? 'VOIDED' : 'VALID',
-    corrected: r.corrected === true,
-    version: num(r.version) ?? 0,
-    revisions: asRows(r.revisions).map((rev) => mapRevision(rev)),
-  }
-}
-
-/** Một con bị bỏ qua khi ghi cả lô; câu thông báo giống chế độ local (kho demo). */
-export function mapSkipped(raw: unknown): { cattleCode: string; message: string } {
-  const s = asRecord(raw)
-  const code = textValue(s.cattleCode)
-  const messageCode = textValue(s.messageCode).replace(/^MSG-/, '')
-  if (messageCode === 'FE09-09') return { cattleCode: code, message: `${code} đã tiêm mũi ${num(s.doseNo) ?? ''} của lịch này nên được bỏ qua.` }
-  if (messageCode === 'COM-13') return { cattleCode: code, message: `${code} đã rời đàn nên được bỏ qua.` }
-  return { cattleCode: code, message: `${code} được bỏ qua.` }
-}
-
-// Mã lỗi COM-06 / COM-10 trả về {field}; tên trường backend → ô trên màn hình.
-const FIELD_ALIASES: Record<string, string> = {
-  vaccinationDate: 'administeredAt', firstDueDate: 'firstDueDate', targetCattle: 'form', animals: 'form', scheduledDoseId: 'form',
-  deferralReason: 'form', decision: 'form', period: 'form', page: 'form',
-}
-const FIELD_MESSAGES: Record<string, string> = {
-  name: 'Tên lịch là bắt buộc, tối đa 100 ký tự.',
-  vaccineId: 'Vắc-xin là bắt buộc.',
-  firstDueDate: 'Ngày bắt đầu không được trước hôm nay.',
-  doseCount: 'Số mũi phải là số nguyên từ 1 đến 10.',
-  intervalDays: 'Cách giữa mũi phải từ 1 đến 365 ngày.',
-  boosterIntervalMonths: 'Nhắc lại sau phải từ 1 đến 60 tháng.',
-  batchNo: 'Số lô là bắt buộc khi tiêm tại trại, tối đa 50 ký tự.',
-  administeredAt: 'Thời điểm tiêm không hợp lệ.',
-  withdrawalDays: 'Số ngày ngưng phải là số nguyên từ 0 đến 365.',
-  vaccinator: 'Người tiêm là bắt buộc.',
-  dose: 'Liều là bắt buộc.',
-  route: 'Đường tiêm là bắt buộc.',
-  reason: 'Lý do là bắt buộc, tối đa 500 ký tự.',
-  newExpectedDate: 'Ngày mới phải từ hôm nay trở đi.',
-  source: 'Nguồn ghi nhận không hợp lệ.',
-  form: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.',
-}
-
-/** Đổi lỗi backend sang lỗi màn hình đang bắt; lỗi khác (quyền, xung đột…) giữ nguyên cho userFacingError. */
-export function mapVaccinationError(error: unknown): unknown {
-  if (!(error instanceof BackendError)) return error
-  const reason = textValue(error.params.reason)
-  // Backend trả mã đầy đủ "MSG-COM-05"; vẫn nhận dạng ngắn "COM-05".
-  const code = textValue(error.code).replace(/^MSG-/, '')
-  if (code === 'COM-05' && reason === 'active_schedule_name_exists') return new VaccinationValidationError({ name: 'Đã có lịch đang chạy cùng tên.' })
-  if (code === 'COM-05' && reason === 'vaccine_inactive') return new VaccinationValidationError({ vaccineId: 'Vắc-xin đã ngừng sử dụng, không thể chọn cho bản ghi mới.' })
-  if (code === 'COM-05' || error.status === 409 || error.status === 412) return new Error(CONFLICT_MESSAGE)
-  // SCR-33 #4: lỗi thời điểm tiêm của backend hiện dưới ô Thời điểm tiêm, không hiện câu tiếng Anh ở đầu form.
-  if (code === 'COM-07') return new VaccinationValidationError({ administeredAt: 'Thời điểm tiêm không được ở tương lai.' })
-  if (code === 'COM-15') {
-    const entryDate = textValue(error.params.entryDate, textValue(error.params.date))
-    return new VaccinationValidationError({ administeredAt: entryDate ? `Thời điểm không được trước ngày nhập đàn (${fmtDate(entryDate)}).` : 'Thời điểm không được trước ngày nhập đàn.' })
-  }
-  const fields: FieldErrors = {}
-  const field = textValue(error.params.field)
-  if (field) {
-    const key = FIELD_ALIASES[field] ?? field
-    fields[key] = key === 'form' && field === 'targetCattle' ? 'Không có bò đang nuôi nào khớp với nhóm đã chọn.' : FIELD_MESSAGES[key] ?? error.message
-  }
-  for (const fe of error.fieldErrors) {
-    const key = FIELD_ALIASES[fe.field] ?? fe.field
-    fields[key] = FIELD_MESSAGES[key] ?? fe.message
-  }
-  return hasErrors(fields) ? new VaccinationValidationError(fields) : error
-}
-
 const query = (params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== '') search.set(key, String(value))
@@ -254,19 +49,6 @@ const query = (params: Record<string, string | number | undefined>) => {
  * Không có điều kiện nào: màn hình xem trước là cả đàn còn nuôi, nên gửi đúng danh sách bò đã chốt (cattleIds),
  * vì backend chỉ lấy bò được chọn khi không có điều kiện.
  */
-function targetBody(target: ScheduleTarget, herd: CattleRef[], pensList: Array<{ id: number; code: string }>) {
-  const idOf = (code: string) => herd.find((c) => c.code === code)?.id
-  const ids = (codes: string[]) => codes.map(idOf).filter((id): id is number => id !== undefined)
-  const hasSelector = target.penCodes.length > 0 || target.herdGroups.length > 0 || target.lifeStages.length > 0
-  return {
-    cattleIds: hasSelector ? ids(target.added) : resolveTarget(herd, target).map((c) => (c as CattleRef).id),
-    penIds: target.penCodes.map((code) => pensList.find((p) => p.code === code)?.id).filter((id): id is number => id !== undefined),
-    herdGroups: target.herdGroups,
-    lifeStages: target.lifeStages,
-    excludedCattleIds: hasSelector ? ids(target.excluded) : [],
-  }
-}
-
 const sameList = (a: string[], b: string[]) => a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i])
 const sameTarget = (a: ScheduleTarget, b: ScheduleTarget) =>
   sameList(a.penCodes, b.penCodes) && sameList(a.herdGroups, b.herdGroups) && sameList(a.lifeStages, b.lifeStages) && sameList(a.excluded, b.excluded) && sameList(a.added, b.added)
@@ -432,7 +214,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
           // Backend bắt buộc intervalDays kể cả lịch 1 mũi; khi đó giá trị không dùng tới.
           intervalDays: cmd.doseCount! > 1 ? cmd.intervalDays : cmd.intervalDays ?? 1,
           boosterIntervalMonths: cmd.boosterIntervalMonths ?? null,
-          ...targetBody(cmd.target, herd, pensList),
+          ...toVaccinationTargetDto(cmd.target, herd, pensList),
         }
         const result = asRecord(await transport.command(path('/vaccination-schedules'), body))
         // MSG-FE09-07: backend xác nhận lại đối tượng; số bò lấy theo kết quả lưu.
@@ -477,7 +259,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
           boosterIntervalMonths: changed.booster ? cmd.boosterIntervalMonths ?? null : null,
           doseCount: doseCountChanged ? cmd.doseCount ?? null : null,
           removeBooster: changed.booster && cmd.boosterIntervalMonths === undefined ? true : null,
-          target: targetChanged ? targetBody(cmd.target, herd, pensList) : null,
+          target: targetChanged ? toVaccinationTargetDto(cmd.target, herd, pensList) : null,
         }
         const result = asRecord(await transport.command(path(`/vaccination-schedules/${id}`), body, { method: 'PUT' }))
         const targetCount = num(result.targetCount) ?? targetCountOf(view)

@@ -1,9 +1,8 @@
 import { useSearchParams } from 'react-router-dom'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { healthApi } from '../api/healthApi'
 import { fmtDate, fmtDateTime } from '../domain/healthFormat'
+import { useHealthProfile } from '../hooks/useHealthProfile'
 import { CaseStatusBadge, EntryBadge, shortDetails } from './healthUi'
 import HealthTimelineSource from './HealthTimelineSource'
 
@@ -16,7 +15,7 @@ export default function HealthTechnicianTab({ cattleCode }: { cattleCode: string
   const [params] = useSearchParams()
   const sourceId = params.get('r')
   const caseId = sourceId == null ? null : params.get('case')
-  const { data, loading, error, refetch } = useQuery(() => healthApi.getProfile(cattleCode, caseId ?? undefined), [cattleCode, caseId])
+  const { data, loading, error, refetch } = useHealthProfile(cattleCode, caseId)
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu sức khỏe.')} onRetry={refetch} />
   if (sourceId != null) return loading ? <LoadingBlock /> : <HealthTimelineSource profile={data} sourceId={sourceId} type={params.get('type')} caseId={caseId} technician />

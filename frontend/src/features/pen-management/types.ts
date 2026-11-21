@@ -1,10 +1,9 @@
-import type { CattleCode } from '../cattle'
-
 export type PenStatus = 'ACTIVE' | 'INACTIVE'
 
 export type PenCode = string
 
-export type PenCowLink = [CattleCode, string]
+/** Serialized cattle identifier and display label; kept local to avoid a type dependency cycle with Cattle. */
+export type PenCowLink = [string, string]
 
 export interface Pen {
   id?: number

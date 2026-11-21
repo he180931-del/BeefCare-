@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, it, vi } from 'vitest'
 import RowEditModal, { purposesForSex, stagesForSex } from '../../../src/features/herd-entry/components/RowEditModal'
-import type { EntryCow, Pen } from '../../../src/types'
+import type { EntryCow } from '../../../src/features/herd-entry/types'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const eligiblePen: Pen = {
   code: 'B1',

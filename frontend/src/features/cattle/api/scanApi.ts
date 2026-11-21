@@ -2,7 +2,7 @@ import { toFarmLocal } from '../../../shared/lib/date/farmTime'
 import { backendMode } from '../../../shared/config/runtime'
 import { BackendError } from '../../../shared/api/backendClient'
 import { listCows, resolveScannedCode } from './cattleApi'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 /**
  * Outcome of a scan or a manual code (UC-FE05-05, R-05-14, R-05-15):

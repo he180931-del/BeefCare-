@@ -5,6 +5,14 @@ import { backendTransport, type BackendTransport } from '../../../shared/api/bac
 import type { FeedCatalogueDemoStore, FeedCatalogueInput, FeedCatalogueItem, FeedCatalogueSaveInput, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
+import { type FeedCommandOptions } from './command'
+
+export type FeedCatalogueCommandOptions = FeedCommandOptions
+export type FeedSupplierQuery = { q?: string; status?: 'ACTIVE' | 'INACTIVE' }
+
+function commandOptions(method: string, options: FeedCatalogueCommandOptions = {}) {
+  return options.key === undefined ? { method } : { method, key: options.key }
+}
 
 function backendFeed(value: unknown): FeedCatalogueItem {
   const row = asRecord(value)
@@ -81,15 +89,18 @@ export function createFeedCatalogueApi({
   demoStore?: FeedCatalogueDemoStore
 }) {
   const listBackendFeeds = async () => backendFeeds(await transport.get(transport.farmPath(farmId, '/feed/catalogue')))
-  const listBackendSuppliers = async () => {
-    const path = transport.farmPath(farmId, '/trading-partners?role=SUPPLIER')
+  const listBackendSuppliers = async (query: FeedSupplierQuery = {}) => {
+    const params = new URLSearchParams({ role: 'SUPPLIER' })
+    if (query.q?.trim()) params.set('q', query.q.trim())
+    if (query.status) params.set('status', query.status)
+    const path = transport.farmPath(farmId, `/trading-partners?${params.toString()}`)
     return backendSuppliers(await transport.get(path))
   }
-  const saveBackendFeed = async (input: FeedCatalogueSaveInput): Promise<FeedCatalogueItem> => {
+  const saveBackendFeed = async (input: FeedCatalogueSaveInput, options: FeedCatalogueCommandOptions = {}): Promise<FeedCatalogueItem> => {
     const isUpdate = input.id !== undefined
     const expectedVersion = isUpdate ? requireExpectedVersion(input.expectedVersion, 'thức ăn') : undefined
     const path = transport.farmPath(farmId, isUpdate ? `/feed/catalogue/${input.id}` : '/feed/catalogue')
-    const response = await transport.command(path, feedRequest(input, expectedVersion), { method: isUpdate ? 'PUT' : 'POST' })
+    const response = await transport.command(path, feedRequest(input, expectedVersion), commandOptions(isUpdate ? 'PUT' : 'POST', options))
     return backendFeed(response)
   }
 
@@ -98,7 +109,7 @@ export function createFeedCatalogueApi({
       if (mode === 'backend') return listBackendFeeds()
       return demoStore.listFeeds()
     },
-    async saveFeed(input: FeedCatalogueSaveInput): Promise<FeedCatalogueItem> {
+    async saveFeed(input: FeedCatalogueSaveInput, options: FeedCatalogueCommandOptions = {}): Promise<FeedCatalogueItem> {
       if (mode !== 'backend') {
         const localInput: FeedCatalogueInput = {
           code: input.code,
@@ -113,9 +124,9 @@ export function createFeedCatalogueApi({
         }
         return demoStore.saveFeed(localInput)
       }
-      return saveBackendFeed(input)
+      return saveBackendFeed(input, options)
     },
-    async setFeedAvailable(id: number, available: boolean, expectedVersion?: number): Promise<FeedCatalogueItem> {
+    async setFeedAvailable(id: number, available: boolean, expectedVersion?: number, options: FeedCatalogueCommandOptions = {}): Promise<FeedCatalogueItem> {
       if (mode !== 'backend') return demoStore.setFeedAvailable(id, available)
       const current = (await listBackendFeeds()).find((item) => item.id === id)
       if (!current) throw new Error('Không tìm thấy thức ăn trong danh mục hiện tại.')
@@ -124,13 +135,16 @@ export function createFeedCatalogueApi({
         id,
         expectedVersion: requireExpectedVersion(expectedVersion ?? current.version, 'thức ăn'),
         available,
-      })
+      }, options)
     },
-    async listSuppliers(): Promise<FeedSupplier[]> {
-      if (mode === 'backend') return listBackendSuppliers()
-      return demoStore.listSuppliers()
+    async listSuppliers(query: FeedSupplierQuery = {}): Promise<FeedSupplier[]> {
+      if (mode === 'backend') return listBackendSuppliers(query)
+      const rows = await demoStore.listSuppliers()
+      const q = query.q?.trim().toLocaleLowerCase()
+      return rows.filter((supplier) => (!query.status || (supplier.active ? 'ACTIVE' : 'INACTIVE') === query.status)
+        && (!q || `${supplier.name} ${supplier.phone} ${supplier.area}`.toLocaleLowerCase().includes(q)))
     },
-    async saveSupplier(input: FeedSupplierInput): Promise<FeedSupplier> {
+    async saveSupplier(input: FeedSupplierInput, options: FeedCatalogueCommandOptions = {}): Promise<FeedSupplier> {
       if (mode !== 'backend') return demoStore.saveSupplier(input)
       if (input.active !== undefined) throw new Error('Trạng thái nhà cung cấp được đổi riêng qua thao tác kích hoạt/ngừng.')
       const isUpdate = input.id !== undefined
@@ -151,17 +165,17 @@ export function createFeedCatalogueApi({
         area: input.area.trim(),
         note: input.note.trim(),
         ...(expectedVersion === undefined ? {} : { expectedVersion }),
-      }, { method: isUpdate ? 'PUT' : 'POST' })
+      }, commandOptions(isUpdate ? 'PUT' : 'POST', options))
       return backendSupplier(response)
     },
-    async setSupplierActive(id: number, active: boolean, expectedVersion?: number): Promise<FeedSupplier> {
+    async setSupplierActive(id: number, active: boolean, expectedVersion?: number, options: FeedCatalogueCommandOptions = {}): Promise<FeedSupplier> {
       if (mode !== 'backend') return demoStore.setSupplierActive(id, active)
       const current = expectedVersion === undefined
         ? (await listBackendSuppliers()).find((supplier) => supplier.id === id)
         : undefined
       const version = requireExpectedVersion(expectedVersion ?? current?.version, 'nhà cung cấp')
       const path = transport.farmPath(farmId, `/trading-partners/${id}/status`)
-      const response = await transport.command(path, { status: active ? 'ACTIVE' : 'INACTIVE', expectedVersion: version }, { method: 'PATCH' })
+      const response = await transport.command(path, { status: active ? 'ACTIVE' : 'INACTIVE', expectedVersion: version }, commandOptions('PATCH', options))
       return backendSupplier(response)
     },
   }
@@ -170,8 +184,8 @@ export function createFeedCatalogueApi({
 const api = createFeedCatalogueApi({ mode: backendMode, farmId: activeFarmId, transport: backendTransport })
 
 export const listFeedCatalogue = () => api.listFeeds()
-export const saveFeedCatalogueItem = (input: FeedCatalogueSaveInput) => api.saveFeed(input)
-export const setFeedCatalogueAvailability = (id: number, available: boolean, expectedVersion?: number) => api.setFeedAvailable(id, available, expectedVersion)
-export const listFeedSuppliers = () => api.listSuppliers()
-export const saveFeedSupplier = (input: FeedSupplierInput) => api.saveSupplier(input)
-export const setFeedSupplierActive = (id: number, active: boolean, expectedVersion?: number) => api.setSupplierActive(id, active, expectedVersion)
+export const saveFeedCatalogueItem = (input: FeedCatalogueSaveInput, options?: FeedCatalogueCommandOptions) => api.saveFeed(input, options)
+export const setFeedCatalogueAvailability = (id: number, available: boolean, expectedVersion?: number, options?: FeedCatalogueCommandOptions) => api.setFeedAvailable(id, available, expectedVersion, options)
+export const listFeedSuppliers = (query?: FeedSupplierQuery) => api.listSuppliers(query)
+export const saveFeedSupplier = (input: FeedSupplierInput, options?: FeedCatalogueCommandOptions) => api.saveSupplier(input, options)
+export const setFeedSupplierActive = (id: number, active: boolean, expectedVersion?: number, options?: FeedCatalogueCommandOptions) => api.setSupplierActive(id, active, expectedVersion, options)

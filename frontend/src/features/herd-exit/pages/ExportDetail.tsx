@@ -1,26 +1,22 @@
-import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
-import { Docs, PaymentTable } from '../../../components/ui'
+import { AttachmentList, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
-import { downloadExitAttachment, exitCancelLinks, herdExitApi } from '../api/index'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
 import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
-import type { HerdExit, ExitDetail } from '../types'
+import { PaymentTable } from '../components/PaymentTable'
+import type { ExitDetail } from '../types'
+import { useExitDetail } from '../hooks/useExitDetail'
 
 export default function ExportDetail() {
   const { id } = useParams()
   const recordId = id ?? ''
-  const { data: r, loading, refetch } = useQuery<HerdExit>(() => herdExitApi.get(recordId), [recordId])
-  const { data: links } = useQuery(() => exitCancelLinks(), [])
   const [m, openModal, closeModal] = useModalParam()
-  const [documentError, setDocumentError] = useState('')
   const isOwner = useIsOwner()
+  const { record: r, loading, refetch, documentError, links, canCancel, viewDocument } = useExitDetail(recordId)
 
   if (!r) {
     return (
@@ -37,27 +33,6 @@ export default function ExportDetail() {
   const collected = d.payments?.reduce((s, p) => s + p.amount, 0) ?? (r.total ?? 0) - (r.due ?? 0)
   const owed = r.due ?? 0
   const isSold = r.status === 'Đã xuất'
-  const stillLinked = !links ? false : links.serverChecked
-    ? true
-    : (d.cows ?? []).every((row) => links.cattle.some((cow) => cow.code === row.code && cow.exitVoucherId === r.id))
-  const canCancel = isSold && Boolean(d.cows?.length) && stillLinked
-  const viewDocument = async (index: number) => {
-    const document = d.docs?.[index]
-    if (!document) return
-    try {
-      let url = typeof document.url === 'string' ? document.url : ''
-      if (typeof document.id === 'number' && document.id > 0) {
-        const blob = await downloadExitAttachment(recordId, document.id)
-        url = URL.createObjectURL(blob)
-      }
-      if (!url) return
-      window.open(url, '_blank', 'noopener,noreferrer')
-      if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-      setDocumentError('')
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : 'Không thể mở chứng từ.')
-    }
-  }
 
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
@@ -124,7 +99,7 @@ export default function ExportDetail() {
 
           <Box title="Chứng từ đính kèm" gap="gap-[10px]">
             {documentError && <Note tone="err">{documentError}</Note>}
-            {(d.docs ?? []).length ? <Docs docs={d.docs} onView={viewDocument} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+            {(d.docs ?? []).length ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
           </Box>
         </div>
 

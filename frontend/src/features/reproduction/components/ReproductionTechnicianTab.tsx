@@ -1,13 +1,12 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Card, ErrorBlock, Foot, Info, LoadingBlock, Note } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { reproductionApi } from '../api/reproductionApi'
+import { reproductionError } from '../api/reproductionError'
 import { resolveReproductionSource } from '../api/reproductionBackend'
 import { daysBetween, eligibilityScore, formatDate, formatDateTime, formatShort, isDueSoon } from '../domain/reproductionRules'
 import type { ReproductionFemale } from '../types'
 import { nowLocal } from './reproductionFields'
 import ReproductionTimeline, { EventBadge } from './ReproductionTimeline'
+import { useReproductionUseCases } from '../hooks/useReproductionUseCases'
 
 function StatusBadge({ profile }: { profile: ReproductionFemale }) {
   if (profile.status === 'PREGNANT') return isDueSoon(profile, nowLocal()) ? <Badge tone="warn" icon="baby-carriage">Sắp đẻ</Badge> : <Badge tone="ok" icon="heartbeat">Mang thai</Badge>
@@ -20,9 +19,9 @@ function StatusBadge({ profile }: { profile: ReproductionFemale }) {
 // Technician phone tab: read-only status, suggested window and the latest reproduction records (frames 2617:12112, 2617:12205).
 export default function ReproductionTechnicianTab({ cattleCode }: { cattleCode: string }) {
   const [params] = useSearchParams()
-  const { data: profile, loading, error, refetch } = useQuery(() => reproductionApi.getProfile(cattleCode), [cattleCode])
+  const { profile, profileLoading: loading, profileError: error, refetchProfile: refetch } = useReproductionUseCases({ cattleCode, scope: 'profile' })
   if (loading && !profile) return <LoadingBlock />
-  if (error || !profile) return <ErrorBlock message={userFacingError(error, 'Không tải được hồ sơ sinh sản.')} onRetry={refetch} />
+  if (error || !profile) return <ErrorBlock message={reproductionError(error, 'Không tải được hồ sơ sinh sản.')} onRetry={refetch} />
   const sourceId = params.get('r')
   if (sourceId != null) {
     const source = resolveReproductionSource(profile.events, sourceId, params.get('type'))

@@ -5,9 +5,10 @@ import { cancelFeedRationVersion, newFeedRationCommandKey, stopFeedRation } from
 import { localRationDate } from '../domain/feedRationForm'
 import { formatDate } from '../domain/feedLabels'
 import type { FeedRation } from '../types/feedRation'
+import type { FeedCommandOptions } from '../api/command'
 
 /** UC-FE23-06 AF1: cancel a version that has not taken effect yet; the previous version stays effective. */
-export function FeedRationCancelDialog({ row, onClose, onDone }: { row: FeedRation; onClose: () => void; onDone: (message: string) => void }) {
+export function FeedRationCancelDialog({ row, onClose, onDone, cancelVersion }: { row: FeedRation; onClose: () => void; onDone: (message: string) => void; cancelVersion?: (input: { id: number; versionNo: number; version: number; options?: FeedCommandOptions }) => Promise<FeedRation> }) {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const requestKey = useRef<string | undefined>(undefined)
@@ -15,7 +16,8 @@ export function FeedRationCancelDialog({ row, onClose, onDone }: { row: FeedRati
     setSaving(true)
     setError('')
     try {
-      await cancelFeedRationVersion(row.id, row.versionNo, row.version, { key: requestKey.current ??= newFeedRationCommandKey() })
+      const options = { key: requestKey.current ??= newFeedRationCommandKey() }
+      await (cancelVersion ? cancelVersion({ id: row.id, versionNo: row.versionNo, version: row.version, options }) : cancelFeedRationVersion(row.id, row.versionNo, row.version, options))
       onDone(`Đã hủy phiên bản ${row.rationCode} v${row.versionNo}. Phiên bản trước tiếp tục có hiệu lực.`)
     } catch (cancelError) {
       setError(userFacingError(cancelError, 'Không thể hủy phiên bản. Vui lòng thử lại.'))
@@ -36,7 +38,7 @@ export function FeedRationCancelDialog({ row, onClose, onDone }: { row: FeedRati
 }
 
 /** UC-FE23-06 AF2: stop an effective ration from a date tomorrow or later; its pens have no ration after it. */
-export function FeedRationStopDialog({ row, onClose, onDone }: { row: FeedRation; onClose: () => void; onDone: (message: string) => void }) {
+export function FeedRationStopDialog({ row, onClose, onDone, stopVersion }: { row: FeedRation; onClose: () => void; onDone: (message: string) => void; stopVersion?: (input: { id: number; endDate: string; version: number; options?: FeedCommandOptions }) => Promise<FeedRation> }) {
   const tomorrow = localRationDate(1)
   const [endDate, setEndDate] = useState(row.effectiveTo && row.effectiveTo >= tomorrow ? row.effectiveTo : tomorrow)
   const [error, setError] = useState('')
@@ -47,7 +49,8 @@ export function FeedRationStopDialog({ row, onClose, onDone }: { row: FeedRation
     setSaving(true)
     setError('')
     try {
-      await stopFeedRation(row.id, endDate, row.version, { key: requestKey.current ??= newFeedRationCommandKey() })
+      const options = { key: requestKey.current ??= newFeedRationCommandKey() }
+      await (stopVersion ? stopVersion({ id: row.id, endDate, version: row.version, options }) : stopFeedRation(row.id, endDate, row.version, options))
       onDone(`${row.rationCode} v${row.versionNo} sẽ ngừng áp dụng sau ngày ${formatDate(endDate)}.`)
     } catch (stopError) {
       setError(userFacingError(stopError, 'Không thể ngừng khẩu phần. Vui lòng thử lại.'))

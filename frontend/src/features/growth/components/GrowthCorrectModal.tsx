@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Radio, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { growthApi } from '../api/growthApi'
 import { fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { METHOD_LABEL } from '../domain/growthLabels'
 import { BCS_SCALE, GrowthValidationError, type GrowthFieldErrors } from '../domain/growthRules'
 import type { GrowthMethod, GrowthRecord } from '../types'
+import { useGrowthCommands } from '../hooks/useGrowthUseCase'
 import { FieldError, UnitInput, parseNum } from './growthParts'
 
 export default function GrowthCorrectModal({ record, onClose, onSaved }: { record: GrowthRecord; onClose: () => void; onSaved: (message: string) => void }) {
+  const { correct } = useGrowthCommands()
   const [action, setAction] = useState<'CORRECT' | 'EXCLUDE'>('CORRECT')
   const [weight, setWeight] = useState(record.weightKg === undefined ? '' : String(record.weightKg))
   const [girth, setGirth] = useState(record.heartGirthCm === undefined ? '' : String(record.heartGirthCm))
@@ -24,7 +25,7 @@ export default function GrowthCorrectModal({ record, onClose, onSaved }: { recor
     setSaving(true)
     setErrors({})
     try {
-      await growthApi.correct(record.cattleCode, record.id, {
+      await correct(record.cattleCode, record.id, {
         action,
         reason,
         expectedVersion: record.version,

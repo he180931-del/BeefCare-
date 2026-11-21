@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, LoadingBlock, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useDemoState } from '../../../demo/demoModules'
-import { healthApi } from '../api/healthApi'
 import { addDays, dateOf, SEVERITIES, SEVERITY_LABEL } from '../domain/healthFormat'
+import { useHealthCases } from '../hooks/useHealthCases'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import type { CaseTab, HealthCaseFilters, Severity } from '../types'
 import { CaseStatusBadge, SeverityBadge } from '../components/healthUi'
 
@@ -14,16 +14,15 @@ const TITLE = 'Sức khỏe & Điều trị'
 const PAGE_SIZE = 10
 const NOTE = 'Màn danh sách ca sức khỏe của đàn. Tab Đang mở luôn hiện mọi ca chưa đóng, không lọc theo kỳ. Trạng thái: OPEN · ngày n, CHRONIC · từ ngày, CLOSED · kết quả. Nhấn mã ca hoặc › để mở tab Sức khỏe của hồ sơ bò.'
 
-function initialFilters(): HealthCaseFilters {
-  const to = dateOf(healthApi.now())
-  return { tab: 'open', search: '', severity: '', penCode: '', from: addDays(to, -30), to, sort: 'openedAt', dir: 'desc' }
-}
-
 export default function HealthCaseList() {
   const demo = useDemoState()
-  const [filters, setFilters] = useState<HealthCaseFilters>(initialFilters)
+  const { now } = useHealthCaseCommands()
+  const [filters, setFilters] = useState<HealthCaseFilters>(() => {
+    const to = dateOf(now())
+    return { tab: 'open', search: '', severity: '', penCode: '', from: addDays(to, -30), to, sort: 'openedAt', dir: 'desc' }
+  })
   const [page, setPage] = useState(1)
-  const { data, loading, error, refetch } = useQuery(() => (demo === 'load-error' ? Promise.reject(new Error('Không tải được danh sách ca sức khỏe.')) : healthApi.listCases(filters)), [filters, demo])
+  const { data, loading, error, refetch } = useHealthCases(filters, demo)
   const update = (patch: Partial<HealthCaseFilters>) => { setFilters((f) => ({ ...f, ...patch })); setPage(1) }
   const toggleSort = (key: 'openedAt' | 'caseCode') => update({ sort: key, dir: filters.sort === key && filters.dir === 'desc' ? 'asc' : 'desc' })
 

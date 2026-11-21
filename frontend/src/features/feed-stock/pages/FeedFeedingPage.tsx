@@ -5,17 +5,14 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, Foot, Icon, Metric, Note, PageHeader, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { canRecordCare } from '../../authorization'
 import { useSession } from '../../../app/session/sessionContext'
-import { feedFeedingServerBacked, listFeedFeedingRecords } from '../api/feedFeedingApi'
-import { listFeedReceipts } from '../api/feedReceiptApi'
-import { listFeedRationFeeds, listFeedRationPens, listFeedRations } from '../api/feedRationApi'
 import { effectiveRationForPen } from '../domain/feedTodayRations'
 import { planForSession, SESSION_NAMES, sessionTimeFor, shortPersonName } from '../domain/feedPlan'
 import { formatDate, formatKg, formatNumber } from '../domain/feedLabels'
 import FeedManagementTabs from '../components/FeedManagementTabs'
-import { FeedCorrectDialog, FeedQuickFillDialog, FeedRecordDialog, type FeedingData } from '../components/FeedSessionDialogs'
+import { FeedCorrectDialog, FeedQuickFillDialog, FeedRecordDialog } from '../components/FeedSessionDialogs'
+import { feedFeedingServerBacked, useFeedFeedingScreen } from '../hooks/useFeedFeeding'
 import type { FeedFeedingRecord } from '../types/feedFeeding'
 import type { FeedRation, FeedRationPenOption } from '../types/feedRation'
 import type { FeedStockRow } from '../types'
@@ -83,14 +80,7 @@ export default function FeedFeedingPage() {
   const [editing, setEditing] = useState<{ record: FeedFeedingRecord; action: 'correct' | 'void' } | null>(null)
   const [message, setMessage] = useState(routeMessage)
   const range = useMemo(() => periodRange(selectedDate, view), [selectedDate, view])
-  const query = useQuery(async (): Promise<FeedingData & { receipts: Awaited<ReturnType<typeof listFeedReceipts>> }> => {
-    const [records, rations, pens, feeds, receipts] = await Promise.all([
-      listFeedFeedingRecords(range), listFeedRations(), listFeedRationPens(),
-      canViewStock ? listFeedRationFeeds() : Promise.resolve([]),
-      canViewStock ? listFeedReceipts().catch(() => []) : Promise.resolve([]),
-    ])
-    return { records, rations, pens, feeds, receipts }
-  }, [range.from, range.to, canViewStock])
+  const query = useFeedFeedingScreen(range, canViewStock)
 
   const data = query.data
   const pens = data?.pens ?? []
@@ -383,4 +373,3 @@ function WeeklyTable({ records, feeds, canEdit, onEdit }: {
     </div>
   )
 }
-

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { Button, Foot, Icon, inputCls, Note, QrCamera } from '../../../shared/ui'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleError } from '../api/cattleError'
 import { enterFarm } from '../../farm-workspace'
 import { scanCode, scanSampleNotice, type ScanOutcome } from '../api/scanApi'
 import { Chip, chipIcon } from '../components/parts'
@@ -52,7 +52,7 @@ export default function ScanQrPage() {
       }
     } catch (failure) {
       setPhase({ kind: 'idle' })
-      setError(userFacingError(failure, 'Không tra được mã bò. Vui lòng thử lại.'))
+      setError(cattleError(failure, 'Không tra được mã bò. Vui lòng thử lại.'))
     } finally {
       busy.current = false
     }
@@ -81,7 +81,7 @@ export default function ScanQrPage() {
       })
       if (failure) setError(failure)
     } catch (failure) {
-      setError(userFacingError(failure, 'Không chuyển được trại. Vui lòng thử lại.'))
+      setError(cattleError(failure, 'Không chuyển được trại. Vui lòng thử lại.'))
     } finally {
       setSwitching(false)
     }

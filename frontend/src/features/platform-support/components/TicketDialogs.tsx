@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox, Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { supportApi } from '../api/supportApi'
 import { ROLE_LABEL, closeConditions, formatStamp, openIrOf } from '../domain/supportRules'
 import type { InternalView, TargetRole, Ticket } from '../types'
 import { FieldError, useActor, useSubmit } from './common'
+import { useSupportCs, useSupportRecipients } from '../hooks/usePlatformSupportUseCase'
 
 const Back = ({ onClick }: { onClick: () => void }) => <ModalButton onClick={onClick}><Icon name="arrow-left" size={16} /> Quay lại</ModalButton>
 
 export function HandOverDialog({ onSubmit, onClose }: { onSubmit: (toCsId: number, reason: string) => Promise<void>; onClose: () => void }) {
   const me = useActor()
-  const { data } = useQuery(() => supportApi.listCs(), [])
+  const { data } = useSupportCs()
   const options = (data ?? []).filter((c) => c.available && c.id !== me.id)
   const [to, setTo] = useState('')
   const [reason, setReason] = useState('')
@@ -51,7 +50,7 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
   onClose: () => void
 }) {
   const [role, setRole] = useState<TargetRole>(initialRole)
-  const { data } = useQuery(() => supportApi.listRecipients(role), [role])
+  const { data } = useSupportRecipients(role)
   const [recipient, setRecipient] = useState('')
   const [question, setQuestion] = useState('')
   const [ctx, setCtx] = useState('')
@@ -108,7 +107,7 @@ export function CreateInternalDialog({ ticket, initialRole, onSubmit, onViewExis
 }
 
 export function ReassignDialog({ ir, onSubmit, onClose }: { ir: InternalView; onSubmit: (recipientId: number, reason: string) => Promise<void>; onClose: () => void }) {
-  const { data } = useQuery(() => supportApi.listRecipients(ir.targetRole), [ir.targetRole])
+  const { data } = useSupportRecipients(ir.targetRole)
   const [to, setTo] = useState('')
   const [reason, setReason] = useState('')
   const [errors, setErrors] = useState<{ to?: string; reason?: string }>({})

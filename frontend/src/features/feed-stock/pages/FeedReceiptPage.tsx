@@ -3,9 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, DateInput, Foot, Icon, Note, PageHeader, Segmented, Select } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedReceipts } from '../api/feedReceiptApi'
-import { listFeedSuppliers } from '../api/feedCatalogueApi'
+import { useFeedReceiptList } from '../hooks/useFeedReceiptList'
 import { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from '../domain/feedReceiptList'
 import type { FeedReceiptStatus } from '../types/feedReceipt'
 import FeedManagementTabs from '../components/FeedManagementTabs'
@@ -13,9 +11,7 @@ import FeedReceiptSummary from '../components/FeedReceiptSummary'
 import FeedReceiptTable from '../components/FeedReceiptTable'
 
 export default function FeedReceiptPage() {
-  const receiptQuery = useQuery(() => listFeedReceipts(), [])
-  // Supplier names for the tile and the filter; the list still works if they cannot be loaded.
-  const suppliers = useQuery(() => listFeedSuppliers().catch(() => null), []).data
+  const receiptQuery = useFeedReceiptList()
   const navigate = useNavigate()
   const location = useLocation()
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'receiptMessage' in location.state
@@ -26,7 +22,8 @@ export default function FeedReceiptPage() {
   const [from, setFrom] = useState(defaultPeriod.from)
   const [to, setTo] = useState(defaultPeriod.to)
   const [supplierId, setSupplierId] = useState<number | 'ALL'>('ALL')
-  const rows = receiptQuery.data ?? []
+  const rows = receiptQuery.receipts
+  const suppliers = receiptQuery.suppliers
   const summary = receiptQuery.data ? summarizeFeedReceipts(rows) : null
   const supplierOptions = useMemo(() => {
     const unique = new Map<number, string>()
@@ -54,7 +51,7 @@ export default function FeedReceiptPage() {
       {routeMessage && <Note tone="ok">{routeMessage}</Note>}
 
       <section role="tabpanel" aria-label="Danh sách phiếu nhập kho" className="flex flex-col gap-4">
-        <FeedReceiptSummary rows={receiptQuery.data} suppliers={suppliers} />
+        <FeedReceiptSummary rows={rows} suppliers={suppliers} />
 
         <div className="flex flex-wrap items-center gap-3">
           <Segmented

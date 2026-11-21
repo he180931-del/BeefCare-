@@ -7,7 +7,6 @@ import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../
 import { useDemoState } from '../../../demo/demoModules'
 import { pageLoader, writeCurrentFarmId } from '../../../app/session/currentFarm'
 import { STORAGE_BLOCKED, SetupLayout, Stepper, enterFarm, farmWorkspaceError } from '../../farm-workspace'
-import { subscriptionApi } from '../api/subscriptionApi'
 import { useIsPhone, useTick } from '../components/shared'
 import CancelRequestDialog from '../components/CancelRequestDialog'
 import DevTransferSimulator from '../components/DevTransferSimulator'
@@ -17,6 +16,7 @@ import { useFarmScope } from '../hooks/useFarmScope'
 import { fmtDateTime, fmtPeriod, fmtVnd, stateFromError, termLabel, toMs } from '../domain/subscriptionRules'
 import { useOverview } from '../hooks/useOverview'
 import { usePaymentStatus } from '../hooks/usePaymentStatus'
+import { useSubscriptionBoundary } from '../hooks/useSubscriptionUseCase'
 
 const TITLE = 'Hướng dẫn chuyển khoản'
 
@@ -27,10 +27,11 @@ export default function TransferPage() {
   const navigate = useNavigate()
   const demo = useDemoState()
   const phone = useIsPhone()
+  const subscription = useSubscriptionBoundary()
   useTick() // bộ đếm ngược chạy theo đồng hồ của store
   const payment = usePaymentStatus(farmId, id, demo === 'bank-paid' || demo === 'result-unavailable' ? demo : undefined)
   const overview = useOverview(farmId)
-  const now = subscriptionApi.now()
+  const now = subscription.now()
   const loaded = payment.payment
   const current = loaded?.state === 'PENDING' && now >= toMs(loaded.expiresAt) ? { ...loaded, state: 'EXPIRED' as const } : loaded
   const checking = payment.checking
@@ -80,7 +81,7 @@ export default function TransferPage() {
   // Select Farm (farm screens need the farm of the tab). The demo stores of service and farm workspace do not share farms, so
   // the demo keeps the farm for the tab without that check.
   const openFarm = async () => {
-    if (!subscriptionApi.entersFarmAfterPayment) {
+    if (!subscription.entersFarmAfterPayment) {
       if (writeCurrentFarmId(farmId)) pageLoader.load('/tong-quan')
       else setEnterError(STORAGE_BLOCKED)
       return

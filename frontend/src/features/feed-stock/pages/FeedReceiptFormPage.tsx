@@ -4,11 +4,11 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
-import { Docs, Dropzone } from '../../../components/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
+import { AttachmentList, FileDropzone } from '../../../shared/ui'
 import { listFeedStock } from '../api/feedStockApi'
+import { feedReceiptServerBacked, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, listFeedReceiptAttachments, removeFeedReceiptAttachment, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
 import { listFeedSuppliers } from '../api/feedCatalogueApi'
-import { createAndPostFeedReceipt, downloadFeedReceiptAttachment, feedReceiptServerBacked, downloadFeedReceiptPaymentAttachment, getFeedReceipt, listFeedReceiptAttachments, listFeedReceipts, postFeedReceipt, removeFeedReceiptAttachment, saveFeedReceiptDraft, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
+import { useFeedReceiptForm } from '../hooks/useFeedReceiptForm'
 import { blankFeedReceiptLine, initialFeedReceiptForm, minimumExpiryDate, todayIso, type FeedReceiptFormLine, type FeedReceiptFormValues } from '../domain/feedReceiptForm'
 import { toFeedReceiptDraftInput } from '../api/feedReceiptPayload'
 import { validateFeedReceiptForm } from '../validation/feedReceiptValidation'
@@ -21,10 +21,11 @@ import type { FeedReceiptDemoRecord } from '../types/feedReceiptDemo'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FeedReceiptAudit } from '../components/FeedReceiptAudit'
 import { FeedReceiptDiscardDialog, FeedReceiptPaymentDialog, FeedReceiptPaymentVoidDialog, FeedReceiptVoidDialog, FeedSupplierQuickDialog } from '../components/FeedReceiptDialogs'
+import { newFeedCommandKey } from '../api/command'
 
 const FOOT = 'Tạo phiếu nhập kho thức ăn (Chủ trại, Quản lý). “Lưu nháp” chưa cộng kho; “Lưu & cộng kho” cộng tồn từng thức ăn và cập nhật giá nhập bình quân. Số lô và hạn dùng dùng để cảnh báo lô sắp hết hạn; phần còn nợ được theo dõi như công nợ nhà cung cấp.'
 const TITLE = 'Thức ăn › Phiếu nhập kho'
-const newReceiptCommandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-receipt:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const newReceiptCommandKey = () => newFeedCommandKey('feed-receipt')
 
 const withPaymentResult = (receipt: FeedReceipt, result: FeedReceiptPaymentResult): FeedReceipt => ({
   ...receipt,
@@ -66,16 +67,7 @@ export default function FeedReceiptFormPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const initialFeedItemId = searchParams.get('feedItemId') ?? ''
-  const formQuery = useQuery(async () => {
-    const [stock, suppliers, receipt, receipts, attachments] = await Promise.all([
-      listFeedStock(),
-      listFeedSuppliers(),
-      id ? getFeedReceipt(id) : Promise.resolve(null),
-      listFeedReceipts(),
-      id ? listFeedReceiptAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
-    ])
-    return { stock, suppliers, receipt, attachments, nextCode: feedReceiptServerBacked ? 'Tự sinh khi lưu' : nextReceiptCode(receipts.map((row) => row.code)) }
-  }, [id, initialFeedItemId])
+  const formQuery = useFeedReceiptForm(id)
 
   if (formQuery.error) {
     return (
@@ -111,8 +103,11 @@ export default function FeedReceiptFormPage() {
       initialSuppliers={formQuery.data.suppliers}
       initialAttachments={formQuery.data.attachments}
       initialFeedItemId={initialFeedItemId}
-      nextCode={formQuery.data.nextCode}
+      nextCode={feedReceiptServerBacked ? 'Tự sinh khi lưu' : nextReceiptCode(formQuery.data.receipts.map((row) => row.code))}
       onChanged={() => formQuery.refetch()}
+      saveDraft={formQuery.saveDraft}
+      createAndPost={formQuery.createAndPost}
+      postReceipt={formQuery.post}
     />
   )
 }
@@ -135,7 +130,7 @@ function CheckLine({ ok, children }: { ok: boolean; children: ReactNode }) {
   )
 }
 
-function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachments, initialFeedItemId, nextCode, onChanged }: {
+function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachments, initialFeedItemId, nextCode, onChanged, saveDraft, createAndPost, postReceipt }: {
   record: FeedReceipt | FeedReceiptDemoRecord | null
   stockRows: Awaited<ReturnType<typeof listFeedStock>>
   initialSuppliers: FeedSupplier[]
@@ -143,6 +138,9 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   initialFeedItemId: string
   nextCode: string
   onChanged: () => void
+  saveDraft: ReturnType<typeof useFeedReceiptForm>['saveDraft']
+  createAndPost: ReturnType<typeof useFeedReceiptForm>['createAndPost']
+  postReceipt: ReturnType<typeof useFeedReceiptForm>['post']
 }) {
   const navigate = useNavigate()
   const [modal, openModal, closeModal] = useModalParam()
@@ -306,7 +304,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       setSaving(true)
       setError('')
       try {
-        const posted = await postFeedReceipt(pending.id, pending.version, { key: pending.key })
+        const posted = await postReceipt({ id: pending.id, version: pending.version, options: { key: pending.key } })
         pendingPost.current = null
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
@@ -333,21 +331,21 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       const input = toFeedReceiptDraftInput(submitValues, stockRows, suppliers, currentRecord?.id, currentRecord?.supplierId, existingFeedIds)
       if (postNow && !currentRecord && newFiles.length === 0) {
         if (!saveCommandKey.current) saveCommandKey.current = newReceiptCommandKey()
-        const posted = await createAndPostFeedReceipt(input, { key: saveCommandKey.current })
+        const posted = await createAndPost({ input, options: { key: saveCommandKey.current } })
         saveCommandKey.current = ''
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
         return
       }
       if (!saveCommandKey.current) saveCommandKey.current = newReceiptCommandKey()
-      const saved = await saveFeedReceiptDraft(input, { key: saveCommandKey.current })
+      const saved = await saveDraft({ input, options: { key: saveCommandKey.current } })
       saveCommandKey.current = ''
       setCurrentRecord(saved)
       await uploadPendingFiles(saved.id)
       if (postNow) {
         const key = newReceiptCommandKey()
         pendingPost.current = { id: saved.id, version: saved.version, key }
-        const posted = await postFeedReceipt(saved.id, saved.version, { key })
+        const posted = await postReceipt({ id: saved.id, version: saved.version, options: { key } })
         pendingPost.current = null
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
@@ -506,8 +504,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             <Card title="3. Chứng từ đính kèm">
               {feedReceiptServerBacked ? (
                 <>
-                  {!readOnly && <Dropzone hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
-                  <Docs docs={attachmentDocs} onView={(index) => { const item = attachments[index]; if (item) void viewAttachment(item) }} onRemove={readOnly ? undefined : (index) => { const item = attachments[index]; if (item) void removeAttachment(item) }} />
+                  {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
+                  <AttachmentList items={attachmentDocs.map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void viewAttachment(item) }} onRemove={readOnly ? undefined : (key) => { const item = attachments[Number(key.split(':')[1])]; if (item) void removeAttachment(item) }} />
                   {newFiles.map((file, index) => (
                     <div className="flex items-center gap-2 text-xs" key={`${file.name}-${index}`}>
                       <Badge>{file.type === 'application/pdf' ? 'PDF' : 'JPG'}</Badge><span>{file.name} · chờ tải lên</span><span className="flex-1" />
@@ -518,8 +516,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                 </>
               ) : (
                 <>
-                  {!readOnly && <Dropzone hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
-                  <Docs docs={docs} onRemove={readOnly ? undefined : (index) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+                  {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB" onFiles={(files) => setDocs((current) => [...current, ...files.map((file) => ({ name: file.name, ext: file.name.split('.').pop()?.toUpperCase() ?? 'TỆP' }))])} />}
+                  <AttachmentList items={docs.map((doc, index) => ({ key: `new:${index}`, name: doc.name, extension: doc.ext }))} onRemove={readOnly ? undefined : (key) => setDocs((current) => current.filter((_, itemIndex) => itemIndex !== Number(key.split(':')[1])))} />
                   {docs.length > 0 && <p className="m-0 text-[11px] text-muted">Tệp chưa được lưu lên máy chủ trong bản demo.</p>}
                   {readOnly && docs.length === 0 && <p className="m-0 text-xs text-muted">Phiếu không có chứng từ đính kèm.</p>}
                 </>

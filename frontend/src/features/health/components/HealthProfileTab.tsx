@@ -3,10 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, Note, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { healthApi } from '../api/healthApi'
 import { fmtDate, fmtMonth, OUTCOME_LABEL } from '../domain/healthFormat'
 import { isWithdrawalActive, MSG } from '../domain/healthRules'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
+import { useHealthFormOptions, useHealthProfile } from '../hooks/useHealthProfile'
 import type { HealthCaseCard, HealthTimelineRow, PendingExit } from '../types'
 import CaseCard from './CaseCard'
 import CorrectRecordDialog from './CorrectRecordDialog'
@@ -36,8 +36,9 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const caseId = sourceId == null ? null : params.get('case')
   const [toast, showToast] = useToast()
   const [notice, setNotice] = useState<PendingExit | null>(null)
-  const { data: profile, loading, error, refetch } = useQuery(() => (demo === 'load-error' ? Promise.reject(new Error('Không tải được dữ liệu sức khỏe.')) : healthApi.getProfile(cattleCode, caseId ?? undefined)), [cattleCode, caseId, demo])
-  const { data: options } = useQuery(() => healthApi.formOptions(), [])
+  const { now } = useHealthCaseCommands()
+  const { data: profile, loading, error, refetch } = useHealthProfile(cattleCode, caseId, demo)
+  const { data: options } = useHealthFormOptions()
 
   if (loading && !profile) return <LoadingBlock />
   if (error || !profile) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu sức khỏe.')} onRetry={refetch} />
@@ -47,7 +48,7 @@ export default function HealthProfileTab({ cattleCode }: { cattleCode: string })
   const exited = cattle.status === 'EXITED'
   const canAdd = canRecord && !exited && !pendingExit
   const canEdit = canRecord && !exited
-  const withdrawing = isWithdrawalActive(profile.withdrawalEndDate, healthApi.now())
+  const withdrawing = isWithdrawalActive(profile.withdrawalEndDate, now())
   const saved = (message: string) => { showToast(message); dialog.close(); refetch() }
 
   const target: HealthCaseCard | undefined = activeCases.find((c) => c.caseCode === dialog.caseCode) ?? activeCases[0]

@@ -4,11 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, FilterSelect, Foot, Icon, inputCls, Note, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import { herdEntryApi, listEntrySourceFilters, listPendingEntryCalves } from '../api/index'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { dm, dmy, kg, money } from '../../../shared/lib/format'
-import type { HerdEntry } from '../types'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { herdEntryError } from '../api/herdEntryError'
+import { useEntryList } from '../hooks/useEntryList'
+import { previousQuarterStart } from '../domain/entryDateFilters'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
@@ -16,7 +15,7 @@ const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 // fixed 2026-10-22 end date made a newly posted voucher disappear from the
 // list when the entry date was today (and made it look as if saving failed).
 const DEFAULT_TO = businessDate()
-const DEFAULT_FROM = `${DEFAULT_TO.slice(0, 4)}-01-01`
+const DEFAULT_FROM = previousQuarterStart(DEFAULT_TO)
 
 export default function ImportList() {
   const [tab, setTab] = useState('Tất cả')
@@ -24,34 +23,18 @@ export default function ImportList() {
   const [source, setSource] = useState('')
   const [from, setFrom] = useState(DEFAULT_FROM)
   const [to, setTo] = useState(DEFAULT_TO)
-  const { data, loading, error } = useQuery(() => herdEntryApi.listView({
-    ...(type ? { type: type === 'Bê sinh tại trại' ? 'FARM_BORN' : 'PURCHASE' } : {}),
-    from,
-    to,
-  }), [type, from, to])
-  const { data: pending } = useQuery(() => listPendingEntryCalves(), [])
-  const { data: sourceFilters } = useQuery(() => listEntrySourceFilters(), [])
-  const view = data
-  const imports = view?.rows ?? []
-  const tiles = view?.tiles ?? {}
-  const counts = view?.counts ?? {}
-  const ready = Boolean(view)
+  const { rows, loading, error, summary, pendingCalves: pending, sellers } = useEntryList({ tab, type, source: source ? { id: source, name: '' } : undefined, from, to })
+  const tiles = summary.tiles
+  const counts = summary.counts
+  const ready = summary.ready
   const shown = (v: string | number) => (ready ? v : '—')
   const nav = useNavigate()
   const [dateOpen, setDateOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
 
-  const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? imports.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
-  const rows = imports.filter(
-    (r) =>
-      (tab === 'Tất cả' || r.status === tab) &&
-      (!type || r.type === type) &&
-      (!source || (r.source ?? '').includes(source)) &&
-      (r.date ?? '') >= from &&
-      (r.date ?? '') <= to,
-  )
-  const totalRows = imports.length
+  const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? rows.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
+  const totalRows = summary.totalRows
 
   const applyDate = () => {
     setFrom(draftFrom)
@@ -62,7 +45,7 @@ export default function ImportList() {
   return (
     <Layout title="Phiếu nhập – Danh sách" user="manager">
       <div className="contents leading-[normal]">
-        {Boolean(error) && <Note tone="err">{userFacingError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
+        {Boolean(error) && <Note tone="err">{herdEntryError(error, 'Không thể tải danh sách phiếu nhập. Vui lòng thử lại.')}</Note>}
         <PageHeader title="Nhập đàn" sub="Mỗi lần nhận bò vào trại lập 1 phiếu nhập; mỗi con được cấp mã bò và thẻ QR khi lưu.">
             <Button onClick={() => nav('/herd-entry/new?kind=calf', { state: { from: '/herd-entry' } })}>Bê chờ xác nhận ({pending?.length ?? 0})</Button>
             <Button variant="primary" onClick={() => nav('/herd-entry/new', { state: { from: '/herd-entry' } })}><Icon name="circle-plus" />Tạo phiếu nhập</Button>
@@ -105,7 +88,7 @@ export default function ImportList() {
           </FilterSelect>
           <FilterSelect className="w-[200px]" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Nguồn">
             <option value="">Nguồn: Tất cả</option>
-            {(sourceFilters ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+            {(sellers ?? []).map((seller) => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
           </FilterSelect>
         </div>
 

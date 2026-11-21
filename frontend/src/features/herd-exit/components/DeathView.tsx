@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { Badge, Button, Checkbox, DateInput, Field, Foot, inputCls, Note, Radio, Segmented, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { Docs } from '../../../components/ui'
-import { confirmHerdExit, dismissHerdExit, downloadExitAttachment, herdExitApi, saveHerdExit } from '../api/index'
+import { Badge, Button, Checkbox, DateInput, Field, FileDropzone, Foot, inputCls, Note, Radio, Segmented, Table, Td, Textarea, Th } from '../../../shared/ui'
+import { AttachmentList } from '../../../shared/ui'
+import { confirmHerdExit, dismissHerdExit, herdExitApi, saveHerdExit } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { dmy } from '../../../shared/lib/format'
@@ -12,6 +12,7 @@ import { Box, CheckList, ExitStatusBadge, SummaryCard, TH, useIsOwner } from './
 import RejectModal from './RejectModal'
 import type { HerdExit, ExitDetail } from '../types'
 import type { ExitChecks } from '../api/herdExitBackendApi'
+import { useExitDocuments } from '../hooks/useExitDocuments'
 
 const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa phương', 'Khác']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
@@ -19,7 +20,7 @@ const displayError = (error: unknown): string => error instanceof Error ? error.
 // Phiếu xuất "Chết / mất" tạo từ ca sức khỏe, chờ Chủ trại xác nhận.
 export default function DeathView({ row }: { row: HerdExit }) {
   const { mutate: dismissExit, error: updateError } = useMutation<{ id: string; reason: string; expectedVersion: number }, HerdExit>(({ id, reason, expectedVersion }) => dismissHerdExit(id, reason, expectedVersion))
-  const { mutate: persistExit, error: persistError } = useMutation(saveHerdExit)
+  const { mutate: persistExit, error: persistError, loading: persisting } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const isOwner = useIsOwner()
   const [m, openModal, closeModal] = useModalParam()
@@ -37,7 +38,10 @@ export default function DeathView({ row }: { row: HerdExit }) {
   const initialSnapshot = useRef(editableSnapshot)
   const [reviewedChecks, setReviewedChecks] = useState<ExitChecks | null>(null)
   const [reviewedSnapshot, setReviewedSnapshot] = useState<string | null>(null)
-  const [documentError, setDocumentError] = useState('')
+  const [documents, setDocuments] = useState<File[]>([])
+  const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
+  const [savedDocuments, setSavedDocuments] = useState(d.docs ?? [])
+  const lossKindReadOnly = pending && d.sourceHealthCaseId != null
   const checks = reviewedChecks ?? liveChecks
   const checksCurrent = Boolean(checks && reviewedSnapshot === editableSnapshot)
   useEffect(() => {
@@ -49,21 +53,16 @@ export default function DeathView({ row }: { row: HerdExit }) {
   useEffect(() => {
     if (reviewedSnapshot && reviewedSnapshot !== editableSnapshot) setConfirmed(false)
   }, [editableSnapshot, reviewedSnapshot])
-  const persistedDocuments = d.docs ?? []
-  const viewDocument = async (index: number) => {
-    const persisted = persistedDocuments[index]
-    try {
-      let url = persisted && typeof persisted.url === 'string' ? persisted.url : ''
-      if (persisted && typeof persisted.id === 'number' && persisted.id > 0) url = URL.createObjectURL(await downloadExitAttachment(row.id, persisted.id))
-      if (!url) return
-      window.open(url, '_blank', 'noopener,noreferrer')
-      if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-      setDocumentError('')
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : 'Không thể mở chứng từ.')
-    }
-  }
-
+  const persistedDocuments = savedDocuments.filter((document) => typeof document.id !== 'number' || !removedAttachmentIds.includes(document.id))
+  const { documentError, documentRows, addDocuments, removeDocument, viewDocument: viewExitDocument } = useExitDocuments({
+    id: row.id,
+    persistedDocuments,
+    canRemovePersisted: pending && isOwner,
+    documents,
+    setDocuments,
+    removedAttachmentIds,
+    setRemovedAttachmentIds,
+  })
   const buildPatch = (status: 'Đã xuất' | 'Đã bác', extra: Record<string, unknown> = {}) => ({
       status,
       ...extra,
@@ -80,6 +79,26 @@ export default function DeathView({ row }: { row: HerdExit }) {
         history: [...(d.history ?? []), `${dmy(date).slice(0, 5)} · N. V. Hùng ${status === 'Đã xuất' ? 'xác nhận xuất đàn' : 'bác đề xuất'}`],
       },
     })
+
+  const saveDocuments = async () => {
+    if (!documents.length) return
+    try {
+      const saved = await persistExit({
+        id: row.id,
+        record: { ...buildPatch('Đã xuất'), status: 'Nháp' },
+        cattleRows: [{ ...cow, barn: String(cow.barn ?? '').split(/[\s–-]/)[0] }],
+        documents,
+      })
+      setDocuments([])
+      if (saved.detail?.docs) setSavedDocuments(saved.detail.docs)
+      const latestChecks = await herdExitApi.checks(row.id)
+      setReviewedChecks(latestChecks)
+      setReviewedSnapshot(editableSnapshot)
+      setConfirmed(false)
+    } catch {
+      // The mutation error is rendered below; keep selected files so the Owner can retry.
+    }
+  }
 
   const refreshChecks = async () => {
     if (!pending || !checks) return
@@ -123,13 +142,14 @@ export default function DeathView({ row }: { row: HerdExit }) {
           <Box title="1. Thông tin phiếu" gap="gap-[14px]">
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-3">
               <Field label="Mã phiếu"><input className={inputCls} value={row.id} readOnly /></Field>
-              <Field label="Ngày chết / mất *" hint="Mặc định = ngày đóng ca"><DateInput value={date} onChange={setDate} /></Field>
+              <Field label="Ngày chết / mất *" hint="Mặc định = ngày đóng ca"><DateInput value={date} readOnly={!canAct} onChange={canAct ? setDate : undefined} /></Field>
               <Field label="Loại mất *">
                 <div className="flex gap-[18px] pt-2">
                   {['Chết', 'Mất tích'].map((t) => (
-                    <Radio key={t} name="lossType" checked={lossType === t} onChange={() => pending && setLossType(t)}>{t}</Radio>
+                    <Radio key={t} name="lossType" checked={lossType === t} className={!canAct || lossKindReadOnly ? 'pointer-events-none opacity-60' : undefined} onChange={() => canAct && !lossKindReadOnly && setLossType(t)}>{t}</Radio>
                   ))}
                 </div>
+                {lossKindReadOnly && <Note>Loại chết / mất lấy từ kết quả ca sức khỏe và chỉ đọc.</Note>}
               </Field>
             </div>
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
@@ -137,13 +157,13 @@ export default function DeathView({ row }: { row: HerdExit }) {
               <Field label="Người báo"><input className={inputCls} value={d.reporter} readOnly /></Field>
             </div>
             <Field label="Nguyên nhân / ghi chú *">
-              <Textarea className="!leading-[normal] h-14" rows={1} value={reason} readOnly={!pending} onChange={(e) => setReason(e.target.value)} />
+              <Textarea className="!leading-[normal] h-14" rows={1} value={reason} readOnly={!canAct} onChange={canAct ? (e) => setReason(e.target.value) : undefined} />
             </Field>
             {lossType === 'Chết' && (
               <Field label="Xử lý xác *">
                 <div className="flex flex-wrap gap-[18px] pt-1">
                   {DISPOSALS.map((t) => (
-                    <Radio key={t} name="disposal" checked={disposal === t} onChange={() => pending && setDisposal(t)}>{t}</Radio>
+                    <Radio key={t} name="disposal" checked={disposal === t} className={!canAct ? 'pointer-events-none opacity-60' : undefined} onChange={() => canAct && setDisposal(t)}>{t}</Radio>
                   ))}
                 </div>
               </Field>
@@ -171,8 +191,18 @@ export default function DeathView({ row }: { row: HerdExit }) {
 
           <Box title="3. Chứng từ đính kèm" sub="Ảnh, biên bản tiêu hủy hoặc xác nhận của thú y" gap="gap-3">
             {documentError && <Note tone="err">{documentError}</Note>}
-            <Docs docs={persistedDocuments} onView={viewDocument} />
-            {pending && <Note>Phiếu chờ xác nhận: chứng từ hiện có chỉ xem được; tải lên sau khi phiếu ở trạng thái Nháp.</Note>}
+            <AttachmentList
+              items={documentRows.map((doc, index) => ({ key: `${index < persistedDocuments.length ? 'saved' : 'new'}:${index < persistedDocuments.length ? index : index - persistedDocuments.length}`, name: doc.name, extension: doc.ext }))}
+              onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewExitDocument(index + (key.startsWith('saved:') ? 0 : persistedDocuments.length)) }}
+              onRemove={pending && isOwner ? (key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void removeDocument(index + (key.startsWith('saved:') ? 0 : persistedDocuments.length)) } : undefined}
+            />
+            {pending && isOwner && (
+              <>
+                <FileDropzone label="Thêm chứng từ bằng chứng" hint="PDF/JPG, tối đa 10MB mỗi tệp" accept="application/pdf,image/jpeg" onFiles={addDocuments} />
+                {documents.length > 0 && <Button block disabled={persisting} onClick={() => { void saveDocuments() }}>Lưu chứng từ ({documents.length})</Button>}
+              </>
+            )}
+            {pending && !isOwner && <Note>Phiếu chờ xác nhận: chỉ Chủ trại được thêm hoặc xóa chứng từ; thành viên khác chỉ xem.</Note>}
           </Box>
         </div>
 

@@ -3,16 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useDemoState } from '../../../demo/demoModules'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { useFarmDashboardUseCases } from '../hooks/useFarmOverviewUseCases'
 import DashboardFilterBar from '../components/DashboardFilterBar'
 import { AttentionCard, GettingStartedCard, HerdStructureCard, QuickRecordCard } from '../components/DashboardCards'
 import { PrimaryMetrics, SecondaryMetrics } from '../components/DashboardMetrics'
 import { formatDateTime, formatKey } from '../domain/format'
 import { viewerRole } from '../domain/viewer'
-import type { DashboardFilters, DashboardView, Scenario } from '../types'
+import type { DashboardFilters, Scenario } from '../types'
 
 const TITLE = 'Tổng quan trang trại'
 
@@ -24,18 +23,7 @@ export default function FarmDashboardPage() {
   const [filters, setFilters] = useState<DashboardFilters>({ period: '30' })
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
-  const filtersApplied = Boolean(filters.pen || filters.herdGroup || filters.lifeStage)
-  const overviewFilters = useMemo<DashboardFilters>(() => ({
-    period: filters.period,
-    ...(filters.from ? { from: filters.from } : {}),
-    ...(filters.to ? { to: filters.to } : {}),
-  }), [filters.period, filters.from, filters.to])
-  const overviewDash = useQuery(() => farmOverviewApi.getDashboard(overviewFilters, viewer), [overviewFilters, viewer])
-  const filteredDash = useQuery<DashboardView | null>(
-    () => filtersApplied ? farmOverviewApi.getDashboard(filters, viewer) : Promise.resolve(null),
-    [filters, viewer, filtersApplied],
-  )
-  const started = useQuery(() => farmOverviewApi.getGettingStarted(viewer), [viewer])
+  const { overview: overviewDash, filtered: filteredDash, gettingStarted: started, filtersApplied, markStepDone, dismissGettingStarted } = useFarmDashboardUseCases(filters, viewer)
 
   const act = async (run: () => Promise<unknown>) => {
     setBusy(true)
@@ -75,7 +63,7 @@ export default function FarmDashboardPage() {
           {guide && (
             <div className="col-span-full space-y-2">
               {actionError && <p role="alert" className="m-0 text-sm text-err-fg">{actionError}</p>}
-              <GettingStartedCard data={guide} busy={busy} onMark={(step) => act(() => farmOverviewApi.markStepDone(step, viewer))} onDismiss={() => act(() => farmOverviewApi.dismissGettingStarted(viewer))} />
+      <GettingStartedCard data={guide} busy={busy} onMark={(step) => act(() => markStepDone(step))} onDismiss={() => act(dismissGettingStarted)} />
             </div>
           )}
           {metrics ? (

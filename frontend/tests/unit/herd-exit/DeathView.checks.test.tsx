@@ -2,13 +2,15 @@ import { MemoryRouter } from 'react-router-dom'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HerdExit } from '../../../src/types'
+import { SessionContext } from '../../../src/app/session/sessionContext'
+import type { HerdExit } from '../../../src/features/herd-exit/types'
 
 const apiState = vi.hoisted(() => ({
   checks: vi.fn(),
   confirmed: vi.fn(),
   dismissed: vi.fn(),
   saved: vi.fn(),
+  removedAttachment: vi.fn(),
 }))
 
 vi.mock('../../../src/features/herd-exit/api/index', () => ({
@@ -16,6 +18,7 @@ vi.mock('../../../src/features/herd-exit/api/index', () => ({
   confirmHerdExit: apiState.confirmed,
   dismissHerdExit: apiState.dismissed,
   downloadExitAttachment: vi.fn(),
+  removeExitAttachment: apiState.removedAttachment,
   saveHerdExit: apiState.saved,
 }))
 
@@ -24,7 +27,7 @@ import DeathView from '../../../src/features/herd-exit/components/DeathView'
 const pendingDeath: HerdExit = {
   id: 'PX-2026-0008', date: '2026-10-21', type: 'Chết / mất', status: 'Chờ xác nhận', who: 'Ca HC-0418', count: 1,
   detail: {
-    death: true, lossType: 'Chết', date: '2026-10-21', source: 'Ca sức khỏe HC-0418', reporter: 'Trần Quốc Long', reason: 'Tiêu chảy cấp', disposal: 'Tiêu hủy / chôn lấp tại trại',
+    death: true, lossKind: 'DIED', lossType: 'Chết', sourceHealthCaseId: 418, date: '2026-10-21', source: 'Ca sức khỏe HC-0418', reporter: 'Trần Quốc Long', reason: 'Tiêu chảy cấp', disposal: 'Tiêu hủy / chôn lấp tại trại',
     cow: { code: 'BC-000156', tag: 'VN-0377', breed: 'Lai Sind', sex: 'Cái', age: '14 tháng', barn: 'A2', weight: 180, estimated: true, caseLine: ['HC-0418', 'đóng: Chết'] },
   },
 }
@@ -34,6 +37,7 @@ beforeEach(() => {
   apiState.confirmed.mockReset()
   apiState.dismissed.mockReset()
   apiState.saved.mockReset()
+  apiState.removedAttachment.mockReset()
   apiState.checks.mockResolvedValue({
     voucherId: 8, code: pendingDeath.id, version: 7, exitDate: pendingDeath.date, occupancy: [],
     cattle: [{ cattleId: 156, cattleCode: 'BC-000156', penId: 2, penCode: 'A2', hasWarnings: true, messages: [{ code: 'MSG-FE13-07', text: 'Cảnh báo cần xem' }] }],
@@ -42,6 +46,32 @@ beforeEach(() => {
 })
 
 describe('pending death/missing exit checks', () => {
+  it('keeps a pending health-sourced voucher read-only for a Manager while Owner evidence remains available', async () => {
+    const manager = { role: 'MANAGER' as const, fullName: 'Quản lý', email: 'manager@example.test', farmId: 1, farmName: 'Trại kiểm thử', logout: async () => undefined }
+    render(<SessionContext.Provider value={manager}><MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter></SessionContext.Provider>)
+
+    await screen.findByText('Cảnh báo cần xem')
+    expect(screen.queryByLabelText('Chọn ngày')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Tiêu chảy cấp')).toHaveAttribute('readonly')
+
+    const otherDisposal = screen.getByLabelText('Giao thú y địa phương') as HTMLInputElement
+    expect(otherDisposal).not.toBeChecked()
+    fireEvent.click(otherDisposal)
+    expect(otherDisposal).not.toBeChecked()
+    expect(screen.getByText('Phiếu chờ xác nhận: chỉ Chủ trại được thêm hoặc xóa chứng từ; thành viên khác chỉ xem.')).toBeInTheDocument()
+  })
+
+  it('keeps the health-case loss kind read-only', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)
+
+    await screen.findByText('Cảnh báo cần xem')
+    await user.click(screen.getByText('Mất tích'))
+
+    expect(screen.getByText('Nguyên nhân / ghi chú *')).toBeInTheDocument()
+    expect(screen.queryByText('Nguyên nhân mất tích *')).not.toBeInTheDocument()
+  })
+
   it('loads real checks, requires acknowledgement, and confirms with the checks version', async () => {
     const user = userEvent.setup()
     render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)
@@ -56,6 +86,25 @@ describe('pending death/missing exit checks', () => {
     await user.click(screen.getByRole('button', { name: 'Xác nhận xuất đàn' }))
 
     expect(apiState.confirmed).toHaveBeenCalledWith(pendingDeath.id, 7)
+  })
+
+  it('lets the Owner upload and remove evidence while the health-sourced voucher is pending', async () => {
+    const user = userEvent.setup()
+    const row = {
+      ...pendingDeath,
+      detail: { ...pendingDeath.detail, docs: [{ id: 91, name: 'old-report.pdf', ext: 'PDF' }] },
+    }
+    apiState.saved.mockResolvedValue(row)
+    render(<MemoryRouter><DeathView row={row} /></MemoryRouter>)
+
+    await screen.findByText('Cảnh báo cần xem')
+    const file = new File(['%PDF-1.4\n%%EOF\n'], 'evidence.pdf', { type: 'application/pdf' })
+    fireEvent.change(screen.getByLabelText('Thêm chứng từ bằng chứng'), { target: { files: [file] } })
+    await user.click(screen.getByRole('button', { name: 'Lưu chứng từ (1)' }))
+
+    expect(apiState.saved).toHaveBeenCalledWith(expect.objectContaining({ id: row.id, documents: [file] }))
+    await user.click(screen.getByRole('button', { name: 'Xóa old-report.pdf' }))
+    expect(apiState.removedAttachment).toHaveBeenCalledWith(row.id, 91)
   })
 
   it('dismisses a pending proposal with the live checks version', async () => {

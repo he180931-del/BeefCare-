@@ -3,8 +3,6 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Button, ErrorBlock, Foot, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { supportApi } from '../api/supportApi'
 import { ConversationCard } from '../components/ConversationCard'
 import { ReopenDialog, ReopenedDialog, ResolutionVersionDialog } from '../components/ReopenDialogs'
 import { ReplyCard } from '../components/ReplyCard'
@@ -16,6 +14,7 @@ import { useTicketActions } from '../hooks/useTicketActions'
 import { formatDate } from '../domain/format'
 import { SupportError } from '../domain/supportError'
 import { categoryLabel, latestResolution } from '../domain/ticketRules'
+import { useSupportCommands, useSupportTicket } from '../hooks/useSupportUseCase'
 
 const TITLE = 'Chi tiết yêu cầu hỗ trợ'
 
@@ -28,7 +27,8 @@ export default function TicketDetailPage() {
   const ticketId = Number(id)
   const navigate = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
-  const { data: ticket, loading, error, refetch } = useQuery(() => supportApi.getTicket(ticketId), [ticketId])
+  const { data: ticket, loading, error, refetch } = useSupportTicket(ticketId)
+  const { getMessages } = useSupportCommands()
   const actions = useTicketActions(ticket, { refetch, openModal })
 
   if (loading && !ticket) return <Layout title={TITLE}><LoadingBlock /></Layout>
@@ -69,7 +69,7 @@ export default function TicketDetailPage() {
         )}
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_376px]">
           <div className="flex min-w-0 flex-col gap-4">
-            <ConversationCard ticket={ticket} onLoadOlder={(beforeId) => supportApi.getMessages(ticket.id, beforeId)} />
+            <ConversationCard ticket={ticket} onLoadOlder={(beforeId) => getMessages(ticket.id, beforeId)} />
             <ResolutionCard
               ticket={ticket}
               busy={actions.busy}

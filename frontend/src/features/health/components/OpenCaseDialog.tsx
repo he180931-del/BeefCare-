@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { healthApi } from '../api/healthApi'
 import { openedToast } from '../domain/healthMessages'
 import { SEVERITIES, SEVERITY_LABEL, statusText } from '../domain/healthFormat'
 import { MSG } from '../domain/healthRules'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthCaseCard, HealthCattle, HealthFormOptions, Severity } from '../types'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { cattleLine, DateTimeInput, hint, RadioGroup, ReadonlyBox, useDialogSave } from './healthUi'
 
 export default function OpenCaseDialog({ cattle, activeCases, options, onClose, onSaved }: { cattle: HealthCattle; activeCases: HealthCaseCard[]; options: HealthFormOptions; onClose: () => void; onSaved: (message: string) => void }) {
-  const [observedAt, setObservedAt] = useState(() => healthApi.now())
+  const { now, openCase } = useHealthCaseCommands()
+  const [observedAt, setObservedAt] = useState(() => now())
   const [temp, setTemp] = useState('')
   const [signs, setSigns] = useState('')
   const [diagnosis, setDiagnosis] = useState('')
@@ -24,7 +25,7 @@ export default function OpenCaseDialog({ cattle, activeCases, options, onClose, 
   const save = () => form.run(async () => {
     if (mode === 'existing' && !existingId) { form.setErrors({ existingCaseId: MSG.required('Ca sức khỏe') }); return }
     const existing = mode === 'existing' ? activeCases.find((c) => String(c.id) === existingId) : undefined
-    const result = await healthApi.openCase(cattle.code, {
+    const result = await openCase(cattle.code, {
       existingCaseId: existing?.id, expectedVersion: existing?.version, observedAt, observer, temperatureC: parseTemperature(temp), signs, diagnosis, suspectedContagious: contagious === 'yes', severity,
     })
     onSaved(openedToast(result))

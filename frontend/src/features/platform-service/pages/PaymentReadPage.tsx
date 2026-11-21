@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState, type DependencyList } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { activateTableRow, activateTableRowByKey, Badge, type BadgeTone, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Pagination, SearchInput, Segmented, Table, Td, Th } from '../../../shared/ui'
 import EvidenceActions, { type ActionDraft } from '../components/EvidenceActions'
 import SePayLookup from '../components/SePayLookup'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../../app/session/sessionContext'
-import { CONFIRMATION_SOURCE_TEXT, MATCH_TEXT, REVIEW_TEXT, platformPaymentReadApi as api, reasonText, type EvidenceReadFilters, type EvidenceRow, type PaymentRead, type PaymentReadFilters, type ReadPage } from '../api/platformPaymentReadApi'
+import { CONFIRMATION_SOURCE_TEXT, MATCH_TEXT, REVIEW_TEXT, reasonText, type EvidenceReadFilters, type EvidenceRow, type PaymentReadFilters } from '../api/platformPaymentReadApi'
 import { fmtDate, fmtEndDate, fmtSeconds, fmtVnd } from '../domain/dates'
 import { PAYMENT_STATE_LABEL, PAYMENT_STATE_TONE } from '../domain/reconciliation'
+import { usePaymentReadEvidence, usePaymentReadEvidenceList, usePaymentReadPayment, usePaymentReadPaymentDetail, usePaymentReadTiles } from '../hooks/usePlatformServiceUseCase'
 
 const TITLE = 'Thanh toán & đối soát'
 type Tab = 'evidence' | 'requests'
@@ -42,21 +42,8 @@ function stored(key: string) {
   return { tab: 'evidence' as Tab, evidence: EVIDENCE, payments: PAYMENTS }
 }
 
-/** Keep the previous page while a refresh is in flight; discard responses after unmount/filter changes. */
-function useReadPage<T>(load: () => Promise<ReadPage<T>>, deps: DependencyList) {
-  const [result, setResult] = useState<{ data: ReadPage<T> | null; loading: boolean; error: unknown; query: unknown }>({ data: null, loading: true, error: null, query: deps[0] })
-  useEffect(() => {
-    let active = true
-    const query = deps[0]
-    setResult((old) => ({ ...old, loading: true, error: null, query }))
-    load().then((data) => active && setResult({ data, loading: false, error: null, query }), (error: unknown) => active && setResult({ data: null, loading: false, error, query }))
-    return () => { active = false }
-  }, deps)
-  return { ...result, loading: result.loading || result.query !== deps[0] }
-}
-
 function EvidencePanel({ id, refresh, onDone, onStale }: { id: number; refresh: number; onDone: (message: string) => void; onStale: (message: string) => void }) {
-  const result = useQuery(() => Promise.all([api.evidenceDetail(id), api.candidates(id)]), [id, refresh])
+  const result = usePaymentReadEvidence(id, refresh)
   // What the PM was typing when the evidence changed meanwhile (MSG-COM-05); restored into the reloaded form.
   const draft = useRef<ActionDraft | null>(null)
   if (result.loading && !result.data) return <LoadingBlock />
@@ -101,10 +88,7 @@ function EvidencePanel({ id, refresh, onDone, onStale }: { id: number; refresh: 
 }
 
 function PaymentDetail({ id }: { id: number | null }) {
-  const result = useQuery(async () => {
-    if (id === null) throw new Error('Mã thanh toán không hợp lệ.')
-    return api.payment(id)
-  }, [id])
+  const result = usePaymentReadPaymentDetail(id)
   const p = result.data
   return <Layout title={TITLE}>
     <PageHeader title="Chi tiết thanh toán"><Button onClick={result.refetch}>Làm mới</Button></PageHeader>
@@ -127,7 +111,7 @@ function EvidenceList({ filters, refresh, selected, choose, preview, changePage,
   filters: EvidenceReadFilters; refresh: number; selected: number | null; choose: (id: number) => void; preview: (id: number) => void
   changePage: (p: number) => void; clampPage: (p: number) => void; reload: () => void
 }) {
-  const { data, loading, error } = useReadPage(() => api.evidence(filters), [filters, refresh])
+  const { data, loading, error } = usePaymentReadEvidenceList(filters, refresh)
   useEffect(() => {
     if (data && data.page > 0 && data.page >= Math.max(1, Math.ceil(data.total / 20))) clampPage(Math.max(0, Math.ceil(data.total / 20) - 1))
   }, [data])
@@ -163,7 +147,7 @@ function AutoSelect({ rows, selected, choose }: { rows: EvidenceRow[]; selected:
 
 function PaymentList({ filters, refresh, changePage, reload }: { filters: PaymentReadFilters; refresh: number; changePage: (p: number) => void; reload: () => void }) {
   const navigate = useNavigate()
-  const { data, loading, error } = useReadPage<PaymentRead>(() => api.payments(filters), [filters, refresh])
+  const { data, loading, error } = usePaymentReadPayment(filters, refresh)
   useEffect(() => { if (data && data.page > 0 && data.page >= Math.max(1, Math.ceil(data.total / 20))) changePage(Math.max(0, Math.ceil(data.total / 20) - 1)) }, [data])
   if (error) return <ErrorBlock message={userFacingError(error, 'Không tải được yêu cầu thanh toán.')} onRetry={reload} />
   if (!data) return <LoadingBlock />
@@ -195,7 +179,7 @@ function Workbench({ account }: { account: string }) {
   const [selected, setSelected] = useState<number | null>(idOf(params.get('evidenceId')) ?? (params.has('evidenceId') ? -1 : null))
   const [refresh, setRefresh] = useState(0)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
-  const tiles = useQuery(api.tiles, [refresh])
+  const tiles = usePaymentReadTiles(refresh)
   const rangeError = invalidRange(controls)
   useEffect(() => { if (!rangeError) setEvidence(controls) }, [controls, rangeError])
   useEffect(() => {

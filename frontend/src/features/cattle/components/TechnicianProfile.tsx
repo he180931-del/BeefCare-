@@ -2,14 +2,13 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import TimelineTab from './TimelineTab'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { ErrorBlock, Icon, type IconName, LoadingBlock } from '../../../shared/ui'
-import { loadProfile } from '../api/cattleApi'
-import { useQuery } from '../../../shared/hooks/useQuery'
+import { useCattleProfileQuery } from '../hooks/useCattleQueries'
 import { GrowthTechnicianTab } from '../../growth'
 import { VaccinationTechnicianTab } from '../../vaccination'
 import { HealthTechnicianTab } from '../../health'
 import { ReproductionTechnicianTab } from '../../reproduction'
 import { Chip, Fields, Panel, chipIcon } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import CowPhoto from './CowPhoto'
 
 const TABS: ReadonlyArray<readonly [string, string, IconName]> = [
@@ -49,7 +48,7 @@ function Overview({ cow }: { cow: CowSeed }) {
 export default function TechnicianProfile() {
   const { code = '' } = useParams()
   const [params, setParams] = useSearchParams()
-  const { data, loading, error, refetch } = useQuery(() => loadProfile(code), [code])
+  const { data, loading, error, refetch } = useCattleProfileQuery(code)
   const cow = data?.cow
   const rawTab = params.get('tab') ?? ''
   const tab = TABS.some(([v]) => v === rawTab) ? rawTab : ''

@@ -1,10 +1,4 @@
-export { createFeedStockApi, listFeedStock } from './api/feedStockApi'
-export { createFeedReceiptApi, listFeedReceipts } from './api/feedReceiptApi'
-export { createFeedStockAdjustmentApi, downloadFeedStockAdjustmentAttachment, getFeedStockAdjustment, listFeedStockAdjustmentAttachments, listFeedStockAdjustments, postFeedStockAdjustment, removeFeedStockAdjustmentAttachment, saveFeedStockAdjustmentDraft, uploadFeedStockAdjustmentAttachment } from './api/feedStockAdjustmentApi'
-export { createFeedRationApi, getFeedRation, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from './api/feedRationApi'
-export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recordFeedSession, voidFeedSession } from './api/feedFeedingApi'
-export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'
-export { createFeedConsumptionApi, loadFeedConsumptionReport } from './api/feedConsumptionApi'
-export { filterFeedStock, type FeedStockFilters } from './domain/feedStockList'
-export { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from './domain/feedReceiptList'
-export type { FeedStockRow } from './types'
+// Feed Stock has no production consumers of a public feature barrel. Keep the
+// boundary explicit so consumers use the owning route, hook, API, or domain
+// module instead of depending on an accidental aggregate surface.
+export {}

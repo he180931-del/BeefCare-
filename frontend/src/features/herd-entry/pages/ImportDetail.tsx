@@ -1,36 +1,25 @@
 import { Link, useParams } from 'react-router-dom'
-import { useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import { Docs } from '../../../components/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { downloadEntryAttachment, herdEntryApi, voidHerdEntry } from '../api/index'
-import { useMutation } from '../../../shared/hooks/useMutation'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
-import type { CattleInput } from '../../cattle'
-import type { EntryDetail, HerdEntry } from '../types'
-import type { Payment } from '../../../types'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import type { EntryPayment } from '../types'
+import { useEntryDetail } from '../hooks/useEntryDetail'
+import { herdEntryError } from '../api/herdEntryError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
-
-const displayError = userFacingError
 
 export default function ImportDetail() {
   const { id } = useParams()
   const recordId = id ?? ''
   const [m, openModal, closeModal] = useModalParam()
-  const [documentError, setDocumentError] = useState<string | null>(null)
-  const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
-  const { mutate: recordPayment, error: paymentError } = useMutation<{ recordId: string; payment: Payment & { note?: string } }, HerdEntry>(({ recordId: targetId, payment }) => herdEntryApi.recordPayment(targetId, payment))
-  const { mutate: voidEntry, error: voidError } = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, cattleRows, patch }) => voidHerdEntry(targetId, cattleRows, patch))
-  const r = query.data
+  const detailQuery = useEntryDetail(recordId)
+  const { record: r, detail: d, loading, paymentError, voidError, documentError, canPay, canCancel, savePayment, cancelRecord, viewDocument } = detailQuery
 
-  if (!r && query.loading) {
+  if (!r && loading) {
     return (
       <Layout title="Chi tiết phiếu nhập" user="manager">
         <p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p>
@@ -46,52 +35,7 @@ export default function ImportDetail() {
     )
   }
 
-  const d: EntryDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
-  const viewDocument = async (index: number) => {
-    const document = d.docs?.[index]
-    if (!document) return
-    const attachmentId = Number(document.id)
-    try {
-      const blob = Number.isFinite(attachmentId) && attachmentId > 0
-        ? await downloadEntryAttachment(recordId, attachmentId)
-        : null
-      const url = blob ? URL.createObjectURL(blob) : typeof document.url === 'string' ? document.url : null
-      if (!url) throw new Error('Không tìm thấy nội dung chứng từ')
-      window.open(url, '_blank', 'noopener,noreferrer')
-      if (blob) window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-      setDocumentError(null)
-    } catch (error) {
-      setDocumentError(displayError(error))
-    }
-  }
   const paid = d.payments?.reduce((s, payment) => s + payment.amount, 0) ?? (r.total != null ? r.total - (r.debt || 0) : 0)
-  const canPay = (r.debt ?? 0) > 0 && r.status === 'Đã nhập'
-  const canCancel = r.status === 'Đã nhập' && Boolean(d.cows?.length)
-
-  // Ghi thay đổi qua API, rồi tải lại phiếu và đóng modal.
-  const savePayment = async (p: Payment) => {
-    await recordPayment({
-      recordId: r.id,
-      payment: p,
-    })
-    await query.refetch()
-    closeModal()
-  }
-
-  const cancelRecord = async (reason: string) => {
-    await voidEntry({
-      recordId: r.id,
-      cattleRows: d.cows ?? [],
-      patch: {
-        status: 'Đã hủy',
-        cancelReason: reason,
-        source: `${r.source} · Hủy: ${reason}`,
-        detail: d,
-      },
-    })
-    await query.refetch()
-    closeModal()
-  }
 
   return (
     <Layout title={`Chi tiết phiếu nhập – ${r.status}`} user="manager">
@@ -100,7 +44,7 @@ export default function ImportDetail() {
           <Button onClick={() => window.print()}><Icon name="printer" />In phiếu</Button>
           <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>
         </PageHeader>
-        {Boolean(paymentError || voidError) && <Note tone="err">{displayError(paymentError || voidError)}</Note>}
+        {Boolean(paymentError || voidError) && <Note tone="err">{herdEntryError(paymentError || voidError)}</Note>}
         {documentError && <Note tone="err">{documentError}</Note>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
@@ -166,7 +110,7 @@ export default function ImportDetail() {
             </Card>
 
             <Card title="Chứng từ đính kèm">
-              {d ? <Docs docs={d.docs} onView={viewDocument} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+              {d ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
             </Card>
           </div>
 

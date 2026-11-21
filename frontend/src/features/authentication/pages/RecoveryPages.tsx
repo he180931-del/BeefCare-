@@ -8,10 +8,12 @@ import { isValidEmail, normalizeEmail, validateReset } from '../validation/authV
 import { Alert, AuthShell, Form, FormField, NoticePanel, primaryButtonClass } from '../components/AuthShell'
 import { ActionLink, PasswordField } from '../components/AuthControls'
 import { AUTH_PATH, emailFromState, friendlyAccountError, friendlyEmailRequestError, readError } from '../domain/authErrors'
+import { useAuthenticationUseCase } from '../hooks/useAuthenticationUseCase'
 
 const backToSignIn = <ActionLink to={AUTH_PATH.signIn}><Icon name="arrow-left" size={13} className="mr-1 inline" />Quay lại đăng nhập</ActionLink>
 
 export function ForgotPasswordPage({ client }: { client: AuthClient }) {
+  const auth = useAuthenticationUseCase(client)
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState(emailFromState(location.state) || new URLSearchParams(location.search).get('email') || '')
@@ -21,10 +23,10 @@ export function ForgotPasswordPage({ client }: { client: AuthClient }) {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(null); setFieldError(undefined)
     if (!isValidEmail(email)) { setFieldError(email.trim() ? 'Email không hợp lệ.' : 'Vui lòng nhập email.'); return }
-    if (!client.requestPasswordReset) { setError('Dịch vụ đặt lại mật khẩu chưa được nối với máy chủ.'); return }
+    if (!auth.requestPasswordReset) { setError('Dịch vụ đặt lại mật khẩu chưa được nối với máy chủ.'); return }
     setBusy(true)
     try {
-      await client.requestPasswordReset(normalizeEmail(email))
+      await auth.requestPasswordReset(normalizeEmail(email))
       navigate(AUTH_PATH.resetSent, { replace: true, state: { email: normalizeEmail(email) } })
     } catch (reason) { setError(friendlyEmailRequestError(reason)) }
     finally { setBusy(false) }
@@ -55,6 +57,7 @@ export function InvalidLinkPage({ email, flow = 'reset' }: { email: string; flow
 }
 
 export function ResetPasswordPage({ client }: { client: AuthClient }) {
+  const auth = useAuthenticationUseCase(client)
   const location = useLocation()
   const navigate = useNavigate()
   const query = useMemo(() => new URLSearchParams(location.search), [location.search])
@@ -71,25 +74,25 @@ export function ResetPasswordPage({ client }: { client: AuthClient }) {
 
   const checkLink = async () => {
     setChecking(true); setCheckError(null)
-    if (!token || !client.validatePasswordReset) { setValidation({ valid: false }); setChecking(false); return }
-    try { setValidation(await client.validatePasswordReset(token)) }
+    if (!token || !auth.validatePasswordReset) { setValidation({ valid: false }); setChecking(false); return }
+    try { setValidation(await auth.validatePasswordReset(token)) }
     catch (reason) {
       const { code } = readError(reason)
       if (code === 'MSG-FE01-06' || reason instanceof BackendError && reason.status === 400) setValidation({ valid: false })
       else setCheckError(userFacingError(reason, 'Không thể kiểm tra liên kết. Vui lòng thử lại.'))
     } finally { setChecking(false) }
   }
-  useEffect(() => { void checkLink() }, [token, client])
+  useEffect(() => { void checkLink() }, [token, auth])
 
   const email = validation?.email ? normalizeEmail(validation.email) : initialEmail
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError(null)
     const next = validateReset({ email, password, confirmPassword }); setErrors(next)
     if (Object.keys(next).length) return
-    if (!client.resetPassword) { setError('Dịch vụ đặt lại mật khẩu chưa được nối với máy chủ.'); return }
+    if (!auth.resetPassword) { setError('Dịch vụ đặt lại mật khẩu chưa được nối với máy chủ.'); return }
     setBusy(true)
     try {
-      await client.resetPassword(token, password, confirmPassword)
+      await auth.resetPassword(token, password, confirmPassword)
       navigate(`${AUTH_PATH.signIn}?reset=success`, { replace: true })
     } catch (reason) {
       const { code } = readError(reason)

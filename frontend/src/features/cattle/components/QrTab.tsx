@@ -1,6 +1,6 @@
 import { Button, Foot, Icon, Table } from '../../../shared/ui'
 import { Chip, Fields, Panel, Td, Th } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 import type { Tone } from '../types'
 import QrTagLabel from './QrTagLabel'
 

@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DISCARD_PROMPT, EmptyBlock, ErrorBlock, Field, Foot, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { BackendError } from '../../../shared/api/backendClient'
-import { planPriceApi, priceError, type PlanPrice, type PublishPrice } from '../api/planPriceApi'
+import { priceError, type PlanPrice, type PublishPrice } from '../api/planPriceApi'
 import { usePmAccess } from '../components/common'
+import { usePlanPriceCommands, usePlanPriceList } from '../hooks/usePlatformServiceUseCase'
 import { fmtDateTime, fmtMoney, fmtSeconds } from '../domain/dates'
 import { parseVnd, PRICE_ERROR, validPrice } from '../domain/pricing'
 import type { PriceDraft, PriceStatus } from '../types'
@@ -31,6 +31,7 @@ function useIntentKey() {
 /** Same rule as the server: trimmed reason, at least 5 non-space code points, at most 1,000 characters. */
 const REASON_ERROR = 'Lý do phải có ít nhất 5 ký tự không phải khoảng trắng và tối đa 1.000 ký tự.'
 function WithdrawDialog({ version, onClose, onDone, onStale }: { version: PlanPrice; onClose: () => void; onDone: () => void; onStale: () => void }) {
+  const { withdraw: withdrawPrice } = usePlanPriceCommands()
   const [reason, setReason] = useState(''); const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false)
   const sending = useRef(false); const keys = useIntentKey()
   // MSG-COM-14 inside the dialog (Table III-1), not the browser's own confirm box.
@@ -44,7 +45,7 @@ function WithdrawDialog({ version, onClose, onDone, onStale }: { version: PlanPr
     if (value.length > 1000) { setError('Lý do tối đa 1.000 ký tự.'); return }
     const body = { id: version.id, reason: value, expectedVersion: version.revision }
     sending.current = true; setBusy(true); setError(null)
-    try { await planPriceApi.withdraw(version.id, value, version.revision, keys.keyFor(body)); keys.complete(); onDone() }
+    try { await withdrawPrice(version.id, value, version.revision, keys.keyFor(body)); keys.complete(); onDone() }
     catch (e) {
       setError(e instanceof BackendError && e.code === 'MSG-COM-10' && e.params.field === 'reason' ? REASON_ERROR : priceError(e, 'rút phiên bản'))
       if (e instanceof BackendError && e.code === 'MSG-COM-05') onStale()
@@ -67,7 +68,9 @@ export default function PlanPriceRoutes() {
   const [page, setPage] = useState(() => { try { const p = Number(sessionStorage.getItem('beefcare:plan-price-page')); return Number.isSafeInteger(p) && p >= 0 && p <= 107374182 ? p : 0 } catch { return 0 } })
   const [tick, setTick] = useState(0)
   const receivedAt = useRef(Date.now())
-  const query = useQuery(async () => { const value = await planPriceApi.list(page); receivedAt.current = Date.now(); return value }, [page, tick])
+  const query = usePlanPriceList(page, tick)
+  const { publish: publishPrice } = usePlanPriceCommands()
+  useEffect(() => { if (query.data) receivedAt.current = Date.now() }, [query.data])
   const [draft, setDraft] = useState<PriceDraft | null>(null); const baseline = useRef('')
   const [error, setError] = useState<string | null>(null); const [message, setMessage] = useState<string | null>(null)
   const [errorField, setErrorField] = useState<keyof PriceDraft | null>(null)
@@ -140,7 +143,7 @@ export default function PlanPriceRoutes() {
     const body = payload(); if (!body) { setConfirming(false); return }
     sending.current = true; setBusy(true); setError(null)
     try {
-      const p = await planPriceApi.publish(body, keys.keyFor(body)); keys.complete(); setConfirming(false)
+      const p = await publishPrice(body, keys.keyFor(body)); keys.complete(); setConfirming(false)
       setMessage(`Đã công bố bảng giá v${p.id}, hiệu lực ${fmtSeconds(p.effectiveAt)}.`)
       const d = initial(p.status === 'EFFECTIVE' ? p : data?.current ?? null); setDraft(d); baseline.current = JSON.stringify(d); refresh()
     } catch (e) { setError(priceError(e)); if (e instanceof BackendError && e.code === 'MSG-FE19-15') refresh() }

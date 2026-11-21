@@ -3,11 +3,10 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../api/announcementsApi'
 import { AnnouncementDetail, HistoryModal } from '../components/AnnouncementDetail'
 import { messageOf, Toast, useViewer } from '../components/shared'
 import { canWrite } from '../domain/announcementRules'
+import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
 import type { AnnouncementSummary } from '../types'
 
 type Tab = 'received' | 'authored' | 'drafts'
@@ -30,8 +29,9 @@ export default function AnnouncementListPage() {
   const [tab, setTab] = useState<Tab>((params.get('tab') as Tab | null) ?? (writer ? 'authored' : 'received'))
   const [toast, setToast] = useState((location.state as { toast?: string } | null)?.toast ?? '')
   const [refresh, setRefresh] = useState(0)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const marked = useRef(new Set<string>())
-  const list = useQuery(() => announcementsApi.list(viewer), [viewer, refresh])
+  const { list, detail, markRead } = useAnnouncementUseCases({ viewer, loadList: true, detailId: selectedId, refreshKey: refresh })
 
   const groups = useMemo(() => {
     const all = list.data ?? []
@@ -48,8 +48,7 @@ export default function AnnouncementListPage() {
     : tab
   const items = groups[activeTab]
   const hasRequestedTarget = routeId !== undefined || params.has('id')
-  const selectedId = requestedItem?.id ?? (hasRequestedTarget ? null : items[0]?.id ?? null)
-  const detail = useQuery(() => (selectedId ? announcementsApi.get(selectedId, viewer) : Promise.resolve(null)), [selectedId, viewer, refresh])
+  const computedSelectedId = requestedItem?.id ?? (hasRequestedTarget ? null : items[0]?.id ?? null)
   const versionIdParam = params.get('versionId')
   const selectedVersion = detail.data?.versions.find((version) => String(version.id) === versionIdParam)
     ?? (versionIdParam === null ? detail.data?.versions[0] : undefined)
@@ -57,13 +56,17 @@ export default function AnnouncementListPage() {
   // Only acknowledge the newest visible delivery. A stale notification link to an older version
   // must not mark a later correction as read.
   useEffect(() => {
+    if (computedSelectedId !== selectedId) setSelectedId(computedSelectedId)
+  }, [computedSelectedId, selectedId])
+
+  useEffect(() => {
     const d = detail.data
     if (!d || !selectedVersion?.unread || selectedVersion.id !== d.versions[0]?.id) return
     const key = `${d.id}:${selectedVersion.id}`
     if (marked.current.has(key)) return
     marked.current.add(key)
-    announcementsApi.markRead(viewer, d.id).then(() => setRefresh((n) => n + 1), () => undefined)
-  }, [detail.data, selectedVersion, viewer])
+    markRead(d.id).then(() => setRefresh((n) => n + 1), () => undefined)
+  }, [detail.data, selectedVersion, markRead])
 
   const pickTab = (next: Tab) => {
     setTab(next)

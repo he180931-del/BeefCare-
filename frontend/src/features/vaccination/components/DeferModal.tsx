@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { DateInput, ErrorBlock, Field, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { vaccinationApi } from '../api/vaccinationApi'
 import { fmtDate } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
+import { useVaccinationCommands, useVaccinationDose } from '../hooks/useVaccinationUseCase'
 import type { DoseRow } from '../types'
 import { FieldError } from './vaccinationParts'
 
 interface Props { doseId: number; onClose: () => void; onSaved: (message: string) => void }
 
 export default function DeferModal(props: Props) {
-  const query = useQuery(() => vaccinationApi.getDose(props.doseId), [props.doseId])
+  const query = useVaccinationDose(props.doseId)
   if (!query.data) {
     return (
       <Modal title="Hoãn mũi tiêm" width={560} onClose={props.onClose}>
@@ -28,12 +27,13 @@ function DeferForm({ dose, onClose, onSaved }: Props & { dose: DoseRow }) {
   const [note, setNote] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
+  const { deferDose } = useVaccinationCommands()
 
   const submit = async () => {
     setSaving(true)
     setErrors({})
     try {
-      const result = await vaccinationApi.deferDose(dose.id, { expectedVersion: dose.version, reason, newExpectedDate: date || undefined, note })
+      const result = await deferDose(dose.id, { expectedVersion: dose.version, reason, newExpectedDate: date || undefined, note })
       onSaved(result.message)
     } catch (error) {
       if (error instanceof VaccinationValidationError) setErrors(error.fields)

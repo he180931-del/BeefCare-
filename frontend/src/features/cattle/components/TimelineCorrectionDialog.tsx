@@ -1,11 +1,8 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
-import { activeFarmId } from '../../../app/session/currentFarm'
-import { backendTransport } from '../../../shared/api/backendTransport'
 import { fromFarmLocal, toFarmLocal } from '../../../shared/lib/date/farmTime'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleError } from '../api/cattleError'
 import { Button, Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { catalogueApi } from '../../farm-catalogue'
+import { useCattleVaccineOptions, useTimelineCorrectionCommand } from '../hooks/useCattleCommands'
 import type { CattleEvent } from '../types'
 
 type Options = ReadonlyArray<readonly [string, string]>
@@ -83,7 +80,8 @@ export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
       { key: 'batchNo', label: 'Số lô', max: 50 },
     ] : [{ key: 'vaccinationDate', label: 'Ngày tiêm', kind: 'date' as const }]),
   ]
-  const vaccines = useQuery(async () => vaccination ? catalogueApi.listVaccines({ status: 'ACTIVE' }) : [], [vaccination])
+  const vaccines = useCattleVaccineOptions(vaccination)
+  const correction = useTimelineCorrectionCommand()
   const currentVaccine = String(revisionSource.values.vaccineId ?? '')
   const vaccineOptions: Options = [
     ...(currentVaccine && !vaccines.data?.some((item) => String(item.id) === currentVaccine)
@@ -117,10 +115,10 @@ export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
     setBusy(true)
     try {
       if (lastCommand.current?.signature !== signature) lastCommand.current = { signature, key: crypto.randomUUID() }
-      await backendTransport.command(backendTransport.farmPath(activeFarmId, `${config.path}/${event.sourceId}/${action}`), payload, { key: lastCommand.current.key })
+      await correction.mutate({ path: config.path, sourceId: event.sourceId, action, body: payload, key: lastCommand.current.key })
       onSaved()
     } catch (failure) {
-      setError(userFacingError(failure, 'Không cập nhật được bản ghi.'))
+      setError(cattleError(failure, 'Không cập nhật được bản ghi.'))
     } finally {
       setBusy(false)
     }

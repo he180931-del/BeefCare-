@@ -2,14 +2,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { ErrorBlock, Foot, LoadingBlock, PageHeader } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { supportApi } from '../api/supportApi'
 import { CategoryGuideCard } from '../components/CategoryGuideCard'
 import { NewTicketForm } from '../components/NewTicketForm'
 import { MESSAGES, SupportError } from '../domain/supportError'
 import { TICKET_CATEGORIES } from '../domain/ticketRules'
 import type { CreateTicketCommand, TicketCategory } from '../types'
+import { useSupportCommands, useSupportOwnedFarms } from '../hooks/useSupportUseCase'
 
 const TITLE = 'Gửi yêu cầu hỗ trợ'
 
@@ -18,7 +17,8 @@ export default function NewTicketPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const session = useSession()
-  const { data: farms, loading, error, refetch } = useQuery(() => supportApi.listOwnedFarms(), [])
+  const { data: farms, loading, error, refetch } = useSupportOwnedFarms()
+  const { createTicket } = useSupportCommands()
 
   if (loading && !farms) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (error || !farms) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được danh sách trang trại.')} onRetry={refetch} /></Layout>
@@ -32,7 +32,7 @@ export default function NewTicketPage() {
 
   const submit = async (cmd: CreateTicketCommand) => {
     try {
-      const ticket = await supportApi.createTicket(cmd)
+      const ticket = await createTicket(cmd)
       navigate(`/ho-tro?m=da-gui&ticket=${ticket.id}`)
       return null
     } catch (e) {

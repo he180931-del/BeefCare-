@@ -1,6 +1,6 @@
 import type { CattleInput } from '../../cattle'
 import type { EntryCalf, HerdEntry } from '../types'
-import type { Payment } from '../../../types'
+import type { EntryPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
@@ -49,7 +49,7 @@ export const herdEntryApi = {
   },
   reset: () => usingBackend ? Promise.reject(new Error('Entry reset yêu cầu dữ liệu mẫu; không dùng khi kết nối backend')) : demo.entryLocal.localApi.reset(),
   // POST /api/farms/{farmId}/vouchers/entry/{voucherId}/payments
-  recordPayment: (id: string, payment: Pick<Payment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
+  recordPayment: (id: string, payment: Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }) => usingBackend
     ? backendApi.recordPayment(id, payment)
     : demo.entryLocal.localApi.get(id).then((row) => demo.entryLocal.localApi.update(id, {
       debt: Math.max((row.debt ?? 0) - payment.amount, 0),

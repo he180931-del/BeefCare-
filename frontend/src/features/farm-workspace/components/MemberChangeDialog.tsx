@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { BackendError } from '../../../shared/api/backendClient'
 import { Button, DateInput, DISCARD_PROMPT, Field, inputCls, Modal, ModalFooter, Note, Segmented } from '../../../shared/ui'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
+import { useFarmWorkspaceUseCase } from '../hooks/useFarmWorkspaceUseCase'
 import { useRequestKey } from '../hooks/useRequestKey'
 import type { ChangeMemberInput, MemberAction, Membership } from '../types'
 import { farmToday, MEMBER_REASON_RULE, validateMemberChange, type FormErrors } from '../validation/workspaceValidation'
@@ -27,6 +27,7 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
   farmId: number; farmName: string; timeZone: string; member: Membership; initialAction?: MemberAction; active: boolean
   onClose: () => void; onDone: (message: string) => void; onStale: (message: string) => void
 }) {
+  const { changeMember } = useFarmWorkspaceUseCase()
   const inactive = member.status === 'INACTIVE'
   const today = farmToday()
   const startAction: MemberAction = inactive ? 'REACTIVATE' : initialAction === 'DEACTIVATE' ? 'DEACTIVATE' : 'CHANGE_ROLE'
@@ -64,7 +65,7 @@ export function MemberChangeDialog({ farmId, farmName, member, initialAction, ac
     if (saving) return
     setSaving(true); setError(null)
     try {
-      await farmWorkspaceApi.changeMember(farmId, member.id, payload, { expectedVersion: member.version, idempotencyKey: requestKey.keyFor({ ...payload, version: member.version }) })
+      await changeMember(farmId, member.id, payload, { expectedVersion: member.version, idempotencyKey: requestKey.keyFor({ ...payload, version: member.version }) })
       requestKey.clear(); onDone(`Đã cập nhật thành viên ${name}.`) // MSG-FE03-13
     } catch (reasonError) {
       const message = farmWorkspaceError(reasonError, 'Không thể cập nhật thành viên.')

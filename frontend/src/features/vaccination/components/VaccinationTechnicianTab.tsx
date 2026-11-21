@@ -1,9 +1,8 @@
 import { useSearchParams } from 'react-router-dom'
 import { Badge, ErrorBlock, LoadingBlock, Note } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { vaccinationApi } from '../api/vaccinationApi'
 import { fmtDate, fmtDateTime, fmtMonthYear } from '../domain/vaccinationFormat'
+import { useCattleVaccination } from '../hooks/useVaccinationUseCase'
 import { DoseStatusBadge } from './vaccinationParts'
 
 const cardCls = 'flex flex-col gap-2 rounded-lg border border-edge bg-white p-3'
@@ -12,7 +11,7 @@ const heading = 'm-0 text-[10px] font-semibold uppercase tracking-wide text-bran
 /** Bản đọc cho điện thoại, hiển thị trong hồ sơ bò của kỹ thuật viên (không có khung riêng). */
 export default function VaccinationTechnicianTab({ cattleCode }: { cattleCode: string }) {
   const [params] = useSearchParams()
-  const { data, loading, error, refetch } = useQuery(() => vaccinationApi.getCattleVaccination(cattleCode), [cattleCode])
+  const { data, loading, error, refetch } = useCattleVaccination(cattleCode)
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu tiêm phòng.')} onRetry={refetch} />
   const sourceId = params.get('r')

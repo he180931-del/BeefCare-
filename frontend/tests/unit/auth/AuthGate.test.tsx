@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { AuthProvider, type AuthClient } from '../../../src/features/authentication'
+import { AuthProvider } from '../../../src/features/authentication'
+import type { AuthClient } from '../../../src/features/authentication/AuthContext'
 import { AuthGate } from '../../../src/features/authorization'
 
 const client = (overrides: Partial<AuthClient> = {}): AuthClient => ({

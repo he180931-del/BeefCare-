@@ -1,14 +1,14 @@
 import { useId, useRef, useState } from 'react'
 import { Button, DateInput, Field, Modal, ModalButton, ModalFooter, Note, Select, Textarea } from '../../../shared/ui'
-import { LIFE_STAGE_OPTIONS } from '../api/cattleBackendApi'
+import { LIFE_STAGE_OPTIONS, useCattlePurposeQuery } from '../hooks/useCattleQueries'
 import { BackendError } from '../../../shared/api/backendClient'
-import { cattleToday, demoCowPrefill, listPurposes, localCattleList, saveCattlePhoto, updateIdentity, updatePurpose, updateStage } from '../api/cattleApi'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { userFacingError } from '../../../shared/api/userFacingError'
+import { cattleToday, demoCowPrefill } from '../api/cattleApi'
+import { useCattleProfileCommands } from '../hooks/useCattleCommands'
+import { cattleError } from '../api/cattleError'
 import { PURPOSE_TYPE_LABELS, purposeFitsSex, purposeSexMessage, todayIso, type DatedChangeErrors, type IdentityErrors, type IdentityValues } from '../domain/profileRules'
 import { validateDatedChange, validateIdentity, validatePhoto } from '../validation/profileValidation'
 import { Panel, Seg, fieldCls } from './parts'
-import type { CowSeed } from '../../../data/cowsData'
+import type { CattleViewModel as CowSeed } from '../types'
 
 const TABS = [
   ['identity', 'Định danh & mô tả'],
@@ -36,7 +36,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
   today?: string
 }) {
   const backend = cow.backendId != null && cow.backendVersion != null
-  const purposes = useQuery(() => listPurposes(), [])
+  const purposes = useCattlePurposeQuery()
   const prefill = demoCowPrefill(cow)
   const initialIdentity: IdentityValues = { name: cow.name ?? '', tag: cow.tag ?? '', colour: backend ? cow.colourMarkings ?? '' : cow.description ?? '', notes: cow.notes ?? '' }
   const currentStage = (backend ? cow.lifeStage : cow.stage) ?? ''
@@ -50,6 +50,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
         currentProfile: { earTagNumber: savedProfile.identity.tag, name: savedProfile.identity.name, colourMarkings: savedProfile.identity.colour, notes: savedProfile.identity.notes, productionPurposeId: cow.purposeId, lifeStage: cow.lifeStage },
       }
     : {}
+  const commands = useCattleProfileCommands(cow.code, context)
   const [photo, setPhoto] = useState<File | null>(null)
   const [removePhoto, setRemovePhoto] = useState(false)
   const [photoError, setPhotoError] = useState('')
@@ -90,7 +91,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
         setConfirmRepro(`Sau thay đổi này ${cow.code} sẽ không còn được theo dõi sinh sản. Lịch sử sinh sản được giữ lại. Tiếp tục?`)
         return
       }
-      setFailure(userFacingError(e, 'Không lưu được thay đổi. Vui lòng thử lại.'))
+      setFailure(cattleError(e, 'Không lưu được thay đổi. Vui lòng thử lại.'))
     } finally {
       setSaving(false)
     }
@@ -106,16 +107,16 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
     return run(async () => {
       let version = savedProfile.version
       if (identityChanged) {
-        const result = await updateIdentity(cow.code, { name: identity.name.trim(), tag: identity.tag.trim(), description: identity.colour.trim(), notes: identity.notes.trim() }, context)
+        const result = await commands.identity.mutate({ name: identity.name.trim(), tag: identity.tag.trim(), description: identity.colour.trim(), notes: identity.notes.trim() })
         const next = (result as { version?: unknown } | null)?.version
         if (typeof next === 'number') version = next
         setSavedProfile({ identity, version })
       }
       if (photo || removePhoto) {
         try {
-          await saveCattlePhoto(cow.code, { ...context, backendVersion: version }, photo)
+          await commands.photo.mutate({ context: { ...context, backendVersion: version }, file: photo })
         } catch (error) {
-          if (identityChanged) throw new Error(`Đã lưu định danh. ${userFacingError(error, 'Không lưu được ảnh. Vui lòng thử lại.')}`)
+          if (identityChanged) throw new Error(`Đã lưu định danh. ${cattleError(error, 'Không lưu được ảnh. Vui lòng thử lại.')}`)
           throw error
         }
       }
@@ -128,14 +129,14 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
     if (!e.value && chosenPurpose && !purposeFitsSex(chosenPurpose.purposeType, sex)) e.value = purposeSexMessage(chosenPurpose.name, chosenPurpose.purposeType)
     setErrors(e)
     if (Object.keys(e).length) return
-    return run((ack) => updatePurpose(cow.code, Number(purposeId), { ...context, effectiveDate: date, reason: reason.trim(), acknowledgedReproductionChange: ack }), acknowledged)
+    return run((ack) => commands.purpose.mutate({ purposeId: Number(purposeId), effectiveDate: date, reason: reason.trim(), acknowledgedReproductionChange: ack }), acknowledged)
   }
 
   const saveStage = (acknowledged = false) => {
     const e = validateDatedChange({ value: stage, current: currentStage, date, reason, today: backend ? today : '9999-12-31', entryDate })
     setErrors(e)
     if (Object.keys(e).length) return
-    return run((ack) => updateStage(cow.code, { stage, date, reason: reason.trim(), acknowledgedReproductionChange: ack }, context), acknowledged)
+    return run((ack) => commands.stage.mutate({ stage, date, reason: reason.trim(), acknowledgedReproductionChange: ack }), acknowledged)
   }
 
   const save = () => (tab === 'identity' ? saveIdentity() : tab === 'purpose' ? savePurpose() : saveStage())
@@ -150,7 +151,7 @@ export default function UpdateModal({ cow, owner = false, onClose, onSaved, init
     setPhotoError(file ? validatePhoto(file) : '')
   }
 
-  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : (localCattleList?.stages ?? []).map((s) => ({ value: s, label: s }))
+  const stageOptions = backend ? LIFE_STAGE_OPTIONS.map((o) => ({ value: o.value, label: o.label })) : (purposes.local?.stages ?? []).map((s) => ({ value: s, label: s }))
   const datedFields = (
     <>
       <Field label="Ngày hiệu lực *">

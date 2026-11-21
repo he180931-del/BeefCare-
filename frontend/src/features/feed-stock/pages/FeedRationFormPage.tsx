@@ -4,8 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { feedRationServerBacked, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from '../api/feedRationApi'
+import { feedRationServerBacked } from '../api/feedRationApi'
+import { useFeedRationForm } from '../hooks/useFeedRationForm'
 import { initialFeedRationForm, previewFeedRation, rationCodeDisplay, RATION_GROUPS, rationGroupLabel } from '../domain/feedRationForm'
 import { toSaveFeedRationInput } from '../api/feedRationPayload'
 import { validateFeedRationForm } from '../validation/feedRationValidation'
@@ -13,6 +13,7 @@ import { formatDate, formatNumber, formatVnd } from '../domain/feedLabels'
 import type { FeedRation, FeedRationFormValues, FeedRationPenOption } from '../types/feedRation'
 import type { FeedStockRow } from '../types'
 import FeedManagementTabs from '../components/FeedManagementTabs'
+import { newFeedCommandKey } from '../api/command'
 
 const TITLE = 'Thức ăn › Khẩu phần'
 const FOOT = 'Sửa khẩu phần (Chủ trại, Quản lý). Khẩu phần đang dùng không bị ghi đè: mỗi lần lưu tạo phiên bản mới với ngày hiệu lực từ ngày mai trở đi. Bảng tồn kho cho biết đủ dùng bao nhiêu ngày với lượng mới để nhắc nhập kho kịp thời.'
@@ -24,10 +25,7 @@ const dayBefore = (iso: string) => addCalendarDays(iso, -1)
 export default function FeedRationFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const query = useQuery(async () => {
-    const [rows, pens, feeds] = await Promise.all([listFeedRations(), listFeedRationPens(), listFeedRationFeeds()])
-    return { record: id ? rows.find((row) => String(row.id) === id) ?? null : null, rows, pens, feeds }
-  }, [id])
+  const query = useFeedRationForm(id)
 
   if (query.error) {
     return (
@@ -51,15 +49,17 @@ export default function FeedRationFormPage() {
       rows={query.data.rows}
       pens={query.data.pens}
       feeds={query.data.feeds}
+      saveVersion={query.save}
     />
   )
 }
 
-function FeedRationForm({ record, rows, pens, feeds }: {
+function FeedRationForm({ record, rows, pens, feeds, saveVersion }: {
   record: FeedRation | null
   rows: FeedRation[]
   pens: FeedRationPenOption[]
   feeds: FeedStockRow[]
+  saveVersion: ReturnType<typeof useFeedRationForm>['save']
 }) {
   const navigate = useNavigate()
   const [values, setValues] = useState<FeedRationFormValues>(() => initialFeedRationForm(record))
@@ -73,7 +73,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
   const sameCode = record ? rows.filter((row) => row.rationCode === record.rationCode) : []
   const baseVersion = sameCode.length ? Math.max(...sameCode.map((row) => row.versionNo)) : undefined
   const nextVersion = (baseVersion ?? 0) + 1
-  const nextKey = () => commandKeyRef.current ?? (commandKeyRef.current = globalThis.crypto?.randomUUID?.() ?? `feed-ration:${Date.now()}:${Math.random().toString(36).slice(2)}`)
+  const nextKey = () => commandKeyRef.current ?? (commandKeyRef.current = newFeedCommandKey('feed-ration'))
   const inUse = sameCode.find((row) => row.status === 'EFFECTIVE') ?? (record?.status === 'EFFECTIVE' ? record : null)
   const previous = inUse
   const previousDailyCost = previous && previous.components.every((component) => component.estimatedDailyCost !== null)
@@ -131,7 +131,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
     setSaving(true)
     setError('')
     try {
-      const saved = await saveFeedRationVersion(toSaveFeedRationInput(values, record?.rationCode, replacing?.id, baseVersion), { key: nextKey() })
+      const saved = await saveVersion({ input: toSaveFeedRationInput(values, record?.rationCode, replacing?.id, baseVersion), options: { key: nextKey() } })
       commandKeyRef.current = undefined
       navigate('/thuc-an/khau-phan', { state: { rationMessage: `Khẩu phần ${saved.rationCode} v${saved.versionNo} đã lưu, hiệu lực từ ${formatDate(saved.effectiveFrom)}. Phiên bản trước kết thúc ngày ${formatDate(dayBefore(saved.effectiveFrom))}.` } })
     } catch (saveError) {

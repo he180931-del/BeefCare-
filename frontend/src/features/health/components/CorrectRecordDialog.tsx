@@ -1,11 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { healthApi } from '../api/healthApi'
 import { recordToast } from '../domain/healthMessages'
 import { fmtDate, fmtDateTime, fmtTemp, PROGRESS_LABEL, PROGRESSES, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
 import { latestWithdrawalEnd, MSG } from '../domain/healthRules'
 import { parseTemperature } from '../validation/healthValidation'
 import type { HealthFormOptions, HealthProfile, HealthTimelineRow, Progress, TreatmentRoute } from '../types'
+import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
 import { DateTimeInput, hint, RadioGroup, ReadonlyBox, toIntOrNull, useDialogSave } from './healthUi'
 
 function Row({ label, current, error, children }: { label: string; current: ReactNode; error?: string; children: ReactNode }) {
@@ -33,6 +33,7 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
   const [progress, setProgress] = useState<Progress | ''>(row.progress ?? '')
   const [description, setDescription] = useState(row.description ?? '')
   const [reason, setReason] = useState('')
+  const { correctEntry, voidEntry } = useHealthCaseCommands()
   const form = useDialogSave()
   const { errors } = form
   const voiding = action === 'void'
@@ -52,8 +53,8 @@ export default function CorrectRecordDialog({ row, profile, options, onClose, on
 
   const save = () => form.run(async () => {
     const result = voiding
-      ? await healthApi.voidEntry(row.id, { expectedVersion: row.version, reason })
-      : await healthApi.correctEntry(row.id, treatment
+      ? await voidEntry(row.id, { expectedVersion: row.version, reason })
+      : await correctEntry(row.id, treatment
         ? { expectedVersion: row.version, reason, medicineId: Number(medicineId) || null, treatmentTime: time, dose, route, courseDays: toIntOrNull(course), withdrawalDays: toIntOrNull(wd), performer: who }
         : { expectedVersion: row.version, reason, observedAt: time, temperatureC: parseTemperature(temp), progress: row.type === 'FOLLOW_UP' ? progress : undefined, description, observer: who })
     onSaved(recordToast(result))

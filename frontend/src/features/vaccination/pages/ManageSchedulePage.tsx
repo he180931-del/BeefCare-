@@ -4,12 +4,11 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DateInput, ErrorBlock, Field, Foot, Info, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { vaccinationApi } from '../api/vaccinationApi'
 import MultiSelect from '../components/MultiSelect'
 import { CareWriterOnly, FieldError, ROUTE_LABEL, parseNum } from '../components/vaccinationParts'
 import { fmtDate } from '../domain/vaccinationFormat'
 import { VaccinationValidationError, type FieldErrors } from '../domain/vaccinationRules'
+import { useVaccinationCommands, useVaccinationOptions, useVaccinationPlan, useVaccinationScheduleDetail, useVaccinationSchedules, useVaccinationTargetPreview } from '../hooks/useVaccinationUseCase'
 import type { ScheduleCard, ScheduleCommand, ScheduleDetail, ScheduleTarget, VaccinationOptions } from '../types'
 
 const TITLE = 'Quản lý lịch tiêm'
@@ -21,11 +20,11 @@ export default function ManageSchedulePage() {
 
 function Loader() {
   const [params, setParams] = useSearchParams()
-  const cards = useQuery(() => vaccinationApi.listSchedules(), [])
-  const options = useQuery(() => vaccinationApi.options(), [])
+  const cards = useVaccinationSchedules()
+  const options = useVaccinationOptions()
   const idParam = params.get('id')
   const id: number | 'new' | undefined = idParam === 'new' ? 'new' : Number(idParam) || cards.data?.[0]?.schedule.id || (cards.data ? 'new' : undefined)
-  const detail = useQuery(() => (typeof id === 'number' ? vaccinationApi.getSchedule(id) : Promise.resolve(null)), [id])
+  const detail = useVaccinationScheduleDetail(id)
 
   const failed = cards.error ?? options.error ?? detail.error
   if (failed) return <ErrorBlock message={userFacingError(failed, 'Không tải được lịch tiêm.')} onRetry={() => { cards.refetch(); options.refetch(); detail.refetch() }} />
@@ -52,13 +51,11 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
   const [adding, setAdding] = useState<string | null>(null)
   const [addError, setAddError] = useState('')
 
-  const preview = useQuery(() => vaccinationApi.previewTarget(target), [JSON.stringify(target)])
+  const preview = useVaccinationTargetPreview(target)
   const matches = preview.data ?? []
   const command: ScheduleCommand = { name, vaccineId: Number(vaccineId), firstDueDate: firstDue, doseCount: parseNum(doseCount), intervalDays: parseNum(interval), boosterIntervalMonths: parseNum(booster), target, expectedVersion: s?.version }
-  const plan = useQuery(
-    () => (detail ? Promise.resolve(detail.plannedRows) : vaccinationApi.previewPlan(command, matches.length)),
-    [detail, firstDue, doseCount, interval, booster, matches.length],
-  )
+  const plan = useVaccinationPlan(detail, command, matches.length)
+  const commands = useVaccinationCommands()
   const vaccine = options.vaccines.find((v) => String(v.id) === vaccineId)
   const groupLabel = (v: string) => options.herdGroups.find((g) => g.value === v)?.label ?? v
   const shown = showAll ? matches : matches.slice(0, 3)
@@ -67,7 +64,7 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
   const remove = (code: string) => setTarget({ ...target, excluded: [...target.excluded, code], added: target.added.filter((c) => c !== code) })
   const add = async () => {
     const code = (adding ?? '').trim().toUpperCase()
-    const found = (await vaccinationApi.previewTarget({ ...EMPTY_TARGET, penCodes: ['__none'], added: [code] })).find((c) => c.code === code)
+    const found = (await commands.previewTarget({ ...EMPTY_TARGET, penCodes: ['__none'], added: [code] })).find((c) => c.code === code)
     if (!found) return setAddError('Không tìm thấy bò đang nuôi có mã này.')
     setTarget({ ...target, added: target.added.includes(code) ? target.added : [...target.added, code], excluded: target.excluded.filter((c) => c !== code) })
     setAdding(null)
@@ -78,7 +75,7 @@ function Editor({ detail, options, cards, selectedId, onSelect }: { detail: Sche
     setSaving(true)
     setErrors({})
     try {
-      const result = s ? await vaccinationApi.updateSchedule(s.id, command) : await vaccinationApi.createSchedule(command)
+      const result = s ? await commands.updateSchedule(s.id, command) : await commands.createSchedule(command)
       navigate('/tiem-phong', { state: { notice: result.message } })
     } catch (error) {
       if (error instanceof VaccinationValidationError) setErrors(error.fields)
@@ -186,10 +183,11 @@ function StopModal({ name, version, onClose }: { name: string; version: number; 
   const [id] = useSearchParams()
   const [reason, setReason] = useState('')
   const [error, setError] = useState<FieldErrors>({})
+  const { stopSchedule } = useVaccinationCommands()
   const scheduleId = Number(id.get('id')) || 1
   const submit = async () => {
     try {
-      const result = await vaccinationApi.stopSchedule(scheduleId, { reason, expectedVersion: version })
+      const result = await stopSchedule(scheduleId, { reason, expectedVersion: version })
       navigate('/tiem-phong', { state: { notice: result.message } })
     } catch (e) {
       setError(e instanceof VaccinationValidationError ? e.fields : { form: userFacingError(e, 'Không dừng được lịch. Vui lòng thử lại.') })

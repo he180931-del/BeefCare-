@@ -1,34 +1,14 @@
-import { FARM_TIME_ZONE_ID, parseBusinessTime } from '../../../shared/lib/date/farmTime'
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { type ReactNode } from 'react'
+import { Navigate } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, ErrorBlock, Field, Foot, Info, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { homePathFor } from '../../authorization'
 import { roleInFarm, useSession } from '../../../app/session/sessionContext'
-import { farmWorkspaceApi } from '../api/farmWorkspaceApi'
-import { PROVINCES } from '../constants/provinces'
-import { Avatar, farmWorkspaceError, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
+import { Avatar, FieldError, formatDate, lastServiceDay, pageInputCls, PageSelect, serviceLabel } from '../components/WorkspaceUi'
 import { serviceView } from '../domain/statusViews'
+import { useFarmInformationForm } from '../hooks/useFarmInformationForm'
 import { useFarmId } from '../hooks/useFarmId'
-import { useRequestKey } from '../hooks/useRequestKey'
-import type { FarmDetails, FarmInfoInput } from '../types'
-import { validateFarmInfo, type FormErrors } from '../validation/workspaceValidation'
-
-const DAY = 86_400_000
-const SAVED = 'Đã cập nhật thông tin trại.' // MSG-FE02-05
-
-const toForm = (farm: FarmDetails): FarmInfoInput => ({
-  name: farm.name, province: farm.province ?? '', commune: farm.commune ?? '', detailedAddress: farm.detailedAddress ?? '',
-  contactPerson: farm.contactPerson, contactPhone: farm.contactPhone, registrationCertificateInfo: farm.registrationCertificateInfo,
-  timeZone: FARM_TIME_ZONE_ID, morningShiftStart: farm.morningShiftStart, operatingNotes: farm.operatingNotes,
-  mainBreedIds: farm.mainBreedIds, expectedVersion: farm.version,
-})
-
-/** Days left come from the backend; the demo data only has the end, counted the same way (whole days, end exclusive). */
-const daysLeft = (farm: FarmDetails) => farm.daysRemaining
-  ?? (farm.serviceUntil ? Math.max(0, Math.floor((parseBusinessTime(farm.serviceUntil) - Date.now()) / DAY)) : null)
 
 /**
  * SCR-11 (UC-FE02-03): only the Owner views and updates farm information, in every service status (GBR-07, GBR-14).
@@ -43,47 +23,16 @@ export default function FarmInformationPage() {
 }
 
 function FarmInformationForm() {
-  const navigate = useNavigate()
-  const session = useSession()
-  const farmId = useFarmId()
-  const query = useQuery(() => farmWorkspaceApi.getFarm(farmId), [farmId])
-  const requestKey = useRequestKey(`farm-information-${farmId}`)
-  const [form, setForm] = useState<FarmInfoInput | null>(null)
-  const [errors, setErrors] = useState<FormErrors<FarmInfoInput>>({})
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  useEffect(() => { if (query.data) setForm(toForm(query.data)) }, [query.data])
-  const set = <K extends keyof FarmInfoInput>(key: K, value: FarmInfoInput[K]) => setForm((current) => current ? { ...current, [key]: value } : current)
+  const { navigate, session, farmId, query, form, set, errors, error, notice, saving, submit, provinces, days } = useFarmInformationForm()
 
   const farm = query.data
   if (query.loading && !farm) return <Layout title="Thông tin trại"><LoadingBlock /></Layout>
   if (query.error || !farm) return <Layout title="Thông tin trại"><ErrorBlock message={userFacingError(query.error, 'Không tải được thông tin trại. Hãy kiểm tra quyền truy cập hoặc kết nối.')} onRetry={query.refetch} /></Layout>
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!form) return
-    const next = validateFarmInfo(form)
-    setErrors(next)
-    if (Object.keys(next).length) return
-    setSaving(true); setError(null); setNotice(null)
-    try {
-      await farmWorkspaceApi.updateFarm(farmId, form, { idempotencyKey: requestKey.keyFor(form) })
-      requestKey.clear()
-      query.refetch()
-      setNotice(SAVED)
-    } catch (reason) {
-      setError(farmWorkspaceError(reason, 'Không thể lưu thông tin trang trại.'))
-    } finally {
-      setSaving(false)
-    }
-  }
   const text = (key: 'name' | 'commune' | 'detailedAddress' | 'contactPerson' | 'contactPhone' | 'registrationCertificateInfo', id: string, label: string, max: number, type = 'text'): ReactNode => (
     <Field label={label} id={id}><input id={id} type={type} maxLength={max} aria-invalid={errors[key] ? true : undefined} value={form?.[key] ?? ''} onChange={(event) => set(key, event.target.value)} className={pageInputCls} /><FieldError>{errors[key]}</FieldError></Field>
   )
   // A saved province stays visible even if it is absent from the current list.
-  const provinces = form?.province && !PROVINCES.some((name) => name === form.province) ? [form.province, ...PROVINCES] : PROVINCES
-  const days = daysLeft(farm)
   return (
     <Layout title="Thông tin trại">
       <PageHeader title="Thông tin trại"><Button variant="primary" type="submit" form="farm-info-form" disabled={saving || !form}>{saving ? 'Đang lưu…' : 'Lưu thay đổi'}</Button></PageHeader>

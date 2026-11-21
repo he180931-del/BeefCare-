@@ -2,7 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { EntryCalf, HerdEntry, Pen } from '../../../src/types'
+import type { EntryCalf, HerdEntry } from '../../../src/features/herd-entry/types'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const state = vi.hoisted(() => ({
   calves: [] as EntryCalf[],

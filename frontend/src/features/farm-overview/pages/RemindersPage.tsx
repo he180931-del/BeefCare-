@@ -4,9 +4,8 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, EmptyBlock, ErrorBlock, FilterSelect, Icon, LoadingBlock, Metric, PageHeader, SearchInput, Segmented } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
-import { farmOverviewApi } from '../api/farmOverviewApi'
+import { useFarmReminders } from '../hooks/useFarmOverviewUseCases'
 import { dayHeading, ReminderDetailModal, ReminderRow, URGENCY_STYLE } from '../components/ReminderParts'
 import { countUrgency, EMPTY_FILTERS, filterReminders, reminderGroupKey, TYPE_LABEL, typeOptionsFor, type DateRange, type ReminderFilters } from '../domain/reminderRules'
 import { viewerRole } from '../domain/viewer'
@@ -57,7 +56,7 @@ export default function RemindersPage() {
   const [applied, setApplied] = useState<ReminderFilters>(initialFilters.filters)
   const [tab, setTab] = useState<Urgency | 'ALL'>(initialFilters.tab)
   const [calendar, setCalendar] = useState(false)
-  const { data, loading, error, refetch } = useQuery(() => farmOverviewApi.listReminders(role), [role])
+  const { data, loading, error, refetch } = useFarmReminders(role)
 
   useEffect(() => {
     const next = routeFilters(params, role)

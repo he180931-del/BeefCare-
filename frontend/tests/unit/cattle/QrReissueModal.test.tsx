@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import QrReissueModal from '../../../src/features/cattle/components/QrReissueModal'
-import { initialCows } from '../../../src/data/cowsData'
+import { initialCows } from '../../../src/demo/data/cowsData'
 
 const response = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })
 

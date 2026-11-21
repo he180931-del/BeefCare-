@@ -5,11 +5,10 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { vaccinationApi } from '../api/vaccinationApi'
 import DeferModal from '../components/DeferModal'
 import { DoseStatusBadge, profilePath, recordPath, useCanWrite, useNotice } from '../components/vaccinationParts'
 import { fmtDate } from '../domain/vaccinationFormat'
+import { useVaccinationDoses, useVaccinationSchedules } from '../hooks/useVaccinationUseCase'
 import type { DoseTab, ScheduleCard } from '../types'
 
 const TITLE = 'Tiêm phòng'
@@ -33,7 +32,7 @@ export default function SchedulePage() {
   const [hint, setHint] = useState(false)
   const [params, setParams] = useSearchParams()
   const [modal] = useModalParam()
-  const cards = useQuery(() => (demo === 'load-error' ? Promise.reject(new Error('demo')) : vaccinationApi.listSchedules()), [reload, demo])
+  const cards = useVaccinationSchedules(reload, demo)
 
   if (cards.loading && !cards.data) return <Layout title={TITLE}><LoadingBlock /></Layout>
   if (cards.error || !cards.data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(cards.error, 'Không tải được lịch tiêm phòng.')} onRetry={cards.refetch} /></Layout>
@@ -91,7 +90,7 @@ function DoseList({ scheduleId, tab, onTab, canWrite, picked, onPick, onRecordPi
 }) {
   const [page, setPage] = useState(1)
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
-  const { data, loading, error, refetch } = useQuery(() => vaccinationApi.listDoses({ scheduleId, tab, page, dir }), [scheduleId, tab, page, dir])
+  const { data, loading, error, refetch } = useVaccinationDoses({ scheduleId, tab, page, dir })
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được danh sách mũi tiêm.')} onRetry={refetch} />
   const { rows, total, size, counts } = data

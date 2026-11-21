@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createFeedConsumptionApi } from '../../../src/features/feed-stock/api/feedConsumptionApi'
+import { createFeedConsumptionApi, defaultFeedConsumptionPeriod } from '../../../src/features/feed-stock/api/feedConsumptionApi'
 import type { FeedConsumptionSupportingData } from '../../../src/features/feed-stock/types/feedConsumption'
 import type { BackendTransport } from '../../../src/shared/api/backendTransport'
 
 const range = { from: '2026-06-01', to: '2026-06-30' }
+const reportPayload = {
+  from: range.from, to: range.to, groupBy: 'HERD_GROUP',
+  tiles: { kg: 0, cost: 0, averageKgPerHeadDay: 0, averageCostPerHeadDay: 0, days: 0, headDays: 0, receivedKg: 0, receiptCount: 0, receivedAmount: 0 },
+  rows: [], total: { kg: 0, cost: 0, kgPerHeadDay: 0, costPerHeadDay: 0, days: 0, headDays: 0 }, costByFeed: [],
+  adjustmentLosses: { kg: 0, value: 0 }, rawRows: [], adjustmentLossKg: 0, adjustmentLossValue: 0, generatedAt: '2026-06-30T00:00:00Z',
+}
 const emptyData: FeedConsumptionSupportingData = {
   feedings: [], receipts: [], adjustments: [], catalogue: [], rations: [],
 }
@@ -11,13 +17,25 @@ const emptyData: FeedConsumptionSupportingData = {
 function transport(overrides: Partial<BackendTransport> = {}): BackendTransport {
   return {
     get: vi.fn(async () => []),
-    command: vi.fn(async () => ({ from: range.from, to: range.to, rows: [], adjustmentLossKg: 0, adjustmentLossValue: 0, generatedAt: '2026-06-30T00:00:00Z' })),
+    command: vi.fn(async () => reportPayload),
     farmPath: vi.fn((farmId: string | number, suffix = '') => `/api/farms/${farmId}${suffix}`),
     ...overrides,
   }
 }
 
 describe('SCR-85 consumption report API boundary', () => {
+  it('defaults both modes to the first day of the business month through today', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-11-15T05:00:00Z'))
+      expect(defaultFeedConsumptionPeriod()).toEqual({ from: '2026-11-01', to: '2026-11-15' })
+      vi.setSystemTime(new Date('2026-12-01T00:00:00Z'))
+      expect(defaultFeedConsumptionPeriod()).toEqual({ from: '2026-12-01', to: '2026-12-01' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('loads the local demo projection without requesting the backend report', async () => {
     const http = transport()
     const loadDemoData = vi.fn(async () => emptyData)
@@ -42,7 +60,7 @@ describe('SCR-85 consumption report API boundary', () => {
     const result = await api.load(range)
 
     expect(result.source).toBe('backend')
-    expect(http.command).toHaveBeenCalledWith('/api/farms/32/feed/reports/consumption', range, { method: 'POST' })
+    expect(http.command).toHaveBeenCalledWith('/api/farms/32/feed/reports/consumption', { ...range, groupBy: 'HERD_GROUP' }, { method: 'POST' })
     expect(loadBackendData).toHaveBeenCalledOnce()
     expect(loadDemoData).not.toHaveBeenCalled()
   })

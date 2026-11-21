@@ -2,7 +2,8 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { HerdEntry, Pen } from '../../../src/types'
+import type { HerdEntry } from '../../../src/features/herd-entry/types'
+import type { Pen } from '../../../src/features/pen-management/types'
 
 const apiState = vi.hoisted(() => ({
   entries: [] as HerdEntry[],

@@ -1,10 +1,9 @@
 import { useSearchParams } from 'react-router-dom'
 import { Badge, ErrorBlock, Info, LoadingBlock, Note } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { growthApi } from '../api/growthApi'
 import { fmtDate, fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
+import { useGrowthProfile } from '../hooks/useGrowthUseCase'
 import GrowthChart from './GrowthChart'
 
 const cardCls = 'flex flex-col gap-2 rounded-lg border border-edge bg-white p-3'
@@ -13,7 +12,7 @@ const heading = 'm-0 text-[10px] font-semibold uppercase tracking-wide text-bran
 /** Bản đọc cho điện thoại, hiển thị trong hồ sơ bò của kỹ thuật viên (không có khung riêng). */
 export default function GrowthTechnicianTab({ cattleCode }: { cattleCode: string }) {
   const [params] = useSearchParams()
-  const { data, loading, error, refetch } = useQuery(() => growthApi.getProfile(cattleCode), [cattleCode])
+  const { data, loading, error, refetch } = useGrowthProfile(cattleCode)
   if (loading && !data) return <LoadingBlock />
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu tăng trưởng.')} onRetry={refetch} />
   const { latest, adg90, latestBcs, nextWeighingDate } = data

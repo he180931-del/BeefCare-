@@ -2,8 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedStockAdjustments } from '../api/feedStockAdjustmentApi'
+import { useFeedStockAdjustmentList } from '../hooks/useFeedStockAdjustmentList'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 
 const numberFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
@@ -19,11 +18,11 @@ const STATUS_LABELS: Record<string, string> = { DRAFT: 'Nháp', POSTED: 'Đã gh
 export default function FeedStockAdjustmentPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const query = useQuery(() => listFeedStockAdjustments(), [])
+  const query = useFeedStockAdjustmentList()
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'adjustmentMessage' in location.state
     ? String((location.state as { adjustmentMessage?: unknown }).adjustmentMessage ?? '')
     : ''
-  const rows = query.data ?? []
+  const rows = query.adjustments
   const error = query.error
     ? userFacingError(query.error, 'Không thể tải phiếu kiểm kê. Vui lòng thử lại.')
     : null

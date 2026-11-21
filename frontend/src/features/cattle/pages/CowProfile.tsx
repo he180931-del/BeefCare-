@@ -3,9 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, ErrorBlock, LoadingBlock } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
-import { loadProfile } from '../api/cattleApi'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { useSession } from '../../../app/session/sessionContext'
+import { useCattleProfileQuery } from '../hooks/useCattleQueries'
 import CowHeader, { COW_TABS } from '../components/CowHeader'
 import OverviewTab from '../components/OverviewTab'
 import TimelineTab from '../components/TimelineTab'
@@ -27,7 +26,7 @@ export default function CowProfile() {
   const session = useSession()
   const [params, setParams] = useSearchParams()
   const [modal, openModal, closeModal] = useModalParam()
-  const profileQuery = useQuery(() => loadProfile(code ?? ''), [code])
+  const profileQuery = useCattleProfileQuery(code ?? '')
   const { cow, barns: barnRows } = profileQuery.data ?? {}
   const barns = Object.fromEntries((barnRows ?? []).map((b) => [b.code, b]))
   const [notice, setNotice] = useState('')
