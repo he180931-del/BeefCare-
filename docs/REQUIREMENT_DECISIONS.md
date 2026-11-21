@@ -743,3 +743,15 @@ thêm TC-08-22, TC-09-31, TC-10-29, TC-11-25, TC-12-27, TC-14-27, TC-16-17. Spec
 FE-08 → FE-12 §1, §2, quy tắc quyền, bảng nút; FE-14 §2, Table III-3, SCR-44; FE-16 §2,
 R-16-07, Q2; FE-23 §1, §2, R-23-11, R-23-13, SCR-83, popup Ghi bữa ăn. FE-08 → FE-12 thuộc
 TuanPQ, FE-23 thuộc TaiDX, FE-14 / FE-16 thuộc AnNT: cần báo các chủ feature.
+
+### D42 — FE-18: vòng đời danh mục, ngưng / dùng lại và quyền xóa (22/11/2026)
+
+AnNT đồng ý phương án trong phiên: "Được, sửa theo đề xuất của bạn đi, sửa spec trước rồi hẵng code". Chốt FE-18 Q4 theo phạm vi SRS 28/10, GBR-67 / 68, BR-D12 / 32 và SCR-52 → 56:
+
+1. Giống, thuốc và mục đích không được xóa, kể cả chưa dùng; chỉ sửa theo điều kiện hoặc ngưng / dùng lại cùng ID. Vắc-xin chưa từng tham chiếu được xóa sau xác nhận; đã tham chiếu thì chỉ ngưng. Bỏ ba DELETE giống / thuốc / mục đích đang mở ngoài SRS, cả UI lẫn API; gọi đường cũ trả 405, không có tác dụng dữ liệu / audit xóa.
+2. Tham chiếu tính cả liên kết còn lưu trong nháp, lịch, bản ghi đã hủy, bò đã xuất và tiêu chí chuồng lịch sử; số bò ACTIVE bằng 0 không chứng minh chưa dùng. Mã đã tham chiếu bị khóa; loại mục đích đã được bò hoặc tiêu chí chuồng dùng bị khóa.
+3. Ngưng chỉ chặn chọn mới, không đổi hồ sơ bò / dữ liệu cũ hoặc tự hủy lịch. Phiếu nháp kiểm lại danh mục lúc ghi sổ. Sửa danh mục giữ snapshot đã chốt, gồm tên và thông tin ngưng thịt. Màn quản trị mặc định ACTIVE; lọc INACTIVE / Tất cả để Dùng lại, API vẫn đọc được dữ liệu cũ.
+4. Giữ quyền D37 / D41: Owner và Manager quản lý, Technician xem cả năm tab / lịch sử. Giữ phiên bản tham số bất biến, ghi chú nguồn, ngày hiệu lực UTC+07:00 (D39), phân biệt CURRENT / SCHEDULED; không viết lại sự kiện cũ.
+5. Mỗi phiên sửa gửi version đã đọc ban đầu. Backend kiểm lại quyền, version và tham chiếu trong giao dịch; phối hợp khóa giữa xóa vắc-xin và tạo tham chiếu, không để tham chiếu mồ côi.
+
+Thứ tự thực hiện: cập nhật spec / câu hỏi / quyết định trước, sau đó sửa code và kiểm chứng. Quyết định này chưa tự chứng nhận API hoặc UI; bằng chứng nằm ở kiểm thử của gói triển khai.

@@ -37,6 +37,11 @@ class OpenApiContractTest {
         assertThat(paths.has("/api/support/tickets")).isTrue();
         assertThat(paths.has("/api/cattle")).isFalse();
         assertThat(paths.has("/api/support-tickets")).isFalse();
+        // D42: vaccines alone expose catalogue deletion; retired routes must not return in generated clients.
+        assertThat(paths.path("/api/farms/{farmId}/catalogues/breeds/{id}").has("delete")).isFalse();
+        assertThat(paths.path("/api/farms/{farmId}/catalogues/production-purposes/{id}").has("delete")).isFalse();
+        assertThat(paths.path("/api/farms/{farmId}/medicines/{medicineId}").has("delete")).isFalse();
+        assertThat(paths.path("/api/farms/{farmId}/vaccines/{vaccineId}").has("delete")).isTrue();
         assertThat(api.path("components").path("securitySchemes").has("session")).isTrue();
         JsonNode schemas = api.path("components").path("schemas");
         JsonNode supportTicketCreate = schemas.path("Create").path("properties");

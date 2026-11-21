@@ -107,7 +107,7 @@ Ngày 18/11/2026: FE-16 Q2 được chốt kèm D41 (Owner có toàn bộ quyề
 | FE-18 | Q1 | Technician có xem SCR-55, SCR-56 không? | Technician xem cả năm tab và lịch sử phiên bản ở chế độ chỉ đọc | D37: theo phân quyền đang chạy. Owner và Manager mới được ghi. | AnNT | 15/11/2026 |
 | FE-18 | Q2 | SCR-54 không nêu mã và tên thuốc | Mã như giống; tên ≤ 150 như vắc-xin |  | AnNT |  |
 | FE-18 | Q3 | SCR-55 không có trường Mô tả dù entity có | Thêm Mô tả ≤ 500 |  | AnNT |  |
-| FE-18 | Q4 | Có xóa giống / thuốc / mục đích chưa dùng không? | Không – SRS chỉ cho xóa vắc-xin chưa dùng |  | AnNT |  |
+| FE-18 | Q4 | Có xóa giống / thuốc / mục đích chưa dùng không? | Không – SRS chỉ cho xóa vắc-xin chưa dùng | D42: AnNT đồng ý; giống / thuốc / mục đích chỉ sửa hoặc ngưng / dùng lại, bỏ DELETE giống / mục đích; tham chiếu gồm lịch sử, không chỉ bò ACTIVE | AnNT | 22/11/2026 |
 | FE-18 | Q5 | Tham số "Chuẩn bị đẻ trước" (30) dùng cho REM-05; "Khám thai sau phối" (28) cho REM-03 – xác nhận REM dùng tham số thay hằng số | Có – Table III-3 ghi giá trị mặc định |  | AnNT |  |
 | FE-19 | Q1 | Rút phiên bản đã lên lịch chưa có route | Thêm A14 | D23: người dùng chốt backend + SCR-63, thêm POST /api/platform/plan-prices/{version}/withdraw với Idempotency-Key và expectedVersion | Người dùng / DucNV | 10/11/2026 |
 | FE-19 | Q2 | Tra cứu SePay theo khoảng thời gian (SRS nêu "ID or period"), code chỉ có theo ID | Bổ sung tham số `from, to` | Người dùng chốt D19: làm cả theo mã và theo khoảng ngày VN (≤31 ngày, ≤200 dòng, chỉ đọc), PM lưu từng dòng thành chứng từ; webhook và tra cứu cùng giao dịch so theo trường nghiệp vụ | DucNV / người dùng | 10/11/2026 |

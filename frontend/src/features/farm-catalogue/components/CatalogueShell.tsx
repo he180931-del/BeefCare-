@@ -31,7 +31,7 @@ export default function CatalogueShell({ children }: { children: ReactNode }) {
   const tab = TABS.find((t) => pathname.split('/')[2] === t.value)?.value ?? 'giong'
   const content = (
     <div className="flex min-w-0 flex-col gap-4">
-      <PageHeader title="Danh mục & Tham số trại" sub="Danh mục riêng của trại · mục đã được dùng chỉ ngừng dùng, không xóa">
+      <PageHeader title="Danh mục & Tham số trại" sub="Giống, thuốc và mục đích chỉ sửa hoặc ngừng/dùng lại. Chỉ xóa vắc-xin chưa từng dùng.">
         <div ref={setSlot} className="flex flex-wrap items-center gap-2" />
       </PageHeader>
       <div className="max-w-full overflow-x-auto">

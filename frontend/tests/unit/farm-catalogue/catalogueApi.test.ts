@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createCatalogueApi, decorateVersions, mapMedicine, mapVaccine, toBackendParameters } from '../../../src/features/farm-catalogue/api/catalogueApi'
 import { createCatalogueDemoStore } from '../../../src/features/farm-catalogue/data/catalogueDemoStore'
-import { FieldErrors } from '../../../src/features/farm-catalogue/domain/catalogueRules'
+import { FieldErrors, vaccineUsage, vaccineUsageLabel } from '../../../src/features/farm-catalogue/domain/catalogueRules'
+import { CATALOGUE_DEMO } from '../../../src/features/farm-catalogue/data/catalogueMock'
 import { DEFAULT_PARAMETERS } from '../../../src/features/farm-catalogue/domain/parameterRules'
 import type { BreedCommand, ParameterVersionCommand, PurposeCommand, VaccineCommand } from '../../../src/features/farm-catalogue/types'
 
@@ -135,6 +136,28 @@ describe('catalogue api: parameters', () => {
 })
 
 describe('catalogue api: backend mode', () => {
+  it('keeps a vaccine referenced only by a draft or historical correction locked and undeletable', async () => {
+    const used = mapVaccine({ id: 1, version: 0, available: true, code: 'VX-HISTORY', name: 'Vắc-xin cũ', scheduleCount: 0, recordCount: 0, referencedCount: 2 })
+    expect(vaccineUsage(used)).toBe(2)
+    expect(vaccineUsageLabel(used)).toBe('2 tham chiếu khác')
+    const store = createCatalogueDemoStore({ ...CATALOGUE_DEMO, vaccines: [used] })
+    await expect(store.deleteVaccine(used.id)).rejects.toThrow(/đã được dùng/)
+    const edited = await store.saveVaccine(used.id, { ...vaccine(), code: used.code, expectedVersion: 0 })
+    expect(edited.referencedCount).toBe(2)
+    await expect(store.deleteVaccine(edited.id)).rejects.toThrow(/đã được dùng/)
+  })
+
+  it('sends the original version zero without refetching a newer catalogue row', async () => {
+    const transport = { get: vi.fn(), command: vi.fn().mockResolvedValue({ id: 4 }), farmPath: (_farmId: number | string | null, suffix: string) => `/api/farms/1${suffix}` }
+    const api = createCatalogueApi({ mode: 'backend', farmId: 1, transport, store: createCatalogueDemoStore() })
+    await api.saveBreed(4, breed({ expectedVersion: 0 }))
+    expect(transport.command).toHaveBeenCalledWith('/api/farms/1/catalogues/breeds/4', expect.objectContaining({ expectedVersion: 0 }), { method: 'PUT' })
+    expect(transport.get).not.toHaveBeenCalled()
+    expect(api).not.toHaveProperty('deleteBreed')
+    expect(api).not.toHaveProperty('deletePurpose')
+    expect(api).not.toHaveProperty('deleteMedicine')
+  })
+
   it('diffs each version against the effective snapshot available when it was saved', () => {
     const version = (versionNo: number, effectiveFrom: string, weight: number) => ({
       id: versionNo, versionNo, effectiveFrom, parameters: toBackendParameters({ ...DEFAULT_PARAMETERS, minBreedingWeightKg: weight }),

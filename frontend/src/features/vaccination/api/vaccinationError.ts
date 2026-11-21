@@ -21,7 +21,7 @@ export function mapVaccinationError(error: unknown): unknown {
   const reason = textValue(error.params.reason)
   const code = textValue(error.code).replace(/^MSG-/, '')
   if (code === 'COM-05' && reason === 'active_schedule_name_exists') return new VaccinationValidationError({ name: 'Đã có lịch đang chạy cùng tên.' })
-  if (code === 'COM-05' && reason === 'vaccine_inactive') return new VaccinationValidationError({ vaccineId: 'Vắc-xin đã ngừng sử dụng, không thể chọn cho bản ghi mới.' })
+  if (code === 'FE18-08' || (code === 'COM-05' && reason === 'vaccine_inactive')) return new VaccinationValidationError({ vaccineId: 'Vắc-xin đã ngừng sử dụng, không thể chọn cho bản ghi mới.' })
   if (code === 'COM-05' || error.status === 409 || error.status === 412) return new Error(CONFLICT_MESSAGE)
   if (code === 'COM-07') return new VaccinationValidationError({ administeredAt: 'Thời điểm tiêm không được ở tương lai.' })
   if (code === 'COM-15') {

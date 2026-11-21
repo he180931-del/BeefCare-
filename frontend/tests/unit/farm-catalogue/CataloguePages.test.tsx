@@ -115,6 +115,7 @@ describe('vaccines, medicines and purposes', () => {
     renderAt('/danh-muc/muc-dich')
     await screen.findByText('Sửa mục đích: Sinh sản')
     expect(screen.getByLabelText('Loại mục đích *')).toBeDisabled()
+    await user.selectOptions(screen.getByLabelText('Lọc theo trạng thái'), 'INACTIVE')
     await user.click(screen.getByText('Nuôi bán giống'))
     expect(await screen.findByText('Sửa mục đích: Nuôi bán giống')).toBeInTheDocument()
     expect(screen.getByLabelText('Loại mục đích *')).toBeEnabled()
