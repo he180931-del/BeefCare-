@@ -5,10 +5,8 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Foot, Icon, type IconName, inputCls, Note, PageHeader, Panel, Select } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useQuery } from '../../../shared/hooks/useQuery'
-import { getFeedStockUpdatedAt } from '../api/feedMovementApi'
 import { listFeedFeedingRecords } from '../api/feedFeedingApi'
 import { listFeedRationPens, listFeedRations } from '../api/feedRationApi'
-import { listFeedStock } from '../api/feedStockApi'
 import { filterFeedStock } from '../domain/feedStockList'
 import { summarizeTodaySessions } from '../domain/feedTodayRations'
 import { feedGroupLabel, formatDate } from '../domain/feedLabels'
@@ -17,6 +15,7 @@ import { FeedStockSummary } from '../components/FeedStockSummary'
 import FeedStockTable from '../components/FeedStockTable'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import FeedMovementsDialog from '../components/FeedMovementsDialog'
+import { useFeedStock, useFeedStockUpdatedAt } from '../hooks/useFeedStockQueries'
 
 const STATUS_LABELS: Record<FeedStockStatus, string> = {
   SUFFICIENT: 'Đủ dùng',
@@ -49,8 +48,8 @@ export default function FeedStockPage() {
   const routeMessage = typeof location.state === 'object' && location.state !== null && 'feedStockMessage' in location.state
     ? String((location.state as { feedStockMessage?: unknown }).feedStockMessage ?? '')
     : ''
-  const stockQuery = useQuery(() => listFeedStock(), [])
-  const updatedQuery = useQuery(() => getFeedStockUpdatedAt().catch(() => null), [])
+  const stockQuery = useFeedStock()
+  const updatedQuery = useFeedStockUpdatedAt()
   // Side data for the quick-action hint and the per-head tile; the page works without it.
   const sideQuery = useQuery(async () => {
     const date = businessDate()
