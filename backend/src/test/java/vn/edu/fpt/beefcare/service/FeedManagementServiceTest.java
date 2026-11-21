@@ -38,6 +38,7 @@ import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.FeedingVoidRequest;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.FeedingCorrectionRequest;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.RationVersionRequest;
 import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos.StopRationRequest;
+import vn.edu.fpt.beefcare.service.dto.FeedManagementDtos;
 
 @ExtendWith(MockitoExtension.class)
 class FeedManagementServiceTest {
@@ -326,6 +327,39 @@ class FeedManagementServiceTest {
         verify(feedingRecords,times(3)).lockByIdAndFarm(804L,12L);verify(feedingRecords,never()).findById(804L);
         verify(revisions).record(eq(context),eq("FeedingRecord"),eq(804L),eq(RecordRevisionService.CORRECT),eq("Ghi sai lượng"),any(),any());
         var movement=org.mockito.ArgumentCaptor.forClass(FeedStockMovement.class);verify(movements).save(movement.capture());assertThat(movement.getValue().getQuantityKg()).isEqualByComparingTo("1.000");
+    }
+
+    @Test void consumptionGroupedRowsUseHeadDaysNotPenDayCount(){
+        context=new FarmContext(context.farm(),context.user(),FarmRole.MANAGER);
+        Pen penA=activePen(320L,"A1");Pen penB=activePen(321L,"B1");
+        FeedingRecord aMorning=feedingReportRecord(penA,LocalDate.of(2026,10,28),1,4);
+        FeedingRecord aAfternoon=feedingReportRecord(penA,LocalDate.of(2026,10,28),2,4);
+        FeedingRecord aNextDay=feedingReportRecord(penA,LocalDate.of(2026,10,29),1,5);
+        FeedingRecord bNextDay=feedingReportRecord(penB,LocalDate.of(2026,10,29),1,3);
+        List<FeedingRecord> records=List.of(aMorning,aAfternoon,aNextDay,bNextDay);
+        when(access.require(12L,FarmAction.MANAGE_FEED)).thenReturn(context);
+        when(feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(12L,LocalDate.of(2026,10,28),LocalDate.of(2026,10,29))).thenReturn(records);
+        when(feedingLines.findByFeedingRecord_Id(anyLong())).thenAnswer(invocation->List.of(reportLine(invocation.getArgument(0))));
+        when(movements.findByFarm_IdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(eq(12L),any(),any())).thenReturn(List.of());
+        when(receipts.findByFarm_IdOrderByReceiptDateDescIdDesc(12L)).thenReturn(List.of());
+
+        var report=service.consumptionReport(12L,new FeedManagementDtos.ConsumptionReportRequest(LocalDate.of(2026,10,28),LocalDate.of(2026,10,29),"HERD_GROUP"));
+
+        assertThat(report.total().headDays()).isEqualByComparingTo("12");
+        assertThat(report.total().kgPerHeadDay()).isEqualByComparingTo("0.333");
+        assertThat(report.rows()).singleElement().satisfies(row->{
+            assertThat(row.avgHead()).isEqualByComparingTo("6.00");
+            assertThat(row.kgPerHeadDay()).isEqualByComparingTo("0.333");
+        });
+    }
+
+    private FeedingRecord feedingReportRecord(Pen pen,LocalDate date,int session,int headCount){
+        FeedingRecord record=new FeedingRecord();ReflectionTestUtils.setField(record,"id",(long)(10_000+pen.getId()+session+date.getDayOfMonth()));
+        record.setFarm(context.farm());record.setPen(pen);record.setFeedingDate(date);record.setSessionNo(session);record.setHeadCount(headCount);record.setStatus("VALID");record.setRecordedAt(Instant.parse("2026-10-29T00:00:00Z"));return record;
+    }
+
+    private FeedingRecordLine reportLine(Long recordId){
+        FeedingRecordLine result=new FeedingRecordLine();result.setFeedItem(feed);result.setPlannedKg(new BigDecimal("2.000"));result.setActualKg(new BigDecimal("1.000"));result.setCostPerKg(new BigDecimal("100.00"));result.setTotalCost(100L);return result;
     }
 
     @Test void feedingWritesAskTheFeedingAuthorizationAction(){

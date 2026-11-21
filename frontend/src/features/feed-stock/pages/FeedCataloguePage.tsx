@@ -3,13 +3,11 @@ import { useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, Field, Foot, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, PageHeader, Radio, Segmented, Select, Table, Td, Textarea, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedSupplierActive } from '../api/feedCatalogueApi'
-import { listFeedStock } from '../api/feedStockApi'
 import FeedManagementTabs from '../components/FeedManagementTabs'
 import { FEED_GROUP_LABELS, feedGroupLabel, formatNumber } from '../domain/feedLabels'
 import type { FeedGroup, FeedStockRow } from '../types'
 import type { FeedCatalogueItem, FeedCatalogueSaveInput, FeedSupplier, FeedSupplierInput } from '../types/feedCatalogue'
+import { useFeedCatalogue } from '../hooks/useFeedCatalogue'
 
 type CatalogueSection = 'feeds' | 'suppliers'
 const GROUPS = Object.entries(FEED_GROUP_LABELS) as Array<[FeedGroup, string]>
@@ -30,10 +28,7 @@ function averageCost(item: FeedCatalogueItem, stock: FeedStockRow | undefined) {
 
 export default function FeedCataloguePage() {
   const [params, setParams] = useSearchParams()
-  const query = useQuery(async () => {
-    const [items, suppliers, stock] = await Promise.all([listFeedCatalogue(), listFeedSuppliers(), listFeedStock()])
-    return { items, suppliers, stock }
-  }, [])
+  const query = useFeedCatalogue()
   const [section, setSection] = useState<CatalogueSection>('feeds')
   const [search, setSearch] = useState('')
   const [group, setGroup] = useState<FeedGroup | 'ALL'>('ALL')
@@ -45,9 +40,9 @@ export default function FeedCataloguePage() {
   const [message, setMessage] = useState('')
   const [actionError, setActionError] = useState('')
 
-  const items = query.data?.items ?? []
-  const suppliers = query.data?.suppliers ?? []
-  const stock = query.data?.stock ?? []
+  const items = query.items
+  const suppliers = query.suppliers
+  const stock = query.stock
   const filteredFeeds = useMemo(() => {
     const q = normalize(search.trim())
     return items.filter((item) => (group === 'ALL' || item.group === group)
@@ -85,7 +80,7 @@ export default function FeedCataloguePage() {
   const select = (item: FeedCatalogueItem) => { setAdding(false); setActionError(''); setParams((current) => { const next = new URLSearchParams(current); next.set('feed', item.code); return next }) }
   const saveFeed = async (input: FeedCatalogueSaveInput) => {
     const saved = await perform(async () => {
-      const result = await saveFeedCatalogueItem(input)
+      const result = await query.saveFeed({ input })
       setAdding(false)
       setParams((current) => { const next = new URLSearchParams(current); next.set('feed', result.code); return next })
       // Keep the list filter from hiding the row that was just saved.
@@ -95,11 +90,11 @@ export default function FeedCataloguePage() {
     if (saved) setMessage(`${input.name.trim()} đã được lưu.`)
   }
   const saveSupplierRow = async (input: FeedSupplierInput) => {
-    const saved = await perform(() => saveFeedSupplier(input), `${input.name.trim()} đã được lưu.`)
+    const saved = await perform(() => query.saveSupplier({ input }), `${input.name.trim()} đã được lưu.`)
     if (saved) setSupplierDialog(null)
   }
   const toggleSupplier = (supplier: FeedSupplier) => perform(
-    () => setFeedSupplierActive(supplier.id, !supplier.active, supplier.version),
+    () => query.setSupplierActive({ id: supplier.id, active: !supplier.active, version: supplier.version }),
     supplier.active ? `${supplier.name} đã ngừng hoạt động.` : `${supplier.name} đã hoạt động trở lại.`,
   )
 

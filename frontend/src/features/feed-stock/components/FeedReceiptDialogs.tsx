@@ -10,8 +10,9 @@ import { formatDate, formatKg, formatMoney, formatVnd } from '../domain/feedLabe
 import { feedReceiptError } from '../domain/feedReceiptErrors'
 import type { FeedSupplier } from '../types/feedCatalogue'
 import type { FeedReceipt, FeedReceiptPayment, FeedReceiptPaymentResult } from '../types/feedReceipt'
+import { newFeedCommandKey } from '../api/command'
 
-const newCommandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-receipt:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const newCommandKey = () => newFeedCommandKey('feed-receipt')
 
 export function FeedReceiptDiscardDialog({ record, onClose, onDone }: { record: FeedReceipt; onClose: () => void; onDone: () => void }) {
   const [error, setError] = useState('')

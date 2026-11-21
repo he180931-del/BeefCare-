@@ -9,6 +9,7 @@ import type {
   FeedConsumptionGroupBy,
   FeedConsumptionProjection,
   FeedConsumptionProjectionRow,
+  FeedConsumptionServerRow,
   FeedConsumptionSupportingData,
   FeedConsumptionSummary,
 } from '../types/feedConsumption'
@@ -104,9 +105,9 @@ export function buildFeedConsumptionReport(input: BuildInput): Omit<FeedConsumpt
   rations: FeedRation[]
 } {
   const feedings = input.feedings.filter((record) => record.status === 'VALID' && inRange(record.feedingDate, input.from, input.to))
-  const baseRows = input.backendReport?.rows ?? localRows(feedings, input.rations, input.from, input.to)
-  let adjustmentLossKg: number | null = input.backendReport?.adjustmentLossKg ?? null
-  let adjustmentLossValue: number | null = input.backendReport?.adjustmentLossValue ?? null
+  const baseRows = input.backendReport?.rawRows ?? localRows(feedings, input.rations, input.from, input.to)
+  let adjustmentLossKg: number | null = input.backendReport?.adjustmentLosses.kg ?? null
+  let adjustmentLossValue: number | null = input.backendReport?.adjustmentLosses.value ?? null
   if (!input.backendReport) {
     const losses = input.adjustments.filter((adjustment) => adjustment.status === 'POSTED' && inRange(adjustment.countDate, input.from, input.to))
       .flatMap((adjustment) => adjustment.lines)
@@ -142,6 +143,22 @@ function matchesFilters(row: BaseRow, filters: FeedConsumptionFilters) {
   return (filters.feedItemId === undefined || filters.feedItemId === 'ALL' || row.feedItemId === filters.feedItemId)
     && (filters.penId === undefined || filters.penId === 'ALL' || row.penId === filters.penId)
     && (filters.herdGroup === undefined || filters.herdGroup === 'ALL' || row.herdGroup === filters.herdGroup)
+}
+
+/** Maps the already-grouped backend response for rendering without recomputing it from rawRows. */
+export function mapBackendConsumptionRows(report: FeedConsumptionBackendReport): FeedConsumptionServerRow[] {
+  const names = new Map(report.costByFeed.map((item) => [item.feedCode, item.feedName]))
+  return report.rows.map((row) => ({
+    key: `${report.groupBy}:${row.group}`,
+    label: report.groupBy === 'FEED' ? names.get(row.group) ?? row.group : row.group,
+    herdGroup: report.groupBy === 'HERD_GROUP' ? row.group : null,
+    averageHead: row.avgHead,
+    actualKg: row.kg,
+    averageKgPerHeadDay: row.kgPerHeadDay,
+    totalCost: row.cost,
+    averageCostPerHeadDay: row.costPerHeadDay,
+    varianceRatio: row.variancePct,
+  }))
 }
 
 export function filterFeedConsumptionReport(

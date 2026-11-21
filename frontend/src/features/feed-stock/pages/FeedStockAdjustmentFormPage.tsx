@@ -3,19 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { AttachmentList, Badge, Button, Card, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
 import {
   downloadFeedStockAdjustmentAttachment,
-  getFeedStockAdjustment,
-  listFeedStockAdjustmentAttachments,
-  listFeedStockAdjustments,
-  postFeedStockAdjustment,
   removeFeedStockAdjustmentAttachment,
-  saveFeedStockAdjustmentDraft,
   uploadFeedStockAdjustmentAttachment,
   feedStockAdjustmentServerBacked,
 } from '../api/feedStockAdjustmentApi'
+import { useFeedStockAdjustmentForm } from '../hooks/useFeedStockAdjustmentForm'
 import { initialFeedStockAdjustmentForm, localFeedDate, nextFeedAdjustmentCode, previewFeedStockAdjustment } from '../domain/feedStockAdjustmentForm'
 import { toFeedStockAdjustmentDraftInput } from '../api/feedStockAdjustmentPayload'
 import { validateFeedStockAdjustmentForm } from '../validation/feedStockAdjustmentValidation'
@@ -23,6 +18,7 @@ import { formatKg, formatMoney, formatNumber } from '../domain/feedLabels'
 import type { FeedReceiptAttachment } from '../types/feedReceipt'
 import type { FeedStockAdjustment, FeedStockAdjustmentFormValues, FeedStockAdjustmentType } from '../types/feedStockAdjustment'
 import FeedManagementTabs from '../components/FeedManagementTabs'
+import { newFeedCommandKey } from '../api/command'
 
 const TITLE = 'Thức ăn › Kiểm kê'
 const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
@@ -33,7 +29,7 @@ const TYPE_LABELS: Record<FeedStockAdjustmentType, string> = {
 }
 const REASON_SUGGESTIONS = ['Hao hụt (héo, rơi vãi)', 'Ẩm mốc – hủy bỏ', 'Đếm lại, sai lệch sổ sách', 'Thất thoát']
 const FOOT = 'Phiếu điều chỉnh kho khi kiểm kê hoặc hao hụt (Chủ trại, Quản lý). Nhập tồn thực tế; chênh lệch và giá trị tự tính theo giá nhập bình quân. Dòng có chênh lệch được tô nền và bắt buộc có lý do.'
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-adjustment:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const commandKey = () => newFeedCommandKey('feed-adjustment')
 
 const signed = (value: number, digits = 3) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)}`
 
@@ -51,15 +47,7 @@ type Line = {
 export default function FeedStockAdjustmentFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const query = useQuery(async () => {
-    const [stock, record, adjustments, attachments] = await Promise.all([
-      listFeedStock(),
-      id ? getFeedStockAdjustment(id) : Promise.resolve(null),
-      feedStockAdjustmentServerBacked || id ? Promise.resolve([]) : listFeedStockAdjustments(),
-      id && feedStockAdjustmentServerBacked ? listFeedStockAdjustmentAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
-    ])
-    return { stock, record, attachments, nextCode: feedStockAdjustmentServerBacked ? '' : nextFeedAdjustmentCode(adjustments.map((row) => row.code)) }
-  }, [id])
+  const query = useFeedStockAdjustmentForm(id)
 
   if (query.error) {
     return (
@@ -92,17 +80,21 @@ export default function FeedStockAdjustmentFormPage() {
       key={id ?? 'new-adjustment'}
       record={query.data.record}
       stockRows={adjustmentStockRows}
-      nextCode={query.data.nextCode}
+      nextCode={feedStockAdjustmentServerBacked ? '' : nextFeedAdjustmentCode(query.data.adjustments.map((row) => row.code))}
       initialAttachments={query.data.attachments}
+      saveDraft={query.saveDraft}
+      postAdjustment={query.post}
     />
   )
 }
 
-function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachments }: {
+function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachments, saveDraft, postAdjustment }: {
   record: FeedStockAdjustment | null
   stockRows: Awaited<ReturnType<typeof listFeedStock>>
   nextCode: string
   initialAttachments: FeedReceiptAttachment[]
+  saveDraft: ReturnType<typeof useFeedStockAdjustmentForm>['saveDraft']
+  postAdjustment: ReturnType<typeof useFeedStockAdjustmentForm>['post']
 }) {
   const navigate = useNavigate()
   const [values, setValues] = useState<FeedStockAdjustmentFormValues>(() => initialFeedStockAdjustmentForm(record, stockRows))
@@ -226,10 +218,13 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
       let saved = currentRecord
       if (!saved || saved.status !== 'DRAFT' || savedFingerprintRef.current !== fingerprint) {
         if (!saveKeyRef.current) saveKeyRef.current = commandKey()
-        saved = await saveFeedStockAdjustmentDraft({
-          ...toFeedStockAdjustmentDraftInput(values, currentRecord?.id),
-          ...(currentRecord ? { expectedVersion: currentRecord.version } : {}),
-        }, { key: saveKeyRef.current })
+        saved = await saveDraft({
+          input: {
+            ...toFeedStockAdjustmentDraftInput(values, currentRecord?.id),
+            ...(currentRecord ? { expectedVersion: currentRecord.version } : {}),
+          },
+          options: { key: saveKeyRef.current },
+        })
         setCurrentRecord(saved)
         savedFingerprintRef.current = fingerprint
         saveKeyRef.current = ''
@@ -238,7 +233,7 @@ function FeedStockAdjustmentForm({ record, stockRows, nextCode, initialAttachmen
       await uploadPendingFiles(saved.id)
       if (postNow) {
         if (!postKeyRef.current) postKeyRef.current = commandKey()
-        const posted = await postFeedStockAdjustment(saved.id, saved.version, { key: postKeyRef.current })
+        const posted = await postAdjustment({ id: saved.id, version: saved.version, options: { key: postKeyRef.current } })
         navigate('/thuc-an', { state: { feedStockMessage: `Phiếu điều chỉnh ${posted.code} đã ghi: ${formatNumber(posted.totalDifferenceKg)} kg (${posted.totalValue === null ? '—' : formatMoney(posted.totalValue)} đ).` } })
       } else {
         navigate('/thuc-an/kiem-ke', { state: { adjustmentMessage: `${saved.code} đã lưu nháp. Tồn kho chưa thay đổi.` } })

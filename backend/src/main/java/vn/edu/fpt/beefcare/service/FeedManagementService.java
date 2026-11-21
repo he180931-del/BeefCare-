@@ -683,10 +683,43 @@ public class FeedManagementService {
             String group=record.getRationVersion()==null?"Unknown":record.getRationVersion().getHerdGroup();
             for(FeedingRecordLine line:feedingLines.findByFeedingRecord_Id(record.getId())){Key key=new Key(record.getPen().getId(),group,line.getFeedItem().getId());Aggregate agg=values.computeIfAbsent(key,k->new Aggregate(record.getPen(),group,line.getFeedItem(),new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO},new long[]{0L}));agg.kg()[0]=agg.kg()[0].add(line.getPlannedKg());agg.kg()[1]=agg.kg()[1].add(line.getActualKg());agg.cost()[0]=Math.addExact(agg.cost()[0],line.getTotalCost());}
         }
-        List<ConsumptionRow> rows=values.values().stream().map(a->{BigDecimal variance=a.kg()[0].signum()==0?null:a.kg()[1].subtract(a.kg()[0]).divide(a.kg()[0],4,RoundingMode.HALF_UP);return new ConsumptionRow(a.pen().getId(),a.pen().getCode(),a.herdGroup(),a.feed().getId(),a.feed().getCode(),a.kg()[0],a.kg()[1],variance,a.cost()[0]);}).toList();
+        List<ConsumptionRow> rawRows=values.values().stream().map(a->{BigDecimal variance=a.kg()[0].signum()==0?null:a.kg()[1].subtract(a.kg()[0]).divide(a.kg()[0],4,RoundingMode.HALF_UP);return new ConsumptionRow(a.pen().getId(),a.pen().getCode(),a.herdGroup(),a.feed().getId(),a.feed().getCode(),a.kg()[0],a.kg()[1],variance,a.cost()[0]);}).toList();
+        record GroupAggregate(String label,BigDecimal planned,BigDecimal actual,long cost,long headCount,long headDays,long days) {}
+        java.util.Map<String,BigDecimal[]> grouped=new java.util.LinkedHashMap<>();
+        java.util.Map<String,Long> groupedCost=new java.util.LinkedHashMap<>();
+        // Keep the head-count snapshot for each group/pen/day.  The report's
+        // denominator is head-days (not the number of pen-days): a pen with 20
+        // head contributes 20 to the denominator even when it has several
+        // feeding sessions or feed lines on that day.
+        java.util.Map<String,java.util.Map<String,Long>> groupedHeadDays=new java.util.LinkedHashMap<>();
+        java.util.Map<String,Long> groupedHeads=new java.util.LinkedHashMap<>();
+        java.util.Map<String,java.util.Set<LocalDate>> groupedDates=new java.util.LinkedHashMap<>();
+        java.util.Map<String,String> feedNames=new java.util.LinkedHashMap<>();
+        java.util.Set<String> seenHead=new java.util.HashSet<>();
+        for(FeedingRecord record:feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(farmId,request.from(),request.to())) if("VALID".equals(record.getStatus())) {
+            String herd=record.getRationVersion()==null?"Unknown":record.getRationVersion().getHerdGroup();
+            for(FeedingRecordLine line:feedingLines.findByFeedingRecord_Id(record.getId())) {
+                String label="HERD_GROUP".equals(request.groupBy())?herd:"PEN".equals(request.groupBy())?record.getPen().getCode():line.getFeedItem().getCode();
+                String key=label;
+                BigDecimal[] totals=grouped.computeIfAbsent(key,k->new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO});
+                totals[0]=totals[0].add(line.getPlannedKg()); totals[1]=totals[1].add(line.getActualKg());
+                groupedCost.merge(key,line.getTotalCost(),Math::addExact); feedNames.putIfAbsent(line.getFeedItem().getCode(),line.getFeedItem().getName());
+                groupedDates.computeIfAbsent(key,k->new java.util.HashSet<>()).add(record.getFeedingDate());
+                String headKey=key+"|"+record.getFeedingDate()+"|"+record.getPen().getId();
+                if(seenHead.add(headKey)){
+                    long headCount=record.getHeadCount().longValue();
+                    groupedHeads.merge(key,headCount,Long::sum);
+                    groupedHeadDays.computeIfAbsent(key,k->new java.util.LinkedHashMap<>()).put(headKey,headCount);
+                }
+            }
+        }
+        List<ConsumptionReportGroupedRow> rows=grouped.entrySet().stream().map(entry->{String key=entry.getKey();BigDecimal[] totals=entry.getValue();long cost=groupedCost.getOrDefault(key,0L);long headDays=groupedHeadDays.getOrDefault(key,java.util.Map.of()).values().stream().mapToLong(Long::longValue).sum();long days=groupedDates.getOrDefault(key,java.util.Set.of()).size();BigDecimal avgHead=days==0?BigDecimal.ZERO:BigDecimal.valueOf(groupedHeads.getOrDefault(key,0L)).divide(BigDecimal.valueOf(days),2,RoundingMode.HALF_UP);BigDecimal kgPer=headDays==0?BigDecimal.ZERO:totals[1].divide(BigDecimal.valueOf(headDays),3,RoundingMode.HALF_UP);long costPer=headDays==0?0L:BigDecimal.valueOf(cost).divide(BigDecimal.valueOf(headDays),0,RoundingMode.HALF_UP).longValue();BigDecimal variance=totals[0].signum()==0?null:totals[1].subtract(totals[0]).divide(totals[0],4,RoundingMode.HALF_UP);return new ConsumptionReportGroupedRow(key,avgHead,totals[1],kgPer,cost,costPer,variance,List.of());}).toList();
+        BigDecimal totalKg=rawRows.stream().map(ConsumptionRow::actualKg).reduce(BigDecimal.ZERO,BigDecimal::add);long totalCost=rawRows.stream().mapToLong(r->r.totalCost()==null?0L:r.totalCost()).sum();java.util.Set<LocalDate> dates=new java.util.HashSet<>();long headDays=0L;java.util.Set<String> headSeen=new java.util.HashSet<>();
+        for(FeedingRecord record:feedingRecords.findByFarm_IdAndFeedingDateBetweenOrderByFeedingDateDescSessionNoAsc(farmId,request.from(),request.to())) if("VALID".equals(record.getStatus())) {dates.add(record.getFeedingDate());String k=record.getFeedingDate()+"|"+record.getPen().getId();if(headSeen.add(k))headDays+=record.getHeadCount();}
         java.time.Instant from=request.from().atStartOfDay(clock.zone()).toInstant();java.time.Instant to=request.to().plusDays(1).atStartOfDay(clock.zone()).toInstant();
         List<FeedStockMovement> adjustment=movements.findByFarm_IdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(farmId,from,to).stream().filter(m->"STOCK_ADJUSTMENT".equals(m.getSourceType())&&m.getQuantityKg().signum()<0).toList();BigDecimal lossKg=adjustment.stream().map(m->m.getQuantityKg().negate()).reduce(BigDecimal.ZERO,BigDecimal::add);long lossValue=adjustment.stream().mapToLong(m->m.getQuantityKg().negate().multiply(m.getUnitCost()).setScale(0,RoundingMode.HALF_UP).longValue()).sum();
-        return new ConsumptionReport(request.from(),request.to(),rows,lossKg,lossValue,clock.now());
+        BigDecimal receivedKg=BigDecimal.ZERO;long receiptCount=0L,receivedAmount=0L;for(FeedReceipt receipt:receipts.findByFarm_IdOrderByReceiptDateDescIdDesc(farmId))if("POSTED".equals(receipt.getStatus())&&!receipt.getReceiptDate().isBefore(request.from())&&!receipt.getReceiptDate().isAfter(request.to())){receiptCount++;receivedAmount+=receipt.getTotalPayable();receivedKg=receivedKg.add(lines.findByReceipt_IdOrderByIdAsc(receipt.getId()).stream().map(FeedReceiptLine::getKgReceived).reduce(BigDecimal.ZERO,BigDecimal::add));}
+        BigDecimal kgPerHead=headDays==0?BigDecimal.ZERO:totalKg.divide(BigDecimal.valueOf(headDays),3,RoundingMode.HALF_UP);long costPerHead=headDays==0?0L:BigDecimal.valueOf(totalCost).divide(BigDecimal.valueOf(headDays),0,RoundingMode.HALF_UP).longValue();ConsumptionReportTile tile=new ConsumptionReportTile(totalKg,totalCost,kgPerHead,costPerHead,BigDecimal.valueOf(dates.size()),BigDecimal.valueOf(headDays),receivedKg,receiptCount,receivedAmount);ConsumptionReportTotal total=new ConsumptionReportTotal(totalKg,totalCost,kgPerHead,costPerHead,BigDecimal.valueOf(dates.size()),BigDecimal.valueOf(headDays));java.util.Map<String,BigDecimal[]> byFeed=new java.util.LinkedHashMap<>();for(ConsumptionRow row:rawRows){BigDecimal[] t=byFeed.computeIfAbsent(row.feedCode(),k->new BigDecimal[]{BigDecimal.ZERO,BigDecimal.ZERO});t[0]=t[0].add(row.actualKg());t[1]=t[1].add(BigDecimal.valueOf(row.totalCost()==null?0L:row.totalCost()));}List<ConsumptionReportCostByFeed> costByFeed=byFeed.entrySet().stream().map(e->new ConsumptionReportCostByFeed(e.getKey(),feedNames.getOrDefault(e.getKey(),e.getKey()),e.getValue()[0],e.getValue()[1].longValue())).toList();return new ConsumptionReport(request.from(),request.to(),request.groupBy(),tile,rows,total,costByFeed,new ConsumptionReportAdjustmentLosses(lossKg,lossValue),rawRows,lossKg,lossValue,clock.now());
     }
 
     @Transactional

@@ -6,8 +6,9 @@ import type { FeedReceipt, FeedReceiptAttachment, FeedReceiptPayment, FeedReceip
 import type { FeedReceiptDemoStore, FeedReceiptDraftInput, FeedReceiptVoidCheckRow } from '../types/feedReceiptDemo'
 import { demo } from '../../../demo/demoModules'
 import { lazyObject } from '../../../shared/lib/lazyObject'
+import { newFeedCommandKey, type FeedCommandOptions } from './command'
 
-type ReceiptMutationOptions = { key?: string }
+type ReceiptMutationOptions = FeedCommandOptions
 type RecordPaymentInput = {
   amount: number
   method: 'CASH' | 'BANK_TRANSFER'
@@ -16,7 +17,7 @@ type RecordPaymentInput = {
   note?: string
 }
 
-const commandKey = () => globalThis.crypto?.randomUUID?.() ?? `feed-receipt:${Date.now()}:${Math.random().toString(36).slice(2)}`
+const commandKey = () => newFeedCommandKey('feed-receipt')
 const requiredNumber = (value: unknown, field: string) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`ReceiptView.${field} is missing or invalid`)
   return value
