@@ -347,7 +347,7 @@ test('entry backend reads private attachments and imports the same xlsx through 
   assert.equal((multipartBodies[1] as FormData).get('file'), file)
 })
 
-test('entry backend serializes per-cow pricing basis and line fields', async () => {
+test('entry backend serializes voucher pricing and preserves an entered per-head weight (GBR-92)', async () => {
   let body: any
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
@@ -377,10 +377,39 @@ test('entry backend serializes per-cow pricing basis and line fields', async () 
     cattleRows: [{ tag: 'VN501', breed: 'Brahman', sex: 'Cái', weight: 320, barn: 'A1', unitPrice: 8500000, pricing: 'con', weightBasis: null }],
   })
   assert.equal(body.pricingBasis, 'PER_HEAD')
-  assert.equal(body.lines[0].entryWeightKg, null)
-  assert.equal(body.lines[0].weightBasis, null)
+  // PER_HEAD makes the weight optional; it does not discard an entered weight.
+  assert.equal(body.lines[0].entryWeightKg, 320)
+  assert.equal(body.lines[0].weightBasis, 'MEASURED')
   assert.equal(body.lines[0].unitPrice, 8500000)
 })
+
+for (const scenario of [
+  { name: 'measured per-head weight', pricing: 'con' as const, rows: [{ weight: 250, estimated: false, pricing: 'con', weightBasis: 'MEASURED' }], weights: [250], bases: ['MEASURED'] },
+  { name: 'optional absent per-head weight', pricing: 'con' as const, rows: [{ weight: 0, estimated: false, pricing: 'con', weightBasis: 'ESTIMATED' }], weights: [null], bases: [null] },
+  { name: 'estimated per-head weight', pricing: 'con' as const, rows: [{ weight: 300, estimated: true, pricing: 'con' }], weights: [300], bases: ['ESTIMATED'] },
+  { name: 'Excel row without its own pricing', pricing: 'con' as const, rows: [{ weight: 250, estimated: false, pricing: 'con' }, { weight: 300, estimated: true }], weights: [250, 300], bases: ['MEASURED', 'ESTIMATED'] },
+  { name: 'empty per-head draft before Excel preview', pricing: 'con' as const, rows: [], weights: [], bases: [] },
+  { name: 'per-head header without draft data when posting', pricing: 'con' as const, recordOnly: true, rows: [{ weight: 250, estimated: false }], weights: [250], bases: ['MEASURED'] },
+  { name: 'kg header overriding stale per-head rows', pricing: 'kg' as const, rows: [{ weight: 250, estimated: false, pricing: 'con' }], weights: [250], bases: ['MEASURED'] },
+]) {
+  test(`entry backend follows voucher pricing: ${scenario.name}`, async () => {
+    let body: any
+    const transport: BackendTransport = {
+      farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+      get: async (path) => path.endsWith('/pens') ? { pens: [] } : [],
+      command: async (_path, value) => { body = value; return voucher('DRAFT') },
+    }
+    const recordOnly = 'recordOnly' in scenario && scenario.recordOnly
+    await createHerdEntryBackendApi({ transport, farmId: 9 }).save({
+      record: { type: 'Mua ngoài', status: 'Nháp', pricing: recordOnly ? scenario.pricing : scenario.pricing === 'con' ? 'kg' : 'con', draft: recordOnly ? undefined : { pricing: scenario.pricing } },
+      cattleRows: scenario.rows.map((row, index) => ({ ...row, tag: `HEAD-${index}`, barn: 'A1', unitPrice: 8_500_000 })),
+    })
+    assert.equal(body.pricingBasis, scenario.pricing === 'con' ? 'PER_HEAD' : 'PER_KG')
+    assert.deepEqual(body.lines.map((line: any) => line.entryWeightKg), scenario.weights)
+    assert.deepEqual(body.lines.map((line: any) => line.weightBasis), scenario.bases)
+    assert.ok(body.lines.every((line: any) => line.unitPrice === 8_500_000))
+  })
+}
 
 test('entry backend sends the loaded farm-born draft type and explicit snapshot version', async () => {
   let body: any
