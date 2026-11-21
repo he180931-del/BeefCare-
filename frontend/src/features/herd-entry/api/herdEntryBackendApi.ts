@@ -6,10 +6,11 @@ import type { BackendTransport } from '../../../shared/api/backendTransport'
 import { isoDate } from '../../../shared/lib/date/isoDate'
 import { birthAccuracy, declaration, entryType, enumPaymentMethod, findNamedId, findPurposeId, fullDate, lifeStage, mapDocuments, mapPendingCalf, mapVoucher, mergeDocuments, sex, unwrapVoucher } from './herdEntryMapper'
 import { BackendError } from '../../../shared/api/backendClient'
+import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
-type SaveInput = { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }
+type SaveInput = { id?: string; expectedVersion?: number; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }
 type PaymentInput = Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
 
 export type EntryListFilters = { type?: 'PURCHASE' | 'FARM_BORN'; from?: string; to?: string; sellerId?: number; sellerName?: string }
@@ -109,19 +110,21 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
       }
     })
   }
-  const resolve = async (code: string): Promise<{ backendId: number; version: number }> => {
+  const resolve = async (code: string, backendId?: number): Promise<{ backendId: number }> => {
+    if (backendId != null) return { backendId }
     const row = (await list()).find((item) => item.id === code)
     if (!row) throw new BackendError(404, { message: `Không tìm thấy phiếu nhập ${code}` })
-    return { backendId: numberValue(row.backendId), version: numberValue(row.version) }
+    return { backendId: numberValue(row.backendId) }
   }
-  const discard = async (code: string): Promise<void> => {
-    const current = await resolve(code)
-    await transport.command(`${root}/${current.backendId}`, undefined, {
-      method: 'DELETE', key: requestKey('entry-discard', { voucherId: current.backendId, version: current.version }),
+  const discard = async (code: string, expectedVersion: number | undefined, backendId?: number): Promise<void> => {
+    const version = requireVersion(expectedVersion)
+    const current = await resolve(code, backendId)
+    await transport.command(`${root}/${current.backendId}?expectedVersion=${version}`, undefined, {
+      method: 'DELETE', key: requestKey('entry-discard', { voucherId: current.backendId, version }),
     })
   }
-  const get = async (code: string): Promise<HerdEntry> => {
-    const { backendId } = await resolve(code)
+  const get = async (code: string, knownBackendId?: number): Promise<HerdEntry> => {
+    const { backendId } = await resolve(code, knownBackendId)
     const [voucherBody, documentBody] = await Promise.all([
       transport.get(`${root}/${backendId}`),
       transport.get(`${root}/${backendId}/attachments`),
@@ -158,24 +161,12 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
   }
   const previewExcel = (code: string, file: File) => importExcel(code, file, false)
   const commitExcel = (code: string, file: File) => importExcel(code, file, true)
-  const save = async ({ id, record, cattleRows, documents = [] }: SaveInput): Promise<HerdEntry> => {
-    const existing = id ? await resolve(id).catch((error: unknown) => {
-      if (error instanceof BackendError && error.status === 404) return null
-      throw error
-    }) : null
-    let current: HerdEntry | null = null
-    if (existing && !record.type) {
-      current = await get(id!)
-      record = {
-        ...current,
-        ...record,
-        detail: { ...current.detail, ...record.detail },
-        draft: record.draft ?? current.draft,
-      }
-    }
+  const save = async ({ id, expectedVersion, record, cattleRows, documents = [] }: SaveInput): Promise<HerdEntry> => {
+    const version = id ? requireVersion(expectedVersion) : null
+    const existing = id ? await resolve(id, record.backendId) : null
     const draft = record.draft ?? {}
     const detail = record.detail ?? {}
-    const lineRows = cattleRows ?? (current?.draft?.calves ?? current?.draft?.cows ?? [])
+    const lineRows = cattleRows ?? (record.draft?.calves ?? record.draft?.cows ?? [])
     const persistedDocuments = existing
       ? mapDocuments(await transport.get(`${root}/${existing.backendId}/attachments`), root, existing.backendId)
       : []
@@ -221,7 +212,7 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
           calfOutcomeId: nullableNumber(cow.calfOutcomeId), ...(farmBorn ? { damId: nullableNumber(cow.damId), sireId: nullableNumber(cow.sireId), externalSireCode: textValue(cow.externalSireCode) || null } : {}),
         }
       }),
-      expectedVersion: existing?.version ?? null,
+      expectedVersion: version,
     }
     const operationKey = requestKey('entry-save', { id: id ?? null, body })
     const saved = unwrapVoucher(await transport.command(existing ? `${root}/${existing.backendId}` : root, body, { ...(existing ? { method: 'PUT' } : {}), key: operationKey }))
@@ -237,24 +228,26 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
       result.detail = { ...result.detail, docs: mergeDocuments(persistedDocuments, detail.docs, mapDocuments(uploadedDocuments, root, voucherId)) }
       return result
     }
-    const postBody = { expectedVersion: numberValue(saved.version), printQr: Boolean(draft.printQr ?? record.printQr) }
+    const postBody = { expectedVersion: requireVersion(saved.version), printQr: Boolean(draft.printQr ?? record.printQr) }
     const posted = await transport.command(`${root}/${voucherId}/post`, postBody, { key: requestKey('entry-post', { voucherId, body: postBody }) })
     const result = mapVoucher(unwrapVoucher(posted))
     result.detail = { ...result.detail, docs: mergeDocuments(persistedDocuments, detail.docs, mapDocuments(uploadedDocuments, root, voucherId)) }
     return result
   }
-  const voidVoucher = async (code: string, reason: string): Promise<HerdEntry> => {
-    const current = await resolve(code)
-    const result = await transport.command(`${root}/${current.backendId}/void`, { reason, expectedVersion: current.version })
+  const voidVoucher = async (code: string, { reason, expectedVersion, backendId }: VoucherSnapshot & { reason: string }): Promise<HerdEntry> => {
+    const version = requireVersion(expectedVersion)
+    const current = await resolve(code, backendId)
+    const result = await transport.command(`${root}/${current.backendId}/void`, { reason, expectedVersion: version })
     return mapVoucher(unwrapVoucher(result))
   }
-  const recordPayment = async (code: string, payment: PaymentInput): Promise<HerdEntry> => {
-    const current = await resolve(code)
+  const recordPayment = async (code: string, payment: PaymentInput, { voucherVersion, backendId }: VoucherPaymentSnapshot): Promise<HerdEntry> => {
+    const version = requireVersion(voucherVersion)
+    const current = await resolve(code, backendId)
     await transport.command(transport.farmPath(farmId, `/vouchers/entry/${current.backendId}/payments`), {
       paymentDate: isoDate(payment.date), amount: payment.amount, method: enumPaymentMethod(payment.method), reference: payment.ref || null,
-      note: payment.note || null, voucherVersion: current.version,
+      note: payment.note || null, voucherVersion: version,
     })
-    return get(code)
+    return get(code, current.backendId)
   }
   const pendingCalves = async (): Promise<EntryCalf[]> => asRows(await transport.get(transport.farmPath(farmId, '/pending-calves'))).map(mapPendingCalf)
   const diedBeforeRegistration = async (calfOutcomeId: number, reason: string): Promise<EntryCalf> => {
