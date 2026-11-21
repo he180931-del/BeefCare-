@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, Card, EmptyBlock, ErrorBlock, Foot, Icon, LoadingBlock, PageHeader, Segmented } from '../../../shared/ui'
 import { financeError } from '../api/financeError'
-import { useFinanceNotices, usePlatformFinance } from '../hooks/usePlatformFinanceUseCases'
+import { useFinanceNotices, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { relativeTime, unreadCount } from '../domain/financeRules'
 import type { NoticeKind, PmNotice } from '../types'
 import { FlashNote, type Flash } from './common'
@@ -13,7 +13,7 @@ export function NoticeList({ kind, title, sub, foot }: { kind: NoticeKind; title
   const navigate = useNavigate()
   const [tab, setTab] = useState<'ALL' | 'UNREAD'>('ALL')
   const [flash, setFlash] = useState<Flash | null>(null)
-  const finance = usePlatformFinance()
+  const useCases = usePlatformFinanceUseCases()
   const { data, loading, error, refetch } = useFinanceNotices(kind)
 
   if (loading && !data) return <Layout title={title}><LoadingBlock /></Layout>
@@ -23,13 +23,13 @@ export function NoticeList({ kind, title, sub, foot }: { kind: NoticeKind; title
   const shown = tab === 'UNREAD' ? data.list.filter((n) => !n.readTime) : data.list
   const markAll = async () => {
     try {
-      await finance.markAllNoticesRead(kind)
+      await useCases.markAllNoticesRead(kind)
       setFlash({ tone: 'ok', text: 'Tất cả thông báo đã được đánh dấu là đã đọc.' })
       refetch()
     } catch (e) { setFlash({ tone: 'err', text: financeError(e, 'Không cập nhật được thông báo.') }) }
   }
   const openItem = async (n: PmNotice) => {
-    try { await finance.markNoticeRead(n.id); navigate(n.href) } catch (e) { setFlash({ tone: 'err', text: financeError(e, 'Không mở được thông báo.') }) }
+    try { await useCases.markNoticeRead(n.id); navigate(n.href) } catch (e) { setFlash({ tone: 'err', text: financeError(e, 'Không mở được thông báo.') }) }
   }
 
   return (

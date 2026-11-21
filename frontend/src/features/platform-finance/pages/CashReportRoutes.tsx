@@ -5,7 +5,7 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
 import { BackendError } from '../../../shared/api/backendClient'
 import { useDemoState } from '../../../demo/demoModules'
-import { useFinanceCurrentReport, useFinanceFarms, usePlatformFinance } from '../hooks/usePlatformFinanceUseCases'
+import { useFinanceCurrentReport, useFinanceFarms, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { FlashNote, RoField, useFlash } from '../components/common'
 import { getPageCount, IncomeChart, paginateReportRows, REPORT_DETAIL_PAGE_SIZE, REPORT_SCOPE_PAGE_SIZE, ScopeTable } from '../components/ReportParts'
 import { categoryLabel, formatDate, formatDateTime, formatMoney, formatVnd } from '../domain/financeRules'
@@ -25,8 +25,8 @@ export default function CashReportRoutes() {
   const [m, open, close] = useModalParam()
   const demo = useDemoState()
   const [flash, setFlash] = useFlash()
-  const finance = usePlatformFinance()
-  const [criteria, setCriteria] = useState<ReportCriteria>(() => finance.defaultReportCriteria())
+  const useCases = usePlatformFinanceUseCases()
+  const [criteria, setCriteria] = useState<ReportCriteria>(() => useCases.defaultReportCriteria())
   const [shown, setShown] = useState<CashReport | null>(null)
   const [focus, setFocus] = useState<ScopeTotals | null>(null)
   const [scopePage, setScopePage] = useState(1)
@@ -62,7 +62,7 @@ export default function CashReportRoutes() {
     if (problem) { setFormError(problem); return }
     setBusy(true); setFormError(null)
     try {
-      const next = await finance.runReport(criteria)
+      const next = await useCases.runReport(criteria)
       setShown(next)
       setFlash({ tone: 'ok', text: `Báo cáo ${next.code} được tạo lúc ${formatDateTime(next.generatedAt)}.` })
       open(next.lines.length === 0 ? 'rong' : 'lam-moi')
@@ -73,7 +73,7 @@ export default function CashReportRoutes() {
     open('dang-tao')
     try {
       if (demo === 'xuat-loi') throw new Error('export-failed')
-      const file = await finance.exportXlsx(report.id)
+      const file = await useCases.exportXlsx(report.id)
       if ('blob' in file) {
         const url = URL.createObjectURL(file.blob as Blob)
         const anchor = document.createElement('a')

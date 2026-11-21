@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Field, Icon, inputCls, Modal, ModalButton, ModalFooter, Note, Textarea } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
-import { useFinanceRecord, usePlatformFinance } from '../hooks/usePlatformFinanceUseCases'
+import { useFinanceRecord, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { categoryLabel, formatDate, formatDateTime, formatVnd, TYPE_LABEL } from '../domain/financeRules'
 import type { FinanceRecord } from '../types'
 import { FINANCE_BASE, RoField } from './common'
@@ -25,7 +25,7 @@ export function RecordDialogs({ code, onChanged }: { code: string | null; onChan
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const active = Boolean(code && m && ['xem', 'huy', 'thay-the', 'ghi-so', 'bo-nhap'].includes(m))
-  const finance = usePlatformFinance()
+  const useCases = usePlatformFinanceUseCases()
   const { data, refetch } = useFinanceRecord(active ? code : null, m)
   const r = data?.record
   if (!active || !r) return null
@@ -75,7 +75,7 @@ export function RecordDialogs({ code, onChanged }: { code: string | null; onChan
 
   if (m === 'huy') {
     const submit = () => run(async () => {
-      await finance.voidRecord(r.recordCode, r.version, reason)
+      await useCases.voidRecord(r.recordCode, r.version, reason)
       setReason('')
       onChanged(); refetch()
       navigate(`${FINANCE_BASE}/${r.recordCode}?m=xem`, { state: { flash: { tone: 'ok', text: `Khoản thu chi ${r.recordCode} đã được hủy bỏ.` } } })
@@ -101,7 +101,7 @@ export function RecordDialogs({ code, onChanged }: { code: string | null; onChan
   if (m === 'thay-the') {
     const amountValue = amount === '' ? r.amountVnd : Number(amount.replace(/\D/g, ''))
     const submit = () => run(async () => {
-      const next = await finance.createReplacement(r.recordCode, r.version, { amountVnd: amountValue, description: description || `Thay ${r.recordCode}` })
+      const next = await useCases.createReplacement(r.recordCode, r.version, { amountVnd: amountValue, description: description || `Thay ${r.recordCode}` })
       setAmount(''); setDescription('')
       navigate(`${FINANCE_BASE}/${next.recordCode}`, { state: { flash: { tone: 'ok', text: `Khoản thu chi ${next.recordCode} đã được lưu ở trạng thái nháp.` } } })
     })
@@ -130,7 +130,7 @@ export function RecordDialogs({ code, onChanged }: { code: string | null; onChan
 
   if (m === 'ghi-so') {
     const submit = () => run(async () => {
-      await finance.post(r.recordCode, r.version)
+      await useCases.post(r.recordCode, r.version)
       onChanged()
       navigate(`${FINANCE_BASE}/${r.recordCode}?m=xem&ma=${r.recordCode}`, { state: { flash: { tone: 'ok', text: `Khoản thu chi ${r.recordCode} đã được ghi sổ.` } } })
     })
@@ -157,7 +157,7 @@ export function RecordDialogs({ code, onChanged }: { code: string | null; onChan
 
   // bo-nhap
   const discard = () => run(async () => {
-    await finance.discard(r.recordCode, r.version)
+    await useCases.discard(r.recordCode, r.version)
     navigate(FINANCE_BASE, { state: { flash: { tone: 'ok', text: `Nháp ${r.recordCode} đã được bỏ.` } } })
   })
   return (

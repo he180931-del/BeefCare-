@@ -4,7 +4,7 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
-import { useFinanceFarms, useFinanceReceipt, useFinanceReceipts, usePlatformFinance } from '../hooks/usePlatformFinanceUseCases'
+import { useFinanceFarms, useFinanceReceipt, useFinanceReceipts, usePlatformFinanceUseCases } from '../hooks/usePlatformFinanceUseCases'
 import { PAYMENT_ROUTE, REPORT_BASE, RoField } from '../components/common'
 import { formatDate, formatDateTime, formatShort, formatVnd } from '../domain/financeRules'
 import type { Receipt } from '../types'
@@ -18,8 +18,8 @@ export default function ReceiptRoutes() {
   const [m, open, close] = useModalParam()
   const [search, setSearch] = useState('')
   const [farmId, setFarmId] = useState<number | ''>('')
-  const finance = usePlatformFinance()
-  const initialRange = finance.defaultDateRange()
+  const useCases = usePlatformFinanceUseCases()
+  const initialRange = useCases.defaultDateRange()
   const [from, setFrom] = useState(initialRange.from)
   const [to, setTo] = useState(initialRange.to)
   const [page, setPage] = useState(1)
