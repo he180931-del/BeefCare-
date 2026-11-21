@@ -12,7 +12,7 @@ export type { BackendTransport } from '../../../shared/api/backendTransport'
 type SaveInput = { id?: string; record: Partial<HerdEntry>; cattleRows?: CattleInput[]; documents?: File[] }
 type PaymentInput = Pick<EntryPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }
 
-export type EntryListFilters = { type?: 'PURCHASE' | 'FARM_BORN'; from?: string; to?: string; sellerId?: number }
+export type EntryListFilters = { type?: 'PURCHASE' | 'FARM_BORN'; from?: string; to?: string; sellerId?: number; sellerName?: string }
 export type EntryListView = { rows: HerdEntry[]; tiles: Record<string, unknown>; counts: Record<string, number> }
 export type EntryVaccineOption = { id: number; code: string; name: string; available: boolean }
 export type EntryBreedOption = { id: number; code: string; name: string; available: boolean }
@@ -152,7 +152,9 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
     const { backendId } = await resolve(code)
     const form = new FormData()
     form.append('file', file)
-    return transport.command(`${root}/${backendId}/import?commit=${commit ? 'true' : 'false'}`, form)
+    return transport.command(`${root}/${backendId}/import?commit=${commit ? 'true' : 'false'}`, form, {
+      key: requestKey(commit ? 'entry-excel-commit' : 'entry-excel-preview', { voucherId: backendId, file: await fileDigest(file) }),
+    })
   }
   const previewExcel = (code: string, file: File) => importExcel(code, file, false)
   const commitExcel = (code: string, file: File) => importExcel(code, file, true)

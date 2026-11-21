@@ -14,7 +14,7 @@ const voucher = (status = 'DRAFT') => ({
 })
 
 test('entry backend saves a purchase draft then posts the same versioned voucher', async () => {
-  const calls: Array<{ method: string; path: string; body?: unknown }> = []
+  const calls: Array<{ method: string; path: string; body?: unknown; key?: string }> = []
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
     get: async (path) => {
@@ -314,8 +314,8 @@ test('entry backend reads private attachments and imports the same xlsx through 
       if (path.endsWith('/attachments/71')) return new Blob(['pdf'], { type: 'application/pdf' })
       return { items: [] }
     },
-    command: async (path, body) => {
-      calls.push({ method: 'POST', path, body })
+    command: async (path, body, options) => {
+      calls.push({ method: 'POST', path, body, key: options?.key })
       return { total: 1, valid: 1, warnings: 0, errors: 0, added: path.includes('commit=true') ? 1 : 0, committed: path.includes('commit=true'), rows: [], voucher: voucher('DRAFT') }
     },
   }
@@ -339,6 +339,9 @@ test('entry backend reads private attachments and imports the same xlsx through 
   ])
   const multipartBodies = calls.filter((call) => call.path.includes('/import?')).map((call) => call.body)
   assert.equal(multipartBodies.length, 2)
+  const importKeys = calls.filter((call) => call.path.includes('/import?')).map((call) => call.key)
+  assert.ok(importKeys.every((key) => Boolean(key) && key!.length <= 128))
+  assert.notEqual(importKeys[0], importKeys[1])
   assert.ok(multipartBodies.every((body) => body instanceof FormData))
   assert.equal((multipartBodies[0] as FormData).get('file'), file)
   assert.equal((multipartBodies[1] as FormData).get('file'), file)

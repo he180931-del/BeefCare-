@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEntryList, type EntryListPageFilters } from '../../../src/features/herd-entry/hooks/useEntryList'
 
-const { listView } = vi.hoisted(() => ({ listView: vi.fn() }))
+const { listView, listEntrySellers, listPendingEntryCalves } = vi.hoisted(() => ({ listView: vi.fn(), listEntrySellers: vi.fn(), listPendingEntryCalves: vi.fn() }))
 
 vi.mock('../../../src/features/herd-entry/api', () => ({
-  herdEntryApi: { listView },
+  herdEntryApi: { listView }, listEntrySellers, listPendingEntryCalves,
 }))
 
 function Probe({ filters }: { filters: EntryListPageFilters }) {
@@ -18,6 +18,10 @@ const filters = (overrides: Partial<EntryListPageFilters> = {}): EntryListPageFi
 })
 
 describe('useEntryList', () => {
+  beforeEach(() => {
+    listEntrySellers.mockResolvedValue([])
+    listPendingEntryCalves.mockResolvedValue([])
+  })
   it('normalizes type and seller filters for the backend list query', async () => {
     listView.mockResolvedValueOnce({
       rows: [{ id: 'PN-1', date: '2026-10-01', status: 'Đã nhập', source: 'Seller 7' }],
@@ -27,7 +31,7 @@ describe('useEntryList', () => {
     render(<Probe filters={filters({ type: 'Mua ngoài', source: { id: '7', name: 'Seller 7' } })} />)
     await waitFor(() => expect(screen.getByText('PN-1')).toBeInTheDocument())
 
-    expect(listView).toHaveBeenCalledWith({ type: 'PURCHASE', from: '2026-07-01', to: '2026-11-21', sellerId: 7 })
+    expect(listView).toHaveBeenCalledWith({ type: 'PURCHASE', from: '2026-07-01', to: '2026-11-21', sellerId: 7, sellerName: 'Seller 7' })
   })
 
   it('keeps client-side status filtering after the query resolves without filtering seller names', async () => {

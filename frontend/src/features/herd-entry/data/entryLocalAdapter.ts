@@ -23,7 +23,14 @@ const NO_OLDER = { total: 0, done: 0, drafts: 0, cancelled: 0, cows: 0, buyCows:
 export const localView = async (filters: EntryListFilters = {}): Promise<EntryListView> => {
   const all = await localApi.list()
   const kind = filters.type === 'FARM_BORN' ? 'Bê sinh tại trại' : filters.type === 'PURCHASE' ? 'Mua ngoài' : undefined
-  const rows = all.filter((row) => (!kind || row.type === kind) && (!filters.from || (row.date ?? '') >= filters.from) && (!filters.to || (row.date ?? '') <= filters.to))
+  const seller = filters.sellerName?.trim()
+  const rows = all.filter((row) => {
+    const sourceName = row.detail?.sourceName ?? row.source?.split(' · ')[0] ?? ''
+    return (!kind || row.type === kind)
+      && (!filters.from || (row.date ?? '') >= filters.from)
+      && (!filters.to || (row.date ?? '') <= filters.to)
+      && (!seller || sourceName === seller || sourceName.startsWith(`${seller} `))
+  })
   const posted = rows.filter((row) => row.status === 'Đã nhập')
   const purchases = posted.filter((row) => row.type === 'Mua ngoài')
   // Vouchers before the listed ones (OLDER) only count towards the unfiltered totals.

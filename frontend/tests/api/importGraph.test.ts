@@ -305,7 +305,5 @@ test('retains self-import, unresolved, and external edges without creating false
 test('snapshots current source value and documented type-only SCCs', () => {
   const graph = buildSourceGraph(resolve('src'))
   assert.deepEqual(findStronglyConnectedComponents(graph, { includeTypeEdges: false }), [])
-  assert.deepEqual(findStronglyConnectedComponents(graph, { includeTypeEdges: true, typeOnlyOnly: true }), [
-    ['features/herd-entry/types.ts', 'features/herd-exit/types.ts', 'types.ts'],
-  ])
+  assert.deepEqual(findStronglyConnectedComponents(graph, { includeTypeEdges: true, typeOnlyOnly: true }), [])
 })
