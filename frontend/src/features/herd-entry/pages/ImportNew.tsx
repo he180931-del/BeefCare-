@@ -28,6 +28,8 @@ import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { PURPOSES } from '../constants/entryOptions'
 import { ageOf, blankCow } from '../domain/entryCow'
+import { lineAmount } from '../domain/entryTotals'
+import { useEntryEditor } from '../hooks/useEntryEditor'
 import { dmy, money } from '../../../shared/lib/format'
 import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
@@ -107,9 +109,6 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   // a hard-coded A3: farms may name their pens differently and purchase entry
   // must be able to select an active backend pen.
   const importBarns = canonicalPens
-  const calfBarn = canonicalPens.find((pen) => pen.status === 'ACTIVE') ?? {
-    code: '', name: 'Chưa chọn chuồng', count: 0, capacity: 0, status: 'INACTIVE' as const, cows: [],
-  }
   const barnOptions = importBarns.map((barn) => ({ value: barn.code, label: barn.name }))
   const calfBarnOptions = canonicalPens.filter((pen) => pen.status === 'ACTIVE').map((pen) => ({ value: pen.code, label: pen.name }))
   const typeLocked = Boolean(draftRow)
@@ -124,24 +123,13 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
     setParams(query)
   }
 
-  const [sourceId, setSourceId] = useState(draft?.sourceId ?? sellers[0]?.id ?? '')
-  const [date, setDate] = useState(draft?.date ?? defaults.date)
-  const [quarantine, setQuarantine] = useState(draft?.quarantine ?? defaults.quarantine)
-  const [plate, setPlate] = useState(draft?.plate ?? '')
-  const [receiver, setReceiver] = useState(draft?.receiver ?? defaults.receiver)
-  const [note, setNote] = useState(draft?.note ?? defaults.note)
-  const [cows, setCows] = useState<EntryCow[]>(draft?.cows ?? defaults.cows)
-  const [pricing, setPricing] = useState<'kg' | 'con'>(() => (draft?.cows?.length && draft.cows.every((cow) => cow.pricing === 'con') ? 'con' : 'kg'))
-  const [calves, setCalves] = useState<Calf[]>(draft?.calves ?? pendingCalves)
-  const [directCalfCount, setDirectCalfCount] = useState(0)
-  const [freight, setFreight] = useState(draft?.freight ?? defaults.freight)
-  const [paid, setPaid] = useState(draft?.paid ?? defaults.paid)
-  const [method, setMethod] = useState(draft?.method ?? defaults.method)
-  const [due, setDue] = useState(draft?.due ?? defaults.due)
+  const editor = useEntryEditor({ draft, defaults, pendingCalves, sellers, pens: importBarns, isBuy })
+  const { sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
+    cows, setCows, pricing, setPricing, calves, setCalves, directCalfCount, freight, setFreight, paid, setPaid, method, setMethod, due, setDue,
+    printQr, setPrintQr, patchCow, patchCalf, createDirectCalves, purchase, pensAfter: barnAfter, overflow, calfPen: calfBarn, calvesSummary } = editor
   // Payment belongs to the entry voucher (not an individual cattle row). Keep
   // the editor behind an explicit CTA so the payment action is discoverable.
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
-  const [printQr, setPrintQr] = useState(draft?.printQr ?? true)
   const [documents, setDocuments] = useState<File[]>([])
   const [storedDocuments, setStoredDocuments] = useState<EntryDocument[]>(draftRow?.detail?.docs ?? [])
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
@@ -152,29 +140,11 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
   const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
-  // GBR-92: one pricing basis (per kg or per head) for every line of the voucher.
-  const lineAmount = (c: EntryCow) => pricing === 'con' ? (c.unitPrice ?? 0) : (c.weight ?? 0) * (c.unitPrice ?? 0)
-  const cowsMoney = cows.reduce((s, c) => s + lineAmount(c), 0)
-  const totalWeight = cows.reduce((s, c) => s + (c.weight ?? 0), 0)
-  const total = cowsMoney + freight
-  const debt = Math.max(total - paid, 0)
-  const estimatedCount = cows.filter((c) => c.estimated).length
-  const barnAfter = importBarns.map((b) => ({ ...b, after: b.count + cows.filter((c) => c.barn === b.code).length })).filter((b) => b.after !== b.count)
-  const overflow = barnAfter.filter((b) => b.after > b.capacity)
+  const { cattleAmount: cowsMoney, totalWeight, total, debt, estimatedCount } = purchase
 
-  const picked = calves.filter((c) => c.picked)
-  const calfWeight = picked.reduce((s, c) => s + c.weight, 0)
-  const calfEstimated = picked.filter((c) => c.estimated).length
-  const calfAfter = calfBarn.count + picked.length
-  const calfOver = picked.some((calf) => {
-    const pen = canonicalPens.find((candidate) => candidate.code === calf.barn)
-    const count = picked.filter((row) => row.barn === calf.barn).length
-    return !pen || pen.status !== 'ACTIVE' || pen.count + count > pen.capacity
-  })
+  const { picked, weight: calfWeight, estimatedCount: calfEstimated, after: calfAfter, over: calfOver } = calvesSummary
   const n = isBuy ? cows.length : picked.length
 
-  const patchCow = (i: number, p: Partial<EntryCow>) => setCows(cows.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
-  const patchCalf = (i: number, p: Partial<Calf>) => setCalves(calves.map((c, idx) => (idx === i ? { ...c, ...p } : c)))
   const persistCalfParentage = async (calf: Calf, patch: Partial<Calf>) => {
     const damId = Number(patch.damId ?? calf.damId)
     if (!Number.isFinite(damId) || damId <= 0 || calf.calfOutcomeId == null) return
@@ -190,15 +160,6 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
     } catch (error) {
       setValidationError(displayError(error))
     }
-  }
-  const createDirectCalves = (count: number) => {
-    const n = Math.max(0, Math.min(10, Math.trunc(count || 0)))
-    setDirectCalfCount(n)
-    setCalves(Array.from({ length: n }, (_, index) => ({
-      name: `Bê số ${index + 1}`, tag: '', mother: '', father: 'Không rõ', damId: undefined, sireId: undefined,
-      born: date, sex: 'Cái', weight: 0, estimated: false, purpose: 'Chưa xác định', picked: true, barn: calfBarn.code,
-      calfOutcomeId: undefined,
-    })))
   }
   const markCalfDied = async (calf: Calf) => {
     const calfOutcomeId = calf.calfOutcomeId
@@ -333,7 +294,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
           weight: cow.weight,
           barn: cow.barn,
           current: `ACTIVE · ${cow.barn}`,
-          amount: isBuy ? lineAmount(cows[index]) : 0,
+          amount: isBuy ? lineAmount(cows[index], pricing) : 0,
         })),
         cowsTotal: isBuy ? cowsMoney : 0,
         freight: isBuy ? freight : 0,
@@ -494,7 +455,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                           <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
                         </Td>
                         <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c))}</Td>
+                        <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c, pricing))}</Td>
                         <Td className={TH}>
                           <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}><Icon name="pencil" size={14} /></button>
                         </Td>
