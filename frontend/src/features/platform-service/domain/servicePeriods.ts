@@ -1,7 +1,7 @@
 // Deep import on purpose: the farm-workspace index also exports its screens (see domain/reconciliation.ts).
-import { SERVICE_STATUS_VIEW } from '../../farm-workspace/domain/statusViews'
 import type { PeriodState, PurchasedPeriod, ServiceStatus, TermYears } from '../types'
 import { addDays, addYears } from './dates'
+import { SERVICE_STATUS_VIEW } from './statusViews'
 
 /** GBR-73: kỳ mới bắt đầu tại max(thời điểm xác nhận, ngày kế tiếp kỳ đã xác nhận cuối). */
 export function nextPeriod(confirmedDate: string, latestEnd: string | null, termYears: TermYears) {
@@ -29,7 +29,7 @@ export function deriveStatus(periods: PurchasedPeriod[], suspended: boolean, tod
 /** GBR-71 / SCR-57: gia hạn mở trước ngày hết hạn đã xác nhận 90 ngày. */
 export const renewalOpens = (confirmedEnd: string) => addDays(confirmedEnd, -90)
 
-/** Same labels as SCR-09/11 and SCR-57/58 (farm-workspace/domain/statusViews). */
+/** Platform Service's own service-state presentation for SCR-57/58. */
 export const STATUS_LABEL: Record<ServiceStatus, string> = {
   ACTIVE: SERVICE_STATUS_VIEW.ACTIVE.label,
   PENDING_PAYMENT: SERVICE_STATUS_VIEW.PENDING_PAYMENT.label,

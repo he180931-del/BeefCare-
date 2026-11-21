@@ -57,12 +57,7 @@ test('feature routes.ts files hold lazy page loaders only', () => {
   )
 })
 
-const ALLOWED_DEEP_IMPORTS = new Set([
-  // Rule modules (also run by the Node suites) need only the status table; the farm-workspace index loads its screens,
-  // whose Icon uses the Vite-only import.meta.glob (25 Node tests fail through the index, checked 20/11/2026).
-  'features/platform-service/domain/reconciliation.ts -> features/farm-workspace/domain/statusViews',
-  'features/platform-service/domain/servicePeriods.ts -> features/farm-workspace/domain/statusViews',
-])
+const ALLOWED_DEEP_IMPORTS = new Set<string>()
 
 test('a feature reaches another feature only through its public index', () => {
   const violations = sourceFiles('features').flatMap((file) => {

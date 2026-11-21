@@ -1,7 +1,7 @@
 // Deep import on purpose: the farm-workspace index also exports its screens, which this rule module (and the demo
 // store built on it) must not load.
-import { PAYMENT_STATE_VIEW } from '../../farm-workspace/domain/statusViews'
 import type { Evidence, MatchResult, PlatformPayment, ReviewStatus } from '../types'
+import { PAYMENT_STATE_VIEW } from './statusViews'
 
 export const RECEIVING_ACCOUNT = 'MB 0386671863000'
 
@@ -65,7 +65,7 @@ export const REVIEW_LABEL: Record<ReviewStatus, string> = {
 export function evidenceStatusLabel(ev: Evidence) {
   return ev.lockedForReturn ? 'Đã khóa chờ hoàn' : REVIEW_LABEL[ev.reviewStatus]
 }
-/** Same labels and colours as the Owner's SCR-59 / SCR-60 (farm-workspace/domain/statusViews). */
+/** Platform Service's own payment request presentation for SCR-59 / SCR-60. */
 export const PAYMENT_STATE_LABEL = {
   PENDING: PAYMENT_STATE_VIEW.PENDING.label, PAID: PAYMENT_STATE_VIEW.PAID.label,
   EXPIRED: PAYMENT_STATE_VIEW.EXPIRED.label, CANCELLED: PAYMENT_STATE_VIEW.CANCELLED.label,
