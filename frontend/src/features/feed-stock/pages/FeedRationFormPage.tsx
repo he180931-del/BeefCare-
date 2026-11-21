@@ -4,8 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { feedRationServerBacked, listFeedRationFeeds, listFeedRationPens, listFeedRations, saveFeedRationVersion } from '../api/feedRationApi'
+import { feedRationServerBacked } from '../api/feedRationApi'
+import { useFeedRationForm } from '../hooks/useFeedRationForm'
 import { initialFeedRationForm, previewFeedRation, rationCodeDisplay, RATION_GROUPS, rationGroupLabel } from '../domain/feedRationForm'
 import { toSaveFeedRationInput } from '../api/feedRationPayload'
 import { validateFeedRationForm } from '../validation/feedRationValidation'
@@ -25,10 +25,7 @@ const dayBefore = (iso: string) => addCalendarDays(iso, -1)
 export default function FeedRationFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const query = useQuery(async () => {
-    const [rows, pens, feeds] = await Promise.all([listFeedRations(), listFeedRationPens(), listFeedRationFeeds()])
-    return { record: id ? rows.find((row) => String(row.id) === id) ?? null : null, rows, pens, feeds }
-  }, [id])
+  const query = useFeedRationForm(id)
 
   if (query.error) {
     return (
@@ -52,15 +49,17 @@ export default function FeedRationFormPage() {
       rows={query.data.rows}
       pens={query.data.pens}
       feeds={query.data.feeds}
+      saveVersion={query.save}
     />
   )
 }
 
-function FeedRationForm({ record, rows, pens, feeds }: {
+function FeedRationForm({ record, rows, pens, feeds, saveVersion }: {
   record: FeedRation | null
   rows: FeedRation[]
   pens: FeedRationPenOption[]
   feeds: FeedStockRow[]
+  saveVersion: ReturnType<typeof useFeedRationForm>['save']
 }) {
   const navigate = useNavigate()
   const [values, setValues] = useState<FeedRationFormValues>(() => initialFeedRationForm(record))
@@ -132,7 +131,7 @@ function FeedRationForm({ record, rows, pens, feeds }: {
     setSaving(true)
     setError('')
     try {
-      const saved = await saveFeedRationVersion(toSaveFeedRationInput(values, record?.rationCode, replacing?.id, baseVersion), { key: nextKey() })
+      const saved = await saveVersion({ input: toSaveFeedRationInput(values, record?.rationCode, replacing?.id, baseVersion), options: { key: nextKey() } })
       commandKeyRef.current = undefined
       navigate('/thuc-an/khau-phan', { state: { rationMessage: `Khẩu phần ${saved.rationCode} v${saved.versionNo} đã lưu, hiệu lực từ ${formatDate(saved.effectiveFrom)}. Phiên bản trước kết thúc ngày ${formatDate(dayBefore(saved.effectiveFrom))}.` } })
     } catch (saveError) {
