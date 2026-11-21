@@ -303,7 +303,7 @@ test('entry backend voids the resolved voucher with its optimistic-lock version'
 })
 
 test('entry backend reads private attachments and imports the same xlsx through preview then commit', async () => {
-  const calls: Array<{ method: string; path: string; body?: unknown }> = []
+  const calls: Array<{ method: string; path: string; body?: unknown; key?: string }> = []
   const file = new File(['xlsx-bytes'], 'dan-bo.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const transport: BackendTransport = {
     farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
