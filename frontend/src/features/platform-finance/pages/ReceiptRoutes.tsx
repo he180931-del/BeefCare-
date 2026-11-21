@@ -4,8 +4,7 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { activateTableRow, activateTableRowByKey, Badge, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, Info, interactiveRowClass, LoadingBlock, Metric, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { financeError } from '../api/financeError'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { financeApi } from '../api/financeApi'
+import { useFinanceFarms, useFinanceReceipt, useFinanceReceipts, usePlatformFinance } from '../hooks/usePlatformFinanceUseCases'
 import { PAYMENT_ROUTE, REPORT_BASE, RoField } from '../components/common'
 import { formatDate, formatDateTime, formatShort, formatVnd } from '../domain/financeRules'
 import type { Receipt } from '../types'
@@ -19,15 +18,16 @@ export default function ReceiptRoutes() {
   const [m, open, close] = useModalParam()
   const [search, setSearch] = useState('')
   const [farmId, setFarmId] = useState<number | ''>('')
-  const initialRange = financeApi.defaultDateRange()
+  const finance = usePlatformFinance()
+  const initialRange = finance.defaultDateRange()
   const [from, setFrom] = useState(initialRange.from)
   const [to, setTo] = useState(initialRange.to)
   const [page, setPage] = useState(1)
   const [picked, setPicked] = useState<Receipt | null>(null)
-  const farms = useQuery(() => financeApi.listFarms(), [])
-  const { data, loading, error, refetch } = useQuery(() => financeApi.listReceipts({ search, farmId, from, to, page }), [search, farmId, from, to, page])
+  const farms = useFinanceFarms()
+  const { data, loading, error, refetch } = useFinanceReceipts({ search, farmId, from, to, page })
   const selectedCode = picked?.code ?? data?.rows[0]?.code ?? null
-  const { data: selectedDetail } = useQuery(() => selectedCode ? financeApi.getReceipt(selectedCode) : Promise.resolve(null), [selectedCode])
+  const { data: selectedDetail } = useFinanceReceipt(selectedCode)
 
   useEffect(() => {
     if (!data) return

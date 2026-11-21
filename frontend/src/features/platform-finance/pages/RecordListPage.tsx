@@ -4,8 +4,7 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Icon, interactiveRowClass, LoadingBlock, Modal, ModalButton, ModalFooter, PageHeader, Pagination, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { financeError } from '../api/financeError'
 import { useDemoState } from '../../../demo/demoModules'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { financeApi } from '../api/financeApi'
+import { useFinanceCategories, useFinanceFarms, useFinanceRecords, usePlatformFinance } from '../hooks/usePlatformFinanceUseCases'
 import { FINANCE_BASE, FlashNote, StateBadge, useFlash } from '../components/common'
 import { RecordDialogs } from '../components/RecordDialogs'
 import { categoryLabel, formatDate, formatSigned, signedAmount } from '../domain/financeRules'
@@ -21,9 +20,10 @@ export default function RecordListPage() {
   const [flash] = useFlash()
   const [filters, setFilters] = useState<RecordFilters>({ page: 1 })
   const [reloadKey, setReloadKey] = useState(0)
-  const farms = useQuery(() => financeApi.listFarms(), [])
-  const cats = useQuery(() => financeApi.listCategories(), [])
-  const { data, loading, error, refetch } = useQuery(() => financeApi.listRecords(filters), [filters, reloadKey])
+  const finance = usePlatformFinance()
+  const farms = useFinanceFarms()
+  const cats = useFinanceCategories()
+  const { data, loading, error, refetch } = useFinanceRecords(filters, reloadKey)
   const patch = (p: RecordFilters) => setFilters((f) => ({ ...f, ...p, page: 1 }))
 
   useEffect(() => {
