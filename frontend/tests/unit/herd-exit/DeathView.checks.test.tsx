@@ -52,7 +52,7 @@ describe('pending death/missing exit checks', () => {
     await screen.findByText('Cảnh báo cần xem')
     await user.click(screen.getByText('Mất tích'))
 
-    expect(screen.getByText('Nguyên nhân chết *')).toBeInTheDocument()
+    expect(screen.getByText('Nguyên nhân / ghi chú *')).toBeInTheDocument()
     expect(screen.queryByText('Nguyên nhân mất tích *')).not.toBeInTheDocument()
   })
 
