@@ -11,7 +11,6 @@ import {
   entryExcelBackendEnabled,
   newEntryDefaults,
   herdEntryApi,
-  saveHerdEntry,
   getEntryDraftState,
   listEntrySellers,
   listEntryPens,
@@ -24,12 +23,12 @@ import {
   previewEntryExcel,
   removeEntryAttachment,
 } from '../api/index'
-import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { PURPOSES } from '../constants/entryOptions'
 import { ageOf, blankCow } from '../domain/entryCow'
 import { lineAmount } from '../domain/entryTotals'
 import { useEntryEditor } from '../hooks/useEntryEditor'
+import { useEntryDraftWorkflow } from '../hooks/useEntryDraftWorkflow'
 import { dmy, money } from '../../../shared/lib/format'
 import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
@@ -89,7 +88,7 @@ export default function ImportNew() {
 }
 
 function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCattle }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[] }) {
-  const { mutate: persistEntry, loading, error: saveError } = useMutation(saveHerdEntry)
+  const { saveDraft, postEntry, saving: loading, error: saveError } = useEntryDraftWorkflow()
   const nav = useNavigate()
   const sessionName = useSession()?.fullName ?? ''
   const location = useLocation()
@@ -305,7 +304,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
       record.draft = undefined
     }
     const saveId = persistedRecordId ?? draftRow?.id ?? (entryExcelBackendEnabled ? undefined : recordId)
-    const saved = await persistEntry({ id: saveId, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
+    const saveCommand = status === 'Đã nhập' ? postEntry : saveDraft
+    const saved = await saveCommand({ id: saveId, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
     setPersistedRecordId(saved.id)
     if (saved.detail?.docs) {
       setStoredDocuments(saved.detail.docs)
