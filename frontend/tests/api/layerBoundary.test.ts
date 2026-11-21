@@ -154,13 +154,6 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     reason: 'Collection schemas support the legacy local adapters only.',
     removalTask: 'Task 3.8',
   },
-  'api/demoCattlePhotos.ts': {
-    owner: 'cattle-demo-adapter',
-    allowedConsumers: ['features/cattle/data/cattleLocalStore.ts'],
-    runtime: 'demo-only',
-    reason: 'Seeded cattle photos are used only by the Cattle local demo store.',
-    removalTask: 'Task 2.5A',
-  },
   'api/herdDomainApi.ts': {
     owner: 'local-demo-adapters',
     allowedConsumers: [
@@ -402,7 +395,7 @@ test('the dev transfer simulator only renders under the Vite dev server', () => 
 
 // Refactor phase 3b: demo data reaches the app only through src/demo/demoModules.ts, which `vite build` swaps for
 // src/demo/noDemo.ts (vite.config.js). Demo modules may import each other; nothing else imports them directly.
-const DEMO_MODULE = /^(demo\/|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|demoCattlePhotos|penApi)$|features\/[^/]+\/api\/\w+LocalApi$)/
+const DEMO_MODULE = /^(demo\/|features\/[^/]+\/data\/|data\/|api\/(client|herdDomainApi|collectionSchemas|storageMigrations|penApi)$|features\/[^/]+\/api\/\w+LocalApi$)/
 
 test('production code reaches demo modules only through the demo door', () => {
   const production = [...sourceFiles('app'), ...sourceFiles('features'), ...sourceFiles('shared'), ...sourceFiles('api'), 'main.tsx']

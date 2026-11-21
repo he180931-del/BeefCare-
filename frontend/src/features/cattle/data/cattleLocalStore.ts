@@ -9,7 +9,7 @@ import type { Cattle } from '../types'
 
 export const cattle = createCollection<Cattle, 'code'>('cattle', initialCows, { schema: cattleSchema })
 export { moveCattle, pens }
-export { readDemoCattlePhoto, saveDemoCattlePhoto } from '../../../api/demoCattlePhotos'
+export { readDemoCattlePhoto, saveDemoCattlePhoto } from './cattlePhotoDemoStore'
 export { BARNS0, BREEDS, EXPORTED_COUNT, MANAGER, OWNER, STAGES, TODAY, groupCount } from '../../../data/cowsData'
 
 /** Nội dung điền sẵn theo frame Figma cho bò mẫu BC-000142 (chuyển chuồng, đổi giai đoạn). */
