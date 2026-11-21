@@ -9,17 +9,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import vn.edu.fpt.beefcare.IntegrationTest;
 import vn.edu.fpt.beefcare.config.DatabaseTestcontainer;
 import vn.edu.fpt.beefcare.support.TestClockConfiguration;
 
-@IntegrationTest
 @AutoConfigureMockMvc
 @ActiveProfiles(value = "testh2", inheritProfiles = false)
 @Import(TestClockConfiguration.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 class FarmInvitationPostgresIT extends FarmInvitationTransactionTest {
     @Autowired DataSource dataSource;
     @DynamicPropertySource
