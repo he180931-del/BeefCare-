@@ -84,6 +84,7 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
         { id: 9, code: 'TA-09', name: 'Không quy cách', feedGroup: 'CALF_FEED', nutritionNote: '', purchaseUnit: null, kgPerPurchaseUnit: null, stockUnit: 'kg', minimumStockKg: null, available: true, version: 0 },
       ])
       .mockResolvedValueOnce([{ id: 8, name: 'NCC server', seller: false, buyer: false, supplier: true, phone: '', area: '', note: '', status: 'ACTIVE', version: 1 }])
+      .mockResolvedValueOnce([{ id: 8, name: 'NCC server', seller: false, buyer: false, supplier: true, phone: '', area: '', note: '', status: 'ACTIVE', version: 1 }])
     const demoStore: FeedCatalogueDemoStore = {
       listFeeds: vi.fn(async () => []), saveFeed: vi.fn(), setFeedAvailable: vi.fn(),
       listSuppliers: vi.fn(async () => []), saveSupplier: vi.fn(), setSupplierActive: vi.fn(), reset: vi.fn(),
@@ -97,6 +98,8 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
     expect(await api.listSuppliers()).toMatchObject([{ id: 8, name: 'NCC server', seller: false, buyer: false, active: true, version: 1 }])
     expect(transport.get).toHaveBeenNthCalledWith(1, '/api/farms/32/feed/catalogue')
     expect(transport.get).toHaveBeenNthCalledWith(2, '/api/farms/32/trading-partners?role=SUPPLIER')
+    expect(await api.listSuppliers({ q: 'server', status: 'ACTIVE' })).toEqual([{ id: 8, name: 'NCC server', seller: false, buyer: false, active: true, version: 1 }])
+    expect(transport.get).toHaveBeenNthCalledWith(3, '/api/farms/32/trading-partners?role=SUPPLIER&q=server&status=ACTIVE')
     vi.mocked(transport.command)
       .mockResolvedValueOnce({ id: 10, code: 'TA-09', name: 'Cỏ voi demo', feedGroup: 'GREEN_ROUGHAGE', purchaseUnit: 'bó', kgPerPurchaseUnit: 12, stockUnit: 'kg', onHandKg: 0, averageUnitCost: 0, minimumStockKg: 45, available: true, version: 0 })
       .mockResolvedValueOnce({ id: 7, code: 'TA-77', name: 'Tồn server đã sửa', feedGroup: 'TMR', purchaseUnit: 'bao', kgPerPurchaseUnit: 20, stockUnit: 'kg', onHandKg: 0, averageUnitCost: 0, minimumStockKg: 5, available: true, version: 2 })
@@ -179,6 +182,23 @@ describe('SCR-84 feed catalogue and supplier boundary', () => {
       code: 'TA-21', name: 'Không ngưỡng', feedGroup: 'CALF_FEED', purchaseUnit: null, kgPerPurchaseUnit: null,
       minimumStockKg: null, nutritionNote: '', available: true,
     }, { method: 'POST' })
+  })
+
+  it('forwards caller-owned idempotency keys for catalogue commands', async () => {
+    const transport = makeTransport()
+    const api = createFeedCatalogueApi({ mode: 'backend', farmId: 32, transport })
+    vi.mocked(transport.command)
+      .mockResolvedValueOnce({ id: 21, code: 'TA-21', name: 'Thức ăn', feedGroup: 'CALF_FEED', nutritionNote: '', purchaseUnit: null, kgPerPurchaseUnit: null, stockUnit: 'kg', minimumStockKg: null, available: true, version: 0 })
+      .mockResolvedValueOnce({ id: 31, name: 'NCC', seller: false, buyer: false, supplier: true, phone: '', area: '', note: '', status: 'ACTIVE', version: 0 })
+      .mockResolvedValueOnce({ id: 31, name: 'NCC', seller: false, buyer: false, supplier: true, phone: '', area: '', note: '', status: 'INACTIVE', version: 1 })
+
+    await api.saveFeed(feedInput({ code: 'TA-21' }), { key: 'feed-create-intent' })
+    await api.saveSupplier({ name: 'NCC', phone: '', area: '', note: '' }, { key: 'supplier-create-intent' })
+    await api.setSupplierActive(31, false, 0, { key: 'supplier-status-intent' })
+
+    expect(transport.command).toHaveBeenNthCalledWith(1, '/api/farms/32/feed/catalogue', expect.anything(), { method: 'POST', key: 'feed-create-intent' })
+    expect(transport.command).toHaveBeenNthCalledWith(2, '/api/farms/32/trading-partners', expect.anything(), { method: 'POST', key: 'supplier-create-intent' })
+    expect(transport.command).toHaveBeenNthCalledWith(3, '/api/farms/32/trading-partners/31/status', { status: 'INACTIVE', expectedVersion: 0 }, { method: 'PATCH', key: 'supplier-status-intent' })
   })
 
   it('propagates backend failures without serving local mock rows', async () => {
