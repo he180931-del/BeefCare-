@@ -23,7 +23,7 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: production
+    environment: Production_environment
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -70,7 +70,7 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: production
+    environment: Production_environment
     defaults:
       run:
         working-directory: frontend
