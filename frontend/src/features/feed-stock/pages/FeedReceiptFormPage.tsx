@@ -5,10 +5,9 @@ import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { Badge, Button, Card, DateInput, Field, Foot, Icon, Info, inputCls, Note, PageHeader, Select, Table, Td, Th } from '../../../shared/ui'
 import { AttachmentList, FileDropzone } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { listFeedStock } from '../api/feedStockApi'
-import { listFeedSuppliers } from '../api/feedCatalogueApi'
-import { createAndPostFeedReceipt, downloadFeedReceiptAttachment, feedReceiptServerBacked, downloadFeedReceiptPaymentAttachment, getFeedReceipt, listFeedReceiptAttachments, listFeedReceipts, postFeedReceipt, removeFeedReceiptAttachment, saveFeedReceiptDraft, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
+import { feedReceiptServerBacked, downloadFeedReceiptAttachment, downloadFeedReceiptPaymentAttachment, removeFeedReceiptAttachment, uploadFeedReceiptAttachment } from '../api/feedReceiptApi'
+import { useFeedReceiptForm } from '../hooks/useFeedReceiptForm'
 import { blankFeedReceiptLine, initialFeedReceiptForm, minimumExpiryDate, todayIso, type FeedReceiptFormLine, type FeedReceiptFormValues } from '../domain/feedReceiptForm'
 import { toFeedReceiptDraftInput } from '../api/feedReceiptPayload'
 import { validateFeedReceiptForm } from '../validation/feedReceiptValidation'
@@ -67,16 +66,7 @@ export default function FeedReceiptFormPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const initialFeedItemId = searchParams.get('feedItemId') ?? ''
-  const formQuery = useQuery(async () => {
-    const [stock, suppliers, receipt, receipts, attachments] = await Promise.all([
-      listFeedStock(),
-      listFeedSuppliers(),
-      id ? getFeedReceipt(id) : Promise.resolve(null),
-      listFeedReceipts(),
-      id ? listFeedReceiptAttachments(Number(id)) : Promise.resolve([] as FeedReceiptAttachment[]),
-    ])
-    return { stock, suppliers, receipt, attachments, nextCode: feedReceiptServerBacked ? 'Tự sinh khi lưu' : nextReceiptCode(receipts.map((row) => row.code)) }
-  }, [id, initialFeedItemId])
+  const formQuery = useFeedReceiptForm(id)
 
   if (formQuery.error) {
     return (
@@ -112,8 +102,11 @@ export default function FeedReceiptFormPage() {
       initialSuppliers={formQuery.data.suppliers}
       initialAttachments={formQuery.data.attachments}
       initialFeedItemId={initialFeedItemId}
-      nextCode={formQuery.data.nextCode}
+      nextCode={feedReceiptServerBacked ? 'Tự sinh khi lưu' : nextReceiptCode(formQuery.data.receipts.map((row) => row.code))}
       onChanged={() => formQuery.refetch()}
+      saveDraft={formQuery.saveDraft}
+      createAndPost={formQuery.createAndPost}
+      postReceipt={formQuery.post}
     />
   )
 }
@@ -136,7 +129,7 @@ function CheckLine({ ok, children }: { ok: boolean; children: ReactNode }) {
   )
 }
 
-function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachments, initialFeedItemId, nextCode, onChanged }: {
+function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachments, initialFeedItemId, nextCode, onChanged, saveDraft, createAndPost, postReceipt }: {
   record: FeedReceipt | FeedReceiptDemoRecord | null
   stockRows: Awaited<ReturnType<typeof listFeedStock>>
   initialSuppliers: FeedSupplier[]
@@ -144,6 +137,9 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
   initialFeedItemId: string
   nextCode: string
   onChanged: () => void
+  saveDraft: ReturnType<typeof useFeedReceiptForm>['saveDraft']
+  createAndPost: ReturnType<typeof useFeedReceiptForm>['createAndPost']
+  postReceipt: ReturnType<typeof useFeedReceiptForm>['post']
 }) {
   const navigate = useNavigate()
   const [modal, openModal, closeModal] = useModalParam()
@@ -307,7 +303,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       setSaving(true)
       setError('')
       try {
-        const posted = await postFeedReceipt(pending.id, pending.version, { key: pending.key })
+        const posted = await postReceipt({ id: pending.id, version: pending.version, options: { key: pending.key } })
         pendingPost.current = null
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
@@ -334,21 +330,21 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
       const input = toFeedReceiptDraftInput(submitValues, stockRows, suppliers, currentRecord?.id, currentRecord?.supplierId, existingFeedIds)
       if (postNow && !currentRecord && newFiles.length === 0) {
         if (!saveCommandKey.current) saveCommandKey.current = newReceiptCommandKey()
-        const posted = await createAndPostFeedReceipt(input, { key: saveCommandKey.current })
+        const posted = await createAndPost({ input, options: { key: saveCommandKey.current } })
         saveCommandKey.current = ''
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })
         return
       }
       if (!saveCommandKey.current) saveCommandKey.current = newReceiptCommandKey()
-      const saved = await saveFeedReceiptDraft(input, { key: saveCommandKey.current })
+      const saved = await saveDraft({ input, options: { key: saveCommandKey.current } })
       saveCommandKey.current = ''
       setCurrentRecord(saved)
       await uploadPendingFiles(saved.id)
       if (postNow) {
         const key = newReceiptCommandKey()
         pendingPost.current = { id: saved.id, version: saved.version, key }
-        const posted = await postFeedReceipt(saved.id, saved.version, { key })
+        const posted = await postReceipt({ id: saved.id, version: saved.version, options: { key } })
         pendingPost.current = null
         setCurrentRecord(posted)
         navigate('/thuc-an/phieu-nhap', { state: { receiptMessage: `Phiếu ${posted.code} đã ghi. ${formatNumber(summary.totalKg)} kg đã cộng vào kho.` } })

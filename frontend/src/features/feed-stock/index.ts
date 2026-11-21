@@ -6,6 +6,7 @@ export { createFeedFeedingApi, correctFeedSession, listFeedFeedingRecords, recor
 export { useFeedFeeding } from './hooks/useFeedFeeding'
 export { useFeedRationForm } from './hooks/useFeedRationForm'
 export { useFeedRationList } from './hooks/useFeedRationList'
+export { useFeedReceiptForm } from './hooks/useFeedReceiptForm'
 export { createFeedCatalogueApi, listFeedCatalogue, listFeedSuppliers, saveFeedCatalogueItem, saveFeedSupplier, setFeedCatalogueAvailability, setFeedSupplierActive } from './api/feedCatalogueApi'
 export type { FeedCatalogueCommandOptions, FeedSupplierQuery } from './api/feedCatalogueApi'
 export { createFeedConsumptionApi, loadFeedConsumptionReport } from './api/feedConsumptionApi'
