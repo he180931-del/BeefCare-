@@ -12,7 +12,7 @@ import { useMutation } from '../../../shared/hooks/useMutation'
 import { useQuery } from '../../../shared/hooks/useQuery'
 import { Box, CheckList, ExitStatusBadge, MoneyInput, SummaryCard, TH, cx, useIsOwner } from '../components/parts'
 import PickModal from '../components/PickModal'
-import type { ExitDraftCow, HerdExit, ExitType } from '../types'
+import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 
@@ -85,12 +85,15 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const saveId = savedId || draftRow?.id || draftId || nextId
 
   const [type, setType] = useState<ExitType>((d.type as ExitType | undefined) ?? 'Bán')
+  const [lossKind, setLossKind] = useState<LossKind>(d.lossKind ?? (draftRow?.detail?.lossType === 'Mất tích' ? 'MISSING' : 'DIED'))
   const [date, setDate] = useState(d?.date ?? todayIso())
   const [pricing, setPricing] = useState<'kg' | 'con'>(d?.pricing ?? 'kg')
   const [buyerId, setBuyerId] = useState(d?.buyerId ?? buyers[0]?.id ?? '')
   const [quarantine, setQuarantine] = useState(d?.quarantine ?? '')
   const [plate, setPlate] = useState(d?.plate ?? '')
   const [note, setNote] = useState(d?.note ?? '')
+  const [deathCause, setDeathCause] = useState(d.deathCause ?? (d.type === 'Chết / mất' ? d.note ?? '' : ''))
+  const [carcassDisposal, setCarcassDisposal] = useState(d.carcassDisposal ?? '')
   const candidateByCode = new Map(selectableCattle.map((cow) => [cow.code, cow]))
   const candidateById = new Map(selectableCattle.filter((cow) => typeof cow.backendId === 'number').map((cow) => [cow.backendId as number, cow]))
   const [picked, setPicked] = useState<HerdCow[]>(() => (d?.cows ?? []).map((cow) => normalizeHerdCow(cow, candidateByCode.get(cow.code) ?? (typeof cow.backendId === 'number' ? candidateById.get(cow.backendId) : undefined))))
@@ -124,7 +127,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const barnDelta = exitPenShift(picked)
 
   const formSnapshot = () => JSON.stringify({
-    date, type, pricing, buyerId, quarantine, plate, note, picked, deduction, collected, method, dueDate,
+    date, type, lossKind, pricing, buyerId, quarantine, plate, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate,
     documents: documents.map((file) => ({ name: file.name, size: file.size, type: file.type })),
     removedAttachmentIds,
   })
@@ -186,7 +189,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     setChecksError(null)
     setConfirmed(false)
     setConfirmError(null)
-  }, [date, type, pricing, buyerId, quarantine, plate, note, picked, deduction, collected, method, dueDate, documents, removedAttachmentIds])
+  }, [date, type, lossKind, pricing, buyerId, quarantine, plate, note, deathCause, carcassDisposal, picked, deduction, collected, method, dueDate, documents, removedAttachmentIds])
 
   const checkMessages = (check: ExitChecks['cattle'][number]) => check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ')
   const warningChecks = checks?.cattle.filter((check) => check.hasWarnings) ?? []
@@ -210,7 +213,8 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     dueNote: '(nháp)',
     status: 'Nháp',
     draft: {
-      type, date, buyerId, quarantine, plate, note, pricing, deduction, collected, method, dueDate,
+      type, lossKind: isLoss ? lossKind : undefined, deathCause: isLoss ? deathCause : undefined, carcassDisposal: isLoss && lossKind === 'DIED' ? carcassDisposal : undefined,
+      date, buyerId, quarantine, plate, note: isLoss ? deathCause : note, pricing, deduction, collected, method, dueDate,
       docs: documentRows,
       cows: picked.map((c) => ({ code: c.code, weight: c.weight, unitPrice: c.unitPrice, estimated: c.estimated })),
     },
@@ -221,8 +225,12 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
       setFormError('Vui lòng chọn người mua.')
       return true
     }
-    if (!needsBuyer && !note.trim()) {
-      setFormError(isLoss ? 'Vui lòng nhập lý do xuất.' : 'Vui lòng nhập nơi đến.')
+    if (!needsBuyer && !(isLoss ? deathCause : note).trim()) {
+      setFormError(isLoss ? 'Vui lòng nhập nguyên nhân.' : 'Vui lòng nhập nơi đến.')
+      return true
+    }
+    if (isLoss && lossKind === 'DIED' && !carcassDisposal.trim()) {
+      setFormError('Vui lòng nhập phương án xử lý xác.')
       return true
     }
     setFormError(null)
@@ -321,9 +329,28 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
                 </>
               )}
             </div>
-            <Field label={needsBuyer ? 'Ghi chú' : isLoss ? 'Lý do *' : 'Nơi đến *'}>
-              <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : undefined} onChange={(e) => setNote(e.target.value)} />
-            </Field>
+            {isLoss ? (
+              <>
+                <Field label="Loại chết / mất">
+                  <Select aria-label="Loại chết / mất" value={lossKind} onChange={(e) => setLossKind(e.target.value as LossKind)} className="w-full">
+                    <option value="DIED">Chết</option>
+                    <option value="MISSING">Mất tích</option>
+                  </Select>
+                </Field>
+                <Field label={lossKind === 'DIED' ? 'Nguyên nhân chết *' : 'Nguyên nhân mất tích *'}>
+                  <input aria-label={lossKind === 'DIED' ? 'Nguyên nhân chết' : 'Nguyên nhân mất tích'} className={inputCls} value={deathCause} onChange={(e) => setDeathCause(e.target.value)} />
+                </Field>
+                {lossKind === 'DIED' && (
+                  <Field label="Phương án xử lý xác *">
+                    <input aria-label="Phương án xử lý xác" className={inputCls} value={carcassDisposal} onChange={(e) => setCarcassDisposal(e.target.value)} />
+                  </Field>
+                )}
+              </>
+            ) : (
+              <Field label={needsBuyer ? 'Ghi chú' : 'Nơi đến *'}>
+                <input className={inputCls} value={note} maxLength={type === 'Khác' ? 150 : undefined} onChange={(e) => setNote(e.target.value)} />
+              </Field>
+            )}
           </Box>
 
           <Box

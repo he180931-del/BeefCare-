@@ -4,7 +4,7 @@ import type { ExitPayment } from '../types'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { BackendTransport } from '../../../shared/api/backendTransport'
 import { isoDate } from '../../../shared/lib/date/isoDate'
-import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, lossKind, mapChecks, mapDocument, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
+import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapDocument, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
@@ -119,10 +119,10 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     ])
     const buyerName = textValue(detail.buyer ?? record.who)
     const persistedType = current?.type ?? record.type
-    const backendExitType = exitType(persistedType)
-    const backendLossKind = backendExitType === 'DEATH'
-      ? lossKind(detail.lossType)
-      : isMissingLoss(detail.lossType) ? 'MISSING' : null
+    const explicitLossKind = draft.lossKind ?? detail.lossKind ?? detail.lossType
+    const isLoss = persistedType === 'Chết / mất' || isMissingLoss(explicitLossKind)
+    const backendLossKind = isLoss ? (isMissingLoss(explicitLossKind) ? 'MISSING' : 'DIED') : null
+    const backendExitType = backendLossKind === 'MISSING' ? 'OTHER' : backendLossKind === 'DIED' ? 'DEATH' : exitType(persistedType)
     const needsBuyer = backendExitType === 'SALE' || backendExitType === 'CULL'
     const selectedBuyerId = Number(draft.buyerId)
     const buyerId = needsBuyer
@@ -135,8 +135,8 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
       transportCertNo: textValue(draft.quarantine ?? detail.quarantine) || null, vehiclePlate: textValue(draft.plate ?? detail.plate) || null,
       note: textValue(draft.note ?? detail.note ?? record.note) || null,
       lossKind: backendLossKind,
-      deathCause: backendLossKind ? textValue(detail.reason ?? record.reason ?? record.note) || null : null,
-      carcassDisposal: backendLossKind === 'DIED' ? textValue(detail.disposal) || null : null,
+      deathCause: backendLossKind ? textValue(draft.deathCause ?? detail.reason ?? record.reason ?? record.note) || null : null,
+      carcassDisposal: backendLossKind === 'DIED' ? textValue(draft.carcassDisposal ?? detail.disposal) || null : null,
       pricingBasis: pricingBasis(draft.pricing), deductions: numberValue(draft.deduction ?? detail.deduction),
       depositCollected: numberValue(draft.collected), paymentMethod: enumPaymentMethod(draft.method), collectionDueDate: textValue(draft.dueDate) || null,
       lines: cattleRows.map((cow) => {

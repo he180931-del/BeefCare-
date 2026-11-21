@@ -111,7 +111,7 @@ test('exit backend preserves an OTHER MISSING loss when reopening and saving a d
   }
   const api = createHerdExitBackendApi({ transport, farmId: 9 })
   const loaded = await api.get('PX-2026-0061')
-  assert.equal(loaded.type, 'Khác')
+  assert.equal(loaded.type, 'Chết / mất')
   assert.equal(loaded.detail?.lossType, 'Mất tích')
 
   await api.save({
@@ -122,6 +122,26 @@ test('exit backend preserves an OTHER MISSING loss when reopening and saving a d
 
   assert.equal((commands[0]?.body as Record<string, unknown>)?.exitType, 'OTHER')
   assert.equal((commands[0]?.body as Record<string, unknown>)?.lossKind, 'MISSING')
+})
+
+test('exit backend sends explicit DIED loss fields and keeps MISSING as OTHER', async () => {
+  const bodies: Array<Record<string, unknown>> = []
+  const transport: BackendTransport = {
+    farmPath: (farmId, suffix = '') => `/api/farms/${farmId}${suffix}`,
+    get: async (path) => path.includes('/trading-partners') ? [] : path.endsWith('/selectable-cattle') ? [{ cattleId: 301, cattleCode: 'BC-000301' }] : [],
+    command: async (_path, body) => { bodies.push(body as Record<string, unknown>); return voucher('DRAFT') },
+  }
+  const api = createHerdExitBackendApi({ transport, farmId: 9 })
+  await api.save({ record: { date: '2026-10-29', type: 'Chết / mất', status: 'Nháp', draft: { lossKind: 'DIED', deathCause: 'Bệnh', carcassDisposal: 'Tiêu hủy', note: 'Bệnh' } }, cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 0, estimated: false, unitPrice: 0 }] })
+  assert.equal(bodies[0]?.exitType, 'DEATH')
+  assert.equal(bodies[0]?.lossKind, 'DIED')
+  assert.equal(bodies[0]?.deathCause, 'Bệnh')
+  assert.equal(bodies[0]?.carcassDisposal, 'Tiêu hủy')
+
+  await api.save({ record: { date: '2026-10-29', type: 'Chết / mất', status: 'Nháp', draft: { lossKind: 'MISSING', deathCause: 'Không tìm thấy', note: 'Không tìm thấy' } }, cattleRows: [{ code: 'BC-000301', backendId: 301, weight: 0, estimated: false, unitPrice: 0 }] })
+  assert.equal(bodies[1]?.exitType, 'OTHER')
+  assert.equal(bodies[1]?.lossKind, 'MISSING')
+  assert.equal(bodies[1]?.carcassDisposal, null)
 })
 
 test('exit backend maps an OTHER MISSING loss kind to the UI loss label', async () => {
