@@ -42,6 +42,9 @@ public class SecurityConfiguration {
     @Value("${beefcare.security.cookie-secure:false}")
     private boolean secureCookies;
 
+    @Value("${beefcare.security.cookie-same-site:Lax}")
+    private String cookieSameSite;
+
     @Value("${beefcare.security.google.enabled:false}")
     private boolean googleLoginEnabled;
 
@@ -81,7 +84,7 @@ public class SecurityConfiguration {
     ) throws Exception {
         CookieCsrfTokenRepository csrfRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrfRepository.setCookiePath("/");
-        csrfRepository.setCookieCustomizer(cookie -> cookie.secure(secureCookies).sameSite("Lax"));
+        csrfRepository.setCookieCustomizer(cookie -> cookie.secure(secureCookies).sameSite(cookieSameSite));
         CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
 
         http.cors(withDefaults())

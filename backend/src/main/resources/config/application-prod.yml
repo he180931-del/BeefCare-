@@ -27,6 +27,7 @@ beefcare:
     backend-base-url: ${BEEFCARE_BACKEND_URL}
   security:
     cookie-secure: true
+    cookie-same-site: None
   sepay:
     environment: ${BEEFCARE_SEPAY_ENVIRONMENT:LIVE}
     account-namespace: ${BEEFCARE_SEPAY_ACCOUNT_NAMESPACE}
@@ -103,6 +104,7 @@ server:
     session:
       cookie:
         secure: true
+        same-site: none
   compression:
     enabled: true
     mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json,image/svg+xml
