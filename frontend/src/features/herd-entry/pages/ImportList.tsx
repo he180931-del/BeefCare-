@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, FilterSelect, Foot, Icon, inputCls, Note, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import { herdEntryApi, listEntrySourceFilters, listPendingEntryCalves } from '../api/index'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { dm, dmy, kg, money } from '../../../shared/lib/format'
-import type { HerdEntry } from '../types'
 import { herdEntryError } from '../api/herdEntryError'
+import { listEntrySellers, listPendingEntryCalves } from '../api'
+import { useQuery } from '../../../shared/hooks/useQuery'
+import { useEntryList } from '../hooks/useEntryList'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
@@ -16,7 +16,16 @@ const TABS = ['Tất cả', 'Nháp', 'Đã nhập', 'Đã hủy']
 // fixed 2026-10-22 end date made a newly posted voucher disappear from the
 // list when the entry date was today (and made it look as if saving failed).
 const DEFAULT_TO = businessDate()
-const DEFAULT_FROM = `${DEFAULT_TO.slice(0, 4)}-01-01`
+const previousQuarterStart = (date: string) => {
+  const year = Number(date.slice(0, 4))
+  const month = Number(date.slice(5, 7)) - 1
+  const currentQuarterStart = Math.floor(month / 3) * 3
+  const previousQuarterMonth = currentQuarterStart - 3
+  const previousYear = previousQuarterMonth < 0 ? year - 1 : year
+  const normalizedMonth = (previousQuarterMonth + 12) % 12 + 1
+  return `${previousYear}-${String(normalizedMonth).padStart(2, '0')}-01`
+}
+const DEFAULT_FROM = previousQuarterStart(DEFAULT_TO)
 
 export default function ImportList() {
   const [tab, setTab] = useState('Tất cả')
@@ -24,34 +33,21 @@ export default function ImportList() {
   const [source, setSource] = useState('')
   const [from, setFrom] = useState(DEFAULT_FROM)
   const [to, setTo] = useState(DEFAULT_TO)
-  const { data, loading, error } = useQuery(() => herdEntryApi.listView({
-    ...(type ? { type: type === 'Bê sinh tại trại' ? 'FARM_BORN' : 'PURCHASE' } : {}),
-    from,
-    to,
-  }), [type, from, to])
   const { data: pending } = useQuery(() => listPendingEntryCalves(), [])
-  const { data: sourceFilters } = useQuery(() => listEntrySourceFilters(), [])
-  const view = data
-  const imports = view?.rows ?? []
-  const tiles = view?.tiles ?? {}
-  const counts = view?.counts ?? {}
-  const ready = Boolean(view)
+  const { data: sellers } = useQuery(() => listEntrySellers(), [])
+  const selectedSource = sellers?.find((seller) => seller.id === source)
+  const { rows, loading, error, summary } = useEntryList({ tab, type, source: selectedSource, from, to })
+  const tiles = summary.tiles
+  const counts = summary.counts
+  const ready = summary.ready
   const shown = (v: string | number) => (ready ? v : '—')
   const nav = useNavigate()
   const [dateOpen, setDateOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
 
-  const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? imports.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
-  const rows = imports.filter(
-    (r) =>
-      (tab === 'Tất cả' || r.status === tab) &&
-      (!type || r.type === type) &&
-      (!source || (r.source ?? '').includes(source)) &&
-      (r.date ?? '') >= from &&
-      (r.date ?? '') <= to,
-  )
-  const totalRows = imports.length
+  const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? rows.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
+  const totalRows = summary.totalRows
 
   const applyDate = () => {
     setFrom(draftFrom)
@@ -105,7 +101,7 @@ export default function ImportList() {
           </FilterSelect>
           <FilterSelect className="w-[200px]" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Nguồn">
             <option value="">Nguồn: Tất cả</option>
-            {(sourceFilters ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+            {(sellers ?? []).map((seller) => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
           </FilterSelect>
         </div>
 
