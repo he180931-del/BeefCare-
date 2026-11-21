@@ -37,15 +37,15 @@ export const herdExitApi = {
   create: (record: Omit<HerdExit, 'id'> & Partial<Pick<HerdExit, 'id'>>) => usingBackend
     ? backendApi.save({ record })
     : demo.exitLocal.localApi.create(record),
-  update: async (id: string, patch: Partial<HerdExit>, snapshot: VoucherSnapshot) => {
+  update: async (id: string, patch: Partial<HerdExit>, snapshot?: VoucherSnapshot) => {
     if (!usingBackend) return demo.exitLocal.localApi.update(id, patch)
     const expectedVersion = requireVersion(snapshot?.expectedVersion)
     const current = await backendApi.get(id)
     return backendApi.save({ id, expectedVersion, record: { ...current, ...patch, draft: patch.draft ?? current.draft, detail: patch.detail ?? current.detail }, cattleRows: patch.draft?.cows ?? current.draft?.cows ?? [] })
   },
   reset: () => usingBackend ? Promise.resolve([] as HerdExit[]) : demo.exitLocal.localApi.reset(),
-  recordPayment: (id: string, payment: Pick<ExitPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }, snapshot: VoucherPaymentSnapshot) => usingBackend
-    ? backendApi.recordPayment(id, payment, snapshot)
+  recordPayment: (id: string, payment: Pick<ExitPayment, 'date' | 'amount' | 'method' | 'ref'> & { note?: string }, snapshot?: VoucherPaymentSnapshot) => usingBackend
+    ? backendApi.recordPayment(id, payment, snapshot ?? { voucherVersion: undefined })
     : demo.exitLocal.localApi.get(id).then((row) => demo.exitLocal.localApi.update(id, {
       due: Math.max((row.due ?? 0) - payment.amount, 0),
       detail: { ...row.detail, payments: [...(row.detail?.payments ?? []), { by: 'Người dùng hiện tại', ...payment }] },
@@ -79,7 +79,7 @@ export const saveHerdExit = (input: { id?: string; expectedVersion?: number; rec
   })
 }
 
-export const confirmHerdExit = async (id: string, expectedVersion: number): Promise<HerdExit> => {
+export const confirmHerdExit = async (id: string, expectedVersion: number | undefined): Promise<HerdExit> => {
   if (usingBackend) return backendApi.confirm(id, expectedVersion)
   const current = await demo.exitLocal.localApi.get(id)
   return demo.exitLocal.saveLocal({
@@ -99,8 +99,8 @@ export const removeExitAttachment = async (id: string, attachmentId: number): Pr
   await backendApi.removeAttachment(id, attachmentId)
 }
 
-export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit>, snapshot: VoucherSnapshot) => usingBackend
-  ? backendApi.voidVoucher(id, { ...snapshot, reason: String(patch.cancelReason ?? 'Hủy phiếu xuất') })
+export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot) => usingBackend
+  ? backendApi.voidVoucher(id, { expectedVersion: snapshot?.expectedVersion, backendId: snapshot?.backendId, reason: String(patch.cancelReason ?? 'Hủy phiếu xuất') })
   : demo.exitLocal.cancelExit(id, cattleRows, patch)
 
 export const dismissHerdExit = (id: string, reason: string, expectedVersion: number | undefined, backendId?: number) => usingBackend

@@ -5,7 +5,7 @@ import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../
 import type { BackendTransport } from '../../../shared/api/backendTransport'
 import { isoDate } from '../../../shared/lib/date/isoDate'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
-import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapDocument, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
+import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapDocument, mapDocuments, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
@@ -17,7 +17,7 @@ export type ExitCattleCheck = {
 }
 export type ExitCheckOccupancy = { penId: number; penCode: string; capacity: number; before: number; after: number }
 export type ExitChecks = {
-  voucherId: number; code: string; version: number; exitDate: string; cattle: ExitCattleCheck[]; occupancy: ExitCheckOccupancy[]
+  voucherId: number; code: string; version?: number; exitDate: string; cattle: ExitCattleCheck[]; occupancy: ExitCheckOccupancy[]
 }
 export type ExitCandidate = {
   code: string; backendId?: number; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string
@@ -142,7 +142,10 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     const saved = unwrapVoucher(await transport.command(existing ? `${root}/${existing.backendId}` : root, body, { ...(existing ? { method: 'PUT' } : {}), key: saveKey }))
     const voucherId = numberValue(saved.id)
     const uploaded = []
-    const existingDocuments = detail.docs ?? draft.docs ?? []
+    // Attachment readback preserves partial-upload retries; it supplies no command version.
+    const existingDocuments = existing
+      ? mapDocuments(await transport.get(`${root}/${voucherId}/attachments`), root, voucherId)
+      : detail.docs ?? draft.docs ?? []
     const pendingDocuments = documents.filter((document) => !existingDocuments.some((savedDocument) => savedDocument.name === document.name && savedDocument.size === document.size))
     for (const document of pendingDocuments) {
       const form = new FormData()
@@ -151,7 +154,7 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
       uploaded.push(await transport.command(`${root}/${voucherId}/attachments`, form, { key: documentKey }))
     }
     const savedDocuments = [
-      ...(detail.docs ?? draft.docs ?? []),
+      ...existingDocuments,
       ...uploaded.map((document) => mapDocument(document, root, voucherId)),
     ]
     if (record.status !== 'Đã xuất') return mapVoucher(saved, savedDocuments, root, voucherId)
@@ -160,7 +163,7 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     const confirmed = await transport.command(`${root}/${voucherId}/confirm`, confirmBody, { key: confirmKey })
     return mapVoucher(unwrapVoucher(confirmed), savedDocuments, root, voucherId)
   }
-  const confirm = async (code: string, expectedVersion: number): Promise<HerdExit> => {
+  const confirm = async (code: string, expectedVersion: number | undefined): Promise<HerdExit> => {
     const version = requireVersion(expectedVersion)
     const { backendId } = await resolve(code)
     const body = { acknowledged: true, expectedVersion: version }
@@ -185,9 +188,9 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     const result = await transport.command(`${root}/${current.backendId}/void`, body, { key })
     return mapVoucher(unwrapVoucher(result))
   }
-  const recordPayment = async (code: string, payment: PaymentInput, { voucherVersion, backendId }: VoucherPaymentSnapshot): Promise<HerdExit> => {
-    const version = requireVersion(voucherVersion)
-    const current = await resolve(code, backendId)
+  const recordPayment = async (code: string, payment: PaymentInput, snapshot: VoucherPaymentSnapshot): Promise<HerdExit> => {
+    const version = requireVersion(snapshot?.voucherVersion)
+    const current = await resolve(code, snapshot?.backendId)
     const body = {
       paymentDate: isoDate(payment.date), amount: payment.amount, method: enumPaymentMethod(payment.method), reference: payment.ref || null,
       note: payment.note || null, voucherVersion: version,

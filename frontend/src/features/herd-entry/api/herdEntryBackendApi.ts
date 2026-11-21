@@ -240,9 +240,9 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
     const result = await transport.command(`${root}/${current.backendId}/void`, { reason, expectedVersion: version })
     return mapVoucher(unwrapVoucher(result))
   }
-  const recordPayment = async (code: string, payment: PaymentInput, { voucherVersion, backendId }: VoucherPaymentSnapshot): Promise<HerdEntry> => {
-    const version = requireVersion(voucherVersion)
-    const current = await resolve(code, backendId)
+  const recordPayment = async (code: string, payment: PaymentInput, snapshot: VoucherPaymentSnapshot): Promise<HerdEntry> => {
+    const version = requireVersion(snapshot?.voucherVersion)
+    const current = await resolve(code, snapshot?.backendId)
     await transport.command(transport.farmPath(farmId, `/vouchers/entry/${current.backendId}/payments`), {
       paymentDate: isoDate(payment.date), amount: payment.amount, method: enumPaymentMethod(payment.method), reference: payment.ref || null,
       note: payment.note || null, voucherVersion: version,

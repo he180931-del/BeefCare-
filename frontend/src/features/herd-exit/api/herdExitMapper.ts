@@ -71,7 +71,7 @@ export const mapChecks = (value: unknown): ExitChecks => {
     })),
   }))
   return {
-    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: numberValue(row.version), exitDate: textValue(row.exitDate), cattle,
+    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: nullableNumber(row.version) ?? undefined, exitDate: textValue(row.exitDate), cattle,
     occupancy: asRows(row.occupancy).map((item) => ({ penId: numberValue(item.penId), penCode: textValue(item.penCode), capacity: numberValue(item.capacity), before: numberValue(item.before), after: numberValue(item.after) })),
   }
 }
