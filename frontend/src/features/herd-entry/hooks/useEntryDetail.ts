@@ -5,12 +5,13 @@ import { useQuery } from '../../../shared/hooks/useQuery'
 import type { CattleInput } from '../../cattle'
 import type { EntryDetail, EntryPayment, HerdEntry } from '../types'
 import { herdEntryError } from '../api/herdEntryError'
+import type { VoucherPaymentSnapshot, VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 
 export function useEntryDetail(recordId: string) {
   const [documentError, setDocumentError] = useState<string | null>(null)
   const query = useQuery<HerdEntry>(() => herdEntryApi.get(recordId), [recordId])
-  const payment = useMutation<{ recordId: string; payment: EntryPayment & { note?: string } }, HerdEntry>(({ recordId: targetId, payment: value }) => herdEntryApi.recordPayment(targetId, value))
-  const cancellation = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry> }, HerdEntry>(({ recordId: targetId, cattleRows, patch }) => voidHerdEntry(targetId, cattleRows, patch))
+  const payment = useMutation<{ recordId: string; payment: EntryPayment & { note?: string }; snapshot: VoucherPaymentSnapshot }, HerdEntry>(({ recordId: targetId, payment: value, snapshot }) => herdEntryApi.recordPayment(targetId, value, snapshot))
+  const cancellation = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry>; snapshot: VoucherSnapshot }, HerdEntry>(({ recordId: targetId, cattleRows, patch, snapshot }) => voidHerdEntry(targetId, cattleRows, patch, snapshot))
   const record = query.data
   const detail: EntryDetail = { cows: [], payments: [], docs: [], history: [], ...record?.detail }
   const canPay = Boolean(record && (record.debt ?? 0) > 0 && record.status === 'Đã nhập')
@@ -18,7 +19,7 @@ export function useEntryDetail(recordId: string) {
 
   const savePayment = async (value: EntryPayment) => {
     if (!record) return
-    await payment.mutate({ recordId: record.id, payment: value })
+    await payment.mutate({ recordId: record.id, payment: value, snapshot: { voucherVersion: record.version, backendId: record.backendId } })
     await query.refetch()
   }
 
@@ -26,6 +27,7 @@ export function useEntryDetail(recordId: string) {
     if (!record) return
     await cancellation.mutate({
       recordId: record.id,
+      snapshot: { expectedVersion: record.version, backendId: record.backendId },
       cattleRows: detail.cows ?? [],
       patch: {
         status: 'Đã hủy',
@@ -61,8 +63,11 @@ export function useEntryDetail(recordId: string) {
     loading: query.loading,
     error: query.error,
     refetch: query.refetch,
+    reload: async () => { const latest = await herdEntryApi.get(recordId); query.setData(latest) },
     paymentError: payment.error,
+    paymentSaving: payment.loading,
     voidError: cancellation.error,
+    voidSaving: cancellation.loading,
     documentError,
     canPay,
     canCancel,

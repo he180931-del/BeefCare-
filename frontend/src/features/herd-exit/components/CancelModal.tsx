@@ -8,11 +8,13 @@ import { penCode, restoreCounts } from '../domain/occupancy'
 import type { HerdExit } from '../types'
 import type { CattleInput } from '../../cattle'
 import type { Pen } from '../../pen-management'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
+import type { VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 
 const MAX_REASON = 500
 
-export default function CancelModal({ row, onClose, onCancelled }: { row: HerdExit; onClose: () => void; onCancelled: () => void }) {
-  const { mutate: cancelExit, loading: saving } = useMutation<{ id: string; cows: CattleInput[]; patch: Partial<HerdExit> }, HerdExit>(({ id, cows, patch }) => cancelHerdExit(id, cows, patch))
+export default function CancelModal({ row, onClose, onCancelled, onReload }: { row: HerdExit; onClose: () => void; onCancelled: () => void; onReload: () => Promise<unknown> }) {
+  const { mutate: cancelExit, loading: saving, error } = useMutation<{ id: string; cows: CattleInput[]; patch: Partial<HerdExit>; snapshot: VoucherSnapshot }, HerdExit>(({ id, cows, patch, snapshot }) => cancelHerdExit(id, cows, patch, snapshot))
   const { data: canonicalPens } = useQuery(() => listExitCancelPens(), [])
   const [cancelReason, setCancelReason] = useState(() => exitCancelDefaults().reason)
   const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
@@ -30,6 +32,7 @@ export default function CancelModal({ row, onClose, onCancelled }: { row: HerdEx
   const confirm = async () => {
     await cancelExit({
       id: row.id,
+      snapshot: { expectedVersion: row.version, backendId: row.backendId },
       cows: row.detail?.cows ?? [],
       // The server records who cancelled and when; the demo adapter writes its own history line.
       patch: { status: 'Đã hủy', cancelReason, detail: { ...row.detail } },
@@ -60,9 +63,10 @@ export default function CancelModal({ row, onClose, onCancelled }: { row: HerdEx
         />
       </Field>
       <Note>Chỉ Chủ trại hủy được phiếu đã xuất. Nếu chuồng cuối ngưng sử dụng hoặc không đủ chỗ, hệ thống yêu cầu chọn chuồng khác cho từng con trước khi hủy (MSG-FE13-09).</Note>
+      <VoucherCommandError error={error} onReload={onReload} />
       <ModalFooter>
         <ModalButton className="text-ink" onClick={onClose}>Đóng</ModalButton>
-        <ModalButton variant="danger" disabled={!cancelReason.trim() || saving} onClick={confirm}><Icon name="circle-x" />Hủy phiếu xuất</ModalButton>
+        <ModalButton variant="danger" disabled={!cancelReason.trim() || saving} onClick={() => { void confirm().catch(() => undefined) }}><Icon name="circle-x" />Hủy phiếu xuất</ModalButton>
       </ModalFooter>
     </Modal>
   )

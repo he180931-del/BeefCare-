@@ -9,6 +9,7 @@ import CancelModal from '../components/CancelModal'
 import type { EntryPayment } from '../types'
 import { useEntryDetail } from '../hooks/useEntryDetail'
 import { herdEntryError } from '../api/herdEntryError'
+import { isVersionConflict } from '../../../shared/api/snapshotVersion'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
@@ -44,7 +45,7 @@ export default function ImportDetail() {
           <Button onClick={() => window.print()}><Icon name="printer" />In phiếu</Button>
           <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>
         </PageHeader>
-        {Boolean(paymentError || voidError) && <Note tone="err">{herdEntryError(paymentError || voidError)}</Note>}
+        {Boolean(paymentError || voidError) && !isVersionConflict(paymentError || voidError) && !m && <Note tone="err">{herdEntryError(paymentError || voidError)}</Note>}
         {documentError && <Note tone="err">{documentError}</Note>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
@@ -167,8 +168,8 @@ export default function ImportDetail() {
         <Foot>Phiếu ĐÃ NHẬP chỉ xem; thanh toán có danh sách khoản đã ghi (ngày, phương thức, số tiền, tham chiếu, người ghi); khoản bị hủy hiện gạch ngang.</Foot>
       </div>
 
-      {m === 'pay' && canPay && <PayModal record={r} onSave={savePayment} onClose={closeModal} />}
-      {m === 'cancel' && canCancel && <CancelModal record={r} onConfirm={cancelRecord} onClose={closeModal} />}
+      {m === 'pay' && canPay && <PayModal record={r} saving={detailQuery.paymentSaving} error={paymentError} onReload={async () => { await detailQuery.reload(); closeModal() }} onSave={async (value) => { await savePayment(value); closeModal() }} onClose={closeModal} />}
+      {m === 'cancel' && canCancel && <CancelModal record={r} saving={detailQuery.voidSaving} error={voidError} onReload={async () => { await detailQuery.reload(); closeModal() }} onConfirm={async (reason) => { await cancelRecord(reason); closeModal() }} onClose={closeModal} />}
     </Layout>
   )
 }

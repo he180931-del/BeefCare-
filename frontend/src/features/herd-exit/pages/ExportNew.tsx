@@ -17,6 +17,7 @@ import { useExitWorkflow } from '../hooks/useExitWorkflow'
 import { useExitDocuments } from '../hooks/useExitDocuments'
 import { useExitComposition } from '../hooks/useExitComposition'
 import { userFacingError } from '../../../shared/api/userFacingError'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const displayError = userFacingError
@@ -48,6 +49,8 @@ export default function ExportNew() {
   const isOwner = useIsOwner()
   const [params] = useSearchParams()
   const draftId = params.get('id')
+  const [reloadedDraft, setReloadedDraft] = useState<{ routeId: string | null; row: HerdExit } | null>(null)
+  const [reloadRevision, setReloadRevision] = useState(0)
   const { data: exports } = useQuery<HerdExit[]>(() => herdExitApi.list(), [])
   const { data: hydratedDraft } = useQuery<HerdExit | null>(() => draftId ? herdExitApi.get(draftId) : Promise.resolve(null), [draftId])
   const { data: selectableCattle } = useQuery(() => listSelectableExitCattle(), [])
@@ -66,11 +69,18 @@ export default function ExportNew() {
       </Layout>
     )
   }
-  const rows = draftId && hydratedDraft ? exports.map((row) => row.id === draftId ? hydratedDraft : row) : exports
-  return <ExportForm key={draftId ?? 'new'} draftId={draftId} exports={rows} selectableCattle={selectableCattle} buyers={buyers} />
+  const activeDraft = reloadedDraft?.routeId === draftId ? reloadedDraft.row : hydratedDraft
+  const reloadDraft = async (id: string) => {
+    const latest = await herdExitApi.get(id)
+    setReloadedDraft({ routeId: draftId, row: latest })
+    setReloadRevision((value) => value + 1)
+  }
+  if (activeDraft && activeDraft.status !== 'Nháp') return <Layout title="Phiếu xuất"><Note>Phiếu {activeDraft.id} hiện ở trạng thái {activeDraft.status}. Vui lòng mở lại từ danh sách phiếu xuất.</Note></Layout>
+  const rows = activeDraft ? [...exports.filter((row) => row.id !== activeDraft.id), activeDraft] : exports
+  return <ExportForm key={`${draftId ?? 'new'}-${reloadRevision}`} onReload={reloadDraft} draftId={activeDraft?.id ?? draftId} exports={rows} selectableCattle={selectableCattle} buyers={buyers} />
 }
 
-function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: HerdExit[]; draftId: string | null; selectableCattle: HerdCow[]; buyers: Array<{ id: string; name: string; phone: string }> }) {
+function ExportForm({ onReload, exports, draftId, selectableCattle, buyers }: { onReload: (id: string) => Promise<void>; exports: HerdExit[]; draftId: string | null; selectableCattle: HerdCow[]; buyers: Array<{ id: string; name: string; phone: string }> }) {
   const nav = useNavigate()
   const [m, openModal, closeModal] = useModalParam()
 
@@ -150,6 +160,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
   const workflow = useExitWorkflow({
     baseId: draftRow?.id || draftId || nextId,
     initialSavedId: draftId ?? '',
+    initialRecord: draftRow,
     picked,
     documents,
     formSnapshot,
@@ -360,7 +371,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
               Tôi đã xem các mục trên và xác nhận xuất đàn *
             </Checkbox>
             {formError && <Note tone="err">{formError}</Note>}
-            {Boolean(saveError || confirmError) && <Note tone="err">{displayError(confirmError ?? saveError)}</Note>}
+            <VoucherCommandError error={confirmError ?? saveError ?? checksError} onReload={() => onReload(savedId || draftId || id)} />
             <Button variant="primary" block className="!py-[9px]" disabled={!picked.length || saving || (checksReady ? !confirmed : false)} onClick={checksReady ? confirm : saveDraftAndLoadChecks}>
               {checksReady ? `Xác nhận xuất ${picked.length} con` : 'Lưu và kiểm tra trước khi xác nhận'}
             </Button>

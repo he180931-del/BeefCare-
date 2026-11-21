@@ -11,7 +11,7 @@ export function canCancelExit(record: HerdExit, detail: ExitDetail, links?: Exit
 }
 
 export function useExitDetail(recordId: string) {
-  const { data: record, loading, refetch } = useQuery<HerdExit>(() => herdExitApi.get(recordId), [recordId])
+  const { data: record, loading, refetch, setData } = useQuery<HerdExit>(() => herdExitApi.get(recordId), [recordId])
   const { data: links } = useQuery<ExitCancelLinks>(() => exitCancelLinks(), [])
   const [documentError, setDocumentError] = useState('')
 
@@ -32,5 +32,6 @@ export function useExitDetail(recordId: string) {
     }
   }
 
-  return { record, loading, refetch, links, documentError, canCancel: record ? canCancelExit(record, record.detail ?? {}, links ?? undefined) : false, viewDocument }
+  const reload = async () => { const latest = await herdExitApi.get(recordId); setData(latest) }
+  return { record, loading, refetch, reload, links, documentError, canCancel: record ? canCancelExit(record, record.detail ?? {}, links ?? undefined) : false, viewDocument }
 }

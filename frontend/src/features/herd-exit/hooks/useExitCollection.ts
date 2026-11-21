@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { exitCollectionDefaults, herdExitApi } from '../api/index'
 import { useMutation } from '../../../shared/hooks/useMutation'
 import type { HerdExit } from '../types'
+import type { VoucherPaymentSnapshot } from '../../../shared/api/snapshotVersion'
 
 export function isValidCollectionAmount(amount: number, owed: number) {
   return amount > 0 && amount <= owed
 }
 
 export function useExitCollection(row: HerdExit, onSaved?: () => void, onClose?: () => void) {
-  const { mutate: recordPayment, loading: saving, error } = useMutation<{ id: string; payment: { date: string; amount: number; method: string; ref: string; note?: string } }, HerdExit>(({ id, payment }) => herdExitApi.recordPayment(id, payment))
+  const { mutate: recordPayment, loading: saving, error } = useMutation<{ id: string; payment: { date: string; amount: number; method: string; ref: string; note?: string }; snapshot: VoucherPaymentSnapshot }, HerdExit>(({ id, payment, snapshot }) => herdExitApi.recordPayment(id, payment, snapshot))
   const payments = row.detail?.payments ?? []
   const collected = payments.reduce((sum, payment) => sum + payment.amount, 0)
   const total = row.total
@@ -24,7 +25,7 @@ export function useExitCollection(row: HerdExit, onSaved?: () => void, onClose?:
   const left = owed - amount
 
   const save = async () => {
-    await recordPayment({ id: row.id, payment: { date, method, ref: method === 'Tiền mặt' && defaults.cashReference ? defaults.cashReference : reference, amount, note } })
+    await recordPayment({ id: row.id, snapshot: { voucherVersion: row.version, backendId: row.backendId }, payment: { date, method, ref: method === 'Tiền mặt' && defaults.cashReference ? defaults.cashReference : reference, amount, note } })
     onSaved?.()
     onClose?.()
   }

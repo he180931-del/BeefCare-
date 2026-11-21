@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { AttachmentList, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
@@ -16,7 +17,9 @@ export default function ExportDetail() {
   const recordId = id ?? ''
   const [m, openModal, closeModal] = useModalParam()
   const isOwner = useIsOwner()
-  const { record: r, loading, refetch, documentError, links, canCancel, viewDocument } = useExitDetail(recordId)
+  const { record: r, loading, refetch, reload, documentError, links, canCancel, viewDocument } = useExitDetail(recordId)
+  const [reloadRevision, setReloadRevision] = useState(0)
+  const reloadRecord = async () => { await reload(); closeModal(); setReloadRevision((value) => value + 1) }
 
   if (!r) {
     return (
@@ -27,7 +30,7 @@ export default function ExportDetail() {
       </Layout>
     )
   }
-  if (r.detail?.death) return <DeathView row={r} />
+  if (r.detail?.death) return <DeathView key={`${r.id}-${reloadRevision}`} row={r} onReload={reloadRecord} />
 
   const d: ExitDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
   const collected = d.payments?.reduce((s, p) => s + p.amount, 0) ?? (r.total ?? 0) - (r.due ?? 0)
@@ -130,8 +133,8 @@ export default function ExportDetail() {
 
       <Foot>Chủ trại in phiếu, ghi nhận thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot>
 
-      {m === 'cancel' && canCancel && <CancelModal row={r} onClose={closeModal} onCancelled={() => { refetch(); closeModal() }} />}
-      {m === 'collect' && <CollectModal row={r} onClose={closeModal} onSaved={refetch} />}
+      {m === 'cancel' && canCancel && <CancelModal row={r} onReload={reloadRecord} onClose={closeModal} onCancelled={() => { void refetch(); closeModal() }} />}
+      {m === 'collect' && <CollectModal row={r} onReload={reloadRecord} onClose={closeModal} onSaved={refetch} />}
     </Layout>
   )
 }

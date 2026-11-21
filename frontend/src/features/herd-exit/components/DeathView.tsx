@@ -13,14 +13,15 @@ import RejectModal from './RejectModal'
 import type { HerdExit, ExitDetail } from '../types'
 import type { ExitChecks } from '../api/herdExitBackendApi'
 import { useExitDocuments } from '../hooks/useExitDocuments'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const DISPOSALS = ['Tiêu hủy / chôn lấp tại trại', 'Giao thú y địa phương', 'Khác']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 
 // Phiếu xuất "Chết / mất" tạo từ ca sức khỏe, chờ Chủ trại xác nhận.
-export default function DeathView({ row }: { row: HerdExit }) {
-  const { mutate: dismissExit, error: updateError } = useMutation<{ id: string; reason: string; expectedVersion: number }, HerdExit>(({ id, reason, expectedVersion }) => dismissHerdExit(id, reason, expectedVersion))
-  const { mutate: persistExit, error: persistError, loading: persisting } = useMutation(saveHerdExit)
+export default function DeathView({ row, onReload }: { row: HerdExit; onReload: () => Promise<unknown> }) {
+  const { mutate: dismissExit } = useMutation<{ id: string; reason: string; expectedVersion: number | undefined }, HerdExit>(({ id, reason, expectedVersion }) => dismissHerdExit(id, reason, expectedVersion, row.backendId))
+  const { mutate: persistExit, loading: persisting } = useMutation(saveHerdExit)
   const nav = useNavigate()
   const isOwner = useIsOwner()
   const [m, openModal, closeModal] = useModalParam()
@@ -34,6 +35,8 @@ export default function DeathView({ row }: { row: HerdExit }) {
   const [disposal, setDisposal] = useState(d.disposal)
   const [date, setDate] = useState(d.date ?? '')
   const [confirmed, setConfirmed] = useState(false)
+  const snapshotRecord = useRef(row)
+  const [actionError, setActionError] = useState<unknown>(null)
   const editableSnapshot = JSON.stringify({ date, lossType, reason, disposal })
   const initialSnapshot = useRef(editableSnapshot)
   const [reviewedChecks, setReviewedChecks] = useState<ExitChecks | null>(null)
@@ -64,6 +67,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
     setRemovedAttachmentIds,
   })
   const buildPatch = (status: 'Đã xuất' | 'Đã bác', extra: Record<string, unknown> = {}) => ({
+      backendId: row.backendId,
       status,
       ...extra,
       type: 'Chết / mất' as const,
@@ -82,50 +86,59 @@ export default function DeathView({ row }: { row: HerdExit }) {
 
   const saveDocuments = async () => {
     if (!documents.length) return
+    setActionError(null)
     try {
       const saved = await persistExit({
         id: row.id,
+        expectedVersion: snapshotRecord.current.version,
         record: { ...buildPatch('Đã xuất'), status: 'Nháp' },
         cattleRows: [{ ...cow, barn: String(cow.barn ?? '').split(/[\s–-]/)[0] }],
         documents,
       })
+      snapshotRecord.current = saved
       setDocuments([])
       if (saved.detail?.docs) setSavedDocuments(saved.detail.docs)
       const latestChecks = await herdExitApi.checks(row.id)
       setReviewedChecks(latestChecks)
       setReviewedSnapshot(editableSnapshot)
       setConfirmed(false)
-    } catch {
+    } catch (error) {
+      setActionError(error)
       // The mutation error is rendered below; keep selected files so the Owner can retry.
     }
   }
 
   const refreshChecks = async () => {
     if (!pending || !checks) return
+    setActionError(null)
     const snapshot = editableSnapshot
     try {
       const patch = buildPatch('Đã xuất')
       const barn = String(cow.barn ?? '').split(/[\s–-]/)[0]
-      await persistExit({ id: row.id, record: { ...patch, status: 'Nháp' }, cattleRows: [{ ...cow, barn }] })
+      const saved = await persistExit({ id: row.id, expectedVersion: snapshotRecord.current.version, record: { ...patch, status: 'Nháp' }, cattleRows: [{ ...cow, barn }] })
+      snapshotRecord.current = saved
       const latestChecks = await herdExitApi.checks(row.id)
       if (snapshot !== JSON.stringify({ date, lossType, reason, disposal })) return
       setReviewedChecks(latestChecks)
       setReviewedSnapshot(snapshot)
       setConfirmed(false)
-    } catch {
+    } catch (error) {
+      setActionError(error)
       // Keep the old review visible; the mutation error explains why refresh failed.
     }
   }
 
   const resolve = async (status: 'Đã xuất' | 'Đã bác', extra: Record<string, unknown> = {}) => {
     if (pending && (!checks || !checksCurrent)) return
-    const checkedVersion = checks?.version ?? Number(row.version ?? 0)
-    if (status === 'Đã xuất') {
-      await confirmHerdExit(row.id, checkedVersion)
-    } else {
-      await dismissExit({ id: row.id, reason: String(extra.rejectReason ?? 'Bác đề xuất'), expectedVersion: checkedVersion })
-    }
-    nav('/herd-exit')
+    setActionError(null)
+    try {
+      if (status === 'Đã xuất') {
+        await confirmHerdExit(row.id, checks?.version)
+      } else {
+        await dismissExit({ id: row.id, reason: String(extra.rejectReason ?? 'Bác đề xuất'), expectedVersion: snapshotRecord.current.version })
+      }
+      nav('/herd-exit')
+    } catch (error) { setActionError(error) }
   }
 
   return (
@@ -221,14 +234,14 @@ export default function DeathView({ row }: { row: HerdExit }) {
               ...checks.occupancy.map((pen) => [`Chuồng ${pen.penCode}`, `${pen.before} → ${pen.after} / ${pen.capacity}`, false] as [string, string, boolean?]),
             ] : pending ? [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : 'Đang tải kiểm tra…', true]] : (d.checks ?? [])} />
             {checks && !checksCurrent && <Note tone="warn">Thông tin phiếu đã thay đổi; cần lưu và kiểm tra lại trước khi xác nhận.</Note>}
-            {Boolean(updateError || persistError) && <Note tone="err">{displayError(updateError || persistError)}</Note>}
+            {m !== 'reject' && <VoucherCommandError error={actionError} onReload={onReload} formatError={displayError} />}
             {canAct ? (
               <>
                 <Checkbox checked={confirmed} disabled={!checksCurrent} onChange={(e) => setConfirmed(e.target.checked)} className="text-xs font-semibold">
                   Tôi đã xem các mục trên và xác nhận xuất đàn *
                 </Checkbox>
-                {checks && !checksCurrent && <Button block disabled={Boolean(persistError)} onClick={() => { void refreshChecks() }}>Kiểm tra lại</Button>}
-                <Button variant="primary" block className="!py-[9px]" disabled={!confirmed || !checksCurrent || Boolean(persistError)} onClick={() => { void resolve('Đã xuất').catch(() => undefined) }}>Xác nhận xuất đàn</Button>
+                {checks && !checksCurrent && <Button block disabled={persisting} onClick={() => { void refreshChecks() }}>Kiểm tra lại</Button>}
+                <Button variant="primary" block className="!py-[9px]" disabled={!confirmed || !checksCurrent || persisting} onClick={() => { void resolve('Đã xuất').catch(() => undefined) }}>Xác nhận xuất đàn</Button>
                 <Button block disabled={!checksCurrent} onClick={() => openModal('reject')}>Bác đề xuất</Button>
                 <Button variant="link" block onClick={() => nav('/herd-exit')}>Đóng</Button>
                 <p className="m-0 text-[11px] text-muted">Bác đề xuất: bò vẫn ACTIVE, ca sức khỏe giữ nguyên kết quả; bắt buộc nhập lý do (GBR-34).</p>
@@ -246,7 +259,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
       <Foot>Phiếu từ ca sức khỏe giữ bò ACTIVE đến khi Chủ trại xác nhận; "Xử lý xác" không hiện khi Loại mất = Mất tích.</Foot>
 
       {m === 'reject' && (
-        <RejectModal row={row} onClose={closeModal} onRejected={(rejectReason: string) => resolve('Đã bác', { rejectReason })} />
+        <RejectModal row={row} error={actionError} onReload={onReload} onClose={closeModal} onRejected={(rejectReason: string) => resolve('Đã bác', { rejectReason })} />
       )}
     </Layout>
   )

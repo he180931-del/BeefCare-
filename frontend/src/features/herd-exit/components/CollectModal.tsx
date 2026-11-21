@@ -3,11 +3,12 @@ import { money } from '../../../shared/lib/format'
 import { DocRow, MoneyInput } from './parts'
 import type { HerdExit } from '../types'
 import { useExitCollection } from '../hooks/useExitCollection'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const METHODS = ['Tiền mặt', 'Chuyển khoản']
 const displayError = (error: unknown): string => error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error) ?? 'Unknown error'
 
-export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit; onClose: () => void; onSaved?: () => void }) {
+export default function CollectModal({ row, onClose, onSaved, onReload }: { row: HerdExit; onClose: () => void; onSaved?: () => void; onReload: () => Promise<unknown> }) {
   const { defaults, collected, total, owed, date, setDate, amount, setAmount, method, setMethod, reference, setReference, showStatement, setShowStatement, note, setNote, valid, left, saving, error, save } = useExitCollection(row, onSaved, onClose)
 
   return (
@@ -47,13 +48,13 @@ export default function CollectModal({ row, onClose, onSaved }: { row: HerdExit;
       <Field label="Ghi chú">
         <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
-      {Boolean(error) && <Note tone="err">{displayError(error)}</Note>}
+      <VoucherCommandError error={error} onReload={onReload} formatError={displayError} />
       <Note tone="info">
         Sau khi lưu: Còn phải thu = {money(left)} đ. Khoản thu đã ghi chỉ sửa/hủy kèm lý do, giữ lịch sử. Đây là sổ thu chi của trại, không phải hóa đơn thuế.
       </Note>
       <ModalFooter>
         <ModalButton className="text-ink" onClick={onClose}>Hủy</ModalButton>
-        <ModalButton variant="primary" disabled={!valid || saving} onClick={save}>Lưu khoản thu</ModalButton>
+        <ModalButton variant="primary" disabled={!valid || saving} onClick={() => { void save().catch(() => undefined) }}>Lưu khoản thu</ModalButton>
       </ModalFooter>
     </Modal>
   )

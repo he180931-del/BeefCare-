@@ -22,6 +22,8 @@ import type { Pen } from '../../pen-management'
 import type { EntryParentOption } from '../api/herdEntryBackendApi'
 import { herdEntryError } from '../api/herdEntryError'
 import { useSession } from '../../../app/session/sessionContext'
+import { herdEntryApi } from '../api'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 const KIND_BUY = 'Mua ngoài'
@@ -36,6 +38,8 @@ const displayError = herdEntryError
 export default function ImportNew() {
   const [params] = useSearchParams()
   const draftId = params.get('id')
+  const [reloadedDraft, setReloadedDraft] = useState<{ routeId: string | null; row: HerdEntry } | null>(null)
+  const [reloadRevision, setReloadRevision] = useState(0)
   // Parent selectors are only needed on the farm-born flow. Avoid waiting on
   // the cattle lookup for purchase vouchers (and keep the purchase form
   // independent from the parentage endpoint).
@@ -47,18 +51,25 @@ export default function ImportNew() {
   if (draftError) {
     return <Layout title="Phiếu nhập mới" user="manager"><Note tone="err">{displayError(draftError)}</Note></Layout>
   }
-  const imports = detailedDraft
-    ? [...data.filter((row) => row.id !== detailedDraft.id), detailedDraft]
+  const activeDraft = reloadedDraft?.routeId === draftId ? reloadedDraft.row : detailedDraft
+  const reloadDraft = async (id: string) => {
+    const latest = await herdEntryApi.get(id)
+    setReloadedDraft({ routeId: draftId, row: latest })
+    setReloadRevision((value) => value + 1)
+  }
+  if (activeDraft && activeDraft.status !== 'Nháp') return <Layout title="Phiếu nhập"><Note>Phiếu {activeDraft.id} hiện ở trạng thái {activeDraft.status}. Vui lòng mở lại từ danh sách phiếu nhập.</Note></Layout>
+  const imports = activeDraft
+    ? [...data.filter((row) => row.id !== activeDraft.id), activeDraft]
     : data
   // Keep calves already attached to the draft visible when reopening it. The
   // backend marks those rows with draftVoucherId, so filtering every non-null
   // value used to produce the misleading 0/0 state and hide parent selectors.
-  const currentDraftBackendId = Number((detailedDraft as (HerdEntry & { backendId?: number }) | null)?.backendId)
+  const currentDraftBackendId = Number(activeDraft?.backendId)
   const availablePendingCalves = pendingCalves.filter((calf) => calf.draftVoucherId == null || (Number.isFinite(currentDraftBackendId) && calf.draftVoucherId === currentDraftBackendId))
-  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}`} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellers} parentCattle={parentCattle ?? []} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
+  return <ImportForm key={`${draftId ?? 'new'}-${params.get('kind') === 'calf' ? 'calf' : 'buy'}-${reloadRevision}`} loadedDraftId={activeDraft?.id} onReload={reloadDraft} imports={imports} canonicalPens={canonicalPens} pendingCalves={availablePendingCalves} sellers={sellers} parentCattle={parentCattle ?? []} getEntryDraftState={getEntryDraftState} newEntryDefaults={newEntryDefaults} />
 }
 
-function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCattle, getEntryDraftState, newEntryDefaults }: { imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[]; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
+function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCalves, sellers, parentCattle, getEntryDraftState, newEntryDefaults }: { loadedDraftId?: string; onReload: (id: string) => Promise<void>; imports: HerdEntry[]; canonicalPens: Pen[]; pendingCalves: EntryCalf[]; sellers: Array<{ id: string; name: string; phone: string }>; parentCattle: EntryParentOption[]; getEntryDraftState: typeof import('../api').getEntryDraftState; newEntryDefaults: typeof import('../api').newEntryDefaults }) {
   const { saveDraft, postEntry, saving: loading, error: saveError } = useEntryDraftWorkflow()
   const nav = useNavigate()
   const sessionName = useSession()?.fullName ?? ''
@@ -67,7 +78,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   const [m, openModal, closeModal] = useModalParam()
   const editingParam = params.get('m')
   const editingIndex = editingParam?.startsWith('row-') ? Number(editingParam.slice(4)) : -1
-  const draftId = params.get('id') ?? undefined
+  const draftId = loadedDraftId ?? params.get('id') ?? undefined
   const draftState = getEntryDraftState(imports, draftId)
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const draft = draftRow?.draft
@@ -101,6 +112,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
   // the editor behind an explicit CTA so the payment action is discoverable.
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
+  const [snapshotRecord, setSnapshotRecord] = useState(draftRow)
+  const [commandError, setCommandError] = useState<unknown>(null)
   const [temporaryExcelDraftId, setTemporaryExcelDraftId] = useState<string | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const recordId = persistedRecordId ?? initialRecordId
@@ -145,6 +158,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
 
   const save = async (status: 'Nháp' | 'Đã nhập', navigateAfter = true): Promise<HerdEntry | undefined> => {
     setValidationError(null)
+    setCommandError(null)
     if (status === 'Đã nhập') {
       if (date > localToday()) {
         setValidationError('Ngày nhập không được ở tương lai.')
@@ -229,7 +243,9 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
     }
     const saveId = persistedRecordId ?? draftRow?.id ?? (entryExcelBackendEnabled ? undefined : recordId)
     const saveCommand = status === 'Đã nhập' ? postEntry : saveDraft
-    const saved = await saveCommand({ id: saveId, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
+    record.backendId = snapshotRecord?.backendId
+    const saved = await saveCommand({ id: saveId, expectedVersion: snapshotRecord?.version, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
+    setSnapshotRecord(saved)
     setPersistedRecordId(saved.id)
     if (saved.detail?.docs) {
       setStoredDocuments(saved.detail.docs)
@@ -250,12 +266,16 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
     const targetId = persistedRecordId ?? recordId
     await commitEntryExcel(targetId, file)
     const refreshed = await getEntry(targetId)
+    setSnapshotRecord(refreshed)
     return refreshed.draft?.cows ?? []
   }
   const cancelExcelImport = async () => {
+    setCommandError(null)
     if (temporaryExcelDraftId) {
-      await discardHerdEntryDraft(temporaryExcelDraftId).catch(() => undefined)
+      try { await discardHerdEntryDraft(temporaryExcelDraftId, snapshotRecord?.version, snapshotRecord?.backendId) }
+      catch (error) { setCommandError(error); return }
       setPersistedRecordId(null)
+      setSnapshotRecord(undefined)
       setTemporaryExcelDraftId(null)
     }
     closeModal()
@@ -583,7 +603,7 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
                 <span className="text-[13px]">{`In tem QR cho ${n} con sau khi lưu`}</span>
               </Checkbox>
               {(validationError || attachmentError) && <Note tone="err">{validationError || attachmentError}</Note>}
-              {Boolean(saveError) && <Note tone="err">{displayError(saveError)}</Note>}
+              <VoucherCommandError error={commandError ?? saveError} formatError={displayError} onReload={() => onReload(recordId)} />
               <Button variant="primary" block disabled={!n || blocked || loading} onClick={() => { void save('Đã nhập').catch(() => undefined) }}>
                 <Icon name="circle-check" />{`Lưu & tạo hồ sơ ${n} con`}
               </Button>
@@ -644,6 +664,8 @@ function ImportForm({ imports, canonicalPens, pendingCalves, sellers, parentCatt
       )}
       {isBuy && m === 'excel' && (
         <ExcelModal
+          commandError={commandError ?? saveError}
+          onReload={() => onReload(recordId)}
           recordId={recordId}
           onBackendPreview={entryExcelBackendEnabled ? prepareBackendExcel : undefined}
           onBackendCommit={entryExcelBackendEnabled ? commitBackendExcel : undefined}

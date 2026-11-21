@@ -3,10 +3,13 @@ export type { EntryBackendImportResult } from '../hooks/useEntryExcelImport'
 import { Badge, Button, Icon, Modal, ModalButton, ModalFooter, Note, Table, Td, Th } from '../../../shared/ui'
 import { kg } from '../../../shared/lib/format'
 import type { EntryCow } from '../types'
+import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
 type ExcelModalProps = {
+  commandError?: unknown
+  onReload?: () => Promise<unknown>
   recordId: string
   onAdd: (cows: EntryCow[]) => void
   onClose: () => void
@@ -16,11 +19,12 @@ type ExcelModalProps = {
 }
 
 /** Nhập nhiều con từ tệp Excel. Chỉ các dòng ok/warn được thêm; onAdd(cows[]) nhận danh sách con. */
-export default function ExcelModal({ recordId, onAdd, onClose, onDownloadTemplate, onBackendPreview, onBackendCommit }: ExcelModalProps) {
+export default function ExcelModal({ commandError, onReload, recordId, onAdd, onClose, onDownloadTemplate, onBackendPreview, onBackendCommit }: ExcelModalProps) {
   const { inputRef, rows, fileName, error, loading, loadingLabel, previewComplete, valid, bad, warn, add, downloadTemplate, chooseFile } = useEntryExcelImport({ recordId, onAdd, onDownloadTemplate, onBackendPreview, onBackendCommit })
 
   return (
     <Modal top={24} width={760} maxHeight="calc(100vh - 3rem)" title="Nhập danh sách bò từ Excel" sub={`Thêm nhiều con vào phiếu ${recordId} · chỉ dòng hợp lệ được thêm`} onClose={onClose}>
+      {onReload && <VoucherCommandError error={commandError} onReload={onReload} />}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="m-0 text-[13px] font-semibold">1. Tải file mẫu</h3>
