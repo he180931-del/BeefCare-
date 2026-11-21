@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SessionContext } from '../../../src/app/session/sessionContext'
 import type { HerdExit } from '../../../src/features/herd-exit/types'
+import { BackendError } from '../../../src/shared/api/backendClient'
 
 const apiState = vi.hoisted(() => ({
   checks: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock('../../../src/features/herd-exit/api/index', () => ({
 import DeathView from '../../../src/features/herd-exit/components/DeathView'
 
 const pendingDeath: HerdExit = {
-  id: 'PX-2026-0008', date: '2026-10-21', type: 'Chết / mất', status: 'Chờ xác nhận', who: 'Ca HC-0418', count: 1,
+  id: 'PX-2026-0008', backendId: 8, version: 7, date: '2026-10-21', type: 'Chết / mất', status: 'Chờ xác nhận', who: 'Ca HC-0418', count: 1,
   detail: {
     death: true, lossKind: 'DIED', lossType: 'Chết', sourceHealthCaseId: 418, date: '2026-10-21', source: 'Ca sức khỏe HC-0418', reporter: 'Trần Quốc Long', reason: 'Tiêu chảy cấp', disposal: 'Tiêu hủy / chôn lấp tại trại',
     cow: { code: 'BC-000156', tag: 'VN-0377', breed: 'Lai Sind', sex: 'Cái', age: '14 tháng', barn: 'A2', weight: 180, estimated: true, caseLine: ['HC-0418', 'đóng: Chết'] },
@@ -46,9 +47,27 @@ beforeEach(() => {
 })
 
 describe('pending death/missing exit checks', () => {
+  it('keeps the rejection reason after 409 and uses the voucher snapshot instead of newer checks', async () => {
+    const user = userEvent.setup()
+    const onReload = vi.fn()
+    apiState.dismissed.mockRejectedValue(new BackendError(409, { code: 'MSG-COM-05' }))
+    render(<MemoryRouter><DeathView row={{ ...pendingDeath, version: 3 }} onReload={onReload} /></MemoryRouter>)
+    await screen.findByText('Cảnh báo cần xem')
+    await user.click(screen.getByRole('button', { name: 'Bác đề xuất' }))
+    await user.type(screen.getAllByRole('textbox').at(-1)!, 'Ly do bac dang nhap')
+    await user.click(screen.getAllByRole('button', { name: 'Bác đề xuất' }).at(-1)!)
+    await screen.findByRole('button', { name: 'Tải bản mới nhất' })
+    expect(apiState.dismissed).toHaveBeenCalledWith(pendingDeath.id, 'Ly do bac dang nhap', 3, 8)
+    await user.click(screen.getByRole('button', { name: 'Ở lại' }))
+    expect(screen.getByDisplayValue('Ly do bac dang nhap')).toBeInTheDocument()
+    expect(apiState.dismissed).toHaveBeenCalledTimes(1)
+    expect(apiState.checks).toHaveBeenCalledTimes(1)
+    expect(onReload).not.toHaveBeenCalled()
+  })
+
   it('keeps a pending health-sourced voucher read-only for a Manager while Owner evidence remains available', async () => {
     const manager = { role: 'MANAGER' as const, fullName: 'Quản lý', email: 'manager@example.test', farmId: 1, farmName: 'Trại kiểm thử', logout: async () => undefined }
-    render(<SessionContext.Provider value={manager}><MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter></SessionContext.Provider>)
+    render(<SessionContext.Provider value={manager}><MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter></SessionContext.Provider>)
 
     await screen.findByText('Cảnh báo cần xem')
     expect(screen.queryByLabelText('Chọn ngày')).not.toBeInTheDocument()
@@ -63,7 +82,7 @@ describe('pending death/missing exit checks', () => {
 
   it('keeps the health-case loss kind read-only', async () => {
     const user = userEvent.setup()
-    render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)
+    render(<MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter>)
 
     await screen.findByText('Cảnh báo cần xem')
     await user.click(screen.getByText('Mất tích'))
@@ -74,7 +93,7 @@ describe('pending death/missing exit checks', () => {
 
   it('loads real checks, requires acknowledgement, and confirms with the checks version', async () => {
     const user = userEvent.setup()
-    render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)
+    render(<MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter>)
 
     expect(await screen.findByText('Cảnh báo cần xem')).toBeInTheDocument()
     expect(apiState.checks).toHaveBeenCalledWith(pendingDeath.id)
@@ -95,7 +114,7 @@ describe('pending death/missing exit checks', () => {
       detail: { ...pendingDeath.detail, docs: [{ id: 91, name: 'old-report.pdf', ext: 'PDF' }] },
     }
     apiState.saved.mockResolvedValue(row)
-    render(<MemoryRouter><DeathView row={row} /></MemoryRouter>)
+    render(<MemoryRouter><DeathView row={row} onReload={vi.fn()} /></MemoryRouter>)
 
     await screen.findByText('Cảnh báo cần xem')
     const file = new File(['%PDF-1.4\n%%EOF\n'], 'evidence.pdf', { type: 'application/pdf' })
@@ -107,17 +126,17 @@ describe('pending death/missing exit checks', () => {
     expect(apiState.removedAttachment).toHaveBeenCalledWith(row.id, 91)
   })
 
-  it('dismisses a pending proposal with the live checks version', async () => {
+  it('dismisses a pending proposal with the loaded voucher version', async () => {
     apiState.dismissed.mockResolvedValue({ ...pendingDeath, status: 'Đã bác' })
     const user = userEvent.setup()
-    render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)
+    render(<MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter>)
 
     await screen.findByText('Cảnh báo cần xem')
     await user.click(screen.getByRole('button', { name: 'Bác đề xuất' }))
     await user.type(screen.getAllByRole('textbox').at(-1)!, 'Ca sức khỏe sai')
     await user.click(screen.getAllByRole('button', { name: 'Bác đề xuất' }).at(-1)!)
 
-    expect(apiState.dismissed).toHaveBeenCalledWith(pendingDeath.id, 'Ca sức khỏe sai', 7)
+    expect(apiState.dismissed).toHaveBeenCalledWith(pendingDeath.id, 'Ca sức khỏe sai', 7, 8)
   })
 
   it('invalidates acknowledgement after edits and requires a fresh checks snapshot before confirming', async () => {
@@ -129,7 +148,7 @@ describe('pending death/missing exit checks', () => {
     apiState.checks.mockResolvedValueOnce(initialChecks).mockResolvedValueOnce({ ...initialChecks, version: 8, exitDate: '2026-10-22' })
     apiState.saved.mockResolvedValue({ ...pendingDeath, status: 'Nháp' })
     const user = userEvent.setup()
-    render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)
+    render(<MemoryRouter><DeathView row={pendingDeath} onReload={vi.fn()} /></MemoryRouter>)
 
     await screen.findByText('Cảnh báo cần xem')
     await user.click(screen.getByLabelText(/Tôi đã xem các mục trên/))

@@ -144,8 +144,8 @@ test('entry backend discards a temporary draft without posting or changing cattl
     },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  await api.discard('PN-2026-0041')
-  assert.deepEqual(calls, [{ method: 'DELETE', path: '/api/farms/9/entry-vouchers/41', body: undefined }])
+  await api.discard('PN-2026-0041', 3)
+  assert.deepEqual(calls, [{ method: 'DELETE', path: '/api/farms/9/entry-vouchers/41?expectedVersion=3', body: undefined }])
 })
 
 test('entry backend keeps persisted attachments visible when reposting without new uploads', async () => {
@@ -171,7 +171,7 @@ test('entry backend keeps persisted attachments visible when reposting without n
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
 
   const saved = await api.save({
-    id: 'PN-2026-0041',
+    id: 'PN-2026-0041', expectedVersion: 3,
     record: { date: '2026-10-29', type: 'Mua ngoài', status: 'Đã nhập', source: 'Trang trại Mộc Châu' },
     documents: [],
   })
@@ -280,12 +280,12 @@ test('entry backend records payment against the backend voucher id and version',
     command: async (path, body) => { commands.push({ path, body }); return voucher('POSTED') },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: 'PT-01', note: 'Đợt 2' })
+  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: 'PT-01', note: 'Đợt 2' }, { voucherVersion: 3 })
   assert.deepEqual(commands[0], {
     path: '/api/farms/9/vouchers/entry/41/payments',
     body: { paymentDate: '2026-10-30', amount: 1000000, method: 'CASH', reference: 'PT-01', note: 'Đợt 2', voucherVersion: 3 },
   })
-  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: '', note: '' })
+  await api.recordPayment('PN-2026-0041', { date: '2026-10-30', amount: 1000000, method: 'Tiền mặt', ref: '', note: '' }, { voucherVersion: 3 })
   assert.deepEqual(commands[1]?.body, { paymentDate: '2026-10-30', amount: 1000000, method: 'CASH', reference: null, note: null, voucherVersion: 3 })
 })
 
@@ -297,7 +297,7 @@ test('entry backend voids the resolved voucher with its optimistic-lock version'
     command: async (path, body) => { commands.push({ path, body }); return { voucher: voucher('VOIDED') } },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  const result = await api.voidVoucher('PN-2026-0041', 'Nhập nhầm nguồn')
+  const result = await api.voidVoucher('PN-2026-0041', { reason: 'Nhập nhầm nguồn', expectedVersion: 3 })
   assert.equal(result.status, 'Đã hủy')
   assert.deepEqual(commands[0], { path: '/api/farms/9/entry-vouchers/41/void', body: { reason: 'Nhập nhầm nguồn', expectedVersion: 3 } })
 })
@@ -382,7 +382,7 @@ test('entry backend serializes per-cow pricing basis and line fields', async () 
   assert.equal(body.lines[0].unitPrice, 8500000)
 })
 
-test('entry backend preserves the stored draft type and version when updating a partial draft', async () => {
+test('entry backend sends the loaded farm-born draft type and explicit snapshot version', async () => {
   let body: any
   const farmBorn = voucher('DRAFT')
   farmBorn.entryType = 'FARM_BORN'
@@ -404,7 +404,8 @@ test('entry backend preserves the stored draft type and version when updating a 
     },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  await api.save({ id: 'PN-2026-0041', record: { status: 'Nháp', draft: { date: '2026-10-29', cows: [] } } })
+  const loaded = await api.get('PN-2026-0041')
+  await api.save({ id: loaded.id, expectedVersion: loaded.version, record: { ...loaded, status: 'Nháp', draft: { date: '2026-10-29', cows: [] } } })
 
   assert.equal(body.entryType, 'FARM_BORN')
   assert.equal(body.expectedVersion, 3)
@@ -470,7 +471,7 @@ test('entry backend does not create a voucher when resolving an existing id is f
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
 
-  await assert.rejects(() => api.save({ id: 'PN-2026-0041', record: { type: 'Mua ngoài', status: 'Nháp' } }), /forbidden/)
+  await assert.rejects(() => api.save({ id: 'PN-2026-0041', expectedVersion: 3, record: { type: 'Mua ngoài', status: 'Nháp' } }), /forbidden/)
   assert.equal(commands, 0)
 })
 
@@ -491,7 +492,7 @@ test('entry backend reuses one idempotency key when retrying the same draft save
     },
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
-  const input = { id: 'PN-2026-RETRY', record: { date: '2026-10-30', type: 'Mua ngoài' as const, status: 'Nháp' as const } }
+  const input = { record: { date: '2026-10-30', type: 'Mua ngoài' as const, status: 'Nháp' as const } }
 
   await api.save(input)
   await api.save(input)
@@ -509,8 +510,8 @@ test('entry backend changes the idempotency key when the draft payload changes',
   }
   const api = createHerdEntryBackendApi({ transport, farmId: 9 })
 
-  await api.save({ id: 'PN-2026-CHANGED', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'A' } } })
-  await api.save({ id: 'PN-2026-CHANGED', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'B' } } })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'A' } } })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Nháp', draft: { note: 'B' } } })
 
   assert.notEqual(keys[0], keys[1])
 })
@@ -526,12 +527,12 @@ test('entry backend bounds attachment and post idempotency keys for long filenam
   const filename = `${'x'.repeat(255)}.pdf`
 
   const sameMetadataDifferentBytes = (value: string) => new File([value], filename, { type: 'application/pdf', lastModified: 123 })
-  await api.save({ id: 'PN-2026-LONG', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('aaaa')] })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('aaaa')] })
 
   assert.ok(keys.every(({ key }) => (key?.length ?? 0) <= 128))
   assert.ok(keys.some(({ path }) => path.endsWith('/post')))
 
-  await api.save({ id: 'PN-2026-LONG', record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('bbbb')] })
+  await api.save({ record: { date: '2026-10-30', type: 'Mua ngoài', status: 'Đã nhập' }, documents: [sameMetadataDifferentBytes('bbbb')] })
   const uploadKeys = keys.filter(({ path }) => path.endsWith('/attachments')).map(({ key }) => key)
   assert.notEqual(uploadKeys[0], uploadKeys[1])
 })
