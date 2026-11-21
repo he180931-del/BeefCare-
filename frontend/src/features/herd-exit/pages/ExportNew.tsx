@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Checkbox, DateInput, Field, Foot, Icon, inputCls, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
@@ -15,8 +15,8 @@ import type { ExitDraftCow, HerdExit, ExitType, LossKind } from '../types'
 import { useExitEditor } from '../hooks/useExitEditor'
 import { useExitWorkflow } from '../hooks/useExitWorkflow'
 import { useExitDocuments } from '../hooks/useExitDocuments'
+import { useExitComposition } from '../hooks/useExitComposition'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import type { ExitChecks } from '../api/herdExitBackendApi'
 
 const TYPES: ExitType[] = ['Bán', 'Loại thải', 'Chết / mất', 'Khác']
 const displayError = userFacingError
@@ -165,15 +165,7 @@ function ExportForm({ exports, draftId, selectableCattle, buyers }: { exports: H
     },
   })
   const { savedId, saving, saveError, checks, checksError, checking, confirmed, setConfirmed, confirmError, saveDraftAndLoadChecks, saveDraft, confirm } = workflow
-  const checkMessages = (check: ExitChecks['cattle'][number]) => check.messages.map((message) => message.text || message.code || 'Cảnh báo').join(' · ')
-  const warningChecks = checks?.cattle.filter((check) => check.hasWarnings) ?? []
-  const checkRows: Array<[string, ReactNode, boolean?]> = checks
-    ? [
-      ['Tổng quan', warningChecks.length ? `${warningChecks.length} con có cảnh báo` : 'Không có cảnh báo', warningChecks.length > 0],
-      ...checks.cattle.map((check) => [check.cattleCode, check.hasWarnings ? checkMessages(check) || 'Có cảnh báo' : 'OK', check.hasWarnings] as [string, ReactNode, boolean?]),
-    ]
-    : [['Tổng quan', checksError ? `Không tải được kiểm tra: ${displayError(checksError)}` : checking ? 'Đang tải kết quả kiểm tra…' : 'Chưa kiểm tra. Lưu phiếu để xem kết quả.', true]]
-  const checksReady = Boolean(checks)
+  const { checkRows, checksReady } = useExitComposition({ checks, checksError, checking, displayError })
 
   return (
     <Layout title={`Phiếu xuất mới – ${type}`}>
