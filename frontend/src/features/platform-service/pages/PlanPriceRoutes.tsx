@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, DISCARD_PROMPT, EmptyBlock, ErrorBlock, Field, Foot, inputCls, LoadingBlock, Modal, ModalButton, ModalFooter, Note, PageHeader, Pagination, Radio } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { BackendError } from '../../../shared/api/backendClient'
 import { planPriceApi, priceError, type PlanPrice, type PublishPrice } from '../api/planPriceApi'
 import { usePmAccess } from '../components/common'
+import { usePlanPriceList } from '../hooks/usePlatformServiceUseCase'
 import { fmtDateTime, fmtMoney, fmtSeconds } from '../domain/dates'
 import { parseVnd, PRICE_ERROR, validPrice } from '../domain/pricing'
 import type { PriceDraft, PriceStatus } from '../types'
@@ -67,7 +67,8 @@ export default function PlanPriceRoutes() {
   const [page, setPage] = useState(() => { try { const p = Number(sessionStorage.getItem('beefcare:plan-price-page')); return Number.isSafeInteger(p) && p >= 0 && p <= 107374182 ? p : 0 } catch { return 0 } })
   const [tick, setTick] = useState(0)
   const receivedAt = useRef(Date.now())
-  const query = useQuery(async () => { const value = await planPriceApi.list(page); receivedAt.current = Date.now(); return value }, [page, tick])
+  const query = usePlanPriceList(page, tick)
+  useEffect(() => { if (query.data) receivedAt.current = Date.now() }, [query.data])
   const [draft, setDraft] = useState<PriceDraft | null>(null); const baseline = useRef('')
   const [error, setError] = useState<string | null>(null); const [message, setMessage] = useState<string | null>(null)
   const [errorField, setErrorField] = useState<keyof PriceDraft | null>(null)

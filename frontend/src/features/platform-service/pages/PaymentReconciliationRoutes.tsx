@@ -3,9 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { activateTableRow, activateTableRowByKey, Badge, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, interactiveRowClass, LoadingBlock, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { platformServiceApi } from '../api/platformServiceApi'
+import { useReconciliationQueries } from '../hooks/usePlatformServiceUseCase'
 import EvidencePanel from '../components/EvidencePanel'
 import EvidenceTrack from '../components/EvidenceTrack'
 import ReconcileDialogs from '../components/ReconcileDialogs'
@@ -45,11 +45,7 @@ function ReconciliationPage() {
   const [tick, setTick] = useState(0)
 
   const filters = useMemo(() => ({ status, bankFrom: from, bankTo: to }), [status, from, to])
-  const list = useQuery(() => platformServiceApi.listEvidence(filters), [filters, tick])
-  const tiles = useQuery(() => platformServiceApi.paymentTiles(), [tick])
-  const payments = useQuery(() => platformServiceApi.listPayments(), [tick])
-  const selected = useQuery(() => platformServiceApi.getEvidence(selectedId), [selectedId, tick])
-  const candidates = useQuery(() => platformServiceApi.listCandidates(selectedId), [selectedId, tick])
+  const { list, tiles, payments, selected, candidates } = useReconciliationQueries(filters, selectedId, tick)
 
   if ((list.loading && !list.data) || (payments.loading && !payments.data)) return <Layout title={TITLE}><LoadingBlock /></Layout>
   const failure = list.error ?? payments.error ?? tiles.error

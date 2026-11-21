@@ -3,10 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { activateTableRow, activateTableRowByKey, Button, Card, DateInput, EmptyBlock, ErrorBlock, FilterSelect, Foot, Info, interactiveRowClass, LoadingBlock, Note, PageHeader, Pagination, SearchInput, Table, Td, Th } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../../app/session/sessionContext'
 import { platformServiceApi } from '../api/platformServiceApi'
+import { useSubscriptionDetail, useSubscriptionList } from '../hooks/usePlatformServiceUseCase'
 import PeriodsDialog from '../components/PeriodsDialog'
 import { ServiceBadge, wideScreen } from '../components/common'
 import type { Coverage, ServiceStatus, SubscriptionFilters, SubscriptionPage } from '../types'
@@ -32,7 +32,7 @@ function savedFilters(key: string): { filters: SubscriptionFilters; farmId: numb
 }
 
 function DetailPanel({ farmId, refresh, reveal }: { farmId: number; refresh: number; reveal: boolean }) {
-  const { data, loading, error, refetch } = useQuery(() => platformServiceApi.getSubscription(farmId), [farmId, refresh])
+  const { data, loading, error, refetch } = useSubscriptionDetail(farmId, refresh)
   const [modal, openModal, closeModal] = useModalParam()
   // Below xl the panel sits under the list: when the PM picks a farm, scroll to it once its detail has loaded (as SCR-51).
   const box = useRef<HTMLElement>(null)
@@ -90,6 +90,7 @@ export default function PlatformSubscriptionRoutes() {
   // The farm the PM chose (not the first row picked automatically when a page loads): its detail is scrolled to.
   const [revealId, setRevealId] = useState<number | null>(null)
   const pick = (id: number) => { setFarmId(id); setRevealId(id) }
+  const subscriptionQuery = useSubscriptionList(filters, refresh)
   const [result, setResult] = useState<{ data: SubscriptionPage | null; loading: boolean; error: unknown }>({ data: null, loading: true, error: null })
   const rangeError = invalidDates(controls)
 
@@ -99,21 +100,17 @@ export default function PlatformSubscriptionRoutes() {
   }, [search])
   useEffect(() => { if (!rangeError) setFilters(controls) }, [controls, rangeError])
   useEffect(() => {
-    let active = true
-    setResult((previous) => ({ ...previous, loading: true, error: null }))
-    platformServiceApi.listSubscriptions(filters).then((data) => {
-      if (!active) return
-      if (data.items.length === 0 && data.total > 0 && data.page * 20 >= data.total) {
-        // A page kept in the session can pass the end once data changes: open the last existing page instead of "no matches".
-        // The target page is always lower than the requested one, so this cannot loop.
-        setControls((current) => ({ ...current, page: Math.ceil(data.total / 20) - 1 }))
-        return
-      }
-      setResult({ data, loading: false, error: null })
-      setFarmId((selected) => data.items.some((r) => r.farmId === selected) ? selected : data.items[0]?.farmId ?? null)
-    }, (error: unknown) => active && setResult({ data: null, loading: false, error }))
-    return () => { active = false }
-  }, [filters, refresh])
+    if (subscriptionQuery.loading) { setResult((previous) => ({ ...previous, loading: true, error: null })); return }
+    if (subscriptionQuery.error) { setResult({ data: null, loading: false, error: subscriptionQuery.error }); return }
+    const data = subscriptionQuery.data
+    if (!data) return
+    if (data.items.length === 0 && data.total > 0 && data.page * 20 >= data.total) {
+      setControls((current) => ({ ...current, page: Math.ceil(data.total / 20) - 1 }))
+      return
+    }
+    setResult({ data, loading: false, error: null })
+    setFarmId((selected) => data.items.some((r) => r.farmId === selected) ? selected : data.items[0]?.farmId ?? null)
+  }, [subscriptionQuery.data, subscriptionQuery.error, subscriptionQuery.loading])
   useEffect(() => {
     try { sessionStorage.setItem(storageKey, JSON.stringify({ filters, farmId })) } catch { /* Optional session preference. */ }
   }, [storageKey, filters, farmId])
