@@ -229,7 +229,6 @@ export default function RowEditModal({ cow, index, recordId, dateIso, pricing = 
               type="number"
               min="0"
               max="1500"
-              step="any"
               className={compactInputCls}
               value={weightInput}
               onChange={(e) => {
