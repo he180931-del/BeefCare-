@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Badge, Button, Card, ErrorBlock, Field, Foot, Icon, inputCls, LoadingBlock, Note, PageHeader, Table, Td, Textarea, Th } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../api/announcementsApi'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { messageOf, useViewer } from '../components/shared'
-import { AnnouncementError, BODY_MAX, canWrite, MESSAGES, REASON_MAX, validateText } from '../domain/announcementRules'
+import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
+import { AnnouncementError, canWrite, MESSAGES } from '../domain/announcementRules'
 import { formatFull } from '../domain/format'
+import { BODY_MAX, REASON_MAX, validateText } from '../validation/announcementValidation'
 
 type Errors = Partial<Record<'title' | 'body' | 'reason', string>>
 const TITLE = 'Đính chính thông báo'
@@ -16,7 +16,7 @@ export default function AnnouncementCorrectionPage() {
   const viewer = useViewer()
   const navigate = useNavigate()
   const id = Number(useParams().id)
-  const detail = useQuery(() => announcementsApi.get(id, viewer), [id, viewer])
+  const { detail, correct } = useAnnouncementUseCases({ viewer, detailId: id })
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [reason, setReason] = useState('')
@@ -62,7 +62,7 @@ export default function AnnouncementCorrectionPage() {
     setBusy(true)
     setBanner('')
     try {
-      const result = await announcementsApi.correct(viewer, id, { title, body, reason, expectedVersion: a.version })
+      const result = await correct(id, { title, body, reason, expectedVersion: a.version })
       navigate(`/thong-bao?tab=authored&id=${id}`, { state: { toast: MESSAGES.corrected(result.versions[0]?.versionNo ?? next) } })
     } catch (e) {
       if (e instanceof AnnouncementError && e.code === 'CONFLICT') setConflict(e.message)

@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { ErrorBlock, Icon, Info, LoadingBlock, Modal, ModalButton, ModalFooter } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../api/announcementsApi'
 import { MESSAGES } from '../domain/announcementRules'
+import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
 import { ROLE_LABEL } from '../domain/format'
 import type { PublishResult, Viewer } from '../types'
 import { messageOf, RichText } from './shared'
@@ -13,7 +12,7 @@ export default function ReviewDialog({ viewer, draftId, onBack, onPublished }: {
   onBack: () => void
   onPublished: (result: PublishResult) => void
 }) {
-  const preview = useQuery(() => announcementsApi.previewPublish(viewer, draftId), [viewer, draftId])
+  const { preview, publish: publishAnnouncement } = useAnnouncementUseCases({ viewer, previewId: draftId })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -21,7 +20,7 @@ export default function ReviewDialog({ viewer, draftId, onBack, onPublished }: {
     if (!preview.data) return
     setBusy(true)
     setError('')
-    try { onPublished(await announcementsApi.publish(viewer, draftId, preview.data.announcement.version)) } catch (e) { setError(messageOf(e, 'Không đăng được thông báo. Vui lòng thử lại.')) } finally { setBusy(false) }
+    try { onPublished(await publishAnnouncement(draftId, preview.data.announcement.version)) } catch (e) { setError(messageOf(e, 'Không đăng được thông báo. Vui lòng thử lại.')) } finally { setBusy(false) }
   }
 
   const a = preview.data?.announcement

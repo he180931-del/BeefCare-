@@ -2,17 +2,16 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom'
 import TechnicianLayout from '../../../app/layouts/TechnicianLayout'
 import { EmptyBlock, ErrorBlock, LoadingBlock, Note, Segmented } from '../../../shared/ui'
-import { useQuery } from '../../../shared/hooks/useQuery'
-import { announcementsApi } from '../api/announcementsApi'
 import { messageOf, RichText, useViewer } from '../components/shared'
 import { formatFull, formatTime, ROLE_LABEL } from '../domain/format'
+import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
 
 type Tab = 'unread' | 'all'
 
 function TechnicianList() {
   const viewer = useViewer()
   const [tab, setTab] = useState<Tab>('unread')
-  const list = useQuery(() => announcementsApi.list(viewer), [viewer])
+  const { list } = useAnnouncementUseCases({ viewer, loadList: true })
   if (list.loading && !list.data) return <TechnicianLayout title="Thông báo trại" back="/kt"><LoadingBlock /></TechnicianLayout>
   if (list.error != null || !list.data) return <TechnicianLayout title="Thông báo trại" back="/kt"><ErrorBlock message={messageOf(list.error, 'Không tải được thông báo.')} onRetry={list.refetch} /></TechnicianLayout>
 
@@ -42,7 +41,7 @@ function TechnicianDetail() {
   const [params] = useSearchParams()
   const versionIdParam = params.get('versionId')
   const [readTime, setReadTime] = useState<string | null>(null)
-  const detail = useQuery(() => announcementsApi.get(id, viewer), [id, viewer])
+  const { detail, markRead } = useAnnouncementUseCases({ viewer, detailId: id })
   const selectedVersion = detail.data?.versions.find((version) => String(version.id) === versionIdParam)
     ?? (versionIdParam === null ? detail.data?.versions[0] : undefined)
 
@@ -50,9 +49,9 @@ function TechnicianDetail() {
   useEffect(() => {
     if (!detail.data || !selectedVersion?.unread || selectedVersion.id !== detail.data.versions[0]?.id) return
     let active = true
-    announcementsApi.markRead(viewer, id).then((r) => { if (active) setReadTime(r?.readTime ?? null) }, () => undefined)
+    markRead(id).then((r) => { if (active) setReadTime(r?.readTime ?? null) }, () => undefined)
     return () => { active = false }
-  }, [detail.data, id, selectedVersion, viewer])
+  }, [detail.data, id, markRead, selectedVersion])
 
   if (detail.loading && !detail.data) return <TechnicianLayout title="Thông báo" back="/kt/thong-bao"><LoadingBlock /></TechnicianLayout>
   if (detail.error != null || !detail.data) return <TechnicianLayout title="Thông báo" back="/kt/thong-bao"><ErrorBlock message={messageOf(detail.error, 'Không tải được thông báo.')} onRetry={detail.refetch} /></TechnicianLayout>
