@@ -1,6 +1,3 @@
-export { createFarmWorkspaceApi, farmWorkspaceApi, type FarmWorkspaceApi } from './api/farmWorkspaceApi'
-export type { FarmWorkspaceDemoStore, FarmUpdateInput } from './data/farmWorkspaceDemoStore'
-export { validateFarmInfo, validateFarmRegistration, validateInvite, validateMemberChange, validateOwnerProfile } from './validation/workspaceValidation'
 // Onboarding shell and farm entry reused by the subscription and cattle screens.
 export { default as SetupLayout } from './components/SetupLayout'
 export { InactiveFarmBanner, Stepper, farmWorkspaceError, openedInactiveFromFarmSelect } from './components/WorkspaceUi'
