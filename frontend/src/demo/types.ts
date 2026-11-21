@@ -1,4 +1,4 @@
-import type { CattleCode } from './features/cattle/types'
+import type { CattleCode } from '../features/cattle/types'
 
 // Shared by Herd Entry and Herd Exit: owner not decided yet (docs/frontend-refactor-guide.md §6.3, §13 item 2).
 export interface CattleDetail {
@@ -30,7 +30,7 @@ export interface Payment { date: string; by: string; method: string; ref: string
 export type CollectionRow = Record<string, unknown>
 
 // Compatibility path (refactor phase 2): these types moved to their feature. New code imports them from the feature.
-export type { BarnHistoryRow, Cattle, CattleCare, CattleCode, CattleEvent, CattleInput, CattleStatus, ImportRecord, ImportRecordField, QrHistoryRow, StatusChip, Tone } from './features/cattle/types'
-export type { Pen, PenCode, PenCowLink, PenStatus } from './features/pen-management/types'
-export type { EntryCalf, EntryCow, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from './features/herd-entry/types'
-export type { ExitDetail, ExitDraft, ExitDraftCow, ExitStatus, ExitType, HerdExit } from './features/herd-exit/types'
+export type { BarnHistoryRow, Cattle, CattleCare, CattleCode, CattleEvent, CattleInput, CattleStatus, ImportRecord, ImportRecordField, QrHistoryRow, StatusChip, Tone } from '../features/cattle/types'
+export type { Pen, PenCode, PenCowLink, PenStatus } from '../features/pen-management/types'
+export type { EntryCalf, EntryCow, EntryDetail, EntryDraft, EntryStatus, EntryType, HerdEntry } from '../features/herd-entry/types'
+export type { ExitDetail, ExitDraft, ExitDraftCow, ExitStatus, ExitType, HerdExit } from '../features/herd-exit/types'

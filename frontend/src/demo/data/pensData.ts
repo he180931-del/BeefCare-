@@ -1,4 +1,4 @@
-import type { Pen, PenCowLink, PenStatus } from '../../types'
+import type { Pen, PenCowLink, PenStatus } from '../types'
 // Canonical pen seed shared by Pen management, Cattle, Entry and Exit flows.
 type PenOptions = {
   accept?: string

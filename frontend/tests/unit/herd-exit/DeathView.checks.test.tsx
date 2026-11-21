@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SessionContext } from '../../../src/app/session/sessionContext'
-import type { HerdExit } from '../../../src/types'
+import type { HerdExit } from '../../../src/features/herd-exit/types'
 
 const apiState = vi.hoisted(() => ({
   checks: vi.fn(),

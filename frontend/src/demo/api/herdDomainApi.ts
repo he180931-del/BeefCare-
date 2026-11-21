@@ -3,7 +3,7 @@ import { seedPens } from '../data/pensData'
 import { canonicalCattle } from '../data/cattleData'
 import { migrateHerdStorage } from './storageMigrations'
 import { cattleSchema, penSchema } from './collectionSchemas'
-import type { Cattle, Pen, PenCowLink, CattleInput } from '../../types'
+import type { Cattle, Pen, PenCowLink, CattleInput } from '../types'
 import { backendMode } from '../../shared/config/runtime'
 
 if (backendMode !== 'backend') migrateHerdStorage()

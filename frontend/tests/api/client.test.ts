@@ -4,7 +4,10 @@ import { createCollection, createCollectionSchema } from '../../src/demo/api/cli
 import type { CollectionRow } from '../../src/demo/api/client'
 import { MemoryStorage } from '../support/memoryStorage'
 import { cattleSchema, herdEntrySchema, herdExitSchema, penSchema } from '../../src/demo/api/collectionSchemas'
-import type { Cattle, HerdEntry, HerdExit, Pen } from '../../src/types'
+import type { Cattle } from '../../src/features/cattle/types'
+import type { HerdEntry } from '../../src/features/herd-entry/types'
+import type { HerdExit } from '../../src/features/herd-exit/types'
+import type { Pen } from '../../src/features/pen-management/types'
 
 const memoryStorage = () => new MemoryStorage()
 type TestRow = CollectionRow & { id: string; count?: number; status?: string }

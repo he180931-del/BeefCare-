@@ -2,7 +2,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { HerdEntry } from '../../../src/types'
+import type { HerdEntry } from '../../../src/features/herd-entry/types'
 
 const record: HerdEntry = {
   id: 'PN-2026-0041', date: '2026-10-29', type: 'Mua ngoài', status: 'Đã nhập', source: 'Trang trại Mộc Châu', count: 1,

@@ -144,19 +144,9 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     reason: 'Legacy UI still owns Entry/Exit business props and also has the documented Feed Stock consumers.',
     removalTask: 'Task 3.8',
   }, */
-  'types.ts': {
-    owner: 'herd-entry-exit-compatibility',
-    allowedConsumers: [
-      'demo/api/collectionSchemas.ts', 'demo/api/herdDomainApi.ts',
-      'demo/data/cattleData.ts', 'demo/data/pensData.ts',
-    ],
-    runtime: 'production-compatibility',
-    reason: 'Herd Exit and a small legacy aggregate still share an unresolved root type owner (PR-05/PR-08).',
-    removalTask: 'Task 3.8',
-  },
 }
 
-const LEGACY_FILES = [...sourceFiles('api'), ...sourceFiles('components'), ...sourceFiles('data'), 'types.ts']
+const LEGACY_FILES = [...sourceFiles('api'), ...sourceFiles('components'), ...sourceFiles('data')]
 
 const inboundConsumers = (graph: { edges: ImportEdge[] }, target: string): string[] => [...new Set(
   graph.edges.filter((edge) => edge.target === target).map((edge) => edge.source),
@@ -261,7 +251,7 @@ test('the legacy root folders only hold the documented leftovers', () => {
   assert.equal(existsSync(join(srcDir, 'hooks')), false, 'shared hooks belong to shared/hooks, feature hooks to the feature')
   const present = ['api', 'components', 'data'].flatMap((dir) => sourceFiles(dir))
   assert.deepEqual(present.filter((file) => !(file in LEGACY_ALLOWED)), [])
-  assert.deepEqual(readdirSync(srcDir).filter((name) => /\.(ts|tsx)$/.test(name)).sort(), ['main.tsx', 'types.ts', 'vite-env.d.ts'])
+  assert.deepEqual(readdirSync(srcDir).filter((name) => /\.(ts|tsx)$/.test(name)).sort(), ['main.tsx', 'vite-env.d.ts'])
 })
 
 test('app providers keep the order Router > Auth > AuthGate > Session', () => {
