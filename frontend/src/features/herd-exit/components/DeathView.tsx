@@ -38,6 +38,7 @@ export default function DeathView({ row }: { row: HerdExit }) {
   const [reviewedChecks, setReviewedChecks] = useState<ExitChecks | null>(null)
   const [reviewedSnapshot, setReviewedSnapshot] = useState<string | null>(null)
   const [documentError, setDocumentError] = useState('')
+  const lossKindReadOnly = pending && d.sourceHealthCaseId != null
   const checks = reviewedChecks ?? liveChecks
   const checksCurrent = Boolean(checks && reviewedSnapshot === editableSnapshot)
   useEffect(() => {
@@ -127,9 +128,10 @@ export default function DeathView({ row }: { row: HerdExit }) {
               <Field label="Loại mất *">
                 <div className="flex gap-[18px] pt-2">
                   {['Chết', 'Mất tích'].map((t) => (
-                    <Radio key={t} name="lossType" checked={lossType === t} onChange={() => pending && setLossType(t)}>{t}</Radio>
+                    <Radio key={t} name="lossType" checked={lossType === t} className={lossKindReadOnly ? 'pointer-events-none opacity-60' : undefined} onChange={() => !lossKindReadOnly && pending && setLossType(t)}>{t}</Radio>
                   ))}
                 </div>
+                {lossKindReadOnly && <Note>Loại chết / mất lấy từ kết quả ca sức khỏe và chỉ đọc.</Note>}
               </Field>
             </div>
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">

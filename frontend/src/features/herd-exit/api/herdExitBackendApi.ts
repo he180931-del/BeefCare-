@@ -119,7 +119,10 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     ])
     const buyerName = textValue(detail.buyer ?? record.who)
     const persistedType = current?.type ?? record.type
-    const explicitLossKind = draft.lossKind ?? detail.lossKind ?? detail.lossType
+    // A pending voucher created by a health case owns its loss kind. Ignore any stale or tampered
+    // screen value and let the backend's completion workflow keep the source case result authoritative.
+    const sourceLossKind = current?.detail?.sourceHealthCaseId != null ? current.detail.lossKind : undefined
+    const explicitLossKind = sourceLossKind ?? draft.lossKind ?? detail.lossKind ?? detail.lossType
     const isLoss = persistedType === 'Chết / mất' || isMissingLoss(explicitLossKind)
     const backendLossKind = isLoss ? (isMissingLoss(explicitLossKind) ? 'MISSING' : 'DIED') : null
     const backendExitType = backendLossKind === 'MISSING' ? 'OTHER' : backendLossKind === 'DIED' ? 'DEATH' : exitType(persistedType)
@@ -184,24 +187,31 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
   }
   const removeAttachment = async (code: string, attachmentId: number): Promise<void> => {
     const current = await resolve(code)
-    await transport.command(`${root}/${current.backendId}/attachments/${attachmentId}`, undefined, { method: 'DELETE' })
+    const key = `beefcare-exit-attachment-remove-${await digest(canonicalize({ voucherId: current.backendId, attachmentId }))}`
+    await transport.command(`${root}/${current.backendId}/attachments/${attachmentId}`, undefined, { method: 'DELETE', key })
   }
   const voidVoucher = async (code: string, reason: string): Promise<HerdExit> => {
     const current = await resolve(code)
-    const result = await transport.command(`${root}/${current.backendId}/void`, { reason, penOverrides: {}, warningReasons: {}, expectedVersion: current.version })
+    const body = { reason, penOverrides: {}, warningReasons: {}, expectedVersion: current.version }
+    const key = `beefcare-exit-void-${await digest(canonicalize({ voucherId: current.backendId, ...body }))}`
+    const result = await transport.command(`${root}/${current.backendId}/void`, body, { key })
     return mapVoucher(unwrapVoucher(result))
   }
   const recordPayment = async (code: string, payment: PaymentInput): Promise<HerdExit> => {
     const current = await resolve(code)
-    await transport.command(transport.farmPath(farmId, `/vouchers/exit/${current.backendId}/payments`), {
+    const body = {
       paymentDate: isoDate(payment.date), amount: payment.amount, method: enumPaymentMethod(payment.method), reference: payment.ref || null,
       note: payment.note || null, voucherVersion: current.version,
-    })
+    }
+    const key = `beefcare-exit-collection-${await digest(canonicalize({ voucherId: current.backendId, ...body }))}`
+    await transport.command(transport.farmPath(farmId, `/vouchers/exit/${current.backendId}/payments`), body, { key })
     return get(code)
   }
   const dismissVoucher = async (code: string, reason: string, expectedVersion?: number): Promise<HerdExit> => {
     const current = await resolve(code)
-    const result = await transport.command(`${root}/${current.backendId}/dismiss`, { reason, expectedVersion: expectedVersion ?? current.version })
+    const body = { reason, expectedVersion: expectedVersion ?? current.version }
+    const key = `beefcare-exit-dismiss-${await digest(canonicalize({ voucherId: current.backendId, ...body }))}`
+    const result = await transport.command(`${root}/${current.backendId}/dismiss`, body, { key })
     return mapVoucher(unwrapVoucher(result))
   }
   const selectableCattle = async (): Promise<ExitCandidate[]> => asRows(await transport.get(`${root}/selectable-cattle`)).map((row) => {

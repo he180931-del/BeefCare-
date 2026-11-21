@@ -24,7 +24,7 @@ import DeathView from '../../../src/features/herd-exit/components/DeathView'
 const pendingDeath: HerdExit = {
   id: 'PX-2026-0008', date: '2026-10-21', type: 'Chết / mất', status: 'Chờ xác nhận', who: 'Ca HC-0418', count: 1,
   detail: {
-    death: true, lossType: 'Chết', date: '2026-10-21', source: 'Ca sức khỏe HC-0418', reporter: 'Trần Quốc Long', reason: 'Tiêu chảy cấp', disposal: 'Tiêu hủy / chôn lấp tại trại',
+    death: true, lossKind: 'DIED', lossType: 'Chết', sourceHealthCaseId: 418, date: '2026-10-21', source: 'Ca sức khỏe HC-0418', reporter: 'Trần Quốc Long', reason: 'Tiêu chảy cấp', disposal: 'Tiêu hủy / chôn lấp tại trại',
     cow: { code: 'BC-000156', tag: 'VN-0377', breed: 'Lai Sind', sex: 'Cái', age: '14 tháng', barn: 'A2', weight: 180, estimated: true, caseLine: ['HC-0418', 'đóng: Chết'] },
   },
 }
@@ -42,6 +42,17 @@ beforeEach(() => {
 })
 
 describe('pending death/missing exit checks', () => {
+  it('keeps the health-case loss kind read-only', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)
+
+    await screen.findByText('Cảnh báo cần xem')
+    await user.click(screen.getByText('Mất tích'))
+
+    expect(screen.getByText('Nguyên nhân chết *')).toBeInTheDocument()
+    expect(screen.queryByText('Nguyên nhân mất tích *')).not.toBeInTheDocument()
+  })
+
   it('loads real checks, requires acknowledgement, and confirms with the checks version', async () => {
     const user = userEvent.setup()
     render(<MemoryRouter><DeathView row={pendingDeath} /></MemoryRouter>)

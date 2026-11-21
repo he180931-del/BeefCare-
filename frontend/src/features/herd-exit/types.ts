@@ -47,6 +47,7 @@ export interface ExitDetail {
   docs?: ExitDocument[]
   history?: string[]
   buyer?: string
+  sourceHealthCaseId?: number
   barnShift?: string
   checks?: Array<[string, string, boolean?]>
   deduction?: number

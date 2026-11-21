@@ -80,6 +80,8 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
   const row = asRecord(value)
   const lines = asRows(row.lines)
   const buyer = asRecord(row.buyer)
+  const sourceHealthCase = asRecord(row.sourceHealthCase)
+  const sourceHealthCaseId = nullableNumber(sourceHealthCase.id)
   const buyerName = textValue(buyer.label ?? buyer.name ?? row.buyerName)
   const total = nullableNumber(row.totalReceivable ?? row.totalAmount)
   const due = nullableNumber(row.outstanding ?? row.outstandingAmount)
@@ -102,7 +104,8 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
   }
   if (isLoss) {
     detail.cow = cows[0]
-    detail.source = textValue(asRecord(row.sourceHealthCase).label)
+    detail.sourceHealthCaseId = sourceHealthCaseId ?? undefined
+    detail.source = textValue(sourceHealthCase.label)
     detail.reporter = textValue(asRecord(row.reportedBy).label)
     detail.barnShift = textValue(lines[0]?.penCode)
   }
