@@ -134,7 +134,7 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
   'api/client.ts': {
     owner: 'local-demo-adapters',
     allowedConsumers: [
-      'api/collectionSchemas.ts', 'api/herdDomainApi.ts', 'api/penApi.ts',
+      'api/collectionSchemas.ts', 'api/herdDomainApi.ts',
       'features/cattle/data/cattleLocalStore.ts', 'features/feed-stock/data/feedRationDemoStore.ts',
       'features/feed-stock/data/feedReceiptDemoStore.ts', 'features/herd-entry/api/herdEntryLocalApi.ts',
       'features/herd-exit/api/herdExitLocalApi.ts', 'features/pen-management/data/penLocalStore.ts',
@@ -146,7 +146,7 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
   'api/collectionSchemas.ts': {
     owner: 'local-demo-adapters',
     allowedConsumers: [
-      'api/herdDomainApi.ts', 'api/penApi.ts', 'features/cattle/data/cattleLocalStore.ts',
+      'api/herdDomainApi.ts', 'features/cattle/data/cattleLocalStore.ts',
       'features/herd-entry/api/herdEntryLocalApi.ts', 'features/herd-exit/api/herdExitLocalApi.ts',
       'features/pen-management/data/penLocalStore.ts',
     ],
@@ -172,16 +172,9 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     reason: 'Aggregate local/demo adapter joining Cattle, Pen, Entry and Exit.',
     removalTask: 'Task 3.8',
   },
-  'api/penApi.ts': {
-    owner: 'pen-management',
-    allowedConsumers: [],
-    runtime: 'dead-until-removal',
-    reason: 'Legacy pen adapter has no inbound source consumer at this checkpoint.',
-    removalTask: 'Task 3.8',
-  },
   'api/storageMigrations.ts': {
     owner: 'local-demo-adapters',
-    allowedConsumers: ['api/herdDomainApi.ts', 'api/penApi.ts', 'features/pen-management/data/penLocalStore.ts'],
+    allowedConsumers: ['api/herdDomainApi.ts', 'features/pen-management/data/penLocalStore.ts'],
     runtime: 'demo-only',
     reason: 'Storage migration helpers are reachable only from legacy local persistence.',
     removalTask: 'Task 3.8',
@@ -213,18 +206,11 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
     reason: 'Seeded records remain behind the Cattle local demo adapter; production Cattle types now belong to the feature.',
     removalTask: 'Task 2.5A',
   },
-  'data/penData.ts': {
-    owner: 'pen-management',
-    allowedConsumers: [],
-    runtime: 'dead-until-removal',
-    reason: 'Legacy pen seed module has no inbound source consumer at this checkpoint.',
-    removalTask: 'Task 3.8',
-  },
   'data/pensData.ts': {
     owner: 'legacy-local-aggregate',
     allowedConsumers: [
-      'api/herdDomainApi.ts', 'api/penApi.ts', 'api/storageMigrations.ts', 'data/cowsData.ts',
-      'data/penData.ts', 'features/herd-exit/data/exitData.ts', 'features/pen-management/data/penLocalStore.ts',
+      'api/herdDomainApi.ts', 'api/storageMigrations.ts', 'data/cowsData.ts',
+      'features/herd-exit/data/exitData.ts', 'features/pen-management/data/penLocalStore.ts',
     ],
     runtime: 'demo-only',
     reason: 'Seeded pen records remain in the legacy local/demo adapter graph.',
@@ -233,7 +219,7 @@ const LEGACY_ALLOWED: Record<string, LegacyAllowance> = {
   'types.ts': {
     owner: 'herd-entry-exit-compatibility',
     allowedConsumers: [
-      'api/collectionSchemas.ts', 'api/herdDomainApi.ts', 'api/penApi.ts',
+      'api/collectionSchemas.ts', 'api/herdDomainApi.ts',
       'data/cattleData.ts', 'data/pensData.ts',
     ],
     runtime: 'production-compatibility',
@@ -322,18 +308,6 @@ test('legacy allowance rejects a components/ui allowance that omits Feed Stock c
   )
 }) */
 
-test('legacy allowance requires an explicit dead-until-removal state for an unreferenced file', () => {
-  const graph = { nodes: ['data/penData.ts'], edges: [] as ImportEdge[] }
-  const allowance: LegacyAllowance = {
-    ...LEGACY_ALLOWED['data/penData.ts'],
-    runtime: 'demo-only',
-  }
-  assert.throws(
-    () => assertLegacyAllowances(graph, { 'data/penData.ts': allowance }),
-    /data\/penData\.ts: no inbound consumer requires runtime=dead-until-removal/,
-  )
-})
-
 test('legacy allowance rejects a feature type-only import from root data', () => {
   const graph = {
     nodes: ['features/cattle/types.ts', 'data/cowsData.ts'],
@@ -345,18 +319,6 @@ test('legacy allowance rejects a feature type-only import from root data', () =>
   assert.throws(
     () => assertLegacyAllowances(graph, { 'data/cowsData.ts': allowance }),
     /feature production import from root data: features\/cattle\/types\.ts -> data\/cowsData\.ts \(type\)/,
-  )
-})
-
-test('legacy allowance rejects stale or non-exact removal task metadata', () => {
-  const graph = { nodes: ['data/penData.ts'], edges: [] as ImportEdge[] }
-  const allowance: LegacyAllowance = {
-    ...LEGACY_ALLOWED['data/penData.ts'],
-    removalTask: 'WBS 2.5 remove dead Pen compatibility data',
-  }
-  assert.throws(
-    () => assertLegacyAllowances(graph, { 'data/penData.ts': allowance }),
-    /data\/penData\.ts: removalTask must be an approved Task ID/,
   )
 })
 
