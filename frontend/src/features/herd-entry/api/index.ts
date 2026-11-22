@@ -1,6 +1,8 @@
 // Entry-specific façade. Entry data is backend-owned; do not expose the
 // localStorage-backed domain collections through this feature boundary.
 export {
+  entryPaymentVoidEnabled,
+  voidEntryPayment,
   entryLineCorrectionEnabled,
   entryVoidCheck,
   voidEntryLine,

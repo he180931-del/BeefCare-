@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { dmy, money } from '../../../shared/lib/format'
 import type { EntryDetail, HerdEntry } from '../types'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
+import { entryPaymentTotals } from '../domain/entryPaymentTotals'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
@@ -13,7 +14,7 @@ const TH = 'px-1! first:pl-3! last:pr-3!'
 export default function CancelModal({ record, onConfirm, onClose, error, saving, onReload }: { record: HerdEntry; onConfirm: (reason: string) => void | Promise<void>; onClose: () => void; error?: unknown; saving?: boolean; onReload?: () => Promise<unknown> }) {
   // Phiếu không có chi tiết (phiếu cũ) vẫn hủy được; danh sách bò rỗng.
   const d: EntryDetail = { payments: [], sourceName: record.source, ...record.detail, cows: (record.detail?.cows ?? []).filter(cow => cow.lineStatus !== 'VOID') }
-  const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
+  const { paid } = entryPaymentTotals(record)
   const blocked = (d.cows ?? []).some((c) => c.events?.length)
   const [reason, setReason] = useState('Ghi nhầm nguồn – bò thực tế mua của hộ ông Lê Văn C')
 

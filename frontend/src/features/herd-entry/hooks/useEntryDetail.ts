@@ -6,6 +6,7 @@ import type { CattleInput } from '../../cattle'
 import type { EntryDetail, EntryPayment, HerdEntry } from '../types'
 import { herdEntryError } from '../api/herdEntryError'
 import type { VoucherPaymentSnapshot, VoucherSnapshot } from '../../../shared/api/snapshotVersion'
+import { entryPaymentTotals } from '../domain/entryPaymentTotals'
 
 export function useEntryDetail(recordId: string) {
   const [documentError, setDocumentError] = useState<string | null>(null)
@@ -14,7 +15,7 @@ export function useEntryDetail(recordId: string) {
   const cancellation = useMutation<{ recordId: string; cattleRows: CattleInput[]; patch: Partial<HerdEntry>; snapshot: VoucherSnapshot }, HerdEntry>(({ recordId: targetId, cattleRows, patch, snapshot }) => voidHerdEntry(targetId, cattleRows, patch, snapshot))
   const record = query.data
   const detail: EntryDetail = { cows: [], payments: [], docs: [], history: [], ...record?.detail }
-  const canPay = Boolean(record && (record.debt ?? 0) > 0 && record.status === 'Đã nhập')
+  const canPay = Boolean(record && entryPaymentTotals(record).outstanding > 0 && record.status === 'Đã nhập')
   const canCancel = Boolean(record && record.status === 'Đã nhập' && detail.cows?.length)
 
   const savePayment = async (value: EntryPayment) => {

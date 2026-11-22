@@ -7,6 +7,8 @@ import { isoDate } from '../../../shared/lib/date/isoDate'
 import { birthAccuracy, declaration, entryType, enumPaymentMethod, findNamedId, findPurposeId, fullDate, lifeStage, mapDocuments, mapPendingCalf, mapVoucher, mergeDocuments, sex, unwrapVoucher } from './herdEntryMapper'
 import { BackendError } from '../../../shared/api/backendClient'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
+import { voidVoucherPayment } from '../../../shared/api/voucherPayments'
+import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
@@ -277,12 +279,15 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
   const recordPayment = async (code: string, payment: PaymentInput, snapshot: VoucherPaymentSnapshot): Promise<HerdEntry> => {
     const version = requireVersion(snapshot?.voucherVersion)
     const current = await resolve(code, snapshot?.backendId)
-    await transport.command(transport.farmPath(farmId, `/vouchers/entry/${current.backendId}/payments`), {
+    const body = {
       paymentDate: isoDate(payment.date), amount: payment.amount, method: enumPaymentMethod(payment.method), reference: payment.ref || null,
       note: payment.note || null, voucherVersion: version,
-    })
+    }
+    const key = `beefcare-entry-payment-${digest({ voucherId: current.backendId, ...body })}`
+    await transport.command(transport.farmPath(farmId, `/vouchers/entry/${current.backendId}/payments`), body, { key })
     return get(code, current.backendId)
   }
+  const voidPayment = (paymentId: number, input: VoidVoucherPaymentInput) => voidVoucherPayment(transport, farmId, paymentId, input)
   const pendingCalves = async (): Promise<EntryCalf[]> => asRows(await transport.get(transport.farmPath(farmId, '/pending-calves'))).map(mapPendingCalf)
   const diedBeforeRegistration = async (calfOutcomeId: number, reason: string): Promise<EntryCalf> => {
     const result = await transport.command(
@@ -311,5 +316,5 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
     const body = asRecord(await transport.get(transport.farmPath(farmId, '/cattle?herdStatus=ACTIVE&size=200')))
     return asRows(body.items).map((row): EntryParentOption => ({ id: numberValue(row.id), code: textValue(row.code ?? row.displayCode), sex: row.sex === 'MALE' ? 'MALE' : 'FEMALE', name: textValue(row.name) })).filter((row) => row.id > 0)
   }
-  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, pendingCalves, diedBeforeRegistration, assignCalfParentage, sellers, vaccines, breeds, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voidEntryLine, correctEntryLine }
+  return { list, listView, listPens, get, save, discard, voidVoucher, recordPayment, voidPayment, pendingCalves, diedBeforeRegistration, assignCalfParentage, sellers, vaccines, breeds, parentCattle, downloadAttachment, removeAttachment, downloadImportTemplate, previewExcel, commitExcel, entryVoidCheck, voidEntryLine, correctEntryLine }
 }

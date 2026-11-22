@@ -11,9 +11,15 @@ import { demo } from '../../../demo/demoModules'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
 import type { Pen } from '../../pen-management'
 import type { Cattle } from '../../cattle'
+import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
 
 const backendApi = createHerdExitBackendApi({ transport: backendTransport, farmId: activeFarmId })
 const usingBackend = backendMode === 'backend'
+
+export const exitPaymentVoidEnabled = usingBackend
+export const voidExitPayment = (paymentId: number, input: VoidVoucherPaymentInput) => usingBackend
+  ? backendApi.voidPayment(paymentId, input)
+  : Promise.reject(new Error('Chế độ demo chưa hỗ trợ hủy thanh toán'))
 
 export { getExitDraftState }
 

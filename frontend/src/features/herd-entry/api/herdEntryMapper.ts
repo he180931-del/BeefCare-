@@ -2,6 +2,7 @@ import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../
 import type { EntryCalf, EntryDetail, EntryDocument, EntryDraft, EntryPayment, EntryStatus, EntryType, HerdEntry } from '../types'
 import { toBusinessTime } from '../../../shared/lib/date/farmTime'
 import { dmy } from '../../../shared/lib/format'
+import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
 
 // Entry voucher DTO ↔ screen model mapping (EntryVoucherResource, PendingCalfResource), moved out of herdEntryBackendApi.ts.
 export const statusFromBackend = (status: unknown): EntryStatus => status === 'POSTED' ? 'Đã nhập' : status === 'VOIDED' ? 'Đã hủy' : 'Nháp'
@@ -24,13 +25,7 @@ export const lifeStage = (value: unknown, farmBorn = false) => {
   return 'ADULT'
 }
 
-export const paymentRows = (value: unknown): EntryPayment[] => asRows(value).map((row) => ({
-  date: textValue(row.paymentDate ?? row.date),
-  by: textValue(row.recordedBy ?? row.createdBy, '—'),
-  method: row.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản',
-  ref: textValue(row.reference, '—'),
-  amount: numberValue(row.amount),
-}))
+export const paymentRows = (value: unknown): EntryPayment[] => mapVoucherPayments(value)
 
 export const mapDocuments = (value: unknown, root: string, voucherId: number) => asRows(value).map((document) => ({
   id: numberValue(document.id),
@@ -155,7 +150,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
     entryType: row.entryType === 'PURCHASE' || row.entryType === 'FARM_BORN' ? row.entryType : undefined,
     pricingBasis: row.pricingBasis === 'PER_KG' || row.pricingBasis === 'PER_HEAD' ? row.pricingBasis : undefined,
     type: typeFromBackend(row.entryType), source: sellerName, count: numberValue(row.cattleCount, lines.length),
-    weight: numberValue(row.totalWeightKg), total, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
+    weight: numberValue(row.totalWeightKg), total, paid: nullableNumber(row.amountPaid) ?? undefined, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
     cancelReason: textValue(row.voidReason), pricing, quarantine: textValue(row.quarantineCertNo),
   }
 }

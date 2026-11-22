@@ -17,12 +17,18 @@ import { entryToday } from '../validation/entryValidation'
 import type { EntryCow } from '../types'
 import { demo } from '../../../demo/demoModules'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
+import type { VoidVoucherPaymentInput } from '../../../shared/domain/voucherPayment'
 
 const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farmId: activeFarmId })
 
 // Explicit mode: `npm run dev:mock` (VITE_BEEFCARE_DATA_SOURCE unset) serves the demo data,
 // `backend` talks to the real API and never falls back to the demo data.
 const usingBackend = backendMode === 'backend'
+
+export const entryPaymentVoidEnabled = usingBackend
+export const voidEntryPayment = (paymentId: number, input: VoidVoucherPaymentInput) => usingBackend
+  ? backendApi.voidPayment(paymentId, input)
+  : Promise.reject(new Error('Chế độ demo chưa hỗ trợ hủy thanh toán'))
 
 export const entryLineCorrectionEnabled = usingBackend
 const unsupportedLineCommand = () => new Error('Chế độ demo chưa hỗ trợ sửa / hủy bản ghi nhập')

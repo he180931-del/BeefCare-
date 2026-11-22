@@ -6,6 +6,8 @@ import { BackendError } from '../../../src/shared/api/backendClient'
 import type { HerdEntry } from '../../../src/features/herd-entry/types'
 
 const state = vi.hoisted(() => ({ get: vi.fn(), payment: vi.fn(), cancel: vi.fn() }))
+// This payment workflow belongs to an authenticated Manager (GBR-91).
+vi.mock('../../../src/app/session/sessionContext', async original => ({ ...(await original<typeof import('../../../src/app/session/sessionContext')>()), useSession: () => ({ role: 'MANAGER', fullName: 'Manager test', email: 'manager@example.test', farmId: null, farmName: null, logout: async () => undefined }) }))
 vi.mock('../../../src/features/herd-entry/api/index', async (original) => ({
   ...(await original<typeof import('../../../src/features/herd-entry/api/index')>()),
   herdEntryApi: { get: state.get, recordPayment: state.payment },
