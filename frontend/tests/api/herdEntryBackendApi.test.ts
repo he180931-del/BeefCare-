@@ -4,6 +4,56 @@ import { createHerdEntryBackendApi, type BackendTransport } from '../../src/feat
 import { BackendError } from '../../src/shared/api/backendClient'
 import { mapVoucher } from '../../src/features/herd-entry/api/herdEntryMapper'
 
+test('entry payments preserve identities, status, void metadata and server paid totals', () => {
+  const mapped = mapVoucher({ ...voucher('POSTED'), totalPayable: 10000000, amountPaid: 2000000, outstanding: 8000000, payments: [
+    { id: 11, version: 0, status: 'VOIDED', paymentDate: '2026-10-20', amount: 3000000, recordedByName: 'An', method: 'CASH', note: 'Đợt đầu', voidReason: 'Nhập nhầm', voidedAt: '2026-11-22T18:05:00Z' },
+    { paymentDate: '2026-10-20', amount: 2000000, method: 'BANK_TRANSFER' },
+  ] })
+  assert.equal(mapped.paid, 2000000); assert.equal(mapped.debt, 8000000)
+  const [voided, legacy] = mapped.detail!.payments!
+  assert.deepEqual([voided.id, voided.version, voided.status, voided.by, voided.note, voided.voidReason, voided.voidedAt], [11, 0, 'VOIDED', 'An', 'Đợt đầu', 'Nhập nhầm', '2026-11-22T18:05:00Z'])
+  assert.equal(legacy.status, 'RECORDED'); assert.equal(legacy.id, undefined); assert.equal(legacy.version, undefined)
+  assert.equal(mapVoucher({}).paid, undefined)
+})
+test('entry payment void keeps the opened payment version and has canonical body-specific keys without GETs', async () => {
+  const calls: Array<{ path: string; body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async () => { throw new Error('No eager snapshot refresh') },
+    command: async (path, body, options) => { calls.push({ path, body, key: options?.key }); return { payment: { id: 11, status: 'VOIDED', version: 1 }, summary: { total: 10000000, paid: 2000000, outstanding: 8000000, voucherVersion: 10 } } },
+  } })
+  const result = await api.voidPayment(11, { reason: '  Nhập nhầm  ', version: 0 })
+  await api.voidPayment(11, { version: 0, reason: 'Nhập nhầm' })
+  await api.voidPayment(11, { reason: 'Khác', version: 0 })
+  await api.voidPayment(12, { reason: 'Nhập nhầm', version: 0 })
+  await api.voidPayment(11, { reason: 'Nhập nhầm', version: 1 })
+  assert.equal(calls[0].path, '/api/farms/9/payments/11/void')
+  assert.deepEqual(calls[0].body, { reason: 'Nhập nhầm', version: 0 })
+  assert.match(calls[0].key!, /^beefcare-voucher-payment-void-/)
+  assert.equal(calls[0].key, calls[1].key)
+  for (const call of calls.slice(2)) assert.notEqual(call.key, calls[0].key)
+  assert.equal(result.payment.status, 'VOIDED'); assert.equal(result.summary.outstanding, 8000000)
+  for (const version of [undefined, -1, 0.5]) await assert.rejects(() => api.voidPayment(11, { reason: 'Nhầm', version }), /phiên bản/)
+  for (const reason of ['  ', 'x'.repeat(501)]) await assert.rejects(() => api.voidPayment(11, { reason, version: 0 }), /lý do/i)
+  assert.equal(calls.length, 5)
+})
+test('entry payment recording retries keep the same key and changed bodies or voucher snapshots change it', async () => {
+  const calls: Array<{ body: unknown; key?: string }> = []
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async path => path.endsWith('/attachments') || path.endsWith('/catalogues/breeds') ? [] : voucher('POSTED'),
+    command: async (_path, body, options) => { calls.push({ body, key: options?.key }); return {} },
+  } })
+  const input = { date: '2026-10-20', amount: 2000000, method: 'Tiền mặt', ref: '' }
+  await api.recordPayment('PN', input, { backendId: 41, voucherVersion: 0 })
+  await api.recordPayment('PN', input, { backendId: 41, voucherVersion: 0 })
+  await api.recordPayment('PN', { ...input, amount: 1 }, { backendId: 41, voucherVersion: 0 })
+  await api.recordPayment('PN', input, { backendId: 41, voucherVersion: 1 })
+  assert.match(calls[0].key!, /^beefcare-entry-payment-/)
+  assert.equal(calls[0].key, calls[1].key)
+  assert.notEqual(calls[0].key, calls[2].key); assert.notEqual(calls[0].key, calls[3].key)
+})
+
 test('entry detail resolves current breed labels from the farm catalogue, including historical inactive breeds', async () => {
   const api = createHerdEntryBackendApi({ farmId: 9, transport: {
     farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
