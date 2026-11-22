@@ -72,6 +72,16 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
       const weight = numberValue(line.entryWeightKg ?? data.entryWeightKg)
       const unitPrice = numberValue(line.unitPrice ?? data.unitPrice)
       return {
+        entryId: nullableNumber(line.id) ?? undefined,
+        lineStatus: line.status === 'VALID' || line.status === 'VOID' ? line.status : undefined,
+        lineVersion: nullableNumber(line.version) ?? undefined,
+        cattleId: nullableNumber(line.cattleId) ?? undefined,
+        weightBasis: line.weightBasis === 'MEASURED' || line.weightBasis === 'ESTIMATED' ? line.weightBasis : data.weightBasis === 'MEASURED' || data.weightBasis === 'ESTIMATED' ? data.weightBasis : undefined,
+        breedId: nullableNumber(data.breedId ?? line.breedId) ?? undefined,
+        sexCode: data.sex === 'MALE' || data.sex === 'FEMALE' ? data.sex : line.sex === 'MALE' || line.sex === 'FEMALE' ? line.sex : undefined,
+        birthDate: textValue(data.birthDate) || undefined,
+        birthDateAccuracy: data.birthDateAccuracy === 'EXACT' || data.birthDateAccuracy === 'ESTIMATED' || data.birthDateAccuracy === 'UNKNOWN' ? data.birthDateAccuracy : undefined,
+        damCode: textValue(line.damCode ?? data.damCode), sireCode: textValue(line.sireCode ?? data.sireCode),
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
         name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName, 'Bò')} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
         weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
@@ -132,6 +142,9 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
   } : undefined
   return {
     id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.entryDate),
+    sellerId: nullableNumber(row.sellerId ?? seller.id) ?? undefined,
+    entryType: row.entryType === 'PURCHASE' || row.entryType === 'FARM_BORN' ? row.entryType : undefined,
+    pricingBasis: row.pricingBasis === 'PER_KG' || row.pricingBasis === 'PER_HEAD' ? row.pricingBasis : undefined,
     type: typeFromBackend(row.entryType), source: sellerName, count: numberValue(row.cattleCount, lines.length),
     weight: numberValue(row.totalWeightKg), total, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
     cancelReason: textValue(row.voidReason), pricing, quarantine: textValue(row.quarantineCertNo),
