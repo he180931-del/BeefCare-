@@ -2,6 +2,17 @@ import type { CattleCode } from '../cattle'
 import type { PenCode } from '../pen-management'
 
 export interface EntryCattleDetail {
+  entryId?: number
+  lineStatus?: 'VALID' | 'VOID'
+  lineVersion?: number
+  cattleId?: number
+  weightBasis?: EntryWeightBasis
+  breedId?: number
+  sexCode?: EntrySexCode
+  birthDate?: string
+  birthDateAccuracy?: EntryBirthAccuracy
+  damCode?: string
+  sireCode?: string
   code?: CattleCode
   tag?: string
   breed?: string
@@ -132,6 +143,9 @@ export interface HerdEntry {
   id: string
   backendId?: number
   version?: number
+  sellerId?: number
+  entryType?: 'PURCHASE' | 'FARM_BORN'
+  pricingBasis?: 'PER_KG' | 'PER_HEAD'
   date?: string
   type?: EntryType
   source?: string
@@ -147,3 +161,33 @@ export interface HerdEntry {
   quarantine?: string
   [key: string]: unknown
 }
+
+export type EntryWeightBasis = 'MEASURED' | 'ESTIMATED'
+export type EntrySexCode = 'MALE' | 'FEMALE'
+export type EntryBirthAccuracy = 'EXACT' | 'ESTIMATED' | 'UNKNOWN'
+export type EntryLineChanges = {
+  entryDate?: string | null
+  sellerId?: number | null
+  quarantineCertNo?: string | null
+  vehiclePlate?: string | null
+  entryWeightKg?: number | null
+  weightBasis?: EntryWeightBasis | null
+  unitPrice?: number | null
+  breedId?: number | null
+  sex?: EntrySexCode | null
+  birthDate?: string | null
+  birthDateAccuracy?: EntryBirthAccuracy | null
+}
+export type EntryLineVoidInput = { reason: string; expectedVersion: number | undefined }
+export type EntryLineCorrectionInput = EntryLineVoidInput & { voucherVersion: number | undefined; changes: EntryLineChanges }
+export type EntryLineVoidCheck = {
+  entryId?: number
+  lineNo?: number
+  cattleId?: number
+  cattleCode: string
+  eventsAfterEntry: string[]
+  canVoid: boolean
+  reason: string | null
+}
+export type EntryLineNotice = { code: string; params: Record<string, unknown>; message: string }
+export type EntryLineCommandResult = { notice: EntryLineNotice | null; overpaidNotice: EntryLineNotice | null }

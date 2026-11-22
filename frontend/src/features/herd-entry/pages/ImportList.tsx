@@ -161,7 +161,7 @@ export default function ImportList() {
         </div>
 
         <Foot>
-          Phiếu NHÁP chưa tạo hồ sơ bò, chưa đổi chuồng và công nợ. Phiếu ĐÃ NHẬP: sửa từng con tại Hồ sơ bò › Sửa bản ghi nhập đàn;
+          Phiếu NHÁP chưa tạo hồ sơ bò, chưa đổi chuồng và công nợ. Phiếu ĐÃ NHẬP: mở chi tiết phiếu và dùng Sửa / Hủy ở từng dòng;
           chỉ hủy cả phiếu khi chưa con nào có sự kiện khác (GBR-33).
         </Foot>
       </div>

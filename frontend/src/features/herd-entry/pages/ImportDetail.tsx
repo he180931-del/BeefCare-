@@ -1,12 +1,16 @@
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Badge, Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
-import type { EntryPayment } from '../types'
+import type { EntryLineCommandResult } from '../types'
+import EntryLineModal from '../components/EntryLineModal'
+import { entryLineCorrectionEnabled } from '../api'
+import { useSession } from '../../../app/session/sessionContext'
 import { useEntryDetail } from '../hooks/useEntryDetail'
 import { herdEntryError } from '../api/herdEntryError'
 import { isVersionConflict } from '../../../shared/api/snapshotVersion'
@@ -17,6 +21,9 @@ export default function ImportDetail() {
   const { id } = useParams()
   const recordId = id ?? ''
   const [m, openModal, closeModal] = useModalParam()
+  const [params, setParams] = useSearchParams()
+  const role = useSession()?.role
+  const [lineResult, setLineResult] = useState<EntryLineCommandResult | null>(null)
   const detailQuery = useEntryDetail(recordId)
   const { record: r, detail: d, loading, paymentError, voidError, documentError, canPay, canCancel, savePayment, cancelRecord, viewDocument } = detailQuery
 
@@ -37,6 +44,15 @@ export default function ImportDetail() {
   }
 
   const paid = d.payments?.reduce((s, payment) => s + payment.amount, 0) ?? (r.total != null ? r.total - (r.debt || 0) : 0)
+  const lineActions = entryLineCorrectionEnabled && (role === 'OWNER' || role === 'MANAGER') && r.status === 'Đã nhập'
+  const selectedLine = lineActions ? d.cows?.find(line => line.lineStatus === 'VALID' && line.entryId != null && String(line.entryId) === params.get('entry')) : undefined
+  const lineModal = (name?: 'line' | 'cancel', entryId?: number) => {
+    const next = new URLSearchParams(params)
+    next.delete('entry')
+    if (name) next.set('m', name); else next.delete('m')
+    if (entryId != null) next.set('entry', String(entryId))
+    setParams(next)
+  }
 
   return (
     <Layout title={`Chi tiết phiếu nhập – ${r.status}`} user="manager">
@@ -47,6 +63,8 @@ export default function ImportDetail() {
         </PageHeader>
         {Boolean(paymentError || voidError) && !isVersionConflict(paymentError || voidError) && !m && <Note tone="err">{herdEntryError(paymentError || voidError)}</Note>}
         {documentError && <Note tone="err">{documentError}</Note>}
+        {lineResult?.notice && <Note tone="ok">{lineResult.notice.message}</Note>}
+        {lineResult?.overpaidNotice && <Note tone="warn">{lineResult.overpaidNotice.message}</Note>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
           <div className="flex min-w-0 flex-col gap-[18px]">
@@ -66,7 +84,7 @@ export default function ImportDetail() {
             </Card>
 
             <Card title="Bò trong phiếu" sub={`${r.count} con · ${kg(r.weight)}`}>
-              <Table stack={false}>
+              <Table stack={false} scroll>
                 <thead>
                   <tr>
                     <Th className={`${TH} w-[90px]`}>Mã bò</Th>
@@ -76,23 +94,25 @@ export default function ImportDetail() {
                     <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
                     <Th className={`${TH} w-[90px]`}>Hiện tại</Th>
                     <Th className={`${TH} w-[90px]`}>Thành tiền</Th>
+                    {lineActions && <Th className={TH}>Thao tác</Th>}
                   </tr>
                 </thead>
                 <tbody>
                   {(d.cows ?? []).map((c) => (
-                    <tr key={c.code}>
-                      <Td className={`${TH} font-medium`}>{c.code}</Td>
+                    <tr key={c.entryId ?? c.code} className={c.lineStatus === 'VOID' ? 'opacity-60' : undefined}>
+                      <Td className={`${TH} font-medium`}>{c.code}{c.lineStatus === 'VOID' && <Badge>Đã hủy</Badge>}</Td>
                       <Td className={TH}>{c.tag}</Td>
                       <Td className={TH}>{c.breed}</Td>
                       <Td className={`${TH} whitespace-nowrap`}>{kg(c.weight)}</Td>
                       <Td className={TH}>{c.barn}</Td>
                       <Td className={TH}>{c.current}</Td>
                       <Td className={`${TH} whitespace-nowrap`}>{money(c.amount)}</Td>
+                      {lineActions && <Td className={TH}>{c.lineStatus === 'VALID' && c.entryId != null && <Button onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
                     </tr>
                   ))}
                   {!(d.cows ?? []).length && (
                     <tr>
-                      <Td colSpan={7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
+                      <Td colSpan={lineActions ? 8 : 7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td>
                     </tr>
                   )}
                 </tbody>
@@ -102,11 +122,12 @@ export default function ImportDetail() {
                     <Td className={`${TH} whitespace-nowrap`}>{kg(r.weight)}</Td>
                     <Td className={TH} /><Td className={TH} />
                     <Td className={TH}>{d ? money(d.cowsTotal) : ''}</Td>
+                    {lineActions && <Td className={TH} />}
                   </tr>
                 </tfoot>
               </Table>
               <p className="m-0 text-[11px] text-muted">
-                Danh sách bò của phiếu đã nhập không sửa được. Sửa từng con tại Hồ sơ bò › Sửa bản ghi nhập đàn; hủy cả phiếu chỉ khi chưa con nào có sự kiện khác.
+                Danh sách bò của phiếu đã nhập không thêm hoặc bớt được. Sửa hoặc hủy từng con bằng nút Sửa / Hủy ở mỗi dòng. Hủy cả phiếu chỉ khi chưa con nào có sự kiện khác.
               </p>
             </Card>
 
@@ -159,17 +180,18 @@ export default function ImportDetail() {
             )}
             <Card title="Lịch sử phiếu">
               <div className="flex flex-col gap-2 text-xs">
-                {(d?.history || [`${dmy(r.date)} · Phiếu được ${r.status === 'Đã hủy' ? 'hủy' : 'lưu'}`]).map((h) => <span key={h}>{h}</span>)}
+                {(d?.history || [`${dmy(r.date)} · Phiếu được ${r.status === 'Đã hủy' ? 'hủy' : 'lưu'}`]).map((h, index) => <span key={`${index}:${h}`}>{h}</span>)}
               </div>
             </Card>
           </div>
         </div>
 
-        <Foot>Phiếu ĐÃ NHẬP chỉ xem; thanh toán có danh sách khoản đã ghi (ngày, phương thức, số tiền, tham chiếu, người ghi); khoản bị hủy hiện gạch ngang.</Foot>
+        <Foot>Sửa / hủy bản ghi nhập cần lý do; thanh toán có danh sách khoản đã ghi (ngày, phương thức, số tiền, tham chiếu, người ghi); khoản bị hủy hiện gạch ngang.</Foot>
       </div>
 
       {m === 'pay' && canPay && <PayModal record={r} saving={detailQuery.paymentSaving} error={paymentError} onReload={async () => { await detailQuery.reload(); closeModal() }} onSave={async (value) => { await savePayment(value); closeModal() }} onClose={closeModal} />}
       {m === 'cancel' && canCancel && <CancelModal record={r} saving={detailQuery.voidSaving} error={voidError} onReload={async () => { await detailQuery.reload(); closeModal() }} onConfirm={async (reason) => { await cancelRecord(reason); closeModal() }} onClose={closeModal} />}
+      {m === 'line' && selectedLine && <EntryLineModal key={`${r.id}:${selectedLine.entryId}`} record={r} line={selectedLine} onClose={() => lineModal()} onVoidVoucher={() => lineModal('cancel')} onReload={async () => { await detailQuery.reload(); lineModal() }} onSuccess={async result => { setLineResult(result); lineModal(); await detailQuery.refetch() }} />}
     </Layout>
   )
 }
