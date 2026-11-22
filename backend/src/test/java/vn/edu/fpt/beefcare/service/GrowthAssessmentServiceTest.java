@@ -50,6 +50,33 @@ class GrowthAssessmentServiceTest extends DomainTestSupport {
         assertThat(timeline.timeline(f.getId(),c.getId(),"GROWTH",true)).anyMatch(e->"REVISION".equals(e.type()));
         assertThat(service.history(f.getId(),c.getId(),90).records()).hasSize(2);
     }
+    /** D43: sửa và xóa (loại trừ mềm) không bắt buộc ghi chú; vẫn lưu giá trị trước, người và thời điểm. */
+    @Test
+    void correctionAndDeleteWorkWithoutNoteAndStillKeepRevision() {
+        Farm f = farm();
+        actAs(memberWithRole(f, FarmRole.MANAGER));
+        Cattle c = animal(f);
+        Growth a = weight(c, TODAY.minusDays(30), "300");
+        Growth b = weight(c, TODAY.minusDays(10), "320");
+
+        GrowthDtos.Measurement fixed = measurement(TODAY.minusDays(10).atStartOfDay(java.time.ZoneOffset.ofHours(7)).toInstant(), "SCALE", "322", null, true);
+        GrowthDtos.Record corrected = service.correct(f.getId(), c.getId(), b.getId(), new GrowthDtos.Correction("CORRECT", fixed, null, b.getVersion()));
+        assertThat(corrected.weightKg()).isEqualByComparingTo("322");
+        assertThat(corrected.revisions()).singleElement().satisfies(r -> {
+            assertThat(r.reason()).isNull();
+            assertThat(((Number) r.before().get("weightKg")).doubleValue()).isEqualTo(320.0);
+        });
+
+        GrowthDtos.Record deleted = service.correct(f.getId(), c.getId(), a.getId(), new GrowthDtos.Correction("EXCLUDE", null, "   ", a.getVersion()));
+        assertThat(deleted.status()).isEqualTo("EXCLUDED");
+        assertThat(deleted.revisions()).singleElement().satisfies(r -> assertThat(r.reason()).isNull());
+        assertThat(service.history(f.getId(), c.getId(), 90).records()).hasSize(2);
+
+        Growth fresh = em.find(Growth.class, b.getId());
+        String tooLong = "x".repeat(501);
+        assertThatThrownBy(() -> service.correct(f.getId(), c.getId(), b.getId(), new GrowthDtos.Correction("EXCLUDE", null, tooLong, fresh.getVersion())))
+            .isInstanceOf(DomainException.class);
+    }
     @Test void herdGroupsRespectSrsPriorityAndYoungBreedingFemaleIsYoungStock() {
         Farm f=farm();Cattle c=cattle(f,breed(f),purpose(f,PurposeType.BREEDING),Sex.FEMALE,LifeStage.YOUNG_STOCK);
         assertThat(profiles.herdGroup(c)).isEqualTo("YOUNG_STOCK");c.setLifeStage(LifeStage.ADULT);assertThat(profiles.herdGroup(c)).isEqualTo("BREEDING_FEMALES");

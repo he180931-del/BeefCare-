@@ -26,8 +26,8 @@ export function validateMeasurement(input: MeasurementInput, ctx: { now: string;
   return e
 }
 
-export function validateReason(reason: string | undefined): GrowthFieldErrors {
-  if (!reason?.trim()) return { reason: 'Lý do là bắt buộc.' }
-  if (reason.length > NOTE_MAX) return { reason: 'Lý do tối đa 500 ký tự.' }
+/** Ghi chú khi sửa / xóa bản ghi cân: không bắt buộc (D43), chỉ giới hạn độ dài. */
+export function validateCorrectionNote(note: string | undefined): GrowthFieldErrors {
+  if (note && note.length > NOTE_MAX) return { reason: 'Ghi chú tối đa 500 ký tự.' }
   return {}
 }
