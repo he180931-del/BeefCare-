@@ -1,6 +1,6 @@
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { ExitDetail, ExitDraft, ExitPayment, ExitStatus, ExitType, HerdExit, LossKind } from '../types'
-import type { ExitChecks } from './herdExitBackendApi'
+import type { ExitChecks, ExitVoidCheck } from './herdExitBackendApi'
 
 // Exit voucher DTO ↔ screen model mapping (ExitVoucherResource), moved out of herdExitBackendApi.ts.
 export const LIFE_STAGE_LABELS: Record<string, string> = {
@@ -73,6 +73,23 @@ export const mapChecks = (value: unknown): ExitChecks => {
   return {
     voucherId: numberValue(row.voucherId), code: textValue(row.code), version: nullableNumber(row.version) ?? undefined, exitDate: textValue(row.exitDate), cattle,
     occupancy: asRows(row.occupancy).map((item) => ({ penId: numberValue(item.penId), penCode: textValue(item.penCode), capacity: numberValue(item.capacity), before: numberValue(item.before), after: numberValue(item.after) })),
+  }
+}
+
+export const mapVoidCheck = (value: unknown): ExitVoidCheck => {
+  const row = asRecord(value)
+  const message = row.message == null ? undefined : asRecord(row.message)
+  return {
+    voucherId: numberValue(row.voucherId), code: textValue(row.code), version: nullableNumber(row.version) ?? undefined, voidable: row.voidable === true,
+    cattle: asRows(row.cattle).map((cow) => {
+      const last = cow.lastPen == null ? null : asRecord(cow.lastPen)
+      return {
+        cattleId: numberValue(cow.cattleId), cattleCode: textValue(cow.cattleCode), needsPenOverride: cow.needsPenOverride === true,
+        lastPen: last === null ? null : { penId: numberValue(last.penId), penCode: textValue(last.penCode), active: last.active === true, freePlaces: numberValue(last.freePlaces) },
+      }
+    }),
+    occupancyAfter: asRows(row.occupancyAfter).map((pen) => ({ penId: numberValue(pen.penId), penCode: textValue(pen.penCode), capacity: numberValue(pen.capacity), before: numberValue(pen.before), after: numberValue(pen.after) })),
+    message: message ? { code: textValue(message.code), text: textValue(message.text) } : undefined,
   }
 }
 

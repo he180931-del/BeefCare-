@@ -120,10 +120,12 @@ test('entry editor receives canonical pen rows instead of the legacy static barn
 
 test('exit cancellation copy is derived from canonical pens', () => {
   const cancelModal = readFileSync(resolve(root, 'features/herd-exit/components/CancelModal.tsx'), 'utf8')
-  assert.match(cancelModal, /useQuery\(\(\) => listExitCancelPens\(\)/)
-  // The demo reads its canonical pens; the real backend checks occupancy itself when cancelling.
+  const voidHook = readFileSync(resolve(root, 'features/herd-exit/hooks/useExitVoid.ts'), 'utf8')
+  assert.match(cancelModal, /useExitVoid\(/)
+  assert.match(voidHook, /Promise\.all\(\[exitVoidCheck\(row\.id, row\.backendId\), listExitCancelPens\(\)\]\)/)
+  // PR-D needs real pen occupancy for overrides; demo pens stay behind the local API branch.
   const exitApi = readFileSync(resolve(root, 'features/herd-exit/api/herdExitApi.ts'), 'utf8')
-  assert.match(exitApi, /export const listExitCancelPens = \(\): Promise<Pen\[\] \| null> => \(usingBackend \? Promise\.resolve\(null\) : demo\.exitLocal\.pens\.list\(\)\)/)
+  assert.match(exitApi, /export const listExitCancelPens = \(\): Promise<Pen\[\] \| null> => \(usingBackend \? backendApi\.listPens\(\) : demo\.exitLocal\.pens\.list\(\)\)/)
   assert.match(cancelModal, /occupancyText/)
   assert.doesNotMatch(cancelModal, /43\/50|47\/50/)
 })

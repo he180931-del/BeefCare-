@@ -4,7 +4,7 @@ import type { ExitPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
 import { backendTransport } from '../../../shared/api/backendTransport'
-import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks } from './herdExitBackendApi'
+import { createHerdExitBackendApi, type ExitCandidate, type ExitChecks, type ExitVoidCheck, type ExitVoidSelections } from './herdExitBackendApi'
 import { businessDate } from '../../../shared/lib/date/farmTime'
 import { getExitDraftState } from '../domain/exitDraft'
 import { demo } from '../../../demo/demoModules'
@@ -99,8 +99,8 @@ export const removeExitAttachment = async (id: string, attachmentId: number): Pr
   await backendApi.removeAttachment(id, attachmentId)
 }
 
-export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot) => usingBackend
-  ? backendApi.voidVoucher(id, { expectedVersion: snapshot?.expectedVersion, backendId: snapshot?.backendId, reason: String(patch.cancelReason ?? 'Hủy phiếu xuất') })
+export const cancelHerdExit = (id: string, cattleRows: CattleInput[], patch: Partial<HerdExit> = { status: 'Đã hủy' }, snapshot?: VoucherSnapshot & ExitVoidSelections) => usingBackend
+  ? backendApi.voidVoucher(id, { ...snapshot, expectedVersion: snapshot?.expectedVersion, reason: String(patch.cancelReason ?? 'Hủy phiếu xuất') })
   : demo.exitLocal.cancelExit(id, cattleRows, patch)
 
 export const dismissHerdExit = (id: string, reason: string, expectedVersion: number | undefined, backendId?: number) => usingBackend
@@ -146,8 +146,10 @@ export function exitCollectionDefaults(): { date: string; reference: string; sta
 /** Giá trị ban đầu của popup hủy phiếu xuất; máy chủ thật bắt đầu không có lý do. */
 export const exitCancelDefaults = (): { reason: string } => (usingBackend ? { reason: '' } : demo.exitLocal.cancelDefaults())
 
-/** Sĩ số chuồng để báo trước khi hủy. Máy chủ thật kiểm sức chứa lúc hủy nên không có danh sách trước (null). */
-export const listExitCancelPens = (): Promise<Pen[] | null> => (usingBackend ? Promise.resolve(null) : demo.exitLocal.pens.list())
+export const exitVoidCheck = (id: string, backendId?: number): Promise<ExitVoidCheck | null> => usingBackend ? backendApi.voidCheck(id, backendId) : Promise.resolve(null)
+
+/** Canonical occupancy for replacement choices; the server rechecks when voiding. */
+export const listExitCancelPens = (): Promise<Pen[] | null> => (usingBackend ? backendApi.listPens() : demo.exitLocal.pens.list())
 
 /**
  * Bò của phiếu còn gắn với phiếu hay không, điều kiện để hủy. Máy chủ thật tự kiểm khi hủy (`serverChecked`); bản mô phỏng

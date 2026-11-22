@@ -10,6 +10,7 @@ vi.mock('../../../src/features/herd-exit/api/index', () => ({
   cancelHerdExit: cancel,
   exitCancelDefaults: () => ({ reason: '' }),
   listExitCancelPens: async () => null,
+  exitVoidCheck: async () => null,
 }))
 import CancelModal from '../../../src/features/herd-exit/components/CancelModal'
 
@@ -23,7 +24,7 @@ describe('exit cancellation conflict', () => {
     await user.type(screen.getByRole('textbox'), 'Ly do huy dang nhap')
     await user.click(screen.getByRole('button', { name: 'Hủy phiếu xuất' }))
     await screen.findByRole('button', { name: 'Tải bản mới nhất' })
-    expect(cancel).toHaveBeenCalledWith(row.id, [], expect.objectContaining({ cancelReason: 'Ly do huy dang nhap' }), { expectedVersion: 3, backendId: 61 })
+    expect(cancel).toHaveBeenCalledWith(row.id, [], expect.objectContaining({ cancelReason: 'Ly do huy dang nhap' }), { expectedVersion: 3, backendId: 61, penOverrides: {}, warningReasons: {} })
     await user.click(screen.getByRole('button', { name: 'Ở lại' }))
     expect(screen.getByDisplayValue('Ly do huy dang nhap')).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()

@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Badge, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
@@ -11,6 +11,7 @@ import DeathView from '../components/DeathView'
 import { PaymentTable } from '../components/PaymentTable'
 import type { ExitDetail } from '../types'
 import { useExitDetail } from '../hooks/useExitDetail'
+import { exitCattleStatus } from '../domain/exitCattleStatus'
 
 export default function ExportDetail() {
   const { id } = useParams()
@@ -78,15 +79,18 @@ export default function ExportDetail() {
                 </tr>
               </thead>
               <tbody>
-                {(d.cows ?? []).map((c) => (
-                  <tr key={c.code}>
-                    <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
-                    <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
-                    <Td className={`${TH} !py-3`}>{c.barn}</Td>
-                    <Td className={`${TH} !py-3`}><ExitStatusBadge status="Đã xuất" /></Td>
-                    <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
-                  </tr>
-                ))}
+                {(d.cows ?? []).map((c) => {
+                  const cattleStatus = exitCattleStatus(c.current, r.status)
+                  return (
+                    <tr key={c.code}>
+                      <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
+                      <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
+                      <Td className={`${TH} !py-3`}>{c.barn}</Td>
+                      <Td className={`${TH} !py-3`}>{cattleStatus === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang nuôi</Badge> : cattleStatus === 'EXITED' ? <ExitStatusBadge status="Đã xuất" /> : '—'}</Td>
+                      <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
+                    </tr>
+                  )
+                })}
                 {!(d.cows ?? []).length && (
                   <tr><Td colSpan={7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td></tr>
                 )}
