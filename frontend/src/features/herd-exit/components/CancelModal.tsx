@@ -6,6 +6,7 @@ import type { HerdExit } from '../types'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 import { useExitVoid } from '../hooks/useExitVoid'
 import { exitVoidError } from '../api/exitVoidError'
+import { exitPaymentTotals } from '../domain/exitPaymentTotals'
 
 const MAX_REASON = 500
 
@@ -16,7 +17,7 @@ export default function CancelModal({ row, onClose, onCancelled, onReload }: { r
   useEffect(() => {
     if (form.choices.focusCattleId) warningInputs.current[form.choices.focusCattleId]?.focus()
   }, [form.error, form.choices.focusCattleId])
-  const collected = (row.detail?.payments ?? []).reduce((s, p) => s + p.amount, 0)
+  const { collected } = exitPaymentTotals(row)
   const barnCount = row.count
   const restoringByPen = restoreCounts(row.detail?.cows ?? [])
   const barnNames = Object.keys(restoringByPen)

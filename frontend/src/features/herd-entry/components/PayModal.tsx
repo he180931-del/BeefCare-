@@ -5,6 +5,7 @@ import { money } from '../../../shared/lib/format'
 import { RadioRow } from './parts'
 import type { EntryPayment, HerdEntry } from '../types'
 import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
+import { entryPaymentTotals } from '../domain/entryPaymentTotals'
 
 /**
  * Ghi nhận một khoản thanh toán cho phiếu nhập còn nợ. `record` là phiếu (có detail), `onSave(payment)`
@@ -13,8 +14,7 @@ import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 export default function PayModal({ record, onSave, onClose, error, saving, onReload }: { record: HerdEntry; onSave: (payment: EntryPayment & { note?: string }) => void | Promise<void>; onClose: () => void; error?: unknown; saving?: boolean; onReload?: () => Promise<unknown> }) {
   const d = { sourceName: record.source, payments: [], ...record.detail }
   const total = record.total ?? 0
-  const paid = d.payments?.reduce((s, p) => s + p.amount, 0) ?? 0
-  const debt = record.debt ?? 0
+  const { paid, outstanding: debt } = entryPaymentTotals(record)
   const [defaults] = useState(entryPaymentDefaults)
   const [date, setDate] = useState(defaults.date)
   const [amount, setAmount] = useState(debt)
@@ -25,8 +25,7 @@ export default function PayModal({ record, onSave, onClose, error, saving, onRel
 
   const over = amount > debt
   const invalid = amount <= 0 || over || !date
-  const projectedPaid = Math.min(total, paid + Math.max(amount, 0))
-  const remaining = Math.max(total - projectedPaid, 0)
+  const remaining = Math.max(debt - Math.max(amount, 0), 0)
 
   return (
     <Modal
@@ -80,8 +79,8 @@ export default function PayModal({ record, onSave, onClose, error, saving, onRel
 
       <Note tone="info">
         {remaining > 0
-          ? `Sau khi lưu: Còn nợ = ${money(remaining)} đ. Khoản đã ghi chỉ sửa/hủy kèm lý do và giữ lịch sử. Đây là sổ thu chi của trại, không phải hóa đơn thuế.`
-          : 'Sau khi lưu: Còn nợ = 0 đ, phiếu hiện "Đã thanh toán đủ". Khoản đã ghi chỉ sửa/hủy kèm lý do và giữ lịch sử.'}
+          ? `Sau khi lưu: Còn nợ = ${money(remaining)} đ. Khoản ghi sai cần hủy kèm lý do và giữ lịch sử. Đây là sổ thu chi của trại, không phải hóa đơn thuế.`
+          : 'Sau khi lưu: Còn nợ = 0 đ, phiếu hiện "Đã thanh toán đủ". Khoản ghi sai cần hủy kèm lý do và giữ lịch sử.'}
       </Note>
 
       {onReload && <VoucherCommandError error={error} onReload={onReload} />}

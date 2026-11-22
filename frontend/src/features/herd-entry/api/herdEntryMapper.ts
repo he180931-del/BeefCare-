@@ -1,5 +1,8 @@
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { EntryCalf, EntryDetail, EntryDocument, EntryDraft, EntryPayment, EntryStatus, EntryType, HerdEntry } from '../types'
+import { toBusinessTime } from '../../../shared/lib/date/farmTime'
+import { dmy } from '../../../shared/lib/format'
+import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
 
 // Entry voucher DTO ↔ screen model mapping (EntryVoucherResource, PendingCalfResource), moved out of herdEntryBackendApi.ts.
 export const statusFromBackend = (status: unknown): EntryStatus => status === 'POSTED' ? 'Đã nhập' : status === 'VOIDED' ? 'Đã hủy' : 'Nháp'
@@ -22,13 +25,7 @@ export const lifeStage = (value: unknown, farmBorn = false) => {
   return 'ADULT'
 }
 
-export const paymentRows = (value: unknown): EntryPayment[] => asRows(value).map((row) => ({
-  date: textValue(row.paymentDate ?? row.date),
-  by: textValue(row.recordedBy ?? row.createdBy, '—'),
-  method: row.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản',
-  ref: textValue(row.reference, '—'),
-  amount: numberValue(row.amount),
-}))
+export const paymentRows = (value: unknown): EntryPayment[] => mapVoucherPayments(value)
 
 export const mapDocuments = (value: unknown, root: string, voucherId: number) => asRows(value).map((document) => ({
   id: numberValue(document.id),
@@ -52,8 +49,9 @@ export const mergeDocuments = (...groups: Array<ReadonlyArray<EntryDocument> | u
   return merged
 }
 
-export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry => {
+export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unknown = []): HerdEntry => {
   const row = asRecord(value)
+  const breedNames = new Map(asRows(breeds).map(breed => [nullableNumber(breed.id), textValue(breed.name)] as const))
   const seller = asRecord(row.seller)
   const lines = asRows(row.lines)
   const pricing = pricingFromBackend(row.pricingBasis)
@@ -72,15 +70,31 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
       const weight = numberValue(line.entryWeightKg ?? data.entryWeightKg)
       const unitPrice = numberValue(line.unitPrice ?? data.unitPrice)
       return {
+        entryId: nullableNumber(line.id) ?? undefined,
+        lineStatus: line.status === 'VALID' || line.status === 'VOID' ? line.status : undefined,
+        lineVersion: nullableNumber(line.version) ?? undefined,
+        cattleId: nullableNumber(line.cattleId) ?? undefined,
+        weightBasis: line.weightBasis === 'MEASURED' || line.weightBasis === 'ESTIMATED' ? line.weightBasis : data.weightBasis === 'MEASURED' || data.weightBasis === 'ESTIMATED' ? data.weightBasis : undefined,
+        breedId: nullableNumber(data.breedId ?? line.breedId) ?? undefined,
+        sexCode: data.sex === 'MALE' || data.sex === 'FEMALE' ? data.sex : line.sex === 'MALE' || line.sex === 'FEMALE' ? line.sex : undefined,
+        birthDate: textValue(data.birthDate) || undefined,
+        birthDateAccuracy: data.birthDateAccuracy === 'EXACT' || data.birthDateAccuracy === 'ESTIMATED' || data.birthDateAccuracy === 'UNKNOWN' ? data.birthDateAccuracy : undefined,
+        damCode: textValue(line.damCode ?? data.damCode), sireCode: textValue(line.sireCode ?? data.sireCode),
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
-        name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName, 'Bò')} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
+        name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(data.breedId ?? line.breedId)) || 'Bò'} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
         weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
         amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice,
       }
     }),
     cowsTotal: numberValue(row.cattleAmount), freight: numberValue(row.transportFee),
     payments: paymentRows(row.payments), docs: mapDocuments(documents, '', 0),
-    history: asRows(row.history).map((item) => textValue(item.message ?? item.text ?? item.kind)).filter(Boolean),
+    history: asRows(row.history).map((item) => {
+      if (item.kind !== 'ENTRY_LINE_CORRECT' && item.kind !== 'ENTRY_LINE_VOID') return textValue(item.message ?? item.text ?? item.kind)
+      const details = asRecord(item.details)
+      const at = toBusinessTime(item.at)
+      const action = item.kind === 'ENTRY_LINE_CORRECT' ? 'Sửa bản ghi nhập' : 'Hủy bản ghi nhập'
+      return [at ? `${dmy(at.slice(0, 10))} ${at.slice(11, 16)}` : '', textValue(item.actor), `${action} ${textValue(details.cattle)}`.trim(), textValue(details.reason)].filter(Boolean).join(' · ')
+    }).filter(Boolean),
   }
   const farmBorn = row.entryType === 'FARM_BORN'
   const draft: EntryDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
@@ -132,8 +146,11 @@ export const mapVoucher = (value: unknown, documents: unknown = []): HerdEntry =
   } : undefined
   return {
     id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.entryDate),
+    sellerId: nullableNumber(row.sellerId ?? seller.id) ?? undefined,
+    entryType: row.entryType === 'PURCHASE' || row.entryType === 'FARM_BORN' ? row.entryType : undefined,
+    pricingBasis: row.pricingBasis === 'PER_KG' || row.pricingBasis === 'PER_HEAD' ? row.pricingBasis : undefined,
     type: typeFromBackend(row.entryType), source: sellerName, count: numberValue(row.cattleCount, lines.length),
-    weight: numberValue(row.totalWeightKg), total, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
+    weight: numberValue(row.totalWeightKg), total, paid: nullableNumber(row.amountPaid) ?? undefined, debt: outstanding, status: statusFromBackend(row.status), detail, draft,
     cancelReason: textValue(row.voidReason), pricing, quarantine: textValue(row.quarantineCertNo),
   }
 }
