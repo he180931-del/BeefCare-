@@ -1,11 +1,12 @@
 import type { CattleInput } from '../../cattle'
 import type { HerdExit } from '../types'
 import type { ExitPayment } from '../types'
+import type { Pen } from '../../pen-management'
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { BackendTransport } from '../../../shared/api/backendTransport'
 import { isoDate } from '../../../shared/lib/date/isoDate'
 import { requireVersion, type VoucherPaymentSnapshot, type VoucherSnapshot } from '../../../shared/api/snapshotVersion'
-import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapDocument, mapDocuments, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
+import { HERD_GROUP_LABELS, LIFE_STAGE_LABELS, enumPaymentMethod, exitType, findNamedId, isMissingLoss, mapChecks, mapVoidCheck, mapDocument, mapDocuments, mapVoucher, pricingBasis, unwrapVoucher } from './herdExitMapper'
 
 export type { BackendTransport } from '../../../shared/api/backendTransport'
 
@@ -19,6 +20,13 @@ export type ExitCheckOccupancy = { penId: number; penCode: string; capacity: num
 export type ExitChecks = {
   voucherId: number; code: string; version?: number; exitDate: string; cattle: ExitCattleCheck[]; occupancy: ExitCheckOccupancy[]
 }
+export type ExitVoidCheck = {
+  voucherId: number; code: string; version?: number; voidable: boolean
+  cattle: Array<{ cattleId: number; cattleCode: string; needsPenOverride: boolean; lastPen: { penId: number; penCode: string; active: boolean; freePlaces: number } | null }>
+  occupancyAfter: ExitCheckOccupancy[]
+  message?: ExitCheckMessage
+}
+export type ExitVoidSelections = { penOverrides?: Record<string, number>; warningReasons?: Record<string, string> }
 export type ExitCandidate = {
   code: string; backendId?: number; tag: string; breed: string; sex: string; age: string; group: string; groupKey?: string; stage: string; stageKey?: string; barn: string
   weight: number; weightNote: string; estimated: boolean; unitPrice: number; withdrawalUntil?: string; openCase?: string; penCount?: number; penCapacity?: number
@@ -93,6 +101,18 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
   const checks = async (code: string): Promise<ExitChecks> => {
     const { backendId } = await resolve(code)
     return mapChecks(await transport.get(`${root}/${backendId}/checks`))
+  }
+  const voidCheck = async (code: string, backendId?: number): Promise<ExitVoidCheck> => {
+    const current = await resolve(code, backendId)
+    return mapVoidCheck(await transport.get(`${root}/${current.backendId}/void-check`))
+  }
+  const listPens = async (): Promise<Pen[]> => {
+    const response = await transport.get(transport.farmPath(farmId, '/pens'))
+    const rows = Array.isArray(response) ? asRows(response) : asRows(asRecord(response).pens)
+    return rows.map((pen) => ({
+      id: numberValue(pen.id), code: textValue(pen.code), name: textValue(pen.name, textValue(pen.code)),
+      count: numberValue(pen.headcount), capacity: numberValue(pen.capacity), status: pen.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE', cows: [],
+    }))
   }
   const save = async ({ id, expectedVersion, record, cattleRows = [], documents = [] }: SaveInput): Promise<HerdExit> => {
     const version = id ? requireVersion(expectedVersion) : null
@@ -180,10 +200,14 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
     const key = `beefcare-exit-attachment-remove-${await digest(canonicalize({ voucherId: current.backendId, attachmentId }))}`
     await transport.command(`${root}/${current.backendId}/attachments/${attachmentId}`, undefined, { method: 'DELETE', key })
   }
-  const voidVoucher = async (code: string, { reason, expectedVersion, backendId }: VoucherSnapshot & { reason: string }): Promise<HerdExit> => {
+  const voidVoucher = async (code: string, { reason, expectedVersion, backendId, penOverrides = {}, warningReasons = {} }: VoucherSnapshot & ExitVoidSelections & { reason: string }): Promise<HerdExit> => {
     const version = requireVersion(expectedVersion)
     const current = await resolve(code, backendId)
-    const body = { reason, penOverrides: {}, warningReasons: {}, expectedVersion: version }
+    const body = {
+      reason: reason.trim(), expectedVersion: version,
+      penOverrides: Object.fromEntries(Object.entries(penOverrides).filter(([id, pen]) => /^[1-9]\d*$/.test(id) && Number.isSafeInteger(pen) && pen > 0)),
+      warningReasons: Object.fromEntries(Object.entries(warningReasons).filter(([id, text]) => /^[1-9]\d*$/.test(id) && text.trim()).map(([id, text]) => [id, text.trim()])),
+    }
     const key = `beefcare-exit-void-${await digest(canonicalize({ voucherId: current.backendId, ...body }))}`
     const result = await transport.command(`${root}/${current.backendId}/void`, body, { key })
     return mapVoucher(unwrapVoucher(result))
@@ -233,5 +257,5 @@ export function createHerdExitBackendApi({ transport, farmId }: { transport: Bac
   const buyers = async () => asRows(await transport.get(transport.farmPath(farmId, '/trading-partners?role=BUYER'))).map((row) => ({
     id: String(numberValue(row.id)), name: textValue(row.name), phone: textValue(row.phone),
   }))
-  return { list, get, checks, save, confirm, downloadAttachment, removeAttachment, voidVoucher, dismissVoucher, recordPayment, selectableCattle, buyers }
+  return { list, get, checks, voidCheck, listPens, save, confirm, downloadAttachment, removeAttachment, voidVoucher, dismissVoucher, recordPayment, selectableCattle, buyers }
 }
