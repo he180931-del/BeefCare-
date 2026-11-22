@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { mapVoucher } from '../../../src/features/herd-entry/api/herdEntryMapper'
 import { useEntryEditor } from '../../../src/features/herd-entry/hooks/useEntryEditor'
-import { validateEntryForPost } from '../../../src/features/herd-entry/validation/entryFormValidation'
+import { validateEntryForPost, validateEntryWeights } from '../../../src/features/herd-entry/validation/entryFormValidation'
 import type { EntryCow } from '../../../src/features/herd-entry/types'
 
 const cow: EntryCow = {
@@ -57,6 +57,23 @@ describe('purchase pricing round trip', () => {
 
 describe('voucher pricing owns purchase weight validation', () => {
   const input = { date: '2026-10-29', today: '2026-10-29', type: 'Mua ngoài' as const, sourceId: '7', receiver: 'An' }
+  it('allows missing kg weights in a draft and still blocks the same row before posting', () => {
+    const cows = [cow, { ...cow, weight: 0, weightBasis: null }]
+    expect(validateEntryWeights(cows, 'kg')).toBeNull()
+    expect(validateEntryForPost({ ...input, pricing: 'kg', cows })).toBe('Con #2: cân nhập phải lớn hơn 0 kg.')
+    expect(validateEntryWeights(cows, 'con')).toBeNull()
+    expect(validateEntryForPost({ ...input, pricing: 'con', cows })).toBeNull()
+  })
+  it.each([
+    [{ weight: 2000, weightBasis: 'MEASURED' as const }, 'Con #2: cân nhập phải từ 1 đến 1.500 kg.'],
+    [{ weight: 0.5, weightBasis: 'MEASURED' as const }, 'Con #2: cân nhập phải từ 1 đến 1.500 kg.'],
+    [{ weight: 250, weightBasis: null }, 'Con #2: vui lòng chọn cơ sở cân.'],
+  ])('keeps a hard draft validation error for %s', (patch, message) => {
+    const cows = [cow, { ...cow, ...patch }]
+    expect(validateEntryWeights(cows, 'kg')).toBe(message)
+    expect(validateEntryWeights(cows, 'con')).toBe(message)
+    expect(validateEntryForPost({ ...input, pricing: 'kg', cows })).toBe(message)
+  })
   it('allows a head-priced cow without weight even when its legacy line pricing says kg', () => {
     expect(validateEntryForPost({ ...input, pricing: 'con', cows: [{ ...cow, pricing: 'kg', weight: 0, weightBasis: null }] })).toBeNull()
   })
