@@ -118,8 +118,11 @@ beforeEach(() => {
   state.generatedId = 'PN-2026-0099'
 })
 
+const resetToHead = 'Đã đổi cách tính giá sang Theo con. Đơn giá các dòng đã được đặt về 0, vui lòng nhập lại.'
+const missingSecondWeight = 'Con #2 chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.'
+
 describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
-  it('reopens per-head pricing and keeps weights, bases and unit prices when switching the voucher basis', async () => {
+  it('reopens per-head pricing and keeps weights/bases while resetting prices when the basis changes', async () => {
     const user = userEvent.setup()
     const row = state.details['PN-2026-0041']
     row.pricing = 'con'
@@ -127,20 +130,150 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     renderPage('/herd-entry/new?id=PN-2026-0041')
     expect(await screen.findByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByRole('button', { name: 'Theo kg' }))
+    expect(screen.getByText('Đã đổi cách tính giá sang Theo kg. Đơn giá các dòng đã được đặt về 0, vui lòng nhập lại.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await waitFor(() => expect(state.saved).toHaveLength(1))
-    expect(state.saved[0].record).toMatchObject({ pricing: 'kg', draft: { pricing: 'kg', cows: [{ weight: 280, weightBasis: 'MEASURED', unitPrice: 8_500_000 }] } })
+    expect(state.saved[0].record).toMatchObject({ pricing: 'kg', draft: { pricing: 'kg', cows: [{ weight: 280, weightBasis: 'MEASURED', unitPrice: 0 }] } })
   })
 
-  it('blocks a kg draft save after switching from per head while a row has no weight', async () => {
+  it('allows a kg draft save with a missing weight and displays a non-blocking warning', async () => {
     const user = userEvent.setup()
     const row = state.details['PN-2026-0041']
     row.draft = { ...row.draft, pricing: 'con', cows: [{ ...cow, pricing: 'con', weight: 0, weightBasis: null }] }
     renderPage('/herd-entry/new?id=PN-2026-0041')
     await user.click(await screen.findByRole('button', { name: 'Theo kg' }))
+    expect(screen.getByText('Con #1 chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
-    expect(await screen.findByText(/Con #1:.*cân nhập/)).toBeInTheDocument()
+    await waitFor(() => expect(state.saved).toHaveLength(1))
+    expect(state.saved[0].record).toMatchObject({ status: 'Nháp', draft: { pricing: 'kg', cows: [{ weight: 0, weightBasis: null, unitPrice: 0 }] } })
+  })
+
+  it('saves and reopens a kg draft with missing row 2 weight without persisting warning state', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'kg', receiver: 'An', cows: [cow, { ...cow, tag: 'VN-0042', weight: 0, weightBasis: null }] }
+    const page = renderPage('/herd-entry/new?id=PN-2026-0041')
+    expect(await screen.findByText(missingSecondWeight)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await waitFor(() => expect(state.saved).toHaveLength(1))
+    expect(state.saved[0].record).toMatchObject({ status: 'Nháp', draft: { pricing: 'kg', cows: [{ weight: 280 }, { weight: 0, weightBasis: null }] } })
+    expect(state.saved[0].record.draft).not.toHaveProperty('priceResetNotice')
+    expect(state.saved[0].record.draft).not.toHaveProperty('missingWeightLines')
+    state.details[row.id] = { ...row, ...state.saved[0].record, id: row.id, version: 4 }
+    page.unmount()
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    expect(await screen.findByText(missingSecondWeight)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Theo kg' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('blocks posting the same kg voucher at missing row 2 without a save request', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'kg', receiver: 'An', cows: [cow, { ...cow, tag: 'VN-0042', weight: 0, weightBasis: null }] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await screen.findByText(missingSecondWeight)
+    await user.click(screen.getByRole('button', { name: /Lưu.*tạo hồ sơ/ }))
+    expect(await screen.findByText('Con #2: cân nhập phải lớn hơn 0 kg.')).toBeInTheDocument()
     expect(state.saved).toHaveLength(0)
+  })
+
+  it.each([
+    [{ weight: 2000, weightBasis: 'MEASURED' as const }, 'Con #1: cân nhập phải từ 1 đến 1.500 kg.'],
+    [{ weight: 250, weightBasis: null }, 'Con #1: vui lòng chọn cơ sở cân.'],
+  ])('still blocks a hard draft error for %s', async (patch, message) => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'kg', cows: [{ ...cow, ...patch }] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Lưu nháp phiếu' }))
+    expect(await screen.findByText(message)).toBeInTheDocument()
+    expect(state.saved).toHaveLength(0)
+  })
+
+  it('limits the missing-weight warning to five rows and hides it for per-head pricing', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'kg', cows: Array.from({ length: 7 }, (_, index) => ({ ...cow, tag: `VN-${index}`, weight: 0, weightBasis: null })) }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    expect(await screen.findByText('Con #1, #2, #3, #4, #5 và 2 con khác chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Theo con' }))
+    expect(screen.queryByText(/chưa có cân\. Bạn vẫn lưu nháp được/)).not.toBeInTheDocument()
+  })
+
+  it('clears the derived missing-weight warning after the row receives a valid weight and basis', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'kg', cows: [{ ...cow, weight: 0, weightBasis: null }] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await screen.findByText('Con #1 chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.')
+    await user.click(screen.getByRole('button', { name: 'Sửa con #1' }))
+    await user.click(screen.getByRole('radio', { name: 'Cân thực tế' }))
+    const weight = document.querySelector('#entry-cow-weight') as HTMLInputElement
+    await user.clear(weight); await user.type(weight, '250')
+    const price = document.querySelector('#entry-cow-unit-price') as HTMLInputElement
+    await user.clear(price); await user.type(price, '120000')
+    await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+    expect(screen.queryByText(/chưa có cân\. Bạn vẫn lưu nháp được/)).not.toBeInTheDocument()
+  })
+
+  it('resets every price on a basis change while preserving weights, bases, estimated flags and payment fields', async () => {
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm')
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'kg', freight: 1500000, paid: 500000, method: 'Tiền mặt', due: '2026-11-30', cows: [
+      { ...cow, weight: 250, weightBasis: 'MEASURED', estimated: false, unitPrice: 120000 },
+      { ...cow, tag: 'VN-0042', weight: 300, weightBasis: 'ESTIMATED', estimated: true, unitPrice: 90000 },
+    ] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Theo con' }))
+    expect(screen.getByText(resetToHead)).toBeInTheDocument()
+    expect(screen.queryByText('120.000')).not.toBeInTheDocument()
+    expect(screen.queryByText('90.000')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Theo kg' }))
+    expect(screen.queryByText(/Đã đổi cách tính giá sang/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await waitFor(() => expect(state.saved).toHaveLength(1))
+    expect(state.saved[0].record.draft).toMatchObject({ freight: 1500000, paid: 500000, method: 'Tiền mặt', due: '2026-11-30', cows: [
+      { weight: 250, weightBasis: 'MEASURED', estimated: false, unitPrice: 0, pricing: 'kg' },
+      { weight: 300, weightBasis: 'ESTIMATED', estimated: true, unitPrice: 0, pricing: 'kg' },
+    ] })
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when the already-selected pricing basis is clicked', async () => {
+    const user = userEvent.setup()
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Theo kg' }))
+    expect(screen.queryByText(/Đã đổi cách tính giá sang/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await waitFor(() => expect(state.saved).toHaveLength(1))
+    expect(state.saved[0].record.draft?.cows?.[0].unitPrice).toBe(cow.unitPrice)
+  })
+
+  it.each([0, 1])('does not show a reset notice when %s rows have no positive price', async (count) => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'kg', cows: count ? [{ ...cow, unitPrice: 0 }] : [] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Theo con' }))
+    expect(screen.queryByText(/Đã đổi cách tính giá sang/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('clears the price-reset notice after saving a row with its new price', async () => {
+    const user = userEvent.setup()
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Theo con' }))
+    expect(screen.getByText(resetToHead)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sửa con #1' }))
+    const amount = document.querySelector('#entry-cow-total-amount') as HTMLInputElement
+    await user.type(amount, '8500000')
+    await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+    expect(screen.queryByText(resetToHead)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await waitFor(() => expect(state.saved).toHaveLength(1))
+    expect(state.saved[0].record.draft?.cows?.[0].unitPrice).toBe(8500000)
+    expect(state.saved[0].record.draft).not.toHaveProperty('priceResetNotice')
   })
 
   it('posts a per-head voucher without a weight, using the voucher basis for its row popup and payload', async () => {
@@ -175,7 +308,7 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     expect(state.saved[1].cattleRows).toMatchObject([{ pricing: 'con', weight: 300, weightBasis: 'ESTIMATED', unitPrice: 8_500_000 }])
   })
 
-  it('keeps edited fields and files on 409/Stay, and replaces them only after explicit reload', async () => {
+  it('keeps edited fields, files and the price-reset notice on 409/Stay until explicit reload', async () => {
     const user = userEvent.setup()
     state.saveError = new BackendError(409, { code: 'MSG-COM-05' })
     renderPage('/herd-entry/new?id=PN-2026-0041')
@@ -183,9 +316,12 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     await user.clear(plate); await user.type(plate, 'BIEN-DANG-SUA')
     const file = new File(['pdf'], 'chua-luu.pdf', { type: 'application/pdf' })
     await user.upload(screen.getByLabelText('Chọn chứng từ đính kèm'), file)
+    await user.click(screen.getByRole('button', { name: 'Theo con' }))
+    expect(screen.getByText(resetToHead)).toBeInTheDocument()
     state.details['PN-2026-0041'] = { ...state.details['PN-2026-0041'], version: 9, draft: { ...state.details['PN-2026-0041'].draft, plate: 'BIEN-MOI-NHAT' } }
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await screen.findByRole('button', { name: 'Tải bản mới nhất' })
+    expect(screen.getByText(resetToHead)).toBeInTheDocument()
     expect(state.saved[0]).toMatchObject({ expectedVersion: 3, record: { backendId: 41 } })
     expect(state.saved[0].documents).toEqual([file])
     expect(state.getCalls).toHaveLength(1)
@@ -193,12 +329,14 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     await user.click(screen.getByRole('button', { name: 'Ở lại' }))
     expect(screen.getByDisplayValue('BIEN-DANG-SUA')).toBeInTheDocument()
     expect(screen.getByText('chua-luu.pdf')).toBeInTheDocument()
+    expect(screen.getByText(resetToHead)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Tải bản mới nhất' })).not.toBeInTheDocument()
     state.saveError = new BackendError(409, { code: 'MSG-COM-05' })
     await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
     await user.click(await screen.findByRole('button', { name: 'Tải bản mới nhất' }))
     expect(await screen.findByDisplayValue('BIEN-MOI-NHAT')).toBeInTheDocument()
     expect(screen.queryByText('chua-luu.pdf')).not.toBeInTheDocument()
+    expect(screen.queryByText(resetToHead)).not.toBeInTheDocument()
     expect(state.getCalls).toHaveLength(2)
     expect(state.saved).toHaveLength(2)
   })
