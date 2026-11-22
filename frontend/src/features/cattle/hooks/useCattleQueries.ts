@@ -35,9 +35,7 @@ export function useCattleProfileQuery(code: string) {
   return useQuery(() => loadProfile(code), [code])
 }
 
-export function useTechnicianHerdQuery() {
-  return useQuery(() => listCowsPage({ herdStatus: 'ACTIVE', size: 100 }), [])
-}
+export { useTechnicianHerdQuery } from './useTechnicianHerdQuery'
 
 export function useCattlePurposeQuery() {
   const purposes = useQuery(() => listPurposes(), [])
