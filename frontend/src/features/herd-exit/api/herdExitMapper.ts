@@ -1,6 +1,7 @@
 import { asRecord, asRows, nullableNumber, numberValue, textValue } from '../../../shared/api/parse'
 import type { ExitDetail, ExitDraft, ExitPayment, ExitStatus, ExitType, HerdExit, LossKind } from '../types'
 import type { ExitChecks, ExitVoidCheck } from './herdExitBackendApi'
+import { mapVoucherPayments } from '../../../shared/api/voucherPayments'
 
 // Exit voucher DTO ↔ screen model mapping (ExitVoucherResource), moved out of herdExitBackendApi.ts.
 export const LIFE_STAGE_LABELS: Record<string, string> = {
@@ -35,10 +36,7 @@ export const lossTypeLabel = (value: unknown) => {
   return textValue(value)
 }
 
-export const paymentRows = (value: unknown): ExitPayment[] => asRows(value).map((row) => ({
-  date: textValue(row.paymentDate ?? row.date), by: textValue(row.recordedBy ?? row.createdBy, '—'),
-  method: row.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', ref: textValue(row.reference, '—'), amount: numberValue(row.amount),
-}))
+export const paymentRows = (value: unknown): ExitPayment[] => mapVoucherPayments(value)
 
 export const mapDocument = (value: unknown, root: string, voucherId: number) => {
   const document = asRecord(value)
@@ -146,7 +144,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], root = '', v
     id: textValue(row.code), backendId: numberValue(row.id), version: nullableNumber(row.version) ?? undefined, date: textValue(row.exitDate),
     type: typeFromBackend(row.exitType, isLoss), who: buyerName || textValue(row.destination ?? row.deathCause),
     sub: textValue(row.note), count: numberValue(row.cattleCount, lines.length), weight: numberValue(row.totalWeightKg),
-    total, due, status: statusFromBackend(row.status), detail, draft, reason: textValue(row.closeReason), cancelReason: textValue(row.closeReason), note: textValue(row.note),
+    total, collected: nullableNumber(row.amountCollected) ?? undefined, due, status: statusFromBackend(row.status), detail, draft, reason: textValue(row.closeReason), cancelReason: textValue(row.closeReason), note: textValue(row.note),
   }
 }
 

@@ -1,5 +1,6 @@
 import type { CattleCode } from '../cattle'
 import type { PenCode } from '../pen-management'
+import type { VoucherPayment } from '../../shared/domain/voucherPayment'
 
 export interface EntryCattleDetail {
   entryId?: number
@@ -36,7 +37,7 @@ export interface EntryCattleDetail {
 }
 
 export interface EntryDocument { ext?: string; name: string; [key: string]: unknown }
-export interface EntryPayment { date: string; by: string; method: string; ref: string; amount: number; [key: string]: unknown }
+export type EntryPayment = VoucherPayment
 
 export type EntryStatus = 'Nháp' | 'Đã nhập' | 'Đã hủy'
 
@@ -152,6 +153,7 @@ export interface HerdEntry {
   count?: number
   weight?: number
   total?: number | null
+  paid?: number
   debt?: number | null
   status: EntryStatus
   detail?: EntryDetail
