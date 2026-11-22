@@ -213,6 +213,22 @@ describe('backend mode', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
+  it('maps attention rows that the backend sends without a type (draft calf A02, pending death exit A03, finishing reached A04)', async () => {
+    // Đúng hình dạng FarmDashboardService trả về: ba loại dòng này không có trường "type".
+    const attention = [
+      { calfOutcomeId: 3802, damId: 2719, damCode: 'BC-000019', birthTime: '2026-11-01T21:10:00Z', highlighted: true },
+      { voucherId: 3951, code: 'PX-2026-0001', exitDate: '2026-11-19', highlighted: false },
+      { cattleId: 5, displayCode: 'BC-000005', pen: 'A1', latestWeightKg: 455, targetKg: 450 },
+    ]
+    const { api } = backend({ '/context': contextBody, '/pens': penBody, '/dashboard?': { ...dashboardBody, attention } })
+    const view = await api.getDashboard({ period: '30' }, owner)
+    expect(view.attention.map((a) => [a.kind, a.code, a.issue])).toEqual([
+      ['A02', 'BC-000019', 'Bê nháp chờ xác nhận'],
+      ['A03', 'PX-2026-0001', 'Phiếu chết chờ duyệt'],
+      ['A04', 'BC-000005', 'Đạt cân xuất chuồng · 455 / 450 kg'],
+    ])
+  })
+
   it('marks a filtered zero-result dashboard empty without replacing the farm-wide header count', async () => {
     const noMatches = {
       ...dashboardBody,
