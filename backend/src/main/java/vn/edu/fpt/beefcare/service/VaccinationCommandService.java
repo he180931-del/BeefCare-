@@ -27,6 +27,9 @@ import vn.edu.fpt.beefcare.service.dto.CareDtos;
 /** Business commands for vaccination schedules and dose deferrals (UC-FE09-02/06, GBR-41/43). */
 @Service
 public class VaccinationCommandService {
+    /** Độ dài tối đa của số lô khi client cũ vẫn gửi lên (cột {@code batch_no} varchar(50)). */
+    private static final int MAX_BATCH_NO_LENGTH = 50;
+
     @PersistenceContext private EntityManager em;
     private final FarmAccessService access;
     private final CattleGuardService cattleGuard;
@@ -384,9 +387,11 @@ public class VaccinationCommandService {
         List<CareDtos.VaccinationAnimal> animals = req.animals() == null ? List.of() : req.animals();
         if (animals.isEmpty()) throw DomainException.required("animals");
         if (animals.stream().anyMatch(java.util.Objects::isNull)) throw DomainException.invalid("animals");
-        if (source.equals("ON_FARM")) {
-            if (req.batchNo() == null || req.batchNo().isBlank()) throw DomainException.required("batchNo");
-            if (req.batchNo().trim().length() > 50) throw DomainException.invalid("batchNo");
+        // D44: số lô không còn bắt buộc (trang trại không quản lý tồn kho vắc-xin theo lô).
+        // API vẫn nhận số lô tùy chọn để tương thích; nếu gửi thì tối đa 50 ký tự.
+        String batchNo = trim(req.batchNo());
+        if (batchNo != null && batchNo.length() > MAX_BATCH_NO_LENGTH) {
+            throw DomainException.invalid("batchNo");
         }
         Instant administeredAt = req.administeredAt();
         if (source.equals("ON_FARM")) {
@@ -446,7 +451,7 @@ public class VaccinationCommandService {
             }
             Vaccination record = new Vaccination(); record.setCattle(cattle); record.setVaccine(vaccine); record.setSource(source);
             record.setVaccinationDate(date); record.setAdministeredAt(administeredAt); record.setEntryTime(clock.now());
-            record.setDose(doseText); record.setRoute(route); record.setBatchNo(source.equals("ON_FARM") ? req.batchNo().trim() : trim(req.batchNo()));
+            record.setDose(doseText); record.setRoute(route); record.setBatchNo(batchNo);
             record.setVaccinator(vaccinator); record.setVaccineNameSnapshot(vaccine.getName());
             if (source.equals("ON_FARM")) record.setWithdrawalDays(withdrawalDays);
             if (source.equals("ON_FARM") && withdrawalDays > 0) record.setWithdrawalEndDate(date.plusDays(withdrawalDays));

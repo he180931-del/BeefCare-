@@ -51,7 +51,7 @@ export default function HistoryPage() {
         ) : (
           <div className="flex flex-col gap-3 rounded-md border border-edge bg-white p-4">
             <Table>
-              <thead><tr><Th>Thời điểm ↓</Th><Th>Bò · chuồng</Th><Th>Vắc-xin · mũi</Th><Th>Lô · liều</Th><Th>Nguồn</Th><Th>Người tiêm</Th><Th>Phản ứng</Th></tr></thead>
+              <thead><tr><Th>Thời điểm ↓</Th><Th>Bò · chuồng</Th><Th>Vắc-xin · mũi</Th><Th>Liều</Th><Th>Nguồn</Th><Th>Người tiêm</Th><Th>Phản ứng</Th></tr></thead>
               <tbody>{data.rows.map((r) => <Row key={r.id} r={r} />)}</tbody>
             </Table>
             <Pagination page={data.page} pageCount={Math.max(1, Math.ceil(data.total / data.size))} onChange={setPage} summary={`Hiển thị ${first}–${first + data.rows.length - 1} / ${data.total} mũi tiêm`} />
@@ -71,7 +71,7 @@ function Row({ r }: { r: HistoryRow }) {
       <Td className="font-medium">{r.precision === 'MONTH' ? fmtMonthYear(r.administeredAt) : fmtDateTime(r.administeredAt)}</Td>
       <Td><Link to={profilePath(r.cattleCode)} className="text-inherit no-underline hover:underline">{r.cattleCode}{r.penCode && ` · ${r.penCode}`}</Link></Td>
       <Td>{[r.vaccineLabel, r.doseText?.replace('mũi ', '')].filter(Boolean).join(' · ')}{voided && ' (đã hủy)'}</Td>
-      <Td>{r.batchNo || r.dose ? [r.batchNo, r.dose].filter(Boolean).join(' · ') : unknown ? 'Không rõ' : '—'}</Td>
+      <Td>{r.dose ?? (unknown ? 'Không rõ' : '—')}</Td>
       <Td>{SOURCE_LABEL[r.source]}</Td>
       <Td>{r.vaccinator ?? (unknown ? 'Không rõ' : '—')}</Td>
       <Td>{r.reactionCaseCode ? <Link to={healthCasePath(r.reactionCaseCode)} className="font-semibold text-brand no-underline hover:underline">{r.reactionCaseCode}{r.reactionNote ? ` · ${r.reactionNote}` : ''}</Link> : '—'}</Td>

@@ -2,13 +2,12 @@
 // business policy stays in the domain file.
 import type { ScheduleCommand, VaccineItem, VaccinationSource } from '../types'
 import { fmtDate } from '../domain/vaccinationFormat'
-import { BATCH_MAX, type FieldErrors, NOTE_MAX, REASON_MAX, VACCINATOR_MAX } from '../domain/vaccinationRules'
+import { type FieldErrors, NOTE_MAX, REASON_MAX, VACCINATOR_MAX } from '../domain/vaccinationRules'
 
 interface RecordFields {
   vaccineId?: number
   source: VaccinationSource
   administeredAt?: string
-  batchNo?: string
   withdrawalDays?: number
   vaccinator?: string
 }
@@ -18,8 +17,6 @@ export function validateRecordFields(input: RecordFields, ctx: { now: string; va
   const e: FieldErrors = {}
   if (!input.vaccineId) e.vaccineId = 'Vắc-xin là bắt buộc.'
   else if (ctx.vaccine && !ctx.vaccine.active) e.vaccineId = `${ctx.vaccine.name} đã ngừng sử dụng, không thể chọn cho bản ghi mới.`
-  if (input.source === 'ON_FARM' && !input.batchNo?.trim()) e.batchNo = 'Số lô là bắt buộc khi tiêm tại trại.'
-  else if (input.batchNo && input.batchNo.length > BATCH_MAX) e.batchNo = 'Số lô tối đa 50 ký tự.'
   if (!input.administeredAt) e.administeredAt = 'Thời điểm tiêm là bắt buộc.'
   else if (input.administeredAt > ctx.now) e.administeredAt = 'Thời điểm không được ở tương lai.'
   else if (input.source === 'ON_FARM' && ctx.herdEntryDate && input.administeredAt.slice(0, 10) < ctx.herdEntryDate) e.administeredAt = `Thời điểm không được trước ngày nhập đàn (${fmtDate(ctx.herdEntryDate)}).`

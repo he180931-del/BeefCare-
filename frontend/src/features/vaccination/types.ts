@@ -167,7 +167,6 @@ export interface RecordVaccinationsCommand {
   vaccineId?: number
   source: VaccinationSource
   administeredAt: string
-  batchNo?: string
   dose?: string
   route?: VaccineRoute
   withdrawalDays?: number
@@ -181,7 +180,6 @@ export interface CorrectVaccinationCommand {
   expectedVersion: number
   vaccineId?: number
   administeredAt: string
-  batchNo?: string
   dose?: string
   route?: VaccineRoute
   withdrawalDays?: number

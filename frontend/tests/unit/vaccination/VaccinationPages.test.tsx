@@ -23,7 +23,7 @@ beforeEach(async () => {
 })
 
 describe('lịch tiêm phòng /tiem-phong', () => {
-  it('Quản lý chọn nhiều mũi, ghi nhận hàng loạt và có kiểm tra số lô', async () => {
+  it('Quản lý chọn nhiều mũi và ghi nhận hàng loạt, không có ô số lô (D44)', async () => {
     const user = userEvent.setup()
     app('MANAGER')
     expect(await screen.findByText('BC-000131')).toBeInTheDocument()
@@ -32,9 +32,7 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     await user.click(screen.getByLabelText('Chọn BC-000154'))
     await user.click(screen.getByRole('button', { name: 'Ghi nhận 2 mũi đã chọn' }))
     expect(await screen.findByRole('heading', { name: 'Ghi nhận tiêm – LMLM 2026 · mũi 2/2' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Lưu 2 mũi tiêm' }))
-    expect(await screen.findByText('Số lô là bắt buộc khi tiêm tại trại.')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Số lô'), 'AFT-2609-17')
+    expect(screen.queryByLabelText(/Số lô/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu 2 mũi tiêm' }))
     expect(await screen.findByText(/Đã ghi nhận 2 mũi tiêm; hoãn 0 mũi/)).toBeInTheDocument()
     expect(await screen.findByText('Quá hạn (10)')).toBeInTheDocument()
@@ -48,7 +46,6 @@ describe('lịch tiêm phòng /tiem-phong', () => {
     await user.click(await screen.findByLabelText('Chọn BC-000131'))
     await user.click(screen.getByRole('button', { name: 'Ghi nhận 1 mũi đã chọn' }))
     await screen.findByRole('heading', { name: /Ghi nhận tiêm/ })
-    await user.type(screen.getByLabelText('Số lô'), 'AFT-1')
     const dose = screen.getByLabelText('Liều')
     await user.clear(dose)
     await user.type(dose, 'nhiều')

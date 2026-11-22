@@ -267,7 +267,7 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
         }
         const days = cmd.source === 'ON_FARM' ? cmd.withdrawalDays ?? vaccine!.withdrawalDays : 0
         const r: VaccinationRecord = {
-          id: ids.record++, cattleCode: c.code, vaccineId: vaccine!.id, vaccineLabel: vaccine!.shortName, batchNo: cmd.batchNo?.trim() || undefined, dose: cmd.dose, route: cmd.route,
+          id: ids.record++, cattleCode: c.code, vaccineId: vaccine!.id, vaccineLabel: vaccine!.shortName, dose: cmd.dose, route: cmd.route,
           administeredAt: cmd.administeredAt, precision: 'EXACT', source: cmd.source, vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: days,
           withdrawalEndDate: withdrawalEndOf(cmd.source, cmd.administeredAt, days), status: 'VALID', corrected: false, version: 1, revisions: [],
         }
@@ -318,13 +318,13 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
     async correctRecord(id: number, cmd: CorrectVaccinationCommand): Promise<VaccinationRecord> {
       const r = liveRecord(id, cmd.expectedVersion)
       const c = cattleOf(r.cattleCode)
-      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: r.source, administeredAt: cmd.administeredAt, batchNo: cmd.batchNo, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now(), vaccine: vaccineOf(cmd.vaccineId), herdEntryDate: c?.herdEntryDate }), ...validateReason(cmd.reason) }
+      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: r.source, administeredAt: cmd.administeredAt, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now(), vaccine: vaccineOf(cmd.vaccineId), herdEntryDate: c?.herdEntryDate }), ...validateReason(cmd.reason) }
       if (hasErrors(fields)) throw new VaccinationValidationError(fields)
       const before = { vaccineId: r.vaccineId ?? 0, administeredAt: r.administeredAt, batchNo: r.batchNo, dose: r.dose, route: r.route, withdrawalDays: r.withdrawalDays, vaccinator: r.vaccinator }
       const vaccine = vaccineOf(cmd.vaccineId)!
       const days = r.source === 'ON_FARM' ? cmd.withdrawalDays ?? 0 : 0
       Object.assign(r, {
-        vaccineId: vaccine.id, vaccineLabel: vaccine.shortName, administeredAt: cmd.administeredAt, batchNo: cmd.batchNo?.trim() || undefined, dose: cmd.dose, route: cmd.route,
+        vaccineId: vaccine.id, vaccineLabel: vaccine.shortName, administeredAt: cmd.administeredAt, dose: cmd.dose, route: cmd.route,
         vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: days, withdrawalEndDate: withdrawalEndOf(r.source, cmd.administeredAt, days), corrected: true, version: r.version + 1,
         precision: 'EXACT',
       })

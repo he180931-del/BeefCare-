@@ -1,7 +1,6 @@
 import type { DueState, PlannedDoseRow, Schedule, ScheduledDose, ScheduleTarget, VaccCattle, VaccinationSource } from '../types'
 import { addDays, addMonths, dayNumber } from './vaccinationFormat'
 
-export const BATCH_MAX = 50
 export const VACCINATOR_MAX = 50 * 2
 export const REASON_MAX = 500
 export const NOTE_MAX = 255

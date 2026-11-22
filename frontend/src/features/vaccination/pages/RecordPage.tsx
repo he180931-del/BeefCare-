@@ -39,7 +39,6 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
   const first = options.vaccines.find((v) => v.id === ctx.vaccineId) ?? options.vaccines[0]
   const names = options.members.map((m) => m.name)
   const [vaccineId, setVaccineId] = useState(String(first.id))
-  const [batchNo, setBatchNo] = useState('')
   const [administeredAt, setAdministeredAt] = useState(options.now)
   // Vắc-xin không có liều tham chiếu (0): ô Liều để trống, liều không bắt buộc (spec FE-09 §3.3).
   const [amount, setAmount] = useState(first.referenceDose > 0 ? String(first.referenceDose) : '')
@@ -83,7 +82,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
     setRowErrors({})
     try {
       const result = await recordVaccinations({
-        vaccineId: Number(vaccineId), source, administeredAt, batchNo, dose: dose.amount ? `${dose.amount} ${vaccine.doseUnit}` : undefined, route,
+        vaccineId: Number(vaccineId), source, administeredAt, dose: dose.amount ? `${dose.amount} ${vaccine.doseUnit}` : undefined, route,
         withdrawalDays: onFarm ? days : 0, vaccinator: vaccinator === '__other' ? other : vaccinator, animals,
       })
       navigate(back, { state: { notice: [result.message, ...result.skipped.map((s) => s.message)].join(' ') } })
@@ -100,16 +99,10 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
       <PageHeader title={ctx.title} sub={`Ghi cho ${rows.length} bò đã chọn${rows.some((r) => r.dose) ? ' ở lịch tiêm phòng' : ''}`} />
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,720fr)_minmax(0,376fr)]">
         <Card title="Thông tin mũi tiêm">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Vắc-xin *" id="rv-vaccine">
-              <Select id="rv-vaccine" value={vaccineId} onChange={(e) => pickVaccine(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select>
-              <FieldError>{errors.vaccineId}</FieldError>
-            </Field>
-            <Field label={onFarm ? 'Số lô *' : 'Số lô'} id="rv-batch" hint={onFarm ? 'Bắt buộc khi tiêm tại trại' : 'Không bắt buộc với nhập lịch sử'}>
-              <input id="rv-batch" className={inputCls} maxLength={50} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} />
-              <FieldError>{errors.batchNo}</FieldError>
-            </Field>
-          </div>
+          <Field label="Vắc-xin *" id="rv-vaccine">
+            <Select id="rv-vaccine" value={vaccineId} onChange={(e) => pickVaccine(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select>
+            <FieldError>{errors.vaccineId}</FieldError>
+          </Field>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Thời điểm tiêm *" id="rv-at">
               <input id="rv-at" type="datetime-local" className={inputCls} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} />
@@ -186,7 +179,7 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
           </tbody>
         </Table>
       </Card>
-      <Foot>Màn ghi tiêm cho 1 con hoặc nhiều con (Chủ trại, Quản lý). Vắc-xin, liều, đường tiêm và số ngày ngưng được điền sẵn từ danh mục. "Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không bắt buộc số lô và không tính ngày ngưng.</Foot>
+      <Foot>Màn ghi tiêm cho 1 con hoặc nhiều con (Chủ trại, Quản lý). Vắc-xin, liều, đường tiêm và số ngày ngưng được điền sẵn từ danh mục. "Nhập lịch sử" dùng cho mũi tiêm trước khi bò về trại: không tính ngày ngưng.</Foot>
     </div>
   )
 }

@@ -77,7 +77,6 @@ export default function TimelineCorrectionDialog({ event, onClose, onSaved }: {
     ...config.fields,
     ...(onFarm ? [
       { key: 'administeredAt', label: 'Thời điểm tiêm', kind: 'datetime-local' as const },
-      { key: 'batchNo', label: 'Số lô', max: 50 },
     ] : [{ key: 'vaccinationDate', label: 'Ngày tiêm', kind: 'date' as const }]),
   ]
   const vaccines = useCattleVaccineOptions(vaccination)
