@@ -1,7 +1,8 @@
 import { toBusinessTime } from '../../../shared/lib/date/farmTime'
 import { asRecord, asRows, numberValue, textValue } from '../../../shared/api/parse'
 import { type BackendTransport } from '../../../shared/api/backendTransport'
-import type { BankTransactionChoice, CashReport, Farm, FinanceRecord, Receipt, ReceiptFilters, RecordFields, RecordFilters, ReportCriteria, ReportLine, ReportSummary, ScopeTotals } from '../types'
+import { categoryLabel, formatDate, formatVnd, TYPE_LABEL } from '../domain/financeRules'
+import type { BankTransactionChoice, CashReport, Farm, FinanceRecord, Receipt, ReceiptFilters, RecordFields, RecordFilters, RecordHistory, ReportCriteria, ReportLine, ReportSummary, ScopeTotals } from '../types'
 
 const decimal = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -18,6 +19,57 @@ const query = (values: Record<string, unknown>) => {
 }
 
 const mapFarm = (value: unknown): Farm => { const row = asRecord(value); return { id: numberValue(row.farmId ?? row.id), name: textValue(row.farmName ?? row.name, '—') } }
+
+const HISTORY_ACTION_LABEL: Record<string, string> = {
+  CREATE: 'Tạo khoản nháp',
+  EDIT: 'Sửa khoản nháp',
+  POST: 'Ghi sổ',
+  VOID: 'Hủy khoản đã ghi sổ',
+  DISCARD: 'Bỏ khoản nháp',
+  REPLACEMENT_CREATE: 'Tạo khoản nháp thay thế',
+}
+
+const historySnapshot = (value: unknown): Record<string, unknown> | null => {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try { return asRecord(JSON.parse(value)) } catch { return null }
+}
+
+const quoted = (value: unknown) => `“${textValue(value) || '—'}”`
+const typeText = (value: unknown) => TYPE_LABEL[textValue(value) as keyof typeof TYPE_LABEL] ?? textValue(value, '—')
+const sourceText = (value: unknown) => textValue(value).toUpperCase() === 'BANK_TRANSACTION' ? 'Giao dịch ngân hàng' : 'Nhập thủ công'
+const scopeText = (row: Record<string, unknown>) => textValue(row.scope).toUpperCase() === 'FARM'
+  ? textValue(row.farmName, row.farmId == null ? 'Gắn với trại' : `Trại #${numberValue(row.farmId)}`)
+  : 'Chung nền tảng'
+
+const editDetail = (beforeJson: unknown, afterJson: unknown): string | undefined => {
+  const before = historySnapshot(beforeJson)
+  const after = historySnapshot(afterJson)
+  if (!before || !after) return undefined
+  const changes: string[] = []
+  const add = (label: string, from: string, to: string) => { if (from !== to) changes.push(`${label}: ${from} → ${to}`) }
+  add('Loại', typeText(before.type), typeText(after.type))
+  add('Danh mục', categoryLabel(textValue(before.category)), categoryLabel(textValue(after.category)))
+  add('Số tiền', `${formatVnd(decimal(before.amountVnd))} VND`, `${formatVnd(decimal(after.amountVnd))} VND`)
+  add('Ngày phát sinh', formatDate(iso(before.occurredOn)), formatDate(iso(after.occurredOn)))
+  add('Phạm vi', scopeText(before), scopeText(after))
+  add('Số chứng từ', quoted(before.documentNumber), quoted(after.documentNumber))
+  add('Diễn giải', quoted(before.description), quoted(after.description))
+  add('Nguồn', sourceText(before.sourceType), sourceText(after.sourceType))
+  return changes.length ? changes.join('; ') : undefined
+}
+
+const mapHistory = (value: unknown): RecordHistory => {
+  const row = asRecord(value)
+  const actionCode = textValue(row.action).trim().toUpperCase()
+  return {
+    id: numberValue(row.id),
+    action: HISTORY_ACTION_LABEL[actionCode] ?? 'Cập nhật khoản thu chi',
+    changedAt: toBusinessTime(row.changedAt),
+    actor: textValue(row.actor),
+    reason: row.reason == null ? undefined : textValue(row.reason),
+    detail: actionCode === 'EDIT' ? editDetail(row.beforeJson, row.afterJson) : undefined,
+  }
+}
 
 const mapBank = (value: unknown): BankTransactionChoice => {
   const row = asRecord(value)
@@ -43,7 +95,7 @@ const mapRecord = (value: unknown, history: Record<string, unknown>[] = []): Fin
     createdAt: toBusinessTime(row.createdAt), createdBy: textValue(row.createdBy), postedAt: row.postedAt == null ? undefined : toBusinessTime(row.postedAt), postedBy: row.postedBy == null ? undefined : textValue(row.postedBy),
     voidedAt: row.voidedAt == null ? undefined : toBusinessTime(row.voidedAt), voidedBy: row.voidedBy == null ? undefined : textValue(row.voidedBy), voidReason: row.voidReason == null ? undefined : textValue(row.voidReason),
     replacementOf: row.replacementOf == null ? undefined : textValue(row.replacementOf), replacementRecordId: row.replacementRecordId == null ? undefined : numberValue(row.replacementRecordId),
-    history: history.map((item) => { const h = asRecord(item); return { id: numberValue(h.id), action: textValue(h.action), changedAt: toBusinessTime(h.changedAt), actor: textValue(h.actor), reason: h.reason == null ? undefined : textValue(h.reason), detail: h.afterJson == null ? undefined : textValue(h.afterJson) } }),
+    history: history.map(mapHistory),
   }
 }
 
@@ -115,7 +167,7 @@ export function createFinanceBackendApi(transport: BackendTransport) {
       const counts = await Promise.all(['DRAFT', 'POSTED', 'VOID'].map(async (state) => numberValue((await getPage(`${root}/records?${query({ ...base, state, page: 0, size: 1 })}`)).totalElements)))
       return { rows: asRows(page.content).map(mapRecordResponse), total: numberValue(page.totalElements), page: numberValue(page.number) + 1, pageCount: Math.max(1, Math.ceil(numberValue(page.totalElements) / numberValue(page.size, filters.size ?? 5))), counts: { ALL: counts.reduce((sum, count) => sum + count, 0), DRAFT: counts[0], POSTED: counts[1], VOID: counts[2] } }
     },
-    async getRecord(code: string) { const detail = asRecord(await transport.get(`${root}/records/${await resolveRecordId(code)}`)); return { record: mapRecord(detail.record, asRows(detail.history)), history: asRows(detail.history) } },
+    async getRecord(code: string) { const detail = asRecord(await transport.get(`${root}/records/${await resolveRecordId(code)}`)); const record = mapRecord(detail.record, asRows(detail.history)); return { record, history: record.history } },
     async listBankTransactions() { return asRows(await transport.get(`${root}/bank-transactions`)).map(mapBank) },
     async createDraft(input: RecordFields) { return mapRecordResponse(await transport.command(`${root}/records`, recordCommand(input))) },
     async saveDraft(code: string, input: RecordFields, expectedVersion: number) { return mapRecordResponse(await transport.command(`${root}/records/${await resolveRecordId(code)}`, { ...recordCommand(input), version: expectedVersion }, { method: 'PUT' })) },
