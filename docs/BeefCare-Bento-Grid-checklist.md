@@ -14,24 +14,32 @@
 |---|---|---|
 | 1 | `d0549154` | Đã lên `dev` |
 | 2 | `efc82f9c`, `96ef8455` | Đã lên `dev` |
-| 3 | nhánh `feature/bento-grid-18-19-21` (tab 18, 19, 21) | Chưa commit |
-| 4 | cùng nhánh: hộp thoại chung, hồ sơ bò, nhập/xuất đàn, chuồng trại (tab 16); tăng trưởng, tiêm phòng, sức khỏe (tab 17); nhắc việc, thông báo trại, kỹ thuật viên (tab 15) | Chưa commit |
+| 3 | `9b2b64ae` (tab 18, 19, 21), nhánh `feature/bento-grid` | Chưa lên `dev` |
+| 4 | `9b2b64ae`: hộp thoại chung, hồ sơ bò, nhập/xuất đàn, chuồng trại (tab 16); tăng trưởng, tiêm phòng, sức khỏe (tab 17); nhắc việc, thông báo trại, kỹ thuật viên (tab 15) | Chưa lên `dev` |
+| 5 | nhánh `feature/bento-grid` (tab 13 và sáu trạng thái xác thực tab 12) | Chưa commit |
 
 ## Tổng hợp
 
 | Tab Figma | Số khung | Đã xong | Đổi một phần | Chưa làm |
 |---|---:|---:|---:|---:|
-| 12 · Guest – Công khai & Đăng nhập | 11 | 5 | 6 | 0 |
-| 13 · Chủ trại – Trại & Thành viên | 38 | 0 | 0 | 38 |
+| 12 · Guest – Công khai & Đăng nhập | 11 | 11 | 0 | 0 |
+| 13 · Chủ trại – Trại & Thành viên | 38 | 38 | 0 | 0 |
 | 15 · Tổng quan & Nhắc việc | 12 | 10 | 2 | 0 |
 | 16 · Đàn bò, Nhập/Xuất & Chuồng | 33 | 24 | 9 | 0 |
 | 17 · Tăng trưởng, Tiêm phòng & Sức khỏe | 24 | 16 | 8 | 0 |
 | 18 · Sinh sản | 17 | 17 | 0 | 0 |
 | 19 · Danh mục & Tham số | 6 | 6 | 0 | 0 |
 | 21 · Quản lý thức ăn | 14 | 14 | 0 | 0 |
-| **Tổng** | **155** | **92** | **25** | **38** |
+| **Tổng** | **155** | **136** | **19** | **0** |
 
-Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Tab 13 làm ở nhánh riêng.
+Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Mọi đợt Bento từ đợt 3 nằm chung nhánh `feature/bento-grid`.
+
+**Thay đổi dùng chung ở đợt 5** (ảnh hưởng cả các tab đã xong):
+
+- Nút Đóng của mọi hộp thoại có vùng chạm 44 px, tâm biểu tượng giữ nguyên vị trí.
+- Tiêu đề trên thanh trên xuống dòng thay vì bị cắt. Thanh cao tối thiểu 72 px.
+- `Note` xám đặt chữ `text-ink` để đọc được cả trong khối xanh đậm.
+- `Button size="bento"`: nút thao tác của các trang trong ứng dụng (cao tối thiểu 44 px, bo 8 px, chữ dài xuống dòng). Hộp thoại và các trang thiết lập ban đầu giữ `size="lg"` (46 px, bo 12) như các trang cùng luồng.
 
 ## Tab 12 · Guest – Công khai & Đăng nhập
 
@@ -44,71 +52,73 @@ Trang 22 · Nền tảng (CS, PM, SA) chưa có khung Bento. Tab 13 làm ở nh�
 
 - [x] [Đăng nhập](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-383) — đã đúng Bento từ trước (khung AuthShell), đối chiếu 23/11. Giữ ô Ghi nhớ đăng nhập và tài khoản mock đang có trong code.
 - [x] [Tạo tài khoản chủ trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-414) — đã đúng Bento từ trước (khung AuthShell), đối chiếu 23/11.
-- [ ] [Xác minh email](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-450) *(đã đổi một phần: dùng chung khung AuthShell đã đúng Bento, chưa so riêng)*
+- [x] [Xác minh email](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-450) — `/xac-minh-email` · đợt 5. Giữ giới hạn gửi lại hiện có, căn trái cùng liên kết quay lại.
 - [x] [Quên mật khẩu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-473) — đã đúng Bento từ trước (khung AuthShell), đối chiếu 23/11.
-- [ ] [Kiểm tra email](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-496) *(đã đổi một phần: dùng chung khung AuthShell đã đúng Bento, chưa so riêng)*
-- [ ] [Đặt mật khẩu mới](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-519) *(đã đổi một phần: dùng chung khung AuthShell đã đúng Bento, chưa so riêng)*
-- [ ] [Liên kết không còn hiệu lực](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-543) *(đã đổi một phần: dùng chung khung AuthShell đã đúng Bento, chưa so riêng)*
-- [ ] [Đăng nhập chưa thành công](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-564) *(đã đổi một phần: dùng chung khung AuthShell đã đúng Bento, chưa so riêng)*
-- [ ] [Tài khoản đang tạm ngưng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-594) *(đã đổi một phần: dùng chung khung AuthShell đã đúng Bento, chưa so riêng)*
+- [x] [Kiểm tra email](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-496) — `/kiem-tra-email` · đợt 5. Căn giữa địa chỉ email như Figma và giữ câu về hiệu lực 30 phút.
+- [x] [Đặt mật khẩu mới](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-519) — `/resetpassword` · đợt 5. Giữ email chỉ đọc, nút hiện mật khẩu và liên kết về đăng nhập.
+- [x] [Liên kết không còn hiệu lực](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-543) — `/lien-ket-khong-con-hieu-luc` · đợt 5. Dùng chung Panel cảnh báo cho liên kết hết hạn và giữ các thao tác hiện có.
+- [x] [Đăng nhập chưa thành công](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-564) — `/dang-nhap-that-bai` · đợt 5. Giữ ô Ghi nhớ đăng nhập, nút hiện mật khẩu, tài khoản mẫu và trạng thái Google bị vô hiệu hóa ở mock. Nhãn mô phỏng nằm dưới nội dung để các nút tài khoản mẫu dễ bấm.
+- [x] [Tài khoản đang tạm ngưng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-594) — `/tai-khoan-tam-ngung` · đợt 5. Giữ email, điện thoại hỗ trợ và nút Quay lại đăng nhập hiện có.
 
 ## Tab 13 · Chủ trại – Trại & Thành viên
 
+Đối chiếu 38 khung ở chế độ React mock với ảnh trước và sau tại 1440×1024, 1280×900 và 390×844. Hộp thoại React tiếp tục căn giữa viewport và phủ nội dung thật của route. Figma thường căn theo vùng sau sidebar và dùng nền minh họa.
+
 **①b Hoàn tất hồ sơ, đăng ký trại, chọn trại & thông tin trại (FE-01, FE-02, FE-19)**
 
-- [ ] [Chọn trang trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3424) — `/chon-trai`
-- [ ] [Hoàn tất hồ sơ chủ trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3539) — `/owner-registration`
-- [ ] [Đăng ký trang trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3600) — `/dang-ky-trai`
-- [ ] [Đăng ký gói dịch vụ lần đầu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3692) — `/dang-ky-goi`
-- [ ] [Thông tin trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3784) — `/thong-tin-trai`
+- [x] [Chọn trang trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3424) — `/chon-trai` · đợt 5. Giữ nút Đăng xuất, tên thao tác và ngày dịch vụ theo từng trại mock.
+- [x] [Hoàn tất hồ sơ chủ trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3539) — `/owner-registration` · đợt 5. Ô đồng ý điều khoản chỉ xuất hiện khi hồ sơ chưa hoàn tất. Tài khoản mock đã hoàn tất hồ sơ.
+- [x] [Đăng ký trang trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3600) — `/dang-ky-trai` · đợt 5. Giữ Xã/Phường là ô nhập và Giống chủ lực là danh sách chọn nhiều.
+- [x] [Đăng ký gói dịch vụ lần đầu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3692) — `/dang-ky-goi` · đợt 5. Giữ khối Điều khoản gói, kỳ dịch vụ ước tính và cảnh báo hiện có khi mở từ trại chưa hoạt động.
+- [x] [Thông tin trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3784) — `/thong-tin-trai` · đợt 5. Giữ Xã/Phường là ô nhập, múi giờ UTC+7 chỉ đọc theo D39 và số ngày còn lại theo dữ liệu lúc mở.
 
 **②b Thành viên & lời mời, hồ sơ cá nhân (FE-03, FE-01)**
 
-- [ ] [Thành viên & vai trò](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3989) — `/thanh-vien`
-- [ ] [Mời thành viên](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4230)
-- [ ] [Lời mời thành viên](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4380) — `/loi-moi`
-- [ ] [Đổi vai trò / ngừng hoạt động thành viên](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4526)
-- [ ] [Chấp nhận lời mời (người được mời)](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4674) — `/invitation/accept`
-- [ ] [Lời mời không còn hiệu lực](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4741)
-- [ ] [Hồ sơ & quyền của tôi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4787) — `/ho-so`
-- [ ] [Đổi mật khẩu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4978)
+- [x] [Thành viên & vai trò](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-3989) — `/thanh-vien` · đợt 5. Giữ bảng quyền đủ ba vai trò theo D29, thao tác Làm mới, sắp xếp, phân trang và số đếm theo trạng thái hiện tại.
+- [x] [Mời thành viên](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4230) — `/thanh-vien?m=invite` · đợt 5. Giữ nhãn Email người nhận, kiểm tra khi bấm Gửi lời mời và các trạng thái gửi lại hoặc kích hoạt lại hiện có.
+- [x] [Lời mời thành viên](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4380) — `/loi-moi` · đợt 5. Giữ sắp xếp, phân trang và thông tin tài khoản theo dữ liệu.
+- [x] [Đổi vai trò / ngừng hoạt động thành viên](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4526) — `/thanh-vien?m=doi-vai-tro` · đợt 5. Giữ trạng thái thành viên, lý do 5–500 ký tự và bước xác nhận theo D30.
+- [x] [Chấp nhận lời mời (người được mời)](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4674) — `/invitation/accept` · đợt 5. Giữ nút Để sau và quyền, email hiện có của tài khoản được mời.
+- [x] [Lời mời không còn hiệu lực](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4741) — `/invitation/accept` · đợt 5. Giữ nội dung xử lý liên kết hết hiệu lực và Liên hệ BeefCare. API hiện chỉ cung cấp trạng thái và thời điểm hết hạn nếu có.
+- [x] [Hồ sơ & quyền của tôi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4787) — `/ho-so` · đợt 5. Giữ danh sách đầy đủ quyền và trạng thái chỉ xem theo vai trò hiện tại.
+- [x] [Đổi mật khẩu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-4978) — `/ho-so?m=doi-mat-khau` · đợt 5. Giữ nút hiện mật khẩu, xác thực lại Google và gợi ý mật khẩu ở chế độ mock.
 
 **③b Gói dịch vụ & thanh toán (FE-19)**
 
-- [ ] [Gói dịch vụ của trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5115) — `/goi-dich-vu`
-- [ ] [Gia hạn gói – chọn thời hạn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5307)
-- [ ] [Hướng dẫn chuyển khoản](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5489)
-- [ ] [Lịch sử thanh toán](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5682)
-- [ ] [Chi tiết thanh toán đã xác nhận](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5858)
+- [x] [Gói dịch vụ của trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5115) — `/goi-dich-vu` · đợt 5. Giữ mã yêu cầu chờ, liên kết Mở hướng dẫn và ngày kết thúc đã xác nhận theo dữ liệu thanh toán.
+- [x] [Gia hạn gói – chọn thời hạn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5307) — `/goi-dich-vu/gia-han` · đợt 5. Giữ khối Trạng thái trang trại và kỳ hạn mặc định bỏ trống. Ảnh đối chiếu dùng kỳ hạn 1 năm. Khối xem lại dùng nền xanh đậm theo quy tắc Bento.
+- [x] [Hướng dẫn chuyển khoản](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5489) — `/goi-dich-vu/chuyen-khoan/:id` · đợt 5. Giữ QR minh họa, Hủy yêu cầu theo D38, khối giả lập ở dev và bố cục chuyển khoản riêng trên điện thoại.
+- [x] [Lịch sử thanh toán](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5682) — `/goi-dich-vu/lich-su` · đợt 5. Giữ làm mới, sắp xếp, phân trang và hai ô lọc ngày độc lập. Ảnh mock dùng bộ lọc mặc định.
+- [x] [Chi tiết thanh toán đã xác nhận](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-5858) — `/goi-dich-vu/lich-su/:id` · đợt 5. Giữ chi tiết nội tuyến, tự cuộn và nhận focus theo D16. Figma hiển thị chi tiết trong hộp thoại.
 
 **③bb Trạng thái thanh toán (FE-19)**
 
-- [ ] [Yêu cầu đã hết hạn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6016)
-- [ ] [Đã có yêu cầu còn hiệu lực](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6154)
-- [ ] [Chưa đến thời gian gia hạn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6288)
-- [ ] [Trại đang tạm ngưng dịch vụ](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6415)
-- [ ] [Bảng giá đã thay đổi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6546)
-- [ ] [Giá gói chưa khả dụng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6675)
-- [ ] [Không lấy được kết quả thanh toán](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6798)
-- [ ] [Lịch sử thanh toán – chưa có dữ liệu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6929)
+- [x] [Yêu cầu đã hết hạn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6016) — `/goi-dich-vu?m=expired` · đợt 5. Giữ nhãn Hết hạn và màu badge dùng chung theo trạng thái hiện có.
+- [x] [Đã có yêu cầu còn hiệu lực](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6154) — `/goi-dich-vu?m=pending-exists` · đợt 5. Giữ nhãn Quay lại, Mở lại hướng dẫn và các giá trị yêu cầu chờ hiện có.
+- [x] [Chưa đến thời gian gia hạn](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6288) — `/goi-dich-vu?m=renewal-closed` · đợt 5. Giữ ngày đã xác nhận và ngày mở tạo yêu cầu theo dữ liệu.
+- [x] [Trại đang tạm ngưng dịch vụ](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6415) — `/goi-dich-vu?m=suspended` · đợt 5. Giữ nhãn Tạm ngưng và tông lỗi dùng chung, cùng các lối vào lịch sử và hỗ trợ.
+- [x] [Bảng giá đã thay đổi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6546) — `/goi-dich-vu?m=price-changed` · đợt 5. Giữ giá đã xem, giá hiện tại và thao tác xem lại.
+- [x] [Giá gói chưa khả dụng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6675) — `/goi-dich-vu?m=price-unavailable` · đợt 5. Giữ thông báo khi thiếu bảng giá hoặc thông tin tài khoản nhận.
+- [x] [Không lấy được kết quả thanh toán](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6798) — `/goi-dich-vu?m=result-unavailable` · đợt 5. Giữ nhãn Trạng thái gần nhất và hộp thoại trượt từ dưới lên trên điện thoại.
+- [x] [Lịch sử thanh toán – chưa có dữ liệu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-6929) — `/goi-dich-vu/lich-su` · đợt 5. Giữ bộ lọc lịch sử và thao tác Xem gói của trại ở trạng thái trống.
 
 **⑥b Ticket & thông báo (FE-20)**
 
-- [ ] [Ticket hỗ trợ của tôi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7054) — `/ho-tro`
-- [ ] [Gửi yêu cầu hỗ trợ](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7238)
-- [ ] [Chi tiết ticket](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7408)
-- [ ] [Mở lại ticket](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7602)
-- [ ] [Thông báo của tôi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7727) — `/thong-bao-cua-toi`
+- [x] [Ticket hỗ trợ của tôi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7054) — `/ho-tro` · đợt 5. Giữ hai ô ngày, ô lọc danh mục và số đếm theo bộ lọc hiện tại.
+- [x] [Gửi yêu cầu hỗ trợ](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7238) — `/ho-tro/moi` · đợt 5. Giữ các trường Danh mục, Phạm vi và Trang trại liên quan theo D40. Mức ưu tiên do bộ phận hỗ trợ gán và chỉ có trong chú thích ở form này.
+- [x] [Chi tiết ticket](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7408) — `/ho-tro/:id` · đợt 5. Giữ avatar trong trao đổi, cảnh báo xác nhận chưa tự đóng, bộ đếm phản hồi và lịch sử. Kết quả đang chờ xác nhận dùng nền xanh đậm.
+- [x] [Mở lại ticket](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7602) — `/ho-tro/:id?m=mo-lai` · đợt 5. Giữ ô chỉ đọc Yêu cầu / kết quả hiện tại và cảnh báo mở lại.
+- [x] [Thông báo của tôi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7727) — `/thong-bao-cua-toi` · đợt 5. Giữ cả chín thông báo mock. Figma minh họa sáu mục đầu.
 
 **④bb Trạng thái Ticket (FE-20)**
 
-- [ ] [Đã gửi yêu cầu hỗ trợ](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7889)
-- [ ] [Gửi yêu cầu hỗ trợ – thiếu thông tin](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8024)
-- [ ] [Đã xác nhận kết quả](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8197)
-- [ ] [Ticket đã đóng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8335)
-- [ ] [Kết quả đã thay đổi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8471)
-- [ ] [Không có ticket phù hợp](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8592)
-- [ ] [Lỗi tải dữ liệu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8740)
+- [x] [Đã gửi yêu cầu hỗ trợ](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-7889) — `/ho-tro?m=da-gui` · đợt 5. Giữ câu xác nhận và nút Danh sách yêu cầu, Xem yêu cầu.
+- [x] [Gửi yêu cầu hỗ trợ – thiếu thông tin](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8024) — `/ho-tro/moi` · đợt 5. Giữ thông báo sát từng trường và cột Dùng khi trong bảng hướng dẫn.
+- [x] [Đã xác nhận kết quả](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8197) — `/ho-tro/:id?m=da-xac-nhan` · đợt 5. Giữ lời cảm ơn, mã tin nhắn khi có và ghi chú chờ bộ phận hỗ trợ đóng yêu cầu.
+- [x] [Ticket đã đóng](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8335) — `/ho-tro/:id?m=da-dong` · đợt 5. Giữ trạng thái chỉ đọc, phiên bản kết quả và thao tác dành cho yêu cầu đã đóng.
+- [x] [Kết quả đã thay đổi](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8471) — `/ho-tro/:id?m=ket-qua-thay-doi` · đợt 5. Giữ nội dung yêu cầu vừa có kết quả mới và nút Tải lại yêu cầu.
+- [x] [Không có ticket phù hợp](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8592) — `/ho-tro` · đợt 5. Giữ EmptyBlock thay bảng và số đếm theo bộ lọc thực tế.
+- [x] [Lỗi tải dữ liệu](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-8740) — `/ho-tro?demo=loi` · đợt 5. Giữ trạng thái lỗi có Thử lại sau khi đóng hộp thoại.
 
 ## Tab 15 · Tổng quan & Nhắc việc
 
