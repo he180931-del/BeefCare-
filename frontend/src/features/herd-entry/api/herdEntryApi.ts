@@ -1,5 +1,5 @@
 import type { CattleInput } from '../../cattle'
-import type { EntryCalf, HerdEntry } from '../types'
+import type { EntryCalf, EntryLineCommandResult, EntryLineCorrectionInput, EntryLineVoidCheck, EntryLineVoidInput, HerdEntry } from '../types'
 import type { EntryPayment } from '../types'
 import { activeFarmId } from '../../../app/session/currentFarm'
 import { backendMode } from '../../../shared/config/runtime'
@@ -23,6 +23,12 @@ const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farm
 // Explicit mode: `npm run dev:mock` (VITE_BEEFCARE_DATA_SOURCE unset) serves the demo data,
 // `backend` talks to the real API and never falls back to the demo data.
 const usingBackend = backendMode === 'backend'
+
+export const entryLineCorrectionEnabled = usingBackend
+const unsupportedLineCommand = () => new Error('Chế độ demo chưa hỗ trợ sửa / hủy bản ghi nhập')
+export const entryVoidCheck = (entryId: number): Promise<EntryLineVoidCheck> => usingBackend ? backendApi.entryVoidCheck(entryId) : Promise.reject(unsupportedLineCommand())
+export const voidEntryLine = (entryId: number, input: EntryLineVoidInput): Promise<EntryLineCommandResult> => usingBackend ? backendApi.voidEntryLine(entryId, input) : Promise.reject(unsupportedLineCommand())
+export const correctEntryLine = (entryId: number, input: EntryLineCorrectionInput): Promise<EntryLineCommandResult> => usingBackend ? backendApi.correctEntryLine(entryId, input) : Promise.reject(unsupportedLineCommand())
 
 export const getEntryDraftState = (rows: HerdEntry[], id?: string) => {
   const row = id ? rows.find((item) => item.id === id) : undefined
