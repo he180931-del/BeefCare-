@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Badge, Button, Foot, Icon, Info, Note, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import { Box, ExitStatusBadge, TH, useIsOwner } from '../components/parts'
@@ -83,7 +83,7 @@ export default function ExportDetail() {
                     <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
                     <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
                     <Td className={`${TH} !py-3`}>{c.barn}</Td>
-                    <Td className={`${TH} !py-3`}><ExitStatusBadge status="Đã xuất" /></Td>
+                    <Td className={`${TH} !py-3`}>{c.current === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang nuôi</Badge> : c.current === 'EXITED' ? <ExitStatusBadge status="Đã xuất" /> : '—'}</Td>
                     <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
                   </tr>
                 ))}
