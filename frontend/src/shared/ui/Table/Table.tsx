@@ -45,7 +45,8 @@ export function Table({ children, wide, narrow, scroll, stack = !scroll, bordere
     )
   })
   return (
-    <div className={cx('@container bg-white', bordered && 'rounded border border-edge', scroll || wide ? 'overflow-x-auto' : 'overflow-hidden')}>
+    // relative: nhãn sr-only (position:absolute) trong ô bảng phải nằm trong vùng cuộn, không kéo rộng cả trang trên điện thoại.
+    <div className={cx('@container relative bg-white', bordered && 'rounded border border-edge', scroll || wide ? 'overflow-x-auto' : 'overflow-hidden')}>
       <table
         ref={ref}
         className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : narrow ? 'narrow' : 'normal'])}

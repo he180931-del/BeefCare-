@@ -150,7 +150,7 @@ export default function DeathView({ row, onReload }: { row: HerdExit; onReload: 
       </div>
       <div><Segmented value="Chết / mất" onChange={() => {}} options={[{ value: 'Bán', label: 'Bán', disabled: true }, { value: 'Loại thải', label: 'Loại thải', disabled: true }, { value: 'Chết / mất', label: 'Chết / mất' }, { value: 'Khác', label: 'Khác', disabled: true }]} /></div>
 
-      <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_354px]">
+      <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <Box title="1. Thông tin phiếu" gap="gap-[14px]">
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-3">

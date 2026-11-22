@@ -373,11 +373,13 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
     <Layout title={TITLE} user="manager">
       <PageHeader title={title} sub={sub} />
       <FeedManagementTabs />
-      {error && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
+      {error && <div role="alert" className="rounded-2xl border border-err-bg bg-white p-3 text-sm text-err-fg">{error}</div>}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_336px]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card title="1. Thông tin phiếu">
+      {/* Bento §1: form chính 8 cột, tóm tắt và kiểm tra 4 cột; vùng nội dung 880–1.023 px (laptop 1.280 px) chia 5+3. */}
+      <div className="@container">
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <div className="@container/receipt-form flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
+          <Card variant="panel" title="1. Thông tin phiếu">
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Mã phiếu" id="feed-receipt-code">
                 <input id="feed-receipt-code" readOnly value={currentRecord?.code ?? nextCode} className={inputCls} />
@@ -414,7 +416,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
 
           {currentRecord && <FeedReceiptAudit receipt={currentRecord} />}
 
-          <Card
+          <Card variant="panel"
             title="2. Danh sách thức ăn"
             sub={`${summary.itemCount} mặt hàng · quy đổi về kg theo quy cách trong Danh mục`}
             actions={!readOnly && <Button size="sm" onClick={addLine}><span className="inline-flex items-center gap-1.5"><Icon name="circle-plus" size={16} />Thêm mặt hàng</span></Button>}
@@ -500,8 +502,9 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             </Table>
           </Card>
 
-          <div className="grid items-start gap-4 md:grid-cols-2">
-            <Card title="3. Chứng từ đính kèm">
+          {/* Chứng từ 5 phần, Thanh toán 7 phần để hai cột tiền/ô chọn trong Thanh toán không cắt chữ; hẹp hơn 640 px thì xếp dọc. */}
+          <div className="grid items-start gap-4 @min-[640px]/receipt-form:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <Card variant="panel" title="3. Chứng từ đính kèm">
               {feedReceiptServerBacked ? (
                 <>
                   {!readOnly && <FileDropzone label="Chọn chứng từ đính kèm" hint="Hóa đơn, phiếu giao · PDF, JPG ≤ 10MB · tải lên khi lưu nháp" onFiles={(files) => { saveCommandKey.current = ''; pendingPost.current = null; setNewFiles((current) => [...current, ...files]) }} />}
@@ -523,8 +526,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
                 </>
               )}
             </Card>
-            <Card title="4. Thanh toán">
-              <div className="grid grid-cols-2 gap-3">
+            <Card variant="panel" title="4. Thanh toán">
+              <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
                 <Field label="Tiền hàng" id="feed-receipt-goods"><MoneyBox id="feed-receipt-goods" label="Tiền hàng" value={formatMoney(summary.goodsAmount)} /></Field>
                 <Field label="Phí vận chuyển" id="feed-receipt-transport">
                   <div className="relative">
@@ -581,8 +584,8 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
           </div>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4">
-          <Card>
+        <aside className="flex min-w-0 flex-col gap-4 @min-[1024px]:gap-6">
+          <Card variant="panel">
             <div className="flex items-center gap-2">
               <h3 className="m-0 flex-1 text-sm font-semibold">Tóm tắt phiếu nhập kho</h3>
               {badge && <Badge tone={badge.tone} icon={badge.icon}>{badge.label}</Badge>}
@@ -614,7 +617,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             )}
           </Card>
 
-          <Card>
+          <Card variant="panel">
             <h3 className="m-0 text-[13px] font-semibold">Kiểm tra trước khi lưu</h3>
             <CheckLine ok={checks.feeds}>Thức ăn đang dùng trong danh mục</CheckLine>
             <CheckLine ok={checks.quantities}>Số lượng &gt; 0, đơn giá ≥ 0</CheckLine>
@@ -643,6 +646,7 @@ function FeedReceiptForm({ record, stockRows, initialSuppliers, initialAttachmen
             </div>
           )}
         </aside>
+      </div>
       </div>
 
       <Foot>{FOOT}</Foot>

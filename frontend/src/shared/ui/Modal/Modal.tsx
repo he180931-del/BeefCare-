@@ -6,7 +6,7 @@ const WIDTH: Record<number, string> = { 560: 'w-[560px]', 600: 'w-[600px]', 640:
 
 /**
  * Hộp thoại theo Figma: phủ mờ rgba(20,36,30,.32) toàn màn hình, căn giữa vùng nội dung
- * (bên phải sidebar), bo 10px, padding 24, tiêu đề 20px đậm #183528, phụ đề 12px #67766c.
+ * (bên phải sidebar), bo 16 px như card Bento (docs/BeefCare-Bento-Grid.md §2), padding 24, tiêu đề 20px đậm #183528, phụ đề 12px #67766c.
  * `topTitle`: tiêu đề hiện trên thanh trên khi modal mở (Figma đổi tiêu đề topbar).
  * `width`: 560 | 600 | 640 | 700 | 720 | 760 | 820 | 1100 | 1180 | 1200 (px, theo từng frame Figma).
  * Chân modal: dùng <ModalFooter> (nút cao 46px, bo 12px, căn phải).
@@ -21,7 +21,7 @@ export default function Modal({ title, sub, topTitle, width = 600, maxHeight, on
   return (
     <div className="fixed inset-0 z-50 box-border w-full max-w-full overflow-x-hidden overflow-y-auto bg-[rgba(23,37,30,0.32)]" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className={`pointer-events-none flex min-h-full w-full min-w-0 max-w-full justify-center box-border p-4 ${top ? 'items-start' : 'items-center'}`} style={top ? { paddingTop: top } : undefined}>
-        <div role="dialog" aria-modal="true" aria-label={title} style={{ width: `min(${width}px, calc(100vw - 2rem))`, ...(maxHeight ? { maxHeight } : {}) }} className={`pointer-events-auto relative flex max-h-[calc(100vh-1rem)] min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-lg bg-white p-6 ${WIDTH[width] || WIDTH[600]} ${dialogClassName}`}>
+        <div role="dialog" aria-modal="true" aria-label={title} style={{ width: `min(${width}px, calc(100vw - 2rem))`, ...(maxHeight ? { maxHeight } : {}) }} className={`pointer-events-auto relative flex max-h-[calc(100vh-1rem)] min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-2xl bg-white p-6 ${WIDTH[width] || WIDTH[600]} ${dialogClassName}`}>
           <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-6 top-6 z-20 size-6 cursor-pointer text-[#67766c]">
             <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 5l14 14M19 5L5 19" /></svg>
           </button>

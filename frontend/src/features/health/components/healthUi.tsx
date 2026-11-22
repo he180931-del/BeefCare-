@@ -91,7 +91,8 @@ export function RadioGroup<T extends string>({ name, value, options, onChange, a
 
 export const Meta = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex min-w-0 flex-col gap-0.5">
-    <span className="text-[11px] text-faint">{label}</span>
+    {/* #5b6a60: ≥ 4,9:1 trên nền trắng và các nền nhạt của khối Bento (#8f8f8f cũ chỉ 3,2:1). */}
+    <span className="text-[11px] text-[#5b6a60]">{label}</span>
     <span className="text-[13px] font-medium text-ink">{children}</span>
   </div>
 )

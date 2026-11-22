@@ -110,8 +110,8 @@ export default function AnnouncementEditorPage() {
           <Button variant="primary" disabled={busy} onClick={review}>Xem lại &amp; đăng</Button>
         </PageHeader>
         {banner && <Note tone="err">{banner}</Note>}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-          <Card title="Nội dung" actions={<Badge tone="outline">Bản nháp</Badge>}>
+        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+          <Card variant="panel" title="Nội dung" actions={<Badge tone="outline">Bản nháp</Badge>}>
             <div className="flex flex-col gap-4">
               <Field label="Tiêu đề *" id="ann-title" hint={errors.title ? <span role="alert" className="text-err-fg">{errors.title}</span> : `Tối đa ${TITLE_MAX} ký tự · ${title.length}/${TITLE_MAX}`}>
                 <input id="ann-title" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} aria-invalid={Boolean(errors.title)} />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, DateInput, Foot, Icon, Note, PageHeader, Segmented, Select } from '../../../shared/ui'
+import { Button, DateInput, Foot, Icon, Note, PageHeader, Panel, Segmented, Select } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useFeedReceiptList } from '../hooks/useFeedReceiptList'
 import { filterFeedReceipts, getDefaultFeedReceiptPeriod, summarizeFeedReceipts } from '../domain/feedReceiptList'
@@ -47,6 +47,7 @@ export default function FeedReceiptPage() {
         </Button>
       </PageHeader>
 
+      <div className="@container flex min-w-0 flex-col gap-5">
       <FeedManagementTabs />
       {routeMessage && <Note tone="ok">{routeMessage}</Note>}
 
@@ -86,13 +87,13 @@ export default function FeedReceiptPage() {
         </div>
 
         {receiptQuery.loading && !receiptQuery.data && (
-          <div role="status" aria-live="polite" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">
+          <div role="status" aria-live="polite" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">
             Đang tải phiếu nhập kho…
           </div>
         )}
 
         {errorMessage && (
-          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg">
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg">
             <span>{errorMessage}</span>
             <Button size="sm" disabled={receiptQuery.loading} onClick={() => receiptQuery.refetch()}>
               {receiptQuery.loading ? 'Đang tải lại…' : 'Thử tải lại'}
@@ -103,12 +104,13 @@ export default function FeedReceiptPage() {
         {!receiptQuery.loading && !errorMessage && rows.length === 0 && <Note tone="info">Chưa có phiếu nhập kho.</Note>}
         {!receiptQuery.loading && !errorMessage && rows.length > 0 && visibleRows.length === 0 && <Note tone="info">Không tìm thấy phiếu nhập kho phù hợp với bộ lọc.</Note>}
         {!receiptQuery.loading && !errorMessage && visibleRows.length > 0 && (
-          <div className="flex flex-col gap-2 rounded-md border border-edge bg-white p-px">
+          <Panel className="gap-0 overflow-hidden p-0!">
             <FeedReceiptTable rows={visibleRows} />
-            <p className="m-0 px-3 pb-2 text-xs text-muted">Hiển thị {visibleRows.length} / {rows.length} phiếu</p>
-          </div>
+            <p className="m-0 border-t border-rule px-4 py-3 text-xs text-muted">Hiển thị {visibleRows.length} / {rows.length} phiếu</p>
+          </Panel>
         )}
       </section>
+      </div>
       <Foot>Danh sách phiếu nhập kho thức ăn. Phiếu NHÁP chưa cộng kho, chưa ghi công nợ. Hủy phiếu đã nhập chỉ được khi tồn kho còn đủ để trừ lại số đã nhập; nếu không, dùng phiếu điều chỉnh kho.</Foot>
     </Layout>
   )

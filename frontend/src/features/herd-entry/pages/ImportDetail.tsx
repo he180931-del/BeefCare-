@@ -48,9 +48,9 @@ export default function ImportDetail() {
         {Boolean(paymentError || voidError) && !isVersionConflict(paymentError || voidError) && !m && <Note tone="err">{herdEntryError(paymentError || voidError)}</Note>}
         {documentError && <Note tone="err">{documentError}</Note>}
 
-        <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
+        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
           <div className="flex min-w-0 flex-col gap-[18px]">
-            <Card title="Thông tin phiếu">
+            <Card variant="panel" title="Thông tin phiếu">
               <Info
                 items={[
                   ['Ngày nhập trại', dmy(r.date)],
@@ -65,7 +65,7 @@ export default function ImportDetail() {
               />
             </Card>
 
-            <Card title="Bò trong phiếu" sub={`${r.count} con · ${kg(r.weight)}`}>
+            <Card variant="panel" title="Bò trong phiếu" sub={`${r.count} con · ${kg(r.weight)}`}>
               <Table stack={false}>
                 <thead>
                   <tr>
@@ -110,14 +110,14 @@ export default function ImportDetail() {
               </p>
             </Card>
 
-            <Card title="Chứng từ đính kèm">
+            <Card variant="panel" title="Chứng từ đính kèm">
               {d ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
             </Card>
           </div>
 
           <div className="flex flex-col gap-[18px]">
             {r.total != null && (
-              <Card title="Thanh toán">
+              <Card variant="panel" title="Thanh toán">
                 <Info
                   cols={2}
                   items={[
@@ -157,7 +157,7 @@ export default function ImportDetail() {
                 )}
               </Card>
             )}
-            <Card title="Lịch sử phiếu">
+            <Card variant="panel" title="Lịch sử phiếu">
               <div className="flex flex-col gap-2 text-xs">
                 {(d?.history || [`${dmy(r.date)} · Phiếu được ${r.status === 'Đã hủy' ? 'hủy' : 'lưu'}`]).map((h) => <span key={h}>{h}</span>)}
               </div>

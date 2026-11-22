@@ -26,7 +26,7 @@ export default function CollectModal({ row, onClose, onSaved, onReload }: { row:
           <MoneyInput value={amount} onChange={setAmount} />
         </Field>
       </div>
-      <div className="-mt-2 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <span className="text-xs font-medium text-ink">Phương thức *</span>
         <div className="flex gap-[18px]">
           {METHODS.map((m) => (

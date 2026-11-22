@@ -7,7 +7,7 @@ import { CaseStatusBadge, EntryBadge, shortDetails } from './healthUi'
 import HealthTimelineSource from './HealthTimelineSource'
 
 const Meta = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex min-w-0 flex-col gap-0.5"><span className="text-[11px] text-faint">{label}</span><span className="text-[13px] font-medium text-ink">{value}</span></div>
+  <div className="flex min-w-0 flex-col gap-0.5"><span className="text-[11px] text-[#5b6a60]">{label}</span><span className="text-[13px] font-medium text-ink">{value}</span></div>
 )
 
 /** Bản điện thoại chỉ xem: không có nút ghi, hộp thoại hay khung trang; hồ sơ bò của Kỹ thuật viên cung cấp phần khung. */
@@ -25,7 +25,8 @@ export default function HealthTechnicianTab({ cattleCode }: { cattleCode: string
     <div className="flex flex-col gap-3">
       {data.activeCases.map((c) => (
         <section key={c.id} className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 rounded-lg border border-edge bg-white p-3.5">
+          {/* Bento (Figma Tab 17 ④b): ca đang mở là khối đỏ nhạt; ca mạn tính vàng nhạt. */}
+          <div className={`flex flex-col gap-3 rounded-2xl border p-4 ${c.status === 'CHRONIC' ? 'border-warn-bg bg-warn-bg' : 'border-err-bg bg-err-bg'}`}>
             <div className="flex items-center justify-between gap-2">
               <h3 className="m-0 text-sm font-semibold text-ink">Ca {c.caseCode} · {c.diagnosis || c.signs}</h3>
               <CaseStatusBadge status={c.status} day={c.day} chronicSince={c.chronicSince} />
@@ -39,7 +40,7 @@ export default function HealthTechnicianTab({ cattleCode }: { cattleCode: string
           </div>
           <h4 className="m-0 text-[10px] font-semibold uppercase tracking-wide text-brand">Diễn biến &amp; điều trị</h4>
           {data.timeline.filter((r) => r.caseId === c.id && r.status === 'VALID').map((r) => (
-            <div key={r.id} className="flex flex-col gap-1.5 rounded-lg border border-edge bg-white p-3.5">
+            <div key={r.id} className="flex flex-col gap-1.5 rounded-2xl border border-field bg-white p-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-semibold text-muted">{fmtDateTime(r.occurredAt)}</span>
                 <EntryBadge row={r} />

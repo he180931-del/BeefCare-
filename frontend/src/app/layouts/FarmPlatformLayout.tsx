@@ -185,7 +185,8 @@ export default function Layout({ title, user = 'owner', children }: { title: str
               )}
             </div>
           </header>
-          <main className="flex w-full min-w-0 flex-col gap-5 px-4 pb-10 pt-6 sm:px-6 lg:px-8">{children}</main>
+          {/* @container: lưới Bento đo theo vùng nội dung sau sidebar (docs/BeefCare-Bento-Grid.md §2), không theo màn hình. */}
+          <main className="@container flex w-full min-w-0 flex-col gap-5 px-4 pb-10 pt-6 sm:px-6 lg:px-8">{children}</main>
         </div>
       </div>
     </TopbarTitleContext.Provider>

@@ -2,7 +2,7 @@ import { businessDate } from '../../../shared/lib/date/farmTime'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, FilterSelect, Foot, Icon, inputCls, Note, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
+import { Button, FilterSelect, Foot, Icon, inputCls, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
 import { dm, dmy, kg, money } from '../../../shared/lib/format'
 import { herdEntryError } from '../api/herdEntryError'
@@ -92,26 +92,37 @@ export default function ImportList() {
           </FilterSelect>
         </div>
 
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-          <Tile
+        {/* Bento (Figma Tab 16 ②b): khối nổi bật là số phiếu đã nhập; số con xanh nhạt, công nợ vàng khi còn nợ. */}
+        <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <Metric
+            surface="panel"
+            tone="emphasis"
             label={`Phiếu đã nhập (từ ${dm(from)})`}
             value={shown(Number(tiles.postedVouchers ?? 0))}
             note={`${Number(tiles.draftVouchers ?? 0)} phiếu nháp chưa lưu`}
           />
-          <Tile
+          <Metric
+            compact
+            surface="panel"
+            tone={Number(tiles.cattleEntered ?? 0) > 0 ? 'ok' : 'default'}
             label="Số con đã nhập"
             value={shown(Number(tiles.cattleEntered ?? 0))}
             note={`Mua ngoài ${Number(tiles.cattlePurchased ?? 0)} · Bê sinh tại trại ${Number(tiles.cattleFarmBorn ?? 0)}`}
           />
-          <Tile label="Tiền mua bò" value={shown(`${money(Number(tiles.purchaseAmount ?? 0))} đ`)} note="Gồm phí vận chuyển" />
-          <Tile
+          <Metric compact surface="panel" label="Tiền mua bò" value={shown(`${money(Number(tiles.purchaseAmount ?? 0))} đ`)} note="Gồm phí vận chuyển" />
+          <Metric
+            compact
+            surface="panel"
+            tone={Number(tiles.owedToSellers ?? 0) > 0 ? 'warn' : 'default'}
             label="Còn nợ nguồn bán"
             value={shown(`${money(Number(tiles.owedToSellers ?? 0))} đ`)}
             note={Number(tiles.owedToSellers ?? 0) > 0 ? 'Theo dữ liệu backend' : 'Không còn nợ'}
           />
         </div>
+        </div>
 
-        <div className="rounded-md border border-edge bg-white p-2">
+        <div className="min-w-0 rounded-2xl border border-field bg-white p-2">
           <Table scroll>
             <thead>
               <tr>

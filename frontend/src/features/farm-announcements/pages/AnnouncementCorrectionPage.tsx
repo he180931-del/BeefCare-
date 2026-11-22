@@ -85,8 +85,8 @@ export default function AnnouncementCorrectionPage() {
           </Note>
         )}
         {banner && <Note tone="err">{banner}</Note>}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-          <Card title={`Phiên bản ${next}`} actions={<Badge tone="warn">Đang soạn</Badge>}>
+        <div className="grid grid-cols-1 items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+          <Card variant="panel" title={`Phiên bản ${next}`} actions={<Badge tone="warn">Đang soạn</Badge>}>
             <div className="flex flex-col gap-4">
               <Field label="Tiêu đề *" id="fix-title" hint={err(errors.title)}>
                 <input id="fix-title" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -104,7 +104,7 @@ export default function AnnouncementCorrectionPage() {
               </Field>
             </div>
           </Card>
-          <Card title="Lịch sử phiên bản">
+          <Card variant="panel" title="Lịch sử phiên bản">
             <Table stack={false}>
               <thead><tr><Th>Bản</Th><Th>Thời điểm</Th><Th>Người</Th></tr></thead>
               <tbody>

@@ -126,18 +126,21 @@ export default function FeedCataloguePage() {
       </PageHeader>
       <FeedManagementTabs />
       <Segmented
+        className="self-start"
         value={section}
         onChange={(value) => { setSection(value as CatalogueSection); setGroup('ALL'); setStatus('ACTIVE'); setSearch(''); setAdding(false) }}
         options={[{ value: 'feeds', label: `Thức ăn (${items.length})` }, { value: 'suppliers', label: `Nhà cung cấp (${suppliers.length})` }]}
       />
       {message && <Note tone="ok">{message}</Note>}
-      {actionError && <div role="alert" className="rounded-md border border-err-bg bg-white p-3 text-sm text-err-fg">{actionError}</div>}
+      {actionError && <div role="alert" className="rounded-2xl border border-err-bg bg-white p-3 text-sm text-err-fg">{actionError}</div>}
 
-      <section role="tabpanel" aria-label="Danh mục thức ăn và nhà cung cấp" className="grid items-start gap-4 xl:grid-cols-[minmax(0,740px)_minmax(0,356px)]">
-        <Card>
+      {/* Danh sách + vùng biên tập (Bento §1, Figma Tab 21 ④b): 8+4 khi vùng nội dung từ 1.024 px; bảng 8 cột cần ~640 px. */}
+      <div className="@container">
+      <section role="tabpanel" aria-label="Danh mục thức ăn và nhà cung cấp" className="grid items-start gap-4 @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <Card variant="panel">
           {filterBar}
-          {query.loading && !query.data && <div role="status" className="rounded-md border border-edge p-8 text-center text-sm text-muted">Đang tải danh mục…</div>}
-          {errorMessage && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg p-4 text-sm text-err-fg"><span>{errorMessage}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>{query.loading ? 'Đang tải…' : 'Thử tải lại'}</Button></div>}
+          {query.loading && !query.data && <div role="status" className="rounded-xl border border-field p-8 text-center text-sm text-muted">Đang tải danh mục…</div>}
+          {errorMessage && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-err-bg p-4 text-sm text-err-fg"><span>{errorMessage}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>{query.loading ? 'Đang tải…' : 'Thử tải lại'}</Button></div>}
           {!query.loading && !errorMessage && section === 'feeds' && filteredFeeds.length === 0 && <Note tone="info">{items.length ? 'Không tìm thấy thức ăn phù hợp.' : 'Chưa có thức ăn trong danh mục.'}</Note>}
           {!query.loading && !errorMessage && section === 'suppliers' && filteredSuppliers.length === 0 && <Note tone="info">{suppliers.length ? 'Không tìm thấy nhà cung cấp phù hợp.' : 'Chưa có nhà cung cấp trong danh mục.'}</Note>}
 
@@ -196,6 +199,7 @@ export default function FeedCataloguePage() {
           />
         )}
       </section>
+      </div>
       <Foot>{FOOT}</Foot>
       {supplierDialog && <SupplierFormDialog supplier={supplierDialog.supplier} saving={busy} onClose={() => setSupplierDialog(null)} onSave={(input) => void saveSupplierRow(input)} />}
     </Layout>
@@ -239,7 +243,7 @@ function FeedEditPanel({ item, suggested, stock, saving, onCancel, onSave }: {
   }
 
   return (
-    <Card
+    <Card variant="panel"
       title={item ? `Sửa thức ăn ${item.code}` : 'Thêm thức ăn'}
       sub={item ? `${item.name}${locked ? ' · đang có giao dịch kho' : ''}` : 'Mã mới được gợi ý theo số thứ tự kế tiếp'}
     >

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, FilterSelect, Foot, Icon, PageHeader, Segmented, Table, Td, Th, Tile } from '../../../shared/ui'
+import { Button, FilterSelect, Foot, Icon, Metric, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { dmy, money } from '../../../shared/lib/format'
 import { ExitStatusBadge, TH, cx, useIsOwner } from '../components/parts'
 import { useExitList } from '../hooks/useExitList'
@@ -38,14 +38,16 @@ export default function ExportList() {
         </FilterSelect>
       </div>
 
-      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
-        <Tile label="Con đã xuất (từ 01/07)" value={summary.doneCount} note={`Bán ${summary.byType['Bán']} · Loại thải ${summary.byType['Loại thải']} · Chết ${summary.byType['Chết / mất']}`} />
-        <Tile label="Doanh thu bán bò" value={`${money(summary.revenue)} đ`} note={`${summary.doneVoucherCount} phiếu đã xuất`} />
-        <Tile warn label="Còn phải thu" value={`${money(summary.owed)} đ`} note={summary.owedCount ? `${summary.owedCount} phiếu · ${summary.firstOwedId}` : 'Không còn nợ'} />
-        <Tile label="Chờ chủ trại xác nhận" value={summary.pendingCount} note="Đề xuất từ ca sức khỏe" />
+      {/* Bento (Figma Tab 16 ④b): khối nổi bật là số con đã xuất; doanh thu xanh nhạt, còn phải thu vàng, chờ xác nhận đỏ
+          nhạt — chỉ khi có số liệu. */}
+      <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+        <Metric surface="panel" tone="emphasis" label="Con đã xuất (từ 01/07)" value={summary.doneCount} note={`Bán ${summary.byType['Bán']} · Loại thải ${summary.byType['Loại thải']} · Chết ${summary.byType['Chết / mất']}`} />
+        <Metric compact surface="panel" tone={summary.revenue > 0 ? 'ok' : 'default'} label="Doanh thu bán bò" value={`${money(summary.revenue)} đ`} note={`${summary.doneVoucherCount} phiếu đã xuất`} />
+        <Metric compact surface="panel" tone={summary.owed > 0 ? 'warn' : 'default'} warn={summary.owed > 0} label="Còn phải thu" value={`${money(summary.owed)} đ`} note={summary.owedCount ? `${summary.owedCount} phiếu · ${summary.firstOwedId}` : 'Không còn nợ'} />
+        <Metric compact surface="panel" tone={summary.pendingCount > 0 ? 'err' : 'default'} label="Chờ chủ trại xác nhận" value={summary.pendingCount} note="Đề xuất từ ca sức khỏe" />
       </div>
 
-      <div className="rounded-md border border-edge bg-white p-2">
+      <div className="min-w-0 rounded-2xl border border-field bg-white p-2">
         <Table scroll>
           <thead>
             <tr>
