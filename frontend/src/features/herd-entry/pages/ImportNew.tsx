@@ -16,7 +16,7 @@ import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
 import PayModal from '../components/PayModal'
-import { entryToday as localToday, validateEntryForPost, validateEntryWeights } from '../validation/entryFormValidation'
+import { entryToday as localToday, missingKgWeightLines, validateEntryForPost, validateEntryWeights } from '../validation/entryFormValidation'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryParentOption } from '../api/herdEntryBackendApi'
@@ -126,6 +126,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
 
   const { picked, weight: calfWeight, estimatedCount: calfEstimated, after: calfAfter, over: calfOver } = calvesSummary
   const n = isBuy ? cows.length : picked.length
+  const missingWeightLines = isBuy ? missingKgWeightLines(cows, pricing) : []
 
   const persistCalfParentage = async (calf: Calf, patch: Partial<Calf>) => {
     const damId = Number(patch.damId ?? calf.damId)
@@ -579,6 +580,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
               {!isBuy && <Note>Phiếu bê sinh tại trại không có giá và thanh toán.</Note>}
               {!isBuy && calfOver && <Note tone="err">{`Chuồng ${calfBarn.code} không thể nhận thêm (${calfAfter}/${calfBarn.capacity}).`}</Note>}
               {isBuy && estimatedCount > 0 && <Note tone="warn">{`Cân nặng ${estimatedCount} con sẽ được lưu là ƯỚC TÍNH.`}</Note>}
+              {missingWeightLines.length > 0 && <Note tone="warn">{`Con ${missingWeightLines.slice(0, 5).map((line) => `#${line}`).join(', ')}${missingWeightLines.length > 5 ? ` và ${missingWeightLines.length - 5} con khác` : ''} chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.`}</Note>}
               {isBuy && !quarantine.trim() && <Note tone="warn">Chưa nhập số giấy kiểm dịch. Bạn vẫn có thể lưu phiếu và bổ sung sau.</Note>}
               {isBuy && barnAfter.filter((b) => b.after === b.capacity).map((b) => <Note tone="warn" key={b.code}>{`Chuồng ${b.code} sẽ đầy (${b.after}/${b.capacity}) sau khi nhập.`}</Note>)}
               {isBuy && overflow.map((b) => <Note tone="err" key={b.code}>{`Chuồng ${b.code} vượt sức chứa (${b.after}/${b.capacity}).`}</Note>)}
