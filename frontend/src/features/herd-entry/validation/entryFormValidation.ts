@@ -8,9 +8,9 @@ type ValidationInput = {
 
 export const entryToday = businessDate
 
-const purchaseWeightError = (cow: EntryCow, pricing: 'kg' | 'con'): string | null => {
+const purchaseWeightError = (cow: EntryCow, pricing: 'kg' | 'con', forPost = true): string | null => {
   const weight = Number(cow.weight)
-  if (pricing === 'kg' && weight === 0) return 'cân nhập phải lớn hơn 0 kg.'
+  if (forPost && pricing === 'kg' && weight === 0) return 'cân nhập phải lớn hơn 0 kg.'
   if (!Number.isFinite(weight) || weight < 0 || (weight > 0 && (weight < 1 || weight > 1500))) return 'cân nhập phải từ 1 đến 1.500 kg.'
   // Older local drafts only have `estimated`; an explicit null still means unselected.
   const basis = cow.weightBasis === undefined ? (weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null) : cow.weightBasis
@@ -18,14 +18,18 @@ const purchaseWeightError = (cow: EntryCow, pricing: 'kg' | 'con'): string | nul
   return null
 }
 
-/** Changing a purchase voucher's basis must not save kg lines without weights. */
+/** Drafts may omit a weight; entered weights must always have a valid range/basis. */
 export function validateEntryWeights(cows: EntryCow[], pricing: 'kg' | 'con'): string | null {
   for (const [index, cow] of cows.entries()) {
-    const error = purchaseWeightError(cow, pricing)
+    const error = purchaseWeightError(cow, pricing, false)
     if (error) return `Con #${index + 1}: ${error}`
   }
   return null
 }
+
+export const missingKgWeightLines = (cows: EntryCow[], pricing: 'kg' | 'con'): number[] => pricing === 'kg'
+  ? cows.flatMap((cow, index) => Number(cow.weight) === 0 ? [index + 1] : [])
+  : []
 
 /** Field and inter-field rules required before the editor can post a voucher. */
 export function validateEntryForPost(input: ValidationInput): string | null {
