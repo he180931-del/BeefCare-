@@ -11,6 +11,63 @@ const voucher = (status = 'DRAFT') => ({
   payments: [], documents: [], history: [],
 })
 
+test('exit void-check maps nullable last pens and server occupancy without fetching a replacement version', async () => {
+  const gets: string[] = []
+  const transport: BackendTransport = {
+    farmPath: (id, suffix = '') => `/api/farms/${id}${suffix}`,
+    command: async () => { throw new Error('No command expected') },
+    get: async (path) => {
+      gets.push(path)
+      return { voucherId: 61, code: 'PX-61', version: 99, voidable: true, cattle: [
+        { cattleId: 301, cattleCode: 'BC-301', lastPen: null, needsPenOverride: true },
+        { cattleId: 302, cattleCode: 'BC-302', lastPen: { penId: 4, penCode: 'B4', active: true, freePlaces: 1 }, needsPenOverride: false },
+      ], occupancyAfter: [{ penId: 4, penCode: 'B4', capacity: 10, before: 9, after: 10 }], message: { code: 'MSG-FE13-09', text: 'Chọn chuồng cho BC-301.' } }
+    },
+  }
+  const api = createHerdExitBackendApi({ transport, farmId: 9 })
+  const result = await api.voidCheck('PX-61', 61)
+  assert.deepEqual(gets, ['/api/farms/9/exit-vouchers/61/void-check'])
+  assert.equal(result.version, 99)
+  assert.equal(result.voidable, true)
+  assert.equal(result.cattle[0].lastPen, null)
+  assert.equal(result.cattle[0].needsPenOverride, true)
+  assert.deepEqual(result.cattle[1].lastPen, { penId: 4, penCode: 'B4', active: true, freePlaces: 1 })
+  assert.deepEqual(result.occupancyAfter, [{ penId: 4, penCode: 'B4', capacity: 10, before: 9, after: 10 }])
+  assert.equal(result.message?.text, 'Chọn chuồng cho BC-301.')
+})
+
+test('exit void sends trimmed override/warning maps with the opened version and body-specific stable keys', async () => {
+  const writes: Array<{ body: unknown; key?: string }> = []
+  const transport: BackendTransport = {
+    farmPath: (id, suffix = '') => `/api/farms/${id}${suffix}`,
+    get: async () => { throw new Error('The opened backend id and version must be used') },
+    command: async (_path, body, options) => { writes.push({ body, key: options?.key }); return { voucher: voucher('VOIDED') } },
+  }
+  const api = createHerdExitBackendApi({ transport, farmId: 9 })
+  const input = { reason: '  Trả lại  ', backendId: 61, expectedVersion: 3, penOverrides: { '301': 4 }, warningReasons: { '301': '  Nhận tạm  ', '302': '  ' } }
+  await api.voidVoucher('PX-61', input)
+  await api.voidVoucher('PX-61', input)
+  await api.voidVoucher('PX-61', { ...input, penOverrides: { '301': 5 } })
+  await api.voidVoucher('PX-61', { ...input, warningReasons: { '301': 'Đã kiểm tra' } })
+  assert.deepEqual(writes[0].body, { reason: 'Trả lại', expectedVersion: 3, penOverrides: { '301': 4 }, warningReasons: { '301': 'Nhận tạm' } })
+  assert.equal(writes[0].key, writes[1].key)
+  assert.notEqual(writes[0].key, writes[2].key)
+  assert.notEqual(writes[0].key, writes[3].key)
+})
+
+test('exit void loads canonical pens and their current headcounts', async () => {
+  const gets: string[] = []
+  const api = createHerdExitBackendApi({ farmId: 9, transport: {
+    farmPath: (id, suffix = '') => `/api/farms/${id}${suffix}`,
+    get: async (path) => { gets.push(path); return { pens: [{ id: 4, code: 'B4', name: 'Chuồng 4', headcount: 9, capacity: 10, status: 'ACTIVE' }, { id: 5, code: 'B5', headcount: 0, capacity: 10, status: 'INACTIVE' }] } },
+    command: async () => undefined,
+  } })
+  const result = await api.listPens()
+  assert.deepEqual(gets, ['/api/farms/9/pens'])
+  assert.deepEqual(result[0], { id: 4, code: 'B4', name: 'Chuồng 4', count: 9, capacity: 10, status: 'ACTIVE', cows: [] })
+  assert.equal(result[1].status, 'INACTIVE')
+})
+
 test('exit backend resolves cattle and buyer ids before creating and confirming a sale', async () => {
   const calls: Array<{ method: string; path: string; body?: unknown }> = []
   const transport: BackendTransport = {
