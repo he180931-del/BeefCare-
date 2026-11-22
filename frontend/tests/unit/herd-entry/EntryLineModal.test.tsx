@@ -29,6 +29,15 @@ beforeEach(() => {
 })
 function Address() { return <output data-testid="address">{useLocation().search}</output> }
 function renderPage(query = '') { return render(<MemoryRouter initialEntries={[`/herd-entry/PN-1${query}`]}><Routes><Route path="/herd-entry/:id" element={<><ImportDetail /><Address /></>} /></Routes></MemoryRouter>) }
+it('renders duplicate history text without duplicate React keys', async () => {
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  try {
+    state.get.mockResolvedValue({ ...voucher, detail: { ...voucher.detail, history: ['Same audit event', 'Same audit event'] } })
+    renderPage()
+    expect(await screen.findAllByText('Same audit event')).toHaveLength(2)
+    expect(errors.mock.calls.filter(([message]) => String(message).includes('same key'))).toEqual([])
+  } finally { errors.mockRestore() }
+})
 async function openLine() {
   const user = userEvent.setup(); renderPage()
   const row = await screen.findByRole('row', { name: /BC-001/ })
@@ -87,6 +96,11 @@ it('shows later events without offering line voiding', async () => {
   await openLine()
   expect(screen.queryByRole('radio', { name: 'Hủy bản ghi' })).not.toBeInTheDocument()
   expect(screen.getByText(/BC-001 đã có sự kiện: Cân ngày 01\/11\/2026/)).toBeInTheDocument()
+})
+it('translates backend event codes in the void preflight', async () => {
+  state.check.mockResolvedValue({ canVoid: false, eventsAfterEntry: ['WEIGHT'], reason: 'HAS_EVENTS', cattleCode: 'BC-001' })
+  await openLine()
+  expect(screen.getByText(/BC-001 đã có sự kiện: Cân nặng/)).toBeInTheDocument()
 })
 
 it('directs the last VALID line to the existing whole-voucher popup, excluding VOID lines from eligibility', async () => {

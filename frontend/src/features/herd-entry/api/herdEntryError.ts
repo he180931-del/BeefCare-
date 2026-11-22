@@ -1,10 +1,11 @@
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { dmy } from '../../../shared/lib/format'
+import { entryEventLabel } from '../domain/entryEventLabel'
 
 export function herdEntryError(error: unknown, fallback = 'Không thể hoàn tất thao tác. Vui lòng thử lại.'): string {
   const value = typeof error === 'object' && error !== null ? error as { code?: unknown; params?: Record<string, unknown>; message?: string } : {}
   const p = value.params ?? {}
-  const events = Array.isArray(p.events) ? p.events.join(', ') : String(p.events ?? 'không xác định')
+  const events = (Array.isArray(p.events) ? p.events.map(String) : String(p.events ?? 'không xác định').split(',')).map(event => entryEventLabel(event.trim())).join(', ')
   const cattle = String(p.cattle_code ?? 'bò này')
   switch (value.code) {
     case 'MSG-FE06-07': {

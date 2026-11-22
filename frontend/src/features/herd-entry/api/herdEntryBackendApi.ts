@@ -159,11 +159,12 @@ export function createHerdEntryBackendApi({ transport, farmId }: { transport: Ba
   }
   const get = async (code: string, knownBackendId?: number): Promise<HerdEntry> => {
     const { backendId } = await resolve(code, knownBackendId)
-    const [voucherBody, documentBody] = await Promise.all([
+    const [voucherBody, documentBody, breedsBody] = await Promise.all([
       transport.get(`${root}/${backendId}`),
       transport.get(`${root}/${backendId}/attachments`),
+      transport.get(transport.farmPath(farmId, '/catalogues/breeds')),
     ])
-    const result = mapVoucher(voucherBody)
+    const result = mapVoucher(voucherBody, [], breedsBody)
     result.detail = {
       ...result.detail,
       docs: mapDocuments(documentBody, root, backendId),

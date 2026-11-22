@@ -7,6 +7,7 @@ import { useEntryLineCorrection } from '../hooks/useEntryLineCorrection'
 import { herdEntryError } from '../api/herdEntryError'
 import type { EntryCattleDetail, EntryLineCommandResult, HerdEntry } from '../types'
 import type { EntryLineForm } from '../domain/entryLineCorrection'
+import { entryEventLabel } from '../domain/entryEventLabel'
 
 function ChangeRow({ label, current, children }: { label: string; current?: ReactNode; children: ReactNode }) {
   return <tr><Td>{label}</Td><Td>{current || '—'}</Td><Td>{children}</Td></tr>
@@ -30,7 +31,7 @@ export default function EntryLineModal({ record, line, onSuccess, onClose, onRel
     {s.loading && <Note>Đang kiểm tra…</Note>}
     {Boolean(s.loadError) && <><Note tone="err">{herdEntryError(s.loadError)}</Note><Button onClick={() => { void s.retry() }}>Thử lại</Button></>}
     {s.data && <>
-      {s.data.check.eventsAfterEntry.length > 0 && <Note>Không thể hủy vì {c.code} đã có sự kiện: {s.data.check.eventsAfterEntry.join(', ')}.</Note>}
+      {s.data.check.eventsAfterEntry.length > 0 && <Note>Không thể hủy vì {c.code} đã có sự kiện: {s.data.check.eventsAfterEntry.map(entryEventLabel).join(', ')}.</Note>}
       {!s.data.check.canVoid && !s.data.check.eventsAfterEntry.length && <Note>Không thể hủy bản ghi ở trạng thái hiện tại.</Note>}
     </>}
     {wholeVoucher && <Note>{s.lastValid ? 'Đây là con cuối cùng còn hiệu lực. Dùng Hủy phiếu để hủy cả phiếu.' : 'Bạn có thể chuyển sang hủy cả phiếu.'} <Button disabled={s.saving} onClick={onVoidVoucher}>Hủy cả phiếu</Button></Note>}

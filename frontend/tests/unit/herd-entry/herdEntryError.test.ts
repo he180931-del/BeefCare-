@@ -32,3 +32,6 @@ it('directs the last valid line to whole-voucher voiding only for VOID_VOUCHER',
   expect(herdEntryError(new BackendError(422, { code: 'MSG-FE06-20', params: { action: 'VOID_VOUCHER' } }))).toBe('Đây là con cuối cùng còn hiệu lực của phiếu. Hãy dùng Hủy phiếu.')
   expect(herdEntryError(new BackendError(422, { code: 'MSG-FE06-20', params: {} }))).not.toContain('con cuối cùng')
 })
+it('explains backend event codes in Vietnamese while retaining already-readable labels', () => {
+  expect(herdEntryError(new BackendError(422, { code: 'MSG-FE06-09', params: { cattle_code: 'BC-1', events: 'WEIGHT, PEN_MOVE' } }))).toContain('Cân nặng, Chuyển chuồng')
+})

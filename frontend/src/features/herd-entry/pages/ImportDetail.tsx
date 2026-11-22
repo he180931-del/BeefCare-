@@ -180,7 +180,7 @@ export default function ImportDetail() {
             )}
             <Card title="Lịch sử phiếu">
               <div className="flex flex-col gap-2 text-xs">
-                {(d?.history || [`${dmy(r.date)} · Phiếu được ${r.status === 'Đã hủy' ? 'hủy' : 'lưu'}`]).map((h) => <span key={h}>{h}</span>)}
+                {(d?.history || [`${dmy(r.date)} · Phiếu được ${r.status === 'Đã hủy' ? 'hủy' : 'lưu'}`]).map((h, index) => <span key={`${index}:${h}`}>{h}</span>)}
               </div>
             </Card>
           </div>
