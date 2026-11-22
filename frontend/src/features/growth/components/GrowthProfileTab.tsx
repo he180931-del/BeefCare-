@@ -6,7 +6,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { useCanRecordCare } from '../../authorization'
 import { addDays, dayFloat, fmtDate, fmtDateTime, fmtDayMonth, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
-import { finishingProgress, weightAtNextWeighing, type FinishingProgress } from '../domain/growthRules'
+import { adgBasis, adgBasisText, finishingProgress, validWeights, weightAtNextWeighing, type FinishingProgress } from '../domain/growthRules'
 import { useGrowthProfile } from '../hooks/useGrowthUseCase'
 import type { GrowthProfile, GrowthProjection, GrowthRecord } from '../types'
 import GrowthChart, { ChartLegend } from './GrowthChart'
@@ -94,6 +94,10 @@ export default function GrowthProfileTab({ cattleCode }: { cattleCode: string })
 
 const adgValue = (adg: number | undefined) => (adg === undefined ? '—' : `${fmtDec(adg, 2)} kg/ngày`)
 
+/** Giải thích ADG theo các lần cân thật trong kỳ (không ghi cứng "60/90 ngày" khi dữ liệu ngắn hơn). */
+const adgSub = (profile: GrowthProfile, adg: number | undefined, windowDays: number) =>
+  adgBasisText(adg, adgBasis(validWeights(profile.records), windowDays, profile.today), windowDays)
+
 /** Lần cân tới: đỏ khi đã quá ngày, vàng khi là việc sắp tới (docs/BeefCare-Bento-Grid.md §3); luôn kèm chữ. */
 function nextWeighing(profile: GrowthProfile): { tone: MetricTone; status?: string } {
   const { nextWeighingDate, today } = profile
@@ -117,7 +121,7 @@ function WeighingSummary({ profile }: { profile: GrowthProfile }) {
   return (
     <section aria-label="Chỉ số tăng trưởng" className="col-span-full grid min-w-0 grid-cols-2 gap-4 @min-[640px]:grid-cols-3 @min-[880px]:grid-cols-5 @min-[1024px]:gap-6">
       <Metric surface="panel" compact label="Cân gần nhất" value={latest ? `${fmtKg(latest.kg)} kg` : '—'} sub={latest ? `${fmtDayMonth(latest.at)} · ${BASIS_LABEL[latest.basis]}` : 'Chưa có lần cân'} />
-      <Metric surface="panel" compact label="Tăng cân · ADG 90 ngày" value={adgValue(adg90)} sub={adg90 === undefined ? 'Chưa đủ 2 lần cân hợp lệ' : 'Mức tăng cân bình quân mỗi ngày'} />
+      <Metric surface="panel" compact label="Tăng cân bình quân (ADG)" value={adgValue(adg90)} sub={adgSub(profile, adg90, 90)} />
       <Metric surface="panel" tone={next.tone} compact label="Lần cân tới" value={nextWeighingDate ? fmtDate(nextWeighingDate) : '—'} sub={next.status ?? (nextWeighingDate ? 'Theo chu kỳ cân của trại' : 'Chưa có lịch cân')} />
       <BcsMetric profile={profile} />
       <CountMetric profile={profile} />
@@ -133,18 +137,16 @@ function FinishingBlocks({ profile, projection }: { profile: GrowthProfile; proj
   const nextKg = progress && weightAtNextWeighing(progress.currentKg, progress.currentAt, profile.nextWeighingDate, adg60)
   return (
     <>
-      <Projection projection={projection} />
+      <Projection projection={projection} adgDays={adgBasis(validWeights(profile.records), 60, profile.today)?.days} />
       <Progress progress={progress} />
       <section aria-label="Tăng cân và lần cân tới" className="col-span-full grid min-w-0 grid-cols-2 gap-4 @min-[640px]:col-span-4 @min-[640px]:grid-cols-1 @min-[880px]:col-span-full @min-[880px]:grid-cols-2 @min-[1024px]:col-span-3 @min-[1024px]:grid-cols-1 @min-[1024px]:gap-6">
         <Metric
           surface="panel"
           tone={adg60 !== undefined && adg60 > 0 ? 'ok' : 'default'}
           compact
-          label="Tăng cân · ADG 60 ngày"
+          label="Tăng cân bình quân (ADG)"
           value={adgValue(adg60)}
-          sub={adg60 === undefined
-            ? 'Chưa đủ 2 lần cân hợp lệ trong 60 ngày'
-            : `≈ ${fmtKg(Math.round(adg60 * 30))} kg/tháng · ADG 90 ngày: ${profile.adg90 === undefined ? '—' : fmtDec(profile.adg90, 2)}`}
+          sub={adg60 === undefined ? adgSub(profile, adg60, 60) : `${adgSub(profile, adg60, 60)} · ≈ ${fmtKg(Math.round(adg60 * 30))} kg/tháng`}
         />
         <Metric
           surface="panel"
@@ -153,14 +155,14 @@ function FinishingBlocks({ profile, projection }: { profile: GrowthProfile; proj
           label={profile.nextWeighingDate ? `Cân tới · ${fmtDate(profile.nextWeighingDate)}` : 'Lần cân tới'}
           value={nextKg === undefined ? (profile.nextWeighingDate ? '—' : 'Chưa có lịch') : `≈ ${fmtKg(Math.round(nextKg))} kg`}
           // Số "≈ kg" luôn đi kèm chữ "ước tính" (docs/BeefCare-Bento-Grid.md §4), kể cả khi lần cân đã quá hạn.
-          sub={[next.status, nextKg === undefined ? 'Chưa đủ dữ liệu ADG 60 ngày để ước tính cân' : 'Ước tính nếu giữ ADG 60 ngày'].filter(Boolean).join(' · ')}
+          sub={[next.status, nextKg === undefined ? 'Chưa đủ dữ liệu ADG để ước tính cân' : 'Ước tính nếu giữ ADG hiện tại'].filter(Boolean).join(' · ')}
         />
       </section>
     </>
   )
 }
 
-function Projection({ projection }: { projection: GrowthProjection }) {
+function Projection({ projection, adgDays }: { projection: GrowthProjection; adgDays?: number }) {
   const { state, targetKg, missingKg, adg60, days, projectedDate } = projection
   const projected = state === 'PROJECTED'
   const baseDate = projectedDate && days !== undefined ? addDays(projectedDate, -days) : undefined
@@ -189,7 +191,7 @@ function Projection({ projection }: { projection: GrowthProjection }) {
       <dl className="m-0 mt-auto grid grid-cols-2 gap-3 border-t border-white/25 pt-3 @min-[640px]:grid-cols-3">
         <div><dt className="text-xs text-side-text">Mục tiêu</dt><dd className="m-0 mt-1 font-semibold">{`≥ ${fmtKg(targetKg)} kg`}</dd></div>
         <div><dt className="text-xs text-side-text">Còn thiếu</dt><dd className="m-0 mt-1 font-semibold">{`${fmtKg(missingKg)} kg`}</dd></div>
-        <div><dt className="text-xs text-side-text">Tính theo</dt><dd className="m-0 mt-1 font-semibold">{`ADG 60 ngày · ${adg60 === undefined ? '—' : fmtDec(adg60, 2)}`}</dd></div>
+        <div><dt className="text-xs text-side-text">Tính theo</dt><dd className="m-0 mt-1 font-semibold">{adg60 === undefined ? 'ADG · —' : `ADG ${fmtDec(adg60, 2)} kg/ngày${adgDays === undefined ? '' : ` · ${adgDays} ngày`}`}</dd></div>
       </dl>
     </Panel>
   )

@@ -1,5 +1,5 @@
 import type { GrowthBasis, GrowthMethod, GrowthProjection, GrowthRecord } from '../types'
-import { addDays, dayFloat, fmtDate } from './growthFormat'
+import { addDays, dayFloat, fmtDate, fmtDayMonth } from './growthFormat'
 
 export const BCS_SCALE = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
 export const WEIGHT_MIN = 1
@@ -68,6 +68,33 @@ export function adgForWindow(weights: WeightPoint[], windowDays: number, now: st
   const days = dayFloat(last.at) - dayFloat(first.at)
   if (days < MIN_ADG_GAP_DAYS) return undefined
   return (last.kg - first.kg) / days
+}
+
+/** Căn cứ thật của một ADG kỳ: lần cân đầu/cuối trong kỳ, số ngày giữa chúng và số lần cân. */
+export interface AdgBasis { from: string; to: string; days: number; count: number }
+
+/**
+ * Các lần cân hợp lệ mà ADG kỳ `windowDays` thực sự dùng (theo ngày cân, như backend), để hiển thị
+ * "tính trên X ngày" thay cho tên kỳ cố định. Trả về undefined khi trong kỳ chưa có lần cân nào.
+ */
+export function adgBasis(weights: WeightPoint[], windowDays: number, today: string): AdgBasis | undefined {
+  const from = addDays(today, -windowDays)
+  const inWindow = weights.filter((w) => w.at.slice(0, 10) >= from && w.at.slice(0, 10) <= today)
+  if (inWindow.length === 0) return undefined
+  const first = inWindow[0].at.slice(0, 10)
+  const last = inWindow[inWindow.length - 1].at.slice(0, 10)
+  return { from: first, to: last, days: Math.round(dayFloat(last) - dayFloat(first)), count: inWindow.length }
+}
+
+/** Dòng giải thích dưới số ADG: ADG thật tính trên bao nhiêu ngày, hoặc vì sao chưa có. */
+export function adgBasisText(adg: number | undefined, basis: AdgBasis | undefined, windowDays: number): string {
+  if (adg !== undefined && basis && basis.count >= 2) {
+    return `Tính trên ${basis.days} ngày · ${basis.count} lần cân (${fmtDayMonth(basis.from)} → ${fmtDayMonth(basis.to)})`
+  }
+  if (basis && basis.count >= 2 && basis.days < MIN_ADG_GAP_DAYS) {
+    return `${basis.count} lần cân chỉ cách ${basis.days} ngày · cần từ ${MIN_ADG_GAP_DAYS} ngày`
+  }
+  return `Cần ≥ 2 lần cân cách nhau từ ${MIN_ADG_GAP_DAYS} ngày trong ${windowDays} ngày gần nhất`
 }
 
 /** ADG của từng dòng so với lần cân hợp lệ ngay trước đó. */

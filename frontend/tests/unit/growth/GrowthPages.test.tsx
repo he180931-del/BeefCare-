@@ -154,7 +154,7 @@ describe('tab Tăng trưởng & BCS của hồ sơ bò', () => {
     renderAs('MANAGER', <GrowthProfileTab cattleCode="BC-000203" />, '/?tab=growth')
     const nextSteps = await screen.findByRole('region', { name: 'Tăng cân và lần cân tới' })
     expect(within(nextSteps).getByText('≈ 331 kg')).toBeInTheDocument()
-    expect(within(nextSteps).getByText('Quá hạn 11 ngày · Ước tính nếu giữ ADG 60 ngày')).toBeInTheDocument()
+    expect(within(nextSteps).getByText('Quá hạn 11 ngày · Ước tính nếu giữ ADG hiện tại')).toBeInTheDocument()
     spy.mockRestore()
   })
 

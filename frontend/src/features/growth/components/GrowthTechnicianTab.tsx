@@ -3,6 +3,7 @@ import { Badge, ErrorBlock, Info, LoadingBlock, Note } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { fmtDate, fmtDateTime, fmtDec, fmtKg } from '../domain/growthFormat'
 import { BASIS_LABEL, METHOD_LABEL } from '../domain/growthLabels'
+import { adgBasis, validWeights } from '../domain/growthRules'
 import { useGrowthProfile } from '../hooks/useGrowthUseCase'
 import GrowthChart from './GrowthChart'
 
@@ -17,6 +18,7 @@ export default function GrowthTechnicianTab({ cattleCode }: { cattleCode: string
   if (error || !data) return <ErrorBlock message={userFacingError(error, 'Không tải được dữ liệu tăng trưởng.')} onRetry={refetch} />
   const { latest, adg90, latestBcs, nextWeighingDate } = data
   const sourceId = params.get('r')
+  const adg90Days = adgBasis(validWeights(data.records), 90, data.today)?.days
   const valid = data.records.filter((r) => r.status === 'VALID')
   const history = sourceId == null ? valid.slice(0, 5) : valid.filter((r) => String(r.id) === sourceId)
   if (sourceId != null && history.length === 0) return <Note tone="warn">Không tìm thấy bản ghi tăng trưởng này.</Note>
@@ -28,7 +30,7 @@ export default function GrowthTechnicianTab({ cattleCode }: { cattleCode: string
           cols={2}
           items={[
             ['Cân gần nhất', latest ? `${fmtKg(latest.kg)} kg · ${BASIS_LABEL[latest.basis]}` : '—'],
-            ['ADG 90 ngày', adg90 === undefined ? '—' : `${fmtDec(adg90, 2)} kg/ngày`],
+            ['ADG', adg90 === undefined ? '—' : `${fmtDec(adg90, 2)} kg/ngày${adg90Days === undefined ? '' : ` · ${adg90Days} ngày`}`],
             ['BCS gần nhất', latestBcs === undefined ? '—' : `${fmtDec(latestBcs)} / 5`],
             ['Lần cân tới', nextWeighingDate ? fmtDate(nextWeighingDate) : '—'],
           ]}
