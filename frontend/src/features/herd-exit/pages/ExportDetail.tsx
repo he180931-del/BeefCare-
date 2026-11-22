@@ -11,6 +11,7 @@ import DeathView from '../components/DeathView'
 import { PaymentTable } from '../components/PaymentTable'
 import type { ExitDetail } from '../types'
 import { useExitDetail } from '../hooks/useExitDetail'
+import { exitCattleStatus } from '../domain/exitCattleStatus'
 
 export default function ExportDetail() {
   const { id } = useParams()
@@ -78,15 +79,18 @@ export default function ExportDetail() {
                 </tr>
               </thead>
               <tbody>
-                {(d.cows ?? []).map((c) => (
-                  <tr key={c.code}>
-                    <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
-                    <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
-                    <Td className={`${TH} !py-3`}>{c.barn}</Td>
-                    <Td className={`${TH} !py-3`}>{c.current === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang nuôi</Badge> : c.current === 'EXITED' ? <ExitStatusBadge status="Đã xuất" /> : '—'}</Td>
-                    <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
-                  </tr>
-                ))}
+                {(d.cows ?? []).map((c) => {
+                  const cattleStatus = exitCattleStatus(c.current, r.status)
+                  return (
+                    <tr key={c.code}>
+                      <Td className={`${TH} !py-3 font-medium`}>{c.code}</Td><Td className={`${TH} !py-3`}>{c.tag}</Td>
+                      <Td className={`${TH} !py-3`}>{c.breed}</Td><Td className={`${TH} !py-3`}>{kg(c.weight)}</Td>
+                      <Td className={`${TH} !py-3`}>{c.barn}</Td>
+                      <Td className={`${TH} !py-3`}>{cattleStatus === 'ACTIVE' ? <Badge tone="ok" icon="circle-check">Đang nuôi</Badge> : cattleStatus === 'EXITED' ? <ExitStatusBadge status="Đã xuất" /> : '—'}</Td>
+                      <Td className={`${TH} !py-3`}>{money(c.amount)}</Td>
+                    </tr>
+                  )
+                })}
                 {!(d.cows ?? []).length && (
                   <tr><Td colSpan={7} className="text-center text-muted">Chưa có dữ liệu chi tiết từng con của phiếu này</Td></tr>
                 )}
