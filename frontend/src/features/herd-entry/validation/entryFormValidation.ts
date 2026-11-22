@@ -8,6 +8,25 @@ type ValidationInput = {
 
 export const entryToday = businessDate
 
+const purchaseWeightError = (cow: EntryCow, pricing: 'kg' | 'con'): string | null => {
+  const weight = Number(cow.weight)
+  if (pricing === 'kg' && weight === 0) return 'cân nhập phải lớn hơn 0 kg.'
+  if (!Number.isFinite(weight) || weight < 0 || (weight > 0 && (weight < 1 || weight > 1500))) return 'cân nhập phải từ 1 đến 1.500 kg.'
+  // Older local drafts only have `estimated`; an explicit null still means unselected.
+  const basis = cow.weightBasis === undefined ? (weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null) : cow.weightBasis
+  if (weight > 0 && !basis) return 'vui lòng chọn cơ sở cân.'
+  return null
+}
+
+/** Changing a purchase voucher's basis must not save kg lines without weights. */
+export function validateEntryWeights(cows: EntryCow[], pricing: 'kg' | 'con'): string | null {
+  for (const [index, cow] of cows.entries()) {
+    const error = purchaseWeightError(cow, pricing)
+    if (error) return `Con #${index + 1}: ${error}`
+  }
+  return null
+}
+
 /** Field and inter-field rules required before the editor can post a voucher. */
 export function validateEntryForPost(input: ValidationInput): string | null {
   const today = input.today ?? entryToday()
@@ -24,8 +43,10 @@ export function validateEntryForPost(input: ValidationInput): string | null {
     if (!String(cow.purpose ?? '').trim()) return `${line}: vui lòng chọn mục đích nuôi.`
     if (!String(cow.stage ?? '').trim()) return `${line}: vui lòng chọn giai đoạn sinh trưởng.`
     if (!String(cow.barn ?? '').trim()) return `${line}: vui lòng chọn chuồng nhận.`
-    const linePricing = cow.pricing ?? input.pricing ?? 'kg'
-    if (linePricing === 'kg') {
+    if (input.type === 'Mua ngoài') {
+      const weightError = purchaseWeightError(cow, input.pricing ?? cow.pricing ?? 'kg')
+      if (weightError) return `${line}: ${weightError}`
+    } else if ((cow.pricing ?? input.pricing ?? 'kg') === 'kg') {
       const weightBasis = cow.weightBasis ?? (Number(cow.weight) > 0 ? 'MEASURED' : null)
       if (!weightBasis) return `${line}: vui lòng chọn cơ sở cân.`
       if (!Number.isFinite(Number(cow.weight)) || Number(cow.weight) <= 0) return `${line}: cân nhập phải lớn hơn 0 kg.`

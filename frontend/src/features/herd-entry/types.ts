@@ -49,7 +49,7 @@ export interface EntryCow {
   weightBasis?: 'MEASURED' | 'ESTIMATED' | null
   barn: PenCode
   unitPrice: number
-  /** Pricing basis selected for this cattle line. Backend currently stores voucher-level basis. */
+  /** Compatibility copy of the voucher pricing basis; rows cannot select their own basis. */
   pricing?: 'kg' | 'con'
   hist: {
     vaccine: string

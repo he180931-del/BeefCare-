@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { purchaseTotals, receivingPenOverflow } from '../../../src/features/herd-entry/domain/entryTotals'
+import { lineAmount, purchaseTotals, receivingPenOverflow } from '../../../src/features/herd-entry/domain/entryTotals'
 
 describe('entry totals selectors', () => {
+  it('keeps an entered weight while calculating a per-head line as its unit price', () => {
+    const cow = { weight: 300, unitPrice: 8_500_000 } as never
+    expect(lineAmount(cow, 'con')).toBe(8_500_000)
+    expect(lineAmount(cow, 'kg')).toBe(300 * 8_500_000)
+  })
   it('calculates voucher totals using the selected pricing basis', () => {
     const cows = [
       { weight: 200, unitPrice: 80000, estimated: true, barn: 'A1' },

@@ -119,6 +119,62 @@ beforeEach(() => {
 })
 
 describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
+  it('reopens per-head pricing and keeps weights, bases and unit prices when switching the voucher basis', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.pricing = 'con'
+    row.draft = { ...row.draft, pricing: 'con', cows: [{ ...cow, unitPrice: 8_500_000, weightBasis: 'MEASURED' }] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    expect(await screen.findByRole('button', { name: 'Theo con' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Theo kg' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await waitFor(() => expect(state.saved).toHaveLength(1))
+    expect(state.saved[0].record).toMatchObject({ pricing: 'kg', draft: { pricing: 'kg', cows: [{ weight: 280, weightBasis: 'MEASURED', unitPrice: 8_500_000 }] } })
+  })
+
+  it('blocks a kg draft save after switching from per head while a row has no weight', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'con', cows: [{ ...cow, pricing: 'con', weight: 0, weightBasis: null }] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Theo kg' }))
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    expect(await screen.findByText(/Con #1:.*cân nhập/)).toBeInTheDocument()
+    expect(state.saved).toHaveLength(0)
+  })
+
+  it('posts a per-head voucher without a weight, using the voucher basis for its row popup and payload', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'con', receiver: 'An', cows: [{ ...cow, pricing: 'kg', unitPrice: 8_500_000, weight: 0, weightBasis: null }] }
+    renderPage('/herd-entry/new?id=PN-2026-0041&m=row-1')
+    expect(await screen.findByText('Cách tính giá: Theo con (áp cho cả phiếu)')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
+    await user.click(screen.getByRole('button', { name: /Lưu.*tạo hồ sơ/ }))
+    await waitFor(() => expect(state.saved).toHaveLength(1))
+    expect(state.saved[0].record).toMatchObject({ status: 'Đã nhập', pricing: 'con' })
+    expect(state.saved[0].cattleRows).toMatchObject([{ weight: 0, weightBasis: null, unitPrice: 8_500_000 }])
+  })
+
+  it('keeps per-head pricing through Excel preparation and applies it to imported rows', async () => {
+    const user = userEvent.setup()
+    const row = state.details['PN-2026-0041']
+    row.draft = { ...row.draft, pricing: 'con', cows: [{ ...cow, pricing: 'con' }] }
+    renderPage('/herd-entry/new?id=PN-2026-0041')
+    await user.click(await screen.findByRole('button', { name: 'Nhập từ Excel' }))
+    await user.upload(screen.getByLabelText('Chọn file Excel nhập đàn'), new File(['xlsx'], 'theo-con.xlsx'))
+    await waitFor(() => expect(state.previewCalls).toHaveLength(1))
+    expect(state.saved[0].record).toMatchObject({ pricing: 'con', draft: { pricing: 'con' } })
+    row.version = 5
+    row.draft = { ...row.draft, cows: [{ ...cow, pricing: undefined, weight: 300, weightBasis: 'ESTIMATED', estimated: true, unitPrice: 8_500_000 }] }
+    await user.click(screen.getByRole('button', { name: 'Thêm 1 con vào phiếu' }))
+    await waitFor(() => expect(screen.queryByLabelText('Chọn file Excel nhập đàn')).not.toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+    await waitFor(() => expect(state.saved).toHaveLength(2))
+    expect(state.saved[1].record).toMatchObject({ pricing: 'con', draft: { pricing: 'con' } })
+    expect(state.saved[1].cattleRows).toMatchObject([{ pricing: 'con', weight: 300, weightBasis: 'ESTIMATED', unitPrice: 8_500_000 }])
+  })
+
   it('keeps edited fields and files on 409/Stay, and replaces them only after explicit reload', async () => {
     const user = userEvent.setup()
     state.saveError = new BackendError(409, { code: 'MSG-COM-05' })

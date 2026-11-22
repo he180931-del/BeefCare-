@@ -16,7 +16,7 @@ import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import ExcelModal from '../components/ExcelModal'
 import PayModal from '../components/PayModal'
-import { entryToday as localToday, validateEntryForPost } from '../validation/entryFormValidation'
+import { entryToday as localToday, validateEntryForPost, validateEntryWeights } from '../validation/entryFormValidation'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import type { EntryParentOption } from '../api/herdEntryBackendApi'
@@ -165,11 +165,15 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
         return
       }
     }
+    if (isBuy) {
+      const weightError = validateEntryWeights(cows, pricing)
+      if (weightError) { setValidationError(weightError); return }
+    }
     const sourceText = isBuy
       ? `${source.name}${quarantine ? ` · ${quarantine}` : ''}${estimatedCount ? ` · ${estimatedCount} con cân ước tính` : ''}`
       : `Bê của ${[...new Set(picked.map((c) => c.mother))].join(', ')}`
     const editableDraft = {
-      sourceId, date, quarantine, plate, receiver, note, cows, calves, freight, paid, method, due, printQr,
+      sourceId, date, quarantine, plate, receiver, note, cows, calves, freight, paid, method, due, printQr, ...(isBuy ? { pricing } : {}),
     }
     const inputs: EntryInput[] = isBuy
       ? cows.map((cow) => ({ ...cow, date }))
@@ -181,7 +185,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
         sourceId,
         receiver,
         cows: isBuy ? cows : inputs as EntryCow[],
-        pricing: 'kg',
+        pricing: isBuy ? pricing : 'kg',
         paid: isBuy ? paid : 0,
         total: isBuy ? total : 0,
         method: isBuy ? method : undefined,
@@ -202,6 +206,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           debt,
           status,
           printQr,
+          pricing,
         }
       : {
           date,
@@ -627,6 +632,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
           index={editing}
           recordId={recordId}
           dateIso={date}
+          pricing={pricing}
           pens={importBarns}
           vaccines={vaccines ?? []}
           breeds={breeds ?? []}
@@ -674,7 +680,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
             const mapped = added.map((cow) => ({
               tag: cow.tag ?? '', name: cow.name ?? '', breed: cow.breed ?? '', sex: cow.sex ?? 'Cái', dob: cow.dob ?? '',
               dobAccuracy: cow.dobAccuracy ?? 'Không rõ', stage: cow.stage ?? '', purpose: cow.purpose ?? '', weight: cow.weight ?? 0,
-              estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns[0]?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing: cow.pricing ?? 'kg',
+              estimated: cow.estimated ?? false, weightBasis: cow.weightBasis ?? (cow.weight > 0 ? (cow.estimated ? 'ESTIMATED' : 'MEASURED') : null), barn: cow.barn ?? importBarns[0]?.code ?? '', unitPrice: cow.unitPrice ?? 0, pricing,
               hist: cow.hist ?? { vaccine: 'Không rõ', disease: 'Không rõ', repro: 'Không rõ' },
             }))
             setCows(entryExcelBackendEnabled ? mapped : [...cows, ...mapped])
