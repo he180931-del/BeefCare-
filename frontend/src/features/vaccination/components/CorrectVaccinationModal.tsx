@@ -26,7 +26,6 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
   const initialDose = splitDose(record.dose)
   const [action, setAction] = useState<'CORRECT' | 'VOID'>('CORRECT')
   const [vaccineId, setVaccineId] = useState(String(record.vaccineId ?? options.vaccines[0].id))
-  const [batchNo, setBatchNo] = useState(record.batchNo ?? '')
   const [administeredAt, setAdministeredAt] = useState(record.administeredAt)
   const [amount, setAmount] = useState(initialDose.amount)
   const [route, setRoute] = useState<VaccineRoute | ''>(record.route ?? '')
@@ -49,7 +48,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
       if (action === 'VOID') await voidRecord(record.id, { expectedVersion: record.version, reason })
       else {
         await correctRecord(record.id, {
-          expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, batchNo, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
+          expectedVersion: record.version, vaccineId: Number(vaccineId), administeredAt, dose: dose.amount ? `${dose.amount} ${initialDose.unit}` : undefined,
           route: route || undefined, withdrawalDays: parseNum(withdrawal), vaccinator: vaccinator || undefined, reason,
         })
       }
@@ -63,7 +62,7 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
   }
 
   const when = record.precision === 'MONTH' ? record.administeredAt.slice(5, 7) + '/' + record.administeredAt.slice(0, 4) : fmtDateTime(record.administeredAt)
-  const summary = [record.vaccineLabel, record.batchNo ? `lô ${record.batchNo}` : 'lô không rõ', record.dose, record.route && ROUTE_LABEL[record.route].toLowerCase(), record.vaccinator ?? 'Không rõ'].filter(Boolean).join(' · ')
+  const summary = [record.vaccineLabel, record.dose, record.route && ROUTE_LABEL[record.route].toLowerCase(), record.vaccinator ?? 'Không rõ'].filter(Boolean).join(' · ')
   return (
     <Modal title="Sửa / hủy bản ghi tiêm" sub={`${record.cattleCode} · ${record.vaccineLabel}${record.doseText ? ` ${record.doseText}` : ''} · ${when}`} width={700} onClose={onClose}>
       <Field label="Bản ghi" id="cv-record"><input id="cv-record" readOnly value={summary} className={`${inputCls} bg-page text-muted`} /></Field>
@@ -80,10 +79,6 @@ function Form({ record, options, onClose, onSaved }: Props & { options: Vaccinat
             <tr>
               <Td className="font-medium">Vắc-xin</Td><Td>{record.vaccineLabel}</Td>
               <Td><Select aria-label="Vắc-xin mới" value={vaccineId} onChange={(e) => setVaccineId(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select><FieldError>{errors.vaccineId}</FieldError></Td>
-            </tr>
-            <tr>
-              <Td className="font-medium">Số lô</Td><Td>{record.batchNo ?? 'Không rõ'}</Td>
-              <Td><input aria-label="Số lô mới" maxLength={50} className={inputCls} value={batchNo} onChange={(e) => setBatchNo(e.target.value)} /><FieldError>{errors.batchNo}</FieldError></Td>
             </tr>
             <tr>
               <Td className="font-medium">Thời điểm tiêm</Td><Td>{when}</Td>

@@ -10,7 +10,7 @@ const FIELD_ALIASES: Record<string, string> = {
 const FIELD_MESSAGES: Record<string, string> = {
   name: 'Tên lịch là bắt buộc, tối đa 100 ký tự.', vaccineId: 'Vắc-xin là bắt buộc.', firstDueDate: 'Ngày bắt đầu không được trước hôm nay.',
   doseCount: 'Số mũi phải là số nguyên từ 1 đến 10.', intervalDays: 'Cách giữa mũi phải từ 1 đến 365 ngày.', boosterIntervalMonths: 'Nhắc lại sau phải từ 1 đến 60 tháng.',
-  batchNo: 'Số lô là bắt buộc khi tiêm tại trại, tối đa 50 ký tự.', administeredAt: 'Thời điểm tiêm không hợp lệ.', withdrawalDays: 'Số ngày ngưng phải là số nguyên từ 0 đến 365.',
+  administeredAt: 'Thời điểm tiêm không hợp lệ.', withdrawalDays: 'Số ngày ngưng phải là số nguyên từ 0 đến 365.',
   vaccinator: 'Người tiêm là bắt buộc.', dose: 'Liều là bắt buộc.', route: 'Đường tiêm là bắt buộc.', reason: 'Lý do là bắt buộc, tối đa 500 ký tự.',
   newExpectedDate: 'Ngày mới phải từ hôm nay trở đi.', source: 'Nguồn ghi nhận không hợp lệ.', form: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.',
 }

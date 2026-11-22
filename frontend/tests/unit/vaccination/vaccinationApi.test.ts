@@ -10,7 +10,7 @@ const make = () => {
   const transport = { get: vi.fn(), command: vi.fn(), farmPath: vi.fn() }
   return { store, api: createVaccinationApi({ mode: 'local', farmId: 1, transport: transport as never, store }) }
 }
-const base = { vaccineId: 1, source: 'ON_FARM' as const, administeredAt: '2026-10-20T08:15', batchNo: 'AFT-2609-17', dose: '2 ml', route: 'IM' as const, withdrawalDays: 0, vaccinator: 'Trần Quốc Long' }
+const base = { vaccineId: 1, source: 'ON_FARM' as const, administeredAt: '2026-10-20T08:15', dose: '2 ml', route: 'IM' as const, withdrawalDays: 0, vaccinator: 'Trần Quốc Long' }
 const fieldOf = (field: string) => (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields[field])
 const overdueOf = async (api: ReturnType<typeof make>['api'], scheduleId = 1) => (await api.listDoses({ scheduleId, tab: 'overdue', size: 50 })).rows
 
@@ -51,12 +51,11 @@ describe('ghi nhận tiêm', () => {
     const counts = (await api.listDoses({ scheduleId: 1 })).counts
     expect(counts).toMatchObject({ overdue: 9, deferred: 5, done: 63 })
     const cow = await api.getCattleVaccination('BC-000131')
-    expect(cow.records[0]).toMatchObject({ batchNo: 'AFT-2609-17', withdrawalEndDate: '2026-11-03', source: 'ON_FARM' })
+    expect(cow.records[0]).toMatchObject({ withdrawalEndDate: '2026-11-03', source: 'ON_FARM' })
     expect(cow.doses.find((d) => d.kind === 'BOOSTER')?.dueDate).toBe('2027-04-20')
   })
 
   it.each([
-    ['thiếu số lô khi tiêm tại trại', { ...base, batchNo: '' }, 'batchNo'],
     ['thời điểm ở tương lai', { ...base, administeredAt: '2026-10-21T08:00' }, 'administeredAt'],
     ['trước ngày nhập đàn', { ...base, administeredAt: '2020-01-01T08:00' }, 'administeredAt'],
     ['số ngày ngưng ngoài khoảng', { ...base, withdrawalDays: 400 }, 'withdrawalDays'],
@@ -69,10 +68,10 @@ describe('ghi nhận tiêm', () => {
     expect((await api.getCattleVaccination('BC-000131')).records.length).toBe(before)
   })
 
-  it('nhập lịch sử không cần số lô, không đóng mũi và không tính ngưng thịt', async () => {
+  it('nhập lịch sử không đóng mũi và không tính ngưng thịt', async () => {
     const { api } = make()
     const before = (await api.listDoses({ scheduleId: 1 })).counts.done
-    await api.recordVaccinations({ ...base, source: 'HISTORICAL', batchNo: '', withdrawalDays: 14, administeredAt: '2020-03-01T00:00', animals: [{ cattleCode: 'BC-000131', decision: 'VACCINATE' }] })
+    await api.recordVaccinations({ ...base, source: 'HISTORICAL', withdrawalDays: 14, administeredAt: '2020-03-01T00:00', animals: [{ cattleCode: 'BC-000131', decision: 'VACCINATE' }] })
     expect((await api.listDoses({ scheduleId: 1 })).counts.done).toBe(before)
     const saved = (await api.getCattleVaccination('BC-000131')).records.find((r) => r.source === 'HISTORICAL')
     expect(saved).toMatchObject({ withdrawalDays: 0, withdrawalEndDate: undefined })
@@ -108,11 +107,12 @@ describe('sửa hoặc hủy bản ghi tiêm', () => {
   it('sửa giữ bản gốc, bắt buộc lý do và phát hiện xung đột phiên bản', async () => {
     const { api } = make()
     const r = await lmlm(api)
-    const cmd = { expectedVersion: r.version, vaccineId: 1, administeredAt: r.administeredAt, batchNo: 'AFT-2608-30', dose: '2 ml', route: 'IM' as const, withdrawalDays: 7, vaccinator: 'Trần Quốc Long', reason: 'Ghi sai số lô' }
+    const cmd = { expectedVersion: r.version, vaccineId: 1, administeredAt: r.administeredAt, dose: '2 ml', route: 'IM' as const, withdrawalDays: 7, vaccinator: 'Trần Quốc Long', reason: 'Ghi sai số ngày ngưng' }
     await expect(api.correctRecord(r.id, { ...cmd, reason: '' })).rejects.toSatisfy(fieldOf('reason'))
     const next = await api.correctRecord(r.id, cmd)
-    expect(next).toMatchObject({ batchNo: 'AFT-2608-30', corrected: true, withdrawalEndDate: '2026-09-24', version: r.version + 1 })
-    expect(next.revisions.at(-1)?.before.batchNo).toBe('AFT-2608-03')
+    // D44: sửa không gửi số lô nên số lô cũ của bản ghi giữ nguyên.
+    expect(next).toMatchObject({ batchNo: 'AFT-2608-03', corrected: true, withdrawalEndDate: '2026-09-24', version: r.version + 1 })
+    expect(next.revisions.at(-1)?.before.withdrawalDays).toBe(r.withdrawalDays)
     await expect(api.correctRecord(r.id, cmd)).rejects.toThrow(/đã thay đổi/)
   })
 

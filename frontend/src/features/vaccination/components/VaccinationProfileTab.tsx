@@ -91,7 +91,7 @@ function History({ data, title = 'Lịch sử tiêm', canWrite, onCorrect }: { d
           <thead>
             <tr>
               <Th><button type="button" className="font-semibold" onClick={() => setDir(dir === 'desc' ? 'asc' : 'desc')}>Thời điểm {dir === 'desc' ? '↓' : '↑'}</button></Th>
-              <Th>Vắc-xin · mũi</Th><Th>Lô · liều</Th><Th>Ngưng thịt đến</Th><Th>Nguồn</Th><Th>Người tiêm</Th><Th>Phản ứng</Th>{canWrite && <Th>Thao tác</Th>}
+              <Th>Vắc-xin · mũi</Th><Th>Liều</Th><Th>Ngưng thịt đến</Th><Th>Nguồn</Th><Th>Người tiêm</Th><Th>Phản ứng</Th>{canWrite && <Th>Thao tác</Th>}
             </tr>
           </thead>
           <tbody>{rows.map((r) => <HistoryRow key={r.id} r={r} canWrite={canWrite} onCorrect={onCorrect} />)}</tbody>
@@ -108,7 +108,7 @@ function HistoryRow({ r, canWrite, onCorrect }: { r: VaccinationRecord; canWrite
     <tr className={voided ? 'text-faint' : undefined}>
       <Td className="font-medium">{r.precision === 'MONTH' ? fmtMonthYear(r.administeredAt) : fmtDateTime(r.administeredAt)}</Td>
       <Td>{[r.vaccineLabel, r.doseText].filter(Boolean).join(' · ')}{voided && ' (đã hủy)'}{r.corrected && !voided && <Badge tone="info">Đã sửa</Badge>}</Td>
-      <Td>{r.batchNo || r.dose ? [r.batchNo, r.dose].filter(Boolean).join(' · ') : unknown ? 'Không rõ' : '—'}</Td>
+      <Td>{r.dose ?? (unknown ? 'Không rõ' : '—')}</Td>
       <Td>{r.withdrawalEndDate ? fmtDate(r.withdrawalEndDate) : '—'}</Td>
       <Td>{SOURCE_LABEL[r.source]}</Td>
       <Td>{r.vaccinator ?? (unknown ? 'Không rõ' : '—')}</Td>

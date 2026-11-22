@@ -408,6 +408,21 @@ class VaccinationGapCommandTest extends DomainTestSupport {
         assertThat(vaccinations()).isEqualTo(4);
     }
 
+    /** D44: tiêm tại trại không cần số lô; bản ghi lưu số lô {@code null}. */
+    @Test
+    void d44_onFarmVaccinationWithoutBatchNumberIsRecorded() {
+        CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd);
+        List<ScheduledDose> loaded = doses(created.id());
+
+        CareDtos.VaccinationBatchResult result = vaccination.record(farm.getId(), key(), onFarm(null, batchOf(loaded)));
+        reload();
+
+        assertThat(result.vaccinatedCount()).isEqualTo(4);
+        assertThat(em.createQuery("select v.batchNo from Vaccination v where v.cattle.farm.id = :farm", String.class)
+            .setParameter("farm", farm.getId())
+            .getResultList()).containsOnlyNulls();
+    }
+
     @Test
     void anAnimalThatLeftTheHerdMeanwhileIsSkippedWithCom13() {
         CareDtos.VaccinationScheduleResult created = schedule("LMLM 2026", 1, herd);
@@ -448,7 +463,8 @@ class VaccinationGapCommandTest extends DomainTestSupport {
         giveDose(created.id(), 1, herd.subList(0, 1));
         long before = vaccinations();
 
-        assertThatThrownBy(() -> vaccination.record(farm.getId(), key(), onFarm(" ", batchOf(loaded))))
+        // D44: số lô không còn bắt buộc; dùng số lô quá 50 ký tự để tạo lỗi kiểm tra.
+        assertThatThrownBy(() -> vaccination.record(farm.getId(), key(), onFarm("L".repeat(51), batchOf(loaded))))
             .isInstanceOfSatisfying(DomainException.class, e -> assertThat(e.getParams()).containsEntry("field", "batchNo"));
         reload();
         assertThat(vaccinations()).isEqualTo(before);

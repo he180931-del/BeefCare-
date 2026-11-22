@@ -121,7 +121,7 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
     case 'VACCINATION_RECORD':
       return {
         title: `Tiêm ${str(v.vaccine) || 'vắc-xin'}`,
-        detail: join(v.batchNo && `Lô ${str(v.batchNo)}`, v.dose && `Liều ${str(v.dose)}`, v.withdrawalEndDate && `Ngưng sử dụng thịt đến ${dateOnly(v.withdrawalEndDate)}`),
+        detail: join(v.dose && `Liều ${str(v.dose)}`, v.withdrawalEndDate && `Ngưng sử dụng thịt đến ${dateOnly(v.withdrawalEndDate)}`),
         basis: v.source === 'HISTORICAL' ? 'Lịch sử' : 'Tại trại',
         reason: str(v.reason) || undefined,
       }

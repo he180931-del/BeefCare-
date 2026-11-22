@@ -770,3 +770,13 @@ TuanPQ (chủ FE-08) chốt trong phiên: "Xóa dùng cách đề xuất", và "
 Cùng đợt (đã merge ở PR #64), TuanPQ yêu cầu gọn giao diện FE-08: popup ghi đổi tên "Ghi nhận cân", bỏ lựa chọn "Ước lượng khác" khi ghi mới (bản ghi cũ vẫn hiển thị / sửa được, backend vẫn nhận `OTHER`), bỏ ô "Cơ sở số liệu" và các dòng chú thích; chỉ số ADG ghi số ngày và số lần cân thực tế thay cho nhãn cố định "ADG 60 / 90 ngày" (công thức GBR-39 / GBR-107 không đổi).
 
 Spec FE-08 đã cập nhật theo quyết định này: UC-FE08-03, R-08-06, R-08-07, SCR-30 (mục 3, 4, 6, 9, 13, 14), popup Ghi nhận cân, popup Sửa bản ghi cân, popup Xóa lần đo mới, hợp đồng A4, MSG-FE08-05 và MSG-FE08-06 mới, TC-08-12 → TC-08-14.
+
+### D44 — FE-09: bỏ số lô vắc-xin khỏi ghi tiêm (22/11/2026)
+
+TuanPQ (chủ FE-09) chốt trong phiên: "xóa trường này, ko ý nghĩa vì tôi ko quản lí số lượng", chọn phương án ẩn hẳn số lô cũ. Trang trại không quản lý tồn kho vắc-xin theo lô, nên số lô gõ tay không dùng được để truy vết. Làm khác R-09-08 và SCR-33 của spec FE-09 (SRS 28/10, GBR-42):
+
+1. Màn Ghi nhận tiêm, popup Sửa / Hủy bản ghi tiêm và popup sửa trên dòng thời gian hồ sơ bò không còn ô Số lô; tiêm tại trại không còn bắt buộc số lô (gỡ MSG-FE09-05).
+2. Không nơi nào trên giao diện hiển thị số lô, kể cả bản ghi cũ: cột "Lô · liều" đổi thành "Liều" ở hồ sơ tiêm của bò và trang Lịch sử tiêm; màn kỹ thuật viên và dòng thời gian bỏ phần "lô …".
+3. Dữ liệu cũ không xóa: cột `batch_no` giữ nguyên (không migration). API `POST /vaccinations` và `/vaccinations/{id}/correction` vẫn nhận `batchNo` tùy chọn (≤ 50 ký tự) để tương thích; frontend không gửi nữa, nên sửa bản ghi giữ nguyên số lô cũ trong DB.
+
+Đi kèm: `VaccinationCommandService` bỏ kiểm "bắt buộc số lô khi ON_FARM", giữ giới hạn 50 ký tự khi có gửi. Không đổi route hay hình dạng response. Spec FE-09 đã cập nhật: bảng dữ liệu, R-09-08, UC ghi tiêm / sửa, popup ghi tiêm (mục 3), bảng hồ sơ và Lịch sử tiêm, popup sửa, hợp đồng A6, MSG-FE09-05, TC-09-13. "Số lô" của nhập kho thức ăn (FE-23) không thuộc quyết định này.

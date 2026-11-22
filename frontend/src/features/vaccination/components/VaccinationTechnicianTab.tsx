@@ -40,7 +40,7 @@ export default function VaccinationTechnicianTab({ cattleCode }: { cattleCode: s
             <span className="text-[11px] font-semibold text-muted">{r.precision === 'MONTH' ? fmtMonthYear(r.administeredAt) : fmtDateTime(r.administeredAt)}</span>
             <Badge tone={r.source === 'ON_FARM' ? 'ok' : 'outline'}>{r.source === 'ON_FARM' ? 'Tại trại' : 'Nhập lịch sử'}</Badge>
           </div>
-          <div className="text-[13px] font-semibold">{[r.vaccineLabel, r.doseText, r.batchNo ? `lô ${r.batchNo}` : 'lô không rõ', r.dose].filter(Boolean).join(' · ')}</div>
+          <div className="text-[13px] font-semibold">{[r.vaccineLabel, r.doseText, r.dose].filter(Boolean).join(' · ')}</div>
           {r.vaccinator && <div className="text-[10px] text-muted">Tiêm bởi {r.vaccinator}</div>}
         </div>
       ))}
