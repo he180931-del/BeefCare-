@@ -4,8 +4,8 @@ import { BackendError } from '../../../shared/api/backendClient'
 import { Icon } from '../../../shared/ui'
 import { serviceView } from '../domain/statusViews'
 
-/** Ô nhập của trang thường theo Figma (cao 36px, bo 4, viền xám); hộp thoại và trang thiết lập dùng `inputCls` (44px). */
-export const pageInputCls = 'h-9 w-full rounded border border-edge bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand disabled:bg-chip disabled:text-muted aria-invalid:border-err-fg'
+/** Ô nhập thông tin trại theo Bento, với vùng chạm 44 px. */
+export const pageInputCls = 'h-11 w-full min-w-0 rounded-lg border border-field bg-white px-2.5 text-[13px] text-[#212121] outline-none focus:border-brand focus:ring-2 focus:ring-brand/25 disabled:bg-chip disabled:text-muted aria-invalid:border-err-fg'
 
 export function PageSelect({ children, className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (

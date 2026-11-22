@@ -21,11 +21,11 @@ function PasswordInput({ id, label, autoComplete, value, onChange, visible, onTo
         maxLength={128}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`${inputCls} pr-11`}
+        className={`${inputCls} pr-12`}
       />
       <button
         type="button"
-        className="absolute right-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded text-subtle hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+        className="absolute right-0.5 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-subtle hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
         aria-label={`${visible ? 'Ẩn' : 'Hiện'} ${label.toLowerCase()}`}
         aria-pressed={visible}
         onClick={onToggle}

@@ -5,7 +5,7 @@ import { subscriptionApi } from '../api/subscriptionApi'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { fmtDate, fmtDateTime, fmtEndDay, paymentQuote, quoteText, termLabel } from '../domain/subscriptionRules'
 import type { StateDialogState } from '../types'
-import { Facts, ICON_BTN, PaymentBadge, ServiceBadge, useIsPhone, type Fact } from './shared'
+import { Facts, PaymentBadge, ServiceBadge, useIsPhone, type Fact } from './shared'
 import { useFarmScope } from '../hooks/useFarmScope'
 
 interface Action { label: string; icon?: IconName; primary?: boolean; onClick: () => void }
@@ -83,16 +83,16 @@ function PhoneSheet({ onClose, onRetry }: { onClose: () => void; onRetry: () => 
   }, [onClose])
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-[rgba(23,37,30,0.32)]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Chưa cập nhật được thanh toán" className="w-full rounded-t-2xl bg-white p-5 pb-6">
+      <div role="dialog" aria-modal="true" aria-label="Chưa cập nhật được thanh toán" className="@container w-full rounded-t-2xl bg-white p-5 pb-6">
         <div className="flex items-center justify-between gap-3">
           <h2 className="m-0 text-sm font-bold text-ink">Chưa cập nhật được thanh toán</h2>
           {/* 32 px hit area on phones (WCAG 2.5.8); the bare 18 px icon was hard to tap. */}
-          <button type="button" aria-label="Đóng" onClick={onClose} className="-mr-1.5 grid size-8 shrink-0 place-items-center rounded text-subtle hover:bg-chip"><Icon name="x" size={18} /></button>
+          <button type="button" aria-label="Đóng" onClick={onClose} className="-mr-1.5 grid size-11 shrink-0 focus-visible:outline-2 focus-visible:outline-brand place-items-center rounded text-subtle hover:bg-chip"><Icon name="x" size={18} /></button>
         </div>
         <div className="mt-3">
           <Note tone="info">Chưa lấy được trạng thái mới. Yêu cầu cũ được giữ nguyên; thử lại cùng mã, không tạo yêu cầu khác.</Note>
         </div>
-        <Button variant="primary" size="lg" block className={`mt-3 ${ICON_BTN}`} onClick={onRetry}><Icon name="refresh" size={16} /> Thử lại</Button>
+        <Button variant="primary" size="lg" block className="mt-3" onClick={onRetry}><Icon name="refresh" size={16} /> Thử lại</Button>
       </div>
     </div>
   )
@@ -102,12 +102,12 @@ export function StateDialog({ state, handlers, phone }: { state: StateDialogStat
   if (phone && state.kind === 'result-unavailable') return <PhoneSheet onClose={handlers.close} onRetry={handlers.reload} />
   const b = build(state, handlers)
   return (
-    <Modal title={b.title} sub={b.sub} width={560} onClose={handlers.close}>
+    <Modal title={b.title} sub={b.sub} width={560} dialogClassName="@container" onClose={handlers.close}>
       {b.facts && <Facts items={b.facts} cols={2} />}
       {b.text && <p className="m-0 text-[13px] text-ink">{b.text}</p>}
-      <div className="flex flex-wrap justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3 [&>button]:h-auto! [&>button]:min-h-11 [&>button]:max-w-full [&>button]:whitespace-normal! [&>button]:py-2">
         {b.actions.map((a) => (
-          <Button key={a.label} size="lg" variant={a.primary ? 'primary' : 'default'} className={ICON_BTN} onClick={a.onClick}>
+          <Button key={a.label} size="lg" variant={a.primary ? 'primary' : 'default'} onClick={a.onClick}>
             {a.icon && <Icon name={a.icon} size={16} />}
             {a.label}
           </Button>

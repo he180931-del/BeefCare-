@@ -26,7 +26,7 @@ export function ReopenDialog({ ticket, resolution, onSubmit, onClose }: { ticket
     if (!result.ok) setError(result.message)
   }
   return (
-    <Modal title={`Mở lại yêu cầu ${ticket.code}`} sub={`Kết quả phiên bản ${resolution.version}`} width={640} onClose={onClose}>
+    <Modal title={`Mở lại yêu cầu ${ticket.code}`} sub={`Kết quả phiên bản ${resolution.version}`} width={560} onClose={onClose}>
       <div className="flex flex-col gap-3.5">
         <ReadOnly id="reopen-current" label="Yêu cầu / kết quả hiện tại" value={`${ticket.code} · ${plainStatus(ticket).label} · kết quả v${resolution.version}`} />
         <Field label="Lý do mở lại *" id="reopen-reason" hint={`Tối đa ${REASON_MAX.toLocaleString('vi-VN')} ký tự`}>
@@ -44,7 +44,7 @@ export function ReopenDialog({ ticket, resolution, onSubmit, onClose }: { ticket
         </Field>
         <Note tone="warn">Lý do là bắt buộc. Mở lại đưa yêu cầu về Đang mở, giữ nhân viên hỗ trợ phụ trách và lịch sử; xác nhận cho kết quả v{resolution.version} không còn hiệu lực.</Note>
       </div>
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onClose}>
           <Icon name="arrow-left" size={16} /> Quay lại
         </ModalButton>

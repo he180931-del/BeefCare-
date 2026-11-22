@@ -5,7 +5,7 @@ import { PermissionChecklist } from './PermissionChecklist'
 import { MemberChangeDialog } from './MemberChangeDialog'
 import { FieldError, roleLabel } from './WorkspaceUi'
 
-const fullWidth = '[&>div]:flex [&>div]:w-full [&_button]:flex-1'
+const fullWidth = '[&>div]:w-full [&_button]:min-h-11 [&_button]:flex-1 [&_button]:whitespace-normal'
 
 /** UC-FE03-01 (popup "Invite Member"), mở bằng `?m=invite` từ Thành viên và Lời mời. */
 export function InviteDialog({ farmId, farmName, timeZone, active, onClose, onSent }: {

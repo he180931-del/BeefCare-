@@ -18,7 +18,7 @@ export function SubmittedDialog({ ticket, onList, onView, onClose }: { ticket: T
           ['Phạm vi', ticket.farmName ?? 'Vấn đề tài khoản (không gắn trại)'],
         ]}
       />
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton onClick={onList}>Danh sách yêu cầu</ModalButton>
         <ModalButton variant="primary" onClick={onView}>
           Xem yêu cầu
@@ -32,7 +32,7 @@ export function LoadErrorDialog({ message, onRetry, onClose }: { message: string
   return (
     <Modal title="Chưa tải được dữ liệu" width={560} onClose={onClose}>
       <p className="m-0 text-[13px] text-ink">{message}</p>
-      <ModalFooter>
+      <ModalFooter className="px-0! pt-0! pb-0!">
         <ModalButton variant="primary" onClick={onRetry}>
           <Icon name="refresh" size={16} /> Thử lại
         </ModalButton>

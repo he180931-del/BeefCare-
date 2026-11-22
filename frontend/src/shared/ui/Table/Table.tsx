@@ -34,7 +34,7 @@ const STACK = {
   narrow: '@max-[480px]:block @max-[480px]:[&_thead]:hidden @max-[480px]:[&_tbody]:block @max-[480px]:[&_tfoot]:block @max-[480px]:[&_tr]:block @max-[480px]:[&_tr]:border-b @max-[480px]:[&_tr]:border-rule @max-[480px]:[&_td]:flex @max-[480px]:[&_td]:items-center @max-[480px]:[&_td]:justify-between @max-[480px]:[&_td]:gap-4 @max-[480px]:[&_td]:border-b-0 @max-[480px]:[&_td]:before:content-[attr(data-label)] @max-[480px]:[&_td]:before:text-[11px] @max-[480px]:[&_td]:before:font-semibold @max-[480px]:[&_td]:before:text-muted @max-[480px]:[&_td:empty]:hidden',
 }
 
-export function Table({ children, wide, narrow, scroll, stack = !scroll, bordered = true }: { children: ReactNode; wide?: boolean; narrow?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean }) {
+export function Table({ children, wide, narrow, scroll, stack = !scroll, bordered = true, variant = 'default' }: { children: ReactNode; wide?: boolean; narrow?: boolean; scroll?: boolean; stack?: boolean; bordered?: boolean; variant?: 'default' | 'panel' }) {
   const ref = useRef<HTMLTableElement>(null)
   useLayoutEffect(() => {
     const t = ref.current
@@ -46,7 +46,7 @@ export function Table({ children, wide, narrow, scroll, stack = !scroll, bordere
   })
   return (
     // relative: nhãn sr-only (position:absolute) trong ô bảng phải nằm trong vùng cuộn, không kéo rộng cả trang trên điện thoại.
-    <div className={cx('@container relative bg-white', bordered && 'rounded border border-edge', scroll || wide ? 'overflow-x-auto' : 'overflow-hidden')}>
+    <div className={cx('@container relative bg-white', bordered && (variant === 'panel' ? 'rounded-2xl border border-field' : 'rounded border border-edge'), scroll || wide ? 'overflow-x-auto' : 'overflow-hidden')}>
       <table
         ref={ref}
         className={cx('w-full border-collapse [&_tbody_tr:last-child_td]:border-b-0', scroll && 'min-w-[620px]', stack && STACK[wide ? 'wide' : narrow ? 'narrow' : 'normal'])}

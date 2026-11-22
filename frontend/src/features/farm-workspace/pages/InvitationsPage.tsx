@@ -10,34 +10,34 @@ import type { InvitationStatus } from '../types'
 export default function InvitationsPage() {
   const { navigate, farmId, m, openModal, closeModal, owner, selectedStatus, dir, page, data, loadError, error, notice, setNotice, busy, confirmCancel, confirmError, refresh, changeList, openCancel, closeCancel, run } = useInvitationsPage()
 
-  if (!owner) return <Layout title="Lời mời thành viên"><ErrorBlock message="Bạn không có quyền xem lời mời của trại này." /></Layout>
-  if (loadError) return <Layout title="Lời mời thành viên"><ErrorBlock message={userFacingError(loadError, 'Không thể tải danh sách lời mời. Vui lòng thử lại.')} onRetry={refresh} /></Layout>
-  if (!data) return <Layout title="Lời mời thành viên"><LoadingBlock /></Layout>
+  if (!owner) return <Layout title="Lời mời thành viên"><ErrorBlock variant="panel" message="Bạn không có quyền xem lời mời của trại này." /></Layout>
+  if (loadError) return <Layout title="Lời mời thành viên"><ErrorBlock variant="panel" message={userFacingError(loadError, 'Không thể tải danh sách lời mời. Vui lòng thử lại.')} onRetry={refresh} /></Layout>
+  if (!data) return <Layout title="Lời mời thành viên"><LoadingBlock variant="panel" /></Layout>
   const { farm, invitations } = data
   const farmActive = farm.serviceStatus === 'ACTIVE'
   const pageCount = Math.max(1, Math.ceil(invitations.total / invitations.size))
   return (
     <Layout title="Lời mời thành viên">
       <PageHeader title="Lời mời thành viên">
-        <Button onClick={() => navigate(`/thanh-vien?farmId=${farmId}`)}>Thành viên & vai trò</Button>
-        <Button onClick={refresh} disabled={busy !== null}>Làm mới</Button>
-        <Button variant="primary" onClick={() => openModal('invite')} disabled={!farmActive || busy !== null}><Icon name="user-plus" size={16} className="mr-1.5" />Mời thành viên</Button>
+        <Button size="bento" onClick={() => navigate(`/thanh-vien?farmId=${farmId}`)}>Thành viên & vai trò</Button>
+        <Button size="bento" onClick={refresh} disabled={busy !== null}>Làm mới</Button>
+        <Button variant="primary" size="bento" onClick={() => openModal('invite')} disabled={!farmActive || busy !== null}><Icon name="user-plus" size={16} className="mr-1.5" />Mời thành viên</Button>
       </PageHeader>
       {error && <Note tone="err">{error}</Note>}{notice && <Note tone="ok">{notice}</Note>}
       {!farmActive && <Note>Dịch vụ trại hiện không hoạt động. Bạn vẫn có thể xem và hủy lời mời đang chờ.</Note>}
-      <div><Segmented value={selectedStatus} onChange={status => changeList(status as InvitationStatus, dir)} options={INVITATION_STATUSES.map(status => ({ value: status, label: `${inviteStatusLabel(status)} (${invitations.counts[status]})`, disabled: busy !== null }))} /></div>
+      <div><Segmented className="w-full [&>button]:min-h-11 [&>button]:flex-1 [&>button]:whitespace-normal [&>button]:px-2" value={selectedStatus} onChange={status => changeList(status as InvitationStatus, dir)} options={INVITATION_STATUSES.map(status => ({ value: status, label: `${inviteStatusLabel(status)} (${invitations.counts[status]})`, disabled: busy !== null }))} /></div>
       {/* The empty state stays outside the table: phones stack table cells as labelled cards (Table III-1). */}
       {invitations.items.length === 0 ? (
-        <EmptyBlock title="Không có bản ghi phù hợp với bộ lọc." action={<Button onClick={() => { changeList('PENDING', 'desc'); refresh() }}>Xóa bộ lọc</Button>} />
-      ) : <Table>
+        <EmptyBlock variant="panel" title="Không có bản ghi phù hợp với bộ lọc." action={<Button size="bento" onClick={() => { changeList('PENDING', 'desc'); refresh() }}>Xóa bộ lọc</Button>} />
+      ) : <Table variant="panel">
         <thead><tr><Th>Người nhận</Th><Th>Vai trò</Th><Th aria-sort={dir === 'desc' ? 'descending' : 'ascending'}><button type="button" disabled={busy !== null} className="inline-flex min-h-6 cursor-pointer items-center gap-1" onClick={() => changeList(selectedStatus, dir === 'desc' ? 'asc' : 'desc')}>Gửi lần cuối <span aria-hidden="true">{dir === 'desc' ? '↓' : '↑'}</span></button></Th><Th>Hết hạn</Th><Th>Trạng thái</Th><Th>Thao tác</Th></tr></thead>
         <tbody>
           {invitations.items.map(item => (
             <tr key={item.id}>
-              <Td><strong className="block text-xs font-medium">{item.email}</strong><span className="text-[11px] text-muted">{item.accountHint === 'HAS_ACCOUNT' ? 'Đã có tài khoản' : item.accountHint === 'NO_ACCOUNT' ? 'Chưa có tài khoản' : 'Chưa có thông tin tài khoản'}</span></Td>
+              <Td><div className="min-w-0 text-right @min-[640px]:text-left"><strong className="block text-xs font-medium">{item.email}</strong><span className="text-[11px] text-muted">{item.accountHint === 'HAS_ACCOUNT' ? 'Đã có tài khoản' : item.accountHint === 'NO_ACCOUNT' ? 'Chưa có tài khoản' : 'Chưa có thông tin tài khoản'}</span></div></Td>
               <Td>{roleLabel(item.role)}</Td><Td>{formatDateTime(item.lastSentAt, farm.timeZone)}</Td><Td>{formatDateTime(item.expiresAt, farm.timeZone)}</Td>
               <Td><Badge tone={invitationTone(item.status)}>{inviteStatusLabel(item.status)}</Badge></Td>
-              <Td>{item.status === 'PENDING' && <span className="inline-flex flex-wrap items-center"><Button variant="link" size="sm" disabled={busy !== null || !farmActive} onClick={() => run(item, 'resend')}>Gửi lại</Button>·<Button variant="link" size="sm" disabled={busy !== null} onClick={() => openCancel(item)}>Hủy</Button></span>}</Td>
+              <Td>{item.status === 'PENDING' && <span className="inline-flex flex-wrap items-center"><Button variant="link" size="sm" className="min-h-11 @min-[640px]:min-h-8" disabled={busy !== null || !farmActive} onClick={() => run(item, 'resend')}>Gửi lại</Button>·<Button variant="link" size="sm" className="min-h-11 @min-[640px]:min-h-8" disabled={busy !== null} onClick={() => openCancel(item)}>Hủy</Button></span>}</Td>
             </tr>
           ))}
         </tbody>

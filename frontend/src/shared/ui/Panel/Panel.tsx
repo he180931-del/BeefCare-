@@ -26,12 +26,13 @@ const SUB_TEXT: Record<PanelTone, string> = {
   err: 'text-[#5b6a60]',
 }
 
-/** Khối có tiêu đề h2 (nhãn của vùng), dòng phụ và hành động ở góc phải. */
-export function Panel({ title, sub, actions, tone = 'default', className, children }: {
+/** Khối có tiêu đề (nhãn của vùng), dòng phụ và hành động ở góc phải. */
+export function Panel({ title, sub, actions, tone = 'default', headingAs: Heading = 'h2', className, children }: {
   title?: ReactNode
   sub?: ReactNode
   actions?: ReactNode
   tone?: PanelTone
+  headingAs?: 'h1' | 'h2'
   className?: string
   children: ReactNode
 }) {
@@ -42,7 +43,7 @@ export function Panel({ title, sub, actions, tone = 'default', className, childr
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           {title && (
             <div className="min-w-0">
-              <h2 id={titleId} className="m-0 text-lg font-bold">{title}</h2>
+              <Heading id={titleId} className="m-0 text-lg font-bold">{title}</Heading>
               {sub && <p className={cx('mb-0 mt-1 text-xs', SUB_TEXT[tone])}>{sub}</p>}
             </div>
           )}

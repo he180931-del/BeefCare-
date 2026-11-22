@@ -35,13 +35,13 @@ export default function TicketListPage() {
   const goNew = () => navigate('/ho-tro/moi')
   const header = (
     <PageHeader title="Yêu cầu của tôi">
-      <Button variant="primary" onClick={goNew}>
+      <Button variant="primary" size="bento" onClick={goNew}>
         <Icon name="send" size={16} /> Gửi yêu cầu mới
       </Button>
     </PageHeader>
   )
 
-  if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
+  if (loading && !data) return <Layout title={TITLE}><LoadingBlock variant="panel" /></Layout>
   if (error || !data) {
     const retry = () => {
       setErrorDismissed(false)
@@ -51,7 +51,7 @@ export default function TicketListPage() {
       <Layout title={TITLE}>
         <div className="flex flex-col gap-4">
           {header}
-          <ErrorBlock message={userFacingError(error, 'Không thể tải danh sách yêu cầu lúc này.')} onRetry={retry} />
+          <ErrorBlock variant="panel" message={userFacingError(error, 'Không thể tải danh sách yêu cầu lúc này.')} onRetry={retry} />
           {!errorDismissed && <LoadErrorDialog message="Không thể tải danh sách yêu cầu lúc này." onRetry={retry} onClose={() => setErrorDismissed(true)} />}
         </div>
       </Layout>
@@ -66,19 +66,19 @@ export default function TicketListPage() {
       <div className="flex flex-col gap-4">
         {header}
         <TicketFilterBar filters={filters} onChange={patch} />
-        <Segmented options={tabs} value={filters.tab ?? 'ALL'} onChange={(tab) => patch({ tab: tab as TicketTab })} />
+        <Segmented className="w-full [&>button]:min-h-11 [&>button]:flex-1 [&>button]:whitespace-normal [&>button]:px-2" options={tabs} value={filters.tab ?? 'ALL'} onChange={(tab) => patch({ tab: tab as TicketTab })} />
         {data.items.length === 0 ? (
-          <EmptyBlock
+          <EmptyBlock variant="panel"
             title="Không có yêu cầu phù hợp"
             sub={filtered || filters.tab !== 'ALL' ? 'Bộ lọc hiện tại không có phiếu phù hợp.' : 'Bạn chưa gửi yêu cầu hỗ trợ nào.'}
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 {(filtered || filters.tab !== 'ALL') && (
-                  <Button onClick={() => setFilters(INITIAL)}>
+                  <Button size="bento" onClick={() => setFilters(INITIAL)}>
                     <Icon name="filter-off" size={16} /> Xóa bộ lọc
                   </Button>
                 )}
-                <Button variant="primary" onClick={goNew}>
+                <Button variant="primary" size="bento" onClick={goNew}>
                   <Icon name="circle-plus" size={16} /> Tạo yêu cầu mới
                 </Button>
               </div>

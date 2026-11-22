@@ -4,7 +4,7 @@ import { userFacingError } from '../../../shared/api/userFacingError'
 import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note } from '../../../shared/ui'
 import { InactiveFarmBanner, SetupLayout, Stepper, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
-import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
+import { Facts, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
 import { useFarmScope } from '../hooks/useFarmScope'
@@ -60,15 +60,15 @@ export default function FirstSubscriptionPage() {
     <OnboardingShell>
       <Stepper current={3} />
       {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
-      <Card title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
+      <Card variant="panel" title={`Đăng ký gói dịch vụ · ${data.farmName}`}>
         <div className="flex flex-col gap-4">
           <Facts items={[['Trạng thái trang trại', serviceLabel(data.serviceStatus), data.serviceStatus === 'PENDING_PAYMENT' ? 'warn' : undefined], ['Kỳ dịch vụ', data.currentPeriod ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end) : 'Chưa có']]} />
           <TermCards prices={price} selected={term} onSelect={setTerm} />
-          <Card title="Điều khoản gói"><Facts items={[
+          <Card variant="panel" title="Điều khoản gói"><Facts items={[
             ['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại bằng chuyển khoản'],
             ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ'],
           ]} /></Card>
-          <Card title="Xem lại trước khi tạo">
+          <Card variant="panel" title="Xem lại trước khi tạo">
             <Facts items={[
               ['Trang trại', data.farmName],
               ['Thời hạn', term ? termLabel(term) : 'Chưa chọn'],
@@ -78,9 +78,9 @@ export default function FirstSubscriptionPage() {
             ]} />
           </Card>
           {saveError && <Note tone="err">{saveError}</Note>}
-          <div className="flex flex-wrap justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3 [&>button]:h-auto! [&>button]:min-h-11 [&>button]:max-w-full [&>button]:whitespace-normal! [&>button]:py-2">
             <Button size="lg" onClick={() => navigate('/chon-trai')}>Để sau</Button>
-            <Button size="lg" variant="primary" className={ICON_BTN} disabled={!term || !price || saving} onClick={submit}>
+            <Button size="lg" variant="primary" disabled={!term || !price || saving} onClick={submit}>
               <Icon name="circle-plus" size={16} /> {saving ? 'Đang tạo yêu cầu…' : 'Tạo yêu cầu thanh toán'}
             </Button>
           </div>

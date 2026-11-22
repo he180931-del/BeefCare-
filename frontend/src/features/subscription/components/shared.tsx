@@ -4,24 +4,21 @@ import { Badge } from '../../../shared/ui'
 import { paymentView, serviceView } from '../../farm-workspace'
 import type { PaymentState, ServiceStatus } from '../types'
 
-export const ICON_BTN = 'inline-flex items-center justify-center gap-1.5'
-
 export type Fact = readonly [label: string, value: ReactNode, tone?: 'warn']
 const COLS = {
   1: 'grid-cols-1',
-  2: 'grid-cols-1 sm:grid-cols-2',
-  4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+  2: 'grid-cols-1 @min-[440px]:grid-cols-2',
+  4: 'grid-cols-1 @min-[640px]:grid-cols-2 @min-[880px]:grid-cols-4',
 }
 
 /** Lưới nhãn nhỏ + giá trị, theo các khối thông tin trong frame (nhãn 11px, giá trị 13px). */
-export function Facts({ items, cols = 2 }: { items: readonly Fact[]; cols?: 1 | 2 | 4 }) {
+export function Facts({ items, cols = 2, onDark = false }: { items: readonly Fact[]; cols?: 1 | 2 | 4; onDark?: boolean }) {
   return (
     <dl className={`m-0 grid gap-x-4 gap-y-3 ${COLS[cols]}`}>
       {items.map(([label, value, tone]) => (
         <div key={label} className="min-w-0">
-          {/* text-muted (#666, 5.7:1 on white); the former #8f8f8f was 3.2:1, below WCAG AA for 11 px text. */}
-          <dt className="mb-[3px] text-[11px] text-muted">{label}</dt>
-          <dd className={`m-0 text-[13px] ${tone === 'warn' ? 'font-semibold text-warn-fg' : 'font-medium'}`}>{value}</dd>
+          <dt className={`mb-[3px] text-[11px] ${onDark ? 'text-side-text' : 'text-[#5b6a60]'}`}>{label}</dt>
+          <dd className={`m-0 wrap-anywhere text-[13px] ${tone === 'warn' ? `font-semibold ${onDark ? 'text-[#ffe3aa]' : 'text-warn-fg'}` : 'font-medium'}`}>{value}</dd>
         </div>
       ))}
     </dl>
