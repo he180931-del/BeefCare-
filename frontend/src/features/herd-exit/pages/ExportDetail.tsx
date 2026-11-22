@@ -9,9 +9,12 @@ import CancelModal from '../components/CancelModal'
 import CollectModal from '../components/CollectModal'
 import DeathView from '../components/DeathView'
 import { PaymentTable } from '../components/PaymentTable'
-import type { ExitDetail } from '../types'
+import type { ExitDetail, ExitPayment } from '../types'
 import { useExitDetail } from '../hooks/useExitDetail'
 import { exitCattleStatus } from '../domain/exitCattleStatus'
+import { exitPaymentTotals } from '../domain/exitPaymentTotals'
+import { exitPaymentVoidEnabled, voidExitPayment } from '../api'
+import { VoidVoucherPaymentModal } from '../../../shared/ui/VoidVoucherPaymentModal'
 
 export default function ExportDetail() {
   const { id } = useParams()
@@ -20,6 +23,9 @@ export default function ExportDetail() {
   const isOwner = useIsOwner()
   const { record: r, loading, refetch, reload, documentError, links, canCancel, viewDocument } = useExitDetail(recordId)
   const [reloadRevision, setReloadRevision] = useState(0)
+  const [paymentToVoid, setPaymentToVoid] = useState<ExitPayment | null>(null)
+  const [paymentNotice, setPaymentNotice] = useState('')
+  const closePaymentVoid = () => { setPaymentToVoid(null); closeModal() }
   const reloadRecord = async () => { await reload(); closeModal(); setReloadRevision((value) => value + 1) }
 
   if (!r) {
@@ -34,9 +40,9 @@ export default function ExportDetail() {
   if (r.detail?.death) return <DeathView key={`${r.id}-${reloadRevision}`} row={r} onReload={reloadRecord} />
 
   const d: ExitDetail = { cows: [], payments: [], docs: [], history: [], ...r.detail }
-  const collected = d.payments?.reduce((s, p) => s + p.amount, 0) ?? (r.total ?? 0) - (r.due ?? 0)
-  const owed = r.due ?? 0
+  const { collected, outstanding: owed } = exitPaymentTotals(r)
   const isSold = r.status === 'Đã xuất'
+  const paymentActions = exitPaymentVoidEnabled && isOwner && isSold
 
   return (
     <Layout title={`Chi tiết phiếu xuất – ${r.status}`}>
@@ -52,6 +58,7 @@ export default function ExportDetail() {
         </div>
       </div>
 
+      {paymentNotice && <Note tone="ok">{paymentNotice}</Note>}
       <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_354px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
           <Box title="Thông tin phiếu" gap="gap-[14px]">
@@ -123,7 +130,7 @@ export default function ExportDetail() {
                   ['Còn phải thu', `${money(owed)} đ`, owed > 0],
                 ]}
               />
-              {d && <PaymentTable payments={d.payments ?? []} />}
+              <PaymentTable payments={d.payments ?? []} onVoid={paymentActions ? payment => { setPaymentToVoid(payment); openModal('void-payment') } : undefined} />
               {isOwner && isSold && owed > 0 && <Button block onClick={() => openModal('collect')}><Icon name="cash" />Ghi nhận thu tiền</Button>}
             </Box>
           )}
@@ -138,7 +145,8 @@ export default function ExportDetail() {
       <Foot>Chủ trại in phiếu, ghi nhận thu tiền (khi còn phải thu) và hủy phiếu đã xuất; Quản lý chỉ xem.</Foot>
 
       {m === 'cancel' && canCancel && <CancelModal row={r} onReload={reloadRecord} onClose={closeModal} onCancelled={() => { void refetch(); closeModal() }} />}
-      {m === 'collect' && <CollectModal row={r} onReload={reloadRecord} onClose={closeModal} onSaved={refetch} />}
+      {m === 'collect' && isOwner && isSold && owed > 0 && <CollectModal row={r} onReload={reloadRecord} onClose={closeModal} onSaved={refetch} />}
+      {m === 'void-payment' && paymentActions && paymentToVoid && <VoidVoucherPaymentModal key={`${r.id}:${paymentToVoid.id}`} payment={paymentToVoid} onVoid={voidExitPayment} onClose={closePaymentVoid} onReload={async () => { await reload(); closePaymentVoid() }} onSuccess={async payment => { setPaymentNotice(`Đã hủy khoản thanh toán ${money(payment.amount)} đ.`); closePaymentVoid(); await refetch() }} />}
     </Layout>
   )
 }

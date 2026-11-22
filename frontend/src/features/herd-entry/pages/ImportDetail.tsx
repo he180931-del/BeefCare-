@@ -7,13 +7,16 @@ import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { dmy, kg, money } from '../../../shared/lib/format'
 import PayModal from '../components/PayModal'
 import CancelModal from '../components/CancelModal'
-import type { EntryLineCommandResult } from '../types'
+import type { EntryLineCommandResult, EntryPayment } from '../types'
 import EntryLineModal from '../components/EntryLineModal'
-import { entryLineCorrectionEnabled } from '../api'
+import { entryLineCorrectionEnabled, entryPaymentVoidEnabled, voidEntryPayment } from '../api'
 import { useSession } from '../../../app/session/sessionContext'
 import { useEntryDetail } from '../hooks/useEntryDetail'
 import { herdEntryError } from '../api/herdEntryError'
 import { isVersionConflict } from '../../../shared/api/snapshotVersion'
+import { entryPaymentTotals } from '../domain/entryPaymentTotals'
+import { VoucherPaymentTable } from '../../../shared/ui/VoucherPaymentTable'
+import { VoidVoucherPaymentModal } from '../../../shared/ui/VoidVoucherPaymentModal'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
@@ -24,6 +27,10 @@ export default function ImportDetail() {
   const [params, setParams] = useSearchParams()
   const role = useSession()?.role
   const [lineResult, setLineResult] = useState<EntryLineCommandResult | null>(null)
+  const [paymentToVoid, setPaymentToVoid] = useState<EntryPayment | null>(null)
+  const [paymentNotice, setPaymentNotice] = useState('')
+  const paymentRole = role === 'OWNER' || role === 'MANAGER'
+  const closePaymentVoid = () => { setPaymentToVoid(null); closeModal() }
   const detailQuery = useEntryDetail(recordId)
   const { record: r, detail: d, loading, paymentError, voidError, documentError, canPay, canCancel, savePayment, cancelRecord, viewDocument } = detailQuery
 
@@ -43,7 +50,8 @@ export default function ImportDetail() {
     )
   }
 
-  const paid = d.payments?.reduce((s, payment) => s + payment.amount, 0) ?? (r.total != null ? r.total - (r.debt || 0) : 0)
+  const { paid, outstanding } = entryPaymentTotals(r)
+  const paymentActions = entryPaymentVoidEnabled && paymentRole && r.status === 'Đã nhập'
   const lineActions = entryLineCorrectionEnabled && (role === 'OWNER' || role === 'MANAGER') && r.status === 'Đã nhập'
   const selectedLine = lineActions ? d.cows?.find(line => line.lineStatus === 'VALID' && line.entryId != null && String(line.entryId) === params.get('entry')) : undefined
   const lineModal = (name?: 'line' | 'cancel', entryId?: number) => {
@@ -65,6 +73,7 @@ export default function ImportDetail() {
         {documentError && <Note tone="err">{documentError}</Note>}
         {lineResult?.notice && <Note tone="ok">{lineResult.notice.message}</Note>}
         {lineResult?.overpaidNotice && <Note tone="warn">{lineResult.overpaidNotice.message}</Note>}
+        {paymentNotice && <Note tone="ok">{paymentNotice}</Note>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] xl:grid-cols-[minmax(0,1fr)_350px]">
           <div className="flex min-w-0 flex-col gap-[18px]">
@@ -146,32 +155,13 @@ export default function ImportDetail() {
                     ['Phí vận chuyển', d ? `${money(d.freight)} đ` : '—'],
                     ['Tổng phải trả', `${money(r.total)} đ`],
                     ['Đã thanh toán', `${money(paid)} đ`],
-                    ['Còn nợ nguồn bán', `${money(r.debt || 0)} đ`],
+                    ['Còn nợ nguồn bán', `${money(outstanding)} đ`],
                   ]}
                 />
-                {d && (
-                  <Table stack={false}>
-                    <thead>
-                      <tr>
-                        <Th className={`${TH} w-[85px]`}>Ngày · người ghi</Th>
-                        <Th className={`${TH} w-[105px]`}>Phương thức · tham chiếu</Th>
-                        <Th className={`${TH} w-[80px]`}>Số tiền (đ)</Th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(d.payments ?? []).map((p) => (
-                        <tr key={p.ref}>
-                          <Td className={TH}>{p.date}<br />{p.by}</Td>
-                          <Td className={TH}>{p.method}<br />{p.ref}</Td>
-                          <Td className={TH}>{money(p.amount)}</Td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
+                <VoucherPaymentTable payments={d.payments ?? []} onVoid={paymentActions ? payment => { setPaymentToVoid(payment); openModal('void-payment') } : undefined} />
                 {r.status === 'Đã hủy' && <Note>Phiếu đã hủy: {r.cancelReason}</Note>}
-                {r.status !== 'Đã hủy' && r.debt === 0 && <Note tone="ok">Đã thanh toán đủ – "Ghi nhận thanh toán" chỉ hiện khi còn nợ.</Note>}
-                {canPay && (r.debt ?? 0) > 0 && (
+                {r.status !== 'Đã hủy' && outstanding === 0 && <Note tone="ok">Đã thanh toán đủ – "Ghi nhận thanh toán" chỉ hiện khi còn nợ.</Note>}
+                {canPay && paymentRole && outstanding > 0 && (
                   <Button block className="rounded-[4px] text-[13px] font-semibold" onClick={() => openModal('pay')}>
                     Ghi nhận thanh toán
                   </Button>
@@ -189,7 +179,8 @@ export default function ImportDetail() {
         <Foot>Sửa / hủy bản ghi nhập cần lý do; thanh toán có danh sách khoản đã ghi (ngày, phương thức, số tiền, tham chiếu, người ghi); khoản bị hủy hiện gạch ngang.</Foot>
       </div>
 
-      {m === 'pay' && canPay && <PayModal record={r} saving={detailQuery.paymentSaving} error={paymentError} onReload={async () => { await detailQuery.reload(); closeModal() }} onSave={async (value) => { await savePayment(value); closeModal() }} onClose={closeModal} />}
+      {m === 'pay' && canPay && paymentRole && <PayModal record={r} saving={detailQuery.paymentSaving} error={paymentError} onReload={async () => { await detailQuery.reload(); closeModal() }} onSave={async (value) => { await savePayment(value); closeModal() }} onClose={closeModal} />}
+      {m === 'void-payment' && paymentActions && paymentToVoid && <VoidVoucherPaymentModal key={`${r.id}:${paymentToVoid.id}`} payment={paymentToVoid} onVoid={voidEntryPayment} onClose={closePaymentVoid} onReload={async () => { await detailQuery.reload(); closePaymentVoid() }} onSuccess={async payment => { setPaymentNotice(`Đã hủy khoản thanh toán ${money(payment.amount)} đ.`); closePaymentVoid(); await detailQuery.refetch() }} />}
       {m === 'cancel' && canCancel && <CancelModal record={r} saving={detailQuery.voidSaving} error={voidError} onReload={async () => { await detailQuery.reload(); closeModal() }} onConfirm={async (reason) => { await cancelRecord(reason); closeModal() }} onClose={closeModal} />}
       {m === 'line' && selectedLine && <EntryLineModal key={`${r.id}:${selectedLine.entryId}`} record={r} line={selectedLine} onClose={() => lineModal()} onVoidVoucher={() => lineModal('cancel')} onReload={async () => { await detailQuery.reload(); lineModal() }} onSuccess={async result => { setLineResult(result); lineModal(); await detailQuery.refetch() }} />}
     </Layout>
