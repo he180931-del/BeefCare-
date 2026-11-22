@@ -320,7 +320,8 @@ test('TC-08-01/02/05/10: kiểm tra trường ngay ở frontend, không gửi l�
   assert.ok((await fields({ measuredAt: '2026-05-01T08:00', bcs: 3 })).measuredAt, 'trước ngày nhập đàn (MSG-COM-15)')
   assert.ok((await fields({ measuredAt: '2026-11-09T07:30', bcs: 3, note: 'x'.repeat(501) })).note, 'ghi chú > 500 ký tự')
   assert.equal(calls.filter((c) => c.method !== 'GET').length, 0, 'không gửi lệnh ghi khi còn lỗi')
-  await assert.rejects(api.correct('BC-000203', 2, { action: 'EXCLUDE', reason: '  ', expectedVersion: 0 }), (error: unknown) => error instanceof GrowthValidationError && Boolean(error.fields.reason))
+  // D43: ghi chú không bắt buộc, chỉ chặn khi quá 500 ký tự.
+  await assert.rejects(api.correct('BC-000203', 2, { action: 'EXCLUDE', reason: 'x'.repeat(501), expectedVersion: 0 }), (error: unknown) => error instanceof GrowthValidationError && Boolean(error.fields.reason))
 })
 
 test('TC-08-13: sửa bản ghi gửi Measurement đầy đủ, lý do và expectedVersion', async () => {

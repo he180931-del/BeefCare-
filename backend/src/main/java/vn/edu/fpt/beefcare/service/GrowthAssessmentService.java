@@ -161,10 +161,12 @@ public class GrowthAssessmentService {
     }
 
     /**
-     * Sửa ({@code CORRECT}) hoặc loại trừ ({@code EXCLUDE}) một bản ghi cân đã có.
+     * Sửa ({@code CORRECT}) hoặc xóa ({@code EXCLUDE}) một bản ghi cân đã có.
      *
-     * <p>Bản ghi không bị xóa: giá trị trước khi đổi được lưu vào lịch sử sửa (BR-D15) cùng lý do, và
-     * phiên bản ({@code expectedVersion}) phải khớp để tránh hai người sửa đè lên nhau.
+     * <p>"Xóa" trên giao diện là loại trừ mềm: bản ghi chuyển sang {@code EXCLUDED}, không còn được tính và
+     * không hiện trong lịch sử đo, nhưng vẫn nằm trong DB. Giá trị trước khi đổi, người và thời điểm luôn được
+     * lưu vào lịch sử sửa (BR-D15); ghi chú ({@code reason}) không bắt buộc (D43). Phiên bản
+     * ({@code expectedVersion}) phải khớp để tránh hai người sửa đè lên nhau.
      *
      * @return bản ghi sau khi đổi, kèm toàn bộ lịch sử sửa của nó
      */
@@ -193,9 +195,10 @@ public class GrowthAssessmentService {
         } else {
             throw DomainException.invalid("action");
         }
-        growth.setCorrectionReason(request.reason());
+        String note = blankToNull(request.reason());
+        growth.setCorrectionReason(note);
 
-        revisions.record(ctx, REVISION_SOURCE_TYPE, id, request.action(), request.reason(), before, toDto(growth));
+        revisions.recordWithOptionalNote(ctx, REVISION_SOURCE_TYPE, id, request.action(), note, before, toDto(growth));
         audit.log(ctx, "GROWTH_CORRECT", "Growth", id, Map.of("action", request.action()));
         outbox.enqueue(farmId, "GROWTH_CORRECTED", "Growth", id, Map.of("cattleId", cattleId));
         em.flush();
@@ -668,6 +671,11 @@ public class GrowthAssessmentService {
             .getResultStream()
             .findFirst()
             .orElse(null);
+    }
+
+    /** Ghi chú trống hoặc chỉ có khoảng trắng coi như không có; còn lại bỏ khoảng trắng hai đầu. */
+    private static String blankToNull(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
     }
 
     private boolean isUsable(Growth growth) {

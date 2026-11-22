@@ -755,3 +755,14 @@ AnNT đồng ý phương án trong phiên: "Được, sửa theo đề xuất c�
 5. Mỗi phiên sửa gửi version đã đọc ban đầu. Backend kiểm lại quyền, version và tham chiếu trong giao dịch; phối hợp khóa giữa xóa vắc-xin và tạo tham chiếu, không để tham chiếu mồ côi.
 
 Thứ tự thực hiện: cập nhật spec / câu hỏi / quyết định trước, sau đó sửa code và kiểm chứng. Quyết định này chưa tự chứng nhận API hoặc UI; bằng chứng nằm ở kiểm thử của gói triển khai.
+
+### D43 — FE-08: tách Sửa / Xóa bản ghi cân, ghi chú không bắt buộc (22/11/2026)
+
+TuanPQ (chủ FE-08) chốt trong phiên: "Xóa dùng cách đề xuất", và "vẫn bỏ ràng buộc lý do, ghi quyết định vào REQUIREMENT_DECISIONS". Làm khác R-08-07 và popup "Sửa / Loại trừ bản ghi cân" của spec FE-08 (SRS 28/10, UC-FE08-03):
+
+1. Bảng lịch sử đo (SCR-30) có hai nút riêng: **Sửa** và **Xóa**, thay cho nút "Sửa · Loại trừ" và ô chọn hành động trong popup.
+2. Popup **Sửa bản ghi cân** chỉ để sửa giá trị. Ô "Lý do *" đổi thành **Ghi chú**, không bắt buộc, tối đa 500 ký tự; khi mở, điền sẵn ghi chú của lần sửa gần nhất.
+3. **Xóa** hiện popup xác nhận, không cần ghi chú. Phía máy chủ vẫn là loại trừ mềm (`action: EXCLUDE`, trạng thái `EXCLUDED`), không xóa vật lý: lần đo không vào tính toán (R-08-06), không vẽ, không hiện trong lịch sử đo và không đếm vào "Số lần đo"; mở đúng bản ghi từ dòng thời gian vẫn thấy nhãn "Đã xóa".
+4. BR-D15 giữ nguyên phần còn lại: mỗi lần sửa / xóa vẫn lưu Record Revision với giá trị trước / sau, người và thời điểm trong cùng transaction, kiểm version (MSG-COM-05). Chỉ ghi chú (`reason`) có thể `null`.
+
+Đi kèm: `GrowthDtos.Correction.reason` bỏ `@NotBlank` (giữ `@Size(max = 500)`); `RecordRevisionService` thêm `recordWithOptionalNote` cho FE-08, hàm `record` của các feature khác vẫn bắt buộc lý do. Không migration (cột `reason`, `correction_reason` đã cho phép null), không đổi route hay hình dạng response; OpenAPI vốn không đánh dấu `reason` bắt buộc. Spec FE-08 (R-08-07, UC-FE08-03, popup SCR-30) và test case TC-08-12 / TC-08-13 cần cập nhật theo quyết định này.
