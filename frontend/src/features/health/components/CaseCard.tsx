@@ -32,13 +32,13 @@ export default function CaseCard({ card, rows, canAdd, canEdit, onAction, onEdit
   rows: HealthTimelineRow[]
   canAdd: boolean
   canEdit: boolean
-  onAction: (name: 'follow-up' | 'treatment' | 'update-status', caseCode: string) => void
+  onAction: (name: 'treatment' | 'update-case', caseCode: string) => void
   onEdit: (row: HealthTimelineRow) => void
 }) {
   return (
     <Card variant="panel"
       title={`Ca ${card.caseCode} · ${card.signs}`}
-      sub={card.status === 'OPEN' ? 'Ca đang mở' : 'Ca theo dõi mạn tính'}
+      sub={card.status === 'OPEN' ? 'Ca đang mở' : 'Ca theo dõi dài hạn'}
       actions={<>
         {card.suspectedContagious && <Badge tone="err" icon="alert-triangle">Nghi truyền nhiễm</Badge>}
         <CaseStatusBadge status={card.status} day={card.day} chronicSince={card.chronicSince} />
@@ -52,9 +52,8 @@ export default function CaseCard({ card, rows, canAdd, canEdit, onAction, onEdit
       </div>
       {canAdd && (
         <div className="flex flex-wrap gap-2.5">
-          <Button type="button" onClick={() => onAction('follow-up', card.caseCode)}><Icon name="eye" size={16} /> Ghi theo dõi</Button>
           <Button type="button" onClick={() => onAction('treatment', card.caseCode)}><Icon name="pill" size={16} /> Ghi điều trị</Button>
-          <Button type="button" variant="primary" onClick={() => onAction('update-status', card.caseCode)}><Icon name="edit" size={16} /> Cập nhật trạng thái</Button>
+          <Button type="button" variant="primary" onClick={() => onAction('update-case', card.caseCode)}><Icon name="edit" size={16} /> Cập nhật ca bệnh</Button>
         </div>
       )}
       <h4 className="m-0 text-[13px] font-semibold text-ink">Diễn biến &amp; điều trị</h4>

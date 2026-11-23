@@ -73,6 +73,14 @@ public class HealthCareCommandResource {
         return commands.updateStatus(farmId, caseId, key, request);
     }
 
+    /** A5b (D62): mở lại ca đã đóng Khỏi / Chết / Mất tích; ca đóng do xuất đàn → MSG-COM-05. */
+    @PostMapping("/{caseId}/reopen")
+    public CareDtos.HealthCaseResult reopen(@PathVariable Long farmId, @PathVariable Long caseId,
+                                            @RequestHeader("Idempotency-Key") String key,
+                                            @Valid @RequestBody CareDtos.ReopenCase request) {
+        return commands.reopen(farmId, caseId, key, request);
+    }
+
     /** A6: treatment. */
     @PostMapping("/{caseId}/treatments")
     @ResponseStatus(HttpStatus.CREATED)

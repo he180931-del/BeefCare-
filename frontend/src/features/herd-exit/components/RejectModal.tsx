@@ -7,7 +7,7 @@ import { VoucherCommandError } from '../../../shared/ui/VoucherCommandError'
 export default function RejectModal({ row, onClose, onRejected, error, onReload }: { row: HerdExit; onClose: () => void; onRejected: (reason: string) => void; error?: unknown; onReload: () => Promise<unknown> }) {
   const [rejectReason, setRejectReason] = useState('')
   return (
-    <Modal width={560} title="Bác đề xuất xuất đàn" sub={`Phiếu ${row.id} · bò vẫn ACTIVE, ca sức khỏe giữ nguyên kết quả`} onClose={onClose}>
+    <Modal width={560} title="Bác đề xuất xuất đàn" sub={`Phiếu ${row.id} · bò vẫn trong đàn, ca sức khỏe được mở lại`} onClose={onClose}>
       <Field label="Lý do bác *">
         <Textarea className="!leading-[normal] h-14" rows={1} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
       </Field>

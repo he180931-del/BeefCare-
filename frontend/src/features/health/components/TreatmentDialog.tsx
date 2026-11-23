@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Field, inputCls, Modal, ModalButton, ModalFooter, Note, NoticeDialog, Select, Textarea } from '../../../shared/ui'
+import { Checkbox, DateTimeInput, Field, inputCls, Modal, ModalButton, ModalFooter, NoticeDialog, Select, Textarea } from '../../../shared/ui'
 import { treatmentToast } from '../domain/healthMessages'
-import { fmtDate, ROUTE_LABEL, ROUTES } from '../domain/healthFormat'
-import { lastDoseDate, MSG, withdrawalEnd } from '../domain/healthRules'
+import { fmtDate, ROUTE_LABEL, ROUTES, statusText } from '../domain/healthFormat'
+import { lastDoseDate, withdrawalEnd } from '../domain/healthRules'
 import type { HealthCaseCard, HealthFormOptions, TreatmentRoute } from '../types'
 import { useHealthCaseCommands } from '../hooks/useHealthCaseCommands'
-import { caseLine, DateTimeInput, hint, ReadonlyBox, toIntOrNull, useDialogSave } from './healthUi'
+import { caseLine, hint, ReadonlyBox, toIntOrNull, useCurrentMember, useDialogSave } from './healthUi'
 
 export default function TreatmentDialog({ card, cattleCode, options, onClose, onSaved }: { card: HealthCaseCard; cattleCode: string; options: HealthFormOptions; onClose: () => void; onSaved: (message: string) => void }) {
   const { now, recordTreatment } = useHealthCaseCommands()
@@ -16,8 +16,12 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
   const [startAt, setStartAt] = useState(() => now())
   const [course, setCourse] = useState('1')
   const [wd, setWd] = useState('')
-  const [performer, setPerformer] = useState(options.members[0] ?? '')
+  const me = useCurrentMember(options.members)
+  const [performer, setPerformer] = useState(me?.name ?? '')
   const [advice, setAdvice] = useState('')
+  // D59: ca theo dõi dài hạn mặc định về Đang mở như GBR-45; bỏ chọn khi chỉ là điều trị duy trì.
+  const longTerm = card.status === 'CHRONIC'
+  const [returnToOpen, setReturnToOpen] = useState(true)
   const form = useDialogSave()
   const { errors } = form
   const medicine = medicines.find((m) => String(m.id) === medicineId)
@@ -32,14 +36,13 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
   const wdN = toIntOrNull(wd)
   const valid = startAt && courseN !== null && Number.isInteger(courseN) && courseN >= 1 && wdN !== null && Number.isInteger(wdN) && wdN >= 0
   const save = () => form.run(async () => {
-    const r = await recordTreatment(card.id, { expectedVersion: card.version, medicineId: medicine?.id ?? null, treatmentTime: startAt, dose, route, courseDays: courseN, withdrawalDays: wdN, performer, veterinaryAdvice: advice })
+    const r = await recordTreatment(card.id, { expectedVersion: card.version, medicineId: medicine?.id ?? null, treatmentTime: startAt, dose, route, courseDays: courseN, withdrawalDays: wdN, performer, veterinaryAdvice: advice, returnToOpen: longTerm ? returnToOpen : undefined })
     onSaved(treatmentToast(r.withdrawalEndDate))
   })
 
   return (
-    <Modal title="Ghi điều trị" sub={`Ca ${card.caseCode} · mở ${fmtDate(card.openedDate)} · ${card.status === 'OPEN' ? `OPEN ngày ${card.day}` : `CHRONIC từ ${fmtDate(card.chronicSince)}`}`} width={640} onClose={onClose}>
+    <Modal title="Ghi điều trị" sub={`Ca ${card.caseCode} · mở ${fmtDate(card.openedDate)} · ${statusText(card.status, card.day, card.chronicSince)}`} width={640} onClose={onClose}>
       <Field label="Ca sức khỏe" id="tr-case"><ReadonlyBox id="tr-case" value={caseLine(card.caseCode, card.signs, cattleCode)} /></Field>
-      {card.status === 'CHRONIC' && <Note tone="info">{MSG.chronicNotice}</Note>}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Thuốc (danh mục trại) *" id="tr-medicine" hint={hint(errors.medicineId)}>
           <Select id="tr-medicine" value={medicineId} onChange={(e) => pickMedicine(e.target.value)}>
@@ -68,8 +71,13 @@ export default function TreatmentDialog({ card, cattleCode, options, onClose, on
       </div>
       <Field label="Người thực hiện" id="tr-performer" hint={hint(errors.performer, 'Hoặc nhập tên người ngoài')}>
         <input id="tr-performer" list="tr-performer-list" maxLength={100} value={performer} onChange={(e) => setPerformer(e.target.value)} className={inputCls} />
-        <datalist id="tr-performer-list">{options.members.map((m) => <option key={m} value={m} />)}</datalist>
+        <datalist id="tr-performer-list">{options.members.map((m) => <option key={m.id} value={m.name} />)}</datalist>
       </Field>
+      {longTerm && (
+        <Checkbox checked={returnToOpen} onChange={(e) => setReturnToOpen(e.target.checked)} className="text-[13px]">
+          Chuyển ca về Đang mở (bỏ chọn nếu chỉ điều trị duy trì)
+        </Checkbox>
+      )}
       <Field label="Lời khuyên thú y" id="tr-advice" hint={hint(errors.veterinaryAdvice, 'Tối đa 500 ký tự')}><Textarea id="tr-advice" rows={2} maxLength={500} value={advice} onChange={(e) => setAdvice(e.target.value)} /></Field>
       {form.formError && <NoticeDialog message={form.formError} onClose={form.clearFormError} />}
       <ModalFooter>

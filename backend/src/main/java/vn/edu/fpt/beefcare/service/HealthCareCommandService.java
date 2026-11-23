@@ -36,8 +36,8 @@ public class HealthCareCommandService {
     /** Popup Ghi điều trị #4: Tiêm bắp / Tiêm dưới da / Tĩnh mạch / Uống / Bôi / Khác. */
     static final Set<String> ROUTES = Set.of("INTRAMUSCULAR", "SUBCUTANEOUS", "INTRAVENOUS", "ORAL", "TOPICAL", "OTHER");
     private static final Map<String, String> ROUTE_ALIASES = Map.of("IM", "INTRAMUSCULAR", "SC", "SUBCUTANEOUS", "SQ", "SUBCUTANEOUS", "IV", "INTRAVENOUS", "PO", "ORAL");
-    private static final BigDecimal MIN_TEMPERATURE = new BigDecimal("35.0");
-    private static final BigDecimal MAX_TEMPERATURE = new BigDecimal("43.0");
+    private static final BigDecimal MIN_TEMPERATURE = new BigDecimal("30.0");
+    private static final BigDecimal MAX_TEMPERATURE = new BigDecimal("45.0");
     private static final Set<String> WRITABLE = Set.of("OPEN", "CHRONIC");
 
     @PersistenceContext private EntityManager em;
@@ -49,12 +49,14 @@ public class HealthCareCommandService {
     private final FarmClock clock;
     private final CattleStateService cattleState;
     private final HerdExitVoucherService exits;
+    private final HealthCaseReopener reopener;
 
     public HealthCareCommandService(FarmAccessService access, CattleGuardService cattleGuard, IdempotencyCommandService idempotency,
                                    AuditService audit, RecordRevisionService revisions, FarmClock clock,
-                                   CattleStateService cattleState, HerdExitVoucherService exits) {
+                                   CattleStateService cattleState, HerdExitVoucherService exits, HealthCaseReopener reopener) {
         this.access = access; this.cattleGuard = cattleGuard; this.idempotency = idempotency;
         this.audit = audit; this.revisions = revisions; this.clock = clock; this.cattleState = cattleState; this.exits = exits;
+        this.reopener = reopener;
     }
 
     // ------------------------------------------------------------------ A3 open / add an observation
@@ -166,62 +168,80 @@ public class HealthCareCommandService {
         if (req == null) throw DomainException.required("status");
         assertWritable(healthCase);
         String action = upper(req.action());
-        String status = upper(healthCase.getStatus());
-        String latestProgress = optionalText(req.latestProgress(), "latestProgress", 1000);
-        // D35: the popup has its own progress radio; a follow-up written from this command needs it, never a default.
-        String progress = req.progress() == null || req.progress().isBlank() ? null : upper(req.progress());
-        if (progress != null && !PROGRESS.contains(progress)) throw DomainException.invalid("progress");
-        if (latestProgress != null && progress == null) throw DomainException.required("progress");
+        assertActionAllowed(action, upper(healthCase.getStatus()));
+        String outcome = "CLOSE".equals(action) ? upper(req.outcome()) : null;
+        if ("CLOSE".equals(action) && !OUTCOMES.contains(outcome)) throw DomainException.required("outcome");
+        // D58: một mốc thời gian cho cả lần cập nhật (theo dõi, ngày mạn tính, lúc đóng ca); BR-D33 / R-10-05 về thứ tự.
+        Instant at = updateTime(req);
+        clock.assertNotFuture(at);
+        assertAfterHerdEntry(farmId, cattle, at);
+        assertNotBeforeLatest(healthCase, at, null, null);
+        FollowUpPart followUp = followUpPart(req, action);
+        AppUser confirmedBy = "CLOSE".equals(action) && req.confirmedById() != null ? activeMember(farmId, req.confirmedById(), "confirmedById") : ctx.user();
         if (req.suspectedDiagnosis() != null) healthCase.setSuspectedDiagnosis(optionalText(req.suspectedDiagnosis(), "suspectedDiagnosis", 100));
         if (req.suspectedContagious() != null) healthCase.setIsSuspectedContagious(req.suspectedContagious());
         Map<String, Object> before = snapshot(healthCase);
-        // Popups work at minute precision: a follow-up written "now" with seconds would make a record saved right after
-        // with the default "now" of the same minute look earlier than it (MSG-FE10-07).
-        Instant now = clock.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        Long observationId = followUp == null ? null
+            : followUp(healthCase, at, followUp.description(), followUp.progress(), req.temperatureC(), ctx, ctx.user()).getId();
         Long pendingVoucherId = null;
-        Long observationId = null;
         switch (action) {
-            case "KEEP" -> {
-                // Q1: the latest progress is required when the status is kept; it is the only thing this command writes.
-                if (latestProgress == null) throw DomainException.required("latestProgress");
-                observationId = followUp(healthCase, now, latestProgress, progress, null, ctx, ctx.user()).getId();
-            }
-            case "TO_CHRONIC" -> {
-                if (!"OPEN".equals(status)) throw DomainException.invalid("action");
-                if (latestProgress != null) observationId = followUp(healthCase, now, latestProgress, progress, null, ctx, ctx.user()).getId();
-                healthCase.setStatus("CHRONIC"); healthCase.setChronicSince(clock.toFarmDate(now));
-            }
-            case "TO_OPEN" -> {
-                if (!"CHRONIC".equals(status)) throw DomainException.invalid("action");
-                if (latestProgress != null) observationId = followUp(healthCase, now, latestProgress, progress, null, ctx, ctx.user()).getId();
-                healthCase.setStatus("OPEN"); healthCase.setChronicSince(null);
-            }
+            case "TO_CHRONIC" -> { healthCase.setStatus("CHRONIC"); healthCase.setChronicSince(clock.toFarmDate(at)); }
+            case "TO_OPEN" -> { healthCase.setStatus("OPEN"); healthCase.setChronicSince(null); }
             case "CLOSE" -> {
-                String outcome = upper(req.outcome());
-                if (!OUTCOMES.contains(outcome)) throw DomainException.required("outcome");
-                Instant closedAt = req.closedAt() == null ? now : req.closedAt();
-                clock.assertNotFuture(closedAt);
-                // BR-D33: the closure is not before the latest record of the case (the opening observation included).
-                assertNotBeforeLatest(healthCase, closedAt, null, null);
-                if (latestProgress != null) observationId = followUp(healthCase, closedAt, latestProgress, progress, null, ctx, ctx.user()).getId();
-                LocalDate closedDate = clock.toFarmDate(closedAt);
-                AppUser confirmedBy = req.confirmedById() == null ? ctx.user() : activeMember(farmId, req.confirmedById(), "confirmedById");
+                LocalDate closedDate = clock.toFarmDate(at);
                 if ("DIED".equals(outcome) || "MISSING".equals(outcome)) {
                     // R-10-07: the PENDING loss voucher, the Owner notice and REM-12 are created in this transaction (before the
                     // case changes, so a refused voucher leaves nothing half-written even if the row had been flushed).
                     HerdExitVoucher voucher = exits.createPendingLossVoucher(healthCase, ctx.user(), closedDate, "DIED".equals(outcome) ? LossKind.DIED : LossKind.MISSING);
                     pendingVoucherId = voucher.getId();
                 }
-                healthCase.setStatus("CLOSED"); healthCase.setOutcome(outcome); healthCase.setClosedDate(closedDate); healthCase.setClosedAt(closedAt);
+                healthCase.setStatus("CLOSED"); healthCase.setOutcome(outcome); healthCase.setClosedDate(closedDate); healthCase.setClosedAt(at);
                 healthCase.setClosedBy(confirmedBy);
             }
-            default -> throw DomainException.invalid("action");
+            default -> { /* KEEP: chỉ ghi lần theo dõi ở trên. */ }
         }
         em.flush();
         Map<String, Object> after = snapshot(healthCase);
         after.put("action", action); after.put("before", before);
         audit.log(ctx, "HEALTH_CASE_STATUS", "HealthCase", caseId, after);
         return result(healthCase, cattle, observationId, pendingVoucherId);
+    }
+
+    // ------------------------------------------------------------------ A5b mở lại ca đã đóng (D62)
+
+    public CareDtos.HealthCaseResult reopen(Long farmId, Long caseId, String key, CareDtos.ReopenCase request) {
+        return idempotency.execute(farmId, FarmAction.MANAGE_HEALTH, "HEALTH_CASE_REOPEN", key,
+            Map.of("caseId", caseId, "request", request), CareDtos.HealthCaseResult.class, () -> reopenInCommand(farmId, caseId, request));
+    }
+
+    /**
+     * D62: ca đóng Khỏi mở lại khi bò còn ghi nhận được; ca đóng Chết / Mất tích chỉ mở lại khi bò còn trong đàn (phiếu
+     * chết / mất còn chờ xác nhận thì bác phiếu cùng giao dịch) và chỉ Chủ trại được làm (như bác phiếu, GBR-34); ca đóng
+     * do xuất đàn không bao giờ mở lại.
+     */
+    @Transactional
+    CareDtos.HealthCaseResult reopenInCommand(Long farmId, Long caseId, CareDtos.ReopenCase req) {
+        FarmContext ctx = access.require(farmId, FarmAction.MANAGE_HEALTH);
+        HealthCase healthCase = caseForFarm(farmId, caseId);
+        VersionGuard.requireExpected(healthCase.getVersion(), req == null ? null : req.expectedVersion());
+        if (req == null) throw DomainException.required("reason");
+        requireText(req.reason(), "reason", 500);
+        reopener.assertReopenable(healthCase);
+        String outcome = upper(healthCase.getOutcome());
+        Cattle cattle;
+        if ("DIED".equals(outcome) || "MISSING".equals(outcome)) {
+            // Bác phiếu chết / mất là quyền của Chủ trại → Quản lý nhận MSG-COM-01.
+            access.require(farmId, FarmAction.MANAGE_EXIT_VOUCHERS);
+            // Bò đang "Chờ xác nhận chết / mất" vẫn ACTIVE; phiếu đã xác nhận thì bò EXITED → MSG-COM-13.
+            cattle = cattleGuard.lockCattle(farmId, healthCase.getCattle().getId());
+            cattleGuard.assertActive(cattle);
+            exits.dismissForCaseReopen(ctx, healthCase, req.reason().trim());
+        } else {
+            cattle = cattleGuard.lockWritable(farmId, healthCase.getCattle().getId());
+        }
+        reopener.reopen(ctx, healthCase, req.reason().trim(), "HEALTH_CASE");
+        em.flush();
+        return result(healthCase, cattle, null, null);
     }
 
     // ------------------------------------------------------------------ A6 treatment
@@ -262,8 +282,9 @@ public class HealthCareCommandService {
         treatment.setPerformer(performer); treatment.setVeterinaryAdvice(advice); treatment.setResult("GIVEN");
         treatment.setWithdrawalEndDate(withdrawalEnd(time, cattle, courseDays, withdrawalDays));
         em.persist(treatment);
-        // R-10-06 / R-10-09: a treatment reopens a CHRONIC case in the same transaction.
-        boolean returnedToOpen = "CHRONIC".equals(upper(healthCase.getStatus()));
+        // R-10-06 / R-10-09: điều trị đưa ca CHRONIC về OPEN trong cùng giao dịch, trừ khi người dùng chọn giữ mạn tính
+        // cho điều trị duy trì (D59).
+        boolean returnedToOpen = "CHRONIC".equals(upper(healthCase.getStatus())) && !Boolean.FALSE.equals(req.returnToOpen());
         if (returnedToOpen) { healthCase.setStatus("OPEN"); healthCase.setChronicSince(null); }
         em.flush();
         audit.log(ctx, "HEALTH_TREATMENT", "Treatment", treatment.getId(), Map.of("caseId", caseId, "courseDays", courseDays, "withdrawalEndDate", treatment.getWithdrawalEndDate()));
@@ -402,6 +423,70 @@ public class HealthCareCommandService {
         revisions.record(ctx, "Treatment", treatmentId, RecordRevisionService.VOID, req.reason(), before, treatmentSnapshot(treatment));
         audit.log(ctx, "HEALTH_TREATMENT_VOID", "Treatment", treatmentId, Map.of("caseId", healthCase.getId()));
         return recordStatus(treatmentId, treatment.getStatus(), treatment.getVersion(), healthCase, cattle, withdrawalBefore);
+    }
+
+    // ------------------------------------------------------------------ A5 helpers (D58)
+
+    /** Phần theo dõi của một lần cập nhật ca: mô tả và diễn biến đã chuẩn hóa. */
+    private record FollowUpPart(String description, String progress) {}
+
+    /**
+     * Kiểm hành động so với trạng thái hiện tại của ca: chuyển mạn tính chỉ từ OPEN, mở lại chỉ từ CHRONIC.
+     *
+     * @param action hành động đã viết hoa
+     * @param status trạng thái ca đã viết hoa
+     */
+    private static void assertActionAllowed(String action, String status) {
+        boolean allowed = switch (action) {
+            case "KEEP", "CLOSE" -> true;
+            case "TO_CHRONIC" -> "OPEN".equals(status);
+            case "TO_OPEN" -> "CHRONIC".equals(status);
+            default -> false;
+        };
+        if (!allowed) {
+            throw DomainException.invalid("action");
+        }
+    }
+
+    /**
+     * Thời điểm của lần cập nhật: {@code observedAt}, nếu thiếu thì {@code closedAt} (bản cũ), nếu thiếu nữa thì hiện tại.
+     * Popup nhập tới phút nên "hiện tại" cũng làm tròn tới phút: nếu giữ giây, bản ghi lưu ngay sau với cùng phút mặc định
+     * sẽ trông như sớm hơn và bị MSG-FE10-07.
+     */
+    private Instant updateTime(CareDtos.CaseStatus req) {
+        if (req.observedAt() != null) {
+            return req.observedAt();
+        }
+        if (req.closedAt() != null) {
+            return req.closedAt();
+        }
+        return clock.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+    }
+
+    /**
+     * Đọc phần theo dõi của lệnh A5 (D58, D35). Ghi theo dõi khi Giữ trạng thái hoặc khi có nhập mô tả, diễn biến hay thân
+     * nhiệt; khi đó cần cả mô tả và diễn biến – không bao giờ tự điền diễn biến.
+     *
+     * @return phần theo dõi cần ghi, hoặc {@code null} khi lệnh chỉ đổi trạng thái
+     */
+    private FollowUpPart followUpPart(CareDtos.CaseStatus req, String action) {
+        String description = optionalText(req.latestProgress(), "latestProgress", 1000);
+        String progress = req.progress() == null || req.progress().isBlank() ? null : upper(req.progress());
+        if (progress != null && !PROGRESS.contains(progress)) {
+            throw DomainException.invalid("progress");
+        }
+        requireTemperature(req.temperatureC());
+        boolean wanted = "KEEP".equals(action) || description != null || progress != null || req.temperatureC() != null;
+        if (!wanted) {
+            return null;
+        }
+        if (description == null) {
+            throw DomainException.required("latestProgress");
+        }
+        if (progress == null) {
+            throw DomainException.required("progress");
+        }
+        return new FollowUpPart(description, progress);
     }
 
     // ------------------------------------------------------------------ shared rules
@@ -559,7 +644,10 @@ public class HealthCareCommandService {
         m.put("medicineName", t.getMedicineNameSnapshot()); m.put("dose", t.getDose()); m.put("route", t.getRoute()); m.put("courseDays", t.getCourseDays()); m.put("withdrawalDays", t.getWithdrawalDays());
         m.put("withdrawalEndDate", t.getWithdrawalEndDate()); m.put("performer", t.getPerformer()); m.put("veterinaryAdvice", t.getVeterinaryAdvice()); return m;
     }
-    /** R-10-04: 35.0–43.0 °C → MSG-FE10-06 (field temperatureC). */
+    /**
+     * R-10-04 (D61): ngoài 30,0–45,0 °C là số gõ nhầm → MSG-FE10-06 (trường temperatureC). Số đo ngoài 35,0–43,0 °C
+     * vẫn lưu được sau khi người dùng xác nhận trên giao diện.
+     */
     private void requireTemperature(BigDecimal t) {
         if (t != null && (t.compareTo(MIN_TEMPERATURE) < 0 || t.compareTo(MAX_TEMPERATURE) > 0)) throw DomainException.unprocessable(MessageCodes.FE10_06, "field", "temperatureC");
     }

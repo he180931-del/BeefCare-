@@ -930,3 +930,49 @@ Chủ dự án chốt bổ sung bước chấp thuận sau Google OAuth: Google 
 3. `POST /api/account/terms-acceptance` chỉ đặt `termsAccepted = true` và `termsAcceptedAt` ở lần đầu; gọi lại giữ nguyên thời điểm. Không hoàn tất đăng ký Owner, không tạo trại/membership, không cấp vai trò hoặc gói.
 4. Khi chưa chấp thuận, backend vẫn cho đọc hồ sơ, lấy CSRF, chấp thuận và đăng xuất; API nghiệp vụ khác trả `403` + `MSG-FE01-14` nhưng không hủy phiên. OAuth redirect ưu tiên `/chap-nhan-dieu-khoan` trước luồng Owner/chọn trại; frontend kiểm lại profile để không phụ thuộc riêng redirect.
 5. Dùng hai cột hiện có `terms_accepted`, `terms_accepted_at`; chưa thêm phiên bản điều khoản hoặc migration. Khi có quy trình ban hành nhiều phiên bản sẽ quyết định migration và luồng chấp thuận lại riêng.
+
+### D58 — FE-10: gộp "Ghi theo dõi" và "Cập nhật / Đóng ca" thành "Cập nhật ca bệnh"; Mở ca không còn nối vào ca đang có (23/11/2026)
+
+TuanPQ duyệt đợt 1 của bản đánh giá FE-10. Hai popup cũ dẫm chân nhau (người dùng không biết lúc nào bấm "Ghi theo dõi", lúc nào bấm "Cập nhật trạng thái"), và "Thêm vào ca đang có" ở popup Mở ca trùng việc với chúng. Làm khác UC-FE10-03 (hai popup) và UC-FE10-02 bước chọn ca của SRS 28/10:
+
+1. Thẻ ca chỉ còn hai nút: **Ghi điều trị** và **Cập nhật ca bệnh**.
+2. Popup **Cập nhật ca bệnh**: thời điểm, thân nhiệt, diễn biến, mô tả, chẩn đoán / cờ truyền nhiễm, trạng thái ca (Giữ / Chuyển mạn tính hoặc Mở lại / Đóng ca → kết quả, người xác nhận). Một thời điểm dùng cho lần theo dõi, ngày mạn tính và lúc đóng ca. Giữ trạng thái → phần theo dõi bắt buộc; đổi trạng thái → tùy chọn, có nhập ô nào thì cần đủ diễn biến và mô tả (giữ D35, không tự điền diễn biến). Lỗi nhập liệu dưới ô, lỗi điều kiện popup (D49).
+3. Phần theo dõi và trạng thái lưu **trong một giao dịch** qua A5 (`POST …/health-cases/{id}/status` thêm `observedAt`, `temperatureC`); không gọi hai API liên tiếp từ giao diện.
+4. Popup **Mở ca** luôn mở ca mới (một bò có thể có nhiều ca – GBR-45). Bò đang có ca thì popup nhắc mã ca và có nút "Cập nhật ca …" chuyển sang đúng ca.
+5. Backend vẫn nhận `existingCaseId` ở A3 và giữ A4 (`/observations`) để không đổi hợp đồng; giao diện không dùng nữa. Không migration.
+
+Spec FE-10 đã cập nhật: UC-FE10-02/03, R-10-01, SCR-37 dòng 7, popup Mở ca dòng 8, popup Cập nhật ca bệnh (thay popup Ghi theo dõi và Cập nhật / Đóng ca), A3–A5, TC-10-04/05/07/27/29.
+
+### D59 — FE-10: ghi điều trị cho ca theo dõi dài hạn có thể giữ trạng thái (23/11/2026)
+
+TuanPQ duyệt đợt 2 của bản đánh giá FE-10. GBR-45 cho ca CHRONIC tự về OPEN mỗi khi ghi điều trị, khiến điều trị duy trì (vitamin, thuốc bổ, kháng viêm định kỳ) đẩy ca về Đang mở và người dùng phải chuyển lại.
+
+1. Popup Ghi điều trị của ca CHRONIC có ô **"Chuyển ca về Đang mở (bỏ chọn nếu chỉ điều trị duy trì)"**, mặc định chọn (giữ hành vi SRS).
+2. Bỏ chọn → ca giữ CHRONIC; sức khỏe của bò là "Theo dõi" (không phải "Đang điều trị"); ngày ngưng thịt vẫn tính từ điều trị (GBR-46 không phụ thuộc trạng thái ca).
+3. A6 thêm `returnToOpen?` (thiếu = `true`); không migration, phản hồi `returnedToOpen` giữ nguyên. Thay MSG-FE10-10 bằng ô chọn này.
+
+### D60 — FE-10: trạng thái ca hiển thị bằng tiếng Việt, "Theo dõi dài hạn" thay "mạn tính" (23/11/2026)
+
+TuanPQ yêu cầu thuật ngữ sát nghĩa tiếng Việt và giao diện hoàn toàn tiếng Việt. SRS định nghĩa CHRONIC là *long-term monitoring* – trạng thái quản lý ca, không phải chẩn đoán "bệnh mạn tính".
+
+1. Nhãn: `OPEN` → **Đang mở**, `CHRONIC` → **Theo dõi dài hạn**, `CLOSED` → **Đã đóng** (huy hiệu: "Đang mở · ngày n", "Theo dõi dài hạn · từ dd/mm/yyyy", "Đã đóng · Khỏi"); tab danh sách "Theo dõi dài hạn (n)".
+2. Hành động: "Chuyển theo dõi dài hạn", "Chuyển về đang mở" (không dùng "Mở lại" để dành cho việc mở lại ca đã đóng ở đợt 4).
+3. Mã trong DB / API / code giữ nguyên `OPEN`, `CHRONIC`, `CLOSED`; chỉ đổi chữ hiển thị (một nguồn `CASE_STATUS_LABEL`). Spec FE-10 đổi theo, gồm các chỗ viết "mãn tính".
+
+### D61 — FE-10: thân nhiệt ngoài 35–43 °C hỏi xác nhận thay vì chặn (23/11/2026)
+
+TuanPQ duyệt: 35–43 °C là ngưỡng cần kiểm tra lại, không phải giới hạn sinh lý; bò hạ thân nhiệt hoặc sốt cao vẫn phải ghi được.
+
+1. Ngoài **30,0–45,0 °C** → chặn, lỗi dưới ô MSG-FE10-06 (số gõ nhầm, ví dụ `395`, `3,9`). Frontend và backend cùng kiểm.
+2. Trong 30,0–45,0 nhưng ngoài **35,0–43,0 °C** → popup "Kiểm tra lại thân nhiệt" (MSG-FE10-06a) với nút "Kiểm tra lại" / "Xác nhận lưu". Đây là bước trên giao diện; API không thêm trường.
+3. Để trống → vẫn lưu. Sửa ô thân nhiệt thì lỗi cũ của ô biến mất (trước đây lỗi đỏ còn sau khi xóa trống ô).
+4. Áp dụng ở Mở ca sức khỏe, Cập nhật ca bệnh, Sửa bản ghi theo dõi. Không làm khoảng tham chiếu theo nhóm bò.
+
+### D62 — FE-10 / FE-13: mở lại ca sức khỏe đã đóng; bác phiếu chết / mất thì mở lại ca (23/11/2026)
+
+TuanPQ duyệt đợt 4 của bản đánh giá FE-10; chủ FE-13 đồng ý. Trước đây ca đã đóng không mở lại được (đóng nhầm phải mở ca mới, lịch sử bị tách), và bác phiếu chết / mất để bò ACTIVE nhưng ca vẫn ghi "Chết".
+
+1. **Mở lại ca** (FE-10, nút ở bảng "Các ca trước", popup lý do bắt buộc ≤ 500): ca về Đang mở, xóa kết quả / ngày đóng / người xác nhận / "theo dõi dài hạn từ"; lưu Record Revision hành động `REOPEN` và nhật ký `HEALTH_CASE_REOPEN`.
+2. Điều kiện: **Khỏi** → bò còn nhận sự kiện; **Chết / Mất tích** → bò còn trong đàn, phiếu PENDING của ca bị bác (lý do = lý do mở lại, REM-12 giải quyết) trong cùng transaction; phiếu đã xác nhận → bò EXITED → MSG-COM-13; **CLOSED_BY_EXIT** → không bao giờ (MSG-COM-05). Ca Khỏi: Owner và Manager (MANAGE_HEALTH); ca Chết / Mất tích: **chỉ Owner** vì phải bác phiếu xuất (MANAGE_EXIT_VOUCHERS, GBR-34) – TuanPQ chốt.
+3. **Bác phiếu chết / mất PENDING** (FE-13) → ca nguồn mở lại cùng lý do, thông báo MSG-FE13-10. Thay "ca giữ kết quả" của GBR-95 / R-13-09.
+4. API `POST …/health-cases/{caseId}/reopen` (`reason`, `expectedVersion`); A2 trả thêm `version` cho ca đã đóng. Không migration. Một lớp dùng chung `HealthCaseReopener` cho cả hai đường.

@@ -7,6 +7,8 @@ export const ROUTE_LABEL: Record<TreatmentRoute, string> = {
   INTRAMUSCULAR: 'Tiêm bắp', SUBCUTANEOUS: 'Tiêm dưới da', INTRAVENOUS: 'Tiêm tĩnh mạch', ORAL: 'Uống', TOPICAL: 'Bôi ngoài da', OTHER: 'Khác',
 }
 export const OUTCOME_LABEL: Record<CaseOutcome, string> = { RECOVERED: 'Khỏi', DIED: 'Chết', MISSING: 'Mất tích', CLOSED_BY_EXIT: 'Đã xuất' }
+/** Trạng thái ca hiển thị tiếng Việt (D60). CHRONIC là "long-term monitoring" trong SRS → "Theo dõi dài hạn". */
+export const CASE_STATUS_LABEL: Record<CaseStatus, string> = { OPEN: 'Đang mở', CHRONIC: 'Theo dõi dài hạn', CLOSED: 'Đã đóng' }
 export const HEALTH_STATE_LABEL: Record<HealthState, string> = { HEALTHY: 'Khỏe mạnh', MONITORING: 'Theo dõi', UNDER_TREATMENT: 'Đang điều trị' }
 export const ENTRY_LABEL: Record<EntryType, string> = { OPENING: 'Mở ca', OBSERVATION: 'Ghi nhận', FOLLOW_UP: 'Theo dõi', TREATMENT: 'Điều trị' }
 
@@ -36,7 +38,7 @@ export function addDays(date: string, days: number): string {
 export const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${dateOf(to)}T00:00:00Z`) - Date.parse(`${dateOf(from)}T00:00:00Z`)) / 86_400_000)
 
 export function statusText(status: CaseStatus, day: number, chronicSince?: string, outcome?: CaseOutcome): string {
-  if (status === 'OPEN') return `OPEN · ngày ${day}`
-  if (status === 'CHRONIC') return `CHRONIC · từ ${fmtDate(chronicSince)}`
-  return `CLOSED · ${outcome ? OUTCOME_LABEL[outcome] : '—'}`
+  if (status === 'OPEN') return `${CASE_STATUS_LABEL.OPEN} · ngày ${day}`
+  if (status === 'CHRONIC') return `${CASE_STATUS_LABEL.CHRONIC} · từ ${fmtDate(chronicSince)}`
+  return `${CASE_STATUS_LABEL.CLOSED} · ${outcome ? OUTCOME_LABEL[outcome] : '—'}`
 }
