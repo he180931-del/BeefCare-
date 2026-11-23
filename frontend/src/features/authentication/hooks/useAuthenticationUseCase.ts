@@ -14,6 +14,7 @@ export function useAuthenticationUseCase(client: AuthClient = defaultAuthClient)
     isAuthenticated: () => client.isAuthenticated(),
     logout: () => client.logout(),
     loadSessionProfile: () => backendTransport.get('/api/account/profile'),
+    acceptTerms: () => backendTransport.command('/api/account/terms-acceptance', { accepted: true }, { method: 'POST' }),
     requestPasswordReset: client.requestPasswordReset,
     validatePasswordReset: client.validatePasswordReset,
     resetPassword: client.resetPassword,

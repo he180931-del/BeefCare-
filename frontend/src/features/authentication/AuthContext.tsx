@@ -8,7 +8,7 @@ import { GuestAuthFlow } from './pages/GuestAuthFlow'
 import { takeInvitationLink } from './invitationReturn'
 import { clearCurrentFarmId } from '../../app/session/currentFarm'
 import type { AuthClient } from './types'
-import { AUTH_PATH } from './domain/authErrors'
+import { AUTH_PATH } from './domain/authPaths'
 import { useAuthenticationUseCase } from './hooks/useAuthenticationUseCase'
 
 export type { AuthClient } from './types'
@@ -72,7 +72,7 @@ export function AuthProvider({ client = defaultAuthClient, children }: { client?
       }
       clearCurrentFarmId()
       setError(logoutFailed
-        ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã được xóa; bạn có thể đăng nhập lại.'
+        ? 'Không thể xác nhận đăng xuất với máy chủ. Phiên trên thiết bị này đã hết; bạn có thể đăng nhập lại.'
         : null)
       notifySessionSignedOut()
       setStatus('anonymous')

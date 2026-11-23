@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../../../src/app/layouts/FarmPlatformLayout'
 import { createMockAuthClient } from '../../../src/features/authentication/data/mockAuthClient'
@@ -17,7 +17,12 @@ afterEach(() => clearCurrentFarmId())
 
 const sessionFor = (role: AppRole): Session => ({
   role, fullName: 'Nguyễn Văn Hùng', email: 'x@beefcare.local', farmId: 1, farmName: 'Trại thử nghiệm',
-  ownerRegistrationCompleted: true, platformRole: null, activeFarmCount: 1, logout: async () => undefined,
+  ownerRegistrationCompleted: true, platformRole: null, activeFarmCount: 2,
+  farms: [
+    { id: 1, name: 'Trại thử nghiệm', role: 'OWNER', serviceStatus: 'ACTIVE' },
+    { id: 2, name: 'Trại thứ hai', role: 'MANAGER', serviceStatus: 'ACTIVE' },
+  ],
+  logout: async () => undefined,
 })
 
 const profileForCurrentTab = (value: unknown) => sessionFromProfile(value, readCurrentFarmId())
@@ -300,7 +305,7 @@ describe('shell menu by role', () => {
   it('shows the CS role in Vietnamese', () => {
     shell('CS')
     expect(screen.getByText('Nhân viên hỗ trợ · CS')).toBeInTheDocument()
-    expect(screen.getByText('Nhân viên hỗ trợ')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nguyễn Văn Hùng, Nhân viên hỗ trợ' })).toBeInTheDocument()
   })
 
   it('takes the display name and initials from the session', () => {
@@ -308,6 +313,15 @@ describe('shell menu by role', () => {
     expect(screen.getByText('Nguyễn Văn Hùng')).toBeInTheDocument()
     expect(screen.getByText('NH')).toBeInTheDocument()
     expect(screen.getByText('Trại thử nghiệm')).toBeInTheDocument()
+  })
+
+  it('opens the farm switcher with the farms from the session', async () => {
+    shell('OWNER')
+    const trigger = screen.getByRole('button', { name: 'Trại thử nghiệm' })
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Trại thứ hai' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Quản lý trang trại' })).toHaveAttribute('href', '/chon-trai')
   })
 })
 

@@ -1,7 +1,8 @@
 import { useLocation } from 'react-router-dom'
 import { AuthShell, NoticePanel, primaryButtonClass } from '../components/AuthShell'
-import { ActionLink } from '../components/AuthControls'
-import { AUTH_PATH, emailFromState } from '../domain/authErrors'
+import { ActionLink } from '../../../shared/ui'
+import { AUTH_PATH } from '../domain/authPaths'
+import { emailFromState } from '../domain/authErrors'
 import { CONTACT } from '../constants/landingContent'
 
 /** MSG-FE01-03: tài khoản bị tạm ngưng, kèm thông tin liên hệ chính thức (GBR-87). */

@@ -8702,6 +8702,34 @@
         }
       }
     },
+    "/api/account/terms-acceptance" : {
+      "post" : {
+        "tags" : [ "account-resource" ],
+        "operationId" : "acceptTerms",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TermsAcceptanceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TermsAcceptanceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/account/reset-password/init" : {
       "post" : {
         "tags" : [ "account-resource" ],
@@ -20764,6 +20792,26 @@
         "type" : "object",
         "properties" : {
           "nextAllowedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "TermsAcceptanceRequest" : {
+        "type" : "object",
+        "properties" : {
+          "accepted" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "TermsAcceptanceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "termsAccepted" : {
+            "type" : "boolean"
+          },
+          "termsAcceptedAt" : {
             "type" : "string",
             "format" : "date-time"
           }

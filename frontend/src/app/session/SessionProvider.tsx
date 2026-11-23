@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { asRecord, asRows, numberValue } from '../../shared/api/parse'
 import { clearCurrentFarmId, pageLoader, readCurrentFarmId } from './currentFarm'
 import { userFacingError } from '../../shared/api/userFacingError'
-import { useAuth } from '../../features/authentication'
-import { useAuthenticationUseCase } from '../../features/authentication'
+import { TermsAcceptancePage, useAuth, useAuthenticationUseCase } from '../../features/authentication'
 import { demo } from '../../demo/demoModules'
 import { markOwnerRegistrationCompleted, SessionContext } from './sessionContext'
 import { OWNER_REGISTRATION_COMPLETED_EVENT } from './sessionLifecycle'
@@ -18,7 +17,7 @@ export function isStaleFarmSelection(profile: unknown, selected: number | null):
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { mode, logout } = useAuth()
-  const { loadSessionProfile } = useAuthenticationUseCase()
+  const { loadSessionProfile, acceptTerms } = useAuthenticationUseCase()
   const [user, setUser] = useState<SessionUser | null>(null)
   const [error, setError] = useState('')
 
@@ -62,7 +61,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const session = useMemo<Session | null>(() => user && { ...user, logout }, [user, logout])
 
+  const acceptGoogleTerms = async () => {
+    await acceptTerms()
+    const profile = await loadSessionProfile()
+    setUser(sessionFromProfile(profile, readCurrentFarmId()))
+  }
+
   if (error) return <div role="alert" className="grid min-h-screen place-items-center px-4 text-center text-sm text-err-fg">{error}</div>
   if (!session) return <div className="grid min-h-screen place-items-center text-sm text-subtle">Đang tải hồ sơ…</div>
+  if (session.googleSignInLinked && !session.termsAccepted) {
+    return <TermsAcceptancePage onAccept={acceptGoogleTerms} onLogout={logout} />
+  }
   return <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
 }
