@@ -103,6 +103,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
         name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(data.breedId ?? line.breedId)) || 'Bò'} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
         weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
+        quarantineUntil: textValue(line.quarantineUntil ?? data.quarantineUntil) || undefined,
         amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice, hist: mapEntryHistory(line),
       }
     }),
@@ -120,7 +121,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
   const draft: EntryDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
     type: typeFromBackend(row.entryType), date: textValue(row.entryDate), sourceId: row.sellerId == null && seller.id == null ? '' : String(row.sellerId ?? seller.id), pricing,
     quarantine: textValue(row.quarantineCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note), freight: numberValue(row.transportFee),
-    paid: numberValue(row.amountPaid), method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', due: textValue(row.paymentDueDate),
+    paid: numberValue(row.amountPaid), method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : row.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : '', due: textValue(row.paymentDueDate),
     ...(farmBorn ? { calves: lines.map((line) => {
       const data = asRecord(line.data)
       return {
@@ -223,6 +224,10 @@ export const mapPendingCalf = (calf: Record<string, unknown>): EntryCalf => {
 // Moved from api/backendTransport.ts (refactor phase 2b): each voucher feature owns its payment/voucher envelope mapping.
 export const enumPaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' =>
   value === 'Tiền mặt' || value === 'CASH' ? 'CASH' : 'BANK_TRANSFER'
+
+/** Draft payment method is nullable; posted payment commands retain enumPaymentMethod's legacy fallback. */
+export const nullablePaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' | null =>
+  !textValue(value).trim() ? null : enumPaymentMethod(value)
 
 export const unwrapVoucher = (value: unknown): Record<string, unknown> => {
   const body = asRecord(value)

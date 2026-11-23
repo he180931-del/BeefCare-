@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { AttachmentList, Badge, Button, Card, Foot, Icon, Info, Note, PageHeader, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
@@ -22,9 +22,30 @@ import { VoidVoucherPaymentModal } from '../../../shared/ui/VoidVoucherPaymentMo
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
 
+const currentLabel = (value?: string) => {
+  if (!value) return '—'
+  const [status, ...rest] = value.split(' · ')
+  const translated = status === 'ACTIVE' ? 'Đang nuôi'
+    : status === 'EXITED' ? 'Đã xuất'
+      : status === 'VOIDED' ? 'Nhập nhầm – đã hủy'
+        : status
+  return [translated, ...rest].join(' · ')
+}
+
+type EntryDetailNavigationState = { from?: string; notice?: { code: 'MSG-FE06-01'; message: string }; [key: string]: unknown }
+
 export default function ImportDetail() {
   const { id } = useParams()
   const recordId = id ?? ''
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [entryNotice] = useState(() => (location.state as EntryDetailNavigationState | null)?.notice)
+  useEffect(() => {
+    const state = location.state as EntryDetailNavigationState | null
+    if (!state?.notice) return
+    const { notice: _notice, ...preservedState } = state
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: preservedState })
+  }, [location.pathname, location.search, location.state, navigate])
   const [m, openModal, closeModal] = useModalParam()
   const [params, setParams] = useSearchParams()
   const role = useSession()?.role
@@ -54,6 +75,12 @@ export default function ImportDetail() {
   }
 
   const { paid, outstanding } = entryPaymentTotals(r)
+  // Legacy local rows have no line status and remain valid; only explicit VOID rows are excluded.
+  const validCows = (d.cows ?? []).filter((line) => line.lineStatus !== 'VOID')
+  const hasLineDetails = Array.isArray(d.cows)
+  const cattleCount = hasLineDetails ? validCows.length : r.count
+  const cattleWeight = hasLineDetails ? validCows.reduce((sum, line) => sum + (Number(line.weight) || 0), 0) : r.weight
+  const cattleTotal = hasLineDetails ? validCows.reduce((sum, line) => sum + (Number(line.amount) || 0), 0) : d.cowsTotal
   const paymentActions = entryPaymentVoidEnabled && paymentRole && r.status === 'Đã nhập'
   const lineActions = entryLineCorrectionEnabled && (role === 'OWNER' || role === 'MANAGER') && r.status === 'Đã nhập'
   const historyActions = !entryLineCorrectionEnabled && entryHistoryDemoEnabled && paymentRole && r.status === 'Đã nhập' && !isFarmBornEntry(r)
@@ -67,8 +94,9 @@ export default function ImportDetail() {
   }
 
   return (
-    <Layout title={`Chi tiết phiếu nhập – ${r.status}`} user="manager">
+    <Layout title="Chi tiết phiếu nhập" user="manager">
       <div className="contents leading-[normal]">
+        {entryNotice && <Note tone="ok">{entryNotice.message}</Note>}
         <PageHeader title={<span className="inline-flex flex-wrap items-center gap-3">{`Phiếu nhập ${r.id}`}<EntryStatusBadge status={r.status} /></span>}>
           <Button onClick={() => window.print()}><Icon name="printer" />In phiếu</Button>
           <Button disabled={!canCancel} onClick={() => openModal('cancel')}><Icon name="circle-x" />Hủy phiếu</Button>
@@ -96,7 +124,7 @@ export default function ImportDetail() {
               />
             </Card>
 
-            <Card variant="panel" title="Bò trong phiếu" sub={`${r.count} con · ${kg(r.weight)}`}>
+            <Card variant="panel" title="Bò trong phiếu" sub={`${cattleCount ?? 0} con · ${kg(cattleWeight)}`}>
               <Table stack={false} scroll>
                 <thead>
                   <tr>
@@ -116,9 +144,9 @@ export default function ImportDetail() {
                       <Td className={`${TH} font-medium`}>{c.code}{c.lineStatus === 'VOID' && <Badge>Đã hủy</Badge>}</Td>
                       <Td className={TH}>{c.tag}</Td>
                       <Td className={TH}>{c.breed}</Td>
-                      <Td className={`${TH} whitespace-nowrap`}>{kg(c.weight)}</Td>
-                      <Td className={TH}>{c.barn}</Td>
-                      <Td className={TH}>{c.current}</Td>
+                      <Td className={`${TH} whitespace-nowrap`}>{kg(c.weight)}{(c.weightBasis === 'ESTIMATED' || c.estimated) && ' UT'}</Td>
+                      <Td className={TH}><span title={c.quarantineUntil ? `Cách ly nhập đàn đến ${dmy(c.quarantineUntil)}` : undefined}>{c.barn}</span></Td>
+                      <Td className={TH}>{currentLabel(c.current)}</Td>
                       <Td className={`${TH} whitespace-nowrap`}>{money(c.amount)}</Td>
                       {historyActions && <Td className={TH}><Button variant="link" onClick={() => setDemoHistoryLine(c)}>Sửa lịch sử</Button></Td>}
                       {lineActions && <Td className={TH}>{c.lineStatus === 'VALID' && c.entryId != null && <Button onClick={() => lineModal('line', c.entryId)}>Sửa / Hủy</Button>}</Td>}
@@ -132,11 +160,11 @@ export default function ImportDetail() {
                 </tbody>
                 <tfoot>
                   <tr className="font-semibold">
-                    <Td className={TH}>{r.count} con</Td><Td className={TH} /><Td className={TH} />
-                    <Td className={`${TH} whitespace-nowrap`}>{kg(r.weight)}</Td>
+                    <Td className={TH}>{cattleCount ?? 0} con</Td><Td className={TH} /><Td className={TH} />
+                    <Td className={`${TH} whitespace-nowrap`}>{kg(cattleWeight)}</Td>
                     <Td className={TH} /><Td className={TH} />
-                    <Td className={TH}>{d ? money(d.cowsTotal) : ''}</Td>
-                    {lineActions && <Td className={TH} />}
+                    <Td className={TH}>{d ? money(cattleTotal) : ''}</Td>
+                    {(lineActions || historyActions) && <Td className={TH} />}
                   </tr>
                 </tfoot>
               </Table>
@@ -146,7 +174,9 @@ export default function ImportDetail() {
             </Card>
 
             <Card variant="panel" title="Chứng từ đính kèm">
-              {d ? <AttachmentList items={(d.docs ?? []).map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} /> : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
+              {d?.docs?.length
+                ? <AttachmentList items={d.docs.map((doc, index) => ({ key: `saved:${index}`, name: doc.name, extension: doc.ext }))} onView={(key) => { const index = Number(key.split(':')[1]); if (Number.isInteger(index)) void viewDocument(index) }} />
+                : <span className="text-[11px] text-muted">Chưa có chứng từ</span>}
             </Card>
           </div>
 
