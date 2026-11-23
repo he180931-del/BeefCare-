@@ -125,7 +125,7 @@ export default function AccessDialog({ account, onClose, onDone, onRefused }: {
         )}
       </section>
       {discarding && <Note tone="warn">{DISCARD_PROMPT.question}</Note>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         {discarding ? (
           <>
             <ModalButton onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</ModalButton>

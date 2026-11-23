@@ -11,7 +11,7 @@ export function AnnouncementDetail({ a, version = a.versions[0], onHistory }: { 
   const title = version?.title ?? a.title
   const body = version?.body ?? a.body
   return (
-    <Card>
+    <Card variant="panel">
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

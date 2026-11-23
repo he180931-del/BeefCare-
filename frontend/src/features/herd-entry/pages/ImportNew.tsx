@@ -451,7 +451,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                         </Td>
                         <Td className={TH}>
                           {c.calfOutcomeId != null && (
-                            <button type="button" aria-label="Đánh dấu chết trước đăng ký" className="whitespace-nowrap border-0 bg-transparent p-1 text-left text-[11px] text-danger" onClick={() => setDeathCalf(c)}>
+                            <button type="button" aria-label="Đánh dấu chết trước đăng ký" className="min-w-[120px] cursor-pointer border-0 bg-transparent p-1 text-left text-[11px] font-semibold text-err-fg [overflow-wrap:normal] hover:underline" onClick={() => setDeathCalf(c)}>
                               Đánh dấu chết trước đăng ký
                             </button>
                           )}

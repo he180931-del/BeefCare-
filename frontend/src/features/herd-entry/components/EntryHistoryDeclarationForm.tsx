@@ -136,7 +136,7 @@ export default function EntryHistoryDeclarationForm({ value, sex, vaccines = [],
           <Field label="Mô tả bổ sung" id="entry-history-repro-note"><textarea id="entry-history-repro-note" aria-label="Mô tả bổ sung" rows={3} maxLength={1000} className={`${compactInputCls} resize-y`} value={detailSource} placeholder="Thông tin sinh sản bổ sung" onChange={(e) => setDetailSource(e.target.value)} /></Field>
         </div> : null}
         {validationError && <Note tone="err">{validationError}</Note>}
-        <ModalFooter compact className="-mt-2 !px-0 [&_button]:h-10 [&_button]:rounded-lg [&_button]:px-3 [&_button]:text-xs"><ModalButton onClick={() => setDetailModal(null)}>Hủy</ModalButton><ModalButton variant="primary" onClick={saveDetail}>Lưu chi tiết</ModalButton></ModalFooter>
+        <ModalFooter className="[&_button]:rounded-lg [&_button]:px-3 [&_button]:text-xs"><ModalButton onClick={() => setDetailModal(null)}>Hủy</ModalButton><ModalButton variant="primary" onClick={saveDetail}>Lưu chi tiết</ModalButton></ModalFooter>
       </Modal>
     )}
   </>

@@ -66,6 +66,8 @@ Các kích thước dưới đây là **giá trị đề xuất** để chuẩn 
 
 ## Mẫu đối chiếu trong BeefCare
 
+Tiến độ áp dụng từng khung Bento trên React (đã xong / đổi một phần / chưa làm): [BeefCare-Bento-Grid-checklist.md](BeefCare-Bento-Grid-checklist.md).
+
 - [Tab 12 · Landing Version C](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2873-129)
 - [Tab 15 · Tổng quan trang trại](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-12315)
 - [Tab 16 · Phiếu nhập mua ngoài](https://www.figma.com/design/9hM1MaI4UmWZP9CDJauxLJ?node-id=2848-20685)

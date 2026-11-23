@@ -54,7 +54,7 @@ export default function FeedMovementsDialog({ feed, onClose }: { feed: FeedStock
           </tbody>
         </Table>
       )}
-      <ModalFooter className="!px-0 !pb-0"><ModalButton onClick={onClose}>Đóng</ModalButton></ModalFooter>
+      <ModalFooter><ModalButton onClick={onClose}>Đóng</ModalButton></ModalFooter>
     </Modal>
   )
 }

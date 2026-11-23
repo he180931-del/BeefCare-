@@ -65,7 +65,7 @@ export default function PayModal({ record, onSave, onClose, error, saving, onRel
       </Field>
 
       {file && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-field bg-page px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
           <Badge>JPG</Badge>
           <span className="text-xs font-semibold">uy-nhiem-chi-2210.jpg</span>
           <span className="flex-1" />

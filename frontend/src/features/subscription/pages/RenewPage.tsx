@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { userFacingError } from '../../../shared/api/userFacingError'
-import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader } from '../../../shared/ui'
+import { Button, Card, ErrorBlock, Foot, Icon, LoadingBlock, Note, PageHeader, Panel } from '../../../shared/ui'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { InactiveFarmBanner, openedInactiveFromFarmSelect } from '../../farm-workspace'
 import { subscriptionApi } from '../api/subscriptionApi'
 import { usePaymentRequest } from '../hooks/usePaymentRequest'
-import { Facts, ICON_BTN, serviceLabel } from '../components/shared'
+import { Facts, serviceLabel } from '../components/shared'
 import { useStateDialog } from '../components/StateDialog'
 import { TermCards } from '../components/TermCards'
 import { useFarmScope } from '../hooks/useFarmScope'
@@ -61,23 +61,23 @@ export default function RenewPage() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE} sub={data.farmName} />
-        <Card title="Trạng thái trang trại"><Facts items={[
+        <Card variant="panel" title="Trạng thái trang trại"><Facts items={[
           ['Dịch vụ', serviceLabel(data.serviceStatus)],
           ['Kỳ hiện tại', data.currentPeriod ? fmtPeriod(data.currentPeriod.start, data.currentPeriod.end) : 'Chưa có'],
         ]} /></Card>
         {openedInactiveFromFarmSelect(params, data.serviceStatus) && <InactiveFarmBanner farmName={data.farmName} status={data.serviceStatus} />}
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_376px]">
-          <div className="flex flex-col gap-4">
-            <Card title="Thời hạn">
+        <div className="grid grid-cols-4 items-start gap-4 @min-[640px]:grid-cols-8 @min-[1024px]:grid-cols-12 @min-[1024px]:gap-6">
+          <div className="col-span-full min-w-0 @min-[880px]:col-span-5 @min-[1024px]:col-span-8 flex flex-col gap-4 @min-[1024px]:gap-6">
+            <Card variant="panel" title="Thời hạn">
               <TermCards prices={price} selected={term} onSelect={setTerm} />
             </Card>
-            <Card title="Điều khoản gói">
+            <Card variant="panel" title="Điều khoản gói">
               <Facts items={[['Chức năng', 'Như nhau cho 1, 2, 3 năm'], ['Thanh toán', 'Một lần cho từng trại bằng chuyển khoản'], ['Tự động gia hạn', 'Không'], ['Hiệu lực yêu cầu', '24 giờ']]} />
             </Card>
           </div>
-          <Card title="Xem lại trước khi tạo">
+          <Panel tone="emphasis" className="col-span-full min-w-0 @min-[880px]:col-span-3 @min-[1024px]:col-span-4" title="Xem lại trước khi tạo">
             <div className="flex flex-col gap-4">
-              <Facts cols={1} items={[
+              <Facts cols={1} onDark items={[
                 ['Trang trại', data.farmName],
                 ['Thời hạn', term ? termLabel(term) : 'Chưa chọn'],
                 ['Số tiền', term && price ? fmtVnd(priceFor(price, term)) : '—'],
@@ -85,12 +85,12 @@ export default function RenewPage() {
                 ['Bảng giá', price ? `${versionLabel(price.id)} · từ ${fmtDate(price.effectiveAt)}` : 'Chưa khả dụng'],
               ]} />
               {saveError && <Note tone="err">{saveError}</Note>}
-              <Button variant="primary" block disabled={!term || !price || saving} className={ICON_BTN} onClick={submit}>
+              <Button variant="onDarkPrimary" size="bento" block disabled={!term || !price || saving} onClick={submit}>
                 <Icon name="circle-plus" size={16} /> {saving ? 'Đang tạo yêu cầu…' : 'Tạo yêu cầu thanh toán'}
               </Button>
-              <Button block className={ICON_BTN} onClick={back}><Icon name="arrow-left" size={16} /> Quay lại</Button>
+              <Button variant="onDark" size="bento" block onClick={back}><Icon name="arrow-left" size={16} /> Quay lại</Button>
             </div>
-          </Card>
+          </Panel>
         </div>
         <Foot>Chọn thời hạn 1, 2 hoặc 3 năm; xem lại số tiền và thời gian dự kiến trước khi gửi yêu cầu thanh toán.</Foot>
       </div>

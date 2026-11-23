@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { Button, Card, DateInput, EmptyBlock, ErrorBlock, Field, Foot, Info, inputCls, LoadingBlock, Note, PageHeader, Radio, Select, Table, Td, Th } from '../../../shared/ui'
+import { Button, Card, DateInput, EmptyBlock, ErrorBlock, Field, Foot, inputCls, LoadingBlock, Note, PageHeader, Panel, Radio, Select, Table, Td, Th } from '../../../shared/ui'
 import { userFacingError } from '../../../shared/api/userFacingError'
 import { useSession } from '../../../app/session/sessionContext'
 import { CareWriterOnly, DOSE_INVALID, FieldError, ROUTE_LABEL, UnitInput, parseDoseAmount, parseNum, profilePath } from '../components/vaccinationParts'
@@ -97,8 +97,8 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title={ctx.title} sub={`Ghi cho ${rows.length} bò đã chọn${rows.some((r) => r.dose) ? ' ở lịch tiêm phòng' : ''}`} />
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,720fr)_minmax(0,376fr)]">
-        <Card title="Thông tin mũi tiêm">
+      <div className="grid items-start gap-4 @min-[880px]:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] @min-[1024px]:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] @min-[1024px]:gap-6">
+        <Card variant="panel" title="Thông tin mũi tiêm">
           <Field label="Vắc-xin *" id="rv-vaccine">
             <Select id="rv-vaccine" value={vaccineId} onChange={(e) => pickVaccine(e.target.value)}>{options.vaccines.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</Select>
             <FieldError>{errors.vaccineId}</FieldError>
@@ -138,14 +138,22 @@ function RecordForm({ ctx, back }: { ctx: RecordContext; back: string }) {
             </div>
           </Field>
         </Card>
-        <Card title="Tổng kết">
-          <Info cols={2} items={[['Lịch', scheduleLine], ['Mũi', doseLine], ['Sẽ ghi nhận', `${vaccinated} con`], ['Hoãn', `${deferred} con`]]} />
+        {/* Bento (Figma Tab 17 ②b): tổng kết cạnh nút lưu là khối nổi bật xanh đậm; nút chính nền trắng. */}
+        <Panel tone="emphasis" title={<span className="text-sm font-semibold">Tổng kết</span>} className="p-4!">
+          <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
+            {([['Lịch', scheduleLine], ['Mũi', doseLine], ['Sẽ ghi nhận', `${vaccinated} con`], ['Hoãn', `${deferred} con`]] as const).map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="mb-[3px] text-[11px] text-side-text">{label}</dt>
+                <dd className="m-0 text-[13px] font-medium text-white">{value}</dd>
+              </div>
+            ))}
+          </dl>
           {errors.form && <Note tone="err">{errors.form}</Note>}
-          <Button variant="primary" block disabled={saving} onClick={() => void submit()}>Lưu {vaccinated} mũi tiêm</Button>
-          <Button block onClick={() => navigate(back)}>Hủy</Button>
-        </Card>
+          <Button variant="onDarkPrimary" block disabled={saving} onClick={() => void submit()}>Lưu {vaccinated} mũi tiêm</Button>
+          <Button variant="onDark" block onClick={() => navigate(back)}>Hủy</Button>
+        </Panel>
       </div>
-      <Card title={`Bò được chọn (${rows.length})`} sub='Mặc định "Tiêm"; chọn "Hoãn" thì phải nhập lý do'>
+      <Card variant="panel" title={`Bò được chọn (${rows.length})`} sub='Mặc định "Tiêm"; chọn "Hoãn" thì phải nhập lý do'>
         <Table stack={false} scroll>
           <thead><tr><Th>Bò</Th><Th>Chuồng</Th><Th>Kết quả</Th><Th>Lý do hoãn · ngày mới</Th></tr></thead>
           <tbody>

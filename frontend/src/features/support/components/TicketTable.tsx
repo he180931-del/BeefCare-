@@ -8,7 +8,7 @@ import { TicketStatusBadge } from './TicketStatusBadge'
 export function TicketTable({ items }: { items: Ticket[] }) {
   const navigate = useNavigate()
   return (
-    <Table>
+    <Table variant="panel">
       <thead>
         <tr>
           <Th>Mã</Th>
@@ -23,7 +23,7 @@ export function TicketTable({ items }: { items: Ticket[] }) {
         {items.map((t) => (
           <tr key={t.id} onClick={() => navigate(`/ho-tro/${t.id}`)} className="cursor-pointer hover:bg-page">
             <Td className="whitespace-nowrap font-medium">
-              <Link to={`/ho-tro/${t.id}`} onClick={(e) => e.stopPropagation()} className="text-ink hover:underline">
+              <Link to={`/ho-tro/${t.id}`} onClick={(e) => e.stopPropagation()} className="text-ink hover:underline focus-visible:outline-2 focus-visible:outline-brand">
                 {t.code}
               </Link>
             </Td>

@@ -106,7 +106,7 @@ export default function ServiceChangeDialog({ farm, mode, onClose, onDone }: { f
       {error ? <p role="alert" className="mt-2 text-[12px] text-err-fg">{error}</p> : null}
       {discarding ? <Note tone="warn">{DISCARD_PROMPT.question}</Note> : null}
       {/* No extra footer padding: the buttons line up with the content edge, as in the other dialogs of SCR-16. */}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         {discarding ? (
           <>
             <ModalButton onClick={() => setDiscarding(false)}>{DISCARD_PROMPT.keep}</ModalButton>

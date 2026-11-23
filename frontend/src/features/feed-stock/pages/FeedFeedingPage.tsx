@@ -152,7 +152,7 @@ export default function FeedFeedingPage() {
       {readOnlyView && <Note tone="info">Chế độ chỉ xem. Chủ trại và Quản lý ghi nhận, sửa và hủy cữ cho ăn.</Note>}
       {canRecord && feedFeedingServerBacked && <Note tone="info">Ghi, sửa và hủy cữ sẽ cập nhật tồn kho theo phản hồi từ máy chủ.</Note>}
 
-      <section role="tabpanel" aria-label="Nhật ký cho ăn" className="flex flex-col gap-4">
+      <section role="tabpanel" aria-label="Nhật ký cho ăn" className="@container flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex h-11 items-center gap-1 rounded-xl border border-field bg-white px-2 text-sm">
             <button type="button" aria-label="Ngày trước" onClick={() => setSelectedDate(shiftDate(selectedDate, view === 'WEEK' ? -7 : -1))} className="grid size-7 cursor-pointer place-items-center rounded text-muted hover:bg-page"><Icon name="chevron-left" size={16} /></button>
@@ -176,15 +176,16 @@ export default function FeedFeedingPage() {
           <Segmented value={view} onChange={(value) => setView(value as PeriodView)} options={[{ value: 'DAY', label: 'Theo ngày' }, { value: 'WEEK', label: 'Theo tuần' }]} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric compact label={`Thực tế ${periodWord}`} value={formatKg(actualKg)} sub={`Kế hoạch ${view === 'WEEK' ? 'cả tuần' : 'cả ngày'} ${formatKg(expected.plannedKg, 0)}`} />
-          <Metric compact warn={expected.missing.length > 0} label="Cữ đã ghi" value={`${validRecords.length} / ${expected.sessions}`} sub={missingText.length ? missingText.map(({ sessionNo, codes }) => `${codes.join(', ')} chưa ghi cữ ${SESSION_NAMES[sessionNo]}`).join(' · ') : 'Đã ghi đủ các cữ'} />
-          <Metric compact label="Chênh lệch các cữ đã ghi" value={variance === null ? '—' : `${variance > 0 ? '+' : variance < 0 ? '−' : ''}${formatNumber(Math.abs(variance))}%`} sub={`${formatNumber(actualKg)} / ${formatNumber(recordedPlanned)} kg kế hoạch`} />
-          <Metric compact label={`Đã trừ kho ${periodWord}`} value={formatKg(actualKg)} sub={costKnown ? `≈ ${formatNumber(deductedValue / 1_000_000)} triệu đ theo giá bình quân` : 'Chưa đủ giá để tính giá trị'} />
+        {/* Bento (Figma Tab 21 ③b): khối nổi bật là lượng thực tế đã cho ăn; màu cảnh báo chỉ khi còn cữ chưa ghi. */}
+        <div className="grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[1024px]:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+          <Metric surface="panel" tone="emphasis" label={`Thực tế ${periodWord}`} value={formatKg(actualKg)} sub={`Kế hoạch ${view === 'WEEK' ? 'cả tuần' : 'cả ngày'} ${formatKg(expected.plannedKg, 0)}`} />
+          <Metric compact surface="panel" tone={expected.missing.length > 0 ? 'warn' : 'default'} warn={expected.missing.length > 0} label="Cữ đã ghi" value={`${validRecords.length} / ${expected.sessions}`} sub={missingText.length ? missingText.map(({ sessionNo, codes }) => `${codes.join(', ')} chưa ghi cữ ${SESSION_NAMES[sessionNo]}`).join(' · ') : 'Đã ghi đủ các cữ'} />
+          <Metric compact surface="panel" label="Chênh lệch các cữ đã ghi" value={variance === null ? '—' : `${variance > 0 ? '+' : variance < 0 ? '−' : ''}${formatNumber(Math.abs(variance))}%`} sub={`${formatNumber(actualKg)} / ${formatNumber(recordedPlanned)} kg kế hoạch`} />
+          <Metric compact surface="panel" tone={actualKg > 0 ? 'ok' : 'default'} label={`Đã trừ kho ${periodWord}`} value={formatKg(actualKg)} sub={costKnown ? `≈ ${formatNumber(deductedValue / 1_000_000)} triệu đ theo giá bình quân` : 'Chưa đủ giá để tính giá trị'} />
         </div>
 
-        {query.loading && !data && <div role="status" className="rounded-md border border-edge bg-white p-8 text-center text-sm text-muted">Đang tải nhật ký…</div>}
-        {backendError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-err-bg bg-white p-4 text-sm text-err-fg"><span>{backendError}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>Thử tải lại</Button></div>}
+        {query.loading && !data && <div role="status" className="rounded-2xl border border-field bg-white p-8 text-center text-sm text-muted">Đang tải nhật ký…</div>}
+        {backendError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-err-bg bg-white p-4 text-sm text-err-fg"><span>{backendError}</span><Button size="sm" disabled={query.loading} onClick={() => query.refetch()}>Thử tải lại</Button></div>}
 
         {data && !backendError && view === 'DAY' && (
           <DailyTable
@@ -209,8 +210,8 @@ export default function FeedFeedingPage() {
         )}
 
         {data && !backendError && (
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,660px)_minmax(0,1fr)]">
-            <Card title={`Tiêu thụ theo thức ăn ${periodWord}`} sub="Đã trừ kho theo các cữ đã ghi">
+          <div className="grid items-start gap-4 @min-[1024px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] @min-[1024px]:gap-6">
+            <Card variant="panel" title={`Tiêu thụ theo thức ăn ${periodWord}`} sub="Đã trừ kho theo các cữ đã ghi">
               {!usageByFeed.length ? <p className="m-0 text-xs text-muted">Chưa có lượng tiêu thụ trong khoảng này.</p> : (
                 <Table scroll stack={false}>
                   <thead><tr><Th>Thức ăn</Th><Th>Thực tế</Th><Th>Tồn còn lại</Th><Th aria-label="Cảnh báo" /></tr></thead>
@@ -235,7 +236,7 @@ export default function FeedFeedingPage() {
                 </Note>
               )}
               {lowFeeds.length > 0 && (
-                <Link to={draftReceipt ? `/thuc-an/phieu-nhap/${draftReceipt.id}` : '/thuc-an/phieu-nhap/moi'} className="rounded border border-edge bg-white px-4 py-[9px] text-center text-xs font-semibold text-ink no-underline hover:bg-page">
+                <Link to={draftReceipt ? `/thuc-an/phieu-nhap/${draftReceipt.id}` : '/thuc-an/phieu-nhap/moi'} className="rounded-lg border border-edge bg-white px-4 py-3 text-center text-xs font-semibold text-ink no-underline hover:bg-page focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                   {draftReceipt ? `Mở phiếu nhập kho ${draftReceipt.code}` : 'Tạo phiếu nhập kho'}
                 </Link>
               )}
@@ -316,8 +317,8 @@ function DailyTable({ date, pens, records, rations, sessionNos, canRecord, onRec
               <Td>
                 {canRecord && penRecords.length > 0 && (
                   <details className="relative">
-                    <summary aria-label={`Thao tác ${pen.code}`} className="grid size-7 cursor-pointer list-none place-items-center rounded text-muted hover:bg-page [&::-webkit-details-marker]:hidden">⋯</summary>
-                    <div role="menu" className="absolute right-0 top-8 z-20 flex min-w-[150px] flex-col rounded-md border border-edge bg-white py-1 text-xs shadow-md">
+                    <summary aria-label={`Thao tác ${pen.code}`} className="grid size-9 cursor-pointer list-none place-items-center rounded-lg text-muted hover:bg-page focus-visible:outline-2 focus-visible:outline-brand [&::-webkit-details-marker]:hidden">⋯</summary>
+                    <div role="menu" className="absolute right-0 top-10 z-20 flex min-w-[150px] flex-col rounded-xl border border-field bg-white py-1 text-xs shadow-md">
                       {penRecords.flatMap((record) => [
                         <button key={`c${record.id}`} type="button" role="menuitem" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); onEdit(record, 'correct') }} className="cursor-pointer whitespace-nowrap border-0 bg-transparent px-3 py-1.5 text-left hover:bg-page">Sửa cữ {SESSION_NAMES[record.sessionNo]}</button>,
                         <button key={`v${record.id}`} type="button" role="menuitem" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); onEdit(record, 'void') }} className="cursor-pointer whitespace-nowrap border-0 bg-transparent px-3 py-1.5 text-left text-err-fg hover:bg-page">Hủy cữ {SESSION_NAMES[record.sessionNo]}</button>,

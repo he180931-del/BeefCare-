@@ -26,14 +26,14 @@ export default function TechnicianReproductionPage() {
   return (
     <TechnicianLayout title="Sinh sản" sub={session?.farmName ?? undefined}>
       <div className="flex flex-col gap-3">
-        <input aria-label="Tìm bò" className="h-11 w-full rounded-xl border border-field bg-white px-3 text-sm" placeholder="Tìm mã bò, số tai" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input aria-label="Tìm bò" className="h-11 w-full rounded-xl border border-field bg-white px-3 text-sm outline-none focus:border-brand" placeholder="Tìm mã bò, số tai" value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="overflow-x-auto">
           <Segmented value={tab} onChange={(value) => setTab(value as WorklistTab)} options={TABS.map((item) => ({ value: item.value, label: `${item.label} (${counts[item.value]})` }))} />
         </div>
         {loading && !data ? <LoadingBlock /> : error ? <ErrorBlock message={reproductionError(error, 'Không tải được danh sách sinh sản.')} onRetry={refetch} /> : shown.length === 0 ? <EmptyBlock title="Không có bò nào" sub="Đổi tab hoặc từ khóa tìm kiếm." /> : shown.map((row) => {
           const info = technicianRowInfo(row, now())
           return (
-            <button key={row.cattleCode} type="button" onClick={() => navigate(`/kt/dan-bo/${encodeURIComponent(row.cattleCode)}?tab=repro`)} className="flex w-full items-center gap-2 rounded-lg border border-edge bg-white p-3 text-left">
+            <button key={row.cattleCode} type="button" onClick={() => navigate(`/kt/dan-bo/${encodeURIComponent(row.cattleCode)}?tab=repro`)} className="flex w-full cursor-pointer items-center gap-2 rounded-2xl border border-field bg-white p-4 text-left hover:bg-[#f4f8f5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-sm font-semibold text-ink">{row.cattleCode}</span>
                 <span className="text-[11px] text-muted">{info.subtitle}</span>

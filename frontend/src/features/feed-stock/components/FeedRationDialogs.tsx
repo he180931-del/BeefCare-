@@ -29,7 +29,7 @@ export function FeedRationCancelDialog({ row, onClose, onDone, cancelVersion }: 
     <Modal title={`Hủy phiên bản ${row.rationCode} v${row.versionNo}`} sub={`Dự kiến áp dụng từ ${formatDate(row.effectiveFrom)}`} width={560} onClose={onClose}>
       <Note tone="info">Phiên bản chưa có hiệu lực sẽ được đánh dấu đã hủy và giữ trong lịch sử. Phiên bản trước tiếp tục áp dụng; nhật ký cho ăn đã ghi không đổi.</Note>
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Giữ phiên bản</ModalButton>
         <ModalButton variant="danger" disabled={saving} onClick={() => void submit()}>{saving ? 'Đang hủy…' : 'Hủy phiên bản'}</ModalButton>
       </ModalFooter>
@@ -64,7 +64,7 @@ export function FeedRationStopDialog({ row, onClose, onDone, stopVersion }: { ro
         <DateInput id="feed-ration-stop-date" value={endDate} onChange={(value) => { setEndDate(value); setError(''); requestKey.current = undefined }} />
       </Field>
       {error && <div role="alert" className="text-xs text-err-fg">{error}</div>}
-      <ModalFooter className="!px-0 !pb-0">
+      <ModalFooter>
         <ModalButton onClick={onClose}>Đóng</ModalButton>
         <ModalButton variant="danger" disabled={saving} onClick={() => void submit()}>{saving ? 'Đang lưu…' : 'Ngừng khẩu phần'}</ModalButton>
       </ModalFooter>

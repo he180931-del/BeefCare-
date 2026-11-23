@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ErrorBlock, Icon, Info, LoadingBlock, Modal, ModalButton, ModalFooter } from '../../../shared/ui'
+import { ErrorBlock, Icon, Info, LoadingBlock, Modal, ModalButton, ModalFooter, Panel } from '../../../shared/ui'
 import { MESSAGES } from '../domain/announcementRules'
 import { useAnnouncementUseCases } from '../hooks/useAnnouncementUseCases'
 import { ROLE_LABEL } from '../domain/format'
@@ -26,26 +26,27 @@ export default function ReviewDialog({ viewer, draftId, onBack, onPublished }: {
   const a = preview.data?.announcement
   const people = preview.data?.recipients ?? []
   return (
-    <Modal title="Xem lại trước khi đăng" sub="Kiểm tra nội dung và người nhận; sau khi đăng, chỉ sửa được bằng đính chính." width={640} onClose={onBack}>
-      {preview.loading && !a && <LoadingBlock />}
-      {preview.error != null && <ErrorBlock message={messageOf(preview.error, 'Không tải được bản xem lại.')} onRetry={preview.refetch} />}
+    <Modal title="Xem lại trước khi đăng" sub="Kiểm tra nội dung và người nhận; sau khi đăng, chỉ sửa được bằng đính chính." width={620} dialogClassName="@container" onClose={onBack}>
+      {preview.loading && !a && <LoadingBlock variant="panel" />}
+      {preview.error != null && <ErrorBlock variant="panel" message={messageOf(preview.error, 'Không tải được bản xem lại.')} onRetry={preview.refetch} />}
       {a && (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5 rounded-md bg-page p-3.5">
-            <div className="text-sm font-semibold text-[#212121]">{a.title}</div>
+          <Panel title={a.title} headingAs="h3" className="gap-2! border-transparent bg-page! wrap-anywhere">
             <RichText text={a.body} className="text-[13px]" />
+          </Panel>
+          <div className="[&>dl]:grid-cols-1 [&_dd]:wrap-anywhere [&_dt]:text-label @min-[480px]:[&>dl]:grid-cols-2">
+            <Info cols={2} items={[
+              ['Tác giả', `${a.authorName} · ${ROLE_LABEL[a.authorRole]}`],
+              ['Đối tượng', a.audienceLabel],
+              ['Người nhận', people.length ? `${people.length} người · ${people.map((m) => m.name).join(', ')}` : '0 người'],
+              ['Trang trại', a.farmName],
+            ]} />
           </div>
-          <Info cols={2} items={[
-            ['Tác giả', `${a.authorName} · ${ROLE_LABEL[a.authorRole]}`],
-            ['Đối tượng', a.audienceLabel],
-            ['Người nhận', people.length ? `${people.length} người · ${people.map((m) => m.name).join(', ')}` : '0 người'],
-            ['Trang trại', a.farmName],
-          ]} />
           {people.length === 0 && <p role="alert" className="m-0 text-xs text-err-fg">{MESSAGES.noRecipient}</p>}
           {error && <p role="alert" className="m-0 text-xs text-err-fg">{error}</p>}
         </div>
       )}
-      <ModalFooter>
+      <ModalFooter className="[&>button]:w-full @min-[480px]:[&>button]:w-auto">
         <ModalButton onClick={onBack}><Icon name="arrow-left" size={16} /> Quay lại sửa</ModalButton>
         <ModalButton variant="primary" disabled={!a || people.length === 0 || busy} onClick={publish}><Icon name="speakerphone" size={16} /> Đăng thông báo</ModalButton>
       </ModalFooter>

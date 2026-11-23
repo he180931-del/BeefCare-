@@ -18,8 +18,8 @@ export default function MyNotificationsPage() {
   const [busy, setBusy] = useState(false)
   const { data, loading, error, refetch, markRead, markAllRead } = useNotificationsUseCase()
 
-  if (loading && !data) return <Layout title={TITLE}><LoadingBlock /></Layout>
-  if (error || !data) return <Layout title={TITLE}><ErrorBlock message={userFacingError(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
+  if (loading && !data) return <Layout title={TITLE}><LoadingBlock variant="panel" /></Layout>
+  if (error || !data) return <Layout title={TITLE}><ErrorBlock variant="panel" message={userFacingError(error, 'Không tải được thông báo.')} onRetry={refetch} /></Layout>
 
   const { list, now } = data
   const counts = countByTab(list)
@@ -50,16 +50,16 @@ export default function MyNotificationsPage() {
     <Layout title={TITLE}>
       <div className="flex flex-col gap-4">
         <PageHeader title={TITLE}>
-          <Button onClick={markAll} disabled={busy || unread === 0}>
+          <Button size="bento" onClick={markAll} disabled={busy || unread === 0}>
             <Icon name="checks" size={16} /> Đánh dấu đã đọc tất cả
           </Button>
         </PageHeader>
         {notice && <Note tone={notice.tone}>{notice.text}</Note>}
-        <Segmented options={NOTIFICATION_TABS.map((t) => ({ value: t.value, label: `${t.label} (${counts[t.value]})` }))} value={tab} onChange={(v) => setTab(v as NotificationTab)} />
+        <Segmented className="w-full [&>button]:min-h-11 [&>button]:flex-1 [&>button]:whitespace-normal [&>button]:px-2 @min-[880px]:w-1/2" options={NOTIFICATION_TABS.map((t) => ({ value: t.value, label: `${t.label} (${counts[t.value]})` }))} value={tab} onChange={(v) => setTab(v as NotificationTab)} />
         {shown.length === 0 ? (
-          <EmptyBlock title="Chưa có thông báo" sub="Thông báo về gói, thanh toán và hỗ trợ sẽ xuất hiện ở đây." />
+          <EmptyBlock variant="panel" title="Chưa có thông báo" sub="Thông báo về gói, thanh toán và hỗ trợ sẽ xuất hiện ở đây." />
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {shown.map((n) => (
               <NotificationRow key={n.id} item={n} now={now} onOpen={open} />
             ))}

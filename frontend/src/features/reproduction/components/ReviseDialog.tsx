@@ -277,7 +277,7 @@ export default function ReviseDialog({ target, profile, onClose, onCorrectEvent,
         {group === 'eb' && <Note tone="info">Nếu bản ghi đang được lần phối giống liên kết, hệ thống báo trước khi hủy.</Note>}
         {group === 'pc' && <Note tone="info">Hủy sự kiện đẻ bị chặn nếu bê đã được đăng ký; khi đó phải xử lý hồ sơ bê trước.</Note>}
       </div>
-      <ModalFooter className="-mx-6 !px-6 !pb-0 !pt-2">
+      <ModalFooter>
         <ModalButton disabled={busy} onClick={onClose}>Hủy</ModalButton>
         <ModalButton variant={correcting ? 'primary' : 'danger'} disabled={busy || !current || !reason.trim() || !!confirm} onClick={() => void submit()}>{busy ? 'Đang lưu…' : correcting ? 'Lưu chỉnh sửa' : 'Hủy bản ghi'}</ModalButton>
       </ModalFooter>

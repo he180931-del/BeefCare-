@@ -40,7 +40,7 @@ export default function MedicinesPage() {
             <tbody>
               {(page.data ?? []).map((m) => (
                 <SelectableRow key={m.id} selected={item?.id === m.id} muted={!m.available} onSelect={() => page.select(m)}>
-                  <Td className="font-medium">{m.code}</Td>
+                  <Td className="whitespace-nowrap font-medium">{m.code}</Td>
                   <Td>{m.name}</Td>
                   <Td>{m.dose || '—'}</Td>
                   <Td>{m.route ? ROUTE_LABELS[m.route] : '—'}</Td>
