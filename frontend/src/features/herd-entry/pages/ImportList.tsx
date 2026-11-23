@@ -4,12 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
 import { Button, FilterSelect, Foot, Icon, inputCls, Metric, Note, PageHeader, Segmented, Table, Td, Th } from '../../../shared/ui'
 import { EntryStatusBadge } from '../components/parts'
-import DiscardEntryDraftDialog from '../components/DiscardEntryDraftDialog'
 import { dm, dmy, kg, money } from '../../../shared/lib/format'
-import { discardHerdEntryDraft } from '../api'
 import { herdEntryError } from '../api/herdEntryError'
 import { useEntryList } from '../hooks/useEntryList'
-import type { HerdEntry } from '../types'
 import { previousQuarterStart } from '../domain/entryDateFilters'
 
 const TH = 'px-1! first:pl-3! last:pr-3!'
@@ -26,7 +23,7 @@ export default function ImportList() {
   const [source, setSource] = useState('')
   const [from, setFrom] = useState(DEFAULT_FROM)
   const [to, setTo] = useState(DEFAULT_TO)
-  const { rows, loading, error, refetch, summary, pendingCalves: pending, sellers } = useEntryList({ tab, type, source: source ? { id: source, name: '' } : undefined, from, to })
+  const { rows, loading, error, summary, pendingCalves: pending, sellers } = useEntryList({ tab, type, source: source ? { id: source, name: '' } : undefined, from, to })
   const tiles = summary.tiles
   const counts = summary.counts
   const ready = summary.ready
@@ -35,9 +32,6 @@ export default function ImportList() {
   const [dateOpen, setDateOpen] = useState(false)
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
-  const [draftToDiscard, setDraftToDiscard] = useState<HerdEntry | null>(null)
-  const [discarding, setDiscarding] = useState(false)
-  const [discardError, setDiscardError] = useState<unknown>(null)
 
   const count = (t: string) => t === 'Tất cả' ? (counts.ALL ?? rows.length) : t === 'Nháp' ? (counts.DRAFT ?? 0) : t === 'Đã nhập' ? (counts.POSTED ?? 0) : (counts.VOIDED ?? 0)
   const totalRows = summary.totalRows
@@ -157,16 +151,9 @@ export default function ImportList() {
                   <Td className={`${TH} whitespace-nowrap`}>{r.debt == null ? '—' : money(r.debt)}</Td>
                   <Td className={TH}><EntryStatusBadge status={r.status} /></Td>
                   <Td className={TH}>
-                    <div className="flex items-center gap-2">
-                      <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}${r.type === 'Bê sinh tại trại' ? '&kind=calf' : ''}` : `/herd-entry/${r.id}`)}>
-                        {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
-                      </Button>
-                      {r.status === 'Nháp' && (
-                        <Button variant="link" small className="text-err-fg" onClick={() => { setDiscardError(null); setDraftToDiscard(r) }}>
-                          Xóa
-                        </Button>
-                      )}
-                    </div>
+                    <Button variant="link" small onClick={() => nav(r.status === 'Nháp' ? `/herd-entry/new?id=${encodeURIComponent(r.id)}${r.type === 'Bê sinh tại trại' ? '&kind=calf' : ''}` : `/herd-entry/${r.id}`)}>
+                      {r.status === 'Nháp' ? 'Tiếp tục' : 'Xem'}
+                    </Button>
                   </Td>
                 </tr>
               ))}
@@ -189,32 +176,6 @@ export default function ImportList() {
           chỉ hủy cả phiếu khi chưa con nào có sự kiện khác (GBR-33).
         </Foot>
       </div>
-      {draftToDiscard && (
-        <DiscardEntryDraftDialog
-          draft={draftToDiscard}
-          saving={discarding}
-          error={discardError}
-          onConfirm={async (snapshot) => {
-            setDiscarding(true)
-            setDiscardError(null)
-            try {
-              await discardHerdEntryDraft(snapshot.id, snapshot.version, snapshot.backendId)
-              await refetch()
-              setDraftToDiscard(null)
-            } catch (commandError) {
-              setDiscardError(commandError)
-            } finally {
-              setDiscarding(false)
-            }
-          }}
-          onReload={async () => {
-            await refetch()
-            setDraftToDiscard(null)
-            setDiscardError(null)
-          }}
-          onClose={() => { if (!discarding) setDraftToDiscard(null) }}
-        />
-      )}
     </Layout>
   )
 }
