@@ -51,7 +51,21 @@ export const listCows = async (): Promise<CowSeed[]> => backendMode === 'backend
   : (await demo.cattleLocal.cattle.list()).filter(isCowSeed)
 export const listCowsPage = (options: CattleListOptions = {}): Promise<CattlePage> => backendMode === 'backend'
   ? backendApi.listPage(options)
-  : listCows().then((items) => ({ items, total: items.length, page: 0, size: items.length, counts: {} }))
+  : listCows().then(all => {
+    // Only the legacy demo needs label fallbacks. Backend groups are computed by the server.
+    const demoGroup = (cow: CowSeed) => cow.herdGroup || (cow.stage.startsWith('Bê') ? 'CALVES'
+      : cow.purposeType === 'FATTENING' || cow.purpose === 'Vỗ béo' || cow.stage === 'Vỗ béo' ? 'FATTENING'
+      : cow.purpose === 'Đực giống' ? 'BREEDING_BULLS' : cow.stage === 'Bò cái sinh sản' ? 'BREEDING_FEMALES'
+      : cow.stage === 'Bò tơ' ? 'YOUNG_STOCK' : 'OTHER')
+    const active = all.filter(cow => cow.status === 'ACTIVE' && cow.inList !== false)
+    const needle = options.q?.trim().toLocaleLowerCase('vi')
+    const filtered = all.filter(cow => (!options.herdStatus || (options.herdStatus === 'ACTIVE' ? cow.status === 'ACTIVE' && cow.inList !== false : cow.status === options.herdStatus))
+      && (!options.sex || cow.sex === (options.sex === 'FEMALE' ? 'Cái' : 'Đực'))
+      && (!options.herdGroup || demoGroup(cow) === options.herdGroup)
+      && (!needle || [cow.code, cow.tag, cow.name].some(value => value?.toLocaleLowerCase('vi').includes(needle))))
+    const page = options.page ?? 0, size = options.size ?? 25
+    return { items: filtered.slice(page * size, (page + 1) * size), total: filtered.length, page, size, counts: { ACTIVE: active.length } }
+  })
 export const listPurposes = (): Promise<PurposeOption[]> => backendMode === 'backend' ? backendApi.purposes() : Promise.resolve([])
 export const listBreeds = (): Promise<Array<{ id: number; name: string; code: string }>> => backendMode === 'backend' ? backendApi.breeds() : Promise.resolve([])
 export const listBarns = () => backendMode === 'backend' ? backendApi.pens() : demo.cattleLocal.pens.list()

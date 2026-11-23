@@ -111,7 +111,8 @@ export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPen
   const care: CattleCare = {
     last: weight == null ? '—' : `${weight} kg`,
     adg: profile.adg90 == null ? '—' : `${profile.adg90} kg/ngày`,
-    bcs: profile.latestBcs == null ? '—' : `${profile.latestBcs} / 5`,
+    // The measurement has no historical scale; attaching the current farm scale would mislabel old scores.
+    bcs: profile.latestBcs == null ? '—' : profile.latestBcs.toLocaleString('vi-VN', { maximumFractionDigits: 1 }),
     healthCase: combinedHealth(profile.healthState, Boolean(profile.withdrawalActive))?.label || 'Không có ca mở',
     repro: profile.reproductiveStatus ? (reproChip(profile.reproductiveStatus)?.label || text(profile.reproductiveStatus)) : '—',
     vaccine: { label: 'Chưa có dữ liệu', tone: 'grey' }, reminders: [],
@@ -130,6 +131,7 @@ export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPen
     mother: text(profile.damCode, 'Không rõ'), father: text(profile.sireCode || profile.externalSireCode, 'Không rõ'),
     damCode: profile.damCode ?? undefined, sireCode: profile.sireCode ?? undefined,
     purposeType: text(profile.purposeType), sexCode: text(profile.sex), entryDate: profile.entry?.entryDate ?? undefined,
+    entryId: profile.entry?.id ?? undefined, entryVoucherCode: profile.entry?.voucherCode ?? undefined,
     photoUrl: profile.photoUrl ?? undefined,
     description: text(profile.colourMarkings || profile.notes, '—'), birthDateAccuracy: text(profile.birthDateAccuracy), colourMarkings: text(profile.colourMarkings), notes: text(profile.notes), care, events, importRecord: null, exitStatusLabel: exitLabel(profile), backendId: profile.id, backendVersion: profile.version,
     canUpdate: profile.canUpdate === true, canChangePurpose: profile.canChangePurpose === true, qrUnavailable: unavailable.qr, timelineUnavailable: unavailable.timeline,
