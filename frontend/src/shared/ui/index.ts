@@ -1,5 +1,6 @@
 // Public boundary of the shared UI primitives. They know no business model: callers pass labels, tones and data.
 export { ActionLink } from './ActionLink/ActionLink'
+export { MoneyInput, NumberInput, parseMoney } from './Form/NumericInput'
 export { Badge, type BadgeTone } from './Badge/Badge'
 export { Button } from './Button/Button'
 export { Card, Info, KV, Metric, Tile, type MetricTone } from './Card/Card'

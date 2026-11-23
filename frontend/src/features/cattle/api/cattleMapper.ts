@@ -132,7 +132,8 @@ export function mapBackendCattle(profile: BackendProfile, penHistory: BackendPen
     damCode: profile.damCode ?? undefined, sireCode: profile.sireCode ?? undefined,
     purposeType: text(profile.purposeType), sexCode: text(profile.sex), entryDate: profile.entry?.entryDate ?? undefined,
     entryId: profile.entry?.id ?? undefined, entryVoucherCode: profile.entry?.voucherCode ?? undefined,
-    photoUrl: profile.photoUrl ?? undefined,
+    photoUrl: profile.photoUrl ?? undefined, quarantineUntil: profile.quarantineUntil ?? undefined,
+    entrySource: profile.entry?.source ?? undefined,
     description: text(profile.colourMarkings || profile.notes, '—'), birthDateAccuracy: text(profile.birthDateAccuracy), colourMarkings: text(profile.colourMarkings), notes: text(profile.notes), care, events, importRecord: null, exitStatusLabel: exitLabel(profile), backendId: profile.id, backendVersion: profile.version,
     canUpdate: profile.canUpdate === true, canChangePurpose: profile.canChangePurpose === true, qrUnavailable: unavailable.qr, timelineUnavailable: unavailable.timeline,
   }

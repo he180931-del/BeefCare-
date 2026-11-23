@@ -228,6 +228,36 @@ test('entry backend saves a purchase draft then posts the same versioned voucher
   assert.deepEqual(calls.at(-1), { method: 'POST', path: '/api/farms/9/entry-vouchers/41/post', body: { expectedVersion: 3, printQr: false } })
 })
 
+test('entry backend sends selected seller id directly and keeps a blank draft method nullable', async () => {
+  let request: any
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async (path) => {
+      if (path.endsWith('/pens')) return { pens: [] }
+      if (path.endsWith('/catalogues/breeds') || path.endsWith('/catalogues/production-purposes')) return []
+      if (path.includes('/trading-partners')) throw new Error('numeric seller must not be resolved by name')
+      return []
+    },
+    command: async (_path, body) => { request = body; return voucher('DRAFT') },
+  } })
+  await api.save({ record: { type: 'Mua ngoài', status: 'Nháp', total: 100, draft: { sourceId: '7', paid: 0, method: '', due: '2026-11-01' } } })
+  assert.equal(request.sellerId, 7)
+  assert.equal(request.newSeller, null)
+  assert.equal(request.paymentMethod, null)
+})
+
+test('entry backend sends inline seller without a stale selected seller id', async () => {
+  let request: any
+  const api = createHerdEntryBackendApi({ farmId: 9, transport: {
+    farmPath: (farm, path = '') => `/api/farms/${farm}${path}`,
+    get: async (path) => path.endsWith('/pens') ? { pens: [] } : [],
+    command: async (_path, body) => { request = body; return voucher('DRAFT') },
+  } })
+  await api.save({ record: { type: 'Mua ngoài', status: 'Nháp', draft: { sourceId: '', newSeller: { name: '  Nguồn mới ', phone: ' 0901 ', area: ' Sơn La ' } } } })
+  assert.equal(request.sellerId, null)
+  assert.deepEqual(request.newSeller, { name: 'Nguồn mới', phone: '0901', area: 'Sơn La' })
+})
+
 test('entry backend resolves the editor purpose label for a female young-stock cow', async () => {
   let request: any
   const transport: BackendTransport = {

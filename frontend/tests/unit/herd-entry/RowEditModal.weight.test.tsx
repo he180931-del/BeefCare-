@@ -47,121 +47,37 @@ function renderModal(onSave = vi.fn(), patch: Partial<EntryCow> = {}, pricing: '
   return { input: input as HTMLInputElement, onSave }
 }
 
-it('cho phép xóa số cũ rồi nhập trực tiếp 60 mà không giữ số 0 ở đầu', async () => {
-  const user = userEvent.setup()
-  const { input, onSave } = renderModal()
-
-  await user.clear(input)
-  expect(input).toHaveValue(null)
-
-  await user.type(input, '60')
-  expect(input).toHaveValue(60)
-
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ weight: 60 }))
+it('clear then type a weight without a leading zero and infer MEASURED', async () => {
+ const {input,onSave}=renderModal(); await userEvent.clear(input);expect(input).toHaveValue('');await userEvent.type(input,'060');expect(input).toHaveValue('60');
+ await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(onSave).toHaveBeenCalledWith(expect.objectContaining({weight:60,weightBasis:'MEASURED'}))
 })
-
-it('đưa cân nặng về 0 khi người dùng để trống rồi rời khỏi ô', async () => {
-  const user = userEvent.setup()
-  const { input } = renderModal()
-
-  await user.clear(input)
-  expect(input).toHaveValue(null)
-
-  await user.tab()
-  expect(input).toHaveValue(0)
+it('leaves an empty weight empty on blur', async () => {
+ const {input}=renderModal();await userEvent.clear(input);await userEvent.tab();expect(input).toHaveValue('')
 })
-
-it('khóa đơn giá và tính thành tiền bằng 0 khi chưa chọn cơ sở cân', async () => {
-  const user = userEvent.setup()
-  const onSave = vi.fn()
-
-  render(
-    <RowEditModal
-      cow={{ ...cow, weight: 0, unitPrice: 85_000, weightBasis: null }}
-      index={0}
-      recordId="PN-2026-0014"
-      dateIso="2026-10-29"
-      others={[]}
-      pens={pens}
-      onSave={onSave}
-      onRemove={vi.fn()}
-      onClose={vi.fn()}
-    />,
-  )
-
-  const weight = document.querySelector('#entry-cow-weight') as HTMLInputElement
-  expect(weight).toBeInTheDocument()
-  expect(weight).toHaveValue(0)
-  const unitPrice = document.querySelector('#entry-cow-unit-price') as HTMLInputElement
-  expect(unitPrice).toBeDisabled()
-  expect(unitPrice).toHaveValue(0)
-  expect(screen.getByText('0 đ')).toBeInTheDocument()
-
-  await user.click(screen.getByRole('radio', { name: 'Cân thực tế' }))
-  expect(unitPrice).toBeEnabled()
-  await user.clear(weight)
-  await user.type(weight, '236')
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).not.toHaveBeenCalled()
-
-  await user.clear(unitPrice)
-  await user.type(unitPrice, '85000')
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ weightBasis: 'MEASURED', weight: 236, unitPrice: 85000 }))
+it('price is enabled before weight or basis and calculates from the entered weight', async () => {
+ const {input,onSave}=renderModal(vi.fn(),{weight:0,weightBasis:null});const price=document.querySelector('#entry-cow-unit-price') as HTMLInputElement;
+ expect(price).toBeEnabled();expect(screen.queryByRole('radio',{name:'Cân thực tế'})).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(onSave).not.toHaveBeenCalled();
+ await userEvent.type(input,'236');expect(screen.getByText('20.060.000 đ')).toBeInTheDocument();
+ await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(onSave).toHaveBeenCalledWith(expect.objectContaining({weight:236,weightBasis:'MEASURED',unitPrice:85000}))
 })
-
-it('theo con vẫn hiển thị và cho nhập cân/cơ sở cân, chỉ tính tiền theo giá/con', async () => {
-  const user = userEvent.setup()
-  const onSave = vi.fn()
-  render(<RowEditModal pricing="con" cow={{ ...cow, pricing: 'kg', weight: 236, unitPrice: 8500000, weightBasis: 'MEASURED' }} index={0} recordId="PN-2026-0014" dateIso="2026-10-29" others={[]} pens={pens} onSave={onSave} onRemove={vi.fn()} onClose={vi.fn()} />)
-  expect(screen.getByText('Cách tính giá: Theo con (áp cho cả phiếu)')).toBeInTheDocument()
-  expect(screen.queryByRole('radiogroup', { name: 'Cách tính giá' })).not.toBeInTheDocument()
-  const weight = document.querySelector('#entry-cow-weight') as HTMLInputElement
-  expect(weight).toBeEnabled()
-  expect(weight).toHaveValue(236)
-  expect(screen.getByRole('radio', { name: 'Cân thực tế' })).toBeChecked()
-  const unitPrice = document.querySelector('#entry-cow-unit-price') as HTMLInputElement
-  expect(unitPrice).toBeDisabled()
-  expect(unitPrice).toHaveValue(8500000)
-  const totalAmount = document.querySelector('#entry-cow-total-amount') as HTMLInputElement
-  expect(totalAmount).toBeEnabled()
-  expect(totalAmount).toHaveValue(8500000)
-  await user.clear(weight)
-  await user.type(weight, '250')
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pricing: 'con', weight: 250, weightBasis: 'MEASURED', unitPrice: 8500000 }))
+it('per-head uses one editable price and keeps weight optional', async () => {
+ const {input,onSave}=renderModal(vi.fn(),{unitPrice:8500000},'con');expect(screen.getByText('Theo con – áp cho cả phiếu')).toBeInTheDocument();
+ expect(document.querySelector('#entry-cow-total-amount')).not.toBeInTheDocument();expect(document.querySelector('#entry-cow-unit-price')).toBeEnabled();
+ await userEvent.clear(input);await userEvent.type(input,'250');await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));
+ expect(onSave).toHaveBeenCalledWith(expect.objectContaining({pricing:'con',weight:250,weightBasis:'MEASURED',unitPrice:8500000}))
 })
-
-it('chặn dòng thiếu cân theo kg dù giá cũ của dòng là theo con', async () => {
-  const user = userEvent.setup()
-  const { onSave } = renderModal(vi.fn(), { pricing: 'con', weight: 0, weightBasis: null }, 'kg')
-  expect(screen.getByText('Cách tính giá: Theo kg (áp cho cả phiếu)')).toBeInTheDocument()
-  expect(screen.queryByRole('radiogroup', { name: 'Cách tính giá' })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(screen.getByText('Cân nhập phải từ 1 đến 1.500 kg.')).toBeInTheDocument()
-  expect(onSave).not.toHaveBeenCalled()
+it('kg pricing still requires a weight even when the old row was per-head', async () => {
+ const {onSave}=renderModal(vi.fn(),{pricing:'con',weight:0,weightBasis:null},'kg');await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));
+ expect(screen.getByText('Cân nhập phải từ 1 đến 1.500 kg.')).toBeInTheDocument();expect(onSave).not.toHaveBeenCalled()
 })
-
-it('cho phép theo con không cân và không lưu cơ sở cân thừa', async () => {
-  const user = userEvent.setup()
-  const { onSave } = renderModal(vi.fn(), { weight: 0, weightBasis: 'ESTIMATED', pricing: 'kg', unitPrice: 8500000 }, 'con')
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pricing: 'con', weight: 0, weightBasis: null, unitPrice: 8500000 }))
+it('per-head without weight discards a redundant weight basis', async () => {
+ const {onSave}=renderModal(vi.fn(),{weight:0,weightBasis:'ESTIMATED',unitPrice:8500000},'con');await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));
+ expect(onSave).toHaveBeenCalledWith(expect.objectContaining({weight:0,weightBasis:null,unitPrice:8500000}))
 })
-
-it.each(['kg', 'con'] as const)('%s không chấp nhận cân vượt 1.500 kg', async (pricing) => {
-  const user = userEvent.setup()
-  const { onSave } = renderModal(vi.fn(), { pricing, weight: 1501, weightBasis: 'MEASURED' }, pricing)
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).not.toHaveBeenCalled()
-  expect(screen.getByText('Cân nhập phải từ 1 đến 1.500 kg.')).toBeInTheDocument()
+it.each(['kg','con'] as const)('%s rejects weight over 1500',async pricing=>{
+ const {onSave}=renderModal(vi.fn(),{weight:1501},pricing);await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(onSave).not.toHaveBeenCalled();expect(screen.getByText('Cân nhập phải từ 1 đến 1.500 kg.')).toBeInTheDocument()
 })
-
-it('yêu cầu cơ sở cân khi theo con đã nhập cân', async () => {
-  const user = userEvent.setup()
-  const { onSave } = renderModal(vi.fn(), { pricing: 'con', weight: 300, weightBasis: null }, 'con')
-  await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
-  expect(onSave).not.toHaveBeenCalled()
-  expect(screen.getByText('Vui lòng chọn cơ sở cân.')).toBeInTheDocument()
+it('per-head infers MEASURED for an entered weight',async()=>{
+ const {onSave}=renderModal(vi.fn(),{weight:300,weightBasis:null},'con');await userEvent.click(screen.getByRole('button',{name:'Lưu con #1'}));expect(onSave).toHaveBeenCalledWith(expect.objectContaining({weight:300,weightBasis:'MEASURED'}))
 })

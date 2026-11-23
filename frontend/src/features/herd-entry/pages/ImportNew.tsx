@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../../../app/layouts/FarmPlatformLayout'
-import { AttachmentList, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
+import { AttachmentList, Modal, ModalButton, ModalFooter, Badge, Button, Card, Checkbox, DateInput, Field, FileDropzone, Foot, Icon, Info, inputCls, KV, Note, Segmented, Select, Table, Td, Th } from '../../../shared/ui'
 import { useModalParam } from '../../../shared/hooks/useModalParam'
 import { PURPOSES } from '../constants/entryOptions'
-import { ageOf, blankCow } from '../domain/entryCow'
+import { blankCow } from '../domain/entryCow'
 import { lineAmount } from '../domain/entryTotals'
 import { useEntryEditor } from '../hooks/useEntryEditor'
 import { useEntryDraftWorkflow } from '../hooks/useEntryDraftWorkflow'
@@ -16,8 +16,12 @@ import { GhostSelect } from '../components/parts'
 import RowEditModal from '../components/RowEditModal'
 import CalfDeathModal from '../components/CalfDeathModal'
 import ExcelModal from '../components/ExcelModal'
-import PayModal from '../components/PayModal'
-import { entryToday as localToday, missingKgWeightLines, validateEntryForPost, validateEntryWeights } from '../validation/entryFormValidation'
+import PurchaseEntryLines from '../components/PurchaseEntryLines'
+import PurchaseEntryChecks from '../components/PurchaseEntryChecks'
+import DiscardEntryDraftDialog from '../components/DiscardEntryDraftDialog'
+import { MoneyInput } from '../../../shared/ui/Form/NumericInput'
+import { entryToday as localToday, missingKgWeightLines, validateEntryForPost, validateEntryPayment, validateEntryWeights } from '../validation/entryFormValidation'
+import { evaluatePurchaseEntryChecks } from '../domain/purchaseEntryChecks'
 import type { EntryCalf, EntryCow, HerdEntry } from '../types'
 import type { Pen } from '../../pen-management'
 import { herdEntryError } from '../api/herdEntryError'
@@ -32,7 +36,6 @@ const PURPOSE_CHOICES = PURPOSES.map((p) => ({ value: p, label: p }))
 type EntryInput = Pick<EntryCow, 'code' | 'tag' | 'breed' | 'sex' | 'weight' | 'barn'> & { [key: string]: unknown }
 type Calf = EntryCalf
 const barnLabel = (b: Pen & { showName?: boolean }) => (b.showName ? `${b.code} ${b.name.split(' – ')[1]}` : b.code)
-const num = (v: unknown) => Number(v) || 0
 const displayError = herdEntryError
 
 export default function ImportNew() {
@@ -42,10 +45,10 @@ export default function ImportNew() {
   const [reloadRevision, setReloadRevision] = useState(0)
   const { data, detailedDraft, draftError, canonicalPens, pendingCalves, sellers, getEntryDraftState, newEntryDefaults } = useEntryNewQueries({ draftId: draftId ?? undefined })
   if (!data || !canonicalPens || !pendingCalves || !sellers || (draftId && !detailedDraft && !draftError)) {
-    return <Layout title="Phiếu nhập mới" user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
+    return <Layout title={draftId ? `Sửa phiếu nháp ${detailedDraft?.id ?? draftId}` : 'Phiếu nhập bò mới'} user="manager"><p className="m-0 text-xs text-muted">Đang tải phiếu nhập…</p></Layout>
   }
   if (draftError) {
-    return <Layout title="Phiếu nhập mới" user="manager"><Note tone="err">{displayError(draftError)}</Note></Layout>
+    return <Layout title={draftId ? `Sửa phiếu nháp ${detailedDraft?.id ?? draftId}` : 'Phiếu nhập bò mới'} user="manager"><Note tone="err">{displayError(draftError)}</Note></Layout>
   }
   const activeDraft = reloadedDraft?.routeId === draftId ? reloadedDraft.row : detailedDraft
   const reloadDraft = async (id: string) => {
@@ -73,14 +76,14 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
   const [params, setParams] = useSearchParams()
   const [m, openModal, closeModal] = useModalParam()
   const editingParam = params.get('m')
-  const editingIndex = editingParam?.startsWith('row-') ? Number(editingParam.slice(4)) : -1
+  const editingIndex = editingParam === 'row-new' ? 0 : editingParam?.startsWith('row-') ? Number(editingParam.slice(4)) : -1
   const draftId = loadedDraftId ?? params.get('id') ?? undefined
   const draftState = getEntryDraftState(imports, draftId)
   const draftRow = draftState.row?.status === 'Nháp' ? draftState.row : undefined
   const draft = draftRow?.draft
   const kind = draftRow?.type ?? (params.get('kind') === 'calf' ? KIND_CALF : KIND_BUY)
   const isBuy = kind === KIND_BUY
-  const { vaccines, breeds } = useEntryCatalogues({ editingIndex, isBuy })
+  const { vaccines, breeds, purposes } = useEntryCatalogues({ editingIndex, isBuy })
   const { commitEntryExcel, discardHerdEntryDraft, downloadEntryImportTemplate, entryExcelBackendEnabled, markCalfDiedBeforeRegistration, previewEntryExcel, getEntry } = useEntryNewCommands()
   // All receiving pens come from the farm endpoint. Do not reserve or remove
   // a hard-coded A3: farms may name their pens differently and purchase entry
@@ -101,29 +104,49 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
   }
 
   const editor = useEntryEditor({ draft, defaults, pendingCalves, sellers, pens: importBarns, isBuy })
-  const { sourceId, setSourceId, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, setReceiver, note, setNote,
+  const { sourceId, setSourceId, newSeller, setNewSeller, date, setDate, quarantine, setQuarantine, plate, setPlate, receiver, note, setNote,
     cows, setCows, pricing, setPricing, calves, setCalves, freight, setFreight, paid, setPaid, method, setMethod, due, setDue,
     printQr, setPrintQr, patchCow, patchCalf, purchase, pensAfter: barnAfter, overflow, calfPen: calfBarn, calvesSummary } = editor
-  // Payment belongs to the entry voucher (not an individual cattle row). Keep
-  // the editor behind an explicit CTA so the payment action is discoverable.
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [paymentErrors, setPaymentErrors] = useState<Partial<Record<'freight' | 'paid' | 'method' | 'due', string>>>({})
+  const [sellerFormOpen, setSellerFormOpen] = useState(false)
+  const [newSellerName, setNewSellerName] = useState(newSeller?.name ?? '')
+  const [newSellerPhone, setNewSellerPhone] = useState(newSeller?.phone ?? '')
+  const [newSellerArea, setNewSellerArea] = useState(newSeller?.area ?? '')
+  const [newSellerError, setNewSellerError] = useState('')
+  const [savedSellerDetail, setSavedSellerDetail] = useState<{ id: string; name: string; phone: string } | null>(() => draftRow?.detail?.sourceName ? { id: draft?.sourceId ?? '', name: draftRow.detail.sourceName, phone: draftRow.detail.phone ?? '' } : null)
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
+  const [dirtyConfirmOpen, setDirtyConfirmOpen] = useState(false)
   const [persistedRecordId, setPersistedRecordId] = useState<string | null>(draftRow?.id ?? null)
   const [snapshotRecord, setSnapshotRecord] = useState(draftRow)
   const [commandError, setCommandError] = useState<unknown>(null)
   const [temporaryExcelDraftId, setTemporaryExcelDraftId] = useState<string | null>(null)
+  const [discarding, setDiscarding] = useState(false)
+  const discardInFlight = useRef(false)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [priceResetNotice, setPriceResetNotice] = useState(false)
+  const [newCow, setNewCow] = useState<EntryCow>(() => ({...blankCow(importBarns.find(p => p.status === 'ACTIVE')?.code ?? ''),pricing}))
+  const [removeIndex, setRemoveIndex] = useState<number | null>(null)
+  const removeCow = (index: number) => { setCows(current => current.filter((_,i) => i !== index)); setRemoveIndex(null); closeModal() }
+
   const recordId = persistedRecordId ?? initialRecordId
   const { documents, storedDocuments, setStoredDocuments, resetDocuments, attachmentError, addDocuments, viewDocument, removeDocument } = useEntryAttachments({ persistedRecordId, initialStored: draftRow?.detail?.docs ?? [] })
+  const draftFingerprint = (pendingDocuments = documents, sellerState?: { sourceId: string; newSeller: typeof newSeller }) => JSON.stringify({
+    sourceId: sellerState?.sourceId ?? sourceId, newSeller: sellerState ? sellerState.newSeller : newSeller, date, quarantine, plate, note, cows, calves, pricing,
+    freight, paid, method, due, printQr,
+    documents: pendingDocuments.map((file) => [file.name, file.size, file.type]),
+  })
+  const [savedDraftFingerprint, setSavedDraftFingerprint] = useState(() => draftFingerprint())
+  const isDirty = savedDraftFingerprint !== draftFingerprint()
   const backTarget = (location.state as { from?: string } | null)?.from
   const backPath = backTarget === '/cattle' ? '/cattle' : '/herd-entry'
 
-  const source = sellers.find((s) => s.id === sourceId) ?? sellers[0] ?? { id: '', name: '', phone: '' }
+  const source = sellers.find((s) => s.id === sourceId) ?? (savedSellerDetail?.id === sourceId ? savedSellerDetail : { id: '', name: '', phone: '' })
   const { cattleAmount: cowsMoney, totalWeight, total, debt, estimatedCount } = purchase
 
   const { picked, weight: calfWeight, estimatedCount: calfEstimated, after: calfAfter, over: calfOver } = calvesSummary
   const n = isBuy ? cows.length : picked.length
   const missingWeightLines = isBuy ? missingKgWeightLines(cows, pricing) : []
+  const purchaseChecks = isBuy ? evaluatePurchaseEntryChecks({ cows, pricing, date, quarantine, pens: importBarns }) : null
   const changePricing = (next: string) => {
     if (next === pricing) return
     const nextPricing = next as 'kg' | 'con'
@@ -149,25 +172,41 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
       if (weightError) { setValidationError(weightError); return }
     }
     const sourceText = isBuy
-      ? `${source.name}${quarantine ? ` · ${quarantine}` : ''}${estimatedCount ? ` · ${estimatedCount} con cân ước tính` : ''}`
+      ? `${newSeller?.name ?? source.name}${quarantine ? ` · ${quarantine}` : ''}${estimatedCount ? ` · ${estimatedCount} con cân ước tính` : ''}`
       : `Bê của ${[...new Set(picked.map((c) => c.mother))].join(', ')}`
     const editableDraft = {
-      sourceId, date, quarantine, plate, receiver, note, cows, calves, freight, paid, method, due, printQr, ...(isBuy ? { pricing } : {}),
+      sourceId: newSeller ? '' : sourceId, ...(isBuy && newSeller ? { newSeller } : {}), date, quarantine, plate, receiver, note, cows, calves, freight, paid, method, due, printQr, ...(isBuy ? { pricing } : {}),
     }
     const inputs: EntryInput[] = isBuy
       ? cows.map((cow) => ({ ...cow, date }))
       : picked.map((calf) => ({ ...calf, breed: calf.sex === 'Đực' ? 'Bê đực' : 'Bê cái', unitPrice: 0, ageMonths: 0, stage: 'Bê', group: 'Bê', date: calf.born }))
+    if (isBuy) {
+      const paymentValidation = validateEntryPayment({ freight, paid, total, method, due, date })
+      // A draft may leave payment method blank, but invalid money and due-date values are never saved.
+      const nextPaymentErrors = status === 'Nháp'
+        ? { freight: paymentValidation.freight, paid: paymentValidation.paid, due: paymentValidation.due }
+        : paymentValidation
+      setPaymentErrors(nextPaymentErrors)
+      const paymentError = Object.values(nextPaymentErrors).find(Boolean)
+      if (paymentError) {
+        setValidationError(paymentError)
+        return
+      }
+    } else setPaymentErrors({})
     if (status === 'Đã nhập') {
       const requiredError = validateEntryForPost({
         date,
         type: kind,
-        sourceId,
+        sourceId: newSeller ? '' : sourceId,
+        newSeller: isBuy ? newSeller : null,
         receiver,
         cows: isBuy ? cows : inputs as EntryCow[],
         pricing: isBuy ? pricing : 'kg',
         paid: isBuy ? paid : 0,
         total: isBuy ? total : 0,
+        freight: isBuy ? freight : 0,
         method: isBuy ? method : undefined,
+        due: isBuy ? due : undefined,
       })
       if (requiredError) {
         setValidationError(requiredError)
@@ -219,24 +258,39 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
         })),
         cowsTotal: isBuy ? cowsMoney : 0,
         freight: isBuy ? freight : 0,
-        payments: isBuy && paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: Math.min(paid, total) }] : [],
+        payments: isBuy && paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: paid }] : [],
         docs: [...storedDocuments, ...documents.map((file) => ({ ext: file.type === 'application/pdf' ? 'PDF' : 'JPG', name: file.name, size: file.size }))],
         history: [`${dmy(date)} · ${receiver} ${status === 'Đã nhập' ? 'lưu và xác nhận' : 'lưu'} phiếu ${recordId}`],
       }
-      record.draft = undefined
+      // Backend posting still needs the complete editable voucher data for its request mapper.
+      // Local terminal records retain the existing reset behavior.
+      record.draft = entryExcelBackendEnabled ? editableDraft : undefined
     }
     const saveId = persistedRecordId ?? draftRow?.id ?? (entryExcelBackendEnabled ? undefined : recordId)
     const saveCommand = status === 'Đã nhập' ? postEntry : saveDraft
     record.backendId = snapshotRecord?.backendId
     const saved = await saveCommand({ id: saveId, expectedVersion: snapshotRecord?.version, record, cattleRows: entryExcelBackendEnabled || status === 'Đã nhập' ? inputs : [], documents })
+    const savedSellerId = newSeller ? saved.draft?.sourceId?.trim() : ''
+    const savedSellerState = savedSellerId ? { sourceId: savedSellerId, newSeller: null } : undefined
     setSnapshotRecord(saved)
     setPriceResetNotice(false)
     setPersistedRecordId(saved.id)
+    if (savedSellerId && newSeller) {
+      // Keep the just-created seller selected even before the catalogue refreshes.
+      setSourceId(savedSellerId)
+      setNewSeller(null)
+      setSavedSellerDetail({ id: savedSellerId, name: saved.detail?.sourceName || newSeller.name, phone: saved.detail?.phone || newSeller.phone })
+    }
     if (saved.detail?.docs) {
       setStoredDocuments(saved.detail.docs)
       resetDocuments()
     }
-    if (navigateAfter) nav('/herd-entry')
+    // A draft saved for the Excel workflow is now the clean baseline too.
+    setSavedDraftFingerprint(draftFingerprint([], savedSellerState))
+    if (navigateAfter) {
+      if (status === 'Đã nhập') nav(`/herd-entry/${encodeURIComponent(saved.id)}`, { state: { notice: { code: 'MSG-FE06-01', message: `Đã ghi sổ phiếu ${saved.id}.` }, from: backPath } })
+      else nav('/herd-entry')
+    }
     return saved
   }
 
@@ -265,26 +319,47 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
     }
     closeModal()
   }
+  const discardDraft = async (snapshot: NonNullable<typeof snapshotRecord>) => {
+    if (discardInFlight.current) return
+    discardInFlight.current = true
+    setDiscarding(true)
+    setCommandError(null)
+    try {
+      await discardHerdEntryDraft(snapshot.id, snapshot.version, snapshot.backendId)
+      nav('/herd-entry')
+    } catch (error) {
+      setCommandError(error)
+    } finally {
+      discardInFlight.current = false
+      setDiscarding(false)
+    }
+  }
+  const cancelEntry = () => {
+    if (isDirty) setDirtyConfirmOpen(true)
+    else nav(backPath)
+  }
 
   const rowIndex = m && m.startsWith('row-') ? Number(m.slice(4)) - 1 : -1
   const editing = rowIndex >= 0 && rowIndex < cows.length ? rowIndex : -1
   const blocked = isBuy ? overflow.length > 0 : calfOver
+  const title = persistedRecordId ? `Sửa phiếu nháp ${recordId}` : 'Phiếu nhập bò mới'
+  const adding = m === 'row-new'
 
   return (
-    <Layout title={isBuy ? 'Phiếu nhập mới – Mua ngoài (theo phiếu)' : 'Phiếu nhập mới – Bê sinh tại trại'} user="manager">
+    <Layout title={title} user="manager">
       {/* gap-5 = gap của <main> trong Layout, để khoảng cách giữa tiêu đề, lưới và chú thích giữ như các màn khác. */}
       <div className="@container/entry flex min-w-0 flex-col gap-5 leading-[normal]">
         <div className="flex flex-wrap items-start gap-3">
           <Button
             variant="link"
-            aria-label="Quay lại đàn bò"
+            aria-label={backPath === '/cattle' ? 'Về đàn bò' : 'Danh sách phiếu nhập'}
             className="shrink-0 text-xs"
             onClick={() => nav(backPath)}
           >
-            ← Về đàn bò
+            {backPath === '/cattle' ? '← Về đàn bò' : '← Danh sách phiếu nhập'}
           </Button>
           <div>
-            <h1 className="m-0 text-[22px] font-bold">Phiếu nhập mới</h1>
+            <h1 className="m-0 line-clamp-1 max-w-full text-[22px] font-bold">{title}</h1>
             <p className="mb-0 mt-1 text-xs text-muted">
               {isBuy ? 'Mỗi con trong phiếu sẽ được cấp 1 mã bò và thẻ QR khi lưu.' : 'Bê được tạo từ sự kiện đẻ đang ở trạng thái Chờ xác nhận.'}
             </p>
@@ -312,15 +387,18 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                 <div className="grid grid-cols-1 gap-3.5 @min-[460px]/entry-form:grid-cols-2 @min-[640px]/entry-form:grid-cols-3">
                   <Field id="entry-voucher-code" label="Mã phiếu"><input id="entry-voucher-code" className={inputCls} value={recordId} readOnly /></Field>
                   <Field id="entry-date" label={isBuy ? 'Ngày nhập trại *' : 'Ngày lập phiếu *'}>
-                    <DateInput id="entry-date" value={date} onChange={setDate} />
+                    <DateInput id="entry-date" label={isBuy ? 'Ngày nhập trại' : 'Ngày lập phiếu'} value={date} onChange={setDate} />
                   </Field>
-                  <Field id="entry-type" label="Loại nhập"><input id="entry-type" className={inputCls} value={kind} readOnly /></Field>
+                  {!isBuy && <Field id="entry-type" label="Loại nhập"><input id="entry-type" className={inputCls} value={kind} readOnly /></Field>}
                   {isBuy && (
                     <>
-                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={`${source.phone} · + Thêm nguồn mới`}>
-                        <Select id="entry-source" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
+                      <Field id="entry-source" label="Nguồn / chủ bò cũ *" hint={source.phone || (sellers.length ? undefined : 'Chưa có nguồn bán')}>
+                        <Select id="entry-source" value={sourceId} onChange={(e) => { setSourceId(e.target.value); setNewSeller(null); setSavedSellerDetail(null) }}>
+                          <option value="">{sellers.length ? 'Chọn nguồn bán' : 'Chưa có nguồn bán – thêm mới'}</option>
                           {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </Select>
+                        {newSeller && <p className="m-0 mt-1 text-xs text-muted">Nguồn mới: {newSeller.name}{newSeller.phone ? ` · ${newSeller.phone}` : ''}{newSeller.area ? ` · ${newSeller.area}` : ''}</p>}
+                        <button type="button" className="mt-1 cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-brand" onClick={() => { setNewSellerName(newSeller?.name ?? ''); setNewSellerPhone(newSeller?.phone ?? ''); setNewSellerArea(newSeller?.area ?? ''); setNewSellerError(''); setSellerFormOpen(true) }}>{newSeller ? 'Sửa nguồn mới' : '+ Thêm nguồn mới'}</button>
                       </Field>
                       <Field id="entry-quarantine" label="Số giấy kiểm dịch">
                         <input id="entry-quarantine" maxLength={50} className={inputCls} value={quarantine} onChange={(e) => setQuarantine(e.target.value)} />
@@ -330,7 +408,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                       </Field>
                     </>
                   )}
-                  <Field id="entry-receiver" label="Người nhập"><input id="entry-receiver" className={inputCls} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></Field>
+                  <Field id="entry-receiver" label="Người nhập"><input id="entry-receiver" className={inputCls} value={sessionName || receiver} readOnly /></Field>
                 </div>
                 <Field id="entry-note" label={isBuy ? 'Ghi chú khi nhận bò' : 'Ghi chú'}>
                   <input id="entry-note" maxLength={1000} className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -346,7 +424,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                 actions={
                   <>
                     <Button small onClick={() => openModal('excel')}><Icon name="upload" />Nhập từ Excel</Button>
-                    <Button small onClick={() => { setCows([...cows, { ...blankCow(importBarns[0]?.code ?? ''), pricing }]); openModal(`row-${cows.length + 1}`) }}><Icon name="circle-plus" />Thêm con</Button>
+                    <Button small onClick={() => { setNewCow({...blankCow(importBarns.find(p => p.status === 'ACTIVE')?.code ?? ''), pricing}); openModal('row-new') }}><Icon name="circle-plus" />Thêm con</Button>
                   </>
                 }
               >
@@ -358,51 +436,7 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                     options={[{ value: 'kg', label: 'Theo kg' }, { value: 'con', label: 'Theo con' }]}
                   />
                 </div>
-                <Table scroll>
-                  <thead>
-                    <tr>
-                      <Th className={`${TH} w-[20px]`}>#</Th>
-                      <Th className={`${TH} w-[70px]`}>Thẻ tai</Th>
-                      <Th className={`${TH} w-[150px]`}>Giống · giới tính · nhóm</Th>
-                      <Th className={`${TH} w-[60px]`}>Tuổi</Th>
-                      <Th className={`${TH} w-[70px]`}>Cân nặng</Th>
-                      <Th className={`${TH} w-[100px]`}>Chuồng nhận</Th>
-                      <Th className={`${TH} w-[90px]`}>{`Đơn giá/${pricing === 'con' ? 'con' : 'kg'}`}</Th>
-                      <Th className={`${TH} w-[80px]`}>Thành tiền</Th>
-                      <Th className={`${TH} w-[20px]`} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cows.map((c, i) => (
-                      <tr key={i}>
-                        <Td className={TH}>{i + 1}</Td>
-                        <Td className={TH}>{c.tag || <span className="text-muted">Gắn sau</span>}</Td>
-                        <Td className={TH}>{`${c.breed || '—'} · ${c.sex} · ${c.stage}`}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{`~${ageOf(c.dob ?? '', date)} th`}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{`${money(c.weight)} kg${c.estimated ? ' UT' : ''}`}</Td>
-                        <Td className={TH}>
-                          <GhostSelect value={c.barn} onChange={(barn) => patchCow(i, { barn })} options={barnOptions} />
-                        </Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(c.unitPrice ?? 0)}</Td>
-                        <Td className={`${TH} whitespace-nowrap`}>{money(lineAmount(c, pricing))}</Td>
-                        <Td className={TH}>
-                          <button type="button" aria-label={`Sửa con #${i + 1}`} className="cursor-pointer border-0 bg-transparent p-1 text-muted hover:text-brand" onClick={() => openModal(`row-${i + 1}`)}><Icon name="pencil" size={14} /></button>
-                        </Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="font-semibold">
-                      <Td className={TH} />
-                      <Td className={TH}>{cows.length} con</Td>
-                      <Td className={TH} /><Td className={TH} />
-                      <Td className={`${TH} whitespace-nowrap`}>{`${money(totalWeight)} kg`}</Td>
-                      <Td className={TH} /><Td className={TH} />
-                      <Td className={`${TH} whitespace-nowrap`}>{money(cowsMoney)}</Td>
-                      <Td className={TH} />
-                    </tr>
-                  </tfoot>
-                </Table>
+                <PurchaseEntryLines cows={cows} pricing={pricing} date={date} barnOptions={barnOptions} warningsByLine={purchaseChecks?.warningsByLine ?? {}} onPenChange={(index, barn) => patchCow(index, { barn })} onEdit={(index) => openModal(`row-${index + 1}`)} onRemove={setRemoveIndex} />
                 <p className="m-0 text-[11px] text-muted">
                   UT = cân nặng ước tính. Con chưa có thẻ tai vẫn được tạo hồ sơ & QR, gắn thẻ sau. Mỗi dòng được kiểm tra tiêu chí và sức chứa của chuồng nhận.
                 </p>
@@ -466,7 +500,18 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
               </Card>
             )}
 
-            <div className={`grid grid-cols-1 items-start gap-4 @min-[1024px]/entry:gap-6 ${isBuy ? '@min-[640px]/entry-form:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]' : ''}`}>
+            <div className="flex flex-col gap-4 @min-[1024px]/entry:gap-6">
+              {isBuy && (
+                <Card variant="panel" title="4. Thanh toán">
+                  <div className="grid grid-cols-1 gap-3 @min-[640px]/entry-form:grid-cols-2">
+                    <Field id="entry-freight" label="Phí vận chuyển (đ)"><MoneyInput id="entry-freight" value={freight} onChange={setFreight} />{paymentErrors.freight && <p className="m-0 mt-1 text-xs text-err-fg">{paymentErrors.freight}</p>}</Field>
+                    <Field id="entry-paid" label="Trả trước cho nguồn bán (đ)"><MoneyInput id="entry-paid" value={paid} onChange={setPaid} />{paymentErrors.paid && <p className="m-0 mt-1 text-xs text-err-fg">{paymentErrors.paid}</p>}</Field>
+                    {paid > 0 && <Field id="entry-method" label="Phương thức *"><Select id="entry-method" value={method} onChange={(event) => setMethod(event.target.value)}><option value="">Chọn phương thức</option><option value="Tiền mặt">Tiền mặt</option><option value="Chuyển khoản">Chuyển khoản</option></Select>{paymentErrors.method && <p className="m-0 mt-1 text-xs text-err-fg">{paymentErrors.method}</p>}</Field>}
+                    {debt > 0 && <Field id="entry-due" label="Hạn trả phần nợ"><DateInput id="entry-due" label="Hạn trả phần nợ" value={due} onChange={setDue} />{paymentErrors.due && <p className="m-0 mt-1 text-xs text-err-fg">{paymentErrors.due}</p>}</Field>}
+                  </div>
+                  <Info cols={2} items={[[`Tiền bò`, `${money(cowsMoney)} đ`], ['Tổng phải trả', `${money(total)} đ`], ['Còn nợ', `${money(debt)} đ`]]} />
+                </Card>
+              )}
               <Card variant="panel" title="3. Chứng từ đính kèm" sub={isBuy ? undefined : 'Không bắt buộc'}>
                 <FileDropzone
                   label="Chọn chứng từ đính kèm"
@@ -481,19 +526,6 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
                   />
                 )}
               </Card>
-              {isBuy && (
-                <Card variant="panel" title="4. Thanh toán" actions={<Button size="sm" onClick={() => setPaymentModalOpen(true)}>Thanh toán</Button>}>
-                  <Info cols={2} items={[
-                    ['Tiền bò', `${money(cowsMoney)} đ`],
-                    ['Phí vận chuyển', `${money(freight)} đ`],
-                    ['Tổng phải trả', `${money(total)} đ`],
-                    ['Đã thanh toán', `${money(paid)} đ`],
-                    ['Còn nợ nguồn bán', `${money(debt)} đ`],
-                    ['Phương thức', method || '—'],
-                    ...(due ? [['Hạn trả phần nợ', dmy(due)]] : []),
-                  ]} />
-                </Card>
-              )}
             </div>
           </section>
 
@@ -501,20 +533,21 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
             aria-label="Tóm tắt và lưu phiếu"
             className="col-span-full flex min-w-0 flex-col gap-4 @min-[880px]/entry:col-span-3 @min-[1024px]/entry:col-span-4 @min-[1024px]/entry:gap-6"
           >
-            <Card variant="panel" title="Tóm tắt phiếu nhập" actions={<Badge>Nháp</Badge>}>
+            <Card variant="panel" title="Tóm tắt phiếu nhập" actions={<Badge>{persistedRecordId ? 'Nháp' : 'Chưa lưu'}</Badge>}>
               <div className="flex flex-col gap-3">
                 <KV k="Số con">{n}</KV>
-                <KV k="Loại nhập">{isBuy ? 'Mua ngoài · theo phiếu' : 'Bê sinh tại trại'}</KV>
+                <KV k="Loại nhập">{isBuy ? 'Mua ngoài' : 'Bê sinh tại trại'}</KV>
                 {isBuy ? (
                   <KV k="Tổng cân nặng">{`${money(totalWeight)} kg${estimatedCount ? ` (${estimatedCount} con ước tính)` : ''}`}</KV>
                 ) : (
                   <KV k="Tổng cân sơ sinh">{`${money(calfWeight)} kg${calfEstimated ? ` (${calfEstimated} con ước tính)` : ''}`}</KV>
                 )}
                 {isBuy && <KV k="Tổng phải trả">{money(total)} đ</KV>}
+                {isBuy && newSeller && <KV k="Nguồn bán">{`${newSeller.name}${newSeller.phone ? ` · ${newSeller.phone}` : ''}${newSeller.area ? ` · ${newSeller.area}` : ''}`}</KV>}
                 {isBuy ? (
                   <KV k="Chuồng nhận">
-                    <span className="text-xs font-semibold">
-                      {barnAfter.length ? barnAfter.map((b) => `${barnLabel(b)} (${b.count}/${b.capacity} → ${b.after}/${b.capacity})`).join(' · ') : '—'}
+                    <span className="flex flex-col text-xs font-semibold">
+                      {barnAfter.length ? barnAfter.map((b) => <span key={b.code}>{`${barnLabel(b)}  ${b.count}/${b.capacity} → ${b.after}/${b.capacity}`}</span>) : '—'}
                     </span>
                   </KV>
                 ) : (
@@ -526,31 +559,18 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
               </div>
               {!isBuy && <Note>Phiếu bê sinh tại trại không có giá và thanh toán.</Note>}
               {!isBuy && calfOver && <Note tone="err">{`Chuồng ${calfBarn.code} không thể nhận thêm (${calfAfter}/${calfBarn.capacity}).`}</Note>}
-              {isBuy && estimatedCount > 0 && <Note tone="warn">{`Cân nặng ${estimatedCount} con sẽ được lưu là ƯỚC TÍNH.`}</Note>}
-              {missingWeightLines.length > 0 && <Note tone="warn">{`Con ${missingWeightLines.slice(0, 5).map((line) => `#${line}`).join(', ')}${missingWeightLines.length > 5 ? ` và ${missingWeightLines.length - 5} con khác` : ''} chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.`}</Note>}
-              {isBuy && priceResetNotice && <Note tone="warn">{`Đã đổi cách tính giá sang ${pricing === 'con' ? 'Theo con' : 'Theo kg'}. Đơn giá các dòng đã được đặt về 0, vui lòng nhập lại.`}</Note>}
-              {isBuy && !quarantine.trim() && <Note tone="warn">Chưa nhập số giấy kiểm dịch. Bạn vẫn có thể lưu phiếu và bổ sung sau.</Note>}
-              {isBuy && barnAfter.filter((b) => b.after === b.capacity).map((b) => <Note tone="warn" key={b.code}>{`Chuồng ${b.code} sẽ đầy (${b.after}/${b.capacity}) sau khi nhập.`}</Note>)}
+              {isBuy && estimatedCount > 0 && <Note tone="err">{`Cân nặng ${estimatedCount} con sẽ được lưu là ƯỚC TÍNH.`}</Note>}
+              {missingWeightLines.length > 0 && <Note tone="err">{`Con ${missingWeightLines.slice(0, 5).map((line) => `#${line}`).join(', ')}${missingWeightLines.length > 5 ? ` và ${missingWeightLines.length - 5} con khác` : ''} chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.`}</Note>}
+              {isBuy && priceResetNotice && <Note tone="err">{`Đã đổi cách tính giá sang ${pricing === 'con' ? 'Theo con' : 'Theo kg'}. Đơn giá các dòng đã được đặt về 0, vui lòng nhập lại.`}</Note>}
+              {isBuy && !quarantine.trim() && <Note tone="err">Chưa nhập số giấy kiểm dịch. Bạn vẫn có thể lưu phiếu và bổ sung sau.</Note>}
+              {isBuy && barnAfter.filter((b) => b.after === b.capacity).map((b) => <Note tone="err" key={b.code}>{`Chuồng ${b.code} sẽ đầy (${b.after}/${b.capacity}) sau khi nhập.`}</Note>)}
               {isBuy && overflow.map((b) => <Note tone="err" key={b.code}>{`Chuồng ${b.code} vượt sức chứa (${b.after}/${b.capacity}).`}</Note>)}
             </Card>
 
             <Card variant="panel" title="Kiểm tra trước khi lưu">
-              {(isBuy
-                ? [
-                  'Thẻ tai không trùng với bò đang có trong trại',
-                  'Tiêu chí chuồng nhận: phù hợp mục đích, giai đoạn, giới tính và ngưỡng tuổi/cân nặng',
-                  overflow.length ? 'Sức chứa chuồng chưa đủ' : `Sức chứa chuồng đủ cho ${cows.length} con`,
-                  'Ngày nhập hợp lệ theo hiện tại và ngày sinh',
-                ]
-                : [
-                  'Bê đang Chờ xác nhận, chưa được đăng ký',
-                  'Thẻ tai không trùng trong trại',
-                  calfOver ? 'Sức chứa chuồng chưa đủ' : `Chuồng ${calfBarn.code} đủ chỗ cho ${picked.length} con`,
-                  'Bò mẹ đang ACTIVE trong trại',
-                ]
-              ).map((t) => (
-                <div key={t} className="flex gap-2 text-xs"><Icon name="circle-check" size={14} className="mt-px shrink-0 text-brand" />{t}</div>
-              ))}
+              {isBuy
+                ? <PurchaseEntryChecks checks={purchaseChecks?.checks ?? []} />
+                : <div className="flex flex-col gap-2 text-xs"><span>Bê đang Chờ xác nhận, chưa được đăng ký</span><span>{picked.length ? `Chuồng ${calfBarn.code} ${calfOver ? 'vượt sức chứa' : 'đủ chỗ'}` : 'Chưa có con nào'}</span><span>Bò mẹ đang ACTIVE trong trại · Kiểm khi lưu</span></div>}
             </Card>
 
             <Card variant="panel">
@@ -562,18 +582,37 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
               <Button variant="primary" block disabled={!n || blocked || loading} onClick={() => { void save('Đã nhập').catch(() => undefined) }}>
                 <Icon name="circle-check" />{`Lưu & tạo hồ sơ ${n} con`}
               </Button>
+              {!loading && !n && <p className="m-0 text-xs text-err-fg">Thêm ít nhất một con để ghi sổ.</p>}
+              {!loading && n > 0 && blocked && <p className="m-0 text-xs text-err-fg">Không thể ghi sổ: chuồng nhận vượt sức chứa.</p>}
               <Button block disabled={loading} onClick={() => { void save('Nháp').catch(() => undefined) }}>Lưu nháp phiếu</Button>
-              <Button variant="link" block onClick={() => nav('/herd-entry')}>Hủy</Button>
+              {snapshotRecord?.status === 'Nháp' && <Button variant="link" block disabled={loading || discarding} onClick={() => setDiscardConfirmOpen(true)}>Xóa phiếu nháp</Button>}
+              <Button variant="link" block onClick={cancelEntry}>Hủy</Button>
             </Card>
           </section>
         </div>
 
-        <Foot>
-          {isBuy
-            ? 'Phiếu nhập gom nhiều con cùng nguồn; khi lưu, mỗi con được tạo hồ sơ, mã bò, thẻ QR và phân chuồng; tiền bò và công nợ tính theo phiếu.'
-            : 'Chỉ bê có kết quả đẻ đang Chờ xác nhận mới được chọn; khi lưu, mỗi bê được tạo hồ sơ, mã bò, thẻ QR và xếp vào chuồng nhận.'}
-        </Foot>
+        {!isBuy && <Foot>Chỉ bê có kết quả đẻ đang Chờ xác nhận mới được chọn; khi lưu, mỗi bê được tạo hồ sơ, mã bò, thẻ QR và xếp vào chuồng nhận.</Foot>}
       </div>
+
+      {discardConfirmOpen && snapshotRecord?.status === 'Nháp' && (
+        <DiscardEntryDraftDialog
+          draft={snapshotRecord}
+          saving={discarding}
+          error={commandError}
+          onConfirm={discardDraft}
+          onReload={() => onReload(snapshotRecord.id)}
+          onClose={() => setDiscardConfirmOpen(false)}
+        />
+      )}
+      {dirtyConfirmOpen && (
+        <Modal title="Bỏ các thay đổi chưa lưu?" width={420} onClose={() => setDirtyConfirmOpen(false)}>
+          <p className="m-0 text-sm text-ink">Các thay đổi chưa lưu sẽ bị mất.</p>
+          <ModalFooter>
+            <ModalButton onClick={() => setDirtyConfirmOpen(false)}>Ở lại</ModalButton>
+            <ModalButton variant="primary" onClick={() => nav(backPath)}>Bỏ thay đổi</ModalButton>
+          </ModalFooter>
+        </Modal>
+      )}
 
       {deathCalf && <CalfDeathModal calf={deathCalf} onClose={() => setDeathCalf(null)} onConfirm={async reason => {
         const id = deathCalf.calfOutcomeId
@@ -584,49 +623,48 @@ function ImportForm({ loadedDraftId, onReload, imports, canonicalPens, pendingCa
         setDeathCalf(null)
       }} />}
 
-      {isBuy && editing >= 0 && (
+      {isBuy && (adding || editing >= 0) && (
         <RowEditModal
-          key={editing}
-          cow={cows[editing]}
-          index={editing}
+          key={adding ? 'new' : editing}
+          cow={adding ? newCow : cows[editing]}
+          isNew={adding}
+          index={adding ? cows.length : editing}
           recordId={recordId}
           dateIso={date}
           pricing={pricing}
           pens={importBarns}
           vaccines={vaccines ?? []}
           breeds={breeds ?? []}
-          others={cows.filter((_, idx) => idx !== editing)}
-          onSave={(next) => { patchCow(editing, { ...next, pricing }); setPriceResetNotice(false); closeModal() }}
-          onRemove={() => { setCows(cows.filter((_, idx) => idx !== editing)); closeModal() }}
+          purposes={purposes ?? undefined}
+          others={adding ? cows : cows.filter((_, idx) => idx !== editing)}
+          onSave={(next) => { if (adding) setCows(current => [...current,{...next,pricing}]); else patchCow(editing, { ...next, pricing }); setPriceResetNotice(false); closeModal() }}
+          onRemove={() => removeCow(editing)}
           onClose={closeModal}
         />
       )}
-      {isBuy && paymentModalOpen && (
-        <PayModal
-          record={{
-            id: recordId,
-            status: draftRow?.status ?? 'Nháp',
-            total,
-            debt,
-            source: source.name,
-            detail: { sourceName: source.name, payments: paid > 0 ? [{ date: dmy(date), by: receiver, method, ref: '', amount: paid }] : [] },
-          }}
-          onSave={(payment) => {
-            if (payment.amount <= 0 || payment.amount > total) {
-              setValidationError(payment.amount <= 0 ? 'Số tiền thanh toán phải lớn hơn 0.' : 'Số tiền thanh toán không được vượt quá tổng phải trả.')
-              return
-            }
-            // Initial payment is sent with the voucher POST. The standalone
-            // payment endpoint is used from ImportDetail after the voucher is posted.
-            setPaid(payment.amount)
-            setMethod(payment.method)
-            setDue(payment.date)
-            setPaymentModalOpen(false)
-            setValidationError(null)
-          }}
-          onClose={() => setPaymentModalOpen(false)}
-        />
+      {removeIndex != null && <Modal title={`Xóa con #${removeIndex + 1} khỏi phiếu?`} width={420} onClose={() => setRemoveIndex(null)}><p>Con này sẽ được bỏ khỏi phiếu nháp.</p><ModalFooter><ModalButton onClick={() => setRemoveIndex(null)}>Hủy</ModalButton><ModalButton variant="primary" onClick={() => removeCow(removeIndex)}>Xóa con</ModalButton></ModalFooter></Modal>}
+
+      {isBuy && sellerFormOpen && (
+        <Modal title={newSeller ? 'Sửa nguồn bán mới' : 'Thêm nguồn bán mới'} width={460} onClose={() => setSellerFormOpen(false)}>
+          <div className="flex flex-col gap-3">
+            <Field id="new-seller-name" label="Tên *"><input id="new-seller-name" maxLength={150} className={inputCls} value={newSellerName} onChange={(event) => { setNewSellerName(event.target.value); setNewSellerError('') }} /></Field>
+            <Field id="new-seller-phone" label="SĐT"><input id="new-seller-phone" maxLength={50} className={inputCls} value={newSellerPhone} onChange={(event) => setNewSellerPhone(event.target.value)} /></Field>
+            <Field id="new-seller-area" label="Khu vực"><input id="new-seller-area" maxLength={255} className={inputCls} value={newSellerArea} onChange={(event) => setNewSellerArea(event.target.value)} /></Field>
+            {newSellerError && <Note tone="err">{newSellerError}</Note>}
+          </div>
+          <ModalFooter>
+            <ModalButton onClick={() => setSellerFormOpen(false)}>Hủy</ModalButton>
+            <ModalButton variant="primary" onClick={() => {
+              const name = newSellerName.trim()
+              if (!name) { setNewSellerError('Vui lòng nhập tên nguồn bán.'); return }
+              setNewSeller({ name, phone: newSellerPhone.trim(), area: newSellerArea.trim() })
+              setSourceId('')
+              setSellerFormOpen(false)
+            }}>Xác nhận nguồn bán</ModalButton>
+          </ModalFooter>
+        </Modal>
       )}
+
       {isBuy && m === 'excel' && (
         <ExcelModal
           commandError={commandError ?? saveError}

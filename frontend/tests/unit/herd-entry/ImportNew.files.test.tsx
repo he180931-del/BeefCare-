@@ -85,6 +85,43 @@ vi.mock('../../../src/features/herd-entry/api/index', async (importOriginal) => 
 
 import ImportNew from '../../../src/features/herd-entry/pages/ImportNew'
 
+it('new row is staged: cancel adds nothing and does not offer remove', async () => {
+ renderPage(); await screen.findByRole('heading',{name:'Phiếu nhập bò mới'});
+ await userEvent.click(screen.getByRole('button',{name:'Thêm con'}));
+ const dialog=screen.getByRole('dialog',{name:'Thêm con #1'});
+ expect(dialog.querySelector('button')?.textContent).not.toBe('Xóa con khỏi phiếu');
+ expect(screen.queryByRole('button',{name:'Xóa con khỏi phiếu'})).not.toBeInTheDocument();
+ await userEvent.click(screen.getAllByRole('button',{name:'Hủy'}).at(-1)!);
+ expect(screen.getByRole('heading',{name:'2. Danh sách bò trong phiếu (0 con)'})).toBeInTheDocument();
+ expect(state.saved).toHaveLength(0)
+})
+
+it('draft with 3 cows deletes the middle row after confirmation and saves only the other tags',async()=>{
+ const row=state.details['PN-2026-0041']; row.draft={...row.draft,cows:[{...cow,tag:'ONE'},{...cow,tag:'TWO'},{...cow,tag:'THREE'}]};
+ renderPage('/herd-entry/new?id=PN-2026-0041');await screen.findByRole('heading',{name:'Sửa phiếu nháp PN-2026-0041'});
+ await userEvent.click(screen.getByRole('button',{name:'Xóa con #2'}));
+ expect(screen.getByText('TWO')).toBeInTheDocument();
+ await userEvent.click(screen.getByRole('button',{name:'Xóa con'}));
+ expect(screen.queryByText('TWO')).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole('button',{name:'Sửa con #2'}));
+ expect(screen.getByLabelText('Số thẻ tai')).toHaveValue('THREE');
+ await userEvent.click(screen.getAllByRole('button',{name:'Hủy'}).at(-1)!);
+ await userEvent.click(screen.getByRole('button',{name:'Lưu nháp phiếu'}));await waitFor(()=>expect(state.saved).toHaveLength(1));
+ expect(state.saved[0].cattleRows?.map(c=>c.tag)).toEqual(['ONE','THREE'])
+})
+
+it('saves only accepted freight edits with an optional zero payment', async () => {
+  const user = userEvent.setup()
+  renderPage('/herd-entry/new?id=PN-2026-0041')
+  const freight = await screen.findByRole('textbox', { name: 'Phí vận chuyển (đ)' })
+  await user.clear(freight)
+  await user.type(freight, '1500000')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Lưu nháp phiếu' }))
+  await waitFor(() => expect(state.saved).toHaveLength(1))
+  expect(state.saved[0].record.draft).toMatchObject({ freight: 1500000, paid: 0 })
+})
+
 const cow: EntryCow = {
   tag: 'VN-0041', name: 'Bò 41', breed: 'Lai Sind', sex: 'Cái', dob: '2025-04', dobAccuracy: 'Ước tính',
   stage: 'Bò tơ', purpose: 'Bò sinh sản', weight: 280, estimated: false, barn: 'A1', unitPrice: 85_000,
@@ -179,7 +216,6 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
 
   it.each([
     [{ weight: 2000, weightBasis: 'MEASURED' as const }, 'Con #1: cân nhập phải từ 1 đến 1.500 kg.'],
-    [{ weight: 250, weightBasis: null }, 'Con #1: vui lòng chọn cơ sở cân.'],
   ])('still blocks a hard draft error for %s', async (patch, message) => {
     const user = userEvent.setup()
     const row = state.details['PN-2026-0041']
@@ -207,7 +243,6 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     renderPage('/herd-entry/new?id=PN-2026-0041')
     await screen.findByText('Con #1 chưa có cân. Bạn vẫn lưu nháp được, nhưng cần nhập cân trước khi ghi sổ.')
     await user.click(screen.getByRole('button', { name: 'Sửa con #1' }))
-    await user.click(screen.getByRole('radio', { name: 'Cân thực tế' }))
     const weight = document.querySelector('#entry-cow-weight') as HTMLInputElement
     await user.clear(weight); await user.type(weight, '250')
     const price = document.querySelector('#entry-cow-unit-price') as HTMLInputElement
@@ -266,7 +301,7 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     await user.click(await screen.findByRole('button', { name: 'Theo con' }))
     expect(screen.getByText(resetToHead)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Sửa con #1' }))
-    const amount = document.querySelector('#entry-cow-total-amount') as HTMLInputElement
+    const amount = document.querySelector('#entry-cow-unit-price') as HTMLInputElement
     await user.type(amount, '8500000')
     await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
     expect(screen.queryByText(resetToHead)).not.toBeInTheDocument()
@@ -281,7 +316,7 @@ describe('Phiếu nhập — nháp, chứng từ và Excel', () => {
     const row = state.details['PN-2026-0041']
     row.draft = { ...row.draft, pricing: 'con', receiver: 'An', cows: [{ ...cow, pricing: 'kg', unitPrice: 8_500_000, weight: 0, weightBasis: null }] }
     renderPage('/herd-entry/new?id=PN-2026-0041&m=row-1')
-    expect(await screen.findByText('Cách tính giá: Theo con (áp cho cả phiếu)')).toBeInTheDocument()
+    expect(await screen.findByText('Theo con – áp cho cả phiếu')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu con #1' }))
     await user.click(screen.getByRole('button', { name: /Lưu.*tạo hồ sơ/ }))
     await waitFor(() => expect(state.saved).toHaveLength(1))

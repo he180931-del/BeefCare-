@@ -24,6 +24,7 @@ const backendApi = createHerdEntryBackendApi({ transport: backendTransport, farm
 // Explicit mode: `npm run dev:mock` (VITE_BEEFCARE_DATA_SOURCE unset) serves the demo data,
 // `backend` talks to the real API and never falls back to the demo data.
 const usingBackend = backendMode === 'backend'
+export const listEntryPurposes = () => usingBackend ? backendApi.purposes() : Promise.resolve(undefined)
 
 export const entryPaymentVoidEnabled = usingBackend
 export const voidEntryPayment = (paymentId: number, input: VoidVoucherPaymentInput) => usingBackend

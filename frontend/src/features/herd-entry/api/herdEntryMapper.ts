@@ -15,6 +15,7 @@ export const birthAccuracy = (value: unknown) => value === 'Chính xác' || valu
 export { fullDate } from '../domain/entryDate'
 export const lifeStage = (value: unknown, farmBorn = false) => {
   const normalized = textValue(value).toLowerCase()
+  if (['UNWEANED_CALF', 'WEANED_CALF', 'YOUNG_STOCK', 'ADULT'].includes(textValue(value))) return textValue(value)
   if (farmBorn && normalized.includes('bê')) return 'UNWEANED_CALF'
   if (normalized.includes('theo mẹ') || normalized.includes('sơ sinh')) return 'UNWEANED_CALF'
   if (normalized.includes('bê')) return 'WEANED_CALF'
@@ -102,6 +103,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         code: textValue(line.cattleCode), tag: textValue(line.earTagNumber ?? data.earTagNumber, '—'),
         name: textValue(data.name), breed: `${textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(data.breedId ?? line.breedId)) || 'Bò'} · ${line.sex === 'MALE' || data.sex === 'MALE' ? 'Đực' : 'Cái'}`,
         weight, barn: textValue(line.penCode), current: `${textValue(line.currentHerdStatus, statusFromBackend(row.status) === 'Đã nhập' ? 'ACTIVE' : 'DRAFT')} · ${textValue(line.currentPenCode ?? line.penCode)}`,
+        quarantineUntil: textValue(line.quarantineUntil ?? data.quarantineUntil) || undefined,
         amount: numberValue(line.lineAmount, weight * unitPrice), unitPrice, hist: mapEntryHistory(line),
       }
     }),
@@ -119,7 +121,7 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
   const draft: EntryDraft | undefined = statusFromBackend(row.status) === 'Nháp' ? {
     type: typeFromBackend(row.entryType), date: textValue(row.entryDate), sourceId: row.sellerId == null && seller.id == null ? '' : String(row.sellerId ?? seller.id), pricing,
     quarantine: textValue(row.quarantineCertNo), plate: textValue(row.vehiclePlate), note: textValue(row.note), freight: numberValue(row.transportFee),
-    paid: numberValue(row.amountPaid), method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản', due: textValue(row.paymentDueDate),
+    paid: numberValue(row.amountPaid), method: row.paymentMethod === 'CASH' ? 'Tiền mặt' : row.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản' : '', due: textValue(row.paymentDueDate),
     ...(farmBorn ? { calves: lines.map((line) => {
       const data = asRecord(line.data)
       return {
@@ -138,10 +140,13 @@ export const mapVoucher = (value: unknown, documents: unknown = [], breeds: unkn
         // drafts placed them under `data`; preserve both so reopening a row
         // does not turn a selected breed into a display-only label and then
         // submit a null breedId.
-        breed: textValue(line.breedName ?? data.breedName, (line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate),
-        dobAccuracy: textValue(data.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
+        breed: textValue(line.breedName ?? data.breedName) || breedNames.get(nullableNumber(line.breedId ?? data.breedId)) || ((line.breedId ?? data.breedId) == null ? '' : `Giống #${numberValue(line.breedId ?? data.breedId)}`), breedId: nullableNumber(line.breedId ?? data.breedId), sex: data.sex === 'MALE' ? 'Đực' : 'Cái', dob: textValue(data.birthDate ?? line.birthDate),
+        dobAccuracy: textValue(data.birthDateAccuracy ?? line.birthDateAccuracy, 'UNKNOWN'), stage: textValue(data.lifeStage, 'ADULT'), purpose: textValue(data.purposeName, data.purposeId == null ? '' : `Mục đích #${numberValue(data.purposeId)}`), purposeId: nullableNumber(data.purposeId), penId: nullableNumber(line.penId),
         weight, weightBasis: weight > 0 && (basis === 'MEASURED' || basis === 'ESTIMATED') ? basis : null, estimated: basis === 'ESTIMATED', pricing,
         barn: textValue(line.penCode), unitPrice: numberValue(line.unitPrice ?? data.unitPrice), hist: mapEntryHistory(line),
+        quarantineUntil: textValue(line.quarantineUntil ?? data.quarantineUntil),
+        colourMarkings: textValue(line.colourMarkings ?? data.colourMarkings),
+        warningReason: textValue(line.warningReason ?? data.warningReason),
       }
     }) }),
   } : undefined
@@ -219,6 +224,10 @@ export const mapPendingCalf = (calf: Record<string, unknown>): EntryCalf => {
 // Moved from api/backendTransport.ts (refactor phase 2b): each voucher feature owns its payment/voucher envelope mapping.
 export const enumPaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' =>
   value === 'Tiền mặt' || value === 'CASH' ? 'CASH' : 'BANK_TRANSFER'
+
+/** Draft payment method is nullable; posted payment commands retain enumPaymentMethod's legacy fallback. */
+export const nullablePaymentMethod = (value: unknown): 'CASH' | 'BANK_TRANSFER' | null =>
+  !textValue(value).trim() ? null : enumPaymentMethod(value)
 
 export const unwrapVoucher = (value: unknown): Record<string, unknown> => {
   const body = asRecord(value)

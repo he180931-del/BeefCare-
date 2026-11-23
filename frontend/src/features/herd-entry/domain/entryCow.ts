@@ -1,7 +1,7 @@
 /** Một con trong phiếu nhập. dob = 'YYYY-MM'. */
 export const blankCow = (defaultBarn = 'A1') => ({
-  tag: '', name: '', breed: '', sex: 'Cái', dob: '2025-10', dobAccuracy: 'Không rõ', stage: 'Chưa xác định', purpose: 'Chưa xác định',
-  weight: 0, estimated: false, barn: defaultBarn, unitPrice: 85000, pricing: 'kg' as const,
+  tag: '', name: '', breed: '', sex: 'Cái', dob: '', dobAccuracy: 'UNKNOWN', stage: '', purpose: '',
+  weight: 0, estimated: false, barn: defaultBarn, unitPrice: 0, pricing: 'kg' as const,
   hist: { vaccine: 'Không rõ', vaccineNote: '', disease: 'Không rõ', repro: 'Không rõ' },
 })
 

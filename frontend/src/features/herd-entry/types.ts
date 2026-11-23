@@ -4,6 +4,7 @@ import type { VoucherPayment } from '../../shared/domain/voucherPayment'
 
 export interface EntryCattleDetail {
   entryId?: number
+  quarantineUntil?: string
   lineStatus?: 'VALID' | 'VOID'
   lineVersion?: number
   cattleId?: number
@@ -57,7 +58,7 @@ export interface EntryCow {
   ageMonths?: number
   weight: number
   estimated: boolean
-  /** Backend weight-basis selection; null means the user has not selected a weighing basis yet. */
+  /** Inferred MEASURED for manual weights; preserve unchanged legacy/Excel ESTIMATED. No weight means null. */
   weightBasis?: 'MEASURED' | 'ESTIMATED' | null
   barn: PenCode
   unitPrice: number
@@ -121,6 +122,12 @@ export interface EntryDetail {
   [key: string]: unknown
 }
 
+export interface NewEntrySeller {
+  name: string
+  phone: string
+  area: string
+}
+
 export interface EntryDraft {
   type?: EntryType
   date?: string
@@ -128,6 +135,8 @@ export interface EntryDraft {
   calves?: EntryCalf[]
   pricing?: 'kg' | 'con'
   sourceId?: string
+  /** Inline seller is sent only when no existing sellerId is selected. */
+  newSeller?: NewEntrySeller | null
   quarantine?: string
   plate?: string
   receiver?: string
