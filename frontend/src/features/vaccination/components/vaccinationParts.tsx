@@ -32,6 +32,16 @@ export function UnitInput({ unit, className = '', ...props }: { unit: string } &
   )
 }
 
+/**
+ * Đọc ô số nguyên một cách nghiêm (D50): để trống → undefined (không nhập); gõ đúng số nguyên không âm → số;
+ * gõ sai (chữ, số thập phân, số âm, ký tự lạ) → NaN để bước kiểm tra báo lỗi dưới ô thay vì âm thầm coi là trống.
+ */
+export const parseIntField = (s: string): number | undefined => {
+  const t = s.trim()
+  if (!t) return undefined
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+}
+
 export const parseNum = (s: string): number | undefined => {
   const t = s.trim()
   if (!t) return undefined
@@ -76,7 +86,7 @@ export function CareWriterOnly({ title, children }: { title: string; children: R
   if (useCanWrite()) return <>{children}</>
   return (
     <Layout title={title}>
-      <EmptyBlock title="Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này" sub="Kỹ thuật viên chỉ xem lịch và lịch sử tiêm." action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
+      <EmptyBlock title="Chỉ Chủ trại và Quản lý mới thực hiện được thao tác này" action={<Link to="/tiem-phong" className="text-brand">Về lịch tiêm phòng</Link>} />
     </Layout>
   )
 }

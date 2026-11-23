@@ -3,7 +3,7 @@ import { type BackendTransport } from '../../../shared/api/backendTransport'
 import { VACCINATION_HERD_GROUPS, VACCINATION_LIFE_STAGES } from '../constants/vaccinationOptions'
 import { addMonths } from '../domain/vaccinationFormat'
 import { CONFLICT_MESSAGE, DEFAULT_LEAD_DAYS, VaccinationValidationError, doseTextOf, dueStateOf, hasErrors, matchesDoseFilters, plannedDoseRows, resolveTarget, selectableOf, type FieldErrors } from '../domain/vaccinationRules'
-import { validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
+import { validateNote, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import type {
   CattleVaccination, CorrectVaccinationCommand, DoseFilters, DosePage, DoseRow, DoseTab,
   HistoryFilters, HistoryPage, RecordContext, RecordVaccinationsCommand, Schedule, ScheduleCard, ScheduleCommand,
@@ -179,7 +179,12 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
 
     async listDoses(filters: DoseFilters = {}): Promise<DosePage> {
       const snap = await snapshot()
-      const live = snap.allDoses.filter((d) => d.status !== 'CANCELLED' && snap.scheduleOf(d.scheduleId)?.schedule.status === 'ACTIVE' && (!filters.scheduleId || d.scheduleId === filters.scheduleId))
+      // D48: chưa chọn lịch thì chỉ lấy lịch đang chạy; lịch đã hoàn thành xem bằng cách chọn đúng lịch đó.
+      const inScope = (d: ScheduledDose) => {
+        const s = snap.scheduleOf(d.scheduleId)?.schedule
+        return s?.status === 'ACTIVE' && (filters.scheduleId ? d.scheduleId === filters.scheduleId : !s.completed)
+      }
+      const live = snap.allDoses.filter((d) => d.status !== 'CANCELLED' && inScope(d))
       const all = headDoses(live, snap.lead).map(snap.rowOf).filter((r) => matchesDoseFilters(r, filters))
       const count = (state: DoseRow['state']) => all.filter((r) => r.state === state).length
       const counts: Record<DoseTab, number> = { all: all.length, overdue: count('OVERDUE'), due: count('DUE'), done: count('DONE') }
@@ -222,7 +227,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
       return run(async () => {
         const [views, herd, catalogue, pensList] = await Promise.all([schedules(), cattle(), vaccines(), pens()])
         const errors = validateSchedule(cmd, { activeNames: views.filter((v) => v.schedule.status === 'ACTIVE').map((v) => v.schedule.name), vaccine: catalogue.find((v) => v.id === cmd.vaccineId) })
-        if (cmd.firstDueDate && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày bắt đầu không được trước hôm nay.'
+        if (cmd.firstDueDate && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày tiêm không được trước hôm nay.'
         if (!hasErrors(errors) && resolveTarget(herd, cmd.target).length === 0) errors.form = 'Không có bò đang nuôi nào khớp với nhóm đã chọn.'
         if (hasErrors(errors)) throw new VaccinationValidationError(errors)
         const body = {
@@ -258,11 +263,11 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
           name: cmd.name.trim() !== s.name, vaccine: cmd.vaccineId !== s.vaccineId, start: cmd.firstDueDate !== s.firstDueDate,
           interval: (cmd.intervalDays ?? undefined) !== s.intervalDays, booster: (cmd.boosterIntervalMonths ?? undefined) !== s.boosterIntervalMonths,
         }
-        if (changed.start && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày bắt đầu không được trước hôm nay.'
-        // FE-09 Q3 (D13) và D46: lịch đã có mũi tiêm thì giữ vắc-xin, ngày bắt đầu và khoảng cách giữa mũi.
+        if (changed.start && cmd.firstDueDate < today()) errors.firstDueDate = 'Ngày tiêm không được trước hôm nay.'
+        // FE-09 Q3 (D13) và D46: lịch đã có mũi tiêm thì giữ vắc-xin, ngày tiêm và khoảng cách giữa mũi.
         const anyDone = view.doses.some((d) => d.status === 'DONE')
         if (changed.vaccine && anyDone) errors.vaccineId = 'Lịch đã có mũi được tiêm: hãy dừng lịch này và tạo lịch mới để đổi vắc-xin.'
-        if (changed.start && anyDone) errors.firstDueDate = 'Lịch đã có mũi được tiêm: không đổi được ngày bắt đầu.'
+        if (changed.start && anyDone) errors.firstDueDate = 'Lịch đã có mũi được tiêm: không đổi được ngày tiêm.'
         if (changed.interval && anyDone) errors.intervalDays = 'Lịch đã có mũi được tiêm: không đổi được khoảng cách giữa mũi.'
         // GAP-FE09-01 / R-09-05: đổi số mũi, đối tượng hoặc bỏ nhắc lại chỉ ảnh hưởng mũi chưa tiêm.
         const doseCountChanged = cmd.doseCount !== s.doseCount
@@ -416,8 +421,8 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
 
     async correctRecord(id: number, cmd: CorrectVaccinationCommand): Promise<VaccinationRecord> {
       const before = records.get(id)
-      const reasonErrors = validateReason(cmd.reason)
-      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: before?.source ?? 'ON_FARM', administeredAt: cmd.administeredAt, route: cmd.route, routeOther: cmd.routeOther, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now() }), ...reasonErrors }
+      const noteErrors = validateNote(cmd.note)
+      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: before?.source ?? 'ON_FARM', administeredAt: cmd.administeredAt, route: cmd.route, routeOther: cmd.routeOther, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now() }), ...noteErrors }
       if (hasErrors(fields)) throw new VaccinationValidationError(fields)
       // TC-09-27: bản ghi tại trại sửa được số ngày ngưng; bản ghi lịch sử không có ngưng thịt (R-09-08).
       const onFarm = (before?.source ?? 'ON_FARM') === 'ON_FARM'
@@ -426,7 +431,7 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
           expectedVersion: cmd.expectedVersion, vaccineId: cmd.vaccineId ?? null,
           vaccinationDate: cmd.administeredAt.slice(0, 10), administeredAt: toInstant(cmd.administeredAt),
           dose: cmd.dose?.trim() || null, route: routeOut(cmd.route, cmd.routeOther),
-          vaccinator: cmd.vaccinator?.trim() || null, reason: cmd.reason.trim(),
+          vaccinator: cmd.vaccinator?.trim() || null, reason: cmd.note?.trim() || null,
           withdrawalDays: onFarm ? cmd.withdrawalDays ?? null : null,
         }))
         const updated: VaccinationRecord = {
@@ -442,10 +447,8 @@ export function createVaccinationBackend({ farmId, transport, clock = () => new 
     },
 
     async voidRecord(id: number, cmd: VoidRecordCommand): Promise<VaccinationRecord> {
-      const errors = validateReason(cmd.reason)
-      if (hasErrors(errors)) throw new VaccinationValidationError(errors)
       return run(async () => {
-        const r = asRecord(await transport.command(path(`/vaccinations/${id}/void`), { expectedVersion: cmd.expectedVersion, reason: cmd.reason.trim() }))
+        const r = asRecord(await transport.command(path(`/vaccinations/${id}/void`), { expectedVersion: cmd.expectedVersion }))
         const updated: VaccinationRecord = { ...(records.get(id) ?? emptyRecord(id)), status: 'VOIDED', withdrawalEndDate: text(r.withdrawalEndDate), version: num(r.version) ?? cmd.expectedVersion + 1 }
         records.set(id, updated)
         return updated

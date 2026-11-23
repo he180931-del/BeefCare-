@@ -4,7 +4,7 @@ import type {
 } from '../types'
 import { addMonths, dayNumber } from '../domain/vaccinationFormat'
 import { CONFLICT_MESSAGE, DEFAULT_LEAD_DAYS, VaccinationValidationError, doseDate, doseTextOf, dueStateOf, hasErrors, matchesDoseFilters, selectableOf, plannedDoseRows, resolveTarget, withdrawalEndOf, type FieldErrors } from '../domain/vaccinationRules'
-import { validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
+import { validateNote, validateReason, validateRecordFields, validateSchedule } from '../validation/vaccinationValidation'
 import { MEMBERS, STATIC_OPTIONS, VACCINES, VACC_DEMO, VACC_NOW } from './vaccinationMock'
 
 const PAGE_SIZE = 6
@@ -45,7 +45,12 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
   /** Mỗi (lịch, bò) chỉ hiện một dòng: mũi đang cần tiêm, hoặc mũi cuối đã tiêm; mũi nhắc lại chỉ chen vào khi đã đến hạn. */
   const headDoses = (scheduleId?: number): ScheduledDose[] => {
     const groups = new Map<string, ScheduledDose[]>()
-    doses.filter((d) => live(d) && scheduleOf(d.scheduleId)?.status === 'ACTIVE' && (!scheduleId || d.scheduleId === scheduleId)).forEach((d) => {
+    // D48: chưa chọn lịch thì chỉ lấy lịch đang chạy; lịch đã hoàn thành xem bằng cách chọn đúng lịch đó.
+    const inScope = (d: ScheduledDose) => {
+      const s = scheduleOf(d.scheduleId)
+      return s?.status === 'ACTIVE' && (scheduleId ? d.scheduleId === scheduleId : !completedOf(s))
+    }
+    doses.filter((d) => live(d) && inScope(d)).forEach((d) => {
       const key = `${d.scheduleId}|${d.cattleCode}`
       groups.set(key, [...(groups.get(key) ?? []), d])
     })
@@ -190,9 +195,9 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       if (s.status !== 'ACTIVE' || (cmd.expectedVersion !== undefined && cmd.expectedVersion !== s.version)) throw new Error(CONFLICT_MESSAGE)
       if (completedOf(s)) throw new Error('Lịch đã tiêm xong hết nên đã khóa. Tạo lịch mới để tiêm cho bò khác.')
       const errors = scheduleErrors(cmd, id)
-      // D46: lịch đã có mũi tiêm thì giữ ngày bắt đầu và khoảng cách giữa mũi.
+      // D46: lịch đã có mũi tiêm thì giữ ngày tiêm và khoảng cách giữa mũi.
       const anyDone = doses.some((d) => d.scheduleId === s.id && d.status === 'DONE')
-      if (anyDone && cmd.firstDueDate !== s.firstDueDate) errors.firstDueDate = 'Lịch đã có mũi được tiêm: không đổi được ngày bắt đầu.'
+      if (anyDone && cmd.firstDueDate !== s.firstDueDate) errors.firstDueDate = 'Lịch đã có mũi được tiêm: không đổi được ngày tiêm.'
       if (anyDone && cmd.intervalDays !== s.intervalDays) errors.intervalDays = 'Lịch đã có mũi được tiêm: không đổi được khoảng cách giữa mũi.'
       if (hasErrors(errors)) throw new VaccinationValidationError(errors)
       const redate = cmd.firstDueDate !== s.firstDueDate || cmd.intervalDays !== s.intervalDays
@@ -273,7 +278,9 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       const from = filters.from || addMonths(today(), -3)
       const to = filters.to || today()
       const q = filters.q?.trim().toLowerCase()
+      // D53: bản ghi đã xóa (VOIDED) không còn trong lịch sử tiêm, giống backend.
       const rows = records
+        .filter((r) => r.status !== 'VOIDED')
         .filter((r) => {
           const day = r.administeredAt.slice(0, 10)
           const c = cattleOf(r.cattleCode)
@@ -292,14 +299,14 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       return clone({
         cattle: c,
         doses: open.map(rowOf).sort((a, b) => cmp(a.dueDate, b.dueDate)),
-        records: records.filter((r) => r.cattleCode === code).sort((a, b) => cmp(b.administeredAt, a.administeredAt)),
+        records: records.filter((r) => r.cattleCode === code && r.status !== 'VOIDED').sort((a, b) => cmp(b.administeredAt, a.administeredAt)),
       })
     },
 
     async correctRecord(id: number, cmd: CorrectVaccinationCommand): Promise<VaccinationRecord> {
       const r = liveRecord(id, cmd.expectedVersion)
       const c = cattleOf(r.cattleCode)
-      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: r.source, administeredAt: cmd.administeredAt, route: cmd.route, routeOther: cmd.routeOther, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now(), vaccine: vaccineOf(cmd.vaccineId), herdEntryDate: c?.herdEntryDate }), ...validateReason(cmd.reason) }
+      const fields = { ...validateRecordFields({ vaccineId: cmd.vaccineId, source: r.source, administeredAt: cmd.administeredAt, route: cmd.route, routeOther: cmd.routeOther, withdrawalDays: cmd.withdrawalDays, vaccinator: cmd.vaccinator }, { now: now(), vaccine: vaccineOf(cmd.vaccineId), herdEntryDate: c?.herdEntryDate }), ...validateNote(cmd.note) }
       if (hasErrors(fields)) throw new VaccinationValidationError(fields)
       const before = { vaccineId: r.vaccineId ?? 0, administeredAt: r.administeredAt, batchNo: r.batchNo, dose: r.dose, route: r.route, withdrawalDays: r.withdrawalDays, vaccinator: r.vaccinator }
       const vaccine = vaccineOf(cmd.vaccineId)!
@@ -309,13 +316,11 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
         vaccinator: cmd.vaccinator?.trim() || undefined, withdrawalDays: days, withdrawalEndDate: withdrawalEndOf(r.source, cmd.administeredAt, days), corrected: true, version: r.version + 1,
         precision: 'EXACT',
       })
-      r.revisions.push({ at: now(), by: 'Quản lý trại', action: 'CORRECT', reason: cmd.reason.trim(), before })
+      r.revisions.push({ at: now(), by: 'Quản lý trại', action: 'CORRECT', reason: cmd.note?.trim() ?? '', before })
       return clone(r)
     },
 
     async voidRecord(id: number, cmd: VoidRecordCommand): Promise<VaccinationRecord> {
-      const errors = validateReason(cmd.reason)
-      if (hasErrors(errors)) throw new VaccinationValidationError(errors)
       const r = liveRecord(id, cmd.expectedVersion)
       const before = { vaccineId: r.vaccineId ?? 0, administeredAt: r.administeredAt, batchNo: r.batchNo, dose: r.dose, route: r.route, withdrawalDays: r.withdrawalDays, vaccinator: r.vaccinator }
       const dose = r.scheduledDoseId ? doses.find((d) => d.id === r.scheduledDoseId) : undefined
@@ -329,7 +334,7 @@ export function createVaccinationDemoStore(seed = VACC_DEMO, now: () => string =
       }
       if (r.spawnedDoseId) doses = doses.filter((d) => !(d.id === r.spawnedDoseId && d.status === 'PLANNED'))
       Object.assign(r, { status: 'VOIDED', withdrawalEndDate: undefined, version: r.version + 1 })
-      r.revisions.push({ at: now(), by: 'Quản lý trại', action: 'VOID', reason: cmd.reason.trim(), before })
+      r.revisions.push({ at: now(), by: 'Quản lý trại', action: 'VOID', reason: '', before })
       return clone(r)
     },
 

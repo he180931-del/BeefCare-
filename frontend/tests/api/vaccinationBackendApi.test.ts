@@ -199,6 +199,22 @@ test('TC-09-03b: lỗi trùng tên từ backend hiện ở ô tên', async () =>
   await assert.rejects(a.createSchedule(scheduleCmd()), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.name))
 })
 
+test('D48: chưa chọn lịch thì danh sách mũi bỏ lịch đã hoàn thành; chọn đúng lịch đó thì vẫn xem được', async () => {
+  const completed = schedules.map((s) => (s.id === 7 ? { ...s, completed: true } : s))
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': completed })
+  assert.equal((await a.listDoses({})).total, 0)
+  assert.equal((await a.listDoses({ scheduleId: 7 })).total, 3)
+})
+
+test('D49: bò đang chờ xác nhận chết (MSG-COM-17) báo lỗi điều kiện có mã bò, hiện bằng popup (trường form)', async () => {
+  const { api: a } = api({ ...baseRoutes(), '/api/farms/1/vaccination-schedules': (body: unknown) => {
+    if (body) throw new BackendError(422, { code: 'MSG-COM-17', params: { cattle_code: 'BC-102', loss_kind: 'DIED', date: '2026-11-19' } })
+    return schedules
+  } })
+  await assert.rejects(a.createSchedule(scheduleCmd()), (e: unknown) => e instanceof VaccinationValidationError
+    && /Bò BC-102 đang chờ Chủ trại xác nhận chết \(19\/11\/2026\)/.test(e.fields.form))
+})
+
 test('D47: lọc mũi theo mã bò, chuồng, nhóm đàn; selectable gồm mọi mũi chưa tiêm khớp bộ lọc kèm vắc-xin', async () => {
   const { api: a } = api()
   const byPen = await a.listDoses({ penCode: 'B1' })
@@ -228,7 +244,7 @@ test('TC-09-08 / D46: sửa lịch chỉ gửi trường đổi; lịch đã có
 
   await assert.rejects(a.updateSchedule(7, { ...edit, vaccineId: 2 }), (e: unknown) => e instanceof VaccinationValidationError && /dừng lịch/.test(e.fields.vaccineId))
   await assert.rejects(a.updateSchedule(7, { ...edit, intervalDays: 28 }), (e: unknown) => e instanceof VaccinationValidationError && /khoảng cách/.test(e.fields.intervalDays))
-  await assert.rejects(a.updateSchedule(7, { ...edit, firstDueDate: '2026-11-10' }), (e: unknown) => e instanceof VaccinationValidationError && /ngày bắt đầu/.test(e.fields.firstDueDate))
+  await assert.rejects(a.updateSchedule(7, { ...edit, firstDueDate: '2026-11-10' }), (e: unknown) => e instanceof VaccinationValidationError && /ngày tiêm/.test(e.fields.firstDueDate))
   await assert.rejects(a.updateSchedule(7, { ...edit, expectedVersion: 2 }), (e: unknown) => e instanceof Error && e.message === CONFLICT_MESSAGE)
 })
 
@@ -414,7 +430,7 @@ test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do và s
     '/api/farms/1/vaccinations/1/correction': { id: 1, status: 'VALID', version: 1, withdrawalEndDate: '2026-12-02', corrected: true, withdrawalDays: 30, cattleWithdrawalEndDate: '2026-12-02' },
     '/api/farms/1/vaccinations/1/void': { id: 1, status: 'VOIDED', version: 2, withdrawalEndDate: null, corrected: true } })
   await a.listHistory({})
-  const base = { expectedVersion: 0, vaccineId: 1, administeredAt: '2026-11-02T08:30', dose: '2 ml', route: 'IM' as const, withdrawalDays: 21, vaccinator: 'Trần Văn Kỹ', reason: 'Nhập nhầm ngày' }
+  const base = { expectedVersion: 0, vaccineId: 1, administeredAt: '2026-11-02T08:30', dose: '2 ml', route: 'IM' as const, withdrawalDays: 21, vaccinator: 'Trần Văn Kỹ', note: 'Nhập nhầm ngày' }
   await assert.rejects(a.correctRecord(1, { ...base, withdrawalDays: 366 }), (e: unknown) => e instanceof VaccinationValidationError && Boolean(e.fields.withdrawalDays))
   const corrected = await a.correctRecord(1, { ...base, withdrawalDays: 30 })
   assert.deepEqual(calls.at(-1)!.body, {
@@ -426,9 +442,11 @@ test('TC-09-24/27: sửa và hủy bản ghi gửi expectedVersion, lý do và s
   assert.equal(corrected.withdrawalEndDate, '2026-12-02')
   assert.equal(corrected.version, 1)
 
-  await assert.rejects(a.voidRecord(1, { expectedVersion: 1, reason: '' }), VaccinationValidationError)
-  const voided = await a.voidRecord(1, { expectedVersion: 1, reason: 'Ghi trùng' })
-  assert.deepEqual(calls.at(-1)!.body, { expectedVersion: 1, reason: 'Ghi trùng' })
+  // D53: ghi chú sửa để trống gửi null; xóa chỉ gửi phiên bản.
+  await a.correctRecord(1, { ...base, note: '  ' })
+  assert.equal((calls.at(-1)!.body as { reason: unknown }).reason, null)
+  const voided = await a.voidRecord(1, { expectedVersion: 1 })
+  assert.deepEqual(calls.at(-1)!.body, { expectedVersion: 1 })
   assert.equal(voided.status, 'VOIDED')
   assert.equal(voided.withdrawalEndDate, undefined)
 })

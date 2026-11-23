@@ -168,12 +168,16 @@ public class CareReadService {
     }
 
     @Transactional(readOnly=true)
+    /**
+     * Lịch sử tiêm (A8) của trại hoặc một con bò. Bản ghi đã xóa ({@code VOIDED}) không trả về (D53): dữ liệu gốc và
+     * Record Revision vẫn được giữ trong DB để truy vết, dòng thời gian của bò vẫn thấy với nhãn đã xóa.
+     */
     public List<CareDtos.VaccinationHistoryRow> vaccinationHistory(Long farmId,String search,Long vaccineId,String source,LocalDate from,LocalDate to,Long cattleId) {
         access.require(farmId,FarmAction.VIEW_HEALTH);
         LocalDate today=clock.today();LocalDate start=from==null?today.minusMonths(3):from;LocalDate end=to==null?today:to;
         if(start.isAfter(end))throw DomainException.invalid("period");
         String src=source==null||source.isBlank()?null:upper(source);if(src!=null&&!List.of("ON_FARM","HISTORICAL").contains(src))throw DomainException.invalid("source");
-        List<Vaccination> vaccinations=em.createQuery("select v from Vaccination v join fetch v.cattle c join fetch c.breed left join fetch v.vaccine where c.farm.id=:farm and v.vaccinationDate between :from and :to order by v.administeredAt desc,v.vaccinationDate desc,v.id desc",Vaccination.class)
+        List<Vaccination> vaccinations=em.createQuery("select v from Vaccination v join fetch v.cattle c join fetch c.breed left join fetch v.vaccine where c.farm.id=:farm and v.vaccinationDate between :from and :to and upper(v.status)<>'VOIDED' order by v.administeredAt desc,v.vaccinationDate desc,v.id desc",Vaccination.class)
             .setParameter("farm",farmId).setParameter("from",start).setParameter("to",end).getResultList();
         Map<Long,PenAssignment> pens=currentPens(farmId,today);String query=search==null?"":search.trim().toLowerCase(Locale.ROOT);
         List<Vaccination> selected=new ArrayList<>();

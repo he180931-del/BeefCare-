@@ -18,10 +18,10 @@ describe('validateSchedule', () => {
   it('reports name, vaccine, start date, doses, interval and booster errors', () => {
     expect(validateSchedule(schedule({ name: '  ', vaccineId: undefined, firstDueDate: '', doseCount: 0, intervalDays: 0, boosterIntervalMonths: 61 }), ctx())).toMatchInlineSnapshot(`
       {
-        "boosterIntervalMonths": "Nhắc lại sau phải từ 1 đến 60 tháng.",
+        "boosterIntervalMonths": "Nhắc lại sau phải là số nguyên từ 1 đến 60 tháng.",
         "doseCount": "Số mũi phải là số nguyên từ 1 đến 10.",
-        "firstDueDate": "Ngày bắt đầu là bắt buộc.",
-        "intervalDays": "Cách giữa mũi phải từ 1 đến 365 ngày.",
+        "firstDueDate": "Ngày tiêm là bắt buộc.",
+        "intervalDays": "Cách giữa mũi phải là số nguyên từ 1 đến 365 ngày.",
         "name": "Tên lịch là bắt buộc.",
         "vaccineId": "Vắc-xin là bắt buộc.",
       }
