@@ -92,6 +92,7 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
       return {
         title: `Xuất đàn – ${EXIT_TYPE[str(v.exitType)] ?? str(v.exitType)}`,
         detail: join(EXIT_STATUS[status] ?? status, v.date && `ngày ${dateOnly(v.date)}`, v.voucherCode && `Phiếu ${str(v.voucherCode)}`),
+        reason: str(v.reason) || undefined,
       }
     case 'PEN_ASSIGNMENT':
       return {
@@ -153,6 +154,14 @@ function describe(type: string, v: Record<string, unknown>, status: string): Des
 
 const VOID_STATUSES = new Set(['VOIDED', 'VOID'])
 
+/** Source snapshots use catalogue name keys; keep this adaptation out of the shared event contract. */
+export function normalizeOriginal(sourceType: string, original: Record<string, unknown>): Record<string, unknown> {
+  if (sourceType === 'VACCINATION_RECORD') return { ...original, vaccine: original.vaccine ?? original.vaccineName }
+  if (sourceType === 'TREATMENT') return { ...original, medicine: original.medicine ?? original.medicineName }
+  if (sourceType === 'HERD_ENTRY') return { ...original, weight: original.weight ?? original.entryWeightKg, basis: original.basis ?? original.weightBasis }
+  return original
+}
+
 /**
  * Maps one backend event to the shared CattleEvent of the profile (SCR-50). Records excluded or voided, and the
  * original values of corrected records (REVISION), are kept with a status so the tab hides them until
@@ -170,7 +179,7 @@ export function mapTimeline(event: BackendTimeline, index: number): CattleEvent 
     const correction = event.correction ?? {}
     const original = (event.values?.original ?? {}) as Record<string, unknown>
     const sourceType = str(correction.sourceType)
-    const before = describe(sourceType, typeof original === 'object' && original ? original : {}, 'VALID')
+    const before = describe(sourceType, normalizeOriginal(sourceType, typeof original === 'object' && original ? original : {}), 'VALID')
     const action = raw === 'VOID' ? 'Bản ghi trước khi hủy' : raw === 'EXCLUDE' ? 'Bản ghi trước khi loại' : 'Giá trị trước khi sửa'
     return {
       id, at, cat, status: 'REVISION', title: `${action}: ${before.title}`, detail: before.detail, meta,
